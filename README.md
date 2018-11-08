@@ -5,6 +5,9 @@ This repository is a collection of HDL related tools.
 I am interested in collaboration with other people especially regarding semantic analysis of VHDL.
 
 # VHDL Parser
+
+[![Join the chat at https://gitter.im/rust_hdl/Lobby](https://badges.gitter.im/rust_hdl/Lobby.svg)](https://gitter.im/rust_hdl/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 ## Goals
 - This project aims to provide a fully feature open source VHDL parser that is easy to integrate into other tools.
 - A design goal of the parser is to be able to recover from errors such that it is useful for building a language server. 
