@@ -9,6 +9,7 @@ name = "vhdl_parser"
 version = "0.1.0"
 authors = ["Olof Kraigher <olof.kraigher@gmail.com>"]
 license = "MPL-2.0"
+description = "VHDL Parser"
 
 [dependencies]
 pad = "^0"
