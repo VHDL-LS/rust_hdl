@@ -16,6 +16,8 @@ The main advantages are;
 - Good libraries and tools
 - Strong community and momentum
 
+To install rust and its build tool cargo: https://rustup.rs/
+
 # Projects
 # VHDL Parser
 ### Goals
@@ -31,6 +33,33 @@ The main advantages are;
 - No semantic analysis is done yet.
 - Comments not part of AST yet.
 - Good performance, can parse 200k lines of code in 200 ms on my laptop which is 39 MB/s of parsing throughput.
+
+## Trying it out
+The VHDL parser has a command line demonstrator which will parse a list of files and print information about the parse results. The command line tool currently only serves as a demonstrator and has no intended usability at this point.
+
+### Example output
+```console
+> cd rust_hdl/
+> cargo build --release
+> cargo run --bin vhdl_parser uart_rx.vhd uart_tx.vhd
+Results from uart_rx.vhd
+entity uart_rx
+  with 1 generics
+  with 6 ports
+  with 6 concurrent statements
+architecture a of uart_rx
+  with 1 declarations
+  with 2 concurrent statements
+
+Results from uart_tx.vhd
+entity uart_tx
+  with 1 generics
+  with 5 ports
+  with 6 concurrent statements
+architecture a of uart_tx
+  with 1 declarations
+  with 2 concurrent statements
+```
 
 ## VHDL Language Server
 ### Goals
