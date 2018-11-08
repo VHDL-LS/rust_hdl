@@ -525,11 +525,6 @@ pub enum InterfaceDeclaration {
     Subprogram(SubprogramDeclaration, Option<SubprogramDefault>),
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub struct GenericClause {
-    pub generic_list: Vec<InterfaceDeclaration>,
-}
-
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Mode {
     In,
@@ -940,34 +935,55 @@ pub struct ConfigurationDeclaration {
     pub block_config: Option<BlockConfiguration>,
 }
 
+/// LRM 3.3 Entity declarations
+#[derive(PartialEq, Debug, Clone)]
+pub struct EntityDeclaration {
+    pub ident: Ident,
+    pub generic_clause: Option<Vec<InterfaceDeclaration>>,
+    pub port_clause: Option<Vec<InterfaceDeclaration>>,
+    pub statements: Vec<LabeledConcurrentStatement>,
+}
+/// LRM 3.3 Architecture bodies
+#[derive(PartialEq, Debug, Clone)]
+pub struct ArchitectureBody {
+    pub ident: Ident,
+    pub entity_name: Symbol,
+    pub decl: Vec<Declaration>,
+    pub statements: Vec<LabeledConcurrentStatement>,
+}
+
+/// LRM 4.7 Package declarations
+#[derive(PartialEq, Debug, Clone)]
+pub struct PackageDeclaration {
+    pub ident: Ident,
+    pub generic_clause: Option<Vec<InterfaceDeclaration>>,
+    pub decl: Vec<Declaration>,
+}
+
+/// LRM 4.8 Package bodies
+#[derive(PartialEq, Debug, Clone)]
+pub struct PackageBody {
+    pub ident: Ident,
+    pub decl: Vec<Declaration>,
+}
+
 /// LRM 13.1 Design units
 #[derive(PartialEq, Debug, Clone)]
 pub enum LibraryUnit {
     /// LRM 3.2 Entity declaration
-    EntityDeclaration {
-        ident: Ident,
-        generic_clause: Option<GenericClause>,
-        port_clause: Option<PortClause>,
-    },
+    EntityDeclaration(EntityDeclaration),
 
     /// LRM 3.3 Architecture bodies
-    ArchitectureBody {
-        ident: Ident,
-        entity_name: Symbol,
-        decl: Vec<Declaration>,
-    },
+    Architecture(ArchitectureBody),
 
     /// LRM 3.4 Configuration declarations
     Configuration(ConfigurationDeclaration),
 
     /// LRM 4.7 Package declarations
-    PackageDeclaration {
-        ident: Ident,
-        decl: Vec<Declaration>,
-    },
+    PackageDeclaration(PackageDeclaration),
 
     /// LRM 4.8 Package bodies
-    PackageBody { ident: Ident },
+    PackageBody(PackageBody),
 
     /// LRM 4.9 Package instatiation declaration
     PackageInstance(PackageInstantiation),

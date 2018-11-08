@@ -106,17 +106,6 @@ impl TokenStream {
         Ok(self.pop_if_kind(kind)?.is_some())
     }
 
-    /// Skip until token kind matches kind.
-    /// If end of tokens is reached returns None
-    pub fn skip_until_kind(self: &mut Self, kind: Kind) -> ParseResult<Option<Token>> {
-        while let Some(token) = self.pop()? {
-            if token.kind == kind {
-                return Ok(Some(token));
-            }
-        }
-        return Ok(None);
-    }
-
     pub fn pop_optional_ident(&mut self) -> ParseResult<Option<Ident>> {
         if let Some(token) = self.pop_if_kind(Identifier)? {
             Ok(Some(token.expect_ident()?))
@@ -260,20 +249,6 @@ mod tests {
         assert_eq!(
             stream.expect(),
             Err(error(&source.pos(9, 1), "Unexpected EOF"))
-        );
-    }
-
-    #[test]
-    fn skip_until_kind() {
-        let (_, tokens, mut stream) = new("hello world; again;");
-
-        assert_eq!(
-            stream.skip_until_kind(SemiColon),
-            Ok(Some(tokens[2].clone()))
-        );
-        assert_eq!(
-            stream.skip_until_kind(SemiColon),
-            Ok(Some(tokens[4].clone()))
         );
     }
 

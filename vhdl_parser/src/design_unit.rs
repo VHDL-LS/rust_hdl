@@ -4,11 +4,14 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use symbol_table::Symbol;
 use tokenizer::Kind::*;
 use tokenstream::TokenStream;
 
-use ast::{DesignFile, DesignUnit, GenericClause, Ident, LibraryUnit, PortClause};
+use ast::{
+    ArchitectureBody, DesignFile, DesignUnit, EntityDeclaration, LibraryUnit, PackageBody,
+    PackageDeclaration,
+};
+use common::warning_on_end_identifier_mismatch;
 use concurrent_statement::parse_labeled_concurrent_statements;
 use configuration::parse_configuration_declaration;
 use context::{parse_context, parse_library_clause, parse_use_clause, DeclarationOrReference};
@@ -16,216 +19,167 @@ use declarative_part::{parse_declarative_part, parse_package_instantiation};
 use interface_declaration::{parse_generic_interface_list, parse_port_interface_list};
 use message::{error, push_result, MessageHandler, ParseResult};
 
-/// Parse a generic clause
-fn parse_generic_clause(
-    stream: &mut TokenStream,
-    messages: &mut MessageHandler,
-) -> ParseResult<GenericClause> {
-    let generic_list = parse_generic_interface_list(stream, messages)?;
-
-    if let Err(err) = stream.expect_kind(SemiColon) {
-        messages.push(err);
-    }
-
-    Ok(GenericClause {
-        generic_list: generic_list,
-    })
-}
-
-fn parse_port_clause(
-    stream: &mut TokenStream,
-    messages: &mut MessageHandler,
-) -> ParseResult<PortClause> {
-    let port_list = parse_port_interface_list(stream, messages)?;
-
-    if let Err(err) = stream.expect_kind(SemiColon) {
-        messages.push(err);
-    }
-
-    Ok(PortClause {
-        port_list: port_list,
-    })
-}
-
 /// Parse an entity declaration, token is initial entity token
 /// If a parse error occurs the stream is consumed until and end entity
-fn parse_entity_decl(
+fn parse_entity_declaration(
     stream: &mut TokenStream,
     messages: &mut MessageHandler,
-) -> ParseResult<LibraryUnit> {
-    let entity_token = stream.expect_kind(Entity)?;
+) -> ParseResult<EntityDeclaration> {
+    stream.expect_kind(Entity)?;
 
     let mut generic_clause = None;
     let mut port_clause = None;
 
-    if let Ok(ident) = stream.expect_ident() {
-        if stream.expect_kind(Is).is_ok() {
-            while let Some(token) = stream.pop()? {
-                match token.kind {
-                    Generic => {
-                        if generic_clause.is_some() {
-                            messages.push(error(&token.pos, "Duplicate generic clause"));
-                            push_result(messages, stream.skip_until_kind(SemiColon));
-                            continue;
-                        }
-
-                        if let Ok(generics) = parse_generic_clause(stream, messages) {
-                            generic_clause = Some(generics);
-                        } else {
-                            messages.push(error(&token, "Failed to parse generic clause"));
-                        }
-                    }
-
-                    // @TODO Skip port list for now
-                    Port => {
-                        if port_clause.is_some() {
-                            messages.push(error(&token.pos, "Duplicate port clause"));
-                            push_result(messages, stream.skip_until_kind(SemiColon));
-                            continue;
-                        }
-
-                        if let Ok(ports) = parse_port_clause(stream, messages) {
-                            port_clause = Some(ports);
-                        }
-                    }
-
-                    End => {
-                        stream.pop_if_kind(Entity)?;
-                        // @TODO check identifier
-                        stream.pop_if_kind(Identifier)?;
-                        stream.expect_kind(SemiColon)?;
-                        return Ok(LibraryUnit::EntityDeclaration {
-                            ident: ident,
-                            generic_clause: generic_clause,
-                            port_clause: port_clause,
-                        });
-                    }
-
-                    Begin => {
-                        let statements = parse_labeled_concurrent_statements(stream, messages);
-                        push_result(messages, statements);
-                        stream.pop_if_kind(Entity)?;
-                        // @TODO check identifier
-                        stream.pop_if_kind(Identifier)?;
-                        stream.expect_kind(SemiColon)?;
-                        return Ok(LibraryUnit::EntityDeclaration {
-                            ident: ident,
-                            generic_clause: generic_clause,
-                            port_clause: port_clause,
-                        });
-                    }
-
-                    _ => {
-                        messages.push(token.kinds_error(&[Generic, Port, Begin, End]));
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    push_result(messages, stream.pop_if_kind(End));
-    push_result(messages, stream.skip_until_kind(SemiColon));
-    return Err(error(&entity_token, "Failed to parse entity declaration"));
-}
-
-/// Parse architecture symbol declaration and entity name
-fn parse_architecture_header(stream: &mut TokenStream) -> ParseResult<(Ident, Symbol)> {
     let ident = stream.expect_ident()?;
-    stream.expect_kind(Of)?;
-    let Ident {
-        item: entity_name, ..
-    } = stream.expect_ident()?;
     stream.expect_kind(Is)?;
-    Ok((ident, entity_name))
+
+    loop {
+        let token = stream.expect()?;
+        try_token_kind!(
+            token,
+            Generic => {
+                let new_generic_clause = parse_generic_interface_list(stream, messages)?;
+                stream.expect_kind(SemiColon)?;
+
+                if generic_clause.is_some() {
+                    messages.push(error(&token.pos, "Duplicate generic clause"));
+                    continue;
+                } else {
+                    generic_clause = Some(new_generic_clause);
+                }
+
+            },
+
+            Port => {
+                let new_port_clause = parse_port_interface_list(stream, messages)?;
+                stream.expect_kind(SemiColon)?;
+
+                if port_clause.is_some() {
+                    messages.push(error(&token.pos, "Duplicate port clause"));
+                    continue;
+                } else {
+                    port_clause = Some(new_port_clause);
+                }
+            },
+
+            End => {
+                stream.pop_if_kind(Entity)?;
+                let end_ident = stream.pop_optional_ident()?;
+                if let Some(msg) = warning_on_end_identifier_mismatch(&ident, &end_ident) {
+                    messages.push(msg);
+                }
+                stream.expect_kind(SemiColon)?;
+                return Ok(EntityDeclaration {
+                    ident: ident,
+                    generic_clause: generic_clause,
+                    port_clause: port_clause,
+                    statements: Vec::new(),
+                });
+            },
+
+            Begin => {
+                let statements = parse_labeled_concurrent_statements(stream, messages)?;
+                stream.pop_if_kind(Entity)?;
+                let end_ident = stream.pop_optional_ident()?;
+                if let Some(msg) = warning_on_end_identifier_mismatch(&ident, &end_ident) {
+                    messages.push(msg);
+                }
+                stream.expect_kind(SemiColon)?;
+                return Ok(EntityDeclaration {
+                    ident: ident,
+                    generic_clause: generic_clause,
+                    port_clause: port_clause,
+                    statements,
+                });
+            }
+        );
+    }
 }
 
 /// LRM 3.3.1
 fn parse_architecture_body(
     stream: &mut TokenStream,
     messages: &mut MessageHandler,
-) -> ParseResult<LibraryUnit> {
-    let architecture_token = stream.expect_kind(Architecture)?;
-    let design_unit = match parse_architecture_header(stream) {
-        Ok((ident, entity_name)) => Ok(LibraryUnit::ArchitectureBody {
-            ident,
-            entity_name,
-            decl: parse_declarative_part(stream, messages, true)?,
-        }),
-        Err(err) => {
-            messages.push(err);
-            return Err(error(&architecture_token, "Failed to parse architecture"));
-        }
-    };
+) -> ParseResult<ArchitectureBody> {
+    stream.expect_kind(Architecture)?;
+    let ident = stream.expect_ident()?;
+    stream.expect_kind(Of)?;
+    let entity_name = stream.expect_ident()?.item;
+    stream.expect_kind(Is)?;
 
-    let statements = parse_labeled_concurrent_statements(stream, messages);
-    push_result(messages, statements);
+    let decl = parse_declarative_part(stream, messages, true)?;
+
+    let statements = parse_labeled_concurrent_statements(stream, messages)?;
     stream.pop_if_kind(Architecture)?;
-    // @TODO check end identifier
-    stream.pop_if_kind(Identifier)?;
-    stream.expect_kind(SemiColon)?;
 
-    if design_unit.is_err() {
-        messages.push(error(
-            &architecture_token,
-            "Failed to parse architecture declaration",
-        ));
+    let end_ident = stream.pop_optional_ident()?;
+    if let Some(msg) = warning_on_end_identifier_mismatch(&ident, &end_ident) {
+        messages.push(msg);
     }
 
-    return design_unit;
+    stream.expect_kind(SemiColon)?;
+
+    Ok(ArchitectureBody {
+        ident,
+        entity_name,
+        decl,
+        statements,
+    })
 }
 
 /// LRM 4.7 Package declarations
 fn parse_package_declaration(
     stream: &mut TokenStream,
     messages: &mut MessageHandler,
-) -> ParseResult<LibraryUnit> {
+) -> ParseResult<PackageDeclaration> {
     stream.expect_kind(Package)?;
-    let ident = match stream.expect_ident() {
-        Ok(ident) => ident,
-        Err(err) => {
-            return Err(err);
-        }
-    };
+    let ident = stream.expect_ident()?;
 
     stream.expect_kind(Is)?;
-    if stream.skip_if_kind(Generic)? {
-        let decl = parse_generic_interface_list(stream, messages);
-        push_result(messages, decl);
-        stream.expect_kind(SemiColon)?;
-    }
+    let generic_clause = {
+        if stream.skip_if_kind(Generic)? {
+            let decl = parse_generic_interface_list(stream, messages)?;
+            stream.expect_kind(SemiColon)?;
+            Some(decl)
+        } else {
+            None
+        }
+    };
     let decl = parse_declarative_part(stream, messages, false)?;
     stream.pop_if_kind(Package)?;
-    // @TODO check end identifier
+    let end_ident = stream.pop_optional_ident()?;
+    if let Some(msg) = warning_on_end_identifier_mismatch(&ident, &end_ident) {
+        messages.push(msg);
+    }
     stream.pop_if_kind(Identifier)?;
     stream.expect_kind(SemiColon)?;
-    return Ok(LibraryUnit::PackageDeclaration { ident, decl });
+    return Ok(PackageDeclaration {
+        ident,
+        generic_clause,
+        decl,
+    });
 }
 
 /// LRM 4.8 Package bodies
 fn parse_package_body(
     stream: &mut TokenStream,
     messages: &mut MessageHandler,
-) -> ParseResult<LibraryUnit> {
+) -> ParseResult<PackageBody> {
     stream.expect_kind(Package)?;
     stream.expect_kind(Body)?;
-    let ident = match stream.expect_ident() {
-        Ok(ident) => ident,
-        Err(err) => {
-            return Err(err);
-        }
-    };
+    let ident = stream.expect_ident()?;
 
-    push_result(messages, stream.expect_kind(Is));
-    let decl = parse_declarative_part(stream, messages, false);
+    stream.expect_kind(Is)?;
+    let decl = parse_declarative_part(stream, messages, false)?;
     stream.pop_if_kind(Package)?;
     stream.pop_if_kind(Body)?;
-    // @TODO check end identifier
-    stream.pop_if_kind(Identifier)?;
+    let end_ident = stream.pop_optional_ident()?;
+    if let Some(msg) = warning_on_end_identifier_mismatch(&ident, &end_ident) {
+        messages.push(msg);
+    }
     stream.expect_kind(SemiColon)?;
-    push_result(messages, decl);
 
-    return Ok(LibraryUnit::PackageBody { ident });
+    return Ok(PackageBody { ident, decl });
 }
 
 pub fn parse_design_file(
@@ -255,21 +209,21 @@ pub fn parse_design_file(
                 Ok(_) => {}
                 Err(msg) => messages.push(msg),
             },
-            Entity => match parse_entity_decl(stream, messages) {
-                Ok(library_unit) => {
+            Entity => match parse_entity_declaration(stream, messages) {
+                Ok(entity) => {
                     design_units.push(DesignUnit {
                         context_clause: vec![],
-                        library_unit,
+                        library_unit: LibraryUnit::EntityDeclaration(entity),
                     });
                 }
                 Err(msg) => messages.push(msg),
             },
 
             Architecture => match parse_architecture_body(stream, messages) {
-                Ok(library_unit) => {
+                Ok(architecture) => {
                     design_units.push(DesignUnit {
                         context_clause: vec![],
-                        library_unit,
+                        library_unit: LibraryUnit::Architecture(architecture),
                     });
                 }
                 Err(msg) => messages.push(msg),
@@ -287,10 +241,10 @@ pub fn parse_design_file(
             Package => {
                 if stream.is_peek_kinds(&[Package, Body])? {
                     match parse_package_body(stream, messages) {
-                        Ok(library_unit) => {
+                        Ok(package_body) => {
                             design_units.push(DesignUnit {
                                 context_clause: vec![],
-                                library_unit,
+                                library_unit: LibraryUnit::PackageBody(package_body),
                             });
                         }
                         Err(msg) => messages.push(msg),
@@ -305,10 +259,10 @@ pub fn parse_design_file(
                     }
                 } else {
                     match parse_package_declaration(stream, messages) {
-                        Ok(library_unit) => {
+                        Ok(package) => {
                             design_units.push(DesignUnit {
                                 context_clause: vec![],
-                                library_unit,
+                                library_unit: LibraryUnit::PackageDeclaration(package),
                             });
                         }
                         Err(msg) => messages.push(msg),
@@ -325,9 +279,10 @@ pub fn parse_design_file(
 mod tests {
     use super::*;
 
-    use ast::{InterfaceDeclaration, InterfaceObjectDeclaration, Mode, ObjectClass};
+    use ast::Ident;
     use message::Message;
-    use test_util::{check_no_messages, with_stream, TestUtil};
+    use symbol_table::Symbol;
+    use test_util::{check_no_messages, with_stream, with_stream_no_messages, TestUtil};
 
     fn parse_str(code: &str) -> (TestUtil, DesignFile, Vec<Message>) {
         let mut messages = vec![];
@@ -350,6 +305,16 @@ mod tests {
             .collect()
     }
 
+    fn to_single_entity(design_file: DesignFile) -> EntityDeclaration {
+        match design_file.design_units.as_slice() {
+            &[DesignUnit {
+                library_unit: LibraryUnit::EntityDeclaration(ref entity),
+                ..
+            }] => entity.to_owned(),
+            _ => panic!("Expected single entity {:?}", design_file),
+        }
+    }
+
     #[test]
     fn parse_empty() {
         let (_, design_file) = parse_ok("");
@@ -358,11 +323,12 @@ mod tests {
 
     /// An simple entity with only a name
     fn simple_entity(ident: Ident) -> LibraryUnit {
-        LibraryUnit::EntityDeclaration {
+        LibraryUnit::EntityDeclaration(EntityDeclaration {
             ident: ident,
             generic_clause: None,
             port_clause: None,
-        }
+            statements: vec![],
+        })
     }
 
     #[test]
@@ -400,14 +366,13 @@ end entity;
 ",
         );
         assert_eq!(
-            library_units(design_file),
-            [LibraryUnit::EntityDeclaration {
+            to_single_entity(design_file),
+            EntityDeclaration {
                 ident: util.ident("myent"),
-                generic_clause: Some(GenericClause {
-                    generic_list: Vec::new()
-                }),
-                port_clause: None
-            }]
+                generic_clause: Some(Vec::new()),
+                port_clause: None,
+                statements: vec![],
+            }
         );
     }
 
@@ -422,72 +387,17 @@ end entity;
 ",
         );
 
-        let mut generic_list = Vec::new();
-        generic_list.push(InterfaceDeclaration::Object(InterfaceObjectDeclaration {
-            mode: Mode::In,
-            class: ObjectClass::Constant,
-            ident: util.ident("runner_cfg"),
-            subtype_indication: util.subtype_indication("string"),
-            expression: None,
-        }));
-
         assert_eq!(
-            library_units(design_file),
-            [LibraryUnit::EntityDeclaration {
+            to_single_entity(design_file),
+            EntityDeclaration {
                 ident: Ident {
                     item: util.symbol("myent"),
                     pos: util.first_substr_pos("myent")
                 },
-                generic_clause: Some(GenericClause {
-                    generic_list: generic_list
-                }),
-                port_clause: None
-            }]
-        );
-    }
-
-    #[test]
-    fn parse_entity_generic_clause_with_many_values() {
-        let (util, design_file) = parse_ok(
-            "
-entity myent is
-  generic (
-    -- test that optional constant and in mode keyword works
-    constant runner_cfg : in string;
-    foo : boolean := false);
-end entity;
-",
-        );
-
-        let mut generic_list = Vec::new();
-        generic_list.push(InterfaceDeclaration::Object(InterfaceObjectDeclaration {
-            mode: Mode::In,
-            class: ObjectClass::Constant,
-            ident: util.ident("runner_cfg"),
-            subtype_indication: util.subtype_indication("string"),
-            expression: None,
-        }));
-
-        generic_list.push(InterfaceDeclaration::Object(InterfaceObjectDeclaration {
-            mode: Mode::In,
-            class: ObjectClass::Constant,
-            ident: util.ident("foo"),
-            subtype_indication: util.subtype_indication("boolean"),
-            expression: Some(util.expr("false")),
-        }));
-
-        assert_eq!(
-            library_units(design_file),
-            [LibraryUnit::EntityDeclaration {
-                ident: Ident {
-                    item: util.symbol("myent"),
-                    pos: util.first_substr_pos("myent")
-                },
-                generic_clause: Some(GenericClause {
-                    generic_list: generic_list
-                }),
-                port_clause: None
-            }]
+                generic_clause: Some(vec![util.generic("runner_cfg : string")]),
+                port_clause: None,
+                statements: vec![],
+            }
         );
     }
 
@@ -503,17 +413,16 @@ end entity;
         );
 
         assert_eq!(
-            library_units(design_file),
-            [LibraryUnit::EntityDeclaration {
+            to_single_entity(design_file),
+            EntityDeclaration {
                 ident: Ident {
                     item: util.symbol("myent"),
                     pos: util.first_substr_pos("myent")
                 },
-                generic_clause: Some(GenericClause {
-                    generic_list: Vec::new()
-                }),
-                port_clause: None
-            }]
+                generic_clause: Some(vec![]),
+                port_clause: None,
+                statements: vec![],
+            }
         );
 
         assert_eq!(
@@ -535,14 +444,54 @@ end entity;
 ",
         );
         assert_eq!(
-            library_units(design_file),
-            [LibraryUnit::EntityDeclaration {
+            to_single_entity(design_file),
+            EntityDeclaration {
                 ident: util.ident("myent"),
                 generic_clause: None,
-                port_clause: Some(PortClause {
-                    port_list: Vec::new()
-                })
-            }]
+                port_clause: Some(vec![]),
+                statements: vec![],
+            }
+        );
+    }
+
+    #[test]
+    fn parse_entity_empty_statements() {
+        let (util, design_file) = parse_ok(
+            "
+entity myent is
+begin
+end entity;
+",
+        );
+        assert_eq!(
+            to_single_entity(design_file),
+            EntityDeclaration {
+                ident: util.ident("myent"),
+                generic_clause: None,
+                port_clause: None,
+                statements: vec![],
+            }
+        );
+    }
+
+    #[test]
+    fn parse_entity_statements() {
+        let (util, design_file) = parse_ok(
+            "
+entity myent is
+begin
+  check(clk, valid);
+end entity;
+",
+        );
+        assert_eq!(
+            to_single_entity(design_file),
+            EntityDeclaration {
+                ident: util.ident("myent"),
+                generic_clause: None,
+                port_clause: None,
+                statements: vec![util.concurrent_statement("check(clk, valid);")],
+            }
         );
     }
 
@@ -551,109 +500,30 @@ end entity;
         let (util, design_file, messages) = parse_str(
             "
 entity myent is
-  port ();
+  port (
+    signal clk : std_logic
+  );
   port ();
 end entity;
 ",
         );
 
         assert_eq!(
-            library_units(design_file),
-            [LibraryUnit::EntityDeclaration {
+            to_single_entity(design_file),
+            EntityDeclaration {
                 ident: Ident {
                     item: util.symbol("myent"),
                     pos: util.first_substr_pos("myent")
                 },
                 generic_clause: None,
-                port_clause: Some(PortClause {
-                    port_list: Vec::new()
-                })
-            }]
+                port_clause: Some(vec![util.port("signal clk : std_logic")]),
+                statements: vec![],
+            }
         );
 
         assert_eq!(
             messages,
             [error(&util.substr_pos("port", 2), "Duplicate port clause")]
-        );
-    }
-
-    #[test]
-    fn parse_entity_port_clause_with_many_values() {
-        let (util, design_file) = parse_ok(
-            "
-entity myent is
-  port (
-    -- Check that optional signal keyword can be omitted
-    clk : std_logic;
-    bar : out bit := '1');
-end entity;
-",
-        );
-
-        let mut port_list = Vec::new();
-        port_list.push(InterfaceDeclaration::Object(InterfaceObjectDeclaration {
-            mode: Mode::In,
-            class: ObjectClass::Signal,
-            ident: util.ident("clk"),
-            subtype_indication: util.subtype_indication("std_logic"),
-            expression: None,
-        }));
-
-        port_list.push(InterfaceDeclaration::Object(InterfaceObjectDeclaration {
-            mode: Mode::Out,
-            class: ObjectClass::Signal,
-            ident: util.ident("bar"),
-            subtype_indication: util.subtype_indication("bit"),
-            expression: Some(util.expr("'1'")),
-        }));
-
-        assert_eq!(
-            library_units(design_file),
-            [LibraryUnit::EntityDeclaration {
-                ident: Ident {
-                    item: util.symbol("myent"),
-                    pos: util.first_substr_pos("myent")
-                },
-                generic_clause: None,
-                port_clause: Some(PortClause {
-                    port_list: port_list
-                })
-            }]
-        );
-    }
-
-    #[test]
-    fn parse_entity_port_clause_with_optional_signal() {
-        let (util, design_file) = parse_ok(
-            "
-entity myent is
-  port (
-    signal clk : std_logic);
-end entity;
-",
-        );
-
-        let mut port_list = Vec::new();
-        port_list.push(InterfaceDeclaration::Object(InterfaceObjectDeclaration {
-            mode: Mode::In,
-            class: ObjectClass::Signal,
-            ident: util.ident("clk"),
-            subtype_indication: util.subtype_indication("std_logic"),
-            expression: None,
-        }));
-
-        assert_eq!(
-            library_units(design_file),
-            [LibraryUnit::EntityDeclaration {
-                ident: Ident {
-                    item: util.symbol("myent"),
-                    pos: util.first_substr_pos("myent")
-                },
-                generic_clause: None,
-                port_clause: Some(PortClause {
-                    port_list: port_list
-                })
-            }]
         );
     }
 
@@ -685,58 +555,14 @@ end;
         );
     }
 
-    #[test]
-    fn parse_entity_declaration_errors() {
-        let (util, design_file, messages) = parse_str(
-            "
-entity
-",
-        );
-        assert_eq!(library_units(design_file), []);
-        assert_eq!(
-            messages,
-            [error(
-                &util.first_substr_pos("entity"),
-                "Failed to parse entity declaration"
-            )]
-        );
-
-        let (util, design_file, messages) = parse_str(
-            "
-entity myent
-",
-        );
-        assert_eq!(library_units(design_file), []);
-        assert_eq!(
-            messages,
-            [error(
-                &util.first_substr_pos("entity"),
-                "Failed to parse entity declaration"
-            )]
-        );
-
-        let (util, design_file, messages) = parse_str(
-            "
-entity myent is
-",
-        );
-        assert_eq!(library_units(design_file), []);
-        assert_eq!(
-            messages,
-            [error(
-                &util.first_substr_pos("entity"),
-                "Failed to parse entity declaration"
-            )]
-        );
-    }
-
     // An simple entity with only a name
     fn simple_architecture(ident: Ident, entity_name: Symbol) -> LibraryUnit {
-        LibraryUnit::ArchitectureBody {
+        LibraryUnit::Architecture(ArchitectureBody {
             ident,
             entity_name,
             decl: Vec::new(),
-        }
+            statements: vec![],
+        })
     }
 
     #[test]
@@ -793,24 +619,71 @@ end;
         );
     }
 
-    fn simple_package(ident: Ident) -> LibraryUnit {
-        LibraryUnit::PackageDeclaration {
-            ident,
-            decl: vec![],
-        }
-    }
-
     #[test]
-    fn parse_package_declaration() {
-        let (util, design_file) = parse_ok(
+    fn test_package_declaration() {
+        let (util, package) = with_stream_no_messages(
+            parse_package_declaration,
             "
 package pkg_name is
 end package;
 ",
         );
         assert_eq!(
-            library_units(design_file),
-            [simple_package(util.ident("pkg_name"),)]
+            package,
+            PackageDeclaration {
+                ident: util.ident("pkg_name"),
+                generic_clause: None,
+                decl: vec![],
+            }
+        );
+    }
+
+    #[test]
+    fn test_package_declaration_with_declarations() {
+        let (util, package) = with_stream_no_messages(
+            parse_package_declaration,
+            "
+package pkg_name is
+  type foo;
+  constant bar : natural := 0;
+end package;
+",
+        );
+        assert_eq!(
+            package,
+            PackageDeclaration {
+                ident: util.ident("pkg_name"),
+                generic_clause: None,
+                decl: util.declarative_part(
+                    "\
+  type foo;
+  constant bar : natural := 0;
+"
+                ),
+            }
+        );
+    }
+
+    #[test]
+    fn test_package_declaration_generics_clause() {
+        let (util, package) = with_stream_no_messages(
+            parse_package_declaration,
+            "
+package pkg_name is
+  generic (
+    type foo;
+    type bar
+  );
+end package;
+",
+        );
+        assert_eq!(
+            package,
+            PackageDeclaration {
+                ident: util.ident("pkg_name"),
+                generic_clause: Some(vec![util.generic("type foo"), util.generic("type bar")]),
+                decl: vec![]
+            }
         );
     }
 }
