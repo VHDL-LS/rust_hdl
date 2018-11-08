@@ -68,3 +68,19 @@ architecture a of uart_tx
 ### Status
 - Basic diagnosics based on parse errors and warnings.
 - Only full document sync
+
+## Trying it out
+The language server has a command line binary `vhdl_ls` which implements a stdio based language server. 
+
+### Building
+```console
+> cd rust_hdl
+> cargo build --release
+```
+### Use in emacs
+Using the language server in `emacs` with the `eglot` language server package it is enough to simply add the following line to your `.emacs.el`:
+```elisp
+(require 'eglot)
+(add-to-list 'eglot-server-programs
+             '(vhdl-mode . ("<PATH_TO_RUST_HDL>/target/release/vhdl_ls")))
+```
