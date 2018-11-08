@@ -1,0 +1,989 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
+//
+// Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
+
+use latin_1::Latin1String;
+use source::WithPos;
+use symbol_table::Symbol;
+
+/// LRM 15.8 Bit string literals
+#[derive(PartialEq, Clone, Debug)]
+pub enum BaseSpecifier {
+    B,
+    O,
+    X,
+    UB,
+    UO,
+    UX,
+    SB,
+    SO,
+    SX,
+    D,
+}
+
+#[derive(PartialEq, Copy, Clone, Debug)]
+pub enum Unary {
+    And,
+    Or,
+    Nand,
+    Nor,
+    Xor,
+    Xnor,
+    Abs,
+    Not,
+    Minus,
+    Plus,
+    QueQue, // ?? conditional operator
+}
+
+#[derive(PartialEq, Copy, Clone, Debug)]
+pub enum Binary {
+    And,
+    Or,
+    Nand,
+    Nor,
+    Xor,
+    Xnor,
+
+    EQ,
+    NE,
+    LT,
+    LTE,
+    GT,
+    GTE,
+    QueEQ,
+    QueNE,
+    QueLT,
+    QueLTE,
+    QueGT,
+    QueGTE,
+
+    SLL,
+    SRL,
+    SLA,
+    SRA,
+    ROL,
+    ROR,
+
+    Plus,
+    Minus,
+    Concat,
+
+    Times,
+    Div,
+    Mod,
+    Rem,
+
+    Pow,
+}
+
+/// LRM 8.6 Attribute names
+#[derive(PartialEq, Debug, Clone)]
+pub struct AttributeName {
+    pub name: WithPos<Name>,
+    pub signature: Option<Signature>,
+    pub attr: Ident,
+    pub expr: Option<Box<WithPos<Expression>>>,
+}
+
+/// LRM 8. Names
+#[derive(PartialEq, Debug, Clone)]
+pub enum Name {
+    Simple(Symbol),
+    CharacterLiteral(u8),
+    OperatorSymbol(Latin1String),
+    All,
+    Selected(Box<WithPos<Name>>, Box<WithPos<Name>>),
+    Indexed(Box<WithPos<Name>>, Vec<WithPos<Expression>>),
+    Slice(Box<WithPos<Name>>, DiscreteRange),
+    Attribute(Box<AttributeName>),
+    /// LRM 9.3.4 Function calls
+    FunctionCall(Box<FunctionCall>),
+    // @TODO external name
+}
+
+/// LRM 9.3.4 Function calls
+#[derive(PartialEq, Debug, Clone)]
+pub struct FunctionCall {
+    pub name: WithPos<Name>,
+    pub parameters: Vec<AssociationElement>,
+}
+
+/// LRM 9.3.3 Aggregates
+#[derive(PartialEq, Debug, Clone)]
+pub enum Choice {
+    Expression(WithPos<Expression>),
+    DiscreteRange(DiscreteRange),
+    Others,
+}
+
+/// LRM 9.3.3 Aggregates
+#[derive(PartialEq, Debug, Clone)]
+pub enum ElementAssociation {
+    Positional(WithPos<Expression>),
+    Named(Vec<Choice>, WithPos<Expression>),
+}
+
+/// LRM 6.5.7 Association Lists
+#[derive(PartialEq, Debug, Clone)]
+pub enum ActualPart {
+    Expression(Expression),
+    Open,
+}
+
+/// LRM 6.5.7 Association Lists
+#[derive(PartialEq, Debug, Clone)]
+pub struct AssociationElement {
+    pub formal: Option<WithPos<Name>>,
+    pub actual: WithPos<ActualPart>,
+}
+
+/// LRM 15.5 Abstract literals
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum AbstractLiteral {
+    Integer(i64),
+    Real(f64),
+}
+
+/// LRM 15.8 Bit string literals
+#[derive(PartialEq, Debug, Clone)]
+pub struct BitString {
+    pub length: Option<u32>,
+    pub base: BaseSpecifier,
+    pub value: Latin1String,
+}
+
+/// LRM 9.3.2 Literals
+#[derive(PartialEq, Debug, Clone)]
+pub enum Literal {
+    String(Latin1String),
+    BitString(BitString),
+    Character(u8),
+    AbstractLiteral(AbstractLiteral),
+    Physical(AbstractLiteral, Symbol),
+    Null,
+}
+
+/// LRM 9.3.7 Allocators
+#[derive(PartialEq, Debug, Clone)]
+pub enum Allocator {
+    Qualified(QualifiedExpression),
+    Subtype(SubtypeIndication),
+}
+
+/// LRM 9.3.5 Qualified expressions
+#[derive(PartialEq, Debug, Clone)]
+pub struct QualifiedExpression {
+    pub name: Box<WithPos<Name>>,
+    pub expr: Box<WithPos<Expression>>,
+}
+
+/// LRM 9. Expressions
+#[derive(PartialEq, Debug, Clone)]
+pub enum Expression {
+    Binary(Binary, Box<WithPos<Expression>>, Box<WithPos<Expression>>),
+    Unary(Unary, Box<WithPos<Expression>>),
+
+    /// LRM 9.3.3 Aggregates
+    Aggregate(Vec<ElementAssociation>),
+
+    /// LRM 9.3.5 Qualified expressions
+    Qualified(QualifiedExpression),
+
+    /// LRM 8 Names
+    Name(Box<Name>),
+
+    /// LRM 9.3.2 Literals
+    Literal(Literal),
+
+    /// LRM 9.3.7 Allocators
+    New(WithPos<Allocator>),
+}
+
+pub type Ident = WithPos<Symbol>;
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum Direction {
+    Ascending,
+    Descending,
+}
+
+/// LRM discrete_range
+/// discrete_range ::= discrete_subtype_indication | range
+/// range ::=
+///     range_attribute_name
+///   | simple_expression direction simple_expression
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum DiscreteRange {
+    Discrete(SelectedName, Option<Range>),
+    Range(Range),
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct RangeConstraint {
+    pub direction: Direction,
+    pub left_expr: Box<WithPos<Expression>>,
+    pub right_expr: Box<WithPos<Expression>>,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum Range {
+    Range(RangeConstraint),
+    Attribute(Box<AttributeName>),
+}
+
+/// LRM: record_element_constraint
+#[derive(PartialEq, Debug, Clone)]
+pub struct ElementConstraint {
+    pub ident: Ident,
+    pub constraint: Box<SubtypeConstraint>,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum SubtypeConstraint {
+    Range(Range),
+    Array(Vec<DiscreteRange>, Option<Box<SubtypeConstraint>>),
+    Record(Vec<ElementConstraint>),
+}
+
+/// LRM 8. Names
+pub type SelectedName = Vec<Ident>;
+
+/// LRM 6.3 Subtype declarations
+#[derive(PartialEq, Debug, Clone)]
+pub struct RecordElementResolution {
+    pub ident: Ident,
+    pub resolution: Box<ResolutionIndication>,
+}
+
+/// LRM 6.3 Subtype declarations
+#[derive(PartialEq, Debug, Clone)]
+pub enum ResolutionIndication {
+    FunctionName(SelectedName),
+    ArrayElement(SelectedName),
+    Record(Vec<RecordElementResolution>),
+    Unresolved,
+}
+
+/// LRM 6.3 Subtype declarations
+#[derive(PartialEq, Debug, Clone)]
+pub struct SubtypeIndication {
+    pub resolution: ResolutionIndication,
+    pub type_mark: SelectedName,
+    pub constraint: Option<SubtypeConstraint>,
+}
+
+/// LRM 5.3 Array Types
+#[derive(PartialEq, Debug, Clone)]
+pub enum ArrayIndex {
+    /// Unbounded
+    /// {identifier} range <>
+    IndexSubtypeDefintion(SelectedName),
+
+    /// Constraint
+    Discrete(DiscreteRange),
+}
+
+/// LRM 5.3.3 Record types
+#[derive(PartialEq, Debug, Clone)]
+pub struct ElementDeclaration {
+    pub ident: Ident,
+    pub subtype: SubtypeIndication,
+}
+
+/// LRM 5.6.2 Protected type declarations
+#[derive(PartialEq, Debug, Clone)]
+pub enum ProtectedTypeDeclarativeItem {
+    Subprogram(SubprogramDeclaration),
+}
+
+/// LRM 6.6 Alias declarations
+#[derive(PartialEq, Debug, Clone)]
+pub struct AliasDeclaration {
+    pub designator: WithPos<Designator>,
+    pub subtype_indication: Option<SubtypeIndication>,
+    pub name: WithPos<Name>,
+    pub signature: Option<Signature>,
+}
+
+/// LRM 6.7 Attribute declarations
+#[derive(PartialEq, Debug, Clone)]
+pub struct AttributeDeclaration {
+    pub ident: Ident,
+    pub type_mark: SelectedName,
+}
+
+/// LRM 7.2 Attribute specification
+#[derive(PartialEq, Debug, Clone)]
+pub struct EntityTag {
+    pub designator: WithPos<Designator>,
+    pub signature: Option<Signature>,
+}
+
+/// LRM 7.2 Attribute specification
+#[derive(PartialEq, Debug, Clone)]
+pub enum EntityName {
+    Name(EntityTag),
+    All,
+    Others,
+}
+
+/// LRM 7.2 Attribute specification
+// @TODO there are more classes
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum EntityClass {
+    Entity,
+    Architecture,
+    Configuration,
+    Package,
+    Signal,
+    Variable,
+    Procedure,
+    Function,
+}
+
+/// LRM 7.2 Attribute specification
+#[derive(PartialEq, Debug, Clone)]
+pub struct AttributeSpecification {
+    pub ident: Ident,
+    pub entity_name: EntityName,
+    pub entity_class: EntityClass,
+    pub expr: WithPos<Expression>,
+}
+
+/// LRM 7.2 Attribute specification
+#[derive(PartialEq, Debug, Clone)]
+pub enum Attribute {
+    Specification(AttributeSpecification),
+    Declaration(AttributeDeclaration),
+}
+
+/// LRM 5.6.2 Protected type declarations
+#[derive(PartialEq, Debug, Clone)]
+pub struct ProtectedTypeDeclaration {
+    pub items: Vec<ProtectedTypeDeclarativeItem>,
+}
+
+/// LRM 5.6.3 Protected type bodies
+#[derive(PartialEq, Debug, Clone)]
+pub struct ProtectedTypeBody {
+    pub decl: Vec<Declaration>,
+}
+
+/// LRM 5.4.2 Physical type declaration
+#[derive(PartialEq, Debug, Clone)]
+pub struct PhysicalTypeDeclaration {
+    pub range: Range,
+    pub primary_unit: Ident,
+    pub secondary_units: Vec<(Ident, Literal)>,
+}
+
+/// LRM 5.2.2 Enumeration types
+#[derive(PartialEq, Debug, Clone)]
+pub enum EnumerationLiteral {
+    Identifier(Symbol),
+    Character(u8),
+}
+
+/// LRM 5 Types
+#[derive(PartialEq, Debug, Clone)]
+pub enum TypeDefinition {
+    /// LRM 5.2 Scalar Types
+    /// LRM 5.2.2 Enumeration types
+    Enumeration(Vec<EnumerationLiteral>),
+    /// LRM 5.2.3 Integer types
+    Integer(Range),
+    /// LRM 5.2.4 Physical types
+    Physical(PhysicalTypeDeclaration),
+    // @TODO floating
+    /// LRM 5.3 Composite Types
+    /// LRM 5.3.2 Array types
+    Array(Vec<ArrayIndex>, SubtypeIndication),
+    /// LRM 5.3.3 Record types
+    Record(Vec<ElementDeclaration>),
+    /// LRM 5.4 Access types
+    Access(SubtypeIndication),
+    /// LRM 5.4.2 Incomplete type declarations
+    Incomplete,
+    /// LRM 5.5 File types
+    File(SelectedName),
+    /// LRM 5.6 Protected types
+    Protected(ProtectedTypeDeclaration),
+    ProtectedBody(ProtectedTypeBody),
+    /// LRM 6.3 Subtype declarations
+    Subtype(SubtypeIndication),
+}
+
+/// LRM 6.2 Type declarations
+#[derive(PartialEq, Debug, Clone)]
+pub struct TypeDeclaration {
+    pub ident: Ident,
+    pub def: TypeDefinition,
+}
+
+/// LRM 6.4.2 Object Declarations
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum ObjectClass {
+    Signal,
+    // @TODO signal_kind
+    Constant,
+    Variable,
+    SharedVariable,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct ObjectDeclaration {
+    pub class: ObjectClass,
+    pub ident: Ident,
+    pub subtype_indication: SubtypeIndication,
+    pub expression: Option<WithPos<Expression>>,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct FileDeclaration {
+    pub ident: Ident,
+    pub subtype_indication: SubtypeIndication,
+    pub open_info: Option<WithPos<Expression>>,
+    pub file_name: Option<WithPos<Expression>>,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum Designator {
+    Identifier(Symbol),
+    OperatorSymbol(Latin1String),
+    // @TODO character literal, but not for functions?
+}
+
+/// LRM 4.2 Subprogram declaration
+#[derive(PartialEq, Debug, Clone)]
+pub struct ProcedureSpecification {
+    pub designator: WithPos<Designator>,
+    pub parameter_list: Vec<InterfaceDeclaration>,
+}
+
+/// LRM 4.2 Subprogram declaration
+#[derive(PartialEq, Debug, Clone)]
+pub struct FunctionSpecification {
+    pub pure: bool,
+    pub designator: WithPos<Designator>,
+    pub parameter_list: Vec<InterfaceDeclaration>,
+    pub return_type: SelectedName,
+}
+
+/// LRM 4.3 Subprogram bodies
+#[derive(PartialEq, Debug, Clone)]
+pub struct SubprogramBody {
+    pub specification: SubprogramDeclaration,
+    pub declarations: Vec<Declaration>,
+    pub statements: Vec<LabeledSequentialStatement>,
+}
+
+/// LRM 4.5.3 Signatures
+#[derive(PartialEq, Debug, Clone)]
+pub enum Signature {
+    Function(Vec<SelectedName>, SelectedName),
+    Procedure(Vec<SelectedName>),
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum SubprogramDeclaration {
+    Procedure(ProcedureSpecification),
+    Function(FunctionSpecification),
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct InterfaceFileDeclaration {
+    pub ident: Ident,
+    pub subtype_indication: SubtypeIndication,
+}
+
+/// LRM 6.5.2 Interface object declarations
+#[derive(PartialEq, Debug, Clone)]
+pub struct InterfaceObjectDeclaration {
+    pub class: ObjectClass,
+    pub ident: Ident,
+    pub mode: Mode,
+    pub subtype_indication: SubtypeIndication,
+    pub expression: Option<WithPos<Expression>>,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum SubprogramDefault {
+    Name(SelectedName),
+    Box,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum InterfaceDeclaration {
+    Object(InterfaceObjectDeclaration),
+    File(InterfaceFileDeclaration),
+    Type(Ident),
+    /// LRM 6.5.4 Interface subprogram declarations
+    Subprogram(SubprogramDeclaration, Option<SubprogramDefault>),
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct GenericClause {
+    pub generic_list: Vec<InterfaceDeclaration>,
+}
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum Mode {
+    In,
+    Out,
+    InOut,
+    Buffer,
+    Linkage,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct PortClause {
+    pub port_list: Vec<InterfaceDeclaration>,
+}
+
+/// LRM 6.8 Component declarations
+#[derive(PartialEq, Debug, Clone)]
+pub struct ComponentDeclaration {
+    pub ident: Ident,
+    pub generic_list: Vec<InterfaceDeclaration>,
+    pub port_list: Vec<InterfaceDeclaration>,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum Declaration {
+    Object(ObjectDeclaration),
+    File(FileDeclaration),
+    Type(TypeDeclaration),
+    Component(ComponentDeclaration),
+    Attribute(Attribute),
+    Alias(AliasDeclaration),
+    SubprogramDeclaration(SubprogramDeclaration),
+    SubprogramBody(SubprogramBody),
+    Use(UseClause),
+    Package(PackageInstantiation),
+}
+
+/// LRM 10.2 Wait statement
+#[derive(PartialEq, Debug, Clone)]
+pub struct WaitStatement {
+    pub sensitivity_clause: Vec<WithPos<Name>>,
+    pub condition_clause: Option<WithPos<Expression>>,
+    pub timeout_clause: Option<WithPos<Expression>>,
+}
+
+/// LRM 10.3 Assertion statement
+#[derive(PartialEq, Debug, Clone)]
+pub struct AssertStatement {
+    pub condition: WithPos<Expression>,
+    pub report: Option<WithPos<Expression>>,
+    pub severity: Option<WithPos<Expression>>,
+}
+
+/// LRM 10.4 Report statement
+#[derive(PartialEq, Debug, Clone)]
+pub struct ReportStatement {
+    pub report: WithPos<Expression>,
+    pub severity: Option<WithPos<Expression>>,
+}
+
+/// LRM 10.5 Signal assignment statement
+#[derive(PartialEq, Debug, Clone)]
+pub enum Target {
+    Name(Name),
+    Aggregate(Vec<ElementAssociation>),
+}
+
+/// LRM 10.5 Signal assignment statement
+#[derive(PartialEq, Debug, Clone)]
+pub struct WaveformElement {
+    pub value: WithPos<Expression>,
+    pub after: Option<WithPos<Expression>>,
+}
+
+/// LRM 10.5 Signal assignment statement
+#[derive(PartialEq, Debug, Clone)]
+pub enum Waveform {
+    Elements(Vec<WaveformElement>),
+    Unaffected,
+}
+
+/// LRM 10.5 Signal assignment statement
+#[derive(PartialEq, Debug, Clone)]
+pub enum DelayMechanism {
+    Transport,
+    Inertial { reject: Option<WithPos<Expression>> },
+}
+
+/// LRM 10.5 Signal assignment statement
+#[derive(PartialEq, Debug, Clone)]
+pub struct SignalAssignment {
+    pub target: WithPos<Target>,
+    pub delay_mechanism: Option<DelayMechanism>,
+    pub rhs: AssignmentRightHand<Waveform>,
+}
+
+/// LRM 10.6 Variable assignment statement
+#[derive(PartialEq, Debug, Clone)]
+pub struct VariableAssignment {
+    pub target: WithPos<Target>,
+    pub rhs: AssignmentRightHand<WithPos<Expression>>,
+}
+
+/// LRM 10.5 Signal assignment statement
+/// LRM 10.6 Variable assignment statement
+#[derive(PartialEq, Debug, Clone)]
+pub enum AssignmentRightHand<T> {
+    Simple(T),
+    Conditional(Conditionals<T>),
+    Selected(Selection<T>),
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct Conditional<T> {
+    pub condition: WithPos<Expression>,
+    pub item: T,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct Conditionals<T> {
+    pub conditionals: Vec<Conditional<T>>,
+    pub else_item: Option<T>,
+}
+
+pub type ConditionalExpression = Conditional<WithPos<Expression>>;
+pub type ConditionalExpressions = Conditionals<WithPos<Expression>>;
+
+/// LRM 10.8 If statement
+pub type IfStatement = Conditionals<Vec<LabeledSequentialStatement>>;
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct Alternative<T> {
+    pub choices: Vec<Choice>,
+    pub item: T,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct Selection<T> {
+    pub expression: WithPos<Expression>,
+    pub alternatives: Vec<Alternative<T>>,
+}
+
+/// LRM 10.9 Case statement
+pub type CaseStatement = Selection<Vec<LabeledSequentialStatement>>;
+
+/// LRM 10.10 Loop statement
+#[derive(PartialEq, Debug, Clone)]
+pub enum IterationScheme {
+    While(WithPos<Expression>),
+    For(Ident, DiscreteRange),
+}
+
+/// LRM 10.10 Loop statement
+#[derive(PartialEq, Debug, Clone)]
+pub struct LoopStatement {
+    pub iteration_scheme: Option<IterationScheme>,
+    pub statements: Vec<LabeledSequentialStatement>,
+}
+
+/// LRM 10.11 Next statement
+#[derive(PartialEq, Debug, Clone)]
+pub struct NextStatement {
+    pub loop_label: Option<Ident>,
+    pub condition: Option<WithPos<Expression>>,
+}
+
+/// LRM 10.12 Exit statement
+#[derive(PartialEq, Debug, Clone)]
+pub struct ExitStatement {
+    pub loop_label: Option<Ident>,
+    pub condition: Option<WithPos<Expression>>,
+}
+
+/// LRM 10.13 Return statement
+#[derive(PartialEq, Debug, Clone)]
+pub struct ReturnStatement {
+    pub expression: Option<WithPos<Expression>>,
+}
+
+/// LRM 10. Sequential statements
+#[derive(PartialEq, Debug, Clone)]
+pub enum SequentialStatement {
+    Wait(WaitStatement),
+    Assert(AssertStatement),
+    Report(ReportStatement),
+    VariableAssignment(VariableAssignment),
+    SignalAssignment(SignalAssignment),
+    ProcedureCall(FunctionCall),
+    If(IfStatement),
+    Case(CaseStatement),
+    Loop(LoopStatement),
+    Next(NextStatement),
+    Exit(ExitStatement),
+    Return(ReturnStatement),
+    Null,
+}
+
+/// LRM 10. Sequential statements
+#[derive(PartialEq, Debug, Clone)]
+pub struct LabeledSequentialStatement {
+    pub label: Option<Ident>,
+    pub statement: SequentialStatement,
+}
+
+/// LRM 11.2 Block statement
+#[derive(PartialEq, Debug, Clone)]
+pub struct BlockStatement {
+    pub guard_condition: Option<WithPos<Expression>>,
+    pub decl: Vec<Declaration>,
+    pub statements: Vec<LabeledConcurrentStatement>,
+}
+
+/// LRM 11.3 Process statement
+#[derive(PartialEq, Debug, Clone)]
+pub struct ProcessStatement {
+    pub postponed: bool,
+    pub sensitivity_list: Vec<WithPos<Name>>,
+    pub decl: Vec<Declaration>,
+    pub statements: Vec<LabeledSequentialStatement>,
+}
+
+/// LRM 11.4 Concurrent procedure call statements
+#[derive(PartialEq, Debug, Clone)]
+pub struct ConcurrentProcedureCall {
+    pub postponed: bool,
+    pub call: FunctionCall,
+}
+
+/// LRM 11.5 Concurrent assertion statements
+#[derive(PartialEq, Debug, Clone)]
+pub struct ConcurrentAssertStatement {
+    pub postponed: bool,
+    pub statement: AssertStatement,
+}
+
+/// 11.6 Concurrent signal assignment statements
+#[derive(PartialEq, Debug, Clone)]
+pub struct ConcurrentSignalAssignment {
+    pub postponed: bool,
+    pub guarded: bool,
+    pub target: WithPos<Target>,
+    pub delay_mechanism: Option<DelayMechanism>,
+    pub rhs: AssignmentRightHand<Waveform>,
+}
+
+/// 11.7 Component instantiation statements
+#[derive(PartialEq, Debug, Clone)]
+pub enum InstantiatedUnit {
+    Component(SelectedName),
+    Entity(SelectedName, Option<Ident>),
+    Configuration(SelectedName),
+}
+
+/// 11.7 Component instantiation statements
+#[derive(PartialEq, Debug, Clone)]
+pub struct InstantiationStatement {
+    pub unit: InstantiatedUnit,
+    pub generic_map: Vec<AssociationElement>,
+    pub port_map: Vec<AssociationElement>,
+}
+
+/// 11.8 Generate statements
+#[derive(PartialEq, Debug, Clone)]
+pub struct GenerateBody {
+    pub alternative_label: Option<Ident>,
+    pub decl: Option<Vec<Declaration>>,
+    pub statements: Vec<LabeledConcurrentStatement>,
+}
+
+/// 11.8 Generate statements
+#[derive(PartialEq, Debug, Clone)]
+pub struct ForGenerateStatement {
+    pub index_name: Ident,
+    pub discrete_range: DiscreteRange,
+    pub body: GenerateBody,
+}
+
+/// 11.8 Generate statements
+pub type IfGenerateStatement = Conditionals<GenerateBody>;
+
+/// LRM 11. Concurrent statements
+#[derive(PartialEq, Debug, Clone)]
+pub enum ConcurrentStatement {
+    ProcedureCall(ConcurrentProcedureCall),
+    Block(BlockStatement),
+    Process(ProcessStatement),
+    Assert(ConcurrentAssertStatement),
+    Assignment(ConcurrentSignalAssignment),
+    Instance(InstantiationStatement),
+    ForGenerate(ForGenerateStatement),
+    IfGenerate(IfGenerateStatement),
+}
+
+/// LRM 11. Concurrent statements
+#[derive(PartialEq, Debug, Clone)]
+pub struct LabeledConcurrentStatement {
+    pub label: Option<Ident>,
+    pub statement: ConcurrentStatement,
+}
+
+/// LRM 13. Design units and their analysis
+#[derive(PartialEq, Debug, Clone)]
+pub struct LibraryClause {
+    pub name_list: Vec<Ident>,
+}
+
+/// LRM 12.4. Use clauses
+#[derive(PartialEq, Debug, Clone)]
+pub struct UseClause {
+    pub name_list: Vec<WithPos<Name>>,
+}
+
+/// LRM 13.4 Context clauses
+#[derive(PartialEq, Debug, Clone)]
+pub struct ContextReference {
+    pub name_list: Vec<WithPos<Name>>,
+}
+
+/// LRM 13.4 Context clauses
+#[derive(PartialEq, Debug, Clone)]
+pub enum ContextItem {
+    Use(UseClause),
+    Library(LibraryClause),
+    Context(ContextReference),
+}
+
+/// LRM 13.4 Context clauses
+#[derive(PartialEq, Debug, Clone)]
+pub struct ContextDeclaration {
+    pub ident: Ident,
+    pub items: Vec<ContextItem>,
+}
+
+/// LRM 4.9 Package instatiation declaration
+#[derive(PartialEq, Debug, Clone)]
+pub struct PackageInstantiation {
+    pub ident: Ident,
+    pub package_name: SelectedName,
+    pub generic_map: Option<Vec<AssociationElement>>,
+}
+
+/// LRM 7.3 Configuration specification
+#[derive(PartialEq, Debug, Clone)]
+pub enum InstantiationList {
+    Labels(Vec<Ident>),
+    Others,
+    All,
+}
+
+/// LRM 7.3.2 Binding indication
+#[derive(PartialEq, Debug, Clone)]
+pub enum EntityAspect {
+    Entity(SelectedName, Option<Ident>),
+    Configuration(SelectedName),
+    Open,
+}
+
+/// LRM 7.3.2 Binding indication
+#[derive(PartialEq, Debug, Clone)]
+pub struct BindingIndication {
+    pub entity_aspect: Option<EntityAspect>,
+    pub generic_map: Option<Vec<AssociationElement>>,
+    pub port_map: Option<Vec<AssociationElement>>,
+}
+
+/// LRM 7.3 Configuration specification
+#[derive(PartialEq, Debug, Clone)]
+pub struct ComponentSpecification {
+    pub instantiation_list: InstantiationList,
+    pub component_name: SelectedName,
+}
+
+/// LRM 3.4 Configuration declarations
+#[derive(PartialEq, Debug, Clone)]
+pub enum ConfigurationDeclarativeItem {
+    Use(UseClause),
+    // @TODO attribute
+    // @TODO group
+}
+/// LRM 3.4 Configuration declarations
+#[derive(PartialEq, Debug, Clone)]
+pub struct ComponentConfiguration {
+    pub spec: ComponentSpecification,
+    pub bind_ind: Option<BindingIndication>,
+    pub block_config: Option<BlockConfiguration>,
+}
+
+/// LRM 3.4 Configuration declarations
+#[derive(PartialEq, Debug, Clone)]
+pub enum ConfigurationItem {
+    Block(BlockConfiguration),
+    Component(ComponentConfiguration),
+}
+
+/// LRM 3.4 Configuration declarations
+#[derive(PartialEq, Debug, Clone)]
+pub struct BlockConfiguration {
+    pub block_spec: WithPos<Name>,
+    pub use_clauses: Vec<UseClause>,
+    pub items: Vec<ConfigurationItem>,
+}
+
+/// LRM 3.4 Configuration declarations
+#[derive(PartialEq, Debug, Clone)]
+pub struct ConfigurationDeclaration {
+    pub ident: Ident,
+    pub entity_name: SelectedName,
+    pub decl: Vec<ConfigurationDeclarativeItem>,
+    pub block_config: Option<BlockConfiguration>,
+}
+
+/// LRM 13.1 Design units
+#[derive(PartialEq, Debug, Clone)]
+pub enum LibraryUnit {
+    /// LRM 3.2 Entity declaration
+    EntityDeclaration {
+        ident: Ident,
+        generic_clause: Option<GenericClause>,
+        port_clause: Option<PortClause>,
+    },
+
+    /// LRM 3.3 Architecture bodies
+    ArchitectureBody {
+        ident: Ident,
+        entity_name: Symbol,
+        decl: Vec<Declaration>,
+    },
+
+    /// LRM 3.4 Configuration declarations
+    Configuration(ConfigurationDeclaration),
+
+    /// LRM 4.7 Package declarations
+    PackageDeclaration {
+        ident: Ident,
+        decl: Vec<Declaration>,
+    },
+
+    /// LRM 4.8 Package bodies
+    PackageBody { ident: Ident },
+
+    /// LRM 4.9 Package instatiation declaration
+    PackageInstance(PackageInstantiation),
+
+    /// LRM 13.4 Context clauses
+    ContextDeclaration(ContextDeclaration),
+}
+
+/// LRM 13.1 Design units
+#[derive(PartialEq, Debug, Clone)]
+pub struct DesignUnit {
+    pub context_clause: Vec<ContextItem>,
+    pub library_unit: LibraryUnit,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct DesignFile {
+    pub design_units: Vec<DesignUnit>,
+}
