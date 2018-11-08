@@ -21,7 +21,7 @@ To install rust and its build tool cargo: https://rustup.rs/
 # Projects
 # VHDL Parser
 ### Goals
-- This project aims to provide a fully feature open source VHDL parser that is easy to integrate into other tools.
+- This project aims to provide a fully featured open source VHDL parser that is easy to integrate into other tools.
 - A design goal of the parser is to be able to recover from errors such that it is useful for building a language server. 
 - Comments will be part of the AST to support document generation.
 - Separate parsing from semantic analysis to allow code formatting on non-semantically correct code.
