@@ -6,13 +6,14 @@
 
 [package]
 name = "vhdl_ls"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Olof Kraigher <olof.kraigher@gmail.com>"]
 license = "MPL-2.0"
 description = "VHDL Language Server"
+repository = "https://github.com/kraigher/rust_hdl"
 
 [dependencies]
-vhdl_parser = { path = "../vhdl_parser"}
+vhdl_parser = { version = "^0", path = "../vhdl_parser"}
 jsonrpc-core = "^9"
 languageserver-types = "^0"
 url = "^1"
