@@ -1,7 +1,7 @@
 # Overview
 This repository is a collection of HDL related tools.
 
-**NOTE**: These tools are currently only recommended to use by people interested in contributing to their development as they are still immature.
+**NOTE**: These tools are currently only recommended to be used by people interested in contributing to their development as they are still immature.
 
 I am interested in collaboration with other people especially regarding semantic analysis of VHDL.
 
