@@ -76,6 +76,12 @@ impl SymbolTable {
         self.insert(&name)
     }
 
+    #[cfg(test)]
+    pub fn insert_extended_utf8(&self, name: &str) -> Symbol {
+        let name = Latin1String::from_utf8_unchecked(name);
+        self.insert_extended(&name)
+    }
+
     pub fn lookup(&self, name: &Latin1String) -> Option<Symbol> {
         let name_to_symbol = self.name_to_symbol.read().unwrap();
         if let Some(sym) = name_to_symbol.get(name) {
@@ -92,11 +98,19 @@ impl SymbolTable {
         if let Some(symbol) = self.lookup(name) {
             symbol
         } else {
-            self.insert_new(name)
+            self.insert_new(name, false)
         }
     }
 
-    fn insert_new(&self, name: &Latin1String) -> Symbol {
+    pub fn insert_extended(&self, name: &Latin1String) -> Symbol {
+        if let Some(symbol) = self.lookup(name) {
+            symbol
+        } else {
+            self.insert_new(name, true)
+        }
+    }
+
+    fn insert_new(&self, name: &Latin1String, is_extended: bool) -> Symbol {
         let mut name_to_symbol = self.name_to_symbol.write().unwrap();
 
         // Lookup again after taking lock to avoid race-condition where new symbols are created in parallel
@@ -105,9 +119,17 @@ impl SymbolTable {
             return sym.clone();
         }
 
+        debug_assert_eq!(name.bytes.get(0) == Some(&b'\\'), is_extended);
+        let name = Arc::from(name.clone());
+        if is_extended {
+            let id = name_to_symbol.len();
+            let sym = Symbol::new(id, &name);
+            name_to_symbol.insert(name, sym.clone());
+            return sym;
+        }
+
         // Symbol does not exists with the given case, try normalizing case
         let normal_name = Arc::from(name.to_lowercase());
-        let name = Arc::from(name.clone());
 
         match name_to_symbol.get(&normal_name).cloned() {
             // Symbol exists in normalized case
@@ -178,6 +200,20 @@ mod tests {
         assert_eq!(sym0.name_utf8(), "Hello");
         assert_eq!(sym1.name_utf8(), "hello");
         assert_eq!(sym2.name_utf8(), "heLLo");
+    }
+
+    #[test]
+    fn extended_identifiers_symbols_are_case_sensitive() {
+        let symtab = SymbolTable::new();
+        let sym0 = symtab.insert_extended_utf8("\\hello\\");
+        let sym1 = symtab.insert_extended_utf8("\\HELLO\\");
+        let sym2 = symtab.insert_extended_utf8("\\hello\\");
+        assert_ne!(sym0, sym1);
+        assert_eq!(sym0, sym2);
+        assert_ne!(sym1, sym2);
+        assert_eq!(sym0.name_utf8(), "\\hello\\");
+        assert_eq!(sym1.name_utf8(), "\\HELLO\\");
+        assert_eq!(sym2.name_utf8(), "\\hello\\");
     }
 
     #[test]

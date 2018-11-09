@@ -1173,7 +1173,7 @@ impl Tokenizer {
                     cursor.back();
                     match parse_quoted(&mut self.buffer, &mut cursor, b'\\', true) {
                         Ok(result) => {
-                            let result = Value::Identifier(self.symtab.insert(&result));
+                            let result = Value::Identifier(self.symtab.insert_extended(&result));
                             (Identifier, result)
                         }
                         Err(msg) => {
