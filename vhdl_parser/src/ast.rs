@@ -826,6 +826,7 @@ pub struct ForGenerateStatement {
 
 /// 11.8 Generate statements
 pub type IfGenerateStatement = Conditionals<GenerateBody>;
+pub type CaseGenerateStatement = Selection<GenerateBody>;
 
 /// LRM 11. Concurrent statements
 #[derive(PartialEq, Debug, Clone)]
@@ -838,6 +839,7 @@ pub enum ConcurrentStatement {
     Instance(InstantiationStatement),
     ForGenerate(ForGenerateStatement),
     IfGenerate(IfGenerateStatement),
+    CaseGenerate(CaseGenerateStatement),
 }
 
 /// LRM 11. Concurrent statements

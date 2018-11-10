@@ -453,6 +453,14 @@ impl Token {
         return Err(self.kinds_error(&[Character]));
     }
 
+    pub fn expect_kind(self, kind: Kind) -> ParseResult<Token> {
+        if self.kind == kind {
+            Ok(self)
+        } else {
+            Err(self.kinds_error(&[kind]))
+        }
+    }
+
     pub fn expect_bit_string(&self) -> ParseResult<ast::BitString> {
         if let Token {
             kind: BitString,

@@ -5,15 +5,16 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use ast::{
-    AssignmentRightHand, BlockStatement, ConcurrentAssertStatement, ConcurrentProcedureCall,
-    ConcurrentSignalAssignment, ConcurrentStatement, Conditional, Declaration,
-    ForGenerateStatement, FunctionCall, GenerateBody, Ident, IfGenerateStatement, InstantiatedUnit,
-    InstantiationStatement, LabeledConcurrentStatement, Name, ProcessStatement, Target,
+    Alternative, AssignmentRightHand, BlockStatement, CaseGenerateStatement,
+    ConcurrentAssertStatement, ConcurrentProcedureCall, ConcurrentSignalAssignment,
+    ConcurrentStatement, Conditional, Declaration, ForGenerateStatement, FunctionCall,
+    GenerateBody, Ident, IfGenerateStatement, InstantiatedUnit, InstantiationStatement,
+    LabeledConcurrentStatement, Name, ProcessStatement, Target,
 };
 use common::warning_on_end_identifier_mismatch;
 use declarative_part::{is_declarative_part, parse_declarative_part};
 use expression::parse_aggregate_leftpar_known;
-use expression::parse_expression;
+use expression::{parse_choices, parse_expression};
 use message::{error, MessageHandler, ParseResult};
 use names::{
     expression_to_ident, parse_association_list, parse_name_initial_token, parse_selected_name,
@@ -235,7 +236,7 @@ fn parse_generate_body_end_token(
     let (statements, mut end_token) =
         parse_labeled_concurrent_statements_end_token(stream, messages)?;
 
-    // Potential inner end [ alterantive_label ];
+    // Potential inner end [ alternative_label ];
     if end_token.kind == End {
         let token = stream.peek_expect()?;
         try_token_kind!(
@@ -275,7 +276,8 @@ fn parse_generate_body(
     alternative_label: Option<Ident>,
     messages: &mut MessageHandler,
 ) -> ParseResult<GenerateBody> {
-    let (body, _) = parse_generate_body_end_token(stream, alternative_label, messages)?;
+    let (body, end_token) = parse_generate_body_end_token(stream, alternative_label, messages)?;
+    end_token.expect_kind(End)?;
     Ok(body)
 }
 
@@ -366,6 +368,52 @@ fn parse_if_generate_statement(
     })
 }
 
+/// 11.8 Generate statements
+fn parse_case_generate_statement(
+    stream: &mut TokenStream,
+    messages: &mut MessageHandler,
+) -> ParseResult<CaseGenerateStatement> {
+    let expression = parse_expression(stream)?;
+    stream.expect_kind(Generate)?;
+    stream.expect_kind(When)?;
+
+    let mut alternatives = Vec::with_capacity(2);
+    loop {
+        let alternative_label = {
+            if stream.is_peek_kinds(&[Identifier, Colon])? {
+                let ident = stream.expect_ident()?;
+                stream.expect_kind(Colon)?;
+                Some(ident)
+            } else {
+                None
+            }
+        };
+        let choices = parse_choices(stream)?;
+        stream.expect_kind(RightArrow)?;
+        let (body, end_token) = parse_generate_body_end_token(stream, alternative_label, messages)?;
+        alternatives.push(Alternative {
+            choices,
+            item: body,
+        });
+
+        try_token_kind!(
+            end_token,
+            End => break,
+            When => continue
+        );
+    }
+
+    stream.expect_kind(Generate)?;
+    // @TODO check identifier
+    stream.pop_if_kind(Identifier)?;
+    stream.expect_kind(SemiColon)?;
+
+    Ok(CaseGenerateStatement {
+        expression,
+        alternatives,
+    })
+}
+
 pub fn parse_concurrent_statement(
     stream: &mut TokenStream,
     token: Token,
@@ -404,6 +452,7 @@ pub fn parse_concurrent_statement(
             },
             For => ConcurrentStatement::ForGenerate(parse_for_generate_statement(stream, messages)?),
             If => ConcurrentStatement::IfGenerate(parse_if_generate_statement(stream, messages)?),
+            Case => ConcurrentStatement::CaseGenerate(parse_case_generate_statement(stream, messages)?),
             Assert => ConcurrentStatement::Assert(parse_concurrent_assert_statement(stream, false)?),
             Postponed => {
                 let token = stream.expect()?;
@@ -451,7 +500,7 @@ pub fn parse_labeled_concurrent_statements_end_token(
     loop {
         let token = stream.expect()?;
         match token.kind {
-            End | Elsif | Else => {
+            End | Elsif | Else | When => {
                 break Ok((statements, token));
             }
             _ => {
@@ -1312,4 +1361,79 @@ end generate;
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
     }
 
+    #[test]
+    fn test_case_generate() {
+        let (util, stmt) = with_stream_no_messages(
+            parse_labeled_concurrent_statement,
+            "\
+gen: case expr(0) + 2 generate
+  when 1 | 2 =>
+    sig <= value;
+  when others =>
+    foo(clk);
+end generate;
+",
+        );
+        let gen = CaseGenerateStatement {
+            expression: util.expr("expr(0) + 2"),
+            alternatives: vec![
+                Alternative {
+                    choices: util.choices("1 | 2"),
+                    item: GenerateBody {
+                        alternative_label: None,
+                        decl: None,
+                        statements: vec![util.concurrent_statement("sig <= value;")],
+                    },
+                },
+                Alternative {
+                    choices: util.choices("others"),
+                    item: GenerateBody {
+                        alternative_label: None,
+                        decl: None,
+                        statements: vec![util.concurrent_statement("foo(clk);")],
+                    },
+                },
+            ],
+        };
+        assert_eq!(stmt.label, Some(util.ident("gen")));
+        assert_eq!(stmt.statement, ConcurrentStatement::CaseGenerate(gen));
+    }
+
+    #[test]
+    fn test_case_alternative_label() {
+        let (util, stmt) = with_stream_no_messages(
+            parse_labeled_concurrent_statement,
+            "\
+gen: case expr(0) + 2 generate
+  when alt1: 1 | 2 =>
+    sig <= value;
+  when alt2: others =>
+    foo(clk);
+end generate;
+",
+        );
+        let gen = CaseGenerateStatement {
+            expression: util.expr("expr(0) + 2"),
+            alternatives: vec![
+                Alternative {
+                    choices: util.choices("1 | 2"),
+                    item: GenerateBody {
+                        alternative_label: Some(util.ident("alt1")),
+                        decl: None,
+                        statements: vec![util.concurrent_statement("sig <= value;")],
+                    },
+                },
+                Alternative {
+                    choices: util.choices("others"),
+                    item: GenerateBody {
+                        alternative_label: Some(util.ident("alt2")),
+                        decl: None,
+                        statements: vec![util.concurrent_statement("foo(clk);")],
+                    },
+                },
+            ],
+        };
+        assert_eq!(stmt.label, Some(util.ident("gen")));
+        assert_eq!(stmt.statement, ConcurrentStatement::CaseGenerate(gen));
+    }
 }

@@ -50,11 +50,7 @@ impl TokenStream {
 
     pub fn expect_kind(self: &mut Self, kind: Kind) -> ParseResult<Token> {
         if let Some(token) = self.pop()? {
-            if token.kind == kind {
-                Ok(token)
-            } else {
-                Err(token.kinds_error(&[kind]))
-            }
+            token.expect_kind(kind)
         } else {
             Err(self
                 .tokenizer
