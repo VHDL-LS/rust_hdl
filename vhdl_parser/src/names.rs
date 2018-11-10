@@ -16,43 +16,6 @@ use tokenstream::TokenStream;
 
 use tokenizer::{Kind::*, Token};
 
-/// LRM 8. Names
-
-/// name ::=
-///   simple_name
-/// | operator_symbol
-/// | character_literal
-/// | selected_name
-/// | indexed_name
-/// | slice_name
-/// | attribute_name
-/// | external_name
-
-/// prefix ::=
-///   name
-/// | function_call
-
-/// selected_name ::= prefix . suffix
-/// suffix ::=
-///   simple_name
-/// | character_literal
-/// | operator_symbol
-/// | all
-
-/// indexed_name ::= prefix ( expression { , expression } )
-
-/// slice_name ::= prefix ( discrete_range )
-
-/// attribute_name ::=
-///   prefix [ signature ] ' attribute_designator [ ( expression ) ]
-///
-/// attribute_designator ::= attribute_simple_name
-
-/// function_call ::=
-/// function_name [ ( actual_parameter_part ) ]
-
-/// actual_parameter_part ::= parameter_association_list
-
 pub fn parse_selected_name(stream: &mut TokenStream) -> ParseResult<SelectedName> {
     let mut result = Vec::new();
     result.push(stream.expect_ident()?);
@@ -255,13 +218,8 @@ fn parse_attribute_name(
     })
 }
 
-/// LRM 8. Names
-fn parse_name_with_prefix_and_initial_token(
-    stream: &mut TokenStream,
-    token: Token,
-    prefix: Option<WithPos<Name>>,
-) -> ParseResult<WithPos<Name>> {
-    let mut name = {
+fn to_suffix(token: Token) -> ParseResult<WithPos<Name>> {
+    let name = {
         try_token_kind!(
             token,
             Identifier => WithPos {
@@ -283,20 +241,27 @@ fn parse_name_with_prefix_and_initial_token(
         )
     };
 
-    if let Some(prefix) = prefix {
-        let pos = prefix.pos.combine(&name.pos);
-        name = WithPos {
-            item: Name::Selected(Box::new(prefix), Box::new(name)),
-            pos,
-        }
-    }
+    Ok(name)
+}
+
+/// LRM 8. Names
+pub fn parse_name_initial_token(
+    stream: &mut TokenStream,
+    token: Token,
+) -> ParseResult<WithPos<Name>> {
+    let mut name = to_suffix(token)?;
 
     loop {
         if let Some(token) = stream.peek()? {
             match token.kind {
                 Dot => {
                     stream.move_after(&token);
-                    name = parse_name_with_prefix(stream, Some(name))?
+                    let suffix_token = stream.expect()?;
+                    let pos = name.pos.combine(&suffix_token.pos);
+                    name = WithPos {
+                        item: Name::Selected(Box::new(name), Box::new(to_suffix(suffix_token)?)),
+                        pos,
+                    }
                 }
                 LeftSquare => {
                     let state = stream.state();
@@ -379,24 +344,9 @@ fn parse_name_with_prefix_and_initial_token(
     Ok(name)
 }
 
-/// LRM 8. Names
-fn parse_name_with_prefix(
-    stream: &mut TokenStream,
-    prefix: Option<WithPos<Name>>,
-) -> ParseResult<WithPos<Name>> {
-    let initial_token = stream.expect()?;
-    parse_name_with_prefix_and_initial_token(stream, initial_token, prefix)
-}
-
 pub fn parse_name(stream: &mut TokenStream) -> ParseResult<WithPos<Name>> {
-    parse_name_with_prefix(stream, None)
-}
-
-pub fn parse_name_initial_token(
-    stream: &mut TokenStream,
-    initial_token: Token,
-) -> ParseResult<WithPos<Name>> {
-    parse_name_with_prefix_and_initial_token(stream, initial_token, None)
+    let initial_token = stream.expect()?;
+    parse_name_initial_token(stream, initial_token)
 }
 
 #[cfg(test)]
