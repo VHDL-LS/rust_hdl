@@ -16,7 +16,7 @@ use object_declaration::{parse_file_declaration_no_semi, parse_optional_assignme
 use subprogram::parse_subprogram_declaration_no_semi;
 use subtype_indication::parse_subtype_indication;
 use tokenizer::Kind::*;
-use tokenizer::{Kind, Token};
+use tokenizer::{kinds_str, Kind, Token};
 use tokenstream::TokenStream;
 
 fn parse_optional_mode(stream: &mut TokenStream) -> ParseResult<Option<Mode>> {
@@ -208,6 +208,11 @@ fn parse_semicolon_separator(stream: &mut TokenStream) -> ParseResult<()> {
     Ok(try_token_kind!(token,
                       SemiColon => {
                           stream.move_after(&token);
+                          if stream.peek_expect()?.kind == RightPar {
+                              return Err(error(&token,
+                                           &format!("Last interface element may not end with {}",
+                                                    kinds_str(&[SemiColon]))));
+                          }
                       },
                       RightPar => {}
     ))
@@ -560,6 +565,32 @@ bar : natural)",
                 util.parse_first_ok(parse_generic, "constant foo : std_logic"),
                 util.parse_first_ok(parse_generic, "bar : natural")
             ]
+        );
+    }
+
+    #[test]
+    fn test_parse_generic_interface_list_error_on_last_semi_colon() {
+        let (util, result, messages) = with_stream_messages(
+            parse_generic_interface_list,
+            "\
+(constant foo : std_logic;
+ bar : natural;
+)",
+        );
+
+        assert_eq!(
+            result,
+            vec![
+                util.parse_first_ok(parse_generic, "constant foo : std_logic"),
+                util.parse_first_ok(parse_generic, "bar : natural")
+            ]
+        );
+        assert_eq!(
+            messages,
+            vec![error(
+                &util.substr_pos(";", 2),
+                "Last interface element may not end with ';'"
+            )]
         );
     }
 
