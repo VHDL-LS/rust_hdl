@@ -156,6 +156,8 @@ pub enum Kind {
     BOX,
     LtLt,
     GtGt,
+    Circ,
+    CommAt,
     Concat,
     Comma,
     ColonEq,
@@ -353,6 +355,8 @@ pub fn kind_str(kind: &Kind) -> &'static str {
         BOX => &"<>",
         LtLt => &"<<",
         GtGt => &">>",
+        Circ => &"^",
+        CommAt => &"@",
         Concat => &"&",
         Comma => &",",
         ColonEq => &":=",
@@ -1075,6 +1079,8 @@ impl Tokenizer {
                 b'.' => (Dot, Value::NoValue),
                 b'&' => (Concat, Value::NoValue),
                 b',' => (Comma, Value::NoValue),
+                b'^' => (Circ, Value::NoValue),
+                b'@' => (CommAt, Value::NoValue),
                 b'=' => if cursor.skip_if(b'>') {
                     (RightArrow, Value::NoValue)
                 } else {

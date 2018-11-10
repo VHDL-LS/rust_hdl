@@ -88,6 +88,30 @@ pub struct AttributeName {
     pub expr: Option<Box<WithPos<Expression>>>,
 }
 
+/// LRM 8.7 External names
+#[derive(PartialEq, Debug, Clone)]
+pub enum ExternalObjectClass {
+    Constant,
+    Signal,
+    Variable,
+}
+
+/// LRM 8.7 External names
+#[derive(PartialEq, Debug, Clone)]
+pub enum ExternalPath {
+    Package(WithPos<Name>),
+    Absolute(WithPos<Name>),
+    Relative(WithPos<Name>),
+}
+
+/// LRM 8.7 External names
+#[derive(PartialEq, Debug, Clone)]
+pub struct ExternalName {
+    pub class: ExternalObjectClass,
+    pub path: WithPos<ExternalPath>,
+    pub subtype: SubtypeIndication,
+}
+
 /// LRM 8. Names
 #[derive(PartialEq, Debug, Clone)]
 pub enum Name {
@@ -99,9 +123,8 @@ pub enum Name {
     Indexed(Box<WithPos<Name>>, Vec<WithPos<Expression>>),
     Slice(Box<WithPos<Name>>, DiscreteRange),
     Attribute(Box<AttributeName>),
-    /// LRM 9.3.4 Function calls
     FunctionCall(Box<FunctionCall>),
-    // @TODO external name
+    External(Box<ExternalName>),
 }
 
 /// LRM 9.3.4 Function calls

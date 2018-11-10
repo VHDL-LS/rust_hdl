@@ -4,14 +4,17 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
+/// LRM 8. Names
 use ast::{
     ActualPart, AssociationElement, AttributeName, Direction, DiscreteRange, Expression,
-    FunctionCall, Ident, Literal, Name, Range, RangeConstraint, SelectedName, Signature,
+    ExternalName, ExternalObjectClass, ExternalPath, FunctionCall, Ident, Literal, Name, Range,
+    RangeConstraint, SelectedName, Signature,
 };
 use expression::{parse_expression, parse_expression_initial_token};
 use message::{error, ParseResult};
 use source::WithPos;
 use subprogram::parse_signature;
+use subtype_indication::parse_subtype_indication;
 use tokenstream::TokenStream;
 
 use tokenizer::{Kind::*, Token};
@@ -244,12 +247,67 @@ fn to_suffix(token: Token) -> ParseResult<WithPos<Name>> {
     Ok(name)
 }
 
+/// LRM 8.7 External names
+/// Inside of << >>
+fn parse_inner_external_name(stream: &mut TokenStream) -> ParseResult<ExternalName> {
+    let token = stream.expect()?;
+    let class = try_token_kind!(
+        token,
+        Signal => ExternalObjectClass::Signal,
+        Constant => ExternalObjectClass::Constant,
+        Variable => ExternalObjectClass::Variable);
+
+    let token = stream.expect()?;
+    let path = try_token_kind!(
+        token,
+        CommAt => {
+            let path_name = parse_name(stream)?;
+            let path_pos = path_name.pos.clone().combine(&token.pos);
+            WithPos::new(ExternalPath::Package(path_name), path_pos)
+        },
+        Dot => {
+            let path_name = parse_name(stream)?;
+            let path_pos = path_name.pos.clone().combine(&token.pos);
+            WithPos::new(ExternalPath::Absolute(path_name), path_pos)
+        },
+        Circ => {
+            stream.expect_kind(Dot)?;
+            let path_name = parse_name(stream)?;
+            let path_pos = path_name.pos.clone().combine(&token.pos);
+            WithPos::new(ExternalPath::Relative(path_name), path_pos)
+        },
+        Identifier => {
+            let path_name = parse_name_initial_token(stream, token)?;
+            let path_pos = path_name.pos.clone();
+            WithPos::new(ExternalPath::Relative(path_name), path_pos)
+        }
+    );
+
+    stream.expect_kind(Colon)?;
+    let subtype = parse_subtype_indication(stream)?;
+
+    Ok(ExternalName {
+        class,
+        path,
+        subtype,
+    })
+}
+
 /// LRM 8. Names
 pub fn parse_name_initial_token(
     stream: &mut TokenStream,
     token: Token,
 ) -> ParseResult<WithPos<Name>> {
-    let mut name = to_suffix(token)?;
+    let mut name = {
+        if token.kind == LtLt {
+            stream.move_after(&token);
+            let external_name = Name::External(Box::new(parse_inner_external_name(stream)?));
+            let end_token = stream.expect_kind(GtGt)?;
+            WithPos::new(external_name, token.pos.combine(&end_token.pos))
+        } else {
+            to_suffix(token)?
+        }
+    };
 
     loop {
         if let Some(token) = stream.peek()? {
@@ -726,6 +784,99 @@ mod tests {
             actual: WithPos::new(ActualPart::Open, util.substr_pos("open", 2)),
         };
         assert_eq!(name, vec![elem1, elem2]);
+    }
+
+    #[test]
+    fn test_external_name_implicit_relative() {
+        let (util, name) = with_stream(parse_name, "<< signal dut.foo : std_logic >>");
+        let external_name = ExternalName {
+            class: ExternalObjectClass::Signal,
+            path: WithPos::new(
+                ExternalPath::Relative(util.name("dut.foo")),
+                util.first_substr_pos("dut.foo"),
+            ),
+            subtype: util.subtype_indication("std_logic"),
+        };
+        assert_eq!(
+            name,
+            WithPos::new(Name::External(Box::new(external_name)), util.entire_pos())
+        );
+    }
+
+    #[test]
+    fn test_external_name_explicit_relative() {
+        let (util, name) = with_stream(parse_name, "<< signal ^.dut.gen(0) : std_logic >>");
+        let external_name = ExternalName {
+            class: ExternalObjectClass::Signal,
+            path: WithPos::new(
+                ExternalPath::Relative(util.name("dut.gen(0)")),
+                util.first_substr_pos("^.dut.gen(0)"),
+            ),
+            subtype: util.subtype_indication("std_logic"),
+        };
+        assert_eq!(
+            name,
+            WithPos::new(Name::External(Box::new(external_name)), util.entire_pos())
+        );
+    }
+
+    #[test]
+    fn test_external_name_absolute() {
+        let (util, name) = with_stream(parse_name, "<< signal .dut.gen(0) : std_logic >>");
+        let external_name = ExternalName {
+            class: ExternalObjectClass::Signal,
+            path: WithPos::new(
+                ExternalPath::Absolute(util.name("dut.gen(0)")),
+                util.first_substr_pos(".dut.gen(0)"),
+            ),
+            subtype: util.subtype_indication("std_logic"),
+        };
+        assert_eq!(
+            name,
+            WithPos::new(Name::External(Box::new(external_name)), util.entire_pos())
+        );
+    }
+
+    #[test]
+    fn test_external_name_package() {
+        let (util, name) = with_stream(parse_name, "<< signal @lib.pkg : std_logic >>");
+        let external_name = ExternalName {
+            class: ExternalObjectClass::Signal,
+            path: WithPos::new(
+                ExternalPath::Package(util.name("lib.pkg")),
+                util.first_substr_pos("@lib.pkg"),
+            ),
+            subtype: util.subtype_indication("std_logic"),
+        };
+        assert_eq!(
+            name,
+            WithPos::new(Name::External(Box::new(external_name)), util.entire_pos())
+        );
+    }
+
+    #[test]
+    fn test_external_name_object_classes() {
+        let combinations = [
+            ("constant", ExternalObjectClass::Constant),
+            ("signal", ExternalObjectClass::Signal),
+            ("variable", ExternalObjectClass::Variable),
+        ];
+        for (string, class) in combinations.iter().cloned() {
+            let (util, name) =
+                with_stream(parse_name, &format!("<< {} dut.foo : std_logic >>", string));
+            let external_name = ExternalName {
+                class,
+                path: WithPos::new(
+                    ExternalPath::Relative(util.name("dut.foo")),
+                    util.first_substr_pos("dut.foo"),
+                ),
+                subtype: util.subtype_indication("std_logic"),
+            };
+            assert_eq!(
+                name,
+                WithPos::new(Name::External(Box::new(external_name)), util.entire_pos())
+            );
+        }
     }
 
 }
