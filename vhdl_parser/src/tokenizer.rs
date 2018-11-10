@@ -154,6 +154,8 @@ pub enum Kind {
     Bar,
     Dot,
     BOX,
+    LtLt,
+    GtGt,
     Concat,
     Comma,
     ColonEq,
@@ -349,6 +351,8 @@ pub fn kind_str(kind: &Kind) -> &'static str {
         Bar => &"|",
         Dot => &".",
         BOX => &"<>",
+        LtLt => &"<<",
+        GtGt => &">>",
         Concat => &"&",
         Comma => &",",
         ColonEq => &":=",
@@ -1104,15 +1108,19 @@ impl Tokenizer {
                 b'<' => match cursor.pop() {
                     Some(b'=') => (LTE, Value::NoValue),
                     Some(b'>') => (BOX, Value::NoValue),
+                    Some(b'<') => (LtLt, Value::NoValue),
                     _ => {
                         cursor.back();
                         (LT, Value::NoValue)
                     }
                 },
-                b'>' => if cursor.skip_if(b'=') {
-                    (GTE, Value::NoValue)
-                } else {
-                    (GT, Value::NoValue)
+                b'>' => match cursor.pop() {
+                    Some(b'=') => (GTE, Value::NoValue),
+                    Some(b'>') => (GtGt, Value::NoValue),
+                    _ => {
+                        cursor.back();
+                        (GT, Value::NoValue)
+                    }
                 },
                 b'/' => if cursor.skip_if(b'=') {
                     (NE, Value::NoValue)
@@ -1714,6 +1722,16 @@ end entity"
     #[test]
     fn tokenize_cmp() {
         assert_eq!(kinds_tokenize("< <= > >="), vec![LT, LTE, GT, GTE]);
+    }
+
+    #[test]
+    fn tokenize_box() {
+        assert_eq!(kinds_tokenize("<>"), vec![BOX]);
+    }
+
+    #[test]
+    fn tokenize_external_name() {
+        assert_eq!(kinds_tokenize("<< >>"), vec![LtLt, GtGt]);
     }
 
     #[test]
