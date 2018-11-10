@@ -11,7 +11,7 @@ use ast::{
 };
 use common::error_on_end_identifier_mismatch;
 use declarative_part::parse_declarative_part;
-use message::{error, push_some, MessageHandler, ParseResult};
+use message::{push_some, MessageHandler, ParseResult};
 use names::{parse_identifier_list, parse_selected_name};
 use range::{parse_array_index_constraint, parse_range};
 use subprogram::parse_subprogram_declaration;
@@ -21,7 +21,6 @@ use tokenstream::TokenStream;
 
 /// LRM 5.2.2 Enumeration types
 fn parse_enumeration_type_definition(stream: &mut TokenStream) -> ParseResult<TypeDefinition> {
-    let mut last_kind = None;
     let mut enum_literals = Vec::new();
     loop {
         let literal_token = stream.expect()?;
@@ -29,15 +28,6 @@ fn parse_enumeration_type_definition(stream: &mut TokenStream) -> ParseResult<Ty
         try_token_kind!(
             literal_token,
             Identifier | Character => {
-                if let Some(last_kind) = last_kind {
-                    if last_kind != literal_token.kind {
-                        return Err(error(
-                            literal_token,
-                            "Mixing identifier and character enumeration literals",
-                        ));
-                    }
-                }
-                last_kind = Some(literal_token.kind);
                 let enum_literal = try_token_kind!(
                     literal_token,
                     Identifier => EnumerationLiteral::Identifier(literal_token.expect_ident()?.item),
@@ -301,7 +291,7 @@ mod tests {
     use super::*;
 
     use ast::{DiscreteRange, Ident};
-    use test_util::{with_partial_stream, with_stream_no_messages};
+    use test_util::{with_stream, with_stream_no_messages};
 
     #[test]
     fn parse_integer_scalar_type_definition() {
@@ -346,18 +336,20 @@ mod tests {
     }
 
     #[test]
-    fn parse_error_when_mixing_identifier_and_scalar_in_enumerations() {
-        let (util, result) = with_partial_stream(
+    fn mixing_identifier_and_scalar_in_enumerations() {
+        let (util, result) = with_stream(
             |stream| parse_type_declaration(stream, &mut Vec::new()),
             "type foo is (ident, 'b');",
         );
 
-        let message = error(
-            &util.first_substr_pos("'b'"),
-            "Mixing identifier and character enumeration literals",
-        );
-
-        assert_eq!(result, Err(message));
+        let type_decl = TypeDeclaration {
+            ident: util.ident("foo"),
+            def: TypeDefinition::Enumeration(vec![
+                EnumerationLiteral::Identifier(util.symbol("ident")),
+                EnumerationLiteral::Character(b'b'),
+            ]),
+        };
+        assert_eq!(result, type_decl);
     }
 
     #[test]
