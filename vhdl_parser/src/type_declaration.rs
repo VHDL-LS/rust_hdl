@@ -9,7 +9,7 @@ use ast::{
     PhysicalTypeDeclaration, ProtectedTypeBody, ProtectedTypeDeclaration,
     ProtectedTypeDeclarativeItem, Range, TypeDeclaration, TypeDefinition,
 };
-use common::warning_on_end_identifier_mismatch;
+use common::error_on_end_identifier_mismatch;
 use declarative_part::parse_declarative_part;
 use message::{error, push_some, MessageHandler, ParseResult};
 use names::{parse_identifier_list, parse_selected_name};
@@ -249,7 +249,7 @@ pub fn parse_type_declaration(
                 SemiColon => TypeDefinition::Integer(constraint),
                 Units => {
                     let (def, end_ident) = parse_physical_type_definition(stream, constraint)?;
-                    push_some(messages, warning_on_end_identifier_mismatch(&ident, &end_ident));
+                    push_some(messages, error_on_end_identifier_mismatch(&ident, &end_ident));
                     def
                 }
             )
@@ -272,7 +272,7 @@ pub fn parse_type_declaration(
                 TypeDefinition::ProtectedBody(ProtectedTypeBody {decl})
             } else {
                 let (protected_type_decl, end_ident) = parse_protected_type_declaration(stream, messages)?;
-                push_some(messages, warning_on_end_identifier_mismatch(&ident, &end_ident));
+                push_some(messages, error_on_end_identifier_mismatch(&ident, &end_ident));
                 stream.expect_kind(SemiColon)?;
                 TypeDefinition::Protected(protected_type_decl)
             }
@@ -286,7 +286,7 @@ pub fn parse_type_declaration(
         Array => parse_array_type_definition(stream)?,
         Record =>  {
             let (def, end_ident) = parse_record_type_definition(stream)?;
-            push_some(messages, warning_on_end_identifier_mismatch(&ident, &end_ident));
+            push_some(messages, error_on_end_identifier_mismatch(&ident, &end_ident));
             def
         },
         // Enumeration

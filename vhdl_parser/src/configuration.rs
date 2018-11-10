@@ -9,7 +9,7 @@ use ast::{
     ConfigurationDeclaration, ConfigurationDeclarativeItem, ConfigurationItem, EntityAspect,
     InstantiationList, Name,
 };
-use common::warning_on_end_identifier_mismatch;
+use common::error_on_end_identifier_mismatch;
 use context::parse_use_clause;
 use message::{MessageHandler, ParseResult};
 use names::{parse_name, parse_name_initial_token, parse_selected_name, to_simple_name};
@@ -212,7 +212,7 @@ pub fn parse_configuration_declaration(
 
     stream.pop_if_kind(Configuration)?;
     let end_ident = stream.pop_optional_ident()?;
-    if let Some(msg) = warning_on_end_identifier_mismatch(&ident, &end_ident) {
+    if let Some(msg) = error_on_end_identifier_mismatch(&ident, &end_ident) {
         messages.push(msg)
     }
     stream.expect_kind(SemiColon)?;

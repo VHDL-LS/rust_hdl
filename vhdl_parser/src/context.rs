@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use ast::{ContextDeclaration, ContextItem, ContextReference, LibraryClause, Name, UseClause};
-use common::warning_on_end_identifier_mismatch;
+use common::error_on_end_identifier_mismatch;
 use message::{error, push_some, MessageHandler, ParseResult};
 use names::parse_name;
 use source::WithPos;
@@ -107,7 +107,7 @@ pub fn parse_context(
 
         push_some(
             messages,
-            warning_on_end_identifier_mismatch(&ident, &end_ident),
+            error_on_end_identifier_mismatch(&ident, &end_ident),
         );
 
         Ok(DeclarationOrReference::Declaration(ContextDeclaration {
@@ -134,7 +134,6 @@ pub fn parse_context(
 mod tests {
     use super::*;
 
-    use message::warning;
     use test_util::{with_stream, with_stream_messages, with_stream_no_messages};
 
     #[test]
@@ -237,7 +236,7 @@ end context ident;
     }
 
     #[test]
-    fn test_context_clause_warning_end_identifier_mismatch() {
+    fn test_context_clause_error_end_identifier_mismatch() {
         let (util, context, messages) = with_stream_messages(
             parse_context,
             "\
@@ -247,7 +246,7 @@ end context ident2;
         );
         assert_eq!(
             messages,
-            vec![warning(
+            vec![error(
                 &util.first_substr_pos("ident2"),
                 "End identifier mismatch, expected ident"
             )]

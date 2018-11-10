@@ -11,7 +11,7 @@ use ast::{
     GenerateBody, Ident, IfGenerateStatement, InstantiatedUnit, InstantiationStatement,
     LabeledConcurrentStatement, Name, ProcessStatement, Target,
 };
-use common::warning_on_end_identifier_mismatch;
+use common::error_on_end_identifier_mismatch;
 use declarative_part::{is_declarative_part, parse_declarative_part};
 use expression::parse_aggregate_leftpar_known;
 use expression::{parse_choices, parse_expression};
@@ -254,7 +254,7 @@ fn parse_generate_body_end_token(
                 // Inner with identifier
                 let end_ident = token.expect_ident()?;
                 if let Some(ref ident) = alternative_label {
-                    push_some(messages, warning_on_end_identifier_mismatch(ident, &Some(end_ident)));
+                    push_some(messages, error_on_end_identifier_mismatch(ident, &Some(end_ident)));
                 };
                 stream.move_after(&token);
                 stream.expect_kind(SemiColon)?;
@@ -563,7 +563,6 @@ pub fn parse_labeled_concurrent_statement(
 mod tests {
     use super::*;
     use ast::{Alternative, AssertStatement, DelayMechanism, Selection};
-    use message::warning;
     use test_util::{with_stream_messages, with_stream_no_messages};
 
     #[test]
@@ -1321,7 +1320,7 @@ end generate;
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
         assert_eq!(
             messages,
-            vec![warning(
+            vec![error(
                 &util.first_substr_pos("alt4"),
                 "End identifier mismatch, expected alt3"
             )]

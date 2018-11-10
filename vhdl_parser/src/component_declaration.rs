@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use ast::{ComponentDeclaration, InterfaceDeclaration};
-use common::warning_on_end_identifier_mismatch;
+use common::error_on_end_identifier_mismatch;
 use interface_declaration::{parse_generic_interface_list, parse_port_interface_list};
 use message::{error, push_some, MessageHandler, ParseResult};
 use tokenizer::Kind::*;
@@ -63,7 +63,7 @@ pub fn parse_component_declaration(
     if let Some(token) = stream.pop_if_kind(Identifier)? {
         push_some(
             messages,
-            warning_on_end_identifier_mismatch(&ident, &Some(token.expect_ident()?)),
+            error_on_end_identifier_mismatch(&ident, &Some(token.expect_ident()?)),
         );
     }
     stream.expect_kind(SemiColon)?;

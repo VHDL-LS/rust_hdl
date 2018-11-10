@@ -11,7 +11,7 @@ use ast::{
     ArchitectureBody, DesignFile, DesignUnit, EntityDeclaration, LibraryUnit, PackageBody,
     PackageDeclaration,
 };
-use common::warning_on_end_identifier_mismatch;
+use common::error_on_end_identifier_mismatch;
 use concurrent_statement::parse_labeled_concurrent_statements;
 use configuration::parse_configuration_declaration;
 use context::{parse_context, parse_library_clause, parse_use_clause, DeclarationOrReference};
@@ -65,7 +65,7 @@ fn parse_entity_declaration(
             End => {
                 stream.pop_if_kind(Entity)?;
                 let end_ident = stream.pop_optional_ident()?;
-                if let Some(msg) = warning_on_end_identifier_mismatch(&ident, &end_ident) {
+                if let Some(msg) = error_on_end_identifier_mismatch(&ident, &end_ident) {
                     messages.push(msg);
                 }
                 stream.expect_kind(SemiColon)?;
@@ -81,7 +81,7 @@ fn parse_entity_declaration(
                 let statements = parse_labeled_concurrent_statements(stream, messages)?;
                 stream.pop_if_kind(Entity)?;
                 let end_ident = stream.pop_optional_ident()?;
-                if let Some(msg) = warning_on_end_identifier_mismatch(&ident, &end_ident) {
+                if let Some(msg) = error_on_end_identifier_mismatch(&ident, &end_ident) {
                     messages.push(msg);
                 }
                 stream.expect_kind(SemiColon)?;
@@ -113,7 +113,7 @@ fn parse_architecture_body(
     stream.pop_if_kind(Architecture)?;
 
     let end_ident = stream.pop_optional_ident()?;
-    if let Some(msg) = warning_on_end_identifier_mismatch(&ident, &end_ident) {
+    if let Some(msg) = error_on_end_identifier_mismatch(&ident, &end_ident) {
         messages.push(msg);
     }
 
@@ -148,7 +148,7 @@ fn parse_package_declaration(
     let decl = parse_declarative_part(stream, messages, false)?;
     stream.pop_if_kind(Package)?;
     let end_ident = stream.pop_optional_ident()?;
-    if let Some(msg) = warning_on_end_identifier_mismatch(&ident, &end_ident) {
+    if let Some(msg) = error_on_end_identifier_mismatch(&ident, &end_ident) {
         messages.push(msg);
     }
     stream.pop_if_kind(Identifier)?;
@@ -174,7 +174,7 @@ fn parse_package_body(
     stream.pop_if_kind(Package)?;
     stream.pop_if_kind(Body)?;
     let end_ident = stream.pop_optional_ident()?;
-    if let Some(msg) = warning_on_end_identifier_mismatch(&ident, &end_ident) {
+    if let Some(msg) = error_on_end_identifier_mismatch(&ident, &end_ident) {
         messages.push(msg);
     }
     stream.expect_kind(SemiColon)?;

@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use ast::Ident;
-use message::{warning, Message, ParseResult};
+use message::{error, Message, ParseResult};
 use tokenizer::Kind;
 use tokenstream::TokenStream;
 
@@ -29,13 +29,13 @@ where
     Ok(optional)
 }
 
-pub fn warning_on_end_identifier_mismatch(
+pub fn error_on_end_identifier_mismatch(
     ident: &Ident,
     end_ident: &Option<Ident>,
 ) -> Option<Message> {
     if let Some(end_ident) = end_ident {
         if ident.item != end_ident.item {
-            return Some(warning(
+            return Some(error(
                 &end_ident.pos,
                 &format!("End identifier mismatch, expected {}", ident.item.name()),
             ));
