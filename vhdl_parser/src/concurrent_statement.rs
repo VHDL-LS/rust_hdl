@@ -15,7 +15,7 @@ use common::warning_on_end_identifier_mismatch;
 use declarative_part::{is_declarative_part, parse_declarative_part};
 use expression::parse_aggregate_leftpar_known;
 use expression::{parse_choices, parse_expression};
-use message::{error, MessageHandler, ParseResult};
+use message::{error, push_some, MessageHandler, ParseResult};
 use names::{
     expression_to_ident, parse_association_list, parse_name_initial_token, parse_selected_name,
     to_selected_name, to_simple_name,
@@ -254,7 +254,7 @@ fn parse_generate_body_end_token(
                 // Inner with identifier
                 let end_ident = token.expect_ident()?;
                 if let Some(ref ident) = alternative_label {
-                    warning_on_end_identifier_mismatch(ident, &Some(end_ident));
+                    push_some(messages, warning_on_end_identifier_mismatch(ident, &Some(end_ident)));
                 };
                 stream.move_after(&token);
                 stream.expect_kind(SemiColon)?;
@@ -563,7 +563,8 @@ pub fn parse_labeled_concurrent_statement(
 mod tests {
     use super::*;
     use ast::{Alternative, AssertStatement, DelayMechanism, Selection};
-    use test_util::with_stream_no_messages;
+    use message::warning;
+    use test_util::{with_stream_messages, with_stream_no_messages};
 
     #[test]
     fn test_concurrent_procedure() {
@@ -1281,12 +1282,13 @@ end generate;
 
     #[test]
     fn test_if_elseif_else_generate_alternative_label() {
-        let (util, stmt) = with_stream_no_messages(
+        let (util, stmt, messages) = with_stream_messages(
             parse_labeled_concurrent_statement,
             "\
 gen: if alt1: cond = true generate
 elsif alt2: cond2 = true generate
 else alt3: generate
+end alt4;
 end generate;
 ",
         );
@@ -1317,6 +1319,13 @@ end generate;
         };
         assert_eq!(stmt.label, Some(util.ident("gen")));
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
+        assert_eq!(
+            messages,
+            vec![warning(
+                &util.first_substr_pos("alt4"),
+                "End identifier mismatch, expected alt3"
+            )]
+        );
     }
     #[test]
     fn test_if_elseif_else_generate_inner_end() {
