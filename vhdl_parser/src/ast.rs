@@ -323,10 +323,17 @@ pub enum ProtectedTypeDeclarativeItem {
     Subprogram(SubprogramDeclaration),
 }
 
+#[derive(PartialEq, Debug, Clone)]
+pub enum AliasDesignator {
+    Identifier(Symbol),
+    OperatorSymbol(Latin1String),
+    Character(u8),
+}
+
 /// LRM 6.6 Alias declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct AliasDeclaration {
-    pub designator: WithPos<Designator>,
+    pub designator: WithPos<AliasDesignator>,
     pub subtype_indication: Option<SubtypeIndication>,
     pub name: WithPos<Name>,
     pub signature: Option<Signature>,
@@ -477,7 +484,6 @@ pub struct FileDeclaration {
 pub enum Designator {
     Identifier(Symbol),
     OperatorSymbol(Latin1String),
-    // @TODO character literal, but not for functions?
 }
 
 /// LRM 4.2 Subprogram declaration
