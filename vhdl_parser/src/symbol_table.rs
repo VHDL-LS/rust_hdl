@@ -13,7 +13,7 @@ use self::fnv::FnvHashMap;
 
 /// Represents an unique string symbol
 /// The id can be used as a fast comparison key for symbols
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq)]
 pub struct Symbol {
     /// The unique id of the symbol
     id: usize,
@@ -46,6 +46,12 @@ impl PartialEq for Symbol {
     /// Symbols are compared just based on the id
     fn eq(self: &Self, other: &Self) -> bool {
         self.id == other.id
+    }
+}
+
+impl std::hash::Hash for Symbol {
+    fn hash<H: std::hash::Hasher>(&self, hasher: &mut H) {
+        self.id.hash(hasher);
     }
 }
 

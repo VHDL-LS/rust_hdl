@@ -12,9 +12,9 @@ extern crate url;
 use jsonrpc_core::request::Notification;
 use jsonrpc_core::{IoHandler, Params, Value};
 use languageserver_types::{
-    Diagnostic, DiagnosticSeverity, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
-    InitializeResult, Position, PublishDiagnosticsParams, Range, ServerCapabilities,
-    TextDocumentSyncCapability, TextDocumentSyncKind,
+    Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DidChangeTextDocumentParams,
+    DidOpenTextDocumentParams, InitializeResult, Location, Position, PublishDiagnosticsParams,
+    Range, ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind,
 };
 use std::io::prelude::*;
 use std::io::{self, BufRead};
@@ -22,6 +22,7 @@ use url::Url;
 
 extern crate vhdl_parser;
 use vhdl_parser::message::{Message, Severity};
+use vhdl_parser::semantic;
 use vhdl_parser::source::{Source, SrcPos};
 use vhdl_parser::{ParserError, VHDLParser};
 
@@ -198,19 +199,23 @@ impl LanguageServer {
 
         // @TODO return error to client
         let source = Source::from_str(code).expect("Source was not legal latin-1");
-        let mut diagnostics = Vec::new();
         match parser.parse_design_source(&source, &mut messages) {
             Err(ParserError::Message(message)) => {
                 eprintln!("{}", message.show());
-                diagnostics.push(to_diagnostic(message));
+                messages.push(message);
             }
             Err(ParserError::IOError(error)) => eprintln!("{}", error),
-            Ok(..) => {}
+            Ok(ref design_file) => {
+                for design_unit in design_file.design_units.iter() {
+                    semantic::check_design_unit(design_unit, &mut messages);
+                }
+            }
         };
 
+        let mut diagnostics = Vec::new();
         for message in messages {
             eprintln!("{}", message.show());
-            diagnostics.push(to_diagnostic(message));
+            diagnostics.push(to_diagnostic(&uri, message));
         }
 
         let publish_diagnostics = PublishDiagnosticsParams {
@@ -316,17 +321,28 @@ fn read_header(reader: &mut BufRead) -> u64 {
     return content_length;
 }
 
-fn to_diagnostic(message: Message) -> Diagnostic {
+fn to_diagnostic(uri: &Url, message: Message) -> Diagnostic {
     let severity = match message.severity {
         Severity::Error => DiagnosticSeverity::Error,
         Severity::Warning => DiagnosticSeverity::Warning,
     };
+
+    let mut related_information = Vec::new();
+    for (pos, msg) in message.related {
+        related_information.push(DiagnosticRelatedInformation {
+            location: Location {
+                uri: uri.to_owned(),
+                range: srcpos_to_range(pos),
+            },
+            message: msg,
+        })
+    }
     Diagnostic {
         range: srcpos_to_range(message.pos),
         severity: Some(severity),
         code: None,
         source: Some("vhdl ls".to_owned()),
         message: message.message,
-        related_information: None,
+        related_information: Some(related_information),
     }
 }

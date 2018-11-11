@@ -23,6 +23,7 @@ pub mod message;
 mod names;
 mod object_declaration;
 mod range;
+pub mod semantic;
 mod sequential_statement;
 pub mod source;
 mod subprogram;

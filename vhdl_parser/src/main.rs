@@ -146,7 +146,7 @@ fn main() {
     let mut map = FnvHashMap::default();
 
     for idx in 0..env::args().skip(1).len() {
-        let (file_name, messages, design_file) = {
+        let (file_name, mut messages, design_file) = {
             match map.remove(&idx) {
                 Some(value) => value,
                 None => loop {
@@ -160,8 +160,14 @@ fn main() {
             }
         };
 
+        use vhdl_parser::semantic;
         let design_file = match design_file {
-            Ok(design_file) => design_file,
+            Ok(design_file) => {
+                for design_unit in design_file.design_units.iter() {
+                    semantic::check_design_unit(design_unit, &mut messages)
+                }
+                design_file
+            }
             Err(ParserError::Message(msg)) => {
                 println!("Error when parsing {}", file_name);
                 show_messages(&messages);
