@@ -8,6 +8,7 @@ use alias_declaration::parse_alias_declaration;
 use ast::{Declaration, PackageInstantiation};
 use attributes::parse_attribute;
 use component_declaration::parse_component_declaration;
+use configuration::parse_configuration_specification;
 use context::parse_use_clause;
 use message::{MessageHandler, ParseResult};
 use names::{parse_association_list, parse_selected_name};
@@ -48,7 +49,7 @@ pub fn is_declarative_part(stream: &mut TokenStream, begin_is_end: bool) -> Pars
 fn check_declarative_part(token: &Token, begin_is_end: bool) -> ParseResult<()> {
     match token.kind {
         Use | Type | Subtype | Shared | Constant | Signal | Variable | File | Component
-        | Attribute | Alias | Impure | Function | Procedure | Package => Ok(()),
+        | Attribute | Alias | Impure | Function | Procedure | Package | For => Ok(()),
         kind => {
             let end_kind = {
                 if begin_is_end {
@@ -59,7 +60,7 @@ fn check_declarative_part(token: &Token, begin_is_end: bool) -> ParseResult<()> 
             };
             let decl_kinds = [
                 Use, Type, Subtype, Shared, Constant, Signal, Variable, File, Component, Attribute,
-                Alias, Impure, Function, Procedure, Package, end_kind,
+                Alias, Impure, Function, Procedure, Package, For, end_kind,
             ];
 
             if kind == end_kind {
@@ -142,6 +143,12 @@ pub fn parse_declarative_part(
             },
             Package => match parse_package_instantiation(stream) {
                 Ok(decl) => declarations.push(Declaration::Package(decl)),
+                Err(msg) => {
+                    messages.push(msg);
+                }
+            },
+            For => match parse_configuration_specification(stream) {
+                Ok(decl) => declarations.push(Declaration::Configuration(decl)),
                 Err(msg) => {
                     messages.push(msg);
                 }

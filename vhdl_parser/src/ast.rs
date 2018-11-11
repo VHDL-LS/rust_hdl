@@ -582,6 +582,7 @@ pub enum Declaration {
     SubprogramBody(SubprogramBody),
     Use(UseClause),
     Package(PackageInstantiation),
+    Configuration(ConfigurationSpecification),
 }
 
 /// LRM 10.2 Wait statement
@@ -919,6 +920,14 @@ pub struct BindingIndication {
 pub struct ComponentSpecification {
     pub instantiation_list: InstantiationList,
     pub component_name: SelectedName,
+}
+
+/// LRM 7.3 Configuration specification
+// @TODO There is also compound
+#[derive(PartialEq, Debug, Clone)]
+pub struct ConfigurationSpecification {
+    pub spec: ComponentSpecification,
+    pub bind_ind: BindingIndication,
 }
 
 /// LRM 3.4 Configuration declarations

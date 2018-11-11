@@ -6,12 +6,12 @@
 
 use ast::{
     BindingIndication, BlockConfiguration, ComponentConfiguration, ComponentSpecification,
-    ConfigurationDeclaration, ConfigurationDeclarativeItem, ConfigurationItem, EntityAspect,
-    InstantiationList, Name,
+    ConfigurationDeclaration, ConfigurationDeclarativeItem, ConfigurationItem,
+    ConfigurationSpecification, EntityAspect, InstantiationList, Name,
 };
 use common::error_on_end_identifier_mismatch;
 use context::parse_use_clause;
-use message::{MessageHandler, ParseResult};
+use message::{error, MessageHandler, ParseResult};
 use names::{parse_name, parse_name_initial_token, parse_selected_name, to_simple_name};
 use source::WithPos;
 use tokenizer::Kind::*;
@@ -42,6 +42,21 @@ fn parse_entity_aspect(stream: &mut TokenStream) -> ParseResult<EntityAspect> {
     Ok(entity_aspect)
 }
 
+fn parse_binding_indication_known_keyword(
+    stream: &mut TokenStream,
+) -> ParseResult<BindingIndication> {
+    let entity_aspect = Some(parse_entity_aspect(stream)?);
+    // @TODO generic map
+    let generic_map = None;
+    // @TODO port  map
+    let port_map = None;
+    Ok(BindingIndication {
+        entity_aspect,
+        generic_map,
+        port_map,
+    })
+}
+
 fn parse_component_configuration_known_spec(
     stream: &mut TokenStream,
     spec: ComponentSpecification,
@@ -52,18 +67,7 @@ fn parse_component_configuration_known_spec(
         token,
         End => None,
         For => None,
-        Use => {
-            let entity_aspect = Some(parse_entity_aspect(stream)?);
-            // @TODO generic map
-            let generic_map = None;
-            // @TODO port  map
-            let port_map = None;
-            Some(BindingIndication {
-                entity_aspect,
-                generic_map,
-                port_map
-            })
-        }
+        Use => Some(parse_binding_indication_known_keyword(stream)?)
     );
 
     let token = stream.expect()?;
@@ -249,6 +253,22 @@ pub fn parse_configuration_declaration(
         decl,
         block_config,
     })
+}
+
+/// LRM 7.3 Configuration specification
+pub fn parse_configuration_specification(
+    stream: &mut TokenStream,
+) -> ParseResult<ConfigurationSpecification> {
+    stream.expect_kind(For)?;
+    match parse_component_specification_or_name(stream)? {
+        ComponentSpecificationOrName::ComponentSpec(spec) => {
+            let bind_ind = parse_binding_indication_known_keyword(stream)?;
+            Ok(ConfigurationSpecification { spec, bind_ind })
+        }
+        ComponentSpecificationOrName::Name(name) => {
+            return Err(error(name, "Expected component specification"));
+        }
+    }
 }
 
 #[cfg(test)]
@@ -575,6 +595,31 @@ end configuration cfg;
     fn entity_entity_aspect_open() {
         let (_, binding) = with_stream(parse_entity_aspect, "use open;");
         assert_eq!(binding, EntityAspect::Open);
+    }
+
+    #[test]
+    fn configuration_specification() {
+        let (util, conf) = with_stream(
+            parse_configuration_specification,
+            "for all : lib.pkg.comp use entity work.foo(rtl);",
+        );
+        assert_eq!(
+            conf,
+            ConfigurationSpecification {
+                spec: ComponentSpecification {
+                    instantiation_list: InstantiationList::All,
+                    component_name: util.selected_name("lib.pkg.comp"),
+                },
+                bind_ind: BindingIndication {
+                    entity_aspect: Some(EntityAspect::Entity(
+                        util.selected_name("work.foo"),
+                        Some(util.ident("rtl"))
+                    )),
+                    generic_map: None,
+                    port_map: None
+                }
+            }
+        );
     }
 
 }
