@@ -11,42 +11,60 @@ use message::{error, push_some, MessageHandler, ParseResult};
 use tokenizer::Kind::*;
 use tokenstream::TokenStream;
 
-fn parse_generic_and_port_clauses(
+pub fn parse_optional_generic_list(
     stream: &mut TokenStream,
     messages: &mut MessageHandler,
-) -> ParseResult<(Vec<InterfaceDeclaration>, Vec<InterfaceDeclaration>)> {
-    let mut generic_list = None;
-    let mut port_list = None;
-
+) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
+    let mut list = None;
     loop {
-        let token = stream.expect()?;
-        try_token_kind!(
-            token,
+        let token = stream.peek_expect()?;
+        match token.kind {
             Generic => {
-                let new_generic_list = parse_generic_interface_list(stream, messages)?;
-                stream.pop_if_kind(SemiColon)?;
-                if generic_list.is_some() {
-                    messages.push(error(&token.pos, "Duplicate generic clause"));
+                stream.move_after(&token);
+                let new_list = parse_generic_interface_list(stream, messages)?;
+                stream.expect_kind(SemiColon)?;
+                if list.is_some() {
+                    messages.push(error(token, "Duplicate generic clause"));
                 } else {
-                    generic_list = Some(new_generic_list);
+                    list = Some(new_list);
                 }
-            },
-            Port => {
-                let new_port_list = parse_port_interface_list(stream, messages)?;
-                stream.pop_if_kind(SemiColon)?;
-                if port_list.is_some() {
-                    messages.push(error(&token.pos, "Duplicate port clause"));
-                } else {
-                    port_list = Some(new_port_list);
-                }
-            },
-            End => {
-                break;
             }
-        )
+            _ => break,
+        }
     }
 
-    Ok((generic_list.unwrap_or(vec![]), port_list.unwrap_or(vec![])))
+    Ok(list)
+}
+
+pub fn parse_optional_port_list(
+    stream: &mut TokenStream,
+    messages: &mut MessageHandler,
+) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
+    let mut list = None;
+    loop {
+        let token = stream.peek_expect()?;
+        match token.kind {
+            Port => {
+                stream.move_after(&token);
+                let new_list = parse_port_interface_list(stream, messages)?;
+                stream.expect_kind(SemiColon)?;
+                if list.is_some() {
+                    messages.push(error(token, "Duplicate port clause"));
+                } else {
+                    list = Some(new_list);
+                }
+            }
+            Generic => {
+                stream.move_after(&token);
+                parse_generic_interface_list(stream, messages)?;
+                stream.expect_kind(SemiColon)?;
+                messages.push(error(token, "Generic clause must come before port clause"));
+            }
+            _ => break,
+        }
+    }
+
+    Ok(list)
 }
 
 pub fn parse_component_declaration(
@@ -57,8 +75,9 @@ pub fn parse_component_declaration(
     let ident = stream.expect_ident()?;
     stream.pop_if_kind(Is)?;
 
-    let (generic_list, port_list) = parse_generic_and_port_clauses(stream, messages)?;
-
+    let generic_list = parse_optional_generic_list(stream, messages)?;
+    let port_list = parse_optional_port_list(stream, messages)?;
+    stream.expect_kind(End)?;
     stream.expect_kind(Component)?;
     if let Some(token) = stream.pop_if_kind(Identifier)? {
         push_some(
@@ -70,8 +89,8 @@ pub fn parse_component_declaration(
 
     Ok(ComponentDeclaration {
         ident: ident,
-        generic_list: generic_list,
-        port_list: port_list,
+        generic_list: generic_list.unwrap_or(Vec::new()),
+        port_list: port_list.unwrap_or(Vec::new()),
     })
 }
 
@@ -81,7 +100,7 @@ mod tests {
 
     use ast::Ident;
     use message::error;
-    use test_util::{with_stream_messages, with_stream_no_messages};
+    use test_util::{with_partial_stream_messages, with_stream_no_messages};
 
     fn to_component(
         ident: Ident,
@@ -166,18 +185,17 @@ end component;
     }
 
     #[test]
-    fn test_component_with_generic_duplicate() {
-        let (util, component, messages) = with_stream_messages(
-            parse_component_declaration,
+    fn error_on_duplicate_generic_clause() {
+        let (util, result, messages) = with_partial_stream_messages(
+            parse_optional_generic_list,
             "\
-component foo is
-  generic (
-    foo : natural
-  );
-  generic (
-    bar : natural
-  );
-end component;
+generic (
+  foo : natural
+);
+generic (
+  bar : natural
+);
+end
 ",
         );
         assert_eq!(
@@ -187,39 +205,51 @@ end component;
                 "Duplicate generic clause"
             )]
         );
-        assert_eq!(
-            component,
-            to_component(
-                util.ident("foo"),
-                vec![util.generic("foo : natural")],
-                vec![]
-            )
-        );
+        assert_eq!(result, Ok(Some(vec![util.generic("foo : natural")])),);
     }
 
     #[test]
-    fn test_component_with_port_duplicate() {
-        let (util, component, messages) = with_stream_messages(
-            parse_component_declaration,
+    fn error_on_duplicate_port_clause() {
+        let (util, result, messages) = with_partial_stream_messages(
+            parse_optional_port_list,
             "\
-component foo is
-  port (
-    foo : natural
-  );
-  port (
-    bar : natural
-  );
-end component;
+port (
+  foo : natural
+);
+port (
+  bar : natural
+);
+end
 ",
         );
         assert_eq!(
             messages,
             vec![error(&util.substr_pos("port", 2), "Duplicate port clause")]
         );
-        assert_eq!(
-            component,
-            to_component(util.ident("foo"), vec![], vec![util.port("foo : natural")])
-        );
+        assert_eq!(result, Ok(Some(vec![util.port("foo : natural")])),);
     }
 
+    #[test]
+    fn error_generic_after_port_clause() {
+        let (util, result, messages) = with_partial_stream_messages(
+            parse_optional_port_list,
+            "\
+port (
+  foo : natural
+);
+generic (
+  bar : natural
+);
+end
+",
+        );
+        assert_eq!(
+            messages,
+            vec![error(
+                &util.first_substr_pos("generic"),
+                "Generic clause must come before port clause"
+            )]
+        );
+        assert_eq!(result, Ok(Some(vec![util.port("foo : natural")])),);
+    }
 }

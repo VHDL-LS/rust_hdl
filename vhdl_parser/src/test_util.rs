@@ -286,6 +286,19 @@ where
     (util, result, messages)
 }
 
+pub fn with_partial_stream_messages<F, R>(parse_fun: F, code: &str) -> (TestUtil, R, Vec<Message>)
+where
+    R: Debug,
+    F: FnOnce(&mut TokenStream, &mut MessageHandler) -> R,
+{
+    let mut messages = Vec::new();
+    let (util, result) = with_partial_stream(
+        |stream: &mut TokenStream| parse_fun(stream, &mut messages),
+        code,
+    );
+    (util, result, messages)
+}
+
 pub fn with_stream_no_messages<F, R>(parse_fun: F, code: &str) -> (TestUtil, R)
 where
     R: Debug,

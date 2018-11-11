@@ -12,12 +12,13 @@ use ast::{
     PackageDeclaration,
 };
 use common::error_on_end_identifier_mismatch;
+use component_declaration::{parse_optional_generic_list, parse_optional_port_list};
 use concurrent_statement::parse_labeled_concurrent_statements;
 use configuration::parse_configuration_declaration;
 use context::{parse_context, parse_library_clause, parse_use_clause, DeclarationOrReference};
 use declarative_part::{parse_declarative_part, parse_package_instantiation};
-use interface_declaration::{parse_generic_interface_list, parse_port_interface_list};
-use message::{error, push_result, MessageHandler, ParseResult};
+use interface_declaration::parse_generic_interface_list;
+use message::{push_result, MessageHandler, ParseResult};
 
 /// Parse an entity declaration, token is initial entity token
 /// If a parse error occurs the stream is consumed until and end entity
@@ -27,73 +28,47 @@ fn parse_entity_declaration(
 ) -> ParseResult<EntityDeclaration> {
     stream.expect_kind(Entity)?;
 
-    let mut generic_clause = None;
-    let mut port_clause = None;
-
     let ident = stream.expect_ident()?;
     stream.expect_kind(Is)?;
 
-    loop {
-        let token = stream.expect()?;
-        try_token_kind!(
-            token,
-            Generic => {
-                let new_generic_clause = parse_generic_interface_list(stream, messages)?;
-                stream.expect_kind(SemiColon)?;
+    let generic_clause = parse_optional_generic_list(stream, messages)?;
+    let port_clause = parse_optional_port_list(stream, messages)?;
 
-                if generic_clause.is_some() {
-                    messages.push(error(&token.pos, "Duplicate generic clause"));
-                    continue;
-                } else {
-                    generic_clause = Some(new_generic_clause);
-                }
+    let token = stream.expect()?;
+    try_token_kind!(
+        token,
 
-            },
-
-            Port => {
-                let new_port_clause = parse_port_interface_list(stream, messages)?;
-                stream.expect_kind(SemiColon)?;
-
-                if port_clause.is_some() {
-                    messages.push(error(&token.pos, "Duplicate port clause"));
-                    continue;
-                } else {
-                    port_clause = Some(new_port_clause);
-                }
-            },
-
-            End => {
-                stream.pop_if_kind(Entity)?;
-                let end_ident = stream.pop_optional_ident()?;
-                if let Some(msg) = error_on_end_identifier_mismatch(&ident, &end_ident) {
-                    messages.push(msg);
-                }
-                stream.expect_kind(SemiColon)?;
-                return Ok(EntityDeclaration {
-                    ident: ident,
-                    generic_clause: generic_clause,
-                    port_clause: port_clause,
-                    statements: Vec::new(),
-                });
-            },
-
-            Begin => {
-                let statements = parse_labeled_concurrent_statements(stream, messages)?;
-                stream.pop_if_kind(Entity)?;
-                let end_ident = stream.pop_optional_ident()?;
-                if let Some(msg) = error_on_end_identifier_mismatch(&ident, &end_ident) {
-                    messages.push(msg);
-                }
-                stream.expect_kind(SemiColon)?;
-                return Ok(EntityDeclaration {
-                    ident: ident,
-                    generic_clause: generic_clause,
-                    port_clause: port_clause,
-                    statements,
-                });
+        End => {
+            stream.pop_if_kind(Entity)?;
+            let end_ident = stream.pop_optional_ident()?;
+            if let Some(msg) = error_on_end_identifier_mismatch(&ident, &end_ident) {
+                messages.push(msg);
             }
-        );
-    }
+            stream.expect_kind(SemiColon)?;
+            return Ok(EntityDeclaration {
+                ident: ident,
+                generic_clause: generic_clause,
+                port_clause: port_clause,
+                statements: Vec::new(),
+            });
+        },
+
+        Begin => {
+            let statements = parse_labeled_concurrent_statements(stream, messages)?;
+            stream.pop_if_kind(Entity)?;
+            let end_ident = stream.pop_optional_ident()?;
+            if let Some(msg) = error_on_end_identifier_mismatch(&ident, &end_ident) {
+                messages.push(msg);
+            }
+            stream.expect_kind(SemiColon)?;
+            return Ok(EntityDeclaration {
+                ident: ident,
+                generic_clause: generic_clause,
+                port_clause: port_clause,
+                statements,
+            });
+        }
+    );
 }
 
 /// LRM 3.3.1
@@ -402,39 +377,6 @@ end entity;
     }
 
     #[test]
-    fn parse_entity_error_double_generic_clause() {
-        let (util, design_file, messages) = parse_str(
-            "
-entity myent is
-  generic ();
-  generic ();
-end entity;
-",
-        );
-
-        assert_eq!(
-            to_single_entity(design_file),
-            EntityDeclaration {
-                ident: Ident {
-                    item: util.symbol("myent"),
-                    pos: util.first_substr_pos("myent")
-                },
-                generic_clause: Some(vec![]),
-                port_clause: None,
-                statements: vec![],
-            }
-        );
-
-        assert_eq!(
-            messages,
-            [error(
-                &util.substr_pos("generic", 2),
-                "Duplicate generic clause"
-            )]
-        );
-    }
-
-    #[test]
     fn parse_entity_port_clause() {
         let (util, design_file) = parse_ok(
             "
@@ -492,38 +434,6 @@ end entity;
                 port_clause: None,
                 statements: vec![util.concurrent_statement("check(clk, valid);")],
             }
-        );
-    }
-
-    #[test]
-    fn parse_entity_error_double_port_clause() {
-        let (util, design_file, messages) = parse_str(
-            "
-entity myent is
-  port (
-    signal clk : std_logic
-  );
-  port ();
-end entity;
-",
-        );
-
-        assert_eq!(
-            to_single_entity(design_file),
-            EntityDeclaration {
-                ident: Ident {
-                    item: util.symbol("myent"),
-                    pos: util.first_substr_pos("myent")
-                },
-                generic_clause: None,
-                port_clause: Some(vec![util.port("signal clk : std_logic")]),
-                statements: vec![],
-            }
-        );
-
-        assert_eq!(
-            messages,
-            [error(&util.substr_pos("port", 2), "Duplicate port clause")]
         );
     }
 
