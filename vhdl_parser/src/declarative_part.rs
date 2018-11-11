@@ -161,6 +161,7 @@ pub fn parse_declarative_part_leave_end_token(
                 break;
             }
             _ => {
+                stream.move_after(&token);
                 if let Err(msg) = check_declarative_part(&token, false, false) {
                     messages.push(msg);
                 }
@@ -176,7 +177,7 @@ pub fn parse_declarative_part_leave_end_token(
 mod tests {
     use super::*;
 
-    use test_util::with_stream;
+    use test_util::{with_partial_stream_messages, with_stream};
 
     #[test]
     fn package_instantiation() {
@@ -219,5 +220,18 @@ package ident is new lib.foo.bar
                 ))
             }
         );
+    }
+
+    #[test]
+    fn parse_declarative_part_error() {
+        // Just checking that there is not an infinite loop
+        let (_, decl, messages) = with_partial_stream_messages(
+            parse_declarative_part_leave_end_token,
+            "\
+foo
+",
+        );
+        assert_eq!(decl, Ok(vec![]));
+        assert!(messages.len() > 0);
     }
 }
