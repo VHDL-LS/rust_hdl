@@ -272,10 +272,16 @@ fn parse_primary_initial_token(
             item: Expression::Literal(Literal::Character(token.expect_character()?)),
             pos: token.pos.clone(),
         }),
-        StringLiteral => Ok(WithPos {
-            item: Expression::Literal(Literal::String(token.expect_string()?)),
-            pos: token.pos.clone(),
-        }),
+        StringLiteral => {
+            let name = parse_name_initial_token(stream, token)?;
+            match name.item {
+                Name::OperatorSymbol(string) => Ok(WithPos {
+                    item: Expression::Literal(Literal::String(string)),
+                    pos: name.pos.clone(),
+                }),
+                _ => Ok(name.map_into(|name| Expression::Name(Box::new(name)))),
+            }
+        }
         Null => Ok(WithPos {
             item: Expression::Literal(Literal::Null),
             pos: token.pos.clone(),
@@ -487,6 +493,16 @@ mod tests {
                 ))),
                 pos: util.entire_pos()
             }
+        );
+    }
+
+    #[test]
+    fn parses_operator_symol() {
+        let (util, expression) = parse_ok("\"string\"(1, 2)");
+        assert_eq!(
+            expression,
+            util.name("\"string\"(1, 2)")
+                .map_into(|name| Expression::Name(Box::new(name)))
         );
     }
 
