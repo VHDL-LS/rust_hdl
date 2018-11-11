@@ -119,66 +119,60 @@ pub fn parse_attribute(stream: &mut TokenStream) -> ParseResult<Vec<Attribute>> 
 mod tests {
     use super::*;
     use ast::Designator;
-    use test_util::with_stream;
+    use test_util::Code;
 
     #[test]
     fn parse_simple_attribute_declaration() {
-        let (util, result) = with_stream(parse_attribute, "attribute foo : lib.name;");
+        let code = Code::new("attribute foo : lib.name;");
         assert_eq!(
-            result,
+            code.with_stream(parse_attribute),
             vec![Attribute::Declaration(AttributeDeclaration {
-                ident: util.ident("foo"),
-                type_mark: util.selected_name("lib.name")
+                ident: code.s1("foo").ident(),
+                type_mark: code.s1("lib.name").selected_name()
             })]
         )
     }
 
     #[test]
     fn parse_simple_attribute_specification() {
-        let (util, result) = with_stream(
-            parse_attribute,
-            "attribute attr_name of foo : signal is 0+1;",
-        );
+        let code = Code::new("attribute attr_name of foo : signal is 0+1;");
         assert_eq!(
-            result,
+            code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
-                ident: util.ident("attr_name"),
+                ident: code.s1("attr_name").ident(),
                 entity_name: EntityName::Name(EntityTag {
-                    designator: util.ident("foo").map_into(Designator::Identifier),
+                    designator: code.s1("foo").ident().map_into(Designator::Identifier),
                     signature: None
                 }),
                 entity_class: EntityClass::Signal,
-                expr: util.expr("0+1")
+                expr: code.s1("0+1").expr()
             })]
         )
     }
 
     #[test]
     fn parse_attribute_specification_list() {
-        let (util, result) = with_stream(
-            parse_attribute,
-            "attribute attr_name of foo, bar : signal is 0+1;",
-        );
+        let code = Code::new("attribute attr_name of foo, bar : signal is 0+1;");
         assert_eq!(
-            result,
+            code.with_stream(parse_attribute),
             vec![
                 Attribute::Specification(AttributeSpecification {
-                    ident: util.ident("attr_name"),
+                    ident: code.s1("attr_name").ident(),
                     entity_name: EntityName::Name(EntityTag {
-                        designator: util.ident("foo").map_into(Designator::Identifier),
+                        designator: code.s1("foo").ident().map_into(Designator::Identifier),
                         signature: None
                     }),
                     entity_class: EntityClass::Signal,
-                    expr: util.expr("0+1")
+                    expr: code.s1("0+1").expr()
                 }),
                 Attribute::Specification(AttributeSpecification {
-                    ident: util.ident("attr_name"),
+                    ident: code.s1("attr_name").ident(),
                     entity_name: EntityName::Name(EntityTag {
-                        designator: util.ident("bar").map_into(Designator::Identifier),
+                        designator: code.s1("bar").ident().map_into(Designator::Identifier),
                         signature: None
                     }),
                     entity_class: EntityClass::Signal,
-                    expr: util.expr("0+1")
+                    expr: code.s1("0+1").expr()
                 })
             ]
         )
@@ -186,54 +180,45 @@ mod tests {
 
     #[test]
     fn parse_attribute_specification_all() {
-        let (util, result) = with_stream(
-            parse_attribute,
-            "attribute attr_name of all : signal is 0+1;",
-        );
+        let code = Code::new("attribute attr_name of all : signal is 0+1;");
         assert_eq!(
-            result,
+            code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
-                ident: util.ident("attr_name"),
+                ident: code.s1("attr_name").ident(),
                 entity_name: EntityName::All,
                 entity_class: EntityClass::Signal,
-                expr: util.expr("0+1")
+                expr: code.s1("0+1").expr()
             })]
         )
     }
 
     #[test]
     fn parse_attribute_specification_others() {
-        let (util, result) = with_stream(
-            parse_attribute,
-            "attribute attr_name of others : signal is 0+1;",
-        );
+        let code = Code::new("attribute attr_name of others : signal is 0+1;");
         assert_eq!(
-            result,
+            code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
-                ident: util.ident("attr_name"),
+                ident: code.s1("attr_name").ident(),
                 entity_name: EntityName::Others,
                 entity_class: EntityClass::Signal,
-                expr: util.expr("0+1")
+                expr: code.s1("0+1").expr()
             })]
         )
     }
 
     #[test]
     fn parse_attribute_specification_with_signature() {
-        let (util, result) = with_stream(
-            parse_attribute,
-            "attribute attr_name of foo[return natural] : signal is 0+1;",
-        );
+        let code = Code::new("attribute attr_name of foo[return natural] : signal is 0+1;");
         assert_eq!(
-            result,
+            code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
-                ident: util.ident("attr_name"),
+                ident: code.s1("attr_name").ident(),
                 entity_name: EntityName::Name(EntityTag {
-                    designator: util.ident("foo").map_into(Designator::Identifier),
-                    signature: Some(util.signature("[return natural]"))
+                    designator: code.s1("foo").ident().map_into(Designator::Identifier),
+                    signature: Some(code.s1("[return natural]").signature())
                 }),
                 entity_class: EntityClass::Signal,
-                expr: util.expr("0+1")
+                expr: code.s1("0+1").expr()
             })]
         )
     }

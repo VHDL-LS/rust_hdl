@@ -563,76 +563,75 @@ pub fn parse_labeled_concurrent_statement(
 mod tests {
     use super::*;
     use ast::{Alternative, AssertStatement, DelayMechanism, Selection};
-    use test_util::{with_stream_messages, with_stream_no_messages};
+    use test_util::Code;
 
     #[test]
     fn test_concurrent_procedure() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
             foo(clk);
 ",
         );
         let call = ConcurrentProcedureCall {
             postponed: false,
-            call: util.function_call("foo(clk)"),
+            call: code.s1("foo(clk)").function_call(),
         };
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(stmt.statement, ConcurrentStatement::ProcedureCall(call));
     }
 
     #[test]
     fn test_postponed_concurrent_procedure() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
             postponed foo(clk);
 ",
         );
         let call = ConcurrentProcedureCall {
             postponed: true,
-            call: util.function_call("foo(clk)"),
+            call: code.s1("foo(clk)").function_call(),
         };
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(stmt.statement, ConcurrentStatement::ProcedureCall(call));
     }
 
     #[test]
     fn test_labeled_concurrent_procedure() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
             name: foo(clk);
 ",
         );
         let call = ConcurrentProcedureCall {
             postponed: false,
-            call: util.function_call("foo(clk)"),
+            call: code.s1("foo(clk)").function_call(),
         };
-        assert_eq!(stmt.label, Some(util.ident("name")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("name").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::ProcedureCall(call));
     }
 
     #[test]
     fn test_concurrent_procedure_no_args() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
             foo;
 ",
         );
         let call = ConcurrentProcedureCall {
             postponed: false,
-            call: util.function_call("foo"),
+            call: code.s1("foo").function_call(),
         };
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(stmt.statement, ConcurrentStatement::ProcedureCall(call));
     }
 
     #[test]
     fn test_block() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 name : block
   constant const : natural := 0;
@@ -643,25 +642,25 @@ end block;
         );
         let call = ConcurrentProcedureCall {
             postponed: false,
-            call: util.function_call("foo(clk)"),
+            call: code.s1("foo(clk)").function_call(),
         };
 
         let block = BlockStatement {
             guard_condition: None,
-            decl: util.declarative_part("constant const : natural := 0;"),
+            decl: code.s1("constant const : natural := 0;").declarative_part(),
             statements: vec![LabeledConcurrentStatement {
-                label: Some(util.ident("name2")),
+                label: Some(code.s1("name2").ident()),
                 statement: ConcurrentStatement::ProcedureCall(call),
             }],
         };
-        assert_eq!(stmt.label, Some(util.ident("name")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("name").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Block(block));
     }
 
     #[test]
     fn test_block_variant() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 name : block is
 begin
@@ -673,14 +672,14 @@ end block name;
             decl: vec![],
             statements: vec![],
         };
-        assert_eq!(stmt.label, Some(util.ident("name")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("name").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Block(block));
     }
 
     #[test]
     fn test_guarded_block() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 name : block (cond = true)
 begin
@@ -688,18 +687,18 @@ end block;
 ",
         );
         let block = BlockStatement {
-            guard_condition: Some(util.expr("cond = true")),
+            guard_condition: Some(code.s1("cond = true").expr()),
             decl: vec![],
             statements: vec![],
         };
-        assert_eq!(stmt.label, Some(util.ident("name")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("name").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Block(block));
     }
 
     #[test]
     fn test_process_statement() {
-        let (_, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 process
 begin
@@ -712,14 +711,14 @@ end process;
             decl: vec![],
             statements: vec![],
         };
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
     }
 
     #[test]
     fn test_process_statement_variant() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 name : process is
 begin
@@ -732,14 +731,14 @@ end process name;
             decl: vec![],
             statements: vec![],
         };
-        assert_eq!(stmt.label, Some(util.ident("name")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("name").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
     }
 
     #[test]
     fn test_postponed_process_statement() {
-        let (_, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 postponed process
 begin
@@ -752,14 +751,14 @@ end process;
             decl: vec![],
             statements: vec![],
         };
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
     }
 
     #[test]
     fn test_process_statement_sensitivity() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 process (clk, vec(1)) is
 begin
@@ -768,18 +767,18 @@ end process;
         );
         let process = ProcessStatement {
             postponed: false,
-            sensitivity_list: vec![util.name("clk"), util.name("vec(1)")],
+            sensitivity_list: vec![code.s1("clk").name(), code.s1("vec(1)").name()],
             decl: vec![],
             statements: vec![],
         };
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
     }
 
     #[test]
     fn test_process_statement_full() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 process (all) is
   variable foo : boolean;
@@ -791,21 +790,21 @@ end process;
         );
         let process = ProcessStatement {
             postponed: false,
-            sensitivity_list: vec![util.name("all")],
-            decl: util.declarative_part("variable foo : boolean;"),
+            sensitivity_list: vec![code.s1("all").name()],
+            decl: code.s1("variable foo : boolean;").declarative_part(),
             statements: vec![
-                util.sequential_statement("foo <= true;"),
-                util.sequential_statement("wait;"),
+                code.s1("foo <= true;").sequential_statement(),
+                code.s1("wait;").sequential_statement(),
             ],
         };
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
     }
 
     #[test]
     fn test_concurrent_assert() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 assert cond = true;
 ",
@@ -813,19 +812,19 @@ assert cond = true;
         let assert = ConcurrentAssertStatement {
             postponed: false,
             statement: AssertStatement {
-                condition: util.expr("cond = true"),
+                condition: code.s1("cond = true").expr(),
                 report: None,
                 severity: None,
             },
         };
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Assert(assert));
     }
 
     #[test]
     fn test_postponed_concurrent_assert() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 postponed assert cond = true;
 ",
@@ -833,19 +832,19 @@ postponed assert cond = true;
         let assert = ConcurrentAssertStatement {
             postponed: true,
             statement: AssertStatement {
-                condition: util.expr("cond = true"),
+                condition: code.s1("cond = true").expr(),
                 report: None,
                 severity: None,
             },
         };
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Assert(assert));
     }
 
     #[test]
     fn test_concurrent_signal_assignment() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 foo <= bar(2 to 3);
 ",
@@ -853,38 +852,39 @@ foo <= bar(2 to 3);
         let assign = ConcurrentSignalAssignment {
             postponed: false,
             guarded: false,
-            target: util.name("foo").map_into(Target::Name),
+            target: code.s1("foo").name().map_into(Target::Name),
             delay_mechanism: None,
-            rhs: AssignmentRightHand::Simple(util.waveform("bar(2 to 3)")),
+            rhs: AssignmentRightHand::Simple(code.s1("bar(2 to 3)").waveform()),
         };
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Assignment(assign));
     }
 
     #[test]
     fn parse_selected_signal_assignment() {
-        let (util, statement) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 with x(0) + 1 select
    foo(0) <= transport bar(1,2) after 2 ns when 0|1;",
         );
 
         let selection = Selection {
-            expression: util.expr("x(0) + 1"),
+            expression: code.s1("x(0) + 1").expr(),
             alternatives: vec![Alternative {
-                choices: util.choices("0|1"),
-                item: util.waveform("bar(1,2) after 2 ns"),
+                choices: code.s1("0|1").choices(),
+                item: code.s1("bar(1,2) after 2 ns").waveform(),
             }],
         };
 
-        assert_eq!(statement.label, None);
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, None);
         assert_eq!(
-            statement.statement,
+            stmt.statement,
             ConcurrentStatement::Assignment(ConcurrentSignalAssignment {
                 postponed: false,
                 guarded: false,
-                target: util.name("foo(0)").map_into(Target::Name),
+                target: code.s1("foo(0)").name().map_into(Target::Name),
                 delay_mechanism: Some(DelayMechanism::Transport),
                 rhs: AssignmentRightHand::Selected(selection)
             })
@@ -893,62 +893,61 @@ with x(0) + 1 select
 
     #[test]
     fn test_component_instantiation() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 inst: component lib.foo.bar;
 ",
         );
 
         let inst = InstantiationStatement {
-            unit: InstantiatedUnit::Component(util.selected_name("lib.foo.bar")),
+            unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").selected_name()),
             generic_map: vec![],
             port_map: vec![],
         };
-        assert_eq!(stmt.label, Some(util.ident("inst")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
 
     #[test]
     fn test_configuration_instantiation() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 inst: configuration lib.foo.bar;
 ",
         );
 
         let inst = InstantiationStatement {
-            unit: InstantiatedUnit::Configuration(util.selected_name("lib.foo.bar")),
+            unit: InstantiatedUnit::Configuration(code.s1("lib.foo.bar").selected_name()),
             generic_map: vec![],
             port_map: vec![],
         };
-        assert_eq!(stmt.label, Some(util.ident("inst")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
 
     #[test]
     fn test_entity_instantiation() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 inst: entity lib.foo.bar;
 ",
         );
 
         let inst = InstantiationStatement {
-            unit: InstantiatedUnit::Entity(util.selected_name("lib.foo.bar"), None),
+            unit: InstantiatedUnit::Entity(code.s1("lib.foo.bar").selected_name(), None),
             generic_map: vec![],
             port_map: vec![],
         };
-        assert_eq!(stmt.label, Some(util.ident("inst")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
 
     #[test]
     fn test_entity_architecture_instantiation() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 inst: entity lib.foo.bar(arch);
 ",
@@ -956,20 +955,20 @@ inst: entity lib.foo.bar(arch);
 
         let inst = InstantiationStatement {
             unit: InstantiatedUnit::Entity(
-                util.selected_name("lib.foo.bar"),
-                Some(util.ident("arch")),
+                code.s1("lib.foo.bar").selected_name(),
+                Some(code.s1("arch").ident()),
             ),
             generic_map: vec![],
             port_map: vec![],
         };
-        assert_eq!(stmt.label, Some(util.ident("inst")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
 
     #[test]
     fn test_component_aspect_maps() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 inst: component lib.foo.bar
   generic map (
@@ -982,26 +981,24 @@ inst: component lib.foo.bar
         );
 
         let inst = InstantiationStatement {
-            unit: InstantiatedUnit::Component(util.selected_name("lib.foo.bar")),
-            generic_map: util.association_list(
-                "(
+            unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").selected_name()),
+            generic_map: code
+                .s1("(
    const => 1
-  )",
-            ),
-            port_map: util.association_list(
-                "(
+  )").association_list(),
+            port_map: code
+                .s1("(
    clk => clk_foo
-  )",
-            ),
+  )").association_list(),
         };
-        assert_eq!(stmt.label, Some(util.ident("inst")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
 
     #[test]
     fn test_component_no_keyword_port_aspect_map() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 inst: lib.foo.bar
   port map (
@@ -1011,22 +1008,21 @@ inst: lib.foo.bar
         );
 
         let inst = InstantiationStatement {
-            unit: InstantiatedUnit::Component(util.selected_name("lib.foo.bar")),
+            unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").selected_name()),
             generic_map: vec![],
-            port_map: util.association_list(
-                "(
+            port_map: code
+                .s1("(
    clk => clk_foo
-  )",
-            ),
+  )").association_list(),
         };
-        assert_eq!(stmt.label, Some(util.ident("inst")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
 
     #[test]
     fn test_component_no_keyword_generic_aspect_map() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
             inst: lib.foo.bar
   generic map (
@@ -1036,44 +1032,43 @@ inst: lib.foo.bar
         );
 
         let inst = InstantiationStatement {
-            unit: InstantiatedUnit::Component(util.selected_name("lib.foo.bar")),
-            generic_map: util.association_list(
-                "(
+            unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").selected_name()),
+            generic_map: code
+                .s1("(
    const => 1
-  )",
-            ),
+  )").association_list(),
             port_map: vec![],
         };
-        assert_eq!(stmt.label, Some(util.ident("inst")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
 
     #[test]
     fn test_for_generate_empty() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 gen: for idx in 0 to 1 generate
 end generate;
 ",
         );
         let gen = ForGenerateStatement {
-            index_name: util.ident("idx"),
-            discrete_range: util.discrete_range("0 to 1"),
+            index_name: code.s1("idx").ident(),
+            discrete_range: code.s1("0 to 1").discrete_range(),
             body: GenerateBody {
                 alternative_label: None,
                 decl: None,
                 statements: vec![],
             },
         };
-        assert_eq!(stmt.label, Some(util.ident("gen")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::ForGenerate(gen));
     }
 
     #[test]
     fn test_for_generate() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 gen: for idx in 0 to 1 generate
   foo <= bar;
@@ -1081,22 +1076,22 @@ end generate;
 ",
         );
         let gen = ForGenerateStatement {
-            index_name: util.ident("idx"),
-            discrete_range: util.discrete_range("0 to 1"),
+            index_name: code.s1("idx").ident(),
+            discrete_range: code.s1("0 to 1").discrete_range(),
             body: GenerateBody {
                 alternative_label: None,
                 decl: None,
-                statements: vec![util.concurrent_statement("foo <= bar;")],
+                statements: vec![code.s1("foo <= bar;").concurrent_statement()],
             },
         };
-        assert_eq!(stmt.label, Some(util.ident("gen")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::ForGenerate(gen));
     }
 
     #[test]
     fn test_for_generate_empty_declarations() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 gen: for idx in 0 to 1 generate
 begin
@@ -1105,22 +1100,22 @@ end generate;
 ",
         );
         let gen = ForGenerateStatement {
-            index_name: util.ident("idx"),
-            discrete_range: util.discrete_range("0 to 1"),
+            index_name: code.s1("idx").ident(),
+            discrete_range: code.s1("0 to 1").discrete_range(),
             body: GenerateBody {
                 alternative_label: None,
                 decl: Some(vec![]),
-                statements: vec![util.concurrent_statement("foo <= bar;")],
+                statements: vec![code.s1("foo <= bar;").concurrent_statement()],
             },
         };
-        assert_eq!(stmt.label, Some(util.ident("gen")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::ForGenerate(gen));
     }
 
     #[test]
     fn test_for_generate_declarations() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 gen: for idx in 0 to 1 generate
   signal foo : natural;
@@ -1130,22 +1125,22 @@ end generate;
 ",
         );
         let gen = ForGenerateStatement {
-            index_name: util.ident("idx"),
-            discrete_range: util.discrete_range("0 to 1"),
+            index_name: code.s1("idx").ident(),
+            discrete_range: code.s1("0 to 1").discrete_range(),
             body: GenerateBody {
                 alternative_label: None,
-                decl: Some(util.declarative_part("signal foo : natural;")),
-                statements: vec![util.concurrent_statement("foo <= bar;")],
+                decl: Some(code.s1("signal foo : natural;").declarative_part()),
+                statements: vec![code.s1("foo <= bar;").concurrent_statement()],
             },
         };
-        assert_eq!(stmt.label, Some(util.ident("gen")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::ForGenerate(gen));
     }
 
     #[test]
     fn test_if_generate_empty() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 gen: if cond = true generate
 end generate;
@@ -1153,7 +1148,7 @@ end generate;
         );
         let gen = IfGenerateStatement {
             conditionals: vec![Conditional {
-                condition: util.expr("cond = true"),
+                condition: code.s1("cond = true").expr(),
                 item: GenerateBody {
                     alternative_label: None,
                     decl: None,
@@ -1162,14 +1157,14 @@ end generate;
             }],
             else_item: None,
         };
-        assert_eq!(stmt.label, Some(util.ident("gen")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
     }
 
     #[test]
     fn test_if_generate_declarative_region() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 gen: if cond = true generate
 begin
@@ -1178,7 +1173,7 @@ end generate;
         );
         let gen = IfGenerateStatement {
             conditionals: vec![Conditional {
-                condition: util.expr("cond = true"),
+                condition: code.s1("cond = true").expr(),
                 item: GenerateBody {
                     alternative_label: None,
                     decl: Some(vec![]),
@@ -1187,14 +1182,14 @@ end generate;
             }],
             else_item: None,
         };
-        assert_eq!(stmt.label, Some(util.ident("gen")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
     }
 
     #[test]
     fn test_if_elseif_else_generate_empty() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 gen: if cond = true generate
 elsif cond2 = true generate
@@ -1205,7 +1200,7 @@ end generate;
         let gen = IfGenerateStatement {
             conditionals: vec![
                 Conditional {
-                    condition: util.expr("cond = true"),
+                    condition: code.s1("cond = true").expr(),
                     item: GenerateBody {
                         alternative_label: None,
                         decl: None,
@@ -1213,7 +1208,7 @@ end generate;
                     },
                 },
                 Conditional {
-                    condition: util.expr("cond2 = true"),
+                    condition: code.s1("cond2 = true").expr(),
                     item: GenerateBody {
                         alternative_label: None,
                         decl: None,
@@ -1227,13 +1222,13 @@ end generate;
                 statements: vec![],
             }),
         };
-        assert_eq!(stmt.label, Some(util.ident("gen")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
     }
     #[test]
     fn test_if_elseif_else_generate() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 gen: if cond = true generate
   variable v1 : boolean;
@@ -1253,36 +1248,36 @@ end generate;
         let gen = IfGenerateStatement {
             conditionals: vec![
                 Conditional {
-                    condition: util.expr("cond = true"),
+                    condition: code.s1("cond = true").expr(),
                     item: GenerateBody {
                         alternative_label: None,
-                        decl: Some(util.declarative_part("variable v1 : boolean;")),
-                        statements: vec![util.concurrent_statement("foo1(clk);")],
+                        decl: Some(code.s1("variable v1 : boolean;").declarative_part()),
+                        statements: vec![code.s1("foo1(clk);").concurrent_statement()],
                     },
                 },
                 Conditional {
-                    condition: util.expr("cond2 = true"),
+                    condition: code.s1("cond2 = true").expr(),
                     item: GenerateBody {
                         alternative_label: None,
-                        decl: Some(util.declarative_part("variable v2 : boolean;")),
-                        statements: vec![util.concurrent_statement("foo2(clk);")],
+                        decl: Some(code.s1("variable v2 : boolean;").declarative_part()),
+                        statements: vec![code.s1("foo2(clk);").concurrent_statement()],
                     },
                 },
             ],
             else_item: Some(GenerateBody {
                 alternative_label: None,
-                decl: Some(util.declarative_part("variable v3 : boolean;")),
-                statements: vec![util.concurrent_statement("foo3(clk);")],
+                decl: Some(code.s1("variable v3 : boolean;").declarative_part()),
+                statements: vec![code.s1("foo3(clk);").concurrent_statement()],
             }),
         };
-        assert_eq!(stmt.label, Some(util.ident("gen")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
     }
 
     #[test]
     fn test_if_elseif_else_generate_alternative_label() {
-        let (util, stmt, messages) = with_stream_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 gen: if alt1: cond = true generate
 elsif alt2: cond2 = true generate
@@ -1294,42 +1289,42 @@ end generate;
         let gen = IfGenerateStatement {
             conditionals: vec![
                 Conditional {
-                    condition: util.expr("cond = true"),
+                    condition: code.s1("cond = true").expr(),
                     item: GenerateBody {
-                        alternative_label: Some(util.ident("alt1")),
+                        alternative_label: Some(code.s1("alt1").ident()),
                         decl: None,
                         statements: vec![],
                     },
                 },
                 Conditional {
-                    condition: util.expr("cond2 = true"),
+                    condition: code.s1("cond2 = true").expr(),
                     item: GenerateBody {
-                        alternative_label: Some(util.ident("alt2")),
+                        alternative_label: Some(code.s1("alt2").ident()),
                         decl: None,
                         statements: vec![],
                     },
                 },
             ],
             else_item: Some(GenerateBody {
-                alternative_label: Some(util.ident("alt3")),
+                alternative_label: Some(code.s1("alt3").ident()),
                 decl: None,
                 statements: vec![],
             }),
         };
-        assert_eq!(stmt.label, Some(util.ident("gen")));
+        let (stmt, messages) = code.with_stream_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
         assert_eq!(
             messages,
             vec![error(
-                &util.first_substr_pos("alt4"),
+                code.s1("alt4"),
                 "End identifier mismatch, expected alt3"
             )]
         );
     }
     #[test]
     fn test_if_elseif_else_generate_inner_end() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 gen: if alt1: cond = true generate
 end alt1;
@@ -1343,36 +1338,36 @@ end generate;
         let gen = IfGenerateStatement {
             conditionals: vec![
                 Conditional {
-                    condition: util.expr("cond = true"),
+                    condition: code.s1("cond = true").expr(),
                     item: GenerateBody {
-                        alternative_label: Some(util.ident("alt1")),
+                        alternative_label: Some(code.s1("alt1").ident()),
                         decl: None,
                         statements: vec![],
                     },
                 },
                 Conditional {
-                    condition: util.expr("cond2 = true"),
+                    condition: code.s1("cond2 = true").expr(),
                     item: GenerateBody {
-                        alternative_label: Some(util.ident("alt2")),
+                        alternative_label: Some(code.s1("alt2").ident()),
                         decl: None,
                         statements: vec![],
                     },
                 },
             ],
             else_item: Some(GenerateBody {
-                alternative_label: Some(util.ident("alt3")),
+                alternative_label: Some(code.s1("alt3").ident()),
                 decl: None,
                 statements: vec![],
             }),
         };
-        assert_eq!(stmt.label, Some(util.ident("gen")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
     }
 
     #[test]
     fn test_case_generate() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 gen: case expr(0) + 2 generate
   when 1 | 2 =>
@@ -1383,34 +1378,34 @@ end generate;
 ",
         );
         let gen = CaseGenerateStatement {
-            expression: util.expr("expr(0) + 2"),
+            expression: code.s1("expr(0) + 2").expr(),
             alternatives: vec![
                 Alternative {
-                    choices: util.choices("1 | 2"),
+                    choices: code.s1("1 | 2").choices(),
                     item: GenerateBody {
                         alternative_label: None,
                         decl: None,
-                        statements: vec![util.concurrent_statement("sig <= value;")],
+                        statements: vec![code.s1("sig <= value;").concurrent_statement()],
                     },
                 },
                 Alternative {
-                    choices: util.choices("others"),
+                    choices: code.s1("others").choices(),
                     item: GenerateBody {
                         alternative_label: None,
                         decl: None,
-                        statements: vec![util.concurrent_statement("foo(clk);")],
+                        statements: vec![code.s1("foo(clk);").concurrent_statement()],
                     },
                 },
             ],
         };
-        assert_eq!(stmt.label, Some(util.ident("gen")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::CaseGenerate(gen));
     }
 
     #[test]
     fn test_case_alternative_label() {
-        let (util, stmt) = with_stream_no_messages(
-            parse_labeled_concurrent_statement,
+        let code = Code::new(
             "\
 gen: case expr(0) + 2 generate
   when alt1: 1 | 2 =>
@@ -1421,27 +1416,28 @@ end generate;
 ",
         );
         let gen = CaseGenerateStatement {
-            expression: util.expr("expr(0) + 2"),
+            expression: code.s1("expr(0) + 2").expr(),
             alternatives: vec![
                 Alternative {
-                    choices: util.choices("1 | 2"),
+                    choices: code.s1("1 | 2").choices(),
                     item: GenerateBody {
-                        alternative_label: Some(util.ident("alt1")),
+                        alternative_label: Some(code.s1("alt1").ident()),
                         decl: None,
-                        statements: vec![util.concurrent_statement("sig <= value;")],
+                        statements: vec![code.s1("sig <= value;").concurrent_statement()],
                     },
                 },
                 Alternative {
-                    choices: util.choices("others"),
+                    choices: code.s1("others").choices(),
                     item: GenerateBody {
-                        alternative_label: Some(util.ident("alt2")),
+                        alternative_label: Some(code.s1("alt2").ident()),
                         decl: None,
-                        statements: vec![util.concurrent_statement("foo(clk);")],
+                        statements: vec![code.s1("foo(clk);").concurrent_statement()],
                     },
                 },
             ],
         };
-        assert_eq!(stmt.label, Some(util.ident("gen")));
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::CaseGenerate(gen));
     }
 }

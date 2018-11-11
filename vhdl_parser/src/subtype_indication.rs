@@ -181,16 +181,16 @@ pub fn parse_subtype_indication(stream: &mut TokenStream) -> ParseResult<Subtype
 mod tests {
     use super::*;
 
-    use test_util::with_stream;
+    use test_util::Code;
 
     #[test]
     fn parse_subtype_indication_without_constraint() {
-        let (util, subtype) = with_stream(parse_subtype_indication, "std_logic");
+        let code = Code::new("std_logic");
         assert_eq!(
-            subtype,
+            code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: vec![util.ident("std_logic")],
+                type_mark: vec![code.s1("std_logic").ident()],
                 constraint: None
             }
         );
@@ -198,12 +198,12 @@ mod tests {
 
     #[test]
     fn parse_subtype_indication_with_resolution_function() {
-        let (util, subtype) = with_stream(parse_subtype_indication, "resolve std_logic");
+        let code = Code::new("resolve std_logic");
         assert_eq!(
-            subtype,
+            code.with_stream(parse_subtype_indication),
             SubtypeIndication {
-                resolution: ResolutionIndication::FunctionName(util.selected_name("resolve")),
-                type_mark: vec![util.ident("std_logic")],
+                resolution: ResolutionIndication::FunctionName(code.s1("resolve").selected_name()),
+                type_mark: vec![code.s1("std_logic").ident()],
                 constraint: None
             }
         );
@@ -211,12 +211,12 @@ mod tests {
 
     #[test]
     fn parse_subtype_indication_with_array_element_resolution_function() {
-        let (util, subtype) = with_stream(parse_subtype_indication, "(resolve) integer_vector");
+        let code = Code::new("(resolve) integer_vector");
         assert_eq!(
-            subtype,
+            code.with_stream(parse_subtype_indication),
             SubtypeIndication {
-                resolution: ResolutionIndication::ArrayElement(util.selected_name("resolve")),
-                type_mark: vec![util.ident("integer_vector")],
+                resolution: ResolutionIndication::ArrayElement(code.s1("resolve").selected_name()),
+                type_mark: vec![code.s1("integer_vector").ident()],
                 constraint: None
             }
         );
@@ -224,20 +224,20 @@ mod tests {
 
     #[test]
     fn parse_subtype_indication_with_record_element_resolution_function() {
-        let (util, subtype) = with_stream(parse_subtype_indication, "(elem resolve) rec_t");
+        let code = Code::new("(elem resolve) rec_t");
 
         let elem_resolution = RecordElementResolution {
-            ident: util.ident("elem"),
+            ident: code.s1("elem").ident(),
             resolution: Box::new(ResolutionIndication::FunctionName(
-                util.selected_name("resolve"),
+                code.s1("resolve").selected_name(),
             )),
         };
 
         assert_eq!(
-            subtype,
+            code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Record(vec![elem_resolution]),
-                type_mark: vec![util.ident("rec_t")],
+                type_mark: vec![code.s1("rec_t").ident()],
                 constraint: None
             }
         );
@@ -245,46 +245,44 @@ mod tests {
 
     #[test]
     fn parse_subtype_indication_with_record_element_resolution_function_many() {
-        let (util, subtype) = with_stream(
-            parse_subtype_indication,
-            "(elem1 (resolve1), elem2 resolve2, elem3 (sub_elem sub_resolve)) rec_t",
-        );
+        let code =
+            Code::new("(elem1 (resolve1), elem2 resolve2, elem3 (sub_elem sub_resolve)) rec_t");
 
         let elem1_resolution = RecordElementResolution {
-            ident: util.ident("elem1"),
+            ident: code.s1("elem1").ident(),
             resolution: Box::new(ResolutionIndication::ArrayElement(
-                util.selected_name("resolve1"),
+                code.s1("resolve1").selected_name(),
             )),
         };
 
         let elem2_resolution = RecordElementResolution {
-            ident: util.ident("elem2"),
+            ident: code.s1("elem2").ident(),
             resolution: Box::new(ResolutionIndication::FunctionName(
-                util.selected_name("resolve2"),
+                code.s1("resolve2").selected_name(),
             )),
         };
 
         let sub_elem_resolution = RecordElementResolution {
-            ident: util.ident("sub_elem"),
+            ident: code.s1("sub_elem").ident(),
             resolution: Box::new(ResolutionIndication::FunctionName(
-                util.selected_name("sub_resolve"),
+                code.s1("sub_resolve").selected_name(),
             )),
         };
 
         let elem3_resolution = RecordElementResolution {
-            ident: util.ident("elem3"),
+            ident: code.s1("elem3").ident(),
             resolution: Box::new(ResolutionIndication::Record(vec![sub_elem_resolution])),
         };
 
         assert_eq!(
-            subtype,
+            code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Record(vec![
                     elem1_resolution,
                     elem2_resolution,
                     elem3_resolution
                 ]),
-                type_mark: vec![util.ident("rec_t")],
+                type_mark: vec![code.s1("rec_t").ident()],
                 constraint: None
             }
         );
@@ -292,14 +290,14 @@ mod tests {
 
     #[test]
     fn parse_subtype_indication_with_resolution_function_selected_name() {
-        let (util, subtype) = with_stream(parse_subtype_indication, "lib.foo.resolve std_logic");
+        let code = Code::new("lib.foo.resolve std_logic");
         assert_eq!(
-            subtype,
+            code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::FunctionName(
-                    util.selected_name("lib.foo.resolve")
+                    code.s1("lib.foo.resolve").selected_name()
                 ),
-                type_mark: vec![util.ident("std_logic")],
+                type_mark: vec![code.s1("std_logic").ident()],
                 constraint: None
             }
         );
@@ -308,12 +306,12 @@ mod tests {
     #[test]
     /// LRM 8. Names
     fn parse_subtype_indication_without_selected_name() {
-        let (util, subtype) = with_stream(parse_subtype_indication, "lib.foo.bar");
+        let code = Code::new("lib.foo.bar");
         assert_eq!(
-            subtype,
+            code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: util.selected_name("lib.foo.bar"),
+                type_mark: code.s1("lib.foo.bar").selected_name(),
                 constraint: None
             }
         );
@@ -321,15 +319,15 @@ mod tests {
 
     #[test]
     fn parse_subtype_indication_with_range() {
-        let (util, subtype) = with_stream(parse_subtype_indication, "integer range 0 to 2-1");
+        let code = Code::new("integer range 0 to 2-1");
 
-        let constraint = SubtypeConstraint::Range(util.range("0 to 2-1"));
+        let constraint = SubtypeConstraint::Range(code.s1("0 to 2-1").range());
 
         assert_eq!(
-            subtype,
+            code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: util.selected_name("integer"),
+                type_mark: code.s1("integer").selected_name(),
                 constraint: Some(constraint)
             }
         );
@@ -337,16 +335,15 @@ mod tests {
 
     #[test]
     fn parse_subtype_indication_with_range_attribute() {
-        let (util, subtype) =
-            with_stream(parse_subtype_indication, "integer range lib.foo.bar'range");
+        let code = Code::new("integer range lib.foo.bar'range");
 
-        let constraint = SubtypeConstraint::Range(util.range("lib.foo.bar'range"));;
+        let constraint = SubtypeConstraint::Range(code.s1("lib.foo.bar'range").range());;
 
         assert_eq!(
-            subtype,
+            code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: util.selected_name("integer"),
+                type_mark: code.s1("integer").selected_name(),
                 constraint: Some(constraint)
             }
         );
@@ -354,15 +351,16 @@ mod tests {
 
     #[test]
     fn parse_subtype_indication_with_array_constraint_range() {
-        let (util, subtype) = with_stream(parse_subtype_indication, "integer_vector(2-1 downto 0)");
+        let code = Code::new("integer_vector(2-1 downto 0)");
 
-        let constraint = SubtypeConstraint::Array(vec![util.discrete_range("2-1 downto 0")], None);
+        let constraint =
+            SubtypeConstraint::Array(vec![code.s1("2-1 downto 0").discrete_range()], None);
 
         assert_eq!(
-            subtype,
+            code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: util.selected_name("integer_vector"),
+                type_mark: code.s1("integer_vector").selected_name(),
                 constraint: Some(constraint)
             }
         );
@@ -370,15 +368,16 @@ mod tests {
 
     #[test]
     fn parse_subtype_indication_with_array_constraint_discrete() {
-        let (util, subtype) = with_stream(parse_subtype_indication, "integer_vector(lib.foo.bar)");
+        let code = Code::new("integer_vector(lib.foo.bar)");
 
-        let constraint = SubtypeConstraint::Array(vec![util.discrete_range("lib.foo.bar")], None);
+        let constraint =
+            SubtypeConstraint::Array(vec![code.s1("lib.foo.bar").discrete_range()], None);
 
         assert_eq!(
-            subtype,
+            code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: util.selected_name("integer_vector"),
+                type_mark: code.s1("integer_vector").selected_name(),
                 constraint: Some(constraint)
             }
         );
@@ -386,19 +385,16 @@ mod tests {
 
     #[test]
     fn parse_subtype_indication_with_array_constraint_attribute() {
-        let (util, subtype) = with_stream(
-            parse_subtype_indication,
-            "integer_vector(lib.pkg.bar'range)",
-        );
+        let code = Code::new("integer_vector(lib.pkg.bar'range)");
 
         let constraint =
-            SubtypeConstraint::Array(vec![util.discrete_range("lib.pkg.bar'range")], None);
+            SubtypeConstraint::Array(vec![code.s1("lib.pkg.bar'range").discrete_range()], None);
 
         assert_eq!(
-            subtype,
+            code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: util.selected_name("integer_vector"),
+                type_mark: code.s1("integer_vector").selected_name(),
                 constraint: Some(constraint)
             }
         );
@@ -406,24 +402,21 @@ mod tests {
 
     #[test]
     fn parse_subtype_indication_with_multi_dim_array_constraints() {
-        let (util, subtype) = with_stream(
-            parse_subtype_indication,
-            "integer_vector(2-1 downto 0, 11 to 14)",
-        );
+        let code = Code::new("integer_vector(2-1 downto 0, 11 to 14)");
 
         let constraint = SubtypeConstraint::Array(
             vec![
-                util.discrete_range("2-1 downto 0"),
-                util.discrete_range("11 to 14"),
+                code.s1("2-1 downto 0").discrete_range(),
+                code.s1("11 to 14").discrete_range(),
             ],
             None,
         );
 
         assert_eq!(
-            subtype,
+            code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: util.selected_name("integer_vector"),
+                type_mark: code.s1("integer_vector").selected_name(),
                 constraint: Some(constraint)
             }
         );
@@ -431,27 +424,24 @@ mod tests {
 
     #[test]
     fn parse_subtype_indication_with_array_element_constraint() {
-        let (util, subtype) = with_stream(
-            parse_subtype_indication,
-            "integer_vector(2-1 downto 0, 11 to 14)(foo to bar)",
-        );
+        let code = Code::new("integer_vector(2-1 downto 0, 11 to 14)(foo to bar)");
 
         let element_constraint =
-            SubtypeConstraint::Array(vec![util.discrete_range("foo to bar")], None);
+            SubtypeConstraint::Array(vec![code.s1("foo to bar").discrete_range()], None);
 
         let constraint = SubtypeConstraint::Array(
             vec![
-                util.discrete_range("2-1 downto 0"),
-                util.discrete_range("11 to 14"),
+                code.s1("2-1 downto 0").discrete_range(),
+                code.s1("11 to 14").discrete_range(),
             ],
             Some(Box::new(element_constraint)),
         );
 
         assert_eq!(
-            subtype,
+            code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: util.selected_name("integer_vector"),
+                type_mark: code.s1("integer_vector").selected_name(),
                 constraint: Some(constraint)
             }
         );
@@ -459,32 +449,29 @@ mod tests {
 
     #[test]
     fn parse_subtype_indication_with_record_constraint() {
-        let (util, subtype) = with_stream(
-            parse_subtype_indication,
-            "axi_m2s_t(tdata(2-1 downto 0), tuser(3 to 5))",
-        );
+        let code = Code::new("axi_m2s_t(tdata(2-1 downto 0), tuser(3 to 5))");
 
         let tdata_constraint = ElementConstraint {
-            ident: util.ident("tdata"),
+            ident: code.s1("tdata").ident(),
             constraint: Box::new(SubtypeConstraint::Array(
-                vec![util.discrete_range("2-1 downto 0")],
+                vec![code.s1("2-1 downto 0").discrete_range()],
                 None,
             )),
         };
 
         let tuser_constraint = ElementConstraint {
-            ident: util.ident("tuser"),
+            ident: code.s1("tuser").ident(),
             constraint: Box::new(SubtypeConstraint::Array(
-                vec![util.discrete_range("3 to 5")],
+                vec![code.s1("3 to 5").discrete_range()],
                 None,
             )),
         };
 
         assert_eq!(
-            subtype,
+            code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: util.selected_name("axi_m2s_t"),
+                type_mark: code.s1("axi_m2s_t").selected_name(),
                 constraint: Some(SubtypeConstraint::Record(vec![
                     tdata_constraint,
                     tuser_constraint

@@ -177,21 +177,20 @@ pub fn parse_declarative_part_leave_end_token(
 mod tests {
     use super::*;
 
-    use test_util::{with_partial_stream_messages, with_stream};
+    use test_util::Code;
 
     #[test]
     fn package_instantiation() {
-        let (util, inst) = with_stream(
-            parse_package_instantiation,
+        let code = Code::new(
             "\
 package ident is new lib.foo.bar;
 ",
         );
         assert_eq!(
-            inst,
+            code.with_stream(parse_package_instantiation),
             PackageInstantiation {
-                ident: util.ident("ident"),
-                package_name: util.selected_name("lib.foo.bar"),
+                ident: code.s1("ident").ident(),
+                package_name: code.s1("lib.foo.bar").selected_name(),
                 generic_map: None
             }
         );
@@ -199,8 +198,7 @@ package ident is new lib.foo.bar;
 
     #[test]
     fn package_instantiation_generic_map() {
-        let (util, inst) = with_stream(
-            parse_package_instantiation,
+        let code = Code::new(
             "\
 package ident is new lib.foo.bar
   generic map (
@@ -209,15 +207,15 @@ package ident is new lib.foo.bar
 ",
         );
         assert_eq!(
-            inst,
+            code.with_stream(parse_package_instantiation),
             PackageInstantiation {
-                ident: util.ident("ident"),
-                package_name: util.selected_name("lib.foo.bar"),
-                generic_map: Some(util.association_list(
-                    "(
+                ident: code.s1("ident").ident(),
+                package_name: code.s1("lib.foo.bar").selected_name(),
+                generic_map: Some(
+                    code.s1("(
     foo => bar
-  )"
-                ))
+  )").association_list()
+                )
             }
         );
     }
@@ -225,12 +223,9 @@ package ident is new lib.foo.bar
     #[test]
     fn parse_declarative_part_error() {
         // Just checking that there is not an infinite loop
-        let (_, decl, messages) = with_partial_stream_messages(
-            parse_declarative_part_leave_end_token,
-            "\
-foo
-",
-        );
+        let code = Code::new("invalid");
+        let (decl, messages) =
+            code.with_partial_stream_messages(parse_declarative_part_leave_end_token);
         assert_eq!(decl, Ok(vec![]));
         assert!(messages.len() > 0);
     }

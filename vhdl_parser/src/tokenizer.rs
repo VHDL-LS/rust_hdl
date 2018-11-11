@@ -408,7 +408,7 @@ impl AsRef<SrcPos> for Token {
     }
 }
 
-pub fn kinds_error<T: AsRef<SrcPos>>(pos: &T, kinds: &[Kind]) -> Message {
+pub fn kinds_error<T: AsRef<SrcPos>>(pos: T, kinds: &[Kind]) -> Message {
     error(
         pos.as_ref(),
         format!("Expected {}", kinds_str(&kinds)).as_str(),

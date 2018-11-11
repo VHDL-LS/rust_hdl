@@ -103,17 +103,17 @@ pub fn parse_file_declaration(stream: &mut TokenStream) -> ParseResult<Vec<FileD
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_util::with_stream;
+    use test_util::Code;
 
     #[test]
     fn parses_constant() {
-        let (util, object) = with_stream(parse_object_declaration, "constant foo : natural;");
+        let code = Code::new("constant foo : natural;");
         assert_eq!(
-            object,
+            code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
                 class: ObjectClass::Constant,
-                ident: util.ident("foo"),
-                subtype_indication: util.subtype_indication("natural"),
+                ident: code.s1("foo").ident(),
+                subtype_indication: code.s1("natural").subtype_indication(),
                 expression: None
             }]
         );
@@ -121,13 +121,13 @@ mod tests {
 
     #[test]
     fn parses_signal() {
-        let (util, object) = with_stream(parse_object_declaration, "signal foo : natural;");
+        let code = Code::new("signal foo : natural;");
         assert_eq!(
-            object,
+            code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
                 class: ObjectClass::Signal,
-                ident: util.ident("foo"),
-                subtype_indication: util.subtype_indication("natural"),
+                ident: code.s1("foo").ident(),
+                subtype_indication: code.s1("natural").subtype_indication(),
                 expression: None
             }]
         );
@@ -135,13 +135,13 @@ mod tests {
 
     #[test]
     fn parses_variable() {
-        let (util, object) = with_stream(parse_object_declaration, "variable foo : natural;");
+        let code = Code::new("variable foo : natural;");
         assert_eq!(
-            object,
+            code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
                 class: ObjectClass::Variable,
-                ident: util.ident("foo"),
-                subtype_indication: util.subtype_indication("natural"),
+                ident: code.s1("foo").ident(),
+                subtype_indication: code.s1("natural").subtype_indication(),
                 expression: None
             }]
         );
@@ -149,14 +149,13 @@ mod tests {
 
     #[test]
     fn parses_shared_variable() {
-        let (util, object) =
-            with_stream(parse_object_declaration, "shared variable foo : natural;");
+        let code = Code::new("shared variable foo : natural;");
         assert_eq!(
-            object,
+            code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
                 class: ObjectClass::SharedVariable,
-                ident: util.ident("foo"),
-                subtype_indication: util.subtype_indication("natural"),
+                ident: code.s1("foo").ident(),
+                subtype_indication: code.s1("natural").subtype_indication(),
                 expression: None
             }]
         );
@@ -164,12 +163,12 @@ mod tests {
 
     #[test]
     fn parses_file() {
-        let (util, object) = with_stream(parse_file_declaration, "file foo : text;");
+        let code = Code::new("file foo : text;");
         assert_eq!(
-            object,
+            code.with_stream(parse_file_declaration),
             vec![FileDeclaration {
-                ident: util.ident("foo"),
-                subtype_indication: util.subtype_indication("text"),
+                ident: code.s1("foo").ident(),
+                subtype_indication: code.s1("text").subtype_indication(),
                 open_info: None,
                 file_name: None
             }]
@@ -178,72 +177,65 @@ mod tests {
 
     #[test]
     fn parses_file_with_file_name() {
-        let (util, object) =
-            with_stream(parse_file_declaration, "file foo : text is \"file_name\";");
+        let code = Code::new("file foo : text is \"file_name\";");
         assert_eq!(
-            object,
+            code.with_stream(parse_file_declaration),
             vec![FileDeclaration {
-                ident: util.ident("foo"),
-                subtype_indication: util.subtype_indication("text"),
+                ident: code.s1("foo").ident(),
+                subtype_indication: code.s1("text").subtype_indication(),
                 open_info: None,
-                file_name: Some(util.expr("\"file_name\""))
+                file_name: Some(code.s1("\"file_name\"").expr())
             }]
         );
     }
 
     #[test]
     fn parses_file_with_open_information() {
-        let (util, object) = with_stream(
-            parse_file_declaration,
-            "file foo : text open write_mode is \"file_name\";",
-        );
+        let code = Code::new("file foo : text open write_mode is \"file_name\";");
         assert_eq!(
-            object,
+            code.with_stream(parse_file_declaration),
             vec![FileDeclaration {
-                ident: util.ident("foo"),
-                subtype_indication: util.subtype_indication("text"),
-                open_info: Some(util.expr("write_mode")),
-                file_name: Some(util.expr("\"file_name\""))
+                ident: code.s1("foo").ident(),
+                subtype_indication: code.s1("text").subtype_indication(),
+                open_info: Some(code.s1("write_mode").expr()),
+                file_name: Some(code.s1("\"file_name\"").expr())
             }]
         );
     }
 
     #[test]
     fn parses_optional_expression() {
-        let (util, object) = with_stream(parse_object_declaration, "constant foo : natural := 0;");
+        let code = Code::new("constant foo : natural := 0;");
         assert_eq!(
-            object,
+            code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
                 class: ObjectClass::Constant,
-                ident: util.ident("foo"),
-                subtype_indication: util.subtype_indication("natural"),
-                expression: Some(util.expr("0"))
+                ident: code.s1("foo").ident(),
+                subtype_indication: code.s1("natural").subtype_indication(),
+                expression: Some(code.s1("0").expr())
             }]
         );
     }
 
     #[test]
     fn parses_identifier_list() {
-        let (util, object) = with_stream(
-            parse_object_declaration,
-            "constant foo, bar : natural := 0;",
-        );
+        let code = Code::new("constant foo, bar : natural := 0;");
 
         let objects = vec![
             ObjectDeclaration {
                 class: ObjectClass::Constant,
-                ident: util.ident("foo"),
-                subtype_indication: util.subtype_indication("natural"),
-                expression: Some(util.expr("0")),
+                ident: code.s1("foo").ident(),
+                subtype_indication: code.s1("natural").subtype_indication(),
+                expression: Some(code.s1("0").expr()),
             },
             ObjectDeclaration {
                 class: ObjectClass::Constant,
-                ident: util.ident("bar"),
-                subtype_indication: util.subtype_indication("natural"),
-                expression: Some(util.expr("0")),
+                ident: code.s1("bar").ident(),
+                subtype_indication: code.s1("natural").subtype_indication(),
+                expression: Some(code.s1("0").expr()),
             },
         ];
 
-        assert_eq!(object, objects);
+        assert_eq!(code.with_stream(parse_object_declaration), objects);
     }
 }

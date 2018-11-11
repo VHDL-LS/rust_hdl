@@ -411,271 +411,279 @@ pub fn parse_name(stream: &mut TokenStream) -> ParseResult<WithPos<Name>> {
 mod tests {
     use super::*;
     use latin_1::Latin1String;
-    use test_util::{with_partial_stream, with_stream};
+    use test_util::Code;
 
     #[test]
     fn test_parse_selected_name_single() {
-        let (util, name) = with_stream(parse_selected_name, "foo");
-        assert_eq!(name, vec![util.ident("foo")]);
+        let code = Code::new("foo");
+        assert_eq!(
+            code.with_stream(parse_selected_name),
+            vec![code.s1("foo").ident()]
+        );
     }
 
     #[test]
     fn test_parse_selected_name_multiple() {
-        let (util, name) = with_stream(parse_selected_name, "foo.bar.baz");
+        let code = Code::new("foo.bar.baz");
         assert_eq!(
-            name,
-            vec![util.ident("foo"), util.ident("bar"), util.ident("baz")]
+            code.with_stream(parse_selected_name),
+            vec![
+                code.s1("foo").ident(),
+                code.s1("bar").ident(),
+                code.s1("baz").ident()
+            ]
         );
     }
 
     #[test]
     fn test_identifier_list() {
-        let (util, idents) = with_stream(parse_identifier_list, "foo, bar, baz");
+        let code = Code::new("foo, bar, baz");
         assert_eq!(
-            idents,
-            vec![util.ident("foo"), util.ident("bar"), util.ident("baz")]
+            code.with_stream(parse_identifier_list),
+            vec![
+                code.s1("foo").ident(),
+                code.s1("bar").ident(),
+                code.s1("baz").ident()
+            ]
         );
     }
 
     #[test]
     fn test_simple_name() {
-        let (util, name) = with_stream(parse_name, "foo");
+        let code = Code::new("foo");
         assert_eq!(
-            name,
+            code.with_stream(parse_name),
             WithPos {
-                item: Name::Simple(util.symbol("foo")),
-                pos: util.first_substr_pos("foo")
+                item: Name::Simple(code.symbol("foo")),
+                pos: code.s1("foo").pos()
             }
         );
     }
 
     #[test]
     fn test_characer_name() {
-        let (util, name) = with_stream(parse_name, "'a'");
+        let code = Code::new("'a'");
         assert_eq!(
-            name,
+            code.with_stream(parse_name),
             WithPos {
                 item: Name::CharacterLiteral(b'a'),
-                pos: util.first_substr_pos("'a'")
+                pos: code.s1("'a'").pos()
             }
         );
     }
 
     #[test]
     fn test_operator_symbol() {
-        let (util, name) = with_stream(parse_name, "\"+\"");
+        let code = Code::new("\"+\"");
         assert_eq!(
-            name,
+            code.with_stream(parse_name),
             WithPos {
                 item: Name::OperatorSymbol(Latin1String::from_utf8_unchecked("+")),
-                pos: util.first_substr_pos("\"+\"")
+                pos: code.s1("\"+\"").pos()
             }
         );
     }
 
     #[test]
     fn test_selected_name() {
-        let (util, name) = with_stream(parse_name, "foo.bar.baz");
+        let code = Code::new("foo.bar.baz");
 
         let foo = WithPos {
-            item: Name::Simple(util.symbol("foo")),
-            pos: util.first_substr_pos("foo"),
+            item: Name::Simple(code.symbol("foo")),
+            pos: code.s1("foo").pos(),
         };
 
         let bar = WithPos {
-            item: Name::Simple(util.symbol("bar")),
-            pos: util.first_substr_pos("bar"),
+            item: Name::Simple(code.symbol("bar")),
+            pos: code.s1("bar").pos(),
         };
 
         let baz = WithPos {
-            item: Name::Simple(util.symbol("baz")),
-            pos: util.first_substr_pos("baz"),
+            item: Name::Simple(code.symbol("baz")),
+            pos: code.s1("baz").pos(),
         };
 
         let foo_bar = WithPos {
             item: Name::Selected(Box::new(foo), Box::new(bar)),
-            pos: util.first_substr_pos("foo.bar"),
+            pos: code.s1("foo.bar").pos(),
         };
 
         let foo_bar_baz = WithPos {
             item: Name::Selected(Box::new(foo_bar), Box::new(baz)),
-            pos: util.first_substr_pos("foo.bar.baz"),
+            pos: code.s1("foo.bar.baz").pos(),
         };
 
-        assert_eq!(name, foo_bar_baz);
+        assert_eq!(code.with_stream(parse_name), foo_bar_baz);
     }
 
     #[test]
     fn test_selected_name_all() {
-        let (util, name) = with_stream(parse_name, "foo.all");
+        let code = Code::new("foo.all");
 
         let foo = WithPos {
-            item: Name::Simple(util.symbol("foo")),
-            pos: util.first_substr_pos("foo"),
+            item: Name::Simple(code.symbol("foo")),
+            pos: code.s1("foo").pos(),
         };
 
         let all = WithPos {
             item: Name::All,
-            pos: util.first_substr_pos("all"),
+            pos: code.s1("all").pos(),
         };
 
         let foo_all = WithPos {
             item: Name::Selected(Box::new(foo), Box::new(all)),
-            pos: util.first_substr_pos("foo.all"),
+            pos: code.s1("foo.all").pos(),
         };
 
-        assert_eq!(name, foo_all);
+        assert_eq!(code.with_stream(parse_name), foo_all);
     }
 
     #[test]
     fn test_slice_name_range_to() {
-        let (util, name) = with_stream(parse_name, "prefix(0 to 3)");
+        let code = Code::new("prefix(0 to 3)");
         let prefix = WithPos {
-            item: Name::Simple(util.symbol("prefix")),
-            pos: util.first_substr_pos("prefix"),
+            item: Name::Simple(code.symbol("prefix")),
+            pos: code.s1("prefix").pos(),
         };
         let slice = WithPos {
-            item: Name::Slice(Box::new(prefix), util.discrete_range("0 to 3")),
-            pos: util.first_substr_pos("prefix(0 to 3)"),
+            item: Name::Slice(Box::new(prefix), code.s1("0 to 3").discrete_range()),
+            pos: code.s1("prefix(0 to 3)").pos(),
         };
-        assert_eq!(name, slice);
+        assert_eq!(code.with_stream(parse_name), slice);
     }
 
     #[test]
     fn test_slice_name_range_downto() {
-        let (util, name) = with_stream(parse_name, "prefix(3 downto 0)");
+        let code = Code::new("prefix(3 downto 0)");
         let prefix = WithPos {
-            item: Name::Simple(util.symbol("prefix")),
-            pos: util.first_substr_pos("prefix"),
+            item: Name::Simple(code.symbol("prefix")),
+            pos: code.s1("prefix").pos(),
         };
         let slice = WithPos {
-            item: Name::Slice(Box::new(prefix), util.discrete_range("3 downto 0")),
-            pos: util.first_substr_pos("prefix(3 downto 0)"),
+            item: Name::Slice(Box::new(prefix), code.s1("3 downto 0").discrete_range()),
+            pos: code.s1("prefix(3 downto 0)").pos(),
         };
-        assert_eq!(name, slice);
+        assert_eq!(code.with_stream(parse_name), slice);
     }
 
     #[test]
     fn test_attribute_name() {
-        let (util, name) = with_stream(parse_name, "prefix'foo");
+        let code = Code::new("prefix'foo");
         let prefix = WithPos {
-            item: Name::Simple(util.symbol("prefix")),
-            pos: util.first_substr_pos("prefix"),
+            item: Name::Simple(code.symbol("prefix")),
+            pos: code.s1("prefix").pos(),
         };
         let attr = WithPos {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
-                attr: util.ident("foo"),
+                attr: code.s1("foo").ident(),
                 signature: None,
                 expr: None,
             })),
-            pos: util.first_substr_pos("prefix'foo"),
+            pos: code.s1("prefix'foo").pos(),
         };
-        assert_eq!(name, attr);
+        assert_eq!(code.with_stream(parse_name), attr);
     }
 
     #[test]
     fn test_attribute_name_range() {
-        let (util, name) = with_stream(parse_name, "prefix'range");
+        let code = Code::new("prefix'range");
         let prefix = WithPos {
-            item: Name::Simple(util.symbol("prefix")),
-            pos: util.first_substr_pos("prefix"),
+            item: Name::Simple(code.symbol("prefix")),
+            pos: code.s1("prefix").pos(),
         };
         let attr = WithPos {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
                 attr: WithPos {
-                    item: util.symbol("range"),
-                    pos: util.first_substr_pos("range"),
+                    item: code.symbol("range"),
+                    pos: code.s1("range").pos(),
                 },
                 signature: None,
                 expr: None,
             })),
-            pos: util.first_substr_pos("prefix'range"),
+            pos: code.s1("prefix'range").pos(),
         };
-        assert_eq!(name, attr);
+        assert_eq!(code.with_stream(parse_name), attr);
     }
 
     #[test]
     fn test_attribute_name_expression() {
-        let (util, name) = with_stream(parse_name, "prefix'foo(expr+1)");
+        let code = Code::new("prefix'foo(expr+1)");
         let prefix = WithPos {
-            item: Name::Simple(util.symbol("prefix")),
-            pos: util.first_substr_pos("prefix"),
+            item: Name::Simple(code.symbol("prefix")),
+            pos: code.s1("prefix").pos(),
         };
         let attr = WithPos {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
-                attr: util.ident("foo"),
+                attr: code.s1("foo").ident(),
                 signature: None,
-                expr: Some(Box::new(util.expr("expr+1"))),
+                expr: Some(Box::new(code.s1("expr+1").expr())),
             })),
-            pos: util.first_substr_pos("prefix'foo(expr+1)"),
+            pos: code.s1("prefix'foo(expr+1)").pos(),
         };
-        assert_eq!(name, attr);
+        assert_eq!(code.with_stream(parse_name), attr);
     }
 
     #[test]
     fn test_attribute_name_signature_expression() {
-        let (util, name) = with_stream(parse_name, "prefix[return natural]'foo(expr+1)");
+        let code = Code::new("prefix[return natural]'foo(expr+1)");
         let prefix = WithPos {
-            item: Name::Simple(util.symbol("prefix")),
-            pos: util.first_substr_pos("prefix"),
+            item: Name::Simple(code.symbol("prefix")),
+            pos: code.s1("prefix").pos(),
         };
         let attr = WithPos {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
-                attr: util.ident("foo"),
-                signature: Some(util.signature("[return natural]")),
-                expr: Some(Box::new(util.expr("expr+1"))),
+                attr: code.s1("foo").ident(),
+                signature: Some(code.s1("[return natural]").signature()),
+                expr: Some(Box::new(code.s1("expr+1").expr())),
             })),
-            pos: util.first_substr_pos("prefix[return natural]'foo(expr+1)"),
+            pos: code.s1("prefix[return natural]'foo(expr+1)").pos(),
         };
-        assert_eq!(name, attr);
+        assert_eq!(code.with_stream(parse_name), attr);
     }
 
     #[test]
     fn test_name_signature_no_attribute_name() {
         // Alias declarations may use name[signature]
-        let (util, name) = with_partial_stream(
-            |stream| {
-                let result = parse_name(stream);
-                stream.expect_kind(LeftSquare)?;
-                result
-            },
-            "prefix[return natural]",
-        );
+        let code = Code::new("prefix[return natural]");
+        let name = code.with_partial_stream(|stream| {
+            let result = parse_name(stream);
+            stream.expect_kind(LeftSquare)?;
+            result
+        });
         let prefix = WithPos {
-            item: Name::Simple(util.symbol("prefix")),
-            pos: util.first_substr_pos("prefix"),
+            item: Name::Simple(code.symbol("prefix")),
+            pos: code.s1("prefix").pos(),
         };
         assert_eq!(name, Ok(prefix));
     }
 
     #[test]
     fn test_qualified_expression_is_not_name() {
-        let (util, name) = with_partial_stream(
-            |stream| {
-                let result = parse_name(stream);
-                stream.expect_kind(Tick)?;
-                result
-            },
-            "prefix'(",
-        );
+        let code = Code::new("prefix'(");
+        let name = code.with_stream(|stream| {
+            let result = parse_name(stream);
+            stream.expect_kind(Tick)?;
+            stream.expect_kind(LeftPar)?;
+            result
+        });
         let prefix = WithPos {
-            item: Name::Simple(util.symbol("prefix")),
-            pos: util.first_substr_pos("prefix"),
+            item: Name::Simple(code.symbol("prefix")),
+            pos: code.s1("prefix").pos(),
         };
-        assert_eq!(name, Ok(prefix));
+        assert_eq!(name, prefix);
     }
 
     #[test]
     fn test_function_call_no_formal() {
-        let (util, name) = with_stream(parse_name, "foo(0)");
+        let code = Code::new("foo(0)");
 
         let foo = WithPos {
-            item: Name::Simple(util.symbol("foo")),
-            pos: util.first_substr_pos("foo"),
+            item: Name::Simple(code.symbol("foo")),
+            pos: code.s1("foo").pos(),
         };
 
         let foo_0 = WithPos {
@@ -683,22 +691,22 @@ mod tests {
                 name: foo,
                 parameters: vec![AssociationElement {
                     formal: None,
-                    actual: util.expr("0").map_into(ActualPart::Expression),
+                    actual: code.s1("0").expr().map_into(ActualPart::Expression),
                 }],
             })),
-            pos: util.first_substr_pos("foo(0)"),
+            pos: code.s1("foo(0)").pos(),
         };
 
-        assert_eq!(name, foo_0);
+        assert_eq!(code.with_stream(parse_name), foo_0);
     }
 
     #[test]
     fn test_function_call_many() {
-        let (util, name) = with_stream(parse_name, "prefix(0, 1)(3).suffix");
+        let code = Code::new("prefix(0, 1)(3).suffix");
 
         let prefix = WithPos {
-            item: Name::Simple(util.symbol("prefix")),
-            pos: util.first_substr_pos("prefix"),
+            item: Name::Simple(code.symbol("prefix")),
+            pos: code.s1("prefix").pos(),
         };
 
         let prefix_index = WithPos {
@@ -707,15 +715,15 @@ mod tests {
                 parameters: vec![
                     AssociationElement {
                         formal: None,
-                        actual: util.expr("0").map_into(ActualPart::Expression),
+                        actual: code.s1("0").expr().map_into(ActualPart::Expression),
                     },
                     AssociationElement {
                         formal: None,
-                        actual: util.expr("1").map_into(ActualPart::Expression),
+                        actual: code.s1("1").expr().map_into(ActualPart::Expression),
                     },
                 ],
             })),
-            pos: util.first_substr_pos("prefix(0, 1)"),
+            pos: code.s1("prefix(0, 1)").pos(),
         };
 
         let prefix_index_3 = WithPos {
@@ -723,42 +731,42 @@ mod tests {
                 name: prefix_index,
                 parameters: vec![AssociationElement {
                     formal: None,
-                    actual: util.expr("3").map_into(ActualPart::Expression),
+                    actual: code.s1("3").expr().map_into(ActualPart::Expression),
                 }],
             })),
-            pos: util.first_substr_pos("prefix(0, 1)(3)"),
+            pos: code.s1("prefix(0, 1)(3)").pos(),
         };
 
         let suffix = WithPos {
-            item: Name::Simple(util.symbol("suffix")),
-            pos: util.first_substr_pos("suffix"),
+            item: Name::Simple(code.symbol("suffix")),
+            pos: code.s1("suffix").pos(),
         };
 
         let prefix_index_3_suffix = WithPos {
             item: Name::Selected(Box::new(prefix_index_3), Box::new(suffix)),
-            pos: util.first_substr_pos("prefix(0, 1)(3).suffix"),
+            pos: code.s1("prefix(0, 1)(3).suffix").pos(),
         };
 
-        assert_eq!(name, prefix_index_3_suffix);
+        assert_eq!(code.with_stream(parse_name), prefix_index_3_suffix);
     }
 
     #[test]
     fn test_function_call() {
-        let (util, name) = with_stream(parse_name, "foo(arg => 0)");
+        let code = Code::new("foo(arg => 0)");
 
         let foo = WithPos {
-            item: Name::Simple(util.symbol("foo")),
-            pos: util.first_substr_pos("foo"),
+            item: Name::Simple(code.symbol("foo")),
+            pos: code.s1("foo").pos(),
         };
 
         let arg = WithPos {
-            item: Name::Simple(util.symbol("arg")),
-            pos: util.first_substr_pos("arg"),
+            item: Name::Simple(code.symbol("arg")),
+            pos: code.s1("arg").pos(),
         };
 
         let assoc_elem = AssociationElement {
             formal: Some(arg),
-            actual: util.expr("0").map_into(ActualPart::Expression),
+            actual: code.s1("0").expr().map_into(ActualPart::Expression),
         };
 
         let foo_call = WithPos {
@@ -766,91 +774,91 @@ mod tests {
                 name: foo,
                 parameters: vec![assoc_elem],
             })),
-            pos: util.first_substr_pos("foo(arg => 0)"),
+            pos: code.s1("foo(arg => 0)").pos(),
         };
 
-        assert_eq!(name, foo_call);
+        assert_eq!(code.with_stream(parse_name), foo_call);
     }
 
     #[test]
     fn test_association_list_actual_part_open() {
-        let (util, name) = with_stream(parse_association_list, "(open, arg => open)");
+        let code = Code::new("(open, arg => open)");
         let elem1 = AssociationElement {
             formal: None,
-            actual: WithPos::new(ActualPart::Open, util.first_substr_pos("open")),
+            actual: WithPos::new(ActualPart::Open, code.s1("open").pos()),
         };
         let elem2 = AssociationElement {
-            formal: Some(util.name("arg")),
-            actual: WithPos::new(ActualPart::Open, util.substr_pos("open", 2)),
+            formal: Some(code.s1("arg").name()),
+            actual: WithPos::new(ActualPart::Open, code.s("open", 2)),
         };
-        assert_eq!(name, vec![elem1, elem2]);
+        assert_eq!(code.with_stream(parse_association_list), vec![elem1, elem2]);
     }
 
     #[test]
     fn test_external_name_implicit_relative() {
-        let (util, name) = with_stream(parse_name, "<< signal dut.foo : std_logic >>");
+        let code = Code::new("<< signal dut.foo : std_logic >>");
         let external_name = ExternalName {
             class: ExternalObjectClass::Signal,
             path: WithPos::new(
-                ExternalPath::Relative(util.name("dut.foo")),
-                util.first_substr_pos("dut.foo"),
+                ExternalPath::Relative(code.s1("dut.foo").name()),
+                code.s1("dut.foo").pos(),
             ),
-            subtype: util.subtype_indication("std_logic"),
+            subtype: code.s1("std_logic").subtype_indication(),
         };
         assert_eq!(
-            name,
-            WithPos::new(Name::External(Box::new(external_name)), util.entire_pos())
+            code.with_stream(parse_name),
+            WithPos::new(Name::External(Box::new(external_name)), code)
         );
     }
 
     #[test]
     fn test_external_name_explicit_relative() {
-        let (util, name) = with_stream(parse_name, "<< signal ^.dut.gen(0) : std_logic >>");
+        let code = Code::new("<< signal ^.dut.gen(0) : std_logic >>");
         let external_name = ExternalName {
             class: ExternalObjectClass::Signal,
             path: WithPos::new(
-                ExternalPath::Relative(util.name("dut.gen(0)")),
-                util.first_substr_pos("^.dut.gen(0)"),
+                ExternalPath::Relative(code.s1("dut.gen(0)").name()),
+                code.s1("^.dut.gen(0)").pos(),
             ),
-            subtype: util.subtype_indication("std_logic"),
+            subtype: code.s1("std_logic").subtype_indication(),
         };
         assert_eq!(
-            name,
-            WithPos::new(Name::External(Box::new(external_name)), util.entire_pos())
+            code.with_stream(parse_name),
+            WithPos::new(Name::External(Box::new(external_name)), code)
         );
     }
 
     #[test]
     fn test_external_name_absolute() {
-        let (util, name) = with_stream(parse_name, "<< signal .dut.gen(0) : std_logic >>");
+        let code = Code::new("<< signal .dut.gen(0) : std_logic >>");
         let external_name = ExternalName {
             class: ExternalObjectClass::Signal,
             path: WithPos::new(
-                ExternalPath::Absolute(util.name("dut.gen(0)")),
-                util.first_substr_pos(".dut.gen(0)"),
+                ExternalPath::Absolute(code.s1("dut.gen(0)").name()),
+                code.s1(".dut.gen(0)").pos(),
             ),
-            subtype: util.subtype_indication("std_logic"),
+            subtype: code.s1("std_logic").subtype_indication(),
         };
         assert_eq!(
-            name,
-            WithPos::new(Name::External(Box::new(external_name)), util.entire_pos())
+            code.with_stream(parse_name),
+            WithPos::new(Name::External(Box::new(external_name)), code)
         );
     }
 
     #[test]
     fn test_external_name_package() {
-        let (util, name) = with_stream(parse_name, "<< signal @lib.pkg : std_logic >>");
+        let code = Code::new("<< signal @lib.pkg : std_logic >>");
         let external_name = ExternalName {
             class: ExternalObjectClass::Signal,
             path: WithPos::new(
-                ExternalPath::Package(util.name("lib.pkg")),
-                util.first_substr_pos("@lib.pkg"),
+                ExternalPath::Package(code.s1("lib.pkg").name()),
+                code.s1("@lib.pkg").pos(),
             ),
-            subtype: util.subtype_indication("std_logic"),
+            subtype: code.s1("std_logic").subtype_indication(),
         };
         assert_eq!(
-            name,
-            WithPos::new(Name::External(Box::new(external_name)), util.entire_pos())
+            code.with_stream(parse_name),
+            WithPos::new(Name::External(Box::new(external_name)), code)
         );
     }
 
@@ -862,19 +870,18 @@ mod tests {
             ("variable", ExternalObjectClass::Variable),
         ];
         for (string, class) in combinations.iter().cloned() {
-            let (util, name) =
-                with_stream(parse_name, &format!("<< {} dut.foo : std_logic >>", string));
+            let code = Code::new(&format!("<< {} dut.foo : std_logic >>", string));
             let external_name = ExternalName {
                 class,
                 path: WithPos::new(
-                    ExternalPath::Relative(util.name("dut.foo")),
-                    util.first_substr_pos("dut.foo"),
+                    ExternalPath::Relative(code.s1("dut.foo").name()),
+                    code.s1("dut.foo").pos(),
                 ),
-                subtype: util.subtype_indication("std_logic"),
+                subtype: code.s1("std_logic").subtype_indication(),
             };
             assert_eq!(
-                name,
-                WithPos::new(Name::External(Box::new(external_name)), util.entire_pos())
+                code.with_stream(parse_name),
+                WithPos::new(Name::External(Box::new(external_name)), code)
             );
         }
     }

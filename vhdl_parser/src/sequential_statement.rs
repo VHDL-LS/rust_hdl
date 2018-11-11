@@ -555,10 +555,12 @@ mod tests {
     use super::*;
     use ast::{DelayMechanism, Ident};
 
-    use test_util::{with_stream_no_messages, TestUtil};
+    use test_util::Code;
 
-    fn parse(code: &str) -> (TestUtil, LabeledSequentialStatement) {
-        with_stream_no_messages(parse_sequential_statement, code)
+    fn parse(code: &str) -> (Code, LabeledSequentialStatement) {
+        let code = Code::new(code);
+        let stmt = code.with_stream_no_messages(parse_sequential_statement);
+        (code, stmt)
     }
 
     fn with_label(
@@ -586,11 +588,11 @@ mod tests {
 
     #[test]
     fn parse_wait_statement_with_label() {
-        let (util, statement) = parse("foo: wait;");
+        let (code, statement) = parse("foo: wait;");
         assert_eq!(
             statement,
             with_label(
-                Some(util.ident("foo")),
+                Some(code.s1("foo").ident()),
                 SequentialStatement::Wait(WaitStatement {
                     sensitivity_clause: vec![],
                     condition_clause: None,
@@ -602,13 +604,13 @@ mod tests {
 
     #[test]
     fn parse_wait_statement_with_sensitivity_list() {
-        let (util, statement) = parse("wait on foo, bar;");
+        let (code, statement) = parse("wait on foo, bar;");
         assert_eq!(
             statement,
             with_label(
                 None,
                 SequentialStatement::Wait(WaitStatement {
-                    sensitivity_clause: vec![util.name("foo"), util.name("bar")],
+                    sensitivity_clause: vec![code.s1("foo").name(), code.s1("bar").name()],
                     condition_clause: None,
                     timeout_clause: None
                 })
@@ -618,14 +620,14 @@ mod tests {
 
     #[test]
     fn parse_wait_statement_with_condition() {
-        let (util, statement) = parse("wait until a = b;");
+        let (code, statement) = parse("wait until a = b;");
         assert_eq!(
             statement,
             with_label(
                 None,
                 SequentialStatement::Wait(WaitStatement {
                     sensitivity_clause: vec![],
-                    condition_clause: Some(util.expr("a = b")),
+                    condition_clause: Some(code.s1("a = b").expr()),
                     timeout_clause: None
                 })
             )
@@ -634,7 +636,7 @@ mod tests {
 
     #[test]
     fn parse_wait_statement_with_timeout() {
-        let (util, statement) = parse("wait for 2 ns;");
+        let (code, statement) = parse("wait for 2 ns;");
         assert_eq!(
             statement,
             with_label(
@@ -642,7 +644,7 @@ mod tests {
                 SequentialStatement::Wait(WaitStatement {
                     sensitivity_clause: vec![],
                     condition_clause: None,
-                    timeout_clause: Some(util.expr("2 ns"))
+                    timeout_clause: Some(code.s1("2 ns").expr())
                 })
             )
         );
@@ -650,15 +652,15 @@ mod tests {
 
     #[test]
     fn parse_wait_statement_with_all_parts() {
-        let (util, statement) = parse("wait on foo until bar for 2 ns;");
+        let (code, statement) = parse("wait on foo until bar for 2 ns;");
         assert_eq!(
             statement,
             with_label(
                 None,
                 SequentialStatement::Wait(WaitStatement {
-                    sensitivity_clause: vec![util.name("foo")],
-                    condition_clause: Some(util.expr("bar")),
-                    timeout_clause: Some(util.expr("2 ns"))
+                    sensitivity_clause: vec![code.s1("foo").name()],
+                    condition_clause: Some(code.s1("bar").expr()),
+                    timeout_clause: Some(code.s1("2 ns").expr())
                 })
             )
         );
@@ -666,13 +668,13 @@ mod tests {
 
     #[test]
     fn parse_simple_assert_statement() {
-        let (util, statement) = parse("assert false;");
+        let (code, statement) = parse("assert false;");
         assert_eq!(
             statement,
             with_label(
                 None,
                 SequentialStatement::Assert(AssertStatement {
-                    condition: util.expr("false"),
+                    condition: code.s1("false").expr(),
                     report: None,
                     severity: None
                 })
@@ -682,15 +684,15 @@ mod tests {
 
     #[test]
     fn parse_assert_statement() {
-        let (util, statement) = parse("assert false report \"message\" severity error;");
+        let (code, statement) = parse("assert false report \"message\" severity error;");
         assert_eq!(
             statement,
             with_label(
                 None,
                 SequentialStatement::Assert(AssertStatement {
-                    condition: util.expr("false"),
-                    report: Some(util.expr("\"message\"")),
-                    severity: Some(util.expr("error"))
+                    condition: code.s1("false").expr(),
+                    report: Some(code.s1("\"message\"").expr()),
+                    severity: Some(code.s1("error").expr())
                 })
             )
         );
@@ -698,14 +700,14 @@ mod tests {
 
     #[test]
     fn parse_report_statement() {
-        let (util, statement) = parse("report \"message\" severity error;");
+        let (code, statement) = parse("report \"message\" severity error;");
         assert_eq!(
             statement,
             with_label(
                 None,
                 SequentialStatement::Report(ReportStatement {
-                    report: util.expr("\"message\""),
-                    severity: Some(util.expr("error"))
+                    report: code.s1("\"message\"").expr(),
+                    severity: Some(code.s1("error").expr())
                 })
             )
         );
@@ -713,16 +715,16 @@ mod tests {
 
     #[test]
     fn parse_simple_signal_assignment() {
-        let (util, statement) = parse("foo(0) <= bar(1,2) after 2 ns;");
+        let (code, statement) = parse("foo(0) <= bar(1,2) after 2 ns;");
 
         assert_eq!(
             statement,
             with_label(
                 None,
                 SequentialStatement::SignalAssignment(SignalAssignment {
-                    target: util.name("foo(0)").map_into(Target::Name),
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
                     delay_mechanism: None,
-                    rhs: AssignmentRightHand::Simple(util.waveform("bar(1,2) after 2 ns"))
+                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2) after 2 ns").waveform())
                 })
             )
         );
@@ -730,16 +732,16 @@ mod tests {
 
     #[test]
     fn parse_simple_signal_assignment_delay_mechanism() {
-        let (util, statement) = parse("foo(0) <= transport bar(1,2);");
+        let (code, statement) = parse("foo(0) <= transport bar(1,2);");
 
         assert_eq!(
             statement,
             with_label(
                 None,
                 SequentialStatement::SignalAssignment(SignalAssignment {
-                    target: util.name("foo(0)").map_into(Target::Name),
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
                     delay_mechanism: Some(DelayMechanism::Transport),
-                    rhs: AssignmentRightHand::Simple(util.waveform("bar(1,2)"))
+                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").waveform())
                 })
             )
         );
@@ -747,14 +749,14 @@ mod tests {
 
     #[test]
     fn parse_simple_variable_assignment() {
-        let (util, statement) = parse("foo(0) := bar(1,2);");
+        let (code, statement) = parse("foo(0) := bar(1,2);");
         assert_eq!(
             statement,
             with_label(
                 None,
                 SequentialStatement::VariableAssignment(VariableAssignment {
-                    target: util.name("foo(0)").map_into(Target::Name),
-                    rhs: AssignmentRightHand::Simple(util.expr("bar(1,2)"))
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
+                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
                 })
             )
         );
@@ -762,16 +764,17 @@ mod tests {
 
     #[test]
     fn parse_simple_aggregate_variable_assignment() {
-        let (util, statement) = parse("(foo, 1 => bar) := integer_vector'(1, 2);");
+        let (code, statement) = parse("(foo, 1 => bar) := integer_vector'(1, 2);");
         assert_eq!(
             statement,
             with_label(
                 None,
                 SequentialStatement::VariableAssignment(VariableAssignment {
-                    target: util
-                        .aggregate("(foo, 1 => bar)")
+                    target: code
+                        .s1("(foo, 1 => bar)")
+                        .aggregate()
                         .map_into(Target::Aggregate),
-                    rhs: AssignmentRightHand::Simple(util.expr("integer_vector'(1, 2)"))
+                    rhs: AssignmentRightHand::Simple(code.s1("integer_vector'(1, 2)").expr())
                 })
             )
         );
@@ -779,16 +782,17 @@ mod tests {
 
     #[test]
     fn parse_labeled_aggregate_variable_assignment() {
-        let (util, statement) = parse("name: (foo, 1 => bar) := integer_vector'(1, 2);");
+        let (code, statement) = parse("name: (foo, 1 => bar) := integer_vector'(1, 2);");
         assert_eq!(
             statement,
             with_label(
-                Some(util.ident("name")),
+                Some(code.s1("name").ident()),
                 SequentialStatement::VariableAssignment(VariableAssignment {
-                    target: util
-                        .aggregate("(foo, 1 => bar)")
+                    target: code
+                        .s1("(foo, 1 => bar)")
+                        .aggregate()
                         .map_into(Target::Aggregate),
-                    rhs: AssignmentRightHand::Simple(util.expr("integer_vector'(1, 2)"))
+                    rhs: AssignmentRightHand::Simple(code.s1("integer_vector'(1, 2)").expr())
                 })
             )
         );
@@ -796,14 +800,14 @@ mod tests {
 
     #[test]
     fn parse_labeled_simple_variable_assignment() {
-        let (util, statement) = parse("name: foo(0) := bar(1,2);");
+        let (code, statement) = parse("name: foo(0) := bar(1,2);");
         assert_eq!(
             statement,
             with_label(
-                Some(util.ident("name")),
+                Some(code.s1("name").ident()),
                 SequentialStatement::VariableAssignment(VariableAssignment {
-                    target: util.name("foo(0)").map_into(Target::Name),
-                    rhs: AssignmentRightHand::Simple(util.expr("bar(1,2)"))
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
+                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
                 })
             )
         );
@@ -811,17 +815,17 @@ mod tests {
 
     #[test]
     fn parse_conditional_variable_assignment() {
-        let (util, statement) = parse("foo(0) := bar(1,2) when cond = true;");
+        let (code, statement) = parse("foo(0) := bar(1,2) when cond = true;");
         assert_eq!(
             statement,
             with_label(
                 None,
                 SequentialStatement::VariableAssignment(VariableAssignment {
-                    target: util.name("foo(0)").map_into(Target::Name),
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
                     rhs: AssignmentRightHand::Conditional(Conditionals {
                         conditionals: vec![Conditional {
-                            condition: util.expr("cond = true"),
-                            item: util.expr("bar(1,2)")
+                            condition: code.s1("cond = true").expr(),
+                            item: code.s1("bar(1,2)").expr()
                         }],
                         else_item: None
                     })
@@ -832,7 +836,7 @@ mod tests {
 
     #[test]
     fn parse_selected_variable_assignment() {
-        let (util, statement) = parse(
+        let (code, statement) = parse(
             "\
 with x(0) + 1 select
    foo(0) := bar(1,2) when 0|1,
@@ -840,15 +844,15 @@ with x(0) + 1 select
         );
 
         let selection = Selection {
-            expression: util.expr("x(0) + 1"),
+            expression: code.s1("x(0) + 1").expr(),
             alternatives: vec![
                 Alternative {
-                    choices: util.choices("0|1"),
-                    item: util.expr("bar(1,2)"),
+                    choices: code.s1("0|1").choices(),
+                    item: code.s1("bar(1,2)").expr(),
                 },
                 Alternative {
-                    choices: util.choices("others"),
-                    item: util.expr("def"),
+                    choices: code.s1("others").choices(),
+                    item: code.s1("def").expr(),
                 },
             ],
         };
@@ -858,7 +862,7 @@ with x(0) + 1 select
             with_label(
                 None,
                 SequentialStatement::VariableAssignment(VariableAssignment {
-                    target: util.name("foo(0)").map_into(Target::Name),
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
                     rhs: AssignmentRightHand::Selected(selection)
                 })
             )
@@ -867,22 +871,22 @@ with x(0) + 1 select
 
     #[test]
     fn parse_conditional_variable_assignment_several() {
-        let (util, statement) = parse("foo(0) := bar(1,2) when cond = true else expr2 when cond2;");
+        let (code, statement) = parse("foo(0) := bar(1,2) when cond = true else expr2 when cond2;");
         assert_eq!(
             statement,
             with_label(
                 None,
                 SequentialStatement::VariableAssignment(VariableAssignment {
-                    target: util.name("foo(0)").map_into(Target::Name),
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
                     rhs: AssignmentRightHand::Conditional(Conditionals {
                         conditionals: vec![
                             Conditional {
-                                condition: util.expr("cond = true"),
-                                item: util.expr("bar(1,2)")
+                                condition: code.s1("cond = true").expr(),
+                                item: code.s1("bar(1,2)").expr()
                             },
                             Conditional {
-                                condition: util.expr("cond2"),
-                                item: util.expr("expr2")
+                                condition: code.s1("cond2").expr(),
+                                item: code.s1("expr2").expr()
                             }
                         ],
                         else_item: None
@@ -893,19 +897,19 @@ with x(0) + 1 select
     }
     #[test]
     fn parse_conditional_variable_assignment_else() {
-        let (util, statement) = parse("foo(0) := bar(1,2) when cond = true else expr2;");
+        let (code, statement) = parse("foo(0) := bar(1,2) when cond = true else expr2;");
         assert_eq!(
             statement,
             with_label(
                 None,
                 SequentialStatement::VariableAssignment(VariableAssignment {
-                    target: util.name("foo(0)").map_into(Target::Name),
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
                     rhs: AssignmentRightHand::Conditional(Conditionals {
                         conditionals: vec![Conditional {
-                            condition: util.expr("cond = true"),
-                            item: util.expr("bar(1,2)")
+                            condition: code.s1("cond = true").expr(),
+                            item: code.s1("bar(1,2)").expr()
                         }],
-                        else_item: Some(util.expr("expr2"))
+                        else_item: Some(code.s1("expr2").expr())
                     })
                 })
             )
@@ -914,12 +918,12 @@ with x(0) + 1 select
 
     #[test]
     fn parse_conditional_signal_assignment() {
-        let (util, statement) = parse("foo(0) <= bar(1,2) after 2 ns when cond;");
+        let (code, statement) = parse("foo(0) <= bar(1,2) after 2 ns when cond;");
 
         let conditionals = Conditionals {
             conditionals: vec![Conditional {
-                condition: util.expr("cond"),
-                item: util.waveform("bar(1,2) after 2 ns"),
+                condition: code.s1("cond").expr(),
+                item: code.s1("bar(1,2) after 2 ns").waveform(),
             }],
             else_item: None,
         };
@@ -929,7 +933,7 @@ with x(0) + 1 select
             with_label(
                 None,
                 SequentialStatement::SignalAssignment(SignalAssignment {
-                    target: util.name("foo(0)").map_into(Target::Name),
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
                     delay_mechanism: None,
                     rhs: AssignmentRightHand::Conditional(conditionals)
                 })
@@ -939,7 +943,7 @@ with x(0) + 1 select
 
     #[test]
     fn parse_selected_signal_assignment() {
-        let (util, statement) = parse(
+        let (code, statement) = parse(
             "\
 with x(0) + 1 select
    foo(0) <= transport bar(1,2) after 2 ns when 0|1,
@@ -947,15 +951,15 @@ with x(0) + 1 select
         );
 
         let selection = Selection {
-            expression: util.expr("x(0) + 1"),
+            expression: code.s1("x(0) + 1").expr(),
             alternatives: vec![
                 Alternative {
-                    choices: util.choices("0|1"),
-                    item: util.waveform("bar(1,2) after 2 ns"),
+                    choices: code.s1("0|1").choices(),
+                    item: code.s1("bar(1,2) after 2 ns").waveform(),
                 },
                 Alternative {
-                    choices: util.choices("others"),
-                    item: util.waveform("def"),
+                    choices: code.s1("others").choices(),
+                    item: code.s1("def").waveform(),
                 },
             ],
         };
@@ -965,7 +969,7 @@ with x(0) + 1 select
             with_label(
                 None,
                 SequentialStatement::SignalAssignment(SignalAssignment {
-                    target: util.name("foo(0)").map_into(Target::Name),
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
                     delay_mechanism: Some(DelayMechanism::Transport),
                     rhs: AssignmentRightHand::Selected(selection)
                 })
@@ -975,33 +979,33 @@ with x(0) + 1 select
 
     #[test]
     fn parse_procedure_call_statement() {
-        let (util, statement) = parse("foo(1,2);");
+        let (code, statement) = parse("foo(1,2);");
 
         assert_eq!(
             statement,
             with_label(
                 None,
-                SequentialStatement::ProcedureCall(util.function_call("foo(1,2)"))
+                SequentialStatement::ProcedureCall(code.s1("foo(1,2)").function_call())
             )
         );
     }
 
     #[test]
     fn parse_procedure_call_no_args() {
-        let (util, statement) = parse("foo;");
+        let (code, statement) = parse("foo;");
 
         assert_eq!(
             statement,
             with_label(
                 None,
-                SequentialStatement::ProcedureCall(util.function_call("foo"))
+                SequentialStatement::ProcedureCall(code.s1("foo").function_call())
             )
         );
     }
 
     #[test]
     fn parse_simple_if_statement() {
-        let (util, statement) = parse(
+        let (code, statement) = parse(
             "\
 if cond = true then
    foo(1,2);
@@ -1015,10 +1019,10 @@ end if;
                 None,
                 SequentialStatement::If(IfStatement {
                     conditionals: vec![Conditional {
-                        condition: util.expr("cond = true"),
+                        condition: code.s1("cond = true").expr(),
                         item: vec![
-                            util.sequential_statement("foo(1,2);"),
-                            util.sequential_statement("x := 1;")
+                            code.s1("foo(1,2);").sequential_statement(),
+                            code.s1("x := 1;").sequential_statement()
                         ]
                     }],
                     else_item: None
@@ -1029,7 +1033,7 @@ end if;
 
     #[test]
     fn parse_if_else_statement() {
-        let (util, statement) = parse(
+        let (code, statement) = parse(
             "\
 if cond = true then
    foo(1,2);
@@ -1044,10 +1048,10 @@ end if;
                 None,
                 SequentialStatement::If(IfStatement {
                     conditionals: vec![Conditional {
-                        condition: util.expr("cond = true"),
-                        item: vec![util.sequential_statement("foo(1,2);")]
+                        condition: code.s1("cond = true").expr(),
+                        item: vec![code.s1("foo(1,2);").sequential_statement()]
                     }],
-                    else_item: Some(vec![util.sequential_statement("x := 1;")])
+                    else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
                 })
             )
         );
@@ -1055,7 +1059,7 @@ end if;
 
     #[test]
     fn parse_if_elsif_else_statement() {
-        let (util, statement) = parse(
+        let (code, statement) = parse(
             "\
 if cond = true then
    foo(1,2);
@@ -1073,15 +1077,15 @@ end if;
                 SequentialStatement::If(IfStatement {
                     conditionals: vec![
                         Conditional {
-                            condition: util.expr("cond = true"),
-                            item: vec![util.sequential_statement("foo(1,2);")]
+                            condition: code.s1("cond = true").expr(),
+                            item: vec![code.s1("foo(1,2);").sequential_statement()]
                         },
                         Conditional {
-                            condition: util.expr("cond2 = false"),
-                            item: vec![util.sequential_statement("y := 2;")]
+                            condition: code.s1("cond2 = false").expr(),
+                            item: vec![code.s1("y := 2;").sequential_statement()]
                         }
                     ],
-                    else_item: Some(vec![util.sequential_statement("x := 1;")])
+                    else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
                 })
             )
         );
@@ -1089,7 +1093,7 @@ end if;
 
     #[test]
     fn parse_case_statement() {
-        let (util, statement) = parse(
+        let (code, statement) = parse(
             "\
 case foo(1) is
   when 1 | 2 =>
@@ -1106,20 +1110,20 @@ end case;
             with_label(
                 None,
                 SequentialStatement::Case(CaseStatement {
-                    expression: util.expr("foo(1)"),
+                    expression: code.s1("foo(1)").expr(),
                     alternatives: vec![
                         Alternative {
-                            choices: util.choices("1 | 2"),
+                            choices: code.s1("1 | 2").choices(),
                             item: vec![
-                                util.sequential_statement("stmt1;"),
-                                util.sequential_statement("stmt2;")
+                                code.s1("stmt1;").sequential_statement(),
+                                code.s1("stmt2;").sequential_statement()
                             ]
                         },
                         Alternative {
-                            choices: util.choices("others"),
+                            choices: code.s1("others").choices(),
                             item: vec![
-                                util.sequential_statement("stmt3;"),
-                                util.sequential_statement("stmt4;"),
+                                code.s1("stmt3;").sequential_statement(),
+                                code.s1("stmt4;").sequential_statement(),
                             ]
                         }
                     ],
@@ -1130,7 +1134,7 @@ end case;
 
     #[test]
     fn parse_loop_statement() {
-        let (util, statement) = parse(
+        let (code, statement) = parse(
             "\
 loop
   stmt1;
@@ -1145,8 +1149,8 @@ end loop;
                 SequentialStatement::Loop(LoopStatement {
                     iteration_scheme: None,
                     statements: vec![
-                        util.sequential_statement("stmt1;"),
-                        util.sequential_statement("stmt2;")
+                        code.s1("stmt1;").sequential_statement(),
+                        code.s1("stmt2;").sequential_statement()
                     ],
                 })
             )
@@ -1155,7 +1159,7 @@ end loop;
 
     #[test]
     fn parse_while_loop_statement() {
-        let (util, statement) = parse(
+        let (code, statement) = parse(
             "\
 while foo = true loop
   stmt1;
@@ -1168,10 +1172,10 @@ end loop;
             with_label(
                 None,
                 SequentialStatement::Loop(LoopStatement {
-                    iteration_scheme: Some(IterationScheme::While(util.expr("foo = true"))),
+                    iteration_scheme: Some(IterationScheme::While(code.s1("foo = true").expr())),
                     statements: vec![
-                        util.sequential_statement("stmt1;"),
-                        util.sequential_statement("stmt2;")
+                        code.s1("stmt1;").sequential_statement(),
+                        code.s1("stmt2;").sequential_statement()
                     ],
                 })
             )
@@ -1179,7 +1183,7 @@ end loop;
     }
     #[test]
     fn parse_for_loop_statement() {
-        let (util, statement) = parse(
+        let (code, statement) = parse(
             "\
 for idx in 0 to 3 loop
   stmt1;
@@ -1193,12 +1197,12 @@ end loop;
                 None,
                 SequentialStatement::Loop(LoopStatement {
                     iteration_scheme: Some(IterationScheme::For(
-                        util.ident("idx"),
-                        util.discrete_range("0 to 3")
+                        code.s1("idx").ident(),
+                        code.s1("0 to 3").discrete_range()
                     )),
                     statements: vec![
-                        util.sequential_statement("stmt1;"),
-                        util.sequential_statement("stmt2;")
+                        code.s1("stmt1;").sequential_statement(),
+                        code.s1("stmt2;").sequential_statement()
                     ],
                 })
             )
@@ -1222,13 +1226,13 @@ end loop;
 
     #[test]
     fn parse_next_statement_loop_label() {
-        let (util, statement) = parse("next foo;");
+        let (code, statement) = parse("next foo;");
         assert_eq!(
             statement,
             with_label(
                 None,
                 SequentialStatement::Next(NextStatement {
-                    loop_label: Some(util.ident("foo")),
+                    loop_label: Some(code.s1("foo").ident()),
                     condition: None,
                 })
             )
@@ -1237,14 +1241,14 @@ end loop;
 
     #[test]
     fn parse_next_statement_condition() {
-        let (util, statement) = parse("next when condition;");
+        let (code, statement) = parse("next when condition;");
         assert_eq!(
             statement,
             with_label(
                 None,
                 SequentialStatement::Next(NextStatement {
                     loop_label: None,
-                    condition: Some(util.expr("condition")),
+                    condition: Some(code.s1("condition").expr()),
                 })
             )
         );
@@ -1252,14 +1256,14 @@ end loop;
 
     #[test]
     fn parse_next_statement_loop_label_condition() {
-        let (util, statement) = parse("next foo when condition;");
+        let (code, statement) = parse("next foo when condition;");
         assert_eq!(
             statement,
             with_label(
                 None,
                 SequentialStatement::Next(NextStatement {
-                    loop_label: Some(util.ident("foo")),
-                    condition: Some(util.expr("condition")),
+                    loop_label: Some(code.s1("foo").ident()),
+                    condition: Some(code.s1("condition").expr()),
                 })
             )
         );
@@ -1282,13 +1286,13 @@ end loop;
 
     #[test]
     fn parse_exit_statement_loop_label() {
-        let (util, statement) = parse("exit foo;");
+        let (code, statement) = parse("exit foo;");
         assert_eq!(
             statement,
             with_label(
                 None,
                 SequentialStatement::Exit(ExitStatement {
-                    loop_label: Some(util.ident("foo")),
+                    loop_label: Some(code.s1("foo").ident()),
                     condition: None,
                 })
             )
@@ -1297,14 +1301,14 @@ end loop;
 
     #[test]
     fn parse_exit_statement_condition() {
-        let (util, statement) = parse("exit when condition;");
+        let (code, statement) = parse("exit when condition;");
         assert_eq!(
             statement,
             with_label(
                 None,
                 SequentialStatement::Exit(ExitStatement {
                     loop_label: None,
-                    condition: Some(util.expr("condition")),
+                    condition: Some(code.s1("condition").expr()),
                 })
             )
         );
@@ -1312,14 +1316,14 @@ end loop;
 
     #[test]
     fn parse_exit_statement_loop_label_condition() {
-        let (util, statement) = parse("exit foo when condition;");
+        let (code, statement) = parse("exit foo when condition;");
         assert_eq!(
             statement,
             with_label(
                 None,
                 SequentialStatement::Exit(ExitStatement {
-                    loop_label: Some(util.ident("foo")),
-                    condition: Some(util.expr("condition")),
+                    loop_label: Some(code.s1("foo").ident()),
+                    condition: Some(code.s1("condition").expr()),
                 })
             )
         );
@@ -1339,13 +1343,13 @@ end loop;
 
     #[test]
     fn parse_return_statement_expression() {
-        let (util, statement) = parse("return 1 + 2;");
+        let (code, statement) = parse("return 1 + 2;");
         assert_eq!(
             statement,
             with_label(
                 None,
                 SequentialStatement::Return(ReturnStatement {
-                    expression: Some(util.expr("1 + 2")),
+                    expression: Some(code.s1("1 + 2").expr()),
                 })
             )
         );

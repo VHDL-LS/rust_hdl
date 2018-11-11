@@ -58,38 +58,44 @@ pub fn parse_waveform(stream: &mut TokenStream) -> ParseResult<Waveform> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_util::with_stream;
+    use test_util::Code;
 
     #[test]
     fn test_transport_delay_mechanism() {
-        let (_, delay) = with_stream(parse_delay_mechanism, "transport");
-        assert_eq!(delay, Some(DelayMechanism::Transport));
+        let code = Code::new("transport");
+        assert_eq!(
+            code.with_stream(parse_delay_mechanism),
+            Some(DelayMechanism::Transport)
+        );
     }
 
     #[test]
     fn test_intertial_delay_mechanism() {
-        let (_, delay) = with_stream(parse_delay_mechanism, "inertial");
-        assert_eq!(delay, Some(DelayMechanism::Inertial { reject: None }));
+        let code = Code::new("inertial");
+        assert_eq!(
+            code.with_stream(parse_delay_mechanism),
+            Some(DelayMechanism::Inertial { reject: None })
+        );
     }
 
     #[test]
     fn test_reject_intertial_delay_mechanism() {
-        let (util, delay) = with_stream(parse_delay_mechanism, "reject 2 ns inertial");
+        let code = Code::new("reject 2 ns inertial");
         assert_eq!(
-            delay,
+            code.with_stream(parse_delay_mechanism),
             Some(DelayMechanism::Inertial {
-                reject: Some(util.expr("2 ns"))
+                reject: Some(code.s1("2 ns").expr())
             })
         );
     }
 
     #[test]
     fn test_waveform() {
-        let (util, wave) = with_stream(parse_waveform, "bar(1 to 3)");
+        let code = Code::new("bar(1 to 3)");
         assert_eq!(
-            wave,
+            code.with_stream(parse_waveform),
             Waveform::Elements(vec![WaveformElement {
-                value: util.expr("bar(1 to 3)"),
+                value: code.s1("bar(1 to 3)").expr(),
                 after: None
             }])
         );
@@ -97,29 +103,29 @@ mod tests {
 
     #[test]
     fn test_waveform_after() {
-        let (util, wave) = with_stream(parse_waveform, "bar(1 to 3) after 2 ns");
+        let code = Code::new("bar(1 to 3) after 2 ns");
         assert_eq!(
-            wave,
+            code.with_stream(parse_waveform),
             Waveform::Elements(vec![WaveformElement {
-                value: util.expr("bar(1 to 3)"),
-                after: Some(util.expr("2 ns"))
+                value: code.s1("bar(1 to 3)").expr(),
+                after: Some(code.s1("2 ns").expr())
             }])
         );
     }
 
     #[test]
     fn test_waveform_after_many() {
-        let (util, wave) = with_stream(parse_waveform, "bar(1 to 3) after 2 ns, expr after 1 ns");
+        let code = Code::new("bar(1 to 3) after 2 ns, expr after 1 ns");
         assert_eq!(
-            wave,
+            code.with_stream(parse_waveform),
             Waveform::Elements(vec![
                 WaveformElement {
-                    value: util.expr("bar(1 to 3)"),
-                    after: Some(util.expr("2 ns")),
+                    value: code.s1("bar(1 to 3)").expr(),
+                    after: Some(code.s1("2 ns").expr()),
                 },
                 WaveformElement {
-                    value: util.expr("expr"),
-                    after: Some(util.expr("1 ns")),
+                    value: code.s1("expr").expr(),
+                    after: Some(code.s1("1 ns").expr()),
                 },
             ])
         );
@@ -127,7 +133,7 @@ mod tests {
 
     #[test]
     fn test_unaffected_waveform() {
-        let (_, wave) = with_stream(parse_waveform, "unaffected");
-        assert_eq!(wave, Waveform::Unaffected);
+        let code = Code::new("unaffected");
+        assert_eq!(code.with_stream(parse_waveform), Waveform::Unaffected);
     }
 }

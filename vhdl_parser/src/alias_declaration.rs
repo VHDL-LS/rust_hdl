@@ -57,17 +57,17 @@ pub fn parse_alias_declaration(stream: &mut TokenStream) -> ParseResult<AliasDec
 mod tests {
     use super::*;
     use ast::Name;
-    use test_util::with_stream;
+    use test_util::Code;
 
     #[test]
     fn parse_simple_alias() {
-        let (util, result) = with_stream(parse_alias_declaration, "alias foo is name;");
+        let code = Code::new("alias foo is name;");
         assert_eq!(
-            result,
+            code.with_stream(parse_alias_declaration),
             AliasDeclaration {
-                designator: util.ident("foo").map_into(AliasDesignator::Identifier),
+                designator: code.s1("foo").ident().map_into(AliasDesignator::Identifier),
                 subtype_indication: None,
-                name: util.name("name"),
+                name: code.s1("name").name(),
                 signature: None
             }
         );
@@ -75,16 +75,13 @@ mod tests {
 
     #[test]
     fn parse_alias_with_subtype_indication() {
-        let (util, result) = with_stream(
-            parse_alias_declaration,
-            "alias foo : vector(0 to 1) is name;",
-        );
+        let code = Code::new("alias foo : vector(0 to 1) is name;");
         assert_eq!(
-            result,
+            code.with_stream(parse_alias_declaration),
             AliasDeclaration {
-                designator: util.ident("foo").map_into(AliasDesignator::Identifier),
-                subtype_indication: Some(util.subtype_indication("vector(0 to 1)")),
-                name: util.name("name"),
+                designator: code.s1("foo").ident().map_into(AliasDesignator::Identifier),
+                subtype_indication: Some(code.s1("vector(0 to 1)").subtype_indication()),
+                name: code.s1("name").name(),
                 signature: None
             }
         );
@@ -92,26 +89,23 @@ mod tests {
 
     #[test]
     fn parse_alias_with_signature() {
-        let (util, result) = with_stream(
-            parse_alias_declaration,
-            "alias foo is name [return natural];",
-        );
+        let code = Code::new("alias foo is name [return natural];");
         assert_eq!(
-            result,
+            code.with_stream(parse_alias_declaration),
             AliasDeclaration {
-                designator: util.ident("foo").map_into(AliasDesignator::Identifier),
+                designator: code.s1("foo").ident().map_into(AliasDesignator::Identifier),
                 subtype_indication: None,
-                name: util.name("name"),
-                signature: Some(util.signature("[return natural]"))
+                name: code.s1("name").name(),
+                signature: Some(code.s1("[return natural]").signature())
             }
         );
     }
 
     #[test]
     fn parse_alias_with_operator_symbol() {
-        let (util, result) = with_stream(parse_alias_declaration, "alias \"and\" is name;");
+        let code = Code::new("alias \"and\" is name;");
 
-        let designator = util.name("\"and\"").map_into(|name| match name {
+        let designator = code.s1("\"and\"").name().map_into(|name| match name {
             Name::OperatorSymbol(sym) => AliasDesignator::OperatorSymbol(sym),
             _ => {
                 panic!("{:?}", name);
@@ -119,11 +113,11 @@ mod tests {
         });
 
         assert_eq!(
-            result,
+            code.with_stream(parse_alias_declaration),
             AliasDeclaration {
                 designator,
                 subtype_indication: None,
-                name: util.name("name"),
+                name: code.s1("name").name(),
                 signature: None
             }
         );
@@ -131,9 +125,9 @@ mod tests {
 
     #[test]
     fn parse_alias_with_character() {
-        let (util, result) = with_stream(parse_alias_declaration, "alias 'c' is 'b';");
+        let code = Code::new("alias 'c' is 'b';");
 
-        let designator = util.name("'c'").map_into(|name| match name {
+        let designator = code.s1("'c'").name().map_into(|name| match name {
             Name::CharacterLiteral(sym) => AliasDesignator::Character(sym),
             _ => {
                 panic!("{:?}", name);
@@ -141,11 +135,11 @@ mod tests {
         });
 
         assert_eq!(
-            result,
+            code.with_stream(parse_alias_declaration),
             AliasDeclaration {
                 designator,
                 subtype_indication: None,
-                name: util.name("'b'"),
+                name: code.s1("'b'").name(),
                 signature: None
             }
         );

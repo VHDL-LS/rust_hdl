@@ -100,7 +100,7 @@ mod tests {
 
     use ast::Ident;
     use message::error;
-    use test_util::{with_partial_stream_messages, with_stream_no_messages};
+    use test_util::Code;
 
     fn to_component(
         ident: Ident,
@@ -116,38 +116,46 @@ mod tests {
 
     #[test]
     fn test_component() {
-        let (util, component) = with_stream_no_messages(
-            parse_component_declaration,
+        let code = Code::new(
             "\
 component foo
 end component;
 ",
         );
-        assert_eq!(component, to_component(util.ident("foo"), vec![], vec![]));
+        let component = code.with_stream_no_messages(parse_component_declaration);
+        assert_eq!(
+            component,
+            to_component(code.s1("foo").ident(), vec![], vec![])
+        );
 
-        let (util, component) = with_stream_no_messages(
-            parse_component_declaration,
+        let code = Code::new(
             "\
 component foo is
 end component;
 ",
         );
-        assert_eq!(component, to_component(util.ident("foo"), vec![], vec![]));
+        let component = code.with_stream_no_messages(parse_component_declaration);
+        assert_eq!(
+            component,
+            to_component(code.s1("foo").ident(), vec![], vec![])
+        );
 
-        let (util, component) = with_stream_no_messages(
-            parse_component_declaration,
+        let code = Code::new(
             "\
 component foo is
 end component foo;
 ",
         );
-        assert_eq!(component, to_component(util.ident("foo"), vec![], vec![]));
+        let component = code.with_stream_no_messages(parse_component_declaration);
+        assert_eq!(
+            component,
+            to_component(code.s1("foo").ident(), vec![], vec![])
+        );
     }
 
     #[test]
     fn test_component_with_generic() {
-        let (util, component) = with_stream_no_messages(
-            parse_component_declaration,
+        let code = Code::new(
             "\
 component foo is
   generic (
@@ -156,11 +164,12 @@ component foo is
 end component;
 ",
         );
+        let component = code.with_stream_no_messages(parse_component_declaration);
         assert_eq!(
             component,
             to_component(
-                util.ident("foo"),
-                vec![util.generic("foo : natural")],
+                code.s1("foo").ident(),
+                vec![code.s1("foo : natural").generic()],
                 vec![]
             )
         );
@@ -168,8 +177,7 @@ end component;
 
     #[test]
     fn test_component_with_port() {
-        let (util, component) = with_stream_no_messages(
-            parse_component_declaration,
+        let code = Code::new(
             "\
 component foo is
   port (
@@ -178,16 +186,20 @@ component foo is
 end component;
 ",
         );
+        let component = code.with_stream_no_messages(parse_component_declaration);
         assert_eq!(
             component,
-            to_component(util.ident("foo"), vec![], vec![util.port("foo : natural")])
+            to_component(
+                code.s1("foo").ident(),
+                vec![],
+                vec![code.s1("foo : natural").port()]
+            )
         );
     }
 
     #[test]
     fn error_on_duplicate_generic_clause() {
-        let (util, result, messages) = with_partial_stream_messages(
-            parse_optional_generic_list,
+        let code = Code::new(
             "\
 generic (
   foo : natural
@@ -198,20 +210,21 @@ generic (
 end
 ",
         );
+
+        let (result, messages) = code.with_partial_stream_messages(parse_optional_generic_list);
         assert_eq!(
             messages,
             vec![error(
-                &util.substr_pos("generic", 2),
+                &code.s("generic", 2).pos(),
                 "Duplicate generic clause"
             )]
         );
-        assert_eq!(result, Ok(Some(vec![util.generic("foo : natural")])),);
+        assert_eq!(result, Ok(Some(vec![code.s1("foo : natural").generic()])),);
     }
 
     #[test]
     fn error_on_duplicate_port_clause() {
-        let (util, result, messages) = with_partial_stream_messages(
-            parse_optional_port_list,
+        let code = Code::new(
             "\
 port (
   foo : natural
@@ -222,17 +235,17 @@ port (
 end
 ",
         );
+        let (result, messages) = code.with_partial_stream_messages(parse_optional_port_list);
         assert_eq!(
             messages,
-            vec![error(&util.substr_pos("port", 2), "Duplicate port clause")]
+            vec![error(code.s("port", 2), "Duplicate port clause")]
         );
-        assert_eq!(result, Ok(Some(vec![util.port("foo : natural")])),);
+        assert_eq!(result, Ok(Some(vec![code.s1("foo : natural").port()])),);
     }
 
     #[test]
     fn error_generic_after_port_clause() {
-        let (util, result, messages) = with_partial_stream_messages(
-            parse_optional_port_list,
+        let code = Code::new(
             "\
 port (
   foo : natural
@@ -243,13 +256,14 @@ generic (
 end
 ",
         );
+        let (result, messages) = code.with_partial_stream_messages(parse_optional_port_list);
         assert_eq!(
             messages,
             vec![error(
-                &util.first_substr_pos("generic"),
+                code.s1("generic"),
                 "Generic clause must come before port clause"
             )]
         );
-        assert_eq!(result, Ok(Some(vec![util.port("foo : natural")])),);
+        assert_eq!(result, Ok(Some(vec![code.s1("foo : natural").port()])),);
     }
 }

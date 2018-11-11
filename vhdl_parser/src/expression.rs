@@ -432,86 +432,77 @@ mod tests {
     use super::*;
     use ast::{AbstractLiteral, Name};
     use latin_1::Latin1String;
-    use test_util::{with_partial_stream, with_stream, TestUtil};
-
-    fn parse_result(code: &str) -> (TestUtil, ParseResult<WithPos<Expression>>) {
-        let (util, expression) = with_partial_stream(|stream| parse_expression(stream), code);
-        return (util, expression);
-    }
-
-    fn parse_ok(code: &str) -> (TestUtil, WithPos<Expression>) {
-        let (util, expression) = with_stream(|stream| parse_expression(stream), code);
-        return (util, expression);
-    }
+    use test_util::Code;
 
     #[test]
     fn parses_character_literal() {
-        let (util, expression) = parse_ok("'a'");
+        let code = Code::new("'a'");
         assert_eq!(
-            expression,
+            code.with_stream(parse_expression),
             WithPos {
                 item: Expression::Literal(Literal::Character(b'a')),
-                pos: util.entire_pos()
+                pos: code.pos()
             }
         );
     }
 
     #[test]
     fn parses_abstract_literal_integer() {
-        let (util, expression) = parse_ok("71");
+        let code = Code::new("71");
         assert_eq!(
-            expression,
+            code.with_stream(parse_expression),
             WithPos {
                 item: Expression::Literal(Literal::AbstractLiteral(AbstractLiteral::Integer(71))),
-                pos: util.entire_pos()
+                pos: code.pos()
             }
         );
     }
 
     #[test]
     fn parses_abstract_literal_real() {
-        let (util, expression) = parse_ok("7.1");
+        let code = Code::new("7.1");
         assert_eq!(
-            expression,
+            code.with_stream(parse_expression),
             WithPos {
                 item: Expression::Literal(Literal::AbstractLiteral(AbstractLiteral::Real(7.1))),
-                pos: util.entire_pos()
+                pos: code.pos()
             }
         );
     }
 
     #[test]
     fn parses_string_literal() {
-        let (util, expression) = parse_ok("\"string\"");
+        let code = Code::new("\"string\"");
         assert_eq!(
-            expression,
+            code.with_stream(parse_expression),
             WithPos {
                 item: Expression::Literal(Literal::String(Latin1String::from_utf8_unchecked(
                     "string"
                 ))),
-                pos: util.entire_pos()
+                pos: code.pos()
             }
         );
     }
 
     #[test]
     fn parses_operator_symol() {
-        let (util, expression) = parse_ok("\"string\"(1, 2)");
+        let code = Code::new("\"string\"(1, 2)");
         assert_eq!(
-            expression,
-            util.name("\"string\"(1, 2)")
+            code.with_stream(parse_expression),
+            code.s1("\"string\"(1, 2)")
+                .name()
                 .map_into(|name| Expression::Name(Box::new(name)))
         );
     }
 
     #[test]
     fn parses_null_literal() {
-        let (util, expression) = parse_ok("null");
+        let code = Code::new("null");
         assert_eq!(
-            expression,
+            code.with_stream(parse_expression),
             WithPos {
                 item: Expression::Literal(Literal::Null),
-                pos: util.entire_pos()
+                pos: code.pos()
             }
         );
     }
@@ -522,262 +513,262 @@ mod tests {
 
     #[test]
     fn parses_add_expression() {
-        let (util, expression) = parse_ok("1 + 2");
+        let code = Code::new("1 + 2");
 
         let lhs = WithPos {
             item: Expression::Literal(int(1)),
-            pos: util.first_substr_pos("1"),
+            pos: code.s1("1").pos(),
         };
 
         let rhs = WithPos {
             item: Expression::Literal(int(2)),
-            pos: util.first_substr_pos("2"),
+            pos: code.s1("2").pos(),
         };
 
         let expr_add = WithPos {
             item: Expression::Binary(Binary::Plus, Box::new(lhs), Box::new(rhs)),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, expr_add);
+        assert_eq!(code.with_stream(parse_expression), expr_add);
     }
 
     #[test]
     fn parses_sub_expression() {
-        let (util, expression) = parse_ok("1 - 2");
+        let code = Code::new("1 - 2");
         let lhs = WithPos {
             item: Expression::Literal(int(1)),
-            pos: util.first_substr_pos("1"),
+            pos: code.s1("1").pos(),
         };
 
         let rhs = WithPos {
             item: Expression::Literal(int(2)),
-            pos: util.first_substr_pos("2"),
+            pos: code.s1("2").pos(),
         };
 
         let expr_sub = WithPos {
             item: Expression::Binary(Binary::Minus, Box::new(lhs), Box::new(rhs)),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, expr_sub);
+        assert_eq!(code.with_stream(parse_expression), expr_sub);
     }
 
     #[test]
     fn parses_abs_expression() {
-        let (util, expression) = parse_ok("abs 9");
+        let code = Code::new("abs 9");
         let expr = WithPos {
             item: Expression::Literal(int(9)),
-            pos: util.first_substr_pos("9"),
+            pos: code.s1("9").pos(),
         };
 
         let expr_abs = WithPos {
             item: Expression::Unary(Unary::Abs, Box::new(expr)),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, expr_abs);
+        assert_eq!(code.with_stream(parse_expression), expr_abs);
     }
 
     #[test]
     fn parses_condition_operator() {
-        let (util, expression) = parse_ok("?? 9");
+        let code = Code::new("?? 9");
         let expr = WithPos {
             item: Expression::Literal(int(9)),
-            pos: util.first_substr_pos("9"),
+            pos: code.s1("9").pos(),
         };
 
         let expr_cond = WithPos {
             item: Expression::Unary(Unary::QueQue, Box::new(expr)),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, expr_cond);
+        assert_eq!(code.with_stream(parse_expression), expr_cond);
     }
 
     #[test]
     fn parses_not_expression() {
-        let (util, expression) = parse_ok("not false");
+        let code = Code::new("not false");
         let name_false = WithPos {
-            item: Expression::Name(Box::new(Name::Simple(util.symbol("false")))),
-            pos: util.first_substr_pos("false"),
+            item: Expression::Name(Box::new(Name::Simple(code.symbol("false")))),
+            pos: code.s1("false").pos(),
         };
 
         let expr_not = WithPos {
             item: Expression::Unary(Unary::Not, Box::new(name_false)),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, expr_not);
+        assert_eq!(code.with_stream(parse_expression), expr_not);
     }
 
     #[test]
     fn parses_new_allocator_qualified() {
-        let (util, expression) = parse_ok("new integer_vector'(0, 1)");
-        let vec_name = util.ident("integer_vector").map_into(Name::Simple);
-        let expr = util.expr("(0, 1)");
+        let code = Code::new("new integer_vector'(0, 1)");
+        let vec_name = code.s1("integer_vector").ident().map_into(Name::Simple);
+        let expr = code.s1("(0, 1)").expr();
 
         let alloc = WithPos {
             item: Allocator::Qualified(QualifiedExpression {
                 name: Box::new(vec_name),
                 expr: Box::new(expr),
             }),
-            pos: util.first_substr_pos("integer_vector'(0, 1)"),
+            pos: code.s1("integer_vector'(0, 1)").pos(),
         };
 
         let new_expr = WithPos {
             item: Expression::New(alloc),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, new_expr);
+        assert_eq!(code.with_stream(parse_expression), new_expr);
     }
 
     #[test]
     fn parses_new_allocator_subtype() {
-        let (util, expression) = parse_ok("new integer_vector");
+        let code = Code::new("new integer_vector");
 
         let alloc = WithPos {
-            item: Allocator::Subtype(util.subtype_indication("integer_vector")),
-            pos: util.first_substr_pos("integer_vector"),
+            item: Allocator::Subtype(code.s1("integer_vector").subtype_indication()),
+            pos: code.s1("integer_vector").pos(),
         };
 
         let new_expr = WithPos {
             item: Expression::New(alloc),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, new_expr);
+        assert_eq!(code.with_stream(parse_expression), new_expr);
     }
 
     #[test]
     fn parses_new_allocator_subtype_constraint() {
-        let (util, expression) = parse_ok("new integer_vector(0 to 1)");
+        let code = Code::new("new integer_vector(0 to 1)");
 
         let alloc = WithPos {
-            item: Allocator::Subtype(util.subtype_indication("integer_vector(0 to 1)")),
-            pos: util.first_substr_pos("integer_vector(0 to 1)"),
+            item: Allocator::Subtype(code.s1("integer_vector(0 to 1)").subtype_indication()),
+            pos: code.s1("integer_vector(0 to 1)").pos(),
         };
 
         let new_expr = WithPos {
             item: Expression::New(alloc),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, new_expr);
+        assert_eq!(code.with_stream(parse_expression), new_expr);
     }
 
     #[test]
     fn parses_physical_unit_expression() {
-        let (util, expression) = parse_ok("1 ns");
+        let code = Code::new("1 ns");
         let expr = WithPos {
             item: Expression::Literal(Literal::Physical(
                 AbstractLiteral::Integer(1),
-                util.symbol("ns"),
+                code.symbol("ns"),
             )),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, expr);
+        assert_eq!(code.with_stream(parse_expression), expr);
     }
 
     #[test]
     fn parses_physical_unit_expression_real() {
-        let (util, expression) = parse_ok("1.0 ns");
+        let code = Code::new("1.0 ns");
         let expr = WithPos {
             item: Expression::Literal(Literal::Physical(
                 AbstractLiteral::Real(1.0),
-                util.symbol("ns"),
+                code.symbol("ns"),
             )),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, expr);
+        assert_eq!(code.with_stream(parse_expression), expr);
     }
 
     #[test]
     fn parses_physical_unit_expression_binary() {
-        let (util, expression) = parse_ok("2 * 1 ns");
+        let code = Code::new("2 * 1 ns");
         let time_expr = WithPos {
             item: Expression::Literal(Literal::Physical(
                 AbstractLiteral::Integer(1),
-                util.symbol("ns"),
+                code.symbol("ns"),
             )),
-            pos: util.first_substr_pos("1 ns"),
+            pos: code.s1("1 ns").pos(),
         };
         let two_expr = WithPos {
             item: Expression::Literal(int(2)),
-            pos: util.first_substr_pos("2"),
+            pos: code.s1("2").pos(),
         };
         let expr = WithPos {
             item: Expression::Binary(Binary::Times, Box::new(two_expr), Box::new(time_expr)),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
-        assert_eq!(expression, expr);
+        assert_eq!(code.with_stream(parse_expression), expr);
     }
 
     #[test]
     fn parses_physical_unit_expression_unary() {
-        let (util, expression) = parse_ok("- 1 ns");
+        let code = Code::new("- 1 ns");
         let time_expr = WithPos {
             item: Expression::Literal(Literal::Physical(
                 AbstractLiteral::Integer(1),
-                util.symbol("ns"),
+                code.symbol("ns"),
             )),
-            pos: util.first_substr_pos("1 ns"),
+            pos: code.s1("1 ns").pos(),
         };
         let expr = WithPos {
             item: Expression::Unary(Unary::Minus, Box::new(time_expr)),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, expr);
+        assert_eq!(code.with_stream(parse_expression), expr);
     }
 
     #[test]
     fn parses_qualified_expression() {
-        let (util, expression) = parse_ok("foo'(1+2)");
-        let foo_name = util.ident("foo").map_into(Name::Simple);
-        let expr = util.expr("(1+2)");
+        let code = Code::new("foo'(1+2)");
+        let foo_name = code.s1("foo").ident().map_into(Name::Simple);
+        let expr = code.s1("(1+2)").expr();
 
         let qexpr = WithPos {
             item: Expression::Qualified(QualifiedExpression {
                 name: Box::new(foo_name),
                 expr: Box::new(expr),
             }),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, qexpr);
+        assert_eq!(code.with_stream(parse_expression), qexpr);
     }
 
     #[test]
     fn parses_qualified_aggregate() {
-        let (util, expression) = parse_ok("foo'(others => '1')");
-        let foo_name = util.ident("foo").map_into(Name::Simple);
-        let expr = util.expr("(others => '1')");
+        let code = Code::new("foo'(others => '1')");
+        let foo_name = code.s1("foo").ident().map_into(Name::Simple);
+        let expr = code.s1("(others => '1')").expr();
 
         let qexpr = WithPos {
             item: Expression::Qualified(QualifiedExpression {
                 name: Box::new(foo_name),
                 expr: Box::new(expr),
             }),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, qexpr);
+        assert_eq!(code.with_stream(parse_expression), qexpr);
     }
 
     #[test]
     fn parses_positional_aggregate() {
-        let (util, expression) = parse_ok("(1, 2)");
+        let code = Code::new("(1, 2)");
         let one_expr = WithPos {
             item: Expression::Literal(int(1)),
-            pos: util.first_substr_pos("1"),
+            pos: code.s1("1").pos(),
         };
         let two_expr = WithPos {
             item: Expression::Literal(int(2)),
-            pos: util.first_substr_pos("2"),
+            pos: code.s1("2").pos(),
         };
 
         let assoc_list = vec![
@@ -786,22 +777,22 @@ mod tests {
         ];
         let expr = WithPos {
             item: Expression::Aggregate(assoc_list),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, expr);
+        assert_eq!(code.with_stream(parse_expression), expr);
     }
 
     #[test]
     fn parses_named_aggregate() {
-        let (util, expression) = parse_ok("(1 => 2)");
+        let code = Code::new("(1 => 2)");
         let one_expr = WithPos {
             item: Expression::Literal(int(1)),
-            pos: util.first_substr_pos("1"),
+            pos: code.s1("1").pos(),
         };
         let two_expr = WithPos {
             item: Expression::Literal(int(2)),
-            pos: util.first_substr_pos("2"),
+            pos: code.s1("2").pos(),
         };
 
         let assoc_list = vec![ElementAssociation::Named(
@@ -810,28 +801,28 @@ mod tests {
         )];
         let expr = WithPos {
             item: Expression::Aggregate(assoc_list),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, expr);
+        assert_eq!(code.with_stream(parse_expression), expr);
     }
 
     #[test]
     fn parses_named_aggregate_many_choices() {
-        let (util, expression) = parse_ok("(1 | 2 => 3)");
+        let code = Code::new("(1 | 2 => 3)");
         let one_expr = WithPos {
             item: Expression::Literal(int(1)),
-            pos: util.first_substr_pos("1"),
+            pos: code.s1("1").pos(),
         };
 
         let two_expr = WithPos {
             item: Expression::Literal(int(2)),
-            pos: util.first_substr_pos("2"),
+            pos: code.s1("2").pos(),
         };
 
         let three_expr = WithPos {
             item: Expression::Literal(int(3)),
-            pos: util.first_substr_pos("3"),
+            pos: code.s1("3").pos(),
         };
 
         let assoc_list = vec![ElementAssociation::Named(
@@ -840,53 +831,53 @@ mod tests {
         )];
         let expr = WithPos {
             item: Expression::Aggregate(assoc_list),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, expr);
+        assert_eq!(code.with_stream(parse_expression), expr);
     }
 
     #[test]
     fn parses_others_aggregate() {
-        let (util, expression) = parse_ok("(others => 1)");
+        let code = Code::new("(others => 1)");
         let one_expr = WithPos {
             item: Expression::Literal(int(1)),
-            pos: util.first_substr_pos("1"),
+            pos: code.s1("1").pos(),
         };
 
         let assoc_list = vec![ElementAssociation::Named(vec![Choice::Others], one_expr)];
         let expr = WithPos {
             item: Expression::Aggregate(assoc_list),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, expr);
+        assert_eq!(code.with_stream(parse_expression), expr);
     }
 
     #[test]
     fn parses_aggregate_range() {
         for direction in [Direction::Descending, Direction::Ascending].iter() {
-            let (util, expression) = {
+            let code = {
                 if *direction == Direction::Descending {
-                    parse_ok("(1 downto 0 => 2)")
+                    Code::new("(1 downto 0 => 2)")
                 } else {
-                    parse_ok("(1 to 0 => 2)")
+                    Code::new("(1 to 0 => 2)")
                 }
             };
 
             let one_expr = WithPos {
                 item: Expression::Literal(int(1)),
-                pos: util.first_substr_pos("1"),
+                pos: code.s1("1").pos(),
             };
 
             let zero_expr = WithPos {
                 item: Expression::Literal(int(0)),
-                pos: util.first_substr_pos("0"),
+                pos: code.s1("0").pos(),
             };
 
             let two_expr = WithPos {
                 item: Expression::Literal(int(2)),
-                pos: util.first_substr_pos("2"),
+                pos: code.s1("2").pos(),
             };
 
             let range = DiscreteRange::Range(Range::Range(RangeConstraint {
@@ -901,24 +892,24 @@ mod tests {
             )];
             let expr = WithPos {
                 item: Expression::Aggregate(assoc_list),
-                pos: util.entire_pos(),
+                pos: code.pos(),
             };
 
-            assert_eq!(expression, expr);
+            assert_eq!(code.with_stream(parse_expression), expr);
         }
     }
 
     #[test]
     fn parses_multiple_others_aggregate() {
-        let (util, expression) = parse_ok("(others => 1, others => 2)");
+        let code = Code::new("(others => 1, others => 2)");
         let one_expr = WithPos {
             item: Expression::Literal(int(1)),
-            pos: util.first_substr_pos("1"),
+            pos: code.s1("1").pos(),
         };
 
         let two_expr = WithPos {
             item: Expression::Literal(int(2)),
-            pos: util.first_substr_pos("2"),
+            pos: code.s1("2").pos(),
         };
 
         let assoc_list = vec![
@@ -927,26 +918,26 @@ mod tests {
         ];
         let expr = WithPos {
             item: Expression::Aggregate(assoc_list),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, expr);
+        assert_eq!(code.with_stream(parse_expression), expr);
     }
 
     #[test]
     fn parses_mixed_aggregate() {
-        let (util, expression) = parse_ok("(1 => 2, 3)");
+        let code = Code::new("(1 => 2, 3)");
         let one_expr = WithPos {
             item: Expression::Literal(int(1)),
-            pos: util.first_substr_pos("1"),
+            pos: code.s1("1").pos(),
         };
         let two_expr = WithPos {
             item: Expression::Literal(int(2)),
-            pos: util.first_substr_pos("2"),
+            pos: code.s1("2").pos(),
         };
         let three_expr = WithPos {
             item: Expression::Literal(int(3)),
-            pos: util.first_substr_pos("3"),
+            pos: code.s1("3").pos(),
         };
 
         let assoc_list = vec![
@@ -955,10 +946,10 @@ mod tests {
         ];
         let expr = WithPos {
             item: Expression::Aggregate(assoc_list),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, expr);
+        assert_eq!(code.with_stream(parse_expression), expr);
     }
 
     #[test]
@@ -969,72 +960,72 @@ mod tests {
             code.push_str("11123, ");
         }
         code.push_str("11123)");
-        let (util, expr) = parse_ok(&code);
-        assert_eq!(expr.pos, util.entire_pos());
+        let code = Code::new(&code);
+        assert_eq!(code.with_stream(parse_expression).pos, code.pos());
     }
 
     #[test]
     fn parses_nested_expression_par_second() {
-        let (util, expression) = parse_ok("1 + (2 + 3)");
+        let code = Code::new("1 + (2 + 3)");
 
         let one = WithPos {
             item: Expression::Literal(int(1)),
-            pos: util.first_substr_pos("1"),
+            pos: code.s1("1").pos(),
         };
 
         let two = WithPos {
             item: Expression::Literal(int(2)),
-            pos: util.first_substr_pos("2"),
+            pos: code.s1("2").pos(),
         };
 
         let three = WithPos {
             item: Expression::Literal(int(3)),
-            pos: util.first_substr_pos("3"),
+            pos: code.s1("3").pos(),
         };
 
         let expr_add0 = WithPos {
             item: Expression::Binary(Binary::Plus, Box::new(two), Box::new(three)),
-            pos: util.first_substr_pos("(2 + 3)"),
+            pos: code.s1("(2 + 3)").pos(),
         };
 
         let expr_add1 = WithPos {
             item: Expression::Binary(Binary::Plus, Box::new(one), Box::new(expr_add0)),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, expr_add1);
+        assert_eq!(code.with_stream(parse_expression), expr_add1);
     }
 
     #[test]
     fn parses_nested_expression_par_first() {
-        let (util, expression) = parse_ok("(1 + 2) + 3");
+        let code = Code::new("(1 + 2) + 3");
 
         let one = WithPos {
             item: Expression::Literal(int(1)),
-            pos: util.first_substr_pos("1"),
+            pos: code.s1("1").pos(),
         };
 
         let two = WithPos {
             item: Expression::Literal(int(2)),
-            pos: util.first_substr_pos("2"),
+            pos: code.s1("2").pos(),
         };
 
         let three = WithPos {
             item: Expression::Literal(int(3)),
-            pos: util.first_substr_pos("3"),
+            pos: code.s1("3").pos(),
         };
 
         let expr_add0 = WithPos {
             item: Expression::Binary(Binary::Plus, Box::new(one), Box::new(two)),
-            pos: util.first_substr_pos("(1 + 2)"),
+            pos: code.s1("(1 + 2)").pos(),
         };
 
         let expr_add1 = WithPos {
             item: Expression::Binary(Binary::Plus, Box::new(expr_add0), Box::new(three)),
-            pos: util.entire_pos(),
+            pos: code.pos(),
         };
 
-        assert_eq!(expression, expr_add1);
+        assert_eq!(code.with_stream(parse_expression), expr_add1);
     }
 
     /// Format expression as a string to simplify testing of precedence.
@@ -1074,27 +1065,29 @@ mod tests {
     }
 
     fn assert_expression_is(code: &str, expr_str: &str) {
-        let (_, expression) = parse_ok(code);
-        assert_eq!(fmt(&expression), expr_str);
+        assert_eq!(
+            fmt(&Code::new(code).with_stream(parse_expression)),
+            expr_str
+        );
     }
 
     #[test]
     fn parses_function_errors() {
-        let (util, expression) = parse_result("fun(,)");
+        let code = Code::new("fun(,)");
         assert_eq!(
-            expression,
-            Err(error(&util.first_substr_pos(","), "Expected {expression}"))
+            code.with_partial_stream(parse_expression),
+            Err(error(&code.s1(",").pos(), "Expected {expression}"))
         );
 
-        let (util, expression) = parse_result("fun(arg0,)");
+        let code = Code::new("fun(arg0,)");
         assert_eq!(
-            expression,
-            Err(error(&util.first_substr_pos(")"), "Expected {expression}"))
+            code.with_partial_stream(parse_expression),
+            Err(error(&code.s1(")").pos(), "Expected {expression}"))
         );
-        let (util, expression) = parse_result("fun(arg0,,)");
+        let code = Code::new("fun(arg0,,)");
         assert_eq!(
-            expression,
-            Err(error(&util.substr_pos(",", 2), "Expected {expression}"))
+            code.with_partial_stream(parse_expression),
+            Err(error(&code.s(",", 2).pos(), "Expected {expression}"))
         );
     }
 

@@ -245,19 +245,19 @@ mod tests {
     use ast::Ident;
     use message::Message;
     use symbol_table::Symbol;
-    use test_util::{check_no_messages, with_stream, with_stream_no_messages, TestUtil};
+    use test_util::{check_no_messages, Code};
 
-    fn parse_str(code: &str) -> (TestUtil, DesignFile, Vec<Message>) {
+    fn parse_str(code: &str) -> (Code, DesignFile, Vec<Message>) {
+        let code = Code::new(code);
         let mut messages = vec![];
-        let (util, design_file) =
-            with_stream(|stream| parse_design_file(stream, &mut messages), code);
-        (util, design_file, messages)
+        let design_file = code.with_stream(|stream| parse_design_file(stream, &mut messages));
+        (code, design_file, messages)
     }
 
-    fn parse_ok(code: &str) -> (TestUtil, DesignFile) {
-        let (util, designfile, messages) = parse_str(code);
+    fn parse_ok(code: &str) -> (Code, DesignFile) {
+        let (code, design_file, messages) = parse_str(code);
         check_no_messages(&messages);
-        (util, designfile)
+        (code, design_file)
     }
 
     fn library_units(design_file: DesignFile) -> Vec<LibraryUnit> {
@@ -297,7 +297,7 @@ mod tests {
 
     #[test]
     fn parse_entity_declaration() {
-        let (util, design_file) = parse_ok(
+        let (code, design_file) = parse_ok(
             "
 entity myent is
 end entity;
@@ -305,10 +305,10 @@ end entity;
         );
         assert_eq!(
             library_units(design_file),
-            [simple_entity(util.ident("myent"))]
+            [simple_entity(code.s1("myent").ident())]
         );
 
-        let (util, design_file) = parse_ok(
+        let (code, design_file) = parse_ok(
             "
 entity myent is
 end entity myent;
@@ -316,13 +316,13 @@ end entity myent;
         );
         assert_eq!(
             library_units(design_file),
-            [simple_entity(util.ident("myent"))]
+            [simple_entity(code.s1("myent").ident())]
         );
     }
 
     #[test]
     fn parse_entity_generic_clause() {
-        let (util, design_file) = parse_ok(
+        let (code, design_file) = parse_ok(
             "
 entity myent is
   generic ();
@@ -332,7 +332,7 @@ end entity;
         assert_eq!(
             to_single_entity(design_file),
             EntityDeclaration {
-                ident: util.ident("myent"),
+                ident: code.s1("myent").ident(),
                 generic_clause: Some(Vec::new()),
                 port_clause: None,
                 decl: vec![],
@@ -343,7 +343,7 @@ end entity;
 
     #[test]
     fn parse_entity_generic_clause_with_values() {
-        let (util, design_file) = parse_ok(
+        let (code, design_file) = parse_ok(
             "
 entity myent is
   generic (
@@ -356,10 +356,10 @@ end entity;
             to_single_entity(design_file),
             EntityDeclaration {
                 ident: Ident {
-                    item: util.symbol("myent"),
-                    pos: util.first_substr_pos("myent")
+                    item: code.symbol("myent"),
+                    pos: code.s1("myent").pos()
                 },
-                generic_clause: Some(vec![util.generic("runner_cfg : string")]),
+                generic_clause: Some(vec![code.s1("runner_cfg : string").generic()]),
                 port_clause: None,
                 decl: vec![],
                 statements: vec![],
@@ -369,7 +369,7 @@ end entity;
 
     #[test]
     fn parse_entity_port_clause() {
-        let (util, design_file) = parse_ok(
+        let (code, design_file) = parse_ok(
             "
 entity myent is
   port ();
@@ -379,7 +379,7 @@ end entity;
         assert_eq!(
             to_single_entity(design_file),
             EntityDeclaration {
-                ident: util.ident("myent"),
+                ident: code.s1("myent").ident(),
                 generic_clause: None,
                 port_clause: Some(vec![]),
                 decl: vec![],
@@ -390,7 +390,7 @@ end entity;
 
     #[test]
     fn parse_entity_empty_statements() {
-        let (util, design_file) = parse_ok(
+        let (code, design_file) = parse_ok(
             "
 entity myent is
 begin
@@ -400,7 +400,7 @@ end entity;
         assert_eq!(
             to_single_entity(design_file),
             EntityDeclaration {
-                ident: util.ident("myent"),
+                ident: code.s1("myent").ident(),
                 generic_clause: None,
                 port_clause: None,
                 decl: vec![],
@@ -411,7 +411,7 @@ end entity;
 
     #[test]
     fn parse_entity_declarations() {
-        let (util, design_file) = parse_ok(
+        let (code, design_file) = parse_ok(
             "
 entity myent is
   constant foo : natural := 0;
@@ -421,10 +421,10 @@ end entity;
         assert_eq!(
             to_single_entity(design_file),
             EntityDeclaration {
-                ident: util.ident("myent"),
+                ident: code.s1("myent").ident(),
                 generic_clause: None,
                 port_clause: None,
-                decl: util.declarative_part("constant foo : natural := 0;"),
+                decl: code.s1("constant foo : natural := 0;").declarative_part(),
                 statements: vec![],
             }
         );
@@ -432,7 +432,7 @@ end entity;
 
     #[test]
     fn parse_entity_statements() {
-        let (util, design_file) = parse_ok(
+        let (code, design_file) = parse_ok(
             "
 entity myent is
 begin
@@ -443,18 +443,18 @@ end entity;
         assert_eq!(
             to_single_entity(design_file),
             EntityDeclaration {
-                ident: util.ident("myent"),
+                ident: code.s1("myent").ident(),
                 generic_clause: None,
                 port_clause: None,
                 decl: vec![],
-                statements: vec![util.concurrent_statement("check(clk, valid);")],
+                statements: vec![code.s1("check(clk, valid);").concurrent_statement()],
             }
         );
     }
 
     #[test]
     fn parse_multiple_entity_declarations() {
-        let (util, design_file) = parse_ok(
+        let (code, design_file) = parse_ok(
             "
 entity myent is
 end entity;
@@ -472,10 +472,10 @@ end;
         assert_eq!(
             library_units(design_file),
             [
-                simple_entity(util.ident("myent")),
-                simple_entity(util.ident("myent2")),
-                simple_entity(util.ident("myent3")),
-                simple_entity(util.ident("myent4"))
+                simple_entity(code.s1("myent").ident()),
+                simple_entity(code.s1("myent2").ident()),
+                simple_entity(code.s1("myent3").ident()),
+                simple_entity(code.s1("myent4").ident())
             ]
         );
     }
@@ -492,7 +492,7 @@ end;
 
     #[test]
     fn parse_architecture_body() {
-        let (util, design_file) = parse_ok(
+        let (code, design_file) = parse_ok(
             "
 architecture arch_name of myent is
 begin
@@ -502,15 +502,15 @@ end architecture;
         assert_eq!(
             library_units(design_file),
             [simple_architecture(
-                util.ident("arch_name"),
-                util.symbol("myent")
+                code.s1("arch_name").ident(),
+                code.symbol("myent")
             )]
         );
     }
 
     #[test]
     fn parse_architecture_body_end_identifier() {
-        let (util, design_file) = parse_ok(
+        let (code, design_file) = parse_ok(
             "
 architecture arch_name of myent is
 begin
@@ -520,15 +520,15 @@ end architecture arch_name;
         assert_eq!(
             library_units(design_file),
             [simple_architecture(
-                util.ident("arch_name"),
-                util.symbol("myent")
+                code.s1("arch_name").ident(),
+                code.symbol("myent")
             )]
         );
     }
 
     #[test]
     fn parse_architecture_body_end() {
-        let (util, design_file) = parse_ok(
+        let (code, design_file) = parse_ok(
             "
 architecture arch_name of myent is
 begin
@@ -538,25 +538,24 @@ end;
         assert_eq!(
             library_units(design_file),
             [simple_architecture(
-                util.ident("arch_name"),
-                util.symbol("myent")
+                code.s1("arch_name").ident(),
+                code.symbol("myent")
             )]
         );
     }
 
     #[test]
     fn test_package_declaration() {
-        let (util, package) = with_stream_no_messages(
-            parse_package_declaration,
+        let code = Code::new(
             "
 package pkg_name is
 end package;
 ",
         );
         assert_eq!(
-            package,
+            code.with_stream_no_messages(parse_package_declaration),
             PackageDeclaration {
-                ident: util.ident("pkg_name"),
+                ident: code.s1("pkg_name").ident(),
                 generic_clause: None,
                 decl: vec![],
             }
@@ -565,8 +564,7 @@ end package;
 
     #[test]
     fn test_package_declaration_with_declarations() {
-        let (util, package) = with_stream_no_messages(
-            parse_package_declaration,
+        let code = Code::new(
             "
 package pkg_name is
   type foo;
@@ -575,24 +573,22 @@ end package;
 ",
         );
         assert_eq!(
-            package,
+            code.with_stream_no_messages(parse_package_declaration),
             PackageDeclaration {
-                ident: util.ident("pkg_name"),
+                ident: code.s1("pkg_name").ident(),
                 generic_clause: None,
-                decl: util.declarative_part(
-                    "\
+                decl: code
+                    .s1("\
   type foo;
   constant bar : natural := 0;
-"
-                ),
+").declarative_part(),
             }
         );
     }
 
     #[test]
     fn test_package_declaration_generics_clause() {
-        let (util, package) = with_stream_no_messages(
-            parse_package_declaration,
+        let code = Code::new(
             "
 package pkg_name is
   generic (
@@ -603,10 +599,13 @@ end package;
 ",
         );
         assert_eq!(
-            package,
+            code.with_stream_no_messages(parse_package_declaration),
             PackageDeclaration {
-                ident: util.ident("pkg_name"),
-                generic_clause: Some(vec![util.generic("type foo"), util.generic("type bar")]),
+                ident: code.s1("pkg_name").ident(),
+                generic_clause: Some(vec![
+                    code.s1("type foo").generic(),
+                    code.s1("type bar").generic()
+                ]),
                 decl: vec![]
             }
         );

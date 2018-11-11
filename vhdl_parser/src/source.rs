@@ -81,21 +81,7 @@ impl Source {
     /// Helper method to create a source position from a substring
     #[cfg(test)]
     pub fn substr_pos(self: &Self, substr: &str, occurence: usize) -> SrcPos {
-        let substr = Latin1String::from_utf8_unchecked(substr);
-        let contents = self.contents().unwrap();
-        let mut count = occurence;
-        for i in 0..(contents.len() - substr.len() + 1) {
-            if &contents.bytes[i..i + substr.len()] == substr.bytes.as_slice() {
-                count -= 1;
-                if count == 0 {
-                    return self.pos(i, substr.len());
-                }
-            }
-        }
-        panic!(
-            "Could not find occurence {} of substring {:?} in {:?}",
-            occurence, substr, contents
-        );
+        self.entire_pos().substr_pos(&self, substr, occurence)
     }
 
     /// First occurence
@@ -121,6 +107,39 @@ pub struct SrcPos {
     pub start: usize,
     /// The length of the token in characters
     pub length: usize,
+}
+
+impl SrcPos {
+    #[cfg(test)]
+    pub fn substr_pos(&self, source: &Source, substr: &str, occurence: usize) -> SrcPos {
+        let substr = Latin1String::from_utf8_unchecked(substr);
+        let contents = source.contents().unwrap();
+        let mut count = occurence;
+
+        if self.length < substr.len() {
+            let code = Latin1String::new(&contents.bytes[self.start..self.start + self.length]);
+            panic!(
+                "Substring {:?} is longer than code {:?}",
+                substr,
+                &code.to_string()
+            )
+        }
+
+        let start = self.start;
+        let end = self.start + self.length - substr.len() + 1;
+        for i in start..end {
+            if &contents.bytes[i..i + substr.len()] == substr.bytes.as_slice() {
+                count -= 1;
+                if count == 0 {
+                    return self.source.pos(i, substr.len());
+                }
+            }
+        }
+        panic!(
+            "Could not find occurence {} of substring {:?} in {:?}",
+            occurence, substr, contents
+        );
+    }
 }
 
 #[derive(PartialEq, Clone, Debug)]

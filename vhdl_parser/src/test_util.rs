@@ -30,71 +30,221 @@ use tokenizer::Tokenizer;
 use tokenstream::TokenStream;
 use waveform::parse_waveform;
 
-/// Utility to create expected values for parse results
-pub struct TestUtil {
+pub struct Code {
     source: Source,
     symtab: Arc<SymbolTable>,
+    pos: SrcPos,
 }
 
-impl TestUtil {
+impl Code {
+    pub fn new(code: &str) -> Code {
+        let source = Source::from_str(code).unwrap();
+        let symtab = Arc::new(SymbolTable::new());
+        let pos = source.entire_pos();
+        let code = Code {
+            source,
+            symtab,
+            pos,
+        };
+
+        // Ensure symbol table is populated
+        code.with_stream(|stream| {
+            while stream.pop()?.is_some() {}
+            Ok(())
+        });
+
+        code
+    }
+
+    /// Create new Code from n:th occurence of substr
+    pub fn s(&self, substr: &str, occurence: usize) -> Code {
+        Code {
+            source: self.source.clone(),
+            symtab: self.symtab.clone(),
+            pos: self.pos().substr_pos(&self.source, substr, occurence),
+        }
+    }
+
+    /// Create new Code from first n:th occurence of substr
+    pub fn s1(&self, substr: &str) -> Code {
+        self.s(substr, 1)
+    }
+
+    pub fn pos(self: &Self) -> SrcPos {
+        self.pos.clone()
+    }
+
     /// Helper method to run lower level parsing function at specific substring
-    pub fn parse<F, R>(&self, parse_fun: F, substr: &str, occurence: usize) -> R
+    pub fn parse<F, R>(&self, parse_fun: F) -> R
     where
         F: FnOnce(&mut TokenStream) -> R,
     {
-        let pos = self.substr_pos(substr, occurence);
-
         let latin1 = self.source.contents().unwrap();
-        let latin1 = Latin1String::new(&latin1.bytes[..pos.start + pos.length]);
-        let symtab = Arc::new(SymbolTable::new());
-        let tokenizer = Tokenizer::new(symtab, self.source.clone(), Arc::new(latin1));
-
+        let latin1 = Latin1String::new(&latin1.bytes[..self.pos.start + self.pos.length]);
+        let tokenizer = Tokenizer::new(self.symtab.clone(), self.source.clone(), Arc::new(latin1));
         let mut stream = TokenStream::new(tokenizer);
-        forward(&mut stream, &pos);
+        forward(&mut stream, &self.pos);
         parse_fun(&mut stream)
     }
 
     /// Expect Ok() value
-    pub fn parse_ok<F, R>(&self, parse_fun: F, substr: &str, occurence: usize) -> R
+    pub fn parse_ok<F, R>(&self, parse_fun: F) -> R
     where
         F: FnOnce(&mut TokenStream) -> ParseResult<R>,
     {
-        self.parse(parse_fun, substr, occurence).unwrap()
+        self.parse(parse_fun).unwrap()
     }
 
-    /// Use first substring and expect Ok()
-    pub fn parse_first_ok<F, R>(&self, parse_fun: F, substr: &str) -> R
+    pub fn with_partial_stream<F, R>(&self, parse_fun: F) -> R
     where
+        F: FnOnce(&mut TokenStream) -> R,
+    {
+        let result = {
+            let tokenizer = Tokenizer::new(
+                self.symtab.clone(),
+                self.source.clone(),
+                self.source.contents().unwrap(),
+            );
+            let mut stream = TokenStream::new(tokenizer);
+            parse_fun(&mut stream)
+        };
+        result
+    }
+
+    pub fn with_stream<F, R>(&self, parse_fun: F) -> R
+    where
+        R: Debug,
         F: FnOnce(&mut TokenStream) -> ParseResult<R>,
     {
-        self.parse_ok(parse_fun, substr, 1)
-    }
-    /// Helper to create a identifier at first occurence of name
-    pub fn ident(&self, name: &str) -> Ident {
-        self.parse_first_ok(|stream: &mut TokenStream| stream.expect_ident(), name)
+        let parse_fun_eof = |stream: &mut TokenStream| {
+            let result = parse_fun(stream);
+            match result {
+                Err(err) => {
+                    println!("{:#?}", err);
+                    println!("{}", err.pretty_string());
+                    panic!("Got Err()");
+                }
+                Ok(result) => {
+                    if let Some(token) = stream.peek().unwrap() {
+                        println!("result = {:#?}", result);
+                        panic!("Expected EOF got {:?}", token);
+                    }
+                    return result;
+                }
+            }
+        };
+
+        self.with_partial_stream(parse_fun_eof)
     }
 
+    pub fn with_stream_err<F, R>(&self, parse_fun: F) -> Message
+    where
+        R: Debug,
+        F: FnOnce(&mut TokenStream) -> ParseResult<R>,
+    {
+        let parse_fun_eof = |stream: &mut TokenStream| {
+            let result = parse_fun(stream);
+            match result {
+                Err(err) => {
+                    if let Some(token) = stream.peek().unwrap() {
+                        println!("err = {:#?}", err);
+                        panic!("Expected EOF got {:?}", token);
+                    }
+                    return err;
+                }
+                Ok(result) => {
+                    panic!("Expected error got {:?}", result);
+                }
+            }
+        };
+
+        self.with_partial_stream(parse_fun_eof)
+    }
+
+    pub fn with_partial_stream_messages<F, R>(&self, parse_fun: F) -> (R, Vec<Message>)
+    where
+        R: Debug,
+        F: FnOnce(&mut TokenStream, &mut MessageHandler) -> R,
+    {
+        let mut messages = Vec::new();
+        let result =
+            self.with_partial_stream(|stream: &mut TokenStream| parse_fun(stream, &mut messages));
+        (result, messages)
+    }
+
+    pub fn with_stream_messages<F, R>(&self, parse_fun: F) -> (R, Vec<Message>)
+    where
+        R: Debug,
+        F: FnOnce(&mut TokenStream, &mut MessageHandler) -> ParseResult<R>,
+    {
+        let mut messages = Vec::new();
+        let result = self.with_stream(|stream: &mut TokenStream| parse_fun(stream, &mut messages));
+        (result, messages)
+    }
+
+    pub fn with_stream_no_messages<F, R>(&self, parse_fun: F) -> R
+    where
+        R: Debug,
+        F: FnOnce(&mut TokenStream, &mut MessageHandler) -> ParseResult<R>,
+    {
+        let (result, messages) = self.with_stream_messages(parse_fun);
+        check_no_messages(&messages);
+        result
+    }
+
+    pub fn declarative_part(&self) -> Vec<Declaration> {
+        let mut messages = Vec::new();
+        let res =
+            self.parse_ok(|stream| parse_declarative_part_leave_end_token(stream, &mut messages));
+        check_no_messages(&messages);
+        res
+    }
     /// Helper to create a identifier at first occurence of name
-    pub fn selected_name(&self, name: &str) -> SelectedName {
-        self.parse_first_ok(parse_selected_name, name)
+    pub fn ident(&self) -> Ident {
+        self.parse_ok(|stream: &mut TokenStream| stream.expect_ident())
     }
 
     /// Helper method to create expression from first occurence of substr
     /// Can be used to test all but expression parsing
-    pub fn expr(&self, substr: &str) -> WithPos<Expression> {
-        self.parse_first_ok(parse_expression, substr)
+    pub fn expr(&self) -> WithPos<Expression> {
+        self.parse_ok(parse_expression)
     }
 
-    pub fn waveform(&self, substr: &str) -> Waveform {
-        self.parse_first_ok(parse_waveform, substr)
+    pub fn name(&self) -> WithPos<Name> {
+        self.parse_ok(parse_name)
     }
 
-    pub fn aggregate(&self, substr: &str) -> WithPos<Vec<ElementAssociation>> {
-        self.parse_first_ok(|stream| parse_aggregate(stream), substr)
+    pub fn selected_name(&self) -> SelectedName {
+        self.parse_ok(parse_selected_name)
     }
 
-    pub fn function_call(&self, substr: &str) -> FunctionCall {
-        let name = self.name(substr);
+    pub fn signature(&self) -> Signature {
+        self.parse_ok(parse_signature)
+    }
+
+    /// Return symbol from symbol table
+    pub fn symbol(&self, name: &str) -> Symbol {
+        self.symtab.lookup_utf8(name).unwrap()
+    }
+
+    pub fn subtype_indication(&self) -> SubtypeIndication {
+        self.parse_ok(parse_subtype_indication)
+    }
+
+    pub fn port(&self) -> InterfaceDeclaration {
+        self.parse_ok(parse_port)
+    }
+
+    pub fn generic(&self) -> InterfaceDeclaration {
+        self.parse_ok(parse_generic)
+    }
+
+    pub fn parameter(&self) -> InterfaceDeclaration {
+        self.parse_ok(parse_parameter)
+    }
+
+    pub fn function_call(&self) -> FunctionCall {
+        let name = self.name();
         match name.item {
             Name::FunctionCall(call) => *call,
             _ => FunctionCall {
@@ -104,119 +254,61 @@ impl TestUtil {
         }
     }
 
-    pub fn name(&self, substr: &str) -> WithPos<Name> {
-        self.parse_first_ok(parse_name, substr)
+    pub fn sequential_statement(&self) -> LabeledSequentialStatement {
+        let mut messages = Vec::new();
+        let res = self.parse_ok(|stream| parse_sequential_statement(stream, &mut messages));
+        check_no_messages(&messages);
+        res
     }
 
-    pub fn association_list(&self, substr: &str) -> Vec<AssociationElement> {
-        self.parse_first_ok(parse_association_list, substr)
+    pub fn concurrent_statement(&self) -> LabeledConcurrentStatement {
+        let mut messages = Vec::new();
+        let res = self.parse_ok(|stream| parse_labeled_concurrent_statement(stream, &mut messages));
+        check_no_messages(&messages);
+        res
     }
 
-    pub fn attribute_name(&self, substr: &str) -> AttributeName {
-        match self.parse_first_ok(parse_name, substr).item {
+    pub fn association_list(&self) -> Vec<AssociationElement> {
+        self.parse_ok(parse_association_list)
+    }
+
+    pub fn waveform(&self) -> Waveform {
+        self.parse_ok(parse_waveform)
+    }
+
+    pub fn aggregate(&self) -> WithPos<Vec<ElementAssociation>> {
+        self.parse_ok(|stream| parse_aggregate(stream))
+    }
+
+    pub fn range(&self) -> Range {
+        self.parse_ok(parse_range)
+    }
+
+    pub fn discrete_range(&self) -> DiscreteRange {
+        self.parse_ok(parse_discrete_range)
+    }
+
+    pub fn choices(&self) -> Vec<Choice> {
+        self.parse_ok(parse_choices)
+    }
+
+    pub fn use_clause(&self) -> UseClause {
+        self.parse_ok(parse_use_clause)
+    }
+
+    pub fn subprogram_decl(&self) -> SubprogramDeclaration {
+        let mut messages = Vec::new();
+        let res =
+            self.parse_ok(|stream| parse_subprogram_declaration_no_semi(stream, &mut messages));
+        check_no_messages(&messages);
+        res
+    }
+
+    pub fn attribute_name(&self) -> AttributeName {
+        match self.parse_ok(parse_name).item {
             Name::Attribute(attr) => *attr,
             name => panic!("Expected attribute got {:?}", name),
         }
-    }
-
-    pub fn choices(&self, substr: &str) -> Vec<Choice> {
-        self.parse_first_ok(parse_choices, substr)
-    }
-
-    /// Helper method to create subtype indication from first occurence of substr
-    /// Can be used to test all but subtype parsing
-    pub fn subtype_indication(&self, substr: &str) -> SubtypeIndication {
-        self.parse_first_ok(parse_subtype_indication, substr)
-    }
-
-    pub fn parameter(&self, substr: &str) -> InterfaceDeclaration {
-        self.parse_first_ok(parse_parameter, substr)
-    }
-
-    pub fn generic(&self, substr: &str) -> InterfaceDeclaration {
-        self.parse_first_ok(parse_generic, substr)
-    }
-
-    pub fn port(&self, substr: &str) -> InterfaceDeclaration {
-        self.parse_first_ok(parse_port, substr)
-    }
-
-    pub fn subprogram_decl(&self, substr: &str) -> SubprogramDeclaration {
-        let mut messages = Vec::new();
-        let res = self.parse_first_ok(
-            |stream| parse_subprogram_declaration_no_semi(stream, &mut messages),
-            substr,
-        );
-        check_no_messages(&messages);
-        res
-    }
-
-    pub fn declarative_part(&self, substr: &str) -> Vec<Declaration> {
-        let mut messages = Vec::new();
-        let res = self.parse_first_ok(
-            |stream| parse_declarative_part_leave_end_token(stream, &mut messages),
-            substr,
-        );
-        check_no_messages(&messages);
-        res
-    }
-
-    pub fn sequential_statement(&self, substr: &str) -> LabeledSequentialStatement {
-        let mut messages = Vec::new();
-        let res = self.parse_first_ok(
-            |stream| parse_sequential_statement(stream, &mut messages),
-            substr,
-        );
-        check_no_messages(&messages);
-        res
-    }
-
-    pub fn concurrent_statement(&self, substr: &str) -> LabeledConcurrentStatement {
-        let mut messages = Vec::new();
-        let res = self.parse_first_ok(
-            |stream| parse_labeled_concurrent_statement(stream, &mut messages),
-            substr,
-        );
-        check_no_messages(&messages);
-        res
-    }
-
-    pub fn use_clause(&self, substr: &str) -> UseClause {
-        self.parse_first_ok(parse_use_clause, substr)
-    }
-
-    pub fn signature(&self, substr: &str) -> Signature {
-        self.parse_first_ok(parse_signature, substr)
-    }
-
-    /// Helper method to create range constraint from first occurence of substr
-    /// Can be used to test all but range constraint parsing
-    pub fn range(&self, substr: &str) -> Range {
-        self.parse_first_ok(parse_range, substr)
-    }
-
-    pub fn discrete_range(&self, substr: &str) -> DiscreteRange {
-        self.parse_first_ok(parse_discrete_range, substr)
-    }
-
-    /// Helper method to create a source position from a substring
-    pub fn substr_pos(self: &Self, substr: &str, occurence: usize) -> SrcPos {
-        self.source.substr_pos(substr, occurence)
-    }
-
-    /// First occurence of substring position
-    pub fn first_substr_pos(self: &Self, substr: &str) -> SrcPos {
-        self.source.substr_pos(substr, 1)
-    }
-
-    /// Position covers entire contents
-    pub fn entire_pos(self: &Self) -> SrcPos {
-        self.source.entire_pos()
-    }
-
-    /// Return symbol from symbol table
-    pub fn symbol(&self, name: &str) -> Symbol {
-        self.symtab.lookup_utf8(name).unwrap()
     }
 }
 
@@ -224,89 +316,11 @@ impl TestUtil {
 fn forward(stream: &mut TokenStream, pos: &SrcPos) {
     loop {
         let token = stream.peek_expect().unwrap();
-        if token.pos.start == pos.start {
+        if token.pos.start >= pos.start {
             break;
         }
-        stream.pop().unwrap();
+        stream.move_after(&token);
     }
-}
-
-/// Helper method to parse using function
-pub fn with_partial_stream<F, R>(parse_fun: F, code: &str) -> (TestUtil, R)
-where
-    F: FnOnce(&mut TokenStream) -> R,
-{
-    let source = Source::from_str(code).unwrap();
-    let symtab = Arc::new(SymbolTable::new());
-    let result = {
-        let tokenizer = Tokenizer::new(symtab.clone(), source.clone(), source.contents().unwrap());
-        let mut stream = TokenStream::new(tokenizer);
-        parse_fun(&mut stream)
-    };
-    (TestUtil { source, symtab }, result)
-}
-
-/// Helper method to parse the stream and assert that the entire stream is parsed and that the result is ok
-pub fn with_stream<F, R>(parse_fun: F, code: &str) -> (TestUtil, R)
-where
-    R: Debug,
-    F: FnOnce(&mut TokenStream) -> ParseResult<R>,
-{
-    let parse_fun_eof = |stream: &mut TokenStream| {
-        let result = parse_fun(stream);
-        match result {
-            Err(err) => {
-                println!("{:#?}", err);
-                println!("{}", err.pretty_string());
-                panic!("Got Err()");
-            }
-            Ok(result) => {
-                if let Some(token) = stream.peek().unwrap() {
-                    println!("result = {:#?}", result);
-                    panic!("Expected EOF got {:?}", token);
-                }
-                return result;
-            }
-        }
-    };
-
-    with_partial_stream(parse_fun_eof, code)
-}
-
-pub fn with_stream_messages<F, R>(parse_fun: F, code: &str) -> (TestUtil, R, Vec<Message>)
-where
-    R: Debug,
-    F: FnOnce(&mut TokenStream, &mut MessageHandler) -> ParseResult<R>,
-{
-    let mut messages = Vec::new();
-    let (util, result) = with_stream(
-        |stream: &mut TokenStream| parse_fun(stream, &mut messages),
-        code,
-    );
-    (util, result, messages)
-}
-
-pub fn with_partial_stream_messages<F, R>(parse_fun: F, code: &str) -> (TestUtil, R, Vec<Message>)
-where
-    R: Debug,
-    F: FnOnce(&mut TokenStream, &mut MessageHandler) -> R,
-{
-    let mut messages = Vec::new();
-    let (util, result) = with_partial_stream(
-        |stream: &mut TokenStream| parse_fun(stream, &mut messages),
-        code,
-    );
-    (util, result, messages)
-}
-
-pub fn with_stream_no_messages<F, R>(parse_fun: F, code: &str) -> (TestUtil, R)
-where
-    R: Debug,
-    F: FnOnce(&mut TokenStream, &mut MessageHandler) -> ParseResult<R>,
-{
-    let (util, result, messages) = with_stream_messages(parse_fun, code);
-    check_no_messages(&messages);
-    (util, result)
 }
 
 /// Check that no errors where found
@@ -316,5 +330,11 @@ pub fn check_no_messages(messages: &Vec<Message>) {
     }
     if messages.len() > 0 {
         panic!("Found errors");
+    }
+}
+
+impl AsRef<SrcPos> for Code {
+    fn as_ref(&self) -> &SrcPos {
+        &self.pos
     }
 }

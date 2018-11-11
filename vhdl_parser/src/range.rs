@@ -112,121 +112,130 @@ pub fn parse_array_index_constraint(stream: &mut TokenStream) -> ParseResult<Arr
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_util::with_stream;
+    use test_util::Code;
 
     #[test]
     fn parse_range_range() {
-        let (util, range) = with_stream(parse_range, "foo.bar to 1");
+        let code = Code::new("foo.bar to 1");
         assert_eq!(
-            range,
+            code.with_stream(parse_range),
             Range::Range(RangeConstraint {
                 direction: Direction::Ascending,
-                left_expr: Box::new(util.expr("foo.bar")),
-                right_expr: Box::new(util.expr("1"))
+                left_expr: Box::new(code.s1("foo.bar").expr()),
+                right_expr: Box::new(code.s1("1").expr())
             })
         );
     }
 
     #[test]
     fn parse_range_range_attribute() {
-        let (util, range) = with_stream(parse_range, "foo.bar'range");
+        let code = Code::new("foo.bar'range");
         assert_eq!(
-            range,
-            Range::Attribute(Box::new(util.attribute_name("foo.bar'range")))
+            code.with_stream(parse_range),
+            Range::Attribute(Box::new(code.s1("foo.bar'range").attribute_name()))
         );
     }
 
     #[test]
     fn parse_range_reverse_range_attribute() {
-        let (util, range) = with_stream(parse_range, "foo.bar'reverse_range");
+        let code = Code::new("foo.bar'reverse_range");
         assert_eq!(
-            range,
-            Range::Attribute(Box::new(util.attribute_name("foo.bar'reverse_range")))
+            code.with_stream(parse_range),
+            Range::Attribute(Box::new(code.s1("foo.bar'reverse_range").attribute_name()))
         );
     }
 
     #[test]
     fn parse_range_other_attribute() {
-        let (util, range) = with_stream(parse_range, "foo.bar'length downto 0");
+        let code = Code::new("foo.bar'length downto 0");
         assert_eq!(
-            range,
+            code.with_stream(parse_range),
             Range::Range(RangeConstraint {
                 direction: Direction::Descending,
-                left_expr: Box::new(util.expr("foo.bar'length")),
-                right_expr: Box::new(util.expr("0"))
+                left_expr: Box::new(code.s1("foo.bar'length").expr()),
+                right_expr: Box::new(code.s1("0").expr())
             })
         );
     }
 
     #[test]
     fn parse_discrete_range_range() {
-        let (util, range) = with_stream(parse_discrete_range, "foo.bar to 1");
+        let code = Code::new("foo.bar to 1");
         assert_eq!(
-            range,
+            code.with_stream(parse_discrete_range),
             DiscreteRange::Range(Range::Range(RangeConstraint {
                 direction: Direction::Ascending,
-                left_expr: Box::new(util.expr("foo.bar")),
-                right_expr: Box::new(util.expr("1"))
+                left_expr: Box::new(code.s1("foo.bar").expr()),
+                right_expr: Box::new(code.s1("1").expr())
             }))
         );
     }
 
     #[test]
     fn parse_discrete_range_range_attribute() {
-        let (util, range) = with_stream(parse_discrete_range, "foo.bar'range");
+        let code = Code::new("foo.bar'range");
         assert_eq!(
-            range,
+            code.with_stream(parse_discrete_range),
             DiscreteRange::Range(Range::Attribute(Box::new(
-                util.attribute_name("foo.bar'range")
+                code.s1("foo.bar'range").attribute_name()
             )))
         );
     }
 
     #[test]
     fn parse_discrete_range_discrete() {
-        let (util, range) = with_stream(parse_discrete_range, "foo.bar");
+        let code = Code::new("foo.bar");
         assert_eq!(
-            range,
-            DiscreteRange::Discrete(util.selected_name("foo.bar"), None)
+            code.with_stream(parse_discrete_range),
+            DiscreteRange::Discrete(code.s1("foo.bar").selected_name(), None)
         );
     }
 
     #[test]
     fn parse_discrete_range_discrete_range() {
-        let (util, range) = with_stream(parse_discrete_range, "foo.bar range 1 to 4");
+        let code = Code::new("foo.bar range 1 to 4");
         assert_eq!(
-            range,
-            DiscreteRange::Discrete(util.selected_name("foo.bar"), Some(util.range("1 to 4")))
+            code.with_stream(parse_discrete_range),
+            DiscreteRange::Discrete(
+                code.s1("foo.bar").selected_name(),
+                Some(code.s1("1 to 4").range())
+            )
         );
     }
 
     #[test]
     fn parse_array_index_constraint_subtype_definition() {
-        let (util, range) = with_stream(parse_array_index_constraint, "foo.bar range <>");
+        let code = Code::new("foo.bar range <>");
         assert_eq!(
-            range,
-            ArrayIndex::IndexSubtypeDefintion(util.selected_name("foo.bar"))
+            code.with_stream(parse_array_index_constraint),
+            ArrayIndex::IndexSubtypeDefintion(code.s1("foo.bar").selected_name())
         );
     }
 
     #[test]
     fn parse_array_index_constraint_range() {
-        let (util, range) = with_stream(parse_array_index_constraint, "0 to 1");
-        assert_eq!(range, ArrayIndex::Discrete(util.discrete_range("0 to 1")));
+        let code = Code::new("0 to 1");
+        assert_eq!(
+            code.with_stream(parse_array_index_constraint),
+            ArrayIndex::Discrete(code.s1("0 to 1").discrete_range())
+        );
     }
 
     #[test]
     fn parse_array_index_constraint_discrete_range() {
-        let (util, range) = with_stream(parse_array_index_constraint, "foo.bar range 0 to 1");
+        let code = Code::new("foo.bar range 0 to 1");
         assert_eq!(
-            range,
-            ArrayIndex::Discrete(util.discrete_range("foo.bar range 0 to 1"))
+            code.with_stream(parse_array_index_constraint),
+            ArrayIndex::Discrete(code.s1("foo.bar range 0 to 1").discrete_range())
         );
     }
 
     #[test]
     fn parse_array_index_constraint_discrete_no_range() {
-        let (util, range) = with_stream(parse_array_index_constraint, "foo.bar");
-        assert_eq!(range, ArrayIndex::Discrete(util.discrete_range("foo.bar")));
+        let code = Code::new("foo.bar");
+        assert_eq!(
+            code.with_stream(parse_array_index_constraint),
+            ArrayIndex::Discrete(code.s1("foo.bar").discrete_range())
+        );
     }
 }

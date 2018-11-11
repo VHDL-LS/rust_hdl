@@ -21,7 +21,7 @@ pub fn parse_signature(stream: &mut TokenStream) -> ParseResult<Signature> {
     stream.expect_kind(LeftSquare)?;
     let mut type_marks = Vec::new();
     let mut return_mark = None;
-
+    let mut errmsg = None;
     loop {
         let token = stream.peek_expect()?;
 
@@ -39,25 +39,33 @@ pub fn parse_signature(stream: &mut TokenStream) -> ParseResult<Signature> {
                         break;
                     },
                     Return => {
+                        let new_return_mark = Some(parse_selected_name(stream)?);
                         if return_mark.is_some() {
-                            return Err(error(sep_token, "Duplicate return in signature"));
+                            errmsg = Some(error(sep_token, "Duplicate return in signature"));
+                        } else {
+                            return_mark = new_return_mark;
                         }
-                        return_mark = Some(parse_selected_name(stream)?);
                     }
                 )
             },
             Return => {
-                if return_mark.is_some() {
-                    return Err(error(token, "Duplicate return in signature"));
-                }
                 stream.move_after(&token);
-                return_mark = Some(parse_selected_name(stream)?);
+                let new_return_mark = Some(parse_selected_name(stream)?);
+                if return_mark.is_some() {
+                    errmsg = Some(error(token, "Duplicate return in signature"));
+                } else {
+                    return_mark = new_return_mark;
+                }
             },
             RightSquare => {
                 stream.move_after(&token);
                 break;
             }
         )
+    }
+    if let Some(msg) = errmsg {
+        // @TODO recoverable error should not return Err
+        return Err(msg);
     }
 
     Ok(match return_mark {
@@ -184,20 +192,19 @@ mod tests {
     use super::*;
 
     use latin_1::Latin1String;
-    use test_util::{with_partial_stream, with_stream, with_stream_no_messages};
+    use test_util::Code;
 
     #[test]
     pub fn parses_procedure_specification() {
-        let (util, result) = with_stream_no_messages(
-            parse_subprogram_declaration,
+        let code = Code::new(
             "\
 procedure foo;
 ",
         );
         assert_eq!(
-            result,
+            code.with_stream_no_messages(parse_subprogram_declaration),
             SubprogramDeclaration::Procedure(ProcedureSpecification {
-                designator: util.ident("foo").map_into(Designator::Identifier),
+                designator: code.s1("foo").ident().map_into(Designator::Identifier),
                 parameter_list: Vec::new(),
             })
         );
@@ -205,175 +212,158 @@ procedure foo;
 
     #[test]
     pub fn parses_function_specification() {
-        let (util, result) = with_stream_no_messages(
-            parse_subprogram_declaration,
+        let code = Code::new(
             "\
 function foo return lib.foo.natural;
 ",
         );
         assert_eq!(
-            result,
+            code.with_stream_no_messages(parse_subprogram_declaration),
             SubprogramDeclaration::Function(FunctionSpecification {
                 pure: true,
-                designator: util.ident("foo").map_into(Designator::Identifier),
+                designator: code.s1("foo").ident().map_into(Designator::Identifier),
                 parameter_list: Vec::new(),
-                return_type: util.selected_name("lib.foo.natural")
+                return_type: code.s1("lib.foo.natural").selected_name()
             })
         );
     }
 
     #[test]
     pub fn parses_function_specification_operator() {
-        let (util, result) = with_stream_no_messages(
-            parse_subprogram_declaration,
+        let code = Code::new(
             "\
 function \"+\" return lib.foo.natural;
 ",
         );
         assert_eq!(
-            result,
+            code.with_stream_no_messages(parse_subprogram_declaration),
             SubprogramDeclaration::Function(FunctionSpecification {
                 pure: true,
                 designator: WithPos {
                     item: Designator::OperatorSymbol(Latin1String::from_utf8_unchecked("+")),
-                    pos: util.first_substr_pos("\"+\"")
+                    pos: code.s1("\"+\"").pos()
                 },
                 parameter_list: Vec::new(),
-                return_type: util.selected_name("lib.foo.natural")
+                return_type: code.s1("lib.foo.natural").selected_name()
             })
         );
     }
 
     #[test]
     pub fn parses_impure_function_specification() {
-        let (util, result) = with_stream_no_messages(
-            parse_subprogram_declaration,
+        let code = Code::new(
             "\
 impure function foo return lib.foo.natural;
 ",
         );
         assert_eq!(
-            result,
+            code.with_stream_no_messages(parse_subprogram_declaration),
             SubprogramDeclaration::Function(FunctionSpecification {
                 pure: false,
-                designator: util.ident("foo").map_into(Designator::Identifier),
+                designator: code.s1("foo").ident().map_into(Designator::Identifier),
                 parameter_list: Vec::new(),
-                return_type: util.selected_name("lib.foo.natural")
+                return_type: code.s1("lib.foo.natural").selected_name()
             })
         );
     }
 
     #[test]
     pub fn parses_procedure_specification_with_parameters() {
-        let (util, result) = with_stream_no_messages(
-            parse_subprogram_declaration,
+        let code = Code::new(
             "\
 procedure foo(foo : natural);
 ",
         );
         assert_eq!(
-            result,
+            code.with_stream_no_messages(parse_subprogram_declaration),
             SubprogramDeclaration::Procedure(ProcedureSpecification {
-                designator: util.ident("foo").map_into(Designator::Identifier),
-                parameter_list: vec![util.parameter("foo : natural")],
+                designator: code.s1("foo").ident().map_into(Designator::Identifier),
+                parameter_list: vec![code.s1("foo : natural").parameter()],
             })
         );
     }
 
     #[test]
     pub fn parses_function_specification_with_parameters() {
-        let (util, result) = with_stream_no_messages(
-            parse_subprogram_declaration,
+        let code = Code::new(
             "\
 function foo(foo : natural) return lib.foo.natural;
 ",
         );
         assert_eq!(
-            result,
+            code.with_stream_no_messages(parse_subprogram_declaration),
             SubprogramDeclaration::Function(FunctionSpecification {
                 pure: true,
-                designator: util.ident("foo").map_into(Designator::Identifier),
-                parameter_list: vec![util.parameter("foo : natural")],
-                return_type: util.selected_name("lib.foo.natural")
+                designator: code.s1("foo").ident().map_into(Designator::Identifier),
+                parameter_list: vec![code.s1("foo : natural").parameter()],
+                return_type: code.s1("lib.foo.natural").selected_name()
             })
         );
     }
 
     #[test]
     pub fn parses_function_signature_only_return() {
-        let (util, result) = with_stream(parse_signature, "[return bar.type_mark]");
+        let code = Code::new("[return bar.type_mark]");
         assert_eq!(
-            result,
-            Signature::Function(vec![], util.selected_name("bar.type_mark"))
+            code.with_stream(parse_signature),
+            Signature::Function(vec![], code.s1("bar.type_mark").selected_name())
         );
     }
 
     #[test]
     pub fn parses_function_signature_one_argument() {
-        let (util, result) = with_stream(parse_signature, "[foo.type_mark return bar.type_mark]");
+        let code = Code::new("[foo.type_mark return bar.type_mark]");
         assert_eq!(
-            result,
+            code.with_stream(parse_signature),
             Signature::Function(
-                vec![util.selected_name("foo.type_mark")],
-                util.selected_name("bar.type_mark")
+                vec![code.s1("foo.type_mark").selected_name()],
+                code.s1("bar.type_mark").selected_name()
             )
         );
     }
 
     #[test]
     pub fn parses_procedure_signature() {
-        let (util, result) = with_stream(parse_signature, "[foo.type_mark]");
+        let code = Code::new("[foo.type_mark]");
         assert_eq!(
-            result,
-            Signature::Procedure(vec![util.selected_name("foo.type_mark")])
+            code.with_stream(parse_signature),
+            Signature::Procedure(vec![code.s1("foo.type_mark").selected_name()])
         );
     }
 
     #[test]
     pub fn parses_function_signature_many_arguments() {
-        let (util, result) = with_stream(
-            parse_signature,
-            "[foo.type_mark, foo2.type_mark return bar.type_mark]",
-        );
+        let code = Code::new("[foo.type_mark, foo2.type_mark return bar.type_mark]");
         assert_eq!(
-            result,
+            code.with_stream(parse_signature),
             Signature::Function(
                 vec![
-                    util.selected_name("foo.type_mark"),
-                    util.selected_name("foo2.type_mark")
+                    code.s1("foo.type_mark").selected_name(),
+                    code.s1("foo2.type_mark").selected_name()
                 ],
-                util.selected_name("bar.type_mark")
+                code.s1("bar.type_mark").selected_name()
             )
         );
     }
 
     #[test]
     pub fn parses_function_signature_many_return_error() {
-        let (util, result) =
-            with_partial_stream(parse_signature, "[return bar.type_mark return bar2]");
+        let code = Code::new("[return bar.type_mark return bar2]");
         assert_eq!(
-            result,
-            Err(error(
-                &util.substr_pos("return", 2),
-                "Duplicate return in signature"
-            ))
+            code.with_stream_err(parse_signature),
+            error(code.s("return", 2), "Duplicate return in signature")
         );
 
-        let (util, result) =
-            with_partial_stream(parse_signature, "[foo return bar.type_mark return bar2]");
+        let code = Code::new("[foo return bar.type_mark return bar2]");
         assert_eq!(
-            result,
-            Err(error(
-                &util.substr_pos("return", 2),
-                "Duplicate return in signature"
-            ))
+            code.with_stream_err(parse_signature),
+            error(code.s("return", 2), "Duplicate return in signature")
         );
     }
 
     #[test]
     pub fn parses_subprogram_body() {
-        let (util, decl) = with_stream_no_messages(
-            parse_subprogram,
+        let code = Code::new(
             "\
 function foo(arg : natural) return natural is
   constant foo : natural := 0;
@@ -382,27 +372,36 @@ begin
 end function;
 ",
         );
-        let specification = util.subprogram_decl("function foo(arg : natural) return natural");
-        let declarations = util.declarative_part("constant foo : natural := 0;");
-        let statements = vec![util.sequential_statement("return foo + arg;")];
+        let specification = code
+            .s1("function foo(arg : natural) return natural")
+            .subprogram_decl();
+        let declarations = code.s1("constant foo : natural := 0;").declarative_part();
+        let statements = vec![code.s1("return foo + arg;").sequential_statement()];
         let body = SubprogramBody {
             specification,
             declarations,
             statements,
         };
-        assert_eq!(decl, Declaration::SubprogramBody(body));
+        assert_eq!(
+            code.with_stream_no_messages(parse_subprogram),
+            Declaration::SubprogramBody(body)
+        );
     }
 
     #[test]
     pub fn parses_subprogram_declaration() {
-        let (util, decl) = with_stream_no_messages(
-            parse_subprogram,
+        let code = Code::new(
             "\
 function foo(arg : natural) return natural;
 ",
         );
-        let specification = util.subprogram_decl("function foo(arg : natural) return natural");
-        assert_eq!(decl, Declaration::SubprogramDeclaration(specification));
+        let specification = code
+            .s1("function foo(arg : natural) return natural")
+            .subprogram_decl();
+        assert_eq!(
+            code.with_stream_no_messages(parse_subprogram),
+            Declaration::SubprogramDeclaration(specification)
+        );
     }
 
 }

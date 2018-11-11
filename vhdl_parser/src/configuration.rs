@@ -274,22 +274,21 @@ pub fn parse_configuration_specification(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_util::{with_stream, with_stream_no_messages};
+    use test_util::Code;
 
     #[test]
     fn empty_configuration() {
-        let (util, cfg) = with_stream_no_messages(
-            parse_configuration_declaration,
+        let code = Code::new(
             "\
 configuration cfg of entity_name is
 end;
 ",
         );
         assert_eq!(
-            cfg,
+            code.with_stream_no_messages(parse_configuration_declaration),
             ConfigurationDeclaration {
-                ident: util.ident("cfg"),
-                entity_name: util.selected_name("entity_name"),
+                ident: code.s1("cfg").ident(),
+                entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 block_config: None
             }
@@ -298,18 +297,17 @@ end;
 
     #[test]
     fn empty_configuration_variant() {
-        let (util, cfg) = with_stream_no_messages(
-            parse_configuration_declaration,
+        let code = Code::new(
             "\
 configuration cfg of entity_name is
 end configuration cfg;
 ",
         );
         assert_eq!(
-            cfg,
+            code.with_stream_no_messages(parse_configuration_declaration),
             ConfigurationDeclaration {
-                ident: util.ident("cfg"),
-                entity_name: util.selected_name("entity_name"),
+                ident: code.s1("cfg").ident(),
+                entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 block_config: None
             }
@@ -317,8 +315,7 @@ end configuration cfg;
     }
     #[test]
     fn configuration_use_clause() {
-        let (util, cfg) = with_stream_no_messages(
-            parse_configuration_declaration,
+        let code = Code::new(
             "\
 configuration cfg of entity_name is
   use lib.foo.bar;
@@ -327,13 +324,13 @@ end configuration cfg;
 ",
         );
         assert_eq!(
-            cfg,
+            code.with_stream_no_messages(parse_configuration_declaration),
             ConfigurationDeclaration {
-                ident: util.ident("cfg"),
-                entity_name: util.selected_name("entity_name"),
+                ident: code.s1("cfg").ident(),
+                entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![
-                    ConfigurationDeclarativeItem::Use(util.use_clause("use lib.foo.bar;")),
-                    ConfigurationDeclarativeItem::Use(util.use_clause("use lib2.foo.bar;"))
+                    ConfigurationDeclarativeItem::Use(code.s1("use lib.foo.bar;").use_clause()),
+                    ConfigurationDeclarativeItem::Use(code.s1("use lib2.foo.bar;").use_clause())
                 ],
                 block_config: None
             }
@@ -342,8 +339,7 @@ end configuration cfg;
 
     #[test]
     fn configuration_block_configuration() {
-        let (util, cfg) = with_stream_no_messages(
-            parse_configuration_declaration,
+        let code = Code::new(
             "\
 configuration cfg of entity_name is
   for rtl(0)
@@ -352,13 +348,13 @@ end configuration cfg;
 ",
         );
         assert_eq!(
-            cfg,
+            code.with_stream_no_messages(parse_configuration_declaration),
             ConfigurationDeclaration {
-                ident: util.ident("cfg"),
-                entity_name: util.selected_name("entity_name"),
+                ident: code.s1("cfg").ident(),
+                entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 block_config: Some(BlockConfiguration {
-                    block_spec: util.name("rtl(0)"),
+                    block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![],
                 })
@@ -368,8 +364,7 @@ end configuration cfg;
 
     #[test]
     fn configuration_nested_block_configuration() {
-        let (util, cfg) = with_stream_no_messages(
-            parse_configuration_declaration,
+        let code = Code::new(
             "\
 configuration cfg of entity_name is
   for rtl(0)
@@ -382,22 +377,22 @@ end configuration cfg;
 ",
         );
         assert_eq!(
-            cfg,
+            code.with_stream_no_messages(parse_configuration_declaration),
             ConfigurationDeclaration {
-                ident: util.ident("cfg"),
-                entity_name: util.selected_name("entity_name"),
+                ident: code.s1("cfg").ident(),
+                entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 block_config: Some(BlockConfiguration {
-                    block_spec: util.name("rtl(0)"),
+                    block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![
                         ConfigurationItem::Block(BlockConfiguration {
-                            block_spec: util.name("name(0 to 3)"),
+                            block_spec: code.s1("name(0 to 3)").name(),
                             use_clauses: vec![],
                             items: vec![],
                         }),
                         ConfigurationItem::Block(BlockConfiguration {
-                            block_spec: util.name("other_name"),
+                            block_spec: code.s1("other_name").name(),
                             use_clauses: vec![],
                             items: vec![],
                         })
@@ -409,8 +404,7 @@ end configuration cfg;
 
     #[test]
     fn configuration_component_configuration_nested() {
-        let (util, cfg) = with_stream_no_messages(
-            parse_configuration_declaration,
+        let code = Code::new(
             "\
 configuration cfg of entity_name is
   for rtl(0)
@@ -423,22 +417,24 @@ end configuration cfg;
 ",
         );
         assert_eq!(
-            cfg,
+            code.with_stream_no_messages(parse_configuration_declaration),
             ConfigurationDeclaration {
-                ident: util.ident("cfg"),
-                entity_name: util.selected_name("entity_name"),
+                ident: code.s1("cfg").ident(),
+                entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 block_config: Some(BlockConfiguration {
-                    block_spec: util.name("rtl(0)"),
+                    block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![ConfigurationItem::Component(ComponentConfiguration {
                         spec: ComponentSpecification {
-                            instantiation_list: InstantiationList::Labels(vec![util.ident("inst")]),
-                            component_name: util.selected_name("lib.pkg.comp")
+                            instantiation_list: InstantiationList::Labels(vec![
+                                code.s1("inst").ident()
+                            ]),
+                            component_name: code.s1("lib.pkg.comp").selected_name()
                         },
                         bind_ind: None,
                         block_config: Some(BlockConfiguration {
-                            block_spec: util.name("arch"),
+                            block_spec: code.s1("arch").name(),
                             use_clauses: vec![],
                             items: vec![],
                         }),
@@ -450,8 +446,7 @@ end configuration cfg;
 
     #[test]
     fn configuration_component_configuration_binding_indication() {
-        let (util, cfg) = with_stream_no_messages(
-            parse_configuration_declaration,
+        let code = Code::new(
             "\
 configuration cfg of entity_name is
   for rtl(0)
@@ -463,22 +458,24 @@ end configuration cfg;
 ",
         );
         assert_eq!(
-            cfg,
+            code.with_stream_no_messages(parse_configuration_declaration),
             ConfigurationDeclaration {
-                ident: util.ident("cfg"),
-                entity_name: util.selected_name("entity_name"),
+                ident: code.s1("cfg").ident(),
+                entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 block_config: Some(BlockConfiguration {
-                    block_spec: util.name("rtl(0)"),
+                    block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![ConfigurationItem::Component(ComponentConfiguration {
                         spec: ComponentSpecification {
-                            instantiation_list: InstantiationList::Labels(vec![util.ident("inst")]),
-                            component_name: util.selected_name("lib.pkg.comp")
+                            instantiation_list: InstantiationList::Labels(vec![
+                                code.s1("inst").ident()
+                            ]),
+                            component_name: code.s1("lib.pkg.comp").selected_name()
                         },
                         bind_ind: Some(BindingIndication {
                             entity_aspect: Some(EntityAspect::Entity(
-                                util.selected_name("lib.use_name"),
+                                code.s1("lib.use_name").selected_name(),
                                 None
                             )),
                             generic_map: None,
@@ -493,8 +490,7 @@ end configuration cfg;
 
     #[test]
     fn configuration_component_configuration() {
-        let (util, cfg) = with_stream_no_messages(
-            parse_configuration_declaration,
+        let code = Code::new(
             "\
 configuration cfg of entity_name is
   for rtl(0)
@@ -511,21 +507,21 @@ end configuration cfg;
 ",
         );
         assert_eq!(
-            cfg,
+            code.with_stream_no_messages(parse_configuration_declaration),
             ConfigurationDeclaration {
-                ident: util.ident("cfg"),
-                entity_name: util.selected_name("entity_name"),
+                ident: code.s1("cfg").ident(),
+                entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 block_config: Some(BlockConfiguration {
-                    block_spec: util.name("rtl(0)"),
+                    block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![
                         ConfigurationItem::Component(ComponentConfiguration {
                             spec: ComponentSpecification {
                                 instantiation_list: InstantiationList::Labels(vec![
-                                    util.ident("inst")
+                                    code.s1("inst").ident()
                                 ]),
-                                component_name: util.selected_name("lib.pkg.comp")
+                                component_name: code.s1("lib.pkg.comp").selected_name()
                             },
                             bind_ind: None,
                             block_config: None,
@@ -533,11 +529,11 @@ end configuration cfg;
                         ConfigurationItem::Component(ComponentConfiguration {
                             spec: ComponentSpecification {
                                 instantiation_list: InstantiationList::Labels(vec![
-                                    util.ident("inst1"),
-                                    util.ident("inst2"),
-                                    util.ident("inst3")
+                                    code.s1("inst1").ident(),
+                                    code.s1("inst2").ident(),
+                                    code.s1("inst3").ident()
                                 ]),
-                                component_name: util.selected_name("lib2.pkg.comp")
+                                component_name: code.s1("lib2.pkg.comp").selected_name()
                             },
                             bind_ind: None,
                             block_config: None,
@@ -545,7 +541,7 @@ end configuration cfg;
                         ConfigurationItem::Component(ComponentConfiguration {
                             spec: ComponentSpecification {
                                 instantiation_list: InstantiationList::All,
-                                component_name: util.selected_name("lib3.pkg.comp")
+                                component_name: code.s1("lib3.pkg.comp").selected_name()
                             },
                             bind_ind: None,
                             block_config: None,
@@ -553,7 +549,7 @@ end configuration cfg;
                         ConfigurationItem::Component(ComponentConfiguration {
                             spec: ComponentSpecification {
                                 instantiation_list: InstantiationList::Others,
-                                component_name: util.selected_name("lib4.pkg.comp")
+                                component_name: code.s1("lib4.pkg.comp").selected_name()
                             },
                             bind_ind: None,
                             block_config: None,
@@ -566,54 +562,55 @@ end configuration cfg;
 
     #[test]
     fn entity_entity_aspect_entity() {
-        let (util, binding) = with_stream(parse_entity_aspect, "use entity lib.foo.name;");
+        let code = Code::new("use entity lib.foo.name;");
         assert_eq!(
-            binding,
-            EntityAspect::Entity(util.selected_name("lib.foo.name"), None)
+            code.with_stream(parse_entity_aspect),
+            EntityAspect::Entity(code.s1("lib.foo.name").selected_name(), None)
         );
     }
 
     #[test]
     fn entity_entity_aspect_entity_arch() {
-        let (util, binding) = with_stream(parse_entity_aspect, "use entity lib.foo.name(arch);");
+        let code = Code::new("use entity lib.foo.name(arch);");
         assert_eq!(
-            binding,
-            EntityAspect::Entity(util.selected_name("lib.foo.name"), Some(util.ident("arch")))
+            code.with_stream(parse_entity_aspect),
+            EntityAspect::Entity(
+                code.s1("lib.foo.name").selected_name(),
+                Some(code.s1("arch").ident())
+            )
         );
     }
 
     #[test]
     fn entity_entity_aspect_configuration() {
-        let (util, binding) = with_stream(parse_entity_aspect, "use configuration lib.foo.name;");
+        let code = Code::new("use configuration lib.foo.name;");
         assert_eq!(
-            binding,
-            EntityAspect::Configuration(util.selected_name("lib.foo.name"))
+            code.with_stream(parse_entity_aspect),
+            EntityAspect::Configuration(code.s1("lib.foo.name").selected_name())
         );
     }
 
     #[test]
     fn entity_entity_aspect_open() {
-        let (_, binding) = with_stream(parse_entity_aspect, "use open;");
-        assert_eq!(binding, EntityAspect::Open);
+        let code = Code::new("use open;");
+        assert_eq!(code.with_stream(parse_entity_aspect), EntityAspect::Open);
     }
 
     #[test]
     fn configuration_specification() {
-        let (util, conf) = with_stream(
-            parse_configuration_specification,
-            "for all : lib.pkg.comp use entity work.foo(rtl);",
-        );
+        let code = Code::new("for all : lib.pkg.comp use entity work.foo(rtl);");
+
         assert_eq!(
-            conf,
+            code.with_stream(parse_configuration_specification),
             ConfigurationSpecification {
                 spec: ComponentSpecification {
                     instantiation_list: InstantiationList::All,
-                    component_name: util.selected_name("lib.pkg.comp"),
+                    component_name: code.s1("lib.pkg.comp").selected_name(),
                 },
                 bind_ind: BindingIndication {
                     entity_aspect: Some(EntityAspect::Entity(
-                        util.selected_name("work.foo"),
-                        Some(util.ident("rtl"))
+                        code.s1("work.foo").selected_name(),
+                        Some(code.s1("rtl").ident())
                     )),
                     generic_map: None,
                     port_map: None

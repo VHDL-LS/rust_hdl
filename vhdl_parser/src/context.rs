@@ -134,71 +134,70 @@ pub fn parse_context(
 mod tests {
     use super::*;
 
-    use test_util::{with_stream, with_stream_messages, with_stream_no_messages};
+    use test_util::Code;
 
     #[test]
     fn test_library_clause_single_name() {
-        let (util, library) = with_stream(parse_library_clause, "library foo;");
+        let code = Code::new("library foo;");
         assert_eq!(
-            library,
+            code.with_stream(parse_library_clause),
             LibraryClause {
-                name_list: vec![util.ident("foo")]
+                name_list: vec![code.s1("foo").ident()]
             }
         )
     }
 
     #[test]
     fn test_library_clause_multiple_names() {
-        let (util, library) = with_stream(parse_library_clause, "library foo, bar;");
+        let code = Code::new("library foo, bar;");
         assert_eq!(
-            library,
+            code.with_stream(parse_library_clause),
             LibraryClause {
-                name_list: vec![util.ident("foo"), util.ident("bar")]
+                name_list: vec![code.s1("foo").ident(), code.s1("bar").ident()]
             }
         )
     }
 
     #[test]
     fn test_use_clause_single_name() {
-        let (util, use_clause) = with_stream(parse_use_clause, "use lib.foo;");
+        let code = Code::new("use lib.foo;");
         assert_eq!(
-            use_clause,
+            code.with_stream(parse_use_clause),
             UseClause {
-                name_list: vec![util.name("lib.foo")]
+                name_list: vec![code.s1("lib.foo").name()]
             }
         )
     }
 
     #[test]
     fn test_use_clause_multiple_names() {
-        let (util, use_clause) = with_stream(parse_use_clause, "use foo.'a', lib.bar.all;");
+        let code = Code::new("use foo.'a', lib.bar.all;");
         assert_eq!(
-            use_clause,
+            code.with_stream(parse_use_clause),
             UseClause {
-                name_list: vec![util.name("foo.'a'"), util.name("lib.bar.all")]
+                name_list: vec![code.s1("foo.'a'").name(), code.s1("lib.bar.all").name()]
             }
         )
     }
 
     #[test]
     fn test_context_reference_single_name() {
-        let (util, context) = with_stream_no_messages(parse_context, "context lib.foo;");
+        let code = Code::new("context lib.foo;");
         assert_eq!(
-            context,
+            code.with_stream_no_messages(parse_context),
             DeclarationOrReference::Reference(ContextReference {
-                name_list: vec![util.name("lib.foo")]
+                name_list: vec![code.s1("lib.foo").name()]
             })
         )
     }
 
     #[test]
     fn test_context_reference_multiple_names() {
-        let (util, context) =
-            with_stream_no_messages(parse_context, "context work.foo, lib.bar.all;");
+        let code = Code::new("context work.foo, lib.bar.all;");
         assert_eq!(
-            context,
+            code.with_stream_no_messages(parse_context),
             DeclarationOrReference::Reference(ContextReference {
-                name_list: vec![util.name("work.foo"), util.name("lib.bar.all")]
+                name_list: vec![code.s1("work.foo").name(), code.s1("lib.bar.all").name()]
             })
         )
     }
@@ -224,11 +223,11 @@ end context ident;
 ",
         ];
         for variant in variants {
-            let (util, context) = with_stream_no_messages(parse_context, variant);
+            let code = Code::new(variant);
             assert_eq!(
-                context,
+                code.with_stream_no_messages(parse_context),
                 DeclarationOrReference::Declaration(ContextDeclaration {
-                    ident: util.ident("ident"),
+                    ident: code.s1("ident").ident(),
                     items: vec![]
                 })
             );
@@ -237,24 +236,24 @@ end context ident;
 
     #[test]
     fn test_context_clause_error_end_identifier_mismatch() {
-        let (util, context, messages) = with_stream_messages(
-            parse_context,
+        let code = Code::new(
             "\
 context ident is
 end context ident2;
 ",
         );
+        let (context, messages) = code.with_stream_messages(parse_context);
         assert_eq!(
             messages,
             vec![error(
-                &util.first_substr_pos("ident2"),
+                code.s1("ident2"),
                 "End identifier mismatch, expected ident"
             )]
         );
         assert_eq!(
             context,
             DeclarationOrReference::Declaration(ContextDeclaration {
-                ident: util.ident("ident"),
+                ident: code.s1("ident").ident(),
                 items: vec![]
             })
         );
@@ -262,8 +261,7 @@ end context ident2;
 
     #[test]
     fn test_context_clause_items() {
-        let (util, context) = with_stream_no_messages(
-            parse_context,
+        let code = Code::new(
             "\
 context ident is
   library foo;
@@ -273,18 +271,18 @@ end context;
 ",
         );
         assert_eq!(
-            context,
+            code.with_stream_no_messages(parse_context),
             DeclarationOrReference::Declaration(ContextDeclaration {
-                ident: util.ident("ident"),
+                ident: code.s1("ident").ident(),
                 items: vec![
                     ContextItem::Library(LibraryClause {
-                        name_list: vec![util.ident("foo")]
+                        name_list: vec![code.s1("foo").ident()]
                     }),
                     ContextItem::Use(UseClause {
-                        name_list: vec![util.name("foo.bar")]
+                        name_list: vec![code.s1("foo.bar").name()]
                     }),
                     ContextItem::Context(ContextReference {
-                        name_list: vec![util.name("foo.ctx")]
+                        name_list: vec![code.s1("foo.ctx").name()]
                     }),
                 ]
             })

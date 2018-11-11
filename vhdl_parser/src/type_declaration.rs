@@ -291,189 +291,197 @@ mod tests {
     use super::*;
 
     use ast::{DiscreteRange, Ident};
-    use test_util::{with_stream, with_stream_no_messages};
+    use test_util::Code;
 
     #[test]
     fn parse_integer_scalar_type_definition() {
-        let (util, result) =
-            with_stream_no_messages(parse_type_declaration, "type foo is range 0 to 1;");
+        let code = Code::new("type foo is range 0 to 1;");
 
         let type_decl = TypeDeclaration {
-            ident: util.ident("foo"),
-            def: TypeDefinition::Integer(util.range("0 to 1")),
+            ident: code.s1("foo").ident(),
+            def: TypeDefinition::Integer(code.s1("0 to 1").range()),
         };
-        assert_eq!(result, type_decl);
+        assert_eq!(
+            code.with_stream_no_messages(parse_type_declaration),
+            type_decl
+        );
     }
 
     #[test]
     fn parse_enumeration_scalar_type_definition() {
-        let (util, result) =
-            with_stream_no_messages(parse_type_declaration, "type foo is (alpha, beta);");
+        let code = Code::new("type foo is (alpha, beta);");
 
         let type_decl = TypeDeclaration {
-            ident: util.ident("foo"),
+            ident: code.s1("foo").ident(),
             def: TypeDefinition::Enumeration(vec![
-                EnumerationLiteral::Identifier(util.symbol("alpha")),
-                EnumerationLiteral::Identifier(util.symbol("beta")),
+                EnumerationLiteral::Identifier(code.symbol("alpha")),
+                EnumerationLiteral::Identifier(code.symbol("beta")),
             ]),
         };
-        assert_eq!(result, type_decl);
+        assert_eq!(
+            code.with_stream_no_messages(parse_type_declaration),
+            type_decl
+        );
     }
 
     #[test]
     fn parse_enumeration_scalar_type_definition_character() {
-        let (util, result) =
-            with_stream_no_messages(parse_type_declaration, "type foo is ('a', 'b');");
+        let code = Code::new("type foo is ('a', 'b');");
 
         let type_decl = TypeDeclaration {
-            ident: util.ident("foo"),
+            ident: code.s1("foo").ident(),
             def: TypeDefinition::Enumeration(vec![
                 EnumerationLiteral::Character(b'a'),
                 EnumerationLiteral::Character(b'b'),
             ]),
         };
-        assert_eq!(result, type_decl);
+        assert_eq!(
+            code.with_stream_no_messages(parse_type_declaration),
+            type_decl
+        );
     }
 
     #[test]
     fn mixing_identifier_and_scalar_in_enumerations() {
-        let (util, result) = with_stream(
-            |stream| parse_type_declaration(stream, &mut Vec::new()),
-            "type foo is (ident, 'b');",
-        );
+        let code = Code::new("type foo is (ident, 'b');");
 
         let type_decl = TypeDeclaration {
-            ident: util.ident("foo"),
+            ident: code.s1("foo").ident(),
             def: TypeDefinition::Enumeration(vec![
-                EnumerationLiteral::Identifier(util.symbol("ident")),
+                EnumerationLiteral::Identifier(code.symbol("ident")),
                 EnumerationLiteral::Character(b'b'),
             ]),
         };
-        assert_eq!(result, type_decl);
+        assert_eq!(
+            code.with_stream_no_messages(parse_type_declaration),
+            type_decl
+        );
     }
 
     #[test]
     fn parse_array_type_definition_with_index_subtype_definition() {
-        let (util, result) = with_stream_no_messages(
-            parse_type_declaration,
-            "type foo is array (natural range <>) of boolean;",
-        );
+        let code = Code::new("type foo is array (natural range <>) of boolean;");
 
         let type_decl = TypeDeclaration {
-            ident: util.ident("foo"),
+            ident: code.s1("foo").ident(),
             def: TypeDefinition::Array(
                 vec![ArrayIndex::IndexSubtypeDefintion(
-                    util.selected_name("natural"),
+                    code.s1("natural").selected_name(),
                 )],
-                util.subtype_indication("boolean"),
+                code.s1("boolean").subtype_indication(),
             ),
         };
 
-        assert_eq!(result, type_decl);
+        assert_eq!(
+            code.with_stream_no_messages(parse_type_declaration),
+            type_decl
+        );
     }
 
     #[test]
     fn parse_array_type_definition_with_discrete_subtype_definition() {
-        let (util, result) = with_stream_no_messages(
-            parse_type_declaration,
-            "type foo is array (natural) of boolean;",
-        );
+        let code = Code::new("type foo is array (natural) of boolean;");
 
         let type_decl = TypeDeclaration {
-            ident: util.ident("foo"),
+            ident: code.s1("foo").ident(),
             def: TypeDefinition::Array(
                 vec![ArrayIndex::Discrete(DiscreteRange::Discrete(
-                    util.selected_name("natural"),
+                    code.s1("natural").selected_name(),
                     None,
                 ))],
-                util.subtype_indication("boolean"),
+                code.s1("boolean").subtype_indication(),
             ),
         };
 
-        assert_eq!(result, type_decl);
+        assert_eq!(
+            code.with_stream_no_messages(parse_type_declaration),
+            type_decl
+        );
     }
 
     #[test]
     fn parse_array_type_definition_with_selected_name() {
-        let (util, result) = with_stream_no_messages(
-            parse_type_declaration,
-            "type foo is array (lib.pkg.foo) of boolean;",
-        );
+        let code = Code::new("type foo is array (lib.pkg.foo) of boolean;");
 
         let type_decl = TypeDeclaration {
-            ident: util.ident("foo"),
+            ident: code.s1("foo").ident(),
             def: TypeDefinition::Array(
                 vec![ArrayIndex::Discrete(DiscreteRange::Discrete(
-                    util.selected_name("lib.pkg.foo"),
+                    code.s1("lib.pkg.foo").selected_name(),
                     None,
                 ))],
-                util.subtype_indication("boolean"),
+                code.s1("boolean").subtype_indication(),
             ),
         };
 
-        assert_eq!(result, type_decl);
+        assert_eq!(
+            code.with_stream_no_messages(parse_type_declaration),
+            type_decl
+        );
     }
 
     #[test]
     fn parse_array_type_definition_with_range_attribute_name() {
-        let (util, result) = with_stream_no_messages(
-            parse_type_declaration,
-            "type foo is array (arr_t'range) of boolean;",
-        );
+        let code = Code::new("type foo is array (arr_t'range) of boolean;");
 
         let type_decl = TypeDeclaration {
-            ident: util.ident("foo"),
+            ident: code.s1("foo").ident(),
             def: TypeDefinition::Array(
                 vec![ArrayIndex::Discrete(DiscreteRange::Range(
-                    util.range("arr_t'range"),
+                    code.s1("arr_t'range").range(),
                 ))],
-                util.subtype_indication("boolean"),
+                code.s1("boolean").subtype_indication(),
             ),
         };
 
-        assert_eq!(result, type_decl);
+        assert_eq!(
+            code.with_stream_no_messages(parse_type_declaration),
+            type_decl
+        );
     }
 
     #[test]
     fn parse_array_type_definition_with_constraint() {
-        let (util, result) = with_stream_no_messages(
-            parse_type_declaration,
-            "type foo is array (2-1 downto 0) of boolean;",
-        );
+        let code = Code::new("type foo is array (2-1 downto 0) of boolean;");
 
-        let index = ArrayIndex::Discrete(DiscreteRange::Range(util.range("2-1 downto 0")));
+        let index = ArrayIndex::Discrete(DiscreteRange::Range(code.s1("2-1 downto 0").range()));
 
         let type_decl = TypeDeclaration {
-            ident: util.ident("foo"),
-            def: TypeDefinition::Array(vec![index], util.subtype_indication("boolean")),
+            ident: code.s1("foo").ident(),
+            def: TypeDefinition::Array(vec![index], code.s1("boolean").subtype_indication()),
         };
 
-        assert_eq!(result, type_decl);
+        assert_eq!(
+            code.with_stream_no_messages(parse_type_declaration),
+            type_decl
+        );
     }
 
     #[test]
     fn parse_array_type_definition_mixed() {
-        let (util, result) = with_stream_no_messages(
-            parse_type_declaration,
-            "type foo is array (2-1 downto 0, integer range <>) of boolean;",
-        );
+        let code = Code::new("type foo is array (2-1 downto 0, integer range <>) of boolean;");
 
-        let index0 = ArrayIndex::Discrete(DiscreteRange::Range(util.range("2-1 downto 0")));
+        let index0 = ArrayIndex::Discrete(DiscreteRange::Range(code.s1("2-1 downto 0").range()));
 
-        let index1 = ArrayIndex::IndexSubtypeDefintion(util.selected_name("integer"));
+        let index1 = ArrayIndex::IndexSubtypeDefintion(code.s1("integer").selected_name());
 
         let type_decl = TypeDeclaration {
-            ident: util.ident("foo"),
-            def: TypeDefinition::Array(vec![index0, index1], util.subtype_indication("boolean")),
+            ident: code.s1("foo").ident(),
+            def: TypeDefinition::Array(
+                vec![index0, index1],
+                code.s1("boolean").subtype_indication(),
+            ),
         };
 
-        assert_eq!(result, type_decl);
+        assert_eq!(
+            code.with_stream_no_messages(parse_type_declaration),
+            type_decl
+        );
     }
 
     #[test]
     fn parse_record_type_definition() {
-        let (util, result) = with_stream_no_messages(
-            parse_type_declaration,
+        let code = Code::new(
             "\
             type foo is record
   element : boolean;
@@ -481,22 +489,24 @@ end record;",
         );
 
         let elem_decl = ElementDeclaration {
-            ident: util.ident("element"),
-            subtype: util.subtype_indication("boolean"),
+            ident: code.s1("element").ident(),
+            subtype: code.s1("boolean").subtype_indication(),
         };
 
         let type_decl = TypeDeclaration {
-            ident: util.ident("foo"),
+            ident: code.s1("foo").ident(),
             def: TypeDefinition::Record(vec![elem_decl]),
         };
 
-        assert_eq!(result, type_decl);
+        assert_eq!(
+            code.with_stream_no_messages(parse_type_declaration),
+            type_decl
+        );
     }
 
     #[test]
     fn parse_record_type_definition_many() {
-        let (util, result) = with_stream_no_messages(
-            parse_type_declaration,
+        let code = Code::new(
             "\
             type foo is record
   element, field : boolean;
@@ -505,41 +515,41 @@ end foo;",
         );
 
         let elem_decl0a = ElementDeclaration {
-            ident: util.ident("element"),
-            subtype: util.subtype_indication("boolean"),
+            ident: code.s1("element").ident(),
+            subtype: code.s1("boolean").subtype_indication(),
         };
 
         let elem_decl0b = ElementDeclaration {
-            ident: util.ident("field"),
-            subtype: util.subtype_indication("boolean"),
+            ident: code.s1("field").ident(),
+            subtype: code.s1("boolean").subtype_indication(),
         };
 
         let elem_decl1 = ElementDeclaration {
-            ident: util.ident("other_element"),
-            subtype: util.subtype_indication("std_logic_vector(0 to 1)"),
+            ident: code.s1("other_element").ident(),
+            subtype: code.s1("std_logic_vector(0 to 1)").subtype_indication(),
         };
 
         let type_decl = TypeDeclaration {
-            ident: util.ident("foo"),
+            ident: code.s1("foo").ident(),
             def: TypeDefinition::Record(vec![elem_decl0a, elem_decl0b, elem_decl1]),
         };
 
-        assert_eq!(result, type_decl);
+        assert_eq!(
+            code.with_stream_no_messages(parse_type_declaration),
+            type_decl
+        );
     }
 
     #[test]
     fn test_parse_subtype_declaration() {
-        let (util, subtype) = with_stream_no_messages(
-            parse_type_declaration,
-            "subtype vec_t is integer_vector(2-1 downto 0);",
-        );
+        let code = Code::new("subtype vec_t is integer_vector(2-1 downto 0);");
 
         assert_eq!(
-            subtype,
+            code.with_stream_no_messages(parse_type_declaration),
             TypeDeclaration {
-                ident: util.ident("vec_t"),
+                ident: code.s1("vec_t").ident(),
                 def: TypeDefinition::Subtype(
-                    util.subtype_indication("integer_vector(2-1 downto 0)")
+                    code.s1("integer_vector(2-1 downto 0)").subtype_indication()
                 )
             }
         );
@@ -547,17 +557,14 @@ end foo;",
 
     #[test]
     fn test_parse_access_type_declaration() {
-        let (util, subtype) = with_stream_no_messages(
-            parse_type_declaration,
-            "type ptr_t is access integer_vector(2-1 downto 0);",
-        );
+        let code = Code::new("type ptr_t is access integer_vector(2-1 downto 0);");
 
         assert_eq!(
-            subtype,
+            code.with_stream_no_messages(parse_type_declaration),
             TypeDeclaration {
-                ident: util.ident("ptr_t"),
+                ident: code.s1("ptr_t").ident(),
                 def: TypeDefinition::Access(
-                    util.subtype_indication("integer_vector(2-1 downto 0)")
+                    code.s1("integer_vector(2-1 downto 0)").subtype_indication()
                 )
             }
         );
@@ -565,12 +572,12 @@ end foo;",
 
     #[test]
     fn test_incomplete_type_declaration() {
-        let (util, subtype) = with_stream_no_messages(parse_type_declaration, "type incomplete;");
+        let code = Code::new("type incomplete;");
 
         assert_eq!(
-            subtype,
+            code.with_stream_no_messages(parse_type_declaration),
             TypeDeclaration {
-                ident: util.ident("incomplete"),
+                ident: code.s1("incomplete").ident(),
                 def: TypeDefinition::Incomplete
             }
         );
@@ -578,14 +585,13 @@ end foo;",
 
     #[test]
     fn test_file_type_declaration() {
-        let (util, subtype) =
-            with_stream_no_messages(parse_type_declaration, "type foo is file of character;");
+        let code = Code::new("type foo is file of character;");
 
         assert_eq!(
-            subtype,
+            code.with_stream_no_messages(parse_type_declaration),
             TypeDeclaration {
-                ident: util.ident("foo"),
-                def: TypeDefinition::File(util.selected_name("character"))
+                ident: code.s1("foo").ident(),
+                def: TypeDefinition::File(code.s1("character").selected_name())
             }
         );
     }
@@ -599,32 +605,35 @@ end foo;",
 
     #[test]
     fn test_protected_type_declaration() {
-        let (util, type_decl) = with_stream_no_messages(
-            parse_type_declaration,
+        let code = Code::new(
             "\
 type foo is protected
 end protected;
 ",
         );
-        assert_eq!(type_decl, protected_decl(util.ident("foo"), vec![]))
+        assert_eq!(
+            code.with_stream_no_messages(parse_type_declaration),
+            protected_decl(code.s1("foo").ident(), vec![])
+        )
     }
 
     #[test]
     fn test_protected_type_declaration_simple_name_suffix() {
-        let (util, type_decl) = with_stream_no_messages(
-            parse_type_declaration,
+        let code = Code::new(
             "\
 type foo is protected
 end protected foo;
 ",
         );
-        assert_eq!(type_decl, protected_decl(util.ident("foo"), vec![]))
+        assert_eq!(
+            code.with_stream_no_messages(parse_type_declaration),
+            protected_decl(code.s1("foo").ident(), vec![])
+        )
     }
 
     #[test]
     fn test_protected_type_declaration_with_subprograms() {
-        let (util, type_decl) = with_stream_no_messages(
-            parse_type_declaration,
+        let code = Code::new(
             "\
 type foo is protected
   procedure proc;
@@ -633,19 +642,21 @@ end protected;
 ",
         );
         let items = vec![
-            ProtectedTypeDeclarativeItem::Subprogram(util.subprogram_decl("procedure proc")),
+            ProtectedTypeDeclarativeItem::Subprogram(code.s1("procedure proc").subprogram_decl()),
             ProtectedTypeDeclarativeItem::Subprogram(
-                util.subprogram_decl("function fun return ret"),
+                code.s1("function fun return ret").subprogram_decl(),
             ),
         ];
 
-        assert_eq!(type_decl, protected_decl(util.ident("foo"), items))
+        assert_eq!(
+            code.with_stream_no_messages(parse_type_declaration),
+            protected_decl(code.s1("foo").ident(), items)
+        )
     }
 
     #[test]
     fn test_protected_type_body() {
-        let (util, type_decl) = with_stream_no_messages(
-            parse_type_declaration,
+        let code = Code::new(
             "\
 type foo is protected body
   variable foo : natural;
@@ -656,17 +667,16 @@ end protected body;
 ",
         );
 
-        let decl = util.declarative_part(
-            "\
+        let decl = code
+            .s1("\
   variable foo : natural;
   procedure proc is
   begin
-  end;",
-        );
+  end;").declarative_part();
         assert_eq!(
-            type_decl,
+            code.with_stream_no_messages(parse_type_declaration),
             TypeDeclaration {
-                ident: util.ident("foo"),
+                ident: code.s1("foo").ident(),
                 def: TypeDefinition::ProtectedBody(ProtectedTypeBody { decl }),
             }
         )
@@ -674,8 +684,7 @@ end protected body;
 
     #[test]
     fn test_physical_type_declaration() {
-        let (util, type_decl) = with_stream_no_messages(
-            parse_type_declaration,
+        let code = Code::new(
             "\
 type phys is range 0 to 15 units
    primary_unit;
@@ -684,12 +693,12 @@ end units phys;
         );
 
         assert_eq!(
-            type_decl,
+            code.with_stream_no_messages(parse_type_declaration),
             TypeDeclaration {
-                ident: util.ident("phys"),
+                ident: code.s1("phys").ident(),
                 def: TypeDefinition::Physical(PhysicalTypeDeclaration {
-                    range: util.range("0 to 15"),
-                    primary_unit: util.ident("primary_unit"),
+                    range: code.s1("0 to 15").range(),
+                    primary_unit: code.s1("primary_unit").ident(),
                     secondary_units: vec![]
                 })
             }
@@ -698,8 +707,7 @@ end units phys;
 
     #[test]
     fn test_physical_type_declaration_secondary_units() {
-        let (util, type_decl) = with_stream_no_messages(
-            parse_type_declaration,
+        let code = Code::new(
             "\
 type phys is range 0 to 15 units
    primary_unit;
@@ -709,15 +717,15 @@ end units;
         );
 
         assert_eq!(
-            type_decl,
+            code.with_stream_no_messages(parse_type_declaration),
             TypeDeclaration {
-                ident: util.ident("phys"),
+                ident: code.s1("phys").ident(),
                 def: TypeDefinition::Physical(PhysicalTypeDeclaration {
-                    range: util.range("0 to 15"),
-                    primary_unit: util.ident("primary_unit"),
+                    range: code.s1("0 to 15").range(),
+                    primary_unit: code.s1("primary_unit").ident(),
                     secondary_units: vec![(
-                        util.ident("secondary_unit"),
-                        Literal::Physical(AbstractLiteral::Integer(5), util.symbol("primary_unit"))
+                        code.s1("secondary_unit").ident(),
+                        Literal::Physical(AbstractLiteral::Integer(5), code.symbol("primary_unit"))
                     ),]
                 })
             }
@@ -726,8 +734,7 @@ end units;
 
     #[test]
     fn test_physical_type_declaration_implicit_secondary_units() {
-        let (util, type_decl) = with_stream_no_messages(
-            parse_type_declaration,
+        let code = Code::new(
             "\
 type phys is range 0 to 15 units
    primary_unit;
@@ -737,15 +744,15 @@ end units;
         );
 
         assert_eq!(
-            type_decl,
+            code.with_stream_no_messages(parse_type_declaration),
             TypeDeclaration {
-                ident: util.ident("phys"),
+                ident: code.s1("phys").ident(),
                 def: TypeDefinition::Physical(PhysicalTypeDeclaration {
-                    range: util.range("0 to 15"),
-                    primary_unit: util.ident("primary_unit"),
+                    range: code.s1("0 to 15").range(),
+                    primary_unit: code.s1("primary_unit").ident(),
                     secondary_units: vec![(
-                        util.ident("secondary_unit"),
-                        Literal::Physical(AbstractLiteral::Integer(1), util.symbol("primary_unit"))
+                        code.s1("secondary_unit").ident(),
+                        Literal::Physical(AbstractLiteral::Integer(1), code.symbol("primary_unit"))
                     ),]
                 })
             }

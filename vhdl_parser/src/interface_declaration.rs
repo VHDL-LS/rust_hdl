@@ -355,32 +355,27 @@ pub fn parse_generic(stream: &mut TokenStream) -> ParseResult<InterfaceDeclarati
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_util::{
-        with_partial_stream, with_stream, with_stream_messages, with_stream_no_messages,
-    };
+    use test_util::Code;
     use tokenizer::kinds_error;
 
     #[test]
     fn parses_interface_identifier_list() {
-        let (util, object) = with_stream_no_messages(
-            parse_generic_interface_list,
-            "(constant foo, bar : natural)",
-        );
+        let code = Code::new("(constant foo, bar : natural)");
         assert_eq!(
-            object,
+            code.with_stream_no_messages(parse_generic_interface_list),
             vec![
                 InterfaceDeclaration::Object(InterfaceObjectDeclaration {
                     mode: Mode::In,
                     class: ObjectClass::Constant,
-                    ident: util.ident("foo"),
-                    subtype_indication: util.subtype_indication("natural"),
+                    ident: code.s1("foo").ident(),
+                    subtype_indication: code.s1("natural").subtype_indication(),
                     expression: None
                 }),
                 InterfaceDeclaration::Object(InterfaceObjectDeclaration {
                     mode: Mode::In,
                     class: ObjectClass::Constant,
-                    ident: util.ident("bar"),
-                    subtype_indication: util.subtype_indication("natural"),
+                    ident: code.s1("bar").ident(),
+                    subtype_indication: code.s1("natural").subtype_indication(),
                     expression: None
                 })
             ]
@@ -389,14 +384,14 @@ mod tests {
 
     #[test]
     fn parses_generic() {
-        let (util, result) = with_stream(parse_generic, "foo : std_logic");
+        let code = Code::new("foo : std_logic");
         assert_eq!(
-            result,
+            code.with_stream(parse_generic),
             InterfaceDeclaration::Object(InterfaceObjectDeclaration {
                 mode: Mode::In,
                 class: ObjectClass::Constant,
-                ident: util.ident("foo"),
-                subtype_indication: util.subtype_indication("std_logic"),
+                ident: code.s1("foo").ident(),
+                subtype_indication: code.s1("std_logic").subtype_indication(),
                 expression: None
             })
         );
@@ -404,51 +399,50 @@ mod tests {
 
     #[test]
     fn parses_interface_file_declaration() {
-        let (util, result) = with_stream(parse_parameter, "file foo : text");
+        let code = Code::new("file foo : text");
         assert_eq!(
-            result,
+            code.with_stream(parse_parameter),
             InterfaceDeclaration::File(InterfaceFileDeclaration {
-                ident: util.ident("foo"),
-                subtype_indication: util.subtype_indication("text"),
+                ident: code.s1("foo").ident(),
+                subtype_indication: code.s1("text").subtype_indication(),
             })
         );
     }
 
     #[test]
     fn parses_interface_file_declaration_no_open_info() {
-        let (util, result) = with_partial_stream(parse_parameter, "file foo : text open read_mode");
+        let code = Code::new("file foo : text open read_mode");
         assert_eq!(
-            result,
-            Err(error(
-                &util.first_substr_pos("foo"),
+            code.with_stream_err(parse_parameter),
+            error(
+                code.s1("foo"),
                 "interface_file_declaration may not have file open information"
-            ))
+            )
         );
     }
 
     #[test]
     fn parses_interface_file_declaration_no_file_name() {
-        let (util, result) =
-            with_partial_stream(parse_parameter, "file foo : text is \"file_name\"");
+        let code = Code::new("file foo : text is \"file_name\"");
         assert_eq!(
-            result,
-            Err(error(
-                &util.first_substr_pos("foo"),
+            code.with_stream_err(parse_parameter),
+            error(
+                code.s1("foo"),
                 "interface_file_declaration may not have file name"
-            ))
+            )
         );
     }
 
     #[test]
     fn parses_port() {
-        let (util, result) = with_stream(parse_port, "foo : std_logic");
+        let code = Code::new("foo : std_logic");
         assert_eq!(
-            result,
+            code.with_stream(parse_port),
             InterfaceDeclaration::Object(InterfaceObjectDeclaration {
                 mode: Mode::In,
                 class: ObjectClass::Signal,
-                ident: util.ident("foo"),
-                subtype_indication: util.subtype_indication("std_logic"),
+                ident: code.s1("foo").ident(),
+                subtype_indication: code.s1("std_logic").subtype_indication(),
                 expression: None
             })
         );
@@ -463,16 +457,16 @@ mod tests {
 
     #[test]
     fn parses_port_without_explicit_class() {
-        let (_, result) = with_stream(parse_port, "foo : std_logic");
-        let result = to_interface_object(result);
+        let code = Code::new("foo : std_logic");
+        let result = to_interface_object(code.with_stream(parse_port));
         assert_eq!(result.mode, Mode::In);
         assert_eq!(result.class, ObjectClass::Signal);
     }
 
     #[test]
     fn parses_generic_without_explicit_class() {
-        let (_, result) = with_stream(parse_generic, "foo : std_logic");
-        let result = to_interface_object(result);
+        let code = Code::new("foo : std_logic");
+        let result = to_interface_object(code.with_stream(parse_generic));
         assert_eq!(result.mode, Mode::In);
         assert_eq!(result.class, ObjectClass::Constant);
     }
@@ -485,38 +479,38 @@ mod tests {
         // inout, out => Variable
         // @TODO forbid other modes
         // @TODO forbid mode != in for function
-        let (_, result) = with_stream(parse_parameter, "foo : std_logic");
-        let result = to_interface_object(result);
+        let code = Code::new("foo : std_logic");
+        let result = to_interface_object(code.with_stream(parse_parameter));
         assert_eq!(result.mode, Mode::In);
         assert_eq!(result.class, ObjectClass::Constant);
 
-        let (_, result) = with_stream(parse_parameter, "foo : in std_logic");
-        let result = to_interface_object(result);
+        let code = Code::new("foo : in std_logic");
+        let result = to_interface_object(code.with_stream(parse_parameter));
         assert_eq!(result.mode, Mode::In);
         assert_eq!(result.class, ObjectClass::Constant);
 
-        let (_, result) = with_stream(parse_parameter, "foo : out std_logic");
-        let result = to_interface_object(result);
+        let code = Code::new("foo : out std_logic");
+        let result = to_interface_object(code.with_stream(parse_parameter));
         assert_eq!(result.mode, Mode::Out);
         assert_eq!(result.class, ObjectClass::Variable);
 
-        let (_, result) = with_stream(parse_parameter, "foo : inout std_logic");
-        let result = to_interface_object(result);
+        let code = Code::new("foo : inout std_logic");
+        let result = to_interface_object(code.with_stream(parse_parameter));
         assert_eq!(result.mode, Mode::InOut);
         assert_eq!(result.class, ObjectClass::Variable);
     }
 
     #[test]
     fn parses_generic_with_optional_keyword() {
-        let (util, result) = with_stream(parse_generic, "constant foo : std_logic");
+        let code = Code::new("constant foo : std_logic");
         assert_eq!(
-            result,
+            code.with_stream(parse_generic),
             InterfaceDeclaration::Object(InterfaceObjectDeclaration {
                 mode: Mode::In,
 
                 class: ObjectClass::Constant,
-                ident: util.ident("foo"),
-                subtype_indication: util.subtype_indication("std_logic"),
+                ident: code.s1("foo").ident(),
+                subtype_indication: code.s1("std_logic").subtype_indication(),
                 expression: None
             })
         );
@@ -524,15 +518,15 @@ mod tests {
 
     #[test]
     fn parses_port_with_optional_keyword() {
-        let (util, result) = with_stream(parse_port, "signal foo : std_logic");
+        let code = Code::new("signal foo : std_logic");
         assert_eq!(
-            result,
+            code.with_stream(parse_port),
             InterfaceDeclaration::Object(InterfaceObjectDeclaration {
                 mode: Mode::In,
 
                 class: ObjectClass::Signal,
-                ident: util.ident("foo"),
-                subtype_indication: util.subtype_indication("std_logic"),
+                ident: code.s1("foo").ident(),
+                subtype_indication: code.s1("std_logic").subtype_indication(),
                 expression: None
             })
         );
@@ -540,11 +534,11 @@ mod tests {
 
     #[test]
     fn parse_generic_non_in_mode_error() {
-        let (util, result) = with_partial_stream(parse_generic, "foo : out boolean");
+        let code = Code::new("foo : out boolean");
         assert_eq!(
-            result,
+            code.with_partial_stream(parse_generic),
             Err(error(
-                &util.first_substr_pos("out"),
+                &code.s1("out").pos(),
                 "Interface constant declaration may only have mode=in"
             ))
         );
@@ -552,43 +546,42 @@ mod tests {
 
     #[test]
     fn test_parse_generic_interface_list() {
-        let (util, result) = with_stream_no_messages(
-            parse_generic_interface_list,
+        let code = Code::new(
             "\
 (constant foo : std_logic;
 bar : natural)",
         );
 
         assert_eq!(
-            result,
+            code.with_stream_no_messages(parse_generic_interface_list),
             vec![
-                util.parse_first_ok(parse_generic, "constant foo : std_logic"),
-                util.parse_first_ok(parse_generic, "bar : natural")
+                code.s1("constant foo : std_logic").generic(),
+                code.s1("bar : natural").generic()
             ]
         );
     }
 
     #[test]
     fn test_parse_generic_interface_list_error_on_last_semi_colon() {
-        let (util, result, messages) = with_stream_messages(
-            parse_generic_interface_list,
+        let code = Code::new(
             "\
 (constant foo : std_logic;
  bar : natural;
 )",
         );
+        let (result, messages) = code.with_stream_messages(parse_generic_interface_list);
 
         assert_eq!(
             result,
             vec![
-                util.parse_first_ok(parse_generic, "constant foo : std_logic"),
-                util.parse_first_ok(parse_generic, "bar : natural")
+                code.s1("constant foo : std_logic").generic(),
+                code.s1("bar : natural").generic()
             ]
         );
         assert_eq!(
             messages,
             vec![error(
-                &util.substr_pos(";", 2),
+                code.s(";", 2),
                 "Last interface element may not end with ';'"
             )]
         );
@@ -596,26 +589,24 @@ bar : natural)",
 
     #[test]
     fn test_parse_port_interface_list() {
-        let (util, result) = with_stream_no_messages(
-            parse_port_interface_list,
+        let code = Code::new(
             "\
 (signal foo : in std_logic;
 bar : natural)",
         );
 
         assert_eq!(
-            result,
+            code.with_stream_no_messages(parse_port_interface_list),
             vec![
-                util.parse_first_ok(parse_port, "signal foo : in std_logic"),
-                util.parse_first_ok(parse_port, "bar : natural")
+                code.s1("signal foo : in std_logic").port(),
+                code.s1("bar : natural").port()
             ]
         );
     }
 
     #[test]
     fn test_parse_parameter_interface_list() {
-        let (util, result) = with_stream_no_messages(
-            parse_parameter_interface_list,
+        let code = Code::new(
             "\
 (signal foo : in std_logic;
  constant bar : natural;
@@ -623,48 +614,45 @@ bar : natural)",
         );
 
         assert_eq!(
-            result,
+            code.with_stream_no_messages(parse_parameter_interface_list),
             vec![
-                util.parse_first_ok(parse_parameter, "signal foo : in std_logic"),
-                util.parse_first_ok(parse_parameter, "constant bar : natural"),
-                util.parse_first_ok(parse_parameter, "variable xyz : var"),
+                code.s1("signal foo : in std_logic").parameter(),
+                code.s1("constant bar : natural").parameter(),
+                code.s1("variable xyz : var").parameter(),
             ]
         );
     }
 
     #[test]
     fn test_parse_generic_interface_list_recovery_comma_instead_of_semicolon() {
-        let (util, result, messages) = with_stream_messages(
-            parse_generic_interface_list,
+        let code = Code::new(
             "\
 (constant c1 : natural,
  constant c2 : natural)",
         );
 
+        let (result, messages) = code.with_stream_messages(parse_generic_interface_list);
         assert_eq!(
             result,
             vec![
-                util.parse_first_ok(parse_generic, "constant c1 : natural"),
-                util.parse_first_ok(parse_generic, "constant c2 : natural"),
+                code.s1("constant c1 : natural").generic(),
+                code.s1("constant c2 : natural").generic(),
             ]
         );
         assert_eq!(
             messages,
-            vec![kinds_error(
-                &util.first_substr_pos(","),
-                &[SemiColon, RightPar]
-            )]
+            vec![kinds_error(code.s1(","), &[SemiColon, RightPar])]
         );
     }
 
     #[test]
     fn test_parse_generic_interface_no_signal() {
-        let (util, _, messages) =
-            with_stream_messages(parse_generic_interface_list, "(signal c1 : natural)");
+        let code = Code::new("(signal c1 : natural)");
+        let (_, messages) = code.with_stream_messages(parse_generic_interface_list);
         assert_eq!(
             messages,
             vec![error(
-                &util.first_substr_pos("signal"),
+                code.s1("signal"),
                 "Generic list only allows constant object class"
             )]
         );
@@ -672,12 +660,12 @@ bar : natural)",
 
     #[test]
     fn test_parse_port_interface_no_constant() {
-        let (util, _, messages) =
-            with_stream_messages(parse_port_interface_list, "(constant c1 : natural)");
+        let code = Code::new("(constant c1 : natural)");
+        let (_, messages) = code.with_stream_messages(parse_port_interface_list);
         assert_eq!(
             messages,
             vec![error(
-                &util.first_substr_pos("constant"),
+                code.s1("constant"),
                 "Port list only allows signal object class"
             )]
         );
@@ -685,8 +673,7 @@ bar : natural)",
 
     #[test]
     fn test_parse_generic_interface_list_recovery() {
-        let (util, result, messages) = with_stream_messages(
-            parse_generic_interface_list,
+        let code = Code::new(
             "\
 (constant c1_err : ;
  -- Recover on previous ;
@@ -700,13 +687,14 @@ bar : natural)",
  constant c7_err :)",
         );
 
+        let (result, messages) = code.with_stream_messages(parse_generic_interface_list);
         assert_eq!(
             result,
             vec![
-                util.parse_first_ok(parse_generic, "constant c2 : natural"),
-                util.parse_first_ok(parse_generic, "constant c3 : natural"),
-                util.parse_first_ok(parse_generic, "constant c4 : natural"),
-                util.parse_first_ok(parse_generic, "constant c6 : natural")
+                code.s1("constant c2 : natural").generic(),
+                code.s1("constant c3 : natural").generic(),
+                code.s1("constant c4 : natural").generic(),
+                code.s1("constant c6 : natural").generic()
             ]
         );
         assert_eq!(messages.len(), 4);
@@ -714,27 +702,33 @@ bar : natural)",
 
     #[test]
     fn parses_interface_type() {
-        let (util, result) = with_stream(parse_generic, "type name");
-        assert_eq!(result, InterfaceDeclaration::Type(util.ident("name")));
+        let code = Code::new("type name");
+        assert_eq!(
+            code.with_stream(parse_generic),
+            InterfaceDeclaration::Type(code.s1("name").ident())
+        );
     }
 
     #[test]
     fn parses_interface_subprogram() {
-        let (util, result) = with_stream(parse_generic, "function foo return bar");
+        let code = Code::new("function foo return bar");
         assert_eq!(
-            result,
-            InterfaceDeclaration::Subprogram(util.subprogram_decl("function foo return bar"), None)
-        );
-        let (util, result) = with_stream(parse_generic, "procedure foo");
-        assert_eq!(
-            result,
-            InterfaceDeclaration::Subprogram(util.subprogram_decl("procedure foo"), None)
-        );
-        let (util, result) = with_stream(parse_generic, "impure function foo return bar");
-        assert_eq!(
-            result,
+            code.with_stream(parse_generic),
             InterfaceDeclaration::Subprogram(
-                util.subprogram_decl("impure function foo return bar"),
+                code.s1("function foo return bar").subprogram_decl(),
+                None
+            )
+        );
+        let code = Code::new("procedure foo");
+        assert_eq!(
+            code.with_stream(parse_generic),
+            InterfaceDeclaration::Subprogram(code.s1("procedure foo").subprogram_decl(), None)
+        );
+        let code = Code::new("impure function foo return bar");
+        assert_eq!(
+            code.with_stream(parse_generic),
+            InterfaceDeclaration::Subprogram(
+                code.s1("impure function foo return bar").subprogram_decl(),
                 None
             )
         );
@@ -742,20 +736,20 @@ bar : natural)",
 
     #[test]
     fn parses_interface_subprogram_default() {
-        let (util, result) = with_stream(parse_generic, "function foo return bar is lib.name");
+        let code = Code::new("function foo return bar is lib.name");
         assert_eq!(
-            result,
+            code.with_stream(parse_generic),
             InterfaceDeclaration::Subprogram(
-                util.subprogram_decl("function foo return bar"),
-                Some(SubprogramDefault::Name(util.selected_name("lib.name")))
+                code.s1("function foo return bar").subprogram_decl(),
+                Some(SubprogramDefault::Name(code.s1("lib.name").selected_name()))
             )
         );
 
-        let (util, result) = with_stream(parse_generic, "function foo return bar is <>");
+        let code = Code::new("function foo return bar is <>");
         assert_eq!(
-            result,
+            code.with_stream(parse_generic),
             InterfaceDeclaration::Subprogram(
-                util.subprogram_decl("function foo return bar"),
+                code.s1("function foo return bar").subprogram_decl(),
                 Some(SubprogramDefault::Box)
             )
         );
