@@ -21,6 +21,7 @@ To install rust and its build tool cargo: https://rustup.rs/
 
 # Projects
 # VHDL Parser
+[![vhdl parser crate](https://img.shields.io/crates/v/vhdl_parser.svg)](https://crates.io/crates/vhdl_parser)
 ### Goals
 - This project aims to provide a fully featured open source VHDL parser that is easy to integrate into other tools.
 - A design goal of the parser is to be able to recover from errors such that it is useful for building a language server. 
@@ -74,6 +75,7 @@ architecture a of uart_tx
 ```
 
 ## VHDL Language Server
+[![vhdl ls crate](https://img.shields.io/crates/v/vhdl_ls.svg)](https://crates.io/crates/vhdl_ls)
 ### Goals
 - A complete VHDL language server protocol implementation with diagnostics, navigate to symbol, find all references etc.
 
