@@ -28,12 +28,23 @@ To install rust and its build tool cargo: https://rustup.rs/
 - Separate parsing from semantic analysis to allow code formatting on non-semantically correct code.
 
 ### Current status
-- The current status is that a lot VHDL-2008 is parsed, enough to parse (VUnit, PoC, UVVM, OSVVM).
+- Almost all of VHDL-2008 is parsed, enough to parse the most popular VHDL projects on GitHub:
+   - https://github.com/VUnit/vunit
+   - https://github.com/OSVVM/OSVVM
+   - https://github.com/UVVM/UVVM
+   - https://github.com/VLSI-EDA/PoC
+   - https://github.com/FPHDL/fphdl/
+   - https://github.com/inforichland/freezing-spice (Contains one file with actual syntax error)
+   - https://github.com/sergeykhbr/riscv_vhdl
+   - https://github.com/fabioperez/space-invaders-vhdl
+   - https://github.com/BG2BKK/img_process_vhdl (Contains one file with actual syntax error)
+   - https://github.com/kevinpt/vhdl-extras
+   - https://github.com/xesscorp/VHDL_Lib
+- Good performance, can parse 440k lines of code (all repos above) in 500 ms on my laptop which is 45.5 MB/s of parsing throughput.
 - The parser is a using hand written recursive descent since VHDL is not suitable for parser generators.
 - Error recovery is still very rudimentary.
 - No semantic analysis is done yet.
 - Comments not part of AST yet.
-- Good performance, can parse 200k lines of code in 200 ms on my laptop which is 39 MB/s of parsing throughput.
 
 ## Trying it out
 The VHDL parser has a command line demonstrator which will parse a list of files and print information about the parse results. The command line tool currently only serves as a demonstrator and has no intended usability at this point.
