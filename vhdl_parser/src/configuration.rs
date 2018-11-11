@@ -42,17 +42,11 @@ fn parse_entity_aspect(stream: &mut TokenStream) -> ParseResult<EntityAspect> {
     Ok(entity_aspect)
 }
 
-fn parse_component_configuration_known_instance(
+fn parse_component_configuration_known_spec(
     stream: &mut TokenStream,
-    instantiation_list: InstantiationList,
+    spec: ComponentSpecification,
     messages: &mut MessageHandler,
 ) -> ParseResult<ComponentConfiguration> {
-    let component_name = parse_selected_name(stream)?;
-    let spec = ComponentSpecification {
-        instantiation_list,
-        component_name,
-    };
-
     let token = stream.peek_expect()?;
     let bind_ind = try_token_kind!(
         token,
@@ -92,6 +86,87 @@ fn parse_component_configuration_known_instance(
     })
 }
 
+enum ComponentSpecificationOrName {
+    ComponentSpec(ComponentSpecification),
+    Name(WithPos<Name>),
+}
+
+fn parse_component_specification_or_name(
+    stream: &mut TokenStream,
+) -> ParseResult<ComponentSpecificationOrName> {
+    let name_token = stream.expect()?;
+    try_token_kind!(
+        name_token,
+        All => {
+            stream.expect_kind(Colon)?;
+            let component_name = parse_selected_name(stream)?;
+            Ok(ComponentSpecificationOrName::ComponentSpec(ComponentSpecification {
+                instantiation_list: InstantiationList::All,
+                component_name,
+            }))
+
+        },
+        Others => {
+            stream.expect_kind(Colon)?;
+            let component_name = parse_selected_name(stream)?;
+            Ok(ComponentSpecificationOrName::ComponentSpec(ComponentSpecification {
+                instantiation_list: InstantiationList::Others,
+                component_name,
+            }))
+        },
+        Identifier => {
+            let name = parse_name_initial_token(stream, name_token)?;
+            let sep_token = stream.peek_expect()?;
+            match sep_token.kind {
+                Colon => {
+                    stream.move_after(&sep_token);
+                    let ident = to_simple_name(name)?;
+                    let component_name = parse_selected_name(stream)?;
+                    Ok(ComponentSpecificationOrName::ComponentSpec(ComponentSpecification {
+                        instantiation_list: InstantiationList::Labels(vec![ident]),
+                        component_name,
+                    }))
+                }
+                Comma => {
+                    stream.move_after(&sep_token);
+                    let mut idents = vec![to_simple_name(name)?];
+                    loop {
+                        idents.push(stream.expect_ident()?);
+                        let next_token = stream.expect()?;
+                        try_token_kind!(
+                            next_token,
+                            Comma => {},
+                            Colon => break
+                        );
+                    }
+                    let component_name = parse_selected_name(stream)?;
+                    Ok(ComponentSpecificationOrName::ComponentSpec(ComponentSpecification {
+                        instantiation_list: InstantiationList::Labels(idents),
+                        component_name,
+                    }))
+                }
+                _ => Ok(ComponentSpecificationOrName::Name(name))
+            }
+        }
+    )
+}
+
+fn parse_configuration_item_known_keyword(
+    stream: &mut TokenStream,
+    messages: &mut MessageHandler,
+) -> ParseResult<ConfigurationItem> {
+    match parse_component_specification_or_name(stream)? {
+        ComponentSpecificationOrName::ComponentSpec(component_spec) => {
+            Ok(ConfigurationItem::Component(
+                parse_component_configuration_known_spec(stream, component_spec, messages)?,
+            ))
+        }
+        ComponentSpecificationOrName::Name(name) => Ok(ConfigurationItem::Block(
+            parse_block_configuration_known_name(stream, name, messages)?,
+        )),
+    }
+}
+
 fn parse_block_configuration_known_name(
     stream: &mut TokenStream,
     name: WithPos<Name>,
@@ -110,55 +185,7 @@ fn parse_block_configuration_known_name(
                 break;
             },
             For => {
-                let name_token = stream.expect()?;
-                try_token_kind!(
-                    name_token,
-                    All => {
-                        stream.expect_kind(Colon)?;
-                        items.push(ConfigurationItem::Component(
-                            parse_component_configuration_known_instance(
-                                stream, InstantiationList::All, messages)?));
-                    },
-                    Others => {
-                        stream.expect_kind(Colon)?;
-                        items.push(ConfigurationItem::Component(
-                            parse_component_configuration_known_instance(
-                                stream, InstantiationList::Others, messages)?));
-                    },
-                    Identifier => {
-                        let name = parse_name_initial_token(stream, name_token)?;
-                        let sep_token = stream.peek_expect()?;
-                        match sep_token.kind {
-                            Colon => {
-                                stream.move_after(&sep_token);
-                                let ident = to_simple_name(name)?;
-                                items.push(ConfigurationItem::Component(
-                                    parse_component_configuration_known_instance(
-                                        stream, InstantiationList::Labels(vec![ident]), messages)?));
-                            }
-                            Comma => {
-                                stream.move_after(&sep_token);
-                                let mut idents = vec![to_simple_name(name)?];
-                                loop {
-                                    idents.push(stream.expect_ident()?);
-                                    let next_token = stream.expect()?;
-                                    try_token_kind!(
-                                        next_token,
-                                        Comma => {},
-                                        Colon => break
-                                    );
-                                }
-                                items.push(ConfigurationItem::Component(
-                                    parse_component_configuration_known_instance(
-                                        stream, InstantiationList::Labels(idents), messages)?));
-                            }
-                            _ => {
-                                items.push(ConfigurationItem::Block(
-                                    parse_block_configuration_known_name(stream, name, messages)?));
-                            }
-                        }
-                    }
-                );
+                items.push(parse_configuration_item_known_keyword(stream, messages)?);
             }
         );
     }
