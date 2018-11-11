@@ -9,9 +9,9 @@ I am interested in collaboration with other people especially regarding semantic
 [![Build Status](https://travis-ci.org/kraigher/rust_hdl.svg?branch=master)](https://travis-ci.org/kraigher/rust_hdl)
 
 ## Why Rust?
-The tools within this repository have been written in the Rust programming language, thus the name `rust_hdl`. 
+The tools within this repository have been written in the Rust programming language, thus the name `rust_hdl`.
 The Rust programming language was choosen over Python, C or C++ as the best suited language to write the tools in.
-The main advantages are; 
+The main advantages are;
 - Excellent performance
 - Strong modern type system
 - Good libraries and tools
@@ -24,7 +24,7 @@ To install rust and its build tool cargo: https://rustup.rs/
 [![vhdl parser crate](https://img.shields.io/crates/v/vhdl_parser.svg)](https://crates.io/crates/vhdl_parser)
 ### Goals
 - This project aims to provide a fully featured open source VHDL parser that is easy to integrate into other tools.
-- A design goal of the parser is to be able to recover from errors such that it is useful for building a language server. 
+- A design goal of the parser is to be able to recover from errors such that it is useful for building a language server.
 - Comments will be part of the AST to support document generation.
 - Separate parsing from semantic analysis to allow code formatting on non-semantically correct code.
 
@@ -52,7 +52,7 @@ error: Expected 'use', 'type', 'subtype', 'shared', 'constant', 'signal', 'varia
 19 -->   error
     |    ~~~~~
 20  |  end package;
-21  |  
+21  |
 ```
 
 - The parser is a using hand written recursive descent since VHDL is not suitable for parser generators.
@@ -68,7 +68,7 @@ The VHDL parser has a command line demonstrator which will parse a list of files
 > cd rust_hdl/
 > cargo build --release
 > cargo run --bin vhdl_parser uart_rx.vhd uart_tx.vhd
-Results from uart_rx.vhd
+Showing design units from uart_rx.vhd
 entity uart_rx
   with 1 generics
   with 6 ports
@@ -77,7 +77,7 @@ architecture a of uart_rx
   with 1 declarations
   with 2 concurrent statements
 
-Results from uart_tx.vhd
+Showing design units from uart_tx.vhd
 entity uart_tx
   with 1 generics
   with 5 ports
@@ -97,7 +97,7 @@ architecture a of uart_tx
 - Only full document sync
 
 ## Trying it out
-The language server has a command line binary `vhdl_ls` which implements a stdio based language server. 
+The language server has a command line binary `vhdl_ls` which implements a stdio based language server.
 
 ### Building
 ```console
