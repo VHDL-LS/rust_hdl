@@ -96,47 +96,45 @@ pub fn parse_aggregate_initial_choices(
     stream: &mut TokenStream,
     choices: Vec<Choice>,
 ) -> ParseResult<WithPos<Vec<ElementAssociation>>> {
-    let token = stream.expect()?;
-
+    let mut choices = choices;
     let mut result = Vec::new();
-    match_token_kind!(
-        token,
-        RightPar => {
-            if let &[Choice::Expression(ref choice)] = choices.as_slice() {
-                result.push(ElementAssociation::Positional(choice.clone()));
-                Ok(WithPos::new(result, token))
-            } else {
-                return Err(error(&token, "Expected => after others"));
-            }
-        },
-        Comma => {
-            if let &[Choice::Expression(ref choice)] = choices.as_slice() {
-                result.push(ElementAssociation::Positional(choice.clone()));
-                let initial_choices = parse_choices(stream)?;
-                let mut rhs = parse_aggregate_initial_choices(stream, initial_choices)?;
-                result.append(&mut rhs.item);
-                Ok(WithPos::new(result, rhs))
-            } else {
-                return Err(error(&token, "Expected => after others"));
-            }
-        },
-        RightArrow => {
-            let rhs = parse_expression(stream)?;
-            result.push(ElementAssociation::Named(choices, rhs));
-
-            let token = stream.expect()?;
-            match_token_kind!(
-                token,
-                RightPar => Ok(WithPos::new(result, token)),
-                Comma => {
-                    let initial_choices = parse_choices(stream)?;
-                    let mut rhs = parse_aggregate_initial_choices(stream, initial_choices)?;
-                    result.append(&mut rhs.item);
-                    Ok(WithPos::new(result, rhs))
+    loop {
+        let token = stream.expect()?;
+        try_token_kind!(
+            token,
+            RightPar => {
+                if let &[Choice::Expression(ref choice)] = choices.as_slice() {
+                    result.push(ElementAssociation::Positional(choice.clone()));
+                    return Ok(WithPos::new(result, token))
+                } else {
+                    return Err(error(&token, "Expected => after others"));
                 }
-            )
-        }
-    )
+            },
+            Comma => {
+                if let &[Choice::Expression(ref choice)] = choices.as_slice() {
+                    result.push(ElementAssociation::Positional(choice.clone()));
+                } else {
+                    return Err(error(&token, "Expected => after others"));
+                }
+                choices = parse_choices(stream)?;
+            },
+            RightArrow => {
+                let rhs = parse_expression(stream)?;
+                result.push(ElementAssociation::Named(choices, rhs));
+
+                let token = stream.expect()?;
+                try_token_kind!(
+                    token,
+                    RightPar => {
+                        return Ok(WithPos::new(result, token))
+                    },
+                    Comma => {
+                        choices = parse_choices(stream)?;
+                    }
+                )
+            }
+        );
+    }
 }
 
 #[cfg(test)]
@@ -961,6 +959,18 @@ mod tests {
         };
 
         assert_eq!(expression, expr);
+    }
+
+    #[test]
+    fn parses_huge_aggregate() {
+        // Check that there is no stack overflow
+        let mut code = "(".to_string();
+        for _ in 0..(1 << 13) {
+            code.push_str("11123, ");
+        }
+        code.push_str("11123)");
+        let (util, expr) = parse_ok(&code);
+        assert_eq!(expr.pos, util.entire_pos());
     }
 
     #[test]
