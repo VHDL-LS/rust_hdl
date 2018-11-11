@@ -12,7 +12,7 @@ use ast::{
 };
 use concurrent_statement::parse_labeled_concurrent_statement;
 use context::parse_use_clause;
-use declarative_part::parse_declarative_part;
+use declarative_part::parse_declarative_part_leave_end_token;
 use expression::{parse_aggregate, parse_choices, parse_expression};
 use interface_declaration::{parse_generic, parse_parameter, parse_port};
 use latin_1::Latin1String;
@@ -154,7 +154,7 @@ impl TestUtil {
     pub fn declarative_part(&self, substr: &str) -> Vec<Declaration> {
         let mut messages = Vec::new();
         let res = self.parse_first_ok(
-            |stream| parse_declarative_part(stream, &mut messages, false),
+            |stream| parse_declarative_part_leave_end_token(stream, &mut messages),
             substr,
         );
         check_no_messages(&messages);

@@ -43,39 +43,43 @@ pub fn parse_package_instantiation(stream: &mut TokenStream) -> ParseResult<Pack
 }
 
 pub fn is_declarative_part(stream: &mut TokenStream, begin_is_end: bool) -> ParseResult<bool> {
-    Ok(check_declarative_part(&stream.peek_expect()?, begin_is_end).is_ok())
+    Ok(check_declarative_part(&stream.peek_expect()?, !begin_is_end, begin_is_end).is_ok())
 }
 
-fn check_declarative_part(token: &Token, begin_is_end: bool) -> ParseResult<()> {
+fn check_declarative_part(token: &Token, may_end: bool, may_begin: bool) -> ParseResult<()> {
     match token.kind {
         Use | Type | Subtype | Shared | Constant | Signal | Variable | File | Component
         | Attribute | Alias | Impure | Function | Procedure | Package | For => Ok(()),
-        kind => {
-            let end_kind = {
-                if begin_is_end {
-                    Begin
-                } else {
-                    End
-                }
-            };
+        Begin if may_begin => Ok(()),
+        End if may_end => Ok(()),
+        _ => {
             let decl_kinds = [
                 Use, Type, Subtype, Shared, Constant, Signal, Variable, File, Component, Attribute,
-                Alias, Impure, Function, Procedure, Package, For, end_kind,
+                Alias, Impure, Function, Procedure, Package, For,
             ];
 
-            if kind == end_kind {
-                Ok(())
-            } else {
-                Err(token.kinds_error(&decl_kinds))
-            }
+            Err(token.kinds_error(&decl_kinds))
         }
     }
 }
-
 pub fn parse_declarative_part(
     stream: &mut TokenStream,
     messages: &mut MessageHandler,
     begin_is_end: bool,
+) -> ParseResult<Vec<Declaration>> {
+    let decl = parse_declarative_part_leave_end_token(stream, messages)?;
+
+    if begin_is_end {
+        stream.expect_kind(Begin)?;
+    } else {
+        stream.expect_kind(End)?;
+    }
+    Ok(decl)
+}
+
+pub fn parse_declarative_part_leave_end_token(
+    stream: &mut TokenStream,
+    messages: &mut MessageHandler,
 ) -> ParseResult<Vec<Declaration>> {
     let mut declarations: Vec<Declaration> = Vec::new();
 
@@ -153,14 +157,14 @@ pub fn parse_declarative_part(
                     messages.push(msg);
                 }
             },
+            Begin | End => {
+                break;
+            }
             _ => {
-                stream.move_after(&token);
-
-                if let Err(msg) = check_declarative_part(&token, begin_is_end) {
+                if let Err(msg) = check_declarative_part(&token, false, false) {
                     messages.push(msg);
-                } else {
-                    break;
                 }
+                // @TODO recover
             }
         }
     }
