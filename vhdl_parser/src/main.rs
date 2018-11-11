@@ -55,6 +55,9 @@ fn show_design_unit(design_unit: &DesignUnit) {
             if let Some(ref list) = entity.port_clause {
                 println!("  with {} ports", list.len())
             }
+            if entity.decl.len() > 0 {
+                println!("  with {} declarations", entity.decl.len())
+            }
             if entity.statements.len() > 0 {
                 println!("  with {} concurrent statements", entity.statements.len())
             }

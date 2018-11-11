@@ -969,12 +969,13 @@ pub struct ConfigurationDeclaration {
     pub block_config: Option<BlockConfiguration>,
 }
 
-/// LRM 3.3 Entity declarations
+/// LRM 3.2 Entity declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct EntityDeclaration {
     pub ident: Ident,
     pub generic_clause: Option<Vec<InterfaceDeclaration>>,
     pub port_clause: Option<Vec<InterfaceDeclaration>>,
+    pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledConcurrentStatement>,
 }
 /// LRM 3.3 Architecture bodies

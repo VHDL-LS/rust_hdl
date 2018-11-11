@@ -16,7 +16,9 @@ use component_declaration::{parse_optional_generic_list, parse_optional_port_lis
 use concurrent_statement::parse_labeled_concurrent_statements;
 use configuration::parse_configuration_declaration;
 use context::{parse_context, parse_library_clause, parse_use_clause, DeclarationOrReference};
-use declarative_part::{parse_declarative_part, parse_package_instantiation};
+use declarative_part::{
+    parse_declarative_part, parse_declarative_part_leave_end_token, parse_package_instantiation,
+};
 use interface_declaration::parse_generic_interface_list;
 use message::{push_result, MessageHandler, ParseResult};
 
@@ -34,41 +36,27 @@ fn parse_entity_declaration(
     let generic_clause = parse_optional_generic_list(stream, messages)?;
     let port_clause = parse_optional_port_list(stream, messages)?;
 
+    let decl = parse_declarative_part_leave_end_token(stream, messages)?;
+
     let token = stream.expect()?;
-    try_token_kind!(
+    let statements = try_token_kind!(
         token,
-
-        End => {
-            stream.pop_if_kind(Entity)?;
-            let end_ident = stream.pop_optional_ident()?;
-            if let Some(msg) = error_on_end_identifier_mismatch(&ident, &end_ident) {
-                messages.push(msg);
-            }
-            stream.expect_kind(SemiColon)?;
-            return Ok(EntityDeclaration {
-                ident: ident,
-                generic_clause: generic_clause,
-                port_clause: port_clause,
-                statements: Vec::new(),
-            });
-        },
-
-        Begin => {
-            let statements = parse_labeled_concurrent_statements(stream, messages)?;
-            stream.pop_if_kind(Entity)?;
-            let end_ident = stream.pop_optional_ident()?;
-            if let Some(msg) = error_on_end_identifier_mismatch(&ident, &end_ident) {
-                messages.push(msg);
-            }
-            stream.expect_kind(SemiColon)?;
-            return Ok(EntityDeclaration {
-                ident: ident,
-                generic_clause: generic_clause,
-                port_clause: port_clause,
-                statements,
-            });
-        }
+        End => Vec::new(),
+        Begin => parse_labeled_concurrent_statements(stream, messages)?
     );
+    stream.pop_if_kind(Entity)?;
+    let end_ident = stream.pop_optional_ident()?;
+    if let Some(msg) = error_on_end_identifier_mismatch(&ident, &end_ident) {
+        messages.push(msg);
+    }
+    stream.expect_kind(SemiColon)?;
+    Ok(EntityDeclaration {
+        ident: ident,
+        generic_clause: generic_clause,
+        port_clause: port_clause,
+        decl,
+        statements,
+    })
 }
 
 /// LRM 3.3.1
@@ -302,6 +290,7 @@ mod tests {
             ident: ident,
             generic_clause: None,
             port_clause: None,
+            decl: vec![],
             statements: vec![],
         })
     }
@@ -346,6 +335,7 @@ end entity;
                 ident: util.ident("myent"),
                 generic_clause: Some(Vec::new()),
                 port_clause: None,
+                decl: vec![],
                 statements: vec![],
             }
         );
@@ -371,6 +361,7 @@ end entity;
                 },
                 generic_clause: Some(vec![util.generic("runner_cfg : string")]),
                 port_clause: None,
+                decl: vec![],
                 statements: vec![],
             }
         );
@@ -391,6 +382,7 @@ end entity;
                 ident: util.ident("myent"),
                 generic_clause: None,
                 port_clause: Some(vec![]),
+                decl: vec![],
                 statements: vec![],
             }
         );
@@ -411,6 +403,28 @@ end entity;
                 ident: util.ident("myent"),
                 generic_clause: None,
                 port_clause: None,
+                decl: vec![],
+                statements: vec![],
+            }
+        );
+    }
+
+    #[test]
+    fn parse_entity_declarations() {
+        let (util, design_file) = parse_ok(
+            "
+entity myent is
+  constant foo : natural := 0;
+end entity;
+",
+        );
+        assert_eq!(
+            to_single_entity(design_file),
+            EntityDeclaration {
+                ident: util.ident("myent"),
+                generic_clause: None,
+                port_clause: None,
+                decl: util.declarative_part("constant foo : natural := 0;"),
                 statements: vec![],
             }
         );
@@ -432,6 +446,7 @@ end entity;
                 ident: util.ident("myent"),
                 generic_clause: None,
                 port_clause: None,
+                decl: vec![],
                 statements: vec![util.concurrent_statement("check(clk, valid);")],
             }
         );
