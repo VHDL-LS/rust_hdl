@@ -121,7 +121,7 @@ impl Code {
             match result {
                 Err(err) => {
                     println!("{:#?}", err);
-                    println!("{}", err.pretty_string());
+                    println!("{}", err.show());
                     panic!("Got Err()");
                 }
                 Ok(result) => {
@@ -326,7 +326,7 @@ fn forward(stream: &mut TokenStream, pos: &SrcPos) {
 /// Check that no errors where found
 pub fn check_no_messages(messages: &Vec<Message>) {
     for err in messages.iter() {
-        println!("{}", err.pretty_string());
+        println!("{}", err.show());
     }
     if messages.len() > 0 {
         panic!("Found errors");

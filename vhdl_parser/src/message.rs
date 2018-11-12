@@ -19,6 +19,7 @@ pub struct Message {
     pub pos: SrcPos,
     pub message: String,
     pub severity: Severity,
+    pub related: Vec<(SrcPos, String)>,
 }
 
 impl Message {
@@ -27,20 +28,29 @@ impl Message {
             message: format!("{}, when {}", &self.message, &message),
             pos: self.pos,
             severity: self.severity,
+            related: vec![],
         }
     }
 
-    pub fn pretty_string(self: &Self) -> String {
-        let (lineno, pretty_str) = self.pos.lineno_and_pretty_string();
-        let file_name = self.pos.source.file_name().unwrap_or("<unknown file>");
+    pub fn related(self, item: impl AsRef<SrcPos>, message: &str) -> Message {
+        let mut msg = self;
+        msg.related
+            .push((item.as_ref().to_owned(), message.to_owned()));
+        msg
+    }
+
+    pub fn show(&self) -> String {
+        let mut result = String::new();
+        for (pos, message) in self.related.iter() {
+            result.push_str(&pos.show(&format!("related: {}", message)));
+            result.push('\n');
+        }
         let severity = match self.severity {
             Severity::Error => &"error",
             Severity::Warning => &"warning",
         };
-        format!(
-            "{}:{}: {}: {}\n{}",
-            file_name, lineno, severity, self.message, pretty_str
-        )
+        result.push_str(&self.pos.show(&format!("{}: {}", severity, self.message)));
+        result
     }
 }
 
@@ -49,6 +59,7 @@ pub fn message<T: AsRef<SrcPos>>(item: T, msg: &str, severity: Severity) -> Mess
         pos: item.as_ref().clone(),
         message: msg.to_string(),
         severity: severity,
+        related: vec![],
     }
 }
 
@@ -83,3 +94,72 @@ impl MessageHandler for Vec<Message> {
 }
 
 pub type ParseResult<T> = Result<T, Message>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test_util::Code;
+
+    #[test]
+    fn show_warning() {
+        let code = Code::new("hello\nworld\nline\n");
+        assert_eq!(
+            warning(code.s1("world"), "Greetings").show(),
+            "\
+warning: Greetings
+  --> {unknown file}:2
+   |
+1  |  hello
+2 --> world
+   |  ~~~~~
+3  |  line
+"
+        );
+    }
+
+    #[test]
+    fn show_error() {
+        let code = Code::new("hello\nworld\nline\n");
+        assert_eq!(
+            error(code.s1("world"), "Greetings").show(),
+            "\
+error: Greetings
+  --> {unknown file}:2
+   |
+1  |  hello
+2 --> world
+   |  ~~~~~
+3  |  line
+"
+        );
+    }
+
+    #[test]
+    fn show_related() {
+        let code = Code::new("hello\nworld\nline\n");
+
+        let err = error(code.s1("line"), "Greetings").related(code.s1("hello"), "From here");
+
+        assert_eq!(
+            err.show(),
+            "\
+related: From here
+  --> {unknown file}:1
+   |
+1 --> hello
+   |  ~~~~~
+2  |  world
+3  |  line
+
+error: Greetings
+  --> {unknown file}:3
+   |
+1  |  hello
+2  |  world
+3 --> line
+   |  ~~~~
+"
+        );
+    }
+
+}

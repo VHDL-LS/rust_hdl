@@ -276,18 +276,19 @@ impl SrcPos {
     }
 
     /// Write ~~~ to underline symbol
-    fn underline(self: &Self, prefix_len: usize, offset: usize, line: &str, into: &mut String) {
+    fn underline(self: &Self, lineno_len: usize, offset: usize, line: &str, into: &mut String) {
         let start = min(self.start, offset);
         // non-inclusive end
         let end = min(offset + line.len(), self.start + self.length);
 
         const NEWLINE_SIZE: usize = 1;
-        into.reserve(prefix_len + end - start + NEWLINE_SIZE);
+        into.reserve(5 + lineno_len + end - start + NEWLINE_SIZE);
 
         // Prefix
-        for _ in 0..prefix_len {
+        for _ in 0..lineno_len {
             into.push(' ');
         }
+        into.push_str("  |  ");
 
         // Padding before underline
         for (i, chr) in line.chars().enumerate() {
@@ -310,7 +311,7 @@ impl SrcPos {
         offset + line_len >= self.start + 1 && offset < self.start + self.length
     }
 
-    fn pretty_string_from_reader(self: &Self, reader: &mut BufRead) -> (usize, String) {
+    fn code_context_from_reader(self: &Self, reader: &mut BufRead) -> (usize, usize, String) {
         const LINE_CONTEXT: usize = 2;
         let (first_lineno, lines) = self.get_line_context(LINE_CONTEXT, reader);
 
@@ -333,8 +334,14 @@ impl SrcPos {
             let lineno_str = lineno
                 .to_string()
                 .pad_to_width_with_alignment(max_len, Alignment::Right);
+            let overlaps = self.overlaps(offset, line.len());
 
-            write!(result, "{}: ", lineno_str);
+            if overlaps {
+                write!(result, "{} --> ", lineno_str);
+            } else {
+                write!(result, "{}  |  ", lineno_str);
+            }
+
             for chr in line.trim_right().chars() {
                 if chr == '\t' {
                     Self::push_replicate(&mut result, ' ', Self::visual_width(chr));
@@ -344,34 +351,51 @@ impl SrcPos {
             }
             result.push('\n');
 
-            if self.overlaps(offset, line.len()) {
-                self.underline(2 + max_len, offset, line, &mut result);
+            if overlaps {
+                self.underline(max_len, offset, line, &mut result);
             }
         }
 
-        return (first_lineno, result);
+        return (first_lineno, max_len, result);
     }
 
-    pub fn lineno_and_pretty_string(self: &Self) -> (usize, String) {
+    fn lineno_and_code_context(self: &Self) -> (usize, usize, String) {
         match self.source {
             Source::FileName(ref file_name) => {
                 let mut file = File::open(file_name.to_string()).unwrap();
                 let mut bytes = Vec::new();
                 file.read_to_end(&mut bytes).unwrap();
                 let latin1 = Latin1String::from_vec(bytes);
-                self.pretty_string_from_reader(&mut latin1.to_string().as_bytes())
+                self.code_context_from_reader(&mut latin1.to_string().as_bytes())
             }
             Source::Contents(ref contents) => {
                 let utf8_contents = contents.to_string();
-                self.pretty_string_from_reader(&mut utf8_contents.as_bytes())
+                self.code_context_from_reader(&mut utf8_contents.as_bytes())
             }
         }
     }
 
     /// Create a string for pretty printing
-    pub fn pretty_string(self: &Self) -> String {
-        let (_, pretty_string) = self.lineno_and_pretty_string();
-        pretty_string
+    pub fn code_context(self: &Self) -> String {
+        let (_, _, code_context) = self.lineno_and_code_context();
+        code_context
+    }
+
+    pub fn show(&self, message: &str) -> String {
+        let (lineno, lineno_len, pretty_str) = self.lineno_and_code_context();
+        let file_name = self.source.file_name().unwrap_or("{unknown file}");
+        let mut result = String::new();
+        writeln!(result, "{}", &message);
+        for _ in 0..lineno_len {
+            result.push(' ');
+        }
+        writeln!(result, " --> {}:{}", file_name, lineno);
+        for _ in 0..lineno_len {
+            result.push(' ');
+        }
+        writeln!(result, "  |");
+        result.push_str(&pretty_str);
+        result
     }
 
     /// Combines two lexical positions into a larger legical position overlapping both
@@ -394,7 +418,6 @@ impl SrcPos {
 mod tests {
     use super::*;
     extern crate tempfile;
-    use message::{error, warning};
 
     #[test]
     fn srcpos_combine() {
@@ -429,127 +452,127 @@ mod tests {
     }
 
     #[test]
-    fn pretty_string_pos_from_filename() {
+    fn code_context_pos_from_filename() {
         with_source_from_file("hello\nworld\n", |source: Source| {
             assert_eq!(
-                source.first_substr_pos("hello").pretty_string(),
+                source.first_substr_pos("hello").code_context(),
                 "\
-1: hello
-   ~~~~~
-2: world
+1 --> hello
+   |  ~~~~~
+2  |  world
 "
             )
         });
     }
 
     #[test]
-    fn pretty_string_pos_last_line_without_newline() {
+    fn code_context_pos_last_line_without_newline() {
         let source = Source::from_str("hello world").unwrap();
         let pos = source.first_substr_pos("hello");
         assert_eq!(
-            pos.pretty_string(),
+            pos.code_context(),
             "\
-1: hello world
-   ~~~~~
+1 --> hello world
+   |  ~~~~~
 "
         );
     }
 
     #[test]
-    fn pretty_string_pos_with_indent() {
+    fn code_context_pos_with_indent() {
         let source = Source::from_str("    hello world").unwrap();
         let pos = source.first_substr_pos("hello");
         assert_eq!(
-            pos.pretty_string(),
+            pos.code_context(),
             "\
-1:     hello world
-       ~~~~~
+1 -->     hello world
+   |      ~~~~~
 "
         );
     }
 
     #[test]
-    fn pretty_string_eof() {
+    fn code_context_eof() {
         let source = Source::from_str("h").unwrap();
         let pos = source.pos(1, 1);
         assert_eq!(
-            pos.pretty_string(),
+            pos.code_context(),
             "\
-1: h
-    ~
+1 --> h
+   |   ~
 ",
         );
     }
 
     #[test]
-    fn pretty_string_eof_empty() {
+    fn code_context_eof_empty() {
         let source = Source::from_str("").unwrap();
         let pos = source.pos(0, 1);
-        assert_eq!(pos.pretty_string(), "1: \n   ~\n",);
+        assert_eq!(pos.code_context(), "1 --> \n   |  ~\n",);
     }
 
     #[test]
-    fn pretty_string_with_context() {
+    fn code_context_with_context() {
         let source = Source::from_str("hello\nworld").unwrap();
         let pos = source.first_substr_pos("hello");
         assert_eq!(
-            pos.pretty_string(),
+            pos.code_context(),
             "\
-1: hello
-   ~~~~~
-2: world
+1 --> hello
+   |  ~~~~~
+2  |  world
 ",
         );
     }
 
     #[test]
-    fn pretty_string_with_tabs() {
+    fn code_context_with_tabs() {
         let source = Source::from_str("\thello\t").unwrap();
         let pos = source.first_substr_pos("hello\t");
         assert_eq!(
-            pos.pretty_string(),
+            pos.code_context(),
             "\
-1:     hello
-       ~~~~~~~~~
+1 -->     hello
+   |      ~~~~~~~~~
 ",
         );
     }
 
     #[test]
-    fn pretty_string_non_ascii() {
+    fn code_context_non_ascii() {
         let source = Source::from_str("åäö\nåäö\n__å_ä_ö__").unwrap();
         let pos = source.first_substr_pos("å_ä_ö");
         assert_eq!(pos.length, 5);
         assert_eq!(
-            pos.pretty_string(),
+            pos.code_context(),
             "\
-1: åäö
-2: åäö
-3: __å_ä_ö__
-     ~~~~~
+1  |  åäö
+2  |  åäö
+3 --> __å_ä_ö__
+   |    ~~~~~
 ",
         );
     }
 
     #[test]
-    fn pretty_string_non_ascii_from_file() {
+    fn code_context_non_ascii_from_file() {
         with_source_from_file("åäö\nåäö\n__å_ä_ö__", |source: Source| {
             let pos = source.first_substr_pos("å_ä_ö");
             assert_eq!(pos.length, 5);
             assert_eq!(
-                pos.pretty_string(),
+                pos.code_context(),
                 "\
-1: åäö
-2: åäö
-3: __å_ä_ö__
-     ~~~~~
+1  |  åäö
+2  |  åäö
+3 --> __å_ä_ö__
+   |    ~~~~~
 ",
             );
         });
     }
 
     #[test]
-    fn pretty_string_with_full_context() {
+    fn code_context_with_full_context() {
         let source = Source::from_str(
             "\
 line1
@@ -568,30 +591,32 @@ line13",
         ).unwrap();
         let pos = source.first_substr_pos("line10");
         assert_eq!(
-            pos.pretty_string(),
+            pos.code_context(),
             " \
- 8: line8
- 9: line9
-10: line10
-    ~~~~~~
-11: line11
-12: line12
+ 8  |  line8
+ 9  |  line9
+10 --> line10
+    |  ~~~~~~
+11  |  line11
+12  |  line12
 ",
         );
     }
 
     #[test]
-    fn message_pretty_string_from_filename() {
+    fn show_from_filename() {
         with_source_from_file("hello\nworld\nline\n", |source: Source| {
             assert_eq!(
-                error(&source.first_substr_pos("world"), "Greetings").pretty_string(),
+                source.first_substr_pos("world").show("Greetings"),
                 format!(
                     "\
-{}:2: error: Greetings
-1: hello
-2: world
-   ~~~~~
-3: line
+Greetings
+  --> {}:2
+   |
+1  |  hello
+2 --> world
+   |  ~~~~~
+3  |  line
 ",
                     source.file_name().unwrap()
                 )
@@ -600,31 +625,18 @@ line13",
     }
 
     #[test]
-    fn message_pretty_string_contents() {
+    fn show_contents() {
         let source = Source::from_str("hello\nworld\nline\n").unwrap();
         assert_eq!(
-            error(&source.first_substr_pos("world"), "Greetings").pretty_string(),
+            &source.first_substr_pos("world").show("Greetings"),
             "\
-<unknown file>:2: error: Greetings
-1: hello
-2: world
-   ~~~~~
-3: line
-"
-        );
-    }
-
-    #[test]
-    fn message_warning_pretty_string() {
-        let source = Source::from_str("hello\nworld\nline\n").unwrap();
-        assert_eq!(
-            warning(&source.first_substr_pos("world"), "Greetings").pretty_string(),
-            "\
-<unknown file>:2: warning: Greetings
-1: hello
-2: world
-   ~~~~~
-3: line
+Greetings
+  --> {unknown file}:2
+   |
+1  |  hello
+2 --> world
+   |  ~~~~~
+3  |  line
 "
         );
     }

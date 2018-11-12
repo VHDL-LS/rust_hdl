@@ -1053,12 +1053,12 @@ mod tests {
                     }
                 },
                 _ => {
-                    println!("{}", expr.pos.pretty_string());
+                    println!("{}", expr.pos.code_context());
                     panic!("Cannot format {:?}", lit);
                 }
             },
             _ => {
-                println!("{}", expr.pos.pretty_string());
+                println!("{}", expr.pos.code_context());
                 panic!("Cannot format {:?}", expr);
             }
         }

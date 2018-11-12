@@ -201,7 +201,7 @@ impl LanguageServer {
         let mut diagnostics = Vec::new();
         match parser.parse_design_source(&source, &mut messages) {
             Err(ParserError::Message(message)) => {
-                eprintln!("{}", message.pretty_string());
+                eprintln!("{}", message.show());
                 diagnostics.push(to_diagnostic(message));
             }
             Err(ParserError::IOError(error)) => eprintln!("{}", error),
@@ -209,7 +209,7 @@ impl LanguageServer {
         };
 
         for message in messages {
-            eprintln!("{}", message.pretty_string());
+            eprintln!("{}", message.show());
             diagnostics.push(to_diagnostic(message));
         }
 

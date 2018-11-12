@@ -113,7 +113,7 @@ fn show_design_unit(design_unit: &DesignUnit) {
 
 fn show_messages(messages: &[Message]) {
     for message in messages {
-        println!("{}", message.pretty_string());
+        println!("{}", message.show());
     }
 }
 
@@ -165,7 +165,7 @@ fn main() {
             Err(ParserError::Message(msg)) => {
                 println!("Error when parsing {}", file_name);
                 show_messages(&messages);
-                println!("{}", msg.pretty_string());
+                println!("{}", msg.show());
                 num_errors += 1;
                 continue;
             }
