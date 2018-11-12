@@ -4,15 +4,11 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::{
-    AssociationElement, AttributeName, Choice, Declaration, DiscreteRange, ElementAssociation,
-    Expression, FunctionCall, Ident, InterfaceDeclaration, LabeledConcurrentStatement,
-    LabeledSequentialStatement, Name, Range, SelectedName, Signature, SubprogramDeclaration,
-    SubtypeIndication, UseClause, Waveform,
-};
+use ast::*;
 use concurrent_statement::parse_labeled_concurrent_statement;
 use context::parse_use_clause;
 use declarative_part::parse_declarative_part_leave_end_token;
+use design_unit::parse_entity_declaration;
 use expression::{parse_aggregate, parse_choices, parse_expression};
 use interface_declaration::{parse_generic, parse_parameter, parse_port};
 use latin_1::Latin1String;
@@ -254,18 +250,22 @@ impl Code {
         }
     }
 
-    pub fn sequential_statement(&self) -> LabeledSequentialStatement {
+    pub fn parse_ok_no_messages<F, R>(&self, parse_fun: F) -> R
+    where
+        F: FnOnce(&mut TokenStream, &mut MessageHandler) -> ParseResult<R>,
+    {
         let mut messages = Vec::new();
-        let res = self.parse_ok(|stream| parse_sequential_statement(stream, &mut messages));
+        let res = self.parse_ok(|stream| parse_fun(stream, &mut messages));
         check_no_messages(&messages);
         res
     }
 
+    pub fn sequential_statement(&self) -> LabeledSequentialStatement {
+        self.parse_ok_no_messages(parse_sequential_statement)
+    }
+
     pub fn concurrent_statement(&self) -> LabeledConcurrentStatement {
-        let mut messages = Vec::new();
-        let res = self.parse_ok(|stream| parse_labeled_concurrent_statement(stream, &mut messages));
-        check_no_messages(&messages);
-        res
+        self.parse_ok_no_messages(parse_labeled_concurrent_statement)
     }
 
     pub fn association_list(&self) -> Vec<AssociationElement> {
@@ -296,12 +296,12 @@ impl Code {
         self.parse_ok(parse_use_clause)
     }
 
+    pub fn entity(&self) -> EntityDeclaration {
+        self.parse_ok_no_messages(parse_entity_declaration)
+    }
+
     pub fn subprogram_decl(&self) -> SubprogramDeclaration {
-        let mut messages = Vec::new();
-        let res =
-            self.parse_ok(|stream| parse_subprogram_declaration_no_semi(stream, &mut messages));
-        check_no_messages(&messages);
-        res
+        self.parse_ok_no_messages(parse_subprogram_declaration_no_semi)
     }
 
     pub fn attribute_name(&self) -> AttributeName {

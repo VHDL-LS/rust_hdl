@@ -24,7 +24,7 @@ use message::{push_result, MessageHandler, ParseResult};
 
 /// Parse an entity declaration, token is initial entity token
 /// If a parse error occurs the stream is consumed until and end entity
-fn parse_entity_declaration(
+pub fn parse_entity_declaration(
     stream: &mut TokenStream,
     messages: &mut MessageHandler,
 ) -> ParseResult<EntityDeclaration> {
