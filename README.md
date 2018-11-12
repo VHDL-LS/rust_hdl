@@ -42,6 +42,19 @@ To install rust and its build tool cargo: https://rustup.rs/
    - https://github.com/kevinpt/vhdl-extras
    - https://github.com/xesscorp/VHDL_Lib
 - Good performance, can parse 440k lines of code (all repos above) in 500 ms on my laptop which is 45.5 MB/s of parsing throughput.
+- Provides nice error messages such as:
+```
+error: Expected 'use', 'type', 'subtype', 'shared', 'constant', 'signal', 'variable', 'file', 'component', 'attribute', 'alias', 'impure', 'function', 'procedure', 'package' or 'for'
+   --> example.vhd:19
+    |
+17  |  package pkg2 is
+18  |    constant foo : natural := 22;
+19 -->   error
+    |    ~~~~~
+20  |  end package;
+21  |  
+```
+
 - The parser is a using hand written recursive descent since VHDL is not suitable for parser generators.
 - Error recovery is still very rudimentary.
 - No semantic analysis is done yet.
