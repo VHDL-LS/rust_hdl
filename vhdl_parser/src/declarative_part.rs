@@ -86,7 +86,7 @@ pub fn parse_declarative_part_leave_end_token(
     while let Some(token) = stream.peek()? {
         match token.kind {
             Use => match parse_use_clause(stream) {
-                Ok(decl) => declarations.push(Declaration::Use(decl)),
+                Ok(decl) => declarations.push(Declaration::Use(decl.item)),
                 Err(msg) => {
                     messages.push(msg);
                 }

@@ -298,7 +298,7 @@ impl Code {
     }
 
     pub fn use_clause(&self) -> UseClause {
-        self.parse_ok(parse_use_clause)
+        self.parse_ok(parse_use_clause).item
     }
 
     pub fn library_clause(&self) -> LibraryClause {

@@ -37,7 +37,10 @@ fn parse_library_clause_no_keyword(
 }
 
 /// LRM 12.4. Use clauses
-fn parse_use_clause_no_keyword(stream: &mut TokenStream) -> ParseResult<UseClause> {
+fn parse_use_clause_no_keyword(
+    use_token: Token,
+    stream: &mut TokenStream,
+) -> ParseResult<WithPos<UseClause>> {
     let mut name_list = Vec::with_capacity(1);
     loop {
         name_list.push(parse_name(stream)?);
@@ -45,13 +48,16 @@ fn parse_use_clause_no_keyword(stream: &mut TokenStream) -> ParseResult<UseClaus
             break;
         }
     }
-    stream.expect_kind(SemiColon)?;
-    Ok(UseClause { name_list })
+    let semi_token = stream.expect_kind(SemiColon)?;
+    Ok(WithPos::from(
+        UseClause { name_list },
+        use_token.pos.combine_into(&semi_token),
+    ))
 }
 
-pub fn parse_use_clause(stream: &mut TokenStream) -> ParseResult<UseClause> {
-    stream.expect_kind(Use)?;
-    parse_use_clause_no_keyword(stream)
+pub fn parse_use_clause(stream: &mut TokenStream) -> ParseResult<WithPos<UseClause>> {
+    let use_token = stream.expect_kind(Use)?;
+    parse_use_clause_no_keyword(use_token, stream)
 }
 
 #[derive(PartialEq, Debug)]
@@ -60,7 +66,10 @@ pub enum DeclarationOrReference {
     Reference(ContextReference),
 }
 
-fn parse_context_reference_no_keyword(stream: &mut TokenStream) -> ParseResult<ContextReference> {
+fn parse_context_reference_no_keyword(
+    context_token: Token,
+    stream: &mut TokenStream,
+) -> ParseResult<WithPos<ContextReference>> {
     let name = parse_name(stream)?;
     let mut name_list = vec![name];
     loop {
@@ -69,8 +78,11 @@ fn parse_context_reference_no_keyword(stream: &mut TokenStream) -> ParseResult<C
         }
         name_list.push(parse_name(stream)?);
     }
-    stream.expect_kind(SemiColon)?;
-    Ok(ContextReference { name_list })
+    let semi_token = stream.expect_kind(SemiColon)?;
+    Ok(WithPos::from(
+        ContextReference { name_list },
+        context_token.pos.combine_into(&semi_token),
+    ))
 }
 
 /// LRM 13.4 Context clauses
@@ -88,8 +100,8 @@ pub fn parse_context(
             try_token_kind!(
                 token,
                 Library => items.push(ContextItem::Library(parse_library_clause_no_keyword(token, stream)?.item)),
-                Use => items.push(ContextItem::Use(parse_use_clause_no_keyword(stream)?)),
-                Context => items.push(ContextItem::Context(parse_context_reference_no_keyword(stream)?)),
+                Use => items.push(ContextItem::Use(parse_use_clause_no_keyword(token, stream)?.item)),
+                Context => items.push(ContextItem::Context(parse_context_reference_no_keyword(token, stream)?.item)),
                 End => {
                     stream.pop_if_kind(Context)?;
                     end_ident = stream.pop_optional_ident()?;
@@ -175,9 +187,12 @@ mod tests {
         let code = Code::new("use lib.foo;");
         assert_eq!(
             code.with_stream(parse_use_clause),
-            UseClause {
-                name_list: vec![code.s1("lib.foo").name()]
-            }
+            WithPos::new(
+                UseClause {
+                    name_list: vec![code.s1("lib.foo").name()]
+                },
+                code
+            )
         )
     }
 
@@ -186,9 +201,12 @@ mod tests {
         let code = Code::new("use foo.'a', lib.bar.all;");
         assert_eq!(
             code.with_stream(parse_use_clause),
-            UseClause {
-                name_list: vec![code.s1("foo.'a'").name(), code.s1("lib.bar.all").name()]
-            }
+            WithPos::new(
+                UseClause {
+                    name_list: vec![code.s1("foo.'a'").name(), code.s1("lib.bar.all").name()]
+                },
+                code
+            )
         )
     }
 

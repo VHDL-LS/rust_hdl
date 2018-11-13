@@ -173,7 +173,7 @@ pub fn parse_design_file(
             Use => {
                 match parse_use_clause(stream) {
                     Ok(use_clause) => {
-                        context_clause.push(ContextItem::Use(use_clause));
+                        context_clause.push(ContextItem::Use(use_clause.item));
                     },
                     Err(msg) => messages.push(msg),
                 }
