@@ -20,7 +20,7 @@ use declarative_part::{
     parse_declarative_part, parse_declarative_part_leave_end_token, parse_package_instantiation,
 };
 use interface_declaration::parse_generic_interface_list;
-use message::{MessageHandler, ParseResult};
+use message::{Message, MessageHandler, ParseResult};
 use source::WithPos;
 
 /// Parse an entity declaration, token is initial entity token
@@ -234,6 +234,15 @@ pub fn parse_design_file(
                 }
             }
         );
+    }
+
+    for context_item in context_clause {
+        let message = match context_item.item {
+            ContextItem::Library(..) => "Library clause not associated with any design unit",
+            ContextItem::Use(..) => "Use clause not associated with any design unit",
+            ContextItem::Context(..) => "Context clause not associated with any design unit",
+        };
+        messages.push(Message::warning(context_item, message));
     }
 
     Ok(DesignFile { design_units })
@@ -643,6 +652,41 @@ end entity;
                         statements: vec![],
                     })
                 }]
+            }
+        );
+    }
+
+    #[test]
+    fn warning_on_orphan_context_clause() {
+        let code = Code::new(
+            "
+library lib;
+use lib.foo;
+context lib.ctx;
+    ",
+        );
+        let (design_file, messages) = code.with_stream_messages(parse_design_file);
+        assert_eq!(
+            messages,
+            vec![
+                Message::warning(
+                    code.s1("library lib;"),
+                    "Library clause not associated with any design unit"
+                ),
+                Message::warning(
+                    code.s1("use lib.foo;"),
+                    "Use clause not associated with any design unit"
+                ),
+                Message::warning(
+                    code.s1("context lib.ctx;"),
+                    "Context clause not associated with any design unit"
+                ),
+            ]
+        );
+        assert_eq!(
+            design_file,
+            DesignFile {
+                design_units: vec![]
             }
         );
     }
