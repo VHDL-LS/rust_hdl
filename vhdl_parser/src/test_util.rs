@@ -302,7 +302,7 @@ impl Code {
     }
 
     pub fn library_clause(&self) -> LibraryClause {
-        self.parse_ok(parse_library_clause)
+        self.parse_ok(parse_library_clause).item
     }
 
     pub fn entity(&self) -> EntityDeclaration {

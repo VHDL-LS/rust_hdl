@@ -9,16 +9,19 @@ use common::error_on_end_identifier_mismatch;
 use message::{error, push_some, MessageHandler, ParseResult};
 use names::parse_name;
 use source::WithPos;
-use tokenizer::Kind::*;
+use tokenizer::{Kind::*, Token};
 use tokenstream::TokenStream;
 
 /// LRM 13. Design units and their analysis
-pub fn parse_library_clause(stream: &mut TokenStream) -> ParseResult<LibraryClause> {
-    stream.expect_kind(Library)?;
-    parse_library_clause_no_keyword(stream)
+pub fn parse_library_clause(stream: &mut TokenStream) -> ParseResult<WithPos<LibraryClause>> {
+    let token = stream.expect_kind(Library)?;
+    parse_library_clause_no_keyword(token, stream)
 }
 
-fn parse_library_clause_no_keyword(stream: &mut TokenStream) -> ParseResult<LibraryClause> {
+fn parse_library_clause_no_keyword(
+    library_token: Token,
+    stream: &mut TokenStream,
+) -> ParseResult<WithPos<LibraryClause>> {
     let mut name_list = Vec::with_capacity(1);
     loop {
         name_list.push(stream.expect_ident()?);
@@ -26,8 +29,11 @@ fn parse_library_clause_no_keyword(stream: &mut TokenStream) -> ParseResult<Libr
             break;
         }
     }
-    stream.expect_kind(SemiColon)?;
-    Ok(LibraryClause { name_list })
+    let semi_token = stream.expect_kind(SemiColon)?;
+    Ok(WithPos::new(
+        LibraryClause { name_list },
+        library_token.pos.combine(&semi_token.pos),
+    ))
 }
 
 /// LRM 12.4. Use clauses
@@ -81,7 +87,7 @@ pub fn parse_context(
             let token = stream.expect()?;
             try_token_kind!(
                 token,
-                Library => items.push(ContextItem::Library(parse_library_clause_no_keyword(stream)?)),
+                Library => items.push(ContextItem::Library(parse_library_clause_no_keyword(token, stream)?.item)),
                 Use => items.push(ContextItem::Use(parse_use_clause_no_keyword(stream)?)),
                 Context => items.push(ContextItem::Context(parse_context_reference_no_keyword(stream)?)),
                 End => {
@@ -141,9 +147,12 @@ mod tests {
         let code = Code::new("library foo;");
         assert_eq!(
             code.with_stream(parse_library_clause),
-            LibraryClause {
-                name_list: vec![code.s1("foo").ident()]
-            }
+            WithPos::new(
+                LibraryClause {
+                    name_list: vec![code.s1("foo").ident()]
+                },
+                code
+            )
         )
     }
 
@@ -152,9 +161,12 @@ mod tests {
         let code = Code::new("library foo, bar;");
         assert_eq!(
             code.with_stream(parse_library_clause),
-            LibraryClause {
-                name_list: vec![code.s1("foo").ident(), code.s1("bar").ident()]
-            }
+            WithPos::new(
+                LibraryClause {
+                    name_list: vec![code.s1("foo").ident(), code.s1("bar").ident()]
+                },
+                code
+            )
         )
     }
 

@@ -165,7 +165,7 @@ pub fn parse_design_file(
             Library => {
                 match parse_library_clause(stream) {
                     Ok(library) => {
-                        context_clause.push(ContextItem::Library(library));
+                        context_clause.push(ContextItem::Library(library.item));
                     },
                     Err(msg) => messages.push(msg),
                 }
@@ -638,5 +638,4 @@ end entity;
             }
         );
     }
-
 }
