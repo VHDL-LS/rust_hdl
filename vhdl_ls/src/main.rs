@@ -12,9 +12,10 @@ extern crate url;
 use jsonrpc_core::request::Notification;
 use jsonrpc_core::{IoHandler, Params, Value};
 use languageserver_types::{
-    Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity, DidChangeTextDocumentParams,
-    DidOpenTextDocumentParams, InitializeResult, Location, Position, PublishDiagnosticsParams,
-    Range, ServerCapabilities, TextDocumentSyncCapability, TextDocumentSyncKind,
+    ClientCapabilities, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity,
+    DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeResult, Location, Position,
+    PublishDiagnosticsParams, Range, ServerCapabilities, TextDocumentSyncCapability,
+    TextDocumentSyncKind,
 };
 use std::io::prelude::*;
 use std::io::{self, BufRead};
@@ -113,14 +114,20 @@ fn send_response(writer: &mut Write, response: &str) {
 
 struct LanguageServer {
     response_sender: SyncSender<String>,
+    client_capabilities: Option<ClientCapabilities>,
 }
 
 impl LanguageServer {
     fn new(response_sender: SyncSender<String>) -> LanguageServer {
-        LanguageServer { response_sender }
+        LanguageServer {
+            response_sender,
+            client_capabilities: None,
+        }
     }
 
-    fn initialize_request(&mut self, _params: Params) -> jsonrpc_core::Result<Value> {
+    fn initialize_request(&mut self, params: Params) -> jsonrpc_core::Result<Value> {
+        self.client_capabilities = params.parse().unwrap();
+
         let result = InitializeResult {
             capabilities: ServerCapabilities {
                 /// Defines how text documents are synced.
@@ -193,6 +200,19 @@ impl LanguageServer {
         Ok(serde_json::to_value(result).unwrap())
     }
 
+    fn client_supports_related_information(&self) -> bool {
+        let try_fun = || {
+            self.client_capabilities
+                .as_ref()?
+                .text_document
+                .as_ref()?
+                .publish_diagnostics
+                .as_ref()?
+                .related_information
+        };
+        try_fun().unwrap_or(false)
+    }
+
     fn parse_and_publish_diagnostics(&self, uri: Url, code: &str) {
         let parser = VHDLParser::new();
         let mut messages = Vec::new();
@@ -215,7 +235,11 @@ impl LanguageServer {
         let mut diagnostics = Vec::new();
         for message in messages {
             eprintln!("{}", message.show());
-            diagnostics.push(to_diagnostic(&uri, message));
+            diagnostics.extend(to_diagnostics(
+                &uri,
+                message,
+                self.client_supports_related_information(),
+            ));
         }
 
         let publish_diagnostics = PublishDiagnosticsParams {
@@ -321,28 +345,51 @@ fn read_header(reader: &mut BufRead) -> u64 {
     return content_length;
 }
 
-fn to_diagnostic(uri: &Url, message: Message) -> Diagnostic {
+fn to_diagnostics(
+    uri: &Url,
+    message: Message,
+    supports_related_information: bool,
+) -> Vec<Diagnostic> {
     let severity = match message.severity {
         Severity::Error => DiagnosticSeverity::Error,
         Severity::Warning => DiagnosticSeverity::Warning,
     };
 
-    let mut related_information = Vec::new();
-    for (pos, msg) in message.related {
-        related_information.push(DiagnosticRelatedInformation {
-            location: Location {
-                uri: uri.to_owned(),
+    let mut diagnostics = Vec::new();
+
+    let related_information = if supports_related_information {
+        let mut related_information = Vec::new();
+        for (pos, msg) in message.related {
+            related_information.push(DiagnosticRelatedInformation {
+                location: Location {
+                    uri: uri.to_owned(),
+                    range: srcpos_to_range(pos),
+                },
+                message: msg,
+            })
+        }
+        Some(related_information)
+    } else {
+        for (pos, msg) in message.related {
+            diagnostics.push(Diagnostic {
                 range: srcpos_to_range(pos),
-            },
-            message: msg,
-        })
-    }
-    Diagnostic {
+                severity: Some(DiagnosticSeverity::Hint),
+                code: None,
+                source: Some("vhdl ls".to_owned()),
+                message: format!("related: {}", msg),
+                related_information: None,
+            });
+        }
+        None
+    };
+
+    diagnostics.push(Diagnostic {
         range: srcpos_to_range(message.pos),
         severity: Some(severity),
         code: None,
         source: Some("vhdl ls".to_owned()),
         message: message.message,
-        related_information: Some(related_information),
-    }
+        related_information,
+    });
+    diagnostics
 }

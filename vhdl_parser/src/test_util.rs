@@ -8,7 +8,7 @@ use ast::*;
 use concurrent_statement::parse_labeled_concurrent_statement;
 use context::parse_use_clause;
 use declarative_part::parse_declarative_part_leave_end_token;
-use design_unit::{parse_entity_declaration, parse_architecture_body};
+use design_unit::{parse_architecture_body, parse_entity_declaration};
 use expression::{parse_aggregate, parse_choices, parse_expression};
 use interface_declaration::{parse_generic, parse_parameter, parse_port};
 use latin_1::Latin1String;
