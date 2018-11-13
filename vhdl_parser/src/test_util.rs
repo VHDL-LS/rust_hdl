@@ -6,7 +6,7 @@
 
 use ast::*;
 use concurrent_statement::parse_labeled_concurrent_statement;
-use context::parse_use_clause;
+use context::{parse_library_clause, parse_use_clause};
 use declarative_part::parse_declarative_part_leave_end_token;
 use design_unit::{parse_architecture_body, parse_entity_declaration};
 use expression::{parse_aggregate, parse_choices, parse_expression};
@@ -299,6 +299,10 @@ impl Code {
 
     pub fn use_clause(&self) -> UseClause {
         self.parse_ok(parse_use_clause)
+    }
+
+    pub fn library_clause(&self) -> LibraryClause {
+        self.parse_ok(parse_library_clause)
     }
 
     pub fn entity(&self) -> EntityDeclaration {

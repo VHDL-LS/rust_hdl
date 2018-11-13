@@ -8,8 +8,8 @@ use tokenizer::Kind::*;
 use tokenstream::TokenStream;
 
 use ast::{
-    ArchitectureBody, DesignFile, DesignUnit, EntityDeclaration, LibraryUnit, PackageBody,
-    PackageDeclaration,
+    ArchitectureBody, ContextItem, DesignFile, DesignUnit, EntityDeclaration, LibraryUnit,
+    PackageBody, PackageDeclaration,
 };
 use common::error_on_end_identifier_mismatch;
 use component_declaration::{parse_optional_generic_list, parse_optional_port_list};
@@ -20,7 +20,7 @@ use declarative_part::{
     parse_declarative_part, parse_declarative_part_leave_end_token, parse_package_instantiation,
 };
 use interface_declaration::parse_generic_interface_list;
-use message::{push_result, MessageHandler, ParseResult};
+use message::{MessageHandler, ParseResult};
 
 /// Parse an entity declaration, token is initial entity token
 /// If a parse error occurs the stream is consumed until and end entity
@@ -145,59 +145,65 @@ fn parse_package_body(
     return Ok(PackageBody { ident, decl });
 }
 
+fn to_design_unit(context_clause: &mut Vec<ContextItem>, library_unit: LibraryUnit) -> DesignUnit {
+    DesignUnit {
+        context_clause: std::mem::replace(context_clause, Vec::new()),
+        library_unit,
+    }
+}
+
 pub fn parse_design_file(
     stream: &mut TokenStream,
     messages: &mut MessageHandler,
 ) -> ParseResult<DesignFile> {
+    let mut context_clause = vec![];
     let mut design_units = vec![];
 
     while let Some(token) = stream.peek()? {
         try_token_kind!(
             token,
             Library => {
-                let decl = parse_library_clause(stream);
-                push_result(messages, decl);
+                match parse_library_clause(stream) {
+                    Ok(library) => {
+                        context_clause.push(ContextItem::Library(library));
+                    },
+                    Err(msg) => messages.push(msg),
+                }
             },
             Use => {
-                let decl = parse_use_clause(stream);
-                push_result(messages, decl);
+                match parse_use_clause(stream) {
+                    Ok(use_clause) => {
+                        context_clause.push(ContextItem::Use(use_clause));
+                    },
+                    Err(msg) => messages.push(msg),
+                }
             },
             Context => match parse_context(stream, messages) {
                 Ok(DeclarationOrReference::Declaration(context_decl)) => {
-                    design_units.push(DesignUnit {
-                        context_clause: vec![],
-                        library_unit: LibraryUnit::ContextDeclaration(context_decl),
-                    });
+                    design_units.push(to_design_unit(&mut context_clause, LibraryUnit::ContextDeclaration(context_decl)));
                 }
-                Ok(_) => {}
+                Ok(DeclarationOrReference::Reference(context_ref)) => {
+                    context_clause.push(ContextItem::Context(context_ref));
+                }
                 Err(msg) => messages.push(msg),
             },
             Entity => match parse_entity_declaration(stream, messages) {
                 Ok(entity) => {
-                    design_units.push(DesignUnit {
-                        context_clause: vec![],
-                        library_unit: LibraryUnit::EntityDeclaration(entity),
-                    });
+                    design_units.push(to_design_unit(&mut context_clause, LibraryUnit::EntityDeclaration(entity)));
                 }
                 Err(msg) => messages.push(msg),
             },
 
             Architecture => match parse_architecture_body(stream, messages) {
                 Ok(architecture) => {
-                    design_units.push(DesignUnit {
-                        context_clause: vec![],
-                        library_unit: LibraryUnit::Architecture(architecture),
-                    });
+                    design_units.push(to_design_unit(&mut context_clause, LibraryUnit::Architecture(architecture)));
                 }
                 Err(msg) => messages.push(msg),
             },
 
             Configuration => match parse_configuration_declaration(stream, messages) {
                 Ok(configuration) => {
-                    design_units.push(DesignUnit {
-                        context_clause: vec![],
-                        library_unit: LibraryUnit::Configuration(configuration),
-                    });
+                    design_units.push(to_design_unit(&mut context_clause, LibraryUnit::Configuration(configuration)));
                 }
                 Err(msg) => messages.push(msg),
             },
@@ -205,28 +211,19 @@ pub fn parse_design_file(
                 if stream.is_peek_kinds(&[Package, Body])? {
                     match parse_package_body(stream, messages) {
                         Ok(package_body) => {
-                            design_units.push(DesignUnit {
-                                context_clause: vec![],
-                                library_unit: LibraryUnit::PackageBody(package_body),
-                            });
+                            design_units.push(to_design_unit(&mut context_clause, LibraryUnit::PackageBody(package_body)));
                         }
                         Err(msg) => messages.push(msg),
                     };
                 } else if stream.is_peek_kinds(&[Package, Identifier, Is, New])? {
                     match parse_package_instantiation(stream) {
-                        Ok(inst) => design_units.push(DesignUnit {
-                            context_clause: vec![],
-                            library_unit: LibraryUnit::PackageInstance(inst),
-                        }),
+                        Ok(inst) => design_units.push(to_design_unit(&mut context_clause, LibraryUnit::PackageInstance(inst))),
                         Err(msg) => messages.push(msg),
                     }
                 } else {
                     match parse_package_declaration(stream, messages) {
                         Ok(package) => {
-                            design_units.push(DesignUnit {
-                                context_clause: vec![],
-                                library_unit: LibraryUnit::PackageDeclaration(package),
-                            });
+                            design_units.push(to_design_unit(&mut context_clause, LibraryUnit::PackageDeclaration(package)))
                         }
                         Err(msg) => messages.push(msg),
                     };
@@ -242,7 +239,7 @@ pub fn parse_design_file(
 mod tests {
     use super::*;
 
-    use ast::Ident;
+    use ast::*;
     use message::Message;
     use symbol_table::Symbol;
     use test_util::{check_no_messages, Code};
@@ -610,4 +607,36 @@ end package;
             }
         );
     }
+
+    #[test]
+    fn context_clause_associated_with_design_units() {
+        let (code, design_file) = parse_ok(
+            "
+library lib;
+use lib.foo;
+
+entity myent is
+end entity;
+",
+        );
+        assert_eq!(
+            design_file,
+            DesignFile {
+                design_units: vec![DesignUnit {
+                    context_clause: vec![
+                        ContextItem::Library(code.s1("library lib;").library_clause()),
+                        ContextItem::Use(code.s1("use lib.foo;").use_clause()),
+                    ],
+                    library_unit: LibraryUnit::EntityDeclaration(EntityDeclaration {
+                        ident: code.s1("myent").ident(),
+                        generic_clause: None,
+                        port_clause: None,
+                        decl: vec![],
+                        statements: vec![],
+                    })
+                }]
+            }
+        );
+    }
+
 }
