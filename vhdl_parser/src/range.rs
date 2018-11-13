@@ -55,7 +55,7 @@ fn parse_name_or_range(stream: &mut TokenStream) -> ParseResult<NameOrRange> {
                 return Ok(NameOrRange::Range(Range::Attribute(attribute_name.clone())));
             }
         }
-        return Ok(NameOrRange::Name(WithPos::new(*name, pos)));
+        return Ok(NameOrRange::Name(WithPos::from(*name, pos)));
     }
 
     return Err(error(&expr, "Expected name or range"));

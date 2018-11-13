@@ -104,17 +104,14 @@ fn expression_to_name(expr: WithPos<Expression>) -> ParseResult<WithPos<Name>> {
 
 fn actual_to_expression(actual: WithPos<ActualPart>) -> ParseResult<WithPos<Expression>> {
     match actual.item {
-        ActualPart::Expression(expr) => Ok(WithPos {
-            item: expr,
-            pos: actual.pos,
-        }),
+        ActualPart::Expression(expr) => Ok(WithPos::from(expr, actual.pos)),
         _ => Err(error(&actual, "Expected expression")),
     }
 }
 
 fn actual_part_to_name(actual: WithPos<ActualPart>) -> ParseResult<WithPos<Name>> {
     match actual.item {
-        ActualPart::Expression(expr) => expression_to_name(WithPos::new(expr, actual.pos)),
+        ActualPart::Expression(expr) => expression_to_name(WithPos::from(expr, actual.pos)),
         _ => Err(error(&actual, "Expected name")),
     }
 }
@@ -129,7 +126,7 @@ fn assoc_to_expression(assoc: AssociationElement) -> ParseResult<WithPos<Express
 fn parse_actual_part(stream: &mut TokenStream) -> ParseResult<WithPos<ActualPart>> {
     let token = stream.expect()?;
     if token.kind == Open {
-        Ok(WithPos::new(ActualPart::Open, token))
+        Ok(WithPos::from(ActualPart::Open, token))
     } else {
         Ok(parse_expression_initial_token(stream, token)?.map_into(ActualPart::Expression))
     }
@@ -181,7 +178,7 @@ fn parse_function_call(
             token,
             Comma => {},
             RightPar => {
-                let pos = prefix.pos.combine(&token.pos);
+                let pos = token.pos.combine_into(&prefix);
                 return Ok(WithPos {
                     item: Name::FunctionCall(Box::new(FunctionCall {
                         name: prefix,
@@ -204,9 +201,9 @@ fn parse_attribute_name(
         if stream.skip_if_kind(LeftPar)? {
             let ret = Some(parse_expression(stream)?);
             let rpar_token = stream.expect_kind(RightPar)?;
-            (ret, name.pos.combine(&rpar_token.pos))
+            (ret, rpar_token.pos.combine_into(&name))
         } else {
-            (None, name.pos.combine(&attr.pos))
+            (None, attr.pos.combine(&name))
         }
     };
 
@@ -262,24 +259,24 @@ fn parse_inner_external_name(stream: &mut TokenStream) -> ParseResult<ExternalNa
         token,
         CommAt => {
             let path_name = parse_name(stream)?;
-            let path_pos = path_name.pos.clone().combine(&token.pos);
-            WithPos::new(ExternalPath::Package(path_name), path_pos)
+            let path_pos = path_name.pos.clone().combine_into(&token);
+            WithPos::from(ExternalPath::Package(path_name), path_pos)
         },
         Dot => {
             let path_name = parse_name(stream)?;
-            let path_pos = path_name.pos.clone().combine(&token.pos);
-            WithPos::new(ExternalPath::Absolute(path_name), path_pos)
+            let path_pos = path_name.pos.clone().combine_into(&token);
+            WithPos::from(ExternalPath::Absolute(path_name), path_pos)
         },
         Circ => {
             stream.expect_kind(Dot)?;
             let path_name = parse_name(stream)?;
-            let path_pos = path_name.pos.clone().combine(&token.pos);
-            WithPos::new(ExternalPath::Relative(path_name), path_pos)
+            let path_pos = path_name.pos.clone().combine_into(&token);
+            WithPos::from(ExternalPath::Relative(path_name), path_pos)
         },
         Identifier => {
             let path_name = parse_name_initial_token(stream, token)?;
             let path_pos = path_name.pos.clone();
-            WithPos::new(ExternalPath::Relative(path_name), path_pos)
+            WithPos::from(ExternalPath::Relative(path_name), path_pos)
         }
     );
 
@@ -303,7 +300,7 @@ pub fn parse_name_initial_token(
             stream.move_after(&token);
             let external_name = Name::External(Box::new(parse_inner_external_name(stream)?));
             let end_token = stream.expect_kind(GtGt)?;
-            WithPos::new(external_name, token.pos.combine(&end_token.pos))
+            WithPos::from(external_name, token.pos.combine_into(&end_token))
         } else {
             to_suffix(token)?
         }
@@ -315,7 +312,7 @@ pub fn parse_name_initial_token(
                 Dot => {
                     stream.move_after(&token);
                     let suffix_token = stream.expect()?;
-                    let pos = name.pos.combine(&suffix_token.pos);
+                    let pos = name.pos.combine(&suffix_token);
                     name = WithPos {
                         item: Name::Selected(Box::new(name), Box::new(to_suffix(suffix_token)?)),
                         pos,
@@ -361,7 +358,7 @@ pub fn parse_name_initial_token(
                                     }
                                 };
                                 let rpar_token = stream.expect_kind(RightPar)?;
-                                let pos = name.pos.combine(&rpar_token.pos);
+                                let pos = rpar_token.pos.combine_into(&name);
                                 let discrete_range =
                                     DiscreteRange::Range(Range::Range(RangeConstraint {
                                         left_expr: Box::new(assoc_to_expression(assoc)?),
@@ -376,7 +373,7 @@ pub fn parse_name_initial_token(
                                 break;
                             },
                             RightPar => {
-                                let pos = name.pos.combine(&sep_token.pos);
+                                let pos = sep_token.pos.combine_into(&name);
                                 name = WithPos {
                                     item: Name::FunctionCall(Box::new(
                                         FunctionCall {

@@ -105,7 +105,7 @@ pub fn parse_aggregate_initial_choices(
             RightPar => {
                 if let &[Choice::Expression(ref choice)] = choices.as_slice() {
                     result.push(ElementAssociation::Positional(choice.clone()));
-                    return Ok(WithPos::new(result, token))
+                    return Ok(WithPos::from(result, token))
                 } else {
                     return Err(error(&token, "Expected => after others"));
                 }
@@ -126,7 +126,7 @@ pub fn parse_aggregate_initial_choices(
                 try_token_kind!(
                     token,
                     RightPar => {
-                        return Ok(WithPos::new(result, token))
+                        return Ok(WithPos::from(result, token))
                     },
                     Comma => {
                         choices = parse_choices(stream)?;
@@ -147,7 +147,7 @@ pub fn parse_aggregate_leftpar_known(
     stream: &mut TokenStream,
 ) -> ParseResult<WithPos<Vec<ElementAssociation>>> {
     if let Some(token) = stream.pop_if_kind(RightPar)? {
-        return Ok(WithPos::new(Vec::new(), &token));
+        return Ok(WithPos::from(Vec::new(), token));
     };
     let choices = parse_choices(stream)?;
     parse_aggregate_initial_choices(stream, choices)
@@ -221,7 +221,7 @@ fn parse_allocator(stream: &mut TokenStream) -> ParseResult<WithPos<Allocator>> 
 
     if stream.skip_if_kind(Tick)? {
         let expr = parse_expression(stream)?;
-        let pos = name.pos.combine(&expr.pos);
+        let pos = name.pos.clone().combine_into(&expr);
         Ok(WithPos {
             item: Allocator::Qualified(QualifiedExpression {
                 name: Box::new(name),
@@ -250,7 +250,7 @@ fn parse_primary_initial_token(
             let name = parse_name_initial_token(stream, token)?;
             if stream.skip_if_kind(Tick)? {
                 let expr = parse_expression(stream)?;
-                let pos = name.pos.combine(&expr.pos);
+                let pos = name.pos.combine(&expr);
                 Ok(WithPos {
                     item: Expression::Qualified(QualifiedExpression {
                         name: Box::new(name),
@@ -287,7 +287,7 @@ fn parse_primary_initial_token(
         New => {
             let alloc = parse_allocator(stream)?;
 
-            let new_pos = token.pos.combine(&alloc.pos);
+            let new_pos = token.pos.combine_into(&alloc);
             Ok(WithPos {
                 item: Expression::New(alloc),
                 pos: new_pos,
@@ -301,7 +301,7 @@ fn parse_primary_initial_token(
                 let physical = Literal::Physical(value, unit.item);
                 Ok(WithPos {
                     item: Expression::Literal(physical),
-                    pos: token.pos.combine(&unit_token.pos),
+                    pos: token.pos.combine_into(&unit_token),
                 })
             } else {
                 Ok(WithPos {
@@ -336,7 +336,7 @@ fn parse_primary_initial_token(
                             // Lexical position between parenthesis
                             let expr = WithPos {
                                 item: expr.item.clone(),
-                                pos: rpar_token.pos.combine(&token.pos),
+                                pos: rpar_token.pos.combine_into(&token),
                             };
                             Ok(expr)
                         }
@@ -353,7 +353,7 @@ fn parse_primary_initial_token(
             // Prefix unary operation
             if let Some((unary_op, op_precedence)) = kind_to_prefix_unary_op(kind) {
                 let expr = parse_expr(stream, op_precedence)?;
-                let pos = expr.pos.combine(&token.pos);
+                let pos = token.pos.combine_into(&expr);
                 Ok(WithPos {
                     item: Expression::Unary(unary_op, Box::new(expr)),
                     pos: pos,
@@ -386,7 +386,7 @@ fn parse_expr_initial_token(
             if op_precedence > min_precedence {
                 stream.move_after(&token);
                 let rhs = parse_expr(stream, op_precedence)?;
-                let pos = lhs.pos.combine(&rhs.pos);
+                let pos = lhs.pos.combine(&rhs);
                 lhs = WithPos {
                     item: Expression::Binary(binary_op, Box::new(lhs), Box::new(rhs)),
                     pos: pos,

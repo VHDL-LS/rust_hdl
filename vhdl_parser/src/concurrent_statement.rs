@@ -120,7 +120,7 @@ fn to_procedure_call(
         Target::Name(name) => Ok(ConcurrentProcedureCall {
             postponed,
             call: FunctionCall {
-                name: WithPos::new(name, target.pos),
+                name: WithPos::from(name, target.pos),
                 parameters: vec![],
             },
         }),

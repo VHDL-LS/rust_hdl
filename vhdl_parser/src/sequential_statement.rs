@@ -421,7 +421,7 @@ fn parse_assignment_or_procedure_call(
                 Target::Name(name) => {
                     SequentialStatement::ProcedureCall(
                         FunctionCall {
-                            name: WithPos::new(name, target.pos),
+                            name: WithPos::from(name, target.pos),
                             parameters: vec![]
                         })
                 }

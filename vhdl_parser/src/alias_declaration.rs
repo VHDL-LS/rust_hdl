@@ -20,8 +20,8 @@ pub fn parse_alias_declaration(stream: &mut TokenStream) -> ParseResult<AliasDec
     let designator = try_token_kind!(
         token,
         Identifier => token.expect_ident()?.map_into(AliasDesignator::Identifier),
-        StringLiteral => WithPos::new(AliasDesignator::OperatorSymbol(token.expect_string()?), token),
-        Character => WithPos::new(AliasDesignator::Character(token.expect_character()?), token)
+        StringLiteral => WithPos::from(AliasDesignator::OperatorSymbol(token.expect_string()?), token),
+        Character => WithPos::from(AliasDesignator::Character(token.expect_character()?), token)
     );
 
     let subtype_indication = {

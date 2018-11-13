@@ -30,9 +30,9 @@ fn parse_library_clause_no_keyword(
         }
     }
     let semi_token = stream.expect_kind(SemiColon)?;
-    Ok(WithPos::new(
+    Ok(WithPos::from(
         LibraryClause { name_list },
-        library_token.pos.combine(&semi_token.pos),
+        library_token.pos.combine_into(&semi_token),
     ))
 }
 

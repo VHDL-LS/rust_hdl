@@ -149,10 +149,19 @@ pub struct WithPos<T> {
 }
 
 impl<T> WithPos<T> {
+    // Avoid clone in production code
+    #[cfg(test)]
     pub fn new(item: T, pos: impl AsRef<SrcPos>) -> WithPos<T> {
         WithPos {
             item,
             pos: pos.as_ref().clone(),
+        }
+    }
+
+    pub fn from(item: T, pos: impl Into<SrcPos>) -> WithPos<T> {
+        WithPos {
+            item,
+            pos: pos.into(),
         }
     }
 
@@ -178,10 +187,10 @@ impl<T> WithPos<T> {
         }
     }
 
-    pub fn combine_pos_with(self, other: impl AsRef<SrcPos>) -> Self {
+    pub fn combine_pos_with(self, other: &AsRef<SrcPos>) -> Self {
         WithPos {
             item: self.item,
-            pos: self.pos.combine(other.as_ref()),
+            pos: self.pos.combine_into(other.as_ref()),
         }
     }
 }
@@ -195,6 +204,12 @@ impl<T> AsRef<SrcPos> for WithPos<T> {
 impl AsRef<SrcPos> for SrcPos {
     fn as_ref(&self) -> &SrcPos {
         self
+    }
+}
+
+impl<T> Into<SrcPos> for WithPos<T> {
+    fn into(self) -> SrcPos {
+        self.pos
     }
 }
 
@@ -400,17 +415,22 @@ impl SrcPos {
 
     /// Combines two lexical positions into a larger legical position overlapping both
     /// The file name is assumed to be the same
-    pub fn combine(self: &Self, other: &Self) -> Self {
+    pub fn combine_into(self, other: &AsRef<Self>) -> Self {
+        let other = other.as_ref();
         debug_assert!(self.source == other.source, "Assumes sources are equal");
 
         let start = min(self.start, other.start);
         let end = max(self.start + self.length, other.start + other.length);
 
         SrcPos {
-            source: self.source.clone(),
+            source: self.source,
             start,
             length: end - start,
         }
+    }
+
+    pub fn combine(&self, other: &AsRef<Self>) -> Self {
+        self.clone().combine_into(other)
     }
 }
 

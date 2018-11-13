@@ -408,6 +408,13 @@ impl AsRef<SrcPos> for Token {
     }
 }
 
+use std::convert::Into;
+impl Into<SrcPos> for Token {
+    fn into(self) -> SrcPos {
+        self.pos
+    }
+}
+
 pub fn kinds_error<T: AsRef<SrcPos>>(pos: T, kinds: &[Kind]) -> Message {
     error(
         pos.as_ref(),
