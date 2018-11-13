@@ -230,7 +230,7 @@ pub fn parse_configuration_declaration(
                 break None;
             },
             Use => {
-                decl.push(ConfigurationDeclarativeItem::Use(parse_use_clause(stream)?.item));
+                decl.push(ConfigurationDeclarativeItem::Use(parse_use_clause(stream)?));
             },
             For => {
                 stream.move_after(&token);

@@ -297,12 +297,12 @@ impl Code {
         self.parse_ok(parse_choices)
     }
 
-    pub fn use_clause(&self) -> UseClause {
-        self.parse_ok(parse_use_clause).item
+    pub fn use_clause(&self) -> WithPos<UseClause> {
+        self.parse_ok(parse_use_clause)
     }
 
-    pub fn library_clause(&self) -> LibraryClause {
-        self.parse_ok(parse_library_clause).item
+    pub fn library_clause(&self) -> WithPos<LibraryClause> {
+        self.parse_ok(parse_library_clause)
     }
 
     pub fn entity(&self) -> EntityDeclaration {

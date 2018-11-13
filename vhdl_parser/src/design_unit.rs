@@ -21,6 +21,7 @@ use declarative_part::{
 };
 use interface_declaration::parse_generic_interface_list;
 use message::{MessageHandler, ParseResult};
+use source::WithPos;
 
 /// Parse an entity declaration, token is initial entity token
 /// If a parse error occurs the stream is consumed until and end entity
@@ -145,7 +146,10 @@ fn parse_package_body(
     return Ok(PackageBody { ident, decl });
 }
 
-fn to_design_unit(context_clause: &mut Vec<ContextItem>, library_unit: LibraryUnit) -> DesignUnit {
+fn to_design_unit(
+    context_clause: &mut Vec<WithPos<ContextItem>>,
+    library_unit: LibraryUnit,
+) -> DesignUnit {
     DesignUnit {
         context_clause: std::mem::replace(context_clause, Vec::new()),
         library_unit,
@@ -165,7 +169,7 @@ pub fn parse_design_file(
             Library => {
                 match parse_library_clause(stream) {
                     Ok(library) => {
-                        context_clause.push(ContextItem::Library(library.item));
+                        context_clause.push(library.map_into(ContextItem::Library));
                     },
                     Err(msg) => messages.push(msg),
                 }
@@ -173,7 +177,7 @@ pub fn parse_design_file(
             Use => {
                 match parse_use_clause(stream) {
                     Ok(use_clause) => {
-                        context_clause.push(ContextItem::Use(use_clause.item));
+                        context_clause.push(use_clause.map_into(ContextItem::Use));
                     },
                     Err(msg) => messages.push(msg),
                 }
@@ -183,7 +187,7 @@ pub fn parse_design_file(
                     design_units.push(to_design_unit(&mut context_clause, LibraryUnit::ContextDeclaration(context_decl)));
                 }
                 Ok(DeclarationOrReference::Reference(context_ref)) => {
-                    context_clause.push(ContextItem::Context(context_ref));
+                    context_clause.push(context_ref.map_into(ContextItem::Context));
                 }
                 Err(msg) => messages.push(msg),
             },
@@ -624,8 +628,12 @@ end entity;
             DesignFile {
                 design_units: vec![DesignUnit {
                     context_clause: vec![
-                        ContextItem::Library(code.s1("library lib;").library_clause()),
-                        ContextItem::Use(code.s1("use lib.foo;").use_clause()),
+                        code.s1("library lib;")
+                            .library_clause()
+                            .map_into(ContextItem::Library),
+                        code.s1("use lib.foo;")
+                            .use_clause()
+                            .map_into(ContextItem::Use),
                     ],
                     library_unit: LibraryUnit::EntityDeclaration(EntityDeclaration {
                         ident: code.s1("myent").ident(),

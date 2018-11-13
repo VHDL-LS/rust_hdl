@@ -886,7 +886,7 @@ pub enum ContextItem {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ContextDeclaration {
     pub ident: Ident,
-    pub items: Vec<ContextItem>,
+    pub items: Vec<WithPos<ContextItem>>,
 }
 
 /// LRM 4.9 Package instatiation declaration
@@ -939,7 +939,7 @@ pub struct ConfigurationSpecification {
 /// LRM 3.4 Configuration declarations
 #[derive(PartialEq, Debug, Clone)]
 pub enum ConfigurationDeclarativeItem {
-    Use(UseClause),
+    Use(WithPos<UseClause>),
     // @TODO attribute
     // @TODO group
 }
@@ -1036,7 +1036,7 @@ pub enum LibraryUnit {
 /// LRM 13.1 Design units
 #[derive(PartialEq, Debug, Clone)]
 pub struct DesignUnit {
-    pub context_clause: Vec<ContextItem>,
+    pub context_clause: Vec<WithPos<ContextItem>>,
     pub library_unit: LibraryUnit,
 }
 
