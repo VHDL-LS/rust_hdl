@@ -60,7 +60,7 @@ pub fn parse_entity_declaration(
 }
 
 /// LRM 3.3.1
-fn parse_architecture_body(
+pub fn parse_architecture_body(
     stream: &mut TokenStream,
     messages: &mut MessageHandler,
 ) -> ParseResult<ArchitectureBody> {

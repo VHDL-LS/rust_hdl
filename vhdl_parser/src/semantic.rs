@@ -159,13 +159,58 @@ fn check_declarative_part_unique_ident(
     }
 }
 
+fn check_generate_body(body: &GenerateBody, messages: &mut MessageHandler) {
+    if let Some(ref decl) = body.decl {
+        check_declarative_part_unique_ident(&decl, messages);
+    }
+    check_concurrent_part(&body.statements, messages);
+}
+
+fn check_concurrent_statement(
+    statement: &LabeledConcurrentStatement,
+    messages: &mut MessageHandler,
+) {
+    match statement.statement {
+        ConcurrentStatement::Block(ref block) => {
+            check_declarative_part_unique_ident(&block.decl, messages);
+            check_concurrent_part(&block.statements, messages);
+        }
+        ConcurrentStatement::Process(ref process) => {
+            check_declarative_part_unique_ident(&process.decl, messages);
+        }
+        ConcurrentStatement::ForGenerate(ref gen) => {
+            check_generate_body(&gen.body, messages);
+        }
+        ConcurrentStatement::IfGenerate(ref gen) => {
+            for conditional in gen.conditionals.iter() {
+                check_generate_body(&conditional.item, messages);
+            }
+            if let Some(ref else_item) = gen.else_item {
+                check_generate_body(else_item, messages);
+            }
+        }
+        ConcurrentStatement::CaseGenerate(ref gen) => {
+            for alternative in gen.alternatives.iter() {
+                check_generate_body(&alternative.item, messages);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn check_concurrent_part(statements: &[LabeledConcurrentStatement], messages: &mut MessageHandler) {
+    for statement in statements.iter() {
+        check_concurrent_statement(statement, messages);
+    }
+}
+
 fn check_package_declaration(package: &PackageDeclaration, messages: &mut MessageHandler) {
     check_declarative_part_unique_ident(&package.decl, messages);
 }
 
 fn check_architecture_body(architecture: &ArchitectureBody, messages: &mut MessageHandler) {
     check_declarative_part_unique_ident(&architecture.decl, messages);
-    // @TODO declarative parts in concurrent statements
+    check_concurrent_part(&architecture.statements, messages);
 }
 
 fn check_package_body(package: &PackageBody, messages: &mut MessageHandler) {
@@ -180,7 +225,7 @@ fn check_entity_declaration(entity: &EntityDeclaration, messages: &mut MessageHa
         check_interface_list_unique_ident(list, messages);
     }
     check_declarative_part_unique_ident(&entity.decl, messages);
-    // @TODO declarative parts in concurrent statements
+    check_concurrent_part(&entity.statements, messages);
 }
 
 pub fn check_design_unit(design_unit: &DesignUnit, messages: &mut MessageHandler) {
@@ -200,11 +245,9 @@ mod tests {
     use message::Message;
     use test_util::{check_no_messages, Code};
 
-    fn expected_messages(code: &Code, num: usize) -> Vec<Message> {
+    fn expected_messages(code: &Code, names: &[&str]) -> Vec<Message> {
         let mut messages = Vec::new();
-        for i in 0..num {
-            let chr = (b'a' + (i as u8)) as char;
-            let name = format!("{}1", chr);
+        for name in names {
             messages.push(
                 error(
                     code.s(&name, 2),
@@ -242,7 +285,7 @@ constant a1 : natural;
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, 1));
+        assert_eq!(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
@@ -300,7 +343,10 @@ end;
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, 4));
+        assert_eq!(
+            messages,
+            expected_messages(&code, &["a1", "b1", "c1", "d1"])
+        );
     }
 
     #[test]
@@ -324,7 +370,7 @@ end component;
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, 2));
+        assert_eq!(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
     #[test]
@@ -341,7 +387,7 @@ end record;
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, 1));
+        assert_eq!(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
@@ -362,7 +408,7 @@ end protected body;
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, 2));
+        assert_eq!(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
     #[test]
@@ -376,7 +422,138 @@ function fun(b1, a, b1 : natural) return natural;
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, 2));
+        assert_eq!(messages, expected_messages(&code, &["a1", "b1"]));
+    }
+
+    #[test]
+    fn forbid_homographs_in_block() {
+        let code = Code::new(
+            "
+blk : block
+  constant a1 : natural;
+  constant a : natural;
+  constant a1 : natural;
+begin
+  process
+    constant b1 : natural;
+    constant b : natural;
+    constant b1 : natural;
+  begin
+  end process;
+end block;
+",
+        );
+
+        let mut messages = Vec::new();
+        check_concurrent_statement(&code.concurrent_statement(), &mut messages);
+        assert_eq!(messages, expected_messages(&code, &["a1", "b1"]));
+    }
+
+    #[test]
+    fn forbid_homographs_in_process() {
+        let code = Code::new(
+            "
+process
+  constant a1 : natural;
+  constant a : natural;
+  constant a1 : natural;
+begin
+end process;
+",
+        );
+
+        let mut messages = Vec::new();
+        check_concurrent_statement(&code.concurrent_statement(), &mut messages);
+        assert_eq!(messages, expected_messages(&code, &["a1"]));
+    }
+
+    #[test]
+    fn forbid_homographs_for_generate() {
+        let code = Code::new(
+            "
+gen_for: for i in 0 to 3 generate
+  constant a1 : natural;
+  constant a : natural;
+  constant a1 : natural;
+begin
+  process
+    constant b1 : natural;
+    constant b : natural;
+    constant b1 : natural;
+  begin
+  end process;
+end generate;
+",
+        );
+
+        let mut messages = Vec::new();
+        check_concurrent_statement(&code.concurrent_statement(), &mut messages);
+        assert_eq!(messages, expected_messages(&code, &["a1", "b1"]));
+    }
+
+    #[test]
+    fn forbid_homographs_if_generate() {
+        let code = Code::new(
+            "
+gen_if: if true generate
+  constant a1 : natural;
+  constant a : natural;
+  constant a1 : natural;
+begin
+
+  prcss : process
+    constant b1 : natural;
+    constant b : natural;
+    constant b1 : natural;
+  begin
+  end process;
+
+else generate
+  constant c1 : natural;
+  constant c: natural;
+  constant c1 : natural;
+begin
+  prcss : process
+    constant d1 : natural;
+    constant d : natural;
+    constant d1 : natural;
+  begin
+  end process;
+end generate;
+",
+        );
+
+        let mut messages = Vec::new();
+        check_concurrent_statement(&code.concurrent_statement(), &mut messages);
+        assert_eq!(
+            messages,
+            expected_messages(&code, &["a1", "b1", "c1", "d1"])
+        );
+    }
+
+    #[test]
+    fn forbid_homographs_case_generate() {
+        let code = Code::new(
+            "
+gen_case: case 0 generate
+  when others =>
+    constant a1 : natural;
+    constant a : natural;
+    constant a1 : natural;
+  begin
+    process
+      constant b1 : natural;
+      constant b : natural;
+      constant b1 : natural;
+    begin
+    end process;
+end generate;
+",
+        );
+
+        let mut messages = Vec::new();
+        check_concurrent_statement(&code.concurrent_statement(), &mut messages);
+        assert_eq!(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
     #[test]
@@ -397,13 +574,52 @@ entity ent is
   constant c1 : natural;
   constant c : natural;
   constant c1 : natural;
+begin
+
+  blk : block
+    constant d1 : natural;
+    constant d : natural;
+    constant d1 : natural;
+  begin
+
+  end block;
+
 end entity;
 ",
         );
 
         let mut messages = Vec::new();
         check_entity_declaration(&code.entity(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, 3));
+        assert_eq!(
+            messages,
+            expected_messages(&code, &["a1", "b1", "c1", "d1"])
+        );
+    }
+
+    #[test]
+    fn forbid_homographs_in_architecture_bodies() {
+        let code = Code::new(
+            "
+architecture arch of ent is
+  constant a1 : natural;
+  constant a : natural;
+  constant a1 : natural;
+begin
+
+  blk : block
+    constant b1 : natural;
+    constant b : natural;
+    constant b1 : natural;
+  begin
+  end block;
+
+end architecture;
+",
+        );
+
+        let mut messages = Vec::new();
+        check_architecture_body(&code.architecture(), &mut messages);
+        assert_eq!(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
 }

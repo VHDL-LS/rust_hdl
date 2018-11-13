@@ -8,7 +8,7 @@ use ast::*;
 use concurrent_statement::parse_labeled_concurrent_statement;
 use context::parse_use_clause;
 use declarative_part::parse_declarative_part_leave_end_token;
-use design_unit::parse_entity_declaration;
+use design_unit::{parse_entity_declaration, parse_architecture_body};
 use expression::{parse_aggregate, parse_choices, parse_expression};
 use interface_declaration::{parse_generic, parse_parameter, parse_port};
 use latin_1::Latin1String;
@@ -88,7 +88,12 @@ impl Code {
     where
         F: FnOnce(&mut TokenStream) -> ParseResult<R>,
     {
-        self.parse(parse_fun).unwrap()
+        match self.parse(parse_fun) {
+            Ok(res) => res,
+            Err(msg) => {
+                panic!("{}", msg.show());
+            }
+        }
     }
 
     pub fn with_partial_stream<F, R>(&self, parse_fun: F) -> R
@@ -298,6 +303,10 @@ impl Code {
 
     pub fn entity(&self) -> EntityDeclaration {
         self.parse_ok_no_messages(parse_entity_declaration)
+    }
+
+    pub fn architecture(&self) -> ArchitectureBody {
+        self.parse_ok_no_messages(parse_architecture_body)
     }
 
     pub fn subprogram_decl(&self) -> SubprogramDeclaration {
