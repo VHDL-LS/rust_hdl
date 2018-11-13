@@ -15,7 +15,7 @@ use common::error_on_end_identifier_mismatch;
 use declarative_part::{is_declarative_part, parse_declarative_part};
 use expression::parse_aggregate_leftpar_known;
 use expression::{parse_choices, parse_expression};
-use message::{error, push_some, MessageHandler, ParseResult};
+use message::{push_some, Message, MessageHandler, ParseResult};
 use names::{
     expression_to_ident, parse_association_list, parse_name_initial_token, parse_selected_name,
     to_selected_name, to_simple_name,
@@ -125,7 +125,10 @@ fn to_procedure_call(
             },
         }),
         Target::Aggregate(..) => {
-            return Err(error(target, "Expected procedure call, got aggregate"));
+            return Err(Message::error(
+                target,
+                "Expected procedure call, got aggregate",
+            ));
         }
     }
 }
@@ -1316,7 +1319,7 @@ end generate;
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
         assert_eq!(
             messages,
-            vec![error(
+            vec![Message::error(
                 code.s1("alt4"),
                 "End identifier mismatch, expected alt3"
             )]

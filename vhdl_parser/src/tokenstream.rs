@@ -130,7 +130,7 @@ impl TokenStream {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use message::error;
+    use message::Message;
     use source::Source;
     use tokenizer::tokenize;
 
@@ -185,11 +185,11 @@ mod tests {
         assert_eq!(stream.expect(), Ok(tokens[0].clone()));
         assert_eq!(
             stream.peek_expect(),
-            Err(error(&source.pos(5, 1), "Unexpected EOF"))
+            Err(Message::error(&source.pos(5, 1), "Unexpected EOF"))
         );
         assert_eq!(
             stream.expect(),
-            Err(error(&source.pos(5, 1), "Unexpected EOF"))
+            Err(Message::error(&source.pos(5, 1), "Unexpected EOF"))
         );
     }
 
@@ -222,7 +222,7 @@ mod tests {
 
         assert_eq!(
             stream.expect(),
-            Err(error(&source.pos(0, 1), "Unexpected EOF"))
+            Err(Message::error(&source.pos(0, 1), "Unexpected EOF"))
         );
     }
 
@@ -233,7 +233,7 @@ mod tests {
         stream.expect().unwrap();
         assert_eq!(
             stream.expect(),
-            Err(error(&source.pos(3, 1), "Unexpected EOF"))
+            Err(Message::error(&source.pos(3, 1), "Unexpected EOF"))
         );
     }
 
@@ -244,7 +244,7 @@ mod tests {
         stream.expect().unwrap();
         assert_eq!(
             stream.expect(),
-            Err(error(&source.pos(9, 1), "Unexpected EOF"))
+            Err(Message::error(&source.pos(9, 1), "Unexpected EOF"))
         );
     }
 

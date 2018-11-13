@@ -6,7 +6,7 @@
 
 extern crate pad;
 use latin_1::Latin1String;
-use message::{error, ParseResult};
+use message::{Message, ParseResult};
 use std::cmp::{max, min};
 use std::collections::VecDeque;
 use std::convert::AsRef;
@@ -183,7 +183,7 @@ impl<T> WithPos<T> {
                 item: item,
                 pos: self.pos,
             }),
-            Err(msg) => Err(error(&self.pos, &msg)),
+            Err(msg) => Err(Message::error(&self.pos, &msg)),
         }
     }
 

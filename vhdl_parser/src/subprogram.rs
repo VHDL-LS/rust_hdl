@@ -10,7 +10,7 @@ use ast::{
 };
 use declarative_part::parse_declarative_part;
 use interface_declaration::parse_parameter_interface_list;
-use message::{error, MessageHandler, ParseResult};
+use message::{Message, MessageHandler, ParseResult};
 use names::parse_selected_name;
 use sequential_statement::parse_labeled_sequential_statements;
 use source::WithPos;
@@ -41,7 +41,7 @@ pub fn parse_signature(stream: &mut TokenStream) -> ParseResult<Signature> {
                     Return => {
                         let new_return_mark = Some(parse_selected_name(stream)?);
                         if return_mark.is_some() {
-                            errmsg = Some(error(sep_token, "Duplicate return in signature"));
+                            errmsg = Some(Message::error(sep_token, "Duplicate return in signature"));
                         } else {
                             return_mark = new_return_mark;
                         }
@@ -52,7 +52,7 @@ pub fn parse_signature(stream: &mut TokenStream) -> ParseResult<Signature> {
                 stream.move_after(&token);
                 let new_return_mark = Some(parse_selected_name(stream)?);
                 if return_mark.is_some() {
-                    errmsg = Some(error(token, "Duplicate return in signature"));
+                    errmsg = Some(Message::error(token, "Duplicate return in signature"));
                 } else {
                     return_mark = new_return_mark;
                 }
@@ -351,13 +351,13 @@ function foo(foo : natural) return lib.foo.natural;
         let code = Code::new("[return bar.type_mark return bar2]");
         assert_eq!(
             code.with_stream_err(parse_signature),
-            error(code.s("return", 2), "Duplicate return in signature")
+            Message::error(code.s("return", 2), "Duplicate return in signature")
         );
 
         let code = Code::new("[foo return bar.type_mark return bar2]");
         assert_eq!(
             code.with_stream_err(parse_signature),
-            error(code.s("return", 2), "Duplicate return in signature")
+            Message::error(code.s("return", 2), "Duplicate return in signature")
         );
     }
 

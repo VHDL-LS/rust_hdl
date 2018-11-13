@@ -11,7 +11,7 @@ use ast::{
     RangeConstraint, SelectedName, Signature,
 };
 use expression::{parse_expression, parse_expression_initial_token};
-use message::{error, ParseResult};
+use message::{Message, ParseResult};
 use source::WithPos;
 use subprogram::parse_signature;
 use subtype_indication::parse_subtype_indication;
@@ -42,13 +42,13 @@ pub fn to_selected_name(name: &WithPos<Name>) -> ParseResult<SelectedName> {
                 });
                 Ok(selected)
             }
-            _ => Err(error(suffix.as_ref(), "Expected simple name")),
+            _ => Err(Message::error(suffix.as_ref(), "Expected simple name")),
         },
         Name::Simple(ref ident) => Ok(vec![WithPos {
             item: ident.clone(),
             pos: name.pos.clone(),
         }]),
-        _ => Err(error(&name, "Expected selected name")),
+        _ => Err(Message::error(&name, "Expected selected name")),
     }
 }
 
@@ -63,7 +63,7 @@ pub fn to_simple_name(name: WithPos<Name>) -> ParseResult<Ident> {
             item: ident,
             pos: name.pos,
         }),
-        _ => Err(error(&name, "Expected selected name")),
+        _ => Err(Message::error(&name, "Expected selected name")),
     }
 }
 
@@ -97,7 +97,7 @@ fn expression_to_name(expr: WithPos<Expression>) -> ParseResult<WithPos<Name>> {
             pos: expr.pos,
         }),
         _ => {
-            return Err(error(&expr, "Expected name"));
+            return Err(Message::error(&expr, "Expected name"));
         }
     }
 }
@@ -105,20 +105,20 @@ fn expression_to_name(expr: WithPos<Expression>) -> ParseResult<WithPos<Name>> {
 fn actual_to_expression(actual: WithPos<ActualPart>) -> ParseResult<WithPos<Expression>> {
     match actual.item {
         ActualPart::Expression(expr) => Ok(WithPos::from(expr, actual.pos)),
-        _ => Err(error(&actual, "Expected expression")),
+        _ => Err(Message::error(&actual, "Expected expression")),
     }
 }
 
 fn actual_part_to_name(actual: WithPos<ActualPart>) -> ParseResult<WithPos<Name>> {
     match actual.item {
         ActualPart::Expression(expr) => expression_to_name(WithPos::from(expr, actual.pos)),
-        _ => Err(error(&actual, "Expected name")),
+        _ => Err(Message::error(&actual, "Expected name")),
     }
 }
 
 fn assoc_to_expression(assoc: AssociationElement) -> ParseResult<WithPos<Expression>> {
     match assoc.formal {
-        Some(name) => Err(error(&name, "Expected expression")),
+        Some(name) => Err(Message::error(&name, "Expected expression")),
         None => actual_to_expression(assoc.actual),
     }
 }

@@ -7,7 +7,7 @@
 use ast::{ArrayIndex, Direction, DiscreteRange, Expression, Name, Range, RangeConstraint};
 use common::parse_optional;
 use expression::parse_expression;
-use message::{error, ParseResult};
+use message::{Message, ParseResult};
 use names::to_selected_name;
 use source::WithPos;
 use tokenizer::Kind::*;
@@ -58,7 +58,7 @@ fn parse_name_or_range(stream: &mut TokenStream) -> ParseResult<NameOrRange> {
         return Ok(NameOrRange::Name(WithPos::from(*name, pos)));
     }
 
-    return Err(error(&expr, "Expected name or range"));
+    return Err(Message::error(&expr, "Expected name or range"));
 }
 
 /// {selected_name}'range
@@ -67,7 +67,7 @@ fn parse_name_or_range(stream: &mut TokenStream) -> ParseResult<NameOrRange> {
 pub fn parse_range(stream: &mut TokenStream) -> ParseResult<Range> {
     match parse_name_or_range(stream)? {
         NameOrRange::Range(range) => Ok(range),
-        NameOrRange::Name(name) => Err(error(&name, "Expected range")),
+        NameOrRange::Name(name) => Err(Message::error(&name, "Expected range")),
     }
 }
 

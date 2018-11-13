@@ -6,7 +6,7 @@
 
 use ast::{ContextDeclaration, ContextItem, ContextReference, LibraryClause, Name, UseClause};
 use common::error_on_end_identifier_mismatch;
-use message::{error, push_some, MessageHandler, ParseResult};
+use message::{push_some, Message, MessageHandler, ParseResult};
 use names::parse_name;
 use source::WithPos;
 use tokenizer::{Kind::*, Token};
@@ -118,7 +118,7 @@ pub fn parse_context(
                     pos: name.pos,
                 },
                 _ => {
-                    return Err(error(&name, "Expected simple name"));
+                    return Err(Message::error(&name, "Expected simple name"));
                 }
             }
         };
@@ -282,7 +282,7 @@ end context ident2;
         let (context, messages) = code.with_stream_messages(parse_context);
         assert_eq!(
             messages,
-            vec![error(
+            vec![Message::error(
                 code.s1("ident2"),
                 "End identifier mismatch, expected ident"
             )]

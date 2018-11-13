@@ -23,6 +23,23 @@ pub struct Message {
 }
 
 impl Message {
+    pub fn new<T: AsRef<SrcPos>>(item: T, msg: &str, severity: Severity) -> Message {
+        Message {
+            pos: item.as_ref().clone(),
+            message: msg.to_string(),
+            severity: severity,
+            related: vec![],
+        }
+    }
+
+    pub fn error(item: impl AsRef<SrcPos>, msg: &str) -> Message {
+        Self::new(item, msg, Severity::Error)
+    }
+
+    pub fn warning(item: impl AsRef<SrcPos>, msg: &str) -> Message {
+        Self::new(item, msg, Severity::Warning)
+    }
+
     pub fn when(self, message: &str) -> Message {
         Message {
             message: format!("{}, when {}", &self.message, &message),
@@ -52,23 +69,6 @@ impl Message {
         result.push_str(&self.pos.show(&format!("{}: {}", severity, self.message)));
         result
     }
-}
-
-pub fn message<T: AsRef<SrcPos>>(item: T, msg: &str, severity: Severity) -> Message {
-    Message {
-        pos: item.as_ref().clone(),
-        message: msg.to_string(),
-        severity: severity,
-        related: vec![],
-    }
-}
-
-pub fn error(item: impl AsRef<SrcPos>, msg: &str) -> Message {
-    message(item, msg, Severity::Error)
-}
-
-pub fn warning(item: impl AsRef<SrcPos>, msg: &str) -> Message {
-    message(item, msg, Severity::Warning)
 }
 
 pub trait MessageHandler {
@@ -104,7 +104,7 @@ mod tests {
     fn show_warning() {
         let code = Code::new("hello\nworld\nline\n");
         assert_eq!(
-            warning(code.s1("world"), "Greetings").show(),
+            Message::warning(code.s1("world"), "Greetings").show(),
             "\
 warning: Greetings
   --> {unknown file}:2
@@ -121,7 +121,7 @@ warning: Greetings
     fn show_error() {
         let code = Code::new("hello\nworld\nline\n");
         assert_eq!(
-            error(code.s1("world"), "Greetings").show(),
+            Message::error(code.s1("world"), "Greetings").show(),
             "\
 error: Greetings
   --> {unknown file}:2
@@ -138,7 +138,8 @@ error: Greetings
     fn show_related() {
         let code = Code::new("hello\nworld\nline\n");
 
-        let err = error(code.s1("line"), "Greetings").related(code.s1("hello"), "From here");
+        let err =
+            Message::error(code.s1("line"), "Greetings").related(code.s1("hello"), "From here");
 
         assert_eq!(
             err.show(),

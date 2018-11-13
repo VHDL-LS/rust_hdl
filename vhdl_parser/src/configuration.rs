@@ -11,7 +11,7 @@ use ast::{
 };
 use common::error_on_end_identifier_mismatch;
 use context::parse_use_clause;
-use message::{error, MessageHandler, ParseResult};
+use message::{Message, MessageHandler, ParseResult};
 use names::{parse_name, parse_name_initial_token, parse_selected_name, to_simple_name};
 use source::WithPos;
 use tokenizer::Kind::*;
@@ -266,7 +266,7 @@ pub fn parse_configuration_specification(
             Ok(ConfigurationSpecification { spec, bind_ind })
         }
         ComponentSpecificationOrName::Name(name) => {
-            return Err(error(name, "Expected component specification"));
+            return Err(Message::error(name, "Expected component specification"));
         }
     }
 }

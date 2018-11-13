@@ -13,7 +13,7 @@ use ast::{
 };
 use common::parse_optional;
 use expression::{parse_aggregate_leftpar_known, parse_choices, parse_expression};
-use message::{error, MessageHandler, ParseResult};
+use message::{Message, MessageHandler, ParseResult};
 use names::{parse_name, parse_name_initial_token, to_simple_name};
 use range::parse_discrete_range;
 use source::WithPos;
@@ -426,7 +426,7 @@ fn parse_assignment_or_procedure_call(
                         })
                 }
                 Target::Aggregate(..) => {
-                    return Err(error(target, "Expected procedure call, got aggregate"));
+                    return Err(Message::error(target, "Expected procedure call, got aggregate"));
                 }
             }
         }

@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use message::{error, Message, ParseResult};
+use message::{Message, ParseResult};
 use source::{Source, SrcPos};
 extern crate fnv;
 use self::fnv::FnvHashMap;
@@ -416,7 +416,7 @@ impl Into<SrcPos> for Token {
 }
 
 pub fn kinds_error<T: AsRef<SrcPos>>(pos: T, kinds: &[Kind]) -> Message {
-    error(
+    Message::error(
         pos.as_ref(),
         format!("Expected {}", kinds_str(&kinds)).as_str(),
     )
@@ -1049,7 +1049,7 @@ impl Tokenizer {
     }
 
     pub fn eof_error(&self) -> Message {
-        error(self.source.pos(self.state.start, 1), "Unexpected EOF")
+        Message::error(self.source.pos(self.state.start, 1), "Unexpected EOF")
     }
 
     pub fn set_state(&mut self, state: TokenState) {
@@ -1066,7 +1066,10 @@ impl Tokenizer {
         macro_rules! error {
             ($message:expr) => {
                 let length = cursor.pos() - self.state.start;
-                let err = Err(error(&self.source.pos(self.state.start, length), $message));
+                let err = Err(Message::error(
+                    &self.source.pos(self.state.start, length),
+                    $message,
+                ));
                 self.state.start = cursor.pos();
                 return err;
             };
@@ -1471,7 +1474,7 @@ end entity"
         let (source, _, tokens) = tokenize_result("1e-1");
         assert_eq!(
             tokens,
-            vec![Err(error(
+            vec![Err(Message::error(
                 &source.entire_pos(),
                 "Integer literals may not have negative exponent"
             ))]
@@ -1560,7 +1563,10 @@ end entity"
         let (source, _, tokens) = tokenize_result("\"str\ning\"");
         assert_eq!(
             tokens,
-            vec![Err(error(&source.entire_pos(), "Multi line string"))]
+            vec![Err(Message::error(
+                &source.entire_pos(),
+                "Multi line string"
+            ))]
         );
     }
 
@@ -1570,7 +1576,7 @@ end entity"
         let (source, _, tokens) = tokenize_result("\"string");
         assert_eq!(
             tokens,
-            vec![Err(error(
+            vec![Err(Message::error(
                 &source.entire_pos(),
                 "Reached EOF before end quote"
             ))]
@@ -1648,7 +1654,7 @@ end entity"
         let (source, _, tokens) = tokenize_result("1#0#");
         assert_eq!(
             tokens,
-            vec![Err(error(
+            vec![Err(Message::error(
                 &source.entire_pos(),
                 "Base must be at least 2 and at most 16, got 1"
             ))]
@@ -1656,7 +1662,7 @@ end entity"
         let (source, _, tokens) = tokenize_result("17#f#");
         assert_eq!(
             tokens,
-            vec![Err(error(
+            vec![Err(Message::error(
                 &source.entire_pos(),
                 "Base must be at least 2 and at most 16, got 17"
             ))]
@@ -1665,12 +1671,15 @@ end entity"
         let (source, _, tokens) = tokenize_result("3#3#");
         assert_eq!(
             tokens,
-            vec![Err(error(&source.entire_pos(), "Illegal digit for base 3"))]
+            vec![Err(Message::error(
+                &source.entire_pos(),
+                "Illegal digit for base 3"
+            ))]
         );
         let (source, _, tokens) = tokenize_result("15#f#");
         assert_eq!(
             tokens,
-            vec![Err(error(
+            vec![Err(Message::error(
                 &source.entire_pos(),
                 "Illegal digit for base 15"
             ))]
@@ -1827,7 +1836,7 @@ end entity"
         let (source, _, tokens) = tokenize_result(large_int);
         assert_eq!(
             tokens,
-            vec![Err(error(
+            vec![Err(Message::error(
                 &source.entire_pos(),
                 "Integer too large for 64-bits signed"
             ))]
@@ -1837,7 +1846,7 @@ end entity"
         let (source, _, tokens) = tokenize_result(large_int);
         assert_eq!(
             tokens,
-            vec![Err(error(
+            vec![Err(Message::error(
                 &source.entire_pos(),
                 "Integer too large for 64-bits signed"
             ))]
@@ -1847,7 +1856,7 @@ end entity"
         let (source, _, tokens) = tokenize_result(&large_int);
         assert_eq!(
             tokens,
-            vec![Err(error(
+            vec![Err(Message::error(
                 &source.entire_pos(),
                 "Exponent too large for 32-bits signed"
             ))]
@@ -1857,7 +1866,7 @@ end entity"
         let (source, _, tokens) = tokenize_result(&large_int);
         assert_eq!(
             tokens,
-            vec![Err(error(
+            vec![Err(Message::error(
                 &source.entire_pos(),
                 "Exponent too large for 32-bits signed"
             ))]
@@ -1867,7 +1876,7 @@ end entity"
         let (source, _, tokens) = tokenize_result(&large_int);
         assert_eq!(
             tokens,
-            vec![Err(error(
+            vec![Err(Message::error(
                 &source.entire_pos(),
                 "Integer too large for 64-bits signed"
             ))]
@@ -1896,7 +1905,10 @@ end entity"
                     value: Value::NoValue,
                     pos: source.first_substr_pos("begin")
                 }),
-                Err(error(&source.first_substr_pos("?"), "Illegal token")),
+                Err(Message::error(
+                    &source.first_substr_pos("?"),
+                    "Illegal token"
+                )),
                 Ok(Token {
                     kind: End,
                     value: Value::NoValue,

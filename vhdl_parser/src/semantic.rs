@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use ast::*;
-use message::{error, MessageHandler};
+use message::{Message, MessageHandler};
 use source::SrcPos;
 use symbol_table::Symbol;
 
@@ -65,7 +65,7 @@ fn check_unique<'a>(
 ) {
     match idents.entry(&ident.item) {
         Entry::Occupied(entry) => {
-            let msg = error(
+            let msg = Message::error(
                 ident,
                 &format!("Duplicate declaration of '{}'", ident.item.name()),
             ).related(entry.get(), "Previously defined here");
@@ -249,7 +249,7 @@ mod tests {
         let mut messages = Vec::new();
         for name in names {
             messages.push(
-                error(
+                Message::error(
                     code.s(&name, 2),
                     &format!("Duplicate declaration of '{}'", &name),
                 ).related(code.s1(&name), "Previously defined here"),

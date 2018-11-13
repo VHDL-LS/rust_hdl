@@ -10,7 +10,7 @@ use ast::{
     SubprogramDefault,
 };
 
-use message::{error, push_result, Message, MessageHandler, ParseResult};
+use message::{push_result, Message, MessageHandler, ParseResult};
 use names::{parse_identifier_list, parse_selected_name};
 use object_declaration::{parse_file_declaration_no_semi, parse_optional_assignment};
 use subprogram::parse_subprogram_declaration_no_semi;
@@ -61,13 +61,13 @@ fn parse_interface_file_declaration(
     let file_objects = parse_file_declaration_no_semi(stream)?;
     for file_object in file_objects.iter() {
         if file_object.open_info.is_some() {
-            return Err(error(
+            return Err(Message::error(
                 &file_object.ident,
                 "interface_file_declaration may not have file open information",
             ));
         }
         if file_object.file_name.is_some() {
-            return Err(error(
+            return Err(Message::error(
                 &file_object.ident,
                 "interface_file_declaration may not have file name",
             ));
@@ -121,7 +121,7 @@ fn parse_interface_object_declaration(
     for ident in idents.iter() {
         if object_class == ObjectClass::Constant && mode != Mode::In {
             let pos = mode_pos.as_ref().unwrap_or(&ident.pos);
-            return Err(error(
+            return Err(Message::error(
                 &pos,
                 "Interface constant declaration may only have mode=in",
             ));
@@ -129,12 +129,15 @@ fn parse_interface_object_declaration(
 
         if list_type == InterfaceListType::Port && object_class != ObjectClass::Signal {
             let pos = object_class_pos.as_ref().unwrap_or(&ident.pos);
-            return Err(error(&pos, "Port list only allows signal object class"));
+            return Err(Message::error(
+                &pos,
+                "Port list only allows signal object class",
+            ));
         };
 
         if list_type == InterfaceListType::Generic && object_class != ObjectClass::Constant {
             let pos = object_class_pos.as_ref().unwrap_or(&ident.pos);
-            return Err(error(
+            return Err(Message::error(
                 &pos,
                 "Generic list only allows constant object class",
             ));
@@ -209,7 +212,7 @@ fn parse_semicolon_separator(stream: &mut TokenStream) -> ParseResult<()> {
                       SemiColon => {
                           stream.move_after(&token);
                           if stream.peek_expect()?.kind == RightPar {
-                              return Err(error(&token,
+                              return Err(Message::error(&token,
                                            &format!("Last interface element may not end with {}",
                                                     kinds_str(&[SemiColon]))));
                           }
@@ -414,7 +417,7 @@ mod tests {
         let code = Code::new("file foo : text open read_mode");
         assert_eq!(
             code.with_stream_err(parse_parameter),
-            error(
+            Message::error(
                 code.s1("foo"),
                 "interface_file_declaration may not have file open information"
             )
@@ -426,7 +429,7 @@ mod tests {
         let code = Code::new("file foo : text is \"file_name\"");
         assert_eq!(
             code.with_stream_err(parse_parameter),
-            error(
+            Message::error(
                 code.s1("foo"),
                 "interface_file_declaration may not have file name"
             )
@@ -537,7 +540,7 @@ mod tests {
         let code = Code::new("foo : out boolean");
         assert_eq!(
             code.with_partial_stream(parse_generic),
-            Err(error(
+            Err(Message::error(
                 &code.s1("out").pos(),
                 "Interface constant declaration may only have mode=in"
             ))
@@ -580,7 +583,7 @@ bar : natural)",
         );
         assert_eq!(
             messages,
-            vec![error(
+            vec![Message::error(
                 code.s(";", 2),
                 "Last interface element may not end with ';'"
             )]
@@ -651,7 +654,7 @@ bar : natural)",
         let (_, messages) = code.with_stream_messages(parse_generic_interface_list);
         assert_eq!(
             messages,
-            vec![error(
+            vec![Message::error(
                 code.s1("signal"),
                 "Generic list only allows constant object class"
             )]
@@ -664,7 +667,7 @@ bar : natural)",
         let (_, messages) = code.with_stream_messages(parse_port_interface_list);
         assert_eq!(
             messages,
-            vec![error(
+            vec![Message::error(
                 code.s1("constant"),
                 "Port list only allows signal object class"
             )]

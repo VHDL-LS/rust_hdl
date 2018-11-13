@@ -7,7 +7,7 @@
 use ast::{ComponentDeclaration, InterfaceDeclaration};
 use common::error_on_end_identifier_mismatch;
 use interface_declaration::{parse_generic_interface_list, parse_port_interface_list};
-use message::{error, push_some, MessageHandler, ParseResult};
+use message::{push_some, Message, MessageHandler, ParseResult};
 use tokenizer::Kind::*;
 use tokenstream::TokenStream;
 
@@ -24,7 +24,7 @@ pub fn parse_optional_generic_list(
                 let new_list = parse_generic_interface_list(stream, messages)?;
                 stream.expect_kind(SemiColon)?;
                 if list.is_some() {
-                    messages.push(error(token, "Duplicate generic clause"));
+                    messages.push(Message::error(token, "Duplicate generic clause"));
                 } else {
                     list = Some(new_list);
                 }
@@ -49,7 +49,7 @@ pub fn parse_optional_port_list(
                 let new_list = parse_port_interface_list(stream, messages)?;
                 stream.expect_kind(SemiColon)?;
                 if list.is_some() {
-                    messages.push(error(token, "Duplicate port clause"));
+                    messages.push(Message::error(token, "Duplicate port clause"));
                 } else {
                     list = Some(new_list);
                 }
@@ -58,7 +58,10 @@ pub fn parse_optional_port_list(
                 stream.move_after(&token);
                 parse_generic_interface_list(stream, messages)?;
                 stream.expect_kind(SemiColon)?;
-                messages.push(error(token, "Generic clause must come before port clause"));
+                messages.push(Message::error(
+                    token,
+                    "Generic clause must come before port clause",
+                ));
             }
             _ => break,
         }
@@ -99,7 +102,6 @@ mod tests {
     use super::*;
 
     use ast::Ident;
-    use message::error;
     use test_util::Code;
 
     fn to_component(
@@ -214,7 +216,7 @@ end
         let (result, messages) = code.with_partial_stream_messages(parse_optional_generic_list);
         assert_eq!(
             messages,
-            vec![error(
+            vec![Message::error(
                 &code.s("generic", 2).pos(),
                 "Duplicate generic clause"
             )]
@@ -238,7 +240,7 @@ end
         let (result, messages) = code.with_partial_stream_messages(parse_optional_port_list);
         assert_eq!(
             messages,
-            vec![error(code.s("port", 2), "Duplicate port clause")]
+            vec![Message::error(code.s("port", 2), "Duplicate port clause")]
         );
         assert_eq!(result, Ok(Some(vec![code.s1("foo : natural").port()])),);
     }
@@ -259,7 +261,7 @@ end
         let (result, messages) = code.with_partial_stream_messages(parse_optional_port_list);
         assert_eq!(
             messages,
-            vec![error(
+            vec![Message::error(
                 code.s1("generic"),
                 "Generic clause must come before port clause"
             )]

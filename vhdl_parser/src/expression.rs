@@ -9,7 +9,7 @@ use ast::{
     Name, QualifiedExpression, Range, RangeConstraint, ResolutionIndication, SubtypeConstraint,
     SubtypeIndication, Unary,
 };
-use message::{error, ParseResult};
+use message::{Message, ParseResult};
 use names::{parse_name, parse_name_initial_token, to_selected_name};
 use source::WithPos;
 use tokenizer::Kind::*;
@@ -107,14 +107,14 @@ pub fn parse_aggregate_initial_choices(
                     result.push(ElementAssociation::Positional(choice.clone()));
                     return Ok(WithPos::from(result, token))
                 } else {
-                    return Err(error(&token, "Expected => after others"));
+                    return Err(Message::error(&token, "Expected => after others"));
                 }
             },
             Comma => {
                 if let &[Choice::Expression(ref choice)] = choices.as_slice() {
                     result.push(ElementAssociation::Positional(choice.clone()));
                 } else {
-                    return Err(error(&token, "Expected => after others"));
+                    return Err(Message::error(&token, "Expected => after others"));
                 }
                 choices = parse_choices(stream)?;
             },
@@ -208,7 +208,7 @@ fn name_to_subtype_indication(name: &WithPos<Name>) -> ParseResult<SubtypeIndica
             type_mark: to_selected_name(prefix)?,
             constraint: Some(SubtypeConstraint::Array(vec![discrete_range.clone()], None)),
         }),
-        _ => Err(error(
+        _ => Err(Message::error(
             &name,
             "Expected subtype indication or qualified expression",
         )),
@@ -359,7 +359,7 @@ fn parse_primary_initial_token(
                     pos: pos,
                 })
             } else {
-                Err(error(&token, "Expected {expression}"))
+                Err(Message::error(&token, "Expected {expression}"))
             }
         }
     }
@@ -1076,18 +1076,21 @@ mod tests {
         let code = Code::new("fun(,)");
         assert_eq!(
             code.with_partial_stream(parse_expression),
-            Err(error(&code.s1(",").pos(), "Expected {expression}"))
+            Err(Message::error(&code.s1(",").pos(), "Expected {expression}"))
         );
 
         let code = Code::new("fun(arg0,)");
         assert_eq!(
             code.with_partial_stream(parse_expression),
-            Err(error(&code.s1(")").pos(), "Expected {expression}"))
+            Err(Message::error(&code.s1(")").pos(), "Expected {expression}"))
         );
         let code = Code::new("fun(arg0,,)");
         assert_eq!(
             code.with_partial_stream(parse_expression),
-            Err(error(&code.s(",", 2).pos(), "Expected {expression}"))
+            Err(Message::error(
+                &code.s(",", 2).pos(),
+                "Expected {expression}"
+            ))
         );
     }
 
