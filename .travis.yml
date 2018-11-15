@@ -1,24 +1,50 @@
+sudo: required
+
+services:
+  - docker
+
 language: rust
+
+cache: cargo
+
+rust:
+  - stable
+  - nightly
 
 env:
   global:
-    secure: HCIhhVrX0hLJtnPGHzIaw60y4XDu9ZF6nHsDVqhWTukzM/J8jDoufVP70mm/dhTpIkrMHhs05/x9BRNqwHObuTW82SlyENs9714r9nljVD/qwy6I2gRbUPXY9p5CTeNeRrzkcaZa4nZ7lQ1R4GqlviH1bJfYqT0tO0wq+3LMvTdY2VCptfwUZZpfkQFw2F2uK4gFMnnJOiCHizbttdv7ZlSi75ngS+q+G0g6QAgUA4Xe5uo9KvNLJpNpQ4aQulyn4UuHBX+Nfqq1tq+UdxaLdXZOB7VWK/3BYnl9kSuFQMQoZ4DIGgYnURL39wsXmawkT7YIuhoHN4o3M7Z0Ay0lcTEq03ev9oMyxz4v/oQKpCBVUdbKL15IQsOrDynK3vh6MEqWyoyQfpQy+VhFlrY7wOrrkOhFXOsv2+lJzfodXVvlfKAwLuvASnbFV9l+z3+JA0L1IKWgiJXeIhsz6eSkkU/vReeNVIvwBN8Dk9HDrkeKJvFGkPZDNEsQhnrJ6jRHXq0sMSA6Y2RPYcup3uLzjrgdjB6NZvDjjNWrm+1J8Na28NzCy/O95eyn3fE5HVgfCSdDmwG7H4yQIUBAlflXLvXSEaK/8JGFXhsyG8pZEwQd70HlLWglxaIFOdpymr8oskymxFfGIz/ULKi9gcvuZrrec7JW1c/YEe2g9fWWsG4=
+    - secure: HCIhhVrX0hLJtnPGHzIaw60y4XDu9ZF6nHsDVqhWTukzM/J8jDoufVP70mm/dhTpIkrMHhs05/x9BRNqwHObuTW82SlyENs9714r9nljVD/qwy6I2gRbUPXY9p5CTeNeRrzkcaZa4nZ7lQ1R4GqlviH1bJfYqT0tO0wq+3LMvTdY2VCptfwUZZpfkQFw2F2uK4gFMnnJOiCHizbttdv7ZlSi75ngS+q+G0g6QAgUA4Xe5uo9KvNLJpNpQ4aQulyn4UuHBX+Nfqq1tq+UdxaLdXZOB7VWK/3BYnl9kSuFQMQoZ4DIGgYnURL39wsXmawkT7YIuhoHN4o3M7Z0Ay0lcTEq03ev9oMyxz4v/oQKpCBVUdbKL15IQsOrDynK3vh6MEqWyoyQfpQy+VhFlrY7wOrrkOhFXOsv2+lJzfodXVvlfKAwLuvASnbFV9l+z3+JA0L1IKWgiJXeIhsz6eSkkU/vReeNVIvwBN8Dk9HDrkeKJvFGkPZDNEsQhnrJ6jRHXq0sMSA6Y2RPYcup3uLzjrgdjB6NZvDjjNWrm+1J8Na28NzCy/O95eyn3fE5HVgfCSdDmwG7H4yQIUBAlflXLvXSEaK/8JGFXhsyG8pZEwQd70HlLWglxaIFOdpymr8oskymxFfGIz/ULKi9gcvuZrrec7JW1c/YEe2g9fWWsG4=
+    - secure: "YTs6ZBUtEBaraNu4PBlL4UYJ6YshuGrIgF4KHjNKaUGRE48V8XmCetuRZigx3zatQ0n+JAt77eYUhbYb0JCm4KII2G6YvOSbmg0RFH/FNlsGOqEToBLUdFyiHel3f+uphexEMUajFzpkN035l4Z6qFt2R/cmKQRaNmkrqa4WcomIOnXZugYgDsXsAephwGp+SUI+3barnvFMO82zK36lz5GxEsDGoMttqyiPLdRLjdESUEF2pajSYDnfJ4pXEGXCjCL4o/VPFpsOpgCbNjGMrZlXGenCocAooZLrnbqgaqRTw1cq05s5qApEd8OXZ0wgZqF8594GWUztCWl8DfPFBpNylcoSpUyNEShcA9KaMHjeyaXdBzXAaS3IITJ2Nkxofps7RasSxcTCYkD5klfCS8+jbxUWx0piXbBowlrrNpjEuSBHpkebjq9k1SBi7zMHM4vX2QKgvICEdegOcsBNr36LrtaC7Z+hcwFsd2y+JATCWXbve4aO9PFM4X4Ga/Sq7sxw/2yFwI4ljqW+HW11DJ3J36JXohwP41AJ2ffizFGLS9wmXfrw8SMJRTJMlGpMal6L9ymxnN1Ih3/lfGcxByM1vtNDmWKc6IOXQ+1HQBQRoQS5hfkP8xiKETTs8WJmVxKE4cNEOPP5WDzTiEANb4JnYoPTtjNNYKAPQX074Ak="
+    - secure: "u5DazWQvRB7qzt7Qso4IR2h3JEe0iFvgdI2BO6Ks9B4hSMH0Xx4VOtqX7LR26efCUbOAsqZRz/QaWBa840mEyADFUHbaYVRIGs7oVzkF3IO8ip92fIwr0tMoTtFJLSVQ4op+LEnp9EKepjAHlaJW8pG5KnG1SnNGJcMbbaT3fhYzynDiqr7WwlcBIhZheK1gdDE51V1pM/xXWDroqXkp6nxxL6SQX9KCmii9Y1ewizODrfDHXBBNd+Tc8rrIq9wLA48dn1a2kUGUC4sCo4K15Jo6ojEhKU02Z+aa0Y7Y8CWbwUB/cbQU4Gms6fNUda2Amw4G0p712oylLo4yGgN9P+db+c5VjgRH8yy/0/xb5c5PjtMvXmt8XIpSYoyR6xCiczuA89q6C3c7ttrsTQBcjV9sUavbLxdr0drM0psKx/0SpfyWzjKjV9WYNE8Z/HnQYrmthKYg7HLmlGuGHcz5Lv4bPyUfj27Q8vQbdoLOvxrLNJuaeH04OK9lpDwe2vQIpTb0cHAThY+C9H8gLOK5ELRtQNJZomYFpxvFR0sLLugK3R2bo8jSE0KFDW/mBNweDtuCfcERE8JyrNltOmracWawVCvWcndO1HJF1xiYeVKur2KOLZ1znDfMftvGh9rg2EbDpHogu9Y0cOBjICqmlTjcDNS70yYc1pX3lj+3GnA="
+  matrix:
+    - CRATE=vhdl_parser
+    - CRATE=vhdl_ls
+
+matrix:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+
+install:
+  - rustup component add clippy-preview
+  - rustup component add rustfmt-preview
 
 script:
-  - cargo build --verbose --all
-  - cargo test --verbose --all
+  - cargo fmt --package $CRATE -- --check
+  - cargo clippy --package $CRATE || true
+  - cargo build --package $CRATE
+  - cargo test --package $CRATE
+
+before_deploy:
+  - docker build -t kraigher/$CRATE:${TRAVIS_TAG:-latest} --build-arg RUST_VERSION=$TRAVIS_RUST_VERSION --build-arg CRATE=$CRATE .
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 
 deploy:
-  # Deploy VHDL parser
   # @TODO create tag after release
   - provider: script
-    script: cd vhdl_parser/ && cargo publish --token "${CRATES_IO_TOKEN}" || true
+    script:
+      - cd $CRATE && cargo publish --token "${CRATES_IO_TOKEN}" || true
+      - docker push kraigher/$CRATE:${TRAVIS_TAG:-latest}
     on:
-      branch: master
-
-  # Deploy VHDL language server
-  # @TODO create tag after release
-  - provider: script
-    script: cd vhdl_ls/ && cargo publish --token "${CRATES_IO_TOKEN}" || true
-    on:
+      rust: stable
       branch: master
