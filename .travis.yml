@@ -12,13 +12,13 @@ deploy:
   # Deploy VHDL parser
   # @TODO create tag after release
   - provider: script
-    script: cd vhdl_parser/ && cargo publish --token "${CRATES_IO_TOKEN}"
+    script: cd vhdl_parser/ && cargo publish --token "${CRATES_IO_TOKEN}" || true
     on:
       branch: master
 
   # Deploy VHDL language server
   # @TODO create tag after release
   - provider: script
-    script: cd vhdl_ls/ && cargo publish --token "${CRATES_IO_TOKEN}"
+    script: cd vhdl_ls/ && cargo publish --token "${CRATES_IO_TOKEN}" || true
     on:
       branch: master
