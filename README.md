@@ -3,21 +3,10 @@ This repository is a collection of HDL related tools.
 
 **NOTE**: These tools are currently only recommended to be used by people interested in contributing to their development as they are still immature.
 
-I am interested in collaboration with other people especially regarding semantic analysis of VHDL.
+I am interested in [collaboration](#Collaboration) with other people especially regarding semantic analysis of VHDL.
 
 [![Join the chat at https://gitter.im/rust_hdl/Lobby](https://badges.gitter.im/rust_hdl/Lobby.svg)](https://gitter.im/rust_hdl/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Build Status](https://travis-ci.org/kraigher/rust_hdl.svg?branch=master)](https://travis-ci.org/kraigher/rust_hdl)
-
-## Why Rust?
-The tools within this repository have been written in the Rust programming language, thus the name `rust_hdl`.
-The Rust programming language was choosen over Python, C or C++ as the best suited language to write the tools in.
-The main advantages are;
-- Excellent performance
-- Strong modern type system
-- Good libraries and tools
-- Strong community and momentum
-
-To install rust and its build tool cargo: https://rustup.rs/
 
 # Projects
 # VHDL Parser
@@ -111,3 +100,24 @@ Using the language server in `emacs` with the `eglot` language server package it
 (add-to-list 'eglot-server-programs
              '(vhdl-mode . ("<PATH_TO_RUST_HDL>/target/release/vhdl_ls")))
 ```
+
+# Collaboration
+My hope is that other people will be interested in this project and contribute.
+
+Some rules for collaboration:
+- Contributions will have to assign copyright to me. Copyright is not about attribution or recognition it is about legal control of a project. Having several independent copyright holders in a project makes future changes difficult.
+  - I will add a list of notable contributors to the project to assign recognition.
+- Quality is a priorty. Code has to be elegant and well tested.
+
+Collaboration is also hard, you have to communicate with other people to do something coordinated together. Thus to collaborate we need to spend some time discussing *what*, *why* and *how* in GitHub issues or on the chat channel before diving in to the coding. This ensures that we work in the same direction.
+
+# Why Rust?
+The tools within this repository have been written in the Rust programming language, thus the name `rust_hdl`.
+The Rust programming language was choosen over Python, C or C++ as the best suited language to write the tools in.
+The main advantages are;
+- Excellent performance
+- Strong modern type system
+- Good libraries and tools
+- Strong community and momentum
+
+To install rust and its build tool cargo: https://rustup.rs/
