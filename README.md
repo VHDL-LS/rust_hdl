@@ -83,6 +83,7 @@ architecture a of uart_tx
 
 ### Status
 - Basic diagnosics based on parse errors and warnings.
+- Usable today to get full live syntax error checking.
 - Only full document sync
 
 ## Trying it out
