@@ -37,7 +37,7 @@ fn parse_library_clause_no_keyword(
 }
 
 /// LRM 12.4. Use clauses
-fn parse_use_clause_no_keyword(
+pub fn parse_use_clause_no_keyword(
     use_token: Token,
     stream: &mut TokenStream,
 ) -> ParseResult<WithPos<UseClause>> {
