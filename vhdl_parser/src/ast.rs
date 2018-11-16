@@ -970,6 +970,7 @@ pub enum ConfigurationDeclarativeItem {
 pub struct ComponentConfiguration {
     pub spec: ComponentSpecification,
     pub bind_ind: Option<BindingIndication>,
+    pub vunit_bind_inds: Option<Vec<VUnitBindingIndication>>,
     pub block_config: Option<BlockConfiguration>,
 }
 

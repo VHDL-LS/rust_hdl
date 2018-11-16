@@ -18,8 +18,8 @@ use source::WithPos;
 use tokenizer::Kind::*;
 use tokenstream::TokenStream;
 
+/// LRM 7.3.2.2
 fn parse_entity_aspect(stream: &mut TokenStream) -> ParseResult<EntityAspect> {
-    stream.expect_kind(Use)?;
     let token = stream.expect()?;
     let entity_aspect = try_token_kind!(
         token,
@@ -39,23 +39,35 @@ fn parse_entity_aspect(stream: &mut TokenStream) -> ParseResult<EntityAspect> {
             EntityAspect::Entity(entity_name, arch_name)
         }
     );
-    stream.expect_kind(SemiColon)?;
     Ok(entity_aspect)
 }
 
-fn parse_binding_indication_known_keyword(
+fn parse_binding_indication_known_entity_aspect(
+    entity_aspect: Option<EntityAspect>,
     stream: &mut TokenStream,
 ) -> ParseResult<BindingIndication> {
-    let entity_aspect = Some(parse_entity_aspect(stream)?);
     // @TODO generic map
     let generic_map = None;
     // @TODO port  map
     let port_map = None;
+    stream.expect_kind(SemiColon)?;
     Ok(BindingIndication {
         entity_aspect,
         generic_map,
         port_map,
     })
+}
+
+/// LRM 7.3.2
+fn parse_binding_indication(
+    stream: &mut TokenStream,
+) -> ParseResult<BindingIndication> {
+    let entity_aspect = if stream.skip_if_kind(Use)? {
+        Some(parse_entity_aspect(stream)?)
+    } else {
+        None
+    };
+    parse_binding_indication_known_entity_aspect(entity_aspect, stream)
 }
 
 fn parse_component_configuration_known_spec(
@@ -64,11 +76,26 @@ fn parse_component_configuration_known_spec(
     messages: &mut MessageHandler,
 ) -> ParseResult<ComponentConfiguration> {
     let token = stream.peek_expect()?;
-    let bind_ind = try_token_kind!(
+    let (bind_ind, vunit_bind_inds) = try_token_kind!(
         token,
-        End => None,
-        For => None,
-        Use => Some(parse_binding_indication_known_keyword(stream)?)
+        End => (None, None),
+        For => (None, None),
+        Use => {
+            stream.move_after(&token);
+            if stream.peek_kind()? == Some(Vunit) {
+                let vunit_bind_inds = parse_vunit_binding_indication_list_known_keyword(stream)?;
+                (None, Some(vunit_bind_inds))
+            } else {
+                let aspect = parse_entity_aspect(stream)?;
+                let bind_ind = parse_binding_indication_known_entity_aspect(Some(aspect), stream)?;
+
+                if stream.skip_if_kind(Use)? {
+                    (Some(bind_ind), Some(parse_vunit_binding_indication_list_known_keyword(stream)?))
+                } else {
+                    (Some(bind_ind), None)
+                }
+            }
+        }
     );
 
     let token = stream.expect()?;
@@ -87,6 +114,7 @@ fn parse_component_configuration_known_spec(
     Ok(ComponentConfiguration {
         spec,
         bind_ind,
+        vunit_bind_inds,
         block_config,
     })
 }
@@ -303,7 +331,7 @@ pub fn parse_configuration_specification(
     stream.expect_kind(For)?;
     match parse_component_specification_or_name(stream)? {
         ComponentSpecificationOrName::ComponentSpec(spec) => {
-            let bind_ind = parse_binding_indication_known_keyword(stream)?;
+            let bind_ind = parse_binding_indication(stream)?;
             if stream.skip_if_kind(Use)? {
                 let vunit_bind_inds = parse_vunit_binding_indication_list_known_keyword(stream)?;
                 stream.expect_kind(End)?;
@@ -519,6 +547,62 @@ end configuration cfg;
                             component_name: code.s1("lib.pkg.comp").selected_name()
                         },
                         bind_ind: None,
+                        vunit_bind_inds: None,
+                        block_config: Some(BlockConfiguration {
+                            block_spec: code.s1("arch").name(),
+                            use_clauses: vec![],
+                            items: vec![],
+                        }),
+                    }),],
+                })
+            }
+        );
+    }
+
+    #[test]
+    fn configuration_component_configuration_vunit_binding_indication() {
+        let code = Code::new(
+            "\
+configuration cfg of entity_name is
+  for rtl(0)
+    for inst : lib.pkg.comp
+      use entity work.bar;
+      use vunit baz;
+      for arch
+      end for;
+    end for;
+  end for;
+end configuration cfg;
+",
+        );
+        assert_eq!(
+            code.with_stream_no_messages(parse_configuration_declaration),
+            ConfigurationDeclaration {
+                ident: code.s1("cfg").ident(),
+                entity_name: code.s1("entity_name").selected_name(),
+                decl: vec![],
+                vunit_bind_inds: None,
+                block_config: Some(BlockConfiguration {
+                    block_spec: code.s1("rtl(0)").name(),
+                    use_clauses: vec![],
+                    items: vec![ConfigurationItem::Component(ComponentConfiguration {
+                        spec: ComponentSpecification {
+                            instantiation_list: InstantiationList::Labels(vec![
+                                code.s1("inst").ident()
+                            ]),
+                            component_name: code.s1("lib.pkg.comp").selected_name()
+                        },
+                        bind_ind: Some( BindingIndication {
+                            entity_aspect: Some(EntityAspect::Entity(
+                                code.s1("work.bar").selected_name(),
+                                None
+                            )),
+                            generic_map: None,
+                            port_map: None
+                        }),
+                        vunit_bind_inds: Some(vec![
+                            VUnitBindingIndication { vunit_list: vec![ code.s1("baz").name() ] },
+                        ]),
                         block_config: Some(BlockConfiguration {
                             block_spec: code.s1("arch").name(),
                             use_clauses: vec![],
@@ -568,6 +652,7 @@ end configuration cfg;
                             generic_map: None,
                             port_map: None,
                         }),
+                        vunit_bind_inds: None,
                         block_config: None,
                     }),],
                 })
@@ -612,6 +697,7 @@ end configuration cfg;
                                 component_name: code.s1("lib.pkg.comp").selected_name()
                             },
                             bind_ind: None,
+                            vunit_bind_inds: None,
                             block_config: None,
                         }),
                         ConfigurationItem::Component(ComponentConfiguration {
@@ -624,6 +710,7 @@ end configuration cfg;
                                 component_name: code.s1("lib2.pkg.comp").selected_name()
                             },
                             bind_ind: None,
+                            vunit_bind_inds: None,
                             block_config: None,
                         }),
                         ConfigurationItem::Component(ComponentConfiguration {
@@ -632,6 +719,7 @@ end configuration cfg;
                                 component_name: code.s1("lib3.pkg.comp").selected_name()
                             },
                             bind_ind: None,
+                            vunit_bind_inds: None,
                             block_config: None,
                         }),
                         ConfigurationItem::Component(ComponentConfiguration {
@@ -640,6 +728,7 @@ end configuration cfg;
                                 component_name: code.s1("lib4.pkg.comp").selected_name()
                             },
                             bind_ind: None,
+                        vunit_bind_inds: None,
                             block_config: None,
                         })
                     ],
@@ -650,7 +739,7 @@ end configuration cfg;
 
     #[test]
     fn entity_entity_aspect_entity() {
-        let code = Code::new("use entity lib.foo.name;");
+        let code = Code::new("entity lib.foo.name");
         assert_eq!(
             code.with_stream(parse_entity_aspect),
             EntityAspect::Entity(code.s1("lib.foo.name").selected_name(), None)
@@ -659,7 +748,7 @@ end configuration cfg;
 
     #[test]
     fn entity_entity_aspect_entity_arch() {
-        let code = Code::new("use entity lib.foo.name(arch);");
+        let code = Code::new("entity lib.foo.name(arch)");
         assert_eq!(
             code.with_stream(parse_entity_aspect),
             EntityAspect::Entity(
@@ -671,7 +760,7 @@ end configuration cfg;
 
     #[test]
     fn entity_entity_aspect_configuration() {
-        let code = Code::new("use configuration lib.foo.name;");
+        let code = Code::new("configuration lib.foo.name");
         assert_eq!(
             code.with_stream(parse_entity_aspect),
             EntityAspect::Configuration(code.s1("lib.foo.name").selected_name())
@@ -680,7 +769,7 @@ end configuration cfg;
 
     #[test]
     fn entity_entity_aspect_open() {
-        let code = Code::new("use open;");
+        let code = Code::new("open");
         assert_eq!(code.with_stream(parse_entity_aspect), EntityAspect::Open);
     }
 
