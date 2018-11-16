@@ -59,9 +59,7 @@ fn parse_binding_indication_known_entity_aspect(
 }
 
 /// LRM 7.3.2
-fn parse_binding_indication(
-    stream: &mut TokenStream,
-) -> ParseResult<BindingIndication> {
+fn parse_binding_indication(stream: &mut TokenStream) -> ParseResult<BindingIndication> {
     let entity_aspect = if stream.skip_if_kind(Use)? {
         Some(parse_entity_aspect(stream)?)
     } else {
@@ -293,8 +291,10 @@ pub fn parse_configuration_declaration(
                     break Some(parse_vunit_binding_indication_list_known_keyword(stream)?);
                 }
 
-                decl.push(ConfigurationDeclarativeItem::Use(parse_use_clause_no_keyword(token, stream)?));
-            },
+                decl.push(ConfigurationDeclarativeItem::Use(
+                    parse_use_clause_no_keyword(token, stream)?,
+                ));
+            }
             _ => break None,
         }
     };
@@ -305,7 +305,6 @@ pub fn parse_configuration_declaration(
     } else {
         None
     };
-
 
     stream.expect_kind(End)?;
     stream.pop_if_kind(Configuration)?;
@@ -323,7 +322,6 @@ pub fn parse_configuration_declaration(
     })
 }
 
-
 /// LRM 7.3 Configuration Specification
 pub fn parse_configuration_specification(
     stream: &mut TokenStream,
@@ -337,14 +335,21 @@ pub fn parse_configuration_specification(
                 stream.expect_kind(End)?;
                 stream.expect_kind(For)?;
                 stream.expect_kind(SemiColon)?;
-                Ok(ConfigurationSpecification::Compound(CompoundConfigurationSpecification { spec, bind_ind, vunit_bind_inds }))
-
+                Ok(ConfigurationSpecification::Compound(
+                    CompoundConfigurationSpecification {
+                        spec,
+                        bind_ind,
+                        vunit_bind_inds,
+                    },
+                ))
             } else {
                 if stream.skip_if_kind(End)? {
                     stream.expect_kind(For)?;
                     stream.expect_kind(SemiColon)?;
                 }
-                Ok(ConfigurationSpecification::Simple(SimpleConfigurationSpecification { spec, bind_ind }))
+                Ok(ConfigurationSpecification::Simple(
+                    SimpleConfigurationSpecification { spec, bind_ind },
+                ))
             }
         }
         ComponentSpecificationOrName::Name(name) => {
@@ -437,12 +442,12 @@ end configuration cfg;
             ConfigurationDeclaration {
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
-                decl: vec![
-                    ConfigurationDeclarativeItem::Use(code.s1("use lib.foo.bar;").use_clause()),
-                ],
-                vunit_bind_inds: Some(vec![
-                    VUnitBindingIndication { vunit_list: vec![ code.s1("baz.foobar").name() ] }
-                ]),
+                decl: vec![ConfigurationDeclarativeItem::Use(
+                    code.s1("use lib.foo.bar;").use_clause()
+                ),],
+                vunit_bind_inds: Some(vec![VUnitBindingIndication {
+                    vunit_list: vec![code.s1("baz.foobar").name()]
+                }]),
                 block_config: None
             }
         );
@@ -592,7 +597,7 @@ end configuration cfg;
                             ]),
                             component_name: code.s1("lib.pkg.comp").selected_name()
                         },
-                        bind_ind: Some( BindingIndication {
+                        bind_ind: Some(BindingIndication {
                             entity_aspect: Some(EntityAspect::Entity(
                                 code.s1("work.bar").selected_name(),
                                 None
@@ -600,9 +605,9 @@ end configuration cfg;
                             generic_map: None,
                             port_map: None
                         }),
-                        vunit_bind_inds: Some(vec![
-                            VUnitBindingIndication { vunit_list: vec![ code.s1("baz").name() ] },
-                        ]),
+                        vunit_bind_inds: Some(vec![VUnitBindingIndication {
+                            vunit_list: vec![code.s1("baz").name()]
+                        },]),
                         block_config: Some(BlockConfiguration {
                             block_spec: code.s1("arch").name(),
                             use_clauses: vec![],
@@ -728,7 +733,7 @@ end configuration cfg;
                                 component_name: code.s1("lib4.pkg.comp").selected_name()
                             },
                             bind_ind: None,
-                        vunit_bind_inds: None,
+                            vunit_bind_inds: None,
                             block_config: None,
                         })
                     ],
@@ -779,22 +784,20 @@ end configuration cfg;
 
         assert_eq!(
             code.with_stream(parse_configuration_specification),
-            ConfigurationSpecification::Simple (
-                SimpleConfigurationSpecification {
-                    spec: ComponentSpecification {
-                        instantiation_list: InstantiationList::All,
-                        component_name: code.s1("lib.pkg.comp").selected_name(),
-                    },
-                    bind_ind: BindingIndication {
-                        entity_aspect: Some(EntityAspect::Entity(
-                            code.s1("work.foo").selected_name(),
-                            Some(code.s1("rtl").ident())
-                        )),
-                        generic_map: None,
-                        port_map: None
-                    }
+            ConfigurationSpecification::Simple(SimpleConfigurationSpecification {
+                spec: ComponentSpecification {
+                    instantiation_list: InstantiationList::All,
+                    component_name: code.s1("lib.pkg.comp").selected_name(),
+                },
+                bind_ind: BindingIndication {
+                    entity_aspect: Some(EntityAspect::Entity(
+                        code.s1("work.foo").selected_name(),
+                        Some(code.s1("rtl").ident())
+                    )),
+                    generic_map: None,
+                    port_map: None
                 }
-            )
+            })
         );
     }
 
@@ -804,50 +807,48 @@ end configuration cfg;
 
         assert_eq!(
             code.with_stream(parse_configuration_specification),
-            ConfigurationSpecification::Simple (
-                SimpleConfigurationSpecification {
-                    spec: ComponentSpecification {
-                        instantiation_list: InstantiationList::All,
-                        component_name: code.s1("lib.pkg.comp").selected_name(),
-                    },
-                    bind_ind: BindingIndication {
-                        entity_aspect: Some(EntityAspect::Entity(
-                            code.s1("work.foo").selected_name(),
-                            Some(code.s1("rtl").ident())
-                        )),
-                        generic_map: None,
-                        port_map: None
-                    }
+            ConfigurationSpecification::Simple(SimpleConfigurationSpecification {
+                spec: ComponentSpecification {
+                    instantiation_list: InstantiationList::All,
+                    component_name: code.s1("lib.pkg.comp").selected_name(),
+                },
+                bind_ind: BindingIndication {
+                    entity_aspect: Some(EntityAspect::Entity(
+                        code.s1("work.foo").selected_name(),
+                        Some(code.s1("rtl").ident())
+                    )),
+                    generic_map: None,
+                    port_map: None
                 }
-            )
+            })
         );
     }
 
     #[test]
     fn compound_configuration_specification() {
-        let code = Code::new("for all : lib.pkg.comp use entity work.foo(rtl); use vunit bar, baz; end for;");
+        let code = Code::new(
+            "for all : lib.pkg.comp use entity work.foo(rtl); use vunit bar, baz; end for;",
+        );
 
         assert_eq!(
             code.with_stream(parse_configuration_specification),
-            ConfigurationSpecification::Compound (
-                CompoundConfigurationSpecification {
-                    spec: ComponentSpecification {
-                        instantiation_list: InstantiationList::All,
-                        component_name: code.s1("lib.pkg.comp").selected_name(),
-                    },
-                    bind_ind: BindingIndication {
-                        entity_aspect: Some(EntityAspect::Entity(
-                            code.s1("work.foo").selected_name(),
-                            Some(code.s1("rtl").ident())
-                        )),
-                        generic_map: None,
-                        port_map: None
-                    },
-                    vunit_bind_inds: vec![
-                        VUnitBindingIndication { vunit_list: vec![ code.s1("bar").name(), code.s1("baz").name() ] }
-                    ],
-                }
-            )
+            ConfigurationSpecification::Compound(CompoundConfigurationSpecification {
+                spec: ComponentSpecification {
+                    instantiation_list: InstantiationList::All,
+                    component_name: code.s1("lib.pkg.comp").selected_name(),
+                },
+                bind_ind: BindingIndication {
+                    entity_aspect: Some(EntityAspect::Entity(
+                        code.s1("work.foo").selected_name(),
+                        Some(code.s1("rtl").ident())
+                    )),
+                    generic_map: None,
+                    port_map: None
+                },
+                vunit_bind_inds: vec![VUnitBindingIndication {
+                    vunit_list: vec![code.s1("bar").name(), code.s1("baz").name()]
+                }],
+            })
         );
     }
 }

@@ -928,13 +928,11 @@ pub struct ComponentSpecification {
     pub component_name: SelectedName,
 }
 
-
 /// LRM 7.3.4 Verification unit binding indication
 #[derive(PartialEq, Debug, Clone)]
 pub struct VUnitBindingIndication {
     pub vunit_list: Vec<WithPos<Name>>,
 }
-
 
 /// LRM 7.3 Compound Configuration specification
 #[derive(PartialEq, Debug, Clone)]
