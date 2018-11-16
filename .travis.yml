@@ -36,7 +36,7 @@ script:
 
 before_deploy:
   - docker build -t kraigher/$CRATE:${TRAVIS_TAG:-latest} --build-arg RUST_VERSION=$TRAVIS_RUST_VERSION --build-arg CRATE=$CRATE .
-   - echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
+  - echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
 
 deploy:
   # @TODO create tag after release
