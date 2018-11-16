@@ -298,12 +298,8 @@ pub fn parse_configuration_declaration(
         }
     };
 
-    let block_config = if stream.skip_if_kind(For)? {
-        let block_config = parse_block_configuration_known_keyword(stream, messages)?;
-        Some(block_config)
-    } else {
-        None
-    };
+    stream.expect_kind(For)?;
+    let block_config = parse_block_configuration_known_keyword(stream, messages)?;
 
     stream.expect_kind(End)?;
     stream.pop_if_kind(Configuration)?;
@@ -367,6 +363,8 @@ mod tests {
         let code = Code::new(
             "\
 configuration cfg of entity_name is
+  for rtl(0)
+  end for;
 end;
 ",
         );
@@ -377,7 +375,11 @@ end;
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
-                block_config: None
+                block_config: BlockConfiguration {
+                    block_spec: code.s1("rtl(0)").name(),
+                    use_clauses: vec![],
+                    items: vec![],
+                }
             }
         );
     }
@@ -387,6 +389,8 @@ end;
         let code = Code::new(
             "\
 configuration cfg of entity_name is
+  for rtl(0)
+  end for;
 end configuration cfg;
 ",
         );
@@ -397,7 +401,11 @@ end configuration cfg;
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
-                block_config: None
+                block_config: BlockConfiguration {
+                    block_spec: code.s1("rtl(0)").name(),
+                    use_clauses: vec![],
+                    items: vec![],
+                }
             }
         );
     }
@@ -408,6 +416,8 @@ end configuration cfg;
 configuration cfg of entity_name is
   use lib.foo.bar;
   use lib2.foo.bar;
+  for rtl(0)
+  end for;
 end configuration cfg;
 ",
         );
@@ -421,7 +431,11 @@ end configuration cfg;
                     ConfigurationDeclarativeItem::Use(code.s1("use lib2.foo.bar;").use_clause())
                 ],
                 vunit_bind_inds: Vec::new(),
-                block_config: None
+                block_config: BlockConfiguration {
+                    block_spec: code.s1("rtl(0)").name(),
+                    use_clauses: vec![],
+                    items: vec![],
+                }
             }
         );
     }
@@ -433,6 +447,8 @@ end configuration cfg;
 configuration cfg of entity_name is
   use lib.foo.bar;
   use vunit baz.foobar;
+  for rtl(0)
+  end for;
 end configuration cfg;
 ",
         );
@@ -447,7 +463,11 @@ end configuration cfg;
                 vunit_bind_inds: vec![VUnitBindingIndication {
                     vunit_list: vec![code.s1("baz.foobar").name()]
                 }],
-                block_config: None
+                block_config: BlockConfiguration {
+                    block_spec: code.s1("rtl(0)").name(),
+                    use_clauses: vec![],
+                    items: vec![],
+                }
             }
         );
     }
@@ -469,11 +489,11 @@ end configuration cfg;
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
-                block_config: Some(BlockConfiguration {
+                block_config: BlockConfiguration {
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![],
-                })
+                }
             }
         );
     }
@@ -499,7 +519,7 @@ end configuration cfg;
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
-                block_config: Some(BlockConfiguration {
+                block_config: BlockConfiguration {
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![
@@ -514,7 +534,7 @@ end configuration cfg;
                             items: vec![],
                         })
                     ],
-                })
+                }
             }
         );
     }
@@ -540,7 +560,7 @@ end configuration cfg;
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
-                block_config: Some(BlockConfiguration {
+                block_config: BlockConfiguration {
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![ConfigurationItem::Component(ComponentConfiguration {
@@ -558,7 +578,7 @@ end configuration cfg;
                             items: vec![],
                         }),
                     }),],
-                })
+                }
             }
         );
     }
@@ -586,7 +606,7 @@ end configuration cfg;
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
-                block_config: Some(BlockConfiguration {
+                block_config: BlockConfiguration {
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![ConfigurationItem::Component(ComponentConfiguration {
@@ -613,7 +633,7 @@ end configuration cfg;
                             items: vec![],
                         }),
                     }),],
-                })
+                }
             }
         );
     }
@@ -638,7 +658,7 @@ end configuration cfg;
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
-                block_config: Some(BlockConfiguration {
+                block_config: BlockConfiguration {
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![ConfigurationItem::Component(ComponentConfiguration {
@@ -659,7 +679,7 @@ end configuration cfg;
                         vunit_bind_inds: Vec::new(),
                         block_config: None,
                     }),],
-                })
+                }
             }
         );
     }
@@ -689,7 +709,7 @@ end configuration cfg;
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
-                block_config: Some(BlockConfiguration {
+                block_config: BlockConfiguration {
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![
@@ -736,7 +756,7 @@ end configuration cfg;
                             block_config: None,
                         })
                     ],
-                })
+                }
             }
         );
     }
