@@ -928,12 +928,18 @@ pub struct ComponentSpecification {
     pub component_name: SelectedName,
 }
 
+/// LRM 7.3.4 Verification unit binding indication
+#[derive(PartialEq, Debug, Clone)]
+pub struct VUnitBindingIndication {
+    pub vunit_list: Vec<WithPos<Name>>,
+}
+
 /// LRM 7.3 Configuration specification
-// @TODO There is also compound
 #[derive(PartialEq, Debug, Clone)]
 pub struct ConfigurationSpecification {
     pub spec: ComponentSpecification,
     pub bind_ind: BindingIndication,
+    pub vunit_bind_inds: Vec<VUnitBindingIndication>,
 }
 
 /// LRM 3.4 Configuration declarations
@@ -948,6 +954,7 @@ pub enum ConfigurationDeclarativeItem {
 pub struct ComponentConfiguration {
     pub spec: ComponentSpecification,
     pub bind_ind: Option<BindingIndication>,
+    pub vunit_bind_inds: Vec<VUnitBindingIndication>,
     pub block_config: Option<BlockConfiguration>,
 }
 
@@ -972,6 +979,7 @@ pub struct ConfigurationDeclaration {
     pub ident: Ident,
     pub entity_name: SelectedName,
     pub decl: Vec<ConfigurationDeclarativeItem>,
+    pub vunit_bind_inds: Vec<VUnitBindingIndication>,
     pub block_config: Option<BlockConfiguration>,
 }
 
