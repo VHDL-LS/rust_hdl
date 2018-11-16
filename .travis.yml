@@ -12,9 +12,6 @@ rust:
   - nightly
 
 env:
-  global:
-    # CRATES_IO_TOKEN
-    - secure: HCIhhVrX0hLJtnPGHzIaw60y4XDu9ZF6nHsDVqhWTukzM/J8jDoufVP70mm/dhTpIkrMHhs05/x9BRNqwHObuTW82SlyENs9714r9nljVD/qwy6I2gRbUPXY9p5CTeNeRrzkcaZa4nZ7lQ1R4GqlviH1bJfYqT0tO0wq+3LMvTdY2VCptfwUZZpfkQFw2F2uK4gFMnnJOiCHizbttdv7ZlSi75ngS+q+G0g6QAgUA4Xe5uo9KvNLJpNpQ4aQulyn4UuHBX+Nfqq1tq+UdxaLdXZOB7VWK/3BYnl9kSuFQMQoZ4DIGgYnURL39wsXmawkT7YIuhoHN4o3M7Z0Ay0lcTEq03ev9oMyxz4v/oQKpCBVUdbKL15IQsOrDynK3vh6MEqWyoyQfpQy+VhFlrY7wOrrkOhFXOsv2+lJzfodXVvlfKAwLuvASnbFV9l+z3+JA0L1IKWgiJXeIhsz6eSkkU/vReeNVIvwBN8Dk9HDrkeKJvFGkPZDNEsQhnrJ6jRHXq0sMSA6Y2RPYcup3uLzjrgdjB6NZvDjjNWrm+1J8Na28NzCy/O95eyn3fE5HVgfCSdDmwG7H4yQIUBAlflXLvXSEaK/8JGFXhsyG8pZEwQd70HlLWglxaIFOdpymr8oskymxFfGIz/ULKi9gcvuZrrec7JW1c/YEe2g9fWWsG4=
   matrix:
     - CRATE=vhdl_parser
     - CRATE=vhdl_ls
