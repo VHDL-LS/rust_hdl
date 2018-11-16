@@ -94,6 +94,7 @@ pub enum Kind {
     Impure,
     Function,
     Procedure,
+    Vunit,
 
     // Unary operators
     Abs,
@@ -293,6 +294,7 @@ pub fn kind_str(kind: &Kind) -> &'static str {
         Impure => &"impure",
         Function => &"function",
         Procedure => &"procedure",
+        Vunit => &"vunit",
 
         // Unary operators
         Abs => &"abs",
@@ -1022,6 +1024,7 @@ impl Tokenizer {
             ("ror", ROR),
             ("mod", Mod),
             ("rem", Rem),
+            ("vunit", Vunit),
         ];
 
         let keywords: FnvHashMap<&[u8], Kind> = keywords
