@@ -49,6 +49,12 @@ impl PartialEq for Symbol {
     }
 }
 
+impl std::fmt::Display for Symbol {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.name_utf8())
+    }
+}
+
 impl std::hash::Hash for Symbol {
     fn hash<H: std::hash::Hasher>(&self, hasher: &mut H) {
         self.id.hash(hasher);
