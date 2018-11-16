@@ -92,7 +92,7 @@ pub fn parse_architecture_body(
 }
 
 /// LRM 4.7 Package declarations
-fn parse_package_declaration(
+pub fn parse_package_declaration(
     stream: &mut TokenStream,
     messages: &mut MessageHandler,
 ) -> ParseResult<PackageDeclaration> {
@@ -125,7 +125,7 @@ fn parse_package_declaration(
 }
 
 /// LRM 4.8 Package bodies
-fn parse_package_body(
+pub fn parse_package_body(
     stream: &mut TokenStream,
     messages: &mut MessageHandler,
 ) -> ParseResult<PackageBody> {

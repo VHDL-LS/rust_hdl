@@ -8,7 +8,10 @@ use ast::*;
 use concurrent_statement::parse_labeled_concurrent_statement;
 use context::{parse_library_clause, parse_use_clause};
 use declarative_part::parse_declarative_part_leave_end_token;
-use design_unit::{parse_architecture_body, parse_entity_declaration};
+use design_unit::{
+    parse_architecture_body, parse_design_file, parse_entity_declaration, parse_package_body,
+    parse_package_declaration,
+};
 use expression::{parse_aggregate, parse_choices, parse_expression};
 use interface_declaration::{parse_generic, parse_parameter, parse_port};
 use latin_1::Latin1String;
@@ -64,6 +67,23 @@ impl Code {
     /// Create new Code from first n:th occurence of substr
     pub fn s1(&self, substr: &str) -> Code {
         self.s(substr, 1)
+    }
+
+    /// Create new code between two substring matches
+    pub fn between(&self, start: &str, end: &str) -> Code {
+        let start = self.pos.substr_pos(&self.source, start, 1);
+        let trailing = self.source.pos(
+            start.start,
+            self.pos.length - (start.start - self.pos.start),
+        );
+        let end = trailing.substr_pos(&self.source, end, 1);
+        let length = (end.start + end.length) - start.start;
+
+        Code {
+            source: self.source.clone(),
+            symtab: self.symtab.clone(),
+            pos: self.source.pos(start.start, length),
+        }
     }
 
     pub fn pos(self: &Self) -> SrcPos {
@@ -225,7 +245,7 @@ impl Code {
 
     /// Return symbol from symbol table
     pub fn symbol(&self, name: &str) -> Symbol {
-        self.symtab.lookup_utf8(name).unwrap()
+        self.symtab.insert_utf8(name)
     }
 
     pub fn subtype_indication(&self) -> SubtypeIndication {
@@ -307,6 +327,18 @@ impl Code {
 
     pub fn entity(&self) -> EntityDeclaration {
         self.parse_ok_no_messages(parse_entity_declaration)
+    }
+
+    pub fn package(&self) -> PackageDeclaration {
+        self.parse_ok_no_messages(parse_package_declaration)
+    }
+
+    pub fn package_body(&self) -> PackageBody {
+        self.parse_ok_no_messages(parse_package_body)
+    }
+
+    pub fn design_file(&self) -> DesignFile {
+        self.parse_ok_no_messages(parse_design_file)
     }
 
     pub fn architecture(&self) -> ArchitectureBody {

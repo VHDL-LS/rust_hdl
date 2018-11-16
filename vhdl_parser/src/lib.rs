@@ -19,6 +19,7 @@ mod design_unit;
 mod expression;
 mod interface_declaration;
 mod latin_1;
+mod library;
 pub mod message;
 mod names;
 mod object_declaration;

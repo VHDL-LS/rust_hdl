@@ -75,13 +75,6 @@ impl SymbolTable {
         }
     }
 
-    /// Lookup symbol without adding to the table
-    #[cfg(test)]
-    pub fn lookup_utf8(&self, name: &str) -> Option<Symbol> {
-        let name = Latin1String::from_utf8_unchecked(name);
-        self.lookup(&name)
-    }
-
     #[cfg(test)]
     pub fn insert_utf8(&self, name: &str) -> Symbol {
         let name = Latin1String::from_utf8_unchecked(name);
