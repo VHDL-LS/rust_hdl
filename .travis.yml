@@ -11,7 +11,6 @@ rust:
   - stable
   - nightly
 
-
 env:
   global:
     # CRATES_IO_TOKEN
@@ -20,17 +19,14 @@ env:
     - secure: 4jkknU2lJ8YbXlO1nvLtHY1PNz8+qCVRpNVbrMD4TDIcD+5YKBhqdZOOPyEnZa3EaFU2bnK8dn52IOmZJ9Vmp7j4fqqW5Ls8prwqRr1FWVuI0SmDownM0CQJBVuoupli47R5fIKsqJmgirg2j+uXygC8kysbRU/9nKq4IyYM7B4DlKno7ANUImdqXuj43sokWpuJvRWwkwjfEEDhm0cuaClPtr9VoyNACZ2/jOGUiJz1tvxfaGepM9YyBKC7y/nx8jHxOhWBYuHbP/Y8yCf39UmmxmJu5GYvOvOK2BBSrQksJtL3tyapAJjIogUZJ/mL67ThlzPj7wLLX/GVqrupbk2834uWzuwigOeJOa9XMMv7fTqlXBT9JqzgChPSH5W6mgTWBsA1z6IRvqWCylNT9Fv7z85UqLy4yxcoZ3dVvdU+ocY6RrEGDCxZsQw8SMrjFoXY2GD8jw1M2skPZOouHigoqKnIBGK1cBjINJiY4wI1/vZxiRSgWI/cTmhNg2Q7KxQh5wiwU36xHsYWjuv6ChEd4Kro1kSqWNwMZnhwSK9RS49o8y7tX0+++Tt22F8dopN6MSLCi3d1pvBt8lsyOq5jtsRNwbI111MA3hloogIhqqofp9vSy1GNG0rGFD3GaimUItvWFAV3pxqU9k6RqEpMz4u+JYX8appaWeGo1ZU=
     # DOCKER_PASSWORD
     - secure: zWmC0Wolae9Z4tVqrQRy2vwOtPUgKTK9nac37cGBdBfjsGBAtQzb4mW02Zd6ByLmUfIhSTDgsxMHh5nGcDmAVBKkxZcp2zaYuAGfJmHSQhNGI21hiX/fkaWAWtXNQcebWrO/CRKXNLSfLLxr7/dlC4wkRS2yphvzMDVb1AkuvZ/cawmpN9z+yIWR0sAdTc0xGKb8CkUTGd38nxCAt6E6jUjk2NhzfoOzTyTOiW3C4BZpUnWE9PgPUTrTdZtxTQ4SlIdvE2Snd18vgrjVHkpdMsHzlqhEcECeYhnPSLHhstpCsulXNMPNtf+xPhS1PWGzlHxP7oGxvBUeJrvHfDxnVujnFFBGxAk/qJ8y+Jn/IuVdTwDyALMpXnDqAZAWGBVOUQwf/WzxkKRg6aiMBJ0sybGrU2YKZCFiIp1DHoNRGdE2mIMdReR7s1j99H0qOFtUnHIaRJP/e3A3OR8FreCDwslmK/6HJbTqvyfRRiPVfmw/ry8+ILQka0raO0p8Ly/1jsXV0O40DZl/fn/+vmSS/5KnGYzQhdfYlB77LHIEIelyTVjqJcIDGSG3yK8PKWX/LWA1bu0L4MXMgVqG+wrc2biMCGrSBNk57W4wBp+yTm5ZtF3CYFthBD8IG/JaOKlBw8ooRvUanUpSfHV1Q1lKMUH93zCKGDOb+NnOXru511s=
+  matrix:
+    - CRATE=vhdl_parser
+    - CRATE=vhdl_ls
 
 matrix:
   allow_failures:
     - rust: nightly
   fast_finish: true
-
-  include:
-    - env:
-        - CRATE=vhdl_parser
-    - env:
-        - CRATE=vhdl_ls
 
 install:
   - rustup component add clippy-preview
@@ -44,14 +40,14 @@ script:
 
 before_deploy:
   - docker build -t kraigher/$CRATE:${TRAVIS_TAG:-latest} --build-arg RUST_VERSION=$TRAVIS_RUST_VERSION --build-arg CRATE=$CRATE .
-  - echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
+#   - echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
 
 deploy:
   # @TODO create tag after release
   - provider: script
     script:
       - cd $CRATE && cargo publish --token "${CRATES_IO_TOKEN}" || true
-      - docker push kraigher/$CRATE:${TRAVIS_TAG:-latest}
+      # - docker push kraigher/$CRATE:${TRAVIS_TAG:-latest}
     on:
       rust: stable
       branch: master
