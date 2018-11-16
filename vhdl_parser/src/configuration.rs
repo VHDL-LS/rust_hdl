@@ -6,9 +6,8 @@
 
 use ast::{
     BindingIndication, BlockConfiguration, ComponentConfiguration, ComponentSpecification,
-    CompoundConfigurationSpecification, ConfigurationDeclaration, ConfigurationDeclarativeItem,
-    ConfigurationItem, ConfigurationSpecification, EntityAspect, InstantiationList, Name,
-    SimpleConfigurationSpecification, VUnitBindingIndication,
+    ConfigurationDeclaration, ConfigurationDeclarativeItem, ConfigurationItem,
+    ConfigurationSpecification, EntityAspect, InstantiationList, Name, VUnitBindingIndication,
 };
 use common::error_on_end_identifier_mismatch;
 use context::parse_use_clause_no_keyword;
@@ -76,21 +75,21 @@ fn parse_component_configuration_known_spec(
     let token = stream.peek_expect()?;
     let (bind_ind, vunit_bind_inds) = try_token_kind!(
         token,
-        End => (None, None),
-        For => (None, None),
+        End => (None, Vec::new()),
+        For => (None, Vec::new()),
         Use => {
             stream.move_after(&token);
             if stream.peek_kind()? == Some(Vunit) {
                 let vunit_bind_inds = parse_vunit_binding_indication_list_known_keyword(stream)?;
-                (None, Some(vunit_bind_inds))
+                (None, vunit_bind_inds)
             } else {
                 let aspect = parse_entity_aspect(stream)?;
                 let bind_ind = parse_binding_indication_known_entity_aspect(Some(aspect), stream)?;
 
                 if stream.skip_if_kind(Use)? {
-                    (Some(bind_ind), Some(parse_vunit_binding_indication_list_known_keyword(stream)?))
+                    (Some(bind_ind), parse_vunit_binding_indication_list_known_keyword(stream)?)
                 } else {
-                    (Some(bind_ind), None)
+                    (Some(bind_ind), Vec::new())
                 }
             }
         }
@@ -288,14 +287,14 @@ pub fn parse_configuration_declaration(
             Use => {
                 stream.move_after(&token);
                 if stream.peek_kind()? == Some(Vunit) {
-                    break Some(parse_vunit_binding_indication_list_known_keyword(stream)?);
+                    break parse_vunit_binding_indication_list_known_keyword(stream)?;
                 }
 
                 decl.push(ConfigurationDeclarativeItem::Use(
                     parse_use_clause_no_keyword(token, stream)?,
                 ));
             }
-            _ => break None,
+            _ => break Vec::new(),
         }
     };
 
@@ -335,21 +334,21 @@ pub fn parse_configuration_specification(
                 stream.expect_kind(End)?;
                 stream.expect_kind(For)?;
                 stream.expect_kind(SemiColon)?;
-                Ok(ConfigurationSpecification::Compound(
-                    CompoundConfigurationSpecification {
-                        spec,
-                        bind_ind,
-                        vunit_bind_inds,
-                    },
-                ))
+                Ok(ConfigurationSpecification {
+                    spec,
+                    bind_ind,
+                    vunit_bind_inds,
+                })
             } else {
                 if stream.skip_if_kind(End)? {
                     stream.expect_kind(For)?;
                     stream.expect_kind(SemiColon)?;
                 }
-                Ok(ConfigurationSpecification::Simple(
-                    SimpleConfigurationSpecification { spec, bind_ind },
-                ))
+                Ok(ConfigurationSpecification {
+                    spec,
+                    bind_ind,
+                    vunit_bind_inds: Vec::new(),
+                })
             }
         }
         ComponentSpecificationOrName::Name(name) => {
@@ -377,7 +376,7 @@ end;
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
-                vunit_bind_inds: None,
+                vunit_bind_inds: Vec::new(),
                 block_config: None
             }
         );
@@ -397,7 +396,7 @@ end configuration cfg;
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
-                vunit_bind_inds: None,
+                vunit_bind_inds: Vec::new(),
                 block_config: None
             }
         );
@@ -421,7 +420,7 @@ end configuration cfg;
                     ConfigurationDeclarativeItem::Use(code.s1("use lib.foo.bar;").use_clause()),
                     ConfigurationDeclarativeItem::Use(code.s1("use lib2.foo.bar;").use_clause())
                 ],
-                vunit_bind_inds: None,
+                vunit_bind_inds: Vec::new(),
                 block_config: None
             }
         );
@@ -445,9 +444,9 @@ end configuration cfg;
                 decl: vec![ConfigurationDeclarativeItem::Use(
                     code.s1("use lib.foo.bar;").use_clause()
                 ),],
-                vunit_bind_inds: Some(vec![VUnitBindingIndication {
+                vunit_bind_inds: vec![VUnitBindingIndication {
                     vunit_list: vec![code.s1("baz.foobar").name()]
-                }]),
+                }],
                 block_config: None
             }
         );
@@ -469,7 +468,7 @@ end configuration cfg;
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
-                vunit_bind_inds: None,
+                vunit_bind_inds: Vec::new(),
                 block_config: Some(BlockConfiguration {
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
@@ -499,7 +498,7 @@ end configuration cfg;
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
-                vunit_bind_inds: None,
+                vunit_bind_inds: Vec::new(),
                 block_config: Some(BlockConfiguration {
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
@@ -540,7 +539,7 @@ end configuration cfg;
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
-                vunit_bind_inds: None,
+                vunit_bind_inds: Vec::new(),
                 block_config: Some(BlockConfiguration {
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
@@ -552,7 +551,7 @@ end configuration cfg;
                             component_name: code.s1("lib.pkg.comp").selected_name()
                         },
                         bind_ind: None,
-                        vunit_bind_inds: None,
+                        vunit_bind_inds: Vec::new(),
                         block_config: Some(BlockConfiguration {
                             block_spec: code.s1("arch").name(),
                             use_clauses: vec![],
@@ -586,7 +585,7 @@ end configuration cfg;
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
-                vunit_bind_inds: None,
+                vunit_bind_inds: Vec::new(),
                 block_config: Some(BlockConfiguration {
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
@@ -605,9 +604,9 @@ end configuration cfg;
                             generic_map: None,
                             port_map: None
                         }),
-                        vunit_bind_inds: Some(vec![VUnitBindingIndication {
+                        vunit_bind_inds: vec![VUnitBindingIndication {
                             vunit_list: vec![code.s1("baz").name()]
-                        },]),
+                        },],
                         block_config: Some(BlockConfiguration {
                             block_spec: code.s1("arch").name(),
                             use_clauses: vec![],
@@ -638,7 +637,7 @@ end configuration cfg;
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
-                vunit_bind_inds: None,
+                vunit_bind_inds: Vec::new(),
                 block_config: Some(BlockConfiguration {
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
@@ -657,7 +656,7 @@ end configuration cfg;
                             generic_map: None,
                             port_map: None,
                         }),
-                        vunit_bind_inds: None,
+                        vunit_bind_inds: Vec::new(),
                         block_config: None,
                     }),],
                 })
@@ -689,7 +688,7 @@ end configuration cfg;
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
-                vunit_bind_inds: None,
+                vunit_bind_inds: Vec::new(),
                 block_config: Some(BlockConfiguration {
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
@@ -702,7 +701,7 @@ end configuration cfg;
                                 component_name: code.s1("lib.pkg.comp").selected_name()
                             },
                             bind_ind: None,
-                            vunit_bind_inds: None,
+                            vunit_bind_inds: Vec::new(),
                             block_config: None,
                         }),
                         ConfigurationItem::Component(ComponentConfiguration {
@@ -715,7 +714,7 @@ end configuration cfg;
                                 component_name: code.s1("lib2.pkg.comp").selected_name()
                             },
                             bind_ind: None,
-                            vunit_bind_inds: None,
+                            vunit_bind_inds: Vec::new(),
                             block_config: None,
                         }),
                         ConfigurationItem::Component(ComponentConfiguration {
@@ -724,7 +723,7 @@ end configuration cfg;
                                 component_name: code.s1("lib3.pkg.comp").selected_name()
                             },
                             bind_ind: None,
-                            vunit_bind_inds: None,
+                            vunit_bind_inds: Vec::new(),
                             block_config: None,
                         }),
                         ConfigurationItem::Component(ComponentConfiguration {
@@ -733,7 +732,7 @@ end configuration cfg;
                                 component_name: code.s1("lib4.pkg.comp").selected_name()
                             },
                             bind_ind: None,
-                            vunit_bind_inds: None,
+                            vunit_bind_inds: Vec::new(),
                             block_config: None,
                         })
                     ],
@@ -784,7 +783,7 @@ end configuration cfg;
 
         assert_eq!(
             code.with_stream(parse_configuration_specification),
-            ConfigurationSpecification::Simple(SimpleConfigurationSpecification {
+            ConfigurationSpecification {
                 spec: ComponentSpecification {
                     instantiation_list: InstantiationList::All,
                     component_name: code.s1("lib.pkg.comp").selected_name(),
@@ -796,8 +795,9 @@ end configuration cfg;
                     )),
                     generic_map: None,
                     port_map: None
-                }
-            })
+                },
+                vunit_bind_inds: Vec::new()
+            }
         );
     }
 
@@ -807,7 +807,7 @@ end configuration cfg;
 
         assert_eq!(
             code.with_stream(parse_configuration_specification),
-            ConfigurationSpecification::Simple(SimpleConfigurationSpecification {
+            ConfigurationSpecification {
                 spec: ComponentSpecification {
                     instantiation_list: InstantiationList::All,
                     component_name: code.s1("lib.pkg.comp").selected_name(),
@@ -819,8 +819,9 @@ end configuration cfg;
                     )),
                     generic_map: None,
                     port_map: None
-                }
-            })
+                },
+                vunit_bind_inds: Vec::new()
+            }
         );
     }
 
@@ -832,7 +833,7 @@ end configuration cfg;
 
         assert_eq!(
             code.with_stream(parse_configuration_specification),
-            ConfigurationSpecification::Compound(CompoundConfigurationSpecification {
+            ConfigurationSpecification {
                 spec: ComponentSpecification {
                     instantiation_list: InstantiationList::All,
                     component_name: code.s1("lib.pkg.comp").selected_name(),
@@ -848,7 +849,7 @@ end configuration cfg;
                 vunit_bind_inds: vec![VUnitBindingIndication {
                     vunit_list: vec![code.s1("bar").name(), code.s1("baz").name()]
                 }],
-            })
+            }
         );
     }
 }

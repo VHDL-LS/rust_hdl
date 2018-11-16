@@ -934,26 +934,12 @@ pub struct VUnitBindingIndication {
     pub vunit_list: Vec<WithPos<Name>>,
 }
 
-/// LRM 7.3 Compound Configuration specification
+/// LRM 7.3 Configuration specification
 #[derive(PartialEq, Debug, Clone)]
-pub struct CompoundConfigurationSpecification {
+pub struct ConfigurationSpecification {
     pub spec: ComponentSpecification,
     pub bind_ind: BindingIndication,
     pub vunit_bind_inds: Vec<VUnitBindingIndication>,
-}
-
-/// LRM 7.3 Simple Configuration specification
-#[derive(PartialEq, Debug, Clone)]
-pub struct SimpleConfigurationSpecification {
-    pub spec: ComponentSpecification,
-    pub bind_ind: BindingIndication,
-}
-
-/// LRM 7.3 Configuration specification
-#[derive(PartialEq, Debug, Clone)]
-pub enum ConfigurationSpecification {
-    Simple(SimpleConfigurationSpecification),
-    Compound(CompoundConfigurationSpecification),
 }
 
 /// LRM 3.4 Configuration declarations
@@ -968,7 +954,7 @@ pub enum ConfigurationDeclarativeItem {
 pub struct ComponentConfiguration {
     pub spec: ComponentSpecification,
     pub bind_ind: Option<BindingIndication>,
-    pub vunit_bind_inds: Option<Vec<VUnitBindingIndication>>,
+    pub vunit_bind_inds: Vec<VUnitBindingIndication>,
     pub block_config: Option<BlockConfiguration>,
 }
 
@@ -993,7 +979,7 @@ pub struct ConfigurationDeclaration {
     pub ident: Ident,
     pub entity_name: SelectedName,
     pub decl: Vec<ConfigurationDeclarativeItem>,
-    pub vunit_bind_inds: Option<Vec<VUnitBindingIndication>>,
+    pub vunit_bind_inds: Vec<VUnitBindingIndication>,
     pub block_config: Option<BlockConfiguration>,
 }
 
