@@ -228,12 +228,24 @@ fn check_entity_declaration(entity: &EntityDeclaration, messages: &mut MessageHa
     check_concurrent_part(&entity.statements, messages);
 }
 
-pub fn check_design_unit(design_unit: &DesignUnit, messages: &mut MessageHandler) {
-    match &design_unit.library_unit {
-        LibraryUnit::PackageDeclaration(package) => check_package_declaration(package, messages),
-        LibraryUnit::Architecture(architecture) => check_architecture_body(architecture, messages),
-        LibraryUnit::PackageBody(package) => check_package_body(package, messages),
-        LibraryUnit::EntityDeclaration(entity) => check_entity_declaration(entity, messages),
+pub fn check_design_unit(design_unit: &AnyDesignUnit, messages: &mut MessageHandler) {
+    match &design_unit {
+        AnyDesignUnit::Primary(DesignUnit {
+            unit: PrimaryUnit::PackageDeclaration(package),
+            ..
+        }) => check_package_declaration(package, messages),
+        AnyDesignUnit::Secondary(DesignUnit {
+            unit: SecondaryUnit::Architecture(architecture),
+            ..
+        }) => check_architecture_body(architecture, messages),
+        AnyDesignUnit::Secondary(DesignUnit {
+            unit: SecondaryUnit::PackageBody(package),
+            ..
+        }) => check_package_body(package, messages),
+        AnyDesignUnit::Primary(DesignUnit {
+            unit: PrimaryUnit::EntityDeclaration(entity),
+            ..
+        }) => check_entity_declaration(entity, messages),
         // @TODO others
         _ => {}
     }
