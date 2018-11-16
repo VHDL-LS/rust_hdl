@@ -96,7 +96,7 @@ fn show_design_unit(design_unit: &AnyDesignUnit) {
                 println!(
                     "architecture {} of {}",
                     arch.ident.item.name(),
-                    arch.entity_name.name()
+                    arch.entity_name.item.name()
                 );
                 if arch.decl.len() > 0 {
                     println!("  with {} declarations", arch.decl.len())

@@ -996,7 +996,7 @@ pub struct EntityDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ArchitectureBody {
     pub ident: Ident,
-    pub entity_name: Symbol,
+    pub entity_name: Ident,
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledConcurrentStatement>,
 }

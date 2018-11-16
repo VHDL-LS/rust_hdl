@@ -68,7 +68,7 @@ pub fn parse_architecture_body(
     stream.expect_kind(Architecture)?;
     let ident = stream.expect_ident()?;
     stream.expect_kind(Of)?;
-    let entity_name = stream.expect_ident()?.item;
+    let entity_name = stream.expect_ident()?;
     stream.expect_kind(Is)?;
 
     let decl = parse_declarative_part(stream, messages, true)?;
@@ -264,7 +264,6 @@ mod tests {
 
     use ast::*;
     use message::Message;
-    use symbol_table::Symbol;
     use test_util::{check_no_messages, Code};
 
     fn parse_str(code: &str) -> (Code, DesignFile, Vec<Message>) {
@@ -496,7 +495,7 @@ end;
     }
 
     // An simple entity with only a name
-    fn simple_architecture(ident: Ident, entity_name: Symbol) -> AnyDesignUnit {
+    fn simple_architecture(ident: Ident, entity_name: Ident) -> AnyDesignUnit {
         AnyDesignUnit::Secondary(DesignUnit {
             context_clause: vec![],
             unit: SecondaryUnit::Architecture(ArchitectureBody {
@@ -521,7 +520,7 @@ end architecture;
             design_file.design_units,
             [simple_architecture(
                 code.s1("arch_name").ident(),
-                code.symbol("myent")
+                code.s1("myent").ident()
             )]
         );
     }
@@ -539,7 +538,7 @@ end architecture arch_name;
             design_file.design_units,
             [simple_architecture(
                 code.s1("arch_name").ident(),
-                code.symbol("myent")
+                code.s1("myent").ident()
             )]
         );
     }
@@ -557,7 +556,7 @@ end;
             design_file.design_units,
             [simple_architecture(
                 code.s1("arch_name").ident(),
-                code.symbol("myent")
+                code.s1("myent").ident()
             )]
         );
     }
