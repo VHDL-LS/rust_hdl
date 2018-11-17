@@ -4,36 +4,42 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
+#[macro_use]
 extern crate clap;
 extern crate vhdl_parser;
 
-use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
-use std::sync::{Arc, Mutex};
-use std::thread::spawn;
 use vhdl_parser::ast::{AnyDesignUnit, PrimaryUnit, SecondaryUnit, SelectedName};
 use vhdl_parser::message::{Message, Severity};
-use vhdl_parser::{ParserError, ParserResult, VHDLParser};
+use vhdl_parser::{ParallelParser, ParserError};
 
-extern crate fnv;
-use self::fnv::FnvHashMap;
+fn main() {
+    use clap::{App, Arg};
 
-fn worker(
-    parser: Arc<VHDLParser>,
-    input: Arc<Mutex<Receiver<Option<(usize, String)>>>>,
-    output: SyncSender<(usize, (String, Vec<Message>, ParserResult))>,
-) {
-    loop {
-        let item = input.lock().unwrap().recv().unwrap();
-        match item {
-            Some((idx, file_name)) => {
-                let mut messages = Vec::new();
-                let result = parser.parse_design_file(&file_name, &mut messages);
-                output.send((idx, (file_name, messages, result))).unwrap();
-            }
-            None => {
-                break;
-            }
-        }
+    let matches = App::new("VHDL Parser")
+        .version("0.2")
+        .author("Olof Kraigher <olof.kraigher@gmail.com>")
+        .about("VHDL Parser Demonstrator")
+        .arg(
+            Arg::with_name("show")
+                .long("show")
+                .help("Show information about design units"),
+        ).arg(
+            Arg::with_name("num-threads")
+                .short("-p")
+                .long("--num-threads")
+                .default_value("4")
+                .help("The number of threads to use"),
+        ).arg(
+            Arg::with_name("files")
+                .help("The list of files to parse. The files are only parsed without any semantic analysis")
+                .index(1)
+                .multiple(true)
+        ).get_matches();
+
+    let show = matches.is_present("show");
+    let num_threads = value_t_or_exit!(matches.value_of("num-threads"), usize);
+    if let Some(files) = matches.values_of("files") {
+        parse(files.map(|s| s.to_owned()).collect(), num_threads, show)
     }
 }
 
@@ -122,48 +128,10 @@ fn show_messages(messages: &[Message]) {
 }
 
 fn parse(file_names: Vec<String>, num_threads: usize, show: bool) {
-    let parser = Arc::new(VHDLParser::new());
-
-    let (work_sender, work_receiver) = sync_channel(2 * num_threads);
-    let work_receiver = Arc::new(Mutex::new(work_receiver));
-    let (result_sender, result_receiver) = sync_channel(2 * num_threads);
-
-    for _ in 0..num_threads {
-        let parser = parser.clone();
-        let result_sender = result_sender.clone();
-        let work_receiver = work_receiver.clone();
-        spawn(move || worker(parser, work_receiver, result_sender));
-    }
-    let num_files = file_names.len();
-    spawn(move || {
-        for (idx, file_name) in file_names.iter().enumerate() {
-            work_sender.send(Some((idx, file_name.clone()))).unwrap();
-        }
-        for _ in 0..num_threads {
-            work_sender.send(None).unwrap();
-        }
-    });
-
     let mut num_errors = 0;
     let mut num_warnings = 0;
 
-    let mut map = FnvHashMap::default();
-
-    for idx in 0..num_files {
-        let (file_name, mut messages, design_file) = {
-            match map.remove(&idx) {
-                Some(value) => value,
-                None => loop {
-                    let (i, value) = result_receiver.recv().unwrap();
-                    if i == idx {
-                        break value;
-                    } else {
-                        map.insert(i, value);
-                    }
-                },
-            }
-        };
-
+    for (file_name, mut messages, design_file) in ParallelParser::new(file_names, num_threads) {
         use vhdl_parser::semantic;
         let design_file = match design_file {
             Ok(design_file) => {
@@ -225,40 +193,5 @@ fn parse(file_names: Vec<String>, num_threads: usize, show: bool) {
         println!("BAD: Found errors in {} files", num_errors);
     } else {
         println!("OK: Found no errors");
-    }
-}
-
-fn main() {
-    use clap::{App, Arg};
-
-    let matches = App::new("VHDL Parser")
-        .version("0.2")
-        .author("Olof Kraigher <olof.kraigher@gmail.com>")
-        .about("VHDL Parser Demonstrator")
-        .arg(
-            Arg::with_name("show")
-                .long("show")
-                .help("Show information about design units"),
-        ).arg(
-            Arg::with_name("num-threads")
-                .short("-p")
-                .long("--num-threads")
-                .default_value("4")
-                .help("The number of threads to use"),
-        ).arg(
-            Arg::with_name("files")
-                .help("The list of files to parse")
-                .index(1)
-                .multiple(true),
-        ).get_matches();
-
-    let show = matches.is_present("show");
-    let num_threads = matches
-        .value_of("num-threads")
-        .unwrap()
-        .parse::<usize>()
-        .unwrap();
-    if let Some(files) = matches.values_of("files") {
-        parse(files.map(|s| s.to_owned()).collect(), num_threads, show)
     }
 }
