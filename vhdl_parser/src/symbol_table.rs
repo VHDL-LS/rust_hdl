@@ -49,6 +49,12 @@ impl PartialEq for Symbol {
     }
 }
 
+impl std::fmt::Display for Symbol {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.name_utf8())
+    }
+}
+
 impl std::hash::Hash for Symbol {
     fn hash<H: std::hash::Hasher>(&self, hasher: &mut H) {
         self.id.hash(hasher);
@@ -67,13 +73,6 @@ impl SymbolTable {
         SymbolTable {
             name_to_symbol: RwLock::new(FnvHashMap::default()),
         }
-    }
-
-    /// Lookup symbol without adding to the table
-    #[cfg(test)]
-    pub fn lookup_utf8(&self, name: &str) -> Option<Symbol> {
-        let name = Latin1String::from_utf8_unchecked(name);
-        self.lookup(&name)
     }
 
     #[cfg(test)]

@@ -10,7 +10,7 @@ extern crate vhdl_parser;
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::thread::spawn;
-use vhdl_parser::ast::{DesignUnit, LibraryUnit, SelectedName};
+use vhdl_parser::ast::{AnyDesignUnit, PrimaryUnit, SecondaryUnit, SelectedName};
 use vhdl_parser::message::{Message, Severity};
 use vhdl_parser::{ParserError, ParserResult, VHDLParser};
 
@@ -45,69 +45,73 @@ fn to_string(selected_name: &SelectedName) -> String {
     names.join(".")
 }
 
-fn show_design_unit(design_unit: &DesignUnit) {
-    match design_unit.library_unit {
-        LibraryUnit::EntityDeclaration(ref entity) => {
-            println!("entity {}", entity.ident.item.name());
-            if let Some(ref list) = entity.generic_clause {
-                println!("  with {} generics", list.len())
+fn show_design_unit(design_unit: &AnyDesignUnit) {
+    match design_unit {
+        AnyDesignUnit::Primary(ref primary) => match primary.unit {
+            PrimaryUnit::EntityDeclaration(ref entity) => {
+                println!("entity {}", entity.ident.item.name());
+                if let Some(ref list) = entity.generic_clause {
+                    println!("  with {} generics", list.len())
+                }
+                if let Some(ref list) = entity.port_clause {
+                    println!("  with {} ports", list.len())
+                }
+                if entity.decl.len() > 0 {
+                    println!("  with {} declarations", entity.decl.len())
+                }
+                if entity.statements.len() > 0 {
+                    println!("  with {} concurrent statements", entity.statements.len())
+                }
             }
-            if let Some(ref list) = entity.port_clause {
-                println!("  with {} ports", list.len())
+            PrimaryUnit::ContextDeclaration(ref context) => {
+                println!("context {}", context.ident.item.name());
+                if context.items.len() > 0 {
+                    println!("  with {} items", context.items.len())
+                }
             }
-            if entity.decl.len() > 0 {
-                println!("  with {} declarations", entity.decl.len())
+            PrimaryUnit::PackageDeclaration(ref package) => {
+                println!("package {}", package.ident.item.name());
+                if let Some(ref list) = package.generic_clause {
+                    println!("  with {} generics", list.len())
+                }
+                if package.decl.len() > 0 {
+                    println!("  with {} declarations", package.decl.len())
+                }
             }
-            if entity.statements.len() > 0 {
-                println!("  with {} concurrent statements", entity.statements.len())
+            PrimaryUnit::Configuration(ref config) => println!(
+                "configuration {} of {}",
+                config.ident.item.name(),
+                to_string(&config.entity_name)
+            ),
+            PrimaryUnit::PackageInstance(ref inst) => {
+                println!(
+                    "package instance {} of {}",
+                    inst.ident.item.name(),
+                    to_string(&inst.package_name)
+                );
             }
-        }
-        LibraryUnit::ContextDeclaration(ref context) => {
-            println!("context {}", context.ident.item.name());
-            if context.items.len() > 0 {
-                println!("  with {} items", context.items.len())
+        },
+        AnyDesignUnit::Secondary(ref secondary) => match secondary.unit {
+            SecondaryUnit::Architecture(ref arch) => {
+                println!(
+                    "architecture {} of {}",
+                    arch.ident.item.name(),
+                    arch.entity_name.item.name()
+                );
+                if arch.decl.len() > 0 {
+                    println!("  with {} declarations", arch.decl.len())
+                }
+                if arch.statements.len() > 0 {
+                    println!("  with {} concurrent statements", arch.statements.len())
+                }
             }
-        }
-        LibraryUnit::Architecture(ref arch) => {
-            println!(
-                "architecture {} of {}",
-                arch.ident.item.name(),
-                arch.entity_name.name()
-            );
-            if arch.decl.len() > 0 {
-                println!("  with {} declarations", arch.decl.len())
+            SecondaryUnit::PackageBody(ref package_body) => {
+                println!("package body {}", package_body.ident.item.name());
+                if package_body.decl.len() > 0 {
+                    println!("  with {} declarations", package_body.decl.len())
+                }
             }
-            if arch.statements.len() > 0 {
-                println!("  with {} concurrent statements", arch.statements.len())
-            }
-        }
-        LibraryUnit::PackageDeclaration(ref package) => {
-            println!("package {}", package.ident.item.name());
-            if let Some(ref list) = package.generic_clause {
-                println!("  with {} generics", list.len())
-            }
-            if package.decl.len() > 0 {
-                println!("  with {} declarations", package.decl.len())
-            }
-        }
-        LibraryUnit::PackageBody(ref package_body) => {
-            println!("package body {}", package_body.ident.item.name());
-            if package_body.decl.len() > 0 {
-                println!("  with {} declarations", package_body.decl.len())
-            }
-        }
-        LibraryUnit::Configuration(ref config) => println!(
-            "configuration {} of {}",
-            config.ident.item.name(),
-            to_string(&config.entity_name)
-        ),
-        LibraryUnit::PackageInstance(ref inst) => {
-            println!(
-                "package instance {} of {}",
-                inst.ident.item.name(),
-                to_string(&inst.package_name)
-            );
-        }
+        },
     }
 }
 

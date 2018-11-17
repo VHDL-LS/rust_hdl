@@ -996,7 +996,7 @@ pub struct EntityDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ArchitectureBody {
     pub ident: Ident,
-    pub entity_name: Symbol,
+    pub entity_name: Ident,
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledConcurrentStatement>,
 }
@@ -1018,21 +1018,15 @@ pub struct PackageBody {
 
 /// LRM 13.1 Design units
 #[derive(PartialEq, Debug, Clone)]
-pub enum LibraryUnit {
+pub enum PrimaryUnit {
     /// LRM 3.2 Entity declaration
     EntityDeclaration(EntityDeclaration),
-
-    /// LRM 3.3 Architecture bodies
-    Architecture(ArchitectureBody),
 
     /// LRM 3.4 Configuration declarations
     Configuration(ConfigurationDeclaration),
 
     /// LRM 4.7 Package declarations
     PackageDeclaration(PackageDeclaration),
-
-    /// LRM 4.8 Package bodies
-    PackageBody(PackageBody),
 
     /// LRM 4.9 Package instatiation declaration
     PackageInstance(PackageInstantiation),
@@ -1043,12 +1037,29 @@ pub enum LibraryUnit {
 
 /// LRM 13.1 Design units
 #[derive(PartialEq, Debug, Clone)]
-pub struct DesignUnit {
+pub enum SecondaryUnit {
+    /// LRM 3.3 Architecture bodies
+    Architecture(ArchitectureBody),
+
+    /// LRM 4.8 Package bodies
+    PackageBody(PackageBody),
+}
+
+/// LRM 13.1 Design units
+#[derive(PartialEq, Debug, Clone)]
+pub struct DesignUnit<T> {
     pub context_clause: Vec<WithPos<ContextItem>>,
-    pub library_unit: LibraryUnit,
+    pub unit: T,
+}
+
+/// LRM 13.1 Design units
+#[derive(PartialEq, Debug, Clone)]
+pub enum AnyDesignUnit {
+    Primary(DesignUnit<PrimaryUnit>),
+    Secondary(DesignUnit<SecondaryUnit>),
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct DesignFile {
-    pub design_units: Vec<DesignUnit>,
+    pub design_units: Vec<AnyDesignUnit>,
 }
