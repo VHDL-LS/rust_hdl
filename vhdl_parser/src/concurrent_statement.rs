@@ -17,8 +17,8 @@ use expression::parse_aggregate_leftpar_known;
 use expression::{parse_choices, parse_expression};
 use message::{push_some, Message, MessageHandler, ParseResult};
 use names::{
-    expression_to_ident, parse_association_list, parse_name_initial_token, parse_selected_name,
-    to_selected_name, to_simple_name,
+    expression_to_ident, parse_association_list, parse_name, parse_name_initial_token,
+    parse_selected_name, to_selected_name, to_simple_name,
 };
 use range::parse_discrete_range;
 use sequential_statement::{
@@ -77,16 +77,15 @@ pub fn parse_process_statement(
                 stream.move_after(&token);
                 let mut names = Vec::with_capacity(1);
                 loop {
+                    names.push(parse_name(stream)?);
                     let token = stream.expect()?;
-                    match token.kind {
+                    try_token_kind!(
+                        token,
                         RightPar => {
                             break names;
-                        }
+                        },
                         Comma => {}
-                        _ => {
-                            names.push(parse_name_initial_token(stream, token)?);
-                        }
-                    };
+                    );
                 }
             }
             _ => Vec::new(),
@@ -771,6 +770,27 @@ end process;
         let process = ProcessStatement {
             postponed: false,
             sensitivity_list: vec![code.s1("clk").name(), code.s1("vec(1)").name()],
+            decl: vec![],
+            statements: vec![],
+        };
+        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, None);
+        assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_process_empty_sensitivity() {
+        let code = Code::new(
+            "\
+process () is
+begin
+end process;
+",
+        );
+        let process = ProcessStatement {
+            postponed: false,
+            sensitivity_list: vec![],
             decl: vec![],
             statements: vec![],
         };
