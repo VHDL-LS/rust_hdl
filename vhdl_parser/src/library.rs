@@ -160,19 +160,20 @@ impl Library {
             for design_unit in design_file.design_units {
                 match design_unit {
                     AnyDesignUnit::Primary(primary) => {
-                        let name = primary.name().clone();
+                        let primary_name = primary.name().clone();
 
                         let primary = PrimaryDesignUnit {
                             unit: primary,
                             secondary: FnvHashMap::default(),
                         };
 
-                        match primary_units.entry(name) {
+                        match primary_units.entry(primary_name) {
                             Entry::Occupied(entry) => messages.push(Message::error(
                                 primary.unit.ident(),
                                 &format!(
-                                    "A primary unit has already been declared with name '{}'",
-                                    entry.key()
+                                    "A primary unit has already been declared with name '{}' in library '{}'",
+                                    entry.key(),
+                                    name
                                 ),
                             )),
                             Entry::Vacant(entry) => {
@@ -430,11 +431,11 @@ end package;
             vec![
                 Message::error(
                     code.s("pkg", 2),
-                    "A primary unit has already been declared with name 'pkg'"
+                    "A primary unit has already been declared with name 'pkg' in library 'libname'"
                 ),
                 Message::error(
                     code.s("entname", 2),
-                    "A primary unit has already been declared with name 'entname'"
+                    "A primary unit has already been declared with name 'entname' in library 'libname'"
                 )
             ]
         );
