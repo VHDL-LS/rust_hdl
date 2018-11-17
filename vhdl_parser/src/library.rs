@@ -17,28 +17,6 @@ use ast::{AnyDesignUnit, DesignFile, DesignUnit, Ident, PrimaryUnit, SecondaryUn
 use message::{Message, MessageHandler};
 use symbol_table::Symbol;
 
-#[derive(PartialEq, Debug, Clone)]
-pub struct PrimaryDesignUnit {
-    pub unit: DesignUnit<PrimaryUnit>,
-    pub secondary: FnvHashMap<Symbol, DesignUnit<SecondaryUnit>>,
-}
-#[derive(PartialEq, Debug, Clone)]
-pub struct Library {
-    pub name: Symbol,
-    pub primary_units: FnvHashMap<Symbol, PrimaryDesignUnit>,
-}
-
-impl Library {
-    #[cfg(test)]
-    fn primary_unit<'a>(&'a self, name: &Symbol) -> Option<&'a PrimaryDesignUnit> {
-        self.primary_units.get(name)
-    }
-}
-
-pub struct LibraryBuilder {
-    design_files: Vec<DesignFile>,
-}
-
 impl DesignUnit<PrimaryUnit> {
     fn ident(&self) -> &Ident {
         match self.unit {
@@ -158,28 +136,27 @@ impl PrimaryDesignUnit {
     }
 }
 
-impl LibraryBuilder {
-    // @TODO allow dead code for now
-    #[cfg(test)]
-    fn new() -> LibraryBuilder {
-        LibraryBuilder {
-            design_files: Vec::new(),
-        }
-    }
+#[derive(PartialEq, Debug, Clone)]
+pub struct PrimaryDesignUnit {
+    pub unit: DesignUnit<PrimaryUnit>,
+    pub secondary: FnvHashMap<Symbol, DesignUnit<SecondaryUnit>>,
+}
+#[derive(PartialEq, Debug, Clone)]
+pub struct Library {
+    pub name: Symbol,
+    pub primary_units: FnvHashMap<Symbol, PrimaryDesignUnit>,
+}
 
-    // @TODO allow dead code for now
-    #[cfg(test)]
-    pub fn add_design_file(&mut self, design_file: DesignFile) {
-        self.design_files.push(design_file);
-    }
-
-    // @TODO allow dead code for now
-    #[allow(dead_code)]
-    pub fn build(self, name: Symbol, messages: &mut MessageHandler) -> Library {
+impl Library {
+    pub fn new(
+        name: Symbol,
+        design_files: Vec<DesignFile>,
+        messages: &mut MessageHandler,
+    ) -> Library {
         let mut primary_units = FnvHashMap::default();
         let mut secondary_units = Vec::new();
 
-        for design_file in self.design_files {
+        for design_file in design_files {
             for design_unit in design_file.design_units {
                 match design_unit {
                     AnyDesignUnit::Primary(primary) => {
@@ -247,6 +224,11 @@ impl LibraryBuilder {
             primary_units,
         }
     }
+
+    #[cfg(test)]
+    fn primary_unit<'a>(&'a self, name: &Symbol) -> Option<&'a PrimaryDesignUnit> {
+        self.primary_units.get(name)
+    }
 }
 
 #[cfg(test)]
@@ -254,16 +236,14 @@ mod tests {
     use super::*;
     use test_util::{check_no_messages, Code};
 
-    fn build_library_with_messages(code: &Code, name: &str) -> (Library, Vec<Message>) {
-        let mut builder = LibraryBuilder::new();
-        builder.add_design_file(code.design_file());
+    fn new_library_with_messages(code: &Code, name: &str) -> (Library, Vec<Message>) {
         let mut messages = Vec::new();
-        let library = builder.build(code.symbol(name), &mut messages);
+        let library = Library::new(code.symbol(name), vec![code.design_file()], &mut messages);
         (library, messages)
     }
 
-    fn build_library(code: &Code, name: &str) -> Library {
-        let (library, messages) = build_library_with_messages(code, name);
+    fn new_library(code: &Code, name: &str) -> Library {
+        let (library, messages) = new_library_with_messages(code, name);
         check_no_messages(&messages);
         library
     }
@@ -276,7 +256,7 @@ entity ent is
 end entity;
 ",
         );
-        let library = build_library(&code, "libname");
+        let library = new_library(&code, "libname");
 
         assert_eq!(
             library.primary_unit(&code.symbol("ent")),
@@ -298,7 +278,7 @@ package body pkg is
 end package body;
 ",
         );
-        let (library, messages) = build_library_with_messages(&code, "libname");
+        let (library, messages) = new_library_with_messages(&code, "libname");
 
         assert_eq!(library.primary_units.len(), 0);
         assert_eq!(
@@ -319,7 +299,7 @@ begin
 end architecture;
 ",
         );
-        let (library, messages) = build_library_with_messages(&code, "libname");
+        let (library, messages) = new_library_with_messages(&code, "libname");
 
         assert_eq!(library.primary_units.len(), 0);
         assert_eq!(
@@ -343,7 +323,7 @@ begin
 end architecture;
 ",
         );
-        let (library, messages) = build_library_with_messages(&code, "libname");
+        let (library, messages) = new_library_with_messages(&code, "libname");
 
         assert_eq!(
             library
@@ -373,7 +353,7 @@ package body entname is
 end package body;
 ",
         );
-        let (library, messages) = build_library_with_messages(&code, "libname");
+        let (library, messages) = new_library_with_messages(&code, "libname");
 
         assert_eq!(
             library
@@ -406,7 +386,7 @@ package body pkg is
 end package body;
 ",
         );
-        let (library, messages) = build_library_with_messages(&code, "libname");
+        let (library, messages) = new_library_with_messages(&code, "libname");
 
         assert_eq!(
             library
@@ -442,7 +422,7 @@ package entname is
 end package;
 ",
         );
-        let (library, messages) = build_library_with_messages(&code, "libname");
+        let (library, messages) = new_library_with_messages(&code, "libname");
 
         assert_eq!(library.primary_units.len(), 2);
         assert_eq!(
@@ -478,7 +458,7 @@ entity entname is
 end entity;
 ",
         );
-        let (library, messages) = build_library_with_messages(&code, "libname");
+        let (library, messages) = new_library_with_messages(&code, "libname");
 
         // Should still be added as a secondary unit
         assert_eq!(
@@ -521,7 +501,7 @@ begin
 end architecture;
 ",
         );
-        let (library, messages) = build_library_with_messages(&code, "libname");
+        let (library, messages) = new_library_with_messages(&code, "libname");
 
         assert_eq!(
             library
@@ -556,7 +536,7 @@ begin
 end architecture;
 ",
         );
-        let library = build_library(&code, "libname");
+        let library = new_library(&code, "libname");
 
         let entity = code.between("entity", "entity;").entity();
         let architecture0 = code
@@ -605,7 +585,7 @@ package body pkg is
 end package body;
 ",
         );
-        let library = build_library(&code, "libname");
+        let library = new_library(&code, "libname");
 
         let package = code.between("package", "package;").package();
         let body = code.between("package body", "package body;").package_body();

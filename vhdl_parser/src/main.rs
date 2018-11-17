@@ -8,9 +8,17 @@
 extern crate clap;
 extern crate vhdl_parser;
 
+use std::fs::File;
+use std::io;
+use std::io::prelude::*;
+use std::path::Path;
+
 use vhdl_parser::ast::{AnyDesignUnit, PrimaryUnit, SecondaryUnit, SelectedName};
 use vhdl_parser::message::{Message, Severity};
-use vhdl_parser::{ParallelParser, ParserError};
+use vhdl_parser::{Config, FileToParse, Latin1String, Library, ParserError, Symbol, VHDLParser};
+
+extern crate fnv;
+use self::fnv::FnvHashMap;
 
 fn main() {
     use clap::{App, Arg};
@@ -34,13 +42,103 @@ fn main() {
                 .help("The list of files to parse. The files are only parsed without any semantic analysis")
                 .index(1)
                 .multiple(true)
-        ).get_matches();
+        ).arg(
+            Arg::with_name("config")
+                .help("Config file in TOML format containing libraries and settings")
+                .short("-c")
+                .long("--config")
+                .takes_value(true)
+                .conflicts_with("files"))
+        .get_matches();
 
     let show = matches.is_present("show");
     let num_threads = value_t_or_exit!(matches.value_of("num-threads"), usize);
+    let parser = VHDLParser::new();
+
     if let Some(files) = matches.values_of("files") {
-        parse(files.map(|s| s.to_owned()).collect(), num_threads, show)
+        parse(
+            parser.clone(),
+            files.map(|s| s.to_owned()).collect(),
+            num_threads,
+            show,
+        )
     }
+
+    if let Some(file_name) = matches.value_of("config") {
+        let config = read_config(Path::new(file_name)).expect("Failed to read config file");
+
+        let mut libraries = FnvHashMap::default();
+        let mut files_to_parse = Vec::new();
+        for library in config.iter_libraries() {
+            let library_name =
+                Latin1String::from_utf8(library.name()).expect("Library name not latin-1 encoded");
+            let library_name = parser.symbol(&library_name);
+            libraries.insert(library_name.clone(), Vec::new());
+
+            for file_name in library.file_names() {
+                let file_to_parse = LibraryFileToParse {
+                    library_name: library_name.clone(),
+                    file_name: file_name.to_owned(),
+                };
+
+                files_to_parse.push(file_to_parse)
+            }
+        }
+
+        for (file_to_parse, mut messages, design_file) in
+            parser.parse_design_files(files_to_parse, num_threads)
+        {
+            let design_file = match design_file {
+                Ok(design_file) => design_file,
+                Err(ParserError::Message(msg)) => {
+                    println!("Error when parsing {}", file_to_parse.file_name);
+                    show_messages(&messages);
+                    println!("{}", msg.show());
+                    continue;
+                }
+                Err(ParserError::IOError(err)) => {
+                    println!("Error when parsing {}", file_to_parse.file_name);
+                    println!("{}", err);
+                    continue;
+                }
+            };
+
+            // @TODO check for errors
+            show_messages(&messages);
+
+            libraries
+                .get_mut(&file_to_parse.library_name)
+                .unwrap()
+                .push(design_file);
+        }
+
+        for (library_name, design_files) in libraries.into_iter() {
+            let mut messages = Vec::new();
+            Library::new(library_name, design_files, &mut messages);
+            show_messages(&messages);
+        }
+    }
+}
+
+struct LibraryFileToParse {
+    library_name: Symbol,
+    file_name: String,
+}
+
+impl FileToParse for LibraryFileToParse {
+    fn file_name(&self) -> &str {
+        &self.file_name
+    }
+}
+
+fn read_config(file_name: &Path) -> io::Result<Config> {
+    let mut file = File::open(file_name)?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+
+    let parent = file_name.parent().unwrap();
+
+    Config::from_str(&contents, parent).map_err(|msg| io::Error::new(io::ErrorKind::Other, msg))
 }
 
 fn to_string(selected_name: &SelectedName) -> String {
@@ -127,11 +225,12 @@ fn show_messages(messages: &[Message]) {
     }
 }
 
-fn parse(file_names: Vec<String>, num_threads: usize, show: bool) {
+fn parse(parser: VHDLParser, file_names: Vec<String>, num_threads: usize, show: bool) {
     let mut num_errors = 0;
     let mut num_warnings = 0;
 
-    for (file_name, mut messages, design_file) in ParallelParser::new(file_names, num_threads) {
+    for (file_name, mut messages, design_file) in parser.parse_design_files(file_names, num_threads)
+    {
         use vhdl_parser::semantic;
         let design_file = match design_file {
             Ok(design_file) => {

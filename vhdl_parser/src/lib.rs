@@ -12,6 +12,7 @@ mod attributes;
 mod common;
 mod component_declaration;
 mod concurrent_statement;
+mod config;
 mod configuration;
 mod context;
 mod declarative_part;
@@ -37,6 +38,11 @@ mod waveform;
 #[cfg(test)]
 mod test_util;
 
+pub use config::Config;
+pub use latin_1::Latin1String;
+pub use library::Library;
+pub use symbol_table::Symbol;
+
 use ast::DesignFile;
 use design_unit::parse_design_file;
 use message::{Message, MessageHandler};
@@ -53,10 +59,13 @@ use tokenstream::TokenStream;
 extern crate fnv;
 use self::fnv::FnvHashMap;
 
+#[derive(Debug)]
 pub enum ParserError {
     Message(Message),
     IOError(io::Error),
 }
+
+#[derive(Clone)]
 pub struct VHDLParser {
     symtab: Arc<SymbolTable>,
 }
@@ -82,6 +91,10 @@ impl VHDLParser {
         }
     }
 
+    pub fn symbol(&self, name: &Latin1String) -> Symbol {
+        self.symtab.insert(name)
+    }
+
     pub fn parse_design_source(
         &self,
         source: &Source,
@@ -101,6 +114,17 @@ impl VHDLParser {
         let source = Source::from_file(&file_name);
         Ok(self.parse_design_source(&source, messages)?)
     }
+
+    pub fn parse_design_files<T>(
+        &self,
+        files_to_parse: Vec<T>,
+        num_threads: usize,
+    ) -> impl Iterator<Item = (T, Vec<Message>, ParserResult)>
+    where
+        T: FileToParse + Send + 'static,
+    {
+        ParallelParser::new(self, files_to_parse, num_threads)
+    }
 }
 
 pub trait FileToParse {
@@ -115,7 +139,7 @@ impl FileToParse for String {
 
 type ParallelResult<T> = (T, Vec<Message>, ParserResult);
 
-pub struct ParallelParser<T> {
+struct ParallelParser<T> {
     result_receiver: Receiver<(usize, ParallelResult<Box<T>>)>,
     idx: usize,
     num_files: usize,
@@ -124,7 +148,7 @@ pub struct ParallelParser<T> {
 
 impl<T: Send + FileToParse + 'static> ParallelParser<T> {
     fn worker(
-        parser: Arc<VHDLParser>,
+        parser: VHDLParser,
         input: Arc<Mutex<Receiver<Option<(usize, Box<T>)>>>>,
         output: SyncSender<(usize, ParallelResult<Box<T>>)>,
     ) {
@@ -145,9 +169,7 @@ impl<T: Send + FileToParse + 'static> ParallelParser<T> {
         }
     }
 
-    pub fn new(files_to_parse: Vec<T>, num_threads: usize) -> ParallelParser<T> {
-        let parser = Arc::new(VHDLParser::new());
-
+    fn new(parser: &VHDLParser, files_to_parse: Vec<T>, num_threads: usize) -> ParallelParser<T> {
         let (work_sender, work_receiver) = sync_channel(2 * num_threads);
         let work_receiver = Arc::new(Mutex::new(work_receiver));
         let (result_sender, result_receiver) = sync_channel(2 * num_threads);
