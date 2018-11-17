@@ -92,7 +92,7 @@ impl PrimaryDesignUnit {
         if !self.can_be_secondary(&secondary_unit) {
             Some(Message::error(
                 secondary_unit.ident(),
-                &format!(
+                format!(
                     "{} cannot be a secondary unit of {}",
                     secondary_unit.unit_str(),
                     self.unit.unit_str()
@@ -102,7 +102,7 @@ impl PrimaryDesignUnit {
             match self.secondary.entry(secondary_unit.name().to_owned()) {
                 Entry::Occupied(..) => Some(Message::error(
                     secondary_unit.ident(),
-                    &format!(
+                    format!(
                         "Duplicate {} of {}",
                         secondary_unit.unit_str(),
                         self.unit.unit_str(),
@@ -117,7 +117,7 @@ impl PrimaryDesignUnit {
                         {
                             Some(Message::error(
                                 secondary_pos,
-                                &format!(
+                                format!(
                                     "{} declared before {}",
                                     secondary_unit.unit_str(),
                                     self.unit.unit_str()
@@ -172,7 +172,7 @@ impl Library {
                                 let old_unit: &PrimaryDesignUnit = entry.get();
                                 let msg = Message::error(
                                     primary.unit.ident(),
-                                    &format!(
+                                    format!(
                                         "A primary unit has already been declared with name '{}' in library '{}'",
                                         entry.key(),
                                         name
@@ -202,7 +202,7 @@ impl Library {
                     SecondaryUnit::Architecture(..) => {
                         messages.push(Message::error(
                             secondary_unit.primary_ident(),
-                            &format!(
+                            format!(
                                 "No entity '{}' within the library '{}'",
                                 secondary_unit.primary_name(),
                                 name
@@ -212,7 +212,7 @@ impl Library {
                     SecondaryUnit::PackageBody(..) => {
                         messages.push(Message::error(
                             secondary_unit.primary_ident(),
-                            &format!(
+                            format!(
                                 "No package '{}' within the library '{}'",
                                 secondary_unit.primary_name(),
                                 name

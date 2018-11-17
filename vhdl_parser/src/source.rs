@@ -183,7 +183,7 @@ impl<T> WithPos<T> {
                 item: item,
                 pos: self.pos,
             }),
-            Err(msg) => Err(Message::error(&self.pos, &msg)),
+            Err(msg) => Err(Message::error(&self.pos, msg)),
         }
     }
 

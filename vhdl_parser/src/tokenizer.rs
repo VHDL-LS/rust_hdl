@@ -1190,7 +1190,7 @@ impl Tokenizer {
                     match parse_string(&mut self.buffer, &mut cursor) {
                         Ok(result) => (StringLiteral, Value::String(result)),
                         Err(msg) => {
-                            error!(&msg);
+                            error!(msg);
                         }
                     }
                 }
@@ -1199,7 +1199,7 @@ impl Tokenizer {
                     match parse_abstract_literal(&mut self.buffer, &mut cursor) {
                         Ok((kind, value)) => (kind, value),
                         Err(msg) => {
-                            error!(&msg);
+                            error!(msg);
                         }
                     }
                 }
@@ -1212,7 +1212,7 @@ impl Tokenizer {
                             (Identifier, result)
                         }
                         Err(msg) => {
-                            error!(&msg);
+                            error!(msg);
                         }
                     }
                 }
@@ -1233,13 +1233,13 @@ impl Tokenizer {
                                 ) {
                                     Ok((kind, value)) => (kind, value),
                                     Err(msg) => {
-                                        error!(&msg);
+                                        error!(msg);
                                     }
                                 }
                             }
                         }
                         Err(msg) => {
-                            error!(&msg);
+                            error!(msg);
                         }
                     }
                 }

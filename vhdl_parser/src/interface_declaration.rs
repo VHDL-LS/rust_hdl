@@ -213,7 +213,7 @@ fn parse_semicolon_separator(stream: &mut TokenStream) -> ParseResult<()> {
                           stream.move_after(&token);
                           if stream.peek_expect()?.kind == RightPar {
                               return Err(Message::error(&token,
-                                           &format!("Last interface element may not end with {}",
+                                                        format!("Last interface element may not end with {}",
                                                     kinds_str(&[SemiColon]))));
                           }
                       },
