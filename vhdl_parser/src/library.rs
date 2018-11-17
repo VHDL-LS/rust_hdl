@@ -168,14 +168,17 @@ impl Library {
                         };
 
                         match primary_units.entry(primary_name) {
-                            Entry::Occupied(entry) => messages.push(Message::error(
-                                primary.unit.ident(),
-                                &format!(
-                                    "A primary unit has already been declared with name '{}' in library '{}'",
-                                    entry.key(),
-                                    name
-                                ),
-                            )),
+                            Entry::Occupied(entry) => {
+                                let old_unit: &PrimaryDesignUnit = entry.get();
+                                let msg = Message::error(
+                                    primary.unit.ident(),
+                                    &format!(
+                                        "A primary unit has already been declared with name '{}' in library '{}'",
+                                        entry.key(),
+                                        name
+                                    )).related(old_unit.unit.ident(), "Previously defined here");
+                                messages.push(msg);
+                            }
                             Entry::Vacant(entry) => {
                                 entry.insert(primary);
                             }
@@ -432,11 +435,11 @@ end package;
                 Message::error(
                     code.s("pkg", 2),
                     "A primary unit has already been declared with name 'pkg' in library 'libname'"
-                ),
+                ).related(code.s("pkg", 1), "Previously defined here"),
                 Message::error(
                     code.s("entname", 2),
                     "A primary unit has already been declared with name 'entname' in library 'libname'"
-                )
+                ).related(code.s("entname", 1), "Previously defined here"),
             ]
         );
     }
