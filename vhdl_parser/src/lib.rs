@@ -103,36 +103,49 @@ impl VHDLParser {
     }
 }
 
-fn worker(
-    parser: Arc<VHDLParser>,
-    input: Arc<Mutex<Receiver<Option<(usize, String)>>>>,
-    output: SyncSender<(usize, ParallelResult)>,
-) {
-    loop {
-        let item = input.lock().unwrap().recv().unwrap();
-        match item {
-            Some((idx, file_name)) => {
-                let mut messages = Vec::new();
-                let result = parser.parse_design_file(&file_name, &mut messages);
-                output.send((idx, (file_name, messages, result))).unwrap();
-            }
-            None => {
-                break;
-            }
-        }
+pub trait FileToParse {
+    fn file_name(&self) -> &str;
+}
+
+impl FileToParse for String {
+    fn file_name(&self) -> &str {
+        self.as_ref()
     }
 }
 
-type ParallelResult = (String, Vec<Message>, ParserResult);
-pub struct ParallelParser {
-    result_receiver: Receiver<(usize, ParallelResult)>,
+type ParallelResult<T> = (T, Vec<Message>, ParserResult);
+
+pub struct ParallelParser<T> {
+    result_receiver: Receiver<(usize, ParallelResult<Box<T>>)>,
     idx: usize,
     num_files: usize,
-    result_cache: FnvHashMap<usize, ParallelResult>,
+    result_cache: FnvHashMap<usize, ParallelResult<Box<T>>>,
 }
 
-impl ParallelParser {
-    pub fn new(file_names: Vec<String>, num_threads: usize) -> ParallelParser {
+impl<T: Send + FileToParse + 'static> ParallelParser<T> {
+    fn worker(
+        parser: Arc<VHDLParser>,
+        input: Arc<Mutex<Receiver<Option<(usize, Box<T>)>>>>,
+        output: SyncSender<(usize, ParallelResult<Box<T>>)>,
+    ) {
+        loop {
+            let item = input.lock().unwrap().recv().unwrap();
+            match item {
+                Some((idx, file_to_parse)) => {
+                    let mut messages = Vec::new();
+                    let result = parser.parse_design_file(file_to_parse.file_name(), &mut messages);
+                    output
+                        .send((idx, (file_to_parse, messages, result)))
+                        .unwrap();
+                }
+                None => {
+                    break;
+                }
+            }
+        }
+    }
+
+    pub fn new(files_to_parse: Vec<T>, num_threads: usize) -> ParallelParser<T> {
         let parser = Arc::new(VHDLParser::new());
 
         let (work_sender, work_receiver) = sync_channel(2 * num_threads);
@@ -143,12 +156,14 @@ impl ParallelParser {
             let parser = parser.clone();
             let result_sender = result_sender.clone();
             let work_receiver = work_receiver.clone();
-            spawn(move || worker(parser, work_receiver, result_sender));
+            spawn(move || Self::worker(parser, work_receiver, result_sender));
         }
-        let num_files = file_names.len();
+        let num_files = files_to_parse.len();
         spawn(move || {
-            for (idx, file_name) in file_names.iter().enumerate() {
-                work_sender.send(Some((idx, file_name.clone()))).unwrap();
+            for (idx, file_to_parse) in files_to_parse.into_iter().enumerate() {
+                work_sender
+                    .send(Some((idx, Box::new(file_to_parse))))
+                    .unwrap();
             }
             for _ in 0..num_threads {
                 work_sender.send(None).unwrap();
@@ -166,10 +181,10 @@ impl ParallelParser {
     }
 }
 
-impl Iterator for ParallelParser {
-    type Item = ParallelResult;
+impl<T> Iterator for ParallelParser<T> {
+    type Item = ParallelResult<T>;
 
-    fn next(&mut self) -> Option<ParallelResult> {
+    fn next(&mut self) -> Option<ParallelResult<T>> {
         if self.idx >= self.num_files {
             return None;
         }
@@ -187,6 +202,7 @@ impl Iterator for ParallelParser {
         };
 
         self.idx += 1;
-        Some(value)
+        let (file_to_parse, messages, result) = value;
+        Some((*file_to_parse, messages, result))
     }
 }
