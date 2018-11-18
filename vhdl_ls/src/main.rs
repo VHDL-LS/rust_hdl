@@ -6,6 +6,7 @@
 
 extern crate jsonrpc_core;
 extern crate languageserver_types;
+extern crate serde;
 extern crate serde_json;
 extern crate url;
 
@@ -213,6 +214,27 @@ impl LanguageServer {
         try_fun().unwrap_or(false)
     }
 
+    fn send_notification(
+        &self,
+        method: impl Into<String>,
+        notification: impl serde::ser::Serialize,
+    ) {
+        let params_json = match serde_json::to_value(notification).unwrap() {
+            serde_json::Value::Object(map) => map,
+            map => panic!("{:?}", map),
+        };
+
+        let notification_json = Notification {
+            jsonrpc: Some(jsonrpc_core::Version::V2),
+            method: method.into(),
+            params: Params::Map(params_json),
+        };
+
+        self.response_sender
+            .send(serde_json::to_string(&notification_json).unwrap())
+            .unwrap();
+    }
+
     fn parse_and_publish_diagnostics(&self, uri: Url, code: &str) {
         let parser = VHDLParser::new();
         let mut messages = Vec::new();
@@ -248,20 +270,7 @@ impl LanguageServer {
             diagnostics: diagnostics,
         };
 
-        let publish_diagnostics_json = match serde_json::to_value(publish_diagnostics).unwrap() {
-            serde_json::Value::Object(map) => map,
-            map => panic!("{:?}", map),
-        };
-
-        let notification = Notification {
-            jsonrpc: Some(jsonrpc_core::Version::V2),
-            method: "textDocument/publishDiagnostics".to_owned(),
-            params: Params::Map(publish_diagnostics_json),
-        };
-
-        self.response_sender
-            .send(serde_json::to_string(&notification).unwrap())
-            .unwrap();
+        self.send_notification("textDocument/publishDiagnostics", publish_diagnostics);
     }
 
     fn initialized_notification(&mut self, _params: Params) {}
