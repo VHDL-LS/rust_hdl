@@ -25,16 +25,16 @@ pub trait RpcChannel {
     );
 }
 
-pub struct VHDLServer<T: RpcChannel> {
+pub struct VHDLServer<T: RpcChannel + Clone> {
     rpc_channel: T,
-    init_params: Option<InitializeParams>,
+    server: Option<InitializedVHDLServer<T>>,
 }
 
-impl<T: RpcChannel> VHDLServer<T> {
+impl<T: RpcChannel + Clone> VHDLServer<T> {
     pub fn new(rpc_channel: T) -> VHDLServer<T> {
         VHDLServer {
             rpc_channel,
-            init_params: None,
+            server: None,
         }
     }
 
@@ -42,7 +42,42 @@ impl<T: RpcChannel> VHDLServer<T> {
         &mut self,
         params: InitializeParams,
     ) -> jsonrpc_core::Result<InitializeResult> {
-        self.init_params = Some(params);
+        let (server, result) = InitializedVHDLServer::initialize(self.rpc_channel.clone(), params)?;
+        self.server = Some(server);
+        Ok(result)
+    }
+
+    fn server(&self) -> &InitializedVHDLServer<T> {
+        self.server.as_ref().expect("Expected initialized server")
+    }
+
+    pub fn initialized_notification(&self, params: InitializedParams) {
+        self.server().initialized_notification(params);
+    }
+
+    pub fn text_document_did_change_notification(&self, params: DidChangeTextDocumentParams) {
+        self.server().text_document_did_change_notification(params)
+    }
+
+    pub fn text_document_did_open_notification(&self, params: DidOpenTextDocumentParams) {
+        self.server().text_document_did_open_notification(params)
+    }
+}
+
+struct InitializedVHDLServer<T: RpcChannel> {
+    rpc_channel: T,
+    init_params: InitializeParams,
+}
+
+impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
+    pub fn initialize(
+        rpc_channel: T,
+        init_params: InitializeParams,
+    ) -> jsonrpc_core::Result<(InitializedVHDLServer<T>, InitializeResult)> {
+        let server = InitializedVHDLServer {
+            rpc_channel,
+            init_params,
+        };
 
         let result = InitializeResult {
             capabilities: ServerCapabilities {
@@ -113,13 +148,12 @@ impl<T: RpcChannel> VHDLServer<T> {
             },
         };
 
-        Ok(result)
+        Ok((server, result))
     }
 
     fn client_supports_related_information(&self) -> bool {
         let try_fun = || {
             self.init_params
-                .as_ref()?
                 .capabilities
                 .text_document
                 .as_ref()?
@@ -169,7 +203,7 @@ impl<T: RpcChannel> VHDLServer<T> {
             .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
     }
 
-    pub fn initialized_notification(&mut self, _params: InitializedParams) {}
+    pub fn initialized_notification(&self, _params: InitializedParams) {}
 
     pub fn text_document_did_change_notification(&self, params: DidChangeTextDocumentParams) {
         self.parse_and_publish_diagnostics(
@@ -178,7 +212,7 @@ impl<T: RpcChannel> VHDLServer<T> {
         );
     }
 
-    pub fn text_document_did_open_notification(&mut self, params: DidOpenTextDocumentParams) {
+    pub fn text_document_did_open_notification(&self, params: DidOpenTextDocumentParams) {
         self.parse_and_publish_diagnostics(params.text_document.uri, &params.text_document.text);
     }
 }
