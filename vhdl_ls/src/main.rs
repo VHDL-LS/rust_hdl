@@ -218,7 +218,8 @@ impl LanguageServer {
         let mut messages = Vec::new();
 
         // @TODO return error to client
-        let source = Source::from_str(code).expect("Source was not legal latin-1");
+        let source =
+            Source::inline_utf8(uri.to_string(), code).expect("Source was not legal latin-1");
         match parser.parse_design_source(&source, &mut messages) {
             Err(ParserError::Message(message)) => {
                 eprintln!("{}", message.show());

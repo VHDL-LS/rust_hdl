@@ -13,61 +13,119 @@ use std::convert::AsRef;
 use std::fmt;
 use std::fmt::Write;
 use std::fs::File;
+use std::io;
 use std::io::prelude::Read;
-use std::io::{BufRead, Error};
+use std::io::BufRead;
 use std::sync::Arc;
 
-#[derive(PartialEq, Clone)]
-pub enum Source {
-    FileName(Arc<String>),
-    Contents(Arc<Latin1String>),
+trait SourceDataProvider {
+    fn contents(&self) -> io::Result<Arc<Latin1String>>;
 }
 
-impl fmt::Debug for Source {
-    /// Custom implementation to avoid large Contents strings
+struct SourceFile {
+    file_name: String,
+}
+
+struct InlineSource {
+    contents: Arc<Latin1String>,
+}
+
+impl SourceDataProvider for SourceFile {
+    fn contents(&self) -> io::Result<Arc<Latin1String>> {
+        let mut file = File::open(&self.file_name)?;
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes)?;
+        Ok(Arc::new(Latin1String::from_vec(bytes)))
+    }
+}
+
+impl SourceDataProvider for InlineSource {
+    fn contents(&self) -> io::Result<Arc<Latin1String>> {
+        Ok(self.contents.clone())
+    }
+}
+
+struct UniqueSource {
+    file_name: String,
+    data_provider: Box<dyn SourceDataProvider + Sync + Send>,
+}
+
+impl fmt::Debug for UniqueSource {
+    /// Custom implementation to avoid large contents strings
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Source::FileName(ref file_name) => {
-                write!(f, "Source::FileName({:?})", file_name.as_str())
-            }
-            Source::Contents(_) => write!(f, "Source::Contents(...)"),
+        write!(f, "Source {{file_name: {:?}}}", self.file_name.as_str())
+    }
+}
+
+impl UniqueSource {
+    fn inline(file_name: impl Into<String>, contents: Arc<Latin1String>) -> Self {
+        Self {
+            file_name: file_name.into(),
+            data_provider: Box::new(InlineSource { contents }),
         }
+    }
+
+    fn from_file(file_name: impl Into<String>) -> Self {
+        let file_name = file_name.into();
+        let data_provider = Box::new(SourceFile {
+            file_name: file_name.to_string(),
+        });
+        Self {
+            file_name,
+            data_provider,
+        }
+    }
+
+    fn contents(&self) -> io::Result<Arc<Latin1String>> {
+        self.data_provider.contents()
+    }
+
+    fn file_name(&self) -> &str {
+        self.file_name.as_ref()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Source {
+    source: Arc<UniqueSource>,
+}
+
+impl PartialEq for Source {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.source, &other.source)
     }
 }
 
 impl Source {
-    pub fn from_str(contents: &str) -> Result<Source, String> {
-        Ok(Source::Contents(Arc::new(Latin1String::from_utf8(
-            contents,
-        )?)))
-    }
-    pub fn from_file(file_name: &str) -> Source {
-        Source::FileName(Arc::new(file_name.to_string()))
-    }
-
-    pub fn contents(self: &Self) -> Result<Arc<Latin1String>, Error> {
-        match self {
-            Source::FileName(ref file_name) => {
-                let mut file = File::open(file_name.as_ref())?;
-                let mut bytes = Vec::new();
-                file.read_to_end(&mut bytes)?;
-
-                Ok(Arc::new(Latin1String::from_vec(bytes)))
-            }
-            Source::Contents(ref contents) => Ok(contents.clone()),
+    pub fn inline(file_name: impl Into<String>, contents: Arc<Latin1String>) -> Source {
+        Source {
+            source: Arc::new(UniqueSource::inline(file_name, contents)),
         }
     }
 
-    pub fn utf8_contents(&self) -> Result<Arc<String>, Error> {
-        let contents = self.contents()?;
-        Ok(Arc::new(contents.to_string()))
+    pub fn from_file(file_name: impl Into<String>) -> Source {
+        Source {
+            source: Arc::new(UniqueSource::from_file(file_name)),
+        }
     }
 
-    pub fn file_name(self: &Self) -> Option<&str> {
-        match self {
-            Source::FileName(ref file_name) => Some(file_name.as_str()),
-            _ => None,
-        }
+    pub fn inline_utf8(file_name: impl Into<String>, contents: &str) -> io::Result<Self> {
+        let latin1 = Latin1String::from_utf8(contents)
+            .map_err(|msg| io::Error::new(io::ErrorKind::Other, msg))?;
+        Ok(Self::inline(file_name, Arc::new(latin1)))
+    }
+
+    #[cfg(test)]
+    pub fn from_str(contents: &str) -> Self {
+        Self::inline_utf8("{unknown file}", contents).unwrap()
+    }
+
+    pub fn contents(&self) -> io::Result<Arc<Latin1String>> {
+        self.source.contents()
+    }
+
+    pub fn file_name(&self) -> &str {
+        self.source.file_name()
     }
 
     pub fn pos(self: &Self, start: usize, length: usize) -> SrcPos {
@@ -374,20 +432,10 @@ impl SrcPos {
         return (first_lineno, max_len, result);
     }
 
-    fn lineno_and_code_context(self: &Self) -> (usize, usize, String) {
-        match self.source {
-            Source::FileName(ref file_name) => {
-                let mut file = File::open(file_name.to_string()).unwrap();
-                let mut bytes = Vec::new();
-                file.read_to_end(&mut bytes).unwrap();
-                let latin1 = Latin1String::from_vec(bytes);
-                self.code_context_from_reader(&mut latin1.to_string().as_bytes())
-            }
-            Source::Contents(ref contents) => {
-                let utf8_contents = contents.to_string();
-                self.code_context_from_reader(&mut utf8_contents.as_bytes())
-            }
-        }
+    fn lineno_and_code_context(&self) -> (usize, usize, String) {
+        // @TODO handle errors
+        let latin1 = self.source.contents().unwrap();
+        self.code_context_from_reader(&mut latin1.to_string().as_bytes())
     }
 
     /// Create a string for pretty printing
@@ -398,7 +446,7 @@ impl SrcPos {
 
     pub fn show(&self, message: &str) -> String {
         let (lineno, lineno_len, pretty_str) = self.lineno_and_code_context();
-        let file_name = self.source.file_name().unwrap_or("{unknown file}");
+        let file_name = self.source.file_name();
         let mut result = String::new();
         writeln!(result, "{}", &message);
         for _ in 0..lineno_len {
@@ -441,7 +489,7 @@ mod tests {
 
     #[test]
     fn srcpos_combine() {
-        let source = Source::from_str("hello world").unwrap();
+        let source = Source::from_str("hello world");
 
         assert_eq!(
             source.pos(0, 2).combine(&source.pos(2, 2)),
@@ -468,7 +516,7 @@ mod tests {
         let file_name = file.path().to_str().unwrap().to_string();
         file.write(&Latin1String::from_utf8_unchecked(contents).bytes)
             .unwrap();
-        fun(Source::from_file(&file_name))
+        fun(Source::from_file(file_name))
     }
 
     #[test]
@@ -487,7 +535,7 @@ mod tests {
 
     #[test]
     fn code_context_pos_last_line_without_newline() {
-        let source = Source::from_str("hello world").unwrap();
+        let source = Source::from_str("hello world");
         let pos = source.first_substr_pos("hello");
         assert_eq!(
             pos.code_context(),
@@ -500,7 +548,7 @@ mod tests {
 
     #[test]
     fn code_context_pos_with_indent() {
-        let source = Source::from_str("    hello world").unwrap();
+        let source = Source::from_str("    hello world");
         let pos = source.first_substr_pos("hello");
         assert_eq!(
             pos.code_context(),
@@ -513,7 +561,7 @@ mod tests {
 
     #[test]
     fn code_context_eof() {
-        let source = Source::from_str("h").unwrap();
+        let source = Source::from_str("h");
         let pos = source.pos(1, 1);
         assert_eq!(
             pos.code_context(),
@@ -526,14 +574,14 @@ mod tests {
 
     #[test]
     fn code_context_eof_empty() {
-        let source = Source::from_str("").unwrap();
+        let source = Source::from_str("");
         let pos = source.pos(0, 1);
         assert_eq!(pos.code_context(), "1 --> \n   |  ~\n",);
     }
 
     #[test]
     fn code_context_with_context() {
-        let source = Source::from_str("hello\nworld").unwrap();
+        let source = Source::from_str("hello\nworld");
         let pos = source.first_substr_pos("hello");
         assert_eq!(
             pos.code_context(),
@@ -547,7 +595,7 @@ mod tests {
 
     #[test]
     fn code_context_with_tabs() {
-        let source = Source::from_str("\thello\t").unwrap();
+        let source = Source::from_str("\thello\t");
         let pos = source.first_substr_pos("hello\t");
         assert_eq!(
             pos.code_context(),
@@ -560,7 +608,7 @@ mod tests {
 
     #[test]
     fn code_context_non_ascii() {
-        let source = Source::from_str("åäö\nåäö\n__å_ä_ö__").unwrap();
+        let source = Source::from_str("åäö\nåäö\n__å_ä_ö__");
         let pos = source.first_substr_pos("å_ä_ö");
         assert_eq!(pos.length, 5);
         assert_eq!(
@@ -608,7 +656,7 @@ line10
 line11
 line12
 line13",
-        ).unwrap();
+        );
         let pos = source.first_substr_pos("line10");
         assert_eq!(
             pos.code_context(),
@@ -638,7 +686,7 @@ Greetings
    |  ~~~~~
 3  |  line
 ",
-                    source.file_name().unwrap()
+                    source.file_name()
                 )
             )
         });
@@ -646,7 +694,7 @@ Greetings
 
     #[test]
     fn show_contents() {
-        let source = Source::from_str("hello\nworld\nline\n").unwrap();
+        let source = Source::from_str("hello\nworld\nline\n");
         assert_eq!(
             &source.first_substr_pos("world").show("Greetings"),
             "\

@@ -1267,7 +1267,7 @@ impl Tokenizer {
 #[cfg(test)]
 fn tokenize_result(code: &str) -> (Source, Arc<SymbolTable>, Vec<Result<Token, Message>>) {
     let symtab = Arc::new(SymbolTable::new());
-    let source = Source::from_str(code).unwrap();
+    let source = Source::from_str(code);
     let mut tokens = Vec::new();
     {
         let code = source.contents().unwrap();

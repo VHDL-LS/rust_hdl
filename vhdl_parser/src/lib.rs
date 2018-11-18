@@ -111,7 +111,7 @@ impl VHDLParser {
         file_name: &str,
         messages: &mut MessageHandler,
     ) -> ParserResult {
-        let source = Source::from_file(&file_name);
+        let source = Source::from_file(file_name);
         Ok(self.parse_design_source(&source, messages)?)
     }
 

@@ -37,7 +37,7 @@ pub struct Code {
 
 impl Code {
     pub fn new(code: &str) -> Code {
-        let source = Source::from_str(code).unwrap();
+        let source = Source::from_str(code);
         let symtab = Arc::new(SymbolTable::new());
         let pos = source.entire_pos();
         let code = Code {
