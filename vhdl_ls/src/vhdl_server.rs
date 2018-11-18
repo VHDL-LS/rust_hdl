@@ -27,22 +27,22 @@ pub trait RpcChannel {
 
 pub struct VHDLServer<T: RpcChannel> {
     rpc_channel: T,
-    client_capabilities: Option<ClientCapabilities>,
+    init_params: Option<InitializeParams>,
 }
 
 impl<T: RpcChannel> VHDLServer<T> {
     pub fn new(rpc_channel: T) -> VHDLServer<T> {
         VHDLServer {
             rpc_channel,
-            client_capabilities: None,
+            init_params: None,
         }
     }
 
     pub fn initialize_request(
         &mut self,
-        client_capabilities: ClientCapabilities,
+        params: InitializeParams,
     ) -> jsonrpc_core::Result<InitializeResult> {
-        self.client_capabilities = Some(client_capabilities);
+        self.init_params = Some(params);
 
         let result = InitializeResult {
             capabilities: ServerCapabilities {
@@ -118,8 +118,9 @@ impl<T: RpcChannel> VHDLServer<T> {
 
     fn client_supports_related_information(&self) -> bool {
         let try_fun = || {
-            self.client_capabilities
+            self.init_params
                 .as_ref()?
+                .capabilities
                 .text_document
                 .as_ref()?
                 .publish_diagnostics
@@ -332,14 +333,24 @@ mod tests {
     }
 
     fn initialize_server(server: &mut VHDLServer<RpcMock>) {
-        let client_capabilities = ClientCapabilities {
+        let capabilities = ClientCapabilities {
             workspace: None,
             text_document: None,
             experimental: None,
         };
 
+        let initialize_params = InitializeParams {
+            process_id: None,
+            root_path: None,
+            root_uri: None,
+            initialization_options: None,
+            capabilities,
+            trace: None,
+            workspace_folders: None,
+        };
+
         server
-            .initialize_request(client_capabilities)
+            .initialize_request(initialize_params)
             .expect("Should not fail");
         server.initialized_notification(InitializedParams {});
     }
