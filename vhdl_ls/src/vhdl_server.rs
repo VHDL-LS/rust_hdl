@@ -15,7 +15,8 @@ extern crate vhdl_parser;
 use self::vhdl_parser::message::{Message, Severity};
 use self::vhdl_parser::semantic;
 use self::vhdl_parser::source::{Source, SrcPos};
-use self::vhdl_parser::{ParserError, VHDLParser};
+use self::vhdl_parser::{Config, ParserError, VHDLParser};
+use std::io;
 
 pub trait RpcChannel {
     fn send_notification(
@@ -67,6 +68,7 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
 struct InitializedVHDLServer<T: RpcChannel> {
     rpc_channel: T,
     init_params: InitializeParams,
+    config: io::Result<Config>,
 }
 
 impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
@@ -74,9 +76,29 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         rpc_channel: T,
         init_params: InitializeParams,
     ) -> jsonrpc_core::Result<(InitializedVHDLServer<T>, InitializeResult)> {
+        let config = init_params
+            .root_uri
+            .as_ref()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "initializeParams.rootUri not set"))
+            .and_then(|root_uri| {
+                root_uri.to_file_path().map_err(|_| {
+                    io::Error::new(
+                        io::ErrorKind::Other,
+                        format!(
+                            "initializeParams.rootUri {:?} not a valid file path",
+                            root_uri
+                        ),
+                    )
+                })
+            }).and_then(|root_path| {
+                let config_file = root_path.join("vhdl_ls.toml");
+                Config::read_file_path(&config_file)
+            });
+
         let server = InitializedVHDLServer {
             rpc_channel,
             init_params,
+            config,
         };
 
         let result = InitializeResult {
@@ -203,7 +225,28 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
     }
 
-    pub fn initialized_notification(&self, _params: InitializedParams) {}
+    pub fn initialized_notification(&self, _params: InitializedParams) {
+        if let Err(ref err) = self.config {
+            self.rpc_channel.send_notification(
+                "window/showMessage",
+                ShowMessageParams {
+                    typ: MessageType::Warning,
+                    message: format!(
+                        "Found no vhdl_ls.toml config file in the root path: {}",
+                        err
+                    ),
+                },
+            );
+            self.rpc_channel.send_notification(
+                "window/showMessage",
+                ShowMessageParams {
+                    typ: MessageType::Warning,
+                    message: "Semantic analysis disabled, will perform syntax checking only"
+                        .to_owned(),
+                },
+            );
+        }
+    }
 
     pub fn text_document_did_change_notification(&self, params: DidChangeTextDocumentParams) {
         self.parse_and_publish_diagnostics(
@@ -312,6 +355,9 @@ mod tests {
             method: String,
             notification: serde_json::Value,
         },
+        IgnoredNotification {
+            method: String,
+        },
     }
 
     #[derive(Clone)]
@@ -338,6 +384,14 @@ mod tests {
                     notification: serde_json::to_value(notification).unwrap(),
                 });
         }
+
+        fn ignore_notification(&self, method: impl Into<String>) {
+            self.expected
+                .borrow_mut()
+                .push_back(RpcExpected::IgnoredNotification {
+                    method: method.into(),
+                });
+        }
     }
 
     impl RpcChannel for RpcMock {
@@ -361,6 +415,9 @@ mod tests {
                 } => {
                     assert_eq!(method.into(), exp_method);
                     assert_eq!(notification, exp_notification);
+                }
+                RpcExpected::IgnoredNotification { method: exp_method } => {
+                    assert_eq!(method.into(), exp_method);
                 }
             }
         }
@@ -398,8 +455,10 @@ mod tests {
     #[test]
     fn initialize() {
         let mock = RpcMock::new();
-        let mut server = VHDLServer::new(mock);
+        let mut server = VHDLServer::new(mock.clone());
         let (_tempdir, root_uri) = temp_root_uri();
+        mock.ignore_notification("window/showMessage");
+        mock.ignore_notification("window/showMessage");
         initialize_server(&mut server, root_uri);
     }
 
@@ -409,6 +468,8 @@ mod tests {
         let mut server = VHDLServer::new(mock.clone());
 
         let (_tempdir, root_uri) = temp_root_uri();
+        mock.ignore_notification("window/showMessage");
+        mock.ignore_notification("window/showMessage");
         initialize_server(&mut server, root_uri.clone());
 
         let file_url = root_uri.join("ent.vhd").unwrap();
@@ -442,6 +503,8 @@ end entity ent;
         let mut server = VHDLServer::new(mock.clone());
 
         let (_tempdir, root_uri) = temp_root_uri();
+        mock.ignore_notification("window/showMessage");
+        mock.ignore_notification("window/showMessage");
         initialize_server(&mut server, root_uri.clone());
 
         let file_url = root_uri.join("ent.vhd").unwrap();
