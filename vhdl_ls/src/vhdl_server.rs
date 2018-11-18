@@ -332,7 +332,7 @@ mod tests {
         }
     }
 
-    fn initialize_server(server: &mut VHDLServer<RpcMock>) {
+    fn initialize_server(server: &mut VHDLServer<RpcMock>, root_uri: Url) {
         let capabilities = ClientCapabilities {
             workspace: None,
             text_document: None,
@@ -342,7 +342,7 @@ mod tests {
         let initialize_params = InitializeParams {
             process_id: None,
             root_path: None,
-            root_uri: None,
+            root_uri: Some(root_uri),
             initialization_options: None,
             capabilities,
             trace: None,
@@ -355,11 +355,18 @@ mod tests {
         server.initialized_notification(InitializedParams {});
     }
 
+    fn temp_root_uri() -> (tempfile::TempDir, Url) {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root_uri = Url::from_file_path(tempdir.path()).unwrap();
+        (tempdir, root_uri)
+    }
+
     #[test]
     fn initialize() {
         let mock = RpcMock::new();
         let mut server = VHDLServer::new(mock);
-        initialize_server(&mut server);
+        let (_tempdir, root_uri) = temp_root_uri();
+        initialize_server(&mut server, root_uri);
     }
 
     #[test]
@@ -367,11 +374,10 @@ mod tests {
         let mock = RpcMock::new();
         let mut server = VHDLServer::new(mock.clone());
 
-        initialize_server(&mut server);
+        let (_tempdir, root_uri) = temp_root_uri();
+        initialize_server(&mut server, root_uri.clone());
 
-        let tempdir = tempfile::tempdir().unwrap();
-
-        let file_url = Url::from_file_path(tempdir.path().join("ent.vhd")).unwrap();
+        let file_url = root_uri.join("ent.vhd").unwrap();
         let code = "
 entity ent is
 end entity ent;
@@ -401,11 +407,10 @@ end entity ent;
         let mock = RpcMock::new();
         let mut server = VHDLServer::new(mock.clone());
 
-        initialize_server(&mut server);
+        let (_tempdir, root_uri) = temp_root_uri();
+        initialize_server(&mut server, root_uri.clone());
 
-        let tempdir = tempfile::tempdir().unwrap();
-
-        let file_url = Url::from_file_path(tempdir.path().join("ent.vhd")).unwrap();
+        let file_url = root_uri.join("ent.vhd").unwrap();
         let code = "
 entity ent is
 end entity ent2;
