@@ -255,7 +255,7 @@ impl Library {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_util::{check_no_messages, Code};
+    use test_util::{check_no_messages, Code, CodeBuilder};
 
     fn new_library_with_messages(code: &Code, name: &str) -> (Library, Vec<Message>) {
         let mut messages = Vec::new();
@@ -468,7 +468,7 @@ end package;
         let code = Code::new(
             "
 package body pkg is
-end package;
+end package body;
 
 package pkg is
 end package;
@@ -506,6 +506,42 @@ end entity;
                 ),
             ]
         );
+    }
+
+    #[test]
+    fn no_error_on_secondary_before_primary_in_different_files() {
+        let builder = CodeBuilder::new();
+        let file1 = builder.code(
+            "
+package body pkg is
+end package body;
+",
+        );
+
+        let file2 = builder.code(
+            "
+package pkg is
+end package;
+",
+        );
+
+        let mut messages = Vec::new();
+        let mut library = Library::new(builder.symbol("libname"));
+        library.add_design_file(file1.design_file(), &mut messages);
+        library.add_design_file(file2.design_file(), &mut messages);
+        library.finalize(&mut messages);
+
+        // Should still be added as a secondary unit
+        assert_eq!(
+            library
+                .primary_unit(&builder.symbol("pkg"))
+                .unwrap()
+                .secondary
+                .len(),
+            1
+        );
+
+        check_no_messages(&messages);
     }
 
     #[test]

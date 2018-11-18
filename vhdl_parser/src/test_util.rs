@@ -29,20 +29,23 @@ use tokenizer::Tokenizer;
 use tokenstream::TokenStream;
 use waveform::parse_waveform;
 
-pub struct Code {
-    source: Source,
+pub struct CodeBuilder {
     symtab: Arc<SymbolTable>,
-    pos: SrcPos,
 }
 
-impl Code {
-    pub fn new(code: &str) -> Code {
+impl CodeBuilder {
+    pub fn new() -> CodeBuilder {
+        CodeBuilder {
+            symtab: Arc::new(SymbolTable::new()),
+        }
+    }
+
+    pub fn code(&self, code: &str) -> Code {
         let source = Source::from_str(code);
-        let symtab = Arc::new(SymbolTable::new());
         let pos = source.entire_pos();
         let code = Code {
             source,
-            symtab,
+            symtab: self.symtab.clone(),
             pos,
         };
 
@@ -53,6 +56,22 @@ impl Code {
         });
 
         code
+    }
+
+    pub fn symbol(&self, name: &str) -> Symbol {
+        self.symtab.insert_utf8(name)
+    }
+}
+
+pub struct Code {
+    source: Source,
+    symtab: Arc<SymbolTable>,
+    pos: SrcPos,
+}
+
+impl Code {
+    pub fn new(code: &str) -> Code {
+        CodeBuilder::new().code(code)
     }
 
     /// Create new Code from n:th occurence of substr
