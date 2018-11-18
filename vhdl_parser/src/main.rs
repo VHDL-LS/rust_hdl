@@ -114,7 +114,11 @@ fn main() {
 
         for (library_name, design_files) in libraries.into_iter() {
             let mut messages = Vec::new();
-            Library::new(library_name, design_files, &mut messages);
+            let mut library = Library::new(library_name);
+            for design_file in design_files {
+                library.add_design_file(design_file, &mut messages);
+            }
+            library.finalize(&mut messages);
             show_messages(&messages);
         }
     }

@@ -88,48 +88,54 @@ impl PrimaryDesignUnit {
         }
     }
 
-    fn add_secondary_unit(&mut self, secondary_unit: DesignUnit<SecondaryUnit>) -> Option<Message> {
+    fn add_secondary_unit(
+        &mut self,
+        secondary_unit: DesignUnit<SecondaryUnit>,
+        messages: &mut MessageHandler,
+    ) -> Option<DesignUnit<SecondaryUnit>> {
         if !self.can_be_secondary(&secondary_unit) {
-            Some(Message::error(
+            messages.push(Message::error(
                 secondary_unit.ident(),
                 format!(
                     "{} cannot be a secondary unit of {}",
                     secondary_unit.unit_str(),
                     self.unit.unit_str()
                 ),
-            ))
+            ));
+            Some(secondary_unit)
         } else {
             match self.secondary.entry(secondary_unit.name().to_owned()) {
-                Entry::Occupied(..) => Some(Message::error(
-                    secondary_unit.ident(),
-                    format!(
-                        "Duplicate {} of {}",
-                        secondary_unit.unit_str(),
-                        self.unit.unit_str(),
-                    ),
-                )),
+                Entry::Occupied(..) => {
+                    messages.push(Message::error(
+                        secondary_unit.ident(),
+                        format!(
+                            "Duplicate {} of {}",
+                            secondary_unit.unit_str(),
+                            self.unit.unit_str(),
+                        ),
+                    ));
+                    Some(secondary_unit)
+                }
                 Entry::Vacant(entry) => {
-                    let optional_msg = {
+                    {
                         let primary_pos = &self.unit.ident().pos;
                         let secondary_pos = &secondary_unit.ident().pos;
                         if primary_pos.source == secondary_pos.source
                             && primary_pos.start > secondary_pos.start
                         {
-                            Some(Message::error(
+                            messages.push(Message::error(
                                 secondary_pos,
                                 format!(
                                     "{} declared before {}",
                                     secondary_unit.unit_str(),
                                     self.unit.unit_str()
                                 ),
-                            ))
-                        } else {
-                            None
+                            ));
                         }
                     };
 
                     entry.insert(secondary_unit);
-                    optional_msg
+                    None
                 }
             }
         }
@@ -145,57 +151,71 @@ pub struct PrimaryDesignUnit {
 pub struct Library {
     pub name: Symbol,
     pub primary_units: FnvHashMap<Symbol, PrimaryDesignUnit>,
+    pub secondary_orphans: Vec<DesignUnit<SecondaryUnit>>,
 }
 
 impl Library {
-    pub fn new(
-        name: Symbol,
-        design_files: Vec<DesignFile>,
-        messages: &mut MessageHandler,
-    ) -> Library {
-        let mut primary_units = FnvHashMap::default();
-        let mut secondary_units = Vec::new();
+    pub fn new(name: Symbol) -> Library {
+        let primary_units = FnvHashMap::default();
+        let secondary_orphans = Vec::new();
+        Library {
+            name,
+            primary_units,
+            secondary_orphans,
+        }
+    }
 
-        for design_file in design_files {
-            for design_unit in design_file.design_units {
-                match design_unit {
-                    AnyDesignUnit::Primary(primary) => {
-                        let primary_name = primary.name().clone();
+    pub fn add_design_file(&mut self, design_file: DesignFile, messages: &mut MessageHandler) {
+        for design_unit in design_file.design_units {
+            self.add_design_unit(design_unit, messages);
+        }
+    }
 
-                        let primary = PrimaryDesignUnit {
-                            unit: primary,
-                            secondary: FnvHashMap::default(),
-                        };
+    pub fn add_design_unit(&mut self, design_unit: AnyDesignUnit, messages: &mut MessageHandler) {
+        match design_unit {
+            AnyDesignUnit::Primary(primary) => {
+                let primary_name = primary.name().clone();
 
-                        match primary_units.entry(primary_name) {
-                            Entry::Occupied(entry) => {
-                                let old_unit: &PrimaryDesignUnit = entry.get();
-                                let msg = Message::error(
-                                    primary.unit.ident(),
-                                    format!(
-                                        "A primary unit has already been declared with name '{}' in library '{}'",
-                                        entry.key(),
-                                        name
-                                    )).related(old_unit.unit.ident(), "Previously defined here");
-                                messages.push(msg);
-                            }
-                            Entry::Vacant(entry) => {
-                                entry.insert(primary);
-                            }
-                        }
+                let primary = PrimaryDesignUnit {
+                    unit: primary,
+                    secondary: FnvHashMap::default(),
+                };
+
+                match self.primary_units.entry(primary_name) {
+                    Entry::Occupied(entry) => {
+                        let old_unit: &PrimaryDesignUnit = entry.get();
+                        let msg = Message::error(
+                            primary.unit.ident(),
+                            format!(
+                                "A primary unit has already been declared with name '{}' in library '{}'",
+                                entry.key(),
+                                self.name
+                            )).related(old_unit.unit.ident(), "Previously defined here");
+                        messages.push(msg);
                     }
-                    AnyDesignUnit::Secondary(secondary) => {
-                        secondary_units.push(secondary);
+                    Entry::Vacant(entry) => {
+                        entry.insert(primary);
                     }
                 }
             }
+            AnyDesignUnit::Secondary(secondary) => {
+                self.secondary_orphans.push(secondary);
+            }
         }
+    }
 
-        for secondary_unit in secondary_units {
-            if let Some(ref mut primary_unit) = primary_units.get_mut(secondary_unit.primary_name())
+    /// All orphaned secondary units must be assigned to primary units
+    pub fn finalize(&mut self, messages: &mut MessageHandler) {
+        let secondary_orphans = std::mem::replace(&mut self.secondary_orphans, Vec::new());
+
+        for secondary_unit in secondary_orphans {
+            if let Some(ref mut primary_unit) =
+                self.primary_units.get_mut(secondary_unit.primary_name())
             {
-                if let Some(msg) = primary_unit.add_secondary_unit(secondary_unit) {
-                    messages.push(msg);
+                if let Some(secondary_unit) =
+                    primary_unit.add_secondary_unit(secondary_unit, messages)
+                {
+                    self.secondary_orphans.push(secondary_unit);
                 }
             } else {
                 match secondary_unit.unit {
@@ -205,7 +225,7 @@ impl Library {
                             format!(
                                 "No entity '{}' within the library '{}'",
                                 secondary_unit.primary_name(),
-                                name
+                                self.name
                             ),
                         ));
                     }
@@ -215,17 +235,14 @@ impl Library {
                             format!(
                                 "No package '{}' within the library '{}'",
                                 secondary_unit.primary_name(),
-                                name
+                                self.name
                             ),
                         ));
                     }
                 }
-            }
-        }
 
-        Library {
-            name,
-            primary_units,
+                self.secondary_orphans.push(secondary_unit);
+            }
         }
     }
 
@@ -242,7 +259,9 @@ mod tests {
 
     fn new_library_with_messages(code: &Code, name: &str) -> (Library, Vec<Message>) {
         let mut messages = Vec::new();
-        let library = Library::new(code.symbol(name), vec![code.design_file()], &mut messages);
+        let mut library = Library::new(code.symbol(name));
+        library.add_design_file(code.design_file(), &mut messages);
+        library.finalize(&mut messages);
         (library, messages)
     }
 
@@ -614,4 +633,5 @@ end package body;
             })
         );
     }
+
 }
