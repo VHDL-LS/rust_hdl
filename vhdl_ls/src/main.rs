@@ -127,7 +127,7 @@ impl LanguageServer {
     }
 
     fn initialize_request(&mut self, params: Params) -> jsonrpc_core::Result<Value> {
-        self.client_capabilities = params.parse().unwrap();
+        self.client_capabilities = params.parse()?;
 
         let result = InitializeResult {
             capabilities: ServerCapabilities {
@@ -198,7 +198,7 @@ impl LanguageServer {
             },
         };
 
-        Ok(serde_json::to_value(result).unwrap())
+        Ok(serde_json::to_value(result).map_err(|err| jsonrpc_core::Error::internal_error())?)
     }
 
     fn client_supports_related_information(&self) -> bool {
