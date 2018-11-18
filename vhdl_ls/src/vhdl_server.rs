@@ -262,3 +262,201 @@ fn to_diagnostics(
     });
     diagnostics
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::RefCell;
+    use std::collections::VecDeque;
+    use std::rc::Rc;
+    extern crate tempfile;
+
+    #[derive(Clone)]
+    enum RpcExpected {
+        Notification {
+            method: String,
+            notification: serde_json::Value,
+        },
+    }
+
+    #[derive(Clone)]
+    struct RpcMock {
+        expected: Rc<RefCell<VecDeque<RpcExpected>>>,
+    }
+
+    impl RpcMock {
+        fn new() -> RpcMock {
+            RpcMock {
+                expected: Rc::new(RefCell::new(VecDeque::new())),
+            }
+        }
+
+        fn expect_notification(
+            &self,
+            method: impl Into<String>,
+            notification: impl serde::ser::Serialize,
+        ) {
+            self.expected
+                .borrow_mut()
+                .push_back(RpcExpected::Notification {
+                    method: method.into(),
+                    notification: serde_json::to_value(notification).unwrap(),
+                });
+        }
+    }
+
+    impl RpcChannel for RpcMock {
+        fn send_notification(
+            &self,
+            method: impl Into<String>,
+            notification: impl serde::ser::Serialize,
+        ) {
+            let notification = serde_json::to_value(notification).unwrap();
+            let expected = self
+                .expected
+                .borrow_mut()
+                .pop_front()
+                .ok_or_else(|| panic!("No expected value, got {:?}", notification))
+                .unwrap();
+
+            match expected {
+                RpcExpected::Notification {
+                    method: exp_method,
+                    notification: exp_notification,
+                } => {
+                    assert_eq!(method.into(), exp_method);
+                    assert_eq!(notification, exp_notification);
+                }
+            }
+        }
+    }
+
+    fn initialize_server(server: &mut VHDLServer<RpcMock>) {
+        let client_capabilities = ClientCapabilities {
+            workspace: None,
+            text_document: None,
+            experimental: None,
+        };
+
+        server
+            .initialize_request(client_capabilities)
+            .expect("Should not fail");
+        server.initialized_notification(InitializedParams {});
+    }
+
+    #[test]
+    fn initialize() {
+        let mock = RpcMock::new();
+        let mut server = VHDLServer::new(mock);
+        initialize_server(&mut server);
+    }
+
+    #[test]
+    fn did_open_no_diagnostics() {
+        let mock = RpcMock::new();
+        let mut server = VHDLServer::new(mock.clone());
+
+        initialize_server(&mut server);
+
+        let tempdir = tempfile::tempdir().unwrap();
+
+        let file_url = Url::from_file_path(tempdir.path().join("ent.vhd")).unwrap();
+        let code = "
+entity ent is
+end entity ent;
+".to_owned();
+
+        let did_open = DidOpenTextDocumentParams {
+            text_document: TextDocumentItem {
+                uri: file_url.clone(),
+                language_id: "vhdl".to_owned(),
+                version: 0,
+                text: code.to_owned(),
+            },
+        };
+
+        let publish_diagnostics = PublishDiagnosticsParams {
+            uri: file_url.clone(),
+            diagnostics: vec![],
+        };
+
+        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
+
+        server.text_document_did_open_notification(did_open);
+    }
+
+    #[test]
+    fn did_open_with_diagnostics_and_change_without() {
+        let mock = RpcMock::new();
+        let mut server = VHDLServer::new(mock.clone());
+
+        initialize_server(&mut server);
+
+        let tempdir = tempfile::tempdir().unwrap();
+
+        let file_url = Url::from_file_path(tempdir.path().join("ent.vhd")).unwrap();
+        let code = "
+entity ent is
+end entity ent2;
+".to_owned();
+
+        let did_open = DidOpenTextDocumentParams {
+            text_document: TextDocumentItem {
+                uri: file_url.clone(),
+                language_id: "vhdl".to_owned(),
+                version: 0,
+                text: code.to_owned(),
+            },
+        };
+
+        let publish_diagnostics = PublishDiagnosticsParams {
+            uri: file_url.clone(),
+            diagnostics: vec![Diagnostic {
+                range: Range {
+                    start: Position {
+                        line: 2,
+                        character: "end entity ".len() as u64,
+                    },
+                    end: Position {
+                        line: 2,
+                        character: "end entity ent2".len() as u64,
+                    },
+                },
+                code: None,
+                severity: Some(DiagnosticSeverity::Error),
+                source: Some("vhdl ls".to_owned()),
+                message: "End identifier mismatch, expected ent".to_owned(),
+                related_information: None,
+            }],
+        };
+
+        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
+        server.text_document_did_open_notification(did_open);
+
+        let code = "
+entity ent is
+end entity ent;
+".to_owned();
+
+        let did_change = DidChangeTextDocumentParams {
+            text_document: VersionedTextDocumentIdentifier {
+                uri: file_url.clone(),
+                version: Some(1),
+            },
+            content_changes: vec![TextDocumentContentChangeEvent {
+                range: None,
+                range_length: None,
+                text: code.clone(),
+            }],
+        };
+
+        let publish_diagnostics = PublishDiagnosticsParams {
+            uri: file_url.clone(),
+            diagnostics: vec![],
+        };
+
+        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
+        server.text_document_did_change_notification(did_change);
+    }
+
+}
