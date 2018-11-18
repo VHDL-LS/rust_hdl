@@ -11,12 +11,12 @@ extern crate serde_json;
 extern crate url;
 
 use jsonrpc_core::request::Notification;
-use jsonrpc_core::{IoHandler, Params, Value};
+use jsonrpc_core::{IoHandler, Params};
 use languageserver_types::{
     ClientCapabilities, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity,
-    DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeResult, Location, Position,
-    PublishDiagnosticsParams, Range, ServerCapabilities, TextDocumentSyncCapability,
-    TextDocumentSyncKind,
+    DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeResult, InitializedParams,
+    Location, Position, PublishDiagnosticsParams, Range, ServerCapabilities,
+    TextDocumentSyncCapability, TextDocumentSyncKind,
 };
 use std::io::prelude::*;
 use std::io::{self, BufRead};
@@ -41,29 +41,34 @@ fn main() {
     // @TODO handle jsonrpc synchronously
     let lang_server = Arc::new(Mutex::new(LanguageServer::new(response_sender.clone())));
     let server = lang_server.clone();
-    io.add_method("initialize", move |params| {
-        server.lock().unwrap().initialize_request(params)
+    io.add_method("initialize", move |params: Params| {
+        let result = server.lock().unwrap().initialize_request(params.parse()?)?;
+        // @TODO log error
+        Ok(serde_json::to_value(result).map_err(|_| jsonrpc_core::Error::internal_error())?)
     });
 
     let server = lang_server.clone();
-    io.add_notification("initialized", move |params| {
-        server.lock().unwrap().initialized_notification(params)
-    });
-
-    let server = lang_server.clone();
-    io.add_notification("textDocument/didChange", move |params| {
+    io.add_notification("initialized", move |params: Params| {
         server
             .lock()
             .unwrap()
-            .text_document_did_change_notification(params)
+            .initialized_notification(params.parse().unwrap())
     });
 
     let server = lang_server.clone();
-    io.add_notification("textDocument/didOpen", move |params| {
+    io.add_notification("textDocument/didChange", move |params: Params| {
         server
             .lock()
             .unwrap()
-            .text_document_did_open_notification(params)
+            .text_document_did_change_notification(params.parse().unwrap())
+    });
+
+    let server = lang_server.clone();
+    io.add_notification("textDocument/didOpen", move |params: Params| {
+        server
+            .lock()
+            .unwrap()
+            .text_document_did_open_notification(params.parse().unwrap())
     });
 
     // Spawn thread to read requests from stdin
@@ -126,8 +131,11 @@ impl LanguageServer {
         }
     }
 
-    fn initialize_request(&mut self, params: Params) -> jsonrpc_core::Result<Value> {
-        self.client_capabilities = params.parse()?;
+    fn initialize_request(
+        &mut self,
+        client_capabilities: ClientCapabilities,
+    ) -> jsonrpc_core::Result<InitializeResult> {
+        self.client_capabilities = Some(client_capabilities);
 
         let result = InitializeResult {
             capabilities: ServerCapabilities {
@@ -198,7 +206,7 @@ impl LanguageServer {
             },
         };
 
-        Ok(serde_json::to_value(result).map_err(|err| jsonrpc_core::Error::internal_error())?)
+        Ok(result)
     }
 
     fn client_supports_related_information(&self) -> bool {
@@ -273,18 +281,16 @@ impl LanguageServer {
         self.send_notification("textDocument/publishDiagnostics", publish_diagnostics);
     }
 
-    fn initialized_notification(&mut self, _params: Params) {}
+    fn initialized_notification(&mut self, _params: InitializedParams) {}
 
-    fn text_document_did_change_notification(&self, params: Params) {
-        let params: DidChangeTextDocumentParams = params.parse().unwrap();
+    fn text_document_did_change_notification(&self, params: DidChangeTextDocumentParams) {
         self.parse_and_publish_diagnostics(
             params.text_document.uri,
             &params.content_changes.get(0).unwrap().text,
         );
     }
 
-    fn text_document_did_open_notification(&mut self, params: Params) {
-        let params: DidOpenTextDocumentParams = params.parse().unwrap();
+    fn text_document_did_open_notification(&mut self, params: DidOpenTextDocumentParams) {
         self.parse_and_publish_diagnostics(params.text_document.uri, &params.text_document.text);
     }
 }
