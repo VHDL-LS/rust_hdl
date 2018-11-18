@@ -8,9 +8,6 @@
 extern crate clap;
 extern crate vhdl_parser;
 
-use std::fs::File;
-use std::io;
-use std::io::prelude::*;
 use std::path::Path;
 
 use vhdl_parser::ast::{AnyDesignUnit, PrimaryUnit, SecondaryUnit, SelectedName};
@@ -65,7 +62,8 @@ fn main() {
     }
 
     if let Some(file_name) = matches.value_of("config") {
-        let config = read_config(Path::new(file_name)).expect("Failed to read config file");
+        let config =
+            Config::read_file_path(Path::new(file_name)).expect("Failed to read config file");
 
         let mut libraries = FnvHashMap::default();
         let mut files_to_parse = Vec::new();
@@ -133,16 +131,6 @@ impl FileToParse for LibraryFileToParse {
     fn file_name(&self) -> &str {
         &self.file_name
     }
-}
-
-fn read_config(file_name: &Path) -> io::Result<Config> {
-    let mut file = File::open(file_name)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-
-    let parent = file_name.parent().unwrap();
-
-    Config::from_str(&contents, parent).map_err(|msg| io::Error::new(io::ErrorKind::Other, msg))
 }
 
 fn to_string(selected_name: &SelectedName) -> String {

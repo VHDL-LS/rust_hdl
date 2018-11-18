@@ -11,6 +11,9 @@ extern crate toml;
 extern crate fnv;
 use self::fnv::FnvHashMap;
 use self::toml::Value;
+use std::fs::File;
+use std::io;
+use std::io::prelude::*;
 use std::path::Path;
 
 pub struct Config {
@@ -75,6 +78,16 @@ impl Config {
         }
 
         Ok(Config { libraries })
+    }
+
+    pub fn read_file_path(file_name: &Path) -> io::Result<Config> {
+        let mut file = File::open(file_name)?;
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)?;
+
+        let parent = file_name.parent().unwrap();
+
+        Config::from_str(&contents, parent).map_err(|msg| io::Error::new(io::ErrorKind::Other, msg))
     }
 
     pub fn get_library<'a>(&'a self, name: &str) -> Option<&'a LibraryConfig> {
