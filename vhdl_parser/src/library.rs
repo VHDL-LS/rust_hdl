@@ -15,6 +15,7 @@ use std::collections::hash_map::Entry;
 
 use ast::{AnyDesignUnit, DesignFile, DesignUnit, Ident, PrimaryUnit, SecondaryUnit};
 use message::{Message, MessageHandler};
+use source::Source;
 use symbol_table::Symbol;
 
 impl DesignUnit<PrimaryUnit> {
@@ -44,6 +45,10 @@ impl DesignUnit<PrimaryUnit> {
 
     pub fn name(&self) -> &Symbol {
         &self.ident().item
+    }
+
+    pub fn source(&self) -> &Source {
+        &self.ident().pos.source
     }
 }
 
@@ -75,6 +80,10 @@ impl DesignUnit<SecondaryUnit> {
 
     pub fn primary_name(&self) -> &Symbol {
         &self.primary_ident().item
+    }
+
+    pub fn source(&self) -> &Source {
+        &self.ident().pos.source
     }
 }
 
@@ -168,6 +177,43 @@ impl Library {
     pub fn add_design_file(&mut self, design_file: DesignFile, messages: &mut MessageHandler) {
         for design_unit in design_file.design_units {
             self.add_design_unit(design_unit, messages);
+        }
+    }
+
+    pub fn remove_source(&mut self, source: &Source) {
+        // Remove orphans from source
+        let secondary_orphans = std::mem::replace(&mut self.secondary_orphans, Vec::new());
+        for secondary_unit in secondary_orphans {
+            if secondary_unit.source() != source {
+                self.secondary_orphans.push(secondary_unit);
+            }
+        }
+
+        let mut primaries_to_remove = Vec::new();
+        for (primary_name, primary_unit) in self.primary_units.iter_mut() {
+            if primary_unit.unit.source() == source {
+                primaries_to_remove.push(primary_name.clone());
+            }
+
+            // Remove secondary units from source in primary unit
+            let mut names_to_remove = Vec::new();
+            for (secondary_name, secondary_unit) in primary_unit.secondary.iter() {
+                if secondary_unit.source() == source {
+                    names_to_remove.push(secondary_name.clone());
+                }
+            }
+
+            for secondary_name in names_to_remove {
+                primary_unit.secondary.remove(&secondary_name);
+            }
+        }
+
+        // Remove primary units from source
+        for primary_name in primaries_to_remove {
+            if let Some(primary_unit) = self.primary_units.remove(&primary_name) {
+                self.secondary_orphans
+                    .extend(primary_unit.secondary.into_iter().map(|(_, v)| v));
+            }
         }
     }
 
@@ -667,6 +713,74 @@ end package body;
                 },
                 secondary
             })
+        );
+    }
+
+    #[test]
+    fn can_remove_sources() {
+        let builder = CodeBuilder::new();
+        let primary_file = builder.code(
+            "
+package pkg is
+end package;
+",
+        );
+        let secondary_file = builder.code(
+            "
+package body pkg is
+end package body;
+",
+        );
+
+        let mut messages = Vec::new();
+        let mut library = Library::new(builder.symbol("libname"));
+        library.add_design_file(primary_file.design_file(), &mut messages);
+        library.add_design_file(secondary_file.design_file(), &mut messages);
+        library.finalize(&mut messages);
+        check_no_messages(&messages);
+
+        library.remove_source(&primary_file.source());
+        library.finalize(&mut messages);
+
+        assert_eq!(library.primary_unit(&builder.symbol("pkg")), None);
+
+        library.add_design_file(primary_file.design_file(), &mut messages);
+        library.finalize(&mut messages);
+
+        // Should still be have a secondary unit
+        assert_eq!(
+            library
+                .primary_unit(&builder.symbol("pkg"))
+                .unwrap()
+                .secondary
+                .len(),
+            1
+        );
+
+        library.remove_source(&secondary_file.source());
+        library.finalize(&mut messages);
+
+        // No secondary unit
+        assert_eq!(
+            library
+                .primary_unit(&builder.symbol("pkg"))
+                .unwrap()
+                .secondary
+                .len(),
+            0
+        );
+
+        library.add_design_file(secondary_file.design_file(), &mut messages);
+        library.finalize(&mut messages);
+
+        // Should still have a secondary unit again
+        assert_eq!(
+            library
+                .primary_unit(&builder.symbol("pkg"))
+                .unwrap()
+                .secondary
+                .len(),
+            1
         );
     }
 
