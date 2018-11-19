@@ -77,7 +77,15 @@ pub fn parse_process_statement(
                 stream.move_after(&token);
                 let mut names = Vec::with_capacity(1);
                 loop {
-                    names.push(parse_name(stream)?);
+                    let name = parse_name(stream);
+                    if let Err(err) = name {
+                        messages.push(Message::error(
+                            err.pos,
+                            "Processes with sensitivity lists should contain at least one element.",
+                        ));
+                        break Vec::new();
+                    }
+                    names.push(name.unwrap());
                     let token = stream.expect()?;
                     try_token_kind!(
                         token,
@@ -779,7 +787,6 @@ end process;
     }
 
     #[test]
-    #[should_panic]
     fn test_process_empty_sensitivity() {
         let code = Code::new(
             "\
@@ -788,15 +795,14 @@ begin
 end process;
 ",
         );
-        let process = ProcessStatement {
-            postponed: false,
-            sensitivity_list: vec![],
-            decl: vec![],
-            statements: vec![],
-        };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, None);
-        assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
+        let (_, messages) = code.with_stream_messages(parse_labeled_concurrent_statement);
+        assert_eq!(
+            messages,
+            vec![Message::error(
+                code.s1(")"),
+                "Processes with sensitivity lists should contain at least one element."
+            )]
+        );
     }
 
     #[test]
