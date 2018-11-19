@@ -135,8 +135,9 @@ pub fn parse_package_body(
 
     stream.expect_kind(Is)?;
     let decl = parse_declarative_part(stream, messages, false)?;
-    stream.pop_if_kind(Package)?;
-    stream.pop_if_kind(Body)?;
+    if stream.skip_if_kind(Package)? {
+        stream.expect_kind(Body)?;
+    }
     let end_ident = stream.pop_optional_ident()?;
     if let Some(msg) = error_on_end_identifier_mismatch(&ident, &end_ident) {
         messages.push(msg);

@@ -15,29 +15,8 @@ use std::collections::hash_map::Entry;
 
 use ast::{AnyDesignUnit, DesignFile, DesignUnit, Ident, PrimaryUnit, SecondaryUnit};
 use message::{Message, MessageHandler};
+use source::Source;
 use symbol_table::Symbol;
-
-#[derive(PartialEq, Debug, Clone)]
-pub struct PrimaryDesignUnit {
-    pub unit: DesignUnit<PrimaryUnit>,
-    pub secondary: FnvHashMap<Symbol, DesignUnit<SecondaryUnit>>,
-}
-#[derive(PartialEq, Debug, Clone)]
-pub struct Library {
-    pub name: Symbol,
-    pub primary_units: FnvHashMap<Symbol, PrimaryDesignUnit>,
-}
-
-impl Library {
-    #[cfg(test)]
-    fn primary_unit<'a>(&'a self, name: &Symbol) -> Option<&'a PrimaryDesignUnit> {
-        self.primary_units.get(name)
-    }
-}
-
-pub struct LibraryBuilder {
-    design_files: Vec<DesignFile>,
-}
 
 impl DesignUnit<PrimaryUnit> {
     fn ident(&self) -> &Ident {
@@ -66,6 +45,10 @@ impl DesignUnit<PrimaryUnit> {
 
     pub fn name(&self) -> &Symbol {
         &self.ident().item
+    }
+
+    pub fn source(&self) -> &Source {
+        &self.ident().pos.source
     }
 }
 
@@ -98,6 +81,10 @@ impl DesignUnit<SecondaryUnit> {
     pub fn primary_name(&self) -> &Symbol {
         &self.primary_ident().item
     }
+
+    pub fn source(&self) -> &Source {
+        &self.ident().pos.source
+    }
 }
 
 impl PrimaryDesignUnit {
@@ -110,160 +97,222 @@ impl PrimaryDesignUnit {
         }
     }
 
-    fn add_secondary_unit(&mut self, secondary_unit: DesignUnit<SecondaryUnit>) -> Option<Message> {
+    fn add_secondary_unit(
+        &mut self,
+        secondary_unit: DesignUnit<SecondaryUnit>,
+        messages: &mut MessageHandler,
+    ) -> Option<DesignUnit<SecondaryUnit>> {
         if !self.can_be_secondary(&secondary_unit) {
-            Some(Message::error(
+            messages.push(Message::error(
                 secondary_unit.ident(),
-                &format!(
+                format!(
                     "{} cannot be a secondary unit of {}",
                     secondary_unit.unit_str(),
                     self.unit.unit_str()
                 ),
-            ))
+            ));
+            Some(secondary_unit)
         } else {
             match self.secondary.entry(secondary_unit.name().to_owned()) {
-                Entry::Occupied(..) => Some(Message::error(
-                    secondary_unit.ident(),
-                    &format!(
-                        "Duplicate {} of {}",
-                        secondary_unit.unit_str(),
-                        self.unit.unit_str(),
-                    ),
-                )),
+                Entry::Occupied(..) => {
+                    messages.push(Message::error(
+                        secondary_unit.ident(),
+                        format!(
+                            "Duplicate {} of {}",
+                            secondary_unit.unit_str(),
+                            self.unit.unit_str(),
+                        ),
+                    ));
+                    Some(secondary_unit)
+                }
                 Entry::Vacant(entry) => {
-                    let optional_msg = {
+                    {
                         let primary_pos = &self.unit.ident().pos;
                         let secondary_pos = &secondary_unit.ident().pos;
                         if primary_pos.source == secondary_pos.source
                             && primary_pos.start > secondary_pos.start
                         {
-                            Some(Message::error(
+                            messages.push(Message::error(
                                 secondary_pos,
-                                &format!(
+                                format!(
                                     "{} declared before {}",
                                     secondary_unit.unit_str(),
                                     self.unit.unit_str()
                                 ),
-                            ))
-                        } else {
-                            None
+                            ));
                         }
                     };
 
                     entry.insert(secondary_unit);
-                    optional_msg
+                    None
                 }
             }
         }
     }
 }
 
-impl LibraryBuilder {
-    // @TODO allow dead code for now
-    #[cfg(test)]
-    fn new() -> LibraryBuilder {
-        LibraryBuilder {
-            design_files: Vec::new(),
+#[derive(PartialEq, Debug, Clone)]
+pub struct PrimaryDesignUnit {
+    pub unit: DesignUnit<PrimaryUnit>,
+    pub secondary: FnvHashMap<Symbol, DesignUnit<SecondaryUnit>>,
+}
+#[derive(PartialEq, Debug, Clone)]
+pub struct Library {
+    pub name: Symbol,
+    pub primary_units: FnvHashMap<Symbol, PrimaryDesignUnit>,
+    pub secondary_orphans: Vec<DesignUnit<SecondaryUnit>>,
+}
+
+impl Library {
+    pub fn new(name: Symbol) -> Library {
+        let primary_units = FnvHashMap::default();
+        let secondary_orphans = Vec::new();
+        Library {
+            name,
+            primary_units,
+            secondary_orphans,
         }
     }
 
-    // @TODO allow dead code for now
-    #[cfg(test)]
-    pub fn add_design_file(&mut self, design_file: DesignFile) {
-        self.design_files.push(design_file);
+    pub fn add_design_file(&mut self, design_file: DesignFile, messages: &mut MessageHandler) {
+        for design_unit in design_file.design_units {
+            self.add_design_unit(design_unit, messages);
+        }
     }
 
-    // @TODO allow dead code for now
-    #[allow(dead_code)]
-    pub fn build(self, name: Symbol, messages: &mut MessageHandler) -> Library {
-        let mut primary_units = FnvHashMap::default();
-        let mut secondary_units = Vec::new();
-
-        for design_file in self.design_files {
-            for design_unit in design_file.design_units {
-                match design_unit {
-                    AnyDesignUnit::Primary(primary) => {
-                        let name = primary.name().clone();
-
-                        let primary = PrimaryDesignUnit {
-                            unit: primary,
-                            secondary: FnvHashMap::default(),
-                        };
-
-                        match primary_units.entry(name) {
-                            Entry::Occupied(entry) => messages.push(Message::error(
-                                primary.unit.ident(),
-                                &format!(
-                                    "A primary unit has already been declared with name '{}'",
-                                    entry.key()
-                                ),
-                            )),
-                            Entry::Vacant(entry) => {
-                                entry.insert(primary);
-                            }
-                        }
-                    }
-                    AnyDesignUnit::Secondary(secondary) => {
-                        secondary_units.push(secondary);
-                    }
-                }
+    pub fn remove_source(&mut self, source: &Source) {
+        // Remove orphans from source
+        let secondary_orphans = std::mem::replace(&mut self.secondary_orphans, Vec::new());
+        for secondary_unit in secondary_orphans {
+            if secondary_unit.source() != source {
+                self.secondary_orphans.push(secondary_unit);
             }
         }
 
-        for secondary_unit in secondary_units {
-            if let Some(ref mut primary_unit) = primary_units.get_mut(secondary_unit.primary_name())
+        let mut primaries_to_remove = Vec::new();
+        for (primary_name, primary_unit) in self.primary_units.iter_mut() {
+            if primary_unit.unit.source() == source {
+                primaries_to_remove.push(primary_name.clone());
+            }
+
+            // Remove secondary units from source in primary unit
+            let mut names_to_remove = Vec::new();
+            for (secondary_name, secondary_unit) in primary_unit.secondary.iter() {
+                if secondary_unit.source() == source {
+                    names_to_remove.push(secondary_name.clone());
+                }
+            }
+
+            for secondary_name in names_to_remove {
+                primary_unit.secondary.remove(&secondary_name);
+            }
+        }
+
+        // Remove primary units from source
+        for primary_name in primaries_to_remove {
+            if let Some(primary_unit) = self.primary_units.remove(&primary_name) {
+                self.secondary_orphans
+                    .extend(primary_unit.secondary.into_iter().map(|(_, v)| v));
+            }
+        }
+    }
+
+    pub fn add_design_unit(&mut self, design_unit: AnyDesignUnit, messages: &mut MessageHandler) {
+        match design_unit {
+            AnyDesignUnit::Primary(primary) => {
+                let primary_name = primary.name().clone();
+
+                let primary = PrimaryDesignUnit {
+                    unit: primary,
+                    secondary: FnvHashMap::default(),
+                };
+
+                match self.primary_units.entry(primary_name) {
+                    Entry::Occupied(entry) => {
+                        let old_unit: &PrimaryDesignUnit = entry.get();
+                        let msg = Message::error(
+                            primary.unit.ident(),
+                            format!(
+                                "A primary unit has already been declared with name '{}' in library '{}'",
+                                entry.key(),
+                                self.name
+                            )).related(old_unit.unit.ident(), "Previously defined here");
+                        messages.push(msg);
+                    }
+                    Entry::Vacant(entry) => {
+                        entry.insert(primary);
+                    }
+                }
+            }
+            AnyDesignUnit::Secondary(secondary) => {
+                self.secondary_orphans.push(secondary);
+            }
+        }
+    }
+
+    /// All orphaned secondary units must be assigned to primary units
+    pub fn finalize(&mut self, messages: &mut MessageHandler) {
+        let secondary_orphans = std::mem::replace(&mut self.secondary_orphans, Vec::new());
+
+        for secondary_unit in secondary_orphans {
+            if let Some(ref mut primary_unit) =
+                self.primary_units.get_mut(secondary_unit.primary_name())
             {
-                if let Some(msg) = primary_unit.add_secondary_unit(secondary_unit) {
-                    messages.push(msg);
+                if let Some(secondary_unit) =
+                    primary_unit.add_secondary_unit(secondary_unit, messages)
+                {
+                    self.secondary_orphans.push(secondary_unit);
                 }
             } else {
                 match secondary_unit.unit {
                     SecondaryUnit::Architecture(..) => {
                         messages.push(Message::error(
                             secondary_unit.primary_ident(),
-                            &format!(
+                            format!(
                                 "No entity '{}' within the library '{}'",
                                 secondary_unit.primary_name(),
-                                name
+                                self.name
                             ),
                         ));
                     }
                     SecondaryUnit::PackageBody(..) => {
                         messages.push(Message::error(
                             secondary_unit.primary_ident(),
-                            &format!(
+                            format!(
                                 "No package '{}' within the library '{}'",
                                 secondary_unit.primary_name(),
-                                name
+                                self.name
                             ),
                         ));
                     }
                 }
+
+                self.secondary_orphans.push(secondary_unit);
             }
         }
+    }
 
-        Library {
-            name,
-            primary_units,
-        }
+    #[cfg(test)]
+    fn primary_unit<'a>(&'a self, name: &Symbol) -> Option<&'a PrimaryDesignUnit> {
+        self.primary_units.get(name)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_util::{check_no_messages, Code};
+    use test_util::{check_no_messages, Code, CodeBuilder};
 
-    fn build_library_with_messages(code: &Code, name: &str) -> (Library, Vec<Message>) {
-        let mut builder = LibraryBuilder::new();
-        builder.add_design_file(code.design_file());
+    fn new_library_with_messages(code: &Code, name: &str) -> (Library, Vec<Message>) {
         let mut messages = Vec::new();
-        let library = builder.build(code.symbol(name), &mut messages);
+        let mut library = Library::new(code.symbol(name));
+        library.add_design_file(code.design_file(), &mut messages);
+        library.finalize(&mut messages);
         (library, messages)
     }
 
-    fn build_library(code: &Code, name: &str) -> Library {
-        let (library, messages) = build_library_with_messages(code, name);
+    fn new_library(code: &Code, name: &str) -> Library {
+        let (library, messages) = new_library_with_messages(code, name);
         check_no_messages(&messages);
         library
     }
@@ -276,7 +325,7 @@ entity ent is
 end entity;
 ",
         );
-        let library = build_library(&code, "libname");
+        let library = new_library(&code, "libname");
 
         assert_eq!(
             library.primary_unit(&code.symbol("ent")),
@@ -298,7 +347,7 @@ package body pkg is
 end package body;
 ",
         );
-        let (library, messages) = build_library_with_messages(&code, "libname");
+        let (library, messages) = new_library_with_messages(&code, "libname");
 
         assert_eq!(library.primary_units.len(), 0);
         assert_eq!(
@@ -319,7 +368,7 @@ begin
 end architecture;
 ",
         );
-        let (library, messages) = build_library_with_messages(&code, "libname");
+        let (library, messages) = new_library_with_messages(&code, "libname");
 
         assert_eq!(library.primary_units.len(), 0);
         assert_eq!(
@@ -343,7 +392,7 @@ begin
 end architecture;
 ",
         );
-        let (library, messages) = build_library_with_messages(&code, "libname");
+        let (library, messages) = new_library_with_messages(&code, "libname");
 
         assert_eq!(
             library
@@ -373,7 +422,7 @@ package body entname is
 end package body;
 ",
         );
-        let (library, messages) = build_library_with_messages(&code, "libname");
+        let (library, messages) = new_library_with_messages(&code, "libname");
 
         assert_eq!(
             library
@@ -406,7 +455,7 @@ package body pkg is
 end package body;
 ",
         );
-        let (library, messages) = build_library_with_messages(&code, "libname");
+        let (library, messages) = new_library_with_messages(&code, "libname");
 
         assert_eq!(
             library
@@ -442,7 +491,7 @@ package entname is
 end package;
 ",
         );
-        let (library, messages) = build_library_with_messages(&code, "libname");
+        let (library, messages) = new_library_with_messages(&code, "libname");
 
         assert_eq!(library.primary_units.len(), 2);
         assert_eq!(
@@ -450,12 +499,12 @@ end package;
             vec![
                 Message::error(
                     code.s("pkg", 2),
-                    "A primary unit has already been declared with name 'pkg'"
-                ),
+                    "A primary unit has already been declared with name 'pkg' in library 'libname'"
+                ).related(code.s("pkg", 1), "Previously defined here"),
                 Message::error(
                     code.s("entname", 2),
-                    "A primary unit has already been declared with name 'entname'"
-                )
+                    "A primary unit has already been declared with name 'entname' in library 'libname'"
+                ).related(code.s("entname", 1), "Previously defined here"),
             ]
         );
     }
@@ -465,7 +514,7 @@ end package;
         let code = Code::new(
             "
 package body pkg is
-end package;
+end package body;
 
 package pkg is
 end package;
@@ -478,7 +527,7 @@ entity entname is
 end entity;
 ",
         );
-        let (library, messages) = build_library_with_messages(&code, "libname");
+        let (library, messages) = new_library_with_messages(&code, "libname");
 
         // Should still be added as a secondary unit
         assert_eq!(
@@ -506,6 +555,42 @@ end entity;
     }
 
     #[test]
+    fn no_error_on_secondary_before_primary_in_different_files() {
+        let builder = CodeBuilder::new();
+        let file1 = builder.code(
+            "
+package body pkg is
+end package body;
+",
+        );
+
+        let file2 = builder.code(
+            "
+package pkg is
+end package;
+",
+        );
+
+        let mut messages = Vec::new();
+        let mut library = Library::new(builder.symbol("libname"));
+        library.add_design_file(file1.design_file(), &mut messages);
+        library.add_design_file(file2.design_file(), &mut messages);
+        library.finalize(&mut messages);
+
+        // Should still be added as a secondary unit
+        assert_eq!(
+            library
+                .primary_unit(&builder.symbol("pkg"))
+                .unwrap()
+                .secondary
+                .len(),
+            1
+        );
+
+        check_no_messages(&messages);
+    }
+
+    #[test]
     fn error_on_duplicate_architecture() {
         let code = Code::new(
             "
@@ -521,7 +606,7 @@ begin
 end architecture;
 ",
         );
-        let (library, messages) = build_library_with_messages(&code, "libname");
+        let (library, messages) = new_library_with_messages(&code, "libname");
 
         assert_eq!(
             library
@@ -556,7 +641,7 @@ begin
 end architecture;
 ",
         );
-        let library = build_library(&code, "libname");
+        let library = new_library(&code, "libname");
 
         let entity = code.between("entity", "entity;").entity();
         let architecture0 = code
@@ -605,7 +690,7 @@ package body pkg is
 end package body;
 ",
         );
-        let library = build_library(&code, "libname");
+        let library = new_library(&code, "libname");
 
         let package = code.between("package", "package;").package();
         let body = code.between("package body", "package body;").package_body();
@@ -630,4 +715,73 @@ end package body;
             })
         );
     }
+
+    #[test]
+    fn can_remove_sources() {
+        let builder = CodeBuilder::new();
+        let primary_file = builder.code(
+            "
+package pkg is
+end package;
+",
+        );
+        let secondary_file = builder.code(
+            "
+package body pkg is
+end package body;
+",
+        );
+
+        let mut messages = Vec::new();
+        let mut library = Library::new(builder.symbol("libname"));
+        library.add_design_file(primary_file.design_file(), &mut messages);
+        library.add_design_file(secondary_file.design_file(), &mut messages);
+        library.finalize(&mut messages);
+        check_no_messages(&messages);
+
+        library.remove_source(&primary_file.source());
+        library.finalize(&mut messages);
+
+        assert_eq!(library.primary_unit(&builder.symbol("pkg")), None);
+
+        library.add_design_file(primary_file.design_file(), &mut messages);
+        library.finalize(&mut messages);
+
+        // Should still be have a secondary unit
+        assert_eq!(
+            library
+                .primary_unit(&builder.symbol("pkg"))
+                .unwrap()
+                .secondary
+                .len(),
+            1
+        );
+
+        library.remove_source(&secondary_file.source());
+        library.finalize(&mut messages);
+
+        // No secondary unit
+        assert_eq!(
+            library
+                .primary_unit(&builder.symbol("pkg"))
+                .unwrap()
+                .secondary
+                .len(),
+            0
+        );
+
+        library.add_design_file(secondary_file.design_file(), &mut messages);
+        library.finalize(&mut messages);
+
+        // Should still have a secondary unit again
+        assert_eq!(
+            library
+                .primary_unit(&builder.symbol("pkg"))
+                .unwrap()
+                .secondary
+                .len(),
+            1
+        );
+    }
+
 }

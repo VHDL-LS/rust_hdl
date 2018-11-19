@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use source::SrcPos;
-use std::convert::AsRef;
+use std::convert::{AsRef, Into};
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Severity {
@@ -23,36 +23,35 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn new<T: AsRef<SrcPos>>(item: T, msg: &str, severity: Severity) -> Message {
+    pub fn new<T: AsRef<SrcPos>>(item: T, msg: impl Into<String>, severity: Severity) -> Message {
         Message {
             pos: item.as_ref().clone(),
-            message: msg.to_string(),
+            message: msg.into(),
             severity: severity,
             related: vec![],
         }
     }
 
-    pub fn error(item: impl AsRef<SrcPos>, msg: &str) -> Message {
+    pub fn error(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Message {
         Self::new(item, msg, Severity::Error)
     }
 
-    pub fn warning(item: impl AsRef<SrcPos>, msg: &str) -> Message {
+    pub fn warning(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Message {
         Self::new(item, msg, Severity::Warning)
     }
 
-    pub fn when(self, message: &str) -> Message {
+    pub fn when(self, message: impl AsRef<str>) -> Message {
         Message {
-            message: format!("{}, when {}", &self.message, &message),
+            message: format!("{}, when {}", &self.message, message.as_ref()),
             pos: self.pos,
             severity: self.severity,
             related: vec![],
         }
     }
 
-    pub fn related(self, item: impl AsRef<SrcPos>, message: &str) -> Message {
+    pub fn related(self, item: impl AsRef<SrcPos>, message: impl Into<String>) -> Message {
         let mut msg = self;
-        msg.related
-            .push((item.as_ref().to_owned(), message.to_owned()));
+        msg.related.push((item.as_ref().to_owned(), message.into()));
         msg
     }
 

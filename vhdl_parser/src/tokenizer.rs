@@ -1190,7 +1190,7 @@ impl Tokenizer {
                     match parse_string(&mut self.buffer, &mut cursor) {
                         Ok(result) => (StringLiteral, Value::String(result)),
                         Err(msg) => {
-                            error!(&msg);
+                            error!(msg);
                         }
                     }
                 }
@@ -1199,7 +1199,7 @@ impl Tokenizer {
                     match parse_abstract_literal(&mut self.buffer, &mut cursor) {
                         Ok((kind, value)) => (kind, value),
                         Err(msg) => {
-                            error!(&msg);
+                            error!(msg);
                         }
                     }
                 }
@@ -1212,7 +1212,7 @@ impl Tokenizer {
                             (Identifier, result)
                         }
                         Err(msg) => {
-                            error!(&msg);
+                            error!(msg);
                         }
                     }
                 }
@@ -1233,13 +1233,13 @@ impl Tokenizer {
                                 ) {
                                     Ok((kind, value)) => (kind, value),
                                     Err(msg) => {
-                                        error!(&msg);
+                                        error!(msg);
                                     }
                                 }
                             }
                         }
                         Err(msg) => {
-                            error!(&msg);
+                            error!(msg);
                         }
                     }
                 }
@@ -1267,7 +1267,7 @@ impl Tokenizer {
 #[cfg(test)]
 fn tokenize_result(code: &str) -> (Source, Arc<SymbolTable>, Vec<Result<Token, Message>>) {
     let symtab = Arc::new(SymbolTable::new());
-    let source = Source::from_str(code).unwrap();
+    let source = Source::from_str(code);
     let mut tokens = Vec::new();
     {
         let code = source.contents().unwrap();

@@ -67,7 +67,7 @@ fn check_unique<'a>(
         Entry::Occupied(entry) => {
             let msg = Message::error(
                 ident,
-                &format!("Duplicate declaration of '{}'", ident.item.name()),
+                format!("Duplicate declaration of '{}'", ident.item.name()),
             ).related(entry.get(), "Previously defined here");
             messages.push(msg)
         }
@@ -263,7 +263,7 @@ mod tests {
             messages.push(
                 Message::error(
                     code.s(&name, 2),
-                    &format!("Duplicate declaration of '{}'", &name),
+                    format!("Duplicate declaration of '{}'", &name),
                 ).related(code.s1(&name), "Previously defined here"),
             )
         }

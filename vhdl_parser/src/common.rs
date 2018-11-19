@@ -37,7 +37,7 @@ pub fn error_on_end_identifier_mismatch(
         if ident.item != end_ident.item {
             return Some(Message::error(
                 &end_ident.pos,
-                &format!("End identifier mismatch, expected {}", ident.item.name()),
+                format!("End identifier mismatch, expected {}", ident.item.name()),
             ));
         }
     }

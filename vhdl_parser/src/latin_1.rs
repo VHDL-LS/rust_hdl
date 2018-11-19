@@ -103,8 +103,9 @@ impl Latin1String {
             }
 
             return Err(format!(
-                "Invalid latin-1 character {}",
-                string[i..].chars().next().unwrap()
+                "Invalid latin-1 character {} in {}",
+                string[i..].chars().next().unwrap(),
+                string
             ));
         }
         Ok(Latin1String::from_vec(latin1_bytes))

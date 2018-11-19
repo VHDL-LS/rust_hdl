@@ -16,5 +16,9 @@ repository = "https://github.com/kraigher/rust_hdl"
 vhdl_parser = { version = "^0", path = "../vhdl_parser"}
 jsonrpc-core = "^9"
 serde_json = "^1"
+serde = "^1"
 languageserver-types = "^0"
 url = "^1"
+
+[dev-dependencies]
+tempfile = "^3"
