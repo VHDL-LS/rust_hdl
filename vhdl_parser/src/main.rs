@@ -12,10 +12,7 @@ use std::path::Path;
 
 use vhdl_parser::ast::{AnyDesignUnit, PrimaryUnit, SecondaryUnit, SelectedName};
 use vhdl_parser::message::{Message, Severity};
-use vhdl_parser::{Config, FileToParse, Latin1String, Library, ParserError, Symbol, VHDLParser};
-
-extern crate fnv;
-use self::fnv::FnvHashMap;
+use vhdl_parser::{Config, ParserError, Project, VHDLParser};
 
 fn main() {
     use clap::{App, Arg};
@@ -65,71 +62,8 @@ fn main() {
         let config =
             Config::read_file_path(Path::new(file_name)).expect("Failed to read config file");
 
-        let mut libraries = FnvHashMap::default();
-        let mut files_to_parse = Vec::new();
-        for library in config.iter_libraries() {
-            let library_name =
-                Latin1String::from_utf8(library.name()).expect("Library name not latin-1 encoded");
-            let library_name = parser.symbol(&library_name);
-            libraries.insert(library_name.clone(), Vec::new());
-
-            for file_name in library.file_names() {
-                let file_to_parse = LibraryFileToParse {
-                    library_name: library_name.clone(),
-                    file_name: file_name.to_owned(),
-                };
-
-                files_to_parse.push(file_to_parse)
-            }
-        }
-
-        for (file_to_parse, mut messages, design_file) in
-            parser.parse_design_files(files_to_parse, num_threads)
-        {
-            let design_file = match design_file {
-                Ok(design_file) => design_file,
-                Err(ParserError::Message(msg)) => {
-                    println!("Error when parsing {}", file_to_parse.file_name);
-                    show_messages(&messages);
-                    println!("{}", msg.show());
-                    continue;
-                }
-                Err(ParserError::IOError(err)) => {
-                    println!("Error when parsing {}", file_to_parse.file_name);
-                    println!("{}", err);
-                    continue;
-                }
-            };
-
-            // @TODO check for errors
-            show_messages(&messages);
-
-            libraries
-                .get_mut(&file_to_parse.library_name)
-                .unwrap()
-                .push(design_file);
-        }
-
-        for (library_name, design_files) in libraries.into_iter() {
-            let mut messages = Vec::new();
-            let mut library = Library::new(library_name);
-            for design_file in design_files {
-                library.add_design_file(design_file, &mut messages);
-            }
-            library.finalize(&mut messages);
-            show_messages(&messages);
-        }
-    }
-}
-
-struct LibraryFileToParse {
-    library_name: Symbol,
-    file_name: String,
-}
-
-impl FileToParse for LibraryFileToParse {
-    fn file_name(&self) -> &str {
-        &self.file_name
+        let mut project = Project::from_config(&config, num_threads).unwrap();
+        show_messages(&project.analyse());
     }
 }
 
@@ -263,6 +197,7 @@ fn parse(parser: VHDLParser, file_names: Vec<String>, num_threads: usize, show: 
                 Severity::Error => {
                     file_has_errors = true;
                 }
+                _ => {}
             };
         }
 

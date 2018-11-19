@@ -9,6 +9,8 @@ use std::convert::{AsRef, Into};
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Severity {
+    Hint,
+    Info,
     Warning,
     Error,
 }
@@ -23,7 +25,7 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn new<T: AsRef<SrcPos>>(item: T, msg: impl Into<String>, severity: Severity) -> Message {
+    pub fn new(item: impl AsRef<SrcPos>, msg: impl Into<String>, severity: Severity) -> Message {
         Message {
             pos: item.as_ref().clone(),
             message: msg.into(),
@@ -55,6 +57,19 @@ impl Message {
         msg
     }
 
+    pub fn drain_related(&mut self) -> Vec<Message> {
+        let mut messages = Vec::with_capacity(self.related.len());
+        let related = std::mem::replace(&mut self.related, Vec::new());
+        for (pos, msg) in related {
+            messages.push(Message::new(
+                pos,
+                format!("related: {}", msg),
+                Severity::Hint,
+            ));
+        }
+        messages
+    }
+
     pub fn show(&self) -> String {
         let mut result = String::new();
         for (pos, message) in self.related.iter() {
@@ -64,6 +79,8 @@ impl Message {
         let severity = match self.severity {
             Severity::Error => &"error",
             Severity::Warning => &"warning",
+            Severity::Info => &"info",
+            Severity::Hint => &"hint",
         };
         result.push_str(&self.pos.show(&format!("{}: {}", severity, self.message)));
         result

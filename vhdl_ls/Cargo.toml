@@ -19,6 +19,7 @@ serde_json = "^1"
 serde = "^1"
 languageserver-types = "^0"
 url = "^1"
+fnv = "^1"
 
 [dev-dependencies]
 tempfile = "^3"

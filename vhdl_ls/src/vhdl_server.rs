@@ -11,12 +11,16 @@ extern crate serde;
 extern crate url;
 use self::url::Url;
 
+extern crate fnv;
+use self::fnv::FnvHashMap;
+use std::collections::hash_map::Entry;
+
 extern crate vhdl_parser;
 use self::vhdl_parser::message::{Message, Severity};
-use self::vhdl_parser::semantic;
 use self::vhdl_parser::source::{Source, SrcPos};
-use self::vhdl_parser::{Config, ParserError, VHDLParser};
+use self::vhdl_parser::{Config, Project};
 use std::io;
+use std::path::Path;
 
 pub trait RpcChannel {
     fn send_notification(
@@ -48,20 +52,22 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         Ok(result)
     }
 
-    fn server(&self) -> &InitializedVHDLServer<T> {
-        self.server.as_ref().expect("Expected initialized server")
+    fn mut_server(&mut self) -> &mut InitializedVHDLServer<T> {
+        self.server.as_mut().expect("Expected initialized server")
     }
 
-    pub fn initialized_notification(&self, params: InitializedParams) {
-        self.server().initialized_notification(params);
+    pub fn initialized_notification(&mut self, params: InitializedParams) {
+        self.mut_server().initialized_notification(params);
     }
 
-    pub fn text_document_did_change_notification(&self, params: DidChangeTextDocumentParams) {
-        self.server().text_document_did_change_notification(params)
+    pub fn text_document_did_change_notification(&mut self, params: DidChangeTextDocumentParams) {
+        self.mut_server()
+            .text_document_did_change_notification(params)
     }
 
-    pub fn text_document_did_open_notification(&self, params: DidOpenTextDocumentParams) {
-        self.server().text_document_did_open_notification(params)
+    pub fn text_document_did_open_notification(&mut self, params: DidOpenTextDocumentParams) {
+        self.mut_server()
+            .text_document_did_open_notification(params)
     }
 }
 
@@ -69,6 +75,8 @@ struct InitializedVHDLServer<T: RpcChannel> {
     rpc_channel: T,
     init_params: InitializeParams,
     config: io::Result<Config>,
+    project: Project,
+    files_with_notifications: FnvHashMap<Url, ()>,
 }
 
 impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
@@ -99,6 +107,8 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             rpc_channel,
             init_params,
             config,
+            project: Project::new(),
+            files_with_notifications: FnvHashMap::default(),
         };
 
         let result = InitializeResult {
@@ -186,76 +196,104 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         try_fun().unwrap_or(false)
     }
 
-    fn parse_and_publish_diagnostics(&self, uri: Url, code: &str) {
-        let parser = VHDLParser::new();
-        let mut messages = Vec::new();
+    fn publish_diagnostics(&mut self) {
+        let supports_related_information = self.client_supports_related_information();
+        let messages = self.project.analyse();
+        let messages = {
+            if supports_related_information {
+                messages
+            } else {
+                flatten_related(messages)
+            }
+        };
+
+        let mut files_with_notifications =
+            std::mem::replace(&mut self.files_with_notifications, FnvHashMap::default());
+        for (file_uri, messages) in messages_by_uri(messages).into_iter() {
+            let mut diagnostics = Vec::new();
+            for mut message in messages {
+                diagnostics.push(to_diagnostic(message));
+            }
+
+            let publish_diagnostics = PublishDiagnosticsParams {
+                uri: file_uri.clone(),
+                diagnostics: diagnostics,
+            };
+
+            self.rpc_channel
+                .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
+
+            self.files_with_notifications.insert(file_uri.clone(), ());
+        }
+
+        for (file_uri, _) in files_with_notifications.drain() {
+            // File has no longer any diagnosics, publish empty notification to clear them
+            if !self.files_with_notifications.contains_key(&file_uri) {
+                let publish_diagnostics = PublishDiagnosticsParams {
+                    uri: file_uri.clone(),
+                    diagnostics: vec![],
+                };
+
+                self.rpc_channel
+                    .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
+            }
+        }
+    }
+
+    fn parse_and_publish_diagnostics(&mut self, uri: Url, code: &str) {
+        // @TODO return error to client
+        let file_name = uri_to_file_name(&uri);
 
         // @TODO return error to client
         let source =
-            Source::inline_utf8(uri.to_string(), code).expect("Source was not legal latin-1");
-        match parser.parse_design_source(&source, &mut messages) {
-            Err(ParserError::Message(message)) => {
-                eprintln!("{}", message.show());
-                messages.push(message);
-            }
-            Err(ParserError::IOError(error)) => eprintln!("{}", error),
-            Ok(ref design_file) => {
-                for design_unit in design_file.design_units.iter() {
-                    semantic::check_design_unit(design_unit, &mut messages);
-                }
-            }
-        };
+            Source::inline_utf8(file_name.to_string(), code).expect("Source was not legal latin-1");
 
-        let mut diagnostics = Vec::new();
-        for message in messages {
-            eprintln!("{}", message.show());
-            diagnostics.extend(to_diagnostics(
-                &uri,
-                message,
-                self.client_supports_related_information(),
-            ));
-        }
-
-        let publish_diagnostics = PublishDiagnosticsParams {
-            uri,
-            diagnostics: diagnostics,
-        };
-
-        self.rpc_channel
-            .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
+        // @TODO log error to client
+        self.project.update_source(&file_name, &source).unwrap();
+        self.publish_diagnostics();
     }
 
-    pub fn initialized_notification(&self, _params: InitializedParams) {
-        if let Err(ref err) = self.config {
-            self.rpc_channel.send_notification(
-                "window/showMessage",
-                ShowMessageParams {
-                    typ: MessageType::Warning,
-                    message: format!(
-                        "Found no vhdl_ls.toml config file in the root path: {}",
-                        err
-                    ),
-                },
-            );
-            self.rpc_channel.send_notification(
-                "window/showMessage",
-                ShowMessageParams {
-                    typ: MessageType::Warning,
-                    message: "Semantic analysis disabled, will perform syntax checking only"
-                        .to_owned(),
-                },
-            );
+    pub fn initialized_notification(&mut self, _params: InitializedParams) {
+        match &self.config {
+            Err(ref err) => {
+                self.rpc_channel.send_notification(
+                    "window/showMessage",
+                    ShowMessageParams {
+                        typ: MessageType::Warning,
+                        message: format!(
+                            "Found no vhdl_ls.toml config file in the root path: {}",
+                            err
+                        ),
+                    },
+                );
+                self.rpc_channel.send_notification(
+                    "window/showMessage",
+                    ShowMessageParams {
+                        typ: MessageType::Warning,
+                        message: "Semantic analysis disabled, will perform syntax checking only"
+                            .to_owned(),
+                    },
+                );
+            }
+            Ok(config) => {
+                // @TODO read num_threads from config file
+                let num_threads = 4;
+                // @TODO send error to client
+                self.project = Project::from_config(&config, num_threads).unwrap();
+            }
         }
+
+        self.publish_diagnostics();
     }
 
-    pub fn text_document_did_change_notification(&self, params: DidChangeTextDocumentParams) {
+    pub fn text_document_did_change_notification(&mut self, params: DidChangeTextDocumentParams) {
         self.parse_and_publish_diagnostics(
             params.text_document.uri,
             &params.content_changes.get(0).unwrap().text,
         );
     }
 
-    pub fn text_document_did_open_notification(&self, params: DidOpenTextDocumentParams) {
+    pub fn text_document_did_open_notification(&mut self, params: DidOpenTextDocumentParams) {
         self.parse_and_publish_diagnostics(params.text_document.uri, &params.text_document.text);
     }
 }
@@ -292,21 +330,54 @@ fn srcpos_to_range(srcpos: SrcPos) -> Range {
     }
 }
 
-fn to_diagnostics(
-    uri: &Url,
-    message: Message,
-    supports_related_information: bool,
-) -> Vec<Diagnostic> {
+fn messages_by_uri(messages: Vec<Message>) -> FnvHashMap<Url, Vec<Message>> {
+    let mut map: FnvHashMap<Url, Vec<Message>> = FnvHashMap::default();
+
+    for message in messages {
+        let uri = file_name_to_uri(message.pos.source.file_name());
+        match map.entry(uri) {
+            Entry::Occupied(mut entry) => entry.get_mut().push(message),
+            Entry::Vacant(mut entry) => {
+                let mut vec = vec![message];
+                entry.insert(vec);
+            }
+        }
+    }
+
+    map
+}
+
+fn flatten_related(messages: Vec<Message>) -> Vec<Message> {
+    let mut flat_messages = Vec::new();
+    for mut message in messages {
+        flat_messages.extend(message.drain_related());
+        flat_messages.push(message);
+    }
+    flat_messages
+}
+
+fn file_name_to_uri(file_name: impl AsRef<str>) -> Url {
+    // @TODO return error to client
+    Url::from_file_path(Path::new(file_name.as_ref())).unwrap()
+}
+
+fn uri_to_file_name(uri: &Url) -> String {
+    // @TODO return error to client
+    uri.to_file_path().unwrap().to_str().unwrap().to_owned()
+}
+
+fn to_diagnostic(message: Message) -> Diagnostic {
     let severity = match message.severity {
         Severity::Error => DiagnosticSeverity::Error,
         Severity::Warning => DiagnosticSeverity::Warning,
+        Severity::Info => DiagnosticSeverity::Information,
+        Severity::Hint => DiagnosticSeverity::Hint,
     };
 
-    let mut diagnostics = Vec::new();
-
-    let related_information = if supports_related_information {
+    let related_information = if message.related.len() > 0 {
         let mut related_information = Vec::new();
         for (pos, msg) in message.related {
+            let uri = file_name_to_uri(pos.source.file_name());
             related_information.push(DiagnosticRelatedInformation {
                 location: Location {
                     uri: uri.to_owned(),
@@ -317,28 +388,17 @@ fn to_diagnostics(
         }
         Some(related_information)
     } else {
-        for (pos, msg) in message.related {
-            diagnostics.push(Diagnostic {
-                range: srcpos_to_range(pos),
-                severity: Some(DiagnosticSeverity::Hint),
-                code: None,
-                source: Some("vhdl ls".to_owned()),
-                message: format!("related: {}", msg),
-                related_information: None,
-            });
-        }
         None
     };
 
-    diagnostics.push(Diagnostic {
+    Diagnostic {
         range: srcpos_to_range(message.pos),
         severity: Some(severity),
         code: None,
         source: Some("vhdl ls".to_owned()),
         message: message.message,
         related_information,
-    });
-    diagnostics
+    }
 }
 
 #[cfg(test)]
@@ -349,7 +409,7 @@ mod tests {
     use std::rc::Rc;
     extern crate tempfile;
 
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     enum RpcExpected {
         Notification {
             method: String,
@@ -391,6 +451,15 @@ mod tests {
                 .push_back(RpcExpected::IgnoredNotification {
                     method: method.into(),
                 });
+        }
+    }
+
+    impl Drop for RpcMock {
+        fn drop(&mut self) {
+            let expected = self.expected.replace(VecDeque::new());
+            if expected.len() > 0 {
+                panic!("Not all expected data was consumed\n{:#?}", expected);
+            }
         }
     }
 
@@ -487,13 +556,6 @@ end entity ent;
             },
         };
 
-        let publish_diagnostics = PublishDiagnosticsParams {
-            uri: file_url.clone(),
-            diagnostics: vec![],
-        };
-
-        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
-
         server.text_document_did_open_notification(did_open);
     }
 
@@ -572,11 +634,10 @@ end entity ent;
         server.text_document_did_change_notification(did_change);
     }
 
-    fn write_file(root_uri: &Url, file_name: impl AsRef<str>, contents: impl AsRef<str>) {
-        std::fs::write(
-            root_uri.to_file_path().unwrap().join(file_name.as_ref()),
-            contents.as_ref(),
-        ).unwrap();
+    fn write_file(root_uri: &Url, file_name: impl AsRef<str>, contents: impl AsRef<str>) -> Url {
+        let path = root_uri.to_file_path().unwrap().join(file_name.as_ref());
+        std::fs::write(&path, contents.as_ref()).unwrap();
+        Url::from_file_path(path).unwrap()
     }
 
     fn write_config(root_uri: &Url, contents: impl AsRef<str>) {
@@ -588,15 +649,14 @@ end entity ent;
         let mock = RpcMock::new();
         let mut server = VHDLServer::new(mock.clone());
         let (_tempdir, root_uri) = temp_root_uri();
-
-        write_file(
+        let file_uri = write_file(
             &root_uri,
             "file.vhd",
-            "
+            "\
 entity ent is
 end entity;
 
-architecture rtl of ent is
+architecture rtl of ent2 is
 begin
 end;
 ",
@@ -611,6 +671,29 @@ lib.files = [
 ]
 ",
         );
+
+        let publish_diagnostics = PublishDiagnosticsParams {
+            uri: file_uri.clone(),
+            diagnostics: vec![Diagnostic {
+                range: Range {
+                    start: Position {
+                        line: 3,
+                        character: "architecture rtl of ".len() as u64,
+                    },
+                    end: Position {
+                        line: 3,
+                        character: "architecture rtl of ent2".len() as u64,
+                    },
+                },
+                code: None,
+                severity: Some(DiagnosticSeverity::Error),
+                source: Some("vhdl ls".to_owned()),
+                message: "No entity \'ent2\' within the library \'lib\'".to_owned(),
+                related_information: None,
+            }],
+        };
+
+        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
 
         initialize_server(&mut server, root_uri);
     }
