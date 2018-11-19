@@ -572,4 +572,47 @@ end entity ent;
         server.text_document_did_change_notification(did_change);
     }
 
+    fn write_file(root_uri: &Url, file_name: impl AsRef<str>, contents: impl AsRef<str>) {
+        std::fs::write(
+            root_uri.to_file_path().unwrap().join(file_name.as_ref()),
+            contents.as_ref(),
+        ).unwrap();
+    }
+
+    fn write_config(root_uri: &Url, contents: impl AsRef<str>) {
+        write_file(root_uri, "vhdl_ls.toml", contents);
+    }
+
+    #[test]
+    fn initialize_with_config() {
+        let mock = RpcMock::new();
+        let mut server = VHDLServer::new(mock.clone());
+        let (_tempdir, root_uri) = temp_root_uri();
+
+        write_file(
+            &root_uri,
+            "file.vhd",
+            "
+entity ent is
+end entity;
+
+architecture rtl of ent is
+begin
+end;
+",
+        );
+
+        write_config(
+            &root_uri,
+            "
+[libraries]
+lib.files = [
+  'file.vhd'
+]
+",
+        );
+
+        initialize_server(&mut server, root_uri);
+    }
+
 }
