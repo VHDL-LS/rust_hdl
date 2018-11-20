@@ -95,6 +95,23 @@ The language server has a command line binary `vhdl_ls` which implements a stdio
 > cargo build --release
 ```
 ### Use in emacs
+#### lsp-mode
+Add the following to your `.emacs.el`:
+```elisp
+(require 'lsp-mode)
+
+(lsp-define-stdio-client
+ lsp-vhdl-mode
+ "VHDL"
+ (lambda () default-directory)
+ '("<PATH_TO_RUST_HDL>/target/release/vhdl_ls"))
+
+(require 'lsp-ui)
+(add-hook 'lsp-mode-hook 'lsp-ui-mode)
+(add-hook 'vhdl-mode-hook 'flycheck-mode)
+(add-hook 'vhdl-mode-hook 'lsp-vhdl-mode-enable)
+```
+#### eglot
 Using the language server in `emacs` with the `eglot` language server package it is enough to simply add the following line to your `.emacs.el`:
 ```elisp
 (require 'eglot)
