@@ -262,13 +262,13 @@ pub enum Range {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ElementConstraint {
     pub ident: Ident,
-    pub constraint: Box<SubtypeConstraint>,
+    pub constraint: Box<WithPos<SubtypeConstraint>>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum SubtypeConstraint {
     Range(Range),
-    Array(Vec<DiscreteRange>, Option<Box<SubtypeConstraint>>),
+    Array(Vec<DiscreteRange>, Option<Box<WithPos<SubtypeConstraint>>>),
     Record(Vec<ElementConstraint>),
 }
 
@@ -296,7 +296,7 @@ pub enum ResolutionIndication {
 pub struct SubtypeIndication {
     pub resolution: ResolutionIndication,
     pub type_mark: SelectedName,
-    pub constraint: Option<SubtypeConstraint>,
+    pub constraint: Option<WithPos<SubtypeConstraint>>,
 }
 
 /// LRM 5.3 Array Types

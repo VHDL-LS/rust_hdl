@@ -18,7 +18,7 @@ use tokenstream::TokenStream;
 
 fn parse_record_element_constraint(stream: &mut TokenStream) -> ParseResult<ElementConstraint> {
     let ident = stream.expect_ident()?;
-    let constraint = Box::new(parse_composite_constraint(stream)?.item);
+    let constraint = Box::new(parse_composite_constraint(stream)?);
     Ok(ElementConstraint { ident, constraint })
 }
 
@@ -57,8 +57,8 @@ fn parse_composite_constraint(stream: &mut TokenStream) -> ParseResult<WithPos<S
         // Array element constraint
         let element_constraint = {
             if let Some(elemement_constraint) = parse_subtype_constraint(stream)? {
-                end_pos = elemement_constraint.pos;
-                Some(Box::new(elemement_constraint.item))
+                end_pos = elemement_constraint.pos.clone();
+                Some(Box::new(elemement_constraint))
             } else {
                 None
             }
@@ -97,7 +97,11 @@ pub fn parse_subtype_constraint(
         let constraint = match token.kind {
             Range => {
                 stream.move_after(&token);
-                Some(parse_range(stream)?.map_into(SubtypeConstraint::Range))
+                Some(
+                    parse_range(stream)?
+                        .map_into(SubtypeConstraint::Range)
+                        .combine_pos_with(&token),
+                )
             }
             LeftPar => Some(parse_composite_constraint(stream)?),
             _ => None,
@@ -181,7 +185,7 @@ pub fn parse_subtype_indication(stream: &mut TokenStream) -> ParseResult<Subtype
         }
     };
 
-    let constraint = parse_subtype_constraint(stream)?.map(|constraint| constraint.item);
+    let constraint = parse_subtype_constraint(stream)?;
 
     return Ok(SubtypeIndication {
         resolution: resolution,
@@ -334,7 +338,10 @@ mod tests {
     fn parse_subtype_indication_with_range() {
         let code = Code::new("integer range 0 to 2-1");
 
-        let constraint = SubtypeConstraint::Range(code.s1("0 to 2-1").range());
+        let constraint = WithPos::new(
+            SubtypeConstraint::Range(code.s1("0 to 2-1").range()),
+            code.s1("range 0 to 2-1"),
+        );
 
         assert_eq!(
             code.with_stream(parse_subtype_indication),
@@ -350,7 +357,10 @@ mod tests {
     fn parse_subtype_indication_with_range_attribute() {
         let code = Code::new("integer range lib.foo.bar'range");
 
-        let constraint = SubtypeConstraint::Range(code.s1("lib.foo.bar'range").range());;
+        let constraint = WithPos::new(
+            SubtypeConstraint::Range(code.s1("lib.foo.bar'range").range()),
+            code.s1("range lib.foo.bar'range"),
+        );
 
         assert_eq!(
             code.with_stream(parse_subtype_indication),
@@ -366,8 +376,10 @@ mod tests {
     fn parse_subtype_indication_with_array_constraint_range() {
         let code = Code::new("integer_vector(2-1 downto 0)");
 
-        let constraint =
-            SubtypeConstraint::Array(vec![code.s1("2-1 downto 0").discrete_range()], None);
+        let constraint = WithPos::new(
+            SubtypeConstraint::Array(vec![code.s1("2-1 downto 0").discrete_range()], None),
+            code.s1("(2-1 downto 0)"),
+        );
 
         assert_eq!(
             code.with_stream(parse_subtype_indication),
@@ -383,8 +395,10 @@ mod tests {
     fn parse_subtype_indication_with_array_constraint_discrete() {
         let code = Code::new("integer_vector(lib.foo.bar)");
 
-        let constraint =
-            SubtypeConstraint::Array(vec![code.s1("lib.foo.bar").discrete_range()], None);
+        let constraint = WithPos::new(
+            SubtypeConstraint::Array(vec![code.s1("lib.foo.bar").discrete_range()], None),
+            code.s1("(lib.foo.bar)"),
+        );
 
         assert_eq!(
             code.with_stream(parse_subtype_indication),
@@ -400,8 +414,10 @@ mod tests {
     fn parse_subtype_indication_with_array_constraint_attribute() {
         let code = Code::new("integer_vector(lib.pkg.bar'range)");
 
-        let constraint =
-            SubtypeConstraint::Array(vec![code.s1("lib.pkg.bar'range").discrete_range()], None);
+        let constraint = WithPos::new(
+            SubtypeConstraint::Array(vec![code.s1("lib.pkg.bar'range").discrete_range()], None),
+            code.s1("(lib.pkg.bar'range)"),
+        );
 
         assert_eq!(
             code.with_stream(parse_subtype_indication),
@@ -417,12 +433,15 @@ mod tests {
     fn parse_subtype_indication_with_multi_dim_array_constraints() {
         let code = Code::new("integer_vector(2-1 downto 0, 11 to 14)");
 
-        let constraint = SubtypeConstraint::Array(
-            vec![
-                code.s1("2-1 downto 0").discrete_range(),
-                code.s1("11 to 14").discrete_range(),
-            ],
-            None,
+        let constraint = WithPos::new(
+            SubtypeConstraint::Array(
+                vec![
+                    code.s1("2-1 downto 0").discrete_range(),
+                    code.s1("11 to 14").discrete_range(),
+                ],
+                None,
+            ),
+            code.s1("(2-1 downto 0, 11 to 14)"),
         );
 
         assert_eq!(
@@ -439,15 +458,20 @@ mod tests {
     fn parse_subtype_indication_with_array_element_constraint() {
         let code = Code::new("integer_vector(2-1 downto 0, 11 to 14)(foo to bar)");
 
-        let element_constraint =
-            SubtypeConstraint::Array(vec![code.s1("foo to bar").discrete_range()], None);
+        let element_constraint = WithPos::new(
+            SubtypeConstraint::Array(vec![code.s1("foo to bar").discrete_range()], None),
+            code.s1("(foo to bar)"),
+        );
 
-        let constraint = SubtypeConstraint::Array(
-            vec![
-                code.s1("2-1 downto 0").discrete_range(),
-                code.s1("11 to 14").discrete_range(),
-            ],
-            Some(Box::new(element_constraint)),
+        let constraint = WithPos::new(
+            SubtypeConstraint::Array(
+                vec![
+                    code.s1("2-1 downto 0").discrete_range(),
+                    code.s1("11 to 14").discrete_range(),
+                ],
+                Some(Box::new(element_constraint)),
+            ),
+            code.s1("(2-1 downto 0, 11 to 14)(foo to bar)"),
         );
 
         assert_eq!(
@@ -466,17 +490,17 @@ mod tests {
 
         let tdata_constraint = ElementConstraint {
             ident: code.s1("tdata").ident(),
-            constraint: Box::new(SubtypeConstraint::Array(
-                vec![code.s1("2-1 downto 0").discrete_range()],
-                None,
+            constraint: Box::new(WithPos::new(
+                SubtypeConstraint::Array(vec![code.s1("2-1 downto 0").discrete_range()], None),
+                code.s1("(2-1 downto 0)"),
             )),
         };
 
         let tuser_constraint = ElementConstraint {
             ident: code.s1("tuser").ident(),
-            constraint: Box::new(SubtypeConstraint::Array(
-                vec![code.s1("3 to 5").discrete_range()],
-                None,
+            constraint: Box::new(WithPos::new(
+                SubtypeConstraint::Array(vec![code.s1("3 to 5").discrete_range()], None),
+                code.s1("(3 to 5)"),
             )),
         };
 
@@ -485,10 +509,10 @@ mod tests {
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
                 type_mark: code.s1("axi_m2s_t").selected_name(),
-                constraint: Some(SubtypeConstraint::Record(vec![
-                    tdata_constraint,
-                    tuser_constraint
-                ]))
+                constraint: Some(WithPos::new(
+                    SubtypeConstraint::Record(vec![tdata_constraint, tuser_constraint]),
+                    code.s1("(tdata(2-1 downto 0), tuser(3 to 5))")
+                ))
             }
         );
     }

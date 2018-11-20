@@ -218,7 +218,7 @@ fn parse_allocator(stream: &mut TokenStream) -> ParseResult<WithPos<Allocator>> 
         let constraint = {
             if let Some(constraint) = parse_subtype_constraint(stream)? {
                 pos = pos.combine(&constraint.pos);
-                Some(constraint.item)
+                Some(constraint)
             } else {
                 pos = pos.combine(&selected_name.get(selected_name.len() - 1).unwrap().pos);
                 None
