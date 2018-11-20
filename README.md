@@ -103,7 +103,7 @@ Add the following to your `.emacs.el`:
 (lsp-define-stdio-client
  lsp-vhdl-mode
  "VHDL"
- (lambda () default-directory)
+ (lsp-make-traverser "vhdl_ls.toml")
  '("<PATH_TO_RUST_HDL>/target/release/vhdl_ls"))
 
 (require 'lsp-ui)
