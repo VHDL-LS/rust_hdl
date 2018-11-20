@@ -573,13 +573,8 @@ impl<'a> ByteCursor<'a> {
     }
 }
 
-fn parse_integer(
-    cursor: &mut ByteCursor,
-    base: i64,
-    stop_on_e: bool,
-) -> Result<(usize, i64), String> {
+fn parse_integer(cursor: &mut ByteCursor, base: i64, stop_on_e: bool) -> Result<i64, String> {
     let mut result = Some(0);
-    let mut digits = 0;
     let mut too_large_base = false;
 
     while let Some(b) = cursor.peek(0) {
@@ -611,7 +606,6 @@ fn parse_integer(
             }
         } as i64;
 
-        digits += 1;
         too_large_base = too_large_base || (digit >= base);
 
         let compure_result = |result| {
@@ -627,7 +621,7 @@ fn parse_integer(
         Err(format!("Illegal digit for base {}", base).to_string())
     } else {
         if let Some(result) = result {
-            Ok((digits, result))
+            Ok(result)
         } else {
             Err("Integer too large for 64-bits signed".to_string())
         }
@@ -644,7 +638,7 @@ fn parse_exponent(cursor: &mut ByteCursor) -> Result<i32, String> {
         }
     };
 
-    let (_, exp) = parse_integer(cursor, 10, false)?;
+    let exp = parse_integer(cursor, 10, false)?;
     if let Some(exp) = exp.checked_mul(sign) {
         if (i32::min_value() as i64) <= exp && exp <= (i32::max_value() as i64) {
             return Ok(exp as i32);
@@ -732,21 +726,48 @@ fn parse_string(
     parse_quoted(buffer, cursor, b'"', false)
 }
 
+fn parse_real_literal(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Result<f64, String> {
+    buffer.bytes.clear();
+
+    while let Some(b) = cursor.peek(0) {
+        match b {
+            b'e' => {
+                break;
+            }
+            b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' | b'.' => {
+                cursor.pop();
+                buffer.bytes.push(b);
+            }
+            b'_' => {
+                cursor.pop();
+                continue;
+            }
+            _ => {
+                break;
+            }
+        };
+    }
+
+    let string = unsafe { std::str::from_utf8_unchecked(&buffer.bytes) };
+    let result: Result<f64, String> = string
+        .parse()
+        .map_err(|err: std::num::ParseFloatError| err.to_string());
+    result
+}
+
 /// LRM 15.5 Abstract literals
 fn parse_abstract_literal(
     buffer: &mut Latin1String,
     cursor: &mut ByteCursor,
 ) -> Result<(Kind, Value), String> {
-    let (_, integer) = parse_integer(cursor, 10, true)?;
+    let pos = cursor.pos();
+    let initial = parse_integer(cursor, 10, true);
 
     match cursor.peek(0) {
         // Real
         Some(b'.') => {
-            cursor.pop();
-            let (digits, frac) = parse_integer(cursor, 10, true)?;
-
-            let frac = (frac as f64) * (10.0 as f64).powi(-(digits as i32));
-            let real = (integer as f64) + frac;
+            cursor.set(pos);
+            let real = parse_real_literal(buffer, cursor)?;
 
             match cursor.peek(0) {
                 // Exponent
@@ -769,6 +790,7 @@ fn parse_abstract_literal(
 
         // Integer exponent
         Some(b'e') | Some(b'E') => {
+            let integer = initial?;
             cursor.pop();
             let exp = parse_exponent(cursor)?;
             if exp >= 0 {
@@ -787,13 +809,13 @@ fn parse_abstract_literal(
 
         // Based integer
         Some(b'#') => {
+            let base = initial?;
             cursor.pop();
-            let base = integer;
             let base_result = parse_integer(cursor, base, false);
 
             if let Some(b'#') = cursor.peek(0) {
                 cursor.pop();
-                let (_, integer) = base_result?;
+                let integer = base_result?;
                 if base >= 2 && base <= 16 {
                     Ok((
                         AbstractLiteral,
@@ -807,6 +829,7 @@ fn parse_abstract_literal(
             }
         }
         _ => {
+            let integer = initial?;
             // @TODO check overflow
             if let Some((kind, bit_string)) =
                 parse_bit_string(buffer, cursor, Some(integer as u32))?
@@ -1511,6 +1534,39 @@ end entity"
                     Value::AbstractLiteral(ast::AbstractLiteral::Real(0.021))
                 )
             ]
+        );
+    }
+
+    #[test]
+    fn tokenize_real_many_fractional_digits() {
+        assert_eq!(
+            kind_value_tokenize("0.1000_0000_0000_0000_0000_0000_0000_0000"),
+            vec![(
+                AbstractLiteral,
+                Value::AbstractLiteral(ast::AbstractLiteral::Real(1e-1))
+            )]
+        );
+    }
+
+    #[test]
+    fn tokenize_real_many_integer_digits() {
+        assert_eq!(
+            kind_value_tokenize("1000_0000_0000_0000_0000_0000_0000_0000.0"),
+            vec![(
+                AbstractLiteral,
+                Value::AbstractLiteral(ast::AbstractLiteral::Real(1e31))
+            )]
+        );
+    }
+
+    #[test]
+    fn tokenize_real_truncates_precision() {
+        assert_eq!(
+            kind_value_tokenize("2.71828182845904523536"),
+            vec![(
+                AbstractLiteral,
+                Value::AbstractLiteral(ast::AbstractLiteral::Real(2.7182818284590452))
+            )]
         );
     }
 
