@@ -55,6 +55,8 @@ impl InterfaceDeclaration {
             InterfaceDeclaration::Type(ref ident) => Some(ident),
             // @TODO ignore for now
             InterfaceDeclaration::Subprogram(..) => None,
+            // @TODO ignore for now
+            InterfaceDeclaration::Package(..) => None,
         }
     }
 }

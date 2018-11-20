@@ -148,8 +148,14 @@ fn parse_association_element(stream: &mut TokenStream) -> ParseResult<Associatio
 }
 
 pub fn parse_association_list(stream: &mut TokenStream) -> ParseResult<Vec<AssociationElement>> {
-    let mut association_elements = Vec::with_capacity(1);
     stream.expect_kind(LeftPar)?;
+    parse_association_list_no_leftpar(stream)
+}
+
+pub fn parse_association_list_no_leftpar(
+    stream: &mut TokenStream,
+) -> ParseResult<Vec<AssociationElement>> {
+    let mut association_elements = Vec::with_capacity(1);
     loop {
         association_elements.push(parse_association_element(stream)?);
         let token = stream.expect()?;

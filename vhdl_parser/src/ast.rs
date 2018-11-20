@@ -544,6 +544,21 @@ pub enum SubprogramDefault {
     Name(SelectedName),
     Box,
 }
+/// LRM 6.5.5 Interface package declaration
+#[derive(PartialEq, Debug, Clone)]
+pub enum InterfacePackageGenericMapAspect {
+    Map(Vec<AssociationElement>),
+    Box,
+    Default,
+}
+
+/// LRM 6.5.5 Interface package declaration
+#[derive(PartialEq, Debug, Clone)]
+pub struct InterfacePackageDeclaration {
+    pub ident: Ident,
+    pub package_name: SelectedName,
+    pub generic_map: InterfacePackageGenericMapAspect,
+}
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum InterfaceDeclaration {
@@ -552,6 +567,8 @@ pub enum InterfaceDeclaration {
     Type(Ident),
     /// LRM 6.5.4 Interface subprogram declarations
     Subprogram(SubprogramDeclaration, Option<SubprogramDefault>),
+    /// LRM 6.5.5 Interface package declaration
+    Package(InterfacePackageDeclaration),
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
