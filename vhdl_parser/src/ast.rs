@@ -603,7 +603,7 @@ pub enum Declaration {
     Alias(AliasDeclaration),
     SubprogramDeclaration(SubprogramDeclaration),
     SubprogramBody(SubprogramBody),
-    Use(UseClause),
+    Use(WithPos<UseClause>),
     Package(PackageInstantiation),
     Configuration(ConfigurationSpecification),
 }
