@@ -263,14 +263,12 @@ fn parse_primary_initial_token(
                 Ok(name_to_expression(name))
             }
         }
-        BitString => Ok(WithPos {
-            item: Expression::Literal(Literal::BitString(token.expect_bit_string()?)),
-            pos: token.pos.clone(),
-        }),
-        Character => Ok(WithPos {
-            item: Expression::Literal(Literal::Character(token.expect_character()?)),
-            pos: token.pos.clone(),
-        }),
+        BitString => Ok(token
+            .expect_bit_string()?
+            .map_into(|bs| Expression::Literal(Literal::BitString(bs)))),
+        Character => Ok(token
+            .expect_character()?
+            .map_into(|chr| Expression::Literal(Literal::Character(chr)))),
         StringLiteral => {
             let name = parse_name_initial_token(stream, token)?;
             match name.item {
@@ -299,16 +297,14 @@ fn parse_primary_initial_token(
             // Physical unit
             if let Some(unit_token) = stream.pop_if_kind(Identifier)? {
                 let unit = unit_token.expect_ident()?;
-                let physical = Literal::Physical(value, unit.item);
+                let pos = value.pos.combine_into(&unit);
+                let physical = Literal::Physical(value.item, unit.item);
                 Ok(WithPos {
                     item: Expression::Literal(physical),
-                    pos: token.pos.combine_into(&unit_token),
+                    pos,
                 })
             } else {
-                Ok(WithPos {
-                    item: Expression::Literal(Literal::AbstractLiteral(value)),
-                    pos: token.pos.clone(),
-                })
+                Ok(value.map_into(|value| Expression::Literal(Literal::AbstractLiteral(value))))
             }
         }
 

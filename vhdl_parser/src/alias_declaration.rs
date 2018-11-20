@@ -7,7 +7,6 @@
 use ast::{AliasDeclaration, AliasDesignator};
 use message::ParseResult;
 use names::parse_name;
-use source::WithPos;
 use subprogram::parse_signature;
 use subtype_indication::parse_subtype_indication;
 use tokenizer::Kind::*;
@@ -20,8 +19,8 @@ pub fn parse_alias_declaration(stream: &mut TokenStream) -> ParseResult<AliasDec
     let designator = try_token_kind!(
         token,
         Identifier => token.expect_ident()?.map_into(AliasDesignator::Identifier),
-        StringLiteral => WithPos::from(AliasDesignator::OperatorSymbol(token.expect_string()?), token),
-        Character => WithPos::from(AliasDesignator::Character(token.expect_character()?), token)
+        StringLiteral => token.expect_string()?.map_into(AliasDesignator::OperatorSymbol),
+        Character => token.expect_character()?.map_into(AliasDesignator::Character)
     );
 
     let subtype_indication = {

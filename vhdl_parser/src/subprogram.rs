@@ -79,10 +79,7 @@ fn parse_designator(stream: &mut TokenStream) -> ParseResult<WithPos<Designator>
     Ok(try_token_kind!(
         token,
         Identifier => token.expect_ident()?.map_into(Designator::Identifier),
-        StringLiteral => WithPos {
-            item: Designator::OperatorSymbol(token.expect_string()?),
-            pos: token.pos,
-        }
+        StringLiteral => token.expect_string()?.map_into(Designator::OperatorSymbol)
     ))
 }
 

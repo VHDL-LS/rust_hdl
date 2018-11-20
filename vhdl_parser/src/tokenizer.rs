@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use message::{Message, ParseResult};
-use source::{Source, SrcPos};
+use source::{Source, SrcPos, WithPos};
 extern crate fnv;
 use self::fnv::FnvHashMap;
 
@@ -431,37 +431,32 @@ impl Token {
         kinds_error(self, kinds)
     }
 
-    pub fn expect_identifier(&self) -> ParseResult<Symbol> {
+    pub fn expect_ident(self) -> ParseResult<Ident> {
         if let Token {
             kind: Identifier,
             value: Value::Identifier(value),
+            pos,
             ..
         } = self
         {
-            return Ok(value.clone());
-        };
-
-        return Err(self.kinds_error(&[Identifier]));
+            Ok(WithPos::from(value, pos))
+        } else {
+            Err(self.kinds_error(&[Identifier]))
+        }
     }
 
-    pub fn expect_ident(&self) -> ParseResult<Ident> {
-        Ok(Ident {
-            item: self.expect_identifier()?,
-            pos: self.pos.clone(),
-        })
-    }
-
-    pub fn expect_character(&self) -> ParseResult<u8> {
+    pub fn expect_character(self) -> ParseResult<WithPos<u8>> {
         if let Token {
             kind: Character,
             value: Value::Character(value),
+            pos,
             ..
         } = self
         {
-            return Ok(*value);
-        };
-
-        return Err(self.kinds_error(&[Character]));
+            Ok(WithPos::from(value, pos))
+        } else {
+            Err(self.kinds_error(&[Character]))
+        }
     }
 
     pub fn expect_kind(self, kind: Kind) -> ParseResult<Token> {
@@ -472,43 +467,46 @@ impl Token {
         }
     }
 
-    pub fn expect_bit_string(&self) -> ParseResult<ast::BitString> {
+    pub fn expect_bit_string(self) -> ParseResult<WithPos<ast::BitString>> {
         if let Token {
             kind: BitString,
             value: Value::BitString(value),
+            pos,
             ..
         } = self
         {
-            return Ok(value.clone());
-        };
-
-        return Err(self.kinds_error(&[BitString]));
+            Ok(WithPos::from(value, pos))
+        } else {
+            Err(self.kinds_error(&[BitString]))
+        }
     }
 
-    pub fn expect_abstract_literal(&self) -> ParseResult<ast::AbstractLiteral> {
+    pub fn expect_abstract_literal(self) -> ParseResult<WithPos<ast::AbstractLiteral>> {
         if let Token {
             kind: AbstractLiteral,
             value: Value::AbstractLiteral(value),
+            pos,
             ..
         } = self
         {
-            return Ok(*value);
-        };
-
-        return Err(self.kinds_error(&[AbstractLiteral]));
+            Ok(WithPos::from(value, pos))
+        } else {
+            Err(self.kinds_error(&[AbstractLiteral]))
+        }
     }
 
-    pub fn expect_string(&self) -> ParseResult<Latin1String> {
+    pub fn expect_string(self) -> ParseResult<WithPos<Latin1String>> {
         if let Token {
             kind: StringLiteral,
             value: Value::String(value),
+            pos,
             ..
         } = self
         {
-            return Ok(value.clone());
-        };
-
-        return Err(self.kinds_error(&[StringLiteral]));
+            Ok(WithPos::from(value, pos))
+        } else {
+            Err(self.kinds_error(&[StringLiteral]))
+        }
     }
 }
 

@@ -254,12 +254,12 @@ fn parse_generate_body_end_token(
                 end_token = stream.expect()?;
             },
             Identifier => {
+                stream.move_after(&token);
                 // Inner with identifier
                 let end_ident = token.expect_ident()?;
                 if let Some(ref ident) = alternative_label {
                     push_some(messages, error_on_end_identifier_mismatch(ident, &Some(end_ident)));
                 };
-                stream.move_after(&token);
                 stream.expect_kind(SemiColon)?;
                 end_token = stream.expect()?;
             });

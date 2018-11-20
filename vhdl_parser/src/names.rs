@@ -244,22 +244,10 @@ fn to_suffix(token: Token) -> ParseResult<WithPos<Name>> {
     let name = {
         try_token_kind!(
             token,
-            Identifier => WithPos {
-                item: Name::Simple(token.expect_identifier()?),
-                pos: token.pos,
-            },
-            Character => WithPos {
-                item: Name::CharacterLiteral(token.expect_character()?),
-                pos: token.pos,
-            },
-            StringLiteral => WithPos {
-                item: Name::OperatorSymbol(token.expect_string()?),
-                pos: token.pos,
-            },
-            All => WithPos {
-                item: Name::All,
-                pos: token.pos,
-            }
+            Identifier => token.expect_ident()?.map_into(Name::Simple),
+            Character => token.expect_character()?.map_into(Name::CharacterLiteral),
+            StringLiteral => token.expect_string()?.map_into(Name::OperatorSymbol),
+            All => WithPos::from(Name::All, token)
         )
     };
 

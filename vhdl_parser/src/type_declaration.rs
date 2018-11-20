@@ -31,7 +31,7 @@ fn parse_enumeration_type_definition(stream: &mut TokenStream) -> ParseResult<Ty
                 let enum_literal = try_token_kind!(
                     literal_token,
                     Identifier => EnumerationLiteral::Identifier(literal_token.expect_ident()?.item),
-                    Character => EnumerationLiteral::Character(literal_token.expect_character()?)
+                    Character => EnumerationLiteral::Character(literal_token.expect_character()?.item)
                 );
                 enum_literals.push(enum_literal);
 
@@ -168,7 +168,7 @@ fn parse_physical_type_definition(
                     try_token_kind!(
                         value_token,
                         AbstractLiteral => {
-                            let value = value_token.expect_abstract_literal()?;
+                            let value = value_token.expect_abstract_literal()?.item;
                             let unit = stream.expect_ident()?;
                             Literal::Physical(value, unit.item)
                         },

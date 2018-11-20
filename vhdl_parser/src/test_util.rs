@@ -244,6 +244,11 @@ impl Code {
         self.parse_ok(|stream: &mut TokenStream| stream.expect_ident())
     }
 
+    /// Helper to create a identifier at first occurence of name
+    pub fn operator_symbol(&self) -> WithPos<Latin1String> {
+        self.parse_ok(|stream: &mut TokenStream| stream.expect()?.expect_string())
+    }
+
     /// Helper method to create expression from first occurence of substr
     /// Can be used to test all but expression parsing
     pub fn expr(&self) -> WithPos<Expression> {
