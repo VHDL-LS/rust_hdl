@@ -30,7 +30,7 @@ I am interested in [collaboration](#Collaboration) with other people especially 
    - https://github.com/BG2BKK/img_process_vhdl (Contains one file with actual syntax error)
    - https://github.com/kevinpt/vhdl-extras
    - https://github.com/xesscorp/VHDL_Lib
-   - Also parser IEEE/IEEE_2008/VITAL_95/VITAL_2000
+   - Also parses IEEE/IEEE_2008/VITAL_95/VITAL_2000
 - Good performance, can parse 440k lines of code (all repos above) in 500 ms on my laptop which is 45.5 MB/s of parsing throughput.
 - Provides nice error messages such as:
 ```
