@@ -325,7 +325,7 @@ impl Code {
     }
 
     pub fn range(&self) -> Range {
-        self.parse_ok(parse_range)
+        self.parse_ok(parse_range).item
     }
 
     pub fn discrete_range(&self) -> DiscreteRange {

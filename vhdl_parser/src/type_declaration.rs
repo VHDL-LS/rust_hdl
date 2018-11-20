@@ -233,7 +233,7 @@ pub fn parse_type_declaration(
         stream.expect()?,
         // Integer
         Range => {
-            let constraint = parse_range(stream)?;
+            let constraint = parse_range(stream)?.item;
             try_token_kind!(
                 stream.expect()?,
                 SemiColon => TypeDefinition::Integer(constraint),

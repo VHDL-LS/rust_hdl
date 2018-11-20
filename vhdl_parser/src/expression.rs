@@ -6,12 +6,13 @@
 
 use ast::{
     Allocator, Binary, Choice, Direction, DiscreteRange, ElementAssociation, Expression, Literal,
-    Name, QualifiedExpression, Range, RangeConstraint, ResolutionIndication, SubtypeConstraint,
-    SubtypeIndication, Unary,
+    Name, QualifiedExpression, Range, RangeConstraint, ResolutionIndication, SubtypeIndication,
+    Unary,
 };
 use message::{Message, ParseResult};
-use names::{parse_name, parse_name_initial_token, to_selected_name};
+use names::{parse_name_initial_token, parse_selected_name, selected_to_name};
 use source::WithPos;
+use subtype_indication::parse_subtype_constraint;
 use tokenizer::Kind::*;
 use tokenizer::{Kind, Token};
 use tokenstream::TokenStream;
@@ -196,31 +197,13 @@ pub fn parse_choices(stream: &mut TokenStream) -> ParseResult<Vec<Choice>> {
     Ok(choices)
 }
 
-fn name_to_subtype_indication(name: &WithPos<Name>) -> ParseResult<SubtypeIndication> {
-    match name.item {
-        Name::Selected(..) | Name::Simple(..) => Ok(SubtypeIndication {
-            resolution: ResolutionIndication::Unresolved,
-            type_mark: to_selected_name(name)?,
-            constraint: None,
-        }),
-        Name::Slice(ref prefix, ref discrete_range) => Ok(SubtypeIndication {
-            resolution: ResolutionIndication::Unresolved,
-            type_mark: to_selected_name(prefix)?,
-            constraint: Some(SubtypeConstraint::Array(vec![discrete_range.clone()], None)),
-        }),
-        _ => Err(Message::error(
-            &name,
-            "Expected subtype indication or qualified expression",
-        )),
-    }
-}
-
 /// LRM 9.3.7 Allocators
 fn parse_allocator(stream: &mut TokenStream) -> ParseResult<WithPos<Allocator>> {
-    let name = parse_name(stream)?;
+    let selected_name = parse_selected_name(stream)?;
 
     if stream.skip_if_kind(Tick)? {
         let expr = parse_expression(stream)?;
+        let name = selected_to_name(selected_name)?;
         let pos = name.pos.clone().combine_into(&expr);
         Ok(WithPos {
             item: Allocator::Qualified(QualifiedExpression {
@@ -230,9 +213,27 @@ fn parse_allocator(stream: &mut TokenStream) -> ParseResult<WithPos<Allocator>> 
             pos: pos,
         })
     } else {
+        let mut pos = selected_name.get(0).unwrap().pos.clone();
+
+        let constraint = {
+            if let Some(constraint) = parse_subtype_constraint(stream)? {
+                pos = pos.combine(&constraint.pos);
+                Some(constraint.item)
+            } else {
+                pos = pos.combine(&selected_name.get(selected_name.len() - 1).unwrap().pos);
+                None
+            }
+        };
+
+        let subtype = SubtypeIndication {
+            resolution: ResolutionIndication::Unresolved,
+            type_mark: selected_name,
+            constraint: constraint,
+        };
+
         Ok(WithPos {
-            item: Allocator::Subtype(name_to_subtype_indication(&name)?),
-            pos: name.pos,
+            item: Allocator::Subtype(subtype),
+            pos,
         })
     }
 }
@@ -648,6 +649,23 @@ mod tests {
         let alloc = WithPos {
             item: Allocator::Subtype(code.s1("integer_vector(0 to 1)").subtype_indication()),
             pos: code.s1("integer_vector(0 to 1)").pos(),
+        };
+
+        let new_expr = WithPos {
+            item: Expression::New(alloc),
+            pos: code.pos(),
+        };
+
+        assert_eq!(code.with_stream(parse_expression), new_expr);
+    }
+
+    #[test]
+    fn parses_new_allocator_subtype_constraint_range_attribute() {
+        let code = Code::new("new integer_vector(foo'range)");
+
+        let alloc = WithPos {
+            item: Allocator::Subtype(code.s1("integer_vector(foo'range)").subtype_indication()),
+            pos: code.s1("integer_vector(foo'range)").pos(),
         };
 
         let new_expr = WithPos {

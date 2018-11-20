@@ -12,28 +12,20 @@ use ast::{
 use message::ParseResult;
 use names::parse_selected_name;
 use range::{parse_discrete_range, parse_range};
+use source::WithPos;
 use tokenizer::Kind::*;
 use tokenstream::TokenStream;
 
-/// Check if there are more comma separated elements or closing parenthesis
-fn more(stream: &mut TokenStream) -> ParseResult<bool> {
-    Ok(try_token_kind!(
-        stream.expect()?,
-        RightPar => false,
-        Comma => true
-    ))
-}
-
 fn parse_record_element_constraint(stream: &mut TokenStream) -> ParseResult<ElementConstraint> {
     let ident = stream.expect_ident()?;
-    let constraint = Box::new(parse_composite_constraint(stream)?);
+    let constraint = Box::new(parse_composite_constraint(stream)?.item);
     Ok(ElementConstraint { ident, constraint })
 }
 
-fn parse_composite_constraint(stream: &mut TokenStream) -> ParseResult<SubtypeConstraint> {
+fn parse_composite_constraint(stream: &mut TokenStream) -> ParseResult<WithPos<SubtypeConstraint>> {
     // There is no finite lookahead that can differentiate
     // between array and record element constraint
-    stream.expect_kind(LeftPar)?;
+    let leftpar_pos = stream.expect_kind(LeftPar)?.pos;
     let state = stream.state();
     let mut initial_constraint = parse_discrete_range(stream);
     if let Some(token) = stream.peek()? {
@@ -50,41 +42,62 @@ fn parse_composite_constraint(stream: &mut TokenStream) -> ParseResult<SubtypeCo
     if let Ok(initial_constraint) = initial_constraint {
         // Array constraint
         let mut constraints = vec![initial_constraint];
-        while more(stream)? {
+
+        let mut end_pos = loop {
+            let sep_token = stream.expect()?;
+            try_token_kind!(
+                sep_token,
+                RightPar => break sep_token.pos,
+                Comma => {}
+            );
+
             constraints.push(parse_discrete_range(stream)?);
-        }
+        };
 
         // Array element constraint
         let element_constraint = {
             if let Some(elemement_constraint) = parse_subtype_constraint(stream)? {
-                Some(Box::new(elemement_constraint))
+                end_pos = elemement_constraint.pos;
+                Some(Box::new(elemement_constraint.item))
             } else {
                 None
             }
         };
 
-        Ok(SubtypeConstraint::Array(constraints, element_constraint))
+        Ok(WithPos::from(
+            SubtypeConstraint::Array(constraints, element_constraint),
+            leftpar_pos.combine_into(&end_pos),
+        ))
     } else {
         // Record constraint
         stream.set_state(state);
         let mut constraints = vec![parse_record_element_constraint(stream)?];
 
-        while more(stream)? {
+        let rightpar_pos = loop {
+            let sep_token = stream.expect()?;
+            try_token_kind!(
+                sep_token,
+                RightPar => break sep_token.pos,
+                Comma => {}
+            );
             constraints.push(parse_record_element_constraint(stream)?);
-        }
+        };
 
-        Ok(SubtypeConstraint::Record(constraints))
+        Ok(WithPos::from(
+            SubtypeConstraint::Record(constraints),
+            leftpar_pos.combine_into(&rightpar_pos),
+        ))
     }
 }
 
 pub fn parse_subtype_constraint(
     stream: &mut TokenStream,
-) -> ParseResult<Option<SubtypeConstraint>> {
+) -> ParseResult<Option<WithPos<SubtypeConstraint>>> {
     if let Some(token) = stream.peek()? {
         let constraint = match token.kind {
             Range => {
                 stream.move_after(&token);
-                Some(SubtypeConstraint::Range(parse_range(stream)?))
+                Some(parse_range(stream)?.map_into(SubtypeConstraint::Range))
             }
             LeftPar => Some(parse_composite_constraint(stream)?),
             _ => None,
@@ -168,7 +181,7 @@ pub fn parse_subtype_indication(stream: &mut TokenStream) -> ParseResult<Subtype
         }
     };
 
-    let constraint = parse_subtype_constraint(stream)?;
+    let constraint = parse_subtype_constraint(stream)?.map(|constraint| constraint.item);
 
     return Ok(SubtypeIndication {
         resolution: resolution,
