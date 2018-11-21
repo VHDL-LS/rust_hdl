@@ -153,6 +153,13 @@ pub struct PrimaryDesignUnit {
     pub unit: DesignUnit<PrimaryUnit>,
     pub secondary: FnvHashMap<Symbol, DesignUnit<SecondaryUnit>>,
 }
+
+impl PrimaryDesignUnit {
+    pub fn iter_secondary_units(&self) -> impl Iterator<Item = &DesignUnit<SecondaryUnit>> {
+        self.secondary.values()
+    }
+}
+
 #[derive(PartialEq, Debug, Clone)]
 pub struct Library {
     pub name: Symbol,
@@ -243,6 +250,10 @@ impl Library {
     fn primary_unit<'a>(&'a self, name: &Symbol) -> Option<&'a PrimaryDesignUnit> {
         self.primary_units.get(name)
     }
+
+    pub fn iter_primary_units(&self) -> impl Iterator<Item = &PrimaryDesignUnit> {
+        self.primary_units.values()
+    }
 }
 
 pub struct DesignRoot {
@@ -259,6 +270,10 @@ impl DesignRoot {
     pub fn add_library(&mut self, library: Library) {
         // @TODO check for duplicate libraries
         self.libraries.insert(library.name.clone(), library);
+    }
+
+    pub fn iter_libraries(&self) -> impl Iterator<Item = &Library> {
+        self.libraries.values()
     }
 }
 

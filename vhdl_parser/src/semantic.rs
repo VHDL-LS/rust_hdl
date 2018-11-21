@@ -5,6 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use ast::*;
+use library::DesignRoot;
 use message::{Message, MessageHandler};
 use source::SrcPos;
 use symbol_table::Symbol;
@@ -230,26 +231,45 @@ fn check_entity_declaration(entity: &EntityDeclaration, messages: &mut MessageHa
     check_concurrent_part(&entity.statements, messages);
 }
 
-pub fn check_design_unit(design_unit: &AnyDesignUnit, messages: &mut MessageHandler) {
+fn check_primary_design_unit(design_unit: &DesignUnit<PrimaryUnit>, messages: &mut MessageHandler) {
     match &design_unit {
-        AnyDesignUnit::Primary(DesignUnit {
+        DesignUnit {
             unit: PrimaryUnit::PackageDeclaration(package),
             ..
-        }) => check_package_declaration(package, messages),
-        AnyDesignUnit::Secondary(DesignUnit {
-            unit: SecondaryUnit::Architecture(architecture),
-            ..
-        }) => check_architecture_body(architecture, messages),
-        AnyDesignUnit::Secondary(DesignUnit {
-            unit: SecondaryUnit::PackageBody(package),
-            ..
-        }) => check_package_body(package, messages),
-        AnyDesignUnit::Primary(DesignUnit {
+        } => check_package_declaration(package, messages),
+        DesignUnit {
             unit: PrimaryUnit::EntityDeclaration(entity),
             ..
-        }) => check_entity_declaration(entity, messages),
+        } => check_entity_declaration(entity, messages),
         // @TODO others
         _ => {}
+    }
+}
+
+fn check_secondary_design_unit(
+    design_unit: &DesignUnit<SecondaryUnit>,
+    messages: &mut MessageHandler,
+) {
+    match &design_unit {
+        DesignUnit {
+            unit: SecondaryUnit::Architecture(architecture),
+            ..
+        } => check_architecture_body(architecture, messages),
+        DesignUnit {
+            unit: SecondaryUnit::PackageBody(package),
+            ..
+        } => check_package_body(package, messages),
+    }
+}
+
+pub fn analyse(design_root: &DesignRoot, messages: &mut MessageHandler) {
+    for library in design_root.iter_libraries() {
+        for primary_unit in library.iter_primary_units() {
+            check_primary_design_unit(&primary_unit.unit, messages);
+            for secondary_unit in primary_unit.iter_secondary_units() {
+                check_secondary_design_unit(secondary_unit, messages);
+            }
+        }
     }
 }
 
