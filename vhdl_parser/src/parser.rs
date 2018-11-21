@@ -30,7 +30,7 @@ pub enum ParserError {
 
 #[derive(Clone)]
 pub struct VHDLParser {
-    symtab: Arc<SymbolTable>,
+    pub symtab: Arc<SymbolTable>,
 }
 
 pub type ParserResult = Result<DesignFile, ParserError>;

@@ -42,6 +42,14 @@ impl Message {
         Self::new(item, msg, Severity::Warning)
     }
 
+    pub fn hint(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Message {
+        Self::new(item, msg, Severity::Hint)
+    }
+
+    pub fn info(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Message {
+        Self::new(item, msg, Severity::Info)
+    }
+
     pub fn when(self, message: impl AsRef<str>) -> Message {
         Message {
             message: format!("{}, when {}", &self.message, message.as_ref()),

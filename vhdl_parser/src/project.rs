@@ -12,6 +12,7 @@ use latin_1::Latin1String;
 use library::{DesignRoot, Library};
 use message::Message;
 use parser::{FileToParse, ParserError, VHDLParser};
+use semantic::Analyzer;
 use source::Source;
 use std::collections::hash_map::Entry;
 use std::io;
@@ -147,7 +148,7 @@ impl Project {
             root.add_library(Library::new(library_name, design_files, &mut messages));
         }
 
-        crate::semantic::analyse(&root, &mut messages);
+        Analyzer::new(self.parser.symtab.clone()).analyze(&root, &mut messages);
         messages
     }
 }

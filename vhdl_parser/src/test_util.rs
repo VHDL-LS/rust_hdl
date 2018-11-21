@@ -65,7 +65,7 @@ impl CodeBuilder {
 
 pub struct Code {
     source: Source,
-    symtab: Arc<SymbolTable>,
+    pub symtab: Arc<SymbolTable>,
     pos: SrcPos,
 }
 

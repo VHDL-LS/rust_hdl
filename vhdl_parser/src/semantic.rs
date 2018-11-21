@@ -5,14 +5,16 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use ast::*;
+use latin_1::Latin1String;
 use library::DesignRoot;
 use message::{Message, MessageHandler};
 use source::{SrcPos, WithPos};
-use symbol_table::Symbol;
+use symbol_table::{Symbol, SymbolTable};
 
 extern crate fnv;
 use self::fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
+use std::sync::Arc;
 
 impl Declaration {
     fn ident<'a>(&'a self) -> Option<&'a Ident> {
@@ -272,36 +274,54 @@ fn check_secondary_design_unit(
     }
 }
 
-fn check_context_clause(
-    root: &DesignRoot,
-    context_clause: &Vec<WithPos<ContextItem>>,
-    messages: &mut MessageHandler,
-) {
-    for context_item in context_clause.iter() {
-        match context_item.item {
-            ContextItem::Library(LibraryClause { ref name_list }) => {
-                for library_name in name_list.iter() {
-                    if !root.has_library(&library_name.item) {
-                        messages.push(Message::error(
-                            &library_name,
-                            format!("No such library '{}'", library_name.item),
-                        ))
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
+pub struct Analyzer {
+    work_sym: Symbol,
 }
 
-pub fn analyse(root: &DesignRoot, messages: &mut MessageHandler) {
-    for library in root.iter_libraries() {
-        for primary_unit in library.iter_primary_units() {
-            check_context_clause(root, &primary_unit.unit.context_clause, messages);
-            check_primary_design_unit(&primary_unit.unit, messages);
-            for secondary_unit in primary_unit.iter_secondary_units() {
-                check_context_clause(root, &secondary_unit.context_clause, messages);
-                check_secondary_design_unit(secondary_unit, messages);
+impl Analyzer {
+    pub fn new(symtab: Arc<SymbolTable>) -> Analyzer {
+        Analyzer {
+            work_sym: symtab.insert(&Latin1String::new(b"work")),
+        }
+    }
+
+    fn check_context_clause(
+        &self,
+        root: &DesignRoot,
+        context_clause: &Vec<WithPos<ContextItem>>,
+        messages: &mut MessageHandler,
+    ) {
+        for context_item in context_clause.iter() {
+            match context_item.item {
+                ContextItem::Library(LibraryClause { ref name_list }) => {
+                    for library_name in name_list.iter() {
+                        if self.work_sym == library_name.item {
+                            messages.push(Message::hint(
+                                &library_name,
+                                format!("Library clause not necessary for current working library"),
+                            ))
+                        } else if !root.has_library(&library_name.item) {
+                            messages.push(Message::error(
+                                &library_name,
+                                format!("No such library '{}'", library_name.item),
+                            ))
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    pub fn analyze(&self, root: &DesignRoot, messages: &mut MessageHandler) {
+        for library in root.iter_libraries() {
+            for primary_unit in library.iter_primary_units() {
+                self.check_context_clause(root, &primary_unit.unit.context_clause, messages);
+                check_primary_design_unit(&primary_unit.unit, messages);
+                for secondary_unit in primary_unit.iter_secondary_units() {
+                    self.check_context_clause(root, &secondary_unit.context_clause, messages);
+                    check_secondary_design_unit(secondary_unit, messages);
+                }
             }
         }
     }
@@ -847,7 +867,7 @@ end entity;
         let mut root = DesignRoot::new();
         root.add_library(library);
 
-        analyse(&root, &mut messages);
+        Analyzer::new(code.symtab.clone()).analyze(&root, &mut messages);
 
         assert_eq!(
             messages,
@@ -857,4 +877,33 @@ end entity;
             )]
         )
     }
+
+    #[test]
+    fn work_library_not_necessary_hint() {
+        let code = Code::new(
+            "
+library work;
+
+entity ent is
+end entity;
+            ",
+        );
+
+        let mut messages = Vec::new();
+        let libname = code.symbol("libname");
+        let library = Library::new(libname.clone(), vec![code.design_file()], &mut messages);
+        let mut root = DesignRoot::new();
+        root.add_library(library);
+
+        Analyzer::new(code.symtab.clone()).analyze(&root, &mut messages);
+
+        assert_eq!(
+            messages,
+            vec![Message::hint(
+                code.s1("work"),
+                "Library clause not necessary for current working library"
+            )]
+        )
+    }
+
 }
