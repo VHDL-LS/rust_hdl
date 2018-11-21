@@ -1,7 +1,7 @@
 # Overview
 This repository is a collection of HDL related tools.
 
-**NOTE**: These tools are currently only recommended to be used by people interested in contributing to their development as they are still immature.
+**NOTE**: These tools are at a usable state however they are still intensively developed and thus they are currently only recommended to be used by early adopters and people interested in contributing to the development.
 
 I am interested in [collaboration](#Collaboration) with other people especially regarding semantic analysis of VHDL.
 
@@ -47,7 +47,11 @@ error: Expected 'use', 'type', 'subtype', 'shared', 'constant', 'signal', 'varia
 
 - The parser is a using hand written recursive descent since VHDL is not suitable for parser generators.
 - Error recovery is still very rudimentary.
-- No semantic analysis is done yet.
+- Semantic analysis is ongoing work, currently checks for:
+  - Legal primary/secondary design unit combinations
+  - Duplicate design units
+  - Secondary units without primary unit
+  - Duplicate definitions in declarative parts  
 - Comments not part of AST yet.
 
 ## Trying it out
@@ -83,7 +87,7 @@ architecture a of uart_tx
 - A complete VHDL language server protocol implementation with diagnostics, navigate to symbol, find all references etc.
 
 ### Status
-- Basic diagnosics based on parse errors and warnings.
+- Publishes diagnosics based on parse errors and warnings as well as semantic analysis.
 - Usable today to get full live syntax error checking.
 - Only full document sync
 
@@ -95,6 +99,25 @@ The language server has a command line binary `vhdl_ls` which implements a stdio
 > cd rust_hdl
 > cargo build --release
 ```
+
+### Project file
+The language server uses a configuration file in the [TOML](https://github.com/toml-lang/toml) format named `vhdl_ls.toml`.
+The file contains the library mapping of all files within the project. Files outside of the project without library mapping are checked for syntax errors only.
+
+**Example vhdl_ls.toml**
+
+```toml
+# File names are either absolute or relative to the parent folder of the vhdl_ls.toml file
+[libraries]
+lib2.files = [
+  'pkg2.vhd',
+]
+lib1.files = [
+  'pkg1.vhd',
+  'tb_ent.vhd'
+]
+```
+
 ### Use in emacs
 #### lsp-mode
 Add the following to your `.emacs.el`:
