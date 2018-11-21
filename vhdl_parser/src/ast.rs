@@ -325,15 +325,15 @@ pub enum ProtectedTypeDeclarativeItem {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum AliasDesignator {
-    Identifier(Symbol),
-    OperatorSymbol(Latin1String),
-    Character(u8),
+    Identifier(Ident),
+    OperatorSymbol(WithPos<Latin1String>),
+    Character(WithPos<u8>),
 }
 
 /// LRM 6.6 Alias declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct AliasDeclaration {
-    pub designator: WithPos<AliasDesignator>,
+    pub designator: AliasDesignator,
     pub subtype_indication: Option<SubtypeIndication>,
     pub name: WithPos<Name>,
     pub signature: Option<Signature>,

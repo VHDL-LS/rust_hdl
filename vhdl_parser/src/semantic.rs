@@ -18,20 +18,31 @@ impl Declaration {
     fn ident<'a>(&'a self) -> Option<&'a Ident> {
         match self {
             // @TODO Ignored for now
-            Declaration::Alias(AliasDeclaration { .. }) => None,
+            Declaration::Alias(alias) => match alias.designator {
+                AliasDesignator::Identifier(ref ident) => {
+                    if alias.signature.is_none() {
+                        Some(ident)
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            },
             Declaration::Object(ObjectDeclaration { ref ident, .. }) => Some(ident),
             Declaration::File(FileDeclaration { ref ident, .. }) => Some(ident),
             Declaration::Component(ComponentDeclaration { ref ident, .. }) => Some(ident),
-            // @TODO Ignored for now
-            Declaration::Attribute(..) => None,
+            Declaration::Attribute(ref attr) => match attr {
+                Attribute::Declaration(AttributeDeclaration { ref ident, .. }) => Some(ident),
+                // @TODO Ignored for now
+                Attribute::Specification(..) => None,
+            },
             // @TODO Ignored for now
             Declaration::SubprogramBody(..) => None,
             // @TODO Ignored for now
             Declaration::SubprogramDeclaration(..) => None,
             // @TODO Ignored for now
             Declaration::Use(..) => None,
-            // @TODO Ignored for now
-            Declaration::Package(..) => None,
+            Declaration::Package(ref package) => Some(&package.ident),
             Declaration::Configuration(..) => None,
             Declaration::Type(TypeDeclaration {
                 def: TypeDefinition::ProtectedBody(..),
@@ -56,8 +67,7 @@ impl InterfaceDeclaration {
             InterfaceDeclaration::Type(ref ident) => Some(ident),
             // @TODO ignore for now
             InterfaceDeclaration::Subprogram(..) => None,
-            // @TODO ignore for now
-            InterfaceDeclaration::Package(..) => None,
+            InterfaceDeclaration::Package(ref package) => Some(&package.ident),
         }
     }
 }
@@ -679,6 +689,145 @@ end architecture;
         let mut messages = Vec::new();
         check_architecture_body(&code.architecture(), &mut messages);
         assert_eq!(messages, expected_messages(&code, &["a1", "b1"]));
+    }
+
+    #[test]
+    fn forbid_homographs_of_type_declarations() {
+        let code = Code::new(
+            "
+constant a1 : natural := 0;
+type a1 is (foo, bar);
+",
+        );
+
+        let mut messages = Vec::new();
+        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        assert_eq!(messages, expected_messages(&code, &["a1"]));
+    }
+
+    #[test]
+    fn forbid_homographs_of_component_declarations() {
+        let code = Code::new(
+            "
+constant a1 : natural := 0;
+component a1 is
+  port (clk : bit);
+end component;
+",
+        );
+
+        let mut messages = Vec::new();
+        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        assert_eq!(messages, expected_messages(&code, &["a1"]));
+    }
+
+    #[test]
+    fn forbid_homographs_of_file_declarations() {
+        let code = Code::new(
+            "
+constant a1 : natural := 0;
+file a1 : text;
+",
+        );
+
+        let mut messages = Vec::new();
+        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        assert_eq!(messages, expected_messages(&code, &["a1"]));
+    }
+
+    #[test]
+    fn forbid_homographs_in_package_declarations() {
+        let code = Code::new(
+            "
+package a1 is new pkg generic map (foo => bar);
+package a1 is new pkg generic map (foo => bar);
+",
+        );
+
+        let mut messages = Vec::new();
+        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        assert_eq!(messages, expected_messages(&code, &["a1"]));
+    }
+
+    #[test]
+    fn forbid_homographs_in_attribute_declarations() {
+        let code = Code::new(
+            "
+attribute a1 : string;
+attribute a1 : string;
+",
+        );
+
+        let mut messages = Vec::new();
+        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        assert_eq!(messages, expected_messages(&code, &["a1"]));
+    }
+
+    #[test]
+    fn forbid_homographs_in_alias_declarations() {
+        let code = Code::new(
+            "
+alias a1 is foo;
+alias a1 is bar;
+
+-- Legal since subprograms are overloaded
+alias b1 is foo[return natural];
+alias b1 is bar[return boolean];
+",
+        );
+
+        let mut messages = Vec::new();
+        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        assert_eq!(messages, expected_messages(&code, &["a1"]));
+    }
+
+    #[test]
+    fn forbid_homographs_in_interface_file_declarations() {
+        let code = Code::new(
+            "
+procedure proc(file a1, a, a1 : text);
+",
+        );
+
+        let mut messages = Vec::new();
+        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        assert_eq!(messages, expected_messages(&code, &["a1"]));
+    }
+
+    #[test]
+    fn forbid_homographs_in_interface_type_declarations() {
+        let code = Code::new(
+            "
+entity ent is
+  generic (
+    type a1;
+    type a1
+  );
+end entity;
+",
+        );
+
+        let mut messages = Vec::new();
+        check_entity_declaration(&code.entity(), &mut messages);
+        assert_eq!(messages, expected_messages(&code, &["a1"]));
+    }
+
+    #[test]
+    fn forbid_homographs_in_interface_package_declarations() {
+        let code = Code::new(
+            "
+entity ent is
+  generic (
+    package a1 is new pkg generic map (<>);
+    package a1 is new pkg generic map (<>)
+  );
+end entity;
+",
+        );
+
+        let mut messages = Vec::new();
+        check_entity_declaration(&code.entity(), &mut messages);
+        assert_eq!(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]

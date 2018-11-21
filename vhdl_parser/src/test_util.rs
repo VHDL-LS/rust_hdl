@@ -249,6 +249,10 @@ impl Code {
         self.parse_ok(|stream: &mut TokenStream| stream.expect()?.expect_string())
     }
 
+    pub fn character(&self) -> WithPos<u8> {
+        self.parse_ok(|stream: &mut TokenStream| stream.expect()?.expect_character())
+    }
+
     /// Helper method to create expression from first occurence of substr
     /// Can be used to test all but expression parsing
     pub fn expr(&self) -> WithPos<Expression> {
