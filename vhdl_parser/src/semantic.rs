@@ -276,12 +276,14 @@ fn check_secondary_design_unit(
 
 pub struct Analyzer {
     work_sym: Symbol,
+    std_sym: Symbol,
 }
 
 impl Analyzer {
     pub fn new(symtab: Arc<SymbolTable>) -> Analyzer {
         Analyzer {
             work_sym: symtab.insert(&Latin1String::new(b"work")),
+            std_sym: symtab.insert(&Latin1String::new(b"std")),
         }
     }
 
@@ -295,7 +297,9 @@ impl Analyzer {
             match context_item.item {
                 ContextItem::Library(LibraryClause { ref name_list }) => {
                     for library_name in name_list.iter() {
-                        if self.work_sym == library_name.item {
+                        if self.std_sym == library_name.item {
+                            // std is pre-defined
+                        } else if self.work_sym == library_name.item {
                             messages.push(Message::hint(
                                 &library_name,
                                 format!("Library clause not necessary for current working library"),
@@ -876,6 +880,27 @@ end entity;
                 "No such library 'missing_lib'"
             )]
         )
+    }
+
+    #[test]
+    fn library_std_is_pre_defined() {
+        let code = Code::new(
+            "
+library std;
+
+entity ent is
+end entity;
+            ",
+        );
+
+        let mut messages = Vec::new();
+        let libname = code.symbol("libname");
+        let library = Library::new(libname.clone(), vec![code.design_file()], &mut messages);
+        let mut root = DesignRoot::new();
+        root.add_library(library);
+
+        Analyzer::new(code.symtab.clone()).analyze(&root, &mut messages);
+        check_no_messages(&messages);
     }
 
     #[test]
