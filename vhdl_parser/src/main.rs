@@ -11,8 +11,7 @@ extern crate vhdl_parser;
 use std::path::Path;
 
 use vhdl_parser::ast::{AnyDesignUnit, PrimaryUnit, SecondaryUnit, SelectedName};
-use vhdl_parser::message::{Message, Severity};
-use vhdl_parser::{Config, ParserError, Project, VHDLParser};
+use vhdl_parser::{Config, Message, ParserError, Project, Severity, VHDLParser};
 
 fn main() {
     use clap::{App, Arg};
@@ -157,14 +156,8 @@ fn parse(parser: VHDLParser, file_names: Vec<String>, num_threads: usize, show: 
 
     for (file_name, mut messages, design_file) in parser.parse_design_files(file_names, num_threads)
     {
-        use vhdl_parser::semantic;
         let design_file = match design_file {
-            Ok(design_file) => {
-                for design_unit in design_file.design_units.iter() {
-                    semantic::check_design_unit(design_unit, &mut messages)
-                }
-                design_file
-            }
+            Ok(design_file) => design_file,
             Err(ParserError::Message(msg)) => {
                 println!("Error when parsing {}", file_name);
                 show_messages(&messages);

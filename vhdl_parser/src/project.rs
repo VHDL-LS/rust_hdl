@@ -143,6 +143,11 @@ impl Project {
         }
 
         for (library_name, design_files) in library_to_design_file.drain() {
+            for design_file in design_files.iter() {
+                for design_unit in design_file.design_units.iter() {
+                    crate::semantic::check_design_unit(design_unit, &mut messages);
+                }
+            }
             Library::new(library_name, design_files, &mut messages);
         }
 

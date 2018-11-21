@@ -16,9 +16,7 @@ use self::fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
 
 extern crate vhdl_parser;
-use self::vhdl_parser::message::{Message, Severity};
-use self::vhdl_parser::source::{Source, SrcPos};
-use self::vhdl_parser::{Config, Project};
+use self::vhdl_parser::{Config, Message, Project, Severity, Source, SrcPos};
 use std::io;
 use std::path::Path;
 
