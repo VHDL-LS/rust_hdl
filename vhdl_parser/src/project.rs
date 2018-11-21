@@ -122,7 +122,7 @@ impl Project {
         // Investigate *correct* methonds to do this incrementally
         let mut library_to_design_file: FnvHashMap<Symbol, Vec<DesignFile>> = FnvHashMap::default();
         let mut messages = Vec::new();
-        let mut design_root = DesignRoot::new();
+        let mut root = DesignRoot::new();
 
         for source_file in self.files.values() {
             if let Some(ref library_name) = source_file.library_name {
@@ -144,10 +144,10 @@ impl Project {
         }
 
         for (library_name, design_files) in library_to_design_file.drain() {
-            design_root.add_library(Library::new(library_name, design_files, &mut messages));
+            root.add_library(Library::new(library_name, design_files, &mut messages));
         }
 
-        crate::semantic::analyse(&design_root, &mut messages);
+        crate::semantic::analyse(&root, &mut messages);
         messages
     }
 }

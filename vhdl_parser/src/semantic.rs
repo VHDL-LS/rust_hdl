@@ -7,7 +7,7 @@
 use ast::*;
 use library::DesignRoot;
 use message::{Message, MessageHandler};
-use source::SrcPos;
+use source::{SrcPos, WithPos};
 use symbol_table::Symbol;
 
 extern crate fnv;
@@ -262,11 +262,35 @@ fn check_secondary_design_unit(
     }
 }
 
-pub fn analyse(design_root: &DesignRoot, messages: &mut MessageHandler) {
-    for library in design_root.iter_libraries() {
+fn check_context_clause(
+    root: &DesignRoot,
+    context_clause: &Vec<WithPos<ContextItem>>,
+    messages: &mut MessageHandler,
+) {
+    for context_item in context_clause.iter() {
+        match context_item.item {
+            ContextItem::Library(LibraryClause { ref name_list }) => {
+                for library_name in name_list.iter() {
+                    if !root.has_library(&library_name.item) {
+                        messages.push(Message::error(
+                            &library_name,
+                            format!("No such library '{}'", library_name.item),
+                        ))
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+pub fn analyse(root: &DesignRoot, messages: &mut MessageHandler) {
+    for library in root.iter_libraries() {
         for primary_unit in library.iter_primary_units() {
+            check_context_clause(root, &primary_unit.unit.context_clause, messages);
             check_primary_design_unit(&primary_unit.unit, messages);
             for secondary_unit in primary_unit.iter_secondary_units() {
+                check_context_clause(root, &secondary_unit.context_clause, messages);
                 check_secondary_design_unit(secondary_unit, messages);
             }
         }
@@ -276,6 +300,7 @@ pub fn analyse(design_root: &DesignRoot, messages: &mut MessageHandler) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use library::Library;
     use message::Message;
     use test_util::{check_no_messages, Code};
 
@@ -656,4 +681,31 @@ end architecture;
         assert_eq!(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
+    #[test]
+    fn check_library_clause_library_exists() {
+        let code = Code::new(
+            "
+library missing_lib;
+
+entity ent is
+end entity;
+            ",
+        );
+
+        let mut messages = Vec::new();
+        let libname = code.symbol("libname");
+        let library = Library::new(libname.clone(), vec![code.design_file()], &mut messages);
+        let mut root = DesignRoot::new();
+        root.add_library(library);
+
+        analyse(&root, &mut messages);
+
+        assert_eq!(
+            messages,
+            vec![Message::error(
+                code.s1("missing_lib"),
+                "No such library 'missing_lib'"
+            )]
+        )
+    }
 }

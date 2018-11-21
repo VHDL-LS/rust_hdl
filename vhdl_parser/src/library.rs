@@ -272,6 +272,10 @@ impl DesignRoot {
         self.libraries.insert(library.name.clone(), library);
     }
 
+    pub fn has_library(&self, library_name: &Symbol) -> bool {
+        self.libraries.contains_key(library_name)
+    }
+
     pub fn iter_libraries(&self) -> impl Iterator<Item = &Library> {
         self.libraries.values()
     }
