@@ -245,6 +245,23 @@ impl Library {
     }
 }
 
+pub struct DesignRoot {
+    libraries: FnvHashMap<Symbol, Library>,
+}
+
+impl DesignRoot {
+    pub fn new() -> DesignRoot {
+        DesignRoot {
+            libraries: FnvHashMap::default(),
+        }
+    }
+
+    pub fn add_library(&mut self, library: Library) {
+        // @TODO check for duplicate libraries
+        self.libraries.insert(library.name.clone(), library);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
