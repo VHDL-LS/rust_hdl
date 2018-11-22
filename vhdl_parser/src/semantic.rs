@@ -136,24 +136,24 @@ impl std::fmt::Display for Designator {
 }
 
 fn check_unique<'a>(
-    decls: &mut FnvHashMap<Designator, SrcPos>,
+    decls: &mut FnvHashMap<Designator, (bool, SrcPos)>,
     decl: DeclarativeItem,
     messages: &mut MessageHandler,
 ) {
-    if decl.may_overload {
-        return;
-    }
-
     match decls.entry(decl.designator.item.clone()) {
         Entry::Occupied(entry) => {
-            let msg = Message::error(
-                &decl.designator,
-                format!("Duplicate declaration of '{}'", decl.designator.item),
-            ).related(entry.get(), "Previously defined here");
-            messages.push(msg)
+            let (may_overload, old_pos) = entry.get();
+
+            if !decl.may_overload || !*may_overload {
+                let msg = Message::error(
+                    &decl.designator,
+                    format!("Duplicate declaration of '{}'", decl.designator.item),
+                ).related(old_pos, "Previously defined here");
+                messages.push(msg)
+            }
         }
         Entry::Vacant(entry) => {
-            entry.insert(decl.designator.pos);
+            entry.insert((decl.may_overload, decl.designator.pos));
         }
     }
 }
@@ -873,6 +873,23 @@ alias b1 is bar[return boolean];
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
         assert_eq!(messages, expected_messages(&code, &["a1"]));
+    }
+
+    #[test]
+    fn forbid_homographs_for_overloaded_vs_non_overloaded() {
+        let code = Code::new(
+            "
+alias a1 is foo;
+alias a1 is bar[return boolean];
+
+function b1 return natural;
+constant b1 : natural := 0;
+",
+        );
+
+        let mut messages = Vec::new();
+        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        assert_eq!(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
     #[test]
