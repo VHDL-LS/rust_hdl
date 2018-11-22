@@ -17,24 +17,28 @@ use std::collections::hash_map::Entry;
 use std::sync::Arc;
 
 impl Declaration {
-    fn ident<'a>(&'a self) -> Option<&'a Ident> {
+    fn ident(&self) -> Option<Ident> {
         match self {
             // @TODO Ignored for now
             Declaration::Alias(alias) => match alias.designator {
                 AliasDesignator::Identifier(ref ident) => {
                     if alias.signature.is_none() {
-                        Some(ident)
+                        Some(ident.to_owned())
                     } else {
                         None
                     }
                 }
                 _ => None,
             },
-            Declaration::Object(ObjectDeclaration { ref ident, .. }) => Some(ident),
-            Declaration::File(FileDeclaration { ref ident, .. }) => Some(ident),
-            Declaration::Component(ComponentDeclaration { ref ident, .. }) => Some(ident),
+            Declaration::Object(ObjectDeclaration { ref ident, .. }) => Some(ident.to_owned()),
+            Declaration::File(FileDeclaration { ref ident, .. }) => Some(ident.to_owned()),
+            Declaration::Component(ComponentDeclaration { ref ident, .. }) => {
+                Some(ident.to_owned())
+            }
             Declaration::Attribute(ref attr) => match attr {
-                Attribute::Declaration(AttributeDeclaration { ref ident, .. }) => Some(ident),
+                Attribute::Declaration(AttributeDeclaration { ref ident, .. }) => {
+                    Some(ident.to_owned())
+                }
                 // @TODO Ignored for now
                 Attribute::Specification(..) => None,
             },
@@ -44,7 +48,7 @@ impl Declaration {
             Declaration::SubprogramDeclaration(..) => None,
             // @TODO Ignored for now
             Declaration::Use(..) => None,
-            Declaration::Package(ref package) => Some(&package.ident),
+            Declaration::Package(ref package) => Some(package.ident.clone()),
             Declaration::Configuration(..) => None,
             Declaration::Type(TypeDeclaration {
                 def: TypeDefinition::ProtectedBody(..),
@@ -54,40 +58,42 @@ impl Declaration {
                 def: TypeDefinition::Incomplete,
                 ..
             }) => None,
-            Declaration::Type(TypeDeclaration { ref ident, .. }) => Some(ident),
+            Declaration::Type(TypeDeclaration { ref ident, .. }) => Some(ident.to_owned()),
         }
     }
 }
 
 impl InterfaceDeclaration {
-    fn ident<'a>(&'a self) -> Option<&'a Ident> {
+    fn ident(&self) -> Option<Ident> {
         match self {
-            InterfaceDeclaration::File(InterfaceFileDeclaration { ref ident, .. }) => Some(ident),
-            InterfaceDeclaration::Object(InterfaceObjectDeclaration { ref ident, .. }) => {
-                Some(ident)
+            InterfaceDeclaration::File(InterfaceFileDeclaration { ref ident, .. }) => {
+                Some(ident.to_owned())
             }
-            InterfaceDeclaration::Type(ref ident) => Some(ident),
+            InterfaceDeclaration::Object(InterfaceObjectDeclaration { ref ident, .. }) => {
+                Some(ident.to_owned())
+            }
+            InterfaceDeclaration::Type(ref ident) => Some(ident.to_owned()),
             // @TODO ignore for now
             InterfaceDeclaration::Subprogram(..) => None,
-            InterfaceDeclaration::Package(ref package) => Some(&package.ident),
+            InterfaceDeclaration::Package(ref package) => Some(package.ident.clone()),
         }
     }
 }
 fn check_unique<'a>(
-    idents: &mut FnvHashMap<&'a Symbol, &'a SrcPos>,
-    ident: &'a Ident,
+    idents: &mut FnvHashMap<Symbol, SrcPos>,
+    ident: Ident,
     messages: &mut MessageHandler,
 ) {
-    match idents.entry(&ident.item) {
+    match idents.entry(ident.item.clone()) {
         Entry::Occupied(entry) => {
             let msg = Message::error(
-                ident,
+                &ident,
                 format!("Duplicate declaration of '{}'", ident.item.name()),
             ).related(entry.get(), "Previously defined here");
             messages.push(msg)
         }
         Entry::Vacant(entry) => {
-            entry.insert(&ident.pos);
+            entry.insert(ident.pos);
         }
     }
 }
@@ -99,7 +105,7 @@ fn check_element_declaration_unique_ident(
 ) {
     let mut idents = FnvHashMap::default();
     for decl in declarations.iter() {
-        check_unique(&mut idents, &decl.ident, messages);
+        check_unique(&mut idents, decl.ident.clone(), messages);
     }
 }
 
