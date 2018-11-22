@@ -57,69 +57,91 @@ impl SubprogramDeclaration {
     }
 }
 
-impl Declaration {
-    fn declarative_item(&self) -> Option<DeclarativeItem> {
+impl EnumerationLiteral {
+    fn to_designator(self) -> Designator {
         match self {
-            Declaration::Alias(alias) => Some(DeclarativeItem::new(
+            EnumerationLiteral::Identifier(ident) => Designator::Identifier(ident),
+            EnumerationLiteral::Character(byte) => Designator::Character(byte),
+        }
+    }
+}
+
+impl Declaration {
+    fn declarative_items(&self) -> Vec<DeclarativeItem> {
+        match self {
+            Declaration::Alias(alias) => vec![DeclarativeItem::new(
                 alias.designator.clone(),
                 alias.signature.is_some(),
-            )),
+            )],
             Declaration::Object(ObjectDeclaration { ref ident, .. }) => {
-                Some(DeclarativeItem::from_ident(ident))
+                vec![DeclarativeItem::from_ident(ident)]
             }
             Declaration::File(FileDeclaration { ref ident, .. }) => {
-                Some(DeclarativeItem::from_ident(ident))
+                vec![DeclarativeItem::from_ident(ident)]
             }
             Declaration::Component(ComponentDeclaration { ref ident, .. }) => {
-                Some(DeclarativeItem::from_ident(ident))
+                vec![DeclarativeItem::from_ident(ident)]
             }
             Declaration::Attribute(ref attr) => match attr {
                 Attribute::Declaration(AttributeDeclaration { ref ident, .. }) => {
-                    Some(DeclarativeItem::from_ident(ident))
+                    vec![DeclarativeItem::from_ident(ident)]
                 }
                 // @TODO Ignored for now
-                Attribute::Specification(..) => None,
+                Attribute::Specification(..) => vec![],
             },
             Declaration::SubprogramBody(body) => {
-                Some(DeclarativeItem::new(body.specification.designator(), true))
+                vec![DeclarativeItem::new(body.specification.designator(), true)]
             }
             Declaration::SubprogramDeclaration(decl) => {
-                Some(DeclarativeItem::new(decl.designator(), true))
+                vec![DeclarativeItem::new(decl.designator(), true)]
             }
             // @TODO Ignored for now
-            Declaration::Use(..) => None,
-            Declaration::Package(ref package) => Some(DeclarativeItem::from_ident(&package.ident)),
-            Declaration::Configuration(..) => None,
+            Declaration::Use(..) => vec![],
+            Declaration::Package(ref package) => vec![DeclarativeItem::from_ident(&package.ident)],
+            Declaration::Configuration(..) => vec![],
             Declaration::Type(TypeDeclaration {
                 def: TypeDefinition::ProtectedBody(..),
                 ..
-            }) => None,
+            }) => vec![],
             Declaration::Type(TypeDeclaration {
                 def: TypeDefinition::Incomplete,
                 ..
-            }) => None,
+            }) => vec![],
+            Declaration::Type(TypeDeclaration {
+                ref ident,
+                def: TypeDefinition::Enumeration(ref enumeration),
+            }) => {
+                let mut items = vec![DeclarativeItem::from_ident(ident)];
+                for literal in enumeration.iter() {
+                    items.push(DeclarativeItem::new(
+                        literal.clone().map_into(|lit| lit.to_designator()),
+                        true,
+                    ))
+                }
+                items
+            }
             Declaration::Type(TypeDeclaration { ref ident, .. }) => {
-                Some(DeclarativeItem::from_ident(ident))
+                vec![DeclarativeItem::from_ident(ident)]
             }
         }
     }
 }
 
 impl InterfaceDeclaration {
-    fn declarative_item(&self) -> Option<DeclarativeItem> {
+    fn declarative_items(&self) -> Vec<DeclarativeItem> {
         match self {
             InterfaceDeclaration::File(InterfaceFileDeclaration { ref ident, .. }) => {
-                Some(DeclarativeItem::from_ident(ident))
+                vec![DeclarativeItem::from_ident(ident)]
             }
             InterfaceDeclaration::Object(InterfaceObjectDeclaration { ref ident, .. }) => {
-                Some(DeclarativeItem::from_ident(ident))
+                vec![DeclarativeItem::from_ident(ident)]
             }
-            InterfaceDeclaration::Type(ref ident) => Some(DeclarativeItem::from_ident(ident)),
+            InterfaceDeclaration::Type(ref ident) => vec![DeclarativeItem::from_ident(ident)],
             InterfaceDeclaration::Subprogram(decl, ..) => {
-                Some(DeclarativeItem::new(decl.designator(), true))
+                vec![DeclarativeItem::new(decl.designator(), true)]
             }
             InterfaceDeclaration::Package(ref package) => {
-                Some(DeclarativeItem::from_ident(&package.ident))
+                vec![DeclarativeItem::from_ident(&package.ident)]
             }
         }
     }
@@ -180,8 +202,8 @@ fn check_interface_list_unique_ident(
 ) {
     let mut decls = FnvHashMap::default();
     for decl in declarations.iter() {
-        if let Some(ident) = decl.declarative_item() {
-            check_unique(&mut decls, ident, messages);
+        for item in decl.declarative_items() {
+            check_unique(&mut decls, item, messages);
         }
     }
 }
@@ -202,8 +224,8 @@ fn check_declarative_part_unique_ident(
 ) {
     let mut decls = FnvHashMap::default();
     for decl in declarations.iter() {
-        if let Some(decl) = decl.declarative_item() {
-            check_unique(&mut decls, decl, messages);
+        for item in decl.declarative_items() {
+            check_unique(&mut decls, item, messages);
         }
 
         match decl {
@@ -890,6 +912,37 @@ constant b1 : natural := 0;
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
         assert_eq!(messages, expected_messages(&code, &["a1", "b1"]));
+    }
+
+    #[test]
+    fn enum_literals_may_overload() {
+        let code = Code::new(
+            "
+type enum_t is (a1, b1);
+
+-- Ok since enumerations may overload
+type enum2_t is (a1, b1);
+",
+        );
+
+        let mut messages = Vec::new();
+        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        check_no_messages(&messages);
+    }
+
+    #[test]
+    fn forbid_homograph_to_enum_literals() {
+        let code = Code::new(
+            "
+type enum_t is (a1, b1);
+constant a1 : natural := 0;
+function b1 return natural;
+",
+        );
+
+        let mut messages = Vec::new();
+        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        assert_eq!(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]

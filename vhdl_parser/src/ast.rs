@@ -423,7 +423,7 @@ pub enum EnumerationLiteral {
 pub enum TypeDefinition {
     /// LRM 5.2 Scalar Types
     /// LRM 5.2.2 Enumeration types
-    Enumeration(Vec<EnumerationLiteral>),
+    Enumeration(Vec<WithPos<EnumerationLiteral>>),
     /// LRM 5.2.3 Integer types
     Integer(Range),
     /// LRM 5.2.4 Physical types

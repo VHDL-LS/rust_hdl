@@ -30,8 +30,8 @@ fn parse_enumeration_type_definition(stream: &mut TokenStream) -> ParseResult<Ty
             Identifier | Character => {
                 let enum_literal = try_token_kind!(
                     literal_token,
-                    Identifier => EnumerationLiteral::Identifier(literal_token.expect_ident()?.item),
-                    Character => EnumerationLiteral::Character(literal_token.expect_character()?.item)
+                    Identifier => literal_token.expect_ident()?.map_into(EnumerationLiteral::Identifier),
+                    Character => literal_token.expect_character()?.map_into(EnumerationLiteral::Character)
                 );
                 enum_literals.push(enum_literal);
 
@@ -314,8 +314,12 @@ mod tests {
         let type_decl = TypeDeclaration {
             ident: code.s1("foo").ident(),
             def: TypeDefinition::Enumeration(vec![
-                EnumerationLiteral::Identifier(code.symbol("alpha")),
-                EnumerationLiteral::Identifier(code.symbol("beta")),
+                code.s1("alpha")
+                    .ident()
+                    .map_into(EnumerationLiteral::Identifier),
+                code.s1("beta")
+                    .ident()
+                    .map_into(EnumerationLiteral::Identifier),
             ]),
         };
         assert_eq!(
@@ -331,8 +335,12 @@ mod tests {
         let type_decl = TypeDeclaration {
             ident: code.s1("foo").ident(),
             def: TypeDefinition::Enumeration(vec![
-                EnumerationLiteral::Character(b'a'),
-                EnumerationLiteral::Character(b'b'),
+                code.s1("'a'")
+                    .character()
+                    .map_into(EnumerationLiteral::Character),
+                code.s1("'b'")
+                    .character()
+                    .map_into(EnumerationLiteral::Character),
             ]),
         };
         assert_eq!(
@@ -348,8 +356,12 @@ mod tests {
         let type_decl = TypeDeclaration {
             ident: code.s1("foo").ident(),
             def: TypeDefinition::Enumeration(vec![
-                EnumerationLiteral::Identifier(code.symbol("ident")),
-                EnumerationLiteral::Character(b'b'),
+                code.s1("ident")
+                    .ident()
+                    .map_into(EnumerationLiteral::Identifier),
+                code.s1("'b'")
+                    .character()
+                    .map_into(EnumerationLiteral::Character),
             ]),
         };
         assert_eq!(
