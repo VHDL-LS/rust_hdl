@@ -18,30 +18,52 @@ use std::sync::Arc;
 
 struct DeclarativeItem {
     designator: WithPos<Designator>,
+    may_overload: bool,
 }
 
 impl DeclarativeItem {
-    fn new(designator: impl Into<WithPos<Designator>>) -> DeclarativeItem {
+    fn new(designator: impl Into<WithPos<Designator>>, may_overload: bool) -> DeclarativeItem {
         DeclarativeItem {
             designator: designator.into(),
+            may_overload,
         }
     }
     fn from_ident(ident: &Ident) -> DeclarativeItem {
-        DeclarativeItem::new(ident.to_owned().map_into(Designator::Identifier))
+        DeclarativeItem::new(ident.to_owned().map_into(Designator::Identifier), false)
+    }
+}
+
+impl SubprogramDesignator {
+    fn to_designator(self) -> Designator {
+        match self {
+            SubprogramDesignator::Identifier(ident) => Designator::Identifier(ident),
+            SubprogramDesignator::OperatorSymbol(ident) => Designator::OperatorSymbol(ident),
+        }
+    }
+}
+
+impl SubprogramDeclaration {
+    fn designator(&self) -> WithPos<Designator> {
+        match self {
+            SubprogramDeclaration::Function(ref function) => function
+                .designator
+                .clone()
+                .map_into(|des| des.to_designator()),
+            SubprogramDeclaration::Procedure(ref procedure) => procedure
+                .designator
+                .clone()
+                .map_into(|des| des.to_designator()),
+        }
     }
 }
 
 impl Declaration {
     fn declarative_item(&self) -> Option<DeclarativeItem> {
         match self {
-            // @TODO Ignored for now
-            Declaration::Alias(alias) => {
-                if alias.signature.is_none() {
-                    Some(DeclarativeItem::new(alias.designator.clone()))
-                } else {
-                    None
-                }
-            }
+            Declaration::Alias(alias) => Some(DeclarativeItem::new(
+                alias.designator.clone(),
+                alias.signature.is_some(),
+            )),
             Declaration::Object(ObjectDeclaration { ref ident, .. }) => {
                 Some(DeclarativeItem::from_ident(ident))
             }
@@ -58,10 +80,12 @@ impl Declaration {
                 // @TODO Ignored for now
                 Attribute::Specification(..) => None,
             },
-            // @TODO Ignored for now
-            Declaration::SubprogramBody(..) => None,
-            // @TODO Ignored for now
-            Declaration::SubprogramDeclaration(..) => None,
+            Declaration::SubprogramBody(body) => {
+                Some(DeclarativeItem::new(body.specification.designator(), true))
+            }
+            Declaration::SubprogramDeclaration(decl) => {
+                Some(DeclarativeItem::new(decl.designator(), true))
+            }
             // @TODO Ignored for now
             Declaration::Use(..) => None,
             Declaration::Package(ref package) => Some(DeclarativeItem::from_ident(&package.ident)),
@@ -91,8 +115,9 @@ impl InterfaceDeclaration {
                 Some(DeclarativeItem::from_ident(ident))
             }
             InterfaceDeclaration::Type(ref ident) => Some(DeclarativeItem::from_ident(ident)),
-            // @TODO ignore for now
-            InterfaceDeclaration::Subprogram(..) => None,
+            InterfaceDeclaration::Subprogram(decl, ..) => {
+                Some(DeclarativeItem::new(decl.designator(), true))
+            }
             InterfaceDeclaration::Package(ref package) => {
                 Some(DeclarativeItem::from_ident(&package.ident))
             }
@@ -115,6 +140,10 @@ fn check_unique<'a>(
     decl: DeclarativeItem,
     messages: &mut MessageHandler,
 ) {
+    if decl.may_overload {
+        return;
+    }
+
     match decls.entry(decl.designator.item.clone()) {
         Entry::Occupied(entry) => {
             let msg = Message::error(
