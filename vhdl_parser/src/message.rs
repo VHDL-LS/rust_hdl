@@ -7,7 +7,7 @@
 use source::SrcPos;
 use std::convert::{AsRef, Into};
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone, Copy, Eq, Hash)]
 pub enum Severity {
     Hint,
     Info,
@@ -16,7 +16,7 @@ pub enum Severity {
 }
 
 #[must_use]
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Eq, Hash)]
 pub struct Message {
     pub pos: SrcPos,
     pub message: String,

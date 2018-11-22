@@ -8,7 +8,7 @@ use ast::*;
 use latin_1::Latin1String;
 use library::DesignRoot;
 use message::{Message, MessageHandler};
-use source::{SrcPos, WithPos};
+use source::WithPos;
 use symbol_table::{Symbol, SymbolTable};
 
 extern crate fnv;
@@ -16,20 +16,103 @@ use self::fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
 use std::sync::Arc;
 
+#[derive(Clone)]
 struct DeclarativeItem {
     designator: WithPos<Designator>,
     may_overload: bool,
+    is_deferred: bool,
 }
 
 impl DeclarativeItem {
-    fn new(designator: impl Into<WithPos<Designator>>, may_overload: bool) -> DeclarativeItem {
+    fn new(designator: impl Into<WithPos<Designator>>) -> DeclarativeItem {
         DeclarativeItem {
             designator: designator.into(),
-            may_overload,
+            may_overload: false,
+            is_deferred: false,
         }
     }
     fn from_ident(ident: &Ident) -> DeclarativeItem {
-        DeclarativeItem::new(ident.to_owned().map_into(Designator::Identifier), false)
+        DeclarativeItem::new(ident.to_owned().map_into(Designator::Identifier))
+    }
+
+    fn with_overload(mut self, value: bool) -> DeclarativeItem {
+        self.may_overload = value;
+        self
+    }
+
+    fn with_deferred(mut self, value: bool) -> DeclarativeItem {
+        self.is_deferred = value;
+        self
+    }
+}
+
+#[derive(Clone)]
+struct DeclarativeRegion {
+    decls: FnvHashMap<Designator, DeclarativeItem>,
+}
+
+impl DeclarativeRegion {
+    fn new() -> DeclarativeRegion {
+        DeclarativeRegion {
+            decls: FnvHashMap::default(),
+        }
+    }
+
+    fn add(&mut self, decl: DeclarativeItem, messages: &mut MessageHandler) {
+        match self.decls.entry(decl.designator.item.clone()) {
+            Entry::Occupied(mut entry) => {
+                let old_decl = entry.get_mut();
+
+                if !decl.may_overload || !old_decl.may_overload {
+                    if !decl.is_deferred && old_decl.is_deferred {
+                        std::mem::replace(old_decl, decl);
+                    } else {
+                        let msg = Message::error(
+                            &decl.designator,
+                            format!("Duplicate declaration of '{}'", decl.designator.item),
+                        ).related(&old_decl.designator, "Previously defined here");
+                        messages.push(msg)
+                    }
+                }
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(decl);
+            }
+        }
+    }
+
+    fn add_interface_list(
+        &mut self,
+        declarations: &[InterfaceDeclaration],
+        messages: &mut MessageHandler,
+    ) {
+        for decl in declarations.iter() {
+            for item in decl.declarative_items() {
+                self.add(item, messages);
+            }
+        }
+    }
+
+    fn add_declarative_part(
+        &mut self,
+        declarations: &[Declaration],
+        messages: &mut MessageHandler,
+    ) {
+        for decl in declarations.iter() {
+            for item in decl.declarative_items() {
+                self.add(item, messages);
+            }
+        }
+    }
+
+    fn add_element_declarations(
+        &mut self,
+        declarations: &[ElementDeclaration],
+        messages: &mut MessageHandler,
+    ) {
+        for decl in declarations.iter() {
+            self.add(DeclarativeItem::from_ident(&decl.ident), messages);
+        }
     }
 }
 
@@ -69,13 +152,19 @@ impl EnumerationLiteral {
 impl Declaration {
     fn declarative_items(&self) -> Vec<DeclarativeItem> {
         match self {
-            Declaration::Alias(alias) => vec![DeclarativeItem::new(
-                alias.designator.clone(),
-                alias.signature.is_some(),
-            )],
-            Declaration::Object(ObjectDeclaration { ref ident, .. }) => {
-                vec![DeclarativeItem::from_ident(ident)]
-            }
+            Declaration::Alias(alias) => vec![
+                DeclarativeItem::new(alias.designator.clone())
+                    .with_overload(alias.signature.is_some()),
+            ],
+            Declaration::Object(ObjectDeclaration {
+                ref ident,
+                ref class,
+                ref expression,
+                ..
+            }) => vec![
+                DeclarativeItem::from_ident(ident)
+                    .with_deferred(*class == ObjectClass::Constant && expression.is_none()),
+            ],
             Declaration::File(FileDeclaration { ref ident, .. }) => {
                 vec![DeclarativeItem::from_ident(ident)]
             }
@@ -90,10 +179,10 @@ impl Declaration {
                 Attribute::Specification(..) => vec![],
             },
             Declaration::SubprogramBody(body) => {
-                vec![DeclarativeItem::new(body.specification.designator(), true)]
+                vec![DeclarativeItem::new(body.specification.designator()).with_overload(true)]
             }
             Declaration::SubprogramDeclaration(decl) => {
-                vec![DeclarativeItem::new(decl.designator(), true)]
+                vec![DeclarativeItem::new(decl.designator()).with_overload(true)]
             }
             // @TODO Ignored for now
             Declaration::Use(..) => vec![],
@@ -113,10 +202,10 @@ impl Declaration {
             }) => {
                 let mut items = vec![DeclarativeItem::from_ident(ident)];
                 for literal in enumeration.iter() {
-                    items.push(DeclarativeItem::new(
-                        literal.clone().map_into(|lit| lit.to_designator()),
-                        true,
-                    ))
+                    items.push(
+                        DeclarativeItem::new(literal.clone().map_into(|lit| lit.to_designator()))
+                            .with_overload(true),
+                    )
                 }
                 items
             }
@@ -138,7 +227,7 @@ impl InterfaceDeclaration {
             }
             InterfaceDeclaration::Type(ref ident) => vec![DeclarativeItem::from_ident(ident)],
             InterfaceDeclaration::Subprogram(decl, ..) => {
-                vec![DeclarativeItem::new(decl.designator(), true)]
+                vec![DeclarativeItem::new(decl.designator()).with_overload(true)]
             }
             InterfaceDeclaration::Package(ref package) => {
                 vec![DeclarativeItem::from_ident(&package.ident)]
@@ -157,42 +246,12 @@ impl std::fmt::Display for Designator {
     }
 }
 
-fn check_unique<'a>(
-    decls: &mut FnvHashMap<Designator, (bool, SrcPos)>,
-    decl: DeclarativeItem,
-    messages: &mut MessageHandler,
-) {
-    match decls.entry(decl.designator.item.clone()) {
-        Entry::Occupied(entry) => {
-            let (may_overload, old_pos) = entry.get();
-
-            if !decl.may_overload || !*may_overload {
-                let msg = Message::error(
-                    &decl.designator,
-                    format!("Duplicate declaration of '{}'", decl.designator.item),
-                ).related(old_pos, "Previously defined here");
-                messages.push(msg)
-            }
-        }
-        Entry::Vacant(entry) => {
-            entry.insert((decl.may_overload, decl.designator.pos));
-        }
-    }
-}
-
 /// Check that no homographs are defined in the element declarations
 fn check_element_declaration_unique_ident(
     declarations: &[ElementDeclaration],
     messages: &mut MessageHandler,
 ) {
-    let mut decls = FnvHashMap::default();
-    for decl in declarations.iter() {
-        check_unique(
-            &mut decls,
-            DeclarativeItem::from_ident(&decl.ident),
-            messages,
-        );
-    }
+    DeclarativeRegion::new().add_element_declarations(declarations, messages);
 }
 
 /// Check that no homographs are defined in the interface list
@@ -200,12 +259,7 @@ fn check_interface_list_unique_ident(
     declarations: &[InterfaceDeclaration],
     messages: &mut MessageHandler,
 ) {
-    let mut decls = FnvHashMap::default();
-    for decl in declarations.iter() {
-        for item in decl.declarative_items() {
-            check_unique(&mut decls, item, messages);
-        }
-    }
+    DeclarativeRegion::new().add_interface_list(declarations, messages);
 }
 
 impl SubprogramDeclaration {
@@ -216,18 +270,21 @@ impl SubprogramDeclaration {
         }
     }
 }
-
-/// Check that no homographs are defined in the declarative region
 fn check_declarative_part_unique_ident(
     declarations: &[Declaration],
     messages: &mut MessageHandler,
 ) {
-    let mut decls = FnvHashMap::default();
-    for decl in declarations.iter() {
-        for item in decl.declarative_items() {
-            check_unique(&mut decls, item, messages);
-        }
+    let mut region = DeclarativeRegion::new();
+    region.add_declarative_part(declarations, messages);
+    check_declarative_part_unique_ident_inner(declarations, messages);
+}
 
+/// Check that no homographs are defined in the declarative region
+fn check_declarative_part_unique_ident_inner(
+    declarations: &[Declaration],
+    messages: &mut MessageHandler,
+) {
+    for decl in declarations.iter() {
         match decl {
             Declaration::Component(ref component) => {
                 check_interface_list_unique_ident(&component.generic_list, messages);
@@ -311,59 +368,53 @@ fn check_concurrent_part(statements: &[LabeledConcurrentStatement], messages: &m
     }
 }
 
-fn check_package_declaration(package: &PackageDeclaration, messages: &mut MessageHandler) {
-    check_declarative_part_unique_ident(&package.decl, messages);
+fn check_package_declaration(
+    package: &PackageDeclaration,
+    messages: &mut MessageHandler,
+) -> DeclarativeRegion {
+    let mut region = DeclarativeRegion::new();
+    if let Some(ref list) = package.generic_clause {
+        region.add_interface_list(list, messages);
+    }
+    region.add_declarative_part(&package.decl, messages);
+    check_declarative_part_unique_ident_inner(&package.decl, messages);
+    region
 }
 
-fn check_architecture_body(architecture: &ArchitectureBody, messages: &mut MessageHandler) {
-    check_declarative_part_unique_ident(&architecture.decl, messages);
+fn check_architecture_body(
+    entity_region: &mut DeclarativeRegion,
+    architecture: &ArchitectureBody,
+    messages: &mut MessageHandler,
+) {
+    entity_region.add_declarative_part(&architecture.decl, messages);
+    check_declarative_part_unique_ident_inner(&architecture.decl, messages);
     check_concurrent_part(&architecture.statements, messages);
 }
 
-fn check_package_body(package: &PackageBody, messages: &mut MessageHandler) {
-    check_declarative_part_unique_ident(&package.decl, messages);
-}
-
-fn check_entity_declaration(entity: &EntityDeclaration, messages: &mut MessageHandler) {
-    if let Some(ref list) = entity.generic_clause {
-        check_interface_list_unique_ident(list, messages);
-    }
-    if let Some(ref list) = entity.port_clause {
-        check_interface_list_unique_ident(list, messages);
-    }
-    check_declarative_part_unique_ident(&entity.decl, messages);
-    check_concurrent_part(&entity.statements, messages);
-}
-
-fn check_primary_design_unit(design_unit: &DesignUnit<PrimaryUnit>, messages: &mut MessageHandler) {
-    match &design_unit {
-        DesignUnit {
-            unit: PrimaryUnit::PackageDeclaration(package),
-            ..
-        } => check_package_declaration(package, messages),
-        DesignUnit {
-            unit: PrimaryUnit::EntityDeclaration(entity),
-            ..
-        } => check_entity_declaration(entity, messages),
-        // @TODO others
-        _ => {}
-    }
-}
-
-fn check_secondary_design_unit(
-    design_unit: &DesignUnit<SecondaryUnit>,
+fn check_package_body(
+    package_region: &mut DeclarativeRegion,
+    package: &PackageBody,
     messages: &mut MessageHandler,
 ) {
-    match &design_unit {
-        DesignUnit {
-            unit: SecondaryUnit::Architecture(architecture),
-            ..
-        } => check_architecture_body(architecture, messages),
-        DesignUnit {
-            unit: SecondaryUnit::PackageBody(package),
-            ..
-        } => check_package_body(package, messages),
+    package_region.add_declarative_part(&package.decl, messages);
+    check_declarative_part_unique_ident_inner(&package.decl, messages);
+}
+
+fn check_entity_declaration(
+    entity: &EntityDeclaration,
+    messages: &mut MessageHandler,
+) -> DeclarativeRegion {
+    let mut region = DeclarativeRegion::new();
+    if let Some(ref list) = entity.generic_clause {
+        region.add_interface_list(list, messages);
     }
+    if let Some(ref list) = entity.port_clause {
+        region.add_interface_list(list, messages);
+    }
+    region.add_declarative_part(&entity.decl, messages);
+    check_concurrent_part(&entity.statements, messages);
+
+    region
 }
 
 pub struct Analyzer {
@@ -411,12 +462,21 @@ impl Analyzer {
 
     pub fn analyze(&self, root: &DesignRoot, messages: &mut MessageHandler) {
         for library in root.iter_libraries() {
-            for primary_unit in library.iter_primary_units() {
-                self.check_context_clause(root, &primary_unit.unit.context_clause, messages);
-                check_primary_design_unit(&primary_unit.unit, messages);
-                for secondary_unit in primary_unit.iter_secondary_units() {
-                    self.check_context_clause(root, &secondary_unit.context_clause, messages);
-                    check_secondary_design_unit(secondary_unit, messages);
+            for entity in library.entities() {
+                self.check_context_clause(root, &entity.entity.context_clause, messages);
+                let mut region = check_entity_declaration(&entity.entity.unit, messages);
+                for architecture in entity.architectures.values() {
+                    self.check_context_clause(root, &architecture.context_clause, messages);
+                    check_architecture_body(&mut region.clone(), &architecture.unit, messages);
+                }
+            }
+
+            for package in library.packages() {
+                self.check_context_clause(root, &package.package.context_clause, messages);
+                let mut region = check_package_declaration(&package.package.unit, messages);
+                if let Some(ref body) = package.body {
+                    self.check_context_clause(root, &body.context_clause, messages);
+                    check_package_body(&mut region.clone(), &body.unit, messages);
                 }
             }
         }
@@ -428,16 +488,31 @@ mod tests {
     use super::*;
     use library::Library;
     use message::Message;
-    use test_util::{check_no_messages, Code, CodeBuilder};
+    use test_util::{check_messages, check_no_messages, Code, CodeBuilder};
+
+    fn expected_message(code: &Code, name: &str, occ1: usize, occ2: usize) -> Message {
+        Message::error(
+            code.s(&name, occ2),
+            format!("Duplicate declaration of '{}'", &name),
+        ).related(code.s(&name, occ1), "Previously defined here")
+    }
 
     fn expected_messages(code: &Code, names: &[&str]) -> Vec<Message> {
         let mut messages = Vec::new();
         for name in names {
+            messages.push(expected_message(code, name, 1, 2));
+        }
+        messages
+    }
+
+    fn expected_messages_multi(code1: &Code, code2: &Code, names: &[&str]) -> Vec<Message> {
+        let mut messages = Vec::new();
+        for name in names {
             messages.push(
                 Message::error(
-                    code.s(&name, 2),
+                    code2.s1(&name),
                     format!("Duplicate declaration of '{}'", &name),
-                ).related(code.s1(&name), "Previously defined here"),
+                ).related(code1.s1(&name), "Previously defined here"),
             )
         }
         messages
@@ -447,9 +522,9 @@ mod tests {
     fn allows_unique_names() {
         let code = Code::new(
             "
-constant a : natural;
-constant b : natural;
-constant c : natural;
+constant a : natural := 0;
+constant b : natural := 0;
+constant c : natural := 0;
 ",
         );
 
@@ -459,18 +534,61 @@ constant c : natural;
     }
 
     #[test]
-    fn forbid_homographs() {
+    fn allows_deferred_constant() {
         let code = Code::new(
             "
-constant a1 : natural;
 constant a : natural;
+constant a : natural := 0;
+",
+        );
+
+        let mut messages = Vec::new();
+        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        check_no_messages(&messages);
+    }
+
+    #[test]
+    fn forbid_deferred_constant_after_constant() {
+        let code = Code::new(
+            "
+constant a1 : natural := 0;
 constant a1 : natural;
 ",
         );
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1"]));
+        check_messages(messages, expected_messages(&code, &["a1"]));
+    }
+
+    #[test]
+    fn forbid_multiple_constant_after_deferred_constant() {
+        let code = Code::new(
+            "
+constant a1 : natural;
+constant a1 : natural := 0;
+constant a1 : natural := 0;
+",
+        );
+
+        let mut messages = Vec::new();
+        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        check_messages(messages, vec![expected_message(&code, "a1", 2, 3)]);
+    }
+
+    #[test]
+    fn forbid_homographs() {
+        let code = Code::new(
+            "
+constant a1 : natural := 0;
+constant a : natural := 0;
+constant a1 : natural := 0;
+",
+        );
+
+        let mut messages = Vec::new();
+        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
@@ -510,14 +628,14 @@ end record;
         let code = Code::new(
             "
 procedure proc(a1, a, a1 : natural) is
-  constant b1 : natural;
-  constant b : natural;
-  constant b1 : natural;
+  constant b1 : natural := 0;
+  constant b : natural := 0;
+  constant b1 : natural := 0;
 
   procedure nested_proc(c1, c, c1 : natural) is
-    constant d1 : natural;
-    constant d : natural;
-    constant d1 : natural;
+    constant d1 : natural := 0;
+    constant d : natural := 0;
+    constant d1 : natural := 0;
   begin
   end;
 
@@ -528,9 +646,9 @@ end;
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(
+        check_messages(
             messages,
-            expected_messages(&code, &["a1", "b1", "c1", "d1"])
+            expected_messages(&code, &["a1", "b1", "c1", "d1"]),
         );
     }
 
@@ -555,7 +673,7 @@ end component;
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1", "b1"]));
+        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
     #[test]
@@ -572,7 +690,7 @@ end record;
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1"]));
+        check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
@@ -584,16 +702,16 @@ type prot_t is protected
 end protected;
 
 type prot_t is protected body
-  constant b1 : natural;
-  constant b : natural;
-  constant b1 : natural;
+  constant b1 : natural := 0;
+  constant b : natural := 0;
+  constant b1 : natural := 0;
 end protected body;
 ",
         );
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1", "b1"]));
+        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
     #[test]
@@ -607,7 +725,7 @@ function fun(b1, a, b1 : natural) return natural;
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1", "b1"]));
+        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
     #[test]
@@ -615,14 +733,14 @@ function fun(b1, a, b1 : natural) return natural;
         let code = Code::new(
             "
 blk : block
-  constant a1 : natural;
-  constant a : natural;
-  constant a1 : natural;
+  constant a1 : natural := 0;
+  constant a : natural := 0;
+  constant a1 : natural := 0;
 begin
   process
-    constant b1 : natural;
-    constant b : natural;
-    constant b1 : natural;
+    constant b1 : natural := 0;
+    constant b : natural := 0;
+    constant b1 : natural := 0;
   begin
   end process;
 end block;
@@ -631,7 +749,7 @@ end block;
 
         let mut messages = Vec::new();
         check_concurrent_statement(&code.concurrent_statement(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1", "b1"]));
+        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
     #[test]
@@ -639,9 +757,9 @@ end block;
         let code = Code::new(
             "
 process
-  constant a1 : natural;
-  constant a : natural;
-  constant a1 : natural;
+  constant a1 : natural := 0;
+  constant a : natural := 0;
+  constant a1 : natural := 0;
 begin
 end process;
 ",
@@ -649,7 +767,7 @@ end process;
 
         let mut messages = Vec::new();
         check_concurrent_statement(&code.concurrent_statement(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1"]));
+        check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
@@ -657,14 +775,14 @@ end process;
         let code = Code::new(
             "
 gen_for: for i in 0 to 3 generate
-  constant a1 : natural;
-  constant a : natural;
-  constant a1 : natural;
+  constant a1 : natural := 0;
+  constant a : natural := 0;
+  constant a1 : natural := 0;
 begin
   process
-    constant b1 : natural;
-    constant b : natural;
-    constant b1 : natural;
+    constant b1 : natural := 0;
+    constant b : natural := 0;
+    constant b1 : natural := 0;
   begin
   end process;
 end generate;
@@ -673,7 +791,7 @@ end generate;
 
         let mut messages = Vec::new();
         check_concurrent_statement(&code.concurrent_statement(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1", "b1"]));
+        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
     #[test]
@@ -681,27 +799,27 @@ end generate;
         let code = Code::new(
             "
 gen_if: if true generate
-  constant a1 : natural;
-  constant a : natural;
-  constant a1 : natural;
+  constant a1 : natural := 0;
+  constant a : natural := 0;
+  constant a1 : natural := 0;
 begin
 
   prcss : process
-    constant b1 : natural;
-    constant b : natural;
-    constant b1 : natural;
+    constant b1 : natural := 0;
+    constant b : natural := 0;
+    constant b1 : natural := 0;
   begin
   end process;
 
 else generate
-  constant c1 : natural;
-  constant c: natural;
-  constant c1 : natural;
+  constant c1 : natural := 0;
+  constant c: natural := 0;
+  constant c1 : natural := 0;
 begin
   prcss : process
-    constant d1 : natural;
-    constant d : natural;
-    constant d1 : natural;
+    constant d1 : natural := 0;
+    constant d : natural := 0;
+    constant d1 : natural := 0;
   begin
   end process;
 end generate;
@@ -710,9 +828,9 @@ end generate;
 
         let mut messages = Vec::new();
         check_concurrent_statement(&code.concurrent_statement(), &mut messages);
-        assert_eq!(
+        check_messages(
             messages,
-            expected_messages(&code, &["a1", "b1", "c1", "d1"])
+            expected_messages(&code, &["a1", "b1", "c1", "d1"]),
         );
     }
 
@@ -722,14 +840,14 @@ end generate;
             "
 gen_case: case 0 generate
   when others =>
-    constant a1 : natural;
-    constant a : natural;
-    constant a1 : natural;
+    constant a1 : natural := 0;
+    constant a : natural := 0;
+    constant a1 : natural := 0;
   begin
     process
-      constant b1 : natural;
-      constant b : natural;
-      constant b1 : natural;
+      constant b1 : natural := 0;
+      constant b : natural := 0;
+      constant b1 : natural := 0;
     begin
     end process;
 end generate;
@@ -738,7 +856,7 @@ end generate;
 
         let mut messages = Vec::new();
         check_concurrent_statement(&code.concurrent_statement(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1", "b1"]));
+        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
     #[test]
@@ -756,15 +874,15 @@ entity ent is
     b : natural;
     b1 : natural
   );
-  constant c1 : natural;
-  constant c : natural;
-  constant c1 : natural;
+  constant c1 : natural := 0;
+  constant c : natural := 0;
+  constant c1 : natural := 0;
 begin
 
   blk : block
-    constant d1 : natural;
-    constant d : natural;
-    constant d1 : natural;
+    constant d1 : natural := 0;
+    constant d : natural := 0;
+    constant d1 : natural := 0;
   begin
 
   end block;
@@ -775,9 +893,9 @@ end entity;
 
         let mut messages = Vec::new();
         check_entity_declaration(&code.entity(), &mut messages);
-        assert_eq!(
+        check_messages(
             messages,
-            expected_messages(&code, &["a1", "b1", "c1", "d1"])
+            expected_messages(&code, &["a1", "b1", "c1", "d1"]),
         );
     }
 
@@ -786,15 +904,15 @@ end entity;
         let code = Code::new(
             "
 architecture arch of ent is
-  constant a1 : natural;
-  constant a : natural;
-  constant a1 : natural;
+  constant a1 : natural := 0;
+  constant a : natural := 0;
+  constant a1 : natural := 0;
 begin
 
   blk : block
-    constant b1 : natural;
-    constant b : natural;
-    constant b1 : natural;
+    constant b1 : natural := 0;
+    constant b : natural := 0;
+    constant b1 : natural := 0;
   begin
   end block;
 
@@ -803,8 +921,12 @@ end architecture;
         );
 
         let mut messages = Vec::new();
-        check_architecture_body(&code.architecture(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1", "b1"]));
+        check_architecture_body(
+            &mut DeclarativeRegion::new(),
+            &code.architecture(),
+            &mut messages,
+        );
+        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
     #[test]
@@ -818,7 +940,7 @@ type a1 is (foo, bar);
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1"]));
+        check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
@@ -834,7 +956,7 @@ end component;
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1"]));
+        check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
@@ -848,7 +970,7 @@ file a1 : text;
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1"]));
+        check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
@@ -862,7 +984,7 @@ package a1 is new pkg generic map (foo => bar);
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1"]));
+        check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
@@ -876,7 +998,7 @@ attribute a1 : string;
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1"]));
+        check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
@@ -894,7 +1016,7 @@ alias b1 is bar[return boolean];
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1"]));
+        check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
@@ -911,7 +1033,7 @@ constant b1 : natural := 0;
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1", "b1"]));
+        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
     #[test]
@@ -942,7 +1064,7 @@ function b1 return natural;
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1"]));
+        check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
@@ -955,7 +1077,7 @@ procedure proc(file a1, a, a1 : text);
 
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1"]));
+        check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
@@ -973,7 +1095,7 @@ end entity;
 
         let mut messages = Vec::new();
         check_entity_declaration(&code.entity(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1"]));
+        check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
@@ -991,13 +1113,104 @@ end entity;
 
         let mut messages = Vec::new();
         check_entity_declaration(&code.entity(), &mut messages);
-        assert_eq!(messages, expected_messages(&code, &["a1"]));
+        check_messages(messages, expected_messages(&code, &["a1"]));
+    }
+
+    #[test]
+    fn forbid_homographs_in_entity_extended_declarative_regions() {
+        let mut builder = LibraryBuilder::new();
+        let ent = builder.code(
+            "libname",
+            "
+entity ent is
+  generic (
+    constant g1 : natural;
+    constant g2 : natural;
+    constant g3 : natural;
+    constant g4 : natural
+  );
+  port (
+    signal g1 : natural;
+    signal p1 : natural;
+    signal p2 : natural;
+    signal p3 : natural
+  );
+  constant g2 : natural := 0;
+  constant p1 : natural := 0;
+  constant e1 : natural := 0;
+  constant e2 : natural := 0;
+end entity;",
+        );
+
+        let arch1 = builder.code(
+            "libname",
+            "
+architecture rtl of ent is
+  constant g3 : natural := 0;
+  constant p2 : natural := 0;
+  constant e1 : natural := 0;
+  constant a1 : natural := 0;
+begin
+end architecture;",
+        );
+
+        let arch2 = builder.code(
+            "libname",
+            "
+architecture rtl2 of ent is
+  constant a1 : natural := 0;
+  constant e2 : natural := 0;
+begin
+end architecture;
+",
+        );
+
+        let messages = builder.analyze();
+        let mut expected = expected_messages(&ent, &["g1", "g2", "p1"]);
+        expected.append(&mut expected_messages_multi(
+            &ent,
+            &arch1,
+            &["g3", "p2", "e1"],
+        ));
+        expected.append(&mut expected_messages_multi(&ent, &arch2, &["e2"]));
+        check_messages(messages, expected);
+    }
+
+    #[test]
+    fn forbid_homographs_in_package_extended_declarative_regions() {
+        let mut builder = LibraryBuilder::new();
+        let pkg = builder.code(
+            "libname",
+            "
+package pkg is
+  generic (
+    constant g1 : natural;
+    constant g2 : natural
+  );
+  constant g1 : natural := 0;
+end package;",
+        );
+
+        let body = builder.code(
+            "libname",
+            "
+package body pkg is
+  constant g1 : natural := 0;
+  constant g2 : natural := 0;
+  constant p1 : natural := 0;
+end package body;",
+        );
+
+        let messages = builder.analyze();
+        let mut expected = expected_messages(&pkg, &["g1"]);
+        expected.append(&mut expected_messages_multi(&pkg, &body, &["g1", "g2"]));
+        check_messages(messages, expected);
     }
 
     #[test]
     fn check_library_clause_library_exists() {
         let mut builder = LibraryBuilder::new();
-        let code = builder.add_code(
+        let code = builder.code(
             "libname",
             "
 library missing_lib;
@@ -1009,19 +1222,19 @@ end entity;
 
         let messages = builder.analyze();
 
-        assert_eq!(
+        check_messages(
             messages,
             vec![Message::error(
                 code.s1("missing_lib"),
-                "No such library 'missing_lib'"
-            )]
+                "No such library 'missing_lib'",
+            )],
         )
     }
 
     #[test]
     fn library_std_is_pre_defined() {
         let mut builder = LibraryBuilder::new();
-        builder.add_code(
+        builder.code(
             "libname",
             "
 library std;
@@ -1038,7 +1251,7 @@ end entity;
     #[test]
     fn work_library_not_necessary_hint() {
         let mut builder = LibraryBuilder::new();
-        let code = builder.add_code(
+        let code = builder.code(
             "libname",
             "
 library work;
@@ -1050,12 +1263,12 @@ end entity;
 
         let messages = builder.analyze();
 
-        assert_eq!(
+        check_messages(
             messages,
             vec![Message::hint(
                 code.s1("work"),
-                "Library clause not necessary for current working library"
-            )]
+                "Library clause not necessary for current working library",
+            )],
         )
     }
 
@@ -1071,7 +1284,7 @@ end entity;
                 libraries: FnvHashMap::default(),
             }
         }
-        fn add_code(&mut self, library_name: &str, code: &str) -> Code {
+        fn code(&mut self, library_name: &str, code: &str) -> Code {
             let code = self.code_builder.code(code);
             let library_name = self.code_builder.symbol(library_name);
             match self.libraries.entry(library_name) {

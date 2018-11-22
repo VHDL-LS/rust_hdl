@@ -96,6 +96,14 @@ impl PartialEq for Source {
     }
 }
 
+impl Eq for Source {}
+
+impl std::hash::Hash for Source {
+    fn hash<H: std::hash::Hasher>(&self, hasher: &mut H) {
+        Arc::into_raw(self.source.clone()).hash(hasher);
+    }
+}
+
 impl Source {
     pub fn inline(file_name: impl Into<String>, contents: Arc<Latin1String>) -> Source {
         Source {
@@ -157,7 +165,7 @@ impl Source {
 }
 
 /// Lexical position in a file
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Eq, Hash)]
 pub struct SrcPos {
     /// The source
     pub source: Source,

@@ -20,6 +20,8 @@ use names::{parse_association_list, parse_name, parse_selected_name};
 use range::{parse_discrete_range, parse_range};
 use sequential_statement::parse_sequential_statement;
 use source::{Source, SrcPos, WithPos};
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
 use subprogram::{parse_signature, parse_subprogram_declaration_no_semi};
@@ -407,8 +409,147 @@ pub fn check_no_messages(messages: &Vec<Message>) {
     }
 }
 
+/// Create map from message -> count
+fn messages_to_map(messages: Vec<Message>) -> HashMap<Message, usize> {
+    let mut map = HashMap::new();
+    for msg in messages {
+        match map.entry(msg) {
+            Entry::Occupied(mut entry) => {
+                let count = *entry.get() + 1;
+                entry.insert(count);
+            }
+            Entry::Vacant(mut entry) => {
+                entry.insert(1);
+            }
+        }
+    }
+    map
+}
+
+/// Check messages are equal without considering order
+pub fn check_messages(got: Vec<Message>, expected: Vec<Message>) {
+    let mut expected = messages_to_map(expected);
+    let mut got = messages_to_map(got);
+
+    let mut found_errors = false;
+
+    for (msg, count) in expected.drain() {
+        match got.remove(&msg) {
+            Some(got_count) => {
+                if count != got_count {
+                    found_errors = true;
+                    println!("-------------------------------------------------------");
+                    println!(
+                        "Got right message but wrong count {}, expected {}",
+                        got_count, count
+                    );
+                    println!("-------------------------------------------------------");
+                    println!("{}", msg.show());
+                }
+            }
+            None => {
+                found_errors = true;
+                println!("-------------------------------------------------------");
+                println!("Got no message, expected {}", count);
+                println!("-------------------------------------------------------");
+                println!("{}", msg.show());
+            }
+        }
+    }
+
+    for (msg, _) in got.drain() {
+        found_errors = true;
+        println!("-------------------------------------------------------");
+        println!("Got unexpected message");
+        println!("-------------------------------------------------------");
+        println!("{}", msg.show());
+    }
+
+    if found_errors {
+        panic!("Found message mismatch");
+    }
+}
+
 impl AsRef<SrcPos> for Code {
     fn as_ref(&self) -> &SrcPos {
         &self.pos
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_messages_ok() {
+        let code = Code::new("foo bar");
+        check_messages(
+            vec![Message::error(code.s1("foo"), "hello")],
+            vec![Message::error(code.s1("foo"), "hello")],
+        )
+    }
+
+    #[test]
+    fn check_messages_ok_out_of_order() {
+        let code = Code::new("foo bar");
+        check_messages(
+            vec![
+                Message::error(code.s1("foo"), "hello"),
+                Message::error(code.s1("bar"), "msg"),
+            ],
+            vec![
+                Message::error(code.s1("bar"), "msg"),
+                Message::error(code.s1("foo"), "hello"),
+            ],
+        )
+    }
+
+    #[test]
+    #[should_panic]
+    fn check_messages_not_ok_mismatch() {
+        let code = Code::new("foo bar");
+        check_messages(
+            vec![Message::error(code.s1("bar"), "msg")],
+            vec![Message::error(code.s1("foo"), "hello")],
+        )
+    }
+
+    #[test]
+    #[should_panic]
+    fn check_messages_not_ok_count_mismatch() {
+        let code = Code::new("foo bar");
+        check_messages(
+            vec![
+                Message::error(code.s1("bar"), "msg"),
+                Message::error(code.s1("bar"), "msg"),
+            ],
+            vec![Message::error(code.s1("bar"), "msg")],
+        )
+    }
+
+    #[test]
+    #[should_panic]
+    fn check_messages_not_ok_missing() {
+        let code = Code::new("foo bar");
+        check_messages(
+            vec![Message::error(code.s1("bar"), "msg")],
+            vec![
+                Message::error(code.s1("bar"), "msg"),
+                Message::error(code.s1("bar"), "missing"),
+            ],
+        )
+    }
+
+    #[test]
+    #[should_panic]
+    fn check_messages_not_ok_unexpected() {
+        let code = Code::new("foo bar");
+        check_messages(
+            vec![
+                Message::error(code.s1("bar"), "msg"),
+                Message::error(code.s1("bar"), "unexpected"),
+            ],
+            vec![Message::error(code.s1("bar"), "msg")],
+        )
     }
 }

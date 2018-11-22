@@ -13,14 +13,70 @@ extern crate fnv;
 use self::fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
 
-use ast::{AnyDesignUnit, DesignFile, DesignUnit, Ident, PrimaryUnit, SecondaryUnit};
+use ast::{
+    AnyDesignUnit, ArchitectureBody, ConfigurationDeclaration, ContextDeclaration, DesignFile,
+    DesignUnit, EntityDeclaration, Ident, PackageBody, PackageDeclaration, PackageInstantiation,
+    PrimaryUnit, SecondaryUnit,
+};
 use message::{Message, MessageHandler};
-use source::Source;
+use source::SrcPos;
 use symbol_table::Symbol;
 
-impl DesignUnit<PrimaryUnit> {
+trait HasIdent {
+    fn ident(&self) -> &Ident;
+    fn name(&self) -> &Symbol {
+        &self.ident().item
+    }
+    fn pos(&self) -> &SrcPos {
+        &self.ident().pos
+    }
+}
+
+impl HasIdent for EntityDeclaration {
     fn ident(&self) -> &Ident {
-        match self.unit {
+        &self.ident
+    }
+}
+
+impl HasIdent for PackageDeclaration {
+    fn ident(&self) -> &Ident {
+        &self.ident
+    }
+}
+
+impl HasIdent for PackageBody {
+    fn ident(&self) -> &Ident {
+        &self.ident
+    }
+}
+
+impl HasIdent for ArchitectureBody {
+    fn ident(&self) -> &Ident {
+        &self.ident
+    }
+}
+
+impl HasIdent for PackageInstantiation {
+    fn ident(&self) -> &Ident {
+        &self.ident
+    }
+}
+
+impl HasIdent for ContextDeclaration {
+    fn ident(&self) -> &Ident {
+        &self.ident
+    }
+}
+
+impl HasIdent for ConfigurationDeclaration {
+    fn ident(&self) -> &Ident {
+        &self.ident
+    }
+}
+
+impl HasIdent for PrimaryUnit {
+    fn ident(&self) -> &Ident {
+        match self {
             PrimaryUnit::EntityDeclaration(ref unit) => &unit.ident,
             PrimaryUnit::Configuration(ref unit) => &unit.ident,
             PrimaryUnit::PackageDeclaration(ref unit) => &unit.ident,
@@ -28,142 +84,103 @@ impl DesignUnit<PrimaryUnit> {
             PrimaryUnit::ContextDeclaration(ref unit) => &unit.ident,
         }
     }
-
-    fn unit_type_str(&self) -> &'static str {
-        match self.unit {
-            PrimaryUnit::EntityDeclaration(..) => "entity",
-            PrimaryUnit::Configuration(..) => "configuration",
-            PrimaryUnit::PackageDeclaration(..) => "package",
-            PrimaryUnit::PackageInstance(..) => "package instance",
-            PrimaryUnit::ContextDeclaration(..) => "context",
-        }
-    }
-
-    fn unit_str(&self) -> String {
-        format!("{} '{}'", self.unit_type_str(), self.name())
-    }
-
-    pub fn name(&self) -> &Symbol {
-        &self.ident().item
-    }
-
-    pub fn source(&self) -> &Source {
-        &self.ident().pos.source
-    }
 }
 
-impl DesignUnit<SecondaryUnit> {
+impl<T: HasIdent> HasIdent for DesignUnit<T> {
     fn ident(&self) -> &Ident {
-        match self.unit {
-            SecondaryUnit::Architecture(ref unit) => &unit.ident,
-            SecondaryUnit::PackageBody(ref unit) => &unit.ident,
-        }
-    }
-
-    pub fn name(&self) -> &Symbol {
-        &self.ident().item
-    }
-
-    fn unit_str(&self) -> String {
-        match self.unit {
-            SecondaryUnit::Architecture(..) => format!("architecture '{}'", self.name()),
-            SecondaryUnit::PackageBody(..) => "package body".to_owned(),
-        }
-    }
-
-    fn primary_ident(&self) -> &Ident {
-        match self.unit {
-            SecondaryUnit::Architecture(ref unit) => &unit.entity_name,
-            SecondaryUnit::PackageBody(ref unit) => &unit.ident,
-        }
-    }
-
-    pub fn primary_name(&self) -> &Symbol {
-        &self.primary_ident().item
-    }
-
-    pub fn source(&self) -> &Source {
-        &self.ident().pos.source
+        self.unit.ident()
     }
 }
 
-impl PrimaryDesignUnit {
-    /// Returns true if the unit can be a secondary unit of this primary unit
-    fn can_be_secondary(&self, secondary_unit: &DesignUnit<SecondaryUnit>) -> bool {
-        match (&self.unit.unit, &secondary_unit.unit) {
-            (&PrimaryUnit::EntityDeclaration(..), &SecondaryUnit::Architecture(..)) => true,
-            (&PrimaryUnit::PackageDeclaration(..), &SecondaryUnit::PackageBody(..)) => true,
-            _ => false,
-        }
-    }
-
-    fn add_secondary_unit(
+impl EntityDesignUnit {
+    fn add_architecture(
         &mut self,
-        secondary_unit: DesignUnit<SecondaryUnit>,
+        architecture: DesignUnit<ArchitectureBody>,
         messages: &mut MessageHandler,
     ) {
-        if !self.can_be_secondary(&secondary_unit) {
-            messages.push(Message::error(
-                secondary_unit.ident(),
-                format!(
-                    "{} cannot be a secondary unit of {}",
-                    secondary_unit.unit_str(),
-                    self.unit.unit_str()
-                ),
-            ));
-        } else {
-            match self.secondary.entry(secondary_unit.name().to_owned()) {
-                Entry::Occupied(..) => {
-                    messages.push(Message::error(
-                        secondary_unit.ident(),
-                        format!(
-                            "Duplicate {} of {}",
-                            secondary_unit.unit_str(),
-                            self.unit.unit_str(),
-                        ),
-                    ));
-                }
-                Entry::Vacant(entry) => {
+        match self.architectures.entry(architecture.name().clone()) {
+            Entry::Occupied(..) => {
+                messages.push(Message::error(
+                    &architecture.ident(),
+                    format!(
+                        "Duplicate architecture '{}' of entity '{}'",
+                        &architecture.name(),
+                        self.entity.name(),
+                    ),
+                ));
+            }
+            Entry::Vacant(entry) => {
+                {
+                    let primary_pos = &self.entity.pos();
+                    let secondary_pos = &architecture.pos();
+                    if primary_pos.source == secondary_pos.source
+                        && primary_pos.start > secondary_pos.start
                     {
-                        let primary_pos = &self.unit.ident().pos;
-                        let secondary_pos = &secondary_unit.ident().pos;
-                        if primary_pos.source == secondary_pos.source
-                            && primary_pos.start > secondary_pos.start
-                        {
-                            messages.push(Message::error(
-                                secondary_pos,
-                                format!(
-                                    "{} declared before {}",
-                                    secondary_unit.unit_str(),
-                                    self.unit.unit_str()
-                                ),
-                            ));
-                        }
-                    };
+                        messages.push(Message::error(
+                            secondary_pos,
+                            format!(
+                                "architecture '{}' declared before entity '{}'",
+                                &architecture.name(),
+                                self.entity.name()
+                            ),
+                        ));
+                    }
+                };
 
-                    entry.insert(secondary_unit);
-                }
+                entry.insert(architecture);
             }
         }
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub struct PrimaryDesignUnit {
-    pub unit: DesignUnit<PrimaryUnit>,
-    pub secondary: FnvHashMap<Symbol, DesignUnit<SecondaryUnit>>,
+impl PackageDesignUnit {
+    fn set_body(&mut self, body: DesignUnit<PackageBody>, messages: &mut MessageHandler) {
+        if let Some(_) = self.body {
+            messages.push(Message::error(
+                body.ident(),
+                format!(
+                    "Duplicate package body of package '{}'",
+                    self.package.name(),
+                ),
+            ));
+        } else {
+            {
+                let primary_pos = &self.package.pos();
+                let secondary_pos = &body.pos();
+                if primary_pos.source == secondary_pos.source
+                    && primary_pos.start > secondary_pos.start
+                {
+                    messages.push(Message::error(
+                        secondary_pos,
+                        format!(
+                            "package body declared before package '{}'",
+                            self.package.name()
+                        ),
+                    ));
+                }
+            }
+            self.body = Some(body);
+        }
+    }
 }
 
-impl PrimaryDesignUnit {
-    pub fn iter_secondary_units(&self) -> impl Iterator<Item = &DesignUnit<SecondaryUnit>> {
-        self.secondary.values()
-    }
+#[derive(PartialEq, Debug, Clone)]
+pub struct EntityDesignUnit {
+    pub entity: DesignUnit<EntityDeclaration>,
+    pub architectures: FnvHashMap<Symbol, DesignUnit<ArchitectureBody>>,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct PackageDesignUnit {
+    pub package: DesignUnit<PackageDeclaration>,
+    pub body: Option<DesignUnit<PackageBody>>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Library {
     pub name: Symbol,
-    pub primary_units: FnvHashMap<Symbol, PrimaryDesignUnit>,
+    pub entities: FnvHashMap<Symbol, EntityDesignUnit>,
+    pub packages: FnvHashMap<Symbol, PackageDesignUnit>,
 }
 
 impl Library {
@@ -172,87 +189,130 @@ impl Library {
         design_files: Vec<DesignFile>,
         messages: &mut MessageHandler,
     ) -> Library {
-        let mut primary_units = FnvHashMap::default();
-        let mut secondary_orphans = Vec::new();
+        let mut primary_names: FnvHashMap<Symbol, SrcPos> = FnvHashMap::default();
+        let mut entities = FnvHashMap::default();
+        let mut packages = FnvHashMap::default();
+        let mut architectures = Vec::new();
+        let mut package_bodies = Vec::new();
 
         for design_file in design_files {
             for design_unit in design_file.design_units {
                 match design_unit {
                     AnyDesignUnit::Primary(primary) => {
-                        let primary_name = primary.name().clone();
+                        let primary_ident = primary.ident().clone();
 
-                        let primary = PrimaryDesignUnit {
-                            unit: primary,
-                            secondary: FnvHashMap::default(),
-                        };
-
-                        match primary_units.entry(primary_name) {
+                        match primary_names.entry(primary_ident.item) {
                             Entry::Occupied(entry) => {
-                                let old_unit: &PrimaryDesignUnit = entry.get();
                                 let msg = Message::error(
-                                    primary.unit.ident(),
+                                    primary_ident.pos,
                                     format!(
                                         "A primary unit has already been declared with name '{}' in library '{}'",
                                         entry.key(),
                                         name
-                                    )).related(old_unit.unit.ident(), "Previously defined here");
+                                    )).related(entry.get(), "Previously defined here");
                                 messages.push(msg);
                             }
-                            Entry::Vacant(entry) => {
-                                entry.insert(primary);
-                            }
+                            Entry::Vacant(entry) => match primary.unit {
+                                PrimaryUnit::EntityDeclaration(entity) => {
+                                    entry.insert(entity.ident.pos.clone());
+                                    entities.insert(
+                                        entity.ident.item.clone(),
+                                        EntityDesignUnit {
+                                            entity: DesignUnit {
+                                                context_clause: primary.context_clause,
+                                                unit: entity,
+                                            },
+                                            architectures: FnvHashMap::default(),
+                                        },
+                                    );
+                                }
+                                PrimaryUnit::PackageDeclaration(package) => {
+                                    entry.insert(package.ident.pos.clone());
+                                    packages.insert(
+                                        package.ident.item.clone(),
+                                        PackageDesignUnit {
+                                            package: DesignUnit {
+                                                context_clause: primary.context_clause,
+                                                unit: package,
+                                            },
+                                            body: None,
+                                        },
+                                    );
+                                }
+                                _ => {
+                                    // @TODO context, configuration, package instance
+                                }
+                            },
                         }
                     }
-                    AnyDesignUnit::Secondary(secondary) => {
-                        secondary_orphans.push(secondary);
-                    }
+                    AnyDesignUnit::Secondary(secondary) => match secondary.unit {
+                        SecondaryUnit::Architecture(architecture) => {
+                            architectures.push(DesignUnit {
+                                context_clause: secondary.context_clause,
+                                unit: architecture,
+                            })
+                        }
+                        SecondaryUnit::PackageBody(body) => package_bodies.push(DesignUnit {
+                            context_clause: secondary.context_clause,
+                            unit: body,
+                        }),
+                    },
                 }
             }
         }
 
-        for secondary_unit in secondary_orphans {
-            if let Some(ref mut primary_unit) = primary_units.get_mut(secondary_unit.primary_name())
-            {
-                primary_unit.add_secondary_unit(secondary_unit, messages)
+        for architecture in architectures {
+            if let Some(ref mut entity) = entities.get_mut(&architecture.unit.entity_name.item) {
+                entity.add_architecture(architecture, messages)
             } else {
-                match secondary_unit.unit {
-                    SecondaryUnit::Architecture(..) => {
-                        messages.push(Message::error(
-                            secondary_unit.primary_ident(),
-                            format!(
-                                "No entity '{}' within the library '{}'",
-                                secondary_unit.primary_name(),
-                                name
-                            ),
-                        ));
-                    }
-                    SecondaryUnit::PackageBody(..) => {
-                        messages.push(Message::error(
-                            secondary_unit.primary_ident(),
-                            format!(
-                                "No package '{}' within the library '{}'",
-                                secondary_unit.primary_name(),
-                                name
-                            ),
-                        ));
-                    }
-                }
+                messages.push(Message::error(
+                    &architecture.unit.entity_name.pos,
+                    format!(
+                        "No entity '{}' within the library '{}'",
+                        architecture.unit.entity_name.item, name
+                    ),
+                ));
+            }
+        }
+
+        for body in package_bodies {
+            if let Some(ref mut package) = packages.get_mut(&body.name()) {
+                package.set_body(body, messages)
+            } else {
+                messages.push(Message::error(
+                    &body.ident(),
+                    format!(
+                        "No package '{}' within the library '{}'",
+                        &body.name(),
+                        name
+                    ),
+                ));
             }
         }
 
         Library {
             name,
-            primary_units,
+            entities,
+            packages,
         }
     }
 
     #[cfg(test)]
-    fn primary_unit<'a>(&'a self, name: &Symbol) -> Option<&'a PrimaryDesignUnit> {
-        self.primary_units.get(name)
+    fn entity<'a>(&'a self, name: &Symbol) -> Option<&'a EntityDesignUnit> {
+        self.entities.get(name)
     }
 
-    pub fn iter_primary_units(&self) -> impl Iterator<Item = &PrimaryDesignUnit> {
-        self.primary_units.values()
+    #[cfg(test)]
+    fn package<'a>(&'a self, name: &Symbol) -> Option<&'a PackageDesignUnit> {
+        self.packages.get(name)
+    }
+
+    pub fn entities(&self) -> impl Iterator<Item = &EntityDesignUnit> {
+        self.entities.values()
+    }
+
+    pub fn packages(&self) -> impl Iterator<Item = &PackageDesignUnit> {
+        self.packages.values()
     }
 }
 
@@ -284,7 +344,7 @@ impl DesignRoot {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_util::{check_no_messages, Code, CodeBuilder};
+    use test_util::{check_messages, check_no_messages, Code, CodeBuilder};
 
     fn new_library_with_messages(code: &Code, name: &str) -> (Library, Vec<Message>) {
         let mut messages = Vec::new();
@@ -309,13 +369,13 @@ end entity;
         let library = new_library(&code, "libname");
 
         assert_eq!(
-            library.primary_unit(&code.symbol("ent")),
-            Some(&PrimaryDesignUnit {
-                unit: DesignUnit {
+            library.entity(&code.symbol("ent")),
+            Some(&EntityDesignUnit {
+                entity: DesignUnit {
                     context_clause: vec![],
-                    unit: PrimaryUnit::EntityDeclaration(code.entity())
+                    unit: code.entity()
                 },
-                secondary: FnvHashMap::default()
+                architectures: FnvHashMap::default()
             })
         );
     }
@@ -330,13 +390,13 @@ end package body;
         );
         let (library, messages) = new_library_with_messages(&code, "libname");
 
-        assert_eq!(library.primary_units.len(), 0);
-        assert_eq!(
+        assert_eq!(library.packages.len(), 0);
+        check_messages(
             messages,
             vec![Message::error(
                 code.s1("pkg"),
-                "No package 'pkg' within the library 'libname'"
-            )]
+                "No package 'pkg' within the library 'libname'",
+            )],
         );
     }
 
@@ -351,13 +411,13 @@ end architecture;
         );
         let (library, messages) = new_library_with_messages(&code, "libname");
 
-        assert_eq!(library.primary_units.len(), 0);
-        assert_eq!(
+        assert_eq!(library.entities.len(), 0);
+        check_messages(
             messages,
             vec![Message::error(
                 code.s1("ent"),
-                "No entity 'ent' within the library 'libname'"
-            )]
+                "No entity 'ent' within the library 'libname'",
+            )],
         );
     }
 
@@ -375,20 +435,13 @@ end architecture;
         );
         let (library, messages) = new_library_with_messages(&code, "libname");
 
-        assert_eq!(
-            library
-                .primary_unit(&code.symbol("pkg"))
-                .unwrap()
-                .secondary
-                .len(),
-            0
-        );
-        assert_eq!(
+        assert!(library.package(&code.symbol("pkg")).unwrap().body.is_none());
+        check_messages(
             messages,
             vec![Message::error(
-                code.s1("rtl"),
-                "architecture 'rtl' cannot be a secondary unit of package 'pkg'"
-            )]
+                code.s("pkg", 2),
+                "No entity 'pkg' within the library 'libname'",
+            )],
         );
     }
 
@@ -407,18 +460,18 @@ end package body;
 
         assert_eq!(
             library
-                .primary_unit(&code.symbol("entname"))
+                .entity(&code.symbol("entname"))
                 .unwrap()
-                .secondary
+                .architectures
                 .len(),
             0
         );
-        assert_eq!(
+        check_messages(
             messages,
             vec![Message::error(
                 code.s("entname", 2),
-                "package body cannot be a secondary unit of entity 'entname'"
-            )]
+                "No package 'entname' within the library 'libname'",
+            )],
         );
     }
 
@@ -438,20 +491,13 @@ end package body;
         );
         let (library, messages) = new_library_with_messages(&code, "libname");
 
-        assert_eq!(
-            library
-                .primary_unit(&code.symbol("pkg"))
-                .unwrap()
-                .secondary
-                .len(),
-            1
-        );
-        assert_eq!(
+        assert!(library.package(&code.symbol("pkg")).unwrap().body.is_some());
+        check_messages(
             messages,
             vec![Message::error(
                 code.s("pkg", 3),
-                "Duplicate package body of package 'pkg'"
-            )]
+                "Duplicate package body of package 'pkg'",
+            )],
         );
     }
 
@@ -474,8 +520,9 @@ end package;
         );
         let (library, messages) = new_library_with_messages(&code, "libname");
 
-        assert_eq!(library.primary_units.len(), 2);
-        assert_eq!(
+        assert_eq!(library.entities.len(), 1);
+        assert_eq!(library.packages.len(), 1);
+        check_messages(
             messages,
             vec![
                 Message::error(
@@ -511,27 +558,20 @@ end entity;
         let (library, messages) = new_library_with_messages(&code, "libname");
 
         // Should still be added as a secondary unit
-        assert_eq!(
-            library
-                .primary_unit(&code.symbol("pkg"))
-                .unwrap()
-                .secondary
-                .len(),
-            1
-        );
+        assert!(library.package(&code.symbol("pkg")).unwrap().body.is_some());
 
-        assert_eq!(
+        check_messages(
             messages,
             vec![
                 Message::error(
                     code.s("pkg", 1),
-                    "package body declared before package 'pkg'"
+                    "package body declared before package 'pkg'",
                 ),
                 Message::error(
                     code.s("rtl", 1),
-                    "architecture 'rtl' declared before entity 'entname'"
+                    "architecture 'rtl' declared before entity 'entname'",
                 ),
-            ]
+            ],
         );
     }
 
@@ -560,13 +600,12 @@ end package;
         );
 
         // Should still be added as a secondary unit
-        assert_eq!(
+        assert!(
             library
-                .primary_unit(&builder.symbol("pkg"))
+                .package(&builder.symbol("pkg"))
                 .unwrap()
-                .secondary
-                .len(),
-            1
+                .body
+                .is_some()
         );
 
         check_no_messages(&messages);
@@ -592,18 +631,18 @@ end architecture;
 
         assert_eq!(
             library
-                .primary_unit(&code.symbol("ent"))
+                .entity(&code.symbol("ent"))
                 .unwrap()
-                .secondary
+                .architectures
                 .len(),
             1
         );
-        assert_eq!(
+        check_messages(
             messages,
             vec![Message::error(
                 code.s("rtl", 2),
-                "Duplicate architecture 'rtl' of entity 'ent'"
-            )]
+                "Duplicate architecture 'rtl' of entity 'ent'",
+            )],
         );
     }
 
@@ -632,31 +671,31 @@ end architecture;
         let architecture1 = code
             .between("architecture arch1 ", "architecture;")
             .architecture();
-        let mut secondary = FnvHashMap::default();
+        let mut architectures = FnvHashMap::default();
 
-        secondary.insert(
+        architectures.insert(
             code.symbol("arch0"),
             DesignUnit {
                 context_clause: vec![],
-                unit: SecondaryUnit::Architecture(architecture0),
+                unit: architecture0,
             },
         );
-        secondary.insert(
+        architectures.insert(
             code.symbol("arch1"),
             DesignUnit {
                 context_clause: vec![],
-                unit: SecondaryUnit::Architecture(architecture1),
+                unit: architecture1,
             },
         );
 
         assert_eq!(
-            library.primary_unit(&code.symbol("ent")),
-            Some(&PrimaryDesignUnit {
-                unit: DesignUnit {
+            library.entity(&code.symbol("ent")),
+            Some(&EntityDesignUnit {
+                entity: DesignUnit {
                     context_clause: vec![],
-                    unit: PrimaryUnit::EntityDeclaration(entity)
+                    unit: entity
                 },
-                secondary
+                architectures
             })
         );
     }
@@ -677,23 +716,19 @@ end package body;
         let package = code.between("package", "package;").package();
         let body = code.between("package body", "package body;").package_body();
 
-        let mut secondary = FnvHashMap::default();
-        secondary.insert(
-            code.symbol("pkg"),
-            DesignUnit {
-                context_clause: vec![],
-                unit: SecondaryUnit::PackageBody(body),
-            },
-        );
+        let body = DesignUnit {
+            context_clause: vec![],
+            unit: body,
+        };
 
         assert_eq!(
-            library.primary_unit(&code.symbol("pkg")),
-            Some(&PrimaryDesignUnit {
-                unit: DesignUnit {
+            library.package(&code.symbol("pkg")),
+            Some(&PackageDesignUnit {
+                package: DesignUnit {
                     context_clause: vec![],
-                    unit: PrimaryUnit::PackageDeclaration(package)
+                    unit: package
                 },
-                secondary
+                body: Some(body)
             })
         );
     }
