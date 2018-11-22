@@ -16,31 +16,44 @@ use self::fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
 use std::sync::Arc;
 
+struct DeclarativeItem {
+    designator: WithPos<Designator>,
+}
+
+impl DeclarativeItem {
+    fn new(designator: impl Into<WithPos<Designator>>) -> DeclarativeItem {
+        DeclarativeItem {
+            designator: designator.into(),
+        }
+    }
+    fn from_ident(ident: &Ident) -> DeclarativeItem {
+        DeclarativeItem::new(ident.to_owned().map_into(Designator::Identifier))
+    }
+}
+
 impl Declaration {
-    fn ident(&self) -> Option<Ident> {
+    fn declarative_item(&self) -> Option<DeclarativeItem> {
         match self {
             // @TODO Ignored for now
-            Declaration::Alias(alias) => match alias.designator.item {
-                Designator::Identifier(ref ident) => {
-                    if alias.signature.is_none() {
-                        Some(Ident {
-                            item: ident.clone(),
-                            pos: alias.designator.pos.clone(),
-                        })
-                    } else {
-                        None
-                    }
+            Declaration::Alias(alias) => {
+                if alias.signature.is_none() {
+                    Some(DeclarativeItem::new(alias.designator.clone()))
+                } else {
+                    None
                 }
-                _ => None,
-            },
-            Declaration::Object(ObjectDeclaration { ref ident, .. }) => Some(ident.to_owned()),
-            Declaration::File(FileDeclaration { ref ident, .. }) => Some(ident.to_owned()),
+            }
+            Declaration::Object(ObjectDeclaration { ref ident, .. }) => {
+                Some(DeclarativeItem::from_ident(ident))
+            }
+            Declaration::File(FileDeclaration { ref ident, .. }) => {
+                Some(DeclarativeItem::from_ident(ident))
+            }
             Declaration::Component(ComponentDeclaration { ref ident, .. }) => {
-                Some(ident.to_owned())
+                Some(DeclarativeItem::from_ident(ident))
             }
             Declaration::Attribute(ref attr) => match attr {
                 Attribute::Declaration(AttributeDeclaration { ref ident, .. }) => {
-                    Some(ident.to_owned())
+                    Some(DeclarativeItem::from_ident(ident))
                 }
                 // @TODO Ignored for now
                 Attribute::Specification(..) => None,
@@ -51,7 +64,7 @@ impl Declaration {
             Declaration::SubprogramDeclaration(..) => None,
             // @TODO Ignored for now
             Declaration::Use(..) => None,
-            Declaration::Package(ref package) => Some(package.ident.clone()),
+            Declaration::Package(ref package) => Some(DeclarativeItem::from_ident(&package.ident)),
             Declaration::Configuration(..) => None,
             Declaration::Type(TypeDeclaration {
                 def: TypeDefinition::ProtectedBody(..),
@@ -61,42 +74,57 @@ impl Declaration {
                 def: TypeDefinition::Incomplete,
                 ..
             }) => None,
-            Declaration::Type(TypeDeclaration { ref ident, .. }) => Some(ident.to_owned()),
+            Declaration::Type(TypeDeclaration { ref ident, .. }) => {
+                Some(DeclarativeItem::from_ident(ident))
+            }
         }
     }
 }
 
 impl InterfaceDeclaration {
-    fn ident(&self) -> Option<Ident> {
+    fn declarative_item(&self) -> Option<DeclarativeItem> {
         match self {
             InterfaceDeclaration::File(InterfaceFileDeclaration { ref ident, .. }) => {
-                Some(ident.to_owned())
+                Some(DeclarativeItem::from_ident(ident))
             }
             InterfaceDeclaration::Object(InterfaceObjectDeclaration { ref ident, .. }) => {
-                Some(ident.to_owned())
+                Some(DeclarativeItem::from_ident(ident))
             }
-            InterfaceDeclaration::Type(ref ident) => Some(ident.to_owned()),
+            InterfaceDeclaration::Type(ref ident) => Some(DeclarativeItem::from_ident(ident)),
             // @TODO ignore for now
             InterfaceDeclaration::Subprogram(..) => None,
-            InterfaceDeclaration::Package(ref package) => Some(package.ident.clone()),
+            InterfaceDeclaration::Package(ref package) => {
+                Some(DeclarativeItem::from_ident(&package.ident))
+            }
         }
     }
 }
+
+impl std::fmt::Display for Designator {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Designator::Identifier(ref sym) => write!(f, "{}", sym),
+            Designator::OperatorSymbol(ref latin1) => write!(f, "\"{}\"", latin1),
+            Designator::Character(byte) => write!(f, "'{}'", *byte as char),
+        }
+    }
+}
+
 fn check_unique<'a>(
-    idents: &mut FnvHashMap<Symbol, SrcPos>,
-    ident: Ident,
+    decls: &mut FnvHashMap<Designator, SrcPos>,
+    decl: DeclarativeItem,
     messages: &mut MessageHandler,
 ) {
-    match idents.entry(ident.item.clone()) {
+    match decls.entry(decl.designator.item.clone()) {
         Entry::Occupied(entry) => {
             let msg = Message::error(
-                &ident,
-                format!("Duplicate declaration of '{}'", ident.item.name()),
+                &decl.designator,
+                format!("Duplicate declaration of '{}'", decl.designator.item),
             ).related(entry.get(), "Previously defined here");
             messages.push(msg)
         }
         Entry::Vacant(entry) => {
-            entry.insert(ident.pos);
+            entry.insert(decl.designator.pos);
         }
     }
 }
@@ -106,9 +134,13 @@ fn check_element_declaration_unique_ident(
     declarations: &[ElementDeclaration],
     messages: &mut MessageHandler,
 ) {
-    let mut idents = FnvHashMap::default();
+    let mut decls = FnvHashMap::default();
     for decl in declarations.iter() {
-        check_unique(&mut idents, decl.ident.clone(), messages);
+        check_unique(
+            &mut decls,
+            DeclarativeItem::from_ident(&decl.ident),
+            messages,
+        );
     }
 }
 
@@ -117,10 +149,10 @@ fn check_interface_list_unique_ident(
     declarations: &[InterfaceDeclaration],
     messages: &mut MessageHandler,
 ) {
-    let mut idents = FnvHashMap::default();
+    let mut decls = FnvHashMap::default();
     for decl in declarations.iter() {
-        if let Some(ident) = decl.ident() {
-            check_unique(&mut idents, ident, messages);
+        if let Some(ident) = decl.declarative_item() {
+            check_unique(&mut decls, ident, messages);
         }
     }
 }
@@ -139,10 +171,10 @@ fn check_declarative_part_unique_ident(
     declarations: &[Declaration],
     messages: &mut MessageHandler,
 ) {
-    let mut idents = FnvHashMap::default();
+    let mut decls = FnvHashMap::default();
     for decl in declarations.iter() {
-        if let Some(ident) = decl.ident() {
-            check_unique(&mut idents, ident, messages);
+        if let Some(decl) = decl.declarative_item() {
+            check_unique(&mut decls, decl, messages);
         }
 
         match decl {

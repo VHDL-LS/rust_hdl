@@ -323,7 +323,7 @@ pub enum ProtectedTypeDeclarativeItem {
     Subprogram(SubprogramDeclaration),
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub enum Designator {
     Identifier(Symbol),
     OperatorSymbol(Latin1String),
