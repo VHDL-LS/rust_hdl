@@ -336,7 +336,7 @@ mod tests {
     use super::*;
     use library::Library;
     use message::Message;
-    use test_util::{check_no_messages, Code};
+    use test_util::{check_no_messages, Code, CodeBuilder};
 
     fn expected_messages(code: &Code, names: &[&str]) -> Vec<Message> {
         let mut messages = Vec::new();
@@ -856,7 +856,9 @@ end entity;
 
     #[test]
     fn check_library_clause_library_exists() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.add_code(
+            "libname",
             "
 library missing_lib;
 
@@ -865,13 +867,7 @@ end entity;
             ",
         );
 
-        let mut messages = Vec::new();
-        let libname = code.symbol("libname");
-        let library = Library::new(libname.clone(), vec![code.design_file()], &mut messages);
-        let mut root = DesignRoot::new();
-        root.add_library(library);
-
-        Analyzer::new(code.symtab.clone()).analyze(&root, &mut messages);
+        let messages = builder.analyze();
 
         assert_eq!(
             messages,
@@ -884,7 +880,9 @@ end entity;
 
     #[test]
     fn library_std_is_pre_defined() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        builder.add_code(
+            "libname",
             "
 library std;
 
@@ -893,19 +891,15 @@ end entity;
             ",
         );
 
-        let mut messages = Vec::new();
-        let libname = code.symbol("libname");
-        let library = Library::new(libname.clone(), vec![code.design_file()], &mut messages);
-        let mut root = DesignRoot::new();
-        root.add_library(library);
-
-        Analyzer::new(code.symtab.clone()).analyze(&root, &mut messages);
+        let messages = builder.analyze();
         check_no_messages(&messages);
     }
 
     #[test]
     fn work_library_not_necessary_hint() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.add_code(
+            "libname",
             "
 library work;
 
@@ -914,13 +908,7 @@ end entity;
             ",
         );
 
-        let mut messages = Vec::new();
-        let libname = code.symbol("libname");
-        let library = Library::new(libname.clone(), vec![code.design_file()], &mut messages);
-        let mut root = DesignRoot::new();
-        root.add_library(library);
-
-        Analyzer::new(code.symtab.clone()).analyze(&root, &mut messages);
+        let messages = builder.analyze();
 
         assert_eq!(
             messages,
@@ -931,4 +919,45 @@ end entity;
         )
     }
 
+    struct LibraryBuilder {
+        code_builder: CodeBuilder,
+        libraries: FnvHashMap<Symbol, Vec<Code>>,
+    }
+
+    impl LibraryBuilder {
+        fn new() -> LibraryBuilder {
+            LibraryBuilder {
+                code_builder: CodeBuilder::new(),
+                libraries: FnvHashMap::default(),
+            }
+        }
+        fn add_code(&mut self, library_name: &str, code: &str) -> Code {
+            let code = self.code_builder.code(code);
+            let library_name = self.code_builder.symbol(library_name);
+            match self.libraries.entry(library_name) {
+                Entry::Occupied(mut entry) => {
+                    entry.get_mut().push(code.clone());
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(vec![code.clone()]);
+                }
+            }
+            code
+        }
+
+        fn analyze(&self) -> Vec<Message> {
+            let mut root = DesignRoot::new();
+            let mut messages = Vec::new();
+
+            for (library_name, codes) in self.libraries.iter() {
+                let design_files = codes.iter().map(|code| code.design_file()).collect();
+                let library = Library::new(library_name.clone(), design_files, &mut messages);
+                root.add_library(library);
+            }
+
+            Analyzer::new(self.code_builder.symtab.clone()).analyze(&root, &mut messages);
+
+            messages
+        }
+    }
 }

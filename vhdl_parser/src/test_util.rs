@@ -30,7 +30,7 @@ use tokenstream::TokenStream;
 use waveform::parse_waveform;
 
 pub struct CodeBuilder {
-    symtab: Arc<SymbolTable>,
+    pub symtab: Arc<SymbolTable>,
 }
 
 impl CodeBuilder {
@@ -63,6 +63,7 @@ impl CodeBuilder {
     }
 }
 
+#[derive(Clone)]
 pub struct Code {
     source: Source,
     pub symtab: Arc<SymbolTable>,
