@@ -123,7 +123,6 @@ pub fn parse_attribute(stream: &mut TokenStream) -> ParseResult<Vec<Attribute>> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ast::Designator;
     use test_util::Code;
 
     #[test]

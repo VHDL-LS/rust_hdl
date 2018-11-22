@@ -20,10 +20,13 @@ impl Declaration {
     fn ident(&self) -> Option<Ident> {
         match self {
             // @TODO Ignored for now
-            Declaration::Alias(alias) => match alias.designator {
-                AliasDesignator::Identifier(ref ident) => {
+            Declaration::Alias(alias) => match alias.designator.item {
+                Designator::Identifier(ref ident) => {
                     if alias.signature.is_none() {
-                        Some(ident.to_owned())
+                        Some(Ident {
+                            item: ident.clone(),
+                            pos: alias.designator.pos.clone(),
+                        })
                     } else {
                         None
                     }

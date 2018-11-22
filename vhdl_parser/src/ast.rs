@@ -324,16 +324,16 @@ pub enum ProtectedTypeDeclarativeItem {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub enum AliasDesignator {
-    Identifier(Ident),
-    OperatorSymbol(WithPos<Latin1String>),
-    Character(WithPos<u8>),
+pub enum Designator {
+    Identifier(Symbol),
+    OperatorSymbol(Latin1String),
+    Character(u8),
 }
 
 /// LRM 6.6 Alias declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct AliasDeclaration {
-    pub designator: AliasDesignator,
+    pub designator: WithPos<Designator>,
     pub subtype_indication: Option<SubtypeIndication>,
     pub name: WithPos<Name>,
     pub signature: Option<Signature>,
@@ -481,7 +481,7 @@ pub struct FileDeclaration {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub enum Designator {
+pub enum SubprogramDesignator {
     Identifier(Symbol),
     OperatorSymbol(Latin1String),
 }
@@ -489,7 +489,7 @@ pub enum Designator {
 /// LRM 4.2 Subprogram declaration
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProcedureSpecification {
-    pub designator: WithPos<Designator>,
+    pub designator: WithPos<SubprogramDesignator>,
     pub parameter_list: Vec<InterfaceDeclaration>,
 }
 
@@ -497,7 +497,7 @@ pub struct ProcedureSpecification {
 #[derive(PartialEq, Debug, Clone)]
 pub struct FunctionSpecification {
     pub pure: bool,
-    pub designator: WithPos<Designator>,
+    pub designator: WithPos<SubprogramDesignator>,
     pub parameter_list: Vec<InterfaceDeclaration>,
     pub return_type: SelectedName,
 }
