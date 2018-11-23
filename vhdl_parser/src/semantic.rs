@@ -192,7 +192,17 @@ impl<'a> DeclarativeRegion<'a> {
                 }
             }
             Entry::Vacant(entry) => {
-                entry.insert(decl);
+                if decl.ast.is_protected_type_body() {
+                    messages.push(Message::error(
+                        &decl.designator,
+                        format!(
+                            "No declaration of protected type '{}'",
+                            &decl.designator.item
+                        ),
+                    ));
+                } else {
+                    entry.insert(decl);
+                }
             }
         }
     }
@@ -842,6 +852,41 @@ end package body;
             vec![
                 Message::error(&code.s1("a1"), "Missing body for protected type 'a1'"),
                 Message::error(&code.s1("b1"), "Missing body for protected type 'b1'"),
+            ],
+        );
+    }
+
+    #[test]
+    fn error_on_missing_protected_type_for_body() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg_no_body is
+  type a1 is protected body
+  end protected body;
+end package;
+
+package pkg is
+end package;
+
+package body pkg is
+  type b1 is protected body
+  end protected body;
+
+  type b1 is protected
+  end protected;
+end package body;
+",
+        );
+
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![
+                Message::error(&code.s1("a1"), "No declaration of protected type 'a1'"),
+                Message::error(&code.s1("b1"), "No declaration of protected type 'b1'"),
+                Message::error(&code.s("b1", 2), "Missing body for protected type 'b1'"),
             ],
         );
     }
