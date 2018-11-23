@@ -106,25 +106,63 @@ impl<'a> DeclarativeItem<'a> {
     }
 }
 
+#[derive(Copy, Clone, PartialEq)]
+enum RegionKind {
+    PackageDeclaration,
+    PackageBody,
+    Other,
+}
+
 #[derive(Clone)]
 struct DeclarativeRegion<'a> {
     decls: FnvHashMap<Designator, DeclarativeItem<'a>>,
+    kind: RegionKind,
 }
 
 impl<'a> DeclarativeRegion<'a> {
     fn new() -> DeclarativeRegion<'a> {
         DeclarativeRegion {
             decls: FnvHashMap::default(),
+            kind: RegionKind::Other,
         }
     }
 
+    fn in_package_declaration(mut self) -> DeclarativeRegion<'a> {
+        self.kind = RegionKind::PackageDeclaration;
+        self
+    }
+
+    fn in_body(&self) -> DeclarativeRegion<'a> {
+        let mut region = self.clone();
+        region.kind = match region.kind {
+            RegionKind::PackageDeclaration => RegionKind::PackageBody,
+            _ => RegionKind::Other,
+        };
+        region
+    }
+
     fn add(&mut self, decl: DeclarativeItem<'a>, messages: &mut MessageHandler) {
+        if self.kind != RegionKind::PackageDeclaration && decl.ast.is_deferred_constant() {
+            messages.push(Message::error(
+                &decl.designator,
+                "Deferred constants are only allowed in package declarations (not body)",
+            ));
+        }
+
         match self.decls.entry(decl.designator.item.clone()) {
             Entry::Occupied(mut entry) => {
                 let old_decl = entry.get_mut();
 
                 if !decl.may_overload || !old_decl.may_overload {
                     if old_decl.is_deferred_of(&decl) {
+                        if self.kind != RegionKind::PackageBody
+                            && decl.ast.is_non_deferred_constant()
+                        {
+                            messages.push(Message::error(
+                                &decl.designator,
+                                "Full declaration of deferred constant is only allowed in a package body"));
+                        }
+
                         std::mem::replace(old_decl, decl);
                     } else {
                         let msg = Message::error(
@@ -463,7 +501,7 @@ fn check_package_declaration<'a>(
     package: &'a PackageDeclaration,
     messages: &mut MessageHandler,
 ) -> DeclarativeRegion<'a> {
-    let mut region = DeclarativeRegion::new();
+    let mut region = DeclarativeRegion::new().in_package_declaration();
     if let Some(ref list) = package.generic_clause {
         region.add_interface_list(list, messages);
     }
@@ -558,7 +596,7 @@ impl Analyzer {
                 let mut region = check_entity_declaration(&entity.entity.unit, messages);
                 for architecture in entity.architectures.values() {
                     self.check_context_clause(root, &architecture.context_clause, messages);
-                    check_architecture_body(&mut region.clone(), &architecture.unit, messages);
+                    check_architecture_body(&mut region.in_body(), &architecture.unit, messages);
                 }
             }
 
@@ -567,7 +605,7 @@ impl Analyzer {
                 let mut region = check_package_declaration(&package.package.unit, messages);
                 if let Some(ref body) = package.body {
                     self.check_context_clause(root, &body.context_clause, messages);
-                    check_package_body(&mut region.clone(), &body.unit, messages);
+                    check_package_body(&mut region.in_body(), &body.unit, messages);
                 }
             }
         }
@@ -662,6 +700,55 @@ end package;
 
         let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1"]));
+    }
+
+    #[test]
+    fn forbid_deferred_constant_outside_of_package_declaration() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg is
+end package;
+
+package body pkg is
+  constant a1 : natural;
+  constant a1 : natural := 0;
+end package body;
+",
+        );
+
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![Message::error(
+                &code.s1("a1"),
+                "Deferred constants are only allowed in package declarations (not body)",
+            )],
+        );
+    }
+
+    #[test]
+    fn forbid_full_declaration_of_deferred_constant_outside_of_package_body() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg is
+  constant a1 : natural;
+  constant a1 : natural := 0;
+end package;
+",
+        );
+
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![Message::error(
+                &code.s("a1", 2),
+                "Full declaration of deferred constant is only allowed in a package body",
+            )],
+        );
     }
 
     #[test]
