@@ -17,54 +17,114 @@ use std::collections::hash_map::Entry;
 use std::sync::Arc;
 
 #[derive(Clone)]
-struct DeclarativeItem {
-    designator: WithPos<Designator>,
-    may_overload: bool,
-    is_deferred: bool,
+enum DeclarativeAst<'a> {
+    Declaration(&'a Declaration),
+    Element(&'a ElementDeclaration),
+    Enum(&'a WithPos<EnumerationLiteral>),
+    Interface(&'a InterfaceDeclaration),
 }
 
-impl DeclarativeItem {
-    fn new(designator: impl Into<WithPos<Designator>>) -> DeclarativeItem {
-        DeclarativeItem {
-            designator: designator.into(),
-            may_overload: false,
-            is_deferred: false,
+impl<'a> DeclarativeAst<'a> {
+    fn is_deferred_constant(&self) -> bool {
+        match self {
+            DeclarativeAst::Declaration(Declaration::Object(ObjectDeclaration {
+                ref class,
+                ref expression,
+                ..
+            })) => *class == ObjectClass::Constant && expression.is_none(),
+            _ => false,
         }
     }
-    fn from_ident(ident: &Ident) -> DeclarativeItem {
-        DeclarativeItem::new(ident.to_owned().map_into(Designator::Identifier))
+
+    fn is_protected_type(&self) -> bool {
+        match self {
+            DeclarativeAst::Declaration(Declaration::Type(TypeDeclaration {
+                def: TypeDefinition::Protected { .. },
+                ..
+            })) => true,
+            _ => false,
+        }
     }
 
-    fn with_overload(mut self, value: bool) -> DeclarativeItem {
-        self.may_overload = value;
-        self
+    fn is_protected_type_body(&self) -> bool {
+        match self {
+            DeclarativeAst::Declaration(Declaration::Type(TypeDeclaration {
+                def: TypeDefinition::ProtectedBody { .. },
+                ..
+            })) => true,
+            _ => false,
+        }
     }
 
-    fn with_deferred(mut self, value: bool) -> DeclarativeItem {
-        self.is_deferred = value;
-        self
+    fn is_non_deferred_constant(&self) -> bool {
+        match self {
+            DeclarativeAst::Declaration(Declaration::Object(ObjectDeclaration {
+                ref class,
+                ref expression,
+                ..
+            })) => *class == ObjectClass::Constant && expression.is_some(),
+            _ => false,
+        }
     }
 }
 
 #[derive(Clone)]
-struct DeclarativeRegion {
-    decls: FnvHashMap<Designator, DeclarativeItem>,
+struct DeclarativeItem<'a> {
+    designator: WithPos<Designator>,
+    ast: DeclarativeAst<'a>,
+    may_overload: bool,
 }
 
-impl DeclarativeRegion {
-    fn new() -> DeclarativeRegion {
+impl<'a> DeclarativeItem<'a> {
+    fn new(
+        designator: impl Into<WithPos<Designator>>,
+        ast: DeclarativeAst<'a>,
+    ) -> DeclarativeItem<'a> {
+        DeclarativeItem {
+            designator: designator.into(),
+            ast,
+            may_overload: false,
+        }
+    }
+    fn from_ident(ident: &Ident, ast: DeclarativeAst<'a>) -> DeclarativeItem<'a> {
+        DeclarativeItem::new(ident.to_owned().map_into(Designator::Identifier), ast)
+    }
+
+    fn with_overload(mut self, value: bool) -> DeclarativeItem<'a> {
+        self.may_overload = value;
+        self
+    }
+
+    fn is_deferred_of(&self, other: &Self) -> bool {
+        if self.ast.is_deferred_constant() && other.ast.is_non_deferred_constant() {
+            true
+        } else if self.ast.is_protected_type() && other.ast.is_protected_type_body() {
+            true
+        } else {
+            false
+        }
+    }
+}
+
+#[derive(Clone)]
+struct DeclarativeRegion<'a> {
+    decls: FnvHashMap<Designator, DeclarativeItem<'a>>,
+}
+
+impl<'a> DeclarativeRegion<'a> {
+    fn new() -> DeclarativeRegion<'a> {
         DeclarativeRegion {
             decls: FnvHashMap::default(),
         }
     }
 
-    fn add(&mut self, decl: DeclarativeItem, messages: &mut MessageHandler) {
+    fn add(&mut self, decl: DeclarativeItem<'a>, messages: &mut MessageHandler) {
         match self.decls.entry(decl.designator.item.clone()) {
             Entry::Occupied(mut entry) => {
                 let old_decl = entry.get_mut();
 
                 if !decl.may_overload || !old_decl.may_overload {
-                    if !decl.is_deferred && old_decl.is_deferred {
+                    if old_decl.is_deferred_of(&decl) {
                         std::mem::replace(old_decl, decl);
                     } else {
                         let msg = Message::error(
@@ -83,7 +143,7 @@ impl DeclarativeRegion {
 
     fn add_interface_list(
         &mut self,
-        declarations: &[InterfaceDeclaration],
+        declarations: &'a [InterfaceDeclaration],
         messages: &mut MessageHandler,
     ) {
         for decl in declarations.iter() {
@@ -95,7 +155,7 @@ impl DeclarativeRegion {
 
     fn add_declarative_part(
         &mut self,
-        declarations: &[Declaration],
+        declarations: &'a [Declaration],
         messages: &mut MessageHandler,
     ) {
         for decl in declarations.iter() {
@@ -107,11 +167,14 @@ impl DeclarativeRegion {
 
     fn add_element_declarations(
         &mut self,
-        declarations: &[ElementDeclaration],
+        declarations: &'a [ElementDeclaration],
         messages: &mut MessageHandler,
     ) {
         for decl in declarations.iter() {
-            self.add(DeclarativeItem::from_ident(&decl.ident), messages);
+            self.add(
+                DeclarativeItem::from_ident(&decl.ident, DeclarativeAst::Element(decl)),
+                messages,
+            );
         }
     }
 }
@@ -153,45 +216,54 @@ impl Declaration {
     fn declarative_items(&self) -> Vec<DeclarativeItem> {
         match self {
             Declaration::Alias(alias) => vec![
-                DeclarativeItem::new(alias.designator.clone())
+                DeclarativeItem::new(alias.designator.clone(), DeclarativeAst::Declaration(self))
                     .with_overload(alias.signature.is_some()),
             ],
-            Declaration::Object(ObjectDeclaration {
-                ref ident,
-                ref class,
-                ref expression,
-                ..
-            }) => vec![
-                DeclarativeItem::from_ident(ident)
-                    .with_deferred(*class == ObjectClass::Constant && expression.is_none()),
-            ],
+            Declaration::Object(ObjectDeclaration { ref ident, .. }) => {
+                vec![DeclarativeItem::from_ident(
+                    ident,
+                    DeclarativeAst::Declaration(self),
+                )]
+            }
             Declaration::File(FileDeclaration { ref ident, .. }) => {
-                vec![DeclarativeItem::from_ident(ident)]
+                vec![DeclarativeItem::from_ident(
+                    ident,
+                    DeclarativeAst::Declaration(self),
+                )]
             }
             Declaration::Component(ComponentDeclaration { ref ident, .. }) => {
-                vec![DeclarativeItem::from_ident(ident)]
+                vec![DeclarativeItem::from_ident(
+                    ident,
+                    DeclarativeAst::Declaration(self),
+                )]
             }
             Declaration::Attribute(ref attr) => match attr {
                 Attribute::Declaration(AttributeDeclaration { ref ident, .. }) => {
-                    vec![DeclarativeItem::from_ident(ident)]
+                    vec![DeclarativeItem::from_ident(
+                        ident,
+                        DeclarativeAst::Declaration(self),
+                    )]
                 }
                 // @TODO Ignored for now
                 Attribute::Specification(..) => vec![],
             },
-            Declaration::SubprogramBody(body) => {
-                vec![DeclarativeItem::new(body.specification.designator()).with_overload(true)]
-            }
-            Declaration::SubprogramDeclaration(decl) => {
-                vec![DeclarativeItem::new(decl.designator()).with_overload(true)]
-            }
+            Declaration::SubprogramBody(body) => vec![
+                DeclarativeItem::new(
+                    body.specification.designator(),
+                    DeclarativeAst::Declaration(self),
+                ).with_overload(true),
+            ],
+            Declaration::SubprogramDeclaration(decl) => vec![
+                DeclarativeItem::new(decl.designator(), DeclarativeAst::Declaration(self))
+                    .with_overload(true),
+            ],
             // @TODO Ignored for now
             Declaration::Use(..) => vec![],
-            Declaration::Package(ref package) => vec![DeclarativeItem::from_ident(&package.ident)],
+            Declaration::Package(ref package) => vec![DeclarativeItem::from_ident(
+                &package.ident,
+                DeclarativeAst::Declaration(self),
+            )],
             Declaration::Configuration(..) => vec![],
-            Declaration::Type(TypeDeclaration {
-                def: TypeDefinition::ProtectedBody(..),
-                ..
-            }) => vec![],
             Declaration::Type(TypeDeclaration {
                 def: TypeDefinition::Incomplete,
                 ..
@@ -200,17 +272,25 @@ impl Declaration {
                 ref ident,
                 def: TypeDefinition::Enumeration(ref enumeration),
             }) => {
-                let mut items = vec![DeclarativeItem::from_ident(ident)];
+                let mut items = vec![DeclarativeItem::from_ident(
+                    ident,
+                    DeclarativeAst::Declaration(self),
+                )];
                 for literal in enumeration.iter() {
                     items.push(
-                        DeclarativeItem::new(literal.clone().map_into(|lit| lit.to_designator()))
-                            .with_overload(true),
+                        DeclarativeItem::new(
+                            literal.clone().map_into(|lit| lit.to_designator()),
+                            DeclarativeAst::Enum(literal),
+                        ).with_overload(true),
                     )
                 }
                 items
             }
             Declaration::Type(TypeDeclaration { ref ident, .. }) => {
-                vec![DeclarativeItem::from_ident(ident)]
+                vec![DeclarativeItem::from_ident(
+                    ident,
+                    DeclarativeAst::Declaration(self),
+                )]
             }
         }
     }
@@ -220,18 +300,29 @@ impl InterfaceDeclaration {
     fn declarative_items(&self) -> Vec<DeclarativeItem> {
         match self {
             InterfaceDeclaration::File(InterfaceFileDeclaration { ref ident, .. }) => {
-                vec![DeclarativeItem::from_ident(ident)]
+                vec![DeclarativeItem::from_ident(
+                    ident,
+                    DeclarativeAst::Interface(self),
+                )]
             }
             InterfaceDeclaration::Object(InterfaceObjectDeclaration { ref ident, .. }) => {
-                vec![DeclarativeItem::from_ident(ident)]
+                vec![DeclarativeItem::from_ident(
+                    ident,
+                    DeclarativeAst::Interface(self),
+                )]
             }
-            InterfaceDeclaration::Type(ref ident) => vec![DeclarativeItem::from_ident(ident)],
-            InterfaceDeclaration::Subprogram(decl, ..) => {
-                vec![DeclarativeItem::new(decl.designator()).with_overload(true)]
-            }
-            InterfaceDeclaration::Package(ref package) => {
-                vec![DeclarativeItem::from_ident(&package.ident)]
-            }
+            InterfaceDeclaration::Type(ref ident) => vec![DeclarativeItem::from_ident(
+                ident,
+                DeclarativeAst::Interface(self),
+            )],
+            InterfaceDeclaration::Subprogram(decl, ..) => vec![
+                DeclarativeItem::new(decl.designator(), DeclarativeAst::Interface(self))
+                    .with_overload(true),
+            ],
+            InterfaceDeclaration::Package(ref package) => vec![DeclarativeItem::from_ident(
+                &package.ident,
+                DeclarativeAst::Interface(self),
+            )],
         }
     }
 }
@@ -368,10 +459,10 @@ fn check_concurrent_part(statements: &[LabeledConcurrentStatement], messages: &m
     }
 }
 
-fn check_package_declaration(
-    package: &PackageDeclaration,
+fn check_package_declaration<'a>(
+    package: &'a PackageDeclaration,
     messages: &mut MessageHandler,
-) -> DeclarativeRegion {
+) -> DeclarativeRegion<'a> {
     let mut region = DeclarativeRegion::new();
     if let Some(ref list) = package.generic_clause {
         region.add_interface_list(list, messages);
@@ -381,9 +472,9 @@ fn check_package_declaration(
     region
 }
 
-fn check_architecture_body(
-    entity_region: &mut DeclarativeRegion,
-    architecture: &ArchitectureBody,
+fn check_architecture_body<'a>(
+    entity_region: &mut DeclarativeRegion<'a>,
+    architecture: &'a ArchitectureBody,
     messages: &mut MessageHandler,
 ) {
     entity_region.add_declarative_part(&architecture.decl, messages);
@@ -391,19 +482,19 @@ fn check_architecture_body(
     check_concurrent_part(&architecture.statements, messages);
 }
 
-fn check_package_body(
-    package_region: &mut DeclarativeRegion,
-    package: &PackageBody,
+fn check_package_body<'a>(
+    package_region: &mut DeclarativeRegion<'a>,
+    package: &'a PackageBody,
     messages: &mut MessageHandler,
 ) {
     package_region.add_declarative_part(&package.decl, messages);
     check_declarative_part_unique_ident_inner(&package.decl, messages);
 }
 
-fn check_entity_declaration(
-    entity: &EntityDeclaration,
+fn check_entity_declaration<'a>(
+    entity: &'a EntityDeclaration,
     messages: &mut MessageHandler,
-) -> DeclarativeRegion {
+) -> DeclarativeRegion<'a> {
     let mut region = DeclarativeRegion::new();
     if let Some(ref list) = entity.generic_clause {
         region.add_interface_list(list, messages);
@@ -606,6 +697,61 @@ end protected body;
         let mut messages = Vec::new();
         check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
         check_no_messages(&messages);
+    }
+
+    #[test]
+    fn forbid_duplicate_protected_type() {
+        let code = Code::new(
+            "
+type prot_t is protected
+end protected;
+
+type prot_t is protected
+end protected;
+",
+        );
+
+        let mut messages = Vec::new();
+        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        check_messages(messages, expected_messages(&code, &["prot_t"]));
+    }
+
+    #[test]
+    fn forbid_duplicate_protected_type_body() {
+        let code = Code::new(
+            "
+type prot_t is protected
+end protected;
+
+type prot_t is protected body
+end protected body;
+
+type prot_t is protected body
+end protected body;
+",
+        );
+
+        let mut messages = Vec::new();
+        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        check_messages(messages, vec![expected_message(&code, "prot_t", 2, 3)]);
+    }
+
+    #[test]
+    fn forbid_incompatible_deferred_items() {
+        let code = Code::new(
+            "
+type a1 is protected
+end protected;
+constant a1 : natural := 0;
+
+constant b1 : natural;
+type b1 is protected body
+end protected body;",
+        );
+
+        let mut messages = Vec::new();
+        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
     #[test]
