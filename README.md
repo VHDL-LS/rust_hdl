@@ -51,7 +51,11 @@ error: Expected 'use', 'type', 'subtype', 'shared', 'constant', 'signal', 'varia
   - Legal primary/secondary design unit combinations
   - Duplicate design units
   - Secondary units without primary unit
-  - Duplicate definitions in declarative parts  
+  - Duplicate definitions in declarative parts
+    - Forbids overloaded name to co-exist with non-overloaded name
+  - Missing full constant for deferred constant
+  - Missing full type for deferred type
+  - Missing body for protected type and vice versa
 - Comments not part of AST yet.
 
 ## Trying it out
