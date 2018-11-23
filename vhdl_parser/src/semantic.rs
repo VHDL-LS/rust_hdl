@@ -141,6 +141,16 @@ impl<'a> DeclarativeRegion<'a> {
         region
     }
 
+    fn close(&self, messages: &mut MessageHandler) {
+        for decl in self.decls.values() {
+            if decl.ast.is_deferred_constant() {
+                messages.push(
+                    Message::error(&decl.designator,
+                                   format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", &decl.designator.item)));
+            }
+        }
+    }
+
     fn add(&mut self, decl: DeclarativeItem<'a>, messages: &mut MessageHandler) {
         if self.kind != RegionKind::PackageDeclaration && decl.ast.is_deferred_constant() {
             messages.push(Message::error(
@@ -380,7 +390,9 @@ fn check_element_declaration_unique_ident(
     declarations: &[ElementDeclaration],
     messages: &mut MessageHandler,
 ) {
-    DeclarativeRegion::new().add_element_declarations(declarations, messages);
+    let mut region = DeclarativeRegion::new();
+    region.add_element_declarations(declarations, messages);
+    region.close(messages);
 }
 
 /// Check that no homographs are defined in the interface list
@@ -388,7 +400,9 @@ fn check_interface_list_unique_ident(
     declarations: &[InterfaceDeclaration],
     messages: &mut MessageHandler,
 ) {
-    DeclarativeRegion::new().add_interface_list(declarations, messages);
+    let mut region = DeclarativeRegion::new();
+    region.add_interface_list(declarations, messages);
+    region.close(messages);
 }
 
 impl SubprogramDeclaration {
@@ -406,6 +420,7 @@ fn check_declarative_part_unique_ident(
     let mut region = DeclarativeRegion::new();
     region.add_declarative_part(declarations, messages);
     check_declarative_part_unique_ident_inner(declarations, messages);
+    region.close(messages);
 }
 
 /// Check that no homographs are defined in the declarative region
@@ -595,8 +610,10 @@ impl Analyzer {
                 self.check_context_clause(root, &entity.entity.context_clause, messages);
                 let mut region = check_entity_declaration(&entity.entity.unit, messages);
                 for architecture in entity.architectures.values() {
+                    let mut region = region.in_body();
                     self.check_context_clause(root, &architecture.context_clause, messages);
-                    check_architecture_body(&mut region.in_body(), &architecture.unit, messages);
+                    check_architecture_body(&mut region, &architecture.unit, messages);
+                    region.close(messages);
                 }
             }
 
@@ -604,8 +621,12 @@ impl Analyzer {
                 self.check_context_clause(root, &package.package.context_clause, messages);
                 let mut region = check_package_declaration(&package.package.unit, messages);
                 if let Some(ref body) = package.body {
+                    let mut region = region.in_body();
                     self.check_context_clause(root, &body.context_clause, messages);
-                    check_package_body(&mut region.in_body(), &body.unit, messages);
+                    check_package_body(&mut region, &body.unit, messages);
+                    region.close(messages);
+                } else {
+                    region.close(messages);
                 }
             }
         }
@@ -752,6 +773,41 @@ end package;
     }
 
     #[test]
+    fn error_on_missing_full_constant_declaration() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg_no_body is
+  constant a1 : natural;
+end package;
+
+package pkg is
+  constant b1 : natural;
+end package;
+
+package body pkg is
+end package body;
+",
+        );
+
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![
+                Message::error(
+                    &code.s1("a1"),
+                    "Deferred constant 'a1' lacks corresponding full constant declaration in package body",
+                ),
+                Message::error(
+                    &code.s1("b1"),
+                    "Deferred constant 'b1' lacks corresponding full constant declaration in package body",
+                ),
+            ],
+        );
+    }
+
+    #[test]
     fn forbid_multiple_constant_after_deferred_constant() {
         let mut builder = LibraryBuilder::new();
         let code = builder.code(
@@ -869,6 +925,10 @@ package pkg is
   end protected body;
 
 end package;
+
+package body pkg is
+  constant b1 : natural := 0;
+end package body;
 ",
         );
 
