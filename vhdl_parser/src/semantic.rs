@@ -147,6 +147,14 @@ impl<'a> DeclarativeRegion<'a> {
                 messages.push(
                     Message::error(&decl.designator,
                                    format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", &decl.designator.item)));
+            } else if decl.ast.is_protected_type() {
+                messages.push(Message::error(
+                    &decl.designator,
+                    format!(
+                        "Missing body for protected type '{}'",
+                        &decl.designator.item
+                    ),
+                ));
             }
         }
     }
@@ -808,6 +816,37 @@ end package body;
     }
 
     #[test]
+    fn error_on_missing_protected_body() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg_no_body is
+  type a1 is protected
+  end protected;
+end package;
+
+package pkg is
+  type b1 is protected
+  end protected;
+end package;
+
+package body pkg is
+end package body;
+",
+        );
+
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![
+                Message::error(&code.s1("a1"), "Missing body for protected type 'a1'"),
+                Message::error(&code.s1("b1"), "Missing body for protected type 'b1'"),
+            ],
+        );
+    }
+
+    #[test]
     fn forbid_multiple_constant_after_deferred_constant() {
         let mut builder = LibraryBuilder::new();
         let code = builder.code(
@@ -878,6 +917,9 @@ package pkg is
 
   type prot_t is protected
   end protected;
+
+  type prot_t is protected body
+  end protected body;
 end package;
 ",
         );
@@ -916,10 +958,17 @@ end package;
             "libname",
             "
 package pkg is
+
+  -- Protected type vs constant
   type a1 is protected
   end protected;
   constant a1 : natural := 0;
 
+  -- Just to avoid missing body error
+  type a1 is protected body
+  end protected body;
+
+  -- Deferred constant vs protected body
   constant b1 : natural;
   type b1 is protected body
   end protected body;
