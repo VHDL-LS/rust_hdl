@@ -163,7 +163,23 @@ impl<'a> DeclarativeRegion<'a> {
         region
     }
 
-    fn close(&self, messages: &mut MessageHandler) {
+    fn close_immediate(&self, messages: &mut MessageHandler) {
+        for decl in self.decls.values() {
+            if decl.ast.is_incomplete_type() {
+                messages.push(Message::error(
+                    &decl.designator,
+                    "Missing full type declaration of incomplete type 'rec_t'",
+                ));
+                messages.push(
+                    Message::hint(
+                        &decl.designator,
+                        "The full type declaration shall occur immediately within the same declarative part",
+                    ));
+            }
+        }
+    }
+
+    fn close_extended(&self, messages: &mut MessageHandler) {
         for decl in self.decls.values() {
             if decl.ast.is_deferred_constant() {
                 messages.push(
@@ -179,6 +195,11 @@ impl<'a> DeclarativeRegion<'a> {
                 ));
             }
         }
+    }
+
+    fn close_both(&self, messages: &mut MessageHandler) {
+        self.close_immediate(messages);
+        self.close_extended(messages);
     }
 
     fn add(&mut self, decl: DeclarativeItem<'a>, messages: &mut MessageHandler) {
@@ -428,7 +449,7 @@ fn check_element_declaration_unique_ident(
 ) {
     let mut region = DeclarativeRegion::new();
     region.add_element_declarations(declarations, messages);
-    region.close(messages);
+    region.close_both(messages);
 }
 
 /// Check that no homographs are defined in the interface list
@@ -438,7 +459,7 @@ fn check_interface_list_unique_ident(
 ) {
     let mut region = DeclarativeRegion::new();
     region.add_interface_list(declarations, messages);
-    region.close(messages);
+    region.close_both(messages);
 }
 
 impl SubprogramDeclaration {
@@ -456,7 +477,7 @@ fn check_declarative_part_unique_ident(
     let mut region = DeclarativeRegion::new();
     region.add_declarative_part(declarations, messages);
     check_declarative_part_unique_ident_inner(declarations, messages);
-    region.close(messages);
+    region.close_both(messages);
 }
 
 /// Check that no homographs are defined in the declarative region
@@ -645,11 +666,12 @@ impl Analyzer {
             for entity in library.entities() {
                 self.check_context_clause(root, &entity.entity.context_clause, messages);
                 let mut region = check_entity_declaration(&entity.entity.unit, messages);
+                region.close_immediate(messages);
                 for architecture in entity.architectures.values() {
                     let mut region = region.in_body();
                     self.check_context_clause(root, &architecture.context_clause, messages);
                     check_architecture_body(&mut region, &architecture.unit, messages);
-                    region.close(messages);
+                    region.close_extended(messages);
                 }
             }
 
@@ -657,12 +679,13 @@ impl Analyzer {
                 self.check_context_clause(root, &package.package.context_clause, messages);
                 let mut region = check_package_declaration(&package.package.unit, messages);
                 if let Some(ref body) = package.body {
+                    region.close_immediate(messages);
                     let mut region = region.in_body();
                     self.check_context_clause(root, &body.context_clause, messages);
                     check_package_body(&mut region, &body.unit, messages);
-                    region.close(messages);
+                    region.close_extended(messages);
                 } else {
-                    region.close(messages);
+                    region.close_both(messages);
                 }
             }
         }
@@ -1083,6 +1106,40 @@ end package;
 
         let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["rec_t"]));
+    }
+
+    #[test]
+    fn error_on_missing_full_type_definition_for_incomplete() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg is
+  type rec_t;
+end package;
+
+package body pkg is
+  -- Must appear in the same immediate declarative region
+  type rec_t is record
+  end record;
+end package body;
+",
+        );
+
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![
+                Message::error(
+                    code.s1("rec_t"),
+                    "Missing full type declaration of incomplete type 'rec_t'",
+                ),
+                Message::hint(
+                    code.s1("rec_t"),
+                    "The full type declaration shall occur immediately within the same declarative part",
+                ),
+            ],
+        );
     }
 
     #[test]
