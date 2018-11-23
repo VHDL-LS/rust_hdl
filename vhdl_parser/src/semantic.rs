@@ -611,187 +611,231 @@ mod tests {
 
     #[test]
     fn allows_unique_names() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        builder.code(
+            "libname",
             "
-constant a : natural := 0;
-constant b : natural := 0;
-constant c : natural := 0;
+package pkg is
+  constant a : natural := 0;
+  constant b : natural := 0;
+  constant c : natural := 0;
+end package;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_no_messages(&messages);
     }
 
     #[test]
     fn allows_deferred_constant() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        builder.code(
+            "libname",
             "
-constant a : natural;
-constant a : natural := 0;
+package pkg is
+  constant a : natural;
+end package;
+
+package body pkg is
+  constant a : natural := 0;
+end package body;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_no_messages(&messages);
     }
 
     #[test]
     fn forbid_deferred_constant_after_constant() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-constant a1 : natural := 0;
-constant a1 : natural;
+package pkg is
+  constant a1 : natural := 0;
+  constant a1 : natural;
+end package;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
     fn forbid_multiple_constant_after_deferred_constant() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-constant a1 : natural;
-constant a1 : natural := 0;
-constant a1 : natural := 0;
+package pkg is
+  constant a1 : natural;
+end package;
+
+package body pkg is
+  constant a1 : natural := 0;
+  constant a1 : natural := 0;
+end package body;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, vec![expected_message(&code, "a1", 2, 3)]);
     }
 
     #[test]
     fn forbid_homographs() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-constant a1 : natural := 0;
-constant a : natural := 0;
-constant a1 : natural := 0;
+package pkg is
+  constant a1 : natural := 0;
+  constant a : natural := 0;
+  constant a1 : natural := 0;
+end package;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
     fn allows_protected_type_and_body_with_same_name() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        builder.code(
+            "libname",
             "
-type prot_t is protected
-end protected;
+package pkg is
+  type prot_t is protected
+  end protected;
 
-type prot_t is protected body
-end protected body;
+  type prot_t is protected body
+  end protected body;
+end package;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_no_messages(&messages);
     }
 
     #[test]
     fn forbid_duplicate_protected_type() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-type prot_t is protected
-end protected;
+package pkg is
+  type prot_t is protected
+  end protected;
 
-type prot_t is protected
-end protected;
+  type prot_t is protected
+  end protected;
+end package;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["prot_t"]));
     }
 
     #[test]
     fn forbid_duplicate_protected_type_body() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-type prot_t is protected
-end protected;
+package pkg is
+  type prot_t is protected
+  end protected;
 
-type prot_t is protected body
-end protected body;
+  type prot_t is protected body
+  end protected body;
 
-type prot_t is protected body
-end protected body;
+  type prot_t is protected body
+  end protected body;
+end package;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, vec![expected_message(&code, "prot_t", 2, 3)]);
     }
 
     #[test]
     fn forbid_incompatible_deferred_items() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-type a1 is protected
-end protected;
-constant a1 : natural := 0;
+package pkg is
+  type a1 is protected
+  end protected;
+  constant a1 : natural := 0;
 
-constant b1 : natural;
-type b1 is protected body
-end protected body;",
+  constant b1 : natural;
+  type b1 is protected body
+  end protected body;
+
+end package;
+",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
     #[test]
     fn allows_incomplete_type_definition() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        builder.code(
+            "libname",
             "
-type rec_t;
-type rec_t is record
-end record;
+package pkg is
+  type rec_t;
+  type rec_t is record
+  end record;
+end package;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_no_messages(&messages);
     }
 
     #[test]
     fn forbid_homographs_in_subprogram_bodies() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-procedure proc(a1, a, a1 : natural) is
-  constant b1 : natural := 0;
-  constant b : natural := 0;
-  constant b1 : natural := 0;
+package pkg is
+end package;
 
-  procedure nested_proc(c1, c, c1 : natural) is
-    constant d1 : natural := 0;
-    constant d : natural := 0;
-    constant d1 : natural := 0;
+package body pkg is
+  procedure proc(a1, a, a1 : natural) is
+    constant b1 : natural := 0;
+    constant b : natural := 0;
+    constant b1 : natural := 0;
+
+    procedure nested_proc(c1, c, c1 : natural) is
+      constant d1 : natural := 0;
+      constant d : natural := 0;
+      constant d1 : natural := 0;
+    begin
+    end;
+
   begin
   end;
-
-begin
-end;
+end package body;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_messages(
             messages,
             expected_messages(&code, &["a1", "b1", "c1", "d1"]),
@@ -800,192 +844,101 @@ end;
 
     #[test]
     fn forbid_homographs_in_component_declarations() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-component comp is
-  generic (
-    a1 : natural;
-    a : natural;
-    a1 : natural
-  );
-  port (
-    b1 : natural;
-    b : natural;
-    b1 : natural
-  );
-end component;
+package pkg is
+  component comp is
+    generic (
+      a1 : natural;
+      a : natural;
+      a1 : natural
+    );
+    port (
+      b1 : natural;
+      b : natural;
+      b1 : natural
+    );
+  end component;
+end package;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
     #[test]
     fn forbid_homographs_in_record_type_declarations() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-type rec_t is record
-  a1 : natural;
-  a : natural;
-  a1 : natural;
-end record;
+package pkg is
+  type rec_t is record
+    a1 : natural;
+    a : natural;
+    a1 : natural;
+  end record;
+end package;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
     fn forbid_homographs_in_proteced_type_declarations() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-type prot_t is protected
-  procedure proc(a1, a, a1 : natural);
-end protected;
+package pkg is
+  type prot_t is protected
+    procedure proc(a1, a, a1 : natural);
+  end protected;
 
-type prot_t is protected body
-  constant b1 : natural := 0;
-  constant b : natural := 0;
-  constant b1 : natural := 0;
-end protected body;
+  type prot_t is protected body
+    constant b1 : natural := 0;
+    constant b : natural := 0;
+    constant b1 : natural := 0;
+  end protected body;
+end package;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
     #[test]
     fn forbid_homographs_in_subprogram_declarations() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-procedure proc(a1, a, a1 : natural);
-function fun(b1, a, b1 : natural) return natural;
+package pkg is
+  procedure proc(a1, a, a1 : natural);
+  function fun(b1, a, b1 : natural) return natural;
+end package;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
     #[test]
     fn forbid_homographs_in_block() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-blk : block
-  constant a1 : natural := 0;
-  constant a : natural := 0;
-  constant a1 : natural := 0;
+entity ent is
 begin
-  process
-    constant b1 : natural := 0;
-    constant b : natural := 0;
-    constant b1 : natural := 0;
-  begin
-  end process;
-end block;
-",
-        );
-
-        let mut messages = Vec::new();
-        check_concurrent_statement(&code.concurrent_statement(), &mut messages);
-        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
-    }
-
-    #[test]
-    fn forbid_homographs_in_process() {
-        let code = Code::new(
-            "
-process
-  constant a1 : natural := 0;
-  constant a : natural := 0;
-  constant a1 : natural := 0;
-begin
-end process;
-",
-        );
-
-        let mut messages = Vec::new();
-        check_concurrent_statement(&code.concurrent_statement(), &mut messages);
-        check_messages(messages, expected_messages(&code, &["a1"]));
-    }
-
-    #[test]
-    fn forbid_homographs_for_generate() {
-        let code = Code::new(
-            "
-gen_for: for i in 0 to 3 generate
-  constant a1 : natural := 0;
-  constant a : natural := 0;
-  constant a1 : natural := 0;
-begin
-  process
-    constant b1 : natural := 0;
-    constant b : natural := 0;
-    constant b1 : natural := 0;
-  begin
-  end process;
-end generate;
-",
-        );
-
-        let mut messages = Vec::new();
-        check_concurrent_statement(&code.concurrent_statement(), &mut messages);
-        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
-    }
-
-    #[test]
-    fn forbid_homographs_if_generate() {
-        let code = Code::new(
-            "
-gen_if: if true generate
-  constant a1 : natural := 0;
-  constant a : natural := 0;
-  constant a1 : natural := 0;
-begin
-
-  prcss : process
-    constant b1 : natural := 0;
-    constant b : natural := 0;
-    constant b1 : natural := 0;
-  begin
-  end process;
-
-else generate
-  constant c1 : natural := 0;
-  constant c: natural := 0;
-  constant c1 : natural := 0;
-begin
-  prcss : process
-    constant d1 : natural := 0;
-    constant d : natural := 0;
-    constant d1 : natural := 0;
-  begin
-  end process;
-end generate;
-",
-        );
-
-        let mut messages = Vec::new();
-        check_concurrent_statement(&code.concurrent_statement(), &mut messages);
-        check_messages(
-            messages,
-            expected_messages(&code, &["a1", "b1", "c1", "d1"]),
-        );
-    }
-
-    #[test]
-    fn forbid_homographs_case_generate() {
-        let code = Code::new(
-            "
-gen_case: case 0 generate
-  when others =>
+  blk : block
     constant a1 : natural := 0;
     constant a : natural := 0;
     constant a1 : natural := 0;
@@ -996,18 +949,143 @@ gen_case: case 0 generate
       constant b1 : natural := 0;
     begin
     end process;
-end generate;
+  end block;
+end entity;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_concurrent_statement(&code.concurrent_statement(), &mut messages);
+        let messages = builder.analyze();
+        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
+    }
+
+    #[test]
+    fn forbid_homographs_in_process() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+entity ent is
+begin
+  process
+    constant a1 : natural := 0;
+    constant a : natural := 0;
+    constant a1 : natural := 0;
+  begin
+  end process;
+end entity;
+",
+        );
+
+        let messages = builder.analyze();
+        check_messages(messages, expected_messages(&code, &["a1"]));
+    }
+
+    #[test]
+    fn forbid_homographs_for_generate() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+entity ent is
+begin
+  gen_for: for i in 0 to 3 generate
+    constant a1 : natural := 0;
+    constant a : natural := 0;
+    constant a1 : natural := 0;
+  begin
+    process
+      constant b1 : natural := 0;
+      constant b : natural := 0;
+      constant b1 : natural := 0;
+    begin
+    end process;
+  end generate;
+end entity;
+",
+        );
+
+        let messages = builder.analyze();
+        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
+    }
+
+    #[test]
+    fn forbid_homographs_if_generate() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+entity ent is
+begin
+  gen_if: if true generate
+    constant a1 : natural := 0;
+    constant a : natural := 0;
+    constant a1 : natural := 0;
+  begin
+
+    prcss : process
+      constant b1 : natural := 0;
+      constant b : natural := 0;
+      constant b1 : natural := 0;
+    begin
+    end process;
+
+  else generate
+    constant c1 : natural := 0;
+    constant c: natural := 0;
+    constant c1 : natural := 0;
+  begin
+    prcss : process
+      constant d1 : natural := 0;
+      constant d : natural := 0;
+      constant d1 : natural := 0;
+    begin
+    end process;
+  end generate;
+end entity;
+",
+        );
+
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            expected_messages(&code, &["a1", "b1", "c1", "d1"]),
+        );
+    }
+
+    #[test]
+    fn forbid_homographs_case_generate() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+entity ent is
+begin
+  gen_case: case 0 generate
+    when others =>
+      constant a1 : natural := 0;
+      constant a : natural := 0;
+      constant a1 : natural := 0;
+    begin
+      process
+        constant b1 : natural := 0;
+        constant b : natural := 0;
+        constant b1 : natural := 0;
+      begin
+      end process;
+  end generate;
+end entity;
+",
+        );
+
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
     #[test]
     fn forbid_homographs_in_entity_declarations() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
 entity ent is
   generic (
@@ -1037,8 +1115,7 @@ end entity;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_entity_declaration(&code.entity(), &mut messages);
+        let messages = builder.analyze();
         check_messages(
             messages,
             expected_messages(&code, &["a1", "b1", "c1", "d1"]),
@@ -1047,8 +1124,13 @@ end entity;
 
     #[test]
     fn forbid_homographs_in_architecture_bodies() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
+entity ent is
+end entity;
+
 architecture arch of ent is
   constant a1 : natural := 0;
   constant a : natural := 0;
@@ -1066,169 +1148,196 @@ end architecture;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_architecture_body(
-            &mut DeclarativeRegion::new(),
-            &code.architecture(),
-            &mut messages,
-        );
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
     #[test]
     fn forbid_homographs_of_type_declarations() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-constant a1 : natural := 0;
-type a1 is (foo, bar);
+package pkg is
+  constant a1 : natural := 0;
+  type a1 is (foo, bar);
+end package;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
     fn forbid_homographs_of_component_declarations() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-constant a1 : natural := 0;
-component a1 is
-  port (clk : bit);
-end component;
+package pkg is
+  constant a1 : natural := 0;
+  component a1 is
+    port (clk : bit);
+  end component;
+end package;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
     fn forbid_homographs_of_file_declarations() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-constant a1 : natural := 0;
-file a1 : text;
+package pkg is
+  constant a1 : natural := 0;
+  file a1 : text;
+end package;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
     fn forbid_homographs_in_package_declarations() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-package a1 is new pkg generic map (foo => bar);
-package a1 is new pkg generic map (foo => bar);
+package pkg is
+  package a1 is new pkg generic map (foo => bar);
+  package a1 is new pkg generic map (foo => bar);
+end package;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
     fn forbid_homographs_in_attribute_declarations() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-attribute a1 : string;
-attribute a1 : string;
+package pkg is
+  attribute a1 : string;
+  attribute a1 : string;
+end package;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
     fn forbid_homographs_in_alias_declarations() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-alias a1 is foo;
-alias a1 is bar;
+package pkg is
+  alias a1 is foo;
+  alias a1 is bar;
 
--- Legal since subprograms are overloaded
-alias b1 is foo[return natural];
-alias b1 is bar[return boolean];
+  -- Legal since subprograms are overloaded
+  alias b1 is foo[return natural];
+  alias b1 is bar[return boolean];
+end package pkg;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
     fn forbid_homographs_for_overloaded_vs_non_overloaded() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-alias a1 is foo;
-alias a1 is bar[return boolean];
+package pkg is
+  alias a1 is foo;
+  alias a1 is bar[return boolean];
 
-function b1 return natural;
-constant b1 : natural := 0;
+  function b1 return natural;
+  constant b1 : natural := 0;
+end package;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1", "b1"]));
     }
 
     #[test]
     fn enum_literals_may_overload() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        builder.code(
+            "libname",
             "
-type enum_t is (a1, b1);
+package pkg is
+  type enum_t is (a1, b1);
 
--- Ok since enumerations may overload
-type enum2_t is (a1, b1);
+  -- Ok since enumerations may overload
+  type enum2_t is (a1, b1);
+end package;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_no_messages(&messages);
     }
 
     #[test]
     fn forbid_homograph_to_enum_literals() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-type enum_t is (a1, b1);
-constant a1 : natural := 0;
-function b1 return natural;
+package pkg is
+  type enum_t is (a1, b1);
+  constant a1 : natural := 0;
+  function b1 return natural;
+end package pkg;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
     fn forbid_homographs_in_interface_file_declarations() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
-procedure proc(file a1, a, a1 : text);
+package pkg is
+  procedure proc(file a1, a, a1 : text);
+end package;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_declarative_part_unique_ident(&code.declarative_part(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
     fn forbid_homographs_in_interface_type_declarations() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
 entity ent is
   generic (
@@ -1239,14 +1348,15 @@ end entity;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_entity_declaration(&code.entity(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
     #[test]
     fn forbid_homographs_in_interface_package_declarations() {
-        let code = Code::new(
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
             "
 entity ent is
   generic (
@@ -1257,8 +1367,7 @@ end entity;
 ",
         );
 
-        let mut messages = Vec::new();
-        check_entity_declaration(&code.entity(), &mut messages);
+        let messages = builder.analyze();
         check_messages(messages, expected_messages(&code, &["a1"]));
     }
 
