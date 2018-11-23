@@ -36,6 +36,17 @@ impl<'a> DeclarativeAst<'a> {
         }
     }
 
+    fn is_non_deferred_constant(&self) -> bool {
+        match self {
+            DeclarativeAst::Declaration(Declaration::Object(ObjectDeclaration {
+                ref class,
+                ref expression,
+                ..
+            })) => *class == ObjectClass::Constant && expression.is_some(),
+            _ => false,
+        }
+    }
+
     fn is_protected_type(&self) -> bool {
         match self {
             DeclarativeAst::Declaration(Declaration::Type(TypeDeclaration {
@@ -56,13 +67,19 @@ impl<'a> DeclarativeAst<'a> {
         }
     }
 
-    fn is_non_deferred_constant(&self) -> bool {
+    fn is_incomplete_type(&self) -> bool {
         match self {
-            DeclarativeAst::Declaration(Declaration::Object(ObjectDeclaration {
-                ref class,
-                ref expression,
+            DeclarativeAst::Declaration(Declaration::Type(TypeDeclaration {
+                def: TypeDefinition::Incomplete,
                 ..
-            })) => *class == ObjectClass::Constant && expression.is_some(),
+            })) => true,
+            _ => false,
+        }
+    }
+
+    fn is_type_declaration(&self) -> bool {
+        match self {
+            DeclarativeAst::Declaration(Declaration::Type(..)) => true,
             _ => false,
         }
     }
@@ -99,6 +116,11 @@ impl<'a> DeclarativeItem<'a> {
         if self.ast.is_deferred_constant() && other.ast.is_non_deferred_constant() {
             true
         } else if self.ast.is_protected_type() && other.ast.is_protected_type_body() {
+            true
+        } else if self.ast.is_incomplete_type()
+            && other.ast.is_type_declaration()
+            && !other.ast.is_incomplete_type()
+        {
             true
         } else {
             false
@@ -330,10 +352,6 @@ impl Declaration {
                 DeclarativeAst::Declaration(self),
             )],
             Declaration::Configuration(..) => vec![],
-            Declaration::Type(TypeDeclaration {
-                def: TypeDefinition::Incomplete,
-                ..
-            }) => vec![],
             Declaration::Type(TypeDeclaration {
                 ref ident,
                 def: TypeDefinition::Enumeration(ref enumeration),
@@ -1046,6 +1064,25 @@ end package;
 
         let messages = builder.analyze();
         check_no_messages(&messages);
+    }
+
+    #[test]
+    fn error_on_duplicate_incomplete_type_definition() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg is
+  type rec_t;
+  type rec_t;
+  type rec_t is record
+  end record;
+end package;
+",
+        );
+
+        let messages = builder.analyze();
+        check_messages(messages, expected_messages(&code, &["rec_t"]));
     }
 
     #[test]
