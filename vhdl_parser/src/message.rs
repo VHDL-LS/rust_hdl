@@ -61,8 +61,13 @@ impl Message {
 
     pub fn related(self, item: impl AsRef<SrcPos>, message: impl Into<String>) -> Message {
         let mut msg = self;
-        msg.related.push((item.as_ref().to_owned(), message.into()));
+        msg.add_related(item, message);
         msg
+    }
+
+    pub fn add_related(&mut self, item: impl AsRef<SrcPos>, message: impl Into<String>) {
+        self.related
+            .push((item.as_ref().to_owned(), message.into()));
     }
 
     pub fn drain_related(&mut self) -> Vec<Message> {

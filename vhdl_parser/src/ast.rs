@@ -1037,16 +1037,16 @@ pub struct PackageBody {
 #[derive(PartialEq, Debug, Clone)]
 pub enum PrimaryUnit {
     /// LRM 3.2 Entity declaration
-    EntityDeclaration(EntityDeclaration),
+    EntityDeclaration(DesignUnit<EntityDeclaration>),
 
     /// LRM 3.4 Configuration declarations
-    Configuration(ConfigurationDeclaration),
+    Configuration(DesignUnit<ConfigurationDeclaration>),
 
     /// LRM 4.7 Package declarations
-    PackageDeclaration(PackageDeclaration),
+    PackageDeclaration(DesignUnit<PackageDeclaration>),
 
     /// LRM 4.9 Package instatiation declaration
-    PackageInstance(PackageInstantiation),
+    PackageInstance(DesignUnit<PackageInstantiation>),
 
     /// LRM 13.4 Context clauses
     ContextDeclaration(ContextDeclaration),
@@ -1056,10 +1056,10 @@ pub enum PrimaryUnit {
 #[derive(PartialEq, Debug, Clone)]
 pub enum SecondaryUnit {
     /// LRM 3.3 Architecture bodies
-    Architecture(ArchitectureBody),
+    Architecture(DesignUnit<ArchitectureBody>),
 
     /// LRM 4.8 Package bodies
-    PackageBody(PackageBody),
+    PackageBody(DesignUnit<PackageBody>),
 }
 
 /// LRM 13.1 Design units
@@ -1072,8 +1072,8 @@ pub struct DesignUnit<T> {
 /// LRM 13.1 Design units
 #[derive(PartialEq, Debug, Clone)]
 pub enum AnyDesignUnit {
-    Primary(DesignUnit<PrimaryUnit>),
-    Secondary(DesignUnit<SecondaryUnit>),
+    Primary(PrimaryUnit),
+    Secondary(SecondaryUnit),
 }
 
 #[derive(PartialEq, Debug, Clone)]

@@ -77,10 +77,10 @@ impl HasIdent for ConfigurationDeclaration {
 impl HasIdent for PrimaryUnit {
     fn ident(&self) -> &Ident {
         match self {
-            PrimaryUnit::EntityDeclaration(ref unit) => &unit.ident,
-            PrimaryUnit::Configuration(ref unit) => &unit.ident,
-            PrimaryUnit::PackageDeclaration(ref unit) => &unit.ident,
-            PrimaryUnit::PackageInstance(ref unit) => &unit.ident,
+            PrimaryUnit::EntityDeclaration(ref unit) => &unit.unit.ident,
+            PrimaryUnit::Configuration(ref unit) => &unit.unit.ident,
+            PrimaryUnit::PackageDeclaration(ref unit) => &unit.unit.ident,
+            PrimaryUnit::PackageInstance(ref unit) => &unit.unit.ident,
             PrimaryUnit::ContextDeclaration(ref unit) => &unit.ident,
         }
     }
@@ -212,29 +212,23 @@ impl Library {
                                     )).related(entry.get(), "Previously defined here");
                                 messages.push(msg);
                             }
-                            Entry::Vacant(entry) => match primary.unit {
+                            Entry::Vacant(entry) => match primary {
                                 PrimaryUnit::EntityDeclaration(entity) => {
-                                    entry.insert(entity.ident.pos.clone());
+                                    entry.insert(entity.unit.ident.pos.clone());
                                     entities.insert(
-                                        entity.ident.item.clone(),
+                                        entity.name().clone(),
                                         EntityDesignUnit {
-                                            entity: DesignUnit {
-                                                context_clause: primary.context_clause,
-                                                unit: entity,
-                                            },
+                                            entity,
                                             architectures: FnvHashMap::default(),
                                         },
                                     );
                                 }
                                 PrimaryUnit::PackageDeclaration(package) => {
-                                    entry.insert(package.ident.pos.clone());
+                                    entry.insert(package.ident().pos.clone());
                                     packages.insert(
-                                        package.ident.item.clone(),
+                                        package.name().clone(),
                                         PackageDesignUnit {
-                                            package: DesignUnit {
-                                                context_clause: primary.context_clause,
-                                                unit: package,
-                                            },
+                                            package,
                                             body: None,
                                         },
                                     );
@@ -245,17 +239,11 @@ impl Library {
                             },
                         }
                     }
-                    AnyDesignUnit::Secondary(secondary) => match secondary.unit {
+                    AnyDesignUnit::Secondary(secondary) => match secondary {
                         SecondaryUnit::Architecture(architecture) => {
-                            architectures.push(DesignUnit {
-                                context_clause: secondary.context_clause,
-                                unit: architecture,
-                            })
+                            architectures.push(architecture)
                         }
-                        SecondaryUnit::PackageBody(body) => package_bodies.push(DesignUnit {
-                            context_clause: secondary.context_clause,
-                            unit: body,
-                        }),
+                        SecondaryUnit::PackageBody(body) => package_bodies.push(body),
                     },
                 }
             }

@@ -147,24 +147,21 @@ pub fn parse_package_body(
     return Ok(PackageBody { ident, decl });
 }
 
-fn to_primary_design_unit(
-    context_clause: &mut Vec<WithPos<ContextItem>>,
-    unit: PrimaryUnit,
-) -> AnyDesignUnit {
-    AnyDesignUnit::Primary(DesignUnit {
+fn to_design_unit<T>(context_clause: &mut Vec<WithPos<ContextItem>>, unit: T) -> DesignUnit<T> {
+    DesignUnit {
         context_clause: std::mem::replace(context_clause, Vec::new()),
         unit,
-    })
+    }
 }
 
-fn to_secondary_design_unit(
-    context_clause: &mut Vec<WithPos<ContextItem>>,
-    unit: SecondaryUnit,
-) -> AnyDesignUnit {
-    AnyDesignUnit::Secondary(DesignUnit {
-        context_clause: std::mem::replace(context_clause, Vec::new()),
-        unit,
-    })
+fn context_item_message(context_item: &ContextItem, message: impl AsRef<str>) -> String {
+    let prefix = match context_item {
+        ContextItem::Library(..) => "Library clause",
+        ContextItem::Use(..) => "Use clause",
+        ContextItem::Context(..) => "Context reference",
+    };
+
+    format!("{} {}", prefix, message.as_ref())
 }
 
 pub fn parse_design_file(
@@ -195,7 +192,18 @@ pub fn parse_design_file(
             },
             Context => match parse_context(stream, messages) {
                 Ok(DeclarationOrReference::Declaration(context_decl)) => {
-                    design_units.push(to_primary_design_unit(&mut context_clause, PrimaryUnit::ContextDeclaration(context_decl)));
+                    if context_clause.len() > 0 {
+                        let mut message = Message::error(&context_decl.ident, "Context declaration may not be preceeded by a context clause");
+
+                        for context_item in context_clause.iter() {
+                            message.add_related(&context_item, context_item_message(&context_item.item, "may not come before context declaration"));
+                        }
+
+                        messages.push(message);
+                        context_clause.clear();
+                    }
+
+                    design_units.push(AnyDesignUnit::Primary(PrimaryUnit::ContextDeclaration(context_decl)));
                 }
                 Ok(DeclarationOrReference::Reference(context_ref)) => {
                     context_clause.push(context_ref.map_into(ContextItem::Context));
@@ -204,21 +212,21 @@ pub fn parse_design_file(
             },
             Entity => match parse_entity_declaration(stream, messages) {
                 Ok(entity) => {
-                    design_units.push(to_primary_design_unit(&mut context_clause, PrimaryUnit::EntityDeclaration(entity)));
+                    design_units.push(AnyDesignUnit::Primary(PrimaryUnit::EntityDeclaration(to_design_unit(&mut context_clause, entity))));
                 }
                 Err(msg) => messages.push(msg),
             },
 
             Architecture => match parse_architecture_body(stream, messages) {
                 Ok(architecture) => {
-                    design_units.push(to_secondary_design_unit(&mut context_clause, SecondaryUnit::Architecture(architecture)));
+                    design_units.push(AnyDesignUnit::Secondary(SecondaryUnit::Architecture(to_design_unit(&mut context_clause, architecture))));
                 }
                 Err(msg) => messages.push(msg),
             },
 
             Configuration => match parse_configuration_declaration(stream, messages) {
                 Ok(configuration) => {
-                    design_units.push(to_primary_design_unit(&mut context_clause, PrimaryUnit::Configuration(configuration)));
+                    design_units.push(AnyDesignUnit::Primary(PrimaryUnit::Configuration(to_design_unit(&mut context_clause, configuration))));
                 }
                 Err(msg) => messages.push(msg),
             },
@@ -226,19 +234,19 @@ pub fn parse_design_file(
                 if stream.is_peek_kinds(&[Package, Body])? {
                     match parse_package_body(stream, messages) {
                         Ok(package_body) => {
-                            design_units.push(to_secondary_design_unit(&mut context_clause, SecondaryUnit::PackageBody(package_body)));
+                            design_units.push(AnyDesignUnit::Secondary(SecondaryUnit::PackageBody(to_design_unit(&mut context_clause, package_body))));
                         }
                         Err(msg) => messages.push(msg),
                     };
                 } else if stream.is_peek_kinds(&[Package, Identifier, Is, New])? {
                     match parse_package_instantiation(stream) {
-                        Ok(inst) => design_units.push(to_primary_design_unit(&mut context_clause, PrimaryUnit::PackageInstance(inst))),
+                        Ok(inst) => design_units.push(AnyDesignUnit::Primary(PrimaryUnit::PackageInstance(to_design_unit(&mut context_clause, inst)))),
                         Err(msg) => messages.push(msg),
                     }
                 } else {
                     match parse_package_declaration(stream, messages) {
                         Ok(package) => {
-                            design_units.push(to_primary_design_unit(&mut context_clause, PrimaryUnit::PackageDeclaration(package)))
+                            design_units.push(AnyDesignUnit::Primary(PrimaryUnit::PackageDeclaration(to_design_unit(&mut context_clause, package))))
                         }
                         Err(msg) => messages.push(msg),
                     };
@@ -248,12 +256,10 @@ pub fn parse_design_file(
     }
 
     for context_item in context_clause {
-        let message = match context_item.item {
-            ContextItem::Library(..) => "Library clause not associated with any design unit",
-            ContextItem::Use(..) => "Use clause not associated with any design unit",
-            ContextItem::Context(..) => "Context clause not associated with any design unit",
-        };
-        messages.push(Message::warning(context_item, message));
+        messages.push(Message::warning(
+            &context_item,
+            context_item_message(&context_item.item, "not associated with any design unit"),
+        ));
     }
 
     Ok(DesignFile { design_units })
@@ -265,7 +271,7 @@ mod tests {
 
     use ast::*;
     use message::Message;
-    use test_util::{check_no_messages, Code};
+    use test_util::{check_messages, check_no_messages, Code};
 
     fn parse_str(code: &str) -> (Code, DesignFile, Vec<Message>) {
         let code = Code::new(code);
@@ -282,10 +288,10 @@ mod tests {
 
     fn to_single_entity(design_file: DesignFile) -> EntityDeclaration {
         match design_file.design_units.as_slice() {
-            &[AnyDesignUnit::Primary(DesignUnit {
-                unit: PrimaryUnit::EntityDeclaration(ref entity),
+            &[AnyDesignUnit::Primary(PrimaryUnit::EntityDeclaration(DesignUnit {
+                unit: ref entity,
                 ..
-            })] => entity.to_owned(),
+            }))] => entity.to_owned(),
             _ => panic!("Expected single entity {:?}", design_file),
         }
     }
@@ -298,16 +304,16 @@ mod tests {
 
     /// An simple entity with only a name
     fn simple_entity(ident: Ident) -> AnyDesignUnit {
-        AnyDesignUnit::Primary(DesignUnit {
+        AnyDesignUnit::Primary(PrimaryUnit::EntityDeclaration(DesignUnit {
             context_clause: vec![],
-            unit: PrimaryUnit::EntityDeclaration(EntityDeclaration {
+            unit: EntityDeclaration {
                 ident: ident,
                 generic_clause: None,
                 port_clause: None,
                 decl: vec![],
                 statements: vec![],
-            }),
-        })
+            },
+        }))
     }
 
     #[test]
@@ -497,15 +503,15 @@ end;
 
     // An simple entity with only a name
     fn simple_architecture(ident: Ident, entity_name: Ident) -> AnyDesignUnit {
-        AnyDesignUnit::Secondary(DesignUnit {
+        AnyDesignUnit::Secondary(SecondaryUnit::Architecture(DesignUnit {
             context_clause: vec![],
-            unit: SecondaryUnit::Architecture(ArchitectureBody {
+            unit: ArchitectureBody {
                 ident,
                 entity_name,
                 decl: Vec::new(),
                 statements: vec![],
-            }),
-        })
+            },
+        }))
     }
 
     #[test]
@@ -643,23 +649,25 @@ end entity;
         assert_eq!(
             design_file,
             DesignFile {
-                design_units: vec![AnyDesignUnit::Primary(DesignUnit {
-                    context_clause: vec![
-                        code.s1("library lib;")
-                            .library_clause()
-                            .map_into(ContextItem::Library),
-                        code.s1("use lib.foo;")
-                            .use_clause()
-                            .map_into(ContextItem::Use),
-                    ],
-                    unit: PrimaryUnit::EntityDeclaration(EntityDeclaration {
-                        ident: code.s1("myent").ident(),
-                        generic_clause: None,
-                        port_clause: None,
-                        decl: vec![],
-                        statements: vec![],
-                    })
-                })]
+                design_units: vec![AnyDesignUnit::Primary(PrimaryUnit::EntityDeclaration(
+                    DesignUnit {
+                        context_clause: vec![
+                            code.s1("library lib;")
+                                .library_clause()
+                                .map_into(ContextItem::Library),
+                            code.s1("use lib.foo;")
+                                .use_clause()
+                                .map_into(ContextItem::Use),
+                        ],
+                        unit: EntityDeclaration {
+                            ident: code.s1("myent").ident(),
+                            generic_clause: None,
+                            port_clause: None,
+                            decl: vec![],
+                            statements: vec![],
+                        }
+                    }
+                ))]
             }
         );
     }
@@ -674,22 +682,22 @@ context lib.ctx;
     ",
         );
         let (design_file, messages) = code.with_stream_messages(parse_design_file);
-        assert_eq!(
+        check_messages(
             messages,
             vec![
                 Message::warning(
                     code.s1("library lib;"),
-                    "Library clause not associated with any design unit"
+                    "Library clause not associated with any design unit",
                 ),
                 Message::warning(
                     code.s1("use lib.foo;"),
-                    "Use clause not associated with any design unit"
+                    "Use clause not associated with any design unit",
                 ),
                 Message::warning(
                     code.s1("context lib.ctx;"),
-                    "Context clause not associated with any design unit"
+                    "Context reference not associated with any design unit",
                 ),
-            ]
+            ],
         );
         assert_eq!(
             design_file,
@@ -698,4 +706,48 @@ context lib.ctx;
             }
         );
     }
+
+    #[test]
+    fn error_on_context_clause_before_context_declaration() {
+        let code = Code::new(
+            "
+library lib;
+use lib.pkg;
+context lib.c;
+
+context ctx is
+end context;
+
+entity ent is
+end entity;
+    ",
+        );
+        let (design_file, messages) = code.with_stream_messages(parse_design_file);
+        check_messages(
+            messages,
+            vec![
+                Message::error(
+                    code.s1("ctx"),
+                    "Context declaration may not be preceeded by a context clause",
+                ).related(
+                    code.s1("library lib;"),
+                    "Library clause may not come before context declaration",
+                ).related(
+                    code.s1("use lib.pkg;"),
+                    "Use clause may not come before context declaration",
+                ).related(
+                    code.s1("context lib.c;"),
+                    "Context reference may not come before context declaration",
+                ),
+            ],
+        );
+
+        match design_file.design_units.get(1).unwrap() {
+            AnyDesignUnit::Primary(PrimaryUnit::EntityDeclaration(entity)) => {
+                assert_eq!(entity.context_clause.len(), 0);
+            }
+            _ => panic!("Expected entity"),
+        }
+    }
+
 }
