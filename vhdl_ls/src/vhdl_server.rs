@@ -686,7 +686,7 @@ lib.files = [
                 code: None,
                 severity: Some(DiagnosticSeverity::Error),
                 source: Some("vhdl ls".to_owned()),
-                message: "No entity \'ent2\' within the library \'lib\'".to_owned(),
+                message: "No entity \'ent2\' within library \'lib\'".to_owned(),
                 related_information: None,
             }],
         };

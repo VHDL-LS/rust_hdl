@@ -119,7 +119,7 @@ impl EntityDesignUnit {
                         messages.push(Message::error(
                             secondary_pos,
                             format!(
-                                "architecture '{}' declared before entity '{}'",
+                                "Architecture '{}' declared before entity '{}'",
                                 &architecture.name(),
                                 self.entity.name()
                             ),
@@ -128,6 +128,45 @@ impl EntityDesignUnit {
                 };
 
                 entry.insert(architecture);
+            }
+        }
+    }
+
+    fn add_configuration(
+        &mut self,
+        configuration: DesignUnit<ConfigurationDeclaration>,
+        messages: &mut MessageHandler,
+    ) {
+        match self.configurations.entry(configuration.name().clone()) {
+            Entry::Occupied(..) => {
+                messages.push(Message::error(
+                    &configuration.ident(),
+                    format!(
+                        "Duplicate configuration '{}' of entity '{}'",
+                        &configuration.name(),
+                        self.entity.name(),
+                    ),
+                ));
+            }
+            Entry::Vacant(entry) => {
+                {
+                    let primary_pos = &self.entity.pos();
+                    let secondary_pos = &configuration.pos();
+                    if primary_pos.source == secondary_pos.source
+                        && primary_pos.start > secondary_pos.start
+                    {
+                        messages.push(Message::error(
+                            secondary_pos,
+                            format!(
+                                "Configuration '{}' declared before entity '{}'",
+                                &configuration.name(),
+                                self.entity.name()
+                            ),
+                        ));
+                    }
+                };
+
+                entry.insert(configuration);
             }
         }
     }
@@ -168,6 +207,7 @@ impl PackageDesignUnit {
 pub struct EntityDesignUnit {
     pub entity: DesignUnit<EntityDeclaration>,
     pub architectures: FnvHashMap<Symbol, DesignUnit<ArchitectureBody>>,
+    pub configurations: FnvHashMap<Symbol, DesignUnit<ConfigurationDeclaration>>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -187,6 +227,7 @@ pub struct Library {
 impl Library {
     pub fn new(
         name: Symbol,
+        work_sym: &Symbol,
         design_files: Vec<DesignFile>,
         messages: &mut MessageHandler,
     ) -> Library {
@@ -196,6 +237,7 @@ impl Library {
         let mut contexts = FnvHashMap::default();
         let mut architectures = Vec::new();
         let mut package_bodies = Vec::new();
+        let mut configurations = Vec::new();
 
         for design_file in design_files {
             for design_unit in design_file.design_units {
@@ -222,6 +264,7 @@ impl Library {
                                         EntityDesignUnit {
                                             entity,
                                             architectures: FnvHashMap::default(),
+                                            configurations: FnvHashMap::default(),
                                         },
                                     );
                                 }
@@ -239,8 +282,12 @@ impl Library {
                                     entry.insert(context.ident().pos.clone());
                                     contexts.insert(context.name().clone(), context);
                                 }
+
+                                PrimaryUnit::Configuration(config) => {
+                                    configurations.push(config);
+                                }
                                 _ => {
-                                    // @TODO configuration, package instance
+                                    // @TODO package instance
                                 }
                             },
                         }
@@ -262,7 +309,7 @@ impl Library {
                 messages.push(Message::error(
                     &architecture.unit.entity_name.pos,
                     format!(
-                        "No entity '{}' within the library '{}'",
+                        "No entity '{}' within library '{}'",
                         architecture.unit.entity_name.item, name
                     ),
                 ));
@@ -275,13 +322,55 @@ impl Library {
             } else {
                 messages.push(Message::error(
                     &body.ident(),
-                    format!(
-                        "No package '{}' within the library '{}'",
-                        &body.name(),
-                        name
-                    ),
+                    format!("No package '{}' within library '{}'", &body.name(), name),
                 ));
             }
+        }
+
+        for config in configurations {
+            let entity = {
+                let entname = match config.unit.entity_name.as_slice() {
+                    &[ref libname, ref entname] => {
+                        if !(libname.item == name || &libname.item == work_sym) {
+                            // @TODO use real scope and visibilty rules to resolve entity name
+                            // @TODO does not detect missing library clause for libname
+                            // @TODO does not detect if libname is shadowed by other use clause
+                            messages.push(Message::error(
+                                libname,
+                                format!("Configuration must be within the same library '{}' as the corresponding entity", name),
+                            ));
+                            continue;
+                        } else {
+                            entname
+                        }
+                    }
+                    &[ref entname] => entname,
+                    selected_name => {
+                        // @TODO move to common impl
+                        if let Some(first) = selected_name.get(0) {
+                            let last = &selected_name[selected_name.len() - 1];
+                            let pos = first.pos.combine(&last.pos);
+
+                            messages.push(Message::error(&pos, format!("Invalid selected name for entity"))
+                                          .related(pos, "Entity name must be of the form library.entity_name or entity_name"));
+                        } else {
+                            unreachable!("{:?}", config.unit.entity_name);
+                        }
+                        continue;
+                    }
+                };
+                if let Some(entity) = entities.get_mut(&entname.item) {
+                    entity
+                } else {
+                    messages.push(Message::error(
+                        entname,
+                        format!("No entity '{}' within library '{}'", entname.item, name),
+                    ));
+                    continue;
+                }
+            };
+
+            entity.add_configuration(config, messages);
         }
 
         Library {
@@ -352,7 +441,12 @@ mod tests {
 
     fn new_library_with_messages(code: &Code, name: &str) -> (Library, Vec<Message>) {
         let mut messages = Vec::new();
-        let library = Library::new(code.symbol(name), vec![code.design_file()], &mut messages);
+        let library = Library::new(
+            code.symbol(name),
+            &code.symbol("work"),
+            vec![code.design_file()],
+            &mut messages,
+        );
         (library, messages)
     }
 
@@ -379,7 +473,8 @@ end entity;
                     context_clause: vec![],
                     unit: code.entity()
                 },
-                architectures: FnvHashMap::default()
+                architectures: FnvHashMap::default(),
+                configurations: FnvHashMap::default()
             })
         );
     }
@@ -399,7 +494,7 @@ end package body;
             messages,
             vec![Message::error(
                 code.s1("pkg"),
-                "No package 'pkg' within the library 'libname'",
+                "No package 'pkg' within library 'libname'",
             )],
         );
     }
@@ -420,7 +515,7 @@ end architecture;
             messages,
             vec![Message::error(
                 code.s1("ent"),
-                "No entity 'ent' within the library 'libname'",
+                "No entity 'ent' within library 'libname'",
             )],
         );
     }
@@ -444,7 +539,7 @@ end architecture;
             messages,
             vec![Message::error(
                 code.s("pkg", 2),
-                "No entity 'pkg' within the library 'libname'",
+                "No entity 'pkg' within library 'libname'",
             )],
         );
     }
@@ -474,7 +569,7 @@ end package body;
             messages,
             vec![Message::error(
                 code.s("entname", 2),
-                "No package 'entname' within the library 'libname'",
+                "No package 'entname' within library 'libname'",
             )],
         );
     }
@@ -520,6 +615,11 @@ end entity;
 
 package entname is
 end package;
+
+configuration pkg of entname is
+  for rtl
+  end for;
+end configuration;
 ",
         );
         let (library, messages) = new_library_with_messages(&code, "libname");
@@ -537,6 +637,10 @@ end package;
                     code.s("entname", 2),
                     "A primary unit has already been declared with name 'entname' in library 'libname'"
                 ).related(code.s("entname", 1), "Previously defined here"),
+                Message::error(
+                    code.s("pkg", 3),
+                    "A primary unit has already been declared with name 'pkg' in library 'libname'"
+                ).related(code.s("pkg", 1), "Previously defined here"),
             ]
         );
     }
@@ -573,7 +677,7 @@ end entity;
                 ),
                 Message::error(
                     code.s("rtl", 1),
-                    "architecture 'rtl' declared before entity 'entname'",
+                    "Architecture 'rtl' declared before entity 'entname'",
                 ),
             ],
         );
@@ -599,6 +703,7 @@ end package;
         let mut messages = Vec::new();
         let library = Library::new(
             builder.symbol("libname"),
+            &builder.symbol("work"),
             vec![file1.design_file(), file2.design_file()],
             &mut messages,
         );
@@ -699,7 +804,8 @@ end architecture;
                     context_clause: vec![],
                     unit: entity
                 },
-                architectures
+                architectures,
+                configurations: FnvHashMap::default()
             })
         );
     }
@@ -749,6 +855,215 @@ end context;
         let context = code.context();
 
         assert_eq!(library.context(&code.symbol("ctx")), Some(&context));
+    }
+
+    #[test]
+    fn add_configuration() {
+        let code = Code::new(
+            "
+entity ent is
+end entity;
+
+architecture rtl of ent is
+begin
+end architecture;
+
+configuration cfg1 of ent is
+  for rtl
+  end for;
+end configuration;
+
+configuration cfg2 of work.ent is
+  for rtl
+  end for;
+end configuration;
+
+configuration cfg3 of libname.ent is
+  for rtl
+  end for;
+end configuration;
+",
+        );
+        let library = new_library(&code, "libname");
+        let entity = library.entity(&code.symbol("ent")).unwrap();
+        let cfg1 = code
+            .between("configuration cfg1", "end configuration;")
+            .configuration();
+        let cfg2 = code
+            .between("configuration cfg2", "end configuration;")
+            .configuration();
+        let cfg3 = code
+            .between("configuration cfg3", "end configuration;")
+            .configuration();
+        let mut configurations = FnvHashMap::default();
+        configurations.insert(
+            code.symbol("cfg1"),
+            DesignUnit {
+                context_clause: vec![],
+                unit: cfg1,
+            },
+        );
+        configurations.insert(
+            code.symbol("cfg2"),
+            DesignUnit {
+                context_clause: vec![],
+                unit: cfg2,
+            },
+        );
+        configurations.insert(
+            code.symbol("cfg3"),
+            DesignUnit {
+                context_clause: vec![],
+                unit: cfg3,
+            },
+        );
+
+        assert_eq!(entity.configurations, configurations);
+    }
+
+    #[test]
+    fn error_on_duplicate_configuration() {
+        let code = Code::new(
+            "
+entity ent is
+end entity;
+
+configuration cfg of ent is
+  for rtl
+  end for;
+end configuration;
+
+configuration cfg of work.ent is
+  for rtl
+  end for;
+end configuration;
+",
+        );
+        let (library, messages) = new_library_with_messages(&code, "libname");
+
+        let entity = library.entity(&code.symbol("ent")).unwrap();
+        let cfg = code
+            .between("configuration cfg", "end configuration;")
+            .configuration();
+        let mut configurations = FnvHashMap::default();
+        configurations.insert(
+            code.symbol("cfg"),
+            DesignUnit {
+                context_clause: vec![],
+                unit: cfg,
+            },
+        );
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s("cfg", 2),
+                "Duplicate configuration 'cfg' of entity 'ent'",
+            )],
+        );
+        assert_eq!(entity.configurations, configurations);
+    }
+
+    #[test]
+    fn error_on_configuration_before_entity_in_same_file() {
+        let code = Code::new(
+            "
+configuration cfg of ent is
+  for rtl
+  end for;
+end configuration;
+
+entity ent is
+end entity;
+",
+        );
+        let (library, messages) = new_library_with_messages(&code, "libname");
+
+        let entity = library.entity(&code.symbol("ent")).unwrap();
+        let cfg = code
+            .between("configuration cfg", "end configuration;")
+            .configuration();
+        let mut configurations = FnvHashMap::default();
+        configurations.insert(
+            code.symbol("cfg"),
+            DesignUnit {
+                context_clause: vec![],
+                unit: cfg,
+            },
+        );
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s("cfg", 1),
+                "Configuration 'cfg' declared before entity 'ent'",
+            )],
+        );
+        assert_eq!(entity.configurations, configurations);
+    }
+
+    #[test]
+    fn error_on_configuration_of_missing_entity() {
+        let code = Code::new(
+            "
+configuration cfg of ent is
+  for rtl
+  end for;
+end configuration;
+",
+        );
+        let (_, messages) = new_library_with_messages(&code, "libname");
+
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s("ent", 1),
+                "No entity 'ent' within library 'libname'",
+            )],
+        );
+    }
+
+    #[test]
+    fn error_on_configuration_of_entity_outside_of_library() {
+        let code = Code::new(
+            "
+configuration cfg of lib2.ent is
+  for rtl
+  end for;
+end configuration;
+",
+        );
+        let (_, messages) = new_library_with_messages(&code, "libname");
+
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s("lib2", 1),
+                "Configuration must be within the same library 'libname' as the corresponding entity",
+            )],
+        );
+    }
+
+    #[test]
+    fn error_on_configuration_of_with_bad_selected_name() {
+        let code = Code::new(
+            "
+configuration cfg of lib2.pkg.ent is
+  for rtl
+  end for;
+end configuration;
+",
+        );
+        let (_, messages) = new_library_with_messages(&code, "libname");
+
+        check_messages(
+            messages,
+            vec![
+                Message::error(code.s1("lib2.pkg.ent"), "Invalid selected name for entity")
+                    .related(
+                        code.s1("lib2.pkg.ent"),
+                        "Entity name must be of the form library.entity_name or entity_name",
+                    ),
+            ],
+        );
     }
 
 }

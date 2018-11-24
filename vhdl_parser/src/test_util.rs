@@ -6,6 +6,7 @@
 
 use ast::*;
 use concurrent_statement::parse_labeled_concurrent_statement;
+use configuration::parse_configuration_declaration;
 use context::{parse_context, DeclarationOrReference};
 use context::{parse_library_clause, parse_use_clause};
 use declarative_part::parse_declarative_part_leave_end_token;
@@ -375,6 +376,10 @@ impl Code {
 
     pub fn architecture(&self) -> ArchitectureBody {
         self.parse_ok_no_messages(parse_architecture_body)
+    }
+
+    pub fn configuration(&self) -> ConfigurationDeclaration {
+        self.parse_ok_no_messages(parse_configuration_declaration)
     }
 
     pub fn context(&self) -> ContextDeclaration {

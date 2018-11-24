@@ -1969,7 +1969,12 @@ end entity;
 
             for (library_name, codes) in self.libraries.iter() {
                 let design_files = codes.iter().map(|code| code.design_file()).collect();
-                let library = Library::new(library_name.clone(), design_files, &mut messages);
+                let library = Library::new(
+                    library_name.clone(),
+                    &self.code_builder.symbol("work"),
+                    design_files,
+                    &mut messages,
+                );
                 root.add_library(library);
             }
 
