@@ -4,8 +4,6 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-// @TODO test configuration of missing entity
-// @TODO test configuration of entity outside of library
 // @TODO add related information to message
 // @TODO Capitalize fist letter in errors
 
