@@ -163,9 +163,12 @@ impl<'a> DeclarativeRegion<'a> {
         region
     }
 
-    fn close_immediate(&self, messages: &mut MessageHandler) {
+    fn close_immediate(&mut self, messages: &mut MessageHandler) {
+        let mut to_remove = Vec::new();
+
         for decl in self.decls.values() {
             if decl.ast.is_incomplete_type() {
+                to_remove.push(decl.designator.item.clone());
                 messages.push(Message::error(
                     &decl.designator,
                     "Missing full type declaration of incomplete type 'rec_t'",
@@ -177,15 +180,23 @@ impl<'a> DeclarativeRegion<'a> {
                     ));
             }
         }
+
+        for designator in to_remove {
+            self.decls.remove(&designator);
+        }
     }
 
-    fn close_extended(&self, messages: &mut MessageHandler) {
+    fn close_extended(&mut self, messages: &mut MessageHandler) {
+        let mut to_remove = Vec::new();
+
         for decl in self.decls.values() {
             if decl.ast.is_deferred_constant() {
+                to_remove.push(decl.designator.item.clone());
                 messages.push(
                     Message::error(&decl.designator,
                                    format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", &decl.designator.item)));
             } else if decl.ast.is_protected_type() {
+                to_remove.push(decl.designator.item.clone());
                 messages.push(Message::error(
                     &decl.designator,
                     format!(
@@ -195,9 +206,13 @@ impl<'a> DeclarativeRegion<'a> {
                 ));
             }
         }
+
+        for designator in to_remove {
+            self.decls.remove(&designator);
+        }
     }
 
-    fn close_both(&self, messages: &mut MessageHandler) {
+    fn close_both(&mut self, messages: &mut MessageHandler) {
         self.close_immediate(messages);
         self.close_extended(messages);
     }
@@ -671,7 +686,7 @@ impl Analyzer {
                     let mut region = region.in_body();
                     self.check_context_clause(root, &architecture.context_clause, messages);
                     check_architecture_body(&mut region, &architecture.unit, messages);
-                    region.close_extended(messages);
+                    region.close_both(messages);
                 }
             }
 
@@ -683,7 +698,7 @@ impl Analyzer {
                     let mut region = region.in_body();
                     self.check_context_clause(root, &body.context_clause, messages);
                     check_package_body(&mut region, &body.unit, messages);
-                    region.close_extended(messages);
+                    region.close_both(messages);
                 } else {
                     region.close_both(messages);
                 }
@@ -1111,7 +1126,7 @@ end package;
     #[test]
     fn error_on_missing_full_type_definition_for_incomplete() {
         let mut builder = LibraryBuilder::new();
-        let code = builder.code(
+        let code_pkg = builder.code(
             "libname",
             "
 package pkg is
@@ -1126,20 +1141,53 @@ end package body;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(
-            messages,
-            vec![
-                Message::error(
-                    code.s1("rec_t"),
-                    "Missing full type declaration of incomplete type 'rec_t'",
-                ),
+        let code_ent = builder.code(
+            "libname",
+            "
+entity ent is
+end entity;
+
+architecture rtl of ent is
+  type rec_t;
+begin
+  blk : block
+    -- Must appear in the same immediate declarative region
+    type rec_t is record
+    end record;
+  begin
+  end block;
+end architecture;
+",
+        );
+
+        let code_pkg2 = builder.code(
+            "libname",
+            "
+-- To check that no duplicate errors are made when closing the immediate and extended regions
+package pkg2 is
+  type rec_t;
+end package;
+
+package body pkg2 is
+end package body;
+",
+        );
+
+        let mut expected_messages = Vec::new();
+        for code in [code_pkg, code_ent, code_pkg2].iter() {
+            expected_messages.push(Message::error(
+                code.s1("rec_t"),
+                "Missing full type declaration of incomplete type 'rec_t'",
+            ));
+            expected_messages.push(
                 Message::hint(
                     code.s1("rec_t"),
                     "The full type declaration shall occur immediately within the same declarative part",
-                ),
-            ],
-        );
+                ));
+        }
+
+        let messages = builder.analyze();
+        check_messages(messages, expected_messages);
     }
 
     #[test]
