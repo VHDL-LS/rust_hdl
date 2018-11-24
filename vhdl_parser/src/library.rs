@@ -314,6 +314,10 @@ impl Library {
     pub fn packages(&self) -> impl Iterator<Item = &PackageDesignUnit> {
         self.packages.values()
     }
+
+    pub fn contexts(&self) -> impl Iterator<Item = &ContextDeclaration> {
+        self.contexts.values()
+    }
 }
 
 pub struct DesignRoot {

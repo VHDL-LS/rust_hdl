@@ -703,6 +703,10 @@ impl Analyzer {
                     region.close_both(messages);
                 }
             }
+
+            for context in library.contexts() {
+                self.check_context_clause(root, &context.items, messages);
+            }
         }
     }
 }
@@ -1855,6 +1859,29 @@ library missing_lib;
 
 entity ent is
 end entity;
+            ",
+        );
+
+        let messages = builder.analyze();
+
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s1("missing_lib"),
+                "No such library 'missing_lib'",
+            )],
+        )
+    }
+
+    #[test]
+    fn check_library_clause_library_exists_in_context_declarations() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+context ctx is
+  library missing_lib;
+end context;
             ",
         );
 
