@@ -181,6 +181,7 @@ pub struct Library {
     pub name: Symbol,
     pub entities: FnvHashMap<Symbol, EntityDesignUnit>,
     pub packages: FnvHashMap<Symbol, PackageDesignUnit>,
+    pub contexts: FnvHashMap<Symbol, ContextDeclaration>,
 }
 
 impl Library {
@@ -192,6 +193,7 @@ impl Library {
         let mut primary_names: FnvHashMap<Symbol, SrcPos> = FnvHashMap::default();
         let mut entities = FnvHashMap::default();
         let mut packages = FnvHashMap::default();
+        let mut contexts = FnvHashMap::default();
         let mut architectures = Vec::new();
         let mut package_bodies = Vec::new();
 
@@ -233,8 +235,12 @@ impl Library {
                                         },
                                     );
                                 }
+                                PrimaryUnit::ContextDeclaration(context) => {
+                                    entry.insert(context.ident().pos.clone());
+                                    contexts.insert(context.name().clone(), context);
+                                }
                                 _ => {
-                                    // @TODO context, configuration, package instance
+                                    // @TODO configuration, package instance
                                 }
                             },
                         }
@@ -282,6 +288,7 @@ impl Library {
             name,
             entities,
             packages,
+            contexts,
         }
     }
 
@@ -293,6 +300,11 @@ impl Library {
     #[cfg(test)]
     fn package<'a>(&'a self, name: &Symbol) -> Option<&'a PackageDesignUnit> {
         self.packages.get(name)
+    }
+
+    #[cfg(test)]
+    fn context<'a>(&'a self, name: &Symbol) -> Option<&'a ContextDeclaration> {
+        self.contexts.get(name)
     }
 
     pub fn entities(&self) -> impl Iterator<Item = &EntityDesignUnit> {
@@ -719,6 +731,20 @@ end package body;
                 body: Some(body)
             })
         );
+    }
+
+    #[test]
+    fn add_context_clause() {
+        let code = Code::new(
+            "
+context ctx is
+end context;
+",
+        );
+        let library = new_library(&code, "libname");
+        let context = code.context();
+
+        assert_eq!(library.context(&code.symbol("ctx")), Some(&context));
     }
 
 }
