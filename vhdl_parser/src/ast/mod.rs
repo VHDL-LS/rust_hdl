@@ -4,6 +4,9 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
+pub mod has_ident;
+pub mod name;
+
 use latin_1::Latin1String;
 use source::WithPos;
 use symbol_table::Symbol;

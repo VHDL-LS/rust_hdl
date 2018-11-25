@@ -103,9 +103,6 @@ impl<'a> DeclarativeItem<'a> {
             may_overload: false,
         }
     }
-    fn from_ident(ident: &Ident, ast: DeclarativeAst<'a>) -> DeclarativeItem<'a> {
-        DeclarativeItem::new(ident.to_owned().map_into(Designator::Identifier), ast)
-    }
 
     fn with_overload(mut self, value: bool) -> DeclarativeItem<'a> {
         self.may_overload = value;
@@ -296,7 +293,7 @@ impl<'a> DeclarativeRegion<'a> {
     ) {
         for decl in declarations.iter() {
             self.add(
-                DeclarativeItem::from_ident(&decl.ident, DeclarativeAst::Element(decl)),
+                DeclarativeItem::new(&decl.ident, DeclarativeAst::Element(decl)),
                 messages,
             );
         }
@@ -343,27 +340,23 @@ impl Declaration {
                 DeclarativeItem::new(alias.designator.clone(), DeclarativeAst::Declaration(self))
                     .with_overload(alias.signature.is_some()),
             ],
-            Declaration::Object(ObjectDeclaration { ref ident, .. }) => {
-                vec![DeclarativeItem::from_ident(
-                    ident,
-                    DeclarativeAst::Declaration(self),
-                )]
-            }
-            Declaration::File(FileDeclaration { ref ident, .. }) => {
-                vec![DeclarativeItem::from_ident(
-                    ident,
-                    DeclarativeAst::Declaration(self),
-                )]
-            }
+            Declaration::Object(ObjectDeclaration { ref ident, .. }) => vec![DeclarativeItem::new(
+                ident,
+                DeclarativeAst::Declaration(self),
+            )],
+            Declaration::File(FileDeclaration { ref ident, .. }) => vec![DeclarativeItem::new(
+                ident,
+                DeclarativeAst::Declaration(self),
+            )],
             Declaration::Component(ComponentDeclaration { ref ident, .. }) => {
-                vec![DeclarativeItem::from_ident(
+                vec![DeclarativeItem::new(
                     ident,
                     DeclarativeAst::Declaration(self),
                 )]
             }
             Declaration::Attribute(ref attr) => match attr {
                 Attribute::Declaration(AttributeDeclaration { ref ident, .. }) => {
-                    vec![DeclarativeItem::from_ident(
+                    vec![DeclarativeItem::new(
                         ident,
                         DeclarativeAst::Declaration(self),
                     )]
@@ -383,7 +376,7 @@ impl Declaration {
             ],
             // @TODO Ignored for now
             Declaration::Use(..) => vec![],
-            Declaration::Package(ref package) => vec![DeclarativeItem::from_ident(
+            Declaration::Package(ref package) => vec![DeclarativeItem::new(
                 &package.ident,
                 DeclarativeAst::Declaration(self),
             )],
@@ -392,7 +385,7 @@ impl Declaration {
                 ref ident,
                 def: TypeDefinition::Enumeration(ref enumeration),
             }) => {
-                let mut items = vec![DeclarativeItem::from_ident(
+                let mut items = vec![DeclarativeItem::new(
                     ident,
                     DeclarativeAst::Declaration(self),
                 )];
@@ -406,12 +399,10 @@ impl Declaration {
                 }
                 items
             }
-            Declaration::Type(TypeDeclaration { ref ident, .. }) => {
-                vec![DeclarativeItem::from_ident(
-                    ident,
-                    DeclarativeAst::Declaration(self),
-                )]
-            }
+            Declaration::Type(TypeDeclaration { ref ident, .. }) => vec![DeclarativeItem::new(
+                ident,
+                DeclarativeAst::Declaration(self),
+            )],
         }
     }
 }
@@ -420,39 +411,22 @@ impl InterfaceDeclaration {
     fn declarative_items(&self) -> Vec<DeclarativeItem> {
         match self {
             InterfaceDeclaration::File(InterfaceFileDeclaration { ref ident, .. }) => {
-                vec![DeclarativeItem::from_ident(
-                    ident,
-                    DeclarativeAst::Interface(self),
-                )]
+                vec![DeclarativeItem::new(ident, DeclarativeAst::Interface(self))]
             }
             InterfaceDeclaration::Object(InterfaceObjectDeclaration { ref ident, .. }) => {
-                vec![DeclarativeItem::from_ident(
-                    ident,
-                    DeclarativeAst::Interface(self),
-                )]
+                vec![DeclarativeItem::new(ident, DeclarativeAst::Interface(self))]
             }
-            InterfaceDeclaration::Type(ref ident) => vec![DeclarativeItem::from_ident(
-                ident,
-                DeclarativeAst::Interface(self),
-            )],
+            InterfaceDeclaration::Type(ref ident) => {
+                vec![DeclarativeItem::new(ident, DeclarativeAst::Interface(self))]
+            }
             InterfaceDeclaration::Subprogram(decl, ..) => vec![
                 DeclarativeItem::new(decl.designator(), DeclarativeAst::Interface(self))
                     .with_overload(true),
             ],
-            InterfaceDeclaration::Package(ref package) => vec![DeclarativeItem::from_ident(
+            InterfaceDeclaration::Package(ref package) => vec![DeclarativeItem::new(
                 &package.ident,
                 DeclarativeAst::Interface(self),
             )],
-        }
-    }
-}
-
-impl std::fmt::Display for Designator {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Designator::Identifier(ref sym) => write!(f, "{}", sym),
-            Designator::OperatorSymbol(ref latin1) => write!(f, "\"{}\"", latin1),
-            Designator::Character(byte) => write!(f, "'{}'", *byte as char),
         }
     }
 }

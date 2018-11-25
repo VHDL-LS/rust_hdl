@@ -10,7 +10,7 @@ use ast::{
     Unary,
 };
 use message::{Message, ParseResult};
-use names::{parse_name_initial_token, parse_selected_name, selected_to_name};
+use names::{parse_name_initial_token, parse_selected_name};
 use source::WithPos;
 use subtype_indication::parse_subtype_constraint;
 use tokenizer::Kind::*;
@@ -203,7 +203,7 @@ fn parse_allocator(stream: &mut TokenStream) -> ParseResult<WithPos<Allocator>> 
 
     if stream.skip_if_kind(Tick)? {
         let expr = parse_expression(stream)?;
-        let name = selected_to_name(selected_name)?;
+        let name: WithPos<Name> = selected_name.into();
         let pos = name.pos.clone().combine_into(&expr);
         Ok(WithPos {
             item: Allocator::Qualified(QualifiedExpression {

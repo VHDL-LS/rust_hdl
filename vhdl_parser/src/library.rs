@@ -12,83 +12,13 @@ use self::fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
 
 use ast::{
-    AnyDesignUnit, ArchitectureBody, ConfigurationDeclaration, ContextDeclaration, DesignFile,
-    DesignUnit, EntityDeclaration, Ident, PackageBody, PackageDeclaration, PackageInstantiation,
-    PrimaryUnit, SecondaryUnit,
+    has_ident::HasIdent, AnyDesignUnit, ArchitectureBody, ConfigurationDeclaration,
+    ContextDeclaration, DesignFile, DesignUnit, EntityDeclaration, Name, PackageBody,
+    PackageDeclaration, PrimaryUnit, SecondaryUnit,
 };
 use message::{Message, MessageHandler};
-use source::SrcPos;
+use source::{SrcPos, WithPos};
 use symbol_table::Symbol;
-
-trait HasIdent {
-    fn ident(&self) -> &Ident;
-    fn name(&self) -> &Symbol {
-        &self.ident().item
-    }
-    fn pos(&self) -> &SrcPos {
-        &self.ident().pos
-    }
-}
-
-impl HasIdent for EntityDeclaration {
-    fn ident(&self) -> &Ident {
-        &self.ident
-    }
-}
-
-impl HasIdent for PackageDeclaration {
-    fn ident(&self) -> &Ident {
-        &self.ident
-    }
-}
-
-impl HasIdent for PackageBody {
-    fn ident(&self) -> &Ident {
-        &self.ident
-    }
-}
-
-impl HasIdent for ArchitectureBody {
-    fn ident(&self) -> &Ident {
-        &self.ident
-    }
-}
-
-impl HasIdent for PackageInstantiation {
-    fn ident(&self) -> &Ident {
-        &self.ident
-    }
-}
-
-impl HasIdent for ContextDeclaration {
-    fn ident(&self) -> &Ident {
-        &self.ident
-    }
-}
-
-impl HasIdent for ConfigurationDeclaration {
-    fn ident(&self) -> &Ident {
-        &self.ident
-    }
-}
-
-impl HasIdent for PrimaryUnit {
-    fn ident(&self) -> &Ident {
-        match self {
-            PrimaryUnit::EntityDeclaration(ref unit) => &unit.unit.ident,
-            PrimaryUnit::Configuration(ref unit) => &unit.unit.ident,
-            PrimaryUnit::PackageDeclaration(ref unit) => &unit.unit.ident,
-            PrimaryUnit::PackageInstance(ref unit) => &unit.unit.ident,
-            PrimaryUnit::ContextDeclaration(ref unit) => &unit.ident,
-        }
-    }
-}
-
-impl<T: HasIdent> HasIdent for DesignUnit<T> {
-    fn ident(&self) -> &Ident {
-        self.unit.ident()
-    }
-}
 
 impl EntityDesignUnit {
     fn add_architecture(
@@ -344,16 +274,9 @@ impl Library {
                     }
                     &[ref entname] => entname,
                     selected_name => {
-                        // @TODO move to common impl
-                        if let Some(first) = selected_name.get(0) {
-                            let last = &selected_name[selected_name.len() - 1];
-                            let pos = first.pos.combine(&last.pos);
-
-                            messages.push(Message::error(&pos, format!("Invalid selected name for entity"))
-                                          .related(pos, "Entity name must be of the form library.entity_name or entity_name"));
-                        } else {
-                            unreachable!("{:?}", config.unit.entity_name);
-                        }
+                        let name: WithPos<Name> = selected_name.to_vec().into();
+                        messages.push(Message::error(&name, format!("Invalid selected name for entity"))
+                                      .related(&name, "Entity name must be of the form library.entity_name or entity_name"));
                         continue;
                     }
                 };
