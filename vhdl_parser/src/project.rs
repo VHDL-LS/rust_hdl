@@ -33,7 +33,7 @@ impl Project {
 
     pub fn from_config(config: &Config, num_threads: usize) -> io::Result<Project> {
         let mut project = Project::new();
-        let mut files_to_parse = Vec::new();
+        let mut files_to_parse: FnvHashMap<&str, LibraryFileToParse> = FnvHashMap::default();
 
         for library in config.iter_libraries() {
             let library_name =
@@ -41,14 +41,23 @@ impl Project {
             let library_name = project.parser.symbol(&library_name);
 
             for file_name in library.file_names() {
-                let file_to_parse = LibraryFileToParse {
-                    library_name: library_name.clone(),
-                    file_name: file_name.clone(),
-                };
+                match files_to_parse.entry(file_name) {
+                    Entry::Occupied(mut entry) => {
+                        entry.get_mut().library_names.push(library_name.clone());
+                    }
+                    Entry::Vacant(mut entry) => {
+                        let file_to_parse = LibraryFileToParse {
+                            library_names: vec![library_name.clone()],
+                            file_name: file_name.clone(),
+                        };
 
-                files_to_parse.push(file_to_parse);
+                        entry.insert(file_to_parse);
+                    }
+                }
             }
         }
+
+        let files_to_parse = files_to_parse.drain().map(|(_, v)| v).collect();
 
         for (file_to_parse, mut parser_messages, design_file) in project
             .parser
@@ -67,9 +76,9 @@ impl Project {
             };
 
             project.files.insert(
-                file_to_parse.file_name.clone(),
+                file_to_parse.file_name,
                 SourceFile {
-                    library_name: Some(file_to_parse.library_name.clone()),
+                    library_names: file_to_parse.library_names,
                     parser_messages,
                     design_file: Some(design_file),
                 },
@@ -85,7 +94,7 @@ impl Project {
                 source_file
             } else {
                 SourceFile {
-                    library_name: None,
+                    library_names: vec![],
                     parser_messages: vec![],
                     design_file: None,
                 }
@@ -126,7 +135,7 @@ impl Project {
         let mut root = DesignRoot::new();
 
         for source_file in self.files.values() {
-            if let Some(ref library_name) = source_file.library_name {
+            for library_name in &source_file.library_names {
                 if let Some(ref design_file) = source_file.design_file {
                     match library_to_design_file.entry(library_name.clone()) {
                         Entry::Occupied(mut entry) => {
@@ -160,7 +169,7 @@ impl Project {
 }
 
 struct LibraryFileToParse {
-    library_name: Symbol,
+    library_names: Vec<Symbol>,
     file_name: String,
 }
 
@@ -171,7 +180,7 @@ impl FileToParse for LibraryFileToParse {
 }
 
 struct SourceFile {
-    library_name: Option<Symbol>,
+    library_names: Vec<Symbol>,
     design_file: Option<DesignFile>,
     parser_messages: Vec<Message>,
 }
