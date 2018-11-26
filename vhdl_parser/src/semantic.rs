@@ -6,7 +6,7 @@
 
 use ast::*;
 use latin_1::Latin1String;
-use library::DesignRoot;
+use library::{DesignRoot, Library};
 use message::{Message, MessageHandler};
 use source::WithPos;
 use symbol_table::{Symbol, SymbolTable};
@@ -84,6 +84,15 @@ impl<'a> DeclarativeAst<'a> {
         }
     }
 }
+#[derive(Clone)]
+enum VisibleObject<'a> {
+    Library(&'a Library),
+}
+#[derive(Clone)]
+struct VisibleName<'a> {
+    designator: Designator,
+    object: VisibleObject<'a>,
+}
 
 #[derive(Clone)]
 struct DeclarativeItem<'a> {
@@ -134,6 +143,7 @@ enum RegionKind {
 
 #[derive(Clone)]
 struct DeclarativeRegion<'a> {
+    visible: FnvHashMap<Designator, VisibleName<'a>>,
     decls: FnvHashMap<Designator, DeclarativeItem<'a>>,
     kind: RegionKind,
 }
@@ -141,6 +151,7 @@ struct DeclarativeRegion<'a> {
 impl<'a> DeclarativeRegion<'a> {
     fn new() -> DeclarativeRegion<'a> {
         DeclarativeRegion {
+            visible: FnvHashMap::default(),
             decls: FnvHashMap::default(),
             kind: RegionKind::Other,
         }
@@ -258,6 +269,45 @@ impl<'a> DeclarativeRegion<'a> {
                 } else {
                     entry.insert(decl);
                 }
+            }
+        }
+    }
+
+    fn make_library_visible(&mut self, library_name: &Symbol, library: &'a Library) {
+        let name = VisibleName {
+            designator: Designator::Identifier(library_name.clone()),
+            object: VisibleObject::Library(library),
+        };
+        self.visible.insert(name.designator.clone(), name);
+    }
+
+    fn lookup(&self, designator: &Designator) -> Option<&'a VisibleName> {
+        self.visible.get(designator)
+    }
+
+    fn lookup_selected_name<'b>(
+        &self,
+        name: &'b WithPos<Name>,
+    ) -> Result<(&'a VisibleName, Option<&'b WithPos<Designator>>), Option<WithPos<Designator>>>
+    {
+        match name.item {
+            Name::Selected(ref prefix, ref suffix) => {
+                self.lookup_selected_name(&prefix)
+                    .map(|(visible_name, opt_suffix)| {
+                        (visible_name, opt_suffix.or_else(|| Some(suffix)))
+                    })
+            }
+            Name::SelectedAll(ref prefix) => self.lookup_selected_name(&prefix),
+            Name::Designator(ref designator) => {
+                if let Some(visible_item) = self.lookup(&designator) {
+                    Ok((visible_item, None))
+                } else {
+                    Err(Some(WithPos::from(designator.clone(), name.pos.clone())))
+                }
+            }
+            _ => {
+                // Not a selected name
+                Err(None)
             }
         }
     }
@@ -623,9 +673,13 @@ impl Analyzer {
     fn check_context_clause(
         &self,
         root: &DesignRoot,
+        library: &Library,
         context_clause: &Vec<WithPos<ContextItem>>,
         messages: &mut MessageHandler,
     ) {
+        let mut region = DeclarativeRegion::new();
+        region.make_library_visible(&self.work_sym, library);
+
         for context_item in context_clause.iter() {
             match context_item.item {
                 ContextItem::Library(LibraryClause { ref name_list }) => {
@@ -637,15 +691,119 @@ impl Analyzer {
                                 &library_name,
                                 format!("Library clause not necessary for current working library"),
                             ))
-                        } else if !root.has_library(&library_name.item) {
-                            messages.push(Message::error(
-                                &library_name,
-                                format!("No such library '{}'", library_name.item),
-                            ))
+                        } else {
+                            if let Some(library) = root.get_library(&library_name.item) {
+                                region.make_library_visible(&library.name, library);
+                            } else {
+                                messages.push(Message::error(
+                                    &library_name,
+                                    format!("No such library '{}'", library_name.item),
+                                ));
+                            }
                         }
                     }
                 }
-                _ => {}
+                ContextItem::Use(UseClause { ref name_list }) => {
+                    for name in name_list {
+                        match region.lookup_selected_name(name) {
+                            Ok((visible_item, Some(suffix))) => {
+                                match visible_item.object {
+                                    VisibleObject::Library(library) => {
+                                        let found_unit = {
+                                            match suffix.item {
+                                                Designator::Identifier(ref unit) => {
+                                                    if library.package(unit).is_some() {
+                                                        true
+                                                    } else if library.entity(unit).is_some() {
+                                                        true
+                                                    } else if library.configuration(unit).is_some()
+                                                    {
+                                                        true
+                                                    } else if library
+                                                        .package_instance(unit)
+                                                        .is_some()
+                                                    {
+                                                        true
+                                                    } else {
+                                                        false
+                                                    }
+                                                }
+                                                // OperatorSymbol or Character cannot be denote a design unit
+                                                _ => false,
+                                            }
+                                        };
+                                        if !found_unit {
+                                            messages.push(Message::error(
+                                                suffix.as_ref(),
+                                                format!(
+                                                    "No primary unit '{}' within '{}'",
+                                                    suffix.item, &library.name
+                                                ),
+                                            ));
+                                        }
+                                    }
+                                }
+                            }
+                            Ok((_, None)) | Err(None) => {
+                                messages.push(Message::error(
+                                    &context_item,
+                                    "Use clause must be a selected name",
+                                ));
+                            }
+                            Err(Some(designator)) => {
+                                if designator.item != Designator::Identifier(self.std_sym.clone()) {
+                                    messages.push(Message::error(
+                                        designator.pos,
+                                        format!("No declaration of '{}'", designator.item),
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+                ContextItem::Context(ContextReference { ref name_list }) => {
+                    for name in name_list {
+                        match region.lookup_selected_name(name) {
+                            Ok((visible_item, Some(suffix))) => {
+                                match visible_item.object {
+                                    VisibleObject::Library(library) => {
+                                        let found_unit = {
+                                            match suffix.item {
+                                                Designator::Identifier(ref unit) => {
+                                                    library.context(unit).is_some()
+                                                }
+                                                // OperatorSymbol or Character cannot be denote a design unit
+                                                _ => false,
+                                            }
+                                        };
+
+                                        if !found_unit {
+                                            messages.push(Message::error(
+                                                suffix.as_ref(),
+                                                format!(
+                                                    "No context '{}' within '{}'",
+                                                    suffix.item, &library.name
+                                                ),
+                                            ));
+                                        }
+                                    }
+                                }
+                            }
+                            Ok((_, None)) | Err(None) => {
+                                messages.push(Message::error(
+                                    &context_item,
+                                    "Context reference must be a selected name",
+                                ));
+                            }
+                            Err(Some(designator)) => {
+                                messages.push(Message::error(
+                                    designator.pos,
+                                    format!("No declaration of '{}'", designator.item),
+                                ));
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -653,24 +811,29 @@ impl Analyzer {
     pub fn analyze(&self, root: &DesignRoot, messages: &mut MessageHandler) {
         for library in root.iter_libraries() {
             for entity in library.entities() {
-                self.check_context_clause(root, &entity.entity.context_clause, messages);
+                self.check_context_clause(root, library, &entity.entity.context_clause, messages);
                 let mut region = check_entity_declaration(&entity.entity.unit, messages);
                 region.close_immediate(messages);
                 for architecture in entity.architectures.values() {
                     let mut region = region.in_body();
-                    self.check_context_clause(root, &architecture.context_clause, messages);
+                    self.check_context_clause(
+                        root,
+                        library,
+                        &architecture.context_clause,
+                        messages,
+                    );
                     check_architecture_body(&mut region, &architecture.unit, messages);
                     region.close_both(messages);
                 }
             }
 
             for package in library.packages() {
-                self.check_context_clause(root, &package.package.context_clause, messages);
+                self.check_context_clause(root, library, &package.package.context_clause, messages);
                 let mut region = check_package_declaration(&package.package.unit, messages);
                 if let Some(ref body) = package.body {
                     region.close_immediate(messages);
                     let mut region = region.in_body();
-                    self.check_context_clause(root, &body.context_clause, messages);
+                    self.check_context_clause(root, library, &body.context_clause, messages);
                     check_package_body(&mut region, &body.unit, messages);
                     region.close_both(messages);
                 } else {
@@ -679,11 +842,16 @@ impl Analyzer {
             }
 
             for package_instance in library.package_instances() {
-                self.check_context_clause(root, &package_instance.context_clause, messages);
+                self.check_context_clause(
+                    root,
+                    library,
+                    &package_instance.context_clause,
+                    messages,
+                );
             }
 
             for context in library.contexts() {
-                self.check_context_clause(root, &context.items, messages);
+                self.check_context_clause(root, library, &context.items, messages);
             }
         }
     }
@@ -1960,5 +2128,171 @@ end entity;
 
             messages
         }
+    }
+
+    #[test]
+    fn check_use_clause_for_missing_design_unit() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg is
+end package;
+
+package gpkg is
+  generic (const : natural);
+end package;
+
+entity ent is
+end entity;
+
+architecture rtl of ent is
+begin
+end architecture;
+
+configuration cfg of ent is
+  for rtl
+  end for;
+end configuration;
+
+package ipkg is new work.gpkg
+  generic map (
+    const => 1
+  );
+
+library libname;
+
+-- Should work
+use work.pkg;
+use libname.pkg.all;
+use libname.ent;
+use libname.ipkg;
+use libname.cfg;
+
+use work.missing_pkg;
+use libname.missing_pkg.all;
+
+
+entity dummy is
+end entity;
+            ",
+        );
+
+        let messages = builder.analyze();
+
+        check_messages(
+            messages,
+            vec![
+                Message::error(
+                    code.s("missing_pkg", 1),
+                    "No primary unit 'missing_pkg' within 'libname'",
+                ),
+                Message::error(
+                    code.s("missing_pkg", 2),
+                    "No primary unit 'missing_pkg' within 'libname'",
+                ),
+            ],
+        )
+    }
+
+    #[test]
+    fn check_use_clause_for_missing_library_clause() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg is
+end package;
+
+use libname.pkg;
+
+entity dummy is
+end entity;
+            ",
+        );
+
+        let messages = builder.analyze();
+
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s("libname", 1),
+                "No declaration of 'libname'",
+            )],
+        )
+    }
+
+    #[test]
+    fn check_context_clause_for_missing_context() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+context ctx is
+end context;
+
+context work.ctx;
+context work.missing_ctx;
+
+entity dummy is
+end entity;
+            ",
+        );
+
+        let messages = builder.analyze();
+
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s1("missing_ctx"),
+                "No context 'missing_ctx' within 'libname'",
+            )],
+        )
+    }
+
+    #[test]
+    fn check_use_clause_and_context_clause_must_be_selected_name() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+library libname;
+
+context libname;
+use work;
+use libname;
+
+use work.pkg(0);
+context work.ctx'range;
+
+entity dummy is
+end entity;
+            ",
+        );
+
+        let messages = builder.analyze();
+
+        check_messages(
+            messages,
+            vec![
+                Message::error(
+                    code.s1("context libname;"),
+                    "Context reference must be a selected name",
+                ),
+                Message::error(code.s1("use work;"), "Use clause must be a selected name"),
+                Message::error(
+                    code.s1("use libname;"),
+                    "Use clause must be a selected name",
+                ),
+                Message::error(
+                    code.s1("use work.pkg(0);"),
+                    "Use clause must be a selected name",
+                ),
+                Message::error(
+                    code.s1("context work.ctx'range;"),
+                    "Context reference must be a selected name",
+                ),
+            ],
+        );
     }
 }

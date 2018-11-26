@@ -5,9 +5,9 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use ast::{
-    Allocator, Binary, Choice, Direction, DiscreteRange, ElementAssociation, Expression, Literal,
-    Name, QualifiedExpression, Range, RangeConstraint, ResolutionIndication, SubtypeIndication,
-    Unary,
+    Allocator, Binary, Choice, Designator, Direction, DiscreteRange, ElementAssociation,
+    Expression, Literal, Name, QualifiedExpression, Range, RangeConstraint, ResolutionIndication,
+    SubtypeIndication, Unary,
 };
 use message::{Message, ParseResult};
 use names::{parse_name_initial_token, parse_selected_name};
@@ -272,9 +272,9 @@ fn parse_primary_initial_token(
         StringLiteral => {
             let name = parse_name_initial_token(stream, token)?;
             match name.item {
-                Name::OperatorSymbol(string) => Ok(WithPos {
+                Name::Designator(Designator::OperatorSymbol(string)) => Ok(WithPos {
                     item: Expression::Literal(Literal::String(string)),
-                    pos: name.pos.clone(),
+                    pos: name.pos,
                 }),
                 _ => Ok(name.map_into(|name| Expression::Name(Box::new(name)))),
             }
@@ -587,7 +587,9 @@ mod tests {
     fn parses_not_expression() {
         let code = Code::new("not false");
         let name_false = WithPos {
-            item: Expression::Name(Box::new(Name::Simple(code.symbol("false")))),
+            item: Expression::Name(Box::new(Name::Designator(Designator::Identifier(
+                code.symbol("false"),
+            )))),
             pos: code.s1("false").pos(),
         };
 
@@ -602,7 +604,11 @@ mod tests {
     #[test]
     fn parses_new_allocator_qualified() {
         let code = Code::new("new integer_vector'(0, 1)");
-        let vec_name = code.s1("integer_vector").ident().map_into(Name::Simple);
+        let vec_name = code
+            .s1("integer_vector")
+            .ident()
+            .map_into(Designator::Identifier)
+            .map_into(Name::Designator);
         let expr = code.s1("(0, 1)").expr();
 
         let alloc = WithPos {
@@ -742,7 +748,11 @@ mod tests {
     #[test]
     fn parses_qualified_expression() {
         let code = Code::new("foo'(1+2)");
-        let foo_name = code.s1("foo").ident().map_into(Name::Simple);
+        let foo_name = code
+            .s1("foo")
+            .ident()
+            .map_into(Designator::Identifier)
+            .map_into(Name::Designator);
         let expr = code.s1("(1+2)").expr();
 
         let qexpr = WithPos {
@@ -759,7 +769,11 @@ mod tests {
     #[test]
     fn parses_qualified_aggregate() {
         let code = Code::new("foo'(others => '1')");
-        let foo_name = code.s1("foo").ident().map_into(Name::Simple);
+        let foo_name = code
+            .s1("foo")
+            .ident()
+            .map_into(Designator::Identifier)
+            .map_into(Name::Designator);
         let expr = code.s1("(others => '1')").expr();
 
         let qexpr = WithPos {

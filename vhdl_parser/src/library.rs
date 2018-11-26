@@ -147,6 +147,8 @@ pub struct PackageDesignUnit {
 pub struct Library {
     pub name: Symbol,
     pub entities: FnvHashMap<Symbol, EntityDesignUnit>,
+    // Name to entity name mapping
+    pub cfg_to_entity: FnvHashMap<Symbol, Symbol>,
     pub packages: FnvHashMap<Symbol, PackageDesignUnit>,
     pub package_instances: FnvHashMap<Symbol, DesignUnit<PackageInstantiation>>,
     pub contexts: FnvHashMap<Symbol, ContextDeclaration>,
@@ -296,35 +298,49 @@ impl Library {
             entity.add_configuration(config, messages);
         }
 
+        let mut cfg_to_entity = FnvHashMap::default();
+        for entity in entities.values() {
+            for configuration in entity.configurations.values() {
+                cfg_to_entity.insert(configuration.name().clone(), entity.entity.name().clone());
+            }
+        }
+
         Library {
             name,
             entities,
+            cfg_to_entity,
             packages,
             package_instances,
             contexts,
         }
     }
 
-    #[cfg(test)]
-    fn entity<'a>(&'a self, name: &Symbol) -> Option<&'a EntityDesignUnit> {
+    pub fn entity<'a>(&'a self, name: &Symbol) -> Option<&'a EntityDesignUnit> {
         self.entities.get(name)
     }
 
-    #[cfg(test)]
-    fn package<'a>(&'a self, name: &Symbol) -> Option<&'a PackageDesignUnit> {
+    pub fn configuration<'a>(
+        &'a self,
+        name: &Symbol,
+    ) -> Option<&'a DesignUnit<ConfigurationDeclaration>> {
+        self.cfg_to_entity
+            .get(name)
+            .and_then(|entity_name| self.entities.get(entity_name))
+            .and_then(|entity| entity.configurations.get(name))
+    }
+
+    pub fn package<'a>(&'a self, name: &Symbol) -> Option<&'a PackageDesignUnit> {
         self.packages.get(name)
     }
 
-    #[cfg(test)]
-    fn package_instance<'a>(
+    pub fn package_instance<'a>(
         &'a self,
         name: &Symbol,
     ) -> Option<&'a DesignUnit<PackageInstantiation>> {
         self.package_instances.get(name)
     }
 
-    #[cfg(test)]
-    fn context<'a>(&'a self, name: &Symbol) -> Option<&'a ContextDeclaration> {
+    pub fn context<'a>(&'a self, name: &Symbol) -> Option<&'a ContextDeclaration> {
         self.contexts.get(name)
     }
 
@@ -361,8 +377,8 @@ impl DesignRoot {
         self.libraries.insert(library.name.clone(), library);
     }
 
-    pub fn has_library(&self, library_name: &Symbol) -> bool {
-        self.libraries.contains_key(library_name)
+    pub fn get_library<'a>(&'a self, library_name: &Symbol) -> Option<&'a Library> {
+        self.libraries.get(library_name)
     }
 
     pub fn iter_libraries(&self) -> impl Iterator<Item = &Library> {
@@ -828,39 +844,35 @@ end configuration;
         );
         let library = new_library(&code, "libname");
         let entity = library.entity(&code.symbol("ent")).unwrap();
-        let cfg1 = code
-            .between("configuration cfg1", "end configuration;")
-            .configuration();
-        let cfg2 = code
-            .between("configuration cfg2", "end configuration;")
-            .configuration();
-        let cfg3 = code
-            .between("configuration cfg3", "end configuration;")
-            .configuration();
+        let cfg1 = DesignUnit {
+            context_clause: vec![],
+            unit: code
+                .between("configuration cfg1", "end configuration;")
+                .configuration(),
+        };
+        let cfg2 = DesignUnit {
+            context_clause: vec![],
+            unit: code
+                .between("configuration cfg2", "end configuration;")
+                .configuration(),
+        };
+        let cfg3 = DesignUnit {
+            context_clause: vec![],
+            unit: code
+                .between("configuration cfg3", "end configuration;")
+                .configuration(),
+        };
+
         let mut configurations = FnvHashMap::default();
-        configurations.insert(
-            code.symbol("cfg1"),
-            DesignUnit {
-                context_clause: vec![],
-                unit: cfg1,
-            },
-        );
-        configurations.insert(
-            code.symbol("cfg2"),
-            DesignUnit {
-                context_clause: vec![],
-                unit: cfg2,
-            },
-        );
-        configurations.insert(
-            code.symbol("cfg3"),
-            DesignUnit {
-                context_clause: vec![],
-                unit: cfg3,
-            },
-        );
+        configurations.insert(code.symbol("cfg1"), cfg1.clone());
+        configurations.insert(code.symbol("cfg2"), cfg2.clone());
+        configurations.insert(code.symbol("cfg3"), cfg3.clone());
 
         assert_eq!(entity.configurations, configurations);
+        assert_eq!(library.configuration(&code.symbol("cfg1")), Some(&cfg1));
+        assert_eq!(library.configuration(&code.symbol("cfg2")), Some(&cfg2));
+        assert_eq!(library.configuration(&code.symbol("cfg3")), Some(&cfg3));
+        assert_eq!(library.configuration(&code.symbol("cfg4")), None);
     }
 
     #[test]

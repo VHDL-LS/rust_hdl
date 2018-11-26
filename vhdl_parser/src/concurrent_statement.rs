@@ -9,7 +9,7 @@ use ast::{
     ConcurrentAssertStatement, ConcurrentProcedureCall, ConcurrentSignalAssignment,
     ConcurrentStatement, Conditional, Declaration, ForGenerateStatement, FunctionCall,
     GenerateBody, Ident, IfGenerateStatement, InstantiatedUnit, InstantiationStatement,
-    LabeledConcurrentStatement, Name, ProcessStatement, Target,
+    LabeledConcurrentStatement, Name, ProcessStatement, SensitivityList, Target,
 };
 use common::error_on_end_identifier_mismatch;
 use declarative_part::{is_declarative_part, parse_declarative_part};
@@ -75,21 +75,30 @@ pub fn parse_process_statement(
         match token.kind {
             LeftPar => {
                 stream.move_after(&token);
-                let mut names = Vec::with_capacity(1);
-                loop {
-                    let token = stream.expect()?;
-                    match token.kind {
-                        RightPar => {
-                            break names;
-                        }
-                        Comma => {}
-                        _ => {
-                            names.push(parse_name_initial_token(stream, token)?);
-                        }
-                    };
+                let token = stream.expect()?;
+
+                if token.kind == All {
+                    stream.expect_kind(RightPar)?;
+                    Some(SensitivityList::All)
+                } else {
+                    let mut names = Vec::with_capacity(1);
+                    let mut token = token;
+                    loop {
+                        match token.kind {
+                            RightPar => {
+                                break Some(SensitivityList::Names(names));
+                            }
+                            Comma => {}
+                            _ => {
+                                names.push(parse_name_initial_token(stream, token)?);
+                            }
+                        };
+
+                        token = stream.expect()?;
+                    }
                 }
             }
-            _ => Vec::new(),
+            _ => None,
         }
     };
     stream.pop_if_kind(Is)?;
@@ -710,7 +719,7 @@ end process;
         );
         let process = ProcessStatement {
             postponed: false,
-            sensitivity_list: vec![],
+            sensitivity_list: None,
             decl: vec![],
             statements: vec![],
         };
@@ -730,7 +739,7 @@ end process name;
         );
         let process = ProcessStatement {
             postponed: false,
-            sensitivity_list: vec![],
+            sensitivity_list: None,
             decl: vec![],
             statements: vec![],
         };
@@ -750,7 +759,7 @@ end process;
         );
         let process = ProcessStatement {
             postponed: true,
-            sensitivity_list: vec![],
+            sensitivity_list: None,
             decl: vec![],
             statements: vec![],
         };
@@ -770,7 +779,10 @@ end process;
         );
         let process = ProcessStatement {
             postponed: false,
-            sensitivity_list: vec![code.s1("clk").name(), code.s1("vec(1)").name()],
+            sensitivity_list: Some(SensitivityList::Names(vec![
+                code.s1("clk").name(),
+                code.s1("vec(1)").name(),
+            ])),
             decl: vec![],
             statements: vec![],
         };
@@ -793,7 +805,7 @@ end process;
         );
         let process = ProcessStatement {
             postponed: false,
-            sensitivity_list: vec![code.s1("all").name()],
+            sensitivity_list: Some(SensitivityList::All),
             decl: code.s1("variable foo : boolean;").declarative_part(),
             statements: vec![
                 code.s1("foo <= true;").sequential_statement(),

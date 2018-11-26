@@ -9,15 +9,14 @@ use super::*;
 
 impl From<SelectedName> for WithPos<Name> {
     fn from(selected_name: SelectedName) -> WithPos<Name> {
-        let simple_names: Vec<WithPos<Name>> = selected_name
-            .into_iter()
-            .map(|ident| ident.map_into(Name::Simple))
-            .collect();
+        let first = selected_name.get(0).unwrap().clone();
+        let name = Name::Designator(Designator::Identifier(first.item));
+        let mut name = WithPos::from(name, first.pos);
 
-        let mut name = simple_names.get(0).unwrap().clone();
-        for simple_name in simple_names.into_iter().skip(1) {
+        for simple_name in selected_name.into_iter().skip(1) {
             let pos = name.pos.combine(&simple_name.pos);
-            let item: Name = Name::Selected(Box::new(name), Box::new(simple_name));
+            let item: Name =
+                Name::Selected(Box::new(name), simple_name.map_into(Designator::Identifier));
             name = WithPos::from(item, pos);
         }
 

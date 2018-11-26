@@ -118,11 +118,9 @@ pub struct ExternalName {
 /// LRM 8. Names
 #[derive(PartialEq, Debug, Clone)]
 pub enum Name {
-    Simple(Symbol),
-    CharacterLiteral(u8),
-    OperatorSymbol(Latin1String),
-    All,
-    Selected(Box<WithPos<Name>>, Box<WithPos<Name>>),
+    Designator(Designator),
+    Selected(Box<WithPos<Name>>, WithPos<Designator>),
+    SelectedAll(Box<WithPos<Name>>),
     Indexed(Box<WithPos<Name>>, Vec<WithPos<Expression>>),
     Slice(Box<WithPos<Name>>, DiscreteRange),
     Attribute(Box<AttributeName>),
@@ -786,11 +784,17 @@ pub struct BlockStatement {
     pub statements: Vec<LabeledConcurrentStatement>,
 }
 
+#[derive(PartialEq, Debug, Clone)]
+pub enum SensitivityList {
+    Names(Vec<WithPos<Name>>),
+    All,
+}
+
 /// LRM 11.3 Process statement
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProcessStatement {
     pub postponed: bool,
-    pub sensitivity_list: Vec<WithPos<Name>>,
+    pub sensitivity_list: Option<SensitivityList>,
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledSequentialStatement>,
 }
