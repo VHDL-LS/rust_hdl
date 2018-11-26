@@ -678,6 +678,10 @@ impl Analyzer {
                 }
             }
 
+            for package_instance in library.package_instances() {
+                self.check_context_clause(root, &package_instance.context_clause, messages);
+            }
+
             for context in library.contexts() {
                 self.check_context_clause(root, &context.items, messages);
             }

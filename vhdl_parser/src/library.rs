@@ -336,6 +336,10 @@ impl Library {
         self.packages.values()
     }
 
+    pub fn package_instances(&self) -> impl Iterator<Item = &DesignUnit<PackageInstantiation>> {
+        self.package_instances.values()
+    }
+
     pub fn contexts(&self) -> impl Iterator<Item = &ContextDeclaration> {
         self.contexts.values()
     }
