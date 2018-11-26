@@ -5,7 +5,6 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 // @TODO add related information to message
-// @TODO Capitalize fist letter in errors
 
 extern crate fnv;
 use self::fnv::FnvHashMap;
@@ -14,7 +13,7 @@ use std::collections::hash_map::Entry;
 use ast::{
     has_ident::HasIdent, AnyDesignUnit, ArchitectureBody, ConfigurationDeclaration,
     ContextDeclaration, DesignFile, DesignUnit, EntityDeclaration, Name, PackageBody,
-    PackageDeclaration, PrimaryUnit, SecondaryUnit,
+    PackageDeclaration, PackageInstantiation, PrimaryUnit, SecondaryUnit,
 };
 use message::{Message, MessageHandler};
 use source::{SrcPos, WithPos};
@@ -120,7 +119,7 @@ impl PackageDesignUnit {
                     messages.push(Message::error(
                         secondary_pos,
                         format!(
-                            "package body declared before package '{}'",
+                            "Package body declared before package '{}'",
                             self.package.name()
                         ),
                     ));
@@ -149,6 +148,7 @@ pub struct Library {
     pub name: Symbol,
     pub entities: FnvHashMap<Symbol, EntityDesignUnit>,
     pub packages: FnvHashMap<Symbol, PackageDesignUnit>,
+    pub package_instances: FnvHashMap<Symbol, DesignUnit<PackageInstantiation>>,
     pub contexts: FnvHashMap<Symbol, ContextDeclaration>,
 }
 
@@ -162,6 +162,7 @@ impl Library {
         let mut primary_names: FnvHashMap<Symbol, SrcPos> = FnvHashMap::default();
         let mut entities = FnvHashMap::default();
         let mut packages = FnvHashMap::default();
+        let mut package_instances = FnvHashMap::default();
         let mut contexts = FnvHashMap::default();
         let mut architectures = Vec::new();
         let mut package_bodies = Vec::new();
@@ -206,6 +207,10 @@ impl Library {
                                         },
                                     );
                                 }
+                                PrimaryUnit::PackageInstance(inst) => {
+                                    entry.insert(inst.ident().pos.clone());
+                                    package_instances.insert(inst.name().clone(), inst);
+                                }
                                 PrimaryUnit::ContextDeclaration(context) => {
                                     entry.insert(context.ident().pos.clone());
                                     contexts.insert(context.name().clone(), context);
@@ -213,9 +218,6 @@ impl Library {
 
                                 PrimaryUnit::Configuration(config) => {
                                     configurations.push(config);
-                                }
-                                _ => {
-                                    // @TODO package instance
                                 }
                             },
                         }
@@ -298,6 +300,7 @@ impl Library {
             name,
             entities,
             packages,
+            package_instances,
             contexts,
         }
     }
@@ -310,6 +313,14 @@ impl Library {
     #[cfg(test)]
     fn package<'a>(&'a self, name: &Symbol) -> Option<&'a PackageDesignUnit> {
         self.packages.get(name)
+    }
+
+    #[cfg(test)]
+    fn package_instance<'a>(
+        &'a self,
+        name: &Symbol,
+    ) -> Option<&'a DesignUnit<PackageInstantiation>> {
+        self.package_instances.get(name)
     }
 
     #[cfg(test)]
@@ -541,6 +552,8 @@ configuration pkg of entname is
   for rtl
   end for;
 end configuration;
+
+package pkg is new gpkg generic map (const => foo);
 ",
         );
         let (library, messages) = new_library_with_messages(&code, "libname");
@@ -560,6 +573,10 @@ end configuration;
                 ).related(code.s("entname", 1), "Previously defined here"),
                 Message::error(
                     code.s("pkg", 3),
+                    "A primary unit has already been declared with name 'pkg' in library 'libname'"
+                ).related(code.s("pkg", 1), "Previously defined here"),
+                Message::error(
+                    code.s("pkg", 4),
                     "A primary unit has already been declared with name 'pkg' in library 'libname'"
                 ).related(code.s("pkg", 1), "Previously defined here"),
             ]
@@ -594,7 +611,7 @@ end entity;
             vec![
                 Message::error(
                     code.s("pkg", 1),
-                    "package body declared before package 'pkg'",
+                    "Package body declared before package 'pkg'",
                 ),
                 Message::error(
                     code.s("rtl", 1),
@@ -984,6 +1001,25 @@ end configuration;
                         "Entity name must be of the form library.entity_name or entity_name",
                     ),
             ],
+        );
+    }
+
+    #[test]
+    fn add_package_instance() {
+        let code = Code::new(
+            "
+package ipkg is new work.lib.gpkg generic map (const => 1);
+",
+        );
+        let library = new_library(&code, "libname");
+        let instance = code.package_instance();
+
+        assert_eq!(
+            library.package_instance(&code.symbol("ipkg")),
+            Some(&DesignUnit {
+                context_clause: vec![],
+                unit: instance
+            })
         );
     }
 

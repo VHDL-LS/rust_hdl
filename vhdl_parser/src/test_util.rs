@@ -9,7 +9,7 @@ use concurrent_statement::parse_labeled_concurrent_statement;
 use configuration::parse_configuration_declaration;
 use context::{parse_context, DeclarationOrReference};
 use context::{parse_library_clause, parse_use_clause};
-use declarative_part::parse_declarative_part_leave_end_token;
+use declarative_part::{parse_declarative_part_leave_end_token, parse_package_instantiation};
 use design_unit::{
     parse_architecture_body, parse_design_file, parse_entity_declaration, parse_package_body,
     parse_package_declaration,
@@ -372,6 +372,10 @@ impl Code {
 
     pub fn design_file(&self) -> DesignFile {
         self.parse_ok_no_messages(parse_design_file)
+    }
+
+    pub fn package_instance(&self) -> PackageInstantiation {
+        self.parse_ok(parse_package_instantiation)
     }
 
     pub fn architecture(&self) -> ArchitectureBody {
