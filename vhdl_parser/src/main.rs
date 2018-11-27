@@ -61,8 +61,16 @@ fn main() {
         let config =
             Config::read_file_path(Path::new(file_name)).expect("Failed to read config file");
 
-        let mut project = Project::from_config(&config, num_threads).unwrap();
+        let mut errors = Vec::new();
+        let mut project = Project::from_config(&config, num_threads, &mut errors);
         show_messages(&project.analyse());
+
+        if !errors.is_empty() {
+            println!("Errors when reading config {}:", file_name);
+        }
+        for error in errors {
+            println!("{}", error);
+        }
     }
 }
 

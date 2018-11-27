@@ -23,6 +23,17 @@ pub struct Project {
     files: FnvHashMap<String, SourceFile>,
 }
 
+pub struct FileError {
+    file_name: String,
+    error: io::Error,
+}
+
+impl std::fmt::Display for FileError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Error in {} ({})", self.file_name, self.error)
+    }
+}
+
 impl Project {
     pub fn new() -> Project {
         Project {
@@ -31,7 +42,11 @@ impl Project {
         }
     }
 
-    pub fn from_config(config: &Config, num_threads: usize) -> io::Result<Project> {
+    pub fn from_config(
+        config: &Config,
+        num_threads: usize,
+        errors: &mut Vec<FileError>,
+    ) -> Project {
         let mut project = Project::new();
         let mut files_to_parse: FnvHashMap<&str, LibraryFileToParse> = FnvHashMap::default();
 
@@ -70,8 +85,11 @@ impl Project {
                     continue;
                 }
                 Err(ParserError::IOError(err)) => {
-                    // @TODO convert to soft error
-                    return Err(err);
+                    errors.push(FileError {
+                        file_name: file_to_parse.file_name,
+                        error: err,
+                    });
+                    continue;
                 }
             };
 
@@ -85,7 +103,7 @@ impl Project {
             );
         }
 
-        Ok(project)
+        project
     }
 
     pub fn update_source(&mut self, file_name: &str, source: &Source) -> io::Result<()> {

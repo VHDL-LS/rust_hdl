@@ -251,33 +251,41 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         self.publish_diagnostics();
     }
 
+    fn window_show_message(&self, typ: MessageType, message: impl Into<String>) {
+        self.rpc_channel.send_notification(
+            "window/showMessage",
+            ShowMessageParams {
+                typ,
+                message: message.into(),
+            },
+        );
+    }
+
     pub fn initialized_notification(&mut self, _params: InitializedParams) {
         match &self.config {
             Err(ref err) => {
-                self.rpc_channel.send_notification(
-                    "window/showMessage",
-                    ShowMessageParams {
-                        typ: MessageType::Warning,
-                        message: format!(
-                            "Found no vhdl_ls.toml config file in the root path: {}",
-                            err
-                        ),
-                    },
+                self.window_show_message(
+                    MessageType::Warning,
+                    format!(
+                        "Found no vhdl_ls.toml config file in the root path: {}",
+                        err
+                    ),
                 );
-                self.rpc_channel.send_notification(
-                    "window/showMessage",
-                    ShowMessageParams {
-                        typ: MessageType::Warning,
-                        message: "Semantic analysis disabled, will perform syntax checking only"
-                            .to_owned(),
-                    },
+                self.window_show_message(
+                    MessageType::Warning,
+                    "Semantic analysis disabled, will perform syntax checking only",
                 );
             }
             Ok(config) => {
                 // @TODO read num_threads from config file
                 let num_threads = 4;
                 // @TODO send error to client
-                self.project = Project::from_config(&config, num_threads).unwrap();
+                let mut errors = Vec::new();
+                let project = Project::from_config(&config, num_threads, &mut errors);
+                self.project = project;
+                for error in errors {
+                    self.window_show_message(MessageType::Error, error.to_string());
+                }
             }
         }
 
@@ -413,9 +421,8 @@ mod tests {
             method: String,
             notification: serde_json::Value,
         },
-        IgnoredNotification {
-            method: String,
-        },
+        /// Check that the string representation of the notification contains a string
+        NotificationContainsString { method: String, contains: String },
     }
 
     #[derive(Clone)]
@@ -443,20 +450,27 @@ mod tests {
                 });
         }
 
-        fn ignore_notification(&self, method: impl Into<String>) {
+        fn expect_notification_contains(
+            &self,
+            method: impl Into<String>,
+            contains: impl Into<String>,
+        ) {
             self.expected
                 .borrow_mut()
-                .push_back(RpcExpected::IgnoredNotification {
+                .push_back(RpcExpected::NotificationContainsString {
                     method: method.into(),
+                    contains: contains.into(),
                 });
         }
     }
 
     impl Drop for RpcMock {
         fn drop(&mut self) {
-            let expected = self.expected.replace(VecDeque::new());
-            if expected.len() > 0 {
-                panic!("Not all expected data was consumed\n{:#?}", expected);
+            if !std::thread::panicking() {
+                let expected = self.expected.replace(VecDeque::new());
+                if expected.len() > 0 {
+                    panic!("Not all expected data was consumed\n{:#?}", expected);
+                }
             }
         }
     }
@@ -467,24 +481,35 @@ mod tests {
             method: impl Into<String>,
             notification: impl serde::ser::Serialize,
         ) {
+            let method = method.into();
             let notification = serde_json::to_value(notification).unwrap();
             let expected = self
                 .expected
                 .borrow_mut()
                 .pop_front()
-                .ok_or_else(|| panic!("No expected value, got {:?}", notification))
-                .unwrap();
+                .ok_or_else(|| {
+                    panic!(
+                        "No expected value, got method={} {:?}",
+                        method, notification
+                    )
+                }).unwrap();
 
             match expected {
                 RpcExpected::Notification {
                     method: exp_method,
                     notification: exp_notification,
                 } => {
-                    assert_eq!(method.into(), exp_method);
+                    assert_eq!(method, exp_method);
                     assert_eq!(notification, exp_notification);
                 }
-                RpcExpected::IgnoredNotification { method: exp_method } => {
-                    assert_eq!(method.into(), exp_method);
+                RpcExpected::NotificationContainsString {
+                    method: exp_method,
+                    contains,
+                } => {
+                    assert_eq!(method, exp_method);
+                    if !notification.to_string().contains(&contains) {
+                        panic!("{:?} does not contain string {:?}", notification, contains);
+                    }
                 }
             }
         }
@@ -524,8 +549,14 @@ mod tests {
         let mock = RpcMock::new();
         let mut server = VHDLServer::new(mock.clone());
         let (_tempdir, root_uri) = temp_root_uri();
-        mock.ignore_notification("window/showMessage");
-        mock.ignore_notification("window/showMessage");
+        mock.expect_notification_contains(
+            "window/showMessage",
+            "Found no vhdl_ls.toml config file in the root path",
+        );
+        mock.expect_notification_contains(
+            "window/showMessage",
+            "Semantic analysis disabled, will perform syntax checking only",
+        );
         initialize_server(&mut server, root_uri);
     }
 
@@ -535,8 +566,14 @@ mod tests {
         let mut server = VHDLServer::new(mock.clone());
 
         let (_tempdir, root_uri) = temp_root_uri();
-        mock.ignore_notification("window/showMessage");
-        mock.ignore_notification("window/showMessage");
+        mock.expect_notification_contains(
+            "window/showMessage",
+            "Found no vhdl_ls.toml config file in the root path",
+        );
+        mock.expect_notification_contains(
+            "window/showMessage",
+            "Semantic analysis disabled, will perform syntax checking only",
+        );
         initialize_server(&mut server, root_uri.clone());
 
         let file_url = root_uri.join("ent.vhd").unwrap();
@@ -563,8 +600,14 @@ end entity ent;
         let mut server = VHDLServer::new(mock.clone());
 
         let (_tempdir, root_uri) = temp_root_uri();
-        mock.ignore_notification("window/showMessage");
-        mock.ignore_notification("window/showMessage");
+        mock.expect_notification_contains(
+            "window/showMessage",
+            "Found no vhdl_ls.toml config file in the root path",
+        );
+        mock.expect_notification_contains(
+            "window/showMessage",
+            "Semantic analysis disabled, will perform syntax checking only",
+        );
         initialize_server(&mut server, root_uri.clone());
 
         let file_url = root_uri.join("ent.vhd").unwrap();
@@ -693,6 +736,49 @@ lib.files = [
 
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
 
+        initialize_server(&mut server, root_uri);
+    }
+
+    #[test]
+    fn initialize_with_bad_config() {
+        let mock = RpcMock::new();
+        let mut server = VHDLServer::new(mock.clone());
+        let (_tempdir, root_uri) = temp_root_uri();
+
+        write_config(
+            &root_uri,
+            "
+[libraries
+",
+        );
+        mock.expect_notification_contains(
+            "window/showMessage",
+            "Found no vhdl_ls.toml config file in the root path",
+        );
+        mock.expect_notification_contains(
+            "window/showMessage",
+            "Semantic analysis disabled, will perform syntax checking only",
+        );
+        initialize_server(&mut server, root_uri);
+    }
+
+    #[test]
+    fn initialize_with_config_missing_files() {
+        let mock = RpcMock::new();
+        let mut server = VHDLServer::new(mock.clone());
+        let (_tempdir, root_uri) = temp_root_uri();
+
+        write_config(
+            &root_uri,
+            "
+[libraries]
+lib.files = [
+'missing_file.vhd',
+]
+",
+        );
+
+        mock.expect_notification_contains("window/showMessage", "missing_file.vhd");
         initialize_server(&mut server, root_uri);
     }
 
