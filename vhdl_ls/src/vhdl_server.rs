@@ -108,8 +108,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
                         ),
                     )
                 })
-            })
-            .and_then(|root_path| {
+            }).and_then(|root_path| {
                 let config_file = root_path.join("vhdl_ls.toml");
                 Config::read_file_path(&config_file)
             });
@@ -505,8 +504,7 @@ mod tests {
                         "No expected value, got method={} {:?}",
                         method, notification
                     )
-                })
-                .unwrap();
+                }).unwrap();
 
             match expected {
                 RpcExpected::Notification {
@@ -594,8 +592,7 @@ mod tests {
         let code = "
 entity ent is
 end entity ent;
-"
-        .to_owned();
+".to_owned();
 
         let did_open = DidOpenTextDocumentParams {
             text_document: TextDocumentItem {
@@ -629,8 +626,7 @@ end entity ent;
         let code = "
 entity ent is
 end entity ent2;
-"
-        .to_owned();
+".to_owned();
 
         let did_open = DidOpenTextDocumentParams {
             text_document: TextDocumentItem {
@@ -668,8 +664,7 @@ end entity ent2;
         let code = "
 entity ent is
 end entity ent;
-"
-        .to_owned();
+".to_owned();
 
         let did_change = DidChangeTextDocumentParams {
             text_document: VersionedTextDocumentIdentifier {
