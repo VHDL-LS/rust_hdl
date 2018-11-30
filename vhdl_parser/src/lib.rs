@@ -16,6 +16,7 @@ mod config;
 mod configuration;
 mod context;
 mod declarative_part;
+mod declarative_region;
 mod design_unit;
 mod expression;
 mod interface_declaration;

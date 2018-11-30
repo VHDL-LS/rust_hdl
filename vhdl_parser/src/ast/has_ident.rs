@@ -110,3 +110,36 @@ impl std::fmt::Display for Designator {
         }
     }
 }
+
+impl SubprogramDesignator {
+    pub fn into_designator(self) -> Designator {
+        match self {
+            SubprogramDesignator::Identifier(ident) => Designator::Identifier(ident),
+            SubprogramDesignator::OperatorSymbol(ident) => Designator::OperatorSymbol(ident),
+        }
+    }
+}
+
+impl SubprogramDeclaration {
+    pub fn designator(&self) -> WithPos<Designator> {
+        match self {
+            SubprogramDeclaration::Function(ref function) => function
+                .designator
+                .clone()
+                .map_into(|des| des.into_designator()),
+            SubprogramDeclaration::Procedure(ref procedure) => procedure
+                .designator
+                .clone()
+                .map_into(|des| des.into_designator()),
+        }
+    }
+}
+
+impl EnumerationLiteral {
+    pub fn into_designator(self) -> Designator {
+        match self {
+            EnumerationLiteral::Identifier(ident) => Designator::Identifier(ident),
+            EnumerationLiteral::Character(byte) => Designator::Character(byte),
+        }
+    }
+}

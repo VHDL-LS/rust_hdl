@@ -15,6 +15,7 @@ use ast::{
     ContextDeclaration, DesignFile, DesignUnit, EntityDeclaration, Name, PackageBody,
     PackageDeclaration, PackageInstantiation, PrimaryUnit, SecondaryUnit,
 };
+use declarative_region::DeclarativeRegion;
 use message::{Message, MessageHandler};
 use source::{SrcPos, WithPos};
 use symbol_table::Symbol;
@@ -99,7 +100,7 @@ impl EntityDesignUnit {
     }
 }
 
-impl PackageDesignUnit {
+impl<'a> PackageDesignUnit<'a> {
     fn set_body(&mut self, body: DesignUnit<PackageBody>, messages: &mut MessageHandler) {
         if self.body.is_some() {
             messages.push(Message::error(
@@ -137,30 +138,34 @@ pub struct EntityDesignUnit {
     pub configurations: FnvHashMap<Symbol, DesignUnit<ConfigurationDeclaration>>,
 }
 
+use std::cell::RefCell;
+
 #[derive(PartialEq, Debug, Clone)]
-pub struct PackageDesignUnit {
+pub struct PackageDesignUnit<'a> {
+    /// The declarative region is None when it has not yet been computed
+    pub declarative_region: RefCell<Option<DeclarativeRegion<'a>>>,
     pub package: DesignUnit<PackageDeclaration>,
     pub body: Option<DesignUnit<PackageBody>>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct Library {
+pub struct Library<'a> {
     pub name: Symbol,
     pub entities: FnvHashMap<Symbol, EntityDesignUnit>,
     // Name to entity name mapping
     pub cfg_to_entity: FnvHashMap<Symbol, Symbol>,
-    pub packages: FnvHashMap<Symbol, PackageDesignUnit>,
+    pub packages: FnvHashMap<Symbol, PackageDesignUnit<'a>>,
     pub package_instances: FnvHashMap<Symbol, DesignUnit<PackageInstantiation>>,
     pub contexts: FnvHashMap<Symbol, ContextDeclaration>,
 }
 
-impl Library {
+impl<'a> Library<'a> {
     pub fn new(
         name: Symbol,
         work_sym: &Symbol,
         design_files: Vec<DesignFile>,
         messages: &mut MessageHandler,
-    ) -> Library {
+    ) -> Library<'a> {
         let mut primary_names: FnvHashMap<Symbol, SrcPos> = FnvHashMap::default();
         let mut entities = FnvHashMap::default();
         let mut packages = FnvHashMap::default();
@@ -204,6 +209,7 @@ impl Library {
                                     packages.insert(
                                         package.name().clone(),
                                         PackageDesignUnit {
+                                            declarative_region: RefCell::new(None),
                                             package,
                                             body: None,
                                         },
@@ -315,11 +321,11 @@ impl Library {
         }
     }
 
-    pub fn entity<'a>(&'a self, name: &Symbol) -> Option<&'a EntityDesignUnit> {
+    pub fn entity(&'a self, name: &Symbol) -> Option<&'a EntityDesignUnit> {
         self.entities.get(name)
     }
 
-    pub fn configuration<'a>(
+    pub fn configuration(
         &'a self,
         name: &Symbol,
     ) -> Option<&'a DesignUnit<ConfigurationDeclaration>> {
@@ -329,18 +335,18 @@ impl Library {
             .and_then(|entity| entity.configurations.get(name))
     }
 
-    pub fn package<'a>(&'a self, name: &Symbol) -> Option<&'a PackageDesignUnit> {
+    pub fn package(&'a self, name: &Symbol) -> Option<&'a PackageDesignUnit> {
         self.packages.get(name)
     }
 
-    pub fn package_instance<'a>(
+    pub fn package_instance(
         &'a self,
         name: &Symbol,
     ) -> Option<&'a DesignUnit<PackageInstantiation>> {
         self.package_instances.get(name)
     }
 
-    pub fn context<'a>(&'a self, name: &Symbol) -> Option<&'a ContextDeclaration> {
+    pub fn context(&'a self, name: &Symbol) -> Option<&'a ContextDeclaration> {
         self.contexts.get(name)
     }
 
@@ -348,7 +354,7 @@ impl Library {
         self.entities.values()
     }
 
-    pub fn packages(&self) -> impl Iterator<Item = &PackageDesignUnit> {
+    pub fn packages(&'a self) -> impl Iterator<Item = &'a PackageDesignUnit<'a>> {
         self.packages.values()
     }
 
@@ -361,27 +367,26 @@ impl Library {
     }
 }
 
-pub struct DesignRoot {
-    libraries: FnvHashMap<Symbol, Library>,
+pub struct DesignRoot<'a> {
+    libraries: FnvHashMap<Symbol, Library<'a>>,
 }
 
-impl DesignRoot {
-    pub fn new() -> DesignRoot {
+impl<'a> DesignRoot<'a> {
+    pub fn new() -> DesignRoot<'a> {
         DesignRoot {
             libraries: FnvHashMap::default(),
         }
     }
 
-    pub fn add_library(&mut self, library: Library) {
-        // @TODO check for duplicate libraries
+    pub fn add_library(&mut self, library: Library<'a>) {
         self.libraries.insert(library.name.clone(), library);
     }
 
-    pub fn get_library<'a>(&'a self, library_name: &Symbol) -> Option<&'a Library> {
+    pub fn get_library(&'a self, library_name: &Symbol) -> Option<&'a Library> {
         self.libraries.get(library_name)
     }
 
-    pub fn iter_libraries(&self) -> impl Iterator<Item = &Library> {
+    pub fn iter_libraries(&'a self) -> impl Iterator<Item = &'a Library<'a>> {
         self.libraries.values()
     }
 }
@@ -391,7 +396,7 @@ mod tests {
     use super::*;
     use test_util::{check_messages, check_no_messages, Code, CodeBuilder};
 
-    fn new_library_with_messages(code: &Code, name: &str) -> (Library, Vec<Message>) {
+    fn new_library_with_messages<'a>(code: &Code, name: &str) -> (Library<'a>, Vec<Message>) {
         let mut messages = Vec::new();
         let library = Library::new(
             code.symbol(name),
@@ -402,7 +407,7 @@ mod tests {
         (library, messages)
     }
 
-    fn new_library(code: &Code, name: &str) -> Library {
+    fn new_library<'a>(code: &Code, name: &str) -> Library<'a> {
         let (library, messages) = new_library_with_messages(code, name);
         check_no_messages(&messages);
         library
@@ -792,6 +797,7 @@ end package body;
         assert_eq!(
             library.package(&code.symbol("pkg")),
             Some(&PackageDesignUnit {
+                declarative_region: RefCell::new(None),
                 package: DesignUnit {
                     context_clause: vec![],
                     unit: package

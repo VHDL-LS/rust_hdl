@@ -4,479 +4,15 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::*;
+use ast::{has_ident::HasIdent, *};
+use declarative_region::{AnyDeclaration, DeclarativeRegion, VisibleDeclaration};
 use latin_1::Latin1String;
 use library::{DesignRoot, Library};
 use message::{Message, MessageHandler};
 use source::WithPos;
 use symbol_table::{Symbol, SymbolTable};
 
-extern crate fnv;
-use self::fnv::FnvHashMap;
-use std::collections::hash_map::Entry;
 use std::sync::Arc;
-
-#[derive(Clone)]
-enum DeclarativeAst<'a> {
-    Declaration(&'a Declaration),
-    Element(&'a ElementDeclaration),
-    Enum(&'a WithPos<EnumerationLiteral>),
-    Interface(&'a InterfaceDeclaration),
-}
-
-impl<'a> DeclarativeAst<'a> {
-    fn is_deferred_constant(&self) -> bool {
-        match self {
-            DeclarativeAst::Declaration(Declaration::Object(ObjectDeclaration {
-                ref class,
-                ref expression,
-                ..
-            })) => *class == ObjectClass::Constant && expression.is_none(),
-            _ => false,
-        }
-    }
-
-    fn is_non_deferred_constant(&self) -> bool {
-        match self {
-            DeclarativeAst::Declaration(Declaration::Object(ObjectDeclaration {
-                ref class,
-                ref expression,
-                ..
-            })) => *class == ObjectClass::Constant && expression.is_some(),
-            _ => false,
-        }
-    }
-
-    fn is_protected_type(&self) -> bool {
-        match self {
-            DeclarativeAst::Declaration(Declaration::Type(TypeDeclaration {
-                def: TypeDefinition::Protected { .. },
-                ..
-            })) => true,
-            _ => false,
-        }
-    }
-
-    fn is_protected_type_body(&self) -> bool {
-        match self {
-            DeclarativeAst::Declaration(Declaration::Type(TypeDeclaration {
-                def: TypeDefinition::ProtectedBody { .. },
-                ..
-            })) => true,
-            _ => false,
-        }
-    }
-
-    fn is_incomplete_type(&self) -> bool {
-        match self {
-            DeclarativeAst::Declaration(Declaration::Type(TypeDeclaration {
-                def: TypeDefinition::Incomplete,
-                ..
-            })) => true,
-            _ => false,
-        }
-    }
-
-    fn is_type_declaration(&self) -> bool {
-        match self {
-            DeclarativeAst::Declaration(Declaration::Type(..)) => true,
-            _ => false,
-        }
-    }
-}
-#[derive(Clone)]
-enum VisibleObject<'a> {
-    Library(&'a Library),
-}
-#[derive(Clone)]
-struct VisibleName<'a> {
-    designator: Designator,
-    object: VisibleObject<'a>,
-}
-
-#[derive(Clone)]
-struct DeclarativeItem<'a> {
-    designator: WithPos<Designator>,
-    ast: DeclarativeAst<'a>,
-    may_overload: bool,
-}
-
-impl<'a> DeclarativeItem<'a> {
-    fn new(
-        designator: impl Into<WithPos<Designator>>,
-        ast: DeclarativeAst<'a>,
-    ) -> DeclarativeItem<'a> {
-        DeclarativeItem {
-            designator: designator.into(),
-            ast,
-            may_overload: false,
-        }
-    }
-
-    fn with_overload(mut self, value: bool) -> DeclarativeItem<'a> {
-        self.may_overload = value;
-        self
-    }
-
-    fn is_deferred_of(&self, other: &Self) -> bool {
-        if (self.ast.is_deferred_constant() && other.ast.is_non_deferred_constant())
-            || (self.ast.is_protected_type() && other.ast.is_protected_type_body())
-        {
-            true
-        } else {
-            self.ast.is_incomplete_type()
-                && other.ast.is_type_declaration()
-                && !other.ast.is_incomplete_type()
-        }
-    }
-}
-
-#[derive(Copy, Clone, PartialEq)]
-enum RegionKind {
-    PackageDeclaration,
-    PackageBody,
-    Other,
-}
-
-#[derive(Clone)]
-struct DeclarativeRegion<'a> {
-    visible: FnvHashMap<Designator, VisibleName<'a>>,
-    decls: FnvHashMap<Designator, DeclarativeItem<'a>>,
-    kind: RegionKind,
-}
-
-impl<'a> DeclarativeRegion<'a> {
-    fn new() -> DeclarativeRegion<'a> {
-        DeclarativeRegion {
-            visible: FnvHashMap::default(),
-            decls: FnvHashMap::default(),
-            kind: RegionKind::Other,
-        }
-    }
-
-    fn in_package_declaration(mut self) -> DeclarativeRegion<'a> {
-        self.kind = RegionKind::PackageDeclaration;
-        self
-    }
-
-    fn in_body(&self) -> DeclarativeRegion<'a> {
-        let mut region = self.clone();
-        region.kind = match region.kind {
-            RegionKind::PackageDeclaration => RegionKind::PackageBody,
-            _ => RegionKind::Other,
-        };
-        region
-    }
-
-    fn close_immediate(&mut self, messages: &mut MessageHandler) {
-        let mut to_remove = Vec::new();
-
-        for decl in self.decls.values() {
-            if decl.ast.is_incomplete_type() {
-                to_remove.push(decl.designator.item.clone());
-                messages.push(Message::error(
-                    &decl.designator,
-                    "Missing full type declaration of incomplete type 'rec_t'",
-                ));
-                messages.push(
-                    Message::hint(
-                        &decl.designator,
-                        "The full type declaration shall occur immediately within the same declarative part",
-                    ));
-            }
-        }
-
-        for designator in to_remove {
-            self.decls.remove(&designator);
-        }
-    }
-
-    fn close_extended(&mut self, messages: &mut MessageHandler) {
-        let mut to_remove = Vec::new();
-
-        for decl in self.decls.values() {
-            if decl.ast.is_deferred_constant() {
-                to_remove.push(decl.designator.item.clone());
-                messages.push(
-                    Message::error(&decl.designator,
-                                   format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", &decl.designator.item)));
-            } else if decl.ast.is_protected_type() {
-                to_remove.push(decl.designator.item.clone());
-                messages.push(Message::error(
-                    &decl.designator,
-                    format!(
-                        "Missing body for protected type '{}'",
-                        &decl.designator.item
-                    ),
-                ));
-            }
-        }
-
-        for designator in to_remove {
-            self.decls.remove(&designator);
-        }
-    }
-
-    fn close_both(&mut self, messages: &mut MessageHandler) {
-        self.close_immediate(messages);
-        self.close_extended(messages);
-    }
-
-    fn add(&mut self, decl: DeclarativeItem<'a>, messages: &mut MessageHandler) {
-        if self.kind != RegionKind::PackageDeclaration && decl.ast.is_deferred_constant() {
-            messages.push(Message::error(
-                &decl.designator,
-                "Deferred constants are only allowed in package declarations (not body)",
-            ));
-        }
-
-        match self.decls.entry(decl.designator.item.clone()) {
-            Entry::Occupied(mut entry) => {
-                let old_decl = entry.get_mut();
-
-                if !decl.may_overload || !old_decl.may_overload {
-                    if old_decl.is_deferred_of(&decl) {
-                        if self.kind != RegionKind::PackageBody
-                            && decl.ast.is_non_deferred_constant()
-                        {
-                            messages.push(Message::error(
-                                &decl.designator,
-                                "Full declaration of deferred constant is only allowed in a package body"));
-                        }
-
-                        std::mem::replace(old_decl, decl);
-                    } else {
-                        let msg = Message::error(
-                            &decl.designator,
-                            format!("Duplicate declaration of '{}'", decl.designator.item),
-                        ).related(&old_decl.designator, "Previously defined here");
-                        messages.push(msg)
-                    }
-                }
-            }
-            Entry::Vacant(entry) => {
-                if decl.ast.is_protected_type_body() {
-                    messages.push(Message::error(
-                        &decl.designator,
-                        format!(
-                            "No declaration of protected type '{}'",
-                            &decl.designator.item
-                        ),
-                    ));
-                } else {
-                    entry.insert(decl);
-                }
-            }
-        }
-    }
-
-    fn make_library_visible(&mut self, library_name: &Symbol, library: &'a Library) {
-        let name = VisibleName {
-            designator: Designator::Identifier(library_name.clone()),
-            object: VisibleObject::Library(library),
-        };
-        self.visible.insert(name.designator.clone(), name);
-    }
-
-    fn lookup(&self, designator: &Designator) -> Option<&'a VisibleName> {
-        self.visible.get(designator)
-    }
-
-    fn lookup_selected_name<'b>(
-        &self,
-        name: &'b WithPos<Name>,
-    ) -> Result<(&'a VisibleName, Option<&'b WithPos<Designator>>), Option<WithPos<Designator>>>
-    {
-        match name.item {
-            Name::Selected(ref prefix, ref suffix) => {
-                self.lookup_selected_name(&prefix)
-                    .map(|(visible_name, opt_suffix)| {
-                        (visible_name, opt_suffix.or_else(|| Some(suffix)))
-                    })
-            }
-            Name::SelectedAll(ref prefix) => self.lookup_selected_name(&prefix),
-            Name::Designator(ref designator) => {
-                if let Some(visible_item) = self.lookup(&designator) {
-                    Ok((visible_item, None))
-                } else {
-                    Err(Some(WithPos::from(designator.clone(), name.pos.clone())))
-                }
-            }
-            _ => {
-                // Not a selected name
-                Err(None)
-            }
-        }
-    }
-
-    fn add_interface_list(
-        &mut self,
-        declarations: &'a [InterfaceDeclaration],
-        messages: &mut MessageHandler,
-    ) {
-        for decl in declarations.iter() {
-            for item in decl.declarative_items() {
-                self.add(item, messages);
-            }
-        }
-    }
-
-    fn add_declarative_part(
-        &mut self,
-        declarations: &'a [Declaration],
-        messages: &mut MessageHandler,
-    ) {
-        for decl in declarations.iter() {
-            for item in decl.declarative_items() {
-                self.add(item, messages);
-            }
-        }
-    }
-
-    fn add_element_declarations(
-        &mut self,
-        declarations: &'a [ElementDeclaration],
-        messages: &mut MessageHandler,
-    ) {
-        for decl in declarations.iter() {
-            self.add(
-                DeclarativeItem::new(&decl.ident, DeclarativeAst::Element(decl)),
-                messages,
-            );
-        }
-    }
-}
-
-impl SubprogramDesignator {
-    fn to_designator(self) -> Designator {
-        match self {
-            SubprogramDesignator::Identifier(ident) => Designator::Identifier(ident),
-            SubprogramDesignator::OperatorSymbol(ident) => Designator::OperatorSymbol(ident),
-        }
-    }
-}
-
-impl SubprogramDeclaration {
-    fn designator(&self) -> WithPos<Designator> {
-        match self {
-            SubprogramDeclaration::Function(ref function) => function
-                .designator
-                .clone()
-                .map_into(|des| des.to_designator()),
-            SubprogramDeclaration::Procedure(ref procedure) => procedure
-                .designator
-                .clone()
-                .map_into(|des| des.to_designator()),
-        }
-    }
-}
-
-impl EnumerationLiteral {
-    fn to_designator(self) -> Designator {
-        match self {
-            EnumerationLiteral::Identifier(ident) => Designator::Identifier(ident),
-            EnumerationLiteral::Character(byte) => Designator::Character(byte),
-        }
-    }
-}
-
-impl Declaration {
-    fn declarative_items(&self) -> Vec<DeclarativeItem> {
-        match self {
-            Declaration::Alias(alias) => vec![
-                DeclarativeItem::new(alias.designator.clone(), DeclarativeAst::Declaration(self))
-                    .with_overload(alias.signature.is_some()),
-            ],
-            Declaration::Object(ObjectDeclaration { ref ident, .. }) => vec![DeclarativeItem::new(
-                ident,
-                DeclarativeAst::Declaration(self),
-            )],
-            Declaration::File(FileDeclaration { ref ident, .. }) => vec![DeclarativeItem::new(
-                ident,
-                DeclarativeAst::Declaration(self),
-            )],
-            Declaration::Component(ComponentDeclaration { ref ident, .. }) => {
-                vec![DeclarativeItem::new(
-                    ident,
-                    DeclarativeAst::Declaration(self),
-                )]
-            }
-            Declaration::Attribute(ref attr) => match attr {
-                Attribute::Declaration(AttributeDeclaration { ref ident, .. }) => {
-                    vec![DeclarativeItem::new(
-                        ident,
-                        DeclarativeAst::Declaration(self),
-                    )]
-                }
-                // @TODO Ignored for now
-                Attribute::Specification(..) => vec![],
-            },
-            Declaration::SubprogramBody(body) => vec![
-                DeclarativeItem::new(
-                    body.specification.designator(),
-                    DeclarativeAst::Declaration(self),
-                ).with_overload(true),
-            ],
-            Declaration::SubprogramDeclaration(decl) => vec![
-                DeclarativeItem::new(decl.designator(), DeclarativeAst::Declaration(self))
-                    .with_overload(true),
-            ],
-            // @TODO Ignored for now
-            Declaration::Use(..) => vec![],
-            Declaration::Package(ref package) => vec![DeclarativeItem::new(
-                &package.ident,
-                DeclarativeAst::Declaration(self),
-            )],
-            Declaration::Configuration(..) => vec![],
-            Declaration::Type(TypeDeclaration {
-                ref ident,
-                def: TypeDefinition::Enumeration(ref enumeration),
-            }) => {
-                let mut items = vec![DeclarativeItem::new(
-                    ident,
-                    DeclarativeAst::Declaration(self),
-                )];
-                for literal in enumeration.iter() {
-                    items.push(
-                        DeclarativeItem::new(
-                            literal.clone().map_into(|lit| lit.to_designator()),
-                            DeclarativeAst::Enum(literal),
-                        ).with_overload(true),
-                    )
-                }
-                items
-            }
-            Declaration::Type(TypeDeclaration { ref ident, .. }) => vec![DeclarativeItem::new(
-                ident,
-                DeclarativeAst::Declaration(self),
-            )],
-        }
-    }
-}
-
-impl InterfaceDeclaration {
-    fn declarative_items(&self) -> Vec<DeclarativeItem> {
-        match self {
-            InterfaceDeclaration::File(InterfaceFileDeclaration { ref ident, .. }) => {
-                vec![DeclarativeItem::new(ident, DeclarativeAst::Interface(self))]
-            }
-            InterfaceDeclaration::Object(InterfaceObjectDeclaration { ref ident, .. }) => {
-                vec![DeclarativeItem::new(ident, DeclarativeAst::Interface(self))]
-            }
-            InterfaceDeclaration::Type(ref ident) => {
-                vec![DeclarativeItem::new(ident, DeclarativeAst::Interface(self))]
-            }
-            InterfaceDeclaration::Subprogram(decl, ..) => vec![
-                DeclarativeItem::new(decl.designator(), DeclarativeAst::Interface(self))
-                    .with_overload(true),
-            ],
-            InterfaceDeclaration::Package(ref package) => vec![DeclarativeItem::new(
-                &package.ident,
-                DeclarativeAst::Interface(self),
-            )],
-        }
-    }
-}
 
 /// Check that no homographs are defined in the element declarations
 fn check_element_declaration_unique_ident(
@@ -667,23 +203,170 @@ impl Analyzer {
         }
     }
 
-    fn check_context_clause(
+    /// Returns the VisibleDeclaration or None if it was not a selected name
+    /// Returns error message if a name was not declared
+    /// @TODO We only lookup selected names since other names such as slice and index require typechecking
+    /// @TODO return borrowed data and own VisibleDeclarations inside the Library
+    pub fn lookup_selected_name<'a>(
         &self,
-        root: &DesignRoot,
-        library: &Library,
+        region: &DeclarativeRegion<'a>,
+        name: &WithPos<Name>,
+    ) -> Result<Option<VisibleDeclaration<'a>>, Message> {
+        match name.item {
+            Name::Selected(ref prefix, ref suffix) => {
+                let visible_decl = self.lookup_selected_name(region, prefix)?;
+                if let Some(visible_decl) = visible_decl {
+                    match visible_decl.decl {
+                        AnyDeclaration::Library(ref library) => {
+                            let ident = {
+                                match suffix.item {
+                                    Designator::Identifier(ref ident) => ident,
+                                    _ => {
+                                        // Only identifiers can denote primary units
+                                        return Err(Message::error(
+                                            suffix.as_ref(),
+                                            format!(
+                                                "No primary unit '{}' within '{}'",
+                                                suffix.item, &library.name
+                                            ),
+                                        ));
+                                    }
+                                }
+                            };
+
+                            if let Some(package) = library.package(ident) {
+                                let decl = VisibleDeclaration {
+                                    designator: Designator::Identifier(
+                                        package.package.unit.ident.item.clone(),
+                                    ),
+                                    decl: AnyDeclaration::Package(package),
+                                    decl_pos: Some(package.package.unit.ident.pos.clone()),
+                                    may_overload: false,
+                                };
+
+                                Ok(Some(decl))
+                            } else if let Some(context) = library.context(ident) {
+                                let decl = VisibleDeclaration {
+                                    designator: Designator::Identifier(context.ident.item.clone()),
+                                    decl: AnyDeclaration::Context(context),
+                                    decl_pos: Some(context.ident.pos.clone()),
+                                    may_overload: false,
+                                };
+
+                                Ok(Some(decl))
+                            } else if let Some(entity) = library.entity(ident) {
+                                let decl = VisibleDeclaration {
+                                    designator: Designator::Identifier(
+                                        entity.entity.unit.ident.item.clone(),
+                                    ),
+                                    decl: AnyDeclaration::Entity(entity),
+                                    decl_pos: Some(entity.entity.unit.ident.pos.clone()),
+                                    may_overload: false,
+                                };
+
+                                Ok(Some(decl))
+                            } else if let Some(configuration) = library.configuration(ident) {
+                                let decl = VisibleDeclaration {
+                                    designator: Designator::Identifier(
+                                        configuration.ident().item.clone(),
+                                    ),
+                                    decl: AnyDeclaration::Configuration(configuration),
+                                    decl_pos: Some(configuration.ident().pos.clone()),
+                                    may_overload: false,
+                                };
+
+                                Ok(Some(decl))
+                            } else if let Some(instance) = library.package_instance(ident) {
+                                let decl = VisibleDeclaration {
+                                    designator: Designator::Identifier(
+                                        instance.ident().item.clone(),
+                                    ),
+                                    decl: AnyDeclaration::PackageInstance(instance),
+                                    decl_pos: Some(instance.ident().pos.clone()),
+                                    may_overload: false,
+                                };
+
+                                Ok(Some(decl))
+                            } else {
+                                Err(Message::error(
+                                    suffix.as_ref(),
+                                    format!(
+                                        "No primary unit '{}' within '{}'",
+                                        suffix.item, &library.name
+                                    ),
+                                ))
+                            }
+                        }
+
+                        AnyDeclaration::Package(ref package) => {
+                            if let Some(region) = package.declarative_region.borrow().as_ref() {
+                                if let Some(visible_decl) = region.lookup(&suffix.item) {
+                                    Ok(Some(visible_decl.clone()))
+                                } else {
+                                    Err(Message::error(
+                                        suffix.as_ref(),
+                                        format!(
+                                            "No declaration of '{}' within package '{}'",
+                                            suffix.item,
+                                            &package.package.name()
+                                        ),
+                                    ))
+                                }
+                            } else {
+                                // @TODO analyse unit now if it has not already been analyzed
+                                // but avoid circular dependencies
+                                // @TODO just return the prefix for now to not raise error
+                                Ok(Some(visible_decl.clone()))
+                            }
+                        }
+
+                        // @TODO ignore other declarations for now, just return the prefix to not raise error
+                        _ => Ok(Some(visible_decl)),
+                    }
+                } else {
+                    Ok(None)
+                }
+            }
+
+            // @TODO return Vec for .all
+            Name::SelectedAll(ref prefix) => self.lookup_selected_name(region, prefix),
+            Name::Designator(ref designator) => {
+                if let Some(visible_item) = region.lookup(&designator) {
+                    Ok(Some(visible_item.clone()))
+                } else {
+                    Err(Message::error(
+                        &name.pos,
+                        format!("No declaration of '{}'", designator),
+                    ))
+                }
+            }
+            _ => {
+                // Not a selected name
+                // @TODO at least lookup prefix for now
+                Ok(None)
+            }
+        }
+    }
+
+    fn check_context_clause<'a>(
+        &self,
+        root: &'a DesignRoot<'a>,
+        library: &'a Library<'a>,
         context_clause: &[WithPos<ContextItem>],
         messages: &mut MessageHandler,
     ) {
         let mut region = DeclarativeRegion::new();
         region.make_library_visible(&self.work_sym, library);
 
+        if let Some(library) = root.get_library(&self.std_sym) {
+            region.make_library_visible(&self.std_sym, library);
+        }
+
         for context_item in context_clause.iter() {
             match context_item.item {
                 ContextItem::Library(LibraryClause { ref name_list }) => {
                     for library_name in name_list.iter() {
-                        if self.std_sym == library_name.item {
-                            // std is pre-defined
-                        } else if self.work_sym == library_name.item {
+                        if self.work_sym == library_name.item {
                             messages.push(Message::hint(
                                 &library_name,
                                 "Library clause not necessary for current working library",
@@ -700,90 +383,72 @@ impl Analyzer {
                 }
                 ContextItem::Use(UseClause { ref name_list }) => {
                     for name in name_list {
-                        match region.lookup_selected_name(name) {
-                            Ok((visible_item, Some(suffix))) => {
-                                match visible_item.object {
-                                    VisibleObject::Library(library) => {
-                                        let found_unit = {
-                                            match suffix.item {
-                                                Designator::Identifier(ref unit) => {
-                                                    library.package(unit).is_some()
-                                                        || library.entity(unit).is_some()
-                                                        || library.configuration(unit).is_some()
-                                                        || library.package_instance(unit).is_some()
-                                                }
-                                                // OperatorSymbol or Character cannot be denote a design unit
-                                                _ => false,
-                                            }
-                                        };
-                                        if !found_unit {
-                                            messages.push(Message::error(
-                                                suffix.as_ref(),
-                                                format!(
-                                                    "No primary unit '{}' within '{}'",
-                                                    suffix.item, &library.name
-                                                ),
-                                            ));
-                                        }
-                                    }
-                                }
-                            }
-                            Ok((_, None)) | Err(None) => {
+                        match name.item {
+                            Name::Selected(..) => {}
+                            Name::SelectedAll(..) => {}
+                            _ => {
                                 messages.push(Message::error(
                                     &context_item,
                                     "Use clause must be a selected name",
                                 ));
+                                continue;
                             }
-                            Err(Some(designator)) => {
-                                if designator.item != Designator::Identifier(self.std_sym.clone()) {
-                                    messages.push(Message::error(
-                                        designator.pos,
-                                        format!("No declaration of '{}'", designator.item),
-                                    ));
+                        }
+
+                        match self.lookup_selected_name(&region, &name) {
+                            Ok(Some(visible_decl)) => {
+                                match visible_decl.decl {
+                                    // OK
+                                    AnyDeclaration::Package(ref package) => {
+                                        region
+                                            .make_package_visible(package.package.name(), package);
+                                    }
+                                    // @TODO add error
+                                    _ => {}
                                 }
+                            }
+                            Ok(None) => {
+                                messages.push(Message::error(
+                                    &context_item,
+                                    "Use clase must be a selected name",
+                                ));
+                            }
+                            Err(msg) => {
+                                messages.push(msg);
                             }
                         }
                     }
                 }
                 ContextItem::Context(ContextReference { ref name_list }) => {
                     for name in name_list {
-                        match region.lookup_selected_name(name) {
-                            Ok((visible_item, Some(suffix))) => {
-                                match visible_item.object {
-                                    VisibleObject::Library(library) => {
-                                        let found_unit = {
-                                            match suffix.item {
-                                                Designator::Identifier(ref unit) => {
-                                                    library.context(unit).is_some()
-                                                }
-                                                // OperatorSymbol or Character cannot be denote a design unit
-                                                _ => false,
-                                            }
-                                        };
+                        match name.item {
+                            Name::Selected(..) => {}
+                            _ => {
+                                messages.push(Message::error(
+                                    &context_item,
+                                    "Context reference must be a selected name",
+                                ));
+                                continue;
+                            }
+                        }
 
-                                        if !found_unit {
-                                            messages.push(Message::error(
-                                                suffix.as_ref(),
-                                                format!(
-                                                    "No context '{}' within '{}'",
-                                                    suffix.item, &library.name
-                                                ),
-                                            ));
-                                        }
-                                    }
+                        match self.lookup_selected_name(&region, &name) {
+                            Ok(Some(visible_decl)) => {
+                                match visible_decl.decl {
+                                    // OK
+                                    AnyDeclaration::Context(..) => {}
+                                    // @TODO add error
+                                    _ => {}
                                 }
                             }
-                            Ok((_, None)) | Err(None) => {
+                            Ok(None) => {
                                 messages.push(Message::error(
                                     &context_item,
                                     "Context reference must be a selected name",
                                 ));
                             }
-                            Err(Some(designator)) => {
-                                messages.push(Message::error(
-                                    designator.pos,
-                                    format!("No declaration of '{}'", designator.item),
-                                ));
+                            Err(msg) => {
+                                messages.push(msg);
                             }
                         }
                     }
@@ -792,8 +457,42 @@ impl Analyzer {
         }
     }
 
-    pub fn analyze(&self, root: &DesignRoot, messages: &mut MessageHandler) {
+    pub fn analyze<'a>(&self, root: &'a DesignRoot<'a>, messages: &mut MessageHandler) {
         for library in root.iter_libraries() {
+            for package in library.packages() {
+                self.check_context_clause(root, library, &package.package.context_clause, messages);
+                let mut region = check_package_declaration(&package.package.unit, messages);
+
+                // @TODO may panic
+                // @TODO avoid duplicate analysis
+                package.declarative_region.replace(Some(region.clone()));
+
+                if let Some(ref body) = package.body {
+                    region.close_immediate(messages);
+                    let mut region = region.in_body();
+                    self.check_context_clause(root, library, &body.context_clause, messages);
+                    check_package_body(&mut region, &body.unit, messages);
+                    region.close_both(messages);
+                } else {
+                    region.close_both(messages);
+                }
+            }
+        }
+
+        for library in root.iter_libraries() {
+            for package_instance in library.package_instances() {
+                self.check_context_clause(
+                    root,
+                    library,
+                    &package_instance.context_clause,
+                    messages,
+                );
+            }
+
+            for context in library.contexts() {
+                self.check_context_clause(root, library, &context.items, messages);
+            }
+
             for entity in library.entities() {
                 self.check_context_clause(root, library, &entity.entity.context_clause, messages);
                 let mut region = check_entity_declaration(&entity.entity.unit, messages);
@@ -809,33 +508,6 @@ impl Analyzer {
                     check_architecture_body(&mut region, &architecture.unit, messages);
                     region.close_both(messages);
                 }
-            }
-
-            for package in library.packages() {
-                self.check_context_clause(root, library, &package.package.context_clause, messages);
-                let mut region = check_package_declaration(&package.package.unit, messages);
-                if let Some(ref body) = package.body {
-                    region.close_immediate(messages);
-                    let mut region = region.in_body();
-                    self.check_context_clause(root, library, &body.context_clause, messages);
-                    check_package_body(&mut region, &body.unit, messages);
-                    region.close_both(messages);
-                } else {
-                    region.close_both(messages);
-                }
-            }
-
-            for package_instance in library.package_instances() {
-                self.check_context_clause(
-                    root,
-                    library,
-                    &package_instance.context_clause,
-                    messages,
-                );
-            }
-
-            for context in library.contexts() {
-                self.check_context_clause(root, library, &context.items, messages);
             }
         }
     }
@@ -2030,9 +1702,23 @@ end context;
     fn library_std_is_pre_defined() {
         let mut builder = LibraryBuilder::new();
         builder.code(
+            "std",
+            "
+package standard is
+end package;
+
+package textio is
+end package;
+
+package env is
+end package;
+",
+        );
+
+        builder.code(
             "libname",
             "
-library std;
+use std.textio.all;
 
 entity ent is
 end entity;
@@ -2067,16 +1753,17 @@ end entity;
         )
     }
 
+    use std::collections::{hash_map::Entry, HashMap};
     struct LibraryBuilder {
         code_builder: CodeBuilder,
-        libraries: FnvHashMap<Symbol, Vec<Code>>,
+        libraries: HashMap<Symbol, Vec<Code>>,
     }
 
     impl LibraryBuilder {
         fn new() -> LibraryBuilder {
             LibraryBuilder {
                 code_builder: CodeBuilder::new(),
-                libraries: FnvHashMap::default(),
+                libraries: HashMap::default(),
             }
         }
         fn code(&mut self, library_name: &str, code: &str) -> Code {
@@ -2229,7 +1916,7 @@ end entity;
             messages,
             vec![Message::error(
                 code.s1("missing_ctx"),
-                "No context 'missing_ctx' within 'libname'",
+                "No primary unit 'missing_ctx' within 'libname'",
             )],
         )
     }
@@ -2277,6 +1964,96 @@ end entity;
                     "Context reference must be a selected name",
                 ),
             ],
+        );
+    }
+
+    #[test]
+    fn check_two_stage_use_clause_for_missing_name() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg is
+  type enum_t is (alpha, beta);
+  constant const : enum_t := alpha;
+end package;
+
+use work.pkg;
+use pkg.const;
+use pkg.const2;
+
+package pkg2 is
+end package;
+            ",
+        );
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s1("const2"),
+                "No declaration of 'const2' within package 'pkg'",
+            )],
+        );
+    }
+    #[test]
+    fn check_use_clause_for_missing_name() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg is
+  type enum_t is (alpha, beta);
+  constant const : enum_t := alpha;
+end package;
+
+use work.pkg.const;
+use work.pkg.const2;
+
+package pkg2 is
+end package;
+            ",
+        );
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s1("const2"),
+                "No declaration of 'const2' within package 'pkg'",
+            )],
+        );
+    }
+
+    #[test]
+    fn use_clause_cannot_reference_potentially_visible_name() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg2 is
+  type enum_t is (alpha, beta);
+  constant const1 : enum_t := alpha;
+end package;
+
+use work.pkg2.const1;
+
+package pkg is
+  constant const2 : enum_t := alpha;
+end package;
+
+use work.pkg.const1;
+use work.pkg.const2;
+
+entity ent is
+end entity;
+            ",
+        );
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s("const1", 3),
+                "No declaration of 'const1' within package 'pkg'",
+            )],
         );
     }
 }
