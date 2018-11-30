@@ -148,6 +148,9 @@ Using the language server in `emacs` with the `eglot` language server package it
              '(vhdl-mode . ("<PATH_TO_RUST_HDL>/target/release/vhdl_ls")))
 ```
 
+### Use in Atom
+https://github.com/mbrobbel/atom-ide-vhdl
+
 # Collaboration
 My hope is that other people will be interested in this project and contribute.
 
