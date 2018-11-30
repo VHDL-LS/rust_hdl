@@ -79,10 +79,10 @@ impl Project {
             .parse_design_files(files_to_parse, num_threads)
         {
             let design_file = match design_file {
-                Ok(design_file) => design_file,
+                Ok(design_file) => Some(design_file),
                 Err(ParserError::Message(msg)) => {
                     parser_messages.push(msg);
-                    continue;
+                    None
                 }
                 Err(ParserError::IOError(err)) => {
                     errors.push(FileError {
@@ -98,7 +98,7 @@ impl Project {
                 SourceFile {
                     library_names: file_to_parse.library_names,
                     parser_messages,
-                    design_file: Some(design_file),
+                    design_file,
                 },
             );
         }
