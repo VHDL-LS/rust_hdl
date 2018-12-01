@@ -80,7 +80,10 @@ pub fn start() {
             let request = read_request(&mut stdin.lock());
             match request_sender.send(request) {
                 Ok(_) => continue,
-                Err(_) => break,
+                Err(_) => {
+                    eprintln!("Channel hung up. Unlocking stdin handle.");
+                    break;
+                }
             }
         }
     });
@@ -94,6 +97,7 @@ pub fn start() {
                     send_response(&mut stdout, &response);
                 }
                 Err(_) => {
+                    eprintln!("Channel hung up.");
                     break;
                 }
             }
@@ -109,6 +113,7 @@ pub fn start() {
                 }
             }
             Err(_) => {
+                eprintln!("Channel hung up.");
                 break;
             }
         }
