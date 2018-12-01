@@ -50,8 +50,20 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         Ok(result)
     }
 
+    pub fn shutdown_server(&mut self, _params: ()) -> jsonrpc_core::Result<()> {
+        self.server = None;
+        Ok(())
+    }
+
     fn mut_server(&mut self) -> &mut InitializedVHDLServer<T> {
         self.server.as_mut().expect("Expected initialized server")
+    }
+
+    pub fn exit_notification(&mut self, _params: ()) {
+        match self.server {
+            Some(_) => ::std::process::exit(1),
+            None => ::std::process::exit(0),
+        }
     }
 
     pub fn initialized_notification(&mut self, params: InitializedParams) {

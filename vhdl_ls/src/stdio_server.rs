@@ -36,11 +36,25 @@ pub fn start() {
     });
 
     let server = lang_server.clone();
+    io.add_method("shutdown", move |params: Params| {
+        let result = server.lock().unwrap().shutdown_server(params.parse()?)?;
+        Ok(serde_json::to_value(result).map_err(|_| jsonrpc_core::Error::internal_error())?)
+    });
+
+    let server = lang_server.clone();
     io.add_notification("initialized", move |params: Params| {
         server
             .lock()
             .unwrap()
             .initialized_notification(params.parse().unwrap())
+    });
+
+    let server = lang_server.clone();
+    io.add_notification("exit", move |params: Params| {
+        server
+            .lock()
+            .unwrap()
+            .exit_notification(params.parse().unwrap())
     });
 
     let server = lang_server.clone();
@@ -64,24 +78,44 @@ pub fn start() {
         let stdin = io::stdin();
         loop {
             let request = read_request(&mut stdin.lock());
-            request_sender.send(request).unwrap();
+            match request_sender.send(request) {
+                Ok(_) => continue,
+                Err(_) => {
+                    eprintln!("Channel hung up. Unlocking stdin handle.");
+                    break;
+                }
+            }
         }
     });
 
-    // Spawn thread to write notificaitons to stdout
+    // Spawn thread to write notifications to stdout
     spawn(move || {
         let mut stdout = io::stdout();
         loop {
-            let response: String = response_receiver.recv().unwrap();
-            send_response(&mut stdout, &response);
+            match response_receiver.recv() {
+                Ok(response) => {
+                    send_response(&mut stdout, &response);
+                }
+                Err(_) => {
+                    eprintln!("Channel hung up.");
+                    break;
+                }
+            }
         }
     });
 
     loop {
-        let request = request_receiver.recv().unwrap();
-        let response = io.handle_request_sync(&request);
-        if let Some(response) = response {
-            response_sender.send(response).unwrap();
+        match request_receiver.recv() {
+            Ok(request) => {
+                let response = io.handle_request_sync(&request);
+                if let Some(response) = response {
+                    response_sender.send(response).unwrap();
+                }
+            }
+            Err(_) => {
+                eprintln!("Channel hung up.");
+                break;
+            }
         }
     }
 }
