@@ -81,7 +81,7 @@ pub fn start() {
             match request_sender.send(request) {
                 Ok(_) => continue,
                 Err(_) => {
-                    eprintln!("Channel hung up. Unlocking stdin handle.");
+                    info!("Channel hung up. Unlocking stdin handle.");
                     break;
                 }
             }
@@ -97,7 +97,7 @@ pub fn start() {
                     send_response(&mut stdout, &response);
                 }
                 Err(_) => {
-                    eprintln!("Channel hung up.");
+                    info!("Channel hung up.");
                     break;
                 }
             }
@@ -113,7 +113,7 @@ pub fn start() {
                 }
             }
             Err(_) => {
-                eprintln!("Channel hung up.");
+                info!("Channel hung up.");
                 break;
             }
         }
@@ -128,12 +128,12 @@ fn read_request(reader: &mut BufRead) -> String {
         .take(content_length)
         .read_to_string(&mut request)
         .unwrap();
-    eprintln!("DEBUG GOT REQUEST: {:?}", request);
+    trace!("GOT REQUEST: {:?}", request);
     request
 }
 
 fn send_response(writer: &mut Write, response: &str) {
-    eprintln!("DEBUG SEND RESPONSE: {:?}", response);
+    trace!("SEND RESPONSE: {:?}", response);
     write!(writer, "Content-Length: {}\r\n", response.len());
     write!(writer, "\r\n");
     write!(writer, "{}", response);
@@ -167,7 +167,7 @@ fn read_header(reader: &mut BufRead) -> u64 {
     reader.read_line(&mut buffer).unwrap();
     let fields = buffer.trim_end().clone().split(": ").collect::<Vec<&str>>();
     if fields.get(0) != Some(&"Content-Length") {
-        eprintln!("{:?}", fields);
+        trace!("{:?}", fields);
         panic!();
     }
     let content_length = fields.get(1).unwrap().parse::<u64>().unwrap();
@@ -180,16 +180,16 @@ fn read_header(reader: &mut BufRead) -> u64 {
 
     let fields = buffer.trim_end().clone().split(": ").collect::<Vec<&str>>();
     if fields.get(0) != Some(&"Content-Type") {
-        eprintln!("{:?}", fields);
+        trace!("{:?}", fields);
         panic!();
     } else {
-        eprintln!("got Content-Type: {}", fields.get(1).unwrap());
+        trace!("got Content-Type: {}", fields.get(1).unwrap());
     }
 
     let mut buffer = String::new();
     reader.read_line(&mut buffer).unwrap();
     if buffer != "\r\n" {
-        eprintln!("{:?}", buffer);
+        trace!("{:?}", buffer);
         panic!();
     }
 

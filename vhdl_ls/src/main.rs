@@ -6,6 +6,12 @@
 
 extern crate vhdl_ls;
 
+#[macro_use]
+extern crate log;
+extern crate env_logger;
+
 fn main() {
+    env_logger::init();
+    info!("Starting language server");
     vhdl_ls::start();
 }
