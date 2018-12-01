@@ -20,6 +20,8 @@ serde = "^1"
 languageserver-types = "^0"
 url = "^1"
 fnv = "^1"
+log = "0.4.6"
+env_logger = "0.6.0"
 
 [dev-dependencies]
 tempfile = "^3"

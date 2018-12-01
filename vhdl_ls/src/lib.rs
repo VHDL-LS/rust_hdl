@@ -4,6 +4,9 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
+#[macro_use]
+extern crate log;
+
 mod stdio_server;
 mod vhdl_server;
 pub use stdio_server::start;
