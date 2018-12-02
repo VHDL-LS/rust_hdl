@@ -26,7 +26,7 @@ impl Symbol {
     /// Create a new symbol
     fn new(id: usize, name: &Arc<Latin1String>) -> Symbol {
         Symbol {
-            id: id,
+            id,
             name: Arc::clone(name),
         }
     }

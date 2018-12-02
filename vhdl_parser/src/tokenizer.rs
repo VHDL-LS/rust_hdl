@@ -1274,8 +1274,8 @@ impl Tokenizer {
 
             let length = cursor.pos() - self.state.start;
             let token = Some(Token {
-                kind: kind,
-                value: value,
+                kind,
+                value,
                 pos: self.source.pos(self.state.start, length),
             });
             self.state.start = cursor.pos();

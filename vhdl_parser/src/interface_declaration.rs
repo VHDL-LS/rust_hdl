@@ -149,9 +149,9 @@ fn parse_interface_object_declaration(
         .into_iter()
         .map(|ident| {
             InterfaceDeclaration::Object(InterfaceObjectDeclaration {
-                mode: mode,
+                mode,
                 class: object_class,
-                ident: ident,
+                ident,
                 subtype_indication: subtype.clone(),
                 expression: expr.clone(),
             })

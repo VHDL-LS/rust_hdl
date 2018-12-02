@@ -216,12 +216,12 @@ fn parse_attribute_name(
 
     Ok(WithPos {
         item: Name::Attribute(Box::new(AttributeName {
-            name: name,
-            attr: attr,
-            signature: signature,
+            name,
+            attr,
+            signature,
             expr: expression.map(Box::new),
         })),
-        pos: pos,
+        pos,
     })
 }
 

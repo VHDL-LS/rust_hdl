@@ -210,7 +210,7 @@ fn parse_allocator(stream: &mut TokenStream) -> ParseResult<WithPos<Allocator>> 
                 name: Box::new(name),
                 expr: Box::new(expr),
             }),
-            pos: pos,
+            pos,
         })
     } else {
         let mut pos = selected_name.get(0).unwrap().pos.clone();
@@ -228,7 +228,7 @@ fn parse_allocator(stream: &mut TokenStream) -> ParseResult<WithPos<Allocator>> 
         let subtype = SubtypeIndication {
             resolution: ResolutionIndication::Unresolved,
             type_mark: selected_name,
-            constraint: constraint,
+            constraint,
         };
 
         Ok(WithPos {
@@ -257,7 +257,7 @@ fn parse_primary_initial_token(
                         name: Box::new(name),
                         expr: Box::new(expr),
                     }),
-                    pos: pos,
+                    pos,
                 })
             } else {
                 Ok(name_to_expression(name))
@@ -353,7 +353,7 @@ fn parse_primary_initial_token(
                 let pos = token.pos.combine_into(&expr);
                 Ok(WithPos {
                     item: Expression::Unary(unary_op, Box::new(expr)),
-                    pos: pos,
+                    pos,
                 })
             } else {
                 Err(Message::error(&token, "Expected {expression}"))
@@ -386,7 +386,7 @@ fn parse_expr_initial_token(
                 let pos = lhs.pos.combine(&rhs);
                 lhs = WithPos {
                     item: Expression::Binary(binary_op, Box::new(lhs), Box::new(rhs)),
-                    pos: pos,
+                    pos,
                 };
             } else {
                 return Ok(lhs);

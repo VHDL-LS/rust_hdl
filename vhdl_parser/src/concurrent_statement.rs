@@ -375,7 +375,7 @@ fn parse_if_generate_statement(
     stream.expect_kind(SemiColon)?;
 
     Ok(IfGenerateStatement {
-        conditionals: conditionals,
+        conditionals,
         else_item: else_branch,
     })
 }

@@ -52,9 +52,9 @@ pub fn parse_entity_declaration(
     }
     stream.expect_kind(SemiColon)?;
     Ok(EntityDeclaration {
-        ident: ident,
-        generic_clause: generic_clause,
-        port_clause: port_clause,
+        ident,
+        generic_clause,
+        port_clause,
         decl,
         statements,
     })
@@ -307,7 +307,7 @@ mod tests {
         AnyDesignUnit::Primary(PrimaryUnit::EntityDeclaration(DesignUnit {
             context_clause: vec![],
             unit: EntityDeclaration {
-                ident: ident,
+                ident,
                 generic_clause: None,
                 port_clause: None,
                 decl: vec![],

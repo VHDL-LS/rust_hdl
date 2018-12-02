@@ -246,7 +246,7 @@ impl<T> WithPos<T> {
     {
         match f(self.item) {
             Ok(item) => Ok(WithPos {
-                item: item,
+                item,
                 pos: self.pos,
             }),
             Err(msg) => Err(Message::error(&self.pos, msg)),
