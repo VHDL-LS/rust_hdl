@@ -354,8 +354,18 @@ impl<'a> Analyzer<'a> {
                                             &mut ignore_messages,
                                         );
                                     }
-                                    // @TODO add error
-                                    _ => {}
+                                    _ => {
+                                        // @TODO maybe lookup should return the source position of the suffix
+                                        if let Name::Selected(_, ref suffix) = name.item {
+                                            messages.push(Message::error(
+                                                &suffix,
+                                                format!(
+                                                    "'{}' does not denote a context declaration",
+                                                    &suffix.item
+                                                ),
+                                            ));
+                                        }
+                                    }
                                 }
                             }
                             Ok(None) => {
@@ -2010,7 +2020,7 @@ end entity;
     }
 
     #[test]
-    fn check_context_clause_for_missing_context() {
+    fn check_context_reference_for_missing_context() {
         let mut builder = LibraryBuilder::new();
         let code = builder.code(
             "libname",
@@ -2033,6 +2043,33 @@ end entity;
             vec![Message::error(
                 code.s1("missing_ctx"),
                 "No primary unit 'missing_ctx' within 'libname'",
+            )],
+        )
+    }
+
+    #[test]
+    fn check_context_reference_for_non_context() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg is
+end package;
+
+context work.pkg;
+
+entity dummy is
+end entity;
+            ",
+        );
+
+        let messages = builder.analyze();
+
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s("pkg", 2),
+                "'pkg' does not denote a context declaration",
             )],
         )
     }
