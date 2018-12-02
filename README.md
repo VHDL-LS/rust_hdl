@@ -151,6 +151,9 @@ Using the language server in `emacs` with the `eglot` language server package it
 ### Use in Atom
 https://github.com/mbrobbel/atom-ide-vhdl
 
+### Use in VSCode
+https://github.com/Bochlin/rust_hdl_vscode
+
 # Collaboration
 My hope is that other people will be interested in this project and contribute.
 
