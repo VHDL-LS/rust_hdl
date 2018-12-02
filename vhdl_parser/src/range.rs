@@ -63,7 +63,7 @@ fn parse_name_or_range(stream: &mut TokenStream) -> ParseResult<NameOrRange> {
         return Ok(NameOrRange::Name(WithPos::from(*name, pos)));
     }
 
-    return Err(Message::error(&expr, "Expected name or range"));
+    Err(Message::error(&expr, "Expected name or range"))
 }
 
 /// {selected_name}'range

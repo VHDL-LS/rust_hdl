@@ -97,9 +97,7 @@ fn expression_to_name(expr: WithPos<Expression>) -> ParseResult<WithPos<Name>> {
             item: Name::Designator(Designator::Character(val)),
             pos: expr.pos,
         }),
-        _ => {
-            return Err(Message::error(&expr, "Expected name"));
-        }
+        _ => Err(Message::error(&expr, "Expected name")),
     }
 }
 

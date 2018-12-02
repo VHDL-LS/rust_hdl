@@ -45,7 +45,7 @@ impl Latin1String {
     }
 
     pub fn len(&self) -> usize {
-        return self.bytes.len();
+        self.bytes.len()
     }
 
     pub fn lowercase(chr: u8) -> u8 {

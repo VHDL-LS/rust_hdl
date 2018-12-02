@@ -339,7 +339,7 @@ impl SrcPos {
             }
         }
 
-        return (first_lineno.unwrap_or(lineno - 1), lines);
+        (first_lineno.unwrap_or(lineno - 1), lines)
     }
 
     fn push_replicate(line: &mut String, chr: char, times: usize) {
@@ -437,7 +437,7 @@ impl SrcPos {
             }
         }
 
-        return (first_lineno, max_len, result);
+        (first_lineno, max_len, result)
     }
 
     fn lineno_and_code_context(&self) -> (usize, usize, String) {

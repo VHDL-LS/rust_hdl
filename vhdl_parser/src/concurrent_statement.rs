@@ -133,12 +133,10 @@ fn to_procedure_call(
                 parameters: vec![],
             },
         }),
-        Target::Aggregate(..) => {
-            return Err(Message::error(
-                target,
-                "Expected procedure call, got aggregate",
-            ));
-        }
+        Target::Aggregate(..) => Err(Message::error(
+            target,
+            "Expected procedure call, got aggregate",
+        )),
     }
 }
 

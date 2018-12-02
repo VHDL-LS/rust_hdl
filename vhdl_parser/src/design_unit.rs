@@ -117,11 +117,11 @@ pub fn parse_package_declaration(
     }
     stream.pop_if_kind(Identifier)?;
     stream.expect_kind(SemiColon)?;
-    return Ok(PackageDeclaration {
+    Ok(PackageDeclaration {
         ident,
         generic_clause,
         decl,
-    });
+    })
 }
 
 /// LRM 4.8 Package bodies
@@ -144,7 +144,7 @@ pub fn parse_package_body(
     }
     stream.expect_kind(SemiColon)?;
 
-    return Ok(PackageBody { ident, decl });
+    Ok(PackageBody { ident, decl })
 }
 
 fn to_design_unit<T>(context_clause: &mut Vec<WithPos<ContextItem>>, unit: T) -> DesignUnit<T> {

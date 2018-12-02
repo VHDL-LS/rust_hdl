@@ -645,7 +645,7 @@ fn parse_exponent(cursor: &mut ByteCursor) -> Result<i32, String> {
         }
     }
 
-    return Err("Exponent too large for 32-bits signed".to_string());
+    Err("Exponent too large for 32-bits signed".to_string())
 }
 
 fn pow(value: i64, exp: u32) -> Option<i64> {
@@ -1282,7 +1282,7 @@ impl Tokenizer {
             self.state.last_token_kind = Some(kind);
             return Ok(token);
         }
-        return Ok(None);
+        Ok(None)
     }
 }
 

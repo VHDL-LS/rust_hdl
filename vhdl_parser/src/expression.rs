@@ -165,7 +165,7 @@ fn parse_half_range(
         left_expr: Box::new(left_expr),
         right_expr: Box::new(right_expr),
     }));
-    return Ok(range);
+    Ok(range)
 }
 
 fn parse_choice(stream: &mut TokenStream) -> ParseResult<Choice> {
@@ -176,12 +176,12 @@ fn parse_choice(stream: &mut TokenStream) -> ParseResult<Choice> {
 
     if stream.skip_if_kind(To)? {
         let range = parse_half_range(stream, left_expr, Direction::Ascending)?;
-        return Ok(Choice::DiscreteRange(range));
+        Ok(Choice::DiscreteRange(range))
     } else if stream.skip_if_kind(Downto)? {
         let range = parse_half_range(stream, left_expr, Direction::Descending)?;
-        return Ok(Choice::DiscreteRange(range));
+        Ok(Choice::DiscreteRange(range))
     } else {
-        return Ok(Choice::Expression(left_expr));
+        Ok(Choice::Expression(left_expr))
     }
 }
 
