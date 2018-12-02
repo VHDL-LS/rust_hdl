@@ -499,7 +499,6 @@ impl Analyzer {
 
                 if let Some(ref body) = package.body {
                     region.close_immediate(messages);
-                    let mut root_region = self.new_root_region(root, library);
                     self.analyze_context_clause(
                         root,
                         &mut root_region,
@@ -542,7 +541,7 @@ impl Analyzer {
                 let mut region = self.analyze_entity_declaration(&entity.entity.unit, messages);
                 region.close_immediate(messages);
                 for architecture in entity.architectures.values() {
-                    let mut root_region = self.new_root_region(root, library);
+                    let mut root_region = root_region.clone();
                     self.analyze_context_clause(
                         root,
                         &mut root_region,
@@ -1718,6 +1717,48 @@ end entity;
                 "No such library 'missing_lib'",
             )],
         )
+    }
+
+    #[test]
+    fn library_clause_extends_into_secondary_units() {
+        let mut builder = LibraryBuilder::new();
+        builder.code(
+            "libname",
+            "
+-- Package will be used for testing
+package usepkg is
+  constant const : natural := 0;
+end package;
+
+-- This should be visible also in architectures
+library libname;
+
+entity ent is
+end entity;
+
+use libname.usepkg;
+
+architecture rtl of ent is
+begin
+end architecture;
+
+-- This should be visible also in package body
+library libname;
+use libname.usepkg;
+
+package pkg is
+end package;
+
+use usepkg.const;
+
+package body pkg is
+end package body;
+            ",
+        );
+
+        let messages = builder.analyze();
+
+        check_no_messages(&messages);
     }
 
     #[test]
