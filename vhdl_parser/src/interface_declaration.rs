@@ -248,7 +248,7 @@ fn parse_interface_declaration(
 /// Expect ; for all but the last item
 fn parse_semicolon_separator(stream: &mut TokenStream) -> ParseResult<()> {
     let token = stream.peek_expect()?;
-    Ok(try_token_kind!(token,
+    try_token_kind!(token,
                       SemiColon => {
                           stream.move_after(&token);
                           if stream.peek_expect()?.kind == RightPar {
@@ -258,7 +258,8 @@ fn parse_semicolon_separator(stream: &mut TokenStream) -> ParseResult<()> {
                           }
                       },
                       RightPar => {}
-    ))
+    );
+    Ok(())
 }
 
 #[derive(PartialEq, Clone, Copy)]
