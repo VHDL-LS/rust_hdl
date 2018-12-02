@@ -341,7 +341,19 @@ impl<'a> Analyzer<'a> {
                             Ok(Some(visible_decl)) => {
                                 match visible_decl.decl {
                                     // OK
-                                    AnyDeclaration::Context(..) => {}
+                                    AnyDeclaration::Context(ref context) => {
+                                        // Error will be given when
+                                        // analyzing the context
+                                        // clause specifically and
+                                        // shall not be duplicated
+                                        // here
+                                        let mut ignore_messages = Vec::new();
+                                        self.analyze_context_clause(
+                                            region,
+                                            &context.items,
+                                            &mut ignore_messages,
+                                        );
+                                    }
                                     // @TODO add error
                                     _ => {}
                                 }
@@ -1770,6 +1782,36 @@ end context;
                 "No such library 'missing_lib'",
             )],
         )
+    }
+
+    #[test]
+    fn context_clause_makes_names_visible() {
+        let mut builder = LibraryBuilder::new();
+        builder.code(
+            "libname",
+            "
+-- Package will be used for testing
+package usepkg is
+  constant const : natural := 0;
+end package;
+
+context ctx is
+  library libname;
+  use libname.usepkg;
+end context;
+
+
+context work.ctx;
+use usepkg.const;
+
+package pkg is
+end package;
+            ",
+        );
+
+        let messages = builder.analyze();
+
+        check_no_messages(&messages);
     }
 
     #[test]
