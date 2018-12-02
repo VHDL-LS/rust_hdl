@@ -9,7 +9,7 @@ use super::*;
 
 impl From<SelectedName> for WithPos<Name> {
     fn from(selected_name: SelectedName) -> WithPos<Name> {
-        let first = selected_name.get(0).unwrap().clone();
+        let first = selected_name[0].clone();
         let name = Name::Designator(Designator::Identifier(first.item));
         let mut name = WithPos::from(name, first.pos);
 

@@ -51,7 +51,7 @@ fn parse_name_or_range(stream: &mut TokenStream) -> ParseResult<NameOrRange> {
         pos,
     } = expr
     {
-        if let &Name::Attribute(ref attribute_name) = name.as_ref() {
+        if let Name::Attribute(ref attribute_name) = *name.as_ref() {
             if attribute_name.attr.item == stream.tokenizer.range_ident
                 || attribute_name.attr.item == stream.tokenizer.reverse_range_ident
             {

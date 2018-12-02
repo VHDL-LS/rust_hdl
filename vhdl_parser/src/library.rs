@@ -101,7 +101,7 @@ impl EntityDesignUnit {
 
 impl PackageDesignUnit {
     fn set_body(&mut self, body: DesignUnit<PackageBody>, messages: &mut MessageHandler) {
-        if let Some(_) = self.body {
+        if self.body.is_some() {
             messages.push(Message::error(
                 body.ident(),
                 format!(
@@ -279,7 +279,7 @@ impl Library {
                     &[ref entname] => entname,
                     selected_name => {
                         let name: WithPos<Name> = selected_name.to_vec().into();
-                        messages.push(Message::error(&name, format!("Invalid selected name for entity"))
+                        messages.push(Message::error(&name, "Invalid selected name for entity")
                                       .related(&name, "Entity name must be of the form library.entity_name or entity_name"));
                         continue;
                     }

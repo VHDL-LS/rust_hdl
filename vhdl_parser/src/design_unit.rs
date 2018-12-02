@@ -192,7 +192,7 @@ pub fn parse_design_file(
             },
             Context => match parse_context(stream, messages) {
                 Ok(DeclarationOrReference::Declaration(context_decl)) => {
-                    if context_clause.len() > 0 {
+                    if !context_clause.is_empty() {
                         let mut message = Message::error(&context_decl.ident, "Context declaration may not be preceeded by a context clause");
 
                         for context_item in context_clause.iter() {

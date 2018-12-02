@@ -17,7 +17,7 @@ use tokenstream::TokenStream;
 pub fn parse_optional_assignment(
     stream: &mut TokenStream,
 ) -> ParseResult<Option<WithPos<Expression>>> {
-    if let Some(_) = stream.pop_if_kind(ColonEq)? {
+    if stream.pop_if_kind(ColonEq)?.is_some() {
         let expr = parse_expression(stream)?;
         Ok(Some(expr))
     } else {

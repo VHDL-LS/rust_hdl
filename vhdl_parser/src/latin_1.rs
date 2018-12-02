@@ -51,7 +51,7 @@ impl Latin1String {
     pub fn lowercase(chr: u8) -> u8 {
         match chr {
             215 => chr,
-            b'A'..=b'Z' | 192..=222 => chr + 32,
+            b'A'..=b'Z' | 192..=214 | 216..=222 => chr + 32,
             _ => chr,
         }
     }

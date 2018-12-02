@@ -322,9 +322,9 @@ impl SrcPos {
         }
 
         if early_eof && self.start + self.length > offset {
-            if lines.len() > 0 {
+            if !lines.is_empty() {
                 let last_idx = lines.len() - 1;
-                let (_, ref offset, ref mut line) = lines.get_mut(last_idx).unwrap();
+                let (_, ref offset, ref mut line) = &mut lines[last_idx];
                 let line_len = self.start + self.length - offset;
                 for _ in line.len()..line_len {
                     line.bytes.push(b' ');
@@ -400,7 +400,7 @@ impl SrcPos {
 
         let last_lineno = {
             match lines.get(lines.len() - 1) {
-                Some((ref lineno, _, _)) => lineno.clone(),
+                Some((ref lineno, _, _)) => *lineno,
                 _ => 1,
             }
         };

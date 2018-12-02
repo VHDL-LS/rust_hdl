@@ -92,8 +92,8 @@ pub fn parse_component_declaration(
 
     Ok(ComponentDeclaration {
         ident,
-        generic_list: generic_list.unwrap_or(Vec::new()),
-        port_list: port_list.unwrap_or(Vec::new()),
+        generic_list: generic_list.unwrap_or_default(),
+        port_list: port_list.unwrap_or_default(),
     })
 }
 

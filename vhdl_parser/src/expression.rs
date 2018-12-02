@@ -104,7 +104,7 @@ pub fn parse_aggregate_initial_choices(
         try_token_kind!(
             token,
             RightPar => {
-                if let &[Choice::Expression(ref choice)] = choices.as_slice() {
+                if let [Choice::Expression(ref choice)] = *choices.as_slice() {
                     result.push(ElementAssociation::Positional(choice.clone()));
                     return Ok(WithPos::from(result, token))
                 } else {
@@ -112,7 +112,7 @@ pub fn parse_aggregate_initial_choices(
                 }
             },
             Comma => {
-                if let &[Choice::Expression(ref choice)] = choices.as_slice() {
+                if let [Choice::Expression(ref choice)] = *choices.as_slice() {
                     result.push(ElementAssociation::Positional(choice.clone()));
                 } else {
                     return Err(Message::error(&token, "Expected => after others"));
@@ -213,14 +213,14 @@ fn parse_allocator(stream: &mut TokenStream) -> ParseResult<WithPos<Allocator>> 
             pos,
         })
     } else {
-        let mut pos = selected_name.get(0).unwrap().pos.clone();
+        let mut pos = selected_name[0].pos.clone();
 
         let constraint = {
             if let Some(constraint) = parse_subtype_constraint(stream)? {
                 pos = pos.combine(&constraint.pos);
                 Some(constraint)
             } else {
-                pos = pos.combine(&selected_name.get(selected_name.len() - 1).unwrap().pos);
+                pos = pos.combine(&selected_name[selected_name.len() - 1].pos);
                 None
             }
         };
@@ -311,9 +311,9 @@ fn parse_primary_initial_token(
         LeftPar => {
             let choices = parse_choices(stream)?;
             // Parenthesized expression or aggregate
-            match choices.as_slice() {
+            match *choices.as_slice() {
                 // Can be aggregate or expression
-                &[Choice::Expression(ref expr)] => {
+                [Choice::Expression(ref expr)] => {
                     let sep_token = stream.peek_expect()?;
                     match_token_kind!(
                         sep_token,

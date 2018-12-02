@@ -119,17 +119,14 @@ impl<'a> DeclarativeItem<'a> {
     }
 
     fn is_deferred_of(&self, other: &Self) -> bool {
-        if self.ast.is_deferred_constant() && other.ast.is_non_deferred_constant() {
-            true
-        } else if self.ast.is_protected_type() && other.ast.is_protected_type_body() {
-            true
-        } else if self.ast.is_incomplete_type()
-            && other.ast.is_type_declaration()
-            && !other.ast.is_incomplete_type()
+        if (self.ast.is_deferred_constant() && other.ast.is_non_deferred_constant())
+            || (self.ast.is_protected_type() && other.ast.is_protected_type_body())
         {
             true
         } else {
-            false
+            self.ast.is_incomplete_type()
+                && other.ast.is_type_declaration()
+                && !other.ast.is_incomplete_type()
         }
     }
 }
@@ -502,7 +499,7 @@ fn check_interface_list_unique_ident(
 }
 
 impl SubprogramDeclaration {
-    fn interface_list<'a>(&'a self) -> &[InterfaceDeclaration] {
+    fn interface_list(&self) -> &[InterfaceDeclaration] {
         match self {
             SubprogramDeclaration::Function(fun) => &fun.parameter_list,
             SubprogramDeclaration::Procedure(proc) => &proc.parameter_list,
@@ -663,7 +660,7 @@ pub struct Analyzer {
 }
 
 impl Analyzer {
-    pub fn new(symtab: Arc<SymbolTable>) -> Analyzer {
+    pub fn new(symtab: &Arc<SymbolTable>) -> Analyzer {
         Analyzer {
             work_sym: symtab.insert(&Latin1String::new(b"work")),
             std_sym: symtab.insert(&Latin1String::new(b"std")),
@@ -674,7 +671,7 @@ impl Analyzer {
         &self,
         root: &DesignRoot,
         library: &Library,
-        context_clause: &Vec<WithPos<ContextItem>>,
+        context_clause: &[WithPos<ContextItem>],
         messages: &mut MessageHandler,
     ) {
         let mut region = DeclarativeRegion::new();
@@ -689,17 +686,15 @@ impl Analyzer {
                         } else if self.work_sym == library_name.item {
                             messages.push(Message::hint(
                                 &library_name,
-                                format!("Library clause not necessary for current working library"),
+                                "Library clause not necessary for current working library",
                             ))
+                        } else if let Some(library) = root.get_library(&library_name.item) {
+                            region.make_library_visible(&library.name, library);
                         } else {
-                            if let Some(library) = root.get_library(&library_name.item) {
-                                region.make_library_visible(&library.name, library);
-                            } else {
-                                messages.push(Message::error(
-                                    &library_name,
-                                    format!("No such library '{}'", library_name.item),
-                                ));
-                            }
+                            messages.push(Message::error(
+                                &library_name,
+                                format!("No such library '{}'", library_name.item),
+                            ));
                         }
                     }
                 }
@@ -712,21 +707,10 @@ impl Analyzer {
                                         let found_unit = {
                                             match suffix.item {
                                                 Designator::Identifier(ref unit) => {
-                                                    if library.package(unit).is_some() {
-                                                        true
-                                                    } else if library.entity(unit).is_some() {
-                                                        true
-                                                    } else if library.configuration(unit).is_some()
-                                                    {
-                                                        true
-                                                    } else if library
-                                                        .package_instance(unit)
-                                                        .is_some()
-                                                    {
-                                                        true
-                                                    } else {
-                                                        false
-                                                    }
+                                                    library.package(unit).is_some()
+                                                        || library.entity(unit).is_some()
+                                                        || library.configuration(unit).is_some()
+                                                        || library.package_instance(unit).is_some()
                                                 }
                                                 // OperatorSymbol or Character cannot be denote a design unit
                                                 _ => false,
@@ -2124,7 +2108,7 @@ end entity;
                 root.add_library(library);
             }
 
-            Analyzer::new(self.code_builder.symtab.clone()).analyze(&root, &mut messages);
+            Analyzer::new(&self.code_builder.symtab.clone()).analyze(&root, &mut messages);
 
             messages
         }

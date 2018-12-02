@@ -312,58 +312,57 @@ pub fn parse_name_initial_token(
         }
     };
 
-    loop {
-        if let Some(token) = stream.peek()? {
-            match token.kind {
-                Dot => {
-                    stream.move_after(&token);
-                    let suffix_token = stream.expect()?;
-                    let pos = name.pos.combine(&suffix_token);
-                    let suffix = to_suffix(suffix_token)?;
+    while let Some(token) = stream.peek()? {
+        match token.kind {
+            Dot => {
+                stream.move_after(&token);
+                let suffix_token = stream.expect()?;
+                let pos = name.pos.combine(&suffix_token);
+                let suffix = to_suffix(suffix_token)?;
 
-                    match suffix.item {
-                        DesignatorOrAll::Designator(designator) => {
-                            name = WithPos {
-                                item: Name::Selected(
-                                    Box::new(name),
-                                    WithPos::from(designator, suffix.pos),
-                                ),
-                                pos,
-                            }
+                match suffix.item {
+                    DesignatorOrAll::Designator(designator) => {
+                        name = WithPos {
+                            item: Name::Selected(
+                                Box::new(name),
+                                WithPos::from(designator, suffix.pos),
+                            ),
+                            pos,
                         }
-                        DesignatorOrAll::All => {
-                            name = WithPos {
-                                item: Name::SelectedAll(Box::new(name)),
-                                pos,
-                            }
+                    }
+                    DesignatorOrAll::All => {
+                        name = WithPos {
+                            item: Name::SelectedAll(Box::new(name)),
+                            pos,
                         }
                     }
                 }
-                LeftSquare => {
-                    let state = stream.state();
-                    let signature = Some(parse_signature(stream)?);
-                    if !stream.skip_if_kind(Tick)? {
-                        // Alias may have prefix[signature] without tick
-                        stream.set_state(state);
-                        break;
-                    }
-                    name = parse_attribute_name(stream, name, signature)?;
+            }
+            LeftSquare => {
+                let state = stream.state();
+                let signature = Some(parse_signature(stream)?);
+                if !stream.skip_if_kind(Tick)? {
+                    // Alias may have prefix[signature] without tick
+                    stream.set_state(state);
+                    break;
                 }
-                Tick => {
-                    if stream.is_peek_kinds(&[Tick, LeftPar])? {
-                        break;
-                    }
-                    stream.move_after(&token);
-                    let signature = None;
-                    name = parse_attribute_name(stream, name, signature)?;
+                name = parse_attribute_name(stream, name, signature)?;
+            }
+            Tick => {
+                if stream.is_peek_kinds(&[Tick, LeftPar])? {
+                    break;
                 }
-                LeftPar => {
-                    stream.move_after(&token);
+                stream.move_after(&token);
+                let signature = None;
+                name = parse_attribute_name(stream, name, signature)?;
+            }
+            LeftPar => {
+                stream.move_after(&token);
 
-                    loop {
-                        let assoc = parse_association_element(stream)?;
-                        let sep_token = stream.expect()?;
-                        try_token_kind!(
+                loop {
+                    let assoc = parse_association_element(stream)?;
+                    let sep_token = stream.expect()?;
+                    try_token_kind!(
                             sep_token,
                             Comma => {
                                 name = parse_function_call(stream, name, assoc)?;
@@ -406,14 +405,11 @@ pub fn parse_name_initial_token(
                                 break;
                             }
                         )
-                    }
-                }
-                _ => {
-                    break;
                 }
             }
-        } else {
-            break;
+            _ => {
+                break;
+            }
         }
     }
 

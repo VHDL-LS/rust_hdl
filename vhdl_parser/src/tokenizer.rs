@@ -217,7 +217,7 @@ macro_rules! try_token_kind {
     }
 }
 
-pub fn kind_str(kind: &Kind) -> &'static str {
+pub fn kind_str(kind: Kind) -> &'static str {
     match kind {
         // Keywords
         Architecture => &"architecture",
@@ -369,11 +369,11 @@ pub fn kind_str(kind: &Kind) -> &'static str {
 }
 
 /// Create s string representation of the kinds separated by a separator
-pub fn kinds_str<'a>(kinds: &[Kind]) -> String {
+pub fn kinds_str(kinds: &[Kind]) -> String {
     let mut result = String::new();
     for (i, kind) in kinds.iter().enumerate() {
         result.push('\'');
-        result.push_str(kind_str(kind));
+        result.push_str(kind_str(*kind));
         result.push('\'');
 
         if i == kinds.len() - 1 {
@@ -513,7 +513,7 @@ impl Token {
 /// Resolves ir1045
 /// http://www.eda-stds.org/isac/IRs-VHDL-93/IR1045.txt
 /// char may not come after ], ), all, or identifier
-fn can_be_char(last_token_kind: &Option<Kind>) -> bool {
+fn can_be_char(last_token_kind: Option<Kind>) -> bool {
     if let Some(kind) = last_token_kind {
         match kind {
             RightSquare | RightPar | All | Identifier => false,
@@ -578,7 +578,7 @@ fn parse_integer(cursor: &mut ByteCursor, base: i64, stop_on_e: bool) -> Result<
     let mut too_large_base = false;
 
     while let Some(b) = cursor.peek(0) {
-        let digit = match b {
+        let digit = i64::from(match b {
             b'0'..=b'9' => {
                 cursor.pop();
                 (b - b'0')
@@ -604,27 +604,21 @@ fn parse_integer(cursor: &mut ByteCursor, base: i64, stop_on_e: bool) -> Result<
             _ => {
                 break;
             }
-        } as i64;
+        });
 
         too_large_base = too_large_base || (digit >= base);
 
-        let compure_result = |result| {
-            let result = base.checked_mul(result?)?;
-            let result = result.checked_add(digit)?;
-            Some(result)
-        };
-
-        result = compure_result(result);
+        result = result
+            .and_then(|x| base.checked_mul(x))
+            .and_then(|x| x.checked_add(digit));
     }
 
     if too_large_base {
         Err(format!("Illegal digit for base {}", base).to_string())
+    } else if let Some(result) = result {
+        Ok(result)
     } else {
-        if let Some(result) = result {
-            Ok(result)
-        } else {
-            Err("Integer too large for 64-bits signed".to_string())
-        }
+        Err("Integer too large for 64-bits signed".to_string())
     }
 }
 
@@ -640,7 +634,7 @@ fn parse_exponent(cursor: &mut ByteCursor) -> Result<i32, String> {
 
     let exp = parse_integer(cursor, 10, false)?;
     if let Some(exp) = exp.checked_mul(sign) {
-        if (i32::min_value() as i64) <= exp && exp <= (i32::max_value() as i64) {
+        if i64::from(i32::min_value()) <= exp && exp <= i64::from(i32::max_value()) {
             return Ok(exp as i32);
         }
     }
@@ -703,7 +697,7 @@ fn parse_quoted(
                 break;
             }
         }
-        buffer.bytes.push(chr.clone());
+        buffer.bytes.push(chr);
     }
 
     if include_quote {
@@ -734,7 +728,7 @@ fn parse_real_literal(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Res
             b'e' => {
                 break;
             }
-            b'0'..=b'9' | b'a'..=b'f' | b'A'..=b'F' | b'.' => {
+            b'0'..=b'9' | b'a'..=b'd' | b'f' | b'A'..=b'F' | b'.' => {
                 cursor.pop();
                 buffer.bytes.push(b);
             }
@@ -1184,7 +1178,7 @@ impl Tokenizer {
                     (Times, Value::NoValue)
                 },
                 b'\'' => {
-                    if can_be_char(&self.state.last_token_kind) && cursor.peek(1) == Some(b'\'') {
+                    if can_be_char(self.state.last_token_kind) && cursor.peek(1) == Some(b'\'') {
                         cursor.pop();
                         cursor.pop();
                         (

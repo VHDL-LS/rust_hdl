@@ -90,6 +90,12 @@ impl VHDLParser {
     }
 }
 
+impl Default for VHDLParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub trait FileToParse {
     fn file_name(&self) -> &str;
 }
@@ -111,9 +117,9 @@ struct ParallelParser<T> {
 
 impl<T: Send + FileToParse + 'static> ParallelParser<T> {
     fn worker(
-        parser: VHDLParser,
-        input: Arc<Mutex<Receiver<Option<(usize, Box<T>)>>>>,
-        output: SyncSender<(usize, ParallelResult<Box<T>>)>,
+        parser: &VHDLParser,
+        input: &Arc<Mutex<Receiver<Option<(usize, Box<T>)>>>>,
+        output: &SyncSender<(usize, ParallelResult<Box<T>>)>,
     ) {
         loop {
             let item = input.lock().unwrap().recv().unwrap();
@@ -141,7 +147,7 @@ impl<T: Send + FileToParse + 'static> ParallelParser<T> {
             let parser = parser.clone();
             let result_sender = result_sender.clone();
             let work_receiver = work_receiver.clone();
-            spawn(move || Self::worker(parser, work_receiver, result_sender));
+            spawn(move || Self::worker(&parser, &work_receiver, &result_sender));
         }
         let num_files = files_to_parse.len();
         spawn(move || {

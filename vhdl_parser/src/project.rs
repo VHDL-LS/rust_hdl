@@ -181,8 +181,14 @@ impl Project {
             ));
         }
 
-        Analyzer::new(self.parser.symtab.clone()).analyze(&root, &mut messages);
+        Analyzer::new(&self.parser.symtab.clone()).analyze(&root, &mut messages);
         messages
+    }
+}
+
+impl Default for Project {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
