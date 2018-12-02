@@ -162,7 +162,7 @@ impl RpcChannel for SyncSender<String> {
 fn read_header(reader: &mut BufRead) -> u64 {
     let mut buffer = String::new();
     reader.read_line(&mut buffer).unwrap();
-    let fields = buffer.trim_end().clone().split(": ").collect::<Vec<&str>>();
+    let fields = buffer.trim_end().split(": ").collect::<Vec<&str>>();
     if fields.get(0) != Some(&"Content-Length") {
         trace!("{:?}", fields);
         panic!();
@@ -175,7 +175,7 @@ fn read_header(reader: &mut BufRead) -> u64 {
         return content_length;
     }
 
-    let fields = buffer.trim_end().clone().split(": ").collect::<Vec<&str>>();
+    let fields = buffer.trim_end().split(": ").collect::<Vec<&str>>();
     if fields.get(0) != Some(&"Content-Type") {
         trace!("{:?}", fields);
         panic!();
