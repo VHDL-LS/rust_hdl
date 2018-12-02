@@ -6,7 +6,7 @@ This repository is a collection of HDL related tools.
 I am interested in [collaboration](#Collaboration) with other people especially regarding semantic analysis of VHDL.
 
 [![Join the chat at https://gitter.im/rust_hdl/Lobby](https://badges.gitter.im/rust_hdl/Lobby.svg)](https://gitter.im/rust_hdl/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-[![Build Status](https://travis-ci.org/kraigher/rust_hdl.svg?branch=master)](https://travis-ci.org/kraigher/rust_hdl)
+[![Build Status](https://travis-ci.com/kraigher/rust_hdl.svg?branch=master)](https://travis-ci.com/kraigher/rust_hdl)
 
 # Projects
 # VHDL Parser
