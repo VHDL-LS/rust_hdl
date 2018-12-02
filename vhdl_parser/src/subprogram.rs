@@ -116,14 +116,14 @@ pub fn parse_subprogram_declaration_no_semi(
         let return_type = parse_selected_name(stream)?;
         Ok(SubprogramDeclaration::Function(FunctionSpecification {
             pure: is_pure,
-            designator: designator,
-            parameter_list: parameter_list,
-            return_type: return_type,
+            designator,
+            parameter_list,
+            return_type,
         }))
     } else {
         Ok(SubprogramDeclaration::Procedure(ProcedureSpecification {
-            designator: designator,
-            parameter_list: parameter_list,
+            designator,
+            parameter_list,
         }))
     }
 }

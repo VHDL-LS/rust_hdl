@@ -52,9 +52,9 @@ pub fn parse_entity_declaration(
     }
     stream.expect_kind(SemiColon)?;
     Ok(EntityDeclaration {
-        ident: ident,
-        generic_clause: generic_clause,
-        port_clause: port_clause,
+        ident,
+        generic_clause,
+        port_clause,
         decl,
         statements,
     })
@@ -117,11 +117,11 @@ pub fn parse_package_declaration(
     }
     stream.pop_if_kind(Identifier)?;
     stream.expect_kind(SemiColon)?;
-    return Ok(PackageDeclaration {
+    Ok(PackageDeclaration {
         ident,
         generic_clause,
         decl,
-    });
+    })
 }
 
 /// LRM 4.8 Package bodies
@@ -144,7 +144,7 @@ pub fn parse_package_body(
     }
     stream.expect_kind(SemiColon)?;
 
-    return Ok(PackageBody { ident, decl });
+    Ok(PackageBody { ident, decl })
 }
 
 fn to_design_unit<T>(context_clause: &mut Vec<WithPos<ContextItem>>, unit: T) -> DesignUnit<T> {
@@ -192,7 +192,7 @@ pub fn parse_design_file(
             },
             Context => match parse_context(stream, messages) {
                 Ok(DeclarationOrReference::Declaration(context_decl)) => {
-                    if context_clause.len() > 0 {
+                    if !context_clause.is_empty() {
                         let mut message = Message::error(&context_decl.ident, "Context declaration may not be preceeded by a context clause");
 
                         for context_item in context_clause.iter() {
@@ -307,7 +307,7 @@ mod tests {
         AnyDesignUnit::Primary(PrimaryUnit::EntityDeclaration(DesignUnit {
             context_clause: vec![],
             unit: EntityDeclaration {
-                ident: ident,
+                ident,
                 generic_clause: None,
                 port_clause: None,
                 decl: vec![],

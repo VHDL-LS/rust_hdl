@@ -46,9 +46,9 @@ pub fn parse_alias_declaration(stream: &mut TokenStream) -> ParseResult<AliasDec
 
     Ok(AliasDeclaration {
         designator,
-        subtype_indication: subtype_indication,
-        name: name,
-        signature: signature,
+        subtype_indication,
+        name,
+        signature,
     })
 }
 

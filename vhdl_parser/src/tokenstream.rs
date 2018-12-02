@@ -85,7 +85,7 @@ impl TokenStream {
             }
         }
         self.set_state(state);
-        return Ok(true);
+        Ok(true)
     }
 
     pub fn pop_if_kind(self: &mut Self, kind: Kind) -> ParseResult<Option<Token>> {
@@ -95,7 +95,7 @@ impl TokenStream {
                 return Ok(Some(token));
             }
         }
-        return Ok(None);
+        Ok(None)
     }
 
     pub fn skip_if_kind(self: &mut Self, kind: Kind) -> ParseResult<bool> {

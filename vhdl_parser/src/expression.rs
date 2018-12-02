@@ -104,7 +104,7 @@ pub fn parse_aggregate_initial_choices(
         try_token_kind!(
             token,
             RightPar => {
-                if let &[Choice::Expression(ref choice)] = choices.as_slice() {
+                if let [Choice::Expression(ref choice)] = *choices.as_slice() {
                     result.push(ElementAssociation::Positional(choice.clone()));
                     return Ok(WithPos::from(result, token))
                 } else {
@@ -112,7 +112,7 @@ pub fn parse_aggregate_initial_choices(
                 }
             },
             Comma => {
-                if let &[Choice::Expression(ref choice)] = choices.as_slice() {
+                if let [Choice::Expression(ref choice)] = *choices.as_slice() {
                     result.push(ElementAssociation::Positional(choice.clone()));
                 } else {
                     return Err(Message::error(&token, "Expected => after others"));
@@ -165,7 +165,7 @@ fn parse_half_range(
         left_expr: Box::new(left_expr),
         right_expr: Box::new(right_expr),
     }));
-    return Ok(range);
+    Ok(range)
 }
 
 fn parse_choice(stream: &mut TokenStream) -> ParseResult<Choice> {
@@ -176,12 +176,12 @@ fn parse_choice(stream: &mut TokenStream) -> ParseResult<Choice> {
 
     if stream.skip_if_kind(To)? {
         let range = parse_half_range(stream, left_expr, Direction::Ascending)?;
-        return Ok(Choice::DiscreteRange(range));
+        Ok(Choice::DiscreteRange(range))
     } else if stream.skip_if_kind(Downto)? {
         let range = parse_half_range(stream, left_expr, Direction::Descending)?;
-        return Ok(Choice::DiscreteRange(range));
+        Ok(Choice::DiscreteRange(range))
     } else {
-        return Ok(Choice::Expression(left_expr));
+        Ok(Choice::Expression(left_expr))
     }
 }
 
@@ -210,17 +210,17 @@ fn parse_allocator(stream: &mut TokenStream) -> ParseResult<WithPos<Allocator>> 
                 name: Box::new(name),
                 expr: Box::new(expr),
             }),
-            pos: pos,
+            pos,
         })
     } else {
-        let mut pos = selected_name.get(0).unwrap().pos.clone();
+        let mut pos = selected_name[0].pos.clone();
 
         let constraint = {
             if let Some(constraint) = parse_subtype_constraint(stream)? {
                 pos = pos.combine(&constraint.pos);
                 Some(constraint)
             } else {
-                pos = pos.combine(&selected_name.get(selected_name.len() - 1).unwrap().pos);
+                pos = pos.combine(&selected_name[selected_name.len() - 1].pos);
                 None
             }
         };
@@ -228,7 +228,7 @@ fn parse_allocator(stream: &mut TokenStream) -> ParseResult<WithPos<Allocator>> 
         let subtype = SubtypeIndication {
             resolution: ResolutionIndication::Unresolved,
             type_mark: selected_name,
-            constraint: constraint,
+            constraint,
         };
 
         Ok(WithPos {
@@ -257,7 +257,7 @@ fn parse_primary_initial_token(
                         name: Box::new(name),
                         expr: Box::new(expr),
                     }),
-                    pos: pos,
+                    pos,
                 })
             } else {
                 Ok(name_to_expression(name))
@@ -311,9 +311,9 @@ fn parse_primary_initial_token(
         LeftPar => {
             let choices = parse_choices(stream)?;
             // Parenthesized expression or aggregate
-            match choices.as_slice() {
+            match *choices.as_slice() {
                 // Can be aggregate or expression
-                &[Choice::Expression(ref expr)] => {
+                [Choice::Expression(ref expr)] => {
                     let sep_token = stream.peek_expect()?;
                     match_token_kind!(
                         sep_token,
@@ -353,7 +353,7 @@ fn parse_primary_initial_token(
                 let pos = token.pos.combine_into(&expr);
                 Ok(WithPos {
                     item: Expression::Unary(unary_op, Box::new(expr)),
-                    pos: pos,
+                    pos,
                 })
             } else {
                 Err(Message::error(&token, "Expected {expression}"))
@@ -386,7 +386,7 @@ fn parse_expr_initial_token(
                 let pos = lhs.pos.combine(&rhs);
                 lhs = WithPos {
                     item: Expression::Binary(binary_op, Box::new(lhs), Box::new(rhs)),
-                    pos: pos,
+                    pos,
                 };
             } else {
                 return Ok(lhs);

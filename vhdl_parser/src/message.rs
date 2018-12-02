@@ -29,7 +29,7 @@ impl Message {
         Message {
             pos: item.as_ref().clone(),
             message: msg.into(),
-            severity: severity,
+            severity,
             related: vec![],
         }
     }

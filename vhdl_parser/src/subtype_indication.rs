@@ -187,11 +187,11 @@ pub fn parse_subtype_indication(stream: &mut TokenStream) -> ParseResult<Subtype
 
     let constraint = parse_subtype_constraint(stream)?;
 
-    return Ok(SubtypeIndication {
-        resolution: resolution,
-        type_mark: type_mark,
+    Ok(SubtypeIndication {
+        resolution,
+        type_mark,
         constraint,
-    });
+    })
 }
 
 #[cfg(test)]

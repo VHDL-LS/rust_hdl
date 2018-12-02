@@ -139,7 +139,7 @@ pub fn parse_protected_type_declaration(
     }
     stream.expect_kind(Protected)?;
     let end_ident = stream.pop_optional_ident()?;
-    Ok((ProtectedTypeDeclaration { items: items }, end_ident))
+    Ok((ProtectedTypeDeclaration { items }, end_ident))
 }
 
 /// LRM 5.2.4 Physical types
@@ -192,9 +192,9 @@ fn parse_physical_type_definition(
 
     Ok((
         TypeDefinition::Physical(PhysicalTypeDeclaration {
-            range: range,
-            primary_unit: primary_unit,
-            secondary_units: secondary_units,
+            range,
+            primary_unit,
+            secondary_units,
         }),
         end_ident,
     ))
@@ -610,8 +610,8 @@ end foo;",
 
     fn protected_decl(ident: Ident, items: Vec<ProtectedTypeDeclarativeItem>) -> TypeDeclaration {
         TypeDeclaration {
-            ident: ident,
-            def: TypeDefinition::Protected(ProtectedTypeDeclaration { items: items }),
+            ident,
+            def: TypeDefinition::Protected(ProtectedTypeDeclaration { items }),
         }
     }
 

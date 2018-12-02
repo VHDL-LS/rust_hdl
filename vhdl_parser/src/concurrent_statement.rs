@@ -133,18 +133,16 @@ fn to_procedure_call(
                 parameters: vec![],
             },
         }),
-        Target::Aggregate(..) => {
-            return Err(Message::error(
-                target,
-                "Expected procedure call, got aggregate",
-            ));
-        }
+        Target::Aggregate(..) => Err(Message::error(
+            target,
+            "Expected procedure call, got aggregate",
+        )),
     }
 }
 
 fn parse_assignment_or_procedure_call(
     stream: &mut TokenStream,
-    token: Token,
+    token: &Token,
     target: WithPos<Target>,
 ) -> ParseResult<ConcurrentStatement> {
     match_token_kind!(
@@ -375,7 +373,7 @@ fn parse_if_generate_statement(
     stream.expect_kind(SemiColon)?;
 
     Ok(IfGenerateStatement {
-        conditionals: conditionals,
+        conditionals,
         else_item: else_branch,
     })
 }
@@ -490,14 +488,14 @@ pub fn parse_concurrent_statement(
                     }
                     _ => {
                         stream.move_after(&token);
-                        parse_assignment_or_procedure_call(stream, token, name.map_into(Target::Name))?
+                        parse_assignment_or_procedure_call(stream, &token, name.map_into(Target::Name))?
                     }
                 }
             },
             LeftPar => {
                 let target = parse_aggregate_leftpar_known(stream)?.map_into(Target::Aggregate);
                 let token = stream.expect()?;
-                parse_assignment_or_procedure_call(stream, token, target)?
+                parse_assignment_or_procedure_call(stream, &token, target)?
             }
         )
     };
@@ -547,7 +545,7 @@ pub fn parse_labeled_concurrent_statement_initial_token(
             Ok(LabeledConcurrentStatement { label, statement })
         } else {
             let target = name.map_into(Target::Name);
-            let statement = parse_assignment_or_procedure_call(stream, token, target)?;
+            let statement = parse_assignment_or_procedure_call(stream, &token, target)?;
             Ok(LabeledConcurrentStatement {
                 label: None,
                 statement,

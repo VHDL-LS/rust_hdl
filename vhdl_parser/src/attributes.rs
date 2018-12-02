@@ -104,7 +104,7 @@ pub fn parse_attribute(stream: &mut TokenStream) -> ParseResult<Vec<Attribute>> 
             let expr = parse_expression(stream)?;
             stream.expect_kind(SemiColon)?;
 
-            let attributes = entity_names
+            entity_names
                 .into_iter()
                 .map(|entity_name| {
                     Attribute::Specification(AttributeSpecification {
@@ -113,9 +113,7 @@ pub fn parse_attribute(stream: &mut TokenStream) -> ParseResult<Vec<Attribute>> 
                         entity_class: entity_class,
                         expr: expr.clone(),
                     })
-                }).collect();
-
-            attributes
+                }).collect()
         }
     ))
 }

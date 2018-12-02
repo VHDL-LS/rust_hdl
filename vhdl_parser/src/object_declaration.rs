@@ -17,7 +17,7 @@ use tokenstream::TokenStream;
 pub fn parse_optional_assignment(
     stream: &mut TokenStream,
 ) -> ParseResult<Option<WithPos<Expression>>> {
-    if let Some(_) = stream.pop_if_kind(ColonEq)? {
+    if stream.pop_if_kind(ColonEq)?.is_some() {
         let expr = parse_expression(stream)?;
         Ok(Some(expr))
     } else {
@@ -37,8 +37,8 @@ fn parse_object_declaration_kind(
     Ok(idents
         .into_iter()
         .map(|ident| ObjectDeclaration {
-            class: class,
-            ident: ident,
+            class,
+            ident,
             subtype_indication: subtype.clone(),
             expression: opt_expression.clone(),
         }).collect())
@@ -87,7 +87,7 @@ pub fn parse_file_declaration_no_semi(
     Ok(idents
         .into_iter()
         .map(|ident| FileDeclaration {
-            ident: ident,
+            ident,
             subtype_indication: subtype.clone(),
             open_info: open_info.clone(),
             file_name: file_name.clone(),
