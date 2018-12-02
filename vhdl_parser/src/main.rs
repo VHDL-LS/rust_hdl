@@ -50,7 +50,7 @@ fn main() {
 
     if let Some(files) = matches.values_of("files") {
         parse(
-            parser.clone(),
+            &parser.clone(),
             files.map(|s| s.to_owned()).collect(),
             num_threads,
             show,
@@ -67,9 +67,9 @@ fn main() {
 
         if !errors.is_empty() {
             println!("Errors when reading config {}:", file_name);
-        }
-        for error in errors {
-            println!("{}", error);
+            for error in errors {
+                println!("{}", error);
+            }
         }
     }
 }
@@ -94,16 +94,16 @@ fn show_design_unit(design_unit: &AnyDesignUnit) {
                 if let Some(ref list) = entity.port_clause {
                     println!("  with {} ports", list.len())
                 }
-                if entity.decl.len() > 0 {
+                if !entity.decl.is_empty() {
                     println!("  with {} declarations", entity.decl.len())
                 }
-                if entity.statements.len() > 0 {
+                if !entity.statements.is_empty() {
                     println!("  with {} concurrent statements", entity.statements.len())
                 }
             }
             PrimaryUnit::ContextDeclaration(ref context) => {
                 println!("context {}", context.ident.item.name());
-                if context.items.len() > 0 {
+                if !context.items.is_empty() {
                     println!("  with {} items", context.items.len())
                 }
             }
@@ -113,7 +113,7 @@ fn show_design_unit(design_unit: &AnyDesignUnit) {
                 if let Some(ref list) = package.generic_clause {
                     println!("  with {} generics", list.len())
                 }
-                if package.decl.len() > 0 {
+                if !package.decl.is_empty() {
                     println!("  with {} declarations", package.decl.len())
                 }
             }
@@ -142,17 +142,17 @@ fn show_design_unit(design_unit: &AnyDesignUnit) {
                     arch.ident.item.name(),
                     arch.entity_name.item.name()
                 );
-                if arch.decl.len() > 0 {
+                if !arch.decl.is_empty() {
                     println!("  with {} declarations", arch.decl.len())
                 }
-                if arch.statements.len() > 0 {
+                if !arch.statements.is_empty() {
                     println!("  with {} concurrent statements", arch.statements.len())
                 }
             }
             SecondaryUnit::PackageBody(ref package_body) => {
                 let package_body = &package_body.unit;
                 println!("package body {}", package_body.ident.item.name());
-                if package_body.decl.len() > 0 {
+                if !package_body.decl.is_empty() {
                     println!("  with {} declarations", package_body.decl.len())
                 }
             }
@@ -166,7 +166,7 @@ fn show_messages(messages: &[Message]) {
     }
 }
 
-fn parse(parser: VHDLParser, file_names: Vec<String>, num_threads: usize, show: bool) {
+fn parse(parser: &VHDLParser, file_names: Vec<String>, num_threads: usize, show: bool) {
     let mut num_errors = 0;
     let mut num_warnings = 0;
 
@@ -216,7 +216,7 @@ fn parse(parser: VHDLParser, file_names: Vec<String>, num_threads: usize, show: 
         }
     }
 
-    println!("");
+    println!();
     println!("Summary:");
     if num_warnings > 0 {
         println!("Found {} warnings", num_warnings);

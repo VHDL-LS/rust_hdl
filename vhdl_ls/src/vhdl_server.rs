@@ -67,7 +67,7 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
     }
 
     pub fn initialized_notification(&mut self, params: InitializedParams) {
-        self.mut_server().initialized_notification(params);
+        self.mut_server().initialized_notification(&params);
     }
 
     pub fn text_document_did_change_notification(&mut self, params: DidChangeTextDocumentParams) {
@@ -227,7 +227,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
 
             let publish_diagnostics = PublishDiagnosticsParams {
                 uri: file_uri.clone(),
-                diagnostics: diagnostics,
+                diagnostics,
             };
 
             self.rpc_channel
@@ -250,7 +250,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         }
     }
 
-    fn parse_and_publish_diagnostics(&mut self, uri: Url, code: &str) {
+    fn parse_and_publish_diagnostics(&mut self, uri: &Url, code: &str) {
         // @TODO return error to client
         let file_name = uri_to_file_name(&uri);
 
@@ -273,7 +273,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         );
     }
 
-    pub fn initialized_notification(&mut self, _params: InitializedParams) {
+    pub fn initialized_notification(&mut self, _params: &InitializedParams) {
         match &self.config {
             Err(ref err) => {
                 self.window_show_message(
@@ -306,17 +306,17 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
 
     pub fn text_document_did_change_notification(&mut self, params: DidChangeTextDocumentParams) {
         self.parse_and_publish_diagnostics(
-            params.text_document.uri,
-            &params.content_changes.get(0).unwrap().text,
+            &params.text_document.uri,
+            &params.content_changes[0].text,
         );
     }
 
     pub fn text_document_did_open_notification(&mut self, params: DidOpenTextDocumentParams) {
-        self.parse_and_publish_diagnostics(params.text_document.uri, &params.text_document.text);
+        self.parse_and_publish_diagnostics(&params.text_document.uri, &params.text_document.text);
     }
 }
 
-fn srcpos_to_range(srcpos: SrcPos) -> Range {
+fn srcpos_to_range(srcpos: &SrcPos) -> Range {
     let contents = srcpos.source.contents().unwrap();
     let mut start = None;
     let mut end = None;
@@ -392,14 +392,14 @@ fn to_diagnostic(message: Message) -> Diagnostic {
         Severity::Hint => DiagnosticSeverity::Hint,
     };
 
-    let related_information = if message.related.len() > 0 {
+    let related_information = if !message.related.is_empty() {
         let mut related_information = Vec::new();
         for (pos, msg) in message.related {
             let uri = file_name_to_uri(pos.source.file_name());
             related_information.push(DiagnosticRelatedInformation {
                 location: Location {
                     uri: uri.to_owned(),
-                    range: srcpos_to_range(pos),
+                    range: srcpos_to_range(&pos),
                 },
                 message: msg,
             })
@@ -410,7 +410,7 @@ fn to_diagnostic(message: Message) -> Diagnostic {
     };
 
     Diagnostic {
-        range: srcpos_to_range(message.pos),
+        range: srcpos_to_range(&message.pos),
         severity: Some(severity),
         code: None,
         source: Some("vhdl ls".to_owned()),

@@ -4,6 +4,10 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
+// Allowing this, since box_patterns are feature gated: https://github.com/rust-lang/rfcs/pull/469
+// Track here: https://github.com/rust-lang/rust/issues/29641
+#![cfg_attr(feature = "cargo-clippy", allow(large_enum_variant))]
+
 pub mod has_ident;
 pub mod name;
 
