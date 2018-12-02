@@ -349,7 +349,7 @@ pub fn parse_name_initial_token(
                 name = parse_attribute_name(stream, name, signature)?;
             }
             Tick => {
-                if stream.is_peek_kinds(&[Tick, LeftPar])? {
+                if stream.get_peek_kinds(&[Tick, LeftPar])? {
                     break;
                 }
                 stream.move_after(&token);

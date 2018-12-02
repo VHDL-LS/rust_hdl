@@ -231,14 +231,14 @@ pub fn parse_design_file(
                 Err(msg) => messages.push(msg),
             },
             Package => {
-                if stream.is_peek_kinds(&[Package, Body])? {
+                if stream.get_peek_kinds(&[Package, Body])? {
                     match parse_package_body(stream, messages) {
                         Ok(package_body) => {
                             design_units.push(AnyDesignUnit::Secondary(SecondaryUnit::PackageBody(to_design_unit(&mut context_clause, package_body))));
                         }
                         Err(msg) => messages.push(msg),
                     };
-                } else if stream.is_peek_kinds(&[Package, Identifier, Is, New])? {
+                } else if stream.get_peek_kinds(&[Package, Identifier, Is, New])? {
                     match parse_package_instantiation(stream) {
                         Ok(inst) => design_units.push(AnyDesignUnit::Primary(PrimaryUnit::PackageInstance(to_design_unit(&mut context_clause, inst)))),
                         Err(msg) => messages.push(msg),

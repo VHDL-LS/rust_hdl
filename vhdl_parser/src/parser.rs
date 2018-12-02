@@ -115,10 +115,12 @@ struct ParallelParser<T> {
     result_cache: FnvHashMap<usize, ParallelResult<Box<T>>>,
 }
 
+type WorkerInput<T> = Receiver<Option<(usize, Box<T>)>>;
+
 impl<T: Send + FileToParse + 'static> ParallelParser<T> {
     fn worker(
         parser: &VHDLParser,
-        input: &Arc<Mutex<Receiver<Option<(usize, Box<T>)>>>>,
+        input: &Arc<Mutex<WorkerInput<T>>>,
         output: &SyncSender<(usize, ParallelResult<Box<T>>)>,
     ) {
         loop {

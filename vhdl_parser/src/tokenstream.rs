@@ -76,7 +76,7 @@ impl TokenStream {
         Ok(self.peek()?.map(|ref token| token.kind))
     }
 
-    pub fn is_peek_kinds(self: &mut Self, kinds: &[Kind]) -> ParseResult<bool> {
+    pub fn get_peek_kinds(self: &mut Self, kinds: &[Kind]) -> ParseResult<bool> {
         let state = self.state();
         for kind in kinds {
             if self.pop_kind()? != Some(*kind) {
@@ -162,19 +162,19 @@ mod tests {
         let (_, _, mut stream) = new("hello 1 +");
 
         assert_eq!(
-            stream.is_peek_kinds(&[Identifier, AbstractLiteral, Plus]),
+            stream.get_peek_kinds(&[Identifier, AbstractLiteral, Plus]),
             Ok(true)
         );
         assert_eq!(
-            stream.is_peek_kinds(&[Identifier, AbstractLiteral]),
+            stream.get_peek_kinds(&[Identifier, AbstractLiteral]),
             Ok(true)
         );
-        assert_eq!(stream.is_peek_kinds(&[Identifier]), Ok(true));
+        assert_eq!(stream.get_peek_kinds(&[Identifier]), Ok(true));
         assert_eq!(
-            stream.is_peek_kinds(&[Identifier, AbstractLiteral, AbstractLiteral]),
+            stream.get_peek_kinds(&[Identifier, AbstractLiteral, AbstractLiteral]),
             Ok(false)
         );
-        assert_eq!(stream.is_peek_kinds(&[AbstractLiteral]), Ok(false));
+        assert_eq!(stream.get_peek_kinds(&[AbstractLiteral]), Ok(false));
     }
 
     #[test]
