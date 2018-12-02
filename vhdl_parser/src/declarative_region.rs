@@ -317,9 +317,7 @@ impl<'a> DeclarativeRegion<'a> {
         messages: &mut MessageHandler,
     ) {
         for decl in declarations.iter() {
-            for item in decl.declarative_items() {
-                self.add(item, messages);
-            }
+            decl.add_to_region(self, messages);
         }
     }
 
@@ -338,79 +336,87 @@ impl<'a> DeclarativeRegion<'a> {
 }
 
 impl Declaration {
-    fn declarative_items(&self) -> Vec<VisibleDeclaration> {
+    fn add_to_region<'a>(
+        &'a self,
+        region: &mut DeclarativeRegion<'a>,
+        messages: &mut MessageHandler,
+    ) {
         match self {
-            Declaration::Alias(alias) => vec![
+            Declaration::Alias(alias) => region.add(
                 VisibleDeclaration::new(
                     alias.designator.clone(),
                     AnyDeclaration::Declaration(self),
                 ).with_overload(alias.signature.is_some()),
-            ],
+                messages,
+            ),
             Declaration::Object(ObjectDeclaration { ref ident, .. }) => {
-                vec![VisibleDeclaration::new(
-                    ident,
-                    AnyDeclaration::Declaration(self),
-                )]
+                region.add(
+                    VisibleDeclaration::new(ident, AnyDeclaration::Declaration(self)),
+                    messages,
+                );
             }
-            Declaration::File(FileDeclaration { ref ident, .. }) => vec![VisibleDeclaration::new(
-                ident,
-                AnyDeclaration::Declaration(self),
-            )],
+            Declaration::File(FileDeclaration { ref ident, .. }) => region.add(
+                VisibleDeclaration::new(ident, AnyDeclaration::Declaration(self)),
+                messages,
+            ),
             Declaration::Component(ComponentDeclaration { ref ident, .. }) => {
-                vec![VisibleDeclaration::new(
-                    ident,
-                    AnyDeclaration::Declaration(self),
-                )]
+                region.add(
+                    VisibleDeclaration::new(ident, AnyDeclaration::Declaration(self)),
+                    messages,
+                );
             }
             Declaration::Attribute(ref attr) => match attr {
                 Attribute::Declaration(AttributeDeclaration { ref ident, .. }) => {
-                    vec![VisibleDeclaration::new(
-                        ident,
-                        AnyDeclaration::Declaration(self),
-                    )]
+                    region.add(
+                        VisibleDeclaration::new(ident, AnyDeclaration::Declaration(self)),
+                        messages,
+                    );
                 }
                 // @TODO Ignored for now
-                Attribute::Specification(..) => vec![],
+                Attribute::Specification(..) => {}
             },
-            Declaration::SubprogramBody(body) => vec![
+            Declaration::SubprogramBody(body) => region.add(
                 VisibleDeclaration::new(
                     body.specification.designator(),
                     AnyDeclaration::Declaration(self),
                 ).with_overload(true),
-            ],
-            Declaration::SubprogramDeclaration(decl) => vec![
+                messages,
+            ),
+            Declaration::SubprogramDeclaration(decl) => region.add(
                 VisibleDeclaration::new(decl.designator(), AnyDeclaration::Declaration(self))
                     .with_overload(true),
-            ],
+                messages,
+            ),
+
             // @TODO Ignored for now
-            Declaration::Use(..) => vec![],
-            Declaration::Package(ref package) => vec![VisibleDeclaration::new(
-                &package.ident,
-                AnyDeclaration::Declaration(self),
-            )],
-            Declaration::Configuration(..) => vec![],
+            Declaration::Use(..) => {}
+            Declaration::Package(ref package) => region.add(
+                VisibleDeclaration::new(&package.ident, AnyDeclaration::Declaration(self)),
+                messages,
+            ),
+            Declaration::Configuration(..) => {}
             Declaration::Type(TypeDeclaration {
                 ref ident,
                 def: TypeDefinition::Enumeration(ref enumeration),
             }) => {
-                let mut items = vec![VisibleDeclaration::new(
-                    ident,
-                    AnyDeclaration::Declaration(self),
-                )];
+                region.add(
+                    VisibleDeclaration::new(ident, AnyDeclaration::Declaration(self)),
+                    messages,
+                );
                 for literal in enumeration.iter() {
-                    items.push(
+                    region.add(
                         VisibleDeclaration::new(
                             literal.clone().map_into(|lit| lit.into_designator()),
                             AnyDeclaration::Enum(literal),
                         ).with_overload(true),
+                        messages,
                     )
                 }
-                items
             }
-            Declaration::Type(TypeDeclaration { ref ident, .. }) => vec![VisibleDeclaration::new(
-                ident,
-                AnyDeclaration::Declaration(self),
-            )],
+            Declaration::Type(TypeDeclaration { ref ident, .. }) => region.add(
+                VisibleDeclaration::new(ident, AnyDeclaration::Declaration(self)),
+                messages,
+            ),
         }
     }
 }

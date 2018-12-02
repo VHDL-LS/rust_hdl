@@ -42,153 +42,6 @@ impl SubprogramDeclaration {
         }
     }
 }
-fn check_declarative_part_unique_ident(
-    declarations: &[Declaration],
-    messages: &mut MessageHandler,
-) {
-    let mut region = DeclarativeRegion::new();
-    region.add_declarative_part(declarations, messages);
-    check_declarative_part_unique_ident_inner(declarations, messages);
-    region.close_both(messages);
-}
-
-/// Check that no homographs are defined in the declarative region
-fn check_declarative_part_unique_ident_inner(
-    declarations: &[Declaration],
-    messages: &mut MessageHandler,
-) {
-    for decl in declarations.iter() {
-        match decl {
-            Declaration::Component(ref component) => {
-                check_interface_list_unique_ident(&component.generic_list, messages);
-                check_interface_list_unique_ident(&component.port_list, messages);
-            }
-            Declaration::SubprogramBody(ref body) => {
-                check_interface_list_unique_ident(body.specification.interface_list(), messages);
-                check_declarative_part_unique_ident(&body.declarations, messages);
-            }
-            Declaration::SubprogramDeclaration(decl) => {
-                check_interface_list_unique_ident(decl.interface_list(), messages);
-            }
-            Declaration::Type(type_decl) => match type_decl.def {
-                TypeDefinition::ProtectedBody(ref body) => {
-                    check_declarative_part_unique_ident(&body.decl, messages);
-                }
-                TypeDefinition::Protected(ref prot_decl) => {
-                    for item in prot_decl.items.iter() {
-                        match item {
-                            ProtectedTypeDeclarativeItem::Subprogram(subprogram) => {
-                                check_interface_list_unique_ident(
-                                    subprogram.interface_list(),
-                                    messages,
-                                );
-                            }
-                        }
-                    }
-                }
-                TypeDefinition::Record(ref decls) => {
-                    check_element_declaration_unique_ident(decls, messages);
-                }
-                _ => {}
-            },
-            _ => {}
-        }
-    }
-}
-
-fn check_generate_body(body: &GenerateBody, messages: &mut MessageHandler) {
-    if let Some(ref decl) = body.decl {
-        check_declarative_part_unique_ident(&decl, messages);
-    }
-    check_concurrent_part(&body.statements, messages);
-}
-
-fn check_concurrent_statement(
-    statement: &LabeledConcurrentStatement,
-    messages: &mut MessageHandler,
-) {
-    match statement.statement {
-        ConcurrentStatement::Block(ref block) => {
-            check_declarative_part_unique_ident(&block.decl, messages);
-            check_concurrent_part(&block.statements, messages);
-        }
-        ConcurrentStatement::Process(ref process) => {
-            check_declarative_part_unique_ident(&process.decl, messages);
-        }
-        ConcurrentStatement::ForGenerate(ref gen) => {
-            check_generate_body(&gen.body, messages);
-        }
-        ConcurrentStatement::IfGenerate(ref gen) => {
-            for conditional in gen.conditionals.iter() {
-                check_generate_body(&conditional.item, messages);
-            }
-            if let Some(ref else_item) = gen.else_item {
-                check_generate_body(else_item, messages);
-            }
-        }
-        ConcurrentStatement::CaseGenerate(ref gen) => {
-            for alternative in gen.alternatives.iter() {
-                check_generate_body(&alternative.item, messages);
-            }
-        }
-        _ => {}
-    }
-}
-
-fn check_concurrent_part(statements: &[LabeledConcurrentStatement], messages: &mut MessageHandler) {
-    for statement in statements.iter() {
-        check_concurrent_statement(statement, messages);
-    }
-}
-
-fn check_package_declaration<'a>(
-    package: &'a PackageDeclaration,
-    messages: &mut MessageHandler,
-) -> DeclarativeRegion<'a> {
-    let mut region = DeclarativeRegion::new().in_package_declaration();
-    if let Some(ref list) = package.generic_clause {
-        region.add_interface_list(list, messages);
-    }
-    region.add_declarative_part(&package.decl, messages);
-    check_declarative_part_unique_ident_inner(&package.decl, messages);
-    region
-}
-
-fn check_architecture_body<'a>(
-    entity_region: &mut DeclarativeRegion<'a>,
-    architecture: &'a ArchitectureBody,
-    messages: &mut MessageHandler,
-) {
-    entity_region.add_declarative_part(&architecture.decl, messages);
-    check_declarative_part_unique_ident_inner(&architecture.decl, messages);
-    check_concurrent_part(&architecture.statements, messages);
-}
-
-fn check_package_body<'a>(
-    package_region: &mut DeclarativeRegion<'a>,
-    package: &'a PackageBody,
-    messages: &mut MessageHandler,
-) {
-    package_region.add_declarative_part(&package.decl, messages);
-    check_declarative_part_unique_ident_inner(&package.decl, messages);
-}
-
-fn check_entity_declaration<'a>(
-    entity: &'a EntityDeclaration,
-    messages: &mut MessageHandler,
-) -> DeclarativeRegion<'a> {
-    let mut region = DeclarativeRegion::new();
-    if let Some(ref list) = entity.generic_clause {
-        region.add_interface_list(list, messages);
-    }
-    if let Some(ref list) = entity.port_clause {
-        region.add_interface_list(list, messages);
-    }
-    region.add_declarative_part(&entity.decl, messages);
-    check_concurrent_part(&entity.statements, messages);
-
-    region
-}
 
 pub struct Analyzer {
     work_sym: Symbol,
@@ -348,20 +201,71 @@ impl Analyzer {
         }
     }
 
-    fn check_context_clause<'a>(
+    fn analyze_declarative_part(
         &self,
-        root: &'a DesignRoot<'a>,
-        library: &'a Library<'a>,
-        context_clause: &[WithPos<ContextItem>],
+        declarations: &[Declaration],
         messages: &mut MessageHandler,
     ) {
         let mut region = DeclarativeRegion::new();
-        region.make_library_visible(&self.work_sym, library);
+        region.add_declarative_part(declarations, messages);
+        self.analyze_inner_declarative_parts(declarations, messages);
+        region.close_both(messages);
+    }
 
-        if let Some(library) = root.get_library(&self.std_sym) {
-            region.make_library_visible(&self.std_sym, library);
+    fn analyze_inner_declarative_parts(
+        &self,
+        declarations: &[Declaration],
+        messages: &mut MessageHandler,
+    ) {
+        for decl in declarations.iter() {
+            match decl {
+                Declaration::Component(ref component) => {
+                    check_interface_list_unique_ident(&component.generic_list, messages);
+                    check_interface_list_unique_ident(&component.port_list, messages);
+                }
+                Declaration::SubprogramBody(ref body) => {
+                    check_interface_list_unique_ident(
+                        body.specification.interface_list(),
+                        messages,
+                    );
+                    self.analyze_declarative_part(&body.declarations, messages);
+                }
+                Declaration::SubprogramDeclaration(decl) => {
+                    check_interface_list_unique_ident(decl.interface_list(), messages);
+                }
+                Declaration::Type(type_decl) => match type_decl.def {
+                    TypeDefinition::ProtectedBody(ref body) => {
+                        self.analyze_declarative_part(&body.decl, messages);
+                    }
+                    TypeDefinition::Protected(ref prot_decl) => {
+                        for item in prot_decl.items.iter() {
+                            match item {
+                                ProtectedTypeDeclarativeItem::Subprogram(subprogram) => {
+                                    check_interface_list_unique_ident(
+                                        subprogram.interface_list(),
+                                        messages,
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    TypeDefinition::Record(ref decls) => {
+                        check_element_declaration_unique_ident(decls, messages);
+                    }
+                    _ => {}
+                },
+                _ => {}
+            }
         }
+    }
 
+    fn analyze_context_clause<'a>(
+        &self,
+        root: &'a DesignRoot<'a>,
+        region: &mut DeclarativeRegion<'a>,
+        context_clause: &[WithPos<ContextItem>],
+        messages: &mut MessageHandler,
+    ) {
         for context_item in context_clause.iter() {
             match context_item.item {
                 ContextItem::Library(LibraryClause { ref name_list }) => {
@@ -457,11 +361,137 @@ impl Analyzer {
         }
     }
 
+    fn analyze_generate_body(&self, body: &GenerateBody, messages: &mut MessageHandler) {
+        if let Some(ref decl) = body.decl {
+            self.analyze_declarative_part(&decl, messages);
+        }
+        self.analyze_concurrent_part(&body.statements, messages);
+    }
+
+    fn analyze_concurrent_statement(
+        &self,
+        statement: &LabeledConcurrentStatement,
+        messages: &mut MessageHandler,
+    ) {
+        match statement.statement {
+            ConcurrentStatement::Block(ref block) => {
+                self.analyze_declarative_part(&block.decl, messages);
+                self.analyze_concurrent_part(&block.statements, messages);
+            }
+            ConcurrentStatement::Process(ref process) => {
+                self.analyze_declarative_part(&process.decl, messages);
+            }
+            ConcurrentStatement::ForGenerate(ref gen) => {
+                self.analyze_generate_body(&gen.body, messages);
+            }
+            ConcurrentStatement::IfGenerate(ref gen) => {
+                for conditional in gen.conditionals.iter() {
+                    self.analyze_generate_body(&conditional.item, messages);
+                }
+                if let Some(ref else_item) = gen.else_item {
+                    self.analyze_generate_body(else_item, messages);
+                }
+            }
+            ConcurrentStatement::CaseGenerate(ref gen) => {
+                for alternative in gen.alternatives.iter() {
+                    self.analyze_generate_body(&alternative.item, messages);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn analyze_concurrent_part(
+        &self,
+        statements: &[LabeledConcurrentStatement],
+        messages: &mut MessageHandler,
+    ) {
+        for statement in statements.iter() {
+            self.analyze_concurrent_statement(statement, messages);
+        }
+    }
+
+    fn analyze_package_declaration<'a>(
+        &self,
+        package: &'a PackageDeclaration,
+        messages: &mut MessageHandler,
+    ) -> DeclarativeRegion<'a> {
+        let mut region = DeclarativeRegion::new().in_package_declaration();
+        if let Some(ref list) = package.generic_clause {
+            region.add_interface_list(list, messages);
+        }
+        region.add_declarative_part(&package.decl, messages);
+        self.analyze_inner_declarative_parts(&package.decl, messages);
+        region
+    }
+
+    fn analyze_architecture_body<'a>(
+        &self,
+        entity_region: &mut DeclarativeRegion<'a>,
+        architecture: &'a ArchitectureBody,
+        messages: &mut MessageHandler,
+    ) {
+        entity_region.add_declarative_part(&architecture.decl, messages);
+        self.analyze_inner_declarative_parts(&architecture.decl, messages);
+        self.analyze_concurrent_part(&architecture.statements, messages);
+    }
+
+    fn analyze_package_body<'a>(
+        &self,
+        package_region: &mut DeclarativeRegion<'a>,
+        package: &'a PackageBody,
+        messages: &mut MessageHandler,
+    ) {
+        package_region.add_declarative_part(&package.decl, messages);
+        self.analyze_inner_declarative_parts(&package.decl, messages);
+    }
+
+    fn analyze_entity_declaration<'a>(
+        &self,
+        entity: &'a EntityDeclaration,
+        messages: &mut MessageHandler,
+    ) -> DeclarativeRegion<'a> {
+        let mut region = DeclarativeRegion::new();
+        if let Some(ref list) = entity.generic_clause {
+            region.add_interface_list(list, messages);
+        }
+        if let Some(ref list) = entity.port_clause {
+            region.add_interface_list(list, messages);
+        }
+        region.add_declarative_part(&entity.decl, messages);
+        self.analyze_concurrent_part(&entity.statements, messages);
+
+        region
+    }
+
+    /// Create a new root region for a design unit, making the
+    /// standard library and working library visible
+    pub fn new_root_region<'a>(
+        &self,
+        root: &'a DesignRoot<'a>,
+        work: &'a Library<'a>,
+    ) -> DeclarativeRegion<'a> {
+        let mut region = DeclarativeRegion::new();
+        region.make_library_visible(&self.work_sym, work);
+
+        // @TODO maybe add warning if standard library is missing
+        if let Some(library) = root.get_library(&self.std_sym) {
+            region.make_library_visible(&self.std_sym, library);
+        }
+        region
+    }
+
     pub fn analyze<'a>(&self, root: &'a DesignRoot<'a>, messages: &mut MessageHandler) {
         for library in root.iter_libraries() {
             for package in library.packages() {
-                self.check_context_clause(root, library, &package.package.context_clause, messages);
-                let mut region = check_package_declaration(&package.package.unit, messages);
+                let mut root_region = self.new_root_region(root, library);
+                self.analyze_context_clause(
+                    root,
+                    &mut root_region,
+                    &package.package.context_clause,
+                    messages,
+                );
+                let mut region = self.analyze_package_declaration(&package.package.unit, messages);
 
                 // @TODO may panic
                 // @TODO avoid duplicate analysis
@@ -469,9 +499,15 @@ impl Analyzer {
 
                 if let Some(ref body) = package.body {
                     region.close_immediate(messages);
+                    let mut root_region = self.new_root_region(root, library);
+                    self.analyze_context_clause(
+                        root,
+                        &mut root_region,
+                        &body.context_clause,
+                        messages,
+                    );
                     let mut region = region.in_body();
-                    self.check_context_clause(root, library, &body.context_clause, messages);
-                    check_package_body(&mut region, &body.unit, messages);
+                    self.analyze_package_body(&mut region, &body.unit, messages);
                     region.close_both(messages);
                 } else {
                     region.close_both(messages);
@@ -481,31 +517,40 @@ impl Analyzer {
 
         for library in root.iter_libraries() {
             for package_instance in library.package_instances() {
-                self.check_context_clause(
+                let mut root_region = self.new_root_region(root, library);
+                self.analyze_context_clause(
                     root,
-                    library,
+                    &mut root_region,
                     &package_instance.context_clause,
                     messages,
                 );
             }
 
             for context in library.contexts() {
-                self.check_context_clause(root, library, &context.items, messages);
+                let mut root_region = self.new_root_region(root, library);
+                self.analyze_context_clause(root, &mut root_region, &context.items, messages);
             }
 
             for entity in library.entities() {
-                self.check_context_clause(root, library, &entity.entity.context_clause, messages);
-                let mut region = check_entity_declaration(&entity.entity.unit, messages);
+                let mut root_region = self.new_root_region(root, library);
+                self.analyze_context_clause(
+                    root,
+                    &mut root_region,
+                    &entity.entity.context_clause,
+                    messages,
+                );
+                let mut region = self.analyze_entity_declaration(&entity.entity.unit, messages);
                 region.close_immediate(messages);
                 for architecture in entity.architectures.values() {
-                    let mut region = region.in_body();
-                    self.check_context_clause(
+                    let mut root_region = self.new_root_region(root, library);
+                    self.analyze_context_clause(
                         root,
-                        library,
+                        &mut root_region,
                         &architecture.context_clause,
                         messages,
                     );
-                    check_architecture_body(&mut region, &architecture.unit, messages);
+                    let mut region = region.in_body();
+                    self.analyze_architecture_body(&mut region, &architecture.unit, messages);
                     region.close_both(messages);
                 }
             }
