@@ -51,10 +51,7 @@ pub fn start() {
 
     let server = lang_server.clone();
     io.add_notification("exit", move |_params: Params| {
-        server
-            .lock()
-            .unwrap()
-            .exit_notification(())
+        server.lock().unwrap().exit_notification(())
     });
 
     let server = lang_server.clone();
@@ -134,8 +131,8 @@ fn read_request(reader: &mut BufRead) -> String {
 
 fn send_response(writer: &mut Write, response: &str) {
     trace!("SEND RESPONSE: {:?}", response);
-    writeln!(writer, "Content-Length: {}", response.len());
-    writeln!(writer);
+    writeln!(writer, "Content-Length: {}\r", response.len());
+    writeln!(writer, "\r");
     write!(writer, "{}", response);
     writer.flush().expect("Could not flush stdout");
 }
