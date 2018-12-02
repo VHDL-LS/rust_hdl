@@ -181,7 +181,7 @@ impl Project {
             ));
         }
 
-        Analyzer::new(&self.parser.symtab.clone()).analyze(&root, &mut messages);
+        Analyzer::new(&root, &self.parser.symtab.clone()).analyze(&mut messages);
         messages
     }
 }

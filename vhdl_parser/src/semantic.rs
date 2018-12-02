@@ -43,16 +43,18 @@ impl SubprogramDeclaration {
     }
 }
 
-pub struct Analyzer {
+pub struct Analyzer<'a> {
     work_sym: Symbol,
     std_sym: Symbol,
+    root: &'a DesignRoot<'a>,
 }
 
-impl Analyzer {
-    pub fn new(symtab: &Arc<SymbolTable>) -> Analyzer {
+impl<'a> Analyzer<'a> {
+    pub fn new(root: &'a DesignRoot<'a>, symtab: &Arc<SymbolTable>) -> Analyzer<'a> {
         Analyzer {
             work_sym: symtab.insert(&Latin1String::new(b"work")),
             std_sym: symtab.insert(&Latin1String::new(b"std")),
+            root,
         }
     }
 
@@ -60,7 +62,7 @@ impl Analyzer {
     /// Returns error message if a name was not declared
     /// @TODO We only lookup selected names since other names such as slice and index require typechecking
     /// @TODO return borrowed data and own VisibleDeclarations inside the Library
-    pub fn lookup_selected_name<'a>(
+    pub fn lookup_selected_name(
         &self,
         region: &DeclarativeRegion<'a>,
         name: &WithPos<Name>,
@@ -259,9 +261,8 @@ impl Analyzer {
         }
     }
 
-    fn analyze_context_clause<'a>(
+    fn analyze_context_clause(
         &self,
-        root: &'a DesignRoot<'a>,
         region: &mut DeclarativeRegion<'a>,
         context_clause: &[WithPos<ContextItem>],
         messages: &mut MessageHandler,
@@ -275,7 +276,7 @@ impl Analyzer {
                                 &library_name,
                                 "Library clause not necessary for current working library",
                             ))
-                        } else if let Some(library) = root.get_library(&library_name.item) {
+                        } else if let Some(library) = self.root.get_library(&library_name.item) {
                             region.make_library_visible(&library.name, library);
                         } else {
                             messages.push(Message::error(
@@ -411,7 +412,7 @@ impl Analyzer {
         }
     }
 
-    fn analyze_package_declaration<'a>(
+    fn analyze_package_declaration(
         &self,
         package: &'a PackageDeclaration,
         messages: &mut MessageHandler,
@@ -425,7 +426,7 @@ impl Analyzer {
         region
     }
 
-    fn analyze_architecture_body<'a>(
+    fn analyze_architecture_body(
         &self,
         entity_region: &mut DeclarativeRegion<'a>,
         architecture: &'a ArchitectureBody,
@@ -436,7 +437,7 @@ impl Analyzer {
         self.analyze_concurrent_part(&architecture.statements, messages);
     }
 
-    fn analyze_package_body<'a>(
+    fn analyze_package_body(
         &self,
         package_region: &mut DeclarativeRegion<'a>,
         package: &'a PackageBody,
@@ -446,7 +447,7 @@ impl Analyzer {
         self.analyze_inner_declarative_parts(&package.decl, messages);
     }
 
-    fn analyze_entity_declaration<'a>(
+    fn analyze_entity_declaration(
         &self,
         entity: &'a EntityDeclaration,
         messages: &mut MessageHandler,
@@ -466,27 +467,22 @@ impl Analyzer {
 
     /// Create a new root region for a design unit, making the
     /// standard library and working library visible
-    pub fn new_root_region<'a>(
-        &self,
-        root: &'a DesignRoot<'a>,
-        work: &'a Library<'a>,
-    ) -> DeclarativeRegion<'a> {
+    pub fn new_root_region(&self, work: &'a Library<'a>) -> DeclarativeRegion<'a> {
         let mut region = DeclarativeRegion::new();
         region.make_library_visible(&self.work_sym, work);
 
         // @TODO maybe add warning if standard library is missing
-        if let Some(library) = root.get_library(&self.std_sym) {
+        if let Some(library) = self.root.get_library(&self.std_sym) {
             region.make_library_visible(&self.std_sym, library);
         }
         region
     }
 
-    pub fn analyze<'a>(&self, root: &'a DesignRoot<'a>, messages: &mut MessageHandler) {
-        for library in root.iter_libraries() {
+    pub fn analyze(&self, messages: &mut MessageHandler) {
+        for library in self.root.iter_libraries() {
             for package in library.packages() {
-                let mut root_region = self.new_root_region(root, library);
+                let mut root_region = self.new_root_region(library);
                 self.analyze_context_clause(
-                    root,
                     &mut root_region,
                     &package.package.context_clause,
                     messages,
@@ -499,12 +495,7 @@ impl Analyzer {
 
                 if let Some(ref body) = package.body {
                     region.close_immediate(messages);
-                    self.analyze_context_clause(
-                        root,
-                        &mut root_region,
-                        &body.context_clause,
-                        messages,
-                    );
+                    self.analyze_context_clause(&mut root_region, &body.context_clause, messages);
                     let mut region = region.in_body();
                     self.analyze_package_body(&mut region, &body.unit, messages);
                     region.close_both(messages);
@@ -514,11 +505,10 @@ impl Analyzer {
             }
         }
 
-        for library in root.iter_libraries() {
+        for library in self.root.iter_libraries() {
             for package_instance in library.package_instances() {
-                let mut root_region = self.new_root_region(root, library);
+                let mut root_region = self.new_root_region(library);
                 self.analyze_context_clause(
-                    root,
                     &mut root_region,
                     &package_instance.context_clause,
                     messages,
@@ -526,14 +516,13 @@ impl Analyzer {
             }
 
             for context in library.contexts() {
-                let mut root_region = self.new_root_region(root, library);
-                self.analyze_context_clause(root, &mut root_region, &context.items, messages);
+                let mut root_region = self.new_root_region(library);
+                self.analyze_context_clause(&mut root_region, &context.items, messages);
             }
 
             for entity in library.entities() {
-                let mut root_region = self.new_root_region(root, library);
+                let mut root_region = self.new_root_region(library);
                 self.analyze_context_clause(
-                    root,
                     &mut root_region,
                     &entity.entity.context_clause,
                     messages,
@@ -543,7 +532,6 @@ impl Analyzer {
                 for architecture in entity.architectures.values() {
                     let mut root_region = root_region.clone();
                     self.analyze_context_clause(
-                        root,
                         &mut root_region,
                         &architecture.context_clause,
                         messages,
@@ -1881,7 +1869,7 @@ end entity;
                 root.add_library(library);
             }
 
-            Analyzer::new(&self.code_builder.symtab.clone()).analyze(&root, &mut messages);
+            Analyzer::new(&root, &self.code_builder.symtab.clone()).analyze(&mut messages);
 
             messages
         }
