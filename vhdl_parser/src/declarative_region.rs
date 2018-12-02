@@ -184,7 +184,10 @@ impl<'a> DeclarativeRegion<'a> {
                 to_remove.push(decl.designator.clone());
                 decl.error(
                     messages,
-                    "Missing full type declaration of incomplete type 'rec_t'",
+                    format!(
+                        "Missing full type declaration of incomplete type '{}'",
+                        &decl.designator
+                    ),
                 );
                 decl.hint(messages, "The full type declaration shall occur immediately within the same declarative part");
             }
