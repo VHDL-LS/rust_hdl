@@ -46,7 +46,7 @@ pub fn start() {
         server
             .lock()
             .unwrap()
-            .initialized_notification(params.parse().unwrap())
+            .initialized_notification(&params.parse().unwrap())
     });
 
     let server = lang_server.clone();
@@ -62,7 +62,7 @@ pub fn start() {
         server
             .lock()
             .unwrap()
-            .text_document_did_change_notification(params.parse().unwrap())
+            .text_document_did_change_notification(&params.parse().unwrap())
     });
 
     let server = lang_server.clone();
@@ -70,7 +70,7 @@ pub fn start() {
         server
             .lock()
             .unwrap()
-            .text_document_did_open_notification(params.parse().unwrap())
+            .text_document_did_open_notification(&params.parse().unwrap())
     });
 
     // Spawn thread to read requests from stdin
@@ -135,7 +135,7 @@ fn read_request(reader: &mut BufRead) -> String {
 fn send_response(writer: &mut Write, response: &str) {
     trace!("SEND RESPONSE: {:?}", response);
     writeln!(writer, "Content-Length: {}", response.len());
-    writeln!(writer, "");
+    writeln!(writer);
     write!(writer, "{}", response);
     writer.flush().expect("Could not flush stdout");
 }
