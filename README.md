@@ -98,6 +98,7 @@ architecture a of uart_tx
 
 ## Trying it out
 The language server has a command line binary `vhdl_ls` which implements a stdio based language server.
+This repository includes a medium sized example [project](example_project/README.md) which can be used to trying out the language server.
 
 ### Building
 ```console
