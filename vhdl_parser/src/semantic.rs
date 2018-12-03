@@ -1889,6 +1889,39 @@ end package body;
     }
 
     #[test]
+    fn secondary_units_share_only_root_region() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg2 is
+  constant const : natural := 0;
+end package;
+
+package pkg is
+  use work.pkg2;
+end package;
+
+-- Does not work
+use pkg2.const;
+
+package body pkg is
+  -- Does work
+  use pkg2.const;
+end package body;
+",
+        );
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s("pkg2", 3),
+                "No declaration of 'pkg2'",
+            )],
+        )
+    }
+
+    #[test]
     fn check_library_clause_library_exists_in_context_declarations() {
         let mut builder = LibraryBuilder::new();
         let code = builder.code(
