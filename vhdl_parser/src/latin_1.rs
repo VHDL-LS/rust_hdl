@@ -56,7 +56,7 @@ impl Latin1String {
         }
     }
 
-    pub fn into_lowercase(&mut self) {
+    pub fn make_lowercase(&mut self) {
         for i in 0..self.bytes.len() {
             self.bytes[i] = Self::lowercase(self.bytes[i]);
         }
@@ -66,7 +66,7 @@ impl Latin1String {
         let mut latin1 = Latin1String {
             bytes: self.bytes.clone(),
         };
-        latin1.into_lowercase();
+        latin1.make_lowercase();
         latin1
     }
 

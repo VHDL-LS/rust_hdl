@@ -919,7 +919,7 @@ fn parse_basic_identifier_or_keyword(
     buffer
         .bytes
         .extend_from_slice(&cursor.bytes[start..cursor.idx]);
-    buffer.into_lowercase();
+    buffer.make_lowercase();
 
     match keywords.get(buffer.bytes.as_slice()) {
         Some(kind) => Ok((*kind, Value::NoValue)),
