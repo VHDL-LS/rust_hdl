@@ -7,6 +7,7 @@ use ast::*;
 use library::{EntityDesignUnit, Library, PackageDesignUnit};
 use message::{Message, MessageHandler};
 use source::{SrcPos, WithPos};
+use std::rc::Rc;
 use symbol_table::Symbol;
 
 extern crate fnv;
@@ -146,16 +147,18 @@ enum RegionKind {
     Other,
 }
 
+pub type SharedDeclarativeRegion<'a> = Rc<DeclarativeRegion<'a>>;
+
 #[derive(PartialEq, Debug, Clone)]
-pub struct DeclarativeRegion<'r, 'a: 'r> {
-    parent: Option<&'r DeclarativeRegion<'r, 'a>>,
+pub struct DeclarativeRegion<'a> {
+    parent: Option<SharedDeclarativeRegion<'a>>,
     visible: FnvHashMap<Designator, VisibleDeclaration<'a>>,
     decls: FnvHashMap<Designator, VisibleDeclaration<'a>>,
     kind: RegionKind,
 }
 
-impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
-    pub fn new(parent: Option<&'r DeclarativeRegion<'r, 'a>>) -> DeclarativeRegion<'r, 'a> {
+impl<'a> DeclarativeRegion<'a> {
+    pub fn new(parent: Option<SharedDeclarativeRegion<'a>>) -> DeclarativeRegion<'a> {
         DeclarativeRegion {
             parent,
             visible: FnvHashMap::default(),
@@ -164,12 +167,12 @@ impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
         }
     }
 
-    pub fn in_package_declaration(mut self) -> DeclarativeRegion<'r, 'a> {
+    pub fn in_package_declaration(mut self) -> DeclarativeRegion<'a> {
         self.kind = RegionKind::PackageDeclaration;
         self
     }
 
-    pub fn in_body(&self) -> DeclarativeRegion<'r, 'a> {
+    pub fn in_body(&self) -> DeclarativeRegion<'a> {
         let mut region = self.clone();
         region.kind = match region.kind {
             RegionKind::PackageDeclaration => RegionKind::PackageBody,
@@ -299,7 +302,11 @@ impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
         self.visible
             .get(designator)
             .or_else(|| self.decls.get(designator))
-            .or_else(|| self.parent.and_then(|parent| parent.lookup(designator)))
+            .or_else(|| {
+                self.parent
+                    .as_ref()
+                    .and_then(|parent| parent.lookup(designator))
+            })
     }
 
     pub fn add_interface_list(

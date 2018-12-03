@@ -143,7 +143,7 @@ use std::cell::RefCell;
 #[derive(PartialEq, Debug, Clone)]
 pub struct PackageDesignUnit<'a> {
     /// The declarative region is None when it has not yet been computed
-    pub declarative_region: RefCell<Option<DeclarativeRegion<'a, 'a>>>,
+    pub declarative_region: RefCell<Option<DeclarativeRegion<'a>>>,
     pub package: DesignUnit<PackageDeclaration>,
     pub body: Option<DesignUnit<PackageBody>>,
 }
