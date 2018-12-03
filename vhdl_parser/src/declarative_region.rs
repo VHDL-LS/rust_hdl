@@ -100,7 +100,7 @@ pub struct VisibleDeclaration<'a> {
 }
 
 impl<'a> VisibleDeclaration<'a> {
-    fn new(
+    pub fn new(
         designator: impl Into<WithPos<Designator>>,
         decl: AnyDeclaration<'a>,
     ) -> VisibleDeclaration<'a> {
@@ -125,7 +125,7 @@ impl<'a> VisibleDeclaration<'a> {
         }
     }
 
-    fn with_overload(mut self, value: bool) -> VisibleDeclaration<'a> {
+    pub fn with_overload(mut self, value: bool) -> VisibleDeclaration<'a> {
         self.may_overload = value;
         self
     }
@@ -147,27 +147,29 @@ enum RegionKind {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct DeclarativeRegion<'a> {
+pub struct DeclarativeRegion<'r, 'a: 'r> {
+    parent: Option<&'r DeclarativeRegion<'r, 'a>>,
     visible: FnvHashMap<Designator, VisibleDeclaration<'a>>,
     decls: FnvHashMap<Designator, VisibleDeclaration<'a>>,
     kind: RegionKind,
 }
 
-impl<'a> DeclarativeRegion<'a> {
-    pub fn new() -> DeclarativeRegion<'a> {
+impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
+    pub fn new(parent: Option<&'r DeclarativeRegion<'r, 'a>>) -> DeclarativeRegion<'r, 'a> {
         DeclarativeRegion {
+            parent,
             visible: FnvHashMap::default(),
             decls: FnvHashMap::default(),
             kind: RegionKind::Other,
         }
     }
 
-    pub fn in_package_declaration(mut self) -> DeclarativeRegion<'a> {
+    pub fn in_package_declaration(mut self) -> DeclarativeRegion<'r, 'a> {
         self.kind = RegionKind::PackageDeclaration;
         self
     }
 
-    pub fn in_body(&self) -> DeclarativeRegion<'a> {
+    pub fn in_body(&self) -> DeclarativeRegion<'r, 'a> {
         let mut region = self.clone();
         region.kind = match region.kind {
             RegionKind::PackageDeclaration => RegionKind::PackageBody,
@@ -297,6 +299,7 @@ impl<'a> DeclarativeRegion<'a> {
         self.visible
             .get(designator)
             .or_else(|| self.decls.get(designator))
+            .or_else(|| self.parent.and_then(|parent| parent.lookup(designator)))
     }
 
     pub fn add_interface_list(
@@ -311,16 +314,6 @@ impl<'a> DeclarativeRegion<'a> {
         }
     }
 
-    pub fn add_declarative_part(
-        &mut self,
-        declarations: &'a [Declaration],
-        messages: &mut MessageHandler,
-    ) {
-        for decl in declarations.iter() {
-            decl.add_to_region(self, messages);
-        }
-    }
-
     pub fn add_element_declarations(
         &mut self,
         declarations: &'a [ElementDeclaration],
@@ -331,92 +324,6 @@ impl<'a> DeclarativeRegion<'a> {
                 VisibleDeclaration::new(&decl.ident, AnyDeclaration::Element(decl)),
                 messages,
             );
-        }
-    }
-}
-
-impl Declaration {
-    fn add_to_region<'a>(
-        &'a self,
-        region: &mut DeclarativeRegion<'a>,
-        messages: &mut MessageHandler,
-    ) {
-        match self {
-            Declaration::Alias(alias) => region.add(
-                VisibleDeclaration::new(
-                    alias.designator.clone(),
-                    AnyDeclaration::Declaration(self),
-                ).with_overload(alias.signature.is_some()),
-                messages,
-            ),
-            Declaration::Object(ObjectDeclaration { ref ident, .. }) => {
-                region.add(
-                    VisibleDeclaration::new(ident, AnyDeclaration::Declaration(self)),
-                    messages,
-                );
-            }
-            Declaration::File(FileDeclaration { ref ident, .. }) => region.add(
-                VisibleDeclaration::new(ident, AnyDeclaration::Declaration(self)),
-                messages,
-            ),
-            Declaration::Component(ComponentDeclaration { ref ident, .. }) => {
-                region.add(
-                    VisibleDeclaration::new(ident, AnyDeclaration::Declaration(self)),
-                    messages,
-                );
-            }
-            Declaration::Attribute(ref attr) => match attr {
-                Attribute::Declaration(AttributeDeclaration { ref ident, .. }) => {
-                    region.add(
-                        VisibleDeclaration::new(ident, AnyDeclaration::Declaration(self)),
-                        messages,
-                    );
-                }
-                // @TODO Ignored for now
-                Attribute::Specification(..) => {}
-            },
-            Declaration::SubprogramBody(body) => region.add(
-                VisibleDeclaration::new(
-                    body.specification.designator(),
-                    AnyDeclaration::Declaration(self),
-                ).with_overload(true),
-                messages,
-            ),
-            Declaration::SubprogramDeclaration(decl) => region.add(
-                VisibleDeclaration::new(decl.designator(), AnyDeclaration::Declaration(self))
-                    .with_overload(true),
-                messages,
-            ),
-
-            // @TODO Ignored for now
-            Declaration::Use(..) => {}
-            Declaration::Package(ref package) => region.add(
-                VisibleDeclaration::new(&package.ident, AnyDeclaration::Declaration(self)),
-                messages,
-            ),
-            Declaration::Configuration(..) => {}
-            Declaration::Type(TypeDeclaration {
-                ref ident,
-                def: TypeDefinition::Enumeration(ref enumeration),
-            }) => {
-                region.add(
-                    VisibleDeclaration::new(ident, AnyDeclaration::Declaration(self)),
-                    messages,
-                );
-                for literal in enumeration.iter() {
-                    region.add(
-                        VisibleDeclaration::new(
-                            literal.clone().map_into(|lit| lit.into_designator()),
-                            AnyDeclaration::Enum(literal),
-                        ).with_overload(true),
-                        messages,
-                    )
-                }
-            }
-            Declaration::Type(TypeDeclaration { ref ident, .. }) => region.add(
-                VisibleDeclaration::new(ident, AnyDeclaration::Declaration(self)),
-                messages,
-            ),
         }
     }
 }

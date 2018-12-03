@@ -9,7 +9,7 @@ use declarative_region::{AnyDeclaration, DeclarativeRegion, VisibleDeclaration};
 use latin_1::Latin1String;
 use library::{DesignRoot, Library};
 use message::{Message, MessageHandler};
-use source::WithPos;
+use source::{SrcPos, WithPos};
 use symbol_table::{Symbol, SymbolTable};
 
 use std::sync::Arc;
@@ -19,7 +19,7 @@ fn check_element_declaration_unique_ident(
     declarations: &[ElementDeclaration],
     messages: &mut MessageHandler,
 ) {
-    let mut region = DeclarativeRegion::new();
+    let mut region = DeclarativeRegion::new(None);
     region.add_element_declarations(declarations, messages);
     region.close_both(messages);
 }
@@ -29,7 +29,7 @@ fn check_interface_list_unique_ident(
     declarations: &[InterfaceDeclaration],
     messages: &mut MessageHandler,
 ) {
-    let mut region = DeclarativeRegion::new();
+    let mut region = DeclarativeRegion::new(None);
     region.add_interface_list(declarations, messages);
     region.close_both(messages);
 }
@@ -49,7 +49,7 @@ pub struct Analyzer<'a> {
     root: &'a DesignRoot<'a>,
 }
 
-impl<'a> Analyzer<'a> {
+impl<'r, 'a: 'r> Analyzer<'a> {
     pub fn new(root: &'a DesignRoot<'a>, symtab: &Arc<SymbolTable>) -> Analyzer<'a> {
         Analyzer {
             work_sym: symtab.insert(&Latin1String::new(b"work")),
@@ -64,7 +64,7 @@ impl<'a> Analyzer<'a> {
     /// @TODO return borrowed data and own VisibleDeclarations inside the Library
     pub fn lookup_selected_name(
         &self,
-        region: &DeclarativeRegion<'a>,
+        region: &DeclarativeRegion<'r, 'a>,
         name: &WithPos<Name>,
     ) -> Result<Option<VisibleDeclaration<'a>>, Message> {
         match name.item {
@@ -203,41 +203,110 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn analyze_declarative_part(
+    fn analyze_declaration(
         &self,
-        declarations: &[Declaration],
+        region: &mut DeclarativeRegion<'r, 'a>,
+        decl: &'a Declaration,
         messages: &mut MessageHandler,
     ) {
-        let mut region = DeclarativeRegion::new();
-        region.add_declarative_part(declarations, messages);
-        self.analyze_inner_declarative_parts(declarations, messages);
-        region.close_both(messages);
-    }
-
-    fn analyze_inner_declarative_parts(
-        &self,
-        declarations: &[Declaration],
-        messages: &mut MessageHandler,
-    ) {
-        for decl in declarations.iter() {
-            match decl {
-                Declaration::Component(ref component) => {
-                    check_interface_list_unique_ident(&component.generic_list, messages);
-                    check_interface_list_unique_ident(&component.port_list, messages);
-                }
-                Declaration::SubprogramBody(ref body) => {
-                    check_interface_list_unique_ident(
-                        body.specification.interface_list(),
+        match decl {
+            Declaration::Alias(alias) => region.add(
+                VisibleDeclaration::new(
+                    alias.designator.clone(),
+                    AnyDeclaration::Declaration(decl),
+                ).with_overload(alias.signature.is_some()),
+                messages,
+            ),
+            Declaration::Object(ObjectDeclaration { ref ident, .. }) => {
+                region.add(
+                    VisibleDeclaration::new(ident, AnyDeclaration::Declaration(decl)),
+                    messages,
+                );
+            }
+            Declaration::File(FileDeclaration { ref ident, .. }) => region.add(
+                VisibleDeclaration::new(ident, AnyDeclaration::Declaration(decl)),
+                messages,
+            ),
+            Declaration::Component(ref component) => {
+                region.add(
+                    VisibleDeclaration::new(&component.ident, AnyDeclaration::Declaration(decl)),
+                    messages,
+                );
+                check_interface_list_unique_ident(&component.generic_list, messages);
+                check_interface_list_unique_ident(&component.port_list, messages);
+            }
+            Declaration::Attribute(ref attr) => match attr {
+                Attribute::Declaration(AttributeDeclaration { ref ident, .. }) => {
+                    region.add(
+                        VisibleDeclaration::new(ident, AnyDeclaration::Declaration(decl)),
                         messages,
                     );
-                    self.analyze_declarative_part(&body.declarations, messages);
                 }
-                Declaration::SubprogramDeclaration(decl) => {
-                    check_interface_list_unique_ident(decl.interface_list(), messages);
+                // @TODO Ignored for now
+                Attribute::Specification(..) => {}
+            },
+            Declaration::SubprogramBody(body) => {
+                region.add(
+                    VisibleDeclaration::new(
+                        body.specification.designator(),
+                        AnyDeclaration::Declaration(decl),
+                    ).with_overload(true),
+                    messages,
+                );
+                check_interface_list_unique_ident(body.specification.interface_list(), messages);
+                // @TODO parent
+                let mut region = DeclarativeRegion::new(None);
+                self.analyze_declarative_part(&mut region, &body.declarations, messages);
+            }
+            Declaration::SubprogramDeclaration(subdecl) => {
+                region.add(
+                    VisibleDeclaration::new(
+                        subdecl.designator(),
+                        AnyDeclaration::Declaration(decl),
+                    ).with_overload(true),
+                    messages,
+                );
+                check_interface_list_unique_ident(subdecl.interface_list(), messages);
+            }
+
+            // @TODO Ignored for now
+            Declaration::Use(ref use_clause) => {
+                self.analyze_use_clause(region, &use_clause.item, &use_clause.pos, messages);
+            }
+            Declaration::Package(ref package) => region.add(
+                VisibleDeclaration::new(&package.ident, AnyDeclaration::Declaration(decl)),
+                messages,
+            ),
+            Declaration::Configuration(..) => {}
+            Declaration::Type(TypeDeclaration {
+                ref ident,
+                def: TypeDefinition::Enumeration(ref enumeration),
+            }) => {
+                region.add(
+                    VisibleDeclaration::new(ident, AnyDeclaration::Declaration(decl)),
+                    messages,
+                );
+                for literal in enumeration.iter() {
+                    region.add(
+                        VisibleDeclaration::new(
+                            literal.clone().map_into(|lit| lit.into_designator()),
+                            AnyDeclaration::Enum(literal),
+                        ).with_overload(true),
+                        messages,
+                    )
                 }
-                Declaration::Type(type_decl) => match type_decl.def {
+            }
+            Declaration::Type(ref type_decl) => {
+                region.add(
+                    VisibleDeclaration::new(&type_decl.ident, AnyDeclaration::Declaration(decl)),
+                    messages,
+                );
+
+                match type_decl.def {
                     TypeDefinition::ProtectedBody(ref body) => {
-                        self.analyze_declarative_part(&body.decl, messages);
+                        // @TODO parent
+                        let mut region = DeclarativeRegion::new(None);
+                        self.analyze_declarative_part(&mut region, &body.decl, messages);
                     }
                     TypeDefinition::Protected(ref prot_decl) => {
                         for item in prot_decl.items.iter() {
@@ -255,15 +324,65 @@ impl<'a> Analyzer<'a> {
                         check_element_declaration_unique_ident(decls, messages);
                     }
                     _ => {}
-                },
-                _ => {}
+                }
+            }
+        }
+    }
+
+    fn analyze_declarative_part(
+        &self,
+        region: &mut DeclarativeRegion<'r, 'a>,
+        declarations: &'a [Declaration],
+        messages: &mut MessageHandler,
+    ) {
+        for decl in declarations.iter() {
+            self.analyze_declaration(region, decl, messages);
+        }
+    }
+
+    fn analyze_use_clause(
+        &self,
+        region: &mut DeclarativeRegion<'r, 'a>,
+        use_clause: &UseClause,
+        use_pos: &SrcPos,
+        messages: &mut MessageHandler,
+    ) {
+        for name in use_clause.name_list.iter() {
+            match name.item {
+                Name::Selected(..) => {}
+                Name::SelectedAll(..) => {}
+                _ => {
+                    messages.push(Message::error(
+                        &use_pos,
+                        "Use clause must be a selected name",
+                    ));
+                    continue;
+                }
+            }
+
+            match self.lookup_selected_name(&region, &name) {
+                Ok(Some(visible_decl)) => {
+                    // @TODO handle others
+                    if let AnyDeclaration::Package(ref package) = visible_decl.decl {
+                        region.make_package_visible(package.package.name(), package);
+                    }
+                }
+                Ok(None) => {
+                    messages.push(Message::error(
+                        &use_pos,
+                        "Use clase must be a selected name",
+                    ));
+                }
+                Err(msg) => {
+                    messages.push(msg);
+                }
             }
         }
     }
 
     fn analyze_context_clause(
         &self,
-        region: &mut DeclarativeRegion<'a>,
+        region: &mut DeclarativeRegion<'r, 'a>,
         context_clause: &[WithPos<ContextItem>],
         messages: &mut MessageHandler,
     ) {
@@ -286,38 +405,8 @@ impl<'a> Analyzer<'a> {
                         }
                     }
                 }
-                ContextItem::Use(UseClause { ref name_list }) => {
-                    for name in name_list {
-                        match name.item {
-                            Name::Selected(..) => {}
-                            Name::SelectedAll(..) => {}
-                            _ => {
-                                messages.push(Message::error(
-                                    &context_item,
-                                    "Use clause must be a selected name",
-                                ));
-                                continue;
-                            }
-                        }
-
-                        match self.lookup_selected_name(&region, &name) {
-                            Ok(Some(visible_decl)) => {
-                                // @TODO handle others
-                                if let AnyDeclaration::Package(ref package) = visible_decl.decl {
-                                    region.make_package_visible(package.package.name(), package);
-                                }
-                            }
-                            Ok(None) => {
-                                messages.push(Message::error(
-                                    &context_item,
-                                    "Use clase must be a selected name",
-                                ));
-                            }
-                            Err(msg) => {
-                                messages.push(msg);
-                            }
-                        }
-                    }
+                ContextItem::Use(ref use_clause) => {
+                    self.analyze_use_clause(region, use_clause, &context_item.pos, messages);
                 }
                 ContextItem::Context(ContextReference { ref name_list }) => {
                     for name in name_list {
@@ -379,40 +468,52 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn analyze_generate_body(&self, body: &GenerateBody, messages: &mut MessageHandler) {
+    fn analyze_generate_body(
+        &self,
+        parent: &DeclarativeRegion<'r, 'a>,
+        body: &'a GenerateBody,
+        messages: &mut MessageHandler,
+    ) {
+        let mut region = DeclarativeRegion::new(Some(parent));
+
         if let Some(ref decl) = body.decl {
-            self.analyze_declarative_part(&decl, messages);
+            self.analyze_declarative_part(&mut region, &decl, messages);
         }
-        self.analyze_concurrent_part(&body.statements, messages);
+        self.analyze_concurrent_part(&region, &body.statements, messages);
     }
 
     fn analyze_concurrent_statement(
         &self,
-        statement: &LabeledConcurrentStatement,
+        parent: &DeclarativeRegion<'r, 'a>,
+        statement: &'a LabeledConcurrentStatement,
         messages: &mut MessageHandler,
     ) {
         match statement.statement {
             ConcurrentStatement::Block(ref block) => {
-                self.analyze_declarative_part(&block.decl, messages);
-                self.analyze_concurrent_part(&block.statements, messages);
+                // @TODO parent
+                let mut region = DeclarativeRegion::new(Some(parent));
+                self.analyze_declarative_part(&mut region, &block.decl, messages);
+                self.analyze_concurrent_part(&region, &block.statements, messages);
             }
             ConcurrentStatement::Process(ref process) => {
-                self.analyze_declarative_part(&process.decl, messages);
+                // @TODO parent
+                let mut region = DeclarativeRegion::new(Some(parent));
+                self.analyze_declarative_part(&mut region, &process.decl, messages);
             }
             ConcurrentStatement::ForGenerate(ref gen) => {
-                self.analyze_generate_body(&gen.body, messages);
+                self.analyze_generate_body(parent, &gen.body, messages);
             }
             ConcurrentStatement::IfGenerate(ref gen) => {
                 for conditional in gen.conditionals.iter() {
-                    self.analyze_generate_body(&conditional.item, messages);
+                    self.analyze_generate_body(parent, &conditional.item, messages);
                 }
                 if let Some(ref else_item) = gen.else_item {
-                    self.analyze_generate_body(else_item, messages);
+                    self.analyze_generate_body(parent, else_item, messages);
                 }
             }
             ConcurrentStatement::CaseGenerate(ref gen) => {
                 for alternative in gen.alternatives.iter() {
-                    self.analyze_generate_body(&alternative.item, messages);
+                    self.analyze_generate_body(parent, &alternative.item, messages);
                 }
             }
             _ => {}
@@ -421,11 +522,12 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_concurrent_part(
         &self,
-        statements: &[LabeledConcurrentStatement],
+        parent: &DeclarativeRegion<'r, 'a>,
+        statements: &'a [LabeledConcurrentStatement],
         messages: &mut MessageHandler,
     ) {
         for statement in statements.iter() {
-            self.analyze_concurrent_statement(statement, messages);
+            self.analyze_concurrent_statement(parent, statement, messages);
         }
     }
 
@@ -433,59 +535,54 @@ impl<'a> Analyzer<'a> {
         &self,
         package: &'a PackageDeclaration,
         messages: &mut MessageHandler,
-    ) -> DeclarativeRegion<'a> {
-        let mut region = DeclarativeRegion::new().in_package_declaration();
+    ) -> DeclarativeRegion<'r, 'a> {
+        let mut region = DeclarativeRegion::new(None).in_package_declaration();
         if let Some(ref list) = package.generic_clause {
             region.add_interface_list(list, messages);
         }
-        region.add_declarative_part(&package.decl, messages);
-        self.analyze_inner_declarative_parts(&package.decl, messages);
+        self.analyze_declarative_part(&mut region, &package.decl, messages);
         region
     }
 
     fn analyze_architecture_body(
         &self,
-        entity_region: &mut DeclarativeRegion<'a>,
+        entity_region: &mut DeclarativeRegion<'r, 'a>,
         architecture: &'a ArchitectureBody,
         messages: &mut MessageHandler,
     ) {
-        entity_region.add_declarative_part(&architecture.decl, messages);
-        self.analyze_inner_declarative_parts(&architecture.decl, messages);
-        self.analyze_concurrent_part(&architecture.statements, messages);
+        self.analyze_declarative_part(entity_region, &architecture.decl, messages);
+        self.analyze_concurrent_part(entity_region, &architecture.statements, messages);
     }
 
     fn analyze_package_body(
         &self,
-        package_region: &mut DeclarativeRegion<'a>,
+        package_region: &mut DeclarativeRegion<'r, 'a>,
         package: &'a PackageBody,
         messages: &mut MessageHandler,
     ) {
-        package_region.add_declarative_part(&package.decl, messages);
-        self.analyze_inner_declarative_parts(&package.decl, messages);
+        self.analyze_declarative_part(package_region, &package.decl, messages);
     }
 
     fn analyze_entity_declaration(
         &self,
+        region: &mut DeclarativeRegion<'r, 'a>,
         entity: &'a EntityDeclaration,
         messages: &mut MessageHandler,
-    ) -> DeclarativeRegion<'a> {
-        let mut region = DeclarativeRegion::new();
+    ) {
         if let Some(ref list) = entity.generic_clause {
             region.add_interface_list(list, messages);
         }
         if let Some(ref list) = entity.port_clause {
             region.add_interface_list(list, messages);
         }
-        region.add_declarative_part(&entity.decl, messages);
-        self.analyze_concurrent_part(&entity.statements, messages);
-
-        region
+        self.analyze_declarative_part(region, &entity.decl, messages);
+        self.analyze_concurrent_part(region, &entity.statements, messages);
     }
 
     /// Create a new root region for a design unit, making the
     /// standard library and working library visible
-    pub fn new_root_region(&self, work: &'a Library<'a>) -> DeclarativeRegion<'a> {
-        let mut region = DeclarativeRegion::new();
+    pub fn new_root_region(&self, work: &'a Library<'a>) -> DeclarativeRegion<'r, 'a> {
+        let mut region = DeclarativeRegion::new(None);
         region.make_library_visible(&self.work_sym, work);
 
         // @TODO maybe add warning if standard library is missing
@@ -544,10 +641,11 @@ impl<'a> Analyzer<'a> {
                     &entity.entity.context_clause,
                     messages,
                 );
-                let mut region = self.analyze_entity_declaration(&entity.entity.unit, messages);
+                let mut region = DeclarativeRegion::new(Some(&root_region));
+                self.analyze_entity_declaration(&mut region, &entity.entity.unit, messages);
                 region.close_immediate(messages);
                 for architecture in entity.architectures.values() {
-                    let mut root_region = root_region.clone();
+                    let mut root_region = region.clone();
                     self.analyze_context_clause(
                         &mut root_region,
                         &architecture.context_clause,
@@ -2011,6 +2109,53 @@ end entity;
                 code.s("libname", 1),
                 "No declaration of 'libname'",
             )],
+        )
+    }
+
+    #[test]
+    fn nested_use_clause_missing() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg is
+  constant const : natural := 0;
+end package;
+
+library libname;
+
+entity ent is
+end entity;
+
+architecture rtl of ent is
+  use libname.pkg; -- Works
+  use libname.pkg1; -- Error
+begin
+  process
+    use pkg.const; -- Works
+    use libname.pkg1; -- Error
+  begin
+  end process;
+
+  blk : block
+    use pkg.const; -- Works
+    use libname.pkg1; -- Error
+  begin
+  end block;
+
+end architecture;
+            ",
+        );
+
+        let messages = builder.analyze();
+
+        check_messages(
+            messages,
+            vec![
+                Message::error(code.s("pkg1", 1), "No primary unit 'pkg1' within 'libname'"),
+                Message::error(code.s("pkg1", 2), "No primary unit 'pkg1' within 'libname'"),
+                Message::error(code.s("pkg1", 3), "No primary unit 'pkg1' within 'libname'"),
+            ],
         )
     }
 
