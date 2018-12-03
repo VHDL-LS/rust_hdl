@@ -7,7 +7,6 @@ use ast::*;
 use library::{EntityDesignUnit, Library, PackageDesignUnit};
 use message::{Message, MessageHandler};
 use source::{SrcPos, WithPos};
-use std::rc::Rc;
 use symbol_table::Symbol;
 
 extern crate fnv;
@@ -147,32 +146,67 @@ enum RegionKind {
     Other,
 }
 
-pub type SharedDeclarativeRegion<'a> = Rc<DeclarativeRegion<'a>>;
+/// Most parent regions can just be temporarily borrowed
+/// For public regions of design units the parent must be owned such that these regions can be stored in a map
+#[derive(PartialEq, Debug, Clone)]
+enum ParentRegion<'r, 'a: 'r> {
+    Borrowed(&'r DeclarativeRegion<'r, 'a>),
+    Owned(Box<DeclarativeRegion<'r, 'a>>),
+}
+
+impl<'r, 'a> std::ops::Deref for ParentRegion<'r, 'a> {
+    type Target = DeclarativeRegion<'r, 'a>;
+
+    fn deref(&self) -> &DeclarativeRegion<'r, 'a> {
+        match self {
+            ParentRegion::Borrowed(region) => region,
+            ParentRegion::Owned(ref region) => region.as_ref(),
+        }
+    }
+}
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct DeclarativeRegion<'a> {
-    parent: Option<SharedDeclarativeRegion<'a>>,
+pub struct DeclarativeRegion<'r, 'a: 'r> {
+    parent: Option<ParentRegion<'r, 'a>>,
     visible: FnvHashMap<Designator, VisibleDeclaration<'a>>,
     decls: FnvHashMap<Designator, VisibleDeclaration<'a>>,
     kind: RegionKind,
 }
 
-impl<'a> DeclarativeRegion<'a> {
-    pub fn new(parent: Option<SharedDeclarativeRegion<'a>>) -> DeclarativeRegion<'a> {
+impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
+    pub fn new(parent: Option<&'r DeclarativeRegion<'r, 'a>>) -> DeclarativeRegion<'r, 'a> {
         DeclarativeRegion {
-            parent,
+            parent: parent.map(|parent| ParentRegion::Borrowed(parent)),
             visible: FnvHashMap::default(),
             decls: FnvHashMap::default(),
             kind: RegionKind::Other,
         }
     }
 
-    pub fn in_package_declaration(mut self) -> DeclarativeRegion<'a> {
+    pub fn in_package_declaration(mut self) -> DeclarativeRegion<'r, 'a> {
         self.kind = RegionKind::PackageDeclaration;
         self
     }
 
-    pub fn in_body(&self) -> DeclarativeRegion<'a> {
+    /// Clone the region with owned version of all parents
+    pub fn clone_owned_parent<'s>(&self) -> DeclarativeRegion<'s, 'a> {
+        let parent = {
+            if let Some(parent) = self.parent.as_ref() {
+                Some(ParentRegion::Owned(Box::new(parent.clone_owned_parent())))
+            } else {
+                None
+            }
+        };
+
+        DeclarativeRegion {
+            parent,
+            visible: self.visible.clone(),
+            decls: self.decls.clone(),
+            kind: self.kind,
+        }
+    }
+
+    pub fn in_body(&self) -> DeclarativeRegion<'r, 'a> {
         let mut region = self.clone();
         region.kind = match region.kind {
             RegionKind::PackageDeclaration => RegionKind::PackageBody,

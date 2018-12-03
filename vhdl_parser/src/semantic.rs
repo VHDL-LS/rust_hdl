@@ -5,9 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use ast::{has_ident::HasIdent, *};
-use declarative_region::{
-    AnyDeclaration, DeclarativeRegion, SharedDeclarativeRegion, VisibleDeclaration,
-};
+use declarative_region::{AnyDeclaration, DeclarativeRegion, VisibleDeclaration};
 use latin_1::Latin1String;
 use library::{DesignRoot, Library};
 use message::{Message, MessageHandler};
@@ -66,7 +64,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
     /// @TODO return borrowed data and own VisibleDeclarations inside the Library
     pub fn lookup_selected_name(
         &self,
-        region: &DeclarativeRegion<'a>,
+        region: &DeclarativeRegion<'_, 'a>,
         name: &WithPos<Name>,
     ) -> Result<Option<VisibleDeclaration<'a>>, Message> {
         match name.item {
@@ -207,7 +205,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
     fn analyze_declaration(
         &self,
-        region: &mut DeclarativeRegion<'a>,
+        region: &mut DeclarativeRegion<'_, 'a>,
         decl: &'a Declaration,
         messages: &mut MessageHandler,
     ) {
@@ -333,7 +331,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
     fn analyze_declarative_part(
         &self,
-        region: &mut DeclarativeRegion<'a>,
+        region: &mut DeclarativeRegion<'_, 'a>,
         declarations: &'a [Declaration],
         messages: &mut MessageHandler,
     ) {
@@ -344,7 +342,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
     fn analyze_use_clause(
         &self,
-        region: &mut DeclarativeRegion<'a>,
+        region: &mut DeclarativeRegion<'_, 'a>,
         use_clause: &UseClause,
         use_pos: &SrcPos,
         messages: &mut MessageHandler,
@@ -384,7 +382,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
     fn analyze_context_clause(
         &self,
-        region: &mut DeclarativeRegion<'a>,
+        region: &mut DeclarativeRegion<'_, 'a>,
         context_clause: &[WithPos<ContextItem>],
         messages: &mut MessageHandler,
     ) {
@@ -472,42 +470,34 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
     fn analyze_generate_body(
         &self,
-        parent: &SharedDeclarativeRegion<'a>,
+        parent: &DeclarativeRegion<'_, 'a>,
         body: &'a GenerateBody,
         messages: &mut MessageHandler,
     ) {
-        let mut region = DeclarativeRegion::new(Some(parent.clone()));
+        let mut region = DeclarativeRegion::new(Some(parent));
 
         if let Some(ref decl) = body.decl {
             self.analyze_declarative_part(&mut region, &decl, messages);
         }
-        self.analyze_concurrent_part(
-            &SharedDeclarativeRegion::from(region),
-            &body.statements,
-            messages,
-        );
+        self.analyze_concurrent_part(&region, &body.statements, messages);
     }
 
     fn analyze_concurrent_statement(
         &self,
-        parent: &SharedDeclarativeRegion<'a>,
+        parent: &DeclarativeRegion<'_, 'a>,
         statement: &'a LabeledConcurrentStatement,
         messages: &mut MessageHandler,
     ) {
         match statement.statement {
             ConcurrentStatement::Block(ref block) => {
                 // @TODO parent
-                let mut region = DeclarativeRegion::new(Some(parent.clone()));
+                let mut region = DeclarativeRegion::new(Some(parent));
                 self.analyze_declarative_part(&mut region, &block.decl, messages);
-                self.analyze_concurrent_part(
-                    &SharedDeclarativeRegion::from(region),
-                    &block.statements,
-                    messages,
-                );
+                self.analyze_concurrent_part(&region, &block.statements, messages);
             }
             ConcurrentStatement::Process(ref process) => {
                 // @TODO parent
-                let mut region = DeclarativeRegion::new(Some(parent.clone()));
+                let mut region = DeclarativeRegion::new(Some(parent));
                 self.analyze_declarative_part(&mut region, &process.decl, messages);
             }
             ConcurrentStatement::ForGenerate(ref gen) => {
@@ -532,7 +522,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
     fn analyze_concurrent_part(
         &self,
-        parent: &SharedDeclarativeRegion<'a>,
+        parent: &DeclarativeRegion<'_, 'a>,
         statements: &'a [LabeledConcurrentStatement],
         messages: &mut MessageHandler,
     ) {
@@ -543,11 +533,11 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
     fn analyze_package_declaration(
         &self,
-        parent: &SharedDeclarativeRegion<'a>,
+        parent: &'r DeclarativeRegion<'r, 'a>,
         package: &'a PackageDeclaration,
         messages: &mut MessageHandler,
-    ) -> DeclarativeRegion<'a> {
-        let mut region = DeclarativeRegion::new(Some(parent.clone())).in_package_declaration();
+    ) -> DeclarativeRegion<'r, 'a> {
+        let mut region = DeclarativeRegion::new(Some(parent)).in_package_declaration();
         if let Some(ref list) = package.generic_clause {
             region.add_interface_list(list, messages);
         }
@@ -557,21 +547,17 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
     fn analyze_architecture_body(
         &self,
-        entity_region: &mut DeclarativeRegion<'a>,
+        entity_region: &mut DeclarativeRegion<'_, 'a>,
         architecture: &'a ArchitectureBody,
         messages: &mut MessageHandler,
     ) {
         self.analyze_declarative_part(entity_region, &architecture.decl, messages);
-        self.analyze_concurrent_part(
-            &SharedDeclarativeRegion::from(entity_region.clone()),
-            &architecture.statements,
-            messages,
-        );
+        self.analyze_concurrent_part(entity_region, &architecture.statements, messages);
     }
 
     fn analyze_package_body(
         &self,
-        package_region: &mut DeclarativeRegion<'a>,
+        package_region: &mut DeclarativeRegion<'_, 'a>,
         package: &'a PackageBody,
         messages: &mut MessageHandler,
     ) {
@@ -580,7 +566,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
     fn analyze_entity_declaration(
         &self,
-        region: &mut DeclarativeRegion<'a>,
+        region: &mut DeclarativeRegion<'_, 'a>,
         entity: &'a EntityDeclaration,
         messages: &mut MessageHandler,
     ) {
@@ -591,16 +577,12 @@ impl<'r, 'a: 'r> Analyzer<'a> {
             region.add_interface_list(list, messages);
         }
         self.analyze_declarative_part(region, &entity.decl, messages);
-        self.analyze_concurrent_part(
-            &SharedDeclarativeRegion::from(region.clone()),
-            &entity.statements,
-            messages,
-        );
+        self.analyze_concurrent_part(region, &entity.statements, messages);
     }
 
     /// Create a new root region for a design unit, making the
     /// standard library and working library visible
-    pub fn new_root_region(&self, work: &'a Library<'a>) -> DeclarativeRegion<'a> {
+    pub fn new_root_region(&self, work: &'a Library<'a>) -> DeclarativeRegion<'_, 'a> {
         let mut region = DeclarativeRegion::new(None);
         region.make_library_visible(&self.work_sym, work);
 
@@ -620,15 +602,16 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     &package.package.context_clause,
                     messages,
                 );
-                let mut region = self.analyze_package_declaration(
-                    &SharedDeclarativeRegion::from(root_region.clone()),
-                    &package.package.unit,
-                    messages,
-                );
+
+                let parent = root_region.clone();
+                let mut region =
+                    self.analyze_package_declaration(&parent, &package.package.unit, messages);
 
                 // @TODO may panic
                 // @TODO avoid duplicate analysis
-                package.declarative_region.replace(Some(region.clone()));
+                package
+                    .declarative_region
+                    .replace(Some(region.clone_owned_parent()));
 
                 if let Some(ref body) = package.body {
                     region.close_immediate(messages);
@@ -664,8 +647,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     &entity.entity.context_clause,
                     messages,
                 );
-                let root_region = SharedDeclarativeRegion::from(root_region);
-                let mut region = DeclarativeRegion::new(Some(root_region));
+                let mut region = DeclarativeRegion::new(Some(&root_region));
                 self.analyze_entity_declaration(&mut region, &entity.entity.unit, messages);
                 region.close_immediate(messages);
                 for architecture in entity.architectures.values() {
