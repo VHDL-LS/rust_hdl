@@ -37,8 +37,8 @@ pub fn start() {
 
     let server = lang_server.clone();
     io.add_method("shutdown", move |params: Params| {
-        let result = server.lock().unwrap().shutdown_server(params.parse()?)?;
-        Ok(serde_json::to_value(result).map_err(|_| jsonrpc_core::Error::internal_error())?)
+        server.lock().unwrap().shutdown_server(params.parse()?)?;
+        Ok(serde_json::to_value(()).map_err(|_| jsonrpc_core::Error::internal_error())?)
     });
 
     let server = lang_server.clone();
@@ -46,15 +46,12 @@ pub fn start() {
         server
             .lock()
             .unwrap()
-            .initialized_notification(params.parse().unwrap())
+            .initialized_notification(&params.parse().unwrap())
     });
 
     let server = lang_server.clone();
-    io.add_notification("exit", move |params: Params| {
-        server
-            .lock()
-            .unwrap()
-            .exit_notification(params.parse().unwrap())
+    io.add_notification("exit", move |_params: Params| {
+        server.lock().unwrap().exit_notification(())
     });
 
     let server = lang_server.clone();
@@ -62,7 +59,7 @@ pub fn start() {
         server
             .lock()
             .unwrap()
-            .text_document_did_change_notification(params.parse().unwrap())
+            .text_document_did_change_notification(&params.parse().unwrap())
     });
 
     let server = lang_server.clone();
@@ -70,7 +67,7 @@ pub fn start() {
         server
             .lock()
             .unwrap()
-            .text_document_did_open_notification(params.parse().unwrap())
+            .text_document_did_open_notification(&params.parse().unwrap())
     });
 
     // Spawn thread to read requests from stdin
@@ -134,10 +131,10 @@ fn read_request(reader: &mut BufRead) -> String {
 
 fn send_response(writer: &mut Write, response: &str) {
     trace!("SEND RESPONSE: {:?}", response);
-    write!(writer, "Content-Length: {}\r\n", response.len());
-    write!(writer, "\r\n");
+    writeln!(writer, "Content-Length: {}\r", response.len());
+    writeln!(writer, "\r");
     write!(writer, "{}", response);
-    writer.flush().ok().expect("Could not flush stdout");
+    writer.flush().expect("Could not flush stdout");
 }
 
 impl RpcChannel for SyncSender<String> {
@@ -165,12 +162,12 @@ impl RpcChannel for SyncSender<String> {
 fn read_header(reader: &mut BufRead) -> u64 {
     let mut buffer = String::new();
     reader.read_line(&mut buffer).unwrap();
-    let fields = buffer.trim_end().clone().split(": ").collect::<Vec<&str>>();
+    let fields = buffer.trim_end().split(": ").collect::<Vec<&str>>();
     if fields.get(0) != Some(&"Content-Length") {
         trace!("{:?}", fields);
         panic!();
     }
-    let content_length = fields.get(1).unwrap().parse::<u64>().unwrap();
+    let content_length = fields[1].parse::<u64>().unwrap();
 
     let mut buffer = String::new();
     reader.read_line(&mut buffer).unwrap();
@@ -178,12 +175,12 @@ fn read_header(reader: &mut BufRead) -> u64 {
         return content_length;
     }
 
-    let fields = buffer.trim_end().clone().split(": ").collect::<Vec<&str>>();
+    let fields = buffer.trim_end().split(": ").collect::<Vec<&str>>();
     if fields.get(0) != Some(&"Content-Type") {
         trace!("{:?}", fields);
         panic!();
     } else {
-        trace!("got Content-Type: {}", fields.get(1).unwrap());
+        trace!("got Content-Type: {}", &fields[1]);
     }
 
     let mut buffer = String::new();
@@ -193,5 +190,5 @@ fn read_header(reader: &mut BufRead) -> u64 {
         panic!();
     }
 
-    return content_length;
+    content_length
 }

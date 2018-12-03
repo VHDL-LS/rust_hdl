@@ -144,16 +144,13 @@ impl Code {
     where
         F: FnOnce(&mut TokenStream) -> R,
     {
-        let result = {
-            let tokenizer = Tokenizer::new(
-                self.symtab.clone(),
-                self.source.clone(),
-                self.source.contents().unwrap(),
-            );
-            let mut stream = TokenStream::new(tokenizer);
-            parse_fun(&mut stream)
-        };
-        result
+        let tokenizer = Tokenizer::new(
+            self.symtab.clone(),
+            self.source.clone(),
+            self.source.contents().unwrap(),
+        );
+        let mut stream = TokenStream::new(tokenizer);
+        parse_fun(&mut stream)
     }
 
     pub fn with_stream<F, R>(&self, parse_fun: F) -> R
@@ -174,7 +171,7 @@ impl Code {
                         println!("result = {:#?}", result);
                         panic!("Expected EOF got {:?}", token);
                     }
-                    return result;
+                    result
                 }
             }
         };
@@ -195,7 +192,7 @@ impl Code {
                         println!("err = {:#?}", err);
                         panic!("Expected EOF got {:?}", token);
                     }
-                    return err;
+                    err
                 }
                 Ok(result) => {
                     panic!("Expected error got {:?}", result);
@@ -302,7 +299,7 @@ impl Code {
         match name.item {
             Name::FunctionCall(call) => *call,
             _ => FunctionCall {
-                name: name,
+                name,
                 parameters: vec![],
             },
         }

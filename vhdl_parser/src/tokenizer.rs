@@ -197,21 +197,19 @@ macro_rules! match_token_kind {
 #[macro_export]
 macro_rules! try_token_kind {
     ($token:expr, $($($kind:ident)|+ => $result:expr),*) => {
-        {
-            match $token.kind {
+        match $token.kind {
+            $(
+                $($kind)|+ => $result
+            ),*,
+            _ => {
+                let mut kinds = Vec::new();
                 $(
-                    $($kind)|+ => $result
-                ),*,
-                _ => {
-                    let mut kinds = Vec::new();
                     $(
-                        $(
-                            kinds.push($kind);
-                        );*;
+                        kinds.push($kind);
                     );*;
+                );*;
 
-                    return Err($token.kinds_error(&kinds));
-                }
+                return Err($token.kinds_error(&kinds));
             }
         }
     }

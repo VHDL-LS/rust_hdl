@@ -349,7 +349,7 @@ pub fn parse_name_initial_token(
                 name = parse_attribute_name(stream, name, signature)?;
             }
             Tick => {
-                if stream.is_peek_kinds(&[Tick, LeftPar])? {
+                if stream.next_kinds_are(&[Tick, LeftPar])? {
                     break;
                 }
                 stream.move_after(&token);
@@ -358,54 +358,48 @@ pub fn parse_name_initial_token(
             }
             LeftPar => {
                 stream.move_after(&token);
-
-                loop {
-                    let assoc = parse_association_element(stream)?;
-                    let sep_token = stream.expect()?;
-                    try_token_kind!(
-                            sep_token,
-                            Comma => {
-                                name = parse_function_call(stream, name, assoc)?;
-                                break;
-                            },
-                            To | Downto => {
-                                let right_expr = parse_expression(stream)?;
-                                let direction = {
-                                    if sep_token.kind == To {
-                                        Direction::Ascending
-                                    } else {
-                                        Direction::Descending
-                                    }
-                                };
-                                let rpar_token = stream.expect_kind(RightPar)?;
-                                let pos = rpar_token.pos.combine_into(&name);
-                                let discrete_range =
-                                    DiscreteRange::Range(Range::Range(RangeConstraint {
-                                        left_expr: Box::new(assoc_to_expression(assoc)?),
-                                        direction,
-                                        right_expr: Box::new(right_expr),
-                                    }));
-
-                                name = WithPos {
-                                    item: Name::Slice(Box::new(name), discrete_range),
-                                    pos: pos,
-                                };
-                                break;
-                            },
-                            RightPar => {
-                                let pos = sep_token.pos.combine_into(&name);
-                                name = WithPos {
-                                    item: Name::FunctionCall(Box::new(
-                                        FunctionCall {
-                                            name: name,
-                                            parameters: vec![assoc]
-                                        })),
-                                    pos: pos,
-                                };
-                                break;
+                let assoc = parse_association_element(stream)?;
+                let sep_token = stream.expect()?;
+                try_token_kind!(
+                    sep_token,
+                    Comma => {
+                        name = parse_function_call(stream, name, assoc)?;
+                    },
+                    To | Downto => {
+                        let right_expr = parse_expression(stream)?;
+                        let direction = {
+                            if sep_token.kind == To {
+                                Direction::Ascending
+                            } else {
+                                Direction::Descending
                             }
-                        )
-                }
+                        };
+                        let rpar_token = stream.expect_kind(RightPar)?;
+                        let pos = rpar_token.pos.combine_into(&name);
+                        let discrete_range =
+                            DiscreteRange::Range(Range::Range(RangeConstraint {
+                                left_expr: Box::new(assoc_to_expression(assoc)?),
+                                direction,
+                                right_expr: Box::new(right_expr),
+                            }));
+
+                        name = WithPos {
+                            item: Name::Slice(Box::new(name), discrete_range),
+                            pos: pos,
+                        };
+                    },
+                    RightPar => {
+                        let pos = sep_token.pos.combine_into(&name);
+                        name = WithPos {
+                            item: Name::FunctionCall(Box::new(
+                                FunctionCall {
+                                    name: name,
+                                    parameters: vec![assoc]
+                                })),
+                            pos: pos,
+                        };
+                    }
+                )
             }
             _ => {
                 break;

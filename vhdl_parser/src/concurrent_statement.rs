@@ -390,7 +390,7 @@ fn parse_case_generate_statement(
     let mut alternatives = Vec::with_capacity(2);
     loop {
         let alternative_label = {
-            if stream.is_peek_kinds(&[Identifier, Colon])? {
+            if stream.next_kinds_are(&[Identifier, Colon])? {
                 let ident = stream.expect_ident()?;
                 stream.expect_kind(Colon)?;
                 Some(ident)

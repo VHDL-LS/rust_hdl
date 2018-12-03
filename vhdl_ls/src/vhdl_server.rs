@@ -66,18 +66,18 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         }
     }
 
-    pub fn initialized_notification(&mut self, params: InitializedParams) {
+    pub fn initialized_notification(&mut self, params: &InitializedParams) {
         self.mut_server().initialized_notification(params);
     }
 
-    pub fn text_document_did_change_notification(&mut self, params: DidChangeTextDocumentParams) {
+    pub fn text_document_did_change_notification(&mut self, params: &DidChangeTextDocumentParams) {
         self.mut_server()
-            .text_document_did_change_notification(params)
+            .text_document_did_change_notification(&params)
     }
 
-    pub fn text_document_did_open_notification(&mut self, params: DidOpenTextDocumentParams) {
+    pub fn text_document_did_open_notification(&mut self, params: &DidOpenTextDocumentParams) {
         self.mut_server()
-            .text_document_did_open_notification(params)
+            .text_document_did_open_notification(&params)
     }
 }
 
@@ -227,7 +227,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
 
             let publish_diagnostics = PublishDiagnosticsParams {
                 uri: file_uri.clone(),
-                diagnostics: diagnostics,
+                diagnostics,
             };
 
             self.rpc_channel
@@ -250,7 +250,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         }
     }
 
-    fn parse_and_publish_diagnostics(&mut self, uri: Url, code: &str) {
+    fn parse_and_publish_diagnostics(&mut self, uri: &Url, code: &str) {
         // @TODO return error to client
         let file_name = uri_to_file_name(&uri);
 
@@ -273,7 +273,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         );
     }
 
-    pub fn initialized_notification(&mut self, _params: InitializedParams) {
+    pub fn initialized_notification(&mut self, _params: &InitializedParams) {
         match &self.config {
             Err(ref err) => {
                 self.window_show_message(
@@ -304,19 +304,19 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         self.publish_diagnostics();
     }
 
-    pub fn text_document_did_change_notification(&mut self, params: DidChangeTextDocumentParams) {
+    pub fn text_document_did_change_notification(&mut self, params: &DidChangeTextDocumentParams) {
         self.parse_and_publish_diagnostics(
-            params.text_document.uri,
-            &params.content_changes.get(0).unwrap().text,
+            &params.text_document.uri,
+            &params.content_changes[0].text,
         );
     }
 
-    pub fn text_document_did_open_notification(&mut self, params: DidOpenTextDocumentParams) {
-        self.parse_and_publish_diagnostics(params.text_document.uri, &params.text_document.text);
+    pub fn text_document_did_open_notification(&mut self, params: &DidOpenTextDocumentParams) {
+        self.parse_and_publish_diagnostics(&params.text_document.uri, &params.text_document.text);
     }
 }
 
-fn srcpos_to_range(srcpos: SrcPos) -> Range {
+fn srcpos_to_range(srcpos: &SrcPos) -> Range {
     let contents = srcpos.source.contents().unwrap();
     let mut start = None;
     let mut end = None;
@@ -392,14 +392,14 @@ fn to_diagnostic(message: Message) -> Diagnostic {
         Severity::Hint => DiagnosticSeverity::Hint,
     };
 
-    let related_information = if message.related.len() > 0 {
+    let related_information = if !message.related.is_empty() {
         let mut related_information = Vec::new();
         for (pos, msg) in message.related {
             let uri = file_name_to_uri(pos.source.file_name());
             related_information.push(DiagnosticRelatedInformation {
                 location: Location {
                     uri: uri.to_owned(),
-                    range: srcpos_to_range(pos),
+                    range: srcpos_to_range(&pos),
                 },
                 message: msg,
             })
@@ -410,7 +410,7 @@ fn to_diagnostic(message: Message) -> Diagnostic {
     };
 
     Diagnostic {
-        range: srcpos_to_range(message.pos),
+        range: srcpos_to_range(&message.pos),
         severity: Some(severity),
         code: None,
         source: Some("vhdl ls".to_owned()),
@@ -547,7 +547,7 @@ mod tests {
         server
             .initialize_request(initialize_params)
             .expect("Should not fail");
-        server.initialized_notification(InitializedParams {});
+        server.initialized_notification(&InitializedParams {});
     }
 
     fn temp_root_uri() -> (tempfile::TempDir, Url) {
@@ -603,7 +603,7 @@ end entity ent;
             },
         };
 
-        server.text_document_did_open_notification(did_open);
+        server.text_document_did_open_notification(&did_open);
     }
 
     #[test]
@@ -659,7 +659,7 @@ end entity ent2;
         };
 
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
-        server.text_document_did_open_notification(did_open);
+        server.text_document_did_open_notification(&did_open);
 
         let code = "
 entity ent is
@@ -684,7 +684,7 @@ end entity ent;
         };
 
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
-        server.text_document_did_change_notification(did_change);
+        server.text_document_did_change_notification(&did_change);
     }
 
     fn write_file(root_uri: &Url, file_name: impl AsRef<str>, contents: impl AsRef<str>) -> Url {
