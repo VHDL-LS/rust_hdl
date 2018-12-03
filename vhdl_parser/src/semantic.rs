@@ -302,14 +302,9 @@ impl<'a> Analyzer<'a> {
 
                         match self.lookup_selected_name(&region, &name) {
                             Ok(Some(visible_decl)) => {
-                                match visible_decl.decl {
-                                    // OK
-                                    AnyDeclaration::Package(ref package) => {
-                                        region
-                                            .make_package_visible(package.package.name(), package);
-                                    }
-                                    // @TODO add error
-                                    _ => {}
+                                // @TODO handle others
+                                if let AnyDeclaration::Package(ref package) = visible_decl.decl {
+                                    region.make_package_visible(package.package.name(), package);
                                 }
                             }
                             Ok(None) => {
