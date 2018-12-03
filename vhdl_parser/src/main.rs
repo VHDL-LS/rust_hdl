@@ -21,10 +21,10 @@ use vhdl_parser::{Config, Message, ParserError, Project, Severity, VHDLParser};
 fn main() {
     use clap::{App, Arg};
 
-    let matches = App::new("VHDL Parser")
-        .version("0.2")
-        .author("Olof Kraigher <olof.kraigher@gmail.com>")
-        .about("VHDL Parser Demonstrator")
+    let matches = App::new(env!("CARGO_PKG_NAME"))
+        .version(env!("CARGO_PKG_VERSION"))
+        .author(env!("CARGO_PKG_AUTHORS"))
+        .about(env!("CARGO_PKG_DESCRIPTION"))
         .arg(
             Arg::with_name("show")
                 .long("show")
