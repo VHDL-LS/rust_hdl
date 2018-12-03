@@ -543,10 +543,11 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
     fn analyze_package_declaration(
         &self,
+        parent: &SharedDeclarativeRegion<'a>,
         package: &'a PackageDeclaration,
         messages: &mut MessageHandler,
     ) -> DeclarativeRegion<'a> {
-        let mut region = DeclarativeRegion::new(None).in_package_declaration();
+        let mut region = DeclarativeRegion::new(Some(parent.clone())).in_package_declaration();
         if let Some(ref list) = package.generic_clause {
             region.add_interface_list(list, messages);
         }
@@ -619,7 +620,11 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     &package.package.context_clause,
                     messages,
                 );
-                let mut region = self.analyze_package_declaration(&package.package.unit, messages);
+                let mut region = self.analyze_package_declaration(
+                    &SharedDeclarativeRegion::from(root_region.clone()),
+                    &package.package.unit,
+                    messages,
+                );
 
                 // @TODO may panic
                 // @TODO avoid duplicate analysis
