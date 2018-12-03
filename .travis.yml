@@ -27,7 +27,7 @@ install:
 
 script:
   - cargo fmt --package $CRATE -- --check || [ "$TRAVIS_RUST_VERSION" = "nightly" ]
-  - cargo clippy --package $CRATE || true
+  - cargo clippy --package $CRATE || [ "$TRAVIS_RUST_VERSION" = "nightly" ]
   - cargo build --package $CRATE
   - cargo test --package $CRATE
 
