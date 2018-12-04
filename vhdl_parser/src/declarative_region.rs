@@ -329,6 +329,12 @@ impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
         self.visible.insert(decl.designator.clone(), decl);
     }
 
+    pub fn make_all_potentially_visible(&mut self, region: &DeclarativeRegion<'_, 'a>) {
+        for decl in region.decls.values() {
+            self.make_potentially_visible(decl.clone());
+        }
+    }
+
     pub fn lookup(&self, designator: &Designator) -> Option<&VisibleDeclaration<'a>> {
         // @TODO do not expose declarations visible by use clause when used by selected name
         self.visible

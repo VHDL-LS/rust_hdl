@@ -68,6 +68,7 @@ pub struct Analyzer<'a> {
 impl<'r, 'a: 'r> Analyzer<'a> {
     pub fn new(root: &'a DesignRoot<'a>, symtab: &Arc<SymbolTable>) -> Analyzer<'a> {
         let mut library_regions = FnvHashMap::default();
+        let mut messages = Vec::new();
 
         for library in root.iter_libraries() {
             let mut region = DeclarativeRegion::new(None);
@@ -79,7 +80,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     decl_pos: Some(package.package.unit.ident.pos.clone()),
                     may_overload: false,
                 };
-                region.make_potentially_visible(decl);
+                region.add(decl, &mut messages);
             }
 
             for context in library.contexts() {
@@ -89,7 +90,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     decl_pos: Some(context.ident.pos.clone()),
                     may_overload: false,
                 };
-                region.make_potentially_visible(decl);
+                region.add(decl, &mut messages);
             }
 
             for entity in library.entities() {
@@ -99,7 +100,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     decl_pos: Some(entity.entity.unit.ident.pos.clone()),
                     may_overload: false,
                 };
-                region.make_potentially_visible(decl);
+                region.add(decl, &mut messages);
 
                 for configuration in entity.configurations() {
                     let decl = VisibleDeclaration {
@@ -108,7 +109,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                         decl_pos: Some(configuration.ident().pos.clone()),
                         may_overload: false,
                     };
-                    region.make_potentially_visible(decl);
+                    region.add(decl, &mut messages);
                 }
             }
 
@@ -119,11 +120,13 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     decl_pos: Some(instance.ident().pos.clone()),
                     may_overload: false,
                 };
-                region.make_potentially_visible(decl);
+                region.add(decl, &mut messages);
             }
 
             library_regions.insert(library.name.clone(), region);
         }
+
+        assert!(messages.is_empty());
 
         Analyzer {
             work_sym: symtab.insert(&Latin1String::new(b"work")),
@@ -389,8 +392,11 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                         region.make_potentially_visible(visible_decl);
                     }
                 }
-                Ok(LookupResult::AllWithin(..)) => {
-                    // @TODO
+                Ok(LookupResult::AllWithin(visible_decl)) => {
+                    // @TODO handle others
+                    if let AnyDeclaration::Library(ref library) = visible_decl.decl {
+                        region.make_all_potentially_visible(&self.library_regions[&library.name]);
+                    }
                 }
                 Ok(LookupResult::Unfinished) => {}
                 Ok(LookupResult::NotSelected) => {
@@ -2450,6 +2456,32 @@ end entity;
                 ),
             ],
         );
+    }
+
+    #[test]
+    fn use_clause_with_selected_all_design_units() {
+        let mut builder = LibraryBuilder::new();
+        builder.code(
+            "libname",
+            "
+package pkg1 is
+  constant const1 : natural := 0;
+end package;
+
+package pkg2 is
+  constant const2 : natual := 0;
+end package;
+
+use work.all;
+use pkg1.const1;
+use pkg2.const2;
+
+entity ent is
+end entity;
+            ",
+        );
+        let messages = builder.analyze();
+        check_no_messages(&messages);
     }
 
 }
