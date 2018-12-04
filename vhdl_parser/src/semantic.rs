@@ -7,9 +7,11 @@
 use ast::{has_ident::HasIdent, *};
 use declarative_region::{AnyDeclaration, DeclarativeRegion, VisibleDeclaration};
 use latin_1::Latin1String;
-use library::{DesignRoot, Library};
+use library::{DesignRoot, Library, PackageDesignUnit};
 use message::{Message, MessageHandler};
 use source::{SrcPos, WithPos};
+use std::cell::RefCell;
+use std::collections::hash_map::Entry;
 use std::sync::Arc;
 use symbol_table::{Symbol, SymbolTable};
 
@@ -45,28 +47,119 @@ impl SubprogramDeclaration {
     }
 }
 
-enum LookupResult<'a> {
+enum LookupResult<'n, 'a> {
     /// A single name was selected
     Single(VisibleDeclaration<'a>),
     /// A single name was selected
-    AllWithin(VisibleDeclaration<'a>),
+    AllWithin(&'n WithPos<Name>, VisibleDeclaration<'a>),
     /// The name to lookup (or some part thereof was not a selected name)
     NotSelected,
     /// A prefix but found but lookup was not implemented yet
     Unfinished,
 }
 
+struct PrimaryUnitData<'a> {
+    /// The visible region of the primary unit
+    /// None means circular dependencies was found
+    region: Option<Arc<DeclarativeRegion<'a, 'a>>>,
+}
+
+impl<'a> PrimaryUnitData<'a> {
+    fn new(region: Option<DeclarativeRegion<'a, 'a>>) -> PrimaryUnitData {
+        PrimaryUnitData {
+            region: region.map(Arc::new),
+        }
+    }
+
+    fn region(&self) -> Option<Arc<DeclarativeRegion<'a, 'a>>> {
+        self.region.clone()
+    }
+}
+
+struct LockGuard<'s, 'a: 's> {
+    context: &'s AnalysisContext<'a>,
+    key: (Symbol, Symbol),
+}
+
+impl<'s, 'a: 's> LockGuard<'s, 'a> {
+    fn new(context: &'s AnalysisContext<'a>, key: (Symbol, Symbol)) -> LockGuard<'s, 'a> {
+        LockGuard { context, key }
+    }
+}
+
+impl<'s, 'a: 's> Drop for LockGuard<'s, 'a> {
+    fn drop(&mut self) {
+        self.context.locked.borrow_mut().remove(&self.key);
+    }
+}
+
+struct AnalysisContext<'a> {
+    primary_unit_data: RefCell<FnvHashMap<(Symbol, Symbol), PrimaryUnitData<'a>>>,
+    locked: RefCell<FnvHashMap<(Symbol, Symbol), ()>>,
+}
+
+impl<'a> AnalysisContext<'a> {
+    fn new() -> AnalysisContext<'a> {
+        AnalysisContext {
+            primary_unit_data: RefCell::new(FnvHashMap::default()),
+            locked: RefCell::new(FnvHashMap::default()),
+        }
+    }
+
+    fn lock<'s>(
+        &'s self,
+        library_name: &Symbol,
+        primary_unit_name: &Symbol,
+    ) -> Result<LockGuard<'s, 'a>, ()> {
+        let key = (library_name.clone(), primary_unit_name.clone());
+
+        if self.locked.borrow_mut().insert(key.clone(), ()).is_some() {
+            Err(())
+        } else {
+            Ok(LockGuard::new(self, key))
+        }
+    }
+
+    fn get_region(
+        &self,
+        library_name: &Symbol,
+        primary_unit_name: &Symbol,
+    ) -> Option<Arc<DeclarativeRegion<'a, 'a>>> {
+        self.primary_unit_data
+            .borrow()
+            .get(&(library_name.clone(), primary_unit_name.clone()))
+            .and_then(|primary_data| primary_data.region())
+    }
+
+    fn set_region(
+        &self,
+        library_name: &Symbol,
+        primary_unit_name: &Symbol,
+        region: Option<DeclarativeRegion<'a, 'a>>,
+    ) {
+        let key = (library_name.clone(), primary_unit_name.clone());
+        match self.primary_unit_data.borrow_mut().entry(key) {
+            Entry::Occupied(..) => {}
+            Entry::Vacant(entry) => {
+                entry.insert(PrimaryUnitData::new(region));
+            }
+        }
+    }
+}
+
 pub struct Analyzer<'a> {
     work_sym: Symbol,
     std_sym: Symbol,
-    root: &'a DesignRoot<'a>,
+    standard_designator: Designator,
+    root: &'a DesignRoot,
 
     /// DeclarativeRegion for each library containing the primary units
     library_regions: FnvHashMap<Symbol, DeclarativeRegion<'a, 'a>>,
+    analysis_context: AnalysisContext<'a>,
 }
 
 impl<'r, 'a: 'r> Analyzer<'a> {
-    pub fn new(root: &'a DesignRoot<'a>, symtab: &Arc<SymbolTable>) -> Analyzer<'a> {
+    pub fn new(root: &'a DesignRoot, symtab: &Arc<SymbolTable>) -> Analyzer<'a> {
         let mut library_regions = FnvHashMap::default();
         let mut messages = Vec::new();
 
@@ -76,7 +169,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
             for package in library.packages() {
                 let decl = VisibleDeclaration {
                     designator: Designator::Identifier(package.package.unit.ident.item.clone()),
-                    decl: AnyDeclaration::Package(package),
+                    decl: AnyDeclaration::Package(library, package),
                     decl_pos: Some(package.package.unit.ident.pos.clone()),
                     may_overload: false,
                 };
@@ -128,22 +221,25 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
         assert!(messages.is_empty());
 
+        let standard_sym = symtab.insert(&Latin1String::new(b"standard"));
         Analyzer {
             work_sym: symtab.insert(&Latin1String::new(b"work")),
             std_sym: symtab.insert(&Latin1String::new(b"std")),
+            standard_designator: Designator::Identifier(standard_sym.clone()),
             root,
             library_regions,
+            analysis_context: AnalysisContext::new(),
         }
     }
 
     /// Returns the VisibleDeclaration or None if it was not a selected name
     /// Returns error message if a name was not declared
     /// @TODO We only lookup selected names since other names such as slice and index require typechecking
-    fn lookup_selected_name(
+    fn lookup_selected_name<'n>(
         &self,
         region: &DeclarativeRegion<'_, 'a>,
-        name: &WithPos<Name>,
-    ) -> Result<LookupResult<'a>, Message> {
+        name: &'n WithPos<Name>,
+    ) -> Result<LookupResult<'n, 'a>, Message> {
         match name.item {
             Name::Selected(ref prefix, ref suffix) => {
                 let visible_decl = {
@@ -176,8 +272,8 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                         }
                     }
 
-                    AnyDeclaration::Package(ref package) => {
-                        if let Some(region) = package.declarative_region.borrow().as_ref() {
+                    AnyDeclaration::Package(ref library, ref package) => {
+                        if let Some(region) = self.get_package_region(library, package) {
                             if let Some(visible_decl) = region.lookup(&suffix.item) {
                                 Ok(LookupResult::Single(visible_decl.clone()))
                             } else {
@@ -191,9 +287,13 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                                 ))
                             }
                         } else {
-                            // @TODO analyse unit now if it has not already been analyzed
-                            // but avoid circular dependencies
-                            Ok(LookupResult::Unfinished)
+                            Err(Message::error(
+                                &prefix.pos,
+                                format!(
+                                    "Found circular dependencies when using package '{}'",
+                                    &package.package.name()
+                                ),
+                            ))
                         }
                     }
 
@@ -203,7 +303,9 @@ impl<'r, 'a: 'r> Analyzer<'a> {
             }
 
             Name::SelectedAll(ref prefix) => match self.lookup_selected_name(region, prefix)? {
-                LookupResult::Single(visible_decl) => Ok(LookupResult::AllWithin(visible_decl)),
+                LookupResult::Single(visible_decl) => {
+                    Ok(LookupResult::AllWithin(prefix, visible_decl))
+                }
                 LookupResult::AllWithin(..) => Err(Message::error(
                     prefix.as_ref(),
                     "'.all' may not be the prefix of a selected name",
@@ -242,9 +344,9 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                 ).with_overload(alias.signature.is_some()),
                 messages,
             ),
-            Declaration::Object(ObjectDeclaration { ref ident, .. }) => {
+            Declaration::Object(ref object_decl) => {
                 region.add(
-                    VisibleDeclaration::new(ident, AnyDeclaration::Declaration(decl)),
+                    VisibleDeclaration::new(&object_decl.ident, AnyDeclaration::Declaration(decl)),
                     messages,
                 );
             }
@@ -279,8 +381,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     messages,
                 );
                 check_interface_list_unique_ident(body.specification.interface_list(), messages);
-                // @TODO parent
-                let mut region = DeclarativeRegion::new(None);
+                let mut region = DeclarativeRegion::new(Some(region));
                 self.analyze_declarative_part(&mut region, &body.declarations, messages);
             }
             Declaration::SubprogramDeclaration(subdecl) => {
@@ -329,8 +430,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
                 match type_decl.def {
                     TypeDefinition::ProtectedBody(ref body) => {
-                        // @TODO parent
-                        let mut region = DeclarativeRegion::new(None);
+                        let mut region = DeclarativeRegion::new(Some(region));
                         self.analyze_declarative_part(&mut region, &body.decl, messages);
                     }
                     TypeDefinition::Protected(ref prot_decl) => {
@@ -392,10 +492,28 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                         region.make_potentially_visible(visible_decl);
                     }
                 }
-                Ok(LookupResult::AllWithin(visible_decl)) => {
-                    // @TODO handle others
-                    if let AnyDeclaration::Library(ref library) = visible_decl.decl {
-                        region.make_all_potentially_visible(&self.library_regions[&library.name]);
+                Ok(LookupResult::AllWithin(prefix, visible_decl)) => {
+                    match visible_decl.decl {
+                        AnyDeclaration::Library(ref library) => {
+                            region
+                                .make_all_potentially_visible(&self.library_regions[&library.name]);
+                        }
+                        AnyDeclaration::Package(ref library, ref package) => {
+                            if let Some(package_region) = self.get_package_region(library, package)
+                            {
+                                region.make_all_potentially_visible(&package_region);
+                            } else {
+                                messages.push(Message::error(
+                                    &prefix.pos,
+                                    format!(
+                                        "Found circular dependencies when using package '{}'",
+                                        &package.package.name()
+                                    ),
+                                ));
+                            }
+                        }
+                        // @TODO handle others
+                        _ => {}
                     }
                 }
                 Ok(LookupResult::Unfinished) => {}
@@ -504,6 +622,32 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         }
     }
 
+    /// Get the visible declarative region for a package declaration
+    /// Analyze it it does not exist
+    /// Returns None in case of circular dependencies
+    fn get_package_region(
+        &self,
+        library: &'a Library,
+        package: &'a PackageDesignUnit,
+    ) -> Option<Arc<DeclarativeRegion<'a, 'a>>> {
+        if let Some(region) = self
+            .analysis_context
+            .get_region(&library.name, package.package.name())
+        {
+            return Some(region);
+        }
+
+        // Package will be analyzed in fn analyze and messages provided there
+        // @TODO avoid duplicate analysis
+        let mut ignore_messages = Vec::new();
+        self.analyze_package_declaration_unit(
+            &mut self.new_root_region(library).clone(),
+            library,
+            package,
+            &mut ignore_messages,
+        )
+    }
+
     fn analyze_generate_body(
         &self,
         parent: &DeclarativeRegion<'_, 'a>,
@@ -526,13 +670,11 @@ impl<'r, 'a: 'r> Analyzer<'a> {
     ) {
         match statement.statement {
             ConcurrentStatement::Block(ref block) => {
-                // @TODO parent
                 let mut region = DeclarativeRegion::new(Some(parent));
                 self.analyze_declarative_part(&mut region, &block.decl, messages);
                 self.analyze_concurrent_part(&region, &block.statements, messages);
             }
             ConcurrentStatement::Process(ref process) => {
-                // @TODO parent
                 let mut region = DeclarativeRegion::new(Some(parent));
                 self.analyze_declarative_part(&mut region, &process.decl, messages);
             }
@@ -567,20 +709,6 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         }
     }
 
-    fn analyze_package_declaration(
-        &self,
-        parent: &'r DeclarativeRegion<'r, 'a>,
-        package: &'a PackageDeclaration,
-        messages: &mut MessageHandler,
-    ) -> DeclarativeRegion<'r, 'a> {
-        let mut region = DeclarativeRegion::new(Some(parent)).in_package_declaration();
-        if let Some(ref list) = package.generic_clause {
-            region.add_interface_list(list, messages);
-        }
-        self.analyze_declarative_part(&mut region, &package.decl, messages);
-        region
-    }
-
     fn analyze_architecture_body(
         &self,
         entity_region: &mut DeclarativeRegion<'_, 'a>,
@@ -589,15 +717,6 @@ impl<'r, 'a: 'r> Analyzer<'a> {
     ) {
         self.analyze_declarative_part(entity_region, &architecture.decl, messages);
         self.analyze_concurrent_part(entity_region, &architecture.statements, messages);
-    }
-
-    fn analyze_package_body(
-        &self,
-        package_region: &mut DeclarativeRegion<'_, 'a>,
-        package: &'a PackageBody,
-        messages: &mut MessageHandler,
-    ) {
-        self.analyze_declarative_part(package_region, &package.decl, messages);
     }
 
     fn analyze_entity_declaration(
@@ -618,86 +737,187 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
     /// Create a new root region for a design unit, making the
     /// standard library and working library visible
-    fn new_root_region(&self, work: &'a Library<'a>) -> DeclarativeRegion<'_, 'a> {
+    fn new_root_region(&self, work: &'a Library) -> DeclarativeRegion<'a, 'a> {
         let mut region = DeclarativeRegion::new(None);
         region.make_library_visible(&self.work_sym, work);
 
         // @TODO maybe add warning if standard library is missing
         if let Some(library) = self.root.get_library(&self.std_sym) {
             region.make_library_visible(&self.std_sym, library);
+
+            if let Some(VisibleDeclaration {
+                decl: AnyDeclaration::Package(.., standard_pkg),
+                ..
+            }) = self.library_regions[&library.name].lookup(&self.standard_designator)
+            {
+                let standard_pkg_region = self
+                    .get_package_region(library, standard_pkg)
+                    .expect("Found circular dependency when using STD.STANDARD package");
+                region.make_all_potentially_visible(standard_pkg_region.as_ref());
+            } else {
+                panic!("Could not find package standard");
+            }
         }
         region
     }
+    fn analyze_package_declaration(
+        &self,
+        parent: &'r DeclarativeRegion<'r, 'a>,
+        package: &'a PackageDeclaration,
+        messages: &mut MessageHandler,
+    ) -> DeclarativeRegion<'r, 'a> {
+        let mut region = DeclarativeRegion::new(Some(parent)).in_package_declaration();
+        if let Some(ref list) = package.generic_clause {
+            region.add_interface_list(list, messages);
+        }
+        self.analyze_declarative_part(&mut region, &package.decl, messages);
+        region
+    }
 
-    pub fn analyze(&self, messages: &mut MessageHandler) {
-        for library in self.root.iter_libraries() {
-            for package in library.packages() {
-                let mut root_region = self.new_root_region(library);
+    pub fn analyze_package_declaration_unit(
+        &self,
+        root_region: &'r mut DeclarativeRegion<'r, 'a>,
+        library: &Library,
+        package: &'a PackageDesignUnit,
+        messages: &mut MessageHandler,
+    ) -> Option<Arc<DeclarativeRegion<'a, 'a>>> {
+        let result = self
+            .analysis_context
+            .lock(&library.name, package.package.name());
+
+        if result.is_err() {
+            messages.push(Message::error(
+                &package.package.ident(),
+                format!(
+                    "Found circular dependency when analyzing '{}.{}'",
+                    &library.name,
+                    package.package.name()
+                ),
+            ));
+            self.analysis_context
+                .set_region(&library.name, package.package.name(), None);
+            return None;
+        }
+
+        self.analyze_context_clause(root_region, &package.package.context_clause, messages);
+
+        let mut region =
+            self.analyze_package_declaration(root_region, &package.package.unit, messages);
+
+        if package.body.is_some() {
+            region.close_immediate(messages);
+        } else {
+            region.close_both(messages);
+        }
+
+        // @TODO may panic
+        // @TODO avoid duplicate analysis
+        self.analysis_context.set_region(
+            &library.name,
+            package.package.name(),
+            Some(region.into_owned_parent()),
+        );
+
+        self.analysis_context
+            .get_region(&library.name, package.package.name())
+    }
+
+    fn analyze_package_body_unit(
+        &self,
+        library: &'a Library,
+        package: &'a PackageDesignUnit,
+        messages: &mut MessageHandler,
+    ) {
+        if let Some(ref body) = package.body {
+            let primary_region = {
+                if let Some(region) = self.get_package_region(&library, package) {
+                    region.as_ref().to_owned()
+                } else {
+                    // Circular dependencies when analyzing package declaration
+                    return;
+                }
+            };
+            let mut root_region = primary_region
+                .clone_parent()
+                .expect("Expected parent region");
+            self.analyze_context_clause(&mut root_region, &body.context_clause, messages);
+            let mut region = primary_region.into_extended(&root_region);
+            self.analyze_declarative_part(&mut region, &body.unit.decl, messages);
+            region.close_both(messages);
+        }
+    }
+
+    pub fn analyze_package(
+        &self,
+        root_region: &'r mut DeclarativeRegion<'r, 'a>,
+        library: &'a Library,
+        package: &'a PackageDesignUnit,
+        messages: &mut MessageHandler,
+    ) {
+        self.analyze_package_declaration_unit(root_region, library, package, messages);
+        self.analyze_package_body_unit(library, &package, messages);
+    }
+
+    pub fn analyze_library(&self, library: &'a Library, messages: &mut MessageHandler) {
+        for package in library.packages() {
+            let mut root_region = self.new_root_region(library);
+            self.analyze_package(&mut root_region, library, package, messages);
+        }
+
+        for package_instance in library.package_instances() {
+            let mut root_region = self.new_root_region(library);
+            self.analyze_context_clause(
+                &mut root_region,
+                &package_instance.context_clause,
+                messages,
+            );
+        }
+
+        for context in library.contexts() {
+            let mut root_region = self.new_root_region(library);
+            self.analyze_context_clause(&mut root_region, &context.items, messages);
+        }
+
+        for entity in library.entities() {
+            let mut root_region = self.new_root_region(library);
+            self.analyze_context_clause(&mut root_region, &entity.entity.context_clause, messages);
+            let mut region = DeclarativeRegion::new(Some(&root_region));
+            self.analyze_entity_declaration(&mut region, &entity.entity.unit, messages);
+            region.close_immediate(messages);
+            for architecture in entity.architectures.values() {
+                let mut root_region = region.clone();
                 self.analyze_context_clause(
                     &mut root_region,
-                    &package.package.context_clause,
+                    &architecture.context_clause,
                     messages,
                 );
+                let mut region = region.clone().into_extended(&root_region);
+                self.analyze_architecture_body(&mut region, &architecture.unit, messages);
+                region.close_both(messages);
+            }
+        }
+    }
 
-                let parent = root_region.clone();
-                let mut region =
-                    self.analyze_package_declaration(&parent, &package.package.unit, messages);
-
-                // @TODO may panic
-                // @TODO avoid duplicate analysis
-                package
-                    .declarative_region
-                    .replace(Some(region.clone_owned_parent()));
-
-                if let Some(ref body) = package.body {
-                    region.close_immediate(messages);
-                    self.analyze_context_clause(&mut root_region, &body.context_clause, messages);
-                    let mut region = region.in_body();
-                    self.analyze_package_body(&mut region, &body.unit, messages);
-                    region.close_both(messages);
-                } else {
-                    region.close_both(messages);
-                }
+    pub fn analyze(&self, messages: &mut MessageHandler) {
+        // Analyze standard library first
+        if let Some(library) = self.root.get_library(&self.std_sym) {
+            for package in library.packages() {
+                self.analyze_package(
+                    &mut DeclarativeRegion::new(None),
+                    library,
+                    package,
+                    messages,
+                );
             }
         }
 
         for library in self.root.iter_libraries() {
-            for package_instance in library.package_instances() {
-                let mut root_region = self.new_root_region(library);
-                self.analyze_context_clause(
-                    &mut root_region,
-                    &package_instance.context_clause,
-                    messages,
-                );
+            // Standard library already analyzed
+            if library.name == self.std_sym {
+                continue;
             }
 
-            for context in library.contexts() {
-                let mut root_region = self.new_root_region(library);
-                self.analyze_context_clause(&mut root_region, &context.items, messages);
-            }
-
-            for entity in library.entities() {
-                let mut root_region = self.new_root_region(library);
-                self.analyze_context_clause(
-                    &mut root_region,
-                    &entity.entity.context_clause,
-                    messages,
-                );
-                let mut region = DeclarativeRegion::new(Some(&root_region));
-                self.analyze_entity_declaration(&mut region, &entity.entity.unit, messages);
-                region.close_immediate(messages);
-                for architecture in entity.architectures.values() {
-                    let mut root_region = region.clone();
-                    self.analyze_context_clause(
-                        &mut root_region,
-                        &architecture.context_clause,
-                        messages,
-                    );
-                    let mut region = region.in_body();
-                    self.analyze_architecture_body(&mut region, &architecture.unit, messages);
-                    region.close_both(messages);
-                }
-            }
+            self.analyze_library(library, messages);
         }
     }
 }
@@ -1906,6 +2126,43 @@ end package body;
         check_no_messages(&messages);
     }
 
+    /// Check that context clause in secondary units work
+    #[test]
+    fn context_clause_in_secondary_units() {
+        let mut builder = LibraryBuilder::new();
+        builder.code(
+            "libname",
+            "
+package usepkg is
+  constant const : natural := 0;
+end package;
+
+entity ent is
+end entity;
+
+library libname;
+
+architecture rtl of ent is
+  use libname.usepkg;
+begin
+end architecture;
+
+package pkg is
+end package;
+
+library libname;
+
+package body pkg is
+  use libname.usepkg;
+end package body;
+            ",
+        );
+
+        let messages = builder.analyze();
+
+        check_no_messages(&messages);
+    }
+
     #[test]
     fn secondary_units_share_only_root_region() {
         let mut builder = LibraryBuilder::new();
@@ -1996,20 +2253,6 @@ end package;
     fn library_std_is_pre_defined() {
         let mut builder = LibraryBuilder::new();
         builder.code(
-            "std",
-            "
-package standard is
-end package;
-
-package textio is
-end package;
-
-package env is
-end package;
-",
-        );
-
-        builder.code(
             "libname",
             "
 use std.textio.all;
@@ -2047,21 +2290,57 @@ end entity;
         )
     }
 
+    use source::Source;
     use std::collections::{hash_map::Entry, HashMap};
+
     struct LibraryBuilder {
         code_builder: CodeBuilder,
         libraries: HashMap<Symbol, Vec<Code>>,
     }
 
     impl LibraryBuilder {
-        fn new() -> LibraryBuilder {
+        fn new_no_std() -> LibraryBuilder {
             LibraryBuilder {
                 code_builder: CodeBuilder::new(),
                 libraries: HashMap::default(),
             }
         }
-        fn code(&mut self, library_name: &str, code: &str) -> Code {
-            let code = self.code_builder.code(code);
+
+        fn new() -> LibraryBuilder {
+            use latin_1::Latin1String;
+
+            let mut library = LibraryBuilder::new_no_std();
+            library.code_from_source(
+                "std",
+                Source::inline(
+                    "standard.vhd",
+                    Arc::new(Latin1String::new(include_bytes!(
+                        "../../example_project/vhdl_libraries/2008/std/standard.vhd"
+                    ))),
+                ),
+            );
+            library.code_from_source(
+                "std",
+                Source::inline(
+                    "textio.vhd",
+                    Arc::new(Latin1String::new(include_bytes!(
+                        "../../example_project/vhdl_libraries/2008/std/textio.vhd"
+                    ))),
+                ),
+            );
+            library.code_from_source(
+                "std",
+                Source::inline(
+                    "env.vhd",
+                    Arc::new(Latin1String::new(include_bytes!(
+                        "../../example_project/vhdl_libraries/2008/std/env.vhd"
+                    ))),
+                ),
+            );
+            library
+        }
+
+        fn add_code(&mut self, library_name: &str, code: Code) {
             let library_name = self.code_builder.symbol(library_name);
             match self.libraries.entry(library_name) {
                 Entry::Occupied(mut entry) => {
@@ -2071,6 +2350,17 @@ end entity;
                     entry.insert(vec![code.clone()]);
                 }
             }
+        }
+
+        fn code(&mut self, library_name: &str, code: &str) -> Code {
+            let code = self.code_builder.code(code);
+            self.add_code(library_name, code.clone());
+            code
+        }
+
+        fn code_from_source(&mut self, library_name: &str, source: Source) -> Code {
+            let code = self.code_builder.code_from_source(source);
+            self.add_code(library_name, code.clone());
             code
         }
 
@@ -2402,10 +2692,10 @@ package pkg2 is
   constant const1 : enum_t := alpha;
 end package;
 
-use work.pkg2.const1;
 
 package pkg is
-  constant const2 : enum_t := alpha;
+  use work.pkg2.const1;
+  constant const2 : work.pkg2.enum_t := alpha;
 end package;
 
 use work.pkg.const1;
@@ -2469,7 +2759,7 @@ package pkg1 is
 end package;
 
 package pkg2 is
-  constant const2 : natual := 0;
+  constant const2 : natural := 0;
 end package;
 
 use work.all;
@@ -2479,6 +2769,111 @@ use pkg2.const2;
 entity ent is
 end entity;
             ",
+        );
+        let messages = builder.analyze();
+        check_no_messages(&messages);
+    }
+
+    #[test]
+    fn use_clause_with_selected_all_names() {
+        let mut builder = LibraryBuilder::new();
+        builder.code(
+            "libname",
+            "
+package pkg1 is
+  type enum_t is (alpha, beta);
+end package;
+
+use work.pkg1.all;
+
+entity ent is
+end entity;
+
+architecture rtl of ent is
+  signal foo : enum_t;
+begin
+end architecture;
+            ",
+        );
+        let messages = builder.analyze();
+        check_no_messages(&messages);
+    }
+
+    // @TODO improve error message
+    #[test]
+    fn detects_circular_dependencies() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+use work.pkg2.const;
+
+package pkg1 is
+  constant const : natural := 0;
+end package;
+
+use work.pkg1.const;
+
+package pkg2 is
+  constant const : natural := 0;
+end package;",
+        );
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s1("work.pkg2"),
+                "Found circular dependencies when using package 'pkg2'",
+            )],
+        );
+    }
+
+    // @TODO improve error message
+    #[test]
+    fn detects_circular_dependencies_all() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+use work.pkg2.all;
+
+package pkg1 is
+  constant const : natural := 0;
+end package;
+
+use work.pkg1.all;
+
+package pkg2 is
+  constant const : natural := 0;
+end package;",
+        );
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s1("work.pkg2"),
+                "Found circular dependencies when using package 'pkg2'",
+            )],
+        );
+    }
+
+    #[test]
+    fn detects_circular_dependencies_only_when_used() {
+        let mut builder = LibraryBuilder::new();
+        builder.code(
+            "libname",
+            "
+use work.all;
+
+package pkg1 is
+  constant const : natural := 0;
+end package;
+
+use work.pkg1.const;
+
+package pkg2 is
+  constant const : natural := 0;
+end package;",
         );
         let messages = builder.analyze();
         check_no_messages(&messages);

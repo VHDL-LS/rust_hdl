@@ -15,7 +15,6 @@ use ast::{
     ContextDeclaration, DesignFile, DesignUnit, EntityDeclaration, Name, PackageBody,
     PackageDeclaration, PackageInstantiation, PrimaryUnit, SecondaryUnit,
 };
-use declarative_region::DeclarativeRegion;
 use message::{Message, MessageHandler};
 use source::{SrcPos, WithPos};
 use symbol_table::Symbol;
@@ -104,7 +103,7 @@ impl EntityDesignUnit {
     }
 }
 
-impl<'a> PackageDesignUnit<'a> {
+impl PackageDesignUnit {
     fn set_body(&mut self, body: DesignUnit<PackageBody>, messages: &mut MessageHandler) {
         if self.body.is_some() {
             messages.push(Message::error(
@@ -142,34 +141,31 @@ pub struct EntityDesignUnit {
     pub configurations: FnvHashMap<Symbol, DesignUnit<ConfigurationDeclaration>>,
 }
 
-use std::cell::RefCell;
-
 #[derive(PartialEq, Debug, Clone)]
-pub struct PackageDesignUnit<'a> {
+pub struct PackageDesignUnit {
     /// The declarative region is None when it has not yet been computed
-    pub declarative_region: RefCell<Option<DeclarativeRegion<'a, 'a>>>,
     pub package: DesignUnit<PackageDeclaration>,
     pub body: Option<DesignUnit<PackageBody>>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct Library<'a> {
+pub struct Library {
     pub name: Symbol,
     entities: FnvHashMap<Symbol, EntityDesignUnit>,
     // Name to entity name mapping
     cfg_to_entity: FnvHashMap<Symbol, Symbol>,
-    packages: FnvHashMap<Symbol, PackageDesignUnit<'a>>,
+    packages: FnvHashMap<Symbol, PackageDesignUnit>,
     package_instances: FnvHashMap<Symbol, DesignUnit<PackageInstantiation>>,
     contexts: FnvHashMap<Symbol, ContextDeclaration>,
 }
 
-impl<'a> Library<'a> {
+impl<'a> Library {
     pub fn new(
         name: Symbol,
         work_sym: &Symbol,
         design_files: Vec<DesignFile>,
         messages: &mut MessageHandler,
-    ) -> Library<'a> {
+    ) -> Library {
         let mut primary_names: FnvHashMap<Symbol, SrcPos> = FnvHashMap::default();
         let mut entities = FnvHashMap::default();
         let mut packages = FnvHashMap::default();
@@ -213,7 +209,6 @@ impl<'a> Library<'a> {
                                     packages.insert(
                                         package.name().clone(),
                                         PackageDesignUnit {
-                                            declarative_region: RefCell::new(None),
                                             package,
                                             body: None,
                                         },
@@ -363,7 +358,7 @@ impl<'a> Library<'a> {
         self.entities.values()
     }
 
-    pub fn packages(&'a self) -> impl Iterator<Item = &'a PackageDesignUnit<'a>> {
+    pub fn packages(&'a self) -> impl Iterator<Item = &'a PackageDesignUnit> {
         self.packages.values()
     }
 
@@ -376,26 +371,26 @@ impl<'a> Library<'a> {
     }
 }
 
-pub struct DesignRoot<'a> {
-    libraries: FnvHashMap<Symbol, Library<'a>>,
+pub struct DesignRoot {
+    libraries: FnvHashMap<Symbol, Library>,
 }
 
-impl<'a> DesignRoot<'a> {
-    pub fn new() -> DesignRoot<'a> {
+impl DesignRoot {
+    pub fn new() -> DesignRoot {
         DesignRoot {
             libraries: FnvHashMap::default(),
         }
     }
 
-    pub fn add_library(&mut self, library: Library<'a>) {
+    pub fn add_library(&mut self, library: Library) {
         self.libraries.insert(library.name.clone(), library);
     }
 
-    pub fn get_library(&'a self, library_name: &Symbol) -> Option<&'a Library> {
+    pub fn get_library(&self, library_name: &Symbol) -> Option<&Library> {
         self.libraries.get(library_name)
     }
 
-    pub fn iter_libraries(&'a self) -> impl Iterator<Item = &'a Library<'a>> {
+    pub fn iter_libraries(&self) -> impl Iterator<Item = &Library> {
         self.libraries.values()
     }
 }
@@ -405,7 +400,7 @@ mod tests {
     use super::*;
     use test_util::{check_messages, check_no_messages, Code, CodeBuilder};
 
-    fn new_library_with_messages<'a>(code: &Code, name: &str) -> (Library<'a>, Vec<Message>) {
+    fn new_library_with_messages<'a>(code: &Code, name: &str) -> (Library, Vec<Message>) {
         let mut messages = Vec::new();
         let library = Library::new(
             code.symbol(name),
@@ -416,7 +411,7 @@ mod tests {
         (library, messages)
     }
 
-    fn new_library<'a>(code: &Code, name: &str) -> Library<'a> {
+    fn new_library<'a>(code: &Code, name: &str) -> Library {
         let (library, messages) = new_library_with_messages(code, name);
         check_no_messages(&messages);
         library
@@ -806,7 +801,6 @@ end package body;
         assert_eq!(
             library.package(&code.symbol("pkg")),
             Some(&PackageDesignUnit {
-                declarative_region: RefCell::new(None),
                 package: DesignUnit {
                     context_clause: vec![],
                     unit: package

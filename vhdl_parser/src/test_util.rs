@@ -44,8 +44,7 @@ impl CodeBuilder {
         }
     }
 
-    pub fn code(&self, code: &str) -> Code {
-        let source = Source::from_str(code);
+    pub fn code_from_source(&self, source: Source) -> Code {
         let pos = source.entire_pos();
         let code = Code {
             source,
@@ -60,6 +59,10 @@ impl CodeBuilder {
         });
 
         code
+    }
+
+    pub fn code(&self, code: &str) -> Code {
+        self.code_from_source(Source::from_str(code))
     }
 
     pub fn symbol(&self, name: &str) -> Symbol {

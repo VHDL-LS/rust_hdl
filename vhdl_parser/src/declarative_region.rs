@@ -11,6 +11,7 @@ use source::{SrcPos, WithPos};
 extern crate fnv;
 use self::fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
+use std::ops::Deref;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum AnyDeclaration<'a> {
@@ -18,8 +19,8 @@ pub enum AnyDeclaration<'a> {
     Element(&'a ElementDeclaration),
     Enum(&'a WithPos<EnumerationLiteral>),
     Interface(&'a InterfaceDeclaration),
-    Library(&'a Library<'a>),
-    Package(&'a PackageDesignUnit<'a>),
+    Library(&'a Library),
+    Package(&'a Library, &'a PackageDesignUnit),
     Context(&'a ContextDeclaration),
     Entity(&'a EntityDesignUnit),
     Configuration(&'a DesignUnit<ConfigurationDeclaration>),
@@ -153,13 +154,26 @@ enum ParentRegion<'r, 'a: 'r> {
     Owned(Box<DeclarativeRegion<'r, 'a>>),
 }
 
-impl<'r, 'a> std::ops::Deref for ParentRegion<'r, 'a> {
+impl<'r, 'a> Deref for ParentRegion<'r, 'a> {
     type Target = DeclarativeRegion<'r, 'a>;
 
     fn deref(&self) -> &DeclarativeRegion<'r, 'a> {
         match self {
             ParentRegion::Borrowed(region) => region,
             ParentRegion::Owned(ref region) => region.as_ref(),
+        }
+    }
+}
+
+impl<'r, 'a> ParentRegion<'r, 'a> {
+    fn into_owned(self) -> ParentRegion<'a, 'a> {
+        match self {
+            ParentRegion::Borrowed(region) => {
+                ParentRegion::Owned(Box::new(region.clone().into_owned_parent()))
+            }
+            ParentRegion::Owned(region) => {
+                ParentRegion::Owned(Box::new(region.into_owned_parent()))
+            }
         }
     }
 }
@@ -188,10 +202,10 @@ impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
     }
 
     /// Clone the region with owned version of all parents
-    pub fn clone_owned_parent<'s>(&self) -> DeclarativeRegion<'s, 'a> {
+    pub fn into_owned_parent<'s>(self) -> DeclarativeRegion<'s, 'a> {
         let parent = {
-            if let Some(parent) = self.parent.as_ref() {
-                Some(ParentRegion::Owned(Box::new(parent.clone_owned_parent())))
+            if let Some(parent) = self.parent {
+                Some(parent.into_owned())
             } else {
                 None
             }
@@ -199,19 +213,28 @@ impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
 
         DeclarativeRegion {
             parent,
-            visible: self.visible.clone(),
-            decls: self.decls.clone(),
+            visible: self.visible,
+            decls: self.decls,
             kind: self.kind,
         }
     }
 
-    pub fn in_body(&self) -> DeclarativeRegion<'r, 'a> {
-        let mut region = self.clone();
-        region.kind = match region.kind {
+    pub fn clone_parent(&self) -> Option<DeclarativeRegion<'r, 'a>> {
+        self.parent.as_ref().map(|parent| parent.deref().to_owned())
+    }
+
+    pub fn into_extended(self, parent: &'r DeclarativeRegion<'r, 'a>) -> DeclarativeRegion<'r, 'a> {
+        let kind = match self.kind {
             RegionKind::PackageDeclaration => RegionKind::PackageBody,
             _ => RegionKind::Other,
         };
-        region
+
+        DeclarativeRegion {
+            parent: Some(ParentRegion::Borrowed(parent)),
+            visible: self.visible,
+            decls: self.decls,
+            kind,
+        }
     }
 
     pub fn close_immediate(&mut self, messages: &mut MessageHandler) {
@@ -313,7 +336,7 @@ impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
     pub fn make_library_visible(
         &mut self,
         designator: impl Into<Designator>,
-        library: &'a Library<'a>,
+        library: &'a Library,
     ) {
         let decl = VisibleDeclaration {
             designator: designator.into(),
