@@ -159,8 +159,8 @@ impl Source {
     /// Position covers entire contents
     #[cfg(test)]
     pub fn entire_pos(self: &Self) -> SrcPos {
-        let contents = self.contents().unwrap().to_string();
-        self.pos(0, contents.len())
+        let length = self.contents().unwrap().bytes.len();
+        self.pos(0, length)
     }
 }
 
