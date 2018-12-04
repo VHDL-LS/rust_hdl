@@ -101,6 +101,18 @@ impl From<EnumerationLiteral> for Designator {
     }
 }
 
+impl From<Symbol> for Designator {
+    fn from(other: Symbol) -> Designator {
+        Designator::Identifier(other)
+    }
+}
+
+impl<'a> From<&'a Symbol> for Designator {
+    fn from(other: &'a Symbol) -> Designator {
+        other.clone().into()
+    }
+}
+
 impl std::fmt::Display for Designator {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {

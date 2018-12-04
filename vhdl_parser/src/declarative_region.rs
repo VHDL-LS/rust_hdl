@@ -7,7 +7,6 @@ use ast::*;
 use library::{EntityDesignUnit, Library, PackageDesignUnit};
 use message::{Message, MessageHandler};
 use source::{SrcPos, WithPos};
-use symbol_table::Symbol;
 
 extern crate fnv;
 use self::fnv::FnvHashMap;
@@ -311,24 +310,23 @@ impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
         }
     }
 
-    pub fn make_library_visible(&mut self, library_name: &Symbol, library: &'a Library<'a>) {
-        let name = VisibleDeclaration {
-            designator: Designator::Identifier(library_name.clone()),
+    pub fn make_library_visible(
+        &mut self,
+        designator: impl Into<Designator>,
+        library: &'a Library<'a>,
+    ) {
+        let decl = VisibleDeclaration {
+            designator: designator.into(),
             decl_pos: None,
             decl: AnyDeclaration::Library(library),
             may_overload: false,
         };
-        self.visible.insert(name.designator.clone(), name);
+        self.visible.insert(decl.designator.clone(), decl);
     }
 
-    pub fn make_package_visible(&mut self, name: &Symbol, package: &'a PackageDesignUnit<'a>) {
-        let name = VisibleDeclaration {
-            designator: Designator::Identifier(name.clone()),
-            decl_pos: None,
-            decl: AnyDeclaration::Package(package),
-            may_overload: false,
-        };
-        self.visible.insert(name.designator.clone(), name);
+    pub fn make_potentially_visible(&mut self, decl: impl Into<VisibleDeclaration<'a>>) {
+        let decl = decl.into();
+        self.visible.insert(decl.designator.clone(), decl);
     }
 
     pub fn lookup(&self, designator: &Designator) -> Option<&VisibleDeclaration<'a>> {

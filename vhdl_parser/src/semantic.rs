@@ -43,6 +43,17 @@ impl SubprogramDeclaration {
     }
 }
 
+enum LookupResult<'a> {
+    /// A single name was selected
+    Single(VisibleDeclaration<'a>),
+    /// A single name was selected
+    AllWithin(VisibleDeclaration<'a>),
+    /// The name to lookup (or some part thereof was not a selected name)
+    NotSelected,
+    /// A prefix but found but lookup was not implemented yet
+    Unfinished,
+}
+
 pub struct Analyzer<'a> {
     work_sym: Symbol,
     std_sym: Symbol,
@@ -62,132 +73,135 @@ impl<'r, 'a: 'r> Analyzer<'a> {
     /// Returns error message if a name was not declared
     /// @TODO We only lookup selected names since other names such as slice and index require typechecking
     /// @TODO return borrowed data and own VisibleDeclarations inside the Library
-    pub fn lookup_selected_name(
+    fn lookup_selected_name(
         &self,
         region: &DeclarativeRegion<'_, 'a>,
         name: &WithPos<Name>,
-    ) -> Result<Option<VisibleDeclaration<'a>>, Message> {
+    ) -> Result<LookupResult<'a>, Message> {
         match name.item {
             Name::Selected(ref prefix, ref suffix) => {
-                let visible_decl = self.lookup_selected_name(region, prefix)?;
-                if let Some(visible_decl) = visible_decl {
-                    match visible_decl.decl {
-                        AnyDeclaration::Library(ref library) => {
-                            let ident = {
-                                match suffix.item {
-                                    Designator::Identifier(ref ident) => ident,
-                                    _ => {
-                                        // Only identifiers can denote primary units
-                                        return Err(Message::error(
-                                            suffix.as_ref(),
-                                            format!(
-                                                "No primary unit '{}' within '{}'",
-                                                suffix.item, &library.name
-                                            ),
-                                        ));
-                                    }
+                let visible_decl = {
+                    match self.lookup_selected_name(region, prefix)? {
+                        LookupResult::Single(visible_decl) => visible_decl,
+                        // @TODO error when .all is a prefix
+                        other => return Ok(other),
+                    }
+                };
+
+                match visible_decl.decl {
+                    AnyDeclaration::Library(ref library) => {
+                        let ident = {
+                            match suffix.item {
+                                Designator::Identifier(ref ident) => ident,
+                                _ => {
+                                    // Only identifiers can denote primary units
+                                    return Err(Message::error(
+                                        suffix.as_ref(),
+                                        format!(
+                                            "No primary unit '{}' within '{}'",
+                                            suffix.item, &library.name
+                                        ),
+                                    ));
                                 }
+                            }
+                        };
+
+                        if let Some(package) = library.package(ident) {
+                            let decl = VisibleDeclaration {
+                                designator: Designator::Identifier(
+                                    package.package.unit.ident.item.clone(),
+                                ),
+                                decl: AnyDeclaration::Package(package),
+                                decl_pos: Some(package.package.unit.ident.pos.clone()),
+                                may_overload: false,
                             };
 
-                            if let Some(package) = library.package(ident) {
-                                let decl = VisibleDeclaration {
-                                    designator: Designator::Identifier(
-                                        package.package.unit.ident.item.clone(),
-                                    ),
-                                    decl: AnyDeclaration::Package(package),
-                                    decl_pos: Some(package.package.unit.ident.pos.clone()),
-                                    may_overload: false,
-                                };
+                            Ok(LookupResult::Single(decl))
+                        } else if let Some(context) = library.context(ident) {
+                            let decl = VisibleDeclaration {
+                                designator: Designator::Identifier(context.ident.item.clone()),
+                                decl: AnyDeclaration::Context(context),
+                                decl_pos: Some(context.ident.pos.clone()),
+                                may_overload: false,
+                            };
 
-                                Ok(Some(decl))
-                            } else if let Some(context) = library.context(ident) {
-                                let decl = VisibleDeclaration {
-                                    designator: Designator::Identifier(context.ident.item.clone()),
-                                    decl: AnyDeclaration::Context(context),
-                                    decl_pos: Some(context.ident.pos.clone()),
-                                    may_overload: false,
-                                };
+                            Ok(LookupResult::Single(decl))
+                        } else if let Some(entity) = library.entity(ident) {
+                            let decl = VisibleDeclaration {
+                                designator: Designator::Identifier(
+                                    entity.entity.unit.ident.item.clone(),
+                                ),
+                                decl: AnyDeclaration::Entity(entity),
+                                decl_pos: Some(entity.entity.unit.ident.pos.clone()),
+                                may_overload: false,
+                            };
 
-                                Ok(Some(decl))
-                            } else if let Some(entity) = library.entity(ident) {
-                                let decl = VisibleDeclaration {
-                                    designator: Designator::Identifier(
-                                        entity.entity.unit.ident.item.clone(),
-                                    ),
-                                    decl: AnyDeclaration::Entity(entity),
-                                    decl_pos: Some(entity.entity.unit.ident.pos.clone()),
-                                    may_overload: false,
-                                };
+                            Ok(LookupResult::Single(decl))
+                        } else if let Some(configuration) = library.configuration(ident) {
+                            let decl = VisibleDeclaration {
+                                designator: Designator::Identifier(
+                                    configuration.ident().item.clone(),
+                                ),
+                                decl: AnyDeclaration::Configuration(configuration),
+                                decl_pos: Some(configuration.ident().pos.clone()),
+                                may_overload: false,
+                            };
 
-                                Ok(Some(decl))
-                            } else if let Some(configuration) = library.configuration(ident) {
-                                let decl = VisibleDeclaration {
-                                    designator: Designator::Identifier(
-                                        configuration.ident().item.clone(),
-                                    ),
-                                    decl: AnyDeclaration::Configuration(configuration),
-                                    decl_pos: Some(configuration.ident().pos.clone()),
-                                    may_overload: false,
-                                };
+                            Ok(LookupResult::Single(decl))
+                        } else if let Some(instance) = library.package_instance(ident) {
+                            let decl = VisibleDeclaration {
+                                designator: Designator::Identifier(instance.ident().item.clone()),
+                                decl: AnyDeclaration::PackageInstance(instance),
+                                decl_pos: Some(instance.ident().pos.clone()),
+                                may_overload: false,
+                            };
 
-                                Ok(Some(decl))
-                            } else if let Some(instance) = library.package_instance(ident) {
-                                let decl = VisibleDeclaration {
-                                    designator: Designator::Identifier(
-                                        instance.ident().item.clone(),
-                                    ),
-                                    decl: AnyDeclaration::PackageInstance(instance),
-                                    decl_pos: Some(instance.ident().pos.clone()),
-                                    may_overload: false,
-                                };
+                            Ok(LookupResult::Single(decl))
+                        } else {
+                            Err(Message::error(
+                                suffix.as_ref(),
+                                format!(
+                                    "No primary unit '{}' within '{}'",
+                                    suffix.item, &library.name
+                                ),
+                            ))
+                        }
+                    }
 
-                                Ok(Some(decl))
+                    AnyDeclaration::Package(ref package) => {
+                        if let Some(region) = package.declarative_region.borrow().as_ref() {
+                            if let Some(visible_decl) = region.lookup(&suffix.item) {
+                                Ok(LookupResult::Single(visible_decl.clone()))
                             } else {
                                 Err(Message::error(
                                     suffix.as_ref(),
                                     format!(
-                                        "No primary unit '{}' within '{}'",
-                                        suffix.item, &library.name
+                                        "No declaration of '{}' within package '{}'",
+                                        suffix.item,
+                                        &package.package.name()
                                     ),
                                 ))
                             }
+                        } else {
+                            // @TODO analyse unit now if it has not already been analyzed
+                            // but avoid circular dependencies
+                            Ok(LookupResult::Unfinished)
                         }
-
-                        AnyDeclaration::Package(ref package) => {
-                            if let Some(region) = package.declarative_region.borrow().as_ref() {
-                                if let Some(visible_decl) = region.lookup(&suffix.item) {
-                                    Ok(Some(visible_decl.clone()))
-                                } else {
-                                    Err(Message::error(
-                                        suffix.as_ref(),
-                                        format!(
-                                            "No declaration of '{}' within package '{}'",
-                                            suffix.item,
-                                            &package.package.name()
-                                        ),
-                                    ))
-                                }
-                            } else {
-                                // @TODO analyse unit now if it has not already been analyzed
-                                // but avoid circular dependencies
-                                // @TODO just return the prefix for now to not raise error
-                                Ok(Some(visible_decl.clone()))
-                            }
-                        }
-
-                        // @TODO ignore other declarations for now, just return the prefix to not raise error
-                        _ => Ok(Some(visible_decl)),
                     }
-                } else {
-                    Ok(None)
+
+                    // @TODO ignore other declarations for now
+                    _ => Ok(LookupResult::Unfinished),
                 }
             }
 
-            // @TODO return Vec for .all
-            Name::SelectedAll(ref prefix) => self.lookup_selected_name(region, prefix),
+            Name::SelectedAll(ref prefix) => match self.lookup_selected_name(region, prefix)? {
+                LookupResult::Single(visible_decl) => Ok(LookupResult::AllWithin(visible_decl)),
+                // @TODO error for .all.all
+                others => Ok(others),
+            },
             Name::Designator(ref designator) => {
                 if let Some(visible_item) = region.lookup(&designator) {
-                    Ok(Some(visible_item.clone()))
+                    Ok(LookupResult::Single(visible_item.clone()))
                 } else {
                     Err(Message::error(
                         &name.pos,
@@ -198,7 +212,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
             _ => {
                 // Not a selected name
                 // @TODO at least lookup prefix for now
-                Ok(None)
+                Ok(LookupResult::NotSelected)
             }
         }
     }
@@ -361,16 +375,20 @@ impl<'r, 'a: 'r> Analyzer<'a> {
             }
 
             match self.lookup_selected_name(&region, &name) {
-                Ok(Some(visible_decl)) => {
+                Ok(LookupResult::Single(visible_decl)) => {
                     // @TODO handle others
-                    if let AnyDeclaration::Package(ref package) = visible_decl.decl {
-                        region.make_package_visible(package.package.name(), package);
+                    if let AnyDeclaration::Package(..) = visible_decl.decl {
+                        region.make_potentially_visible(visible_decl);
                     }
                 }
-                Ok(None) => {
+                Ok(LookupResult::AllWithin(..)) => {
+                    // @TODO
+                }
+                Ok(LookupResult::Unfinished) => {}
+                Ok(LookupResult::NotSelected) => {
                     messages.push(Message::error(
                         &use_pos,
-                        "Use clase must be a selected name",
+                        "Use clause must be a selected name",
                     ));
                 }
                 Err(msg) => {
@@ -422,7 +440,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                         }
 
                         match self.lookup_selected_name(&region, &name) {
-                            Ok(Some(visible_decl)) => {
+                            Ok(LookupResult::Single(visible_decl)) => {
                                 match visible_decl.decl {
                                     // OK
                                     AnyDeclaration::Context(ref context) => {
@@ -452,7 +470,11 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                                     }
                                 }
                             }
-                            Ok(None) => {
+                            Ok(LookupResult::AllWithin(..)) => {
+                                // @TODO
+                            }
+                            Ok(LookupResult::Unfinished) => {}
+                            Ok(LookupResult::NotSelected) => {
                                 messages.push(Message::error(
                                     &context_item,
                                     "Context reference must be a selected name",
@@ -582,7 +604,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
     /// Create a new root region for a design unit, making the
     /// standard library and working library visible
-    pub fn new_root_region(&self, work: &'a Library<'a>) -> DeclarativeRegion<'_, 'a> {
+    fn new_root_region(&self, work: &'a Library<'a>) -> DeclarativeRegion<'_, 'a> {
         let mut region = DeclarativeRegion::new(None);
         region.make_library_visible(&self.work_sym, work);
 
