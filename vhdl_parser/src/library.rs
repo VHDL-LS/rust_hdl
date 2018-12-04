@@ -98,6 +98,10 @@ impl EntityDesignUnit {
             }
         }
     }
+
+    pub fn configurations(&self) -> impl Iterator<Item = &DesignUnit<ConfigurationDeclaration>> {
+        self.configurations.values()
+    }
 }
 
 impl<'a> PackageDesignUnit<'a> {
@@ -151,12 +155,12 @@ pub struct PackageDesignUnit<'a> {
 #[derive(PartialEq, Debug, Clone)]
 pub struct Library<'a> {
     pub name: Symbol,
-    pub entities: FnvHashMap<Symbol, EntityDesignUnit>,
+    entities: FnvHashMap<Symbol, EntityDesignUnit>,
     // Name to entity name mapping
-    pub cfg_to_entity: FnvHashMap<Symbol, Symbol>,
-    pub packages: FnvHashMap<Symbol, PackageDesignUnit<'a>>,
-    pub package_instances: FnvHashMap<Symbol, DesignUnit<PackageInstantiation>>,
-    pub contexts: FnvHashMap<Symbol, ContextDeclaration>,
+    cfg_to_entity: FnvHashMap<Symbol, Symbol>,
+    packages: FnvHashMap<Symbol, PackageDesignUnit<'a>>,
+    package_instances: FnvHashMap<Symbol, DesignUnit<PackageInstantiation>>,
+    contexts: FnvHashMap<Symbol, ContextDeclaration>,
 }
 
 impl<'a> Library<'a> {
@@ -321,10 +325,12 @@ impl<'a> Library<'a> {
         }
     }
 
+    #[cfg(test)]
     pub fn entity(&'a self, name: &Symbol) -> Option<&'a EntityDesignUnit> {
         self.entities.get(name)
     }
 
+    #[cfg(test)]
     pub fn configuration(
         &'a self,
         name: &Symbol,
@@ -335,10 +341,12 @@ impl<'a> Library<'a> {
             .and_then(|entity| entity.configurations.get(name))
     }
 
+    #[cfg(test)]
     pub fn package(&'a self, name: &Symbol) -> Option<&'a PackageDesignUnit> {
         self.packages.get(name)
     }
 
+    #[cfg(test)]
     pub fn package_instance(
         &'a self,
         name: &Symbol,
@@ -346,6 +354,7 @@ impl<'a> Library<'a> {
         self.package_instances.get(name)
     }
 
+    #[cfg(test)]
     pub fn context(&'a self, name: &Symbol) -> Option<&'a ContextDeclaration> {
         self.contexts.get(name)
     }

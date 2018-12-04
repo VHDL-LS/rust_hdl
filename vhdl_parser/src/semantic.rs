@@ -10,9 +10,11 @@ use latin_1::Latin1String;
 use library::{DesignRoot, Library};
 use message::{Message, MessageHandler};
 use source::{SrcPos, WithPos};
+use std::sync::Arc;
 use symbol_table::{Symbol, SymbolTable};
 
-use std::sync::Arc;
+extern crate fnv;
+use self::fnv::FnvHashMap;
 
 /// Check that no homographs are defined in the element declarations
 fn check_element_declaration_unique_ident(
@@ -58,21 +60,82 @@ pub struct Analyzer<'a> {
     work_sym: Symbol,
     std_sym: Symbol,
     root: &'a DesignRoot<'a>,
+
+    /// DeclarativeRegion for each library containing the primary units
+    library_regions: FnvHashMap<Symbol, DeclarativeRegion<'a, 'a>>,
 }
 
 impl<'r, 'a: 'r> Analyzer<'a> {
     pub fn new(root: &'a DesignRoot<'a>, symtab: &Arc<SymbolTable>) -> Analyzer<'a> {
+        let mut library_regions = FnvHashMap::default();
+
+        for library in root.iter_libraries() {
+            let mut region = DeclarativeRegion::new(None);
+
+            for package in library.packages() {
+                let decl = VisibleDeclaration {
+                    designator: Designator::Identifier(package.package.unit.ident.item.clone()),
+                    decl: AnyDeclaration::Package(package),
+                    decl_pos: Some(package.package.unit.ident.pos.clone()),
+                    may_overload: false,
+                };
+                region.make_potentially_visible(decl);
+            }
+
+            for context in library.contexts() {
+                let decl = VisibleDeclaration {
+                    designator: Designator::Identifier(context.ident.item.clone()),
+                    decl: AnyDeclaration::Context(context),
+                    decl_pos: Some(context.ident.pos.clone()),
+                    may_overload: false,
+                };
+                region.make_potentially_visible(decl);
+            }
+
+            for entity in library.entities() {
+                let decl = VisibleDeclaration {
+                    designator: Designator::Identifier(entity.entity.unit.ident.item.clone()),
+                    decl: AnyDeclaration::Entity(entity),
+                    decl_pos: Some(entity.entity.unit.ident.pos.clone()),
+                    may_overload: false,
+                };
+                region.make_potentially_visible(decl);
+
+                for configuration in entity.configurations() {
+                    let decl = VisibleDeclaration {
+                        designator: Designator::Identifier(configuration.ident().item.clone()),
+                        decl: AnyDeclaration::Configuration(configuration),
+                        decl_pos: Some(configuration.ident().pos.clone()),
+                        may_overload: false,
+                    };
+                    region.make_potentially_visible(decl);
+                }
+            }
+
+            for instance in library.package_instances() {
+                let decl = VisibleDeclaration {
+                    designator: Designator::Identifier(instance.ident().item.clone()),
+                    decl: AnyDeclaration::PackageInstance(instance),
+                    decl_pos: Some(instance.ident().pos.clone()),
+                    may_overload: false,
+                };
+                region.make_potentially_visible(decl);
+            }
+
+            library_regions.insert(library.name.clone(), region);
+        }
+
         Analyzer {
             work_sym: symtab.insert(&Latin1String::new(b"work")),
             std_sym: symtab.insert(&Latin1String::new(b"std")),
             root,
+            library_regions,
         }
     }
 
     /// Returns the VisibleDeclaration or None if it was not a selected name
     /// Returns error message if a name was not declared
     /// @TODO We only lookup selected names since other names such as slice and index require typechecking
-    /// @TODO return borrowed data and own VisibleDeclarations inside the Library
     fn lookup_selected_name(
         &self,
         region: &DeclarativeRegion<'_, 'a>,
@@ -95,73 +158,10 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
                 match visible_decl.decl {
                     AnyDeclaration::Library(ref library) => {
-                        let ident = {
-                            match suffix.item {
-                                Designator::Identifier(ref ident) => ident,
-                                _ => {
-                                    // Only identifiers can denote primary units
-                                    return Err(Message::error(
-                                        suffix.as_ref(),
-                                        format!(
-                                            "No primary unit '{}' within '{}'",
-                                            suffix.item, &library.name
-                                        ),
-                                    ));
-                                }
-                            }
-                        };
-
-                        if let Some(package) = library.package(ident) {
-                            let decl = VisibleDeclaration {
-                                designator: Designator::Identifier(
-                                    package.package.unit.ident.item.clone(),
-                                ),
-                                decl: AnyDeclaration::Package(package),
-                                decl_pos: Some(package.package.unit.ident.pos.clone()),
-                                may_overload: false,
-                            };
-
-                            Ok(LookupResult::Single(decl))
-                        } else if let Some(context) = library.context(ident) {
-                            let decl = VisibleDeclaration {
-                                designator: Designator::Identifier(context.ident.item.clone()),
-                                decl: AnyDeclaration::Context(context),
-                                decl_pos: Some(context.ident.pos.clone()),
-                                may_overload: false,
-                            };
-
-                            Ok(LookupResult::Single(decl))
-                        } else if let Some(entity) = library.entity(ident) {
-                            let decl = VisibleDeclaration {
-                                designator: Designator::Identifier(
-                                    entity.entity.unit.ident.item.clone(),
-                                ),
-                                decl: AnyDeclaration::Entity(entity),
-                                decl_pos: Some(entity.entity.unit.ident.pos.clone()),
-                                may_overload: false,
-                            };
-
-                            Ok(LookupResult::Single(decl))
-                        } else if let Some(configuration) = library.configuration(ident) {
-                            let decl = VisibleDeclaration {
-                                designator: Designator::Identifier(
-                                    configuration.ident().item.clone(),
-                                ),
-                                decl: AnyDeclaration::Configuration(configuration),
-                                decl_pos: Some(configuration.ident().pos.clone()),
-                                may_overload: false,
-                            };
-
-                            Ok(LookupResult::Single(decl))
-                        } else if let Some(instance) = library.package_instance(ident) {
-                            let decl = VisibleDeclaration {
-                                designator: Designator::Identifier(instance.ident().item.clone()),
-                                decl: AnyDeclaration::PackageInstance(instance),
-                                decl_pos: Some(instance.ident().pos.clone()),
-                                may_overload: false,
-                            };
-
-                            Ok(LookupResult::Single(decl))
+                        if let Some(visible_decl) =
+                            self.library_regions[&library.name].lookup(&suffix.item)
+                        {
+                            Ok(LookupResult::Single(visible_decl.clone()))
                         } else {
                             Err(Message::error(
                                 suffix.as_ref(),
