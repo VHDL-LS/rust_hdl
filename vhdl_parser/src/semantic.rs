@@ -201,7 +201,6 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
             Name::SelectedAll(ref prefix) => match self.lookup_selected_name(region, prefix)? {
                 LookupResult::Single(visible_decl) => Ok(LookupResult::AllWithin(visible_decl)),
-                // @TODO error for .all.all
                 LookupResult::AllWithin(..) => Err(Message::error(
                     prefix.as_ref(),
                     "'.all' may not be the prefix of a selected name",
