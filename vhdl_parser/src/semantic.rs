@@ -83,8 +83,13 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                 let visible_decl = {
                     match self.lookup_selected_name(region, prefix)? {
                         LookupResult::Single(visible_decl) => visible_decl,
-                        // @TODO error when .all is a prefix
-                        other => return Ok(other),
+                        LookupResult::AllWithin(..) => {
+                            return Err(Message::error(
+                                prefix.as_ref(),
+                                "'.all' may not be the prefix of a selected name",
+                            ))
+                        }
+                        others => return Ok(others),
                     }
                 };
 
@@ -197,6 +202,10 @@ impl<'r, 'a: 'r> Analyzer<'a> {
             Name::SelectedAll(ref prefix) => match self.lookup_selected_name(region, prefix)? {
                 LookupResult::Single(visible_decl) => Ok(LookupResult::AllWithin(visible_decl)),
                 // @TODO error for .all.all
+                LookupResult::AllWithin(..) => Err(Message::error(
+                    prefix.as_ref(),
+                    "'.all' may not be the prefix of a selected name",
+                )),
                 others => Ok(others),
             },
             Name::Designator(ref designator) => {
@@ -2410,4 +2419,38 @@ end entity;
             )],
         );
     }
+
+    #[test]
+    fn error_on_use_clause_with_double_all() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg1 is
+  constant const1 : natural := 0;
+end package;
+
+use work.all.all;
+use work.all.foo;
+
+entity ent is
+end entity;
+            ",
+        );
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![
+                Message::error(
+                    code.s("work.all", 1),
+                    "'.all' may not be the prefix of a selected name",
+                ),
+                Message::error(
+                    code.s("work.all", 2),
+                    "'.all' may not be the prefix of a selected name",
+                ),
+            ],
+        );
+    }
+
 }
