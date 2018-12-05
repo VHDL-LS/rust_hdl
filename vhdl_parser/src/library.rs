@@ -336,7 +336,6 @@ impl<'a> Library {
             .and_then(|entity| entity.configurations.get(name))
     }
 
-    #[cfg(test)]
     pub fn package(&'a self, name: &Symbol) -> Option<&'a PackageDesignUnit> {
         self.packages.get(name)
     }

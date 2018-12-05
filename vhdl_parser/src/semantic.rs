@@ -58,44 +58,81 @@ enum LookupResult<'n, 'a> {
     Unfinished,
 }
 
+/// The analysis result of the primary unit
+#[derive(Clone)]
 struct PrimaryUnitData<'a> {
-    /// The visible region of the primary unit
-    /// None means circular dependencies was found
-    region: Option<Arc<DeclarativeRegion<'a, 'a>>>,
+    messages: Vec<Message>,
+    region: DeclarativeRegion<'a, 'a>,
 }
 
 impl<'a> PrimaryUnitData<'a> {
-    fn new(region: Option<DeclarativeRegion<'a, 'a>>) -> PrimaryUnitData {
-        PrimaryUnitData {
-            region: region.map(Arc::new),
-        }
-    }
-
-    fn region(&self) -> Option<Arc<DeclarativeRegion<'a, 'a>>> {
-        self.region.clone()
+    fn new(messages: Vec<Message>, region: DeclarativeRegion<'a, 'a>) -> PrimaryUnitData {
+        PrimaryUnitData { messages, region }
     }
 }
 
-struct LockGuard<'s, 'a: 's> {
+#[derive(Clone, Debug)]
+struct Dependency {
+    library_name: Symbol,
+    primary_unit_name: Symbol,
+    location: SrcPos,
+}
+
+#[derive(Clone, Debug)]
+struct CircularDependencyError {
+    path: Vec<Dependency>,
+}
+
+type AnalysisResult<'a> = Result<Arc<PrimaryUnitData<'a>>, CircularDependencyError>;
+
+enum StartAnalysisResult<'s, 'a: 's> {
+    AlreadyAnalyzed(AnalysisResult<'a>),
+    NotYetAnalyzed(PendingAnalysis<'s, 'a>),
+}
+
+struct PendingAnalysis<'s, 'a: 's> {
     context: &'s AnalysisContext<'a>,
     key: (Symbol, Symbol),
 }
 
-impl<'s, 'a: 's> LockGuard<'s, 'a> {
-    fn new(context: &'s AnalysisContext<'a>, key: (Symbol, Symbol)) -> LockGuard<'s, 'a> {
-        LockGuard { context, key }
+impl<'s, 'a: 's> PendingAnalysis<'s, 'a> {
+    fn new(context: &'s AnalysisContext<'a>, key: (Symbol, Symbol)) -> PendingAnalysis<'s, 'a> {
+        PendingAnalysis { context, key }
+    }
+
+    fn end_analysis(self, data: PrimaryUnitData<'a>) -> AnalysisResult<'a> {
+        match self
+            .context
+            .primary_unit_data
+            .borrow_mut()
+            .entry(self.key.clone())
+        {
+            // Analysis already done, keep old value
+            Entry::Occupied(entry) => {
+                // Will always be a circular dependency error
+                assert!(entry.get().is_err());
+                entry.get().clone()
+            }
+            Entry::Vacant(entry) => {
+                let result = Ok(Arc::new(data));
+                entry.insert(result.clone());
+                result
+            }
+        }
     }
 }
 
-impl<'s, 'a: 's> Drop for LockGuard<'s, 'a> {
+impl<'s, 'a: 's> Drop for PendingAnalysis<'s, 'a> {
     fn drop(&mut self) {
         self.context.locked.borrow_mut().remove(&self.key);
+        self.context.path.borrow_mut().pop();
     }
 }
 
 struct AnalysisContext<'a> {
-    primary_unit_data: RefCell<FnvHashMap<(Symbol, Symbol), PrimaryUnitData<'a>>>,
+    primary_unit_data: RefCell<FnvHashMap<(Symbol, Symbol), AnalysisResult<'a>>>,
     locked: RefCell<FnvHashMap<(Symbol, Symbol), ()>>,
+    path: RefCell<Vec<Option<Dependency>>>,
 }
 
 impl<'a> AnalysisContext<'a> {
@@ -103,47 +140,72 @@ impl<'a> AnalysisContext<'a> {
         AnalysisContext {
             primary_unit_data: RefCell::new(FnvHashMap::default()),
             locked: RefCell::new(FnvHashMap::default()),
+            path: RefCell::new(Vec::new()),
         }
     }
 
-    fn lock<'s>(
+    fn start_analysis<'s>(
         &'s self,
+        // The optional location where the design unit was used
+        entry_point: Option<SrcPos>,
         library_name: &Symbol,
         primary_unit_name: &Symbol,
-    ) -> Result<LockGuard<'s, 'a>, ()> {
+    ) -> StartAnalysisResult<'s, 'a> {
+        if let Some(result) = self.get_result(library_name, primary_unit_name) {
+            return StartAnalysisResult::AlreadyAnalyzed(result);
+        }
+
         let key = (library_name.clone(), primary_unit_name.clone());
 
+        self.path
+            .borrow_mut()
+            .push(entry_point.map(|location| Dependency {
+                library_name: library_name.clone(),
+                primary_unit_name: primary_unit_name.clone(),
+                location,
+            }));
+
         if self.locked.borrow_mut().insert(key.clone(), ()).is_some() {
-            Err(())
+            let path: Vec<Dependency> = self
+                .path
+                .borrow()
+                .iter()
+                .cloned()
+                .filter_map(|d| d)
+                .collect();
+            let path_result = Err(CircularDependencyError { path });
+
+            // All locked units will have circular dependencies
+            for other_key in self.locked.borrow().keys() {
+                let result = {
+                    if *other_key != key {
+                        Err(CircularDependencyError { path: Vec::new() })
+                    } else {
+                        path_result.clone()
+                    }
+                };
+
+                self.primary_unit_data
+                    .borrow_mut()
+                    .insert(other_key.clone(), result);
+            }
+
+            // Only provide full path error to one unit so that duplicate messages are not created
+            StartAnalysisResult::AlreadyAnalyzed(path_result)
         } else {
-            Ok(LockGuard::new(self, key))
+            StartAnalysisResult::NotYetAnalyzed(PendingAnalysis::new(self, key))
         }
     }
 
-    fn get_region(
+    fn get_result(
         &self,
         library_name: &Symbol,
         primary_unit_name: &Symbol,
-    ) -> Option<Arc<DeclarativeRegion<'a, 'a>>> {
+    ) -> Option<AnalysisResult<'a>> {
         self.primary_unit_data
             .borrow()
             .get(&(library_name.clone(), primary_unit_name.clone()))
-            .and_then(|primary_data| primary_data.region())
-    }
-
-    fn set_region(
-        &self,
-        library_name: &Symbol,
-        primary_unit_name: &Symbol,
-        region: Option<DeclarativeRegion<'a, 'a>>,
-    ) {
-        let key = (library_name.clone(), primary_unit_name.clone());
-        match self.primary_unit_data.borrow_mut().entry(key) {
-            Entry::Occupied(..) => {}
-            Entry::Vacant(entry) => {
-                entry.insert(PrimaryUnitData::new(region));
-            }
-        }
+            .cloned()
     }
 }
 
@@ -151,6 +213,7 @@ pub struct Analyzer<'a> {
     work_sym: Symbol,
     std_sym: Symbol,
     standard_designator: Designator,
+    standard_sym: Symbol,
     root: &'a DesignRoot,
 
     /// DeclarativeRegion for each library containing the primary units
@@ -226,6 +289,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
             work_sym: symtab.insert(&Latin1String::new(b"work")),
             std_sym: symtab.insert(&Latin1String::new(b"std")),
             standard_designator: Designator::Identifier(standard_sym.clone()),
+            standard_sym,
             root,
             library_regions,
             analysis_context: AnalysisContext::new(),
@@ -273,8 +337,10 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     }
 
                     AnyDeclaration::Package(ref library, ref package) => {
-                        if let Some(region) = self.get_package_region(library, package) {
-                            if let Some(visible_decl) = region.lookup(&suffix.item) {
+                        if let Ok(data) =
+                            self.get_package_result(Some(prefix.pos.clone()), library, package)
+                        {
+                            if let Some(visible_decl) = data.region.lookup(&suffix.item) {
                                 Ok(LookupResult::Single(visible_decl.clone()))
                             } else {
                                 Err(Message::error(
@@ -287,13 +353,8 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                                 ))
                             }
                         } else {
-                            Err(Message::error(
-                                &prefix.pos,
-                                format!(
-                                    "Found circular dependencies when using package '{}'",
-                                    &package.package.name()
-                                ),
-                            ))
+                            // Circular dependency, message will never be used
+                            Err(Message::error(&prefix.pos, ""))
                         }
                     }
 
@@ -499,17 +560,13 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                                 .make_all_potentially_visible(&self.library_regions[&library.name]);
                         }
                         AnyDeclaration::Package(ref library, ref package) => {
-                            if let Some(package_region) = self.get_package_region(library, package)
+                            if let Ok(data) =
+                                self.get_package_result(Some(prefix.pos.clone()), library, package)
                             {
-                                region.make_all_potentially_visible(&package_region);
+                                region.make_all_potentially_visible(&data.region);
                             } else {
-                                messages.push(Message::error(
-                                    &prefix.pos,
-                                    format!(
-                                        "Found circular dependencies when using package '{}'",
-                                        &package.package.name()
-                                    ),
-                                ));
+                                // Circular dependency, return
+                                return;
                             }
                         }
                         // @TODO handle others
@@ -622,30 +679,13 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         }
     }
 
-    /// Get the visible declarative region for a package declaration
-    /// Analyze it it does not exist
-    /// Returns None in case of circular dependencies
-    fn get_package_region(
+    fn get_package_result(
         &self,
+        entry_point: Option<SrcPos>,
         library: &'a Library,
         package: &'a PackageDesignUnit,
-    ) -> Option<Arc<DeclarativeRegion<'a, 'a>>> {
-        if let Some(region) = self
-            .analysis_context
-            .get_region(&library.name, package.package.name())
-        {
-            return Some(region);
-        }
-
-        // Package will be analyzed in fn analyze and messages provided there
-        // @TODO avoid duplicate analysis
-        let mut ignore_messages = Vec::new();
-        self.analyze_package_declaration_unit(
-            &mut self.new_root_region(library).clone(),
-            library,
-            package,
-            &mut ignore_messages,
-        )
+    ) -> AnalysisResult<'a> {
+        self.analyze_package_declaration_unit(entry_point, library, package)
     }
 
     fn analyze_generate_body(
@@ -735,10 +775,14 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         self.analyze_concurrent_part(region, &entity.statements, messages);
     }
 
-    /// Create a new root region for a design unit, making the
-    /// standard library and working library visible
-    fn new_root_region(&self, work: &'a Library) -> DeclarativeRegion<'a, 'a> {
-        let mut region = DeclarativeRegion::new(None);
+    /// Add implicit context clause for all packages except STD.STANDARD
+    /// library STD, WORK;
+    /// use STD.STANDARD.all;
+    fn add_implicit_context_clause(
+        &self,
+        region: &mut DeclarativeRegion<'a, 'a>,
+        work: &'a Library,
+    ) {
         region.make_library_visible(&self.work_sym, work);
 
         // @TODO maybe add warning if standard library is missing
@@ -750,15 +794,17 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                 ..
             }) = self.library_regions[&library.name].lookup(&self.standard_designator)
             {
-                let standard_pkg_region = self
-                    .get_package_region(library, standard_pkg)
-                    .expect("Found circular dependency when using STD.STANDARD package");
-                region.make_all_potentially_visible(standard_pkg_region.as_ref());
+                let standard_pkg_region = &self
+                    .analysis_context
+                    .get_result(&library.name, standard_pkg.package.name())
+                    .expect("STD.STANDARD package must be analyzed at this point")
+                    .expect("Found circular dependency when using STD.STANDARD package")
+                    .region;
+                region.make_all_potentially_visible(standard_pkg_region);
             } else {
                 panic!("Could not find package standard");
             }
         }
-        region
     }
     fn analyze_package_declaration(
         &self,
@@ -774,74 +820,64 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         region
     }
 
-    pub fn analyze_package_declaration_unit(
+    fn analyze_package_declaration_unit(
         &self,
-        root_region: &'r mut DeclarativeRegion<'r, 'a>,
-        library: &Library,
+        // The optional entry point where the package declarartion was used
+        // None if the package was directly analyzed and not due to a use clause
+        entry_point: Option<SrcPos>,
+        library: &'a Library,
         package: &'a PackageDesignUnit,
-        messages: &mut MessageHandler,
-    ) -> Option<Arc<DeclarativeRegion<'a, 'a>>> {
-        let result = self
-            .analysis_context
-            .lock(&library.name, package.package.name());
+    ) -> AnalysisResult<'a> {
+        let mut messages = Vec::new();
 
-        if result.is_err() {
-            messages.push(Message::error(
-                &package.package.ident(),
-                format!(
-                    "Found circular dependency when analyzing '{}.{}'",
-                    &library.name,
-                    package.package.name()
-                ),
-            ));
-            self.analysis_context
-                .set_region(&library.name, package.package.name(), None);
-            return None;
-        }
-
-        self.analyze_context_clause(root_region, &package.package.context_clause, messages);
-
-        let mut region =
-            self.analyze_package_declaration(root_region, &package.package.unit, messages);
-
-        if package.body.is_some() {
-            region.close_immediate(messages);
-        } else {
-            region.close_both(messages);
-        }
-
-        // @TODO may panic
-        // @TODO avoid duplicate analysis
-        self.analysis_context.set_region(
+        match self.analysis_context.start_analysis(
+            entry_point,
             &library.name,
             package.package.name(),
-            Some(region.into_owned_parent()),
-        );
+        ) {
+            StartAnalysisResult::NotYetAnalyzed(pending) => {
+                let mut root_region = DeclarativeRegion::new(None);
+                if !(library.name == self.std_sym && *package.package.name() == self.standard_sym) {
+                    self.add_implicit_context_clause(&mut root_region, library);
+                }
 
-        self.analysis_context
-            .get_region(&library.name, package.package.name())
+                self.analyze_context_clause(
+                    &mut root_region,
+                    &package.package.context_clause,
+                    &mut messages,
+                );
+
+                let mut region = self.analyze_package_declaration(
+                    &root_region,
+                    &package.package.unit,
+                    &mut messages,
+                );
+
+                if package.body.is_some() {
+                    region.close_immediate(&mut messages);
+                } else {
+                    region.close_both(&mut messages);
+                }
+
+                pending.end_analysis(PrimaryUnitData::new(messages, region.into_owned_parent()))
+            }
+
+            StartAnalysisResult::AlreadyAnalyzed(result) => result,
+        }
     }
 
     fn analyze_package_body_unit(
         &self,
-        library: &'a Library,
+        primary_region: &DeclarativeRegion<'_, 'a>,
         package: &'a PackageDesignUnit,
         messages: &mut MessageHandler,
     ) {
         if let Some(ref body) = package.body {
-            let primary_region = {
-                if let Some(region) = self.get_package_region(&library, package) {
-                    region.as_ref().to_owned()
-                } else {
-                    // Circular dependencies when analyzing package declaration
-                    return;
-                }
-            };
             let mut root_region = primary_region
                 .clone_parent()
                 .expect("Expected parent region");
             self.analyze_context_clause(&mut root_region, &body.context_clause, messages);
-            let mut region = primary_region.into_extended(&root_region);
+            let mut region = primary_region.clone().into_extended(&root_region);
             self.analyze_declarative_part(&mut region, &body.unit.decl, messages);
             region.close_both(messages);
         }
@@ -849,23 +885,39 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
     pub fn analyze_package(
         &self,
-        root_region: &'r mut DeclarativeRegion<'r, 'a>,
         library: &'a Library,
         package: &'a PackageDesignUnit,
         messages: &mut MessageHandler,
     ) {
-        self.analyze_package_declaration_unit(root_region, library, package, messages);
-        self.analyze_package_body_unit(library, &package, messages);
+        match self.analyze_package_declaration_unit(None, library, package) {
+            Ok(data) => {
+                for message in data.messages.iter().cloned() {
+                    messages.push(message);
+                }
+                self.analyze_package_body_unit(&data.region, &package, messages);
+            }
+            Err(circular_dependency) => {
+                for dependency in circular_dependency.path {
+                    messages.push(Message::error(
+                        dependency.location,
+                        format!(
+                            "Found circular dependency when referencing '{}.{}'",
+                            dependency.library_name, dependency.primary_unit_name
+                        ),
+                    ));
+                }
+            }
+        };
     }
 
     pub fn analyze_library(&self, library: &'a Library, messages: &mut MessageHandler) {
         for package in library.packages() {
-            let mut root_region = self.new_root_region(library);
-            self.analyze_package(&mut root_region, library, package, messages);
+            self.analyze_package(library, package, messages);
         }
 
         for package_instance in library.package_instances() {
-            let mut root_region = self.new_root_region(library);
+            let mut root_region = DeclarativeRegion::new(None);
+            self.add_implicit_context_clause(&mut root_region, library);
             self.analyze_context_clause(
                 &mut root_region,
                 &package_instance.context_clause,
@@ -874,12 +926,14 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         }
 
         for context in library.contexts() {
-            let mut root_region = self.new_root_region(library);
+            let mut root_region = DeclarativeRegion::new(None);
+            self.add_implicit_context_clause(&mut root_region, library);
             self.analyze_context_clause(&mut root_region, &context.items, messages);
         }
 
         for entity in library.entities() {
-            let mut root_region = self.new_root_region(library);
+            let mut root_region = DeclarativeRegion::new(None);
+            self.add_implicit_context_clause(&mut root_region, library);
             self.analyze_context_clause(&mut root_region, &entity.entity.context_clause, messages);
             let mut region = DeclarativeRegion::new(Some(&root_region));
             self.analyze_entity_declaration(&mut region, &entity.entity.unit, messages);
@@ -901,13 +955,14 @@ impl<'r, 'a: 'r> Analyzer<'a> {
     pub fn analyze(&self, messages: &mut MessageHandler) {
         // Analyze standard library first
         if let Some(library) = self.root.get_library(&self.std_sym) {
+            let standard_package = library
+                .package(&self.standard_sym)
+                .expect("Failed to find package STD.STANDARD");
+            self.analyze_package(library, standard_package, messages);
             for package in library.packages() {
-                self.analyze_package(
-                    &mut DeclarativeRegion::new(None),
-                    library,
-                    package,
-                    messages,
-                );
+                if *package.package.name() != self.standard_sym {
+                    self.analyze_package(library, package, messages);
+                }
             }
         }
 
@@ -2799,7 +2854,6 @@ end architecture;
         check_no_messages(&messages);
     }
 
-    // @TODO improve error message
     #[test]
     fn detects_circular_dependencies() {
         let mut builder = LibraryBuilder::new();
@@ -2821,14 +2875,19 @@ end package;",
         let messages = builder.analyze();
         check_messages(
             messages,
-            vec![Message::error(
-                code.s1("work.pkg2"),
-                "Found circular dependencies when using package 'pkg2'",
-            )],
+            vec![
+                Message::error(
+                    code.s1("work.pkg1"),
+                    "Found circular dependency when referencing 'libname.pkg1'",
+                ),
+                Message::error(
+                    code.s1("work.pkg2"),
+                    "Found circular dependency when referencing 'libname.pkg2'",
+                ),
+            ],
         );
     }
 
-    // @TODO improve error message
     #[test]
     fn detects_circular_dependencies_all() {
         let mut builder = LibraryBuilder::new();
@@ -2850,10 +2909,16 @@ end package;",
         let messages = builder.analyze();
         check_messages(
             messages,
-            vec![Message::error(
-                code.s1("work.pkg2"),
-                "Found circular dependencies when using package 'pkg2'",
-            )],
+            vec![
+                Message::error(
+                    code.s1("work.pkg1"),
+                    "Found circular dependency when referencing 'libname.pkg1'",
+                ),
+                Message::error(
+                    code.s1("work.pkg2"),
+                    "Found circular dependency when referencing 'libname.pkg2'",
+                ),
+            ],
         );
     }
 
