@@ -57,6 +57,7 @@ error: Expected 'use', 'type', 'subtype', 'shared', 'constant', 'signal', 'varia
   - Missing full constant for deferred constant
   - Missing full type for deferred type
   - Missing body for protected type and vice versa
+  - Missing declarations in type marks of most subtype indications
 - Comments not part of AST yet.
 
 ## Trying it out

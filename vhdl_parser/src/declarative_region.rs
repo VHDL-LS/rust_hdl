@@ -12,8 +12,29 @@ extern crate fnv;
 use self::fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
 use std::ops::Deref;
+use std::sync::Arc;
 
-#[derive(PartialEq, Debug, Clone)]
+/// The analysis result of the primary unit
+#[derive(Clone)]
+pub struct PrimaryUnitData<'a> {
+    messages: Vec<Message>,
+    pub region: DeclarativeRegion<'a, 'a>,
+}
+
+// @TODO store data in library, declarative region or in analysis context?
+impl<'a> PrimaryUnitData<'a> {
+    pub fn new(messages: Vec<Message>, region: DeclarativeRegion<'a, 'a>) -> PrimaryUnitData {
+        PrimaryUnitData { messages, region }
+    }
+
+    pub fn push_to(&self, messages: &mut MessageHandler) {
+        for message in self.messages.iter().cloned() {
+            messages.push(message);
+        }
+    }
+}
+
+#[derive(Clone)]
 pub enum AnyDeclaration<'a> {
     Declaration(&'a Declaration),
     Element(&'a ElementDeclaration),
@@ -24,7 +45,8 @@ pub enum AnyDeclaration<'a> {
     Context(&'a ContextDeclaration),
     Entity(&'a EntityDesignUnit),
     Configuration(&'a DesignUnit<ConfigurationDeclaration>),
-    PackageInstance(&'a DesignUnit<PackageInstantiation>),
+    PackageInstance(&'a Library, &'a DesignUnit<PackageInstantiation>),
+    LocalPackageInstance(&'a Ident, Arc<PrimaryUnitData<'a>>),
 }
 
 impl<'a> AnyDeclaration<'a> {
@@ -36,14 +58,6 @@ impl<'a> AnyDeclaration<'a> {
                 ..
             })) => *class == ObjectClass::Constant && expression.is_none(),
             _ => false,
-        }
-    }
-
-    pub fn is_uninstantiated_package(&self) -> bool {
-        if let AnyDeclaration::Package(.., ref package) = self {
-            package.is_generic()
-        } else {
-            false
         }
     }
 
@@ -96,7 +110,7 @@ impl<'a> AnyDeclaration<'a> {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Clone)]
 pub struct VisibleDeclaration<'a> {
     pub designator: Designator,
 
@@ -147,7 +161,7 @@ impl<'a> VisibleDeclaration<'a> {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq)]
 enum RegionKind {
     PackageDeclaration,
     PackageBody,
@@ -156,7 +170,7 @@ enum RegionKind {
 
 /// Most parent regions can just be temporarily borrowed
 /// For public regions of design units the parent must be owned such that these regions can be stored in a map
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Clone)]
 enum ParentRegion<'r, 'a: 'r> {
     Borrowed(&'r DeclarativeRegion<'r, 'a>),
     Owned(Box<DeclarativeRegion<'r, 'a>>),
@@ -186,7 +200,7 @@ impl<'r, 'a> ParentRegion<'r, 'a> {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Clone)]
 pub struct DeclarativeRegion<'r, 'a: 'r> {
     parent: Option<ParentRegion<'r, 'a>>,
     visible: FnvHashMap<Designator, VisibleDeclaration<'a>>,
@@ -366,71 +380,19 @@ impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
         }
     }
 
-    pub fn lookup(&self, designator: &Designator) -> Option<&VisibleDeclaration<'a>> {
-        // @TODO do not expose declarations visible by use clause when used by selected name
-        self.visible
+    pub fn lookup(&self, designator: &Designator, inside: bool) -> Option<&VisibleDeclaration<'a>> {
+        self.decls
             .get(designator)
-            .or_else(|| self.decls.get(designator))
             .or_else(|| {
+                if inside {
+                    self.visible.get(designator)
+                } else {
+                    None
+                }
+            }).or_else(|| {
                 self.parent
                     .as_ref()
-                    .and_then(|parent| parent.lookup(designator))
+                    .and_then(|parent| parent.lookup(designator, inside))
             })
-    }
-
-    pub fn add_interface_list(
-        &mut self,
-        declarations: &'a [InterfaceDeclaration],
-        messages: &mut MessageHandler,
-    ) {
-        for decl in declarations.iter() {
-            for item in decl.declarative_items() {
-                self.add(item, messages);
-            }
-        }
-    }
-
-    pub fn add_element_declarations(
-        &mut self,
-        declarations: &'a [ElementDeclaration],
-        messages: &mut MessageHandler,
-    ) {
-        for decl in declarations.iter() {
-            self.add(
-                VisibleDeclaration::new(&decl.ident, AnyDeclaration::Element(decl)),
-                messages,
-            );
-        }
-    }
-}
-
-impl InterfaceDeclaration {
-    fn declarative_items(&self) -> Vec<VisibleDeclaration> {
-        match self {
-            InterfaceDeclaration::File(InterfaceFileDeclaration { ref ident, .. }) => {
-                vec![VisibleDeclaration::new(
-                    ident,
-                    AnyDeclaration::Interface(self),
-                )]
-            }
-            InterfaceDeclaration::Object(InterfaceObjectDeclaration { ref ident, .. }) => {
-                vec![VisibleDeclaration::new(
-                    ident,
-                    AnyDeclaration::Interface(self),
-                )]
-            }
-            InterfaceDeclaration::Type(ref ident) => vec![VisibleDeclaration::new(
-                ident,
-                AnyDeclaration::Interface(self),
-            )],
-            InterfaceDeclaration::Subprogram(decl, ..) => vec![
-                VisibleDeclaration::new(decl.designator(), AnyDeclaration::Interface(self))
-                    .with_overload(true),
-            ],
-            InterfaceDeclaration::Package(ref package) => vec![VisibleDeclaration::new(
-                &package.ident,
-                AnyDeclaration::Interface(self),
-            )],
-        }
     }
 }

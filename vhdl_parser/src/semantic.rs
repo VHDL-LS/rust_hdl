@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use ast::{has_ident::HasIdent, *};
-use declarative_region::{AnyDeclaration, DeclarativeRegion, VisibleDeclaration};
+use declarative_region::{AnyDeclaration, DeclarativeRegion, PrimaryUnitData, VisibleDeclaration};
 use latin_1::Latin1String;
 use library::{DesignRoot, Library, PackageDesignUnit};
 use message::{Message, MessageHandler};
@@ -17,26 +17,6 @@ use symbol_table::{Symbol, SymbolTable};
 
 extern crate fnv;
 use self::fnv::FnvHashMap;
-
-/// Check that no homographs are defined in the element declarations
-fn check_element_declaration_unique_ident(
-    declarations: &[ElementDeclaration],
-    messages: &mut MessageHandler,
-) {
-    let mut region = DeclarativeRegion::new(None);
-    region.add_element_declarations(declarations, messages);
-    region.close_both(messages);
-}
-
-/// Check that no homographs are defined in the interface list
-fn check_interface_list_unique_ident(
-    declarations: &[InterfaceDeclaration],
-    messages: &mut MessageHandler,
-) {
-    let mut region = DeclarativeRegion::new(None);
-    region.add_interface_list(declarations, messages);
-    region.close_both(messages);
-}
 
 impl SubprogramDeclaration {
     fn interface_list(&self) -> &[InterfaceDeclaration] {
@@ -58,19 +38,6 @@ enum LookupResult<'n, 'a> {
     Unfinished,
 }
 
-/// The analysis result of the primary unit
-#[derive(Clone)]
-struct PrimaryUnitData<'a> {
-    messages: Vec<Message>,
-    region: DeclarativeRegion<'a, 'a>,
-}
-
-impl<'a> PrimaryUnitData<'a> {
-    fn new(messages: Vec<Message>, region: DeclarativeRegion<'a, 'a>) -> PrimaryUnitData {
-        PrimaryUnitData { messages, region }
-    }
-}
-
 #[derive(Clone, Debug)]
 struct Dependency {
     library_name: Symbol,
@@ -81,6 +48,20 @@ struct Dependency {
 #[derive(Clone, Debug)]
 struct CircularDependencyError {
     path: Vec<Dependency>,
+}
+
+impl CircularDependencyError {
+    fn push_into(self, messages: &mut MessageHandler) {
+        for dependency in self.path {
+            messages.push(Message::error(
+                dependency.location,
+                format!(
+                    "Found circular dependency when referencing '{}.{}'",
+                    dependency.library_name, dependency.primary_unit_name
+                ),
+            ));
+        }
+    }
 }
 
 type AnalysisResult<'a> = Result<Arc<PrimaryUnitData<'a>>, CircularDependencyError>;
@@ -272,7 +253,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
             for instance in library.package_instances() {
                 let decl = VisibleDeclaration {
                     designator: Designator::Identifier(instance.ident().item.clone()),
-                    decl: AnyDeclaration::PackageInstance(instance),
+                    decl: AnyDeclaration::PackageInstance(library, instance),
                     decl_pos: Some(instance.ident().pos.clone()),
                     may_overload: false,
                 };
@@ -322,7 +303,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                 match visible_decl.decl {
                     AnyDeclaration::Library(ref library) => {
                         if let Some(visible_decl) =
-                            self.library_regions[&library.name].lookup(&suffix.item)
+                            self.library_regions[&library.name].lookup(&suffix.item, false)
                         {
                             Ok(LookupResult::Single(visible_decl.clone()))
                         } else {
@@ -346,7 +327,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                         } else if let Ok(data) =
                             self.get_package_result(Some(prefix.pos.clone()), library, package)
                         {
-                            if let Some(visible_decl) = data.region.lookup(&suffix.item) {
+                            if let Some(visible_decl) = data.region.lookup(&suffix.item, false) {
                                 Ok(LookupResult::Single(visible_decl.clone()))
                             } else {
                                 Err(Message::error(
@@ -365,6 +346,44 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                         }
                     }
 
+                    AnyDeclaration::PackageInstance(ref library, ref instance) => {
+                        if let Ok(data) = self.analyze_package_instance_unit(
+                            Some(prefix.pos.clone()),
+                            library,
+                            instance,
+                        ) {
+                            if let Some(visible_decl) = data.region.lookup(&suffix.item, false) {
+                                Ok(LookupResult::Single(visible_decl.clone()))
+                            } else {
+                                Err(Message::error(
+                                    suffix.as_ref(),
+                                    format!(
+                                        "No declaration of '{}' within package instance '{}.{}'",
+                                        suffix.item,
+                                        &library.name,
+                                        instance.unit.name()
+                                    ),
+                                ))
+                            }
+                        } else {
+                            // Circular dependency, message will never be used
+                            Err(Message::error(&prefix.pos, ""))
+                        }
+                    }
+
+                    AnyDeclaration::LocalPackageInstance(ref instance_name, ref data) => {
+                        if let Some(visible_decl) = data.region.lookup(&suffix.item, false) {
+                            Ok(LookupResult::Single(visible_decl.clone()))
+                        } else {
+                            Err(Message::error(
+                                suffix.as_ref(),
+                                format!(
+                                    "No declaration of '{}' within package instance '{}'",
+                                    suffix.item, &instance_name.item
+                                ),
+                            ))
+                        }
+                    }
                     // @TODO ignore other declarations for now
                     _ => Ok(LookupResult::Unfinished),
                 }
@@ -381,7 +400,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                 others => Ok(others),
             },
             Name::Designator(ref designator) => {
-                if let Some(visible_item) = region.lookup(&designator) {
+                if let Some(visible_item) = region.lookup(&designator, true) {
                     Ok(LookupResult::Single(visible_item.clone()))
                 } else {
                     Err(Message::error(
@@ -398,6 +417,81 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         }
     }
 
+    fn analyze_interface_declaration(
+        &self,
+        region: &mut DeclarativeRegion<'_, 'a>,
+        decl: &'a InterfaceDeclaration,
+        messages: &mut MessageHandler,
+    ) {
+        match decl {
+            InterfaceDeclaration::File(ref file_decl) => {
+                self.analyze_subtype_indicaton(region, &file_decl.subtype_indication, messages);
+                region.add(
+                    VisibleDeclaration::new(&file_decl.ident, AnyDeclaration::Interface(decl)),
+                    messages,
+                );
+            }
+            InterfaceDeclaration::Object(ref object_decl) => {
+                self.analyze_subtype_indicaton(region, &object_decl.subtype_indication, messages);
+                region.add(
+                    VisibleDeclaration::new(&object_decl.ident, AnyDeclaration::Interface(decl)),
+                    messages,
+                );
+            }
+            InterfaceDeclaration::Type(ref ident) => {
+                region.add(
+                    VisibleDeclaration::new(ident, AnyDeclaration::Interface(decl)),
+                    messages,
+                );
+            }
+            InterfaceDeclaration::Subprogram(subpgm, ..) => {
+                region.add(
+                    VisibleDeclaration::new(subpgm.designator(), AnyDeclaration::Interface(decl))
+                        .with_overload(true),
+                    messages,
+                );
+            }
+            InterfaceDeclaration::Package(ref instance) => {
+                match self.analyze_package_instance_name(region, &instance.package_name) {
+                    Ok(package_region) => region.add(
+                        VisibleDeclaration::new(
+                            &instance.ident,
+                            AnyDeclaration::LocalPackageInstance(&instance.ident, package_region),
+                        ),
+                        messages,
+                    ),
+                    Err(msg) => {
+                        messages.push(msg);
+                    }
+                }
+            }
+        }
+    }
+
+    fn analyze_interface_list(
+        &self,
+        region: &mut DeclarativeRegion<'_, 'a>,
+        declarations: &'a [InterfaceDeclaration],
+        messages: &mut MessageHandler,
+    ) {
+        for decl in declarations.iter() {
+            self.analyze_interface_declaration(region, decl, messages);
+        }
+    }
+
+    fn analyze_subtype_indicaton(
+        &self,
+        region: &mut DeclarativeRegion<'_, 'a>,
+        subtype_indication: &'a SubtypeIndication,
+        messages: &mut MessageHandler,
+    ) {
+        if let Err(msg) =
+            self.lookup_selected_name(region, &subtype_indication.type_mark.clone().into())
+        {
+            messages.push(msg);
+        }
+    }
+
     fn analyze_declaration(
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
@@ -405,30 +499,49 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         messages: &mut MessageHandler,
     ) {
         match decl {
-            Declaration::Alias(alias) => region.add(
-                VisibleDeclaration::new(
-                    alias.designator.clone(),
-                    AnyDeclaration::Declaration(decl),
-                ).with_overload(alias.signature.is_some()),
-                messages,
-            ),
+            Declaration::Alias(alias) => {
+                if let Some(ref subtype_indication) = alias.subtype_indication {
+                    self.analyze_subtype_indicaton(region, subtype_indication, messages);
+                }
+                region.add(
+                    VisibleDeclaration::new(
+                        alias.designator.clone(),
+                        AnyDeclaration::Declaration(decl),
+                    ).with_overload(alias.signature.is_some()),
+                    messages,
+                );
+            }
             Declaration::Object(ref object_decl) => {
+                self.analyze_subtype_indicaton(region, &object_decl.subtype_indication, messages);
                 region.add(
                     VisibleDeclaration::new(&object_decl.ident, AnyDeclaration::Declaration(decl)),
                     messages,
                 );
             }
-            Declaration::File(FileDeclaration { ref ident, .. }) => region.add(
-                VisibleDeclaration::new(ident, AnyDeclaration::Declaration(decl)),
-                messages,
-            ),
+            Declaration::File(ref file_decl) => {
+                self.analyze_subtype_indicaton(region, &file_decl.subtype_indication, messages);
+                region.add(
+                    VisibleDeclaration::new(&file_decl.ident, AnyDeclaration::Declaration(decl)),
+                    messages,
+                );
+            }
             Declaration::Component(ref component) => {
                 region.add(
                     VisibleDeclaration::new(&component.ident, AnyDeclaration::Declaration(decl)),
                     messages,
                 );
-                check_interface_list_unique_ident(&component.generic_list, messages);
-                check_interface_list_unique_ident(&component.port_list, messages);
+
+                {
+                    let mut region = DeclarativeRegion::new(Some(region));
+                    self.analyze_interface_list(&mut region, &component.generic_list, messages);
+                    region.close_both(messages);
+                }
+
+                {
+                    let mut region = DeclarativeRegion::new(Some(region));
+                    self.analyze_interface_list(&mut region, &component.port_list, messages);
+                    region.close_both(messages);
+                }
             }
             Declaration::Attribute(ref attr) => match attr {
                 Attribute::Declaration(AttributeDeclaration { ref ident, .. }) => {
@@ -448,7 +561,15 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     ).with_overload(true),
                     messages,
                 );
-                check_interface_list_unique_ident(body.specification.interface_list(), messages);
+                {
+                    let mut region = DeclarativeRegion::new(Some(region));
+                    self.analyze_interface_list(
+                        &mut region,
+                        body.specification.interface_list(),
+                        messages,
+                    );
+                    region.close_both(messages);
+                }
                 let mut region = DeclarativeRegion::new(Some(region));
                 self.analyze_declarative_part(&mut region, &body.declarations, messages);
             }
@@ -460,19 +581,30 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     ).with_overload(true),
                     messages,
                 );
-                check_interface_list_unique_ident(subdecl.interface_list(), messages);
+                {
+                    let mut region = DeclarativeRegion::new(Some(region));
+                    self.analyze_interface_list(&mut region, subdecl.interface_list(), messages);
+                    region.close_both(messages);
+                }
             }
 
             // @TODO Ignored for now
             Declaration::Use(ref use_clause) => {
                 self.analyze_use_clause(region, &use_clause.item, &use_clause.pos, messages);
             }
-            Declaration::Package(ref package) => {
-                self.analyze_package_instance(region, package, messages);
-                region.add(
-                    VisibleDeclaration::new(&package.ident, AnyDeclaration::Declaration(decl)),
-                    messages,
-                )
+            Declaration::Package(ref instance) => {
+                match self.analyze_package_instance(region, instance) {
+                    Ok(package_region) => region.add(
+                        VisibleDeclaration::new(
+                            &instance.ident,
+                            AnyDeclaration::LocalPackageInstance(&instance.ident, package_region),
+                        ),
+                        messages,
+                    ),
+                    Err(msg) => {
+                        messages.push(msg);
+                    }
+                }
             }
             Declaration::Configuration(..) => {}
             Declaration::Type(TypeDeclaration {
@@ -494,6 +626,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                 }
             }
             Declaration::Type(ref type_decl) => {
+                // Protected types are visible inside their declaration
                 region.add(
                     VisibleDeclaration::new(&type_decl.ident, AnyDeclaration::Declaration(decl)),
                     messages,
@@ -508,16 +641,39 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                         for item in prot_decl.items.iter() {
                             match item {
                                 ProtectedTypeDeclarativeItem::Subprogram(subprogram) => {
-                                    check_interface_list_unique_ident(
+                                    let mut region = DeclarativeRegion::new(Some(region));
+                                    self.analyze_interface_list(
+                                        &mut region,
                                         subprogram.interface_list(),
                                         messages,
                                     );
+                                    region.close_both(messages);
                                 }
                             }
                         }
                     }
-                    TypeDefinition::Record(ref decls) => {
-                        check_element_declaration_unique_ident(decls, messages);
+                    TypeDefinition::Record(ref element_decls) => {
+                        let mut record_region = DeclarativeRegion::new(None);
+                        for elem_decl in element_decls.iter() {
+                            self.analyze_subtype_indicaton(region, &elem_decl.subtype, messages);
+                            record_region.add(
+                                VisibleDeclaration::new(
+                                    &elem_decl.ident,
+                                    AnyDeclaration::Element(elem_decl),
+                                ),
+                                messages,
+                            );
+                        }
+                        record_region.close_both(messages);
+                    }
+                    TypeDefinition::Access(ref subtype_indication) => {
+                        self.analyze_subtype_indicaton(region, subtype_indication, messages);
+                    }
+                    TypeDefinition::Array(.., ref subtype_indication) => {
+                        self.analyze_subtype_indicaton(region, subtype_indication, messages);
+                    }
+                    TypeDefinition::Subtype(ref subtype_indication) => {
+                        self.analyze_subtype_indicaton(region, subtype_indication, messages);
                     }
                     _ => {}
                 }
@@ -558,10 +714,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
             match self.lookup_selected_name(&region, &name) {
                 Ok(LookupResult::Single(visible_decl)) => {
-                    // @TODO handle others
-                    if let AnyDeclaration::Package(..) = visible_decl.decl {
-                        region.make_potentially_visible(visible_decl);
-                    }
+                    region.make_potentially_visible(visible_decl);
                 }
                 Ok(LookupResult::AllWithin(prefix, visible_decl)) => {
                     match visible_decl.decl {
@@ -584,6 +737,21 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                                 // Circular dependency, return
                                 return;
                             }
+                        }
+                        AnyDeclaration::PackageInstance(ref library, ref package) => {
+                            if let Ok(data) = self.analyze_package_instance_unit(
+                                Some(prefix.pos.clone()),
+                                library,
+                                package,
+                            ) {
+                                region.make_all_potentially_visible(&data.region);
+                            } else {
+                                // Circular dependency, return
+                                return;
+                            }
+                        }
+                        AnyDeclaration::LocalPackageInstance(_, ref data) => {
+                            region.make_all_potentially_visible(&data.region);
                         }
                         // @TODO handle others
                         _ => {}
@@ -782,10 +950,10 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         messages: &mut MessageHandler,
     ) {
         if let Some(ref list) = entity.generic_clause {
-            region.add_interface_list(list, messages);
+            self.analyze_interface_list(region, list, messages);
         }
         if let Some(ref list) = entity.port_clause {
-            region.add_interface_list(list, messages);
+            self.analyze_interface_list(region, list, messages);
         }
         self.analyze_declarative_part(region, &entity.decl, messages);
         self.analyze_concurrent_part(region, &entity.statements, messages);
@@ -808,7 +976,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
             if let Some(VisibleDeclaration {
                 decl: AnyDeclaration::Package(.., standard_pkg),
                 ..
-            }) = self.library_regions[&library.name].lookup(&self.standard_designator)
+            }) = self.library_regions[&library.name].lookup(&self.standard_designator, false)
             {
                 let standard_pkg_region = &self
                     .analysis_context
@@ -830,7 +998,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
     ) -> DeclarativeRegion<'r, 'a> {
         let mut region = DeclarativeRegion::new(Some(parent)).in_package_declaration();
         if let Some(ref list) = package.generic_clause {
-            region.add_interface_list(list, messages);
+            self.analyze_interface_list(&mut region, list, messages);
         }
         self.analyze_declarative_part(&mut region, &package.decl, messages);
         region
@@ -891,7 +1059,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         if let Some(ref body) = package.body {
             let mut root_region = primary_region
                 .clone_parent()
-                .expect("Expected parent region");
+                .expect("Expected parent region");;
             self.analyze_context_clause(&mut root_region, &body.context_clause, messages);
             let mut region = primary_region.clone().into_extended(&root_region);
             self.analyze_declarative_part(&mut region, &body.unit.decl, messages);
@@ -907,54 +1075,110 @@ impl<'r, 'a: 'r> Analyzer<'a> {
     ) {
         match self.analyze_package_declaration_unit(None, library, package) {
             Ok(data) => {
-                for message in data.messages.iter().cloned() {
-                    messages.push(message);
-                }
+                data.push_to(messages);
                 self.analyze_package_body_unit(&data.region, &package, messages);
             }
             Err(circular_dependency) => {
-                for dependency in circular_dependency.path {
-                    messages.push(Message::error(
-                        dependency.location,
-                        format!(
-                            "Found circular dependency when referencing '{}.{}'",
-                            dependency.library_name, dependency.primary_unit_name
-                        ),
-                    ));
-                }
+                circular_dependency.push_into(messages);
             }
         };
     }
 
+    /// Returns a reference to the the uninstantiated package
     pub fn analyze_package_instance(
         &self,
         parent: &'r DeclarativeRegion<'r, 'a>,
         package_instance: &'a PackageInstantiation,
-        messages: &mut MessageHandler,
-    ) {
-        let package_name = package_instance.package_name.clone().into();
+    ) -> Result<Arc<PrimaryUnitData<'a>>, Message> {
+        self.analyze_package_instance_name(parent, &package_instance.package_name)
+    }
 
-        match self.lookup_selected_name(parent, &package_name) {
-            Ok(LookupResult::Single(visible_decl)) => {
-                if !visible_decl.decl.is_uninstantiated_package() {
-                    messages.push(Message::error(
-                        &package_name.pos,
-                        format!(
-                            "'{}' is not an uninstantiated generic package",
-                            &visible_decl.designator
-                        ),
-                    ));
+    /// Returns a reference to the the uninstantiated package
+    #[cfg_attr(feature = "cargo-clippy", allow(ptr_arg))]
+    pub fn analyze_package_instance_name(
+        &self,
+        parent: &'r DeclarativeRegion<'r, 'a>,
+        package_name: &SelectedName,
+    ) -> Result<Arc<PrimaryUnitData<'a>>, Message> {
+        let entry_point = package_name[package_name.len() - 1].pos.clone();
+        let package_name = package_name.clone().into();
+
+        match self.lookup_selected_name(parent, &package_name)? {
+            LookupResult::Single(visible_decl) => {
+                if let AnyDeclaration::Package(ref library, ref package) = visible_decl.decl {
+                    if package.is_generic() {
+                        if let Ok(data) =
+                            self.get_package_result(Some(entry_point.clone()), library, package)
+                        {
+                            return Ok(data.clone());
+                        } else {
+                            return Err(Message::error(
+                                &entry_point,
+                                format!(
+                                    "'Could not instantiate package '{}.{}' with circular dependency'",
+                                    &library.name, package.package.name()
+                                ),
+                            ));
+                        }
+                    }
                 }
+                Err(Message::error(
+                    &package_name.pos,
+                    format!(
+                        "'{}' is not an uninstantiated generic package",
+                        &visible_decl.designator
+                    ),
+                ))
             }
-            Ok(..) => {
+            _ => {
                 // Cannot really happen as package_name is a SelectedName so cannot test it
                 // Leave here in case of future refactoring changes the type
-                messages.push(Message::error(
+                Err(Message::error(
                     &package_name.pos,
                     "Invalid selected name for generic package",
-                ));
+                ))
             }
-            Err(msg) => messages.push(msg),
+        }
+    }
+
+    fn analyze_package_instance_unit(
+        &self,
+        entry_point: Option<SrcPos>,
+        library: &'a Library,
+        package_instance: &'a DesignUnit<PackageInstantiation>,
+    ) -> AnalysisResult<'a> {
+        let mut messages = Vec::new();
+
+        match self.analysis_context.start_analysis(
+            entry_point,
+            &library.name,
+            package_instance.unit.name(),
+        ) {
+            StartAnalysisResult::NotYetAnalyzed(pending) => {
+                let mut region = DeclarativeRegion::new(None);
+                self.add_implicit_context_clause(&mut region, library);
+                self.analyze_context_clause(
+                    &mut region,
+                    &package_instance.context_clause,
+                    &mut messages,
+                );
+
+                match self.analyze_package_instance(&region, &package_instance.unit) {
+                    Ok(data) => {
+                        // @TODO avoid clone?
+                        pending.end_analysis(PrimaryUnitData::new(messages, data.region.clone()))
+                    }
+                    Err(msg) => {
+                        messages.push(msg);
+                        // Failed to analyze, add empty region
+                        pending.end_analysis(PrimaryUnitData::new(
+                            messages,
+                            DeclarativeRegion::new(None),
+                        ))
+                    }
+                }
+            }
+            StartAnalysisResult::AlreadyAnalyzed(result) => result,
         }
     }
 
@@ -964,10 +1188,14 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         }
 
         for package_instance in library.package_instances() {
-            let mut region = DeclarativeRegion::new(None);
-            self.add_implicit_context_clause(&mut region, library);
-            self.analyze_context_clause(&mut region, &package_instance.context_clause, messages);
-            self.analyze_package_instance(&region, &package_instance.unit, messages);
+            match self.analyze_package_instance_unit(None, library, package_instance) {
+                Ok(data) => {
+                    data.push_to(messages);
+                }
+                Err(circular_dependency) => {
+                    circular_dependency.push_into(messages);
+                }
+            }
         }
 
         for context in library.contexts() {
@@ -1909,7 +2137,7 @@ end package;
             "
 package pkg is
   constant a1 : natural := 0;
-  file a1 : text;
+  file a1 : std.textio.text;
 end package;
 ",
         );
@@ -2041,7 +2269,7 @@ end package pkg;
             "libname",
             "
 package pkg is
-  procedure proc(file a1, a, a1 : text);
+  procedure proc(file a1, a, a1 : std.textio.text);
 end package;
 ",
         );
@@ -2075,10 +2303,14 @@ end entity;
         let code = builder.code(
             "libname",
             "
+package gpkg is
+  generic (const : natural);
+end package;
+
 entity ent is
   generic (
-    package a1 is new pkg generic map (<>);
-    package a1 is new pkg generic map (<>)
+    package a1 is new work.gpkg generic map (const => 0);
+    package a1 is new work.gpkg generic map (const => 0)
   );
 end entity;
 ",
@@ -2801,24 +3033,63 @@ end package;
     }
 
     #[test]
+    fn check_use_clause_for_missing_name_in_package_instance() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package gpkg is
+  generic (constant gconst : natural);
+  constant const : natural := 0;
+end package;
+
+package ipkg is new work.gpkg generic map (gconst => 0);
+
+use work.ipkg.const;
+use work.ipkg.const2;
+
+-- @TODO should probably not be visible #19
+-- use work.ipkg.gconst;
+
+package pkg is
+end package;
+            ",
+        );
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![
+                // @TODO add use instance path in error message
+                Message::error(
+                    code.s1("const2"),
+                    "No declaration of 'const2' within package instance 'libname.ipkg'",
+                ),
+            ],
+        );
+    }
+
+    #[test]
     fn use_clause_cannot_reference_potentially_visible_name() {
         let mut builder = LibraryBuilder::new();
         let code = builder.code(
             "libname",
             "
 package pkg2 is
-  type enum_t is (alpha, beta);
-  constant const1 : enum_t := alpha;
+  constant const1 : natural := 0;
+  constant const2 : natural := 0;
 end package;
 
 
+use work.pkg2.const1;
+
 package pkg is
-  use work.pkg2.const1;
-  constant const2 : work.pkg2.enum_t := alpha;
+  use work.pkg2.const2;
+  constant const3 : natural := 0;
 end package;
 
 use work.pkg.const1;
 use work.pkg.const2;
+use work.pkg.const3;
 
 entity ent is
 end entity;
@@ -2827,10 +3098,16 @@ end entity;
         let messages = builder.analyze();
         check_messages(
             messages,
-            vec![Message::error(
-                code.s("const1", 3),
-                "No declaration of 'const1' within package 'libname.pkg'",
-            )],
+            vec![
+                Message::error(
+                    code.s("const1", 3),
+                    "No declaration of 'const1' within package 'libname.pkg'",
+                ),
+                Message::error(
+                    code.s("const2", 3),
+                    "No declaration of 'const2' within package 'libname.pkg'",
+                ),
+            ],
         );
     }
 
@@ -3101,6 +3378,236 @@ end package;",
         );
         let messages = builder.analyze();
         check_no_messages(&messages);
+    }
+
+    #[test]
+    fn resolves_type_mark_in_subtype_indications() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg1 is
+  -- Object declaration
+  constant const : natural := 0;
+  constant const2 : missing := 0;
+
+  -- File declaration
+  file fil : std.textio.text;
+  file fil2 : missing;
+
+  -- Alias declaration
+  alias foo : natural is const;
+  alias foo2 : missing is const;
+
+  -- Array type definiton
+  type arr_t is array (natural range <>) of natural;
+  type arr_t2 is array (natural range <>) of missing;
+
+  -- Access type definiton
+  type acc_t is access natural;
+  type acc_t2 is access missing;
+
+  -- Subtype definiton
+  subtype sub_t is natural range 0 to 1;
+  subtype sub_t2 is missing range 0 to 1;
+
+  -- Record definition
+  type rec_t is record
+     f1 : natural;
+     f2 : missing;
+  end record;
+
+  -- Interface file
+  procedure p1 (fil : std.textio.text);
+  procedure p2 (fil : missing);
+
+  -- Interface object
+  function f1 (const : natural) return natural;
+  function f2 (const : missing) return natural;
+end package;",
+        );
+
+        let expected = (0..9)
+            .map(|idx| Message::error(code.s("missing", 1 + idx), "No declaration of 'missing'"))
+            .collect();
+
+        let messages = builder.analyze();
+        check_messages(messages, expected);
+    }
+    #[test]
+    fn protected_type_is_visible_in_declaration() {
+        let mut builder = LibraryBuilder::new();
+        builder.code(
+            "libname",
+            "
+package pkg1 is
+  type prot_t is protected
+     procedure proc(val : inout prot_t);
+  end protected;
+
+  type prot_t is protected body
+     procedure proc(val : inout prot_t) is
+     begin
+     end;
+  end protected body;
+end package;",
+        );
+
+        let messages = builder.analyze();
+        check_no_messages(&messages);
+    }
+
+    #[test]
+    fn use_all_in_package() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg1 is
+  subtype typ is natural range 0 to 1;
+end package;
+
+use work.pkg1.all;
+
+package pkg2 is
+  constant const : typ := 0;
+  constant const2 : missing := 0;
+end package;
+
+",
+        );
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s1("missing"),
+                "No declaration of 'missing'",
+            )],
+        );
+    }
+
+    #[test]
+    fn use_all_in_primary_package_instance() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package gpkg is
+  generic (const : natural);
+  subtype typ is natural range 0 to 1;
+end package;
+
+package ipkg is new work.gpkg generic map (const => 0);
+
+use work.ipkg.all;
+
+package pkg is
+  constant const : typ := 0;
+  constant const2 : missing := 0;
+end package;
+
+",
+        );
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s1("missing"),
+                "No declaration of 'missing'",
+            )],
+        );
+    }
+
+    #[test]
+    fn use_of_interface_package_declaration() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package gpkg1 is
+  generic (const : natural);
+  subtype typ is natural range 0 to 1;
+end package;
+
+package gpkg2 is
+  generic (package ipkg is new work.gpkg1 generic map (const => 1));
+  use ipkg.typ;
+  use ipkg.missing;
+end package;
+",
+        );
+
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s1("missing"),
+                "No declaration of 'missing' within package instance 'ipkg'",
+            )],
+        );
+    }
+    #[test]
+    fn use_in_local_package_instance() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package gpkg is
+  generic (const : natural);
+  subtype typ is natural range 0 to 1;
+end package;
+
+
+package pkg is
+  package ipkg is new work.gpkg generic map (const => 0);
+  use ipkg.typ;
+
+  constant const : typ := 0;
+  constant const2 : missing := 0;
+end package;
+
+",
+        );
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s1("missing"),
+                "No declaration of 'missing'",
+            )],
+        );
+    }
+
+    #[test]
+    fn use_all_in_local_package_instance() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package gpkg is
+  generic (const : natural);
+  subtype typ is natural range 0 to 1;
+end package;
+
+
+package pkg is
+  package ipkg is new work.gpkg generic map (const => 0);
+  use ipkg.all;
+
+  constant const : typ := 0;
+  constant const2 : missing := 0;
+end package;
+
+",
+        );
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s1("missing"),
+                "No declaration of 'missing'",
+            )],
+        );
     }
 
 }

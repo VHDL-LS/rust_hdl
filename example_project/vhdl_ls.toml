@@ -496,7 +496,8 @@ PoC.files = [
 'PoC/src/net/net_FrameLoopback.vhdl',
 'PoC/src/bus/stream/stream_Source.vhdl',
 'PoC/src/bus/stream/stream_DeMux.vhdl',
-'PoC/src/bus/stream/stream_FrameGenerator.vhdl',
+# Is this file broken, contains undefined types?
+#'PoC/src/bus/stream/stream_FrameGenerator.vhdl',
 'PoC/src/bus/stream/stream_Mirror.vhdl',
 'PoC/src/bus/stream/stream_Mux.vhdl',
 'PoC/src/bus/stream/stream.pkg.vhdl',
