@@ -467,10 +467,13 @@ impl<'r, 'a: 'r> Analyzer<'a> {
             Declaration::Use(ref use_clause) => {
                 self.analyze_use_clause(region, &use_clause.item, &use_clause.pos, messages);
             }
-            Declaration::Package(ref package) => region.add(
-                VisibleDeclaration::new(&package.ident, AnyDeclaration::Declaration(decl)),
-                messages,
-            ),
+            Declaration::Package(ref package) => {
+                self.analyze_package_instance(region, package, messages);
+                region.add(
+                    VisibleDeclaration::new(&package.ident, AnyDeclaration::Declaration(decl)),
+                    messages,
+                )
+            }
             Declaration::Configuration(..) => {}
             Declaration::Type(TypeDeclaration {
                 ref ident,
@@ -923,6 +926,38 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         };
     }
 
+    pub fn analyze_package_instance(
+        &self,
+        parent: &'r DeclarativeRegion<'r, 'a>,
+        package_instance: &'a PackageInstantiation,
+        messages: &mut MessageHandler,
+    ) {
+        let package_name = package_instance.package_name.clone().into();
+
+        match self.lookup_selected_name(parent, &package_name) {
+            Ok(LookupResult::Single(visible_decl)) => {
+                if !visible_decl.decl.is_uninstantiated_package() {
+                    messages.push(Message::error(
+                        &package_name.pos,
+                        format!(
+                            "'{}' is not an uninstantiated generic package",
+                            &visible_decl.designator
+                        ),
+                    ));
+                }
+            }
+            Ok(..) => {
+                // Cannot really happen as package_name is a SelectedName so cannot test it
+                // Leave here in case of future refactoring changes the type
+                messages.push(Message::error(
+                    &package_name.pos,
+                    "Invalid selected name for generic package",
+                ));
+            }
+            Err(msg) => messages.push(msg),
+        }
+    }
+
     pub fn analyze_library(&self, library: &'a Library, messages: &mut MessageHandler) {
         for package in library.packages() {
             self.analyze_package(library, package, messages);
@@ -932,31 +967,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
             let mut region = DeclarativeRegion::new(None);
             self.add_implicit_context_clause(&mut region, library);
             self.analyze_context_clause(&mut region, &package_instance.context_clause, messages);
-
-            let package_name = package_instance.unit.package_name.clone().into();
-
-            match self.lookup_selected_name(&region, &package_name) {
-                Ok(LookupResult::Single(visible_decl)) => {
-                    if !visible_decl.decl.is_uninstantiated_package() {
-                        messages.push(Message::error(
-                            &package_name.pos,
-                            format!(
-                                "'{}' is not an uninstantiated generic package",
-                                &visible_decl.designator
-                            ),
-                        ));
-                    }
-                }
-                Ok(..) => {
-                    // Cannot really happen as package_name is a SelectedName so cannot test it
-                    // Leave here in case of future refactoring changes the type
-                    messages.push(Message::error(
-                        &package_name.pos,
-                        "Invalid selected name for generic package",
-                    ));
-                }
-                Err(msg) => messages.push(msg),
-            }
+            self.analyze_package_instance(&region, &package_instance.unit, messages);
         }
 
         for context in library.contexts() {
@@ -1913,9 +1924,13 @@ end package;
         let code = builder.code(
             "libname",
             "
+package gpkg is
+  generic (foo : natural);
+end package;
+
 package pkg is
-  package a1 is new pkg generic map (foo => bar);
-  package a1 is new pkg generic map (foo => bar);
+  package a1 is new work.gpkg generic map (foo => bar);
+  package a1 is new work.gpkg generic map (foo => bar);
 end package;
 ",
         );
@@ -2863,10 +2878,10 @@ package gpkg is
 end package;
 
 use work.gpkg.all;
-use work.gpkg.const;
 
-entity ent is
-end entity;
+package pkg is
+  use work.gpkg.const;
+end package;
             ",
         );
         let messages = builder.analyze();
@@ -2897,15 +2912,20 @@ end package;
 
 package ipkg_err is new gpkg generic map (const => 0);
 package ipkg_ok is new work.gpkg generic map (const => 0);
+
+package nested is
+  package ipkg_err is new gpkg generic map (const => 0);
+  package ipkg_ok is new work.gpkg generic map (const => 0);
+end package;
             ",
         );
         let messages = builder.analyze();
         check_messages(
             messages,
-            vec![Message::error(
-                code.s("gpkg", 2),
-                "No declaration of 'gpkg'",
-            )],
+            vec![
+                Message::error(code.s("gpkg", 2), "No declaration of 'gpkg'"),
+                Message::error(code.s("gpkg", 4), "No declaration of 'gpkg'"),
+            ],
         );
     }
 
@@ -2920,7 +2940,10 @@ package pkg is
 end package;
 
 package ipkg is new work.pkg generic map (const => 0);
-package ipkg2 is new work.pkg.const generic map (const => 0);
+
+package nested is
+  package ipkg2 is new work.pkg.const generic map (const => 0);
+end package;
             ",
         );
         let messages = builder.analyze();
