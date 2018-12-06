@@ -346,9 +346,10 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                                 Err(Message::error(
                                     suffix.as_ref(),
                                     format!(
-                                        "No declaration of '{}' within package '{}'",
+                                        "No declaration of '{}' within package '{}.{}'",
                                         suffix.item,
-                                        &package.package.name()
+                                        &library.name,
+                                        package.package.name()
                                     ),
                                 ))
                             }
@@ -2704,12 +2705,12 @@ end package;
             messages,
             vec![Message::error(
                 code.s1("const2"),
-                "No declaration of 'const2' within package 'pkg'",
+                "No declaration of 'const2' within package 'libname.pkg'",
             )],
         );
     }
     #[test]
-    fn check_use_clause_for_missing_name() {
+    fn check_use_clause_for_missing_name_in_package() {
         let mut builder = LibraryBuilder::new();
         let code = builder.code(
             "libname",
@@ -2731,7 +2732,7 @@ end package;
             messages,
             vec![Message::error(
                 code.s1("const2"),
-                "No declaration of 'const2' within package 'pkg'",
+                "No declaration of 'const2' within package 'libname.pkg'",
             )],
         );
     }
@@ -2765,7 +2766,7 @@ end entity;
             messages,
             vec![Message::error(
                 code.s("const1", 3),
-                "No declaration of 'const1' within package 'pkg'",
+                "No declaration of 'const1' within package 'libname.pkg'",
             )],
         );
     }
