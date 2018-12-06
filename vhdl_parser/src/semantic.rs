@@ -929,13 +929,16 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         }
 
         for package_instance in library.package_instances() {
-            let mut root_region = DeclarativeRegion::new(None);
-            self.add_implicit_context_clause(&mut root_region, library);
-            self.analyze_context_clause(
-                &mut root_region,
-                &package_instance.context_clause,
-                messages,
-            );
+            let mut region = DeclarativeRegion::new(None);
+            self.add_implicit_context_clause(&mut region, library);
+            self.analyze_context_clause(&mut region, &package_instance.context_clause, messages);
+
+            match self
+                .lookup_selected_name(&region, &package_instance.unit.package_name.clone().into())
+            {
+                Ok(..) => {}
+                Err(msg) => messages.push(msg),
+            }
         }
 
         for context in library.contexts() {
@@ -2861,6 +2864,30 @@ end entity;
                     "Uninstantiated generic package 'libname.gpkg' may not be the prefix of a selected name",
                 ),
             ],
+        );
+    }
+
+    #[test]
+    fn package_name_must_be_visible_in_package_instance() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package gpkg is
+  generic (const : natural);
+end package;
+
+package ipkg_err is new gpkg generic map (const => 0);
+package ipkg_ok is new work.gpkg generic map (const => 0);
+            ",
+        );
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s("gpkg", 2),
+                "No declaration of 'gpkg'",
+            )],
         );
     }
 
