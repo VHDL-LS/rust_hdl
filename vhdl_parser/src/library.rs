@@ -148,6 +148,12 @@ pub struct PackageDesignUnit {
     pub body: Option<DesignUnit<PackageBody>>,
 }
 
+impl PackageDesignUnit {
+    pub fn is_generic(&self) -> bool {
+        self.package.unit.generic_clause.is_some()
+    }
+}
+
 #[derive(PartialEq, Debug, Clone)]
 pub struct Library {
     pub name: Symbol,

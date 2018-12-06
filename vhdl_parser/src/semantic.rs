@@ -337,7 +337,13 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     }
 
                     AnyDeclaration::Package(ref library, ref package) => {
-                        if let Ok(data) =
+                        if package.is_generic() {
+                            Err(uninstantiated_package_prefix_error(
+                                &prefix.pos,
+                                library,
+                                package,
+                            ))
+                        } else if let Ok(data) =
                             self.get_package_result(Some(prefix.pos.clone()), library, package)
                         {
                             if let Some(visible_decl) = data.region.lookup(&suffix.item) {
@@ -561,7 +567,13 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                                 .make_all_potentially_visible(&self.library_regions[&library.name]);
                         }
                         AnyDeclaration::Package(ref library, ref package) => {
-                            if let Ok(data) =
+                            if package.is_generic() {
+                                messages.push(uninstantiated_package_prefix_error(
+                                    &prefix.pos,
+                                    library,
+                                    package,
+                                ));
+                            } else if let Ok(data) =
                                 self.get_package_result(Some(prefix.pos.clone()), library, package)
                             {
                                 region.make_all_potentially_visible(&data.region);
@@ -976,6 +988,21 @@ impl<'r, 'a: 'r> Analyzer<'a> {
             self.analyze_library(library, messages);
         }
     }
+}
+
+fn uninstantiated_package_prefix_error(
+    prefix: &SrcPos,
+    library: &Library,
+    package: &PackageDesignUnit,
+) -> Message {
+    Message::error(
+        prefix,
+        format!(
+            "Uninstantiated generic package '{}.{}' may not be the prefix of a selected name",
+            &library.name,
+            package.package.name()
+        ),
+    )
 }
 
 #[cfg(test)]
@@ -2799,6 +2826,39 @@ end entity;
                 Message::error(
                     code.s("work.all", 2),
                     "'.all' may not be the prefix of a selected name",
+                ),
+            ],
+        );
+    }
+
+    #[test]
+    fn an_uninstantiated_package_may_not_be_prefix_of_selected_name() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package gpkg is
+  generic (const : natural);
+end package;
+
+use work.gpkg.all;
+use work.gpkg.const;
+
+entity ent is
+end entity;
+            ",
+        );
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![
+                Message::error(
+                    code.s("work.gpkg", 1),
+                    "Uninstantiated generic package 'libname.gpkg' may not be the prefix of a selected name",
+                ),
+                Message::error(
+                    code.s("work.gpkg", 2),
+                    "Uninstantiated generic package 'libname.gpkg' may not be the prefix of a selected name",
                 ),
             ],
         );
