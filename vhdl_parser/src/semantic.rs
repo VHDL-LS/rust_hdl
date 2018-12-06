@@ -933,10 +933,28 @@ impl<'r, 'a: 'r> Analyzer<'a> {
             self.add_implicit_context_clause(&mut region, library);
             self.analyze_context_clause(&mut region, &package_instance.context_clause, messages);
 
-            match self
-                .lookup_selected_name(&region, &package_instance.unit.package_name.clone().into())
-            {
-                Ok(..) => {}
+            let package_name = package_instance.unit.package_name.clone().into();
+
+            match self.lookup_selected_name(&region, &package_name) {
+                Ok(LookupResult::Single(visible_decl)) => {
+                    if !visible_decl.decl.is_uninstantiated_package() {
+                        messages.push(Message::error(
+                            &package_name.pos,
+                            format!(
+                                "'{}' is not an uninstantiated generic package",
+                                &visible_decl.designator
+                            ),
+                        ));
+                    }
+                }
+                Ok(..) => {
+                    // Cannot really happen as package_name is a SelectedName so cannot test it
+                    // Leave here in case of future refactoring changes the type
+                    messages.push(Message::error(
+                        &package_name.pos,
+                        "Invalid selected name for generic package",
+                    ));
+                }
                 Err(msg) => messages.push(msg),
             }
         }
@@ -2888,6 +2906,36 @@ package ipkg_ok is new work.gpkg generic map (const => 0);
                 code.s("gpkg", 2),
                 "No declaration of 'gpkg'",
             )],
+        );
+    }
+
+    #[test]
+    fn package_name_must_be_an_uninstantiated_package_in_package_instance() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg is
+  constant const : natural := 0;
+end package;
+
+package ipkg is new work.pkg generic map (const => 0);
+package ipkg2 is new work.pkg.const generic map (const => 0);
+            ",
+        );
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![
+                Message::error(
+                    code.s1("work.pkg"),
+                    "'pkg' is not an uninstantiated generic package",
+                ),
+                Message::error(
+                    code.s1("work.pkg.const"),
+                    "'const' is not an uninstantiated generic package",
+                ),
+            ],
         );
     }
 

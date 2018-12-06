@@ -39,6 +39,14 @@ impl<'a> AnyDeclaration<'a> {
         }
     }
 
+    pub fn is_uninstantiated_package(&self) -> bool {
+        if let AnyDeclaration::Package(.., ref package) = self {
+            package.is_generic()
+        } else {
+            false
+        }
+    }
+
     fn is_non_deferred_constant(&self) -> bool {
         match self {
             AnyDeclaration::Declaration(Declaration::Object(ObjectDeclaration {
