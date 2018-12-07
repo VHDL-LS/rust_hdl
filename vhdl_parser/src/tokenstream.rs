@@ -76,7 +76,7 @@ impl TokenStream {
         Ok(self.peek()?.map(|ref token| token.kind))
     }
 
-    pub fn is_peek_kinds(self: &mut Self, kinds: &[Kind]) -> ParseResult<bool> {
+    pub fn next_kinds_are(self: &mut Self, kinds: &[Kind]) -> ParseResult<bool> {
         let state = self.state();
         for kind in kinds {
             if self.pop_kind()? != Some(*kind) {
@@ -85,7 +85,7 @@ impl TokenStream {
             }
         }
         self.set_state(state);
-        return Ok(true);
+        Ok(true)
     }
 
     pub fn pop_if_kind(self: &mut Self, kind: Kind) -> ParseResult<Option<Token>> {
@@ -95,7 +95,7 @@ impl TokenStream {
                 return Ok(Some(token));
             }
         }
-        return Ok(None);
+        Ok(None)
     }
 
     pub fn skip_if_kind(self: &mut Self, kind: Kind) -> ParseResult<bool> {
@@ -162,19 +162,19 @@ mod tests {
         let (_, _, mut stream) = new("hello 1 +");
 
         assert_eq!(
-            stream.is_peek_kinds(&[Identifier, AbstractLiteral, Plus]),
+            stream.next_kinds_are(&[Identifier, AbstractLiteral, Plus]),
             Ok(true)
         );
         assert_eq!(
-            stream.is_peek_kinds(&[Identifier, AbstractLiteral]),
+            stream.next_kinds_are(&[Identifier, AbstractLiteral]),
             Ok(true)
         );
-        assert_eq!(stream.is_peek_kinds(&[Identifier]), Ok(true));
+        assert_eq!(stream.next_kinds_are(&[Identifier]), Ok(true));
         assert_eq!(
-            stream.is_peek_kinds(&[Identifier, AbstractLiteral, AbstractLiteral]),
+            stream.next_kinds_are(&[Identifier, AbstractLiteral, AbstractLiteral]),
             Ok(false)
         );
-        assert_eq!(stream.is_peek_kinds(&[AbstractLiteral]), Ok(false));
+        assert_eq!(stream.next_kinds_are(&[AbstractLiteral]), Ok(false));
     }
 
     #[test]

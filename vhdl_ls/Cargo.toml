@@ -6,7 +6,7 @@
 
 [package]
 name = "vhdl_ls"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Olof Kraigher <olof.kraigher@gmail.com>"]
 license = "MPL-2.0"
 description = "VHDL Language Server"
@@ -19,6 +19,9 @@ serde_json = "^1"
 serde = "^1"
 languageserver-types = "^0"
 url = "^1"
+fnv = "^1"
+log = "0.4.6"
+env_logger = "0.6.0"
 
 [dev-dependencies]
 tempfile = "^3"

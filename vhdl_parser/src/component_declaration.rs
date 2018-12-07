@@ -91,9 +91,9 @@ pub fn parse_component_declaration(
     stream.expect_kind(SemiColon)?;
 
     Ok(ComponentDeclaration {
-        ident: ident,
-        generic_list: generic_list.unwrap_or(Vec::new()),
-        port_list: port_list.unwrap_or(Vec::new()),
+        ident,
+        generic_list: generic_list.unwrap_or_default(),
+        port_list: port_list.unwrap_or_default(),
     })
 }
 
@@ -110,9 +110,9 @@ mod tests {
         port_list: Vec<InterfaceDeclaration>,
     ) -> ComponentDeclaration {
         ComponentDeclaration {
-            ident: ident,
-            generic_list: generic_list,
-            port_list: port_list,
+            ident,
+            generic_list,
+            port_list,
         }
     }
 

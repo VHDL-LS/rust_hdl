@@ -6,9 +6,9 @@
 
 /// LRM 8. Names
 use ast::{
-    ActualPart, AssociationElement, AttributeName, Direction, DiscreteRange, Expression,
-    ExternalName, ExternalObjectClass, ExternalPath, FunctionCall, Ident, Literal, Name, Range,
-    RangeConstraint, SelectedName, Signature,
+    ActualPart, AssociationElement, AttributeName, Designator, Direction, DiscreteRange,
+    Expression, ExternalName, ExternalObjectClass, ExternalPath, FunctionCall, Ident, Literal,
+    Name, Range, RangeConstraint, SelectedName, Signature,
 };
 use expression::{parse_expression, parse_expression_initial_token};
 use message::{Message, ParseResult};
@@ -34,7 +34,7 @@ pub fn parse_selected_name(stream: &mut TokenStream) -> ParseResult<SelectedName
 pub fn to_selected_name(name: &WithPos<Name>) -> ParseResult<SelectedName> {
     match name.item {
         Name::Selected(ref prefix, ref suffix) => match suffix.item {
-            Name::Simple(ref ident) => {
+            Designator::Identifier(ref ident) => {
                 let mut selected = to_selected_name(&*prefix)?;
                 selected.push(WithPos {
                     item: ident.clone(),
@@ -44,10 +44,11 @@ pub fn to_selected_name(name: &WithPos<Name>) -> ParseResult<SelectedName> {
             }
             _ => Err(Message::error(suffix.as_ref(), "Expected simple name")),
         },
-        Name::Simple(ref ident) => Ok(vec![WithPos {
+        Name::Designator(Designator::Identifier(ref ident)) => Ok(vec![WithPos {
             item: ident.clone(),
             pos: name.pos.clone(),
         }]),
+        Name::Designator(..) => Err(Message::error(&name, "Expected simple name")),
         _ => Err(Message::error(&name, "Expected selected name")),
     }
 }
@@ -59,7 +60,7 @@ pub fn expression_to_ident(name: WithPos<Expression>) -> ParseResult<Ident> {
 
 pub fn to_simple_name(name: WithPos<Name>) -> ParseResult<Ident> {
     match name.item {
-        Name::Simple(ident) => Ok(WithPos {
+        Name::Designator(Designator::Identifier(ident)) => Ok(WithPos {
             item: ident,
             pos: name.pos,
         }),
@@ -89,16 +90,14 @@ fn expression_to_name(expr: WithPos<Expression>) -> ParseResult<WithPos<Name>> {
             pos: expr.pos,
         }),
         Expression::Literal(Literal::String(val)) => Ok(WithPos {
-            item: Name::OperatorSymbol(val),
+            item: Name::Designator(Designator::OperatorSymbol(val)),
             pos: expr.pos,
         }),
         Expression::Literal(Literal::Character(val)) => Ok(WithPos {
-            item: Name::CharacterLiteral(val),
+            item: Name::Designator(Designator::Character(val)),
             pos: expr.pos,
         }),
-        _ => {
-            return Err(Message::error(&expr, "Expected name"));
-        }
+        _ => Err(Message::error(&expr, "Expected name")),
     }
 }
 
@@ -148,8 +147,14 @@ fn parse_association_element(stream: &mut TokenStream) -> ParseResult<Associatio
 }
 
 pub fn parse_association_list(stream: &mut TokenStream) -> ParseResult<Vec<AssociationElement>> {
-    let mut association_elements = Vec::with_capacity(1);
     stream.expect_kind(LeftPar)?;
+    parse_association_list_no_leftpar(stream)
+}
+
+pub fn parse_association_list_no_leftpar(
+    stream: &mut TokenStream,
+) -> ParseResult<Vec<AssociationElement>> {
+    let mut association_elements = Vec::with_capacity(1);
     loop {
         association_elements.push(parse_association_element(stream)?);
         let token = stream.expect()?;
@@ -209,35 +214,28 @@ fn parse_attribute_name(
 
     Ok(WithPos {
         item: Name::Attribute(Box::new(AttributeName {
-            name: name,
-            attr: attr,
-            signature: signature,
+            name,
+            attr,
+            signature,
             expr: expression.map(Box::new),
         })),
-        pos: pos,
+        pos,
     })
 }
 
-fn to_suffix(token: Token) -> ParseResult<WithPos<Name>> {
+enum DesignatorOrAll {
+    Designator(Designator),
+    All,
+}
+
+fn to_suffix(token: Token) -> ParseResult<WithPos<DesignatorOrAll>> {
     let name = {
         try_token_kind!(
             token,
-            Identifier => WithPos {
-                item: Name::Simple(token.expect_identifier()?),
-                pos: token.pos,
-            },
-            Character => WithPos {
-                item: Name::CharacterLiteral(token.expect_character()?),
-                pos: token.pos,
-            },
-            StringLiteral => WithPos {
-                item: Name::OperatorSymbol(token.expect_string()?),
-                pos: token.pos,
-            },
-            All => WithPos {
-                item: Name::All,
-                pos: token.pos,
-            }
+            Identifier => token.expect_ident()?.map_into(|ident| DesignatorOrAll::Designator(Designator::Identifier(ident))),
+            Character => token.expect_character()?.map_into(|byte| DesignatorOrAll::Designator(Designator::Character(byte))),
+            StringLiteral => token.expect_string()?.map_into(|string| DesignatorOrAll::Designator(Designator::OperatorSymbol(string))),
+            All => WithPos::from(DesignatorOrAll::All, token)
         )
     };
 
@@ -302,97 +300,110 @@ pub fn parse_name_initial_token(
             let end_token = stream.expect_kind(GtGt)?;
             WithPos::from(external_name, token.pos.combine_into(&end_token))
         } else {
-            to_suffix(token)?
+            let suffix = to_suffix(token)?;
+            match suffix.item {
+                DesignatorOrAll::Designator(designator) => {
+                    WithPos::from(Name::Designator(designator), suffix.pos)
+                }
+                DesignatorOrAll::All => {
+                    return Err(Message::error(suffix.pos, "Illegal prefix 'all' for name"));
+                }
+            }
         }
     };
 
-    loop {
-        if let Some(token) = stream.peek()? {
-            match token.kind {
-                Dot => {
-                    stream.move_after(&token);
-                    let suffix_token = stream.expect()?;
-                    let pos = name.pos.combine(&suffix_token);
-                    name = WithPos {
-                        item: Name::Selected(Box::new(name), Box::new(to_suffix(suffix_token)?)),
-                        pos,
-                    }
-                }
-                LeftSquare => {
-                    let state = stream.state();
-                    let signature = Some(parse_signature(stream)?);
-                    if !stream.skip_if_kind(Tick)? {
-                        // Alias may have prefix[signature] without tick
-                        stream.set_state(state);
-                        break;
-                    }
-                    name = parse_attribute_name(stream, name, signature)?;
-                }
-                Tick => {
-                    if stream.is_peek_kinds(&[Tick, LeftPar])? {
-                        break;
-                    }
-                    stream.move_after(&token);
-                    let signature = None;
-                    name = parse_attribute_name(stream, name, signature)?;
-                }
-                LeftPar => {
-                    stream.move_after(&token);
+    while let Some(token) = stream.peek()? {
+        match token.kind {
+            Dot => {
+                stream.move_after(&token);
+                let suffix_token = stream.expect()?;
+                let pos = name.pos.combine(&suffix_token);
+                let suffix = to_suffix(suffix_token)?;
 
-                    loop {
-                        let assoc = parse_association_element(stream)?;
-                        let sep_token = stream.expect()?;
-                        try_token_kind!(
-                            sep_token,
-                            Comma => {
-                                name = parse_function_call(stream, name, assoc)?;
-                                break;
-                            },
-                            To | Downto => {
-                                let right_expr = parse_expression(stream)?;
-                                let direction = {
-                                    if sep_token.kind == To {
-                                        Direction::Ascending
-                                    } else {
-                                        Direction::Descending
-                                    }
-                                };
-                                let rpar_token = stream.expect_kind(RightPar)?;
-                                let pos = rpar_token.pos.combine_into(&name);
-                                let discrete_range =
-                                    DiscreteRange::Range(Range::Range(RangeConstraint {
-                                        left_expr: Box::new(assoc_to_expression(assoc)?),
-                                        direction,
-                                        right_expr: Box::new(right_expr),
-                                    }));
-
-                                name = WithPos {
-                                    item: Name::Slice(Box::new(name), discrete_range),
-                                    pos: pos,
-                                };
-                                break;
-                            },
-                            RightPar => {
-                                let pos = sep_token.pos.combine_into(&name);
-                                name = WithPos {
-                                    item: Name::FunctionCall(Box::new(
-                                        FunctionCall {
-                                            name: name,
-                                            parameters: vec![assoc]
-                                        })),
-                                    pos: pos,
-                                };
-                                break;
-                            }
-                        )
+                match suffix.item {
+                    DesignatorOrAll::Designator(designator) => {
+                        name = WithPos {
+                            item: Name::Selected(
+                                Box::new(name),
+                                WithPos::from(designator, suffix.pos),
+                            ),
+                            pos,
+                        }
                     }
-                }
-                _ => {
-                    break;
+                    DesignatorOrAll::All => {
+                        name = WithPos {
+                            item: Name::SelectedAll(Box::new(name)),
+                            pos,
+                        }
+                    }
                 }
             }
-        } else {
-            break;
+            LeftSquare => {
+                let state = stream.state();
+                let signature = Some(parse_signature(stream)?);
+                if !stream.skip_if_kind(Tick)? {
+                    // Alias may have prefix[signature] without tick
+                    stream.set_state(state);
+                    break;
+                }
+                name = parse_attribute_name(stream, name, signature)?;
+            }
+            Tick => {
+                if stream.next_kinds_are(&[Tick, LeftPar])? {
+                    break;
+                }
+                stream.move_after(&token);
+                let signature = None;
+                name = parse_attribute_name(stream, name, signature)?;
+            }
+            LeftPar => {
+                stream.move_after(&token);
+                let assoc = parse_association_element(stream)?;
+                let sep_token = stream.expect()?;
+                try_token_kind!(
+                    sep_token,
+                    Comma => {
+                        name = parse_function_call(stream, name, assoc)?;
+                    },
+                    To | Downto => {
+                        let right_expr = parse_expression(stream)?;
+                        let direction = {
+                            if sep_token.kind == To {
+                                Direction::Ascending
+                            } else {
+                                Direction::Descending
+                            }
+                        };
+                        let rpar_token = stream.expect_kind(RightPar)?;
+                        let pos = rpar_token.pos.combine_into(&name);
+                        let discrete_range =
+                            DiscreteRange::Range(Range::Range(RangeConstraint {
+                                left_expr: Box::new(assoc_to_expression(assoc)?),
+                                direction,
+                                right_expr: Box::new(right_expr),
+                            }));
+
+                        name = WithPos {
+                            item: Name::Slice(Box::new(name), discrete_range),
+                            pos: pos,
+                        };
+                    },
+                    RightPar => {
+                        let pos = sep_token.pos.combine_into(&name);
+                        name = WithPos {
+                            item: Name::FunctionCall(Box::new(
+                                FunctionCall {
+                                    name: name,
+                                    parameters: vec![assoc]
+                                })),
+                            pos: pos,
+                        };
+                    }
+                )
+            }
+            _ => {
+                break;
+            }
         }
     }
 
@@ -451,7 +462,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_name),
             WithPos {
-                item: Name::Simple(code.symbol("foo")),
+                item: Name::Designator(Designator::Identifier(code.symbol("foo"))),
                 pos: code.s1("foo").pos()
             }
         );
@@ -463,7 +474,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_name),
             WithPos {
-                item: Name::CharacterLiteral(b'a'),
+                item: Name::Designator(Designator::Character(b'a')),
                 pos: code.s1("'a'").pos()
             }
         );
@@ -475,7 +486,9 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_name),
             WithPos {
-                item: Name::OperatorSymbol(Latin1String::from_utf8_unchecked("+")),
+                item: Name::Designator(Designator::OperatorSymbol(
+                    Latin1String::from_utf8_unchecked("+")
+                )),
                 pos: code.s1("\"+\"").pos()
             }
         );
@@ -486,27 +499,27 @@ mod tests {
         let code = Code::new("foo.bar.baz");
 
         let foo = WithPos {
-            item: Name::Simple(code.symbol("foo")),
+            item: Name::Designator(Designator::Identifier(code.symbol("foo"))),
             pos: code.s1("foo").pos(),
         };
 
         let bar = WithPos {
-            item: Name::Simple(code.symbol("bar")),
+            item: Designator::Identifier(code.symbol("bar")),
             pos: code.s1("bar").pos(),
         };
 
         let baz = WithPos {
-            item: Name::Simple(code.symbol("baz")),
+            item: Designator::Identifier(code.symbol("baz")),
             pos: code.s1("baz").pos(),
         };
 
         let foo_bar = WithPos {
-            item: Name::Selected(Box::new(foo), Box::new(bar)),
+            item: Name::Selected(Box::new(foo), bar),
             pos: code.s1("foo.bar").pos(),
         };
 
         let foo_bar_baz = WithPos {
-            item: Name::Selected(Box::new(foo_bar), Box::new(baz)),
+            item: Name::Selected(Box::new(foo_bar), baz),
             pos: code.s1("foo.bar.baz").pos(),
         };
 
@@ -518,17 +531,12 @@ mod tests {
         let code = Code::new("foo.all");
 
         let foo = WithPos {
-            item: Name::Simple(code.symbol("foo")),
+            item: Name::Designator(Designator::Identifier(code.symbol("foo"))),
             pos: code.s1("foo").pos(),
         };
 
-        let all = WithPos {
-            item: Name::All,
-            pos: code.s1("all").pos(),
-        };
-
         let foo_all = WithPos {
-            item: Name::Selected(Box::new(foo), Box::new(all)),
+            item: Name::SelectedAll(Box::new(foo)),
             pos: code.s1("foo.all").pos(),
         };
 
@@ -539,7 +547,7 @@ mod tests {
     fn test_slice_name_range_to() {
         let code = Code::new("prefix(0 to 3)");
         let prefix = WithPos {
-            item: Name::Simple(code.symbol("prefix")),
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix"))),
             pos: code.s1("prefix").pos(),
         };
         let slice = WithPos {
@@ -553,7 +561,7 @@ mod tests {
     fn test_slice_name_range_downto() {
         let code = Code::new("prefix(3 downto 0)");
         let prefix = WithPos {
-            item: Name::Simple(code.symbol("prefix")),
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix"))),
             pos: code.s1("prefix").pos(),
         };
         let slice = WithPos {
@@ -567,7 +575,7 @@ mod tests {
     fn test_attribute_name() {
         let code = Code::new("prefix'foo");
         let prefix = WithPos {
-            item: Name::Simple(code.symbol("prefix")),
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix"))),
             pos: code.s1("prefix").pos(),
         };
         let attr = WithPos {
@@ -586,7 +594,7 @@ mod tests {
     fn test_attribute_name_range() {
         let code = Code::new("prefix'range");
         let prefix = WithPos {
-            item: Name::Simple(code.symbol("prefix")),
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix"))),
             pos: code.s1("prefix").pos(),
         };
         let attr = WithPos {
@@ -608,7 +616,7 @@ mod tests {
     fn test_attribute_name_expression() {
         let code = Code::new("prefix'foo(expr+1)");
         let prefix = WithPos {
-            item: Name::Simple(code.symbol("prefix")),
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix"))),
             pos: code.s1("prefix").pos(),
         };
         let attr = WithPos {
@@ -627,7 +635,7 @@ mod tests {
     fn test_attribute_name_signature_expression() {
         let code = Code::new("prefix[return natural]'foo(expr+1)");
         let prefix = WithPos {
-            item: Name::Simple(code.symbol("prefix")),
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix"))),
             pos: code.s1("prefix").pos(),
         };
         let attr = WithPos {
@@ -652,7 +660,7 @@ mod tests {
             result
         });
         let prefix = WithPos {
-            item: Name::Simple(code.symbol("prefix")),
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix"))),
             pos: code.s1("prefix").pos(),
         };
         assert_eq!(name, Ok(prefix));
@@ -668,7 +676,7 @@ mod tests {
             result
         });
         let prefix = WithPos {
-            item: Name::Simple(code.symbol("prefix")),
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix"))),
             pos: code.s1("prefix").pos(),
         };
         assert_eq!(name, prefix);
@@ -679,7 +687,7 @@ mod tests {
         let code = Code::new("foo(0)");
 
         let foo = WithPos {
-            item: Name::Simple(code.symbol("foo")),
+            item: Name::Designator(Designator::Identifier(code.symbol("foo"))),
             pos: code.s1("foo").pos(),
         };
 
@@ -702,7 +710,7 @@ mod tests {
         let code = Code::new("prefix(0, 1)(3).suffix");
 
         let prefix = WithPos {
-            item: Name::Simple(code.symbol("prefix")),
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix"))),
             pos: code.s1("prefix").pos(),
         };
 
@@ -735,12 +743,12 @@ mod tests {
         };
 
         let suffix = WithPos {
-            item: Name::Simple(code.symbol("suffix")),
+            item: Designator::Identifier(code.symbol("suffix")),
             pos: code.s1("suffix").pos(),
         };
 
         let prefix_index_3_suffix = WithPos {
-            item: Name::Selected(Box::new(prefix_index_3), Box::new(suffix)),
+            item: Name::Selected(Box::new(prefix_index_3), suffix),
             pos: code.s1("prefix(0, 1)(3).suffix").pos(),
         };
 
@@ -752,12 +760,12 @@ mod tests {
         let code = Code::new("foo(arg => 0)");
 
         let foo = WithPos {
-            item: Name::Simple(code.symbol("foo")),
+            item: Name::Designator(Designator::Identifier(code.symbol("foo"))),
             pos: code.s1("foo").pos(),
         };
 
         let arg = WithPos {
-            item: Name::Simple(code.symbol("arg")),
+            item: Name::Designator(Designator::Identifier(code.symbol("arg"))),
             pos: code.s1("arg").pos(),
         };
 
@@ -881,6 +889,30 @@ mod tests {
                 WithPos::new(Name::External(Box::new(external_name)), code)
             );
         }
+    }
+
+    #[test]
+    fn test_simple_all_is_illegal() {
+        let code = Code::new("all");
+        assert_eq!(
+            code.with_partial_stream(parse_name),
+            Err(Message::error(
+                code.s1("all"),
+                "Illegal prefix 'all' for name"
+            ))
+        );
+    }
+
+    #[test]
+    fn test_all_is_illegal_prefix() {
+        let code = Code::new("all.foo");
+        assert_eq!(
+            code.with_partial_stream(parse_name),
+            Err(Message::error(
+                code.s1("all"),
+                "Illegal prefix 'all' for name"
+            ))
+        );
     }
 
 }

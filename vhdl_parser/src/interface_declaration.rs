@@ -6,12 +6,13 @@
 
 /// LRM 6.5 Interface declarations
 use ast::{
-    InterfaceDeclaration, InterfaceFileDeclaration, InterfaceObjectDeclaration, Mode, ObjectClass,
+    InterfaceDeclaration, InterfaceFileDeclaration, InterfaceObjectDeclaration,
+    InterfacePackageDeclaration, InterfacePackageGenericMapAspect, Mode, ObjectClass,
     SubprogramDefault,
 };
 
 use message::{push_result, Message, MessageHandler, ParseResult};
-use names::{parse_identifier_list, parse_selected_name};
+use names::{parse_association_list_no_leftpar, parse_identifier_list, parse_selected_name};
 use object_declaration::{parse_file_declaration_no_semi, parse_optional_assignment};
 use subprogram::parse_subprogram_declaration_no_semi;
 use subtype_indication::parse_subtype_indication;
@@ -148,9 +149,9 @@ fn parse_interface_object_declaration(
         .into_iter()
         .map(|ident| {
             InterfaceDeclaration::Object(InterfaceObjectDeclaration {
-                mode: mode,
+                mode,
                 class: object_class,
-                ident: ident,
+                ident,
                 subtype_indication: subtype.clone(),
                 expression: expr.clone(),
             })
@@ -177,6 +178,41 @@ fn parse_subprogram_default(stream: &mut TokenStream) -> ParseResult<Option<Subp
     }
 }
 
+fn parse_interface_package_declaration_known_keyword(
+    stream: &mut TokenStream,
+) -> ParseResult<InterfacePackageDeclaration> {
+    let ident = stream.expect_ident()?;
+    stream.expect_kind(Is)?;
+    stream.expect_kind(New)?;
+    let package_name = parse_selected_name(stream)?;
+    stream.expect_kind(Generic)?;
+    stream.expect_kind(Map)?;
+
+    let generic_map = {
+        stream.expect_kind(LeftPar)?;
+        let map_token = stream.peek_expect()?;
+        match map_token.kind {
+            BOX => {
+                stream.move_after(&map_token);
+                stream.expect_kind(RightPar)?;
+                InterfacePackageGenericMapAspect::Box
+            }
+            Default => {
+                stream.move_after(&map_token);
+                stream.expect_kind(RightPar)?;
+                InterfacePackageGenericMapAspect::Default
+            }
+            _ => InterfacePackageGenericMapAspect::Map(parse_association_list_no_leftpar(stream)?),
+        }
+    };
+
+    Ok(InterfacePackageDeclaration {
+        ident,
+        package_name,
+        generic_map,
+    })
+}
+
 fn parse_interface_declaration(
     stream: &mut TokenStream,
     messages: &mut MessageHandler,
@@ -200,6 +236,10 @@ fn parse_interface_declaration(
             let default = parse_subprogram_default(stream)?;
 
             Ok(vec![InterfaceDeclaration::Subprogram(decl, default)])
+        },
+        Package => {
+            stream.move_after(&token);
+            Ok(vec![InterfaceDeclaration::Package (parse_interface_package_declaration_known_keyword(stream)?)])
         }
     )
 }
@@ -208,7 +248,7 @@ fn parse_interface_declaration(
 /// Expect ; for all but the last item
 fn parse_semicolon_separator(stream: &mut TokenStream) -> ParseResult<()> {
     let token = stream.peek_expect()?;
-    Ok(try_token_kind!(token,
+    try_token_kind!(token,
                       SemiColon => {
                           stream.move_after(&token);
                           if stream.peek_expect()?.kind == RightPar {
@@ -218,7 +258,8 @@ fn parse_semicolon_separator(stream: &mut TokenStream) -> ParseResult<()> {
                           }
                       },
                       RightPar => {}
-    ))
+    );
+    Ok(())
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -755,6 +796,59 @@ bar : natural)",
                 code.s1("function foo return bar").subprogram_decl(),
                 Some(SubprogramDefault::Box)
             )
+        );
+    }
+
+    #[test]
+    fn interface_package_generic_map_aspect() {
+        let code = Code::new(
+            "\
+package foo is new lib.pkg
+     generic map (foo => bar)",
+        );
+        assert_eq!(
+            code.with_stream(parse_generic),
+            InterfaceDeclaration::Package(InterfacePackageDeclaration {
+                ident: code.s1("foo").ident(),
+                package_name: code.s1("lib.pkg").selected_name(),
+                generic_map: InterfacePackageGenericMapAspect::Map(
+                    code.s1("(foo => bar)").association_list()
+                )
+            })
+        );
+    }
+
+    #[test]
+    fn interface_package_generic_map_box() {
+        let code = Code::new(
+            "\
+package foo is new lib.pkg
+     generic map (<>)",
+        );
+        assert_eq!(
+            code.with_stream(parse_generic),
+            InterfaceDeclaration::Package(InterfacePackageDeclaration {
+                ident: code.s1("foo").ident(),
+                package_name: code.s1("lib.pkg").selected_name(),
+                generic_map: InterfacePackageGenericMapAspect::Box
+            })
+        );
+    }
+
+    #[test]
+    fn interface_package_generic_map_default() {
+        let code = Code::new(
+            "\
+package foo is new lib.pkg
+     generic map (default)",
+        );
+        assert_eq!(
+            code.with_stream(parse_generic),
+            InterfaceDeclaration::Package(InterfacePackageDeclaration {
+                ident: code.s1("foo").ident(),
+                package_name: code.s1("lib.pkg").selected_name(),
+                generic_map: InterfacePackageGenericMapAspect::Default
+            })
         );
     }
 

@@ -188,7 +188,7 @@ fn parse_case_statement_known_keyword(
 /// LRM 10.10 Loop statement
 fn parse_loop_statement_initial_token(
     stream: &mut TokenStream,
-    token: Token,
+    token: &Token,
     messages: &mut MessageHandler,
 ) -> ParseResult<LoopStatement> {
     let iteration_scheme = {
@@ -394,7 +394,7 @@ where
 
 fn parse_assignment_or_procedure_call(
     stream: &mut TokenStream,
-    token: Token,
+    token: &Token,
     target: WithPos<Target>,
 ) -> ParseResult<SequentialStatement> {
     Ok(try_token_kind!(
@@ -489,7 +489,7 @@ fn parse_unlabeled_sequential_statement(
             If => SequentialStatement::If(parse_if_statement_known_keyword(stream, messages)?),
             Case => SequentialStatement::Case(parse_case_statement_known_keyword(stream, messages)?),
             For | Loop | While => {
-                SequentialStatement::Loop(parse_loop_statement_initial_token(stream, token, messages)?)
+                SequentialStatement::Loop(parse_loop_statement_initial_token(stream, &token, messages)?)
             },
             Next => SequentialStatement::Next(parse_next_statement_known_keyword(stream)?),
             Exit => SequentialStatement::Exit(parse_exit_statement_known_keyword(stream)?),
@@ -504,7 +504,7 @@ fn parse_unlabeled_sequential_statement(
             Identifier|LeftPar => {
                 let target = parse_target_initial_token(stream, token)?;
                 let token = stream.expect()?;
-                parse_assignment_or_procedure_call(stream, token, target)?
+                parse_assignment_or_procedure_call(stream, &token, target)?
             }
         )
     };
@@ -535,7 +535,7 @@ pub fn parse_sequential_statement_initial_token(
             Ok(LabeledSequentialStatement { label, statement })
         } else {
             let target = name.map_into(Target::Name);
-            let statement = parse_assignment_or_procedure_call(stream, token, target)?;
+            let statement = parse_assignment_or_procedure_call(stream, &token, target)?;
             Ok(LabeledSequentialStatement {
                 label: None,
                 statement,

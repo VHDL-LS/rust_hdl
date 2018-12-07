@@ -85,87 +85,42 @@ pub fn parse_declarative_part_leave_end_token(
 
     while let Some(token) = stream.peek()? {
         match token.kind {
-            Use => match parse_use_clause(stream) {
-                Ok(decl) => declarations.push(Declaration::Use(decl.item)),
-                Err(msg) => {
-                    messages.push(msg);
+            Use => declarations.push(Declaration::Use(parse_use_clause(stream)?)),
+            Type | Subtype => {
+                declarations.push(Declaration::Type(parse_type_declaration(stream, messages)?))
+            }
+            Shared | Constant | Signal | Variable => {
+                for decl in parse_object_declaration(stream)? {
+                    declarations.push(Declaration::Object(decl))
                 }
-            },
-            Type | Subtype => match parse_type_declaration(stream, messages) {
-                Ok(decl) => declarations.push(Declaration::Type(decl)),
-                Err(msg) => {
-                    messages.push(msg);
+            }
+            File => {
+                for decl in parse_file_declaration(stream)? {
+                    declarations.push(Declaration::File(decl))
                 }
-            },
-            Shared | Constant | Signal | Variable => match parse_object_declaration(stream) {
-                Ok(decls) => {
-                    for decl in decls {
-                        declarations.push(Declaration::Object(decl))
-                    }
+            }
+            Component => declarations.push(Declaration::Component(parse_component_declaration(
+                stream, messages,
+            )?)),
+            Attribute => {
+                for decl in parse_attribute(stream)? {
+                    declarations.push(Declaration::Attribute(decl))
                 }
-                Err(msg) => {
-                    messages.push(msg);
-                }
-            },
-            File => match parse_file_declaration(stream) {
-                Ok(decls) => {
-                    for decl in decls {
-                        declarations.push(Declaration::File(decl))
-                    }
-                }
-                Err(msg) => {
-                    messages.push(msg);
-                }
-            },
-            Component => match parse_component_declaration(stream, messages) {
-                Ok(decl) => declarations.push(Declaration::Component(decl)),
-                Err(msg) => {
-                    messages.push(msg);
-                }
-            },
-            Attribute => match parse_attribute(stream) {
-                Ok(decls) => {
-                    for decl in decls {
-                        declarations.push(Declaration::Attribute(decl))
-                    }
-                }
-                Err(msg) => {
-                    messages.push(msg);
-                }
-            },
-            Alias => match parse_alias_declaration(stream) {
-                Ok(decl) => declarations.push(Declaration::Alias(decl)),
-                Err(msg) => {
-                    messages.push(msg);
-                }
-            },
-            Impure | Function | Procedure => match parse_subprogram(stream, messages) {
-                Ok(decl) => declarations.push(decl),
-                Err(msg) => {
-                    messages.push(msg);
-                }
-            },
-            Package => match parse_package_instantiation(stream) {
-                Ok(decl) => declarations.push(Declaration::Package(decl)),
-                Err(msg) => {
-                    messages.push(msg);
-                }
-            },
-            For => match parse_configuration_specification(stream) {
-                Ok(decl) => declarations.push(Declaration::Configuration(decl)),
-                Err(msg) => {
-                    messages.push(msg);
-                }
-            },
+            }
+            Alias => declarations.push(Declaration::Alias(parse_alias_declaration(stream)?)),
+            Impure | Function | Procedure => declarations.push(parse_subprogram(stream, messages)?),
+            Package => {
+                declarations.push(Declaration::Package(parse_package_instantiation(stream)?))
+            }
+            For => declarations.push(Declaration::Configuration(
+                parse_configuration_specification(stream)?,
+            )),
             Begin | End => {
                 break;
             }
             _ => {
                 stream.move_after(&token);
-                if let Err(msg) = check_declarative_part(&token, false, false) {
-                    messages.push(msg);
-                }
-                // @TODO recover
+                check_declarative_part(&token, false, false)?;
             }
         }
     }
@@ -224,9 +179,7 @@ package ident is new lib.foo.bar
     fn parse_declarative_part_error() {
         // Just checking that there is not an infinite loop
         let code = Code::new("invalid");
-        let (decl, messages) =
-            code.with_partial_stream_messages(parse_declarative_part_leave_end_token);
-        assert_eq!(decl, Ok(vec![]));
-        assert!(messages.len() > 0);
+        let (decl, _) = code.with_partial_stream_messages(parse_declarative_part_leave_end_token);
+        assert!(decl.is_err());
     }
 }

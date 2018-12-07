@@ -5,13 +5,14 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use ast::{
-    Allocator, Binary, Choice, Direction, DiscreteRange, ElementAssociation, Expression, Literal,
-    Name, QualifiedExpression, Range, RangeConstraint, ResolutionIndication, SubtypeConstraint,
+    Allocator, Binary, Choice, Designator, Direction, DiscreteRange, ElementAssociation,
+    Expression, Literal, Name, QualifiedExpression, Range, RangeConstraint, ResolutionIndication,
     SubtypeIndication, Unary,
 };
 use message::{Message, ParseResult};
-use names::{parse_name, parse_name_initial_token, to_selected_name};
+use names::{parse_name_initial_token, parse_selected_name};
 use source::WithPos;
+use subtype_indication::parse_subtype_constraint;
 use tokenizer::Kind::*;
 use tokenizer::{Kind, Token};
 use tokenstream::TokenStream;
@@ -103,7 +104,7 @@ pub fn parse_aggregate_initial_choices(
         try_token_kind!(
             token,
             RightPar => {
-                if let &[Choice::Expression(ref choice)] = choices.as_slice() {
+                if let [Choice::Expression(ref choice)] = *choices.as_slice() {
                     result.push(ElementAssociation::Positional(choice.clone()));
                     return Ok(WithPos::from(result, token))
                 } else {
@@ -111,7 +112,7 @@ pub fn parse_aggregate_initial_choices(
                 }
             },
             Comma => {
-                if let &[Choice::Expression(ref choice)] = choices.as_slice() {
+                if let [Choice::Expression(ref choice)] = *choices.as_slice() {
                     result.push(ElementAssociation::Positional(choice.clone()));
                 } else {
                     return Err(Message::error(&token, "Expected => after others"));
@@ -164,7 +165,7 @@ fn parse_half_range(
         left_expr: Box::new(left_expr),
         right_expr: Box::new(right_expr),
     }));
-    return Ok(range);
+    Ok(range)
 }
 
 fn parse_choice(stream: &mut TokenStream) -> ParseResult<Choice> {
@@ -175,12 +176,12 @@ fn parse_choice(stream: &mut TokenStream) -> ParseResult<Choice> {
 
     if stream.skip_if_kind(To)? {
         let range = parse_half_range(stream, left_expr, Direction::Ascending)?;
-        return Ok(Choice::DiscreteRange(range));
+        Ok(Choice::DiscreteRange(range))
     } else if stream.skip_if_kind(Downto)? {
         let range = parse_half_range(stream, left_expr, Direction::Descending)?;
-        return Ok(Choice::DiscreteRange(range));
+        Ok(Choice::DiscreteRange(range))
     } else {
-        return Ok(Choice::Expression(left_expr));
+        Ok(Choice::Expression(left_expr))
     }
 }
 
@@ -196,43 +197,43 @@ pub fn parse_choices(stream: &mut TokenStream) -> ParseResult<Vec<Choice>> {
     Ok(choices)
 }
 
-fn name_to_subtype_indication(name: &WithPos<Name>) -> ParseResult<SubtypeIndication> {
-    match name.item {
-        Name::Selected(..) | Name::Simple(..) => Ok(SubtypeIndication {
-            resolution: ResolutionIndication::Unresolved,
-            type_mark: to_selected_name(name)?,
-            constraint: None,
-        }),
-        Name::Slice(ref prefix, ref discrete_range) => Ok(SubtypeIndication {
-            resolution: ResolutionIndication::Unresolved,
-            type_mark: to_selected_name(prefix)?,
-            constraint: Some(SubtypeConstraint::Array(vec![discrete_range.clone()], None)),
-        }),
-        _ => Err(Message::error(
-            &name,
-            "Expected subtype indication or qualified expression",
-        )),
-    }
-}
-
 /// LRM 9.3.7 Allocators
 fn parse_allocator(stream: &mut TokenStream) -> ParseResult<WithPos<Allocator>> {
-    let name = parse_name(stream)?;
+    let selected_name = parse_selected_name(stream)?;
 
     if stream.skip_if_kind(Tick)? {
         let expr = parse_expression(stream)?;
+        let name: WithPos<Name> = selected_name.into();
         let pos = name.pos.clone().combine_into(&expr);
         Ok(WithPos {
             item: Allocator::Qualified(QualifiedExpression {
                 name: Box::new(name),
                 expr: Box::new(expr),
             }),
-            pos: pos,
+            pos,
         })
     } else {
+        let mut pos = selected_name[0].pos.clone();
+
+        let constraint = {
+            if let Some(constraint) = parse_subtype_constraint(stream)? {
+                pos = pos.combine(&constraint.pos);
+                Some(constraint)
+            } else {
+                pos = pos.combine(&selected_name[selected_name.len() - 1].pos);
+                None
+            }
+        };
+
+        let subtype = SubtypeIndication {
+            resolution: ResolutionIndication::Unresolved,
+            type_mark: selected_name,
+            constraint,
+        };
+
         Ok(WithPos {
-            item: Allocator::Subtype(name_to_subtype_indication(&name)?),
-            pos: name.pos,
+            item: Allocator::Subtype(subtype),
+            pos,
         })
     }
 }
@@ -256,26 +257,24 @@ fn parse_primary_initial_token(
                         name: Box::new(name),
                         expr: Box::new(expr),
                     }),
-                    pos: pos,
+                    pos,
                 })
             } else {
                 Ok(name_to_expression(name))
             }
         }
-        BitString => Ok(WithPos {
-            item: Expression::Literal(Literal::BitString(token.expect_bit_string()?)),
-            pos: token.pos.clone(),
-        }),
-        Character => Ok(WithPos {
-            item: Expression::Literal(Literal::Character(token.expect_character()?)),
-            pos: token.pos.clone(),
-        }),
+        BitString => Ok(token
+            .expect_bit_string()?
+            .map_into(|bs| Expression::Literal(Literal::BitString(bs)))),
+        Character => Ok(token
+            .expect_character()?
+            .map_into(|chr| Expression::Literal(Literal::Character(chr)))),
         StringLiteral => {
             let name = parse_name_initial_token(stream, token)?;
             match name.item {
-                Name::OperatorSymbol(string) => Ok(WithPos {
+                Name::Designator(Designator::OperatorSymbol(string)) => Ok(WithPos {
                     item: Expression::Literal(Literal::String(string)),
-                    pos: name.pos.clone(),
+                    pos: name.pos,
                 }),
                 _ => Ok(name.map_into(|name| Expression::Name(Box::new(name)))),
             }
@@ -298,25 +297,23 @@ fn parse_primary_initial_token(
             // Physical unit
             if let Some(unit_token) = stream.pop_if_kind(Identifier)? {
                 let unit = unit_token.expect_ident()?;
-                let physical = Literal::Physical(value, unit.item);
+                let pos = value.pos.combine_into(&unit);
+                let physical = Literal::Physical(value.item, unit.item);
                 Ok(WithPos {
                     item: Expression::Literal(physical),
-                    pos: token.pos.combine_into(&unit_token),
+                    pos,
                 })
             } else {
-                Ok(WithPos {
-                    item: Expression::Literal(Literal::AbstractLiteral(value)),
-                    pos: token.pos.clone(),
-                })
+                Ok(value.map_into(|value| Expression::Literal(Literal::AbstractLiteral(value))))
             }
         }
 
         LeftPar => {
             let choices = parse_choices(stream)?;
             // Parenthesized expression or aggregate
-            match choices.as_slice() {
+            match *choices.as_slice() {
                 // Can be aggregate or expression
-                &[Choice::Expression(ref expr)] => {
+                [Choice::Expression(ref expr)] => {
                     let sep_token = stream.peek_expect()?;
                     match_token_kind!(
                         sep_token,
@@ -356,7 +353,7 @@ fn parse_primary_initial_token(
                 let pos = token.pos.combine_into(&expr);
                 Ok(WithPos {
                     item: Expression::Unary(unary_op, Box::new(expr)),
-                    pos: pos,
+                    pos,
                 })
             } else {
                 Err(Message::error(&token, "Expected {expression}"))
@@ -389,7 +386,7 @@ fn parse_expr_initial_token(
                 let pos = lhs.pos.combine(&rhs);
                 lhs = WithPos {
                     item: Expression::Binary(binary_op, Box::new(lhs), Box::new(rhs)),
-                    pos: pos,
+                    pos,
                 };
             } else {
                 return Ok(lhs);
@@ -590,7 +587,9 @@ mod tests {
     fn parses_not_expression() {
         let code = Code::new("not false");
         let name_false = WithPos {
-            item: Expression::Name(Box::new(Name::Simple(code.symbol("false")))),
+            item: Expression::Name(Box::new(Name::Designator(Designator::Identifier(
+                code.symbol("false"),
+            )))),
             pos: code.s1("false").pos(),
         };
 
@@ -605,7 +604,11 @@ mod tests {
     #[test]
     fn parses_new_allocator_qualified() {
         let code = Code::new("new integer_vector'(0, 1)");
-        let vec_name = code.s1("integer_vector").ident().map_into(Name::Simple);
+        let vec_name = code
+            .s1("integer_vector")
+            .ident()
+            .map_into(Designator::Identifier)
+            .map_into(Name::Designator);
         let expr = code.s1("(0, 1)").expr();
 
         let alloc = WithPos {
@@ -648,6 +651,23 @@ mod tests {
         let alloc = WithPos {
             item: Allocator::Subtype(code.s1("integer_vector(0 to 1)").subtype_indication()),
             pos: code.s1("integer_vector(0 to 1)").pos(),
+        };
+
+        let new_expr = WithPos {
+            item: Expression::New(alloc),
+            pos: code.pos(),
+        };
+
+        assert_eq!(code.with_stream(parse_expression), new_expr);
+    }
+
+    #[test]
+    fn parses_new_allocator_subtype_constraint_range_attribute() {
+        let code = Code::new("new integer_vector(foo'range)");
+
+        let alloc = WithPos {
+            item: Allocator::Subtype(code.s1("integer_vector(foo'range)").subtype_indication()),
+            pos: code.s1("integer_vector(foo'range)").pos(),
         };
 
         let new_expr = WithPos {
@@ -728,7 +748,11 @@ mod tests {
     #[test]
     fn parses_qualified_expression() {
         let code = Code::new("foo'(1+2)");
-        let foo_name = code.s1("foo").ident().map_into(Name::Simple);
+        let foo_name = code
+            .s1("foo")
+            .ident()
+            .map_into(Designator::Identifier)
+            .map_into(Name::Designator);
         let expr = code.s1("(1+2)").expr();
 
         let qexpr = WithPos {
@@ -745,7 +769,11 @@ mod tests {
     #[test]
     fn parses_qualified_aggregate() {
         let code = Code::new("foo'(others => '1')");
-        let foo_name = code.s1("foo").ident().map_into(Name::Simple);
+        let foo_name = code
+            .s1("foo")
+            .ident()
+            .map_into(Designator::Identifier)
+            .map_into(Name::Designator);
         let expr = code.s1("(others => '1')").expr();
 
         let qexpr = WithPos {

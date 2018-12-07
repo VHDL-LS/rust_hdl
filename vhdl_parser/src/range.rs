@@ -23,7 +23,7 @@ pub fn parse_direction(stream: &mut TokenStream) -> ParseResult<Direction> {
 
 enum NameOrRange {
     Name(WithPos<Name>),
-    Range(Range),
+    Range(WithPos<Range>),
 }
 
 fn parse_name_or_range(stream: &mut TokenStream) -> ParseResult<NameOrRange> {
@@ -33,11 +33,15 @@ fn parse_name_or_range(stream: &mut TokenStream) -> ParseResult<NameOrRange> {
         Some(To) | Some(Downto) => {
             let direction = parse_direction(stream)?;
             let right_expr = parse_expression(stream)?;
-            return Ok(NameOrRange::Range(Range::Range(RangeConstraint {
+
+            let pos = expr.pos.combine(&right_expr.pos);
+            let range = Range::Range(RangeConstraint {
                 direction,
                 left_expr: Box::new(expr),
                 right_expr: Box::new(right_expr),
-            })));
+            });
+
+            return Ok(NameOrRange::Range(WithPos::from(range, pos)));
         }
         _ => {}
     }
@@ -47,24 +51,25 @@ fn parse_name_or_range(stream: &mut TokenStream) -> ParseResult<NameOrRange> {
         pos,
     } = expr
     {
-        if let &Name::Attribute(ref attribute_name) = name.as_ref() {
+        if let Name::Attribute(ref attribute_name) = *name.as_ref() {
             if attribute_name.attr.item == stream.tokenizer.range_ident
                 || attribute_name.attr.item == stream.tokenizer.reverse_range_ident
             {
                 // @TODO avoid clone
-                return Ok(NameOrRange::Range(Range::Attribute(attribute_name.clone())));
+                let range = Range::Attribute(attribute_name.clone());
+                return Ok(NameOrRange::Range(WithPos::from(range, pos)));
             }
         }
         return Ok(NameOrRange::Name(WithPos::from(*name, pos)));
     }
 
-    return Err(Message::error(&expr, "Expected name or range"));
+    Err(Message::error(&expr, "Expected name or range"))
 }
 
 /// {selected_name}'range
 /// {selected_name}'reverse_range
 /// 2. {expr} to|downto {expr}
-pub fn parse_range(stream: &mut TokenStream) -> ParseResult<Range> {
+pub fn parse_range(stream: &mut TokenStream) -> ParseResult<WithPos<Range>> {
     match parse_name_or_range(stream)? {
         NameOrRange::Range(range) => Ok(range),
         NameOrRange::Name(name) => Err(Message::error(&name, "Expected range")),
@@ -73,10 +78,10 @@ pub fn parse_range(stream: &mut TokenStream) -> ParseResult<Range> {
 
 pub fn parse_discrete_range(stream: &mut TokenStream) -> ParseResult<DiscreteRange> {
     match parse_name_or_range(stream) {
-        Ok(NameOrRange::Range(range)) => Ok(DiscreteRange::Range(range)),
+        Ok(NameOrRange::Range(range)) => Ok(DiscreteRange::Range(range.item)),
         Ok(NameOrRange::Name(name)) => {
             let selected_name = to_selected_name(&name)?;
-            let range = parse_optional(stream, Range, parse_range)?;
+            let range = parse_optional(stream, Range, parse_range)?.map(|range| range.item);
             Ok(DiscreteRange::Discrete(selected_name, range))
         }
         Err(msg) => Err(msg.when("parsing discrete_range")),
@@ -85,7 +90,7 @@ pub fn parse_discrete_range(stream: &mut TokenStream) -> ParseResult<DiscreteRan
 
 pub fn parse_array_index_constraint(stream: &mut TokenStream) -> ParseResult<ArrayIndex> {
     match parse_name_or_range(stream) {
-        Ok(NameOrRange::Range(range)) => Ok(ArrayIndex::Discrete(DiscreteRange::Range(range))),
+        Ok(NameOrRange::Range(range)) => Ok(ArrayIndex::Discrete(DiscreteRange::Range(range.item))),
         Ok(NameOrRange::Name(name)) => {
             let selected_name = to_selected_name(&name)?;
 
@@ -95,7 +100,7 @@ pub fn parse_array_index_constraint(stream: &mut TokenStream) -> ParseResult<Arr
                 } else {
                     Ok(ArrayIndex::Discrete(DiscreteRange::Discrete(
                         selected_name,
-                        Some(parse_range(stream)?),
+                        Some(parse_range(stream)?.item),
                     )))
                 }
             } else {
@@ -119,11 +124,14 @@ mod tests {
         let code = Code::new("foo.bar to 1");
         assert_eq!(
             code.with_stream(parse_range),
-            Range::Range(RangeConstraint {
-                direction: Direction::Ascending,
-                left_expr: Box::new(code.s1("foo.bar").expr()),
-                right_expr: Box::new(code.s1("1").expr())
-            })
+            WithPos::new(
+                Range::Range(RangeConstraint {
+                    direction: Direction::Ascending,
+                    left_expr: Box::new(code.s1("foo.bar").expr()),
+                    right_expr: Box::new(code.s1("1").expr())
+                },),
+                code.pos()
+            )
         );
     }
 
@@ -132,7 +140,10 @@ mod tests {
         let code = Code::new("foo.bar'range");
         assert_eq!(
             code.with_stream(parse_range),
-            Range::Attribute(Box::new(code.s1("foo.bar'range").attribute_name()))
+            WithPos::new(
+                Range::Attribute(Box::new(code.s1("foo.bar'range").attribute_name())),
+                code.pos()
+            )
         );
     }
 
@@ -141,7 +152,10 @@ mod tests {
         let code = Code::new("foo.bar'reverse_range");
         assert_eq!(
             code.with_stream(parse_range),
-            Range::Attribute(Box::new(code.s1("foo.bar'reverse_range").attribute_name()))
+            WithPos::new(
+                Range::Attribute(Box::new(code.s1("foo.bar'reverse_range").attribute_name())),
+                code.pos()
+            )
         );
     }
 
@@ -150,11 +164,14 @@ mod tests {
         let code = Code::new("foo.bar'length downto 0");
         assert_eq!(
             code.with_stream(parse_range),
-            Range::Range(RangeConstraint {
-                direction: Direction::Descending,
-                left_expr: Box::new(code.s1("foo.bar'length").expr()),
-                right_expr: Box::new(code.s1("0").expr())
-            })
+            WithPos::new(
+                Range::Range(RangeConstraint {
+                    direction: Direction::Descending,
+                    left_expr: Box::new(code.s1("foo.bar'length").expr()),
+                    right_expr: Box::new(code.s1("0").expr())
+                }),
+                code.pos()
+            )
         );
     }
 

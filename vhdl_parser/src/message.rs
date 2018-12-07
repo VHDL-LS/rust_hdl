@@ -7,14 +7,16 @@
 use source::SrcPos;
 use std::convert::{AsRef, Into};
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone, Copy, Eq, Hash)]
 pub enum Severity {
+    Hint,
+    Info,
     Warning,
     Error,
 }
 
 #[must_use]
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Eq, Hash)]
 pub struct Message {
     pub pos: SrcPos,
     pub message: String,
@@ -23,11 +25,11 @@ pub struct Message {
 }
 
 impl Message {
-    pub fn new<T: AsRef<SrcPos>>(item: T, msg: impl Into<String>, severity: Severity) -> Message {
+    pub fn new(item: impl AsRef<SrcPos>, msg: impl Into<String>, severity: Severity) -> Message {
         Message {
             pos: item.as_ref().clone(),
             message: msg.into(),
-            severity: severity,
+            severity,
             related: vec![],
         }
     }
@@ -38,6 +40,14 @@ impl Message {
 
     pub fn warning(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Message {
         Self::new(item, msg, Severity::Warning)
+    }
+
+    pub fn hint(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Message {
+        Self::new(item, msg, Severity::Hint)
+    }
+
+    pub fn info(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Message {
+        Self::new(item, msg, Severity::Info)
     }
 
     pub fn when(self, message: impl AsRef<str>) -> Message {
@@ -51,8 +61,26 @@ impl Message {
 
     pub fn related(self, item: impl AsRef<SrcPos>, message: impl Into<String>) -> Message {
         let mut msg = self;
-        msg.related.push((item.as_ref().to_owned(), message.into()));
+        msg.add_related(item, message);
         msg
+    }
+
+    pub fn add_related(&mut self, item: impl AsRef<SrcPos>, message: impl Into<String>) {
+        self.related
+            .push((item.as_ref().to_owned(), message.into()));
+    }
+
+    pub fn drain_related(&mut self) -> Vec<Message> {
+        let mut messages = Vec::with_capacity(self.related.len());
+        let related = std::mem::replace(&mut self.related, Vec::new());
+        for (pos, msg) in related {
+            messages.push(Message::new(
+                pos,
+                format!("related: {}", msg),
+                Severity::Hint,
+            ));
+        }
+        messages
     }
 
     pub fn show(&self) -> String {
@@ -64,6 +92,8 @@ impl Message {
         let severity = match self.severity {
             Severity::Error => &"error",
             Severity::Warning => &"warning",
+            Severity::Info => &"info",
+            Severity::Hint => &"hint",
         };
         result.push_str(&self.pos.show(&format!("{}: {}", severity, self.message)));
         result

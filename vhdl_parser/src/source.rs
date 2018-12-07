@@ -96,6 +96,14 @@ impl PartialEq for Source {
     }
 }
 
+impl Eq for Source {}
+
+impl std::hash::Hash for Source {
+    fn hash<H: std::hash::Hasher>(&self, hasher: &mut H) {
+        Arc::into_raw(self.source.clone()).hash(hasher);
+    }
+}
+
 impl Source {
     pub fn inline(file_name: impl Into<String>, contents: Arc<Latin1String>) -> Source {
         Source {
@@ -151,13 +159,13 @@ impl Source {
     /// Position covers entire contents
     #[cfg(test)]
     pub fn entire_pos(self: &Self) -> SrcPos {
-        let contents = self.contents().unwrap().to_string();
-        self.pos(0, contents.len())
+        let length = self.contents().unwrap().bytes.len();
+        self.pos(0, length)
     }
 }
 
 /// Lexical position in a file
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Eq, Hash)]
 pub struct SrcPos {
     /// The source
     pub source: Source,
@@ -238,7 +246,7 @@ impl<T> WithPos<T> {
     {
         match f(self.item) {
             Ok(item) => Ok(WithPos {
-                item: item,
+                item,
                 pos: self.pos,
             }),
             Err(msg) => Err(Message::error(&self.pos, msg)),
@@ -314,9 +322,9 @@ impl SrcPos {
         }
 
         if early_eof && self.start + self.length > offset {
-            if lines.len() > 0 {
+            if !lines.is_empty() {
                 let last_idx = lines.len() - 1;
-                let (_, ref offset, ref mut line) = lines.get_mut(last_idx).unwrap();
+                let (_, ref offset, ref mut line) = &mut lines[last_idx];
                 let line_len = self.start + self.length - offset;
                 for _ in line.len()..line_len {
                     line.bytes.push(b' ');
@@ -331,7 +339,7 @@ impl SrcPos {
             }
         }
 
-        return (first_lineno.unwrap_or(lineno - 1), lines);
+        (first_lineno.unwrap_or(lineno - 1), lines)
     }
 
     fn push_replicate(line: &mut String, chr: char, times: usize) {
@@ -392,7 +400,7 @@ impl SrcPos {
 
         let last_lineno = {
             match lines.get(lines.len() - 1) {
-                Some((ref lineno, _, _)) => lineno.clone(),
+                Some((ref lineno, _, _)) => *lineno,
                 _ => 1,
             }
         };
@@ -429,7 +437,7 @@ impl SrcPos {
             }
         }
 
-        return (first_lineno, max_len, result);
+        (first_lineno, max_len, result)
     }
 
     fn lineno_and_code_context(&self) -> (usize, usize, String) {

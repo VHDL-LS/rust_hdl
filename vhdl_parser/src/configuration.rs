@@ -348,7 +348,7 @@ pub fn parse_configuration_specification(
             }
         }
         ComponentSpecificationOrName::Name(name) => {
-            return Err(Message::error(name, "Expected component specification"));
+            Err(Message::error(name, "Expected component specification"))
         }
     }
 }

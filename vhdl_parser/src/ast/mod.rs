@@ -1,8 +1,15 @@
-// This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// This Source Code Form is subject to the terms of the Mozilla Public
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
+
+// Allowing this, since box_patterns are feature gated: https://github.com/rust-lang/rfcs/pull/469
+// Track here: https://github.com/rust-lang/rust/issues/29641
+#![cfg_attr(feature = "cargo-clippy", allow(large_enum_variant))]
+
+pub mod has_ident;
+pub mod name;
 
 use latin_1::Latin1String;
 use source::WithPos;
@@ -115,11 +122,9 @@ pub struct ExternalName {
 /// LRM 8. Names
 #[derive(PartialEq, Debug, Clone)]
 pub enum Name {
-    Simple(Symbol),
-    CharacterLiteral(u8),
-    OperatorSymbol(Latin1String),
-    All,
-    Selected(Box<WithPos<Name>>, Box<WithPos<Name>>),
+    Designator(Designator),
+    Selected(Box<WithPos<Name>>, WithPos<Designator>),
+    SelectedAll(Box<WithPos<Name>>),
     Indexed(Box<WithPos<Name>>, Vec<WithPos<Expression>>),
     Slice(Box<WithPos<Name>>, DiscreteRange),
     Attribute(Box<AttributeName>),
@@ -262,13 +267,13 @@ pub enum Range {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ElementConstraint {
     pub ident: Ident,
-    pub constraint: Box<SubtypeConstraint>,
+    pub constraint: Box<WithPos<SubtypeConstraint>>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum SubtypeConstraint {
     Range(Range),
-    Array(Vec<DiscreteRange>, Option<Box<SubtypeConstraint>>),
+    Array(Vec<DiscreteRange>, Option<Box<WithPos<SubtypeConstraint>>>),
     Record(Vec<ElementConstraint>),
 }
 
@@ -296,7 +301,7 @@ pub enum ResolutionIndication {
 pub struct SubtypeIndication {
     pub resolution: ResolutionIndication,
     pub type_mark: SelectedName,
-    pub constraint: Option<SubtypeConstraint>,
+    pub constraint: Option<WithPos<SubtypeConstraint>>,
 }
 
 /// LRM 5.3 Array Types
@@ -323,8 +328,8 @@ pub enum ProtectedTypeDeclarativeItem {
     Subprogram(SubprogramDeclaration),
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub enum AliasDesignator {
+#[derive(PartialEq, Eq, Hash, Debug, Clone)]
+pub enum Designator {
     Identifier(Symbol),
     OperatorSymbol(Latin1String),
     Character(u8),
@@ -333,7 +338,7 @@ pub enum AliasDesignator {
 /// LRM 6.6 Alias declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct AliasDeclaration {
-    pub designator: WithPos<AliasDesignator>,
+    pub designator: WithPos<Designator>,
     pub subtype_indication: Option<SubtypeIndication>,
     pub name: WithPos<Name>,
     pub signature: Option<Signature>,
@@ -423,7 +428,7 @@ pub enum EnumerationLiteral {
 pub enum TypeDefinition {
     /// LRM 5.2 Scalar Types
     /// LRM 5.2.2 Enumeration types
-    Enumeration(Vec<EnumerationLiteral>),
+    Enumeration(Vec<WithPos<EnumerationLiteral>>),
     /// LRM 5.2.3 Integer types
     Integer(Range),
     /// LRM 5.2.4 Physical types
@@ -481,7 +486,7 @@ pub struct FileDeclaration {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub enum Designator {
+pub enum SubprogramDesignator {
     Identifier(Symbol),
     OperatorSymbol(Latin1String),
 }
@@ -489,7 +494,7 @@ pub enum Designator {
 /// LRM 4.2 Subprogram declaration
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProcedureSpecification {
-    pub designator: WithPos<Designator>,
+    pub designator: WithPos<SubprogramDesignator>,
     pub parameter_list: Vec<InterfaceDeclaration>,
 }
 
@@ -497,7 +502,7 @@ pub struct ProcedureSpecification {
 #[derive(PartialEq, Debug, Clone)]
 pub struct FunctionSpecification {
     pub pure: bool,
-    pub designator: WithPos<Designator>,
+    pub designator: WithPos<SubprogramDesignator>,
     pub parameter_list: Vec<InterfaceDeclaration>,
     pub return_type: SelectedName,
 }
@@ -544,6 +549,21 @@ pub enum SubprogramDefault {
     Name(SelectedName),
     Box,
 }
+/// LRM 6.5.5 Interface package declaration
+#[derive(PartialEq, Debug, Clone)]
+pub enum InterfacePackageGenericMapAspect {
+    Map(Vec<AssociationElement>),
+    Box,
+    Default,
+}
+
+/// LRM 6.5.5 Interface package declaration
+#[derive(PartialEq, Debug, Clone)]
+pub struct InterfacePackageDeclaration {
+    pub ident: Ident,
+    pub package_name: SelectedName,
+    pub generic_map: InterfacePackageGenericMapAspect,
+}
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum InterfaceDeclaration {
@@ -552,6 +572,8 @@ pub enum InterfaceDeclaration {
     Type(Ident),
     /// LRM 6.5.4 Interface subprogram declarations
     Subprogram(SubprogramDeclaration, Option<SubprogramDefault>),
+    /// LRM 6.5.5 Interface package declaration
+    Package(InterfacePackageDeclaration),
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
@@ -586,7 +608,7 @@ pub enum Declaration {
     Alias(AliasDeclaration),
     SubprogramDeclaration(SubprogramDeclaration),
     SubprogramBody(SubprogramBody),
-    Use(UseClause),
+    Use(WithPos<UseClause>),
     Package(PackageInstantiation),
     Configuration(ConfigurationSpecification),
 }
@@ -766,11 +788,17 @@ pub struct BlockStatement {
     pub statements: Vec<LabeledConcurrentStatement>,
 }
 
+#[derive(PartialEq, Debug, Clone)]
+pub enum SensitivityList {
+    Names(Vec<WithPos<Name>>),
+    All,
+}
+
 /// LRM 11.3 Process statement
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProcessStatement {
     pub postponed: bool,
-    pub sensitivity_list: Vec<WithPos<Name>>,
+    pub sensitivity_list: Option<SensitivityList>,
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledSequentialStatement>,
 }
@@ -1020,16 +1048,16 @@ pub struct PackageBody {
 #[derive(PartialEq, Debug, Clone)]
 pub enum PrimaryUnit {
     /// LRM 3.2 Entity declaration
-    EntityDeclaration(EntityDeclaration),
+    EntityDeclaration(DesignUnit<EntityDeclaration>),
 
     /// LRM 3.4 Configuration declarations
-    Configuration(ConfigurationDeclaration),
+    Configuration(DesignUnit<ConfigurationDeclaration>),
 
     /// LRM 4.7 Package declarations
-    PackageDeclaration(PackageDeclaration),
+    PackageDeclaration(DesignUnit<PackageDeclaration>),
 
     /// LRM 4.9 Package instatiation declaration
-    PackageInstance(PackageInstantiation),
+    PackageInstance(DesignUnit<PackageInstantiation>),
 
     /// LRM 13.4 Context clauses
     ContextDeclaration(ContextDeclaration),
@@ -1039,10 +1067,10 @@ pub enum PrimaryUnit {
 #[derive(PartialEq, Debug, Clone)]
 pub enum SecondaryUnit {
     /// LRM 3.3 Architecture bodies
-    Architecture(ArchitectureBody),
+    Architecture(DesignUnit<ArchitectureBody>),
 
     /// LRM 4.8 Package bodies
-    PackageBody(PackageBody),
+    PackageBody(DesignUnit<PackageBody>),
 }
 
 /// LRM 13.1 Design units
@@ -1055,8 +1083,8 @@ pub struct DesignUnit<T> {
 /// LRM 13.1 Design units
 #[derive(PartialEq, Debug, Clone)]
 pub enum AnyDesignUnit {
-    Primary(DesignUnit<PrimaryUnit>),
-    Secondary(DesignUnit<SecondaryUnit>),
+    Primary(PrimaryUnit),
+    Secondary(SecondaryUnit),
 }
 
 #[derive(PartialEq, Debug, Clone)]

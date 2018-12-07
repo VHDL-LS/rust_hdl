@@ -30,8 +30,8 @@ fn parse_enumeration_type_definition(stream: &mut TokenStream) -> ParseResult<Ty
             Identifier | Character => {
                 let enum_literal = try_token_kind!(
                     literal_token,
-                    Identifier => EnumerationLiteral::Identifier(literal_token.expect_ident()?.item),
-                    Character => EnumerationLiteral::Character(literal_token.expect_character()?)
+                    Identifier => literal_token.expect_ident()?.map_into(EnumerationLiteral::Identifier),
+                    Character => literal_token.expect_character()?.map_into(EnumerationLiteral::Character)
                 );
                 enum_literals.push(enum_literal);
 
@@ -139,7 +139,7 @@ pub fn parse_protected_type_declaration(
     }
     stream.expect_kind(Protected)?;
     let end_ident = stream.pop_optional_ident()?;
-    Ok((ProtectedTypeDeclaration { items: items }, end_ident))
+    Ok((ProtectedTypeDeclaration { items }, end_ident))
 }
 
 /// LRM 5.2.4 Physical types
@@ -168,7 +168,7 @@ fn parse_physical_type_definition(
                     try_token_kind!(
                         value_token,
                         AbstractLiteral => {
-                            let value = value_token.expect_abstract_literal()?;
+                            let value = value_token.expect_abstract_literal()?.item;
                             let unit = stream.expect_ident()?;
                             Literal::Physical(value, unit.item)
                         },
@@ -192,9 +192,9 @@ fn parse_physical_type_definition(
 
     Ok((
         TypeDefinition::Physical(PhysicalTypeDeclaration {
-            range: range,
-            primary_unit: primary_unit,
-            secondary_units: secondary_units,
+            range,
+            primary_unit,
+            secondary_units,
         }),
         end_ident,
     ))
@@ -233,7 +233,7 @@ pub fn parse_type_declaration(
         stream.expect()?,
         // Integer
         Range => {
-            let constraint = parse_range(stream)?;
+            let constraint = parse_range(stream)?.item;
             try_token_kind!(
                 stream.expect()?,
                 SemiColon => TypeDefinition::Integer(constraint),
@@ -314,8 +314,12 @@ mod tests {
         let type_decl = TypeDeclaration {
             ident: code.s1("foo").ident(),
             def: TypeDefinition::Enumeration(vec![
-                EnumerationLiteral::Identifier(code.symbol("alpha")),
-                EnumerationLiteral::Identifier(code.symbol("beta")),
+                code.s1("alpha")
+                    .ident()
+                    .map_into(EnumerationLiteral::Identifier),
+                code.s1("beta")
+                    .ident()
+                    .map_into(EnumerationLiteral::Identifier),
             ]),
         };
         assert_eq!(
@@ -331,8 +335,12 @@ mod tests {
         let type_decl = TypeDeclaration {
             ident: code.s1("foo").ident(),
             def: TypeDefinition::Enumeration(vec![
-                EnumerationLiteral::Character(b'a'),
-                EnumerationLiteral::Character(b'b'),
+                code.s1("'a'")
+                    .character()
+                    .map_into(EnumerationLiteral::Character),
+                code.s1("'b'")
+                    .character()
+                    .map_into(EnumerationLiteral::Character),
             ]),
         };
         assert_eq!(
@@ -348,8 +356,12 @@ mod tests {
         let type_decl = TypeDeclaration {
             ident: code.s1("foo").ident(),
             def: TypeDefinition::Enumeration(vec![
-                EnumerationLiteral::Identifier(code.symbol("ident")),
-                EnumerationLiteral::Character(b'b'),
+                code.s1("ident")
+                    .ident()
+                    .map_into(EnumerationLiteral::Identifier),
+                code.s1("'b'")
+                    .character()
+                    .map_into(EnumerationLiteral::Character),
             ]),
         };
         assert_eq!(
@@ -598,8 +610,8 @@ end foo;",
 
     fn protected_decl(ident: Ident, items: Vec<ProtectedTypeDeclarativeItem>) -> TypeDeclaration {
         TypeDeclaration {
-            ident: ident,
-            def: TypeDefinition::Protected(ProtectedTypeDeclaration { items: items }),
+            ident,
+            def: TypeDefinition::Protected(ProtectedTypeDeclaration { items }),
         }
     }
 

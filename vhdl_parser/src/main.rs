@@ -4,6 +4,11 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
+// Allowing this, since there is an open issue with this lint
+// Track here: https://github.com/rust-lang/rust-clippy/issues/1981
+// Track here: https://github.com/rust-lang/rust-clippy/issues/1981
+#![cfg_attr(feature = "cargo-clippy", allow(ptr_arg))]
+
 #[macro_use]
 extern crate clap;
 extern crate vhdl_parser;
@@ -11,19 +16,15 @@ extern crate vhdl_parser;
 use std::path::Path;
 
 use vhdl_parser::ast::{AnyDesignUnit, PrimaryUnit, SecondaryUnit, SelectedName};
-use vhdl_parser::message::{Message, Severity};
-use vhdl_parser::{Config, FileToParse, Latin1String, Library, ParserError, Symbol, VHDLParser};
-
-extern crate fnv;
-use self::fnv::FnvHashMap;
+use vhdl_parser::{Config, Message, ParserError, Project, Severity, VHDLParser};
 
 fn main() {
     use clap::{App, Arg};
 
-    let matches = App::new("VHDL Parser")
-        .version("0.2")
-        .author("Olof Kraigher <olof.kraigher@gmail.com>")
-        .about("VHDL Parser Demonstrator")
+    let matches = App::new(env!("CARGO_PKG_NAME"))
+        .version(env!("CARGO_PKG_VERSION"))
+        .author(env!("CARGO_PKG_AUTHORS"))
+        .about(env!("CARGO_PKG_DESCRIPTION"))
         .arg(
             Arg::with_name("show")
                 .long("show")
@@ -54,7 +55,7 @@ fn main() {
 
     if let Some(files) = matches.values_of("files") {
         parse(
-            parser.clone(),
+            &parser.clone(),
             files.map(|s| s.to_owned()).collect(),
             num_threads,
             show,
@@ -65,71 +66,16 @@ fn main() {
         let config =
             Config::read_file_path(Path::new(file_name)).expect("Failed to read config file");
 
-        let mut libraries = FnvHashMap::default();
-        let mut files_to_parse = Vec::new();
-        for library in config.iter_libraries() {
-            let library_name =
-                Latin1String::from_utf8(library.name()).expect("Library name not latin-1 encoded");
-            let library_name = parser.symbol(&library_name);
-            libraries.insert(library_name.clone(), Vec::new());
+        let mut errors = Vec::new();
+        let mut project = Project::from_config(&config, num_threads, &mut errors);
+        show_messages(&project.analyse());
 
-            for file_name in library.file_names() {
-                let file_to_parse = LibraryFileToParse {
-                    library_name: library_name.clone(),
-                    file_name: file_name.to_owned(),
-                };
-
-                files_to_parse.push(file_to_parse)
+        if !errors.is_empty() {
+            println!("Errors when reading config {}:", file_name);
+            for error in errors {
+                println!("{}", error);
             }
         }
-
-        for (file_to_parse, mut messages, design_file) in
-            parser.parse_design_files(files_to_parse, num_threads)
-        {
-            let design_file = match design_file {
-                Ok(design_file) => design_file,
-                Err(ParserError::Message(msg)) => {
-                    println!("Error when parsing {}", file_to_parse.file_name);
-                    show_messages(&messages);
-                    println!("{}", msg.show());
-                    continue;
-                }
-                Err(ParserError::IOError(err)) => {
-                    println!("Error when parsing {}", file_to_parse.file_name);
-                    println!("{}", err);
-                    continue;
-                }
-            };
-
-            // @TODO check for errors
-            show_messages(&messages);
-
-            libraries
-                .get_mut(&file_to_parse.library_name)
-                .unwrap()
-                .push(design_file);
-        }
-
-        for (library_name, design_files) in libraries.into_iter() {
-            let mut messages = Vec::new();
-            let mut library = Library::new(library_name);
-            for design_file in design_files {
-                library.add_design_file(design_file, &mut messages);
-            }
-            library.finalize(&mut messages);
-            show_messages(&messages);
-        }
-    }
-}
-
-struct LibraryFileToParse {
-    library_name: Symbol,
-    file_name: String,
-}
-
-impl FileToParse for LibraryFileToParse {
-    fn file_name(&self) -> &str {
-        &self.file_name
     }
 }
 
@@ -143,8 +89,9 @@ fn to_string(selected_name: &SelectedName) -> String {
 
 fn show_design_unit(design_unit: &AnyDesignUnit) {
     match design_unit {
-        AnyDesignUnit::Primary(ref primary) => match primary.unit {
+        AnyDesignUnit::Primary(ref primary) => match primary {
             PrimaryUnit::EntityDeclaration(ref entity) => {
+                let entity = &entity.unit;
                 println!("entity {}", entity.ident.item.name());
                 if let Some(ref list) = entity.generic_clause {
                     println!("  with {} generics", list.len())
@@ -152,34 +99,39 @@ fn show_design_unit(design_unit: &AnyDesignUnit) {
                 if let Some(ref list) = entity.port_clause {
                     println!("  with {} ports", list.len())
                 }
-                if entity.decl.len() > 0 {
+                if !entity.decl.is_empty() {
                     println!("  with {} declarations", entity.decl.len())
                 }
-                if entity.statements.len() > 0 {
+                if !entity.statements.is_empty() {
                     println!("  with {} concurrent statements", entity.statements.len())
                 }
             }
             PrimaryUnit::ContextDeclaration(ref context) => {
                 println!("context {}", context.ident.item.name());
-                if context.items.len() > 0 {
+                if !context.items.is_empty() {
                     println!("  with {} items", context.items.len())
                 }
             }
             PrimaryUnit::PackageDeclaration(ref package) => {
+                let package = &package.unit;
                 println!("package {}", package.ident.item.name());
                 if let Some(ref list) = package.generic_clause {
                     println!("  with {} generics", list.len())
                 }
-                if package.decl.len() > 0 {
+                if !package.decl.is_empty() {
                     println!("  with {} declarations", package.decl.len())
                 }
             }
-            PrimaryUnit::Configuration(ref config) => println!(
-                "configuration {} of {}",
-                config.ident.item.name(),
-                to_string(&config.entity_name)
-            ),
+            PrimaryUnit::Configuration(ref config) => {
+                let config = &config.unit;
+                println!(
+                    "configuration {} of {}",
+                    config.ident.item.name(),
+                    to_string(&config.entity_name)
+                );
+            }
             PrimaryUnit::PackageInstance(ref inst) => {
+                let inst = &inst.unit;
                 println!(
                     "package instance {} of {}",
                     inst.ident.item.name(),
@@ -187,23 +139,25 @@ fn show_design_unit(design_unit: &AnyDesignUnit) {
                 );
             }
         },
-        AnyDesignUnit::Secondary(ref secondary) => match secondary.unit {
+        AnyDesignUnit::Secondary(ref secondary) => match secondary {
             SecondaryUnit::Architecture(ref arch) => {
+                let arch = &arch.unit;
                 println!(
                     "architecture {} of {}",
                     arch.ident.item.name(),
                     arch.entity_name.item.name()
                 );
-                if arch.decl.len() > 0 {
+                if !arch.decl.is_empty() {
                     println!("  with {} declarations", arch.decl.len())
                 }
-                if arch.statements.len() > 0 {
+                if !arch.statements.is_empty() {
                     println!("  with {} concurrent statements", arch.statements.len())
                 }
             }
             SecondaryUnit::PackageBody(ref package_body) => {
+                let package_body = &package_body.unit;
                 println!("package body {}", package_body.ident.item.name());
-                if package_body.decl.len() > 0 {
+                if !package_body.decl.is_empty() {
                     println!("  with {} declarations", package_body.decl.len())
                 }
             }
@@ -217,20 +171,14 @@ fn show_messages(messages: &[Message]) {
     }
 }
 
-fn parse(parser: VHDLParser, file_names: Vec<String>, num_threads: usize, show: bool) {
+fn parse(parser: &VHDLParser, file_names: Vec<String>, num_threads: usize, show: bool) {
     let mut num_errors = 0;
     let mut num_warnings = 0;
 
     for (file_name, mut messages, design_file) in parser.parse_design_files(file_names, num_threads)
     {
-        use vhdl_parser::semantic;
         let design_file = match design_file {
-            Ok(design_file) => {
-                for design_unit in design_file.design_units.iter() {
-                    semantic::check_design_unit(design_unit, &mut messages)
-                }
-                design_file
-            }
+            Ok(design_file) => design_file,
             Err(ParserError::Message(msg)) => {
                 println!("Error when parsing {}", file_name);
                 show_messages(&messages);
@@ -263,6 +211,7 @@ fn parse(parser: VHDLParser, file_names: Vec<String>, num_threads: usize, show: 
                 Severity::Error => {
                     file_has_errors = true;
                 }
+                _ => {}
             };
         }
 
@@ -272,7 +221,7 @@ fn parse(parser: VHDLParser, file_names: Vec<String>, num_threads: usize, show: 
         }
     }
 
-    println!("");
+    println!();
     println!("Summary:");
     if num_warnings > 0 {
         println!("Found {} warnings", num_warnings);

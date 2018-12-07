@@ -4,7 +4,9 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::{ContextDeclaration, ContextItem, ContextReference, LibraryClause, Name, UseClause};
+use ast::{
+    ContextDeclaration, ContextItem, ContextReference, Designator, LibraryClause, Name, UseClause,
+};
 use common::error_on_end_identifier_mismatch;
 use message::{push_some, Message, MessageHandler, ParseResult};
 use names::parse_name;
@@ -113,7 +115,7 @@ pub fn parse_context(
 
         let ident = {
             match name.item {
-                Name::Simple(symbol) => WithPos {
+                Name::Designator(Designator::Identifier(symbol)) => WithPos {
                     item: symbol,
                     pos: name.pos,
                 },

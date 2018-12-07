@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use message::{Message, ParseResult};
-use source::{Source, SrcPos};
+use source::{Source, SrcPos, WithPos};
 extern crate fnv;
 use self::fnv::FnvHashMap;
 
@@ -39,6 +39,7 @@ pub enum Kind {
     On,
     Generic,
     Map,
+    Default,
     Port,
     Attribute,
     Begin,
@@ -196,27 +197,25 @@ macro_rules! match_token_kind {
 #[macro_export]
 macro_rules! try_token_kind {
     ($token:expr, $($($kind:ident)|+ => $result:expr),*) => {
-        {
-            match $token.kind {
+        match $token.kind {
+            $(
+                $($kind)|+ => $result
+            ),*,
+            _ => {
+                let mut kinds = Vec::new();
                 $(
-                    $($kind)|+ => $result
-                ),*,
-                _ => {
-                    let mut kinds = Vec::new();
                     $(
-                        $(
-                            kinds.push($kind);
-                        );*;
+                        kinds.push($kind);
                     );*;
+                );*;
 
-                    return Err($token.kinds_error(&kinds));
-                }
+                return Err($token.kinds_error(&kinds));
             }
         }
     }
 }
 
-pub fn kind_str(kind: &Kind) -> &'static str {
+pub fn kind_str(kind: Kind) -> &'static str {
     match kind {
         // Keywords
         Architecture => &"architecture",
@@ -239,6 +238,7 @@ pub fn kind_str(kind: &Kind) -> &'static str {
         On => &"on",
         Generic => &"generic",
         Map => &"map",
+        Default => &"default",
         Port => &"port",
         Attribute => &"attribute",
         Begin => &"begin",
@@ -367,11 +367,11 @@ pub fn kind_str(kind: &Kind) -> &'static str {
 }
 
 /// Create s string representation of the kinds separated by a separator
-pub fn kinds_str<'a>(kinds: &[Kind]) -> String {
+pub fn kinds_str(kinds: &[Kind]) -> String {
     let mut result = String::new();
     for (i, kind) in kinds.iter().enumerate() {
         result.push('\'');
-        result.push_str(kind_str(kind));
+        result.push_str(kind_str(*kind));
         result.push('\'');
 
         if i == kinds.len() - 1 {
@@ -429,37 +429,32 @@ impl Token {
         kinds_error(self, kinds)
     }
 
-    pub fn expect_identifier(&self) -> ParseResult<Symbol> {
+    pub fn expect_ident(self) -> ParseResult<Ident> {
         if let Token {
             kind: Identifier,
             value: Value::Identifier(value),
+            pos,
             ..
         } = self
         {
-            return Ok(value.clone());
-        };
-
-        return Err(self.kinds_error(&[Identifier]));
+            Ok(WithPos::from(value, pos))
+        } else {
+            Err(self.kinds_error(&[Identifier]))
+        }
     }
 
-    pub fn expect_ident(&self) -> ParseResult<Ident> {
-        Ok(Ident {
-            item: self.expect_identifier()?,
-            pos: self.pos.clone(),
-        })
-    }
-
-    pub fn expect_character(&self) -> ParseResult<u8> {
+    pub fn expect_character(self) -> ParseResult<WithPos<u8>> {
         if let Token {
             kind: Character,
             value: Value::Character(value),
+            pos,
             ..
         } = self
         {
-            return Ok(*value);
-        };
-
-        return Err(self.kinds_error(&[Character]));
+            Ok(WithPos::from(value, pos))
+        } else {
+            Err(self.kinds_error(&[Character]))
+        }
     }
 
     pub fn expect_kind(self, kind: Kind) -> ParseResult<Token> {
@@ -470,50 +465,53 @@ impl Token {
         }
     }
 
-    pub fn expect_bit_string(&self) -> ParseResult<ast::BitString> {
+    pub fn expect_bit_string(self) -> ParseResult<WithPos<ast::BitString>> {
         if let Token {
             kind: BitString,
             value: Value::BitString(value),
+            pos,
             ..
         } = self
         {
-            return Ok(value.clone());
-        };
-
-        return Err(self.kinds_error(&[BitString]));
+            Ok(WithPos::from(value, pos))
+        } else {
+            Err(self.kinds_error(&[BitString]))
+        }
     }
 
-    pub fn expect_abstract_literal(&self) -> ParseResult<ast::AbstractLiteral> {
+    pub fn expect_abstract_literal(self) -> ParseResult<WithPos<ast::AbstractLiteral>> {
         if let Token {
             kind: AbstractLiteral,
             value: Value::AbstractLiteral(value),
+            pos,
             ..
         } = self
         {
-            return Ok(*value);
-        };
-
-        return Err(self.kinds_error(&[AbstractLiteral]));
+            Ok(WithPos::from(value, pos))
+        } else {
+            Err(self.kinds_error(&[AbstractLiteral]))
+        }
     }
 
-    pub fn expect_string(&self) -> ParseResult<Latin1String> {
+    pub fn expect_string(self) -> ParseResult<WithPos<Latin1String>> {
         if let Token {
             kind: StringLiteral,
             value: Value::String(value),
+            pos,
             ..
         } = self
         {
-            return Ok(value.clone());
-        };
-
-        return Err(self.kinds_error(&[StringLiteral]));
+            Ok(WithPos::from(value, pos))
+        } else {
+            Err(self.kinds_error(&[StringLiteral]))
+        }
     }
 }
 
 /// Resolves ir1045
 /// http://www.eda-stds.org/isac/IRs-VHDL-93/IR1045.txt
 /// char may not come after ], ), all, or identifier
-fn can_be_char(last_token_kind: &Option<Kind>) -> bool {
+fn can_be_char(last_token_kind: Option<Kind>) -> bool {
     if let Some(kind) = last_token_kind {
         match kind {
             RightSquare | RightPar | All | Identifier => false,
@@ -573,17 +571,12 @@ impl<'a> ByteCursor<'a> {
     }
 }
 
-fn parse_integer(
-    cursor: &mut ByteCursor,
-    base: i64,
-    stop_on_e: bool,
-) -> Result<(usize, i64), String> {
+fn parse_integer(cursor: &mut ByteCursor, base: i64, stop_on_e: bool) -> Result<i64, String> {
     let mut result = Some(0);
-    let mut digits = 0;
     let mut too_large_base = false;
 
     while let Some(b) = cursor.peek(0) {
-        let digit = match b {
+        let digit = i64::from(match b {
             b'0'..=b'9' => {
                 cursor.pop();
                 (b - b'0')
@@ -609,28 +602,21 @@ fn parse_integer(
             _ => {
                 break;
             }
-        } as i64;
+        });
 
-        digits += 1;
         too_large_base = too_large_base || (digit >= base);
 
-        let compure_result = |result| {
-            let result = base.checked_mul(result?)?;
-            let result = result.checked_add(digit)?;
-            Some(result)
-        };
-
-        result = compure_result(result);
+        result = result
+            .and_then(|x| base.checked_mul(x))
+            .and_then(|x| x.checked_add(digit));
     }
 
     if too_large_base {
         Err(format!("Illegal digit for base {}", base).to_string())
+    } else if let Some(result) = result {
+        Ok(result)
     } else {
-        if let Some(result) = result {
-            Ok((digits, result))
-        } else {
-            Err("Integer too large for 64-bits signed".to_string())
-        }
+        Err("Integer too large for 64-bits signed".to_string())
     }
 }
 
@@ -644,14 +630,14 @@ fn parse_exponent(cursor: &mut ByteCursor) -> Result<i32, String> {
         }
     };
 
-    let (_, exp) = parse_integer(cursor, 10, false)?;
+    let exp = parse_integer(cursor, 10, false)?;
     if let Some(exp) = exp.checked_mul(sign) {
-        if (i32::min_value() as i64) <= exp && exp <= (i32::max_value() as i64) {
+        if i64::from(i32::min_value()) <= exp && exp <= i64::from(i32::max_value()) {
             return Ok(exp as i32);
         }
     }
 
-    return Err("Exponent too large for 32-bits signed".to_string());
+    Err("Exponent too large for 32-bits signed".to_string())
 }
 
 fn pow(value: i64, exp: u32) -> Option<i64> {
@@ -709,7 +695,7 @@ fn parse_quoted(
                 break;
             }
         }
-        buffer.bytes.push(chr.clone());
+        buffer.bytes.push(chr);
     }
 
     if include_quote {
@@ -732,21 +718,48 @@ fn parse_string(
     parse_quoted(buffer, cursor, b'"', false)
 }
 
+fn parse_real_literal(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Result<f64, String> {
+    buffer.bytes.clear();
+
+    while let Some(b) = cursor.peek(0) {
+        match b {
+            b'e' => {
+                break;
+            }
+            b'0'..=b'9' | b'a'..=b'd' | b'f' | b'A'..=b'F' | b'.' => {
+                cursor.pop();
+                buffer.bytes.push(b);
+            }
+            b'_' => {
+                cursor.pop();
+                continue;
+            }
+            _ => {
+                break;
+            }
+        };
+    }
+
+    let string = unsafe { std::str::from_utf8_unchecked(&buffer.bytes) };
+    let result: Result<f64, String> = string
+        .parse()
+        .map_err(|err: std::num::ParseFloatError| err.to_string());
+    result
+}
+
 /// LRM 15.5 Abstract literals
 fn parse_abstract_literal(
     buffer: &mut Latin1String,
     cursor: &mut ByteCursor,
 ) -> Result<(Kind, Value), String> {
-    let (_, integer) = parse_integer(cursor, 10, true)?;
+    let pos = cursor.pos();
+    let initial = parse_integer(cursor, 10, true);
 
     match cursor.peek(0) {
         // Real
         Some(b'.') => {
-            cursor.pop();
-            let (digits, frac) = parse_integer(cursor, 10, true)?;
-
-            let frac = (frac as f64) * (10.0 as f64).powi(-(digits as i32));
-            let real = (integer as f64) + frac;
+            cursor.set(pos);
+            let real = parse_real_literal(buffer, cursor)?;
 
             match cursor.peek(0) {
                 // Exponent
@@ -769,6 +782,7 @@ fn parse_abstract_literal(
 
         // Integer exponent
         Some(b'e') | Some(b'E') => {
+            let integer = initial?;
             cursor.pop();
             let exp = parse_exponent(cursor)?;
             if exp >= 0 {
@@ -787,13 +801,13 @@ fn parse_abstract_literal(
 
         // Based integer
         Some(b'#') => {
+            let base = initial?;
             cursor.pop();
-            let base = integer;
             let base_result = parse_integer(cursor, base, false);
 
             if let Some(b'#') = cursor.peek(0) {
                 cursor.pop();
-                let (_, integer) = base_result?;
+                let integer = base_result?;
                 if base >= 2 && base <= 16 {
                     Ok((
                         AbstractLiteral,
@@ -807,6 +821,7 @@ fn parse_abstract_literal(
             }
         }
         _ => {
+            let integer = initial?;
             // @TODO check overflow
             if let Some((kind, bit_string)) =
                 parse_bit_string(buffer, cursor, Some(integer as u32))?
@@ -904,7 +919,7 @@ fn parse_basic_identifier_or_keyword(
     buffer
         .bytes
         .extend_from_slice(&cursor.bytes[start..cursor.idx]);
-    buffer.into_lowercase();
+    buffer.make_lowercase();
 
     match keywords.get(buffer.bytes.as_slice()) {
         Some(kind) => Ok((*kind, Value::NoValue)),
@@ -953,6 +968,7 @@ impl Tokenizer {
             ("on", On),
             ("generic", Generic),
             ("map", Map),
+            ("default", Default),
             ("port", Port),
             ("attribute", Attribute),
             ("begin", Begin),
@@ -1160,7 +1176,7 @@ impl Tokenizer {
                     (Times, Value::NoValue)
                 },
                 b'\'' => {
-                    if can_be_char(&self.state.last_token_kind) && cursor.peek(1) == Some(b'\'') {
+                    if can_be_char(self.state.last_token_kind) && cursor.peek(1) == Some(b'\'') {
                         cursor.pop();
                         cursor.pop();
                         (
@@ -1250,15 +1266,15 @@ impl Tokenizer {
 
             let length = cursor.pos() - self.state.start;
             let token = Some(Token {
-                kind: kind,
-                value: value,
+                kind,
+                value,
                 pos: self.source.pos(self.state.start, length),
             });
             self.state.start = cursor.pos();
             self.state.last_token_kind = Some(kind);
             return Ok(token);
         }
-        return Ok(None);
+        Ok(None)
     }
 }
 
@@ -1511,6 +1527,39 @@ end entity"
                     Value::AbstractLiteral(ast::AbstractLiteral::Real(0.021))
                 )
             ]
+        );
+    }
+
+    #[test]
+    fn tokenize_real_many_fractional_digits() {
+        assert_eq!(
+            kind_value_tokenize("0.1000_0000_0000_0000_0000_0000_0000_0000"),
+            vec![(
+                AbstractLiteral,
+                Value::AbstractLiteral(ast::AbstractLiteral::Real(1e-1))
+            )]
+        );
+    }
+
+    #[test]
+    fn tokenize_real_many_integer_digits() {
+        assert_eq!(
+            kind_value_tokenize("1000_0000_0000_0000_0000_0000_0000_0000.0"),
+            vec![(
+                AbstractLiteral,
+                Value::AbstractLiteral(ast::AbstractLiteral::Real(1e31))
+            )]
+        );
+    }
+
+    #[test]
+    fn tokenize_real_truncates_precision() {
+        assert_eq!(
+            kind_value_tokenize("2.71828182845904523536"),
+            vec![(
+                AbstractLiteral,
+                Value::AbstractLiteral(ast::AbstractLiteral::Real(2.7182818284590452))
+            )]
         );
     }
 

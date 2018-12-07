@@ -11,12 +11,14 @@ extern crate serde;
 extern crate url;
 use self::url::Url;
 
+extern crate fnv;
+use self::fnv::FnvHashMap;
+use std::collections::hash_map::Entry;
+
 extern crate vhdl_parser;
-use self::vhdl_parser::message::{Message, Severity};
-use self::vhdl_parser::semantic;
-use self::vhdl_parser::source::{Source, SrcPos};
-use self::vhdl_parser::{Config, ParserError, VHDLParser};
+use self::vhdl_parser::{Config, Message, Project, Severity, Source, SrcPos};
 use std::io;
+use std::path::Path;
 
 pub trait RpcChannel {
     fn send_notification(
@@ -48,20 +50,34 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         Ok(result)
     }
 
-    fn server(&self) -> &InitializedVHDLServer<T> {
-        self.server.as_ref().expect("Expected initialized server")
+    pub fn shutdown_server(&mut self, _params: ()) -> jsonrpc_core::Result<()> {
+        self.server = None;
+        Ok(())
     }
 
-    pub fn initialized_notification(&self, params: InitializedParams) {
-        self.server().initialized_notification(params);
+    fn mut_server(&mut self) -> &mut InitializedVHDLServer<T> {
+        self.server.as_mut().expect("Expected initialized server")
     }
 
-    pub fn text_document_did_change_notification(&self, params: DidChangeTextDocumentParams) {
-        self.server().text_document_did_change_notification(params)
+    pub fn exit_notification(&mut self, _params: ()) {
+        match self.server {
+            Some(_) => ::std::process::exit(1),
+            None => ::std::process::exit(0),
+        }
     }
 
-    pub fn text_document_did_open_notification(&self, params: DidOpenTextDocumentParams) {
-        self.server().text_document_did_open_notification(params)
+    pub fn initialized_notification(&mut self, params: &InitializedParams) {
+        self.mut_server().initialized_notification(params);
+    }
+
+    pub fn text_document_did_change_notification(&mut self, params: &DidChangeTextDocumentParams) {
+        self.mut_server()
+            .text_document_did_change_notification(&params)
+    }
+
+    pub fn text_document_did_open_notification(&mut self, params: &DidOpenTextDocumentParams) {
+        self.mut_server()
+            .text_document_did_open_notification(&params)
     }
 }
 
@@ -69,6 +85,8 @@ struct InitializedVHDLServer<T: RpcChannel> {
     rpc_channel: T,
     init_params: InitializeParams,
     config: io::Result<Config>,
+    project: Project,
+    files_with_notifications: FnvHashMap<Url, ()>,
 }
 
 impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
@@ -99,6 +117,8 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             rpc_channel,
             init_params,
             config,
+            project: Project::new(),
+            files_with_notifications: FnvHashMap::default(),
         };
 
         let result = InitializeResult {
@@ -186,81 +206,117 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         try_fun().unwrap_or(false)
     }
 
-    fn parse_and_publish_diagnostics(&self, uri: Url, code: &str) {
-        let parser = VHDLParser::new();
-        let mut messages = Vec::new();
+    fn publish_diagnostics(&mut self) {
+        let supports_related_information = self.client_supports_related_information();
+        let messages = self.project.analyse();
+        let messages = {
+            if supports_related_information {
+                messages
+            } else {
+                flatten_related(messages)
+            }
+        };
+
+        let mut files_with_notifications =
+            std::mem::replace(&mut self.files_with_notifications, FnvHashMap::default());
+        for (file_uri, messages) in messages_by_uri(messages).into_iter() {
+            let mut diagnostics = Vec::new();
+            for mut message in messages {
+                diagnostics.push(to_diagnostic(message));
+            }
+
+            let publish_diagnostics = PublishDiagnosticsParams {
+                uri: file_uri.clone(),
+                diagnostics,
+            };
+
+            self.rpc_channel
+                .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
+
+            self.files_with_notifications.insert(file_uri.clone(), ());
+        }
+
+        for (file_uri, _) in files_with_notifications.drain() {
+            // File has no longer any diagnosics, publish empty notification to clear them
+            if !self.files_with_notifications.contains_key(&file_uri) {
+                let publish_diagnostics = PublishDiagnosticsParams {
+                    uri: file_uri.clone(),
+                    diagnostics: vec![],
+                };
+
+                self.rpc_channel
+                    .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
+            }
+        }
+    }
+
+    fn parse_and_publish_diagnostics(&mut self, uri: &Url, code: &str) {
+        // @TODO return error to client
+        let file_name = uri_to_file_name(&uri);
 
         // @TODO return error to client
         let source =
-            Source::inline_utf8(uri.to_string(), code).expect("Source was not legal latin-1");
-        match parser.parse_design_source(&source, &mut messages) {
-            Err(ParserError::Message(message)) => {
-                eprintln!("{}", message.show());
-                messages.push(message);
-            }
-            Err(ParserError::IOError(error)) => eprintln!("{}", error),
-            Ok(ref design_file) => {
-                for design_unit in design_file.design_units.iter() {
-                    semantic::check_design_unit(design_unit, &mut messages);
-                }
-            }
-        };
+            Source::inline_utf8(file_name.to_string(), code).expect("Source was not legal latin-1");
 
-        let mut diagnostics = Vec::new();
-        for message in messages {
-            eprintln!("{}", message.show());
-            diagnostics.extend(to_diagnostics(
-                &uri,
-                message,
-                self.client_supports_related_information(),
-            ));
-        }
-
-        let publish_diagnostics = PublishDiagnosticsParams {
-            uri,
-            diagnostics: diagnostics,
-        };
-
-        self.rpc_channel
-            .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
+        // @TODO log error to client
+        self.project.update_source(&file_name, &source).unwrap();
+        self.publish_diagnostics();
     }
 
-    pub fn initialized_notification(&self, _params: InitializedParams) {
-        if let Err(ref err) = self.config {
-            self.rpc_channel.send_notification(
-                "window/showMessage",
-                ShowMessageParams {
-                    typ: MessageType::Warning,
-                    message: format!(
-                        "Found no vhdl_ls.toml config file in the root path: {}",
-                        err
-                    ),
-                },
-            );
-            self.rpc_channel.send_notification(
-                "window/showMessage",
-                ShowMessageParams {
-                    typ: MessageType::Warning,
-                    message: "Semantic analysis disabled, will perform syntax checking only"
-                        .to_owned(),
-                },
-            );
-        }
-    }
-
-    pub fn text_document_did_change_notification(&self, params: DidChangeTextDocumentParams) {
-        self.parse_and_publish_diagnostics(
-            params.text_document.uri,
-            &params.content_changes.get(0).unwrap().text,
+    fn window_show_message(&self, typ: MessageType, message: impl Into<String>) {
+        self.rpc_channel.send_notification(
+            "window/showMessage",
+            ShowMessageParams {
+                typ,
+                message: message.into(),
+            },
         );
     }
 
-    pub fn text_document_did_open_notification(&self, params: DidOpenTextDocumentParams) {
-        self.parse_and_publish_diagnostics(params.text_document.uri, &params.text_document.text);
+    pub fn initialized_notification(&mut self, _params: &InitializedParams) {
+        match &self.config {
+            Err(ref err) => {
+                self.window_show_message(
+                    MessageType::Warning,
+                    format!(
+                        "Found no vhdl_ls.toml config file in the root path: {}",
+                        err
+                    ),
+                );
+                self.window_show_message(
+                    MessageType::Warning,
+                    "Semantic analysis disabled, will perform syntax checking only",
+                );
+            }
+            Ok(config) => {
+                // @TODO read num_threads from config file
+                let num_threads = 4;
+                // @TODO send error to client
+                let mut errors = Vec::new();
+                let project = Project::from_config(&config, num_threads, &mut errors);
+                self.project = project;
+                for error in errors {
+                    self.window_show_message(MessageType::Error, error.to_string());
+                }
+            }
+        }
+
+        self.publish_diagnostics();
+    }
+
+    pub fn text_document_did_change_notification(&mut self, params: &DidChangeTextDocumentParams) {
+        self.parse_and_publish_diagnostics(
+            &params.text_document.uri,
+            &params.content_changes[0].text,
+        );
+    }
+
+    pub fn text_document_did_open_notification(&mut self, params: &DidOpenTextDocumentParams) {
+        self.parse_and_publish_diagnostics(&params.text_document.uri, &params.text_document.text);
     }
 }
 
-fn srcpos_to_range(srcpos: SrcPos) -> Range {
+fn srcpos_to_range(srcpos: &SrcPos) -> Range {
     let contents = srcpos.source.contents().unwrap();
     let mut start = None;
     let mut end = None;
@@ -292,53 +348,75 @@ fn srcpos_to_range(srcpos: SrcPos) -> Range {
     }
 }
 
-fn to_diagnostics(
-    uri: &Url,
-    message: Message,
-    supports_related_information: bool,
-) -> Vec<Diagnostic> {
+fn messages_by_uri(messages: Vec<Message>) -> FnvHashMap<Url, Vec<Message>> {
+    let mut map: FnvHashMap<Url, Vec<Message>> = FnvHashMap::default();
+
+    for message in messages {
+        let uri = file_name_to_uri(message.pos.source.file_name());
+        match map.entry(uri) {
+            Entry::Occupied(mut entry) => entry.get_mut().push(message),
+            Entry::Vacant(mut entry) => {
+                let mut vec = vec![message];
+                entry.insert(vec);
+            }
+        }
+    }
+
+    map
+}
+
+fn flatten_related(messages: Vec<Message>) -> Vec<Message> {
+    let mut flat_messages = Vec::new();
+    for mut message in messages {
+        flat_messages.extend(message.drain_related());
+        flat_messages.push(message);
+    }
+    flat_messages
+}
+
+fn file_name_to_uri(file_name: impl AsRef<str>) -> Url {
+    // @TODO return error to client
+    Url::from_file_path(Path::new(file_name.as_ref())).unwrap()
+}
+
+fn uri_to_file_name(uri: &Url) -> String {
+    // @TODO return error to client
+    uri.to_file_path().unwrap().to_str().unwrap().to_owned()
+}
+
+fn to_diagnostic(message: Message) -> Diagnostic {
     let severity = match message.severity {
         Severity::Error => DiagnosticSeverity::Error,
         Severity::Warning => DiagnosticSeverity::Warning,
+        Severity::Info => DiagnosticSeverity::Information,
+        Severity::Hint => DiagnosticSeverity::Hint,
     };
 
-    let mut diagnostics = Vec::new();
-
-    let related_information = if supports_related_information {
+    let related_information = if !message.related.is_empty() {
         let mut related_information = Vec::new();
         for (pos, msg) in message.related {
+            let uri = file_name_to_uri(pos.source.file_name());
             related_information.push(DiagnosticRelatedInformation {
                 location: Location {
                     uri: uri.to_owned(),
-                    range: srcpos_to_range(pos),
+                    range: srcpos_to_range(&pos),
                 },
                 message: msg,
             })
         }
         Some(related_information)
     } else {
-        for (pos, msg) in message.related {
-            diagnostics.push(Diagnostic {
-                range: srcpos_to_range(pos),
-                severity: Some(DiagnosticSeverity::Hint),
-                code: None,
-                source: Some("vhdl ls".to_owned()),
-                message: format!("related: {}", msg),
-                related_information: None,
-            });
-        }
         None
     };
 
-    diagnostics.push(Diagnostic {
-        range: srcpos_to_range(message.pos),
+    Diagnostic {
+        range: srcpos_to_range(&message.pos),
         severity: Some(severity),
         code: None,
         source: Some("vhdl ls".to_owned()),
         message: message.message,
         related_information,
-    });
-    diagnostics
+    }
 }
 
 #[cfg(test)]
@@ -349,15 +427,14 @@ mod tests {
     use std::rc::Rc;
     extern crate tempfile;
 
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     enum RpcExpected {
         Notification {
             method: String,
             notification: serde_json::Value,
         },
-        IgnoredNotification {
-            method: String,
-        },
+        /// Check that the string representation of the notification contains a string
+        NotificationContainsString { method: String, contains: String },
     }
 
     #[derive(Clone)]
@@ -385,12 +462,28 @@ mod tests {
                 });
         }
 
-        fn ignore_notification(&self, method: impl Into<String>) {
+        fn expect_notification_contains(
+            &self,
+            method: impl Into<String>,
+            contains: impl Into<String>,
+        ) {
             self.expected
                 .borrow_mut()
-                .push_back(RpcExpected::IgnoredNotification {
+                .push_back(RpcExpected::NotificationContainsString {
                     method: method.into(),
+                    contains: contains.into(),
                 });
+        }
+    }
+
+    impl Drop for RpcMock {
+        fn drop(&mut self) {
+            if !std::thread::panicking() {
+                let expected = self.expected.replace(VecDeque::new());
+                if expected.len() > 0 {
+                    panic!("Not all expected data was consumed\n{:#?}", expected);
+                }
+            }
         }
     }
 
@@ -400,24 +493,35 @@ mod tests {
             method: impl Into<String>,
             notification: impl serde::ser::Serialize,
         ) {
+            let method = method.into();
             let notification = serde_json::to_value(notification).unwrap();
             let expected = self
                 .expected
                 .borrow_mut()
                 .pop_front()
-                .ok_or_else(|| panic!("No expected value, got {:?}", notification))
-                .unwrap();
+                .ok_or_else(|| {
+                    panic!(
+                        "No expected value, got method={} {:?}",
+                        method, notification
+                    )
+                }).unwrap();
 
             match expected {
                 RpcExpected::Notification {
                     method: exp_method,
                     notification: exp_notification,
                 } => {
-                    assert_eq!(method.into(), exp_method);
+                    assert_eq!(method, exp_method);
                     assert_eq!(notification, exp_notification);
                 }
-                RpcExpected::IgnoredNotification { method: exp_method } => {
-                    assert_eq!(method.into(), exp_method);
+                RpcExpected::NotificationContainsString {
+                    method: exp_method,
+                    contains,
+                } => {
+                    assert_eq!(method, exp_method);
+                    if !notification.to_string().contains(&contains) {
+                        panic!("{:?} does not contain string {:?}", notification, contains);
+                    }
                 }
             }
         }
@@ -443,7 +547,7 @@ mod tests {
         server
             .initialize_request(initialize_params)
             .expect("Should not fail");
-        server.initialized_notification(InitializedParams {});
+        server.initialized_notification(&InitializedParams {});
     }
 
     fn temp_root_uri() -> (tempfile::TempDir, Url) {
@@ -457,8 +561,14 @@ mod tests {
         let mock = RpcMock::new();
         let mut server = VHDLServer::new(mock.clone());
         let (_tempdir, root_uri) = temp_root_uri();
-        mock.ignore_notification("window/showMessage");
-        mock.ignore_notification("window/showMessage");
+        mock.expect_notification_contains(
+            "window/showMessage",
+            "Found no vhdl_ls.toml config file in the root path",
+        );
+        mock.expect_notification_contains(
+            "window/showMessage",
+            "Semantic analysis disabled, will perform syntax checking only",
+        );
         initialize_server(&mut server, root_uri);
     }
 
@@ -468,8 +578,14 @@ mod tests {
         let mut server = VHDLServer::new(mock.clone());
 
         let (_tempdir, root_uri) = temp_root_uri();
-        mock.ignore_notification("window/showMessage");
-        mock.ignore_notification("window/showMessage");
+        mock.expect_notification_contains(
+            "window/showMessage",
+            "Found no vhdl_ls.toml config file in the root path",
+        );
+        mock.expect_notification_contains(
+            "window/showMessage",
+            "Semantic analysis disabled, will perform syntax checking only",
+        );
         initialize_server(&mut server, root_uri.clone());
 
         let file_url = root_uri.join("ent.vhd").unwrap();
@@ -487,14 +603,7 @@ end entity ent;
             },
         };
 
-        let publish_diagnostics = PublishDiagnosticsParams {
-            uri: file_url.clone(),
-            diagnostics: vec![],
-        };
-
-        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
-
-        server.text_document_did_open_notification(did_open);
+        server.text_document_did_open_notification(&did_open);
     }
 
     #[test]
@@ -503,8 +612,14 @@ end entity ent;
         let mut server = VHDLServer::new(mock.clone());
 
         let (_tempdir, root_uri) = temp_root_uri();
-        mock.ignore_notification("window/showMessage");
-        mock.ignore_notification("window/showMessage");
+        mock.expect_notification_contains(
+            "window/showMessage",
+            "Found no vhdl_ls.toml config file in the root path",
+        );
+        mock.expect_notification_contains(
+            "window/showMessage",
+            "Semantic analysis disabled, will perform syntax checking only",
+        );
         initialize_server(&mut server, root_uri.clone());
 
         let file_url = root_uri.join("ent.vhd").unwrap();
@@ -544,7 +659,7 @@ end entity ent2;
         };
 
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
-        server.text_document_did_open_notification(did_open);
+        server.text_document_did_open_notification(&did_open);
 
         let code = "
 entity ent is
@@ -569,14 +684,13 @@ end entity ent;
         };
 
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
-        server.text_document_did_change_notification(did_change);
+        server.text_document_did_change_notification(&did_change);
     }
 
-    fn write_file(root_uri: &Url, file_name: impl AsRef<str>, contents: impl AsRef<str>) {
-        std::fs::write(
-            root_uri.to_file_path().unwrap().join(file_name.as_ref()),
-            contents.as_ref(),
-        ).unwrap();
+    fn write_file(root_uri: &Url, file_name: impl AsRef<str>, contents: impl AsRef<str>) -> Url {
+        let path = root_uri.to_file_path().unwrap().join(file_name.as_ref());
+        std::fs::write(&path, contents.as_ref()).unwrap();
+        Url::from_file_path(path).unwrap()
     }
 
     fn write_config(root_uri: &Url, contents: impl AsRef<str>) {
@@ -588,15 +702,14 @@ end entity ent;
         let mock = RpcMock::new();
         let mut server = VHDLServer::new(mock.clone());
         let (_tempdir, root_uri) = temp_root_uri();
-
-        write_file(
+        let file_uri = write_file(
             &root_uri,
             "file.vhd",
-            "
+            "\
 entity ent is
 end entity;
 
-architecture rtl of ent is
+architecture rtl of ent2 is
 begin
 end;
 ",
@@ -612,6 +725,72 @@ lib.files = [
 ",
         );
 
+        let publish_diagnostics = PublishDiagnosticsParams {
+            uri: file_uri.clone(),
+            diagnostics: vec![Diagnostic {
+                range: Range {
+                    start: Position {
+                        line: 3,
+                        character: "architecture rtl of ".len() as u64,
+                    },
+                    end: Position {
+                        line: 3,
+                        character: "architecture rtl of ent2".len() as u64,
+                    },
+                },
+                code: None,
+                severity: Some(DiagnosticSeverity::Error),
+                source: Some("vhdl ls".to_owned()),
+                message: "No entity \'ent2\' within library \'lib\'".to_owned(),
+                related_information: None,
+            }],
+        };
+
+        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
+
+        initialize_server(&mut server, root_uri);
+    }
+
+    #[test]
+    fn initialize_with_bad_config() {
+        let mock = RpcMock::new();
+        let mut server = VHDLServer::new(mock.clone());
+        let (_tempdir, root_uri) = temp_root_uri();
+
+        write_config(
+            &root_uri,
+            "
+[libraries
+",
+        );
+        mock.expect_notification_contains(
+            "window/showMessage",
+            "Found no vhdl_ls.toml config file in the root path",
+        );
+        mock.expect_notification_contains(
+            "window/showMessage",
+            "Semantic analysis disabled, will perform syntax checking only",
+        );
+        initialize_server(&mut server, root_uri);
+    }
+
+    #[test]
+    fn initialize_with_config_missing_files() {
+        let mock = RpcMock::new();
+        let mut server = VHDLServer::new(mock.clone());
+        let (_tempdir, root_uri) = temp_root_uri();
+
+        write_config(
+            &root_uri,
+            "
+[libraries]
+lib.files = [
+'missing_file.vhd',
+]
+",
+        );
+
+        mock.expect_notification_contains("window/showMessage", "missing_file.vhd");
         initialize_server(&mut server, root_uri);
     }
 

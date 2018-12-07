@@ -9,7 +9,7 @@ use ast::{
     ConcurrentAssertStatement, ConcurrentProcedureCall, ConcurrentSignalAssignment,
     ConcurrentStatement, Conditional, Declaration, ForGenerateStatement, FunctionCall,
     GenerateBody, Ident, IfGenerateStatement, InstantiatedUnit, InstantiationStatement,
-    LabeledConcurrentStatement, Name, ProcessStatement, Target,
+    LabeledConcurrentStatement, Name, ProcessStatement, SensitivityList, Target,
 };
 use common::error_on_end_identifier_mismatch;
 use declarative_part::{is_declarative_part, parse_declarative_part};
@@ -75,28 +75,30 @@ pub fn parse_process_statement(
         match token.kind {
             LeftPar => {
                 stream.move_after(&token);
-                let mut names = Vec::with_capacity(1);
-                loop {
-                    let name = parse_name(stream);
-                    if let Err(err) = name {
-                        messages.push(Message::error(
-                            err.pos,
-                            "Processes with sensitivity lists should contain at least one element.",
-                        ));
-                        break Vec::new();
+                let token = stream.expect()?;
+
+                if token.kind == All {
+                    stream.expect_kind(RightPar)?;
+                    Some(SensitivityList::All)
+                } else {
+                    let mut names = Vec::with_capacity(1);
+                    let mut token = token;
+                    loop {
+                        match token.kind {
+                            RightPar => {
+                                break Some(SensitivityList::Names(names));
+                            }
+                            Comma => {}
+                            _ => {
+                                names.push(parse_name_initial_token(stream, token)?);
+                            }
+                        };
+
+                        token = stream.expect()?;
                     }
-                    names.push(name.unwrap());
-                    let token = stream.expect()?;
-                    try_token_kind!(
-                        token,
-                        RightPar => {
-                            break names;
-                        },
-                        Comma => {}
-                    );
                 }
             }
-            _ => Vec::new(),
+            _ => None,
         }
     };
     stream.pop_if_kind(Is)?;
@@ -131,18 +133,16 @@ fn to_procedure_call(
                 parameters: vec![],
             },
         }),
-        Target::Aggregate(..) => {
-            return Err(Message::error(
-                target,
-                "Expected procedure call, got aggregate",
-            ));
-        }
+        Target::Aggregate(..) => Err(Message::error(
+            target,
+            "Expected procedure call, got aggregate",
+        )),
     }
 }
 
 fn parse_assignment_or_procedure_call(
     stream: &mut TokenStream,
-    token: Token,
+    token: &Token,
     target: WithPos<Target>,
 ) -> ParseResult<ConcurrentStatement> {
     match_token_kind!(
@@ -261,12 +261,12 @@ fn parse_generate_body_end_token(
                 end_token = stream.expect()?;
             },
             Identifier => {
+                stream.move_after(&token);
                 // Inner with identifier
                 let end_ident = token.expect_ident()?;
                 if let Some(ref ident) = alternative_label {
                     push_some(messages, error_on_end_identifier_mismatch(ident, &Some(end_ident)));
                 };
-                stream.move_after(&token);
                 stream.expect_kind(SemiColon)?;
                 end_token = stream.expect()?;
             });
@@ -373,7 +373,7 @@ fn parse_if_generate_statement(
     stream.expect_kind(SemiColon)?;
 
     Ok(IfGenerateStatement {
-        conditionals: conditionals,
+        conditionals,
         else_item: else_branch,
     })
 }
@@ -390,7 +390,7 @@ fn parse_case_generate_statement(
     let mut alternatives = Vec::with_capacity(2);
     loop {
         let alternative_label = {
-            if stream.is_peek_kinds(&[Identifier, Colon])? {
+            if stream.next_kinds_are(&[Identifier, Colon])? {
                 let ident = stream.expect_ident()?;
                 stream.expect_kind(Colon)?;
                 Some(ident)
@@ -488,14 +488,14 @@ pub fn parse_concurrent_statement(
                     }
                     _ => {
                         stream.move_after(&token);
-                        parse_assignment_or_procedure_call(stream, token, name.map_into(Target::Name))?
+                        parse_assignment_or_procedure_call(stream, &token, name.map_into(Target::Name))?
                     }
                 }
             },
             LeftPar => {
                 let target = parse_aggregate_leftpar_known(stream)?.map_into(Target::Aggregate);
                 let token = stream.expect()?;
-                parse_assignment_or_procedure_call(stream, token, target)?
+                parse_assignment_or_procedure_call(stream, &token, target)?
             }
         )
     };
@@ -545,7 +545,7 @@ pub fn parse_labeled_concurrent_statement_initial_token(
             Ok(LabeledConcurrentStatement { label, statement })
         } else {
             let target = name.map_into(Target::Name);
-            let statement = parse_assignment_or_procedure_call(stream, token, target)?;
+            let statement = parse_assignment_or_procedure_call(stream, &token, target)?;
             Ok(LabeledConcurrentStatement {
                 label: None,
                 statement,
@@ -717,7 +717,7 @@ end process;
         );
         let process = ProcessStatement {
             postponed: false,
-            sensitivity_list: vec![],
+            sensitivity_list: None,
             decl: vec![],
             statements: vec![],
         };
@@ -737,7 +737,7 @@ end process name;
         );
         let process = ProcessStatement {
             postponed: false,
-            sensitivity_list: vec![],
+            sensitivity_list: None,
             decl: vec![],
             statements: vec![],
         };
@@ -757,7 +757,7 @@ end process;
         );
         let process = ProcessStatement {
             postponed: true,
-            sensitivity_list: vec![],
+            sensitivity_list: None,
             decl: vec![],
             statements: vec![],
         };
@@ -777,7 +777,10 @@ end process;
         );
         let process = ProcessStatement {
             postponed: false,
-            sensitivity_list: vec![code.s1("clk").name(), code.s1("vec(1)").name()],
+            sensitivity_list: Some(SensitivityList::Names(vec![
+                code.s1("clk").name(),
+                code.s1("vec(1)").name(),
+            ])),
             decl: vec![],
             statements: vec![],
         };
@@ -819,7 +822,7 @@ end process;
         );
         let process = ProcessStatement {
             postponed: false,
-            sensitivity_list: vec![code.s1("all").name()],
+            sensitivity_list: Some(SensitivityList::All),
             decl: code.s1("variable foo : boolean;").declarative_part(),
             statements: vec![
                 code.s1("foo <= true;").sequential_statement(),

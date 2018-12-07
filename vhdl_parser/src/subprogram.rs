@@ -5,8 +5,8 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use ast::{
-    Declaration, Designator, FunctionSpecification, ProcedureSpecification, Signature,
-    SubprogramBody, SubprogramDeclaration,
+    Declaration, FunctionSpecification, ProcedureSpecification, Signature, SubprogramBody,
+    SubprogramDeclaration, SubprogramDesignator,
 };
 use declarative_part::parse_declarative_part;
 use interface_declaration::parse_parameter_interface_list;
@@ -74,15 +74,12 @@ pub fn parse_signature(stream: &mut TokenStream) -> ParseResult<Signature> {
     })
 }
 
-fn parse_designator(stream: &mut TokenStream) -> ParseResult<WithPos<Designator>> {
+fn parse_designator(stream: &mut TokenStream) -> ParseResult<WithPos<SubprogramDesignator>> {
     let token = stream.expect()?;
     Ok(try_token_kind!(
         token,
-        Identifier => token.expect_ident()?.map_into(Designator::Identifier),
-        StringLiteral => WithPos {
-            item: Designator::OperatorSymbol(token.expect_string()?),
-            pos: token.pos,
-        }
+        Identifier => token.expect_ident()?.map_into(SubprogramDesignator::Identifier),
+        StringLiteral => token.expect_string()?.map_into(SubprogramDesignator::OperatorSymbol)
     ))
 }
 
@@ -119,14 +116,14 @@ pub fn parse_subprogram_declaration_no_semi(
         let return_type = parse_selected_name(stream)?;
         Ok(SubprogramDeclaration::Function(FunctionSpecification {
             pure: is_pure,
-            designator: designator,
-            parameter_list: parameter_list,
-            return_type: return_type,
+            designator,
+            parameter_list,
+            return_type,
         }))
     } else {
         Ok(SubprogramDeclaration::Procedure(ProcedureSpecification {
-            designator: designator,
-            parameter_list: parameter_list,
+            designator,
+            parameter_list,
         }))
     }
 }
@@ -204,7 +201,10 @@ procedure foo;
         assert_eq!(
             code.with_stream_no_messages(parse_subprogram_declaration),
             SubprogramDeclaration::Procedure(ProcedureSpecification {
-                designator: code.s1("foo").ident().map_into(Designator::Identifier),
+                designator: code
+                    .s1("foo")
+                    .ident()
+                    .map_into(SubprogramDesignator::Identifier),
                 parameter_list: Vec::new(),
             })
         );
@@ -221,7 +221,10 @@ function foo return lib.foo.natural;
             code.with_stream_no_messages(parse_subprogram_declaration),
             SubprogramDeclaration::Function(FunctionSpecification {
                 pure: true,
-                designator: code.s1("foo").ident().map_into(Designator::Identifier),
+                designator: code
+                    .s1("foo")
+                    .ident()
+                    .map_into(SubprogramDesignator::Identifier),
                 parameter_list: Vec::new(),
                 return_type: code.s1("lib.foo.natural").selected_name()
             })
@@ -240,7 +243,9 @@ function \"+\" return lib.foo.natural;
             SubprogramDeclaration::Function(FunctionSpecification {
                 pure: true,
                 designator: WithPos {
-                    item: Designator::OperatorSymbol(Latin1String::from_utf8_unchecked("+")),
+                    item: SubprogramDesignator::OperatorSymbol(Latin1String::from_utf8_unchecked(
+                        "+"
+                    )),
                     pos: code.s1("\"+\"").pos()
                 },
                 parameter_list: Vec::new(),
@@ -260,7 +265,10 @@ impure function foo return lib.foo.natural;
             code.with_stream_no_messages(parse_subprogram_declaration),
             SubprogramDeclaration::Function(FunctionSpecification {
                 pure: false,
-                designator: code.s1("foo").ident().map_into(Designator::Identifier),
+                designator: code
+                    .s1("foo")
+                    .ident()
+                    .map_into(SubprogramDesignator::Identifier),
                 parameter_list: Vec::new(),
                 return_type: code.s1("lib.foo.natural").selected_name()
             })
@@ -277,7 +285,10 @@ procedure foo(foo : natural);
         assert_eq!(
             code.with_stream_no_messages(parse_subprogram_declaration),
             SubprogramDeclaration::Procedure(ProcedureSpecification {
-                designator: code.s1("foo").ident().map_into(Designator::Identifier),
+                designator: code
+                    .s1("foo")
+                    .ident()
+                    .map_into(SubprogramDesignator::Identifier),
                 parameter_list: vec![code.s1("foo : natural").parameter()],
             })
         );
@@ -294,7 +305,10 @@ function foo(foo : natural) return lib.foo.natural;
             code.with_stream_no_messages(parse_subprogram_declaration),
             SubprogramDeclaration::Function(FunctionSpecification {
                 pure: true,
-                designator: code.s1("foo").ident().map_into(Designator::Identifier),
+                designator: code
+                    .s1("foo")
+                    .ident()
+                    .map_into(SubprogramDesignator::Identifier),
                 parameter_list: vec![code.s1("foo : natural").parameter()],
                 return_type: code.s1("lib.foo.natural").selected_name()
             })

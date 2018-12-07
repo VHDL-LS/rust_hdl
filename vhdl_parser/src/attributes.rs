@@ -34,10 +34,15 @@ pub fn parse_entity_name_list(stream: &mut TokenStream) -> ParseResult<Vec<Entit
     let token = stream.peek_expect()?;
     Ok(try_token_kind!(
         token,
-        Identifier => {
+        Identifier | StringLiteral => {
             let mut entity_name_list = Vec::new();
             loop {
-                let designator = stream.expect_ident()?.map_into(Designator::Identifier);
+                let designator_token = stream.expect()?;
+                let designator = try_token_kind!(
+                    designator_token,
+                    Identifier => designator_token.expect_ident()?.map_into(Designator::Identifier),
+                    StringLiteral => designator_token.expect_string()?.map_into(Designator::OperatorSymbol));
+
                 let signature = {
                     if stream.peek_kind()? == Some(LeftSquare) {
                         Some(parse_signature(stream)?)
@@ -99,7 +104,7 @@ pub fn parse_attribute(stream: &mut TokenStream) -> ParseResult<Vec<Attribute>> 
             let expr = parse_expression(stream)?;
             stream.expect_kind(SemiColon)?;
 
-            let attributes = entity_names
+            entity_names
                 .into_iter()
                 .map(|entity_name| {
                     Attribute::Specification(AttributeSpecification {
@@ -108,9 +113,7 @@ pub fn parse_attribute(stream: &mut TokenStream) -> ParseResult<Vec<Attribute>> 
                         entity_class: entity_class,
                         expr: expr.clone(),
                     })
-                }).collect();
-
-            attributes
+                }).collect()
         }
     ))
 }
@@ -118,7 +121,6 @@ pub fn parse_attribute(stream: &mut TokenStream) -> ParseResult<Vec<Attribute>> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ast::Designator;
     use test_util::Code;
 
     #[test]
@@ -145,6 +147,26 @@ mod tests {
                     signature: None
                 }),
                 entity_class: EntityClass::Signal,
+                expr: code.s1("0+1").expr()
+            })]
+        )
+    }
+
+    #[test]
+    fn parse_simple_attribute_specification_operator_symbol() {
+        let code = Code::new("attribute attr_name of \"**\" : function is 0+1;");
+        assert_eq!(
+            code.with_stream(parse_attribute),
+            vec![Attribute::Specification(AttributeSpecification {
+                ident: code.s1("attr_name").ident(),
+                entity_name: EntityName::Name(EntityTag {
+                    designator: code
+                        .s1("\"**\"")
+                        .operator_symbol()
+                        .map_into(Designator::OperatorSymbol),
+                    signature: None
+                }),
+                entity_class: EntityClass::Function,
                 expr: code.s1("0+1").expr()
             })]
         )
@@ -208,7 +230,7 @@ mod tests {
 
     #[test]
     fn parse_attribute_specification_with_signature() {
-        let code = Code::new("attribute attr_name of foo[return natural] : signal is 0+1;");
+        let code = Code::new("attribute attr_name of foo[return natural] : function is 0+1;");
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
@@ -217,7 +239,7 @@ mod tests {
                     designator: code.s1("foo").ident().map_into(Designator::Identifier),
                     signature: Some(code.s1("[return natural]").signature())
                 }),
-                entity_class: EntityClass::Signal,
+                entity_class: EntityClass::Function,
                 expr: code.s1("0+1").expr()
             })]
         )
