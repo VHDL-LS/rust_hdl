@@ -17,7 +17,7 @@ use expression::parse_aggregate_leftpar_known;
 use expression::{parse_choices, parse_expression};
 use message::{push_some, Message, MessageHandler, ParseResult};
 use names::{
-    expression_to_ident, parse_association_list, parse_name, parse_name_initial_token,
+    expression_to_ident, parse_association_list, parse_name_initial_token,
     parse_selected_name, to_selected_name, to_simple_name,
 };
 use range::parse_discrete_range;
@@ -86,6 +86,11 @@ pub fn parse_process_statement(
                     loop {
                         match token.kind {
                             RightPar => {
+                                if names.is_empty() {
+                                    messages.push(
+                                        Message::error(token, "Processes with sensitivity lists must contain at least one element.")
+                                    );
+                                }
                                 break Some(SensitivityList::Names(names));
                             }
                             Comma => {}
@@ -798,14 +803,21 @@ begin
 end process;
 ",
         );
-        let (_, messages) = code.with_stream_messages(parse_labeled_concurrent_statement);
+        let (stmt, messages) = code.with_stream_messages(parse_labeled_concurrent_statement);
+        let process = ProcessStatement {
+            postponed: false,
+            sensitivity_list: Some(SensitivityList::Names(Vec::new())),
+            decl: Vec::new(),
+            statements: Vec::new(),
+        };
         assert_eq!(
             messages,
             vec![Message::error(
                 code.s1(")"),
-                "Processes with sensitivity lists should contain at least one element."
+                "Processes with sensitivity lists must contain at least one element."
             )]
         );
+        assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
     }
 
     #[test]
