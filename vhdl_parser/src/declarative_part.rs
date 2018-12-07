@@ -64,7 +64,7 @@ fn check_declarative_part(token: &Token, may_end: bool, may_begin: bool) -> Pars
 }
 pub fn parse_declarative_part(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
     begin_is_end: bool,
 ) -> ParseResult<Vec<Declaration>> {
     let decl = parse_declarative_part_leave_end_token(stream, messages)?;
@@ -79,7 +79,7 @@ pub fn parse_declarative_part(
 
 pub fn parse_declarative_part_leave_end_token(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<Vec<Declaration>> {
     let mut declarations: Vec<Declaration> = Vec::new();
 

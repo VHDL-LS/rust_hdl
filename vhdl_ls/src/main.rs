@@ -4,11 +4,11 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-extern crate vhdl_ls;
+use vhdl_ls;
 
 #[macro_use]
 extern crate log;
-extern crate env_logger;
+use env_logger;
 
 fn main() {
     env_logger::init();

@@ -4,21 +4,21 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-extern crate languageserver_types;
 use self::languageserver_types::*;
-extern crate serde;
+use languageserver_types;
+use serde;
 
-extern crate url;
 use self::url::Url;
+use url;
 
-extern crate fnv;
 use self::fnv::FnvHashMap;
+use fnv;
 use std::collections::hash_map::Entry;
 
-extern crate vhdl_parser;
 use self::vhdl_parser::{Config, Message, Project, Severity, Source, SrcPos};
 use std::io;
 use std::path::Path;
+use vhdl_parser;
 
 pub trait RpcChannel {
     fn send_notification(
@@ -426,7 +426,7 @@ mod tests {
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::rc::Rc;
-    extern crate tempfile;
+    use tempfile;
 
     #[derive(Debug, Clone)]
     enum RpcExpected {

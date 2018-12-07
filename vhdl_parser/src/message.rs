@@ -104,13 +104,13 @@ pub trait MessageHandler {
     fn push(self: &mut Self, err: Message);
 }
 
-pub fn push_result<T>(messages: &mut MessageHandler, msg: Result<T, Message>) {
+pub fn push_result<T>(messages: &mut dyn MessageHandler, msg: Result<T, Message>) {
     if let Err(msg) = msg {
         messages.push(msg);
     }
 }
 
-pub fn push_some(messages: &mut MessageHandler, msg: Option<Message>) {
+pub fn push_some(messages: &mut dyn MessageHandler, msg: Option<Message>) {
     if let Some(msg) = msg {
         messages.push(msg);
     }

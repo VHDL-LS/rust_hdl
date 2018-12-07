@@ -13,7 +13,7 @@ use crate::tokenstream::TokenStream;
 
 pub fn parse_optional_generic_list(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
     let mut list = None;
     loop {
@@ -38,7 +38,7 @@ pub fn parse_optional_generic_list(
 
 pub fn parse_optional_port_list(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
     let mut list = None;
     loop {
@@ -72,7 +72,7 @@ pub fn parse_optional_port_list(
 
 pub fn parse_component_declaration(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<ComponentDeclaration> {
     stream.expect_kind(Component)?;
     let ident = stream.expect_ident()?;

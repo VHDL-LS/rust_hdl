@@ -6,11 +6,11 @@
 
 //! Configuration of the design hierarchy and other settings
 
-extern crate toml;
+use toml;
 
-extern crate fnv;
 use self::fnv::FnvHashMap;
 use self::toml::Value;
+use fnv;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;

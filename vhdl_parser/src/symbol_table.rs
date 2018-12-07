@@ -8,8 +8,8 @@ use crate::latin_1::Latin1String;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-extern crate fnv;
 use self::fnv::FnvHashMap;
+use fnv;
 
 /// Represents an unique string symbol
 /// The id can be used as a fast comparison key for symbols
@@ -50,7 +50,7 @@ impl PartialEq for Symbol {
 }
 
 impl std::fmt::Display for Symbol {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.name_utf8())
     }
 }

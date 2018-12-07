@@ -4,10 +4,10 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-extern crate jsonrpc_core;
-extern crate languageserver_types;
-extern crate serde;
-extern crate serde_json;
+use jsonrpc_core;
+
+use serde;
+use serde_json;
 
 use self::jsonrpc_core::request::Notification;
 use self::jsonrpc_core::{IoHandler, Params};
@@ -117,7 +117,7 @@ pub fn start() {
     }
 }
 
-fn read_request(reader: &mut BufRead) -> String {
+fn read_request(reader: &mut dyn BufRead) -> String {
     let content_length = read_header(reader);
 
     let mut request = String::new();
@@ -129,7 +129,7 @@ fn read_request(reader: &mut BufRead) -> String {
     request
 }
 
-fn send_response(writer: &mut Write, response: &str) {
+fn send_response(writer: &mut dyn Write, response: &str) {
     trace!("SEND RESPONSE: {:?}", response);
     writeln!(writer, "Content-Length: {}\r", response.len()).unwrap();
     writeln!(writer, "\r").unwrap();
@@ -159,7 +159,7 @@ impl RpcChannel for SyncSender<String> {
     }
 }
 
-fn read_header(reader: &mut BufRead) -> u64 {
+fn read_header(reader: &mut dyn BufRead) -> u64 {
     let mut buffer = String::new();
     reader.read_line(&mut buffer).unwrap();
     let fields = buffer.trim_end().split(": ").collect::<Vec<&str>>();

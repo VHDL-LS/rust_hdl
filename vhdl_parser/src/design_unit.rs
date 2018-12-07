@@ -29,7 +29,7 @@ use crate::source::WithPos;
 /// If a parse error occurs the stream is consumed until and end entity
 pub fn parse_entity_declaration(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<EntityDeclaration> {
     stream.expect_kind(Entity)?;
 
@@ -65,7 +65,7 @@ pub fn parse_entity_declaration(
 /// LRM 3.3.1
 pub fn parse_architecture_body(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<ArchitectureBody> {
     stream.expect_kind(Architecture)?;
     let ident = stream.expect_ident()?;
@@ -96,7 +96,7 @@ pub fn parse_architecture_body(
 /// LRM 4.7 Package declarations
 pub fn parse_package_declaration(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<PackageDeclaration> {
     stream.expect_kind(Package)?;
     let ident = stream.expect_ident()?;
@@ -129,7 +129,7 @@ pub fn parse_package_declaration(
 /// LRM 4.8 Package bodies
 pub fn parse_package_body(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<PackageBody> {
     stream.expect_kind(Package)?;
     stream.expect_kind(Body)?;
@@ -168,7 +168,7 @@ fn context_item_message(context_item: &ContextItem, message: impl AsRef<str>) ->
 
 pub fn parse_design_file(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<DesignFile> {
     let mut context_clause = vec![];
     let mut design_units = vec![];

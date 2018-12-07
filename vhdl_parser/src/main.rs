@@ -11,7 +11,6 @@
 
 #[macro_use]
 extern crate clap;
-extern crate vhdl_parser;
 
 use std::path::Path;
 

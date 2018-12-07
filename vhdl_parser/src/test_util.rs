@@ -211,7 +211,7 @@ impl Code {
     pub fn with_partial_stream_messages<F, R>(&self, parse_fun: F) -> (R, Vec<Message>)
     where
         R: Debug,
-        F: FnOnce(&mut TokenStream, &mut MessageHandler) -> R,
+        F: FnOnce(&mut TokenStream, &mut dyn MessageHandler) -> R,
     {
         let mut messages = Vec::new();
         let result =
@@ -222,7 +222,7 @@ impl Code {
     pub fn with_stream_messages<F, R>(&self, parse_fun: F) -> (R, Vec<Message>)
     where
         R: Debug,
-        F: FnOnce(&mut TokenStream, &mut MessageHandler) -> ParseResult<R>,
+        F: FnOnce(&mut TokenStream, &mut dyn MessageHandler) -> ParseResult<R>,
     {
         let mut messages = Vec::new();
         let result = self.with_stream(|stream: &mut TokenStream| parse_fun(stream, &mut messages));
@@ -232,7 +232,7 @@ impl Code {
     pub fn with_stream_no_messages<F, R>(&self, parse_fun: F) -> R
     where
         R: Debug,
-        F: FnOnce(&mut TokenStream, &mut MessageHandler) -> ParseResult<R>,
+        F: FnOnce(&mut TokenStream, &mut dyn MessageHandler) -> ParseResult<R>,
     {
         let (result, messages) = self.with_stream_messages(parse_fun);
         check_no_messages(&messages);
@@ -312,7 +312,7 @@ impl Code {
 
     pub fn parse_ok_no_messages<F, R>(&self, parse_fun: F) -> R
     where
-        F: FnOnce(&mut TokenStream, &mut MessageHandler) -> ParseResult<R>,
+        F: FnOnce(&mut TokenStream, &mut dyn MessageHandler) -> ParseResult<R>,
     {
         let mut messages = Vec::new();
         let res = self.parse_ok(|stream| parse_fun(stream, &mut messages));

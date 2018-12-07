@@ -85,7 +85,7 @@ fn parse_designator(stream: &mut TokenStream) -> ParseResult<WithPos<SubprogramD
 
 pub fn parse_subprogram_declaration_no_semi(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<SubprogramDeclaration> {
     let token = stream.expect()?;
 
@@ -130,7 +130,7 @@ pub fn parse_subprogram_declaration_no_semi(
 
 pub fn parse_subprogram_declaration(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<SubprogramDeclaration> {
     let res = parse_subprogram_declaration_no_semi(stream, messages);
     stream.expect_kind(SemiColon)?;
@@ -141,7 +141,7 @@ pub fn parse_subprogram_declaration(
 pub fn parse_subprogram_body(
     stream: &mut TokenStream,
     specification: SubprogramDeclaration,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<SubprogramBody> {
     let end_kind = {
         match specification {
@@ -170,7 +170,7 @@ pub fn parse_subprogram_body(
 
 pub fn parse_subprogram(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<Declaration> {
     let specification = parse_subprogram_declaration_no_semi(stream, messages)?;
     match_token_kind!(

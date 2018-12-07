@@ -70,7 +70,7 @@ fn parse_binding_indication(stream: &mut TokenStream) -> ParseResult<BindingIndi
 fn parse_component_configuration_known_spec(
     stream: &mut TokenStream,
     spec: ComponentSpecification,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<ComponentConfiguration> {
     let token = stream.peek_expect()?;
     let (bind_ind, vunit_bind_inds) = try_token_kind!(
@@ -183,7 +183,7 @@ fn parse_component_specification_or_name(
 
 fn parse_configuration_item_known_keyword(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<ConfigurationItem> {
     match parse_component_specification_or_name(stream)? {
         ComponentSpecificationOrName::ComponentSpec(component_spec) => {
@@ -200,7 +200,7 @@ fn parse_configuration_item_known_keyword(
 fn parse_block_configuration_known_name(
     stream: &mut TokenStream,
     name: WithPos<Name>,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<BlockConfiguration> {
     let block_spec = name;
     // @TODO use clauses
@@ -230,7 +230,7 @@ fn parse_block_configuration_known_name(
 
 fn parse_block_configuration_known_keyword(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<BlockConfiguration> {
     let name = parse_name(stream)?;
     parse_block_configuration_known_name(stream, name, messages)
@@ -272,7 +272,7 @@ fn parse_vunit_binding_indication_list_known_keyword(
 /// LRM 3.4 Configuration declaration
 pub fn parse_configuration_declaration(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<ConfigurationDeclaration> {
     stream.expect_kind(Configuration)?;
     let ident = stream.expect_ident()?;

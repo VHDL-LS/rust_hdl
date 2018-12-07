@@ -217,7 +217,7 @@ fn parse_interface_package_declaration_known_keyword(
 
 fn parse_interface_declaration(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
     list_type: InterfaceListType,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     let token = stream.peek_expect()?;
@@ -284,7 +284,7 @@ fn is_sync_kind(list_type: InterfaceListType, kind: Kind) -> bool {
 
 fn parse_interface_list(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
     list_type: InterfaceListType,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     let mut interface_list = Vec::new();
@@ -350,21 +350,21 @@ fn parse_interface_list(
 
 pub fn parse_generic_interface_list(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     parse_interface_list(stream, messages, InterfaceListType::Generic)
 }
 
 pub fn parse_port_interface_list(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     parse_interface_list(stream, messages, InterfaceListType::Port)
 }
 
 pub fn parse_parameter_interface_list(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     parse_interface_list(stream, messages, InterfaceListType::Parameter)
 }

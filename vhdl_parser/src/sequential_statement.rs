@@ -71,7 +71,7 @@ fn parse_report_statement_known_keyword(stream: &mut TokenStream) -> ParseResult
 
 pub fn parse_labeled_sequential_statements(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<(Vec<LabeledSequentialStatement>, Token)> {
     let mut statements = Vec::new();
     loop {
@@ -92,7 +92,7 @@ pub fn parse_labeled_sequential_statements(
 /// LRM 10.8 If statement
 fn parse_if_statement_known_keyword(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<IfStatement> {
     let mut conditionals = Vec::new();
     let mut else_branch = None;
@@ -147,7 +147,7 @@ fn parse_if_statement_known_keyword(
 /// LRM 10.9 Case statement
 fn parse_case_statement_known_keyword(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<CaseStatement> {
     let expression = parse_expression(stream)?;
     stream.expect_kind(Is)?;
@@ -189,7 +189,7 @@ fn parse_case_statement_known_keyword(
 fn parse_loop_statement_initial_token(
     stream: &mut TokenStream,
     token: &Token,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<LoopStatement> {
     let iteration_scheme = {
         try_token_kind!(
@@ -478,7 +478,7 @@ fn parse_selected_assignment(stream: &mut TokenStream) -> ParseResult<Sequential
 fn parse_unlabeled_sequential_statement(
     stream: &mut TokenStream,
     token: Token,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<SequentialStatement> {
     let statement = {
         try_token_kind!(
@@ -514,7 +514,7 @@ fn parse_unlabeled_sequential_statement(
 #[cfg(test)]
 pub fn parse_sequential_statement(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<LabeledSequentialStatement> {
     let token = stream.expect()?;
     parse_sequential_statement_initial_token(stream, token, messages)
@@ -523,7 +523,7 @@ pub fn parse_sequential_statement(
 pub fn parse_sequential_statement_initial_token(
     stream: &mut TokenStream,
     token: Token,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<LabeledSequentialStatement> {
     if token.kind == Identifier {
         let name = parse_name_initial_token(stream, token)?;

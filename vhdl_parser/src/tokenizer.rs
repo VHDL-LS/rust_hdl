@@ -4,10 +4,10 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
+use self::fnv::FnvHashMap;
 use crate::message::{Message, ParseResult};
 use crate::source::{Source, SrcPos, WithPos};
-extern crate fnv;
-use self::fnv::FnvHashMap;
+use fnv;
 
 use crate::ast;
 use crate::ast::{BaseSpecifier, Ident};
@@ -528,7 +528,7 @@ pub struct ByteCursor<'a> {
 }
 
 impl<'a> ByteCursor<'a> {
-    fn new(bytes: &'a [u8], idx: usize) -> ByteCursor {
+    fn new(bytes: &'a [u8], idx: usize) -> ByteCursor<'_> {
         ByteCursor { bytes, idx }
     }
 
@@ -571,7 +571,7 @@ impl<'a> ByteCursor<'a> {
     }
 }
 
-fn parse_integer(cursor: &mut ByteCursor, base: i64, stop_on_e: bool) -> Result<i64, String> {
+fn parse_integer(cursor: &mut ByteCursor<'_>, base: i64, stop_on_e: bool) -> Result<i64, String> {
     let mut result = Some(0);
     let mut too_large_base = false;
 
@@ -620,7 +620,7 @@ fn parse_integer(cursor: &mut ByteCursor, base: i64, stop_on_e: bool) -> Result<
     }
 }
 
-fn parse_exponent(cursor: &mut ByteCursor) -> Result<i32, String> {
+fn parse_exponent(cursor: &mut ByteCursor<'_>) -> Result<i32, String> {
     let sign = {
         if cursor.peek(0) == Some(b'-') {
             cursor.pop();
@@ -672,7 +672,7 @@ impl TokenState {
 
 fn parse_quoted(
     buffer: &mut Latin1String,
-    cursor: &mut ByteCursor,
+    cursor: &mut ByteCursor<'_>,
     quote: u8,
     include_quote: bool,
 ) -> Result<Latin1String, String> {
@@ -713,12 +713,15 @@ fn parse_quoted(
 
 fn parse_string(
     buffer: &mut Latin1String,
-    cursor: &mut ByteCursor,
+    cursor: &mut ByteCursor<'_>,
 ) -> Result<Latin1String, String> {
     parse_quoted(buffer, cursor, b'"', false)
 }
 
-fn parse_real_literal(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Result<f64, String> {
+fn parse_real_literal(
+    buffer: &mut Latin1String,
+    cursor: &mut ByteCursor<'_>,
+) -> Result<f64, String> {
     buffer.bytes.clear();
 
     while let Some(b) = cursor.peek(0) {
@@ -750,7 +753,7 @@ fn parse_real_literal(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Res
 /// LRM 15.5 Abstract literals
 fn parse_abstract_literal(
     buffer: &mut Latin1String,
-    cursor: &mut ByteCursor,
+    cursor: &mut ByteCursor<'_>,
 ) -> Result<(Kind, Value), String> {
     let pos = cursor.pos();
     let initial = parse_integer(cursor, 10, true);
@@ -841,7 +844,7 @@ fn parse_abstract_literal(
 /// LRM 15.8 Bit string literals
 fn parse_bit_string(
     buffer: &mut Latin1String,
-    cursor: &mut ByteCursor,
+    cursor: &mut ByteCursor<'_>,
     bit_string_length: Option<u32>,
 ) -> Result<Option<(Kind, Value)>, String> {
     let first_byte = {
@@ -899,7 +902,7 @@ fn parse_bit_string(
 /// LRM 15.4 Identifiers
 fn parse_basic_identifier_or_keyword(
     buffer: &mut Latin1String,
-    cursor: &mut ByteCursor,
+    cursor: &mut ByteCursor<'_>,
     keywords: &FnvHashMap<&'static [u8], Kind>,
     symtab: &SymbolTable,
 ) -> Result<(Kind, Value), String> {
@@ -1222,7 +1225,7 @@ impl Tokenizer {
                         }
                     }
                 }
-                b'0'...b'9' => {
+                b'0'..=b'9' => {
                     cursor.back();
                     match parse_abstract_literal(&mut self.buffer, &mut cursor) {
                         Ok((kind, value)) => (kind, value),

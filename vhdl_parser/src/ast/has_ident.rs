@@ -114,7 +114,7 @@ impl<'a> From<&'a Symbol> for Designator {
 }
 
 impl std::fmt::Display for Designator {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Designator::Identifier(ref sym) => write!(f, "{}", sym),
             Designator::OperatorSymbol(ref latin1) => write!(f, "\"{}\"", latin1),

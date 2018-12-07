@@ -119,7 +119,7 @@ pub fn parse_subtype_declaration(stream: &mut TokenStream) -> ParseResult<TypeDe
 /// LRM 5.6.2 Protected type declarations
 pub fn parse_protected_type_declaration(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<(ProtectedTypeDeclaration, Option<Ident>)> {
     let mut items = Vec::new();
 
@@ -203,7 +203,7 @@ fn parse_physical_type_definition(
 /// LRM 6.2
 pub fn parse_type_declaration(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<TypeDeclaration> {
     let token = stream.peek_expect()?;
     try_token_kind!(

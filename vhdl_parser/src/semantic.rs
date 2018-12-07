@@ -17,8 +17,8 @@ use std::cell::RefCell;
 use std::collections::hash_map::Entry;
 use std::sync::Arc;
 
-extern crate fnv;
 use self::fnv::FnvHashMap;
+use fnv;
 
 enum LookupResult<'n, 'a> {
     /// A single name was selected
@@ -44,7 +44,7 @@ struct CircularDependencyError {
 }
 
 impl CircularDependencyError {
-    fn push_into(self, messages: &mut MessageHandler) {
+    fn push_into(self, messages: &mut dyn MessageHandler) {
         for dependency in self.path {
             messages.push(Message::error(
                 dependency.location,
@@ -414,7 +414,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         decl: &'a InterfaceDeclaration,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         match decl {
             InterfaceDeclaration::File(ref file_decl) => {
@@ -466,7 +466,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         declarations: &'a [InterfaceDeclaration],
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         for decl in declarations.iter() {
             self.analyze_interface_declaration(region, decl, messages);
@@ -496,7 +496,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         subtype_indication: &'a SubtypeIndication,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         if let Err(msg) = self.lookup_type_mark(region, &subtype_indication.type_mark) {
             messages.push(msg);
@@ -507,7 +507,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         parent: &DeclarativeRegion<'_, 'a>,
         subprogram: &'a SubprogramDeclaration,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         let mut region = DeclarativeRegion::new(Some(parent));
 
@@ -529,7 +529,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         decl: &'a Declaration,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         match decl {
             Declaration::Alias(alias) => {
@@ -712,7 +712,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         declarations: &'a [Declaration],
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         for decl in declarations.iter() {
             self.analyze_declaration(region, decl, messages);
@@ -724,7 +724,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         region: &mut DeclarativeRegion<'_, 'a>,
         use_clause: &UseClause,
         use_pos: &SrcPos,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         for name in use_clause.name_list.iter() {
             match name.item {
@@ -802,7 +802,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         context_clause: &[WithPos<ContextItem>],
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         for context_item in context_clause.iter() {
             match context_item.item {
@@ -903,7 +903,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         parent: &DeclarativeRegion<'_, 'a>,
         body: &'a GenerateBody,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         let mut region = DeclarativeRegion::new(Some(parent));
 
@@ -917,7 +917,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         parent: &DeclarativeRegion<'_, 'a>,
         statement: &'a LabeledConcurrentStatement,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         match statement.statement {
             ConcurrentStatement::Block(ref block) => {
@@ -953,7 +953,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         parent: &DeclarativeRegion<'_, 'a>,
         statements: &'a [LabeledConcurrentStatement],
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         for statement in statements.iter() {
             self.analyze_concurrent_statement(parent, statement, messages);
@@ -964,7 +964,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         entity_region: &mut DeclarativeRegion<'_, 'a>,
         architecture: &'a ArchitectureBody,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         self.analyze_declarative_part(entity_region, &architecture.decl, messages);
         self.analyze_concurrent_part(entity_region, &architecture.statements, messages);
@@ -974,7 +974,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         entity: &'a EntityDeclaration,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         if let Some(ref list) = entity.generic_clause {
             self.analyze_interface_list(region, list, messages);
@@ -1021,7 +1021,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         parent: &'r DeclarativeRegion<'r, 'a>,
         package: &'a PackageDeclaration,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) -> DeclarativeRegion<'r, 'a> {
         let mut region = DeclarativeRegion::new(Some(parent)).in_package_declaration();
         if let Some(ref list) = package.generic_clause {
@@ -1081,7 +1081,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         primary_region: &DeclarativeRegion<'_, 'a>,
         package: &'a PackageDesignUnit,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         if let Some(ref body) = package.body {
             let mut root_region = primary_region
@@ -1098,7 +1098,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         library: &'a Library,
         package: &'a PackageDesignUnit,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         match self.analyze_package_declaration_unit(None, library, package) {
             Ok(data) => {
@@ -1209,7 +1209,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         }
     }
 
-    pub fn analyze_library(&self, library: &'a Library, messages: &mut MessageHandler) {
+    pub fn analyze_library(&self, library: &'a Library, messages: &mut dyn MessageHandler) {
         for package in library.packages() {
             self.analyze_package(library, package, messages);
         }
@@ -1252,7 +1252,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         }
     }
 
-    pub fn analyze(&self, messages: &mut MessageHandler) {
+    pub fn analyze(&self, messages: &mut dyn MessageHandler) {
         // Analyze standard library first
         if let Some(library) = self.root.get_library(&self.std_sym) {
             let standard_package = library

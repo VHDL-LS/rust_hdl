@@ -4,7 +4,6 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-extern crate fnv;
 use self::fnv::FnvHashMap;
 use crate::ast::DesignFile;
 use crate::config::Config;
@@ -15,6 +14,7 @@ use crate::parser::{FileToParse, ParserError, VHDLParser};
 use crate::semantic::Analyzer;
 use crate::source::Source;
 use crate::symbol_table::Symbol;
+use fnv;
 use std::collections::hash_map::Entry;
 use std::io;
 
@@ -29,7 +29,7 @@ pub struct FileError {
 }
 
 impl std::fmt::Display for FileError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Error in {} ({})", self.file_name, self.error)
     }
 }

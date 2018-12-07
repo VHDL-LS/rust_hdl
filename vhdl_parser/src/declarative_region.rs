@@ -8,8 +8,8 @@ use crate::library::{EntityDesignUnit, Library, PackageDesignUnit};
 use crate::message::{Message, MessageHandler};
 use crate::source::{SrcPos, WithPos};
 
-extern crate fnv;
 use self::fnv::FnvHashMap;
+use fnv;
 use std::collections::hash_map::Entry;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -23,11 +23,11 @@ pub struct PrimaryUnitData<'a> {
 
 // @TODO store data in library, declarative region or in analysis context?
 impl<'a> PrimaryUnitData<'a> {
-    pub fn new(messages: Vec<Message>, region: DeclarativeRegion<'a, 'a>) -> PrimaryUnitData {
+    pub fn new(messages: Vec<Message>, region: DeclarativeRegion<'a, 'a>) -> PrimaryUnitData<'_> {
         PrimaryUnitData { messages, region }
     }
 
-    pub fn push_to(&self, messages: &mut MessageHandler) {
+    pub fn push_to(&self, messages: &mut dyn MessageHandler) {
         for message in self.messages.iter().cloned() {
             messages.push(message);
         }
@@ -135,13 +135,13 @@ impl<'a> VisibleDeclaration<'a> {
         }
     }
 
-    fn error(&self, messages: &mut MessageHandler, message: impl Into<String>) {
+    fn error(&self, messages: &mut dyn MessageHandler, message: impl Into<String>) {
         if let Some(ref pos) = self.decl_pos {
             messages.push(Message::error(pos, message));
         }
     }
 
-    fn hint(&self, messages: &mut MessageHandler, message: impl Into<String>) {
+    fn hint(&self, messages: &mut dyn MessageHandler, message: impl Into<String>) {
         if let Some(ref pos) = self.decl_pos {
             messages.push(Message::hint(pos, message));
         }
@@ -259,7 +259,7 @@ impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
         }
     }
 
-    pub fn close_immediate(&mut self, messages: &mut MessageHandler) {
+    pub fn close_immediate(&mut self, messages: &mut dyn MessageHandler) {
         let mut to_remove = Vec::new();
 
         for decl in self.decls.values() {
@@ -281,7 +281,7 @@ impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
         }
     }
 
-    pub fn close_extended(&mut self, messages: &mut MessageHandler) {
+    pub fn close_extended(&mut self, messages: &mut dyn MessageHandler) {
         let mut to_remove = Vec::new();
 
         for decl in self.decls.values() {
@@ -302,12 +302,12 @@ impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
         }
     }
 
-    pub fn close_both(&mut self, messages: &mut MessageHandler) {
+    pub fn close_both(&mut self, messages: &mut dyn MessageHandler) {
         self.close_immediate(messages);
         self.close_extended(messages);
     }
 
-    pub fn add(&mut self, decl: VisibleDeclaration<'a>, messages: &mut MessageHandler) {
+    pub fn add(&mut self, decl: VisibleDeclaration<'a>, messages: &mut dyn MessageHandler) {
         if self.kind != RegionKind::PackageDeclaration && decl.decl.is_deferred_constant() {
             decl.error(
                 messages,

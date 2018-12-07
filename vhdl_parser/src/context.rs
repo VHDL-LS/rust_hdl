@@ -90,7 +90,7 @@ fn parse_context_reference_no_keyword(
 /// LRM 13.4 Context clauses
 pub fn parse_context(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<DeclarationOrReference> {
     let context_token = stream.expect_kind(Context)?;
     let name = parse_name(stream)?;
