@@ -605,7 +605,8 @@ end package;
                     .s1("\
   type foo;
   constant bar : natural := 0;
-").declarative_part(),
+")
+                    .declarative_part(),
             }
         );
     }
@@ -725,21 +726,22 @@ end entity;
         let (design_file, messages) = code.with_stream_messages(parse_design_file);
         check_messages(
             messages,
-            vec![
-                Message::error(
-                    code.s1("ctx"),
-                    "Context declaration may not be preceeded by a context clause",
-                ).related(
-                    code.s1("library lib;"),
-                    "Library clause may not come before context declaration",
-                ).related(
-                    code.s1("use lib.pkg;"),
-                    "Use clause may not come before context declaration",
-                ).related(
-                    code.s1("context lib.c;"),
-                    "Context reference may not come before context declaration",
-                ),
-            ],
+            vec![Message::error(
+                code.s1("ctx"),
+                "Context declaration may not be preceeded by a context clause",
+            )
+            .related(
+                code.s1("library lib;"),
+                "Library clause may not come before context declaration",
+            )
+            .related(
+                code.s1("use lib.pkg;"),
+                "Use clause may not come before context declaration",
+            )
+            .related(
+                code.s1("context lib.c;"),
+                "Context reference may not come before context declaration",
+            )],
         );
 
         match design_file.design_units.get(1).unwrap() {

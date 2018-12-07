@@ -7,7 +7,7 @@
 // Allowing this, since there is an open issue with this lint
 // Track here: https://github.com/rust-lang/rust-clippy/issues/1981
 // Track here: https://github.com/rust-lang/rust-clippy/issues/1981
-#![cfg_attr(feature = "cargo-clippy", allow(ptr_arg))]
+#![allow(clippy::ptr_arg)]
 
 #[macro_use]
 extern crate clap;

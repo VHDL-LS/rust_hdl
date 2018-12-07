@@ -82,7 +82,8 @@ fn parse_interface_file_declaration(
                 ident: file_object.ident,
                 subtype_indication: file_object.subtype_indication,
             })
-        }).collect())
+        })
+        .collect())
 }
 
 fn parse_interface_object_declaration(
@@ -155,7 +156,8 @@ fn parse_interface_object_declaration(
                 subtype_indication: subtype.clone(),
                 expression: expr.clone(),
             })
-        }).collect())
+        })
+        .collect())
 }
 
 fn parse_subprogram_default(stream: &mut TokenStream) -> ParseResult<Option<SubprogramDefault>> {

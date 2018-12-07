@@ -418,9 +418,9 @@ impl SrcPos {
             let overlaps = self.overlaps(offset, line.len());
 
             if overlaps {
-                write!(result, "{} --> ", lineno_str);
+                write!(result, "{} --> ", lineno_str).unwrap();
             } else {
-                write!(result, "{}  |  ", lineno_str);
+                write!(result, "{}  |  ", lineno_str).unwrap();
             }
 
             for chr in line.trim_right().chars() {
@@ -456,15 +456,15 @@ impl SrcPos {
         let (lineno, lineno_len, pretty_str) = self.lineno_and_code_context();
         let file_name = self.source.file_name();
         let mut result = String::new();
-        writeln!(result, "{}", &message);
+        writeln!(result, "{}", &message).unwrap();
         for _ in 0..lineno_len {
             result.push(' ');
         }
-        writeln!(result, " --> {}:{}", file_name, lineno);
+        writeln!(result, " --> {}:{}", file_name, lineno).unwrap();
         for _ in 0..lineno_len {
             result.push(' ');
         }
-        writeln!(result, "  |");
+        writeln!(result, "  |").unwrap();
         result.push_str(&pretty_str);
         result
     }

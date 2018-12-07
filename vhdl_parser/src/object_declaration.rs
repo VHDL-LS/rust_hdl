@@ -41,7 +41,8 @@ fn parse_object_declaration_kind(
             ident,
             subtype_indication: subtype.clone(),
             expression: opt_expression.clone(),
-        }).collect())
+        })
+        .collect())
 }
 
 pub fn parse_object_declaration(stream: &mut TokenStream) -> ParseResult<Vec<ObjectDeclaration>> {
@@ -91,7 +92,8 @@ pub fn parse_file_declaration_no_semi(
             subtype_indication: subtype.clone(),
             open_info: open_info.clone(),
             file_name: file_name.clone(),
-        }).collect())
+        })
+        .collect())
 }
 
 pub fn parse_file_declaration(stream: &mut TokenStream) -> ParseResult<Vec<FileDeclaration>> {

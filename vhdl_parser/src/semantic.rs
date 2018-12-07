@@ -538,7 +538,8 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     VisibleDeclaration::new(
                         alias.designator.clone(),
                         AnyDeclaration::Declaration(decl),
-                    ).with_overload(alias.signature.is_some()),
+                    )
+                    .with_overload(alias.signature.is_some()),
                     messages,
                 );
             }
@@ -595,7 +596,8 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     VisibleDeclaration::new(
                         body.specification.designator(),
                         AnyDeclaration::Declaration(decl),
-                    ).with_overload(true),
+                    )
+                    .with_overload(true),
                     messages,
                 );
                 self.analyze_subprogram_declaration(region, &body.specification, messages);
@@ -607,7 +609,8 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     VisibleDeclaration::new(
                         subdecl.designator(),
                         AnyDeclaration::Declaration(decl),
-                    ).with_overload(true),
+                    )
+                    .with_overload(true),
                     messages,
                 );
                 self.analyze_subprogram_declaration(region, &subdecl, messages);
@@ -645,7 +648,8 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                         VisibleDeclaration::new(
                             literal.clone().map_into(|lit| lit.into_designator()),
                             AnyDeclaration::Enum(literal),
-                        ).with_overload(true),
+                        )
+                        .with_overload(true),
                         messages,
                     )
                 }
@@ -1297,7 +1301,8 @@ mod tests {
         Message::error(
             code.s(&name, occ2),
             format!("Duplicate declaration of '{}'", &name),
-        ).related(code.s(&name, occ1), "Previously defined here")
+        )
+        .related(code.s(&name, occ1), "Previously defined here")
     }
 
     fn expected_messages(code: &Code, names: &[&str]) -> Vec<Message> {
@@ -1315,7 +1320,8 @@ mod tests {
                 Message::error(
                     code2.s1(&name),
                     format!("Duplicate declaration of '{}'", &name),
-                ).related(code1.s1(&name), "Previously defined here"),
+                )
+                .related(code1.s1(&name), "Previously defined here"),
             )
         }
         messages

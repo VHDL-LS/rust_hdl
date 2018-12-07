@@ -1101,11 +1101,13 @@ impl Tokenizer {
                     self.state.start = cursor.pos();
                     continue;
                 }
-                b':' => if cursor.skip_if(b'=') {
-                    (ColonEq, Value::NoValue)
-                } else {
-                    (Colon, Value::NoValue)
-                },
+                b':' => {
+                    if cursor.skip_if(b'=') {
+                        (ColonEq, Value::NoValue)
+                    } else {
+                        (Colon, Value::NoValue)
+                    }
+                }
                 b';' => (SemiColon, Value::NoValue),
                 b'(' => (LeftPar, Value::NoValue),
                 b')' => (RightPar, Value::NoValue),
@@ -1118,11 +1120,13 @@ impl Tokenizer {
                 b',' => (Comma, Value::NoValue),
                 b'^' => (Circ, Value::NoValue),
                 b'@' => (CommAt, Value::NoValue),
-                b'=' => if cursor.skip_if(b'>') {
-                    (RightArrow, Value::NoValue)
-                } else {
-                    (EQ, Value::NoValue)
-                },
+                b'=' => {
+                    if cursor.skip_if(b'>') {
+                        (RightArrow, Value::NoValue)
+                    } else {
+                        (EQ, Value::NoValue)
+                    }
+                }
                 b'?' => match cursor.pop() {
                     Some(b'?') => (QueQue, Value::NoValue),
                     Some(b'=') => (QueEQ, Value::NoValue),
@@ -1133,16 +1137,20 @@ impl Tokenizer {
                             error!("Illegal token");
                         }
                     }
-                    Some(b'<') => if cursor.skip_if(b'=') {
-                        (QueLTE, Value::NoValue)
-                    } else {
-                        (QueLT, Value::NoValue)
-                    },
-                    Some(b'>') => if cursor.skip_if(b'=') {
-                        (QueGTE, Value::NoValue)
-                    } else {
-                        (QueGT, Value::NoValue)
-                    },
+                    Some(b'<') => {
+                        if cursor.skip_if(b'=') {
+                            (QueLTE, Value::NoValue)
+                        } else {
+                            (QueLT, Value::NoValue)
+                        }
+                    }
+                    Some(b'>') => {
+                        if cursor.skip_if(b'=') {
+                            (QueGTE, Value::NoValue)
+                        } else {
+                            (QueGT, Value::NoValue)
+                        }
+                    }
                     _ => {
                         cursor.back();
                         error!("Illegal token");
@@ -1165,16 +1173,20 @@ impl Tokenizer {
                         (GT, Value::NoValue)
                     }
                 },
-                b'/' => if cursor.skip_if(b'=') {
-                    (NE, Value::NoValue)
-                } else {
-                    (Div, Value::NoValue)
-                },
-                b'*' => if cursor.skip_if(b'*') {
-                    (Pow, Value::NoValue)
-                } else {
-                    (Times, Value::NoValue)
-                },
+                b'/' => {
+                    if cursor.skip_if(b'=') {
+                        (NE, Value::NoValue)
+                    } else {
+                        (Div, Value::NoValue)
+                    }
+                }
+                b'*' => {
+                    if cursor.skip_if(b'*') {
+                        (Pow, Value::NoValue)
+                    } else {
+                        (Times, Value::NoValue)
+                    }
+                }
                 b'\'' => {
                     if can_be_char(self.state.last_token_kind) && cursor.peek(1) == Some(b'\'') {
                         cursor.pop();

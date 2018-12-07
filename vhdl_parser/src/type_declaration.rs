@@ -684,7 +684,8 @@ end protected body;
   variable foo : natural;
   procedure proc is
   begin
-  end;").declarative_part();
+  end;")
+            .declarative_part();
         assert_eq!(
             code.with_stream_no_messages(parse_type_declaration),
             TypeDeclaration {

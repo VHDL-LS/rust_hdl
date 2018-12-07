@@ -131,9 +131,9 @@ fn read_request(reader: &mut BufRead) -> String {
 
 fn send_response(writer: &mut Write, response: &str) {
     trace!("SEND RESPONSE: {:?}", response);
-    writeln!(writer, "Content-Length: {}\r", response.len());
-    writeln!(writer, "\r");
-    write!(writer, "{}", response);
+    writeln!(writer, "Content-Length: {}\r", response.len()).unwrap();
+    writeln!(writer, "\r").unwrap();
+    write!(writer, "{}", response).unwrap();
     writer.flush().expect("Could not flush stdout");
 }
 

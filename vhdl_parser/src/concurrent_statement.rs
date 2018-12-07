@@ -146,24 +146,24 @@ fn parse_assignment_or_procedure_call(
     target: WithPos<Target>,
 ) -> ParseResult<ConcurrentStatement> {
     match_token_kind!(
-        token,
-        LTE => {
-            // @TODO postponed
-            let postponed = false;
-            // @TODO guarded
-            let guarded = false;
-            let delay_mechanism = parse_delay_mechanism(stream)?;
-            Ok(ConcurrentStatement::Assignment(ConcurrentSignalAssignment {
-                postponed,
-                guarded,
-                target,
-                delay_mechanism,
-                rhs: parse_signal_assignment_right_hand(stream)?
-            }))
-        },
-        SemiColon => {
-            Ok(ConcurrentStatement::ProcedureCall(to_procedure_call(target, false)?))
-        })
+    token,
+    LTE => {
+        // @TODO postponed
+        let postponed = false;
+        // @TODO guarded
+        let guarded = false;
+        let delay_mechanism = parse_delay_mechanism(stream)?;
+        Ok(ConcurrentStatement::Assignment(ConcurrentSignalAssignment {
+            postponed,
+            guarded,
+            target,
+            delay_mechanism,
+            rhs: parse_signal_assignment_right_hand(stream)?
+        }))
+    },
+    SemiColon => {
+        Ok(ConcurrentStatement::ProcedureCall(to_procedure_call(target, false)?))
+    })
 }
 
 fn parse_selected_signal_assignment(
@@ -250,26 +250,26 @@ fn parse_generate_body_end_token(
     if end_token.kind == End {
         let token = stream.peek_expect()?;
         try_token_kind!(
-            token,
-            Generate => {
-                // Outer end
-            },
-            SemiColon => {
-                // Inner end no label
-                stream.move_after(&token);
-                stream.expect_kind(SemiColon)?;
-                end_token = stream.expect()?;
-            },
-            Identifier => {
-                stream.move_after(&token);
-                // Inner with identifier
-                let end_ident = token.expect_ident()?;
-                if let Some(ref ident) = alternative_label {
-                    push_some(messages, error_on_end_identifier_mismatch(ident, &Some(end_ident)));
-                };
-                stream.expect_kind(SemiColon)?;
-                end_token = stream.expect()?;
-            });
+        token,
+        Generate => {
+            // Outer end
+        },
+        SemiColon => {
+            // Inner end no label
+            stream.move_after(&token);
+            stream.expect_kind(SemiColon)?;
+            end_token = stream.expect()?;
+        },
+        Identifier => {
+            stream.move_after(&token);
+            // Inner with identifier
+            let end_ident = token.expect_ident()?;
+            if let Some(ref ident) = alternative_label {
+                push_some(messages, error_on_end_identifier_mismatch(ident, &Some(end_ident)));
+            };
+            stream.expect_kind(SemiColon)?;
+            end_token = stream.expect()?;
+        });
     }
 
     let body = GenerateBody {
@@ -998,11 +998,13 @@ inst: component lib.foo.bar
             generic_map: code
                 .s1("(
    const => 1
-  )").association_list(),
+  )")
+                .association_list(),
             port_map: code
                 .s1("(
    clk => clk_foo
-  )").association_list(),
+  )")
+                .association_list(),
         };
         let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("inst").ident()));
@@ -1026,7 +1028,8 @@ inst: lib.foo.bar
             port_map: code
                 .s1("(
    clk => clk_foo
-  )").association_list(),
+  )")
+                .association_list(),
         };
         let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("inst").ident()));
@@ -1049,7 +1052,8 @@ inst: lib.foo.bar
             generic_map: code
                 .s1("(
    const => 1
-  )").association_list(),
+  )")
+                .association_list(),
             port_map: vec![],
         };
         let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);

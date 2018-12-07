@@ -169,7 +169,8 @@ package ident is new lib.foo.bar
                 generic_map: Some(
                     code.s1("(
     foo => bar
-  )").association_list()
+  )")
+                        .association_list()
                 )
             }
         );

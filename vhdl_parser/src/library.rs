@@ -681,13 +681,11 @@ end package;
         );
 
         // Should still be added as a secondary unit
-        assert!(
-            library
-                .package(&builder.symbol("pkg"))
-                .unwrap()
-                .body
-                .is_some()
-        );
+        assert!(library
+            .package(&builder.symbol("pkg"))
+            .unwrap()
+            .body
+            .is_some());
 
         check_no_messages(&messages);
     }

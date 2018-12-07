@@ -389,7 +389,8 @@ impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
                 } else {
                     None
                 }
-            }).or_else(|| {
+            })
+            .or_else(|| {
                 self.parent
                     .as_ref()
                     .and_then(|parent| parent.lookup(designator, inside))

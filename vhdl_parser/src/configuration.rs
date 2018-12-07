@@ -545,9 +545,9 @@ end configuration cfg;
                     use_clauses: vec![],
                     items: vec![ConfigurationItem::Component(ComponentConfiguration {
                         spec: ComponentSpecification {
-                            instantiation_list: InstantiationList::Labels(vec![
-                                code.s1("inst").ident()
-                            ]),
+                            instantiation_list: InstantiationList::Labels(vec![code
+                                .s1("inst")
+                                .ident()]),
                             component_name: code.s1("lib.pkg.comp").selected_name()
                         },
                         bind_ind: None,
@@ -591,9 +591,9 @@ end configuration cfg;
                     use_clauses: vec![],
                     items: vec![ConfigurationItem::Component(ComponentConfiguration {
                         spec: ComponentSpecification {
-                            instantiation_list: InstantiationList::Labels(vec![
-                                code.s1("inst").ident()
-                            ]),
+                            instantiation_list: InstantiationList::Labels(vec![code
+                                .s1("inst")
+                                .ident()]),
                             component_name: code.s1("lib.pkg.comp").selected_name()
                         },
                         bind_ind: Some(BindingIndication {
@@ -643,9 +643,9 @@ end configuration cfg;
                     use_clauses: vec![],
                     items: vec![ConfigurationItem::Component(ComponentConfiguration {
                         spec: ComponentSpecification {
-                            instantiation_list: InstantiationList::Labels(vec![
-                                code.s1("inst").ident()
-                            ]),
+                            instantiation_list: InstantiationList::Labels(vec![code
+                                .s1("inst")
+                                .ident()]),
                             component_name: code.s1("lib.pkg.comp").selected_name()
                         },
                         bind_ind: Some(BindingIndication {
@@ -695,9 +695,9 @@ end configuration cfg;
                     items: vec![
                         ConfigurationItem::Component(ComponentConfiguration {
                             spec: ComponentSpecification {
-                                instantiation_list: InstantiationList::Labels(vec![
-                                    code.s1("inst").ident()
-                                ]),
+                                instantiation_list: InstantiationList::Labels(vec![code
+                                    .s1("inst")
+                                    .ident()]),
                                 component_name: code.s1("lib.pkg.comp").selected_name()
                             },
                             bind_ind: None,

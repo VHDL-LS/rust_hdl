@@ -142,7 +142,8 @@ lib1.files = [
                 absolute_vhd
             ),
             &parent,
-        ).unwrap();
+        )
+        .unwrap();
         let mut libraries: Vec<&str> = config.iter_libraries().map(|lib| lib.name()).collect();
         libraries.sort();
         assert_eq!(libraries, &["lib1", "lib2"]);
