@@ -575,9 +575,15 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                 }
             }
             Declaration::Attribute(ref attr) => match attr {
-                Attribute::Declaration(AttributeDeclaration { ref ident, .. }) => {
+                Attribute::Declaration(ref attr_decl) => {
+                    if let Err(msg) = self.lookup_type_mark(region, &attr_decl.type_mark) {
+                        messages.push(msg);
+                    }
                     region.add(
-                        VisibleDeclaration::new(ident, AnyDeclaration::Declaration(decl)),
+                        VisibleDeclaration::new(
+                            &attr_decl.ident,
+                            AnyDeclaration::Declaration(decl),
+                        ),
                         messages,
                     );
                 }
@@ -3459,6 +3465,28 @@ end package;",
 package pkg is
   function f1 (const : natural) return natural;
   function f2 (const : natural) return missing;
+end package;",
+        );
+
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s1("missing"),
+                "No declaration of 'missing'",
+            )],
+        );
+    }
+
+    #[test]
+    fn resolves_attribute_declaration_type_mark() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg is
+  attribute attr : string;
+  attribute attr2 : missing;
 end package;",
         );
 
