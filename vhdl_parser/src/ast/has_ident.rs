@@ -7,8 +7,8 @@
 //! Traits concerning identiers and designators
 
 use super::*;
-use source::{SrcPos, WithPos};
-use symbol_table::Symbol;
+use crate::source::{SrcPos, WithPos};
+use crate::symbol_table::Symbol;
 
 pub trait HasIdent {
     fn ident(&self) -> &Ident;
@@ -114,7 +114,7 @@ impl<'a> From<&'a Symbol> for Designator {
 }
 
 impl std::fmt::Display for Designator {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Designator::Identifier(ref sym) => write!(f, "{}", sym),
             Designator::OperatorSymbol(ref latin1) => write!(f, "\"{}\"", latin1),

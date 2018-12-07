@@ -5,19 +5,19 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 /// LRM 8. Names
-use ast::{
+use crate::ast::{
     ActualPart, AssociationElement, AttributeName, Designator, Direction, DiscreteRange,
     Expression, ExternalName, ExternalObjectClass, ExternalPath, FunctionCall, Ident, Literal,
     Name, Range, RangeConstraint, SelectedName, Signature,
 };
-use expression::{parse_expression, parse_expression_initial_token};
-use message::{Message, ParseResult};
-use source::WithPos;
-use subprogram::parse_signature;
-use subtype_indication::parse_subtype_indication;
-use tokenstream::TokenStream;
+use crate::expression::{parse_expression, parse_expression_initial_token};
+use crate::message::{Message, ParseResult};
+use crate::source::WithPos;
+use crate::subprogram::parse_signature;
+use crate::subtype_indication::parse_subtype_indication;
+use crate::tokenstream::TokenStream;
 
-use tokenizer::{Kind::*, Token};
+use crate::tokenizer::{Kind::*, Token};
 
 pub fn parse_selected_name(stream: &mut TokenStream) -> ParseResult<SelectedName> {
     let mut result = Vec::new();
@@ -418,8 +418,8 @@ pub fn parse_name(stream: &mut TokenStream) -> ParseResult<WithPos<Name>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use latin_1::Latin1String;
-    use test_util::Code;
+    use crate::latin_1::Latin1String;
+    use crate::test_util::Code;
 
     #[test]
     fn test_parse_selected_name_single() {

@@ -22,8 +22,8 @@ matrix:
   fast_finish: true
 
 install:
-  - rustup component add clippy-preview
-  - rustup component add rustfmt-preview
+  - rustup component add clippy
+  - rustup component add rustfmt
 
 script:
   - cargo fmt --package $CRATE -- --check || [ "$TRAVIS_RUST_VERSION" = "nightly" ]

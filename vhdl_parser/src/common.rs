@@ -4,10 +4,10 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::Ident;
-use message::{Message, ParseResult};
-use tokenizer::Kind;
-use tokenstream::TokenStream;
+use crate::ast::Ident;
+use crate::message::{Message, ParseResult};
+use crate::tokenizer::Kind;
+use crate::tokenstream::TokenStream;
 
 /// Parse optional part followed by optional keyword
 pub fn parse_optional<F, R>(

@@ -6,14 +6,14 @@
 
 // Allowing this, since box_patterns are feature gated: https://github.com/rust-lang/rfcs/pull/469
 // Track here: https://github.com/rust-lang/rust/issues/29641
-#![cfg_attr(feature = "cargo-clippy", allow(large_enum_variant))]
+#![allow(clippy::large_enum_variant)]
 
 pub mod has_ident;
 pub mod name;
 
-use latin_1::Latin1String;
-use source::WithPos;
-use symbol_table::Symbol;
+use crate::latin_1::Latin1String;
+use crate::source::WithPos;
+use crate::symbol_table::Symbol;
 
 /// LRM 15.8 Bit string literals
 #[derive(PartialEq, Clone, Debug)]

@@ -4,14 +4,14 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::{ArrayIndex, Direction, DiscreteRange, Expression, Name, Range, RangeConstraint};
-use common::parse_optional;
-use expression::parse_expression;
-use message::{Message, ParseResult};
-use names::to_selected_name;
-use source::WithPos;
-use tokenizer::Kind::*;
-use tokenstream::TokenStream;
+use crate::ast::{ArrayIndex, Direction, DiscreteRange, Expression, Name, Range, RangeConstraint};
+use crate::common::parse_optional;
+use crate::expression::parse_expression;
+use crate::message::{Message, ParseResult};
+use crate::names::to_selected_name;
+use crate::source::WithPos;
+use crate::tokenizer::Kind::*;
+use crate::tokenstream::TokenStream;
 
 pub fn parse_direction(stream: &mut TokenStream) -> ParseResult<Direction> {
     Ok(try_token_kind!(
@@ -117,7 +117,7 @@ pub fn parse_array_index_constraint(stream: &mut TokenStream) -> ParseResult<Arr
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_util::Code;
+    use crate::test_util::Code;
 
     #[test]
     fn parse_range_range() {

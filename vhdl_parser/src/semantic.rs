@@ -4,19 +4,21 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::{has_ident::HasIdent, *};
-use declarative_region::{AnyDeclaration, DeclarativeRegion, PrimaryUnitData, VisibleDeclaration};
-use latin_1::Latin1String;
-use library::{DesignRoot, Library, PackageDesignUnit};
-use message::{Message, MessageHandler};
-use source::{SrcPos, WithPos};
+use crate::ast::{has_ident::HasIdent, *};
+use crate::declarative_region::{
+    AnyDeclaration, DeclarativeRegion, PrimaryUnitData, VisibleDeclaration,
+};
+use crate::latin_1::Latin1String;
+use crate::library::{DesignRoot, Library, PackageDesignUnit};
+use crate::message::{Message, MessageHandler};
+use crate::source::{SrcPos, WithPos};
+use crate::symbol_table::{Symbol, SymbolTable};
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
 use std::sync::Arc;
-use symbol_table::{Symbol, SymbolTable};
 
-extern crate fnv;
 use self::fnv::FnvHashMap;
+use fnv;
 
 enum LookupResult<'n, 'a> {
     /// A single name was selected
@@ -42,7 +44,7 @@ struct CircularDependencyError {
 }
 
 impl CircularDependencyError {
-    fn push_into(self, messages: &mut MessageHandler) {
+    fn push_into(self, messages: &mut dyn MessageHandler) {
         for dependency in self.path {
             messages.push(Message::error(
                 dependency.location,
@@ -412,7 +414,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         decl: &'a InterfaceDeclaration,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         match decl {
             InterfaceDeclaration::File(ref file_decl) => {
@@ -464,14 +466,14 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         declarations: &'a [InterfaceDeclaration],
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         for decl in declarations.iter() {
             self.analyze_interface_declaration(region, decl, messages);
         }
     }
 
-    #[cfg_attr(feature = "cargo-clippy", allow(ptr_arg))]
+    #[allow(clippy::ptr_arg)]
     fn lookup_type_mark(
         &self,
         region: &DeclarativeRegion<'_, 'a>,
@@ -494,7 +496,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         subtype_indication: &'a SubtypeIndication,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         if let Err(msg) = self.lookup_type_mark(region, &subtype_indication.type_mark) {
             messages.push(msg);
@@ -505,7 +507,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         parent: &DeclarativeRegion<'_, 'a>,
         subprogram: &'a SubprogramDeclaration,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         let mut region = DeclarativeRegion::new(Some(parent));
 
@@ -527,7 +529,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         decl: &'a Declaration,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         match decl {
             Declaration::Alias(alias) => {
@@ -710,7 +712,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         declarations: &'a [Declaration],
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         for decl in declarations.iter() {
             self.analyze_declaration(region, decl, messages);
@@ -722,7 +724,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         region: &mut DeclarativeRegion<'_, 'a>,
         use_clause: &UseClause,
         use_pos: &SrcPos,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         for name in use_clause.name_list.iter() {
             match name.item {
@@ -800,7 +802,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         context_clause: &[WithPos<ContextItem>],
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         for context_item in context_clause.iter() {
             match context_item.item {
@@ -901,7 +903,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         parent: &DeclarativeRegion<'_, 'a>,
         body: &'a GenerateBody,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         let mut region = DeclarativeRegion::new(Some(parent));
 
@@ -915,7 +917,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         parent: &DeclarativeRegion<'_, 'a>,
         statement: &'a LabeledConcurrentStatement,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         match statement.statement {
             ConcurrentStatement::Block(ref block) => {
@@ -951,7 +953,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         parent: &DeclarativeRegion<'_, 'a>,
         statements: &'a [LabeledConcurrentStatement],
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         for statement in statements.iter() {
             self.analyze_concurrent_statement(parent, statement, messages);
@@ -962,7 +964,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         entity_region: &mut DeclarativeRegion<'_, 'a>,
         architecture: &'a ArchitectureBody,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         self.analyze_declarative_part(entity_region, &architecture.decl, messages);
         self.analyze_concurrent_part(entity_region, &architecture.statements, messages);
@@ -972,7 +974,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         entity: &'a EntityDeclaration,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         if let Some(ref list) = entity.generic_clause {
             self.analyze_interface_list(region, list, messages);
@@ -1019,7 +1021,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         parent: &'r DeclarativeRegion<'r, 'a>,
         package: &'a PackageDeclaration,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) -> DeclarativeRegion<'r, 'a> {
         let mut region = DeclarativeRegion::new(Some(parent)).in_package_declaration();
         if let Some(ref list) = package.generic_clause {
@@ -1079,7 +1081,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         primary_region: &DeclarativeRegion<'_, 'a>,
         package: &'a PackageDesignUnit,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         if let Some(ref body) = package.body {
             let mut root_region = primary_region
@@ -1096,7 +1098,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         library: &'a Library,
         package: &'a PackageDesignUnit,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         match self.analyze_package_declaration_unit(None, library, package) {
             Ok(data) => {
@@ -1119,7 +1121,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
     }
 
     /// Returns a reference to the the uninstantiated package
-    #[cfg_attr(feature = "cargo-clippy", allow(ptr_arg))]
+    #[allow(clippy::ptr_arg)]
     pub fn analyze_package_instance_name(
         &self,
         parent: &'r DeclarativeRegion<'r, 'a>,
@@ -1207,7 +1209,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         }
     }
 
-    pub fn analyze_library(&self, library: &'a Library, messages: &mut MessageHandler) {
+    pub fn analyze_library(&self, library: &'a Library, messages: &mut dyn MessageHandler) {
         for package in library.packages() {
             self.analyze_package(library, package, messages);
         }
@@ -1250,7 +1252,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         }
     }
 
-    pub fn analyze(&self, messages: &mut MessageHandler) {
+    pub fn analyze(&self, messages: &mut dyn MessageHandler) {
         // Analyze standard library first
         if let Some(library) = self.root.get_library(&self.std_sym) {
             let standard_package = library
@@ -1293,9 +1295,9 @@ fn uninstantiated_package_prefix_error(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use library::Library;
-    use message::Message;
-    use test_util::{check_messages, check_no_messages, Code, CodeBuilder};
+    use crate::library::Library;
+    use crate::message::Message;
+    use crate::test_util::{check_messages, check_no_messages, Code, CodeBuilder};
 
     fn expected_message(code: &Code, name: &str, occ1: usize, occ2: usize) -> Message {
         Message::error(
@@ -2668,7 +2670,7 @@ end entity;
         )
     }
 
-    use source::Source;
+    use crate::source::Source;
     use std::collections::{hash_map::Entry, HashMap};
 
     struct LibraryBuilder {
@@ -2685,7 +2687,7 @@ end entity;
         }
 
         fn new() -> LibraryBuilder {
-            use latin_1::Latin1String;
+            use crate::latin_1::Latin1String;
 
             let mut library = LibraryBuilder::new_no_std();
             library.code_from_source(

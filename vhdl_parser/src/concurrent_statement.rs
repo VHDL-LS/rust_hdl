@@ -4,36 +4,36 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::{
+use crate::ast::{
     Alternative, AssignmentRightHand, BlockStatement, CaseGenerateStatement,
     ConcurrentAssertStatement, ConcurrentProcedureCall, ConcurrentSignalAssignment,
     ConcurrentStatement, Conditional, Declaration, ForGenerateStatement, FunctionCall,
     GenerateBody, Ident, IfGenerateStatement, InstantiatedUnit, InstantiationStatement,
     LabeledConcurrentStatement, Name, ProcessStatement, SensitivityList, Target,
 };
-use common::error_on_end_identifier_mismatch;
-use declarative_part::{is_declarative_part, parse_declarative_part};
-use expression::parse_aggregate_leftpar_known;
-use expression::{parse_choices, parse_expression};
-use message::{push_some, Message, MessageHandler, ParseResult};
-use names::{
+use crate::common::error_on_end_identifier_mismatch;
+use crate::declarative_part::{is_declarative_part, parse_declarative_part};
+use crate::expression::parse_aggregate_leftpar_known;
+use crate::expression::{parse_choices, parse_expression};
+use crate::message::{push_some, Message, MessageHandler, ParseResult};
+use crate::names::{
     expression_to_ident, parse_association_list, parse_name_initial_token, parse_selected_name,
     to_selected_name, to_simple_name,
 };
-use range::parse_discrete_range;
-use sequential_statement::{
+use crate::range::parse_discrete_range;
+use crate::sequential_statement::{
     parse_assert_statement_known_keyword, parse_labeled_sequential_statements, parse_selection,
     parse_signal_assignment_right_hand, parse_target,
 };
-use source::WithPos;
-use tokenizer::{Kind::*, Token};
-use tokenstream::TokenStream;
-use waveform::{parse_delay_mechanism, parse_waveform};
+use crate::source::WithPos;
+use crate::tokenizer::{Kind::*, Token};
+use crate::tokenstream::TokenStream;
+use crate::waveform::{parse_delay_mechanism, parse_waveform};
 
 /// LRM 11.2 Block statement
 pub fn parse_block_statement(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<BlockStatement> {
     let token = stream.peek_expect()?;
     let guard_condition = {
@@ -68,7 +68,7 @@ pub fn parse_block_statement(
 pub fn parse_process_statement(
     stream: &mut TokenStream,
     postponed: bool,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<ProcessStatement> {
     let token = stream.peek_expect()?;
     let sensitivity_list = {
@@ -228,7 +228,7 @@ pub fn parse_instantiation_statement(
 
 fn parse_optional_declarative_part(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<Option<Vec<Declaration>>> {
     if is_declarative_part(stream, true)? {
         Ok(Some(parse_declarative_part(stream, messages, true)?))
@@ -240,7 +240,7 @@ fn parse_optional_declarative_part(
 fn parse_generate_body_end_token(
     stream: &mut TokenStream,
     alternative_label: Option<Ident>,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<(GenerateBody, Token)> {
     let decl = parse_optional_declarative_part(stream, messages)?;
     let (statements, mut end_token) =
@@ -284,7 +284,7 @@ fn parse_generate_body_end_token(
 fn parse_generate_body(
     stream: &mut TokenStream,
     alternative_label: Option<Ident>,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<GenerateBody> {
     let (body, end_token) = parse_generate_body_end_token(stream, alternative_label, messages)?;
     end_token.expect_kind(End)?;
@@ -294,7 +294,7 @@ fn parse_generate_body(
 /// 11.8 Generate statements
 fn parse_for_generate_statement(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<ForGenerateStatement> {
     let index_name = stream.expect_ident()?;
     stream.expect_kind(In)?;
@@ -316,7 +316,7 @@ fn parse_for_generate_statement(
 /// 11.8 Generate statements
 fn parse_if_generate_statement(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<IfGenerateStatement> {
     let mut conditionals = Vec::new();
     let else_branch;
@@ -381,7 +381,7 @@ fn parse_if_generate_statement(
 /// 11.8 Generate statements
 fn parse_case_generate_statement(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<CaseGenerateStatement> {
     let expression = parse_expression(stream)?;
     stream.expect_kind(Generate)?;
@@ -427,7 +427,7 @@ fn parse_case_generate_statement(
 pub fn parse_concurrent_statement(
     stream: &mut TokenStream,
     token: Token,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<ConcurrentStatement> {
     let statement = {
         try_token_kind!(
@@ -504,7 +504,7 @@ pub fn parse_concurrent_statement(
 
 pub fn parse_labeled_concurrent_statements_end_token(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<(Vec<LabeledConcurrentStatement>, Token)> {
     let mut statements = Vec::new();
     loop {
@@ -524,7 +524,7 @@ pub fn parse_labeled_concurrent_statements_end_token(
 
 pub fn parse_labeled_concurrent_statements(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<Vec<LabeledConcurrentStatement>> {
     let (statement, _) = parse_labeled_concurrent_statements_end_token(stream, messages)?;
     Ok(statement)
@@ -533,7 +533,7 @@ pub fn parse_labeled_concurrent_statements(
 pub fn parse_labeled_concurrent_statement_initial_token(
     stream: &mut TokenStream,
     token: Token,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<LabeledConcurrentStatement> {
     if token.kind == Identifier {
         let name = parse_name_initial_token(stream, token)?;
@@ -563,7 +563,7 @@ pub fn parse_labeled_concurrent_statement_initial_token(
 #[cfg(test)]
 pub fn parse_labeled_concurrent_statement(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<LabeledConcurrentStatement> {
     let token = stream.expect()?;
     parse_labeled_concurrent_statement_initial_token(stream, token, messages)
@@ -572,8 +572,8 @@ pub fn parse_labeled_concurrent_statement(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ast::{Alternative, AssertStatement, DelayMechanism, Selection};
-    use test_util::Code;
+    use crate::ast::{Alternative, AssertStatement, DelayMechanism, Selection};
+    use crate::test_util::Code;
 
     #[test]
     fn test_concurrent_procedure() {

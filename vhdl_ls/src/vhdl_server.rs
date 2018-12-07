@@ -4,21 +4,21 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-extern crate languageserver_types;
 use self::languageserver_types::*;
-extern crate serde;
+use languageserver_types;
+use serde;
 
-extern crate url;
 use self::url::Url;
+use url;
 
-extern crate fnv;
 use self::fnv::FnvHashMap;
+use fnv;
 use std::collections::hash_map::Entry;
 
-extern crate vhdl_parser;
 use self::vhdl_parser::{Config, Message, Project, Severity, Source, SrcPos};
 use std::io;
 use std::path::Path;
+use vhdl_parser;
 
 pub trait RpcChannel {
     fn send_notification(
@@ -222,7 +222,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             std::mem::replace(&mut self.files_with_notifications, FnvHashMap::default());
         for (file_uri, messages) in messages_by_uri(messages).into_iter() {
             let mut diagnostics = Vec::new();
-            for mut message in messages {
+            for message in messages {
                 diagnostics.push(to_diagnostic(message));
             }
 
@@ -356,8 +356,8 @@ fn messages_by_uri(messages: Vec<Message>) -> FnvHashMap<Url, Vec<Message>> {
         let uri = file_name_to_uri(message.pos.source.file_name());
         match map.entry(uri) {
             Entry::Occupied(mut entry) => entry.get_mut().push(message),
-            Entry::Vacant(mut entry) => {
-                let mut vec = vec![message];
+            Entry::Vacant(entry) => {
+                let vec = vec![message];
                 entry.insert(vec);
             }
         }
@@ -426,7 +426,7 @@ mod tests {
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::rc::Rc;
-    extern crate tempfile;
+    use tempfile;
 
     #[derive(Debug, Clone)]
     enum RpcExpected {

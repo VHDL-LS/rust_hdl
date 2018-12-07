@@ -4,34 +4,36 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::*;
-use concurrent_statement::parse_labeled_concurrent_statement;
-use configuration::parse_configuration_declaration;
-use context::{parse_context, DeclarationOrReference};
-use context::{parse_library_clause, parse_use_clause};
-use declarative_part::{parse_declarative_part_leave_end_token, parse_package_instantiation};
-use design_unit::{
+use crate::ast::*;
+use crate::concurrent_statement::parse_labeled_concurrent_statement;
+use crate::configuration::parse_configuration_declaration;
+use crate::context::{parse_context, DeclarationOrReference};
+use crate::context::{parse_library_clause, parse_use_clause};
+use crate::declarative_part::{
+    parse_declarative_part_leave_end_token, parse_package_instantiation,
+};
+use crate::design_unit::{
     parse_architecture_body, parse_design_file, parse_entity_declaration, parse_package_body,
     parse_package_declaration,
 };
-use expression::{parse_aggregate, parse_choices, parse_expression};
-use interface_declaration::{parse_generic, parse_parameter, parse_port};
-use latin_1::Latin1String;
-use message::{Message, MessageHandler, ParseResult};
-use names::{parse_association_list, parse_name, parse_selected_name};
-use range::{parse_discrete_range, parse_range};
-use sequential_statement::parse_sequential_statement;
-use source::{Source, SrcPos, WithPos};
+use crate::expression::{parse_aggregate, parse_choices, parse_expression};
+use crate::interface_declaration::{parse_generic, parse_parameter, parse_port};
+use crate::latin_1::Latin1String;
+use crate::message::{Message, MessageHandler, ParseResult};
+use crate::names::{parse_association_list, parse_name, parse_selected_name};
+use crate::range::{parse_discrete_range, parse_range};
+use crate::sequential_statement::parse_sequential_statement;
+use crate::source::{Source, SrcPos, WithPos};
+use crate::subprogram::{parse_signature, parse_subprogram_declaration_no_semi};
+use crate::subtype_indication::parse_subtype_indication;
+use crate::symbol_table::{Symbol, SymbolTable};
+use crate::tokenizer::Tokenizer;
+use crate::tokenstream::TokenStream;
+use crate::waveform::parse_waveform;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
-use subprogram::{parse_signature, parse_subprogram_declaration_no_semi};
-use subtype_indication::parse_subtype_indication;
-use symbol_table::{Symbol, SymbolTable};
-use tokenizer::Tokenizer;
-use tokenstream::TokenStream;
-use waveform::parse_waveform;
 
 pub struct CodeBuilder {
     pub symtab: Arc<SymbolTable>,
@@ -209,7 +211,7 @@ impl Code {
     pub fn with_partial_stream_messages<F, R>(&self, parse_fun: F) -> (R, Vec<Message>)
     where
         R: Debug,
-        F: FnOnce(&mut TokenStream, &mut MessageHandler) -> R,
+        F: FnOnce(&mut TokenStream, &mut dyn MessageHandler) -> R,
     {
         let mut messages = Vec::new();
         let result =
@@ -220,7 +222,7 @@ impl Code {
     pub fn with_stream_messages<F, R>(&self, parse_fun: F) -> (R, Vec<Message>)
     where
         R: Debug,
-        F: FnOnce(&mut TokenStream, &mut MessageHandler) -> ParseResult<R>,
+        F: FnOnce(&mut TokenStream, &mut dyn MessageHandler) -> ParseResult<R>,
     {
         let mut messages = Vec::new();
         let result = self.with_stream(|stream: &mut TokenStream| parse_fun(stream, &mut messages));
@@ -230,7 +232,7 @@ impl Code {
     pub fn with_stream_no_messages<F, R>(&self, parse_fun: F) -> R
     where
         R: Debug,
-        F: FnOnce(&mut TokenStream, &mut MessageHandler) -> ParseResult<R>,
+        F: FnOnce(&mut TokenStream, &mut dyn MessageHandler) -> ParseResult<R>,
     {
         let (result, messages) = self.with_stream_messages(parse_fun);
         check_no_messages(&messages);
@@ -310,7 +312,7 @@ impl Code {
 
     pub fn parse_ok_no_messages<F, R>(&self, parse_fun: F) -> R
     where
-        F: FnOnce(&mut TokenStream, &mut MessageHandler) -> ParseResult<R>,
+        F: FnOnce(&mut TokenStream, &mut dyn MessageHandler) -> ParseResult<R>,
     {
         let mut messages = Vec::new();
         let res = self.parse_ok(|stream| parse_fun(stream, &mut messages));
@@ -437,7 +439,7 @@ fn messages_to_map(messages: Vec<Message>) -> HashMap<Message, usize> {
                 let count = *entry.get() + 1;
                 entry.insert(count);
             }
-            Entry::Vacant(mut entry) => {
+            Entry::Vacant(entry) => {
                 entry.insert(1);
             }
         }

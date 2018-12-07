@@ -6,24 +6,24 @@
 
 // @TODO add related information to message
 
-extern crate fnv;
 use self::fnv::FnvHashMap;
+use fnv;
 use std::collections::hash_map::Entry;
 
-use ast::{
+use crate::ast::{
     has_ident::HasIdent, AnyDesignUnit, ArchitectureBody, ConfigurationDeclaration,
     ContextDeclaration, DesignFile, DesignUnit, EntityDeclaration, Name, PackageBody,
     PackageDeclaration, PackageInstantiation, PrimaryUnit, SecondaryUnit,
 };
-use message::{Message, MessageHandler};
-use source::{SrcPos, WithPos};
-use symbol_table::Symbol;
+use crate::message::{Message, MessageHandler};
+use crate::source::{SrcPos, WithPos};
+use crate::symbol_table::Symbol;
 
 impl EntityDesignUnit {
     fn add_architecture(
         &mut self,
         architecture: DesignUnit<ArchitectureBody>,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         match self.architectures.entry(architecture.name().clone()) {
             Entry::Occupied(..) => {
@@ -62,7 +62,7 @@ impl EntityDesignUnit {
     fn add_configuration(
         &mut self,
         configuration: DesignUnit<ConfigurationDeclaration>,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         match self.configurations.entry(configuration.name().clone()) {
             Entry::Occupied(..) => {
@@ -104,7 +104,7 @@ impl EntityDesignUnit {
 }
 
 impl PackageDesignUnit {
-    fn set_body(&mut self, body: DesignUnit<PackageBody>, messages: &mut MessageHandler) {
+    fn set_body(&mut self, body: DesignUnit<PackageBody>, messages: &mut dyn MessageHandler) {
         if self.body.is_some() {
             messages.push(Message::error(
                 body.ident(),
@@ -170,7 +170,7 @@ impl<'a> Library {
         name: Symbol,
         work_sym: &Symbol,
         design_files: Vec<DesignFile>,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) -> Library {
         let mut primary_names: FnvHashMap<Symbol, SrcPos> = FnvHashMap::default();
         let mut entities = FnvHashMap::default();
@@ -403,7 +403,7 @@ impl DesignRoot {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_util::{check_messages, check_no_messages, Code, CodeBuilder};
+    use crate::test_util::{check_messages, check_no_messages, Code, CodeBuilder};
 
     fn new_library_with_messages<'a>(code: &Code, name: &str) -> (Library, Vec<Message>) {
         let mut messages = Vec::new();

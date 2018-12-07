@@ -4,13 +4,13 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::{AliasDeclaration, Designator};
-use message::ParseResult;
-use names::parse_name;
-use subprogram::parse_signature;
-use subtype_indication::parse_subtype_indication;
-use tokenizer::Kind::*;
-use tokenstream::TokenStream;
+use crate::ast::{AliasDeclaration, Designator};
+use crate::message::ParseResult;
+use crate::names::parse_name;
+use crate::subprogram::parse_signature;
+use crate::subtype_indication::parse_subtype_indication;
+use crate::tokenizer::Kind::*;
+use crate::tokenstream::TokenStream;
 
 pub fn parse_alias_declaration(stream: &mut TokenStream) -> ParseResult<AliasDeclaration> {
     stream.expect_kind(Alias)?;
@@ -55,7 +55,7 @@ pub fn parse_alias_declaration(stream: &mut TokenStream) -> ParseResult<AliasDec
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_util::Code;
+    use crate::test_util::Code;
 
     #[test]
     fn parse_simple_alias() {

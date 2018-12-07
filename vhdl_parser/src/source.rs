@@ -4,9 +4,9 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-extern crate pad;
-use latin_1::Latin1String;
-use message::{Message, ParseResult};
+use crate::latin_1::Latin1String;
+use crate::message::{Message, ParseResult};
+use pad;
 use std::cmp::{max, min};
 use std::collections::VecDeque;
 use std::convert::AsRef;
@@ -52,7 +52,7 @@ struct UniqueSource {
 
 impl fmt::Debug for UniqueSource {
     /// Custom implementation to avoid large contents strings
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Source {{file_name: {:?}}}", self.file_name.as_str())
     }
 }
@@ -253,7 +253,7 @@ impl<T> WithPos<T> {
         }
     }
 
-    pub fn combine_pos_with(self, other: &AsRef<SrcPos>) -> Self {
+    pub fn combine_pos_with(self, other: &dyn AsRef<SrcPos>) -> Self {
         WithPos {
             item: self.item,
             pos: self.pos.combine_into(other.as_ref()),
@@ -283,7 +283,7 @@ impl SrcPos {
     fn get_line_context(
         self: &Self,
         context_lines: usize,
-        reader: &mut BufRead,
+        reader: &mut dyn BufRead,
     ) -> (usize, VecDeque<(usize, usize, Latin1String)>) {
         let mut first_lineno = None;
         let mut lines = VecDeque::new();
@@ -392,7 +392,7 @@ impl SrcPos {
         offset + line_len >= self.start + 1 && offset < self.start + self.length
     }
 
-    fn code_context_from_reader(self: &Self, reader: &mut BufRead) -> (usize, usize, String) {
+    fn code_context_from_reader(self: &Self, reader: &mut dyn BufRead) -> (usize, usize, String) {
         const LINE_CONTEXT: usize = 2;
         let (first_lineno, lines) = self.get_line_context(LINE_CONTEXT, reader);
 
@@ -471,7 +471,7 @@ impl SrcPos {
 
     /// Combines two lexical positions into a larger legical position overlapping both
     /// The file name is assumed to be the same
-    pub fn combine_into(self, other: &AsRef<Self>) -> Self {
+    pub fn combine_into(self, other: &dyn AsRef<Self>) -> Self {
         let other = other.as_ref();
         debug_assert!(self.source == other.source, "Assumes sources are equal");
 
@@ -485,7 +485,7 @@ impl SrcPos {
         }
     }
 
-    pub fn combine(&self, other: &AsRef<Self>) -> Self {
+    pub fn combine(&self, other: &dyn AsRef<Self>) -> Self {
         self.clone().combine_into(other)
     }
 }
@@ -493,7 +493,7 @@ impl SrcPos {
 #[cfg(test)]
 mod tests {
     use super::*;
-    extern crate tempfile;
+    use tempfile;
 
     #[test]
     fn srcpos_combine() {
