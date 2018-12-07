@@ -18,15 +18,6 @@ use symbol_table::{Symbol, SymbolTable};
 extern crate fnv;
 use self::fnv::FnvHashMap;
 
-impl SubprogramDeclaration {
-    fn interface_list(&self) -> &[InterfaceDeclaration] {
-        match self {
-            SubprogramDeclaration::Function(fun) => &fun.parameter_list,
-            SubprogramDeclaration::Procedure(proc) => &proc.parameter_list,
-        }
-    }
-}
-
 enum LookupResult<'n, 'a> {
     /// A single name was selected
     Single(VisibleDeclaration<'a>),
@@ -445,6 +436,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                 );
             }
             InterfaceDeclaration::Subprogram(subpgm, ..) => {
+                self.analyze_subprogram_declaration(region, subpgm, messages);
                 region.add(
                     VisibleDeclaration::new(subpgm.designator(), AnyDeclaration::Interface(decl))
                         .with_overload(true),
@@ -479,17 +471,56 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         }
     }
 
+    #[cfg_attr(feature = "cargo-clippy", allow(ptr_arg))]
+    fn lookup_type_mark(
+        &self,
+        region: &DeclarativeRegion<'_, 'a>,
+        type_mark: &SelectedName,
+    ) -> Result<VisibleDeclaration<'a>, Message> {
+        let type_mark_name = type_mark.clone().into();
+        match self.lookup_selected_name(region, &type_mark_name)? {
+            LookupResult::Single(visible_decl) => Ok(visible_decl),
+            _ => {
+                // Cannot really happen with SelectedName but refactoring might change it...
+                Err(Message::error(
+                    &type_mark_name.pos,
+                    "Invalid name for type mark",
+                ))
+            }
+        }
+    }
+
     fn analyze_subtype_indicaton(
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         subtype_indication: &'a SubtypeIndication,
         messages: &mut MessageHandler,
     ) {
-        if let Err(msg) =
-            self.lookup_selected_name(region, &subtype_indication.type_mark.clone().into())
-        {
+        if let Err(msg) = self.lookup_type_mark(region, &subtype_indication.type_mark) {
             messages.push(msg);
         }
+    }
+
+    fn analyze_subprogram_declaration(
+        &self,
+        parent: &DeclarativeRegion<'_, 'a>,
+        subprogram: &'a SubprogramDeclaration,
+        messages: &mut MessageHandler,
+    ) {
+        let mut region = DeclarativeRegion::new(Some(parent));
+
+        match subprogram {
+            SubprogramDeclaration::Function(fun) => {
+                self.analyze_interface_list(&mut region, &fun.parameter_list, messages);
+                if let Err(msg) = self.lookup_type_mark(&parent, &fun.return_type) {
+                    messages.push(msg);
+                }
+            }
+            SubprogramDeclaration::Procedure(proc) => {
+                self.analyze_interface_list(&mut region, &proc.parameter_list, messages);
+            }
+        }
+        region.close_both(messages);
     }
 
     fn analyze_declaration(
@@ -561,15 +592,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     ).with_overload(true),
                     messages,
                 );
-                {
-                    let mut region = DeclarativeRegion::new(Some(region));
-                    self.analyze_interface_list(
-                        &mut region,
-                        body.specification.interface_list(),
-                        messages,
-                    );
-                    region.close_both(messages);
-                }
+                self.analyze_subprogram_declaration(region, &body.specification, messages);
                 let mut region = DeclarativeRegion::new(Some(region));
                 self.analyze_declarative_part(&mut region, &body.declarations, messages);
             }
@@ -581,11 +604,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     ).with_overload(true),
                     messages,
                 );
-                {
-                    let mut region = DeclarativeRegion::new(Some(region));
-                    self.analyze_interface_list(&mut region, subdecl.interface_list(), messages);
-                    region.close_both(messages);
-                }
+                self.analyze_subprogram_declaration(region, &subdecl, messages);
             }
 
             // @TODO Ignored for now
@@ -641,13 +660,9 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                         for item in prot_decl.items.iter() {
                             match item {
                                 ProtectedTypeDeclarativeItem::Subprogram(subprogram) => {
-                                    let mut region = DeclarativeRegion::new(Some(region));
-                                    self.analyze_interface_list(
-                                        &mut region,
-                                        subprogram.interface_list(),
-                                        messages,
+                                    self.analyze_subprogram_declaration(
+                                        region, subprogram, messages,
                                     );
-                                    region.close_both(messages);
                                 }
                             }
                         }
@@ -3434,6 +3449,29 @@ end package;",
         let messages = builder.analyze();
         check_messages(messages, expected);
     }
+
+    #[test]
+    fn resolves_return_type() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg is
+  function f1 (const : natural) return natural;
+  function f2 (const : natural) return missing;
+end package;",
+        );
+
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s1("missing"),
+                "No declaration of 'missing'",
+            )],
+        );
+    }
+
     #[test]
     fn protected_type_is_visible_in_declaration() {
         let mut builder = LibraryBuilder::new();
