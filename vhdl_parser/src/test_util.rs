@@ -9,7 +9,9 @@ use crate::concurrent_statement::parse_labeled_concurrent_statement;
 use crate::configuration::parse_configuration_declaration;
 use crate::context::{parse_context, DeclarationOrReference};
 use crate::context::{parse_library_clause, parse_use_clause};
-use crate::declarative_part::{parse_declarative_part_leave_end_token, parse_package_instantiation};
+use crate::declarative_part::{
+    parse_declarative_part_leave_end_token, parse_package_instantiation,
+};
 use crate::design_unit::{
     parse_architecture_body, parse_design_file, parse_entity_declaration, parse_package_body,
     parse_package_declaration,
@@ -22,16 +24,16 @@ use crate::names::{parse_association_list, parse_name, parse_selected_name};
 use crate::range::{parse_discrete_range, parse_range};
 use crate::sequential_statement::parse_sequential_statement;
 use crate::source::{Source, SrcPos, WithPos};
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
-use std::fmt::Debug;
-use std::sync::Arc;
 use crate::subprogram::{parse_signature, parse_subprogram_declaration_no_semi};
 use crate::subtype_indication::parse_subtype_indication;
 use crate::symbol_table::{Symbol, SymbolTable};
 use crate::tokenizer::Tokenizer;
 use crate::tokenstream::TokenStream;
 use crate::waveform::parse_waveform;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::sync::Arc;
 
 pub struct CodeBuilder {
     pub symtab: Arc<SymbolTable>,

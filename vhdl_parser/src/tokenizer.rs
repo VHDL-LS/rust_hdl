@@ -12,8 +12,8 @@ use self::fnv::FnvHashMap;
 use crate::ast;
 use crate::ast::{BaseSpecifier, Ident};
 use crate::latin_1::Latin1String;
-use std::sync::Arc;
 use crate::symbol_table::{Symbol, SymbolTable};
+use std::sync::Arc;
 
 /// The kind of a Token
 #[derive(PartialEq, Clone, Copy, Debug)]

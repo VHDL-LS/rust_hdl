@@ -14,9 +14,9 @@ use crate::message::Message;
 use crate::parser::{FileToParse, ParserError, VHDLParser};
 use crate::semantic::Analyzer;
 use crate::source::Source;
+use crate::symbol_table::Symbol;
 use std::collections::hash_map::Entry;
 use std::io;
-use crate::symbol_table::Symbol;
 
 pub struct Project {
     parser: VHDLParser,

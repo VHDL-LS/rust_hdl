@@ -5,15 +5,17 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::ast::{has_ident::HasIdent, *};
-use crate::declarative_region::{AnyDeclaration, DeclarativeRegion, PrimaryUnitData, VisibleDeclaration};
+use crate::declarative_region::{
+    AnyDeclaration, DeclarativeRegion, PrimaryUnitData, VisibleDeclaration,
+};
 use crate::latin_1::Latin1String;
 use crate::library::{DesignRoot, Library, PackageDesignUnit};
 use crate::message::{Message, MessageHandler};
 use crate::source::{SrcPos, WithPos};
+use crate::symbol_table::{Symbol, SymbolTable};
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
 use std::sync::Arc;
-use crate::symbol_table::{Symbol, SymbolTable};
 
 extern crate fnv;
 use self::fnv::FnvHashMap;
@@ -471,7 +473,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         }
     }
 
-    #[cfg_attr(feature = "cargo-clippy", allow(ptr_arg))]
+    #[allow(clippy::ptr_arg)]
     fn lookup_type_mark(
         &self,
         region: &DeclarativeRegion<'_, 'a>,
@@ -1119,7 +1121,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
     }
 
     /// Returns a reference to the the uninstantiated package
-    #[cfg_attr(feature = "cargo-clippy", allow(ptr_arg))]
+    #[allow(clippy::ptr_arg)]
     pub fn analyze_package_instance_name(
         &self,
         parent: &'r DeclarativeRegion<'r, 'a>,

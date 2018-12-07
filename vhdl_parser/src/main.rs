@@ -175,8 +175,7 @@ fn parse(parser: &VHDLParser, file_names: Vec<String>, num_threads: usize, show:
     let mut num_errors = 0;
     let mut num_warnings = 0;
 
-    for (file_name, messages, design_file) in parser.parse_design_files(file_names, num_threads)
-    {
+    for (file_name, messages, design_file) in parser.parse_design_files(file_names, num_threads) {
         let design_file = match design_file {
             Ok(design_file) => design_file,
             Err(ParserError::Message(msg)) => {

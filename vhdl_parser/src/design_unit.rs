@@ -15,7 +15,9 @@ use crate::common::error_on_end_identifier_mismatch;
 use crate::component_declaration::{parse_optional_generic_list, parse_optional_port_list};
 use crate::concurrent_statement::parse_labeled_concurrent_statements;
 use crate::configuration::parse_configuration_declaration;
-use crate::context::{parse_context, parse_library_clause, parse_use_clause, DeclarationOrReference};
+use crate::context::{
+    parse_context, parse_library_clause, parse_use_clause, DeclarationOrReference,
+};
 use crate::declarative_part::{
     parse_declarative_part, parse_declarative_part_leave_end_token, parse_package_instantiation,
 };
