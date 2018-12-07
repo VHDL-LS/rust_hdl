@@ -4,24 +4,24 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use tokenizer::Kind::*;
-use tokenstream::TokenStream;
+use crate::tokenizer::Kind::*;
+use crate::tokenstream::TokenStream;
 
-use ast::{
+use crate::ast::{
     AnyDesignUnit, ArchitectureBody, ContextItem, DesignFile, DesignUnit, EntityDeclaration,
     PackageBody, PackageDeclaration, PrimaryUnit, SecondaryUnit,
 };
-use common::error_on_end_identifier_mismatch;
-use component_declaration::{parse_optional_generic_list, parse_optional_port_list};
-use concurrent_statement::parse_labeled_concurrent_statements;
-use configuration::parse_configuration_declaration;
-use context::{parse_context, parse_library_clause, parse_use_clause, DeclarationOrReference};
-use declarative_part::{
+use crate::common::error_on_end_identifier_mismatch;
+use crate::component_declaration::{parse_optional_generic_list, parse_optional_port_list};
+use crate::concurrent_statement::parse_labeled_concurrent_statements;
+use crate::configuration::parse_configuration_declaration;
+use crate::context::{parse_context, parse_library_clause, parse_use_clause, DeclarationOrReference};
+use crate::declarative_part::{
     parse_declarative_part, parse_declarative_part_leave_end_token, parse_package_instantiation,
 };
-use interface_declaration::parse_generic_interface_list;
-use message::{Message, MessageHandler, ParseResult};
-use source::WithPos;
+use crate::interface_declaration::parse_generic_interface_list;
+use crate::message::{Message, MessageHandler, ParseResult};
+use crate::source::WithPos;
 
 /// Parse an entity declaration, token is initial entity token
 /// If a parse error occurs the stream is consumed until and end entity
@@ -269,9 +269,9 @@ pub fn parse_design_file(
 mod tests {
     use super::*;
 
-    use ast::*;
-    use message::Message;
-    use test_util::{check_messages, check_no_messages, Code};
+    use crate::ast::*;
+    use crate::message::Message;
+    use crate::test_util::{check_messages, check_no_messages, Code};
 
     fn parse_str(code: &str) -> (Code, DesignFile, Vec<Message>) {
         let code = Code::new(code);

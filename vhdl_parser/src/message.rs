@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use source::SrcPos;
+use crate::source::SrcPos;
 use std::convert::{AsRef, Into};
 
 #[derive(PartialEq, Debug, Clone, Copy, Eq, Hash)]
@@ -127,7 +127,7 @@ pub type ParseResult<T> = Result<T, Message>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_util::Code;
+    use crate::test_util::Code;
 
     #[test]
     fn show_warning() {

@@ -222,7 +222,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             std::mem::replace(&mut self.files_with_notifications, FnvHashMap::default());
         for (file_uri, messages) in messages_by_uri(messages).into_iter() {
             let mut diagnostics = Vec::new();
-            for mut message in messages {
+            for message in messages {
                 diagnostics.push(to_diagnostic(message));
             }
 
@@ -356,8 +356,8 @@ fn messages_by_uri(messages: Vec<Message>) -> FnvHashMap<Url, Vec<Message>> {
         let uri = file_name_to_uri(message.pos.source.file_name());
         match map.entry(uri) {
             Entry::Occupied(mut entry) => entry.get_mut().push(message),
-            Entry::Vacant(mut entry) => {
-                let mut vec = vec![message];
+            Entry::Vacant(entry) => {
+                let vec = vec![message];
                 entry.insert(vec);
             }
         }

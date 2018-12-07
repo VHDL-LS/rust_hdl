@@ -11,9 +11,9 @@
 pub mod has_ident;
 pub mod name;
 
-use latin_1::Latin1String;
-use source::WithPos;
-use symbol_table::Symbol;
+use crate::latin_1::Latin1String;
+use crate::source::WithPos;
+use crate::symbol_table::Symbol;
 
 /// LRM 15.8 Bit string literals
 #[derive(PartialEq, Clone, Debug)]

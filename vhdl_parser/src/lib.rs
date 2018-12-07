@@ -41,8 +41,8 @@ mod waveform;
 #[cfg(test)]
 mod test_util;
 
-pub use config::Config;
-pub use message::{Message, Severity};
-pub use parser::{ParserError, ParserResult, VHDLParser};
-pub use project::Project;
-pub use source::{Source, SrcPos};
+pub use crate::config::Config;
+pub use crate::message::{Message, Severity};
+pub use crate::parser::{ParserError, ParserResult, VHDLParser};
+pub use crate::project::Project;
+pub use crate::source::{Source, SrcPos};

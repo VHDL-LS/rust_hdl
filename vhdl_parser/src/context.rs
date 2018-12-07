@@ -4,15 +4,15 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::{
+use crate::ast::{
     ContextDeclaration, ContextItem, ContextReference, Designator, LibraryClause, Name, UseClause,
 };
-use common::error_on_end_identifier_mismatch;
-use message::{push_some, Message, MessageHandler, ParseResult};
-use names::parse_name;
-use source::WithPos;
-use tokenizer::{Kind::*, Token};
-use tokenstream::TokenStream;
+use crate::common::error_on_end_identifier_mismatch;
+use crate::message::{push_some, Message, MessageHandler, ParseResult};
+use crate::names::parse_name;
+use crate::source::WithPos;
+use crate::tokenizer::{Kind::*, Token};
+use crate::tokenstream::TokenStream;
 
 /// LRM 13. Design units and their analysis
 pub fn parse_library_clause(stream: &mut TokenStream) -> ParseResult<WithPos<LibraryClause>> {
@@ -155,7 +155,7 @@ pub fn parse_context(
 mod tests {
     use super::*;
 
-    use test_util::Code;
+    use crate::test_util::Code;
 
     #[test]
     fn test_library_clause_single_name() {

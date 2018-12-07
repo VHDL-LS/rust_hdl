@@ -4,31 +4,31 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::{
+use crate::ast::{
     Alternative, AssignmentRightHand, BlockStatement, CaseGenerateStatement,
     ConcurrentAssertStatement, ConcurrentProcedureCall, ConcurrentSignalAssignment,
     ConcurrentStatement, Conditional, Declaration, ForGenerateStatement, FunctionCall,
     GenerateBody, Ident, IfGenerateStatement, InstantiatedUnit, InstantiationStatement,
     LabeledConcurrentStatement, Name, ProcessStatement, SensitivityList, Target,
 };
-use common::error_on_end_identifier_mismatch;
-use declarative_part::{is_declarative_part, parse_declarative_part};
-use expression::parse_aggregate_leftpar_known;
-use expression::{parse_choices, parse_expression};
-use message::{push_some, Message, MessageHandler, ParseResult};
-use names::{
+use crate::common::error_on_end_identifier_mismatch;
+use crate::declarative_part::{is_declarative_part, parse_declarative_part};
+use crate::expression::parse_aggregate_leftpar_known;
+use crate::expression::{parse_choices, parse_expression};
+use crate::message::{push_some, Message, MessageHandler, ParseResult};
+use crate::names::{
     expression_to_ident, parse_association_list, parse_name_initial_token, parse_selected_name,
     to_selected_name, to_simple_name,
 };
-use range::parse_discrete_range;
-use sequential_statement::{
+use crate::range::parse_discrete_range;
+use crate::sequential_statement::{
     parse_assert_statement_known_keyword, parse_labeled_sequential_statements, parse_selection,
     parse_signal_assignment_right_hand, parse_target,
 };
-use source::WithPos;
-use tokenizer::{Kind::*, Token};
-use tokenstream::TokenStream;
-use waveform::{parse_delay_mechanism, parse_waveform};
+use crate::source::WithPos;
+use crate::tokenizer::{Kind::*, Token};
+use crate::tokenstream::TokenStream;
+use crate::waveform::{parse_delay_mechanism, parse_waveform};
 
 /// LRM 11.2 Block statement
 pub fn parse_block_statement(
@@ -572,8 +572,8 @@ pub fn parse_labeled_concurrent_statement(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ast::{Alternative, AssertStatement, DelayMechanism, Selection};
-    use test_util::Code;
+    use crate::ast::{Alternative, AssertStatement, DelayMechanism, Selection};
+    use crate::test_util::Code;
 
     #[test]
     fn test_concurrent_procedure() {

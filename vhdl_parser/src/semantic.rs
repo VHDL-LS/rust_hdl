@@ -4,16 +4,16 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::{has_ident::HasIdent, *};
-use declarative_region::{AnyDeclaration, DeclarativeRegion, PrimaryUnitData, VisibleDeclaration};
-use latin_1::Latin1String;
-use library::{DesignRoot, Library, PackageDesignUnit};
-use message::{Message, MessageHandler};
-use source::{SrcPos, WithPos};
+use crate::ast::{has_ident::HasIdent, *};
+use crate::declarative_region::{AnyDeclaration, DeclarativeRegion, PrimaryUnitData, VisibleDeclaration};
+use crate::latin_1::Latin1String;
+use crate::library::{DesignRoot, Library, PackageDesignUnit};
+use crate::message::{Message, MessageHandler};
+use crate::source::{SrcPos, WithPos};
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
 use std::sync::Arc;
-use symbol_table::{Symbol, SymbolTable};
+use crate::symbol_table::{Symbol, SymbolTable};
 
 extern crate fnv;
 use self::fnv::FnvHashMap;
@@ -1293,9 +1293,9 @@ fn uninstantiated_package_prefix_error(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use library::Library;
-    use message::Message;
-    use test_util::{check_messages, check_no_messages, Code, CodeBuilder};
+    use crate::library::Library;
+    use crate::message::Message;
+    use crate::test_util::{check_messages, check_no_messages, Code, CodeBuilder};
 
     fn expected_message(code: &Code, name: &str, occ1: usize, occ2: usize) -> Message {
         Message::error(
@@ -2668,7 +2668,7 @@ end entity;
         )
     }
 
-    use source::Source;
+    use crate::source::Source;
     use std::collections::{hash_map::Entry, HashMap};
 
     struct LibraryBuilder {
@@ -2685,7 +2685,7 @@ end entity;
         }
 
         fn new() -> LibraryBuilder {
-            use latin_1::Latin1String;
+            use crate::latin_1::Latin1String;
 
             let mut library = LibraryBuilder::new_no_std();
             library.code_from_source(

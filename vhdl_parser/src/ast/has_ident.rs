@@ -7,8 +7,8 @@
 //! Traits concerning identiers and designators
 
 use super::*;
-use source::{SrcPos, WithPos};
-use symbol_table::Symbol;
+use crate::source::{SrcPos, WithPos};
+use crate::symbol_table::Symbol;
 
 pub trait HasIdent {
     fn ident(&self) -> &Ident;

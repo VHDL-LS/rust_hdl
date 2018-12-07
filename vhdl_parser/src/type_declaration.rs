@@ -4,20 +4,20 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::{
+use crate::ast::{
     AbstractLiteral, ArrayIndex, ElementDeclaration, EnumerationLiteral, Ident, Literal,
     PhysicalTypeDeclaration, ProtectedTypeBody, ProtectedTypeDeclaration,
     ProtectedTypeDeclarativeItem, Range, TypeDeclaration, TypeDefinition,
 };
-use common::error_on_end_identifier_mismatch;
-use declarative_part::parse_declarative_part;
-use message::{push_some, MessageHandler, ParseResult};
-use names::{parse_identifier_list, parse_selected_name};
-use range::{parse_array_index_constraint, parse_range};
-use subprogram::parse_subprogram_declaration;
-use subtype_indication::parse_subtype_indication;
-use tokenizer::Kind::*;
-use tokenstream::TokenStream;
+use crate::common::error_on_end_identifier_mismatch;
+use crate::declarative_part::parse_declarative_part;
+use crate::message::{push_some, MessageHandler, ParseResult};
+use crate::names::{parse_identifier_list, parse_selected_name};
+use crate::range::{parse_array_index_constraint, parse_range};
+use crate::subprogram::parse_subprogram_declaration;
+use crate::subtype_indication::parse_subtype_indication;
+use crate::tokenizer::Kind::*;
+use crate::tokenstream::TokenStream;
 
 /// LRM 5.2.2 Enumeration types
 fn parse_enumeration_type_definition(stream: &mut TokenStream) -> ParseResult<TypeDefinition> {
@@ -290,8 +290,8 @@ pub fn parse_type_declaration(
 mod tests {
     use super::*;
 
-    use ast::{DiscreteRange, Ident};
-    use test_util::Code;
+    use crate::ast::{DiscreteRange, Ident};
+    use crate::test_util::Code;
 
     #[test]
     fn parse_integer_scalar_type_definition() {

@@ -4,18 +4,18 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::{
+use crate::ast::{
     BindingIndication, BlockConfiguration, ComponentConfiguration, ComponentSpecification,
     ConfigurationDeclaration, ConfigurationDeclarativeItem, ConfigurationItem,
     ConfigurationSpecification, EntityAspect, InstantiationList, Name, VUnitBindingIndication,
 };
-use common::error_on_end_identifier_mismatch;
-use context::parse_use_clause_no_keyword;
-use message::{Message, MessageHandler, ParseResult};
-use names::{parse_name, parse_name_initial_token, parse_selected_name, to_simple_name};
-use source::WithPos;
-use tokenizer::Kind::*;
-use tokenstream::TokenStream;
+use crate::common::error_on_end_identifier_mismatch;
+use crate::context::parse_use_clause_no_keyword;
+use crate::message::{Message, MessageHandler, ParseResult};
+use crate::names::{parse_name, parse_name_initial_token, parse_selected_name, to_simple_name};
+use crate::source::WithPos;
+use crate::tokenizer::Kind::*;
+use crate::tokenstream::TokenStream;
 
 /// LRM 7.3.2.2
 fn parse_entity_aspect(stream: &mut TokenStream) -> ParseResult<EntityAspect> {
@@ -360,7 +360,7 @@ pub fn parse_configuration_specification(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_util::Code;
+    use crate::test_util::Code;
 
     #[test]
     fn empty_configuration() {

@@ -5,16 +5,16 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 /// LRM 6.3 Subtype declarations
-use ast::{
+use crate::ast::{
     ElementConstraint, RecordElementResolution, ResolutionIndication, SubtypeConstraint,
     SubtypeIndication,
 };
-use message::ParseResult;
-use names::parse_selected_name;
-use range::{parse_discrete_range, parse_range};
-use source::WithPos;
-use tokenizer::Kind::*;
-use tokenstream::TokenStream;
+use crate::message::ParseResult;
+use crate::names::parse_selected_name;
+use crate::range::{parse_discrete_range, parse_range};
+use crate::source::WithPos;
+use crate::tokenizer::Kind::*;
+use crate::tokenstream::TokenStream;
 
 fn parse_record_element_constraint(stream: &mut TokenStream) -> ParseResult<ElementConstraint> {
     let ident = stream.expect_ident()?;
@@ -198,7 +198,7 @@ pub fn parse_subtype_indication(stream: &mut TokenStream) -> ParseResult<Subtype
 mod tests {
     use super::*;
 
-    use test_util::Code;
+    use crate::test_util::Code;
 
     #[test]
     fn parse_subtype_indication_without_constraint() {

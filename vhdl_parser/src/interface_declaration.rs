@@ -5,20 +5,20 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 /// LRM 6.5 Interface declarations
-use ast::{
+use crate::ast::{
     InterfaceDeclaration, InterfaceFileDeclaration, InterfaceObjectDeclaration,
     InterfacePackageDeclaration, InterfacePackageGenericMapAspect, Mode, ObjectClass,
     SubprogramDefault,
 };
 
-use message::{push_result, Message, MessageHandler, ParseResult};
-use names::{parse_association_list_no_leftpar, parse_identifier_list, parse_selected_name};
-use object_declaration::{parse_file_declaration_no_semi, parse_optional_assignment};
-use subprogram::parse_subprogram_declaration_no_semi;
-use subtype_indication::parse_subtype_indication;
-use tokenizer::Kind::*;
-use tokenizer::{kinds_str, Kind, Token};
-use tokenstream::TokenStream;
+use crate::message::{push_result, Message, MessageHandler, ParseResult};
+use crate::names::{parse_association_list_no_leftpar, parse_identifier_list, parse_selected_name};
+use crate::object_declaration::{parse_file_declaration_no_semi, parse_optional_assignment};
+use crate::subprogram::parse_subprogram_declaration_no_semi;
+use crate::subtype_indication::parse_subtype_indication;
+use crate::tokenizer::Kind::*;
+use crate::tokenizer::{kinds_str, Kind, Token};
+use crate::tokenstream::TokenStream;
 
 fn parse_optional_mode(stream: &mut TokenStream) -> ParseResult<Option<Mode>> {
     Ok(match stream.peek_kind()? {
@@ -401,8 +401,8 @@ pub fn parse_generic(stream: &mut TokenStream) -> ParseResult<InterfaceDeclarati
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_util::Code;
-    use tokenizer::kinds_error;
+    use crate::test_util::Code;
+    use crate::tokenizer::kinds_error;
 
     #[test]
     fn parses_interface_identifier_list() {

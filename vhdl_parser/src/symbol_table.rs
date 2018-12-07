@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use latin_1::Latin1String;
+use crate::latin_1::Latin1String;
 use std::sync::Arc;
 use std::sync::RwLock;
 

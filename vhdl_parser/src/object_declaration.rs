@@ -5,14 +5,14 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 /// LRM 6.4.2 Object Declarations
-use ast::{Expression, FileDeclaration, ObjectClass, ObjectDeclaration};
-use expression::parse_expression;
-use message::ParseResult;
-use names::parse_identifier_list;
-use source::WithPos;
-use subtype_indication::parse_subtype_indication;
-use tokenizer::Kind::*;
-use tokenstream::TokenStream;
+use crate::ast::{Expression, FileDeclaration, ObjectClass, ObjectDeclaration};
+use crate::expression::parse_expression;
+use crate::message::ParseResult;
+use crate::names::parse_identifier_list;
+use crate::source::WithPos;
+use crate::subtype_indication::parse_subtype_indication;
+use crate::tokenizer::Kind::*;
+use crate::tokenstream::TokenStream;
 
 pub fn parse_optional_assignment(
     stream: &mut TokenStream,
@@ -105,7 +105,7 @@ pub fn parse_file_declaration(stream: &mut TokenStream) -> ParseResult<Vec<FileD
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_util::Code;
+    use crate::test_util::Code;
 
     #[test]
     fn parses_constant() {

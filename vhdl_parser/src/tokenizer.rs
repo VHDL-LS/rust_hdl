@@ -4,16 +4,16 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use message::{Message, ParseResult};
-use source::{Source, SrcPos, WithPos};
+use crate::message::{Message, ParseResult};
+use crate::source::{Source, SrcPos, WithPos};
 extern crate fnv;
 use self::fnv::FnvHashMap;
 
-use ast;
-use ast::{BaseSpecifier, Ident};
-use latin_1::Latin1String;
+use crate::ast;
+use crate::ast::{BaseSpecifier, Ident};
+use crate::latin_1::Latin1String;
 use std::sync::Arc;
-use symbol_table::{Symbol, SymbolTable};
+use crate::symbol_table::{Symbol, SymbolTable};
 
 /// The kind of a Token
 #[derive(PartialEq, Clone, Copy, Debug)]

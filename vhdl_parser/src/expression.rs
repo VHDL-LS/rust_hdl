@@ -4,18 +4,18 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::{
+use crate::ast::{
     Allocator, Binary, Choice, Designator, Direction, DiscreteRange, ElementAssociation,
     Expression, Literal, Name, QualifiedExpression, Range, RangeConstraint, ResolutionIndication,
     SubtypeIndication, Unary,
 };
-use message::{Message, ParseResult};
-use names::{parse_name_initial_token, parse_selected_name};
-use source::WithPos;
-use subtype_indication::parse_subtype_constraint;
-use tokenizer::Kind::*;
-use tokenizer::{Kind, Token};
-use tokenstream::TokenStream;
+use crate::message::{Message, ParseResult};
+use crate::names::{parse_name_initial_token, parse_selected_name};
+use crate::source::WithPos;
+use crate::subtype_indication::parse_subtype_constraint;
+use crate::tokenizer::Kind::*;
+use crate::tokenizer::{Kind, Token};
+use crate::tokenstream::TokenStream;
 
 fn name_to_expression(name: WithPos<Name>) -> WithPos<Expression> {
     WithPos {
@@ -427,9 +427,9 @@ pub fn parse_expression_initial_token(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ast::{AbstractLiteral, Name};
-    use latin_1::Latin1String;
-    use test_util::Code;
+    use crate::ast::{AbstractLiteral, Name};
+    use crate::latin_1::Latin1String;
+    use crate::test_util::Code;
 
     #[test]
     fn parses_character_literal() {

@@ -3,10 +3,10 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
-use ast::*;
-use library::{EntityDesignUnit, Library, PackageDesignUnit};
-use message::{Message, MessageHandler};
-use source::{SrcPos, WithPos};
+use crate::ast::*;
+use crate::library::{EntityDesignUnit, Library, PackageDesignUnit};
+use crate::message::{Message, MessageHandler};
+use crate::source::{SrcPos, WithPos};
 
 extern crate fnv;
 use self::fnv::FnvHashMap;

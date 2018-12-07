@@ -5,8 +5,8 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 extern crate pad;
-use latin_1::Latin1String;
-use message::{Message, ParseResult};
+use crate::latin_1::Latin1String;
+use crate::message::{Message, ParseResult};
 use std::cmp::{max, min};
 use std::collections::VecDeque;
 use std::convert::AsRef;

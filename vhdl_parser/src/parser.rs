@@ -4,20 +4,20 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::DesignFile;
-use design_unit::parse_design_file;
-use latin_1::Latin1String;
-use message::{Message, MessageHandler};
-use source::Source;
+use crate::ast::DesignFile;
+use crate::design_unit::parse_design_file;
+use crate::latin_1::Latin1String;
+use crate::message::{Message, MessageHandler};
+use crate::source::Source;
 use std::convert::From;
 use std::io;
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::thread::spawn;
-use symbol_table::Symbol;
-use symbol_table::SymbolTable;
-use tokenizer::Tokenizer;
-use tokenstream::TokenStream;
+use crate::symbol_table::Symbol;
+use crate::symbol_table::SymbolTable;
+use crate::tokenizer::Tokenizer;
+use crate::tokenstream::TokenStream;
 
 extern crate fnv;
 use self::fnv::FnvHashMap;

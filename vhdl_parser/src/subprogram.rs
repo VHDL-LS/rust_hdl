@@ -4,18 +4,18 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::{
+use crate::ast::{
     Declaration, FunctionSpecification, ProcedureSpecification, Signature, SubprogramBody,
     SubprogramDeclaration, SubprogramDesignator,
 };
-use declarative_part::parse_declarative_part;
-use interface_declaration::parse_parameter_interface_list;
-use message::{Message, MessageHandler, ParseResult};
-use names::parse_selected_name;
-use sequential_statement::parse_labeled_sequential_statements;
-use source::WithPos;
-use tokenizer::Kind::*;
-use tokenstream::TokenStream;
+use crate::declarative_part::parse_declarative_part;
+use crate::interface_declaration::parse_parameter_interface_list;
+use crate::message::{Message, MessageHandler, ParseResult};
+use crate::names::parse_selected_name;
+use crate::sequential_statement::parse_labeled_sequential_statements;
+use crate::source::WithPos;
+use crate::tokenizer::Kind::*;
+use crate::tokenstream::TokenStream;
 
 pub fn parse_signature(stream: &mut TokenStream) -> ParseResult<Signature> {
     stream.expect_kind(LeftSquare)?;
@@ -188,8 +188,8 @@ pub fn parse_subprogram(
 mod tests {
     use super::*;
 
-    use latin_1::Latin1String;
-    use test_util::Code;
+    use crate::latin_1::Latin1String;
+    use crate::test_util::Code;
 
     #[test]
     pub fn parses_procedure_specification() {

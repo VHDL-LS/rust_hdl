@@ -4,22 +4,22 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::{
+use crate::ast::{
     Alternative, AssertStatement, AssignmentRightHand, CaseStatement, Conditional, Conditionals,
     ExitStatement, Expression, FunctionCall, IfStatement, IterationScheme,
     LabeledSequentialStatement, LoopStatement, Name, NextStatement, ReportStatement,
     ReturnStatement, Selection, SequentialStatement, SignalAssignment, Target, VariableAssignment,
     WaitStatement, Waveform,
 };
-use common::parse_optional;
-use expression::{parse_aggregate_leftpar_known, parse_choices, parse_expression};
-use message::{Message, MessageHandler, ParseResult};
-use names::{parse_name, parse_name_initial_token, to_simple_name};
-use range::parse_discrete_range;
-use source::WithPos;
-use tokenizer::{Kind::*, Token};
-use tokenstream::TokenStream;
-use waveform::{parse_delay_mechanism, parse_waveform};
+use crate::common::parse_optional;
+use crate::expression::{parse_aggregate_leftpar_known, parse_choices, parse_expression};
+use crate::message::{Message, MessageHandler, ParseResult};
+use crate::names::{parse_name, parse_name_initial_token, to_simple_name};
+use crate::range::parse_discrete_range;
+use crate::source::WithPos;
+use crate::tokenizer::{Kind::*, Token};
+use crate::tokenstream::TokenStream;
+use crate::waveform::{parse_delay_mechanism, parse_waveform};
 
 /// LRM 10.2 Wait statement
 fn parse_wait_statement_known_keyword(stream: &mut TokenStream) -> ParseResult<WaitStatement> {
@@ -553,9 +553,9 @@ pub fn parse_sequential_statement_initial_token(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ast::{DelayMechanism, Ident};
+    use crate::ast::{DelayMechanism, Ident};
 
-    use test_util::Code;
+    use crate::test_util::Code;
 
     fn parse(code: &str) -> (Code, LabeledSequentialStatement) {
         let code = Code::new(code);
