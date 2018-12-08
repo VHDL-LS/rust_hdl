@@ -4,9 +4,9 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::ast::{AliasDeclaration, Designator};
+use crate::ast::AliasDeclaration;
 use crate::message::ParseResult;
-use crate::names::parse_name;
+use crate::names::{parse_designator, parse_name};
 use crate::subprogram::parse_signature;
 use crate::subtype_indication::parse_subtype_indication;
 use crate::tokenizer::Kind::*;
@@ -14,15 +14,7 @@ use crate::tokenstream::TokenStream;
 
 pub fn parse_alias_declaration(stream: &mut TokenStream) -> ParseResult<AliasDeclaration> {
     stream.expect_kind(Alias)?;
-
-    let token = stream.expect()?;
-    let designator = try_token_kind!(
-        token,
-        Identifier => token.expect_ident()?.map_into(Designator::Identifier),
-        StringLiteral => token.expect_string()?.map_into(Designator::OperatorSymbol),
-        Character => token.expect_character()?.map_into(Designator::Character)
-    );
-
+    let designator = parse_designator(stream)?;
     let subtype_indication = {
         if stream.skip_if_kind(Colon)? {
             Some(parse_subtype_indication(stream)?)
@@ -63,7 +55,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_alias_declaration),
             AliasDeclaration {
-                designator: code.s1("foo").ident().map_into(Designator::Identifier),
+                designator: code.s1("foo").designator(),
                 subtype_indication: None,
                 name: code.s1("name").name(),
                 signature: None
@@ -77,7 +69,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_alias_declaration),
             AliasDeclaration {
-                designator: code.s1("foo").ident().map_into(Designator::Identifier),
+                designator: code.s1("foo").designator(),
                 subtype_indication: Some(code.s1("vector(0 to 1)").subtype_indication()),
                 name: code.s1("name").name(),
                 signature: None
@@ -91,7 +83,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_alias_declaration),
             AliasDeclaration {
-                designator: code.s1("foo").ident().map_into(Designator::Identifier),
+                designator: code.s1("foo").designator(),
                 subtype_indication: None,
                 name: code.s1("name").name(),
                 signature: Some(code.s1("[return natural]").signature())
@@ -103,10 +95,7 @@ mod tests {
     fn parse_alias_with_operator_symbol() {
         let code = Code::new("alias \"and\" is name;");
 
-        let designator = code
-            .s1("\"and\"")
-            .operator_symbol()
-            .map_into(Designator::OperatorSymbol);
+        let designator = code.s1("\"and\"").designator();
 
         assert_eq!(
             code.with_stream(parse_alias_declaration),
@@ -123,7 +112,7 @@ mod tests {
     fn parse_alias_with_character() {
         let code = Code::new("alias 'c' is 'b';");
 
-        let designator = code.s1("'c'").character().map_into(Designator::Character);
+        let designator = code.s1("'c'").designator();
 
         assert_eq!(
             code.with_stream(parse_alias_declaration),

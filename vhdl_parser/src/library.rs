@@ -11,9 +11,9 @@ use fnv;
 use std::collections::hash_map::Entry;
 
 use crate::ast::{
-    has_ident::HasIdent, AnyDesignUnit, ArchitectureBody, ConfigurationDeclaration,
-    ContextDeclaration, DesignFile, DesignUnit, EntityDeclaration, Name, PackageBody,
-    PackageDeclaration, PackageInstantiation, PrimaryUnit, SecondaryUnit,
+    AnyDesignUnit, ArchitectureBody, ConfigurationDeclaration, ContextDeclaration, DesignFile,
+    DesignUnit, Designator, EntityDeclaration, HasIdent, Ident, PackageBody, PackageDeclaration,
+    PackageInstantiation, PrimaryUnit, SecondaryUnit, SelectedName,
 };
 use crate::message::{Message, MessageHandler};
 use crate::source::{SrcPos, WithPos};
@@ -272,8 +272,8 @@ impl<'a> Library {
 
         for config in configurations {
             let entity = {
-                let entname = match config.unit.entity_name.as_slice() {
-                    &[ref libname, ref entname] => {
+                let entname = match to_entity_name(&config.unit.entity_name) {
+                    Ok((Some(libname), entname)) => {
                         if !(libname.item == name || &libname.item == work_sym) {
                             // @TODO use real scope and visibilty rules to resolve entity name
                             // @TODO does not detect missing library clause for libname
@@ -287,19 +287,18 @@ impl<'a> Library {
                             entname
                         }
                     }
-                    &[ref entname] => entname,
-                    selected_name => {
-                        let name: WithPos<Name> = selected_name.to_vec().into();
-                        messages.push(Message::error(&name, "Invalid selected name for entity")
-                                      .related(&name, "Entity name must be of the form library.entity_name or entity_name"));
+                    Ok((None, entname)) => entname,
+                    Err(msg) => {
+                        messages.push(msg);
                         continue;
                     }
                 };
+
                 if let Some(entity) = entities.get_mut(&entname.item) {
                     entity
                 } else {
                     messages.push(Message::error(
-                        entname,
+                        entname.pos,
                         format!("No entity '{}' within library '{}'", entname.item, name),
                     ));
                     continue;
@@ -374,6 +373,37 @@ impl<'a> Library {
     pub fn contexts(&self) -> impl Iterator<Item = &ContextDeclaration> {
         self.contexts.values()
     }
+}
+
+/// Extract library_name.entity_name for entity name in configurations
+fn to_entity_name(
+    selected_name: &WithPos<SelectedName>,
+) -> Result<(Option<Ident>, Ident), Message> {
+    match selected_name.item {
+        SelectedName::Selected(
+            ref prefix,
+            WithPos {
+                item: Designator::Identifier(ref sym),
+                ref pos,
+            },
+        ) => {
+            if let SelectedName::Designator(Designator::Identifier(ref lib_sym)) = prefix.item {
+                let library_name = WithPos::from(lib_sym.clone(), prefix.pos.clone());
+                let entity_name = WithPos::from(sym.clone(), pos.clone());
+                return Ok((Some(library_name), entity_name));
+            }
+        }
+        SelectedName::Designator(Designator::Identifier(ref sym)) => {
+            return Ok((None, WithPos::from(sym.clone(), selected_name.pos.clone())));
+        }
+        _ => {}
+    }
+    Err(
+        Message::error(&selected_name, "Invalid selected name for entity").related(
+            &selected_name,
+            "Entity name must be of the form library.entity_name or entity_name",
+        ),
+    )
 }
 
 pub struct DesignRoot {

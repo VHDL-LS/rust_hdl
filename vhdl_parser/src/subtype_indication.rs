@@ -6,8 +6,8 @@
 
 /// LRM 6.3 Subtype declarations
 use crate::ast::{
-    ElementConstraint, RecordElementResolution, ResolutionIndication, SubtypeConstraint,
-    SubtypeIndication,
+    Designator, ElementConstraint, RecordElementResolution, ResolutionIndication, SelectedName,
+    SubtypeConstraint, SubtypeIndication,
 };
 use crate::message::ParseResult;
 use crate::names::parse_selected_name;
@@ -123,7 +123,7 @@ pub fn parse_element_resolution_indication(
     Ok(try_token_kind!(
         token,
         Dot | RightPar => {
-            let selected_name = vec![first_ident];
+            let selected_name = first_ident.map_into(|sym| SelectedName::Designator(Designator::Identifier(sym)));
             stream.expect_kind(RightPar)?;
             ResolutionIndication::ArrayElement(selected_name)
         },
@@ -207,7 +207,7 @@ mod tests {
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: vec![code.s1("std_logic").ident()],
+                type_mark: code.s1("std_logic").selected_name(),
                 constraint: None
             }
         );
@@ -220,7 +220,7 @@ mod tests {
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::FunctionName(code.s1("resolve").selected_name()),
-                type_mark: vec![code.s1("std_logic").ident()],
+                type_mark: code.s1("std_logic").selected_name(),
                 constraint: None
             }
         );
@@ -233,7 +233,7 @@ mod tests {
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::ArrayElement(code.s1("resolve").selected_name()),
-                type_mark: vec![code.s1("integer_vector").ident()],
+                type_mark: code.s1("integer_vector").selected_name(),
                 constraint: None
             }
         );
@@ -254,7 +254,7 @@ mod tests {
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Record(vec![elem_resolution]),
-                type_mark: vec![code.s1("rec_t").ident()],
+                type_mark: code.s1("rec_t").selected_name(),
                 constraint: None
             }
         );
@@ -299,7 +299,7 @@ mod tests {
                     elem2_resolution,
                     elem3_resolution
                 ]),
-                type_mark: vec![code.s1("rec_t").ident()],
+                type_mark: code.s1("rec_t").selected_name(),
                 constraint: None
             }
         );
@@ -314,7 +314,7 @@ mod tests {
                 resolution: ResolutionIndication::FunctionName(
                     code.s1("lib.foo.resolve").selected_name()
                 ),
-                type_mark: vec![code.s1("std_logic").ident()],
+                type_mark: code.s1("std_logic").selected_name(),
                 constraint: None
             }
         );

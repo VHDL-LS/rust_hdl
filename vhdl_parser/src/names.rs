@@ -19,36 +19,42 @@ use crate::tokenstream::TokenStream;
 
 use crate::tokenizer::{Kind::*, Token};
 
-pub fn parse_selected_name(stream: &mut TokenStream) -> ParseResult<SelectedName> {
-    let mut result = Vec::new();
-    result.push(stream.expect_ident()?);
-    loop {
-        if None == stream.pop_if_kind(Dot)? {
-            break;
-        }
-        result.push(stream.expect_ident()?);
-    }
-    Ok(result)
+pub fn parse_designator(stream: &mut TokenStream) -> ParseResult<WithPos<Designator>> {
+    let token = stream.expect()?;
+    Ok(try_token_kind!(
+        token,
+        Identifier => token.expect_ident()?.map_into(Designator::Identifier),
+        StringLiteral => token.expect_string()?.map_into(Designator::OperatorSymbol),
+        Character => token.expect_character()?.map_into(Designator::Character)
+    ))
 }
 
-pub fn to_selected_name(name: &WithPos<Name>) -> ParseResult<SelectedName> {
+pub fn parse_selected_name(stream: &mut TokenStream) -> ParseResult<WithPos<SelectedName>> {
+    let mut name = parse_designator(stream)?.map_into(SelectedName::Designator);
+    loop {
+        if !stream.skip_if_kind(Dot)? {
+            break;
+        }
+        let suffix = parse_designator(stream)?;
+        let pos = suffix.pos.combine(&name.pos);
+        name = WithPos::from(SelectedName::Selected(Box::new(name), suffix), pos);
+    }
+    Ok(name)
+}
+
+pub fn into_selected_name(name: WithPos<Name>) -> ParseResult<WithPos<SelectedName>> {
     match name.item {
-        Name::Selected(ref prefix, ref suffix) => match suffix.item {
-            Designator::Identifier(ref ident) => {
-                let mut selected = to_selected_name(&*prefix)?;
-                selected.push(WithPos {
-                    item: ident.clone(),
-                    pos: suffix.pos.clone(),
-                });
-                Ok(selected)
-            }
-            _ => Err(Message::error(suffix.as_ref(), "Expected simple name")),
-        },
-        Name::Designator(Designator::Identifier(ref ident)) => Ok(vec![WithPos {
-            item: ident.clone(),
-            pos: name.pos.clone(),
-        }]),
-        Name::Designator(..) => Err(Message::error(&name, "Expected simple name")),
+        Name::Selected(prefix, suffix) => {
+            let pos = suffix.pos.combine(&prefix.pos);
+            Ok(WithPos::from(
+                SelectedName::Selected(Box::new(into_selected_name(*prefix.clone())?), suffix),
+                pos,
+            ))
+        }
+        Name::Designator(designator) => Ok(WithPos::from(
+            SelectedName::Designator(designator),
+            name.pos,
+        )),
         _ => Err(Message::error(&name, "Expected selected name")),
     }
 }
@@ -426,21 +432,32 @@ mod tests {
         let code = Code::new("foo");
         assert_eq!(
             code.with_stream(parse_selected_name),
-            vec![code.s1("foo").ident()]
+            code.s1("foo")
+                .ident()
+                .map_into(|sym| SelectedName::Designator(Designator::Identifier(sym)))
         );
     }
 
     #[test]
     fn test_parse_selected_name_multiple() {
         let code = Code::new("foo.bar.baz");
-        assert_eq!(
-            code.with_stream(parse_selected_name),
-            vec![
-                code.s1("foo").ident(),
-                code.s1("bar").ident(),
-                code.s1("baz").ident()
-            ]
+        let baz = code.s1("baz").ident().map_into(Designator::Identifier);
+        let bar = code.s1("bar").ident().map_into(Designator::Identifier);
+        let foo = code
+            .s1("foo")
+            .ident()
+            .map_into(Designator::Identifier)
+            .map_into(SelectedName::Designator);
+        let foo_bar = WithPos::from(
+            SelectedName::Selected(Box::new(foo), bar),
+            code.s1("foo.bar").pos(),
         );
+        let foo_bar_baz = WithPos::from(
+            SelectedName::Selected(Box::new(foo_bar), baz),
+            code.s1("foo.bar.baz").pos(),
+        );
+
+        assert_eq!(code.with_stream(parse_selected_name), foo_bar_baz);
     }
 
     #[test]

@@ -20,7 +20,7 @@ use crate::expression::{parse_aggregate, parse_choices, parse_expression};
 use crate::interface_declaration::{parse_generic, parse_parameter, parse_port};
 use crate::latin_1::Latin1String;
 use crate::message::{Message, MessageHandler, ParseResult};
-use crate::names::{parse_association_list, parse_name, parse_selected_name};
+use crate::names::{parse_association_list, parse_designator, parse_name, parse_selected_name};
 use crate::range::{parse_discrete_range, parse_range};
 use crate::sequential_statement::parse_sequential_statement;
 use crate::source::{Source, SrcPos, WithPos};
@@ -251,9 +251,8 @@ impl Code {
         self.parse_ok(|stream: &mut TokenStream| stream.expect_ident())
     }
 
-    /// Helper to create a identifier at first occurence of name
-    pub fn operator_symbol(&self) -> WithPos<Latin1String> {
-        self.parse_ok(|stream: &mut TokenStream| stream.expect()?.expect_string())
+    pub fn designator(&self) -> WithPos<Designator> {
+        self.parse_ok(parse_designator)
     }
 
     pub fn character(&self) -> WithPos<u8> {
@@ -270,7 +269,7 @@ impl Code {
         self.parse_ok(parse_name)
     }
 
-    pub fn selected_name(&self) -> SelectedName {
+    pub fn selected_name(&self) -> WithPos<SelectedName> {
         self.parse_ok(parse_selected_name)
     }
 

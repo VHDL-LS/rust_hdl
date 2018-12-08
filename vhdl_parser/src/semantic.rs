@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::ast::{has_ident::HasIdent, *};
+use crate::ast::{HasIdent, *};
 use crate::declarative_region::{
     AnyDeclaration, DeclarativeRegion, PrimaryUnitData, VisibleDeclaration,
 };
@@ -477,7 +477,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
     fn lookup_type_mark(
         &self,
         region: &DeclarativeRegion<'_, 'a>,
-        type_mark: &SelectedName,
+        type_mark: &WithPos<SelectedName>,
     ) -> Result<VisibleDeclaration<'a>, Message> {
         let type_mark_name = type_mark.clone().into();
         match self.lookup_selected_name(region, &type_mark_name)? {
@@ -1125,9 +1125,9 @@ impl<'r, 'a: 'r> Analyzer<'a> {
     pub fn analyze_package_instance_name(
         &self,
         parent: &'r DeclarativeRegion<'r, 'a>,
-        package_name: &SelectedName,
+        package_name: &WithPos<SelectedName>,
     ) -> Result<Arc<PrimaryUnitData<'a>>, Message> {
-        let entry_point = package_name[package_name.len() - 1].pos.clone();
+        let entry_point = package_name.pos.clone();
         let package_name = package_name.clone().into();
 
         match self.lookup_selected_name(parent, &package_name)? {

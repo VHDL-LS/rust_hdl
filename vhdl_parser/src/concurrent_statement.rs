@@ -17,8 +17,8 @@ use crate::expression::parse_aggregate_leftpar_known;
 use crate::expression::{parse_choices, parse_expression};
 use crate::message::{push_some, Message, MessageHandler, ParseResult};
 use crate::names::{
-    expression_to_ident, parse_association_list, parse_name_initial_token, parse_selected_name,
-    to_selected_name, to_simple_name,
+    expression_to_ident, into_selected_name, parse_association_list, parse_name_initial_token,
+    parse_selected_name, to_simple_name,
 };
 use crate::range::parse_discrete_range;
 use crate::sequential_statement::{
@@ -483,7 +483,7 @@ pub fn parse_concurrent_statement(
                 let token = stream.peek_expect()?;
                 match token.kind {
                     Generic|Port => {
-                        let unit = InstantiatedUnit::Component(to_selected_name(&name)?);
+                        let unit = InstantiatedUnit::Component(into_selected_name(name)?);
                         ConcurrentStatement::Instance(parse_instantiation_statement(stream, unit)?)
                     }
                     _ => {

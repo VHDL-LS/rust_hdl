@@ -8,7 +8,7 @@ use crate::ast::{ArrayIndex, Direction, DiscreteRange, Expression, Name, Range, 
 use crate::common::parse_optional;
 use crate::expression::parse_expression;
 use crate::message::{Message, ParseResult};
-use crate::names::to_selected_name;
+use crate::names::into_selected_name;
 use crate::source::WithPos;
 use crate::tokenizer::Kind::*;
 use crate::tokenstream::TokenStream;
@@ -80,7 +80,7 @@ pub fn parse_discrete_range(stream: &mut TokenStream) -> ParseResult<DiscreteRan
     match parse_name_or_range(stream) {
         Ok(NameOrRange::Range(range)) => Ok(DiscreteRange::Range(range.item)),
         Ok(NameOrRange::Name(name)) => {
-            let selected_name = to_selected_name(&name)?;
+            let selected_name = into_selected_name(name)?;
             let range = parse_optional(stream, Range, parse_range)?.map(|range| range.item);
             Ok(DiscreteRange::Discrete(selected_name, range))
         }
@@ -92,7 +92,7 @@ pub fn parse_array_index_constraint(stream: &mut TokenStream) -> ParseResult<Arr
     match parse_name_or_range(stream) {
         Ok(NameOrRange::Range(range)) => Ok(ArrayIndex::Discrete(DiscreteRange::Range(range.item))),
         Ok(NameOrRange::Name(name)) => {
-            let selected_name = to_selected_name(&name)?;
+            let selected_name = into_selected_name(name)?;
 
             if stream.skip_if_kind(Range)? {
                 if stream.skip_if_kind(BOX)? {

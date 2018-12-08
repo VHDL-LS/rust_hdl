@@ -14,7 +14,7 @@ extern crate clap;
 
 use std::path::Path;
 
-use vhdl_parser::ast::{AnyDesignUnit, PrimaryUnit, SecondaryUnit, SelectedName};
+use vhdl_parser::ast::{AnyDesignUnit, PrimaryUnit, SecondaryUnit};
 use vhdl_parser::{Config, Message, ParserError, Project, Severity, VHDLParser};
 
 fn main() {
@@ -78,14 +78,6 @@ fn main() {
     }
 }
 
-fn to_string(selected_name: &SelectedName) -> String {
-    let names: Vec<String> = selected_name
-        .iter()
-        .map(|ident| ident.item.name().to_string())
-        .collect();
-    names.join(".")
-}
-
 fn show_design_unit(design_unit: &AnyDesignUnit) {
     match design_unit {
         AnyDesignUnit::Primary(ref primary) => match primary {
@@ -126,7 +118,7 @@ fn show_design_unit(design_unit: &AnyDesignUnit) {
                 println!(
                     "configuration {} of {}",
                     config.ident.item.name(),
-                    to_string(&config.entity_name)
+                    &config.entity_name
                 );
             }
             PrimaryUnit::PackageInstance(ref inst) => {
@@ -134,7 +126,7 @@ fn show_design_unit(design_unit: &AnyDesignUnit) {
                 println!(
                     "package instance {} of {}",
                     inst.ident.item.name(),
-                    to_string(&inst.package_name)
+                    &inst.package_name
                 );
             }
         },

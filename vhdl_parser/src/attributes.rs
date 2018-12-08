@@ -143,7 +143,7 @@ mod tests {
             vec![Attribute::Specification(AttributeSpecification {
                 ident: code.s1("attr_name").ident(),
                 entity_name: EntityName::Name(EntityTag {
-                    designator: code.s1("foo").ident().map_into(Designator::Identifier),
+                    designator: code.s1("foo").designator(),
                     signature: None
                 }),
                 entity_class: EntityClass::Signal,
@@ -160,10 +160,7 @@ mod tests {
             vec![Attribute::Specification(AttributeSpecification {
                 ident: code.s1("attr_name").ident(),
                 entity_name: EntityName::Name(EntityTag {
-                    designator: code
-                        .s1("\"**\"")
-                        .operator_symbol()
-                        .map_into(Designator::OperatorSymbol),
+                    designator: code.s1("\"**\"").designator(),
                     signature: None
                 }),
                 entity_class: EntityClass::Function,
@@ -181,7 +178,7 @@ mod tests {
                 Attribute::Specification(AttributeSpecification {
                     ident: code.s1("attr_name").ident(),
                     entity_name: EntityName::Name(EntityTag {
-                        designator: code.s1("foo").ident().map_into(Designator::Identifier),
+                        designator: code.s1("foo").designator(),
                         signature: None
                     }),
                     entity_class: EntityClass::Signal,
@@ -190,7 +187,7 @@ mod tests {
                 Attribute::Specification(AttributeSpecification {
                     ident: code.s1("attr_name").ident(),
                     entity_name: EntityName::Name(EntityTag {
-                        designator: code.s1("bar").ident().map_into(Designator::Identifier),
+                        designator: code.s1("bar").designator(),
                         signature: None
                     }),
                     entity_class: EntityClass::Signal,
@@ -236,7 +233,7 @@ mod tests {
             vec![Attribute::Specification(AttributeSpecification {
                 ident: code.s1("attr_name").ident(),
                 entity_name: EntityName::Name(EntityTag {
-                    designator: code.s1("foo").ident().map_into(Designator::Identifier),
+                    designator: code.s1("foo").designator(),
                     signature: Some(code.s1("[return natural]").signature())
                 }),
                 entity_class: EntityClass::Function,

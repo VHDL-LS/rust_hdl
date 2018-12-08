@@ -213,14 +213,13 @@ fn parse_allocator(stream: &mut TokenStream) -> ParseResult<WithPos<Allocator>> 
             pos,
         })
     } else {
-        let mut pos = selected_name[0].pos.clone();
+        let mut pos = selected_name.pos.clone();
 
         let constraint = {
             if let Some(constraint) = parse_subtype_constraint(stream)? {
                 pos = pos.combine(&constraint.pos);
                 Some(constraint)
             } else {
-                pos = pos.combine(&selected_name[selected_name.len() - 1].pos);
                 None
             }
         };
@@ -606,8 +605,7 @@ mod tests {
         let code = Code::new("new integer_vector'(0, 1)");
         let vec_name = code
             .s1("integer_vector")
-            .ident()
-            .map_into(Designator::Identifier)
+            .designator()
             .map_into(Name::Designator);
         let expr = code.s1("(0, 1)").expr();
 
@@ -748,11 +746,7 @@ mod tests {
     #[test]
     fn parses_qualified_expression() {
         let code = Code::new("foo'(1+2)");
-        let foo_name = code
-            .s1("foo")
-            .ident()
-            .map_into(Designator::Identifier)
-            .map_into(Name::Designator);
+        let foo_name = code.s1("foo").designator().map_into(Name::Designator);
         let expr = code.s1("(1+2)").expr();
 
         let qexpr = WithPos {
@@ -769,11 +763,7 @@ mod tests {
     #[test]
     fn parses_qualified_aggregate() {
         let code = Code::new("foo'(others => '1')");
-        let foo_name = code
-            .s1("foo")
-            .ident()
-            .map_into(Designator::Identifier)
-            .map_into(Name::Designator);
+        let foo_name = code.s1("foo").designator().map_into(Name::Designator);
         let expr = code.s1("(others => '1')").expr();
 
         let qexpr = WithPos {
