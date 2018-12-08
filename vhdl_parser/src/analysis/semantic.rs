@@ -5,11 +5,11 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::ast::{HasIdent, *};
-use crate::declarative_region::{
+use super::declarative_region::{
     AnyDeclaration, DeclarativeRegion, PrimaryUnitData, VisibleDeclaration,
 };
 use crate::latin_1::Latin1String;
-use crate::library::{DesignRoot, Library, PackageDesignUnit};
+use super::library::{DesignRoot, Library, PackageDesignUnit};
 use crate::message::{Message, MessageHandler};
 use crate::source::{SrcPos, WithPos};
 use crate::symbol_table::{Symbol, SymbolTable};
@@ -1295,7 +1295,6 @@ fn uninstantiated_package_prefix_error(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::library::Library;
     use crate::message::Message;
     use crate::test_util::{check_messages, check_no_messages, Code, CodeBuilder};
 
@@ -2695,7 +2694,7 @@ end entity;
                 Source::inline(
                     "standard.vhd",
                     Arc::new(Latin1String::new(include_bytes!(
-                        "../../example_project/vhdl_libraries/2008/std/standard.vhd"
+                        "../../../example_project/vhdl_libraries/2008/std/standard.vhd"
                     ))),
                 ),
             );
@@ -2704,7 +2703,7 @@ end entity;
                 Source::inline(
                     "textio.vhd",
                     Arc::new(Latin1String::new(include_bytes!(
-                        "../../example_project/vhdl_libraries/2008/std/textio.vhd"
+                        "../../../example_project/vhdl_libraries/2008/std/textio.vhd"
                     ))),
                 ),
             );
@@ -2713,7 +2712,7 @@ end entity;
                 Source::inline(
                     "env.vhd",
                     Arc::new(Latin1String::new(include_bytes!(
-                        "../../example_project/vhdl_libraries/2008/std/env.vhd"
+                        "../../../example_project/vhdl_libraries/2008/std/env.vhd"
                     ))),
                 ),
             );

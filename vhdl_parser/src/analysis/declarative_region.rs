@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 use crate::ast::*;
-use crate::library::{EntityDesignUnit, Library, PackageDesignUnit};
+use super::library::{EntityDesignUnit, Library, PackageDesignUnit};
 use crate::message::{Message, MessageHandler};
 use crate::source::{SrcPos, WithPos};
 

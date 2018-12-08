@@ -16,19 +16,16 @@ mod config;
 mod configuration;
 mod context;
 mod declarative_part;
-mod declarative_region;
 mod design_unit;
 mod expression;
 mod interface_declaration;
 mod latin_1;
-mod library;
 mod message;
 mod names;
 mod object_declaration;
 mod parser;
 mod project;
 mod range;
-mod semantic;
 mod sequential_statement;
 mod source;
 mod subprogram;
@@ -37,6 +34,7 @@ mod symbol_table;
 mod tokenstream;
 mod type_declaration;
 mod waveform;
+mod analysis;
 
 #[cfg(test)]
 mod test_util;
