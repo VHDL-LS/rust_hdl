@@ -5,10 +5,10 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use self::fnv::FnvHashMap;
+use crate::analysis::{Analyzer, DesignRoot, Library};
 use crate::ast::DesignFile;
 use crate::config::Config;
 use crate::latin_1::Latin1String;
-use crate::analysis::{DesignRoot, Library, Analyzer};
 use crate::message::Message;
 use crate::parser::{FileToParse, ParserError, VHDLParser};
 use crate::source::Source;

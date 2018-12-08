@@ -8,6 +8,7 @@ pub mod ast;
 #[macro_use]
 mod tokenizer;
 mod alias_declaration;
+mod analysis;
 mod attributes;
 mod common;
 mod component_declaration;
@@ -34,7 +35,6 @@ mod symbol_table;
 mod tokenstream;
 mod type_declaration;
 mod waveform;
-mod analysis;
 
 #[cfg(test)]
 mod test_util;

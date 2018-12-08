@@ -4,8 +4,8 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-mod semantic;
-mod library;
 mod declarative_region;
+mod library;
+mod semantic;
 pub use self::library::{DesignRoot, Library};
 pub use self::semantic::Analyzer;

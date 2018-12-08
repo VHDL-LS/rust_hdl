@@ -3,8 +3,8 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
-use crate::ast::*;
 use super::library::{EntityDesignUnit, Library, PackageDesignUnit};
+use crate::ast::*;
 use crate::message::{Message, MessageHandler};
 use crate::source::{SrcPos, WithPos};
 

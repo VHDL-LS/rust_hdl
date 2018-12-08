@@ -4,12 +4,12 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::ast::{HasIdent, *};
 use super::declarative_region::{
     AnyDeclaration, DeclarativeRegion, PrimaryUnitData, VisibleDeclaration,
 };
-use crate::latin_1::Latin1String;
 use super::library::{DesignRoot, Library, PackageDesignUnit};
+use crate::ast::{HasIdent, *};
+use crate::latin_1::Latin1String;
 use crate::message::{Message, MessageHandler};
 use crate::source::{SrcPos, WithPos};
 use crate::symbol_table::{Symbol, SymbolTable};
