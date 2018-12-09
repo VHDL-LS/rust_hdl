@@ -145,6 +145,8 @@ pub trait Recover<T> {
         msgs: &mut MessageHandler,
         kinds: &[Kind],
     ) -> ParseResult<T>;
+
+    fn log( self, msgs: &mut MessageHandler);
 }
 
 impl<T: std::fmt::Debug> Recover<T> for ParseResult<T> {
@@ -165,6 +167,13 @@ impl<T: std::fmt::Debug> Recover<T> for ParseResult<T> {
                 msgs.push(self.unwrap_err());
                 Err(err)
             }
+        }
+    }
+
+    fn log(self, msgs: &mut MessageHandler) {
+        match self {
+            Err(err) => msgs.push(err),
+            Ok(_) => ()
         }
     }
 }
@@ -299,7 +308,7 @@ mod tests {
 
     #[test]
     fn skip_to() {
-        let (_, tokens, mut stream) = new("a begin for +  ;");
+        let (_, _, mut stream) = new("a begin for +  ;");
         assert!(stream.skip_to(&[Plus]).is_ok());
         assert_eq!(stream.peek().map(|t| t.map(|t| t.kind)), Ok(Some(Plus)));
     }
