@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use ast::Ident;
-use message::ParseResult;
+use message::{MessageHandler, ParseResult};
 use tokenizer::{kinds_str, Kind, Kind::*, Token, TokenState, Tokenizer};
 
 pub struct TokenStream {
@@ -102,6 +102,17 @@ impl TokenStream {
         Ok(self.pop_if_kind(kind)?.is_some())
     }
 
+    pub fn skip_to(self: &mut Self, kinds: &[Kind]) -> ParseResult<bool> {
+        while let Ok(Some(stream_kind)) = self.peek_kind() {
+            if kinds.contains(&stream_kind) {
+                return Ok(true);
+            }
+
+            self.pop()?;
+        }
+        Ok(false)
+    }
+
     pub fn pop_optional_ident(&mut self) -> ParseResult<Option<Ident>> {
         if let Some(token) = self.pop_if_kind(Identifier)? {
             Ok(Some(token.expect_ident()?))
@@ -124,6 +135,37 @@ impl TokenStream {
             Range => Ok(Ident {item: self.tokenizer.range_ident.clone(),
                                pos: token.pos})
         )
+    }
+}
+
+pub trait Recover<T> {
+    fn or_recover_to(
+        self,
+        stream: &mut TokenStream,
+        msgs: &mut MessageHandler,
+        kinds: &[Kind],
+    ) -> ParseResult<T>;
+}
+
+impl<T: std::fmt::Debug> Recover<T> for ParseResult<T> {
+    fn or_recover_to(
+        self,
+        stream: &mut TokenStream,
+        msgs: &mut MessageHandler,
+        kinds: &[Kind],
+    ) -> ParseResult<T> {
+        if self.is_ok() {
+            return self;
+        }
+
+        let res = stream.skip_to(kinds);
+        match res {
+            Ok(_) => self,
+            Err(err) => {
+                msgs.push(self.unwrap_err());
+                Err(err)
+            }
+        }
     }
 }
 
@@ -253,5 +295,12 @@ mod tests {
         let (_, _, mut stream) = new("hello world again");
 
         assert_eq!(stream.pop_kind(), Ok(Some(Identifier)));
+    }
+
+    #[test]
+    fn skip_to() {
+        let (_, tokens, mut stream) = new("a begin for +  ;");
+        assert!(stream.skip_to(&[Plus]).is_ok());
+        assert_eq!(stream.peek().map(|t| t.map(|t| t.kind)), Ok(Some(Plus)));
     }
 }
