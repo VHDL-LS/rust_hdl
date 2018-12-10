@@ -7,15 +7,14 @@
 // Allowing this, since there is an open issue with this lint
 // Track here: https://github.com/rust-lang/rust-clippy/issues/1981
 // Track here: https://github.com/rust-lang/rust-clippy/issues/1981
-#![cfg_attr(feature = "cargo-clippy", allow(ptr_arg))]
+#![allow(clippy::ptr_arg)]
 
 #[macro_use]
 extern crate clap;
-extern crate vhdl_parser;
 
 use std::path::Path;
 
-use vhdl_parser::ast::{AnyDesignUnit, PrimaryUnit, SecondaryUnit, SelectedName};
+use vhdl_parser::ast::{AnyDesignUnit, PrimaryUnit, SecondaryUnit};
 use vhdl_parser::{Config, Message, ParserError, Project, Severity, VHDLParser};
 
 fn main() {
@@ -79,14 +78,6 @@ fn main() {
     }
 }
 
-fn to_string(selected_name: &SelectedName) -> String {
-    let names: Vec<String> = selected_name
-        .iter()
-        .map(|ident| ident.item.name().to_string())
-        .collect();
-    names.join(".")
-}
-
 fn show_design_unit(design_unit: &AnyDesignUnit) {
     match design_unit {
         AnyDesignUnit::Primary(ref primary) => match primary {
@@ -127,7 +118,7 @@ fn show_design_unit(design_unit: &AnyDesignUnit) {
                 println!(
                     "configuration {} of {}",
                     config.ident.item.name(),
-                    to_string(&config.entity_name)
+                    &config.entity_name
                 );
             }
             PrimaryUnit::PackageInstance(ref inst) => {
@@ -135,7 +126,7 @@ fn show_design_unit(design_unit: &AnyDesignUnit) {
                 println!(
                     "package instance {} of {}",
                     inst.ident.item.name(),
-                    to_string(&inst.package_name)
+                    &inst.package_name
                 );
             }
         },
@@ -175,8 +166,7 @@ fn parse(parser: &VHDLParser, file_names: Vec<String>, num_threads: usize, show:
     let mut num_errors = 0;
     let mut num_warnings = 0;
 
-    for (file_name, mut messages, design_file) in parser.parse_design_files(file_names, num_threads)
-    {
+    for (file_name, messages, design_file) in parser.parse_design_files(file_names, num_threads) {
         let design_file = match design_file {
             Ok(design_file) => design_file,
             Err(ParserError::Message(msg)) => {

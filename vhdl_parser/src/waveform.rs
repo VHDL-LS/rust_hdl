@@ -4,13 +4,13 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::{DelayMechanism, Waveform, WaveformElement};
+use crate::ast::{DelayMechanism, Waveform, WaveformElement};
 
-use common::parse_optional;
-use expression::parse_expression;
-use message::ParseResult;
-use tokenizer::Kind::*;
-use tokenstream::TokenStream;
+use crate::common::parse_optional;
+use crate::expression::parse_expression;
+use crate::message::ParseResult;
+use crate::tokenizer::Kind::*;
+use crate::tokenstream::TokenStream;
 
 /// LRM 10.5 Signal assignment statement
 pub fn parse_delay_mechanism(stream: &mut TokenStream) -> ParseResult<Option<DelayMechanism>> {
@@ -58,7 +58,7 @@ pub fn parse_waveform(stream: &mut TokenStream) -> ParseResult<Waveform> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_util::Code;
+    use crate::test_util::Code;
 
     #[test]
     fn test_transport_delay_mechanism() {

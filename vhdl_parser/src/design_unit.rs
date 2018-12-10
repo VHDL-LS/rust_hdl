@@ -4,30 +4,32 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use tokenizer::Kind::*;
-use tokenstream::TokenStream;
+use crate::tokenizer::Kind::*;
+use crate::tokenstream::TokenStream;
 
-use ast::{
+use crate::ast::{
     AnyDesignUnit, ArchitectureBody, ContextItem, DesignFile, DesignUnit, EntityDeclaration,
     PackageBody, PackageDeclaration, PrimaryUnit, SecondaryUnit,
 };
-use common::error_on_end_identifier_mismatch;
-use component_declaration::{parse_optional_generic_list, parse_optional_port_list};
-use concurrent_statement::parse_labeled_concurrent_statements;
-use configuration::parse_configuration_declaration;
-use context::{parse_context, parse_library_clause, parse_use_clause, DeclarationOrReference};
-use declarative_part::{
+use crate::common::error_on_end_identifier_mismatch;
+use crate::component_declaration::{parse_optional_generic_list, parse_optional_port_list};
+use crate::concurrent_statement::parse_labeled_concurrent_statements;
+use crate::configuration::parse_configuration_declaration;
+use crate::context::{
+    parse_context, parse_library_clause, parse_use_clause, DeclarationOrReference,
+};
+use crate::declarative_part::{
     parse_declarative_part, parse_declarative_part_leave_end_token, parse_package_instantiation,
 };
-use interface_declaration::parse_generic_interface_list;
-use message::{Message, MessageHandler, ParseResult};
-use source::WithPos;
+use crate::interface_declaration::parse_generic_interface_list;
+use crate::message::{Message, MessageHandler, ParseResult};
+use crate::source::WithPos;
 
 /// Parse an entity declaration, token is initial entity token
 /// If a parse error occurs the stream is consumed until and end entity
 pub fn parse_entity_declaration(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<EntityDeclaration> {
     stream.expect_kind(Entity)?;
 
@@ -63,7 +65,7 @@ pub fn parse_entity_declaration(
 /// LRM 3.3.1
 pub fn parse_architecture_body(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<ArchitectureBody> {
     stream.expect_kind(Architecture)?;
     let ident = stream.expect_ident()?;
@@ -94,7 +96,7 @@ pub fn parse_architecture_body(
 /// LRM 4.7 Package declarations
 pub fn parse_package_declaration(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<PackageDeclaration> {
     stream.expect_kind(Package)?;
     let ident = stream.expect_ident()?;
@@ -127,7 +129,7 @@ pub fn parse_package_declaration(
 /// LRM 4.8 Package bodies
 pub fn parse_package_body(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<PackageBody> {
     stream.expect_kind(Package)?;
     stream.expect_kind(Body)?;
@@ -166,7 +168,7 @@ fn context_item_message(context_item: &ContextItem, message: impl AsRef<str>) ->
 
 pub fn parse_design_file(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<DesignFile> {
     let mut context_clause = vec![];
     let mut design_units = vec![];
@@ -269,9 +271,9 @@ pub fn parse_design_file(
 mod tests {
     use super::*;
 
-    use ast::*;
-    use message::Message;
-    use test_util::{check_messages, check_no_messages, Code};
+    use crate::ast::*;
+    use crate::message::Message;
+    use crate::test_util::{check_messages, check_no_messages, Code};
 
     fn parse_str(code: &str) -> (Code, DesignFile, Vec<Message>) {
         let code = Code::new(code);
@@ -605,7 +607,8 @@ end package;
                     .s1("\
   type foo;
   constant bar : natural := 0;
-").declarative_part(),
+")
+                    .declarative_part(),
             }
         );
     }
@@ -725,21 +728,22 @@ end entity;
         let (design_file, messages) = code.with_stream_messages(parse_design_file);
         check_messages(
             messages,
-            vec![
-                Message::error(
-                    code.s1("ctx"),
-                    "Context declaration may not be preceeded by a context clause",
-                ).related(
-                    code.s1("library lib;"),
-                    "Library clause may not come before context declaration",
-                ).related(
-                    code.s1("use lib.pkg;"),
-                    "Use clause may not come before context declaration",
-                ).related(
-                    code.s1("context lib.c;"),
-                    "Context reference may not come before context declaration",
-                ),
-            ],
+            vec![Message::error(
+                code.s1("ctx"),
+                "Context declaration may not be preceeded by a context clause",
+            )
+            .related(
+                code.s1("library lib;"),
+                "Library clause may not come before context declaration",
+            )
+            .related(
+                code.s1("use lib.pkg;"),
+                "Use clause may not come before context declaration",
+            )
+            .related(
+                code.s1("context lib.c;"),
+                "Context reference may not come before context declaration",
+            )],
         );
 
         match design_file.design_units.get(1).unwrap() {

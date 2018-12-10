@@ -11,6 +11,7 @@ authors = ["Olof Kraigher <olof.kraigher@gmail.com>"]
 license = "MPL-2.0"
 description = "VHDL Language Server"
 repository = "https://github.com/kraigher/rust_hdl"
+edition = "2018"
 
 [dependencies]
 vhdl_parser = { version = "^0", path = "../vhdl_parser"}

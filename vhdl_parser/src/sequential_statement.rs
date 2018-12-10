@@ -4,22 +4,22 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::{
+use crate::ast::{
     Alternative, AssertStatement, AssignmentRightHand, CaseStatement, Conditional, Conditionals,
     ExitStatement, Expression, FunctionCall, IfStatement, IterationScheme,
     LabeledSequentialStatement, LoopStatement, Name, NextStatement, ReportStatement,
     ReturnStatement, Selection, SequentialStatement, SignalAssignment, Target, VariableAssignment,
     WaitStatement, Waveform,
 };
-use common::parse_optional;
-use expression::{parse_aggregate_leftpar_known, parse_choices, parse_expression};
-use message::{Message, MessageHandler, ParseResult};
-use names::{parse_name, parse_name_initial_token, to_simple_name};
-use range::parse_discrete_range;
-use source::WithPos;
-use tokenizer::{Kind::*, Token};
-use tokenstream::TokenStream;
-use waveform::{parse_delay_mechanism, parse_waveform};
+use crate::common::parse_optional;
+use crate::expression::{parse_aggregate_leftpar_known, parse_choices, parse_expression};
+use crate::message::{Message, MessageHandler, ParseResult};
+use crate::names::{parse_name, parse_name_initial_token, to_simple_name};
+use crate::range::parse_discrete_range;
+use crate::source::WithPos;
+use crate::tokenizer::{Kind::*, Token};
+use crate::tokenstream::TokenStream;
+use crate::waveform::{parse_delay_mechanism, parse_waveform};
 
 /// LRM 10.2 Wait statement
 fn parse_wait_statement_known_keyword(stream: &mut TokenStream) -> ParseResult<WaitStatement> {
@@ -71,7 +71,7 @@ fn parse_report_statement_known_keyword(stream: &mut TokenStream) -> ParseResult
 
 pub fn parse_labeled_sequential_statements(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<(Vec<LabeledSequentialStatement>, Token)> {
     let mut statements = Vec::new();
     loop {
@@ -92,7 +92,7 @@ pub fn parse_labeled_sequential_statements(
 /// LRM 10.8 If statement
 fn parse_if_statement_known_keyword(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<IfStatement> {
     let mut conditionals = Vec::new();
     let mut else_branch = None;
@@ -147,7 +147,7 @@ fn parse_if_statement_known_keyword(
 /// LRM 10.9 Case statement
 fn parse_case_statement_known_keyword(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<CaseStatement> {
     let expression = parse_expression(stream)?;
     stream.expect_kind(Is)?;
@@ -189,7 +189,7 @@ fn parse_case_statement_known_keyword(
 fn parse_loop_statement_initial_token(
     stream: &mut TokenStream,
     token: &Token,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<LoopStatement> {
     let iteration_scheme = {
         try_token_kind!(
@@ -478,7 +478,7 @@ fn parse_selected_assignment(stream: &mut TokenStream) -> ParseResult<Sequential
 fn parse_unlabeled_sequential_statement(
     stream: &mut TokenStream,
     token: Token,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<SequentialStatement> {
     let statement = {
         try_token_kind!(
@@ -514,7 +514,7 @@ fn parse_unlabeled_sequential_statement(
 #[cfg(test)]
 pub fn parse_sequential_statement(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<LabeledSequentialStatement> {
     let token = stream.expect()?;
     parse_sequential_statement_initial_token(stream, token, messages)
@@ -523,7 +523,7 @@ pub fn parse_sequential_statement(
 pub fn parse_sequential_statement_initial_token(
     stream: &mut TokenStream,
     token: Token,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<LabeledSequentialStatement> {
     if token.kind == Identifier {
         let name = parse_name_initial_token(stream, token)?;
@@ -553,9 +553,9 @@ pub fn parse_sequential_statement_initial_token(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ast::{DelayMechanism, Ident};
+    use crate::ast::{DelayMechanism, Ident};
 
-    use test_util::Code;
+    use crate::test_util::Code;
 
     fn parse(code: &str) -> (Code, LabeledSequentialStatement) {
         let code = Code::new(code);

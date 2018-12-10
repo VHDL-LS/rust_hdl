@@ -113,13 +113,13 @@ impl Latin1String {
 }
 
 impl fmt::Debug for Latin1String {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", iso_8859_1_to_utf8(&self.bytes))
     }
 }
 
 impl fmt::Display for Latin1String {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", iso_8859_1_to_utf8(&self.bytes))
     }
 }

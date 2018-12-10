@@ -4,28 +4,21 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::{has_ident::HasIdent, *};
-use declarative_region::{AnyDeclaration, DeclarativeRegion, PrimaryUnitData, VisibleDeclaration};
-use latin_1::Latin1String;
-use library::{DesignRoot, Library, PackageDesignUnit};
-use message::{Message, MessageHandler};
-use source::{SrcPos, WithPos};
+use super::declarative_region::{
+    AnyDeclaration, DeclarativeRegion, PrimaryUnitData, VisibleDeclaration,
+};
+use super::library::{DesignRoot, Library, PackageDesignUnit};
+use crate::ast::{HasIdent, *};
+use crate::latin_1::Latin1String;
+use crate::message::{Message, MessageHandler};
+use crate::source::{SrcPos, WithPos};
+use crate::symbol_table::{Symbol, SymbolTable};
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
 use std::sync::Arc;
-use symbol_table::{Symbol, SymbolTable};
 
-extern crate fnv;
 use self::fnv::FnvHashMap;
-
-impl SubprogramDeclaration {
-    fn interface_list(&self) -> &[InterfaceDeclaration] {
-        match self {
-            SubprogramDeclaration::Function(fun) => &fun.parameter_list,
-            SubprogramDeclaration::Procedure(proc) => &proc.parameter_list,
-        }
-    }
-}
+use fnv;
 
 enum LookupResult<'n, 'a> {
     /// A single name was selected
@@ -51,7 +44,7 @@ struct CircularDependencyError {
 }
 
 impl CircularDependencyError {
-    fn push_into(self, messages: &mut MessageHandler) {
+    fn push_into(self, messages: &mut dyn MessageHandler) {
         for dependency in self.path {
             messages.push(Message::error(
                 dependency.location,
@@ -421,7 +414,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         decl: &'a InterfaceDeclaration,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         match decl {
             InterfaceDeclaration::File(ref file_decl) => {
@@ -445,6 +438,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                 );
             }
             InterfaceDeclaration::Subprogram(subpgm, ..) => {
+                self.analyze_subprogram_declaration(region, subpgm, messages);
                 region.add(
                     VisibleDeclaration::new(subpgm.designator(), AnyDeclaration::Interface(decl))
                         .with_overload(true),
@@ -472,10 +466,29 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         declarations: &'a [InterfaceDeclaration],
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         for decl in declarations.iter() {
             self.analyze_interface_declaration(region, decl, messages);
+        }
+    }
+
+    #[allow(clippy::ptr_arg)]
+    fn lookup_type_mark(
+        &self,
+        region: &DeclarativeRegion<'_, 'a>,
+        type_mark: &WithPos<SelectedName>,
+    ) -> Result<VisibleDeclaration<'a>, Message> {
+        let type_mark_name = type_mark.clone().into();
+        match self.lookup_selected_name(region, &type_mark_name)? {
+            LookupResult::Single(visible_decl) => Ok(visible_decl),
+            _ => {
+                // Cannot really happen with SelectedName but refactoring might change it...
+                Err(Message::error(
+                    &type_mark_name.pos,
+                    "Invalid name for type mark",
+                ))
+            }
         }
     }
 
@@ -483,20 +496,40 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         subtype_indication: &'a SubtypeIndication,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
-        if let Err(msg) =
-            self.lookup_selected_name(region, &subtype_indication.type_mark.clone().into())
-        {
+        if let Err(msg) = self.lookup_type_mark(region, &subtype_indication.type_mark) {
             messages.push(msg);
         }
+    }
+
+    fn analyze_subprogram_declaration(
+        &self,
+        parent: &DeclarativeRegion<'_, 'a>,
+        subprogram: &'a SubprogramDeclaration,
+        messages: &mut dyn MessageHandler,
+    ) {
+        let mut region = DeclarativeRegion::new(Some(parent));
+
+        match subprogram {
+            SubprogramDeclaration::Function(fun) => {
+                self.analyze_interface_list(&mut region, &fun.parameter_list, messages);
+                if let Err(msg) = self.lookup_type_mark(&parent, &fun.return_type) {
+                    messages.push(msg);
+                }
+            }
+            SubprogramDeclaration::Procedure(proc) => {
+                self.analyze_interface_list(&mut region, &proc.parameter_list, messages);
+            }
+        }
+        region.close_both(messages);
     }
 
     fn analyze_declaration(
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         decl: &'a Declaration,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         match decl {
             Declaration::Alias(alias) => {
@@ -507,7 +540,8 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     VisibleDeclaration::new(
                         alias.designator.clone(),
                         AnyDeclaration::Declaration(decl),
-                    ).with_overload(alias.signature.is_some()),
+                    )
+                    .with_overload(alias.signature.is_some()),
                     messages,
                 );
             }
@@ -544,9 +578,15 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                 }
             }
             Declaration::Attribute(ref attr) => match attr {
-                Attribute::Declaration(AttributeDeclaration { ref ident, .. }) => {
+                Attribute::Declaration(ref attr_decl) => {
+                    if let Err(msg) = self.lookup_type_mark(region, &attr_decl.type_mark) {
+                        messages.push(msg);
+                    }
                     region.add(
-                        VisibleDeclaration::new(ident, AnyDeclaration::Declaration(decl)),
+                        VisibleDeclaration::new(
+                            &attr_decl.ident,
+                            AnyDeclaration::Declaration(decl),
+                        ),
                         messages,
                     );
                 }
@@ -558,18 +598,11 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     VisibleDeclaration::new(
                         body.specification.designator(),
                         AnyDeclaration::Declaration(decl),
-                    ).with_overload(true),
+                    )
+                    .with_overload(true),
                     messages,
                 );
-                {
-                    let mut region = DeclarativeRegion::new(Some(region));
-                    self.analyze_interface_list(
-                        &mut region,
-                        body.specification.interface_list(),
-                        messages,
-                    );
-                    region.close_both(messages);
-                }
+                self.analyze_subprogram_declaration(region, &body.specification, messages);
                 let mut region = DeclarativeRegion::new(Some(region));
                 self.analyze_declarative_part(&mut region, &body.declarations, messages);
             }
@@ -578,14 +611,11 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     VisibleDeclaration::new(
                         subdecl.designator(),
                         AnyDeclaration::Declaration(decl),
-                    ).with_overload(true),
+                    )
+                    .with_overload(true),
                     messages,
                 );
-                {
-                    let mut region = DeclarativeRegion::new(Some(region));
-                    self.analyze_interface_list(&mut region, subdecl.interface_list(), messages);
-                    region.close_both(messages);
-                }
+                self.analyze_subprogram_declaration(region, &subdecl, messages);
             }
 
             // @TODO Ignored for now
@@ -620,7 +650,8 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                         VisibleDeclaration::new(
                             literal.clone().map_into(|lit| lit.into_designator()),
                             AnyDeclaration::Enum(literal),
-                        ).with_overload(true),
+                        )
+                        .with_overload(true),
                         messages,
                     )
                 }
@@ -641,13 +672,9 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                         for item in prot_decl.items.iter() {
                             match item {
                                 ProtectedTypeDeclarativeItem::Subprogram(subprogram) => {
-                                    let mut region = DeclarativeRegion::new(Some(region));
-                                    self.analyze_interface_list(
-                                        &mut region,
-                                        subprogram.interface_list(),
-                                        messages,
+                                    self.analyze_subprogram_declaration(
+                                        region, subprogram, messages,
                                     );
-                                    region.close_both(messages);
                                 }
                             }
                         }
@@ -685,7 +712,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         declarations: &'a [Declaration],
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         for decl in declarations.iter() {
             self.analyze_declaration(region, decl, messages);
@@ -697,7 +724,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         region: &mut DeclarativeRegion<'_, 'a>,
         use_clause: &UseClause,
         use_pos: &SrcPos,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         for name in use_clause.name_list.iter() {
             match name.item {
@@ -775,7 +802,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         context_clause: &[WithPos<ContextItem>],
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         for context_item in context_clause.iter() {
             match context_item.item {
@@ -876,7 +903,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         parent: &DeclarativeRegion<'_, 'a>,
         body: &'a GenerateBody,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         let mut region = DeclarativeRegion::new(Some(parent));
 
@@ -890,7 +917,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         parent: &DeclarativeRegion<'_, 'a>,
         statement: &'a LabeledConcurrentStatement,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         match statement.statement {
             ConcurrentStatement::Block(ref block) => {
@@ -926,7 +953,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         parent: &DeclarativeRegion<'_, 'a>,
         statements: &'a [LabeledConcurrentStatement],
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         for statement in statements.iter() {
             self.analyze_concurrent_statement(parent, statement, messages);
@@ -937,7 +964,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         entity_region: &mut DeclarativeRegion<'_, 'a>,
         architecture: &'a ArchitectureBody,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         self.analyze_declarative_part(entity_region, &architecture.decl, messages);
         self.analyze_concurrent_part(entity_region, &architecture.statements, messages);
@@ -947,7 +974,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         region: &mut DeclarativeRegion<'_, 'a>,
         entity: &'a EntityDeclaration,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         if let Some(ref list) = entity.generic_clause {
             self.analyze_interface_list(region, list, messages);
@@ -994,7 +1021,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         parent: &'r DeclarativeRegion<'r, 'a>,
         package: &'a PackageDeclaration,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) -> DeclarativeRegion<'r, 'a> {
         let mut region = DeclarativeRegion::new(Some(parent)).in_package_declaration();
         if let Some(ref list) = package.generic_clause {
@@ -1054,7 +1081,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         primary_region: &DeclarativeRegion<'_, 'a>,
         package: &'a PackageDesignUnit,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         if let Some(ref body) = package.body {
             let mut root_region = primary_region
@@ -1071,7 +1098,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         &self,
         library: &'a Library,
         package: &'a PackageDesignUnit,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         match self.analyze_package_declaration_unit(None, library, package) {
             Ok(data) => {
@@ -1094,13 +1121,13 @@ impl<'r, 'a: 'r> Analyzer<'a> {
     }
 
     /// Returns a reference to the the uninstantiated package
-    #[cfg_attr(feature = "cargo-clippy", allow(ptr_arg))]
+    #[allow(clippy::ptr_arg)]
     pub fn analyze_package_instance_name(
         &self,
         parent: &'r DeclarativeRegion<'r, 'a>,
-        package_name: &SelectedName,
+        package_name: &WithPos<SelectedName>,
     ) -> Result<Arc<PrimaryUnitData<'a>>, Message> {
-        let entry_point = package_name[package_name.len() - 1].pos.clone();
+        let entry_point = package_name.pos.clone();
         let package_name = package_name.clone().into();
 
         match self.lookup_selected_name(parent, &package_name)? {
@@ -1182,7 +1209,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         }
     }
 
-    pub fn analyze_library(&self, library: &'a Library, messages: &mut MessageHandler) {
+    pub fn analyze_library(&self, library: &'a Library, messages: &mut dyn MessageHandler) {
         for package in library.packages() {
             self.analyze_package(library, package, messages);
         }
@@ -1225,7 +1252,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         }
     }
 
-    pub fn analyze(&self, messages: &mut MessageHandler) {
+    pub fn analyze(&self, messages: &mut dyn MessageHandler) {
         // Analyze standard library first
         if let Some(library) = self.root.get_library(&self.std_sym) {
             let standard_package = library
@@ -1268,15 +1295,15 @@ fn uninstantiated_package_prefix_error(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use library::Library;
-    use message::Message;
-    use test_util::{check_messages, check_no_messages, Code, CodeBuilder};
+    use crate::message::Message;
+    use crate::test_util::{check_messages, check_no_messages, Code, CodeBuilder};
 
     fn expected_message(code: &Code, name: &str, occ1: usize, occ2: usize) -> Message {
         Message::error(
             code.s(&name, occ2),
             format!("Duplicate declaration of '{}'", &name),
-        ).related(code.s(&name, occ1), "Previously defined here")
+        )
+        .related(code.s(&name, occ1), "Previously defined here")
     }
 
     fn expected_messages(code: &Code, names: &[&str]) -> Vec<Message> {
@@ -1294,7 +1321,8 @@ mod tests {
                 Message::error(
                     code2.s1(&name),
                     format!("Duplicate declaration of '{}'", &name),
-                ).related(code1.s1(&name), "Previously defined here"),
+                )
+                .related(code1.s1(&name), "Previously defined here"),
             )
         }
         messages
@@ -2641,7 +2669,7 @@ end entity;
         )
     }
 
-    use source::Source;
+    use crate::source::Source;
     use std::collections::{hash_map::Entry, HashMap};
 
     struct LibraryBuilder {
@@ -2658,7 +2686,7 @@ end entity;
         }
 
         fn new() -> LibraryBuilder {
-            use latin_1::Latin1String;
+            use crate::latin_1::Latin1String;
 
             let mut library = LibraryBuilder::new_no_std();
             library.code_from_source(
@@ -2666,7 +2694,7 @@ end entity;
                 Source::inline(
                     "standard.vhd",
                     Arc::new(Latin1String::new(include_bytes!(
-                        "../../example_project/vhdl_libraries/2008/std/standard.vhd"
+                        "../../../example_project/vhdl_libraries/2008/std/standard.vhd"
                     ))),
                 ),
             );
@@ -2675,7 +2703,7 @@ end entity;
                 Source::inline(
                     "textio.vhd",
                     Arc::new(Latin1String::new(include_bytes!(
-                        "../../example_project/vhdl_libraries/2008/std/textio.vhd"
+                        "../../../example_project/vhdl_libraries/2008/std/textio.vhd"
                     ))),
                 ),
             );
@@ -2684,7 +2712,7 @@ end entity;
                 Source::inline(
                     "env.vhd",
                     Arc::new(Latin1String::new(include_bytes!(
-                        "../../example_project/vhdl_libraries/2008/std/env.vhd"
+                        "../../../example_project/vhdl_libraries/2008/std/env.vhd"
                     ))),
                 ),
             );
@@ -3434,6 +3462,51 @@ end package;",
         let messages = builder.analyze();
         check_messages(messages, expected);
     }
+
+    #[test]
+    fn resolves_return_type() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg is
+  function f1 (const : natural) return natural;
+  function f2 (const : natural) return missing;
+end package;",
+        );
+
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s1("missing"),
+                "No declaration of 'missing'",
+            )],
+        );
+    }
+
+    #[test]
+    fn resolves_attribute_declaration_type_mark() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package pkg is
+  attribute attr : string;
+  attribute attr2 : missing;
+end package;",
+        );
+
+        let messages = builder.analyze();
+        check_messages(
+            messages,
+            vec![Message::error(
+                code.s1("missing"),
+                "No declaration of 'missing'",
+            )],
+        );
+    }
+
     #[test]
     fn protected_type_is_visible_in_declaration() {
         let mut builder = LibraryBuilder::new();
