@@ -215,7 +215,6 @@ constant x: natural := 5;
         // Just checking that there is not an infinite loop
         let code = Code::new("invalid");
         let (decl, _) = code.with_partial_stream_messages(parse_declarative_part_leave_end_token);
-        assert!(decl.is_ok());
-        assert!(decl.unwrap().is_empty());
+        assert!(decl.is_err());
     }
 }

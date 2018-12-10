@@ -102,15 +102,15 @@ impl TokenStream {
         Ok(self.pop_if_kind(kind)?.is_some())
     }
 
-    pub fn skip_to(self: &mut Self, kinds: &[Kind]) -> ParseResult<bool> {
-        while let Ok(Some(stream_kind)) = self.peek_kind() {
-            if kinds.contains(&stream_kind) {
-                return Ok(true);
+    pub fn skip_to(self: &mut Self, kinds: &[Kind]) -> ParseResult<()> {
+        loop {
+            let token = self.peek_expect()?;
+            if kinds.contains(&token.kind) {
+                return Ok(());
             }
 
             self.pop()?;
-        }
-        Ok(false)
+        };
     }
 
     pub fn pop_optional_ident(&mut self) -> ParseResult<Option<Ident>> {
