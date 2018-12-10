@@ -15,7 +15,7 @@ use crate::names::{parse_association_list, parse_selected_name};
 use crate::object_declaration::{parse_file_declaration, parse_object_declaration};
 use crate::subprogram::parse_subprogram;
 use crate::tokenizer::{Kind::*, Token};
-use crate::tokenstream::{TokenStream, Recover};
+use crate::tokenstream::{Recover, TokenStream};
 use crate::type_declaration::parse_type_declaration;
 
 pub fn parse_package_instantiation(stream: &mut TokenStream) -> ParseResult<PackageInstantiation> {
@@ -67,32 +67,27 @@ pub fn parse_declarative_part(
     messages: &mut dyn MessageHandler,
     begin_is_end: bool,
 ) -> ParseResult<Vec<Declaration>> {
-    let end_token = if begin_is_end {
-        Begin
-    } else {
-        End
-    };
-    let decl = parse_declarative_part_leave_end_token(stream, messages)
-        .or_recover_to(stream, messages, &[end_token])?;
+    let end_token = if begin_is_end { Begin } else { End };
+    let decl = parse_declarative_part_leave_end_token(stream, messages).or_recover_to(
+        stream,
+        messages,
+        &[end_token],
+    )?;
 
     stream.expect_kind(end_token).log(messages);
     Ok(decl)
 }
-
 
 pub fn parse_declarative_part_leave_end_token(
     stream: &mut TokenStream,
     messages: &mut dyn MessageHandler,
 ) -> ParseResult<Vec<Declaration>> {
     let mut declarations: Vec<Declaration> = Vec::new();
-    let multi_decl_tokens = &[
-        File, Shared, Constant, Signal, Variable, Attribute
+    let multi_decl_tokens = &[File, Shared, Constant, Signal, Variable, Attribute];
+    let rec_tokens = &[
+        SemiColon, Begin, End, Use, Type, Subtype, Component, Alias, Impure, Function, Procedure,
+        Package, For, File, Shared, Constant, Signal, Variable, Attribute,
     ];
-    let rec_tokens = &[SemiColon, Begin, End, Use, Type,
-        Subtype, Component, Alias, Impure, Function, Procedure, Package, For,
-        File, Shared, Constant, Signal, Variable, Attribute
-    ];
-
 
     while let Some(token) = stream.peek()? {
         match token.kind {
@@ -100,10 +95,17 @@ pub fn parse_declarative_part_leave_end_token(
 
             kind if multi_decl_tokens.contains(&kind) => {
                 let decls: ParseResult<Vec<Declaration>> = match kind {
-                    File => parse_file_declaration(stream).map(|decls| decls.into_iter().map(|d| Declaration::File(d)).collect()),
-                    Shared | Constant | Signal | Variable => parse_object_declaration(stream).map(|decls| decls.into_iter().map(|d| Declaration::Object(d)).collect()),
-                    Attribute => parse_attribute(stream).map(|decls| decls.into_iter().map(|d| Declaration::Attribute(d)).collect()),
-                    _ => unreachable!()
+                    File => parse_file_declaration(stream)
+                        .map(|decls| decls.into_iter().map(|d| Declaration::File(d)).collect()),
+                    Shared | Constant | Signal | Variable => parse_object_declaration(stream)
+                        .map(|decls| decls.into_iter().map(|d| Declaration::Object(d)).collect()),
+                    Attribute => parse_attribute(stream).map(|decls| {
+                        decls
+                            .into_iter()
+                            .map(|d| Declaration::Attribute(d))
+                            .collect()
+                    }),
+                    _ => unreachable!(),
                 };
                 match decls.or_recover_to(stream, messages, rec_tokens) {
                     Ok(ref mut decls) => declarations.append(decls),
@@ -116,14 +118,18 @@ pub fn parse_declarative_part_leave_end_token(
             }
 
             kind => {
-                let decl: ParseResult<Declaration>  = match kind {
+                let decl: ParseResult<Declaration> = match kind {
                     Use => parse_use_clause(stream).map(|d| Declaration::Use(d)),
-                    Type | Subtype => parse_type_declaration(stream, messages).map(|d| Declaration::Type(d)),
-                    Component => parse_component_declaration(stream, messages).map(|d| Declaration::Component(d)),
+                    Type | Subtype => {
+                        parse_type_declaration(stream, messages).map(|d| Declaration::Type(d))
+                    }
+                    Component => parse_component_declaration(stream, messages)
+                        .map(|d| Declaration::Component(d)),
                     Alias => parse_alias_declaration(stream).map(|d| Declaration::Alias(d)),
                     Impure | Function | Procedure => parse_subprogram(stream, messages),
                     Package => parse_package_instantiation(stream).map(|d| Declaration::Package(d)),
-                    For => parse_configuration_specification(stream).map(|d| Declaration::Configuration(d)),
+                    For => parse_configuration_specification(stream)
+                        .map(|d| Declaration::Configuration(d)),
                     _ => {
                         messages.push(token.kinds_error(rec_tokens));
                         stream.skip_to(rec_tokens)?;
@@ -199,14 +205,15 @@ package ident is new lib.foo.bar
             "\
 var invalid: broken;
 constant x: natural := 5;
-"
+",
         );
-        let (decls, msgs) = code.with_partial_stream_messages(parse_declarative_part_leave_end_token);
+        let (decls, msgs) =
+            code.with_partial_stream_messages(parse_declarative_part_leave_end_token);
         let decls = decls.unwrap();
         assert_eq!(decls.len(), 1);
         match decls[0] {
             Declaration::Object(..) => (),
-            _ => panic!("expected Object declaration, got {:?}", decls[0])
+            _ => panic!("expected Object declaration, got {:?}", decls[0]),
         }
         assert_eq!(msgs.len(), 1);
     }

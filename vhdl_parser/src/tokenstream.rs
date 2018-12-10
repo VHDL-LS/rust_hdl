@@ -110,7 +110,7 @@ impl TokenStream {
             }
 
             self.pop()?;
-        };
+        }
     }
 
     pub fn pop_optional_ident(&mut self) -> ParseResult<Option<Ident>> {
@@ -146,7 +146,7 @@ pub trait Recover<T> {
         kinds: &[Kind],
     ) -> ParseResult<T>;
 
-    fn log( self, msgs: &mut MessageHandler);
+    fn log(self, msgs: &mut MessageHandler);
 }
 
 impl<T: std::fmt::Debug> Recover<T> for ParseResult<T> {
@@ -173,7 +173,7 @@ impl<T: std::fmt::Debug> Recover<T> for ParseResult<T> {
     fn log(self, msgs: &mut MessageHandler) {
         match self {
             Err(err) => msgs.push(err),
-            Ok(_) => ()
+            Ok(_) => (),
         }
     }
 }
