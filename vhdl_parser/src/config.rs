@@ -6,11 +6,11 @@
 
 //! Configuration of the design hierarchy and other settings
 
-extern crate toml;
+use toml;
 
-extern crate fnv;
 use self::fnv::FnvHashMap;
 use self::toml::Value;
+use fnv;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
@@ -142,7 +142,8 @@ lib1.files = [
                 absolute_vhd
             ),
             &parent,
-        ).unwrap();
+        )
+        .unwrap();
         let mut libraries: Vec<&str> = config.iter_libraries().map(|lib| lib.name()).collect();
         libraries.sort();
         assert_eq!(libraries, &["lib1", "lib2"]);

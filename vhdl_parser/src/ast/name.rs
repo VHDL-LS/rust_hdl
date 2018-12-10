@@ -7,19 +7,20 @@
 //! Name conversions
 use super::*;
 
-impl From<SelectedName> for WithPos<Name> {
-    fn from(selected_name: SelectedName) -> WithPos<Name> {
-        let first = selected_name[0].clone();
-        let name = Name::Designator(Designator::Identifier(first.item));
-        let mut name = WithPos::from(name, first.pos);
+impl From<WithPos<SelectedName>> for WithPos<Name> {
+    fn from(selected_name: WithPos<SelectedName>) -> WithPos<Name> {
+        match selected_name.item {
+            SelectedName::Designator(designator) => {
+                WithPos::from(Name::Designator(designator), selected_name.pos)
+            }
 
-        for simple_name in selected_name.into_iter().skip(1) {
-            let pos = name.pos.combine(&simple_name.pos);
-            let item: Name =
-                Name::Selected(Box::new(name), simple_name.map_into(Designator::Identifier));
-            name = WithPos::from(item, pos);
+            SelectedName::Selected(prefix, suffix) => {
+                let prefix: WithPos<SelectedName> = *prefix;
+                WithPos::from(
+                    Name::Selected(Box::new(prefix.into()), suffix),
+                    selected_name.pos,
+                )
+            }
         }
-
-        name
     }
 }

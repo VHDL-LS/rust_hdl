@@ -4,19 +4,19 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use alias_declaration::parse_alias_declaration;
-use ast::{Declaration, PackageInstantiation};
-use attributes::parse_attribute;
-use component_declaration::parse_component_declaration;
-use configuration::parse_configuration_specification;
-use context::parse_use_clause;
-use message::{MessageHandler, ParseResult};
-use names::{parse_association_list, parse_selected_name};
-use object_declaration::{parse_file_declaration, parse_object_declaration};
-use subprogram::parse_subprogram;
-use tokenizer::{Kind::*, Token};
-use tokenstream::{TokenStream, Recover};
-use type_declaration::parse_type_declaration;
+use crate::alias_declaration::parse_alias_declaration;
+use crate::ast::{Declaration, PackageInstantiation};
+use crate::attributes::parse_attribute;
+use crate::component_declaration::parse_component_declaration;
+use crate::configuration::parse_configuration_specification;
+use crate::context::parse_use_clause;
+use crate::message::{MessageHandler, ParseResult};
+use crate::names::{parse_association_list, parse_selected_name};
+use crate::object_declaration::{parse_file_declaration, parse_object_declaration};
+use crate::subprogram::parse_subprogram;
+use crate::tokenizer::{Kind::*, Token};
+use crate::tokenstream::{TokenStream, Recover};
+use crate::type_declaration::parse_type_declaration;
 
 pub fn parse_package_instantiation(stream: &mut TokenStream) -> ParseResult<PackageInstantiation> {
     stream.expect_kind(Package)?;
@@ -64,7 +64,7 @@ fn check_declarative_part(token: &Token, may_end: bool, may_begin: bool) -> Pars
 }
 pub fn parse_declarative_part(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
     begin_is_end: bool,
 ) -> ParseResult<Vec<Declaration>> {
     let end_token = if begin_is_end {
@@ -82,7 +82,7 @@ pub fn parse_declarative_part(
 
 pub fn parse_declarative_part_leave_end_token(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<Vec<Declaration>> {
     let mut declarations: Vec<Declaration> = Vec::new();
     let multi_decl_tokens = &[
@@ -149,7 +149,7 @@ pub fn parse_declarative_part_leave_end_token(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_util::Code;
+    use crate::test_util::Code;
 
     #[test]
     fn package_instantiation() {
@@ -186,7 +186,8 @@ package ident is new lib.foo.bar
                 generic_map: Some(
                     code.s1("(
     foo => bar
-  )").association_list()
+  )")
+                        .association_list()
                 )
             }
         );

@@ -6,24 +6,24 @@
 
 // @TODO add related information to message
 
-extern crate fnv;
 use self::fnv::FnvHashMap;
+use fnv;
 use std::collections::hash_map::Entry;
 
-use ast::{
-    has_ident::HasIdent, AnyDesignUnit, ArchitectureBody, ConfigurationDeclaration,
-    ContextDeclaration, DesignFile, DesignUnit, EntityDeclaration, Name, PackageBody,
-    PackageDeclaration, PackageInstantiation, PrimaryUnit, SecondaryUnit,
+use crate::ast::{
+    AnyDesignUnit, ArchitectureBody, ConfigurationDeclaration, ContextDeclaration, DesignFile,
+    DesignUnit, Designator, EntityDeclaration, HasIdent, Ident, PackageBody, PackageDeclaration,
+    PackageInstantiation, PrimaryUnit, SecondaryUnit, SelectedName,
 };
-use message::{Message, MessageHandler};
-use source::{SrcPos, WithPos};
-use symbol_table::Symbol;
+use crate::message::{Message, MessageHandler};
+use crate::source::{SrcPos, WithPos};
+use crate::symbol_table::Symbol;
 
 impl EntityDesignUnit {
     fn add_architecture(
         &mut self,
         architecture: DesignUnit<ArchitectureBody>,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         match self.architectures.entry(architecture.name().clone()) {
             Entry::Occupied(..) => {
@@ -62,7 +62,7 @@ impl EntityDesignUnit {
     fn add_configuration(
         &mut self,
         configuration: DesignUnit<ConfigurationDeclaration>,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) {
         match self.configurations.entry(configuration.name().clone()) {
             Entry::Occupied(..) => {
@@ -104,7 +104,7 @@ impl EntityDesignUnit {
 }
 
 impl PackageDesignUnit {
-    fn set_body(&mut self, body: DesignUnit<PackageBody>, messages: &mut MessageHandler) {
+    fn set_body(&mut self, body: DesignUnit<PackageBody>, messages: &mut dyn MessageHandler) {
         if self.body.is_some() {
             messages.push(Message::error(
                 body.ident(),
@@ -170,7 +170,7 @@ impl<'a> Library {
         name: Symbol,
         work_sym: &Symbol,
         design_files: Vec<DesignFile>,
-        messages: &mut MessageHandler,
+        messages: &mut dyn MessageHandler,
     ) -> Library {
         let mut primary_names: FnvHashMap<Symbol, SrcPos> = FnvHashMap::default();
         let mut entities = FnvHashMap::default();
@@ -272,8 +272,8 @@ impl<'a> Library {
 
         for config in configurations {
             let entity = {
-                let entname = match config.unit.entity_name.as_slice() {
-                    &[ref libname, ref entname] => {
+                let entname = match to_entity_name(&config.unit.entity_name) {
+                    Ok((Some(libname), entname)) => {
                         if !(libname.item == name || &libname.item == work_sym) {
                             // @TODO use real scope and visibilty rules to resolve entity name
                             // @TODO does not detect missing library clause for libname
@@ -287,19 +287,18 @@ impl<'a> Library {
                             entname
                         }
                     }
-                    &[ref entname] => entname,
-                    selected_name => {
-                        let name: WithPos<Name> = selected_name.to_vec().into();
-                        messages.push(Message::error(&name, "Invalid selected name for entity")
-                                      .related(&name, "Entity name must be of the form library.entity_name or entity_name"));
+                    Ok((None, entname)) => entname,
+                    Err(msg) => {
+                        messages.push(msg);
                         continue;
                     }
                 };
+
                 if let Some(entity) = entities.get_mut(&entname.item) {
                     entity
                 } else {
                     messages.push(Message::error(
-                        entname,
+                        entname.pos,
                         format!("No entity '{}' within library '{}'", entname.item, name),
                     ));
                     continue;
@@ -376,6 +375,37 @@ impl<'a> Library {
     }
 }
 
+/// Extract library_name.entity_name for entity name in configurations
+fn to_entity_name(
+    selected_name: &WithPos<SelectedName>,
+) -> Result<(Option<Ident>, Ident), Message> {
+    match selected_name.item {
+        SelectedName::Selected(
+            ref prefix,
+            WithPos {
+                item: Designator::Identifier(ref sym),
+                ref pos,
+            },
+        ) => {
+            if let SelectedName::Designator(Designator::Identifier(ref lib_sym)) = prefix.item {
+                let library_name = WithPos::from(lib_sym.clone(), prefix.pos.clone());
+                let entity_name = WithPos::from(sym.clone(), pos.clone());
+                return Ok((Some(library_name), entity_name));
+            }
+        }
+        SelectedName::Designator(Designator::Identifier(ref sym)) => {
+            return Ok((None, WithPos::from(sym.clone(), selected_name.pos.clone())));
+        }
+        _ => {}
+    }
+    Err(
+        Message::error(&selected_name, "Invalid selected name for entity").related(
+            &selected_name,
+            "Entity name must be of the form library.entity_name or entity_name",
+        ),
+    )
+}
+
 pub struct DesignRoot {
     libraries: FnvHashMap<Symbol, Library>,
 }
@@ -403,7 +433,7 @@ impl DesignRoot {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_util::{check_messages, check_no_messages, Code, CodeBuilder};
+    use crate::test_util::{check_messages, check_no_messages, Code, CodeBuilder};
 
     fn new_library_with_messages<'a>(code: &Code, name: &str) -> (Library, Vec<Message>) {
         let mut messages = Vec::new();
@@ -681,13 +711,11 @@ end package;
         );
 
         // Should still be added as a secondary unit
-        assert!(
-            library
-                .package(&builder.symbol("pkg"))
-                .unwrap()
-                .body
-                .is_some()
-        );
+        assert!(library
+            .package(&builder.symbol("pkg"))
+            .unwrap()
+            .body
+            .is_some());
 
         check_no_messages(&messages);
     }

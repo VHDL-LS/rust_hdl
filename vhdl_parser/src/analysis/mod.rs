@@ -4,14 +4,8 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use vhdl_ls;
-
-#[macro_use]
-extern crate log;
-use env_logger;
-
-fn main() {
-    env_logger::init();
-    info!("Starting language server");
-    vhdl_ls::start();
-}
+mod declarative_region;
+mod library;
+mod semantic;
+pub use self::library::{DesignRoot, Library};
+pub use self::semantic::Analyzer;

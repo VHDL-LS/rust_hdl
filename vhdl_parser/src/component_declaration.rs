@@ -4,16 +4,16 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::{ComponentDeclaration, InterfaceDeclaration};
-use common::error_on_end_identifier_mismatch;
-use interface_declaration::{parse_generic_interface_list, parse_port_interface_list};
-use message::{push_some, Message, MessageHandler, ParseResult};
-use tokenizer::Kind::*;
-use tokenstream::TokenStream;
+use crate::ast::{ComponentDeclaration, InterfaceDeclaration};
+use crate::common::error_on_end_identifier_mismatch;
+use crate::interface_declaration::{parse_generic_interface_list, parse_port_interface_list};
+use crate::message::{push_some, Message, MessageHandler, ParseResult};
+use crate::tokenizer::Kind::*;
+use crate::tokenstream::TokenStream;
 
 pub fn parse_optional_generic_list(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
     let mut list = None;
     loop {
@@ -38,7 +38,7 @@ pub fn parse_optional_generic_list(
 
 pub fn parse_optional_port_list(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
     let mut list = None;
     loop {
@@ -72,7 +72,7 @@ pub fn parse_optional_port_list(
 
 pub fn parse_component_declaration(
     stream: &mut TokenStream,
-    messages: &mut MessageHandler,
+    messages: &mut dyn MessageHandler,
 ) -> ParseResult<ComponentDeclaration> {
     stream.expect_kind(Component)?;
     let ident = stream.expect_ident()?;
@@ -101,8 +101,8 @@ pub fn parse_component_declaration(
 mod tests {
     use super::*;
 
-    use ast::Ident;
-    use test_util::Code;
+    use crate::ast::Ident;
+    use crate::test_util::Code;
 
     fn to_component(
         ident: Ident,

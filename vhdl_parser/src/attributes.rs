@@ -4,16 +4,16 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::{
+use crate::ast::{
     Attribute, AttributeDeclaration, AttributeSpecification, Designator, EntityClass, EntityName,
     EntityTag,
 };
-use expression::parse_expression;
-use message::ParseResult;
-use names::parse_selected_name;
-use subprogram::parse_signature;
-use tokenizer::Kind::*;
-use tokenstream::TokenStream;
+use crate::expression::parse_expression;
+use crate::message::ParseResult;
+use crate::names::parse_selected_name;
+use crate::subprogram::parse_signature;
+use crate::tokenizer::Kind::*;
+use crate::tokenstream::TokenStream;
 
 fn parse_entity_class(stream: &mut TokenStream) -> ParseResult<EntityClass> {
     let token = stream.expect()?;
@@ -121,7 +121,7 @@ pub fn parse_attribute(stream: &mut TokenStream) -> ParseResult<Vec<Attribute>> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use test_util::Code;
+    use crate::test_util::Code;
 
     #[test]
     fn parse_simple_attribute_declaration() {
@@ -143,7 +143,7 @@ mod tests {
             vec![Attribute::Specification(AttributeSpecification {
                 ident: code.s1("attr_name").ident(),
                 entity_name: EntityName::Name(EntityTag {
-                    designator: code.s1("foo").ident().map_into(Designator::Identifier),
+                    designator: code.s1("foo").designator(),
                     signature: None
                 }),
                 entity_class: EntityClass::Signal,
@@ -160,10 +160,7 @@ mod tests {
             vec![Attribute::Specification(AttributeSpecification {
                 ident: code.s1("attr_name").ident(),
                 entity_name: EntityName::Name(EntityTag {
-                    designator: code
-                        .s1("\"**\"")
-                        .operator_symbol()
-                        .map_into(Designator::OperatorSymbol),
+                    designator: code.s1("\"**\"").designator(),
                     signature: None
                 }),
                 entity_class: EntityClass::Function,
@@ -181,7 +178,7 @@ mod tests {
                 Attribute::Specification(AttributeSpecification {
                     ident: code.s1("attr_name").ident(),
                     entity_name: EntityName::Name(EntityTag {
-                        designator: code.s1("foo").ident().map_into(Designator::Identifier),
+                        designator: code.s1("foo").designator(),
                         signature: None
                     }),
                     entity_class: EntityClass::Signal,
@@ -190,7 +187,7 @@ mod tests {
                 Attribute::Specification(AttributeSpecification {
                     ident: code.s1("attr_name").ident(),
                     entity_name: EntityName::Name(EntityTag {
-                        designator: code.s1("bar").ident().map_into(Designator::Identifier),
+                        designator: code.s1("bar").designator(),
                         signature: None
                     }),
                     entity_class: EntityClass::Signal,
@@ -236,7 +233,7 @@ mod tests {
             vec![Attribute::Specification(AttributeSpecification {
                 ident: code.s1("attr_name").ident(),
                 entity_name: EntityName::Name(EntityTag {
-                    designator: code.s1("foo").ident().map_into(Designator::Identifier),
+                    designator: code.s1("foo").designator(),
                     signature: Some(code.s1("[return natural]").signature())
                 }),
                 entity_class: EntityClass::Function,

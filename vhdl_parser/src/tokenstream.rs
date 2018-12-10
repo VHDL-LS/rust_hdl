@@ -4,9 +4,9 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::Ident;
-use message::{MessageHandler, ParseResult};
-use tokenizer::{kinds_str, Kind, Kind::*, Token, TokenState, Tokenizer};
+use crate::ast::Ident;
+use crate::message::{MessageHandler, ParseResult};
+use crate::tokenizer::{kinds_str, Kind, Kind::*, Token, TokenState, Tokenizer};
 
 pub struct TokenStream {
     pub tokenizer: Tokenizer,
@@ -181,9 +181,9 @@ impl<T: std::fmt::Debug> Recover<T> for ParseResult<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use message::Message;
-    use source::Source;
-    use tokenizer::tokenize;
+    use crate::message::Message;
+    use crate::source::Source;
+    use crate::tokenizer::tokenize;
 
     fn new(code: &str) -> (Source, Vec<Token>, TokenStream) {
         let (source, symtab, tokens) = tokenize(code);

@@ -9,4 +9,4 @@ extern crate log;
 
 mod stdio_server;
 mod vhdl_server;
-pub use stdio_server::start;
+pub use crate::stdio_server::start;

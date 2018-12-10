@@ -6,14 +6,19 @@
 
 // Allowing this, since box_patterns are feature gated: https://github.com/rust-lang/rfcs/pull/469
 // Track here: https://github.com/rust-lang/rust/issues/29641
-#![cfg_attr(feature = "cargo-clippy", allow(large_enum_variant))]
+#![allow(clippy::large_enum_variant)]
 
-pub mod has_ident;
-pub mod name;
+mod display;
+mod has_ident;
+mod name;
 
-use latin_1::Latin1String;
-use source::WithPos;
-use symbol_table::Symbol;
+pub use self::display::*;
+pub use self::has_ident::*;
+pub use self::name::*;
+
+use crate::latin_1::Latin1String;
+use crate::source::WithPos;
+use crate::symbol_table::Symbol;
 
 /// LRM 15.8 Bit string literals
 #[derive(PartialEq, Clone, Debug)]
@@ -132,6 +137,14 @@ pub enum Name {
     External(Box<ExternalName>),
 }
 
+/// LRM 8. Names
+/// A subset of a full name allowing only selected name
+#[derive(PartialEq, Debug, Clone)]
+pub enum SelectedName {
+    Designator(Designator),
+    Selected(Box<WithPos<SelectedName>>, WithPos<Designator>),
+}
+
 /// LRM 9.3.4 Function calls
 #[derive(PartialEq, Debug, Clone)]
 pub struct FunctionCall {
@@ -246,7 +259,7 @@ pub enum Direction {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum DiscreteRange {
-    Discrete(SelectedName, Option<Range>),
+    Discrete(WithPos<SelectedName>, Option<Range>),
     Range(Range),
 }
 
@@ -277,9 +290,6 @@ pub enum SubtypeConstraint {
     Record(Vec<ElementConstraint>),
 }
 
-/// LRM 8. Names
-pub type SelectedName = Vec<Ident>;
-
 /// LRM 6.3 Subtype declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct RecordElementResolution {
@@ -290,8 +300,8 @@ pub struct RecordElementResolution {
 /// LRM 6.3 Subtype declarations
 #[derive(PartialEq, Debug, Clone)]
 pub enum ResolutionIndication {
-    FunctionName(SelectedName),
-    ArrayElement(SelectedName),
+    FunctionName(WithPos<SelectedName>),
+    ArrayElement(WithPos<SelectedName>),
     Record(Vec<RecordElementResolution>),
     Unresolved,
 }
@@ -300,7 +310,7 @@ pub enum ResolutionIndication {
 #[derive(PartialEq, Debug, Clone)]
 pub struct SubtypeIndication {
     pub resolution: ResolutionIndication,
-    pub type_mark: SelectedName,
+    pub type_mark: WithPos<SelectedName>,
     pub constraint: Option<WithPos<SubtypeConstraint>>,
 }
 
@@ -309,7 +319,7 @@ pub struct SubtypeIndication {
 pub enum ArrayIndex {
     /// Unbounded
     /// {identifier} range <>
-    IndexSubtypeDefintion(SelectedName),
+    IndexSubtypeDefintion(WithPos<SelectedName>),
 
     /// Constraint
     Discrete(DiscreteRange),
@@ -348,7 +358,7 @@ pub struct AliasDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct AttributeDeclaration {
     pub ident: Ident,
-    pub type_mark: SelectedName,
+    pub type_mark: WithPos<SelectedName>,
 }
 
 /// LRM 7.2 Attribute specification
@@ -444,7 +454,7 @@ pub enum TypeDefinition {
     /// LRM 5.4.2 Incomplete type declarations
     Incomplete,
     /// LRM 5.5 File types
-    File(SelectedName),
+    File(WithPos<SelectedName>),
     /// LRM 5.6 Protected types
     Protected(ProtectedTypeDeclaration),
     ProtectedBody(ProtectedTypeBody),
@@ -504,7 +514,7 @@ pub struct FunctionSpecification {
     pub pure: bool,
     pub designator: WithPos<SubprogramDesignator>,
     pub parameter_list: Vec<InterfaceDeclaration>,
-    pub return_type: SelectedName,
+    pub return_type: WithPos<SelectedName>,
 }
 
 /// LRM 4.3 Subprogram bodies
@@ -518,8 +528,8 @@ pub struct SubprogramBody {
 /// LRM 4.5.3 Signatures
 #[derive(PartialEq, Debug, Clone)]
 pub enum Signature {
-    Function(Vec<SelectedName>, SelectedName),
-    Procedure(Vec<SelectedName>),
+    Function(Vec<WithPos<SelectedName>>, WithPos<SelectedName>),
+    Procedure(Vec<WithPos<SelectedName>>),
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -546,7 +556,7 @@ pub struct InterfaceObjectDeclaration {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum SubprogramDefault {
-    Name(SelectedName),
+    Name(WithPos<SelectedName>),
     Box,
 }
 /// LRM 6.5.5 Interface package declaration
@@ -561,7 +571,7 @@ pub enum InterfacePackageGenericMapAspect {
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfacePackageDeclaration {
     pub ident: Ident,
-    pub package_name: SelectedName,
+    pub package_name: WithPos<SelectedName>,
     pub generic_map: InterfacePackageGenericMapAspect,
 }
 
@@ -830,9 +840,9 @@ pub struct ConcurrentSignalAssignment {
 /// 11.7 Component instantiation statements
 #[derive(PartialEq, Debug, Clone)]
 pub enum InstantiatedUnit {
-    Component(SelectedName),
-    Entity(SelectedName, Option<Ident>),
-    Configuration(SelectedName),
+    Component(WithPos<SelectedName>),
+    Entity(WithPos<SelectedName>, Option<Ident>),
+    Configuration(WithPos<SelectedName>),
 }
 
 /// 11.7 Component instantiation statements
@@ -921,7 +931,7 @@ pub struct ContextDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct PackageInstantiation {
     pub ident: Ident,
-    pub package_name: SelectedName,
+    pub package_name: WithPos<SelectedName>,
     pub generic_map: Option<Vec<AssociationElement>>,
 }
 
@@ -936,8 +946,8 @@ pub enum InstantiationList {
 /// LRM 7.3.2 Binding indication
 #[derive(PartialEq, Debug, Clone)]
 pub enum EntityAspect {
-    Entity(SelectedName, Option<Ident>),
-    Configuration(SelectedName),
+    Entity(WithPos<SelectedName>, Option<Ident>),
+    Configuration(WithPos<SelectedName>),
     Open,
 }
 
@@ -953,7 +963,7 @@ pub struct BindingIndication {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ComponentSpecification {
     pub instantiation_list: InstantiationList,
-    pub component_name: SelectedName,
+    pub component_name: WithPos<SelectedName>,
 }
 
 /// LRM 7.3.4 Verification unit binding indication
@@ -1005,7 +1015,7 @@ pub struct BlockConfiguration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ConfigurationDeclaration {
     pub ident: Ident,
-    pub entity_name: SelectedName,
+    pub entity_name: WithPos<SelectedName>,
     pub decl: Vec<ConfigurationDeclarativeItem>,
     pub vunit_bind_inds: Vec<VUnitBindingIndication>,
     pub block_config: BlockConfiguration,

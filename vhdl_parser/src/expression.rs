@@ -4,18 +4,18 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use ast::{
+use crate::ast::{
     Allocator, Binary, Choice, Designator, Direction, DiscreteRange, ElementAssociation,
     Expression, Literal, Name, QualifiedExpression, Range, RangeConstraint, ResolutionIndication,
     SubtypeIndication, Unary,
 };
-use message::{Message, ParseResult};
-use names::{parse_name_initial_token, parse_selected_name};
-use source::WithPos;
-use subtype_indication::parse_subtype_constraint;
-use tokenizer::Kind::*;
-use tokenizer::{Kind, Token};
-use tokenstream::TokenStream;
+use crate::message::{Message, ParseResult};
+use crate::names::{parse_name_initial_token, parse_selected_name};
+use crate::source::WithPos;
+use crate::subtype_indication::parse_subtype_constraint;
+use crate::tokenizer::Kind::*;
+use crate::tokenizer::{Kind, Token};
+use crate::tokenstream::TokenStream;
 
 fn name_to_expression(name: WithPos<Name>) -> WithPos<Expression> {
     WithPos {
@@ -213,14 +213,13 @@ fn parse_allocator(stream: &mut TokenStream) -> ParseResult<WithPos<Allocator>> 
             pos,
         })
     } else {
-        let mut pos = selected_name[0].pos.clone();
+        let mut pos = selected_name.pos.clone();
 
         let constraint = {
             if let Some(constraint) = parse_subtype_constraint(stream)? {
                 pos = pos.combine(&constraint.pos);
                 Some(constraint)
             } else {
-                pos = pos.combine(&selected_name[selected_name.len() - 1].pos);
                 None
             }
         };
@@ -427,9 +426,9 @@ pub fn parse_expression_initial_token(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ast::{AbstractLiteral, Name};
-    use latin_1::Latin1String;
-    use test_util::Code;
+    use crate::ast::{AbstractLiteral, Name};
+    use crate::latin_1::Latin1String;
+    use crate::test_util::Code;
 
     #[test]
     fn parses_character_literal() {
@@ -606,8 +605,7 @@ mod tests {
         let code = Code::new("new integer_vector'(0, 1)");
         let vec_name = code
             .s1("integer_vector")
-            .ident()
-            .map_into(Designator::Identifier)
+            .designator()
             .map_into(Name::Designator);
         let expr = code.s1("(0, 1)").expr();
 
@@ -748,11 +746,7 @@ mod tests {
     #[test]
     fn parses_qualified_expression() {
         let code = Code::new("foo'(1+2)");
-        let foo_name = code
-            .s1("foo")
-            .ident()
-            .map_into(Designator::Identifier)
-            .map_into(Name::Designator);
+        let foo_name = code.s1("foo").designator().map_into(Name::Designator);
         let expr = code.s1("(1+2)").expr();
 
         let qexpr = WithPos {
@@ -769,11 +763,7 @@ mod tests {
     #[test]
     fn parses_qualified_aggregate() {
         let code = Code::new("foo'(others => '1')");
-        let foo_name = code
-            .s1("foo")
-            .ident()
-            .map_into(Designator::Identifier)
-            .map_into(Name::Designator);
+        let foo_name = code.s1("foo").designator().map_into(Name::Designator);
         let expr = code.s1("(others => '1')").expr();
 
         let qexpr = WithPos {

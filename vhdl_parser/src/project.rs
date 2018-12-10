@@ -4,19 +4,18 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-extern crate fnv;
 use self::fnv::FnvHashMap;
-use ast::DesignFile;
-use config::Config;
-use latin_1::Latin1String;
-use library::{DesignRoot, Library};
-use message::Message;
-use parser::{FileToParse, ParserError, VHDLParser};
-use semantic::Analyzer;
-use source::Source;
+use crate::analysis::{Analyzer, DesignRoot, Library};
+use crate::ast::DesignFile;
+use crate::config::Config;
+use crate::latin_1::Latin1String;
+use crate::message::Message;
+use crate::parser::{FileToParse, ParserError, VHDLParser};
+use crate::source::Source;
+use crate::symbol_table::Symbol;
+use fnv;
 use std::collections::hash_map::Entry;
 use std::io;
-use symbol_table::Symbol;
 
 pub struct Project {
     parser: VHDLParser,
@@ -29,7 +28,7 @@ pub struct FileError {
 }
 
 impl std::fmt::Display for FileError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Error in {} ({})", self.file_name, self.error)
     }
 }
@@ -60,7 +59,7 @@ impl Project {
                     Entry::Occupied(mut entry) => {
                         entry.get_mut().library_names.push(library_name.clone());
                     }
-                    Entry::Vacant(mut entry) => {
+                    Entry::Vacant(entry) => {
                         let file_to_parse = LibraryFileToParse {
                             library_names: vec![library_name.clone()],
                             file_name: file_name.clone(),
@@ -108,7 +107,7 @@ impl Project {
 
     pub fn update_source(&mut self, file_name: &str, source: &Source) -> io::Result<()> {
         let mut source_file = {
-            if let Some(mut source_file) = self.files.remove(file_name) {
+            if let Some(source_file) = self.files.remove(file_name) {
                 source_file
             } else {
                 SourceFile {
@@ -159,7 +158,7 @@ impl Project {
                         Entry::Occupied(mut entry) => {
                             entry.get_mut().push(design_file.clone());
                         }
-                        Entry::Vacant(mut entry) => {
+                        Entry::Vacant(entry) => {
                             entry.insert(vec![design_file.clone()]);
                         }
                     }
