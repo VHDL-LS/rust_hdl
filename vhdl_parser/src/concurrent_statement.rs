@@ -86,6 +86,11 @@ pub fn parse_process_statement(
                     loop {
                         match token.kind {
                             RightPar => {
+                                if names.is_empty() {
+                                    messages.push(
+                                        Message::error(token, "Processes with sensitivity lists must contain at least one element.")
+                                    );
+                                }
                                 break Some(SensitivityList::Names(names));
                             }
                             Comma => {}
@@ -786,6 +791,32 @@ end process;
         };
         let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
+        assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
+    }
+
+    #[test]
+    fn test_process_empty_sensitivity() {
+        let code = Code::new(
+            "\
+process () is
+begin
+end process;
+",
+        );
+        let (stmt, messages) = code.with_stream_messages(parse_labeled_concurrent_statement);
+        let process = ProcessStatement {
+            postponed: false,
+            sensitivity_list: Some(SensitivityList::Names(Vec::new())),
+            decl: Vec::new(),
+            statements: Vec::new(),
+        };
+        assert_eq!(
+            messages,
+            vec![Message::error(
+                code.s1(")"),
+                "Processes with sensitivity lists must contain at least one element."
+            )]
+        );
         assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
     }
 

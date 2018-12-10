@@ -1018,7 +1018,7 @@ pub struct ConfigurationDeclaration {
     pub entity_name: WithPos<SelectedName>,
     pub decl: Vec<ConfigurationDeclarativeItem>,
     pub vunit_bind_inds: Vec<VUnitBindingIndication>,
-    pub block_config: Option<BlockConfiguration>,
+    pub block_config: BlockConfiguration,
 }
 
 /// LRM 3.2 Entity declarations
