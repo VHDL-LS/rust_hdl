@@ -164,6 +164,8 @@ pub fn parse_declarative_part_leave_end_token(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ast::{ObjectClass, ObjectDeclaration};
+    use crate::message::Message;
     use crate::test_util::Code;
 
     #[test]
@@ -218,13 +220,26 @@ constant x: natural := 5;
         );
         let (decls, msgs) =
             code.with_partial_stream_messages(parse_declarative_part_leave_end_token);
-        let decls = decls.unwrap();
-        assert_eq!(decls.len(), 1);
-        match decls[0] {
-            Declaration::Object(..) => (),
-            _ => panic!("expected Object declaration, got {:?}", decls[0]),
-        }
-        assert_eq!(msgs.len(), 1);
+        assert_eq!(
+            decls,
+            Ok(vec![Declaration::Object(ObjectDeclaration {
+                class: ObjectClass::Constant,
+                ident: code.s1("x").ident(),
+                subtype_indication: code.s1("natural").subtype_indication(),
+                expression: Some(code.s1("5").expr())
+            })])
+        );
+
+        assert_eq!(
+            msgs,
+            vec![Message::error(
+                code.s1("var").pos(),
+                "Expected 'type', 'subtype', 'component', 'impure', \
+                 'function', 'procedure', 'package', 'for', 'file', \
+                 'shared', 'constant', 'signal', 'variable', 'attribute', \
+                 'use' or 'alias'"
+            )]
+        );
     }
 
     #[test]
