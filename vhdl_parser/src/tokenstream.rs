@@ -102,13 +102,12 @@ impl TokenStream {
         Ok(self.pop_if_kind(kind)?.is_some())
     }
 
-    pub fn skip_to(self: &mut Self, kinds: &[Kind]) -> ParseResult<()> {
+    pub fn skip_until(&mut self, cond: fn(&Kind) -> bool) -> ParseResult<()> {
         loop {
             let token = self.peek_expect()?;
-            if kinds.contains(&token.kind) {
+            if cond(&token.kind) {
                 return Ok(());
             }
-
             self.pop()?;
         }
     }
@@ -139,28 +138,28 @@ impl TokenStream {
 }
 
 pub trait Recover<T> {
-    fn or_recover_to(
+    fn or_recover_until(
         self,
         stream: &mut TokenStream,
         msgs: &mut MessageHandler,
-        kinds: &[Kind],
+        cond: fn(&Kind) -> bool,
     ) -> ParseResult<T>;
 
     fn log(self, msgs: &mut MessageHandler);
 }
 
 impl<T: std::fmt::Debug> Recover<T> for ParseResult<T> {
-    fn or_recover_to(
+    fn or_recover_until(
         self,
         stream: &mut TokenStream,
         msgs: &mut MessageHandler,
-        kinds: &[Kind],
+        cond: fn(&Kind) -> bool,
     ) -> ParseResult<T> {
         if self.is_ok() {
             return self;
         }
 
-        let res = stream.skip_to(kinds);
+        let res = stream.skip_until(cond);
         match res {
             Ok(_) => self,
             Err(err) => {
@@ -307,9 +306,14 @@ mod tests {
     }
 
     #[test]
-    fn skip_to() {
-        let (_, _, mut stream) = new("a begin for +  ;");
-        assert!(stream.skip_to(&[Plus]).is_ok());
+    fn skip_until() {
+        let (_, _, mut stream) = new("a begin for + ;");
+        assert!(stream
+            .skip_until(|ref k| match k {
+                Plus => true,
+                _ => false,
+            })
+            .is_ok());
         assert_eq!(stream.peek().map(|t| t.map(|t| t.kind)), Ok(Some(Plus)));
     }
 }

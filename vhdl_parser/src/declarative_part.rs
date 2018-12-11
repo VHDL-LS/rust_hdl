@@ -14,7 +14,7 @@ use crate::message::{MessageHandler, ParseResult};
 use crate::names::{parse_association_list, parse_selected_name};
 use crate::object_declaration::{parse_file_declaration, parse_object_declaration};
 use crate::subprogram::parse_subprogram;
-use crate::tokenizer::{Kind::*, Token};
+use crate::tokenizer::{Kind, Kind::*, Token};
 use crate::tokenstream::{Recover, TokenStream};
 use crate::type_declaration::parse_type_declaration;
 
@@ -68,35 +68,10 @@ pub fn parse_declarative_part(
     begin_is_end: bool,
 ) -> ParseResult<Vec<Declaration>> {
     let end_token = if begin_is_end { Begin } else { End };
-    let decl = parse_declarative_part_leave_end_token(stream, messages).or_recover_to(
-        stream,
-        messages,
-        &[end_token],
-    )?;
+    let decl = parse_declarative_part_leave_end_token(stream, messages)?;
 
     stream.expect_kind(end_token).log(messages);
     Ok(decl)
-}
-
-fn is_compound_decl_kind(token: &Token) -> bool {
-    match token.kind {
-        Type | Subtype | Component | Impure | Function | Procedure | Package | For => true,
-        _ => false,
-    }
-}
-
-fn is_multi_decl_kind(token: &Token) -> bool {
-    match token.kind {
-        File | Shared | Constant | Signal | Variable | Attribute => true,
-        _ => false,
-    }
-}
-
-fn is_single_decl_kind(token: &Token) -> bool {
-    match token.kind {
-        Use | Alias => true,
-        _ => false,
-    }
 }
 
 pub fn parse_declarative_part_leave_end_token(
@@ -104,25 +79,20 @@ pub fn parse_declarative_part_leave_end_token(
     messages: &mut dyn MessageHandler,
 ) -> ParseResult<Vec<Declaration>> {
     let mut declarations: Vec<Declaration> = Vec::new();
-    let compound_decl_tokens = &[
-        Type, Subtype, Component, Impure, Function, Procedure, Package, For,
-    ];
-    let multi_decl_tokens = &[File, Shared, Constant, Signal, Variable, Attribute];
-    let single_decl_tokens = &[Use, Alias];
-    let end_tokens = &[Begin, End];
-    let rec_tokens = &[
-        &compound_decl_tokens[..],
-        &multi_decl_tokens[..],
-        &single_decl_tokens[..],
-        &end_tokens[..],
-    ]
-    .concat();
+
+    fn is_recover_token(kind: &Kind) -> bool {
+        match kind {
+            Type | Subtype | Component | Impure | Function | Procedure | Package | For | File
+            | Shared | Constant | Signal | Variable | Attribute | Use | Alias => true,
+            _ => false,
+        }
+    };
 
     while let Some(token) = stream.peek()? {
         match token.kind {
             Begin | End => break,
-            kind if is_compound_decl_kind(&token) => {
-                let decl = match kind {
+            Type | Subtype | Component | Impure | Function | Procedure | Package | For => {
+                let decl = match token.kind {
                     Type | Subtype => {
                         parse_type_declaration(stream, messages).map(|d| Declaration::Type(d))?
                     }
@@ -139,8 +109,8 @@ pub fn parse_declarative_part_leave_end_token(
                 declarations.push(decl);
             }
 
-            kind if is_multi_decl_kind(&token) => {
-                let decls: ParseResult<Vec<Declaration>> = match kind {
+            File | Shared | Constant | Signal | Variable | Attribute => {
+                let decls: ParseResult<Vec<Declaration>> = match token.kind {
                     File => parse_file_declaration(stream)
                         .map(|decls| decls.into_iter().map(|d| Declaration::File(d)).collect()),
                     Shared | Constant | Signal | Variable => parse_object_declaration(stream)
@@ -153,40 +123,36 @@ pub fn parse_declarative_part_leave_end_token(
                     }),
                     _ => unreachable!(),
                 };
-                match decls.or_recover_to(stream, messages, rec_tokens) {
+                match decls.or_recover_until(stream, messages, is_recover_token) {
                     Ok(ref mut decls) => declarations.append(decls),
                     Err(err) => {
                         messages.push(err);
-                        stream.skip_if_kind(SemiColon)?;
                         continue;
                     }
                 }
             }
 
-            kind if is_single_decl_kind(&token) => {
-                let decl: ParseResult<Declaration> = match kind {
+            Use | Alias => {
+                let decl: ParseResult<Declaration> = match token.kind {
                     Use => parse_use_clause(stream).map(|d| Declaration::Use(d)),
                     Alias => parse_alias_declaration(stream).map(|d| Declaration::Alias(d)),
-                    Impure | Function | Procedure => parse_subprogram(stream, messages),
-                    Package => parse_package_instantiation(stream).map(|d| Declaration::Package(d)),
-                    For => parse_configuration_specification(stream)
-                        .map(|d| Declaration::Configuration(d)),
                     _ => unreachable!(),
                 };
-                match decl.or_recover_to(stream, messages, rec_tokens) {
+                match decl.or_recover_until(stream, messages, is_recover_token) {
                     Ok(decl) => declarations.push(decl),
                     Err(err) => {
                         messages.push(err);
-                        stream.skip_if_kind(SemiColon)?;
                         continue;
                     }
                 }
             }
 
             _ => {
-                messages.push(token.kinds_error(rec_tokens));
-                stream.skip_to(rec_tokens)?;
-                stream.skip_if_kind(SemiColon)?;
+                messages.push(token.kinds_error(&[
+                    Type, Subtype, Component, Impure, Function, Procedure, Package, For, File,
+                    Shared, Constant, Signal, Variable, Attribute, Use, Alias,
+                ]));
+                stream.skip_until(is_recover_token)?;
                 continue;
             }
         }
