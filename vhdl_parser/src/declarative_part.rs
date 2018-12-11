@@ -78,22 +78,68 @@ pub fn parse_declarative_part(
     Ok(decl)
 }
 
+fn is_compound_decl_kind(token: &Token) -> bool {
+    match token.kind {
+        Type | Subtype | Component | Impure | Function | Procedure | Package | For => true,
+        _ => false,
+    }
+}
+
+fn is_multi_decl_kind(token: &Token) -> bool {
+    match token.kind {
+        File | Shared | Constant | Signal | Variable | Attribute => true,
+        _ => false,
+    }
+}
+
+fn is_single_decl_kind(token: &Token) -> bool {
+    match token.kind {
+        Use | Alias => true,
+        _ => false,
+    }
+}
+
 pub fn parse_declarative_part_leave_end_token(
     stream: &mut TokenStream,
     messages: &mut dyn MessageHandler,
 ) -> ParseResult<Vec<Declaration>> {
     let mut declarations: Vec<Declaration> = Vec::new();
-    let multi_decl_tokens = &[File, Shared, Constant, Signal, Variable, Attribute];
-    let rec_tokens = &[
-        SemiColon, Begin, End, Use, Type, Subtype, Component, Alias, Impure, Function, Procedure,
-        Package, For, File, Shared, Constant, Signal, Variable, Attribute,
+    let compound_decl_tokens = &[
+        Type, Subtype, Component, Impure, Function, Procedure, Package, For,
     ];
+    let multi_decl_tokens = &[File, Shared, Constant, Signal, Variable, Attribute];
+    let single_decl_tokens = &[Use, Alias];
+    let end_tokens = &[Begin, End];
+    let rec_tokens = &[
+        &compound_decl_tokens[..],
+        &multi_decl_tokens[..],
+        &single_decl_tokens[..],
+        &end_tokens[..],
+    ]
+    .concat();
 
     while let Some(token) = stream.peek()? {
         match token.kind {
             Begin | End => break,
+            kind if is_compound_decl_kind(&token) => {
+                let decl = match kind {
+                    Type | Subtype => {
+                        parse_type_declaration(stream, messages).map(|d| Declaration::Type(d))?
+                    }
+                    Component => parse_component_declaration(stream, messages)
+                        .map(|d| Declaration::Component(d))?,
+                    Impure | Function | Procedure => parse_subprogram(stream, messages)?,
+                    Package => {
+                        parse_package_instantiation(stream).map(|d| Declaration::Package(d))?
+                    }
+                    For => parse_configuration_specification(stream)
+                        .map(|d| Declaration::Configuration(d))?,
+                    _ => unreachable!(),
+                };
+                declarations.push(decl);
+            }
 
-            kind if multi_decl_tokens.contains(&kind) => {
+            kind if is_multi_decl_kind(&token) => {
                 let decls: ParseResult<Vec<Declaration>> = match kind {
                     File => parse_file_declaration(stream)
                         .map(|decls| decls.into_iter().map(|d| Declaration::File(d)).collect()),
@@ -117,25 +163,15 @@ pub fn parse_declarative_part_leave_end_token(
                 }
             }
 
-            kind => {
+            kind if is_single_decl_kind(&token) => {
                 let decl: ParseResult<Declaration> = match kind {
                     Use => parse_use_clause(stream).map(|d| Declaration::Use(d)),
-                    Type | Subtype => {
-                        parse_type_declaration(stream, messages).map(|d| Declaration::Type(d))
-                    }
-                    Component => parse_component_declaration(stream, messages)
-                        .map(|d| Declaration::Component(d)),
                     Alias => parse_alias_declaration(stream).map(|d| Declaration::Alias(d)),
                     Impure | Function | Procedure => parse_subprogram(stream, messages),
                     Package => parse_package_instantiation(stream).map(|d| Declaration::Package(d)),
                     For => parse_configuration_specification(stream)
                         .map(|d| Declaration::Configuration(d)),
-                    _ => {
-                        messages.push(token.kinds_error(rec_tokens));
-                        stream.skip_to(rec_tokens)?;
-                        stream.skip_if_kind(SemiColon)?;
-                        continue;
-                    }
+                    _ => unreachable!(),
                 };
                 match decl.or_recover_to(stream, messages, rec_tokens) {
                     Ok(decl) => declarations.push(decl),
@@ -145,6 +181,13 @@ pub fn parse_declarative_part_leave_end_token(
                         continue;
                     }
                 }
+            }
+
+            _ => {
+                messages.push(token.kinds_error(rec_tokens));
+                stream.skip_to(rec_tokens)?;
+                stream.skip_if_kind(SemiColon)?;
+                continue;
             }
         }
     }
