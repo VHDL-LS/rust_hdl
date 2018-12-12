@@ -14,8 +14,8 @@ use crate::message::{MessageHandler, ParseResult};
 use crate::names::{parse_association_list, parse_selected_name};
 use crate::object_declaration::{parse_file_declaration, parse_object_declaration};
 use crate::subprogram::parse_subprogram;
-use crate::tokenizer::{Kind::*, Token};
-use crate::tokenstream::TokenStream;
+use crate::tokenizer::{Kind, Kind::*, Token};
+use crate::tokenstream::{Recover, TokenStream};
 use crate::type_declaration::parse_type_declaration;
 
 pub fn parse_package_instantiation(stream: &mut TokenStream) -> ParseResult<PackageInstantiation> {
@@ -67,13 +67,10 @@ pub fn parse_declarative_part(
     messages: &mut dyn MessageHandler,
     begin_is_end: bool,
 ) -> ParseResult<Vec<Declaration>> {
+    let end_token = if begin_is_end { Begin } else { End };
     let decl = parse_declarative_part_leave_end_token(stream, messages)?;
 
-    if begin_is_end {
-        stream.expect_kind(Begin)?;
-    } else {
-        stream.expect_kind(End)?;
-    }
+    stream.expect_kind(end_token).log(messages);
     Ok(decl)
 }
 
@@ -83,44 +80,80 @@ pub fn parse_declarative_part_leave_end_token(
 ) -> ParseResult<Vec<Declaration>> {
     let mut declarations: Vec<Declaration> = Vec::new();
 
+    fn is_recover_token(kind: &Kind) -> bool {
+        match kind {
+            Type | Subtype | Component | Impure | Function | Procedure | Package | For | File
+            | Shared | Constant | Signal | Variable | Attribute | Use | Alias => true,
+            _ => false,
+        }
+    };
+
     while let Some(token) = stream.peek()? {
         match token.kind {
-            Use => declarations.push(Declaration::Use(parse_use_clause(stream)?)),
-            Type | Subtype => {
-                declarations.push(Declaration::Type(parse_type_declaration(stream, messages)?))
+            Begin | End => break,
+            Type | Subtype | Component | Impure | Function | Procedure | Package | For => {
+                let decl = match token.kind {
+                    Type | Subtype => {
+                        parse_type_declaration(stream, messages).map(|d| Declaration::Type(d))?
+                    }
+                    Component => parse_component_declaration(stream, messages)
+                        .map(|d| Declaration::Component(d))?,
+                    Impure | Function | Procedure => parse_subprogram(stream, messages)?,
+                    Package => {
+                        parse_package_instantiation(stream).map(|d| Declaration::Package(d))?
+                    }
+                    For => parse_configuration_specification(stream)
+                        .map(|d| Declaration::Configuration(d))?,
+                    _ => unreachable!(),
+                };
+                declarations.push(decl);
             }
-            Shared | Constant | Signal | Variable => {
-                for decl in parse_object_declaration(stream)? {
-                    declarations.push(Declaration::Object(decl))
+
+            File | Shared | Constant | Signal | Variable | Attribute => {
+                let decls: ParseResult<Vec<Declaration>> = match token.kind {
+                    File => parse_file_declaration(stream)
+                        .map(|decls| decls.into_iter().map(|d| Declaration::File(d)).collect()),
+                    Shared | Constant | Signal | Variable => parse_object_declaration(stream)
+                        .map(|decls| decls.into_iter().map(|d| Declaration::Object(d)).collect()),
+                    Attribute => parse_attribute(stream).map(|decls| {
+                        decls
+                            .into_iter()
+                            .map(|d| Declaration::Attribute(d))
+                            .collect()
+                    }),
+                    _ => unreachable!(),
+                };
+                match decls.or_recover_until(stream, messages, is_recover_token) {
+                    Ok(ref mut decls) => declarations.append(decls),
+                    Err(err) => {
+                        messages.push(err);
+                        continue;
+                    }
                 }
             }
-            File => {
-                for decl in parse_file_declaration(stream)? {
-                    declarations.push(Declaration::File(decl))
+
+            Use | Alias => {
+                let decl: ParseResult<Declaration> = match token.kind {
+                    Use => parse_use_clause(stream).map(|d| Declaration::Use(d)),
+                    Alias => parse_alias_declaration(stream).map(|d| Declaration::Alias(d)),
+                    _ => unreachable!(),
+                };
+                match decl.or_recover_until(stream, messages, is_recover_token) {
+                    Ok(decl) => declarations.push(decl),
+                    Err(err) => {
+                        messages.push(err);
+                        continue;
+                    }
                 }
             }
-            Component => declarations.push(Declaration::Component(parse_component_declaration(
-                stream, messages,
-            )?)),
-            Attribute => {
-                for decl in parse_attribute(stream)? {
-                    declarations.push(Declaration::Attribute(decl))
-                }
-            }
-            Alias => declarations.push(Declaration::Alias(parse_alias_declaration(stream)?)),
-            Impure | Function | Procedure => declarations.push(parse_subprogram(stream, messages)?),
-            Package => {
-                declarations.push(Declaration::Package(parse_package_instantiation(stream)?))
-            }
-            For => declarations.push(Declaration::Configuration(
-                parse_configuration_specification(stream)?,
-            )),
-            Begin | End => {
-                break;
-            }
+
             _ => {
-                stream.move_after(&token);
-                check_declarative_part(&token, false, false)?;
+                messages.push(token.kinds_error(&[
+                    Type, Subtype, Component, Impure, Function, Procedure, Package, For, File,
+                    Shared, Constant, Signal, Variable, Attribute, Use, Alias,
+                ]));
+                stream.skip_until(is_recover_token)?;
+                continue;
             }
         }
     }
@@ -131,7 +164,8 @@ pub fn parse_declarative_part_leave_end_token(
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use crate::ast::{ObjectClass, ObjectDeclaration};
+    use crate::message::Message;
     use crate::test_util::Code;
 
     #[test]
@@ -173,6 +207,38 @@ package ident is new lib.foo.bar
                         .association_list()
                 )
             }
+        );
+    }
+
+    #[test]
+    fn parse_declarative_part_recover() {
+        let code = Code::new(
+            "\
+var invalid: broken;
+constant x: natural := 5;
+",
+        );
+        let (decls, msgs) =
+            code.with_partial_stream_messages(parse_declarative_part_leave_end_token);
+        assert_eq!(
+            decls,
+            Ok(vec![Declaration::Object(ObjectDeclaration {
+                class: ObjectClass::Constant,
+                ident: code.s1("x").ident(),
+                subtype_indication: code.s1("natural").subtype_indication(),
+                expression: Some(code.s1("5").expr())
+            })])
+        );
+
+        assert_eq!(
+            msgs,
+            vec![Message::error(
+                code.s1("var").pos(),
+                "Expected 'type', 'subtype', 'component', 'impure', \
+                 'function', 'procedure', 'package', 'for', 'file', \
+                 'shared', 'constant', 'signal', 'variable', 'attribute', \
+                 'use' or 'alias'"
+            )]
         );
     }
 

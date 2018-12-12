@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::ast::Ident;
-use crate::message::ParseResult;
+use crate::message::{MessageHandler, ParseResult};
 use crate::tokenizer::{kinds_str, Kind, Kind::*, Token, TokenState, Tokenizer};
 
 pub struct TokenStream {
@@ -102,6 +102,16 @@ impl TokenStream {
         Ok(self.pop_if_kind(kind)?.is_some())
     }
 
+    pub fn skip_until(&mut self, cond: fn(&Kind) -> bool) -> ParseResult<()> {
+        loop {
+            let token = self.peek_expect()?;
+            if cond(&token.kind) {
+                return Ok(());
+            }
+            self.pop()?;
+        }
+    }
+
     pub fn pop_optional_ident(&mut self) -> ParseResult<Option<Ident>> {
         if let Some(token) = self.pop_if_kind(Identifier)? {
             Ok(Some(token.expect_ident()?))
@@ -124,6 +134,46 @@ impl TokenStream {
             Range => Ok(Ident {item: self.tokenizer.range_ident.clone(),
                                pos: token.pos})
         )
+    }
+}
+
+pub trait Recover<T> {
+    fn or_recover_until(
+        self,
+        stream: &mut TokenStream,
+        msgs: &mut MessageHandler,
+        cond: fn(&Kind) -> bool,
+    ) -> ParseResult<T>;
+
+    fn log(self, msgs: &mut MessageHandler);
+}
+
+impl<T: std::fmt::Debug> Recover<T> for ParseResult<T> {
+    fn or_recover_until(
+        self,
+        stream: &mut TokenStream,
+        msgs: &mut MessageHandler,
+        cond: fn(&Kind) -> bool,
+    ) -> ParseResult<T> {
+        if self.is_ok() {
+            return self;
+        }
+
+        let res = stream.skip_until(cond);
+        match res {
+            Ok(_) => self,
+            Err(err) => {
+                msgs.push(self.unwrap_err());
+                Err(err)
+            }
+        }
+    }
+
+    fn log(self, msgs: &mut MessageHandler) {
+        match self {
+            Err(err) => msgs.push(err),
+            Ok(_) => (),
+        }
     }
 }
 
@@ -253,5 +303,17 @@ mod tests {
         let (_, _, mut stream) = new("hello world again");
 
         assert_eq!(stream.pop_kind(), Ok(Some(Identifier)));
+    }
+
+    #[test]
+    fn skip_until() {
+        let (_, _, mut stream) = new("a begin for + ;");
+        assert!(stream
+            .skip_until(|ref k| match k {
+                Plus => true,
+                _ => false,
+            })
+            .is_ok());
+        assert_eq!(stream.peek().map(|t| t.map(|t| t.kind)), Ok(Some(Plus)));
     }
 }
