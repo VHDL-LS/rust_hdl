@@ -164,7 +164,13 @@ impl Source {
     }
 }
 
-/// Lexical position in a file
+#[derive(PartialEq, Clone, Debug)]
+pub struct Pos {
+    pub start: usize,
+    pub length: usize,
+}
+
+/// Lexical position in a file.
 #[derive(PartialEq, Clone, Debug, Eq, Hash)]
 pub struct SrcPos {
     /// The source
