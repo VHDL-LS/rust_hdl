@@ -25,6 +25,7 @@ mod message;
 mod names;
 mod object_declaration;
 mod parser;
+mod processing;
 mod project;
 mod range;
 mod sequential_statement;
