@@ -2,9 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
+// Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 pub mod ast;
+pub mod processing;
 #[macro_use]
 mod tokenizer;
 mod alias_declaration;
@@ -25,7 +26,6 @@ mod message;
 mod names;
 mod object_declaration;
 mod parser;
-mod processing;
 mod project;
 mod range;
 mod sequential_statement;
