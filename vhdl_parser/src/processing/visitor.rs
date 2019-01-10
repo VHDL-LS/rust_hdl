@@ -9,14 +9,13 @@
 
 use std::borrow::Borrow;
 
-use crate::message::Message;
 use crate::ast::*;
-use crate::source::{WithPos, SrcPos};
+use crate::message::Message;
+use crate::source::{SrcPos, WithPos};
 use crate::symbol_table::Symbol;
 
 #[allow(unused_variables)] // Default implementations for events are empty and do not use any parameters
 pub trait Visitor<'a> {
-    
     // ===================================
     // Results
     // -----------------------------------
@@ -25,310 +24,354 @@ pub trait Visitor<'a> {
     // ===================================
     // Source position
     // -----------------------------------
-    fn enter_src_pos(&mut self, src_pos: &'a SrcPos){}
-    fn exit_src_pos(&mut self, src_pos: &'a SrcPos){}
+    fn enter_src_pos(&mut self, src_pos: &'a SrcPos) {}
+    fn exit_src_pos(&mut self, src_pos: &'a SrcPos) {}
 
     // ===================================
     // AST events
     // -----------------------------------
-    fn enter_symbol(&mut self, node: &Symbol){}
-    fn exit_symbol(&mut self, node: &Symbol){}
-    fn enter_attribute_name(&mut self, node: &AttributeName){}
-    fn exit_attribute_name(&mut self, node: &AttributeName){}
-    fn enter_external_path(&mut self, node: &ExternalPath){}
-    fn exit_external_path(&mut self, node: &ExternalPath){}
-    fn enter_external_name(&mut self, node: &ExternalName){}
-    fn exit_external_name(&mut self, node: &ExternalName){}
-    fn enter_name(&mut self, node: &Name){}
-    fn exit_name(&mut self, node: &Name){}
-    fn enter_selected_name(&mut self, node: &SelectedName){}
-    fn exit_selected_name(&mut self, node: &SelectedName){}
-    fn enter_function_call(&mut self, node: &FunctionCall){}
-    fn exit_function_call(&mut self, node: &FunctionCall){}
-    fn enter_choice(&mut self, node: &Choice){}
-    fn exit_choice(&mut self, node: &Choice){}
-    fn enter_element_association(&mut self, node: &ElementAssociation){}
-    fn exit_element_association(&mut self, node: &ElementAssociation){}
-    fn enter_actual_part(&mut self, node: &ActualPart){}
-    fn exit_actual_part(&mut self, node: &ActualPart){}
-    fn enter_association_element(&mut self, node: &AssociationElement){}
-    fn exit_association_element(&mut self, node: &AssociationElement){}
-    fn enter_abstract_literal(&mut self, node: &AbstractLiteral){}
-    fn exit_abstract_literal(&mut self, node: &AbstractLiteral){}
-    fn enter_bit_string(&mut self, node: &BitString){}
-    fn exit_bit_string(&mut self, node: &BitString){}
-    fn enter_literal(&mut self, node: &Literal){}
-    fn exit_literal(&mut self, node: &Literal){}
-    fn enter_allocator(&mut self, node: &Allocator){}
-    fn exit_allocator(&mut self, node: &Allocator){}
-    fn enter_qualified_expression(&mut self, node: &QualifiedExpression){}
-    fn exit_qualified_expression(&mut self, node: &QualifiedExpression){}
-    fn enter_expression(&mut self, node: &Expression){}
-    fn exit_expression(&mut self, node: &Expression){}
-    fn enter_direction(&mut self, node: &Direction){}
-    fn exit_direction(&mut self, node: &Direction){}
-    fn enter_discrete_range(&mut self, node: &DiscreteRange){}
-    fn exit_discrete_range(&mut self, node: &DiscreteRange){}
-    fn enter_range_constraint(&mut self, node: &RangeConstraint){}
-    fn exit_range_constraint(&mut self, node: &RangeConstraint){}
-    fn enter_range(&mut self, node: &Range){}
-    fn exit_range(&mut self, node: &Range){}
-    fn enter_element_constraint(&mut self, node: &ElementConstraint){}
-    fn exit_element_constraint(&mut self, node: &ElementConstraint){}
-    fn enter_subtype_constraint(&mut self, node: &SubtypeConstraint){}
-    fn exit_subtype_constraint(&mut self, node: &SubtypeConstraint){}
-    fn enter_record_element_resolution(&mut self, node: &RecordElementResolution){}
-    fn exit_record_element_resolution(&mut self, node: &RecordElementResolution){}
-    fn enter_resolution_indication(&mut self, node: &ResolutionIndication){}
-    fn exit_resolution_indication(&mut self, node: &ResolutionIndication){}
-    fn enter_subtype_indication(&mut self, node: &SubtypeIndication){}
-    fn exit_subtype_indication(&mut self, node: &SubtypeIndication){}
-    fn enter_array_index(&mut self, node: &ArrayIndex){}
-    fn exit_array_index(&mut self, node: &ArrayIndex){}
-    fn enter_element_declaration(&mut self, node: &ElementDeclaration){}
-    fn exit_element_declaration(&mut self, node: &ElementDeclaration){}
-    fn enter_protected_type_declarative_item(&mut self, node: &ProtectedTypeDeclarativeItem){}
-    fn exit_protected_type_declarative_item(&mut self, node: &ProtectedTypeDeclarativeItem){}
-    fn enter_designator(&mut self, node: &Designator){}
-    fn exit_designator(&mut self, node: &Designator){}
-    fn enter_alias_declaration(&mut self, node: &AliasDeclaration){}
-    fn exit_alias_declaration(&mut self, node: &AliasDeclaration){}
-    fn enter_attribute_declaration(&mut self, node: &AttributeDeclaration){}
-    fn exit_attribute_declaration(&mut self, node: &AttributeDeclaration){}
-    fn enter_entity_tag(&mut self, node: &EntityTag){}
-    fn exit_entity_tag(&mut self, node: &EntityTag){}
-    fn enter_entity_name(&mut self, node: &EntityName){}
-    fn exit_entity_name(&mut self, node: &EntityName){}
-    fn enter_entity_class(&mut self, node: &EntityClass){}
-    fn exit_entity_class(&mut self, node: &EntityClass){}
-    fn enter_attribute_specification(&mut self, node: &AttributeSpecification){}
-    fn exit_attribute_specification(&mut self, node: &AttributeSpecification){}
-    fn enter_attribute(&mut self, node: &Attribute){}
-    fn exit_attribute(&mut self, node: &Attribute){}
-    fn enter_protected_type_declaration(&mut self, node: &ProtectedTypeDeclaration){}
-    fn exit_protected_type_declaration(&mut self, node: &ProtectedTypeDeclaration){}
-    fn enter_protected_type_body(&mut self, node: &ProtectedTypeBody){}
-    fn exit_protected_type_body(&mut self, node: &ProtectedTypeBody){}
-    fn enter_physical_type_declaration(&mut self, node: &PhysicalTypeDeclaration){}
-    fn exit_physical_type_declaration(&mut self, node: &PhysicalTypeDeclaration){}
-    fn enter_enumeration_literal(&mut self, node: &EnumerationLiteral){}
-    fn exit_enumeration_literal(&mut self, node: &EnumerationLiteral){}
-    fn enter_type_definition(&mut self, node: &TypeDefinition){}
-    fn exit_type_definition(&mut self, node: &TypeDefinition){}
-    fn enter_type_declaration(&mut self, node: &TypeDeclaration){}
-    fn exit_type_declaration(&mut self, node: &TypeDeclaration){}
-    fn enter_object_class(&mut self, node: &ObjectClass){}
-    fn exit_object_class(&mut self, node: &ObjectClass){}
-    fn enter_object_declaration(&mut self, node: &ObjectDeclaration){}
-    fn exit_object_declaration(&mut self, node: &ObjectDeclaration){}
-    fn enter_file_declaration(&mut self, node: &FileDeclaration){}
-    fn exit_file_declaration(&mut self, node: &FileDeclaration){}
-    fn enter_subprogram_designator(&mut self, node: &SubprogramDesignator){}
-    fn exit_subprogram_designator(&mut self, node: &SubprogramDesignator){}
-    fn enter_procedure_specification(&mut self, node: &ProcedureSpecification){}
-    fn exit_procedure_specification(&mut self, node: &ProcedureSpecification){}
-    fn enter_function_specification(&mut self, node: &FunctionSpecification){}
-    fn exit_function_specification(&mut self, node: &FunctionSpecification){}
-    fn enter_subprogram_body(&mut self, node: &SubprogramBody){}
-    fn exit_subprogram_body(&mut self, node: &SubprogramBody){}
-    fn enter_signature(&mut self, node: &Signature){}
-    fn exit_signature(&mut self, node: &Signature){}
-    fn enter_subprogram_declaration(&mut self, node: &SubprogramDeclaration){}
-    fn exit_subprogram_declaration(&mut self, node: &SubprogramDeclaration){}
-    fn enter_interface_file_declaration(&mut self, node: &InterfaceFileDeclaration){}
-    fn exit_interface_file_declaration(&mut self, node: &InterfaceFileDeclaration){}
-    fn enter_interface_object_declaration(&mut self, node: &InterfaceObjectDeclaration){}
-    fn exit_interface_object_declaration(&mut self, node: &InterfaceObjectDeclaration){}
-    fn enter_subprogram_default(&mut self, node: &SubprogramDefault){}
-    fn exit_subprogram_default(&mut self, node: &SubprogramDefault){}
-    fn enter_interface_package_generic_map_aspect(&mut self, node: &InterfacePackageGenericMapAspect){}
-    fn exit_interface_package_generic_map_aspect(&mut self, node: &InterfacePackageGenericMapAspect){}
-    fn enter_interface_package_declaration(&mut self, node: &InterfacePackageDeclaration){}
-    fn exit_interface_package_declaration(&mut self, node: &InterfacePackageDeclaration){}
-    fn enter_interface_declaration(&mut self, node: &InterfaceDeclaration){}
-    fn exit_interface_declaration(&mut self, node: &InterfaceDeclaration){}
-    fn enter_mode(&mut self, node: &Mode){}
-    fn exit_mode(&mut self, node: &Mode){}
-    fn enter_port_clause(&mut self, node: &PortClause){}
-    fn exit_port_clause(&mut self, node: &PortClause){}
-    fn enter_component_declaration(&mut self, node: &ComponentDeclaration){}
-    fn exit_component_declaration(&mut self, node: &ComponentDeclaration){}
-    fn enter_declaration(&mut self, node: &Declaration){}
-    fn exit_declaration(&mut self, node: &Declaration){}
-    fn enter_wait_statement(&mut self, node: &WaitStatement){}
-    fn exit_wait_statement(&mut self, node: &WaitStatement){}
-    fn enter_assert_statement(&mut self, node: &AssertStatement){}
-    fn exit_assert_statement(&mut self, node: &AssertStatement){}
-    fn enter_report_statement(&mut self, node: &ReportStatement){}
-    fn exit_report_statement(&mut self, node: &ReportStatement){}
-    fn enter_target(&mut self, node: &Target){}
-    fn exit_target(&mut self, node: &Target){}
-    fn enter_waveform_element(&mut self, node: &WaveformElement){}
-    fn exit_waveform_element(&mut self, node: &WaveformElement){}
-    fn enter_waveform(&mut self, node: &Waveform){}
-    fn exit_waveform(&mut self, node: &Waveform){}
-    fn enter_delay_mechanism(&mut self, node: &DelayMechanism){}
-    fn exit_delay_mechanism(&mut self, node: &DelayMechanism){}
-    fn enter_signal_assignment(&mut self, node: &SignalAssignment){}
-    fn exit_signal_assignment(&mut self, node: &SignalAssignment){}
-    fn enter_variable_assignment(&mut self, node: &VariableAssignment){}
-    fn exit_variable_assignment(&mut self, node: &VariableAssignment){}
-    fn enter_assignment_right_hand_waveform(&mut self, node: &AssignmentRightHand<Waveform>){}
-    fn exit_assignment_right_hand_waveform(&mut self, node: &AssignmentRightHand<Waveform>){}
-    fn enter_assignment_right_hand_with_pos_expression(&mut self, node: &AssignmentRightHand<WithPos<Expression>>){}
-    fn exit_assignment_right_hand_with_pos_expression(&mut self, node: &AssignmentRightHand<WithPos<Expression>>){}
-    fn enter_conditional_expression(&mut self, node: &ConditionalExpression){}
-    fn exit_conditional_expression(&mut self, node: &ConditionalExpression){}
-    fn enter_conditional_generate_body(&mut self, node: &Conditional<GenerateBody>){}
-    fn exit_conditional_generate_body(&mut self, node: &Conditional<GenerateBody>){}
-    fn enter_conditional_vec_labeled_sequential_statement(&mut self, node: &Conditional<Vec<LabeledSequentialStatement>>){}
-    fn exit_conditional_vec_labeled_sequential_statement(&mut self, node: &Conditional<Vec<LabeledSequentialStatement>>){}
-    fn enter_conditional_waveform(&mut self, node: &Conditional<Waveform>){}
-    fn exit_conditional_waveform(&mut self, node: &Conditional<Waveform>){}
-    fn enter_if_generate_statement(&mut self, node: &IfGenerateStatement){}
-    fn exit_if_generate_statement(&mut self, node: &IfGenerateStatement){}
-    fn enter_if_statement(&mut self, node: &IfStatement){}
-    fn exit_if_statement(&mut self, node: &IfStatement){}
-    fn enter_conditional_expressions(&mut self, node: &ConditionalExpressions){}
-    fn exit_conditional_expressions(&mut self, node: &ConditionalExpressions){}
-    fn enter_conditionals_waveform(&mut self, node: &Conditionals<Waveform>){}
-    fn exit_conditionals_waveform(&mut self, node: &Conditionals<Waveform>){}
-    fn enter_alternative_generate_body(&mut self, node: &Alternative<GenerateBody>){}
-    fn exit_alternative_generate_body(&mut self, node: &Alternative<GenerateBody>){}
-    fn enter_alternative_vec_labeled_sequential_statement(&mut self, node: &Alternative<Vec<LabeledSequentialStatement>>){}
-    fn exit_alternative_vec_labeled_sequential_statement(&mut self, node: &Alternative<Vec<LabeledSequentialStatement>>){}
-    fn enter_alternative_waveform(&mut self, node: &Alternative<Waveform>){}
-    fn exit_alternative_waveform(&mut self, node: &Alternative<Waveform>){}
-    fn enter_alternative_with_pos_expression(&mut self, node: &Alternative<WithPos<Expression>>){}
-    fn exit_alternative_with_pos_expression(&mut self, node: &Alternative<WithPos<Expression>>){}
-    fn enter_case_generate_statement(&mut self, node: &CaseGenerateStatement){}
-    fn exit_case_generate_statement(&mut self, node: &CaseGenerateStatement){}
-    fn enter_case_statement(&mut self, node: &CaseStatement){}
-    fn exit_case_statement(&mut self, node: &CaseStatement){}
-    fn enter_selection_waveform(&mut self, node: &Selection<Waveform>){}
-    fn exit_selection_waveform(&mut self, node: &Selection<Waveform>){}
-    fn enter_selection_with_pos_expression(&mut self, node: &Selection<WithPos<Expression>>){}
-    fn exit_selection_with_pos_expression(&mut self, node: &Selection<WithPos<Expression>>){}
-    fn enter_iteration_scheme(&mut self, node: &IterationScheme){}
-    fn exit_iteration_scheme(&mut self, node: &IterationScheme){}
-    fn enter_loop_statement(&mut self, node: &LoopStatement){}
-    fn exit_loop_statement(&mut self, node: &LoopStatement){}
-    fn enter_next_statement(&mut self, node: &NextStatement){}
-    fn exit_next_statement(&mut self, node: &NextStatement){}
-    fn enter_exit_statement(&mut self, node: &ExitStatement){}
-    fn exit_exit_statement(&mut self, node: &ExitStatement){}
-    fn enter_return_statement(&mut self, node: &ReturnStatement){}
-    fn exit_return_statement(&mut self, node: &ReturnStatement){}
-    fn enter_sequential_statement(&mut self, node: &SequentialStatement){}
-    fn exit_sequential_statement(&mut self, node: &SequentialStatement){}
-    fn enter_labeled_sequential_statement(&mut self, node: &LabeledSequentialStatement){}
-    fn exit_labeled_sequential_statement(&mut self, node: &LabeledSequentialStatement){}
-    fn enter_block_statement(&mut self, node: &BlockStatement){}
-    fn exit_block_statement(&mut self, node: &BlockStatement){}
-    fn enter_sensitivity_list(&mut self, node: &SensitivityList){}
-    fn exit_sensitivity_list(&mut self, node: &SensitivityList){}
-    fn enter_process_statement(&mut self, node: &ProcessStatement){}
-    fn exit_process_statement(&mut self, node: &ProcessStatement){}
-    fn enter_concurrent_procedure_call(&mut self, node: &ConcurrentProcedureCall){}
-    fn exit_concurrent_procedure_call(&mut self, node: &ConcurrentProcedureCall){}
-    fn enter_concurrent_assert_statement(&mut self, node: &ConcurrentAssertStatement){}
-    fn exit_concurrent_assert_statement(&mut self, node: &ConcurrentAssertStatement){}
-    fn enter_concurrent_signal_assignment(&mut self, node: &ConcurrentSignalAssignment){}
-    fn exit_concurrent_signal_assignment(&mut self, node: &ConcurrentSignalAssignment){}
-    fn enter_instantiated_unit(&mut self, node: &InstantiatedUnit){}
-    fn exit_instantiated_unit(&mut self, node: &InstantiatedUnit){}
-    fn enter_instantiation_statement(&mut self, node: &InstantiationStatement){}
-    fn exit_instantiation_statement(&mut self, node: &InstantiationStatement){}
-    fn enter_generate_body(&mut self, node: &GenerateBody){}
-    fn exit_generate_body(&mut self, node: &GenerateBody){}
-    fn enter_for_generate_statement(&mut self, node: &ForGenerateStatement){}
-    fn exit_for_generate_statement(&mut self, node: &ForGenerateStatement){}
-    fn enter_concurrent_statement(&mut self, node: &ConcurrentStatement){}
-    fn exit_concurrent_statement(&mut self, node: &ConcurrentStatement){}
-    fn enter_labeled_concurrent_statement(&mut self, node: &LabeledConcurrentStatement){}
-    fn exit_labeled_concurrent_statement(&mut self, node: &LabeledConcurrentStatement){}
-    fn enter_library_clause(&mut self, node: &LibraryClause){}
-    fn exit_library_clause(&mut self, node: &LibraryClause){}
-    fn enter_use_clause(&mut self, node: &UseClause){}
-    fn exit_use_clause(&mut self, node: &UseClause){}
-    fn enter_context_reference(&mut self, node: &ContextReference){}
-    fn exit_context_reference(&mut self, node: &ContextReference){}
-    fn enter_context_item(&mut self, node: &ContextItem){}
-    fn exit_context_item(&mut self, node: &ContextItem){}
-    fn enter_context_declaration(&mut self, node: &ContextDeclaration){}
-    fn exit_context_declaration(&mut self, node: &ContextDeclaration){}
-    fn enter_package_instantiation(&mut self, node: &PackageInstantiation){}
-    fn exit_package_instantiation(&mut self, node: &PackageInstantiation){}
-    fn enter_instantiation_list(&mut self, node: &InstantiationList){}
-    fn exit_instantiation_list(&mut self, node: &InstantiationList){}
-    fn enter_entity_aspect(&mut self, node: &EntityAspect){}
-    fn exit_entity_aspect(&mut self, node: &EntityAspect){}
-    fn enter_binding_indication(&mut self, node: &BindingIndication){}
-    fn exit_binding_indication(&mut self, node: &BindingIndication){}
-    fn enter_component_specification(&mut self, node: &ComponentSpecification){}
-    fn exit_component_specification(&mut self, node: &ComponentSpecification){}
-    fn enter_v_unit_binding_indication(&mut self, node: &VUnitBindingIndication){}
-    fn exit_v_unit_binding_indication(&mut self, node: &VUnitBindingIndication){}
-    fn enter_configuration_specification(&mut self, node: &ConfigurationSpecification){}
-    fn exit_configuration_specification(&mut self, node: &ConfigurationSpecification){}
-    fn enter_configuration_declarative_item(&mut self, node: &ConfigurationDeclarativeItem){}
-    fn exit_configuration_declarative_item(&mut self, node: &ConfigurationDeclarativeItem){}
-    fn enter_component_configuration(&mut self, node: &ComponentConfiguration){}
-    fn exit_component_configuration(&mut self, node: &ComponentConfiguration){}
-    fn enter_configuration_item(&mut self, node: &ConfigurationItem){}
-    fn exit_configuration_item(&mut self, node: &ConfigurationItem){}
-    fn enter_block_configuration(&mut self, node: &BlockConfiguration){}
-    fn exit_block_configuration(&mut self, node: &BlockConfiguration){}
-    fn enter_configuration_declaration(&mut self, node: &ConfigurationDeclaration){}
-    fn exit_configuration_declaration(&mut self, node: &ConfigurationDeclaration){}
-    fn enter_entity_declaration(&mut self, node: &EntityDeclaration){}
-    fn exit_entity_declaration(&mut self, node: &EntityDeclaration){}
-    fn enter_architecture_body(&mut self, node: &ArchitectureBody){}
-    fn exit_architecture_body(&mut self, node: &ArchitectureBody){}
-    fn enter_package_declaration(&mut self, node: &PackageDeclaration){}
-    fn exit_package_declaration(&mut self, node: &PackageDeclaration){}
-    fn enter_package_body(&mut self, node: &PackageBody){}
-    fn exit_package_body(&mut self, node: &PackageBody){}
-    fn enter_primary_unit(&mut self, node: &PrimaryUnit){}
-    fn exit_primary_unit(&mut self, node: &PrimaryUnit){}
-    fn enter_secondary_unit(&mut self, node: &SecondaryUnit){}
-    fn exit_secondary_unit(&mut self, node: &SecondaryUnit){}
-    fn enter_design_unit_entity_declaration(&mut self, node: &DesignUnit<EntityDeclaration>){}
-    fn exit_design_unit_entity_declaration(&mut self, node: &DesignUnit<EntityDeclaration>){}
-    fn enter_design_unit_package_instantiation(&mut self, node: &DesignUnit<PackageInstantiation>){}
-    fn exit_design_unit_package_instantiation(&mut self, node: &DesignUnit<PackageInstantiation>){}
-    fn enter_design_unit_configuration_declaration(&mut self, node: &DesignUnit<ConfigurationDeclaration>){}
-    fn exit_design_unit_configuration_declaration(&mut self, node: &DesignUnit<ConfigurationDeclaration>){}
-    fn enter_design_unit_package_body(&mut self, node: &DesignUnit<PackageBody>){}
-    fn exit_design_unit_package_body(&mut self, node: &DesignUnit<PackageBody>){}
-    fn enter_design_unit_architecture_body(&mut self, node: &DesignUnit<ArchitectureBody>){}
-    fn exit_design_unit_architecture_body(&mut self, node: &DesignUnit<ArchitectureBody>){}
-    fn enter_design_unit_package_declaration(&mut self, node: &DesignUnit<PackageDeclaration>){}
-    fn exit_design_unit_package_declaration(&mut self, node: &DesignUnit<PackageDeclaration>){}
-    fn enter_any_design_unit(&mut self, node: &AnyDesignUnit){}
-    fn exit_any_design_unit(&mut self, node: &AnyDesignUnit){}
-    fn enter_design_file(&mut self, node: &DesignFile){}
-    fn exit_design_file(&mut self, node: &DesignFile){}
+    fn enter_symbol(&mut self, node: &Symbol) {}
+    fn exit_symbol(&mut self, node: &Symbol) {}
+    fn enter_attribute_name(&mut self, node: &AttributeName) {}
+    fn exit_attribute_name(&mut self, node: &AttributeName) {}
+    fn enter_external_path(&mut self, node: &ExternalPath) {}
+    fn exit_external_path(&mut self, node: &ExternalPath) {}
+    fn enter_external_name(&mut self, node: &ExternalName) {}
+    fn exit_external_name(&mut self, node: &ExternalName) {}
+    fn enter_name(&mut self, node: &Name) {}
+    fn exit_name(&mut self, node: &Name) {}
+    fn enter_selected_name(&mut self, node: &SelectedName) {}
+    fn exit_selected_name(&mut self, node: &SelectedName) {}
+    fn enter_function_call(&mut self, node: &FunctionCall) {}
+    fn exit_function_call(&mut self, node: &FunctionCall) {}
+    fn enter_choice(&mut self, node: &Choice) {}
+    fn exit_choice(&mut self, node: &Choice) {}
+    fn enter_element_association(&mut self, node: &ElementAssociation) {}
+    fn exit_element_association(&mut self, node: &ElementAssociation) {}
+    fn enter_actual_part(&mut self, node: &ActualPart) {}
+    fn exit_actual_part(&mut self, node: &ActualPart) {}
+    fn enter_association_element(&mut self, node: &AssociationElement) {}
+    fn exit_association_element(&mut self, node: &AssociationElement) {}
+    fn enter_abstract_literal(&mut self, node: &AbstractLiteral) {}
+    fn exit_abstract_literal(&mut self, node: &AbstractLiteral) {}
+    fn enter_bit_string(&mut self, node: &BitString) {}
+    fn exit_bit_string(&mut self, node: &BitString) {}
+    fn enter_literal(&mut self, node: &Literal) {}
+    fn exit_literal(&mut self, node: &Literal) {}
+    fn enter_allocator(&mut self, node: &Allocator) {}
+    fn exit_allocator(&mut self, node: &Allocator) {}
+    fn enter_qualified_expression(&mut self, node: &QualifiedExpression) {}
+    fn exit_qualified_expression(&mut self, node: &QualifiedExpression) {}
+    fn enter_expression(&mut self, node: &Expression) {}
+    fn exit_expression(&mut self, node: &Expression) {}
+    fn enter_direction(&mut self, node: &Direction) {}
+    fn exit_direction(&mut self, node: &Direction) {}
+    fn enter_discrete_range(&mut self, node: &DiscreteRange) {}
+    fn exit_discrete_range(&mut self, node: &DiscreteRange) {}
+    fn enter_range_constraint(&mut self, node: &RangeConstraint) {}
+    fn exit_range_constraint(&mut self, node: &RangeConstraint) {}
+    fn enter_range(&mut self, node: &Range) {}
+    fn exit_range(&mut self, node: &Range) {}
+    fn enter_element_constraint(&mut self, node: &ElementConstraint) {}
+    fn exit_element_constraint(&mut self, node: &ElementConstraint) {}
+    fn enter_subtype_constraint(&mut self, node: &SubtypeConstraint) {}
+    fn exit_subtype_constraint(&mut self, node: &SubtypeConstraint) {}
+    fn enter_record_element_resolution(&mut self, node: &RecordElementResolution) {}
+    fn exit_record_element_resolution(&mut self, node: &RecordElementResolution) {}
+    fn enter_resolution_indication(&mut self, node: &ResolutionIndication) {}
+    fn exit_resolution_indication(&mut self, node: &ResolutionIndication) {}
+    fn enter_subtype_indication(&mut self, node: &SubtypeIndication) {}
+    fn exit_subtype_indication(&mut self, node: &SubtypeIndication) {}
+    fn enter_array_index(&mut self, node: &ArrayIndex) {}
+    fn exit_array_index(&mut self, node: &ArrayIndex) {}
+    fn enter_element_declaration(&mut self, node: &ElementDeclaration) {}
+    fn exit_element_declaration(&mut self, node: &ElementDeclaration) {}
+    fn enter_protected_type_declarative_item(&mut self, node: &ProtectedTypeDeclarativeItem) {}
+    fn exit_protected_type_declarative_item(&mut self, node: &ProtectedTypeDeclarativeItem) {}
+    fn enter_designator(&mut self, node: &Designator) {}
+    fn exit_designator(&mut self, node: &Designator) {}
+    fn enter_alias_declaration(&mut self, node: &AliasDeclaration) {}
+    fn exit_alias_declaration(&mut self, node: &AliasDeclaration) {}
+    fn enter_attribute_declaration(&mut self, node: &AttributeDeclaration) {}
+    fn exit_attribute_declaration(&mut self, node: &AttributeDeclaration) {}
+    fn enter_entity_tag(&mut self, node: &EntityTag) {}
+    fn exit_entity_tag(&mut self, node: &EntityTag) {}
+    fn enter_entity_name(&mut self, node: &EntityName) {}
+    fn exit_entity_name(&mut self, node: &EntityName) {}
+    fn enter_entity_class(&mut self, node: &EntityClass) {}
+    fn exit_entity_class(&mut self, node: &EntityClass) {}
+    fn enter_attribute_specification(&mut self, node: &AttributeSpecification) {}
+    fn exit_attribute_specification(&mut self, node: &AttributeSpecification) {}
+    fn enter_attribute(&mut self, node: &Attribute) {}
+    fn exit_attribute(&mut self, node: &Attribute) {}
+    fn enter_protected_type_declaration(&mut self, node: &ProtectedTypeDeclaration) {}
+    fn exit_protected_type_declaration(&mut self, node: &ProtectedTypeDeclaration) {}
+    fn enter_protected_type_body(&mut self, node: &ProtectedTypeBody) {}
+    fn exit_protected_type_body(&mut self, node: &ProtectedTypeBody) {}
+    fn enter_physical_type_declaration(&mut self, node: &PhysicalTypeDeclaration) {}
+    fn exit_physical_type_declaration(&mut self, node: &PhysicalTypeDeclaration) {}
+    fn enter_enumeration_literal(&mut self, node: &EnumerationLiteral) {}
+    fn exit_enumeration_literal(&mut self, node: &EnumerationLiteral) {}
+    fn enter_type_definition(&mut self, node: &TypeDefinition) {}
+    fn exit_type_definition(&mut self, node: &TypeDefinition) {}
+    fn enter_type_declaration(&mut self, node: &TypeDeclaration) {}
+    fn exit_type_declaration(&mut self, node: &TypeDeclaration) {}
+    fn enter_object_class(&mut self, node: &ObjectClass) {}
+    fn exit_object_class(&mut self, node: &ObjectClass) {}
+    fn enter_object_declaration(&mut self, node: &ObjectDeclaration) {}
+    fn exit_object_declaration(&mut self, node: &ObjectDeclaration) {}
+    fn enter_file_declaration(&mut self, node: &FileDeclaration) {}
+    fn exit_file_declaration(&mut self, node: &FileDeclaration) {}
+    fn enter_subprogram_designator(&mut self, node: &SubprogramDesignator) {}
+    fn exit_subprogram_designator(&mut self, node: &SubprogramDesignator) {}
+    fn enter_procedure_specification(&mut self, node: &ProcedureSpecification) {}
+    fn exit_procedure_specification(&mut self, node: &ProcedureSpecification) {}
+    fn enter_function_specification(&mut self, node: &FunctionSpecification) {}
+    fn exit_function_specification(&mut self, node: &FunctionSpecification) {}
+    fn enter_subprogram_body(&mut self, node: &SubprogramBody) {}
+    fn exit_subprogram_body(&mut self, node: &SubprogramBody) {}
+    fn enter_signature(&mut self, node: &Signature) {}
+    fn exit_signature(&mut self, node: &Signature) {}
+    fn enter_subprogram_declaration(&mut self, node: &SubprogramDeclaration) {}
+    fn exit_subprogram_declaration(&mut self, node: &SubprogramDeclaration) {}
+    fn enter_interface_file_declaration(&mut self, node: &InterfaceFileDeclaration) {}
+    fn exit_interface_file_declaration(&mut self, node: &InterfaceFileDeclaration) {}
+    fn enter_interface_object_declaration(&mut self, node: &InterfaceObjectDeclaration) {}
+    fn exit_interface_object_declaration(&mut self, node: &InterfaceObjectDeclaration) {}
+    fn enter_subprogram_default(&mut self, node: &SubprogramDefault) {}
+    fn exit_subprogram_default(&mut self, node: &SubprogramDefault) {}
+    fn enter_interface_package_generic_map_aspect(
+        &mut self,
+        node: &InterfacePackageGenericMapAspect,
+    ) {
+    }
+    fn exit_interface_package_generic_map_aspect(
+        &mut self,
+        node: &InterfacePackageGenericMapAspect,
+    ) {
+    }
+    fn enter_interface_package_declaration(&mut self, node: &InterfacePackageDeclaration) {}
+    fn exit_interface_package_declaration(&mut self, node: &InterfacePackageDeclaration) {}
+    fn enter_interface_declaration(&mut self, node: &InterfaceDeclaration) {}
+    fn exit_interface_declaration(&mut self, node: &InterfaceDeclaration) {}
+    fn enter_mode(&mut self, node: &Mode) {}
+    fn exit_mode(&mut self, node: &Mode) {}
+    fn enter_port_clause(&mut self, node: &PortClause) {}
+    fn exit_port_clause(&mut self, node: &PortClause) {}
+    fn enter_component_declaration(&mut self, node: &ComponentDeclaration) {}
+    fn exit_component_declaration(&mut self, node: &ComponentDeclaration) {}
+    fn enter_declaration(&mut self, node: &Declaration) {}
+    fn exit_declaration(&mut self, node: &Declaration) {}
+    fn enter_wait_statement(&mut self, node: &WaitStatement) {}
+    fn exit_wait_statement(&mut self, node: &WaitStatement) {}
+    fn enter_assert_statement(&mut self, node: &AssertStatement) {}
+    fn exit_assert_statement(&mut self, node: &AssertStatement) {}
+    fn enter_report_statement(&mut self, node: &ReportStatement) {}
+    fn exit_report_statement(&mut self, node: &ReportStatement) {}
+    fn enter_target(&mut self, node: &Target) {}
+    fn exit_target(&mut self, node: &Target) {}
+    fn enter_waveform_element(&mut self, node: &WaveformElement) {}
+    fn exit_waveform_element(&mut self, node: &WaveformElement) {}
+    fn enter_waveform(&mut self, node: &Waveform) {}
+    fn exit_waveform(&mut self, node: &Waveform) {}
+    fn enter_delay_mechanism(&mut self, node: &DelayMechanism) {}
+    fn exit_delay_mechanism(&mut self, node: &DelayMechanism) {}
+    fn enter_signal_assignment(&mut self, node: &SignalAssignment) {}
+    fn exit_signal_assignment(&mut self, node: &SignalAssignment) {}
+    fn enter_variable_assignment(&mut self, node: &VariableAssignment) {}
+    fn exit_variable_assignment(&mut self, node: &VariableAssignment) {}
+    fn enter_assignment_right_hand_waveform(&mut self, node: &AssignmentRightHand<Waveform>) {}
+    fn exit_assignment_right_hand_waveform(&mut self, node: &AssignmentRightHand<Waveform>) {}
+    fn enter_assignment_right_hand_with_pos_expression(
+        &mut self,
+        node: &AssignmentRightHand<WithPos<Expression>>,
+    ) {
+    }
+    fn exit_assignment_right_hand_with_pos_expression(
+        &mut self,
+        node: &AssignmentRightHand<WithPos<Expression>>,
+    ) {
+    }
+    fn enter_conditional_expression(&mut self, node: &ConditionalExpression) {}
+    fn exit_conditional_expression(&mut self, node: &ConditionalExpression) {}
+    fn enter_conditional_generate_body(&mut self, node: &Conditional<GenerateBody>) {}
+    fn exit_conditional_generate_body(&mut self, node: &Conditional<GenerateBody>) {}
+    fn enter_conditional_vec_labeled_sequential_statement(
+        &mut self,
+        node: &Conditional<Vec<LabeledSequentialStatement>>,
+    ) {
+    }
+    fn exit_conditional_vec_labeled_sequential_statement(
+        &mut self,
+        node: &Conditional<Vec<LabeledSequentialStatement>>,
+    ) {
+    }
+    fn enter_conditional_waveform(&mut self, node: &Conditional<Waveform>) {}
+    fn exit_conditional_waveform(&mut self, node: &Conditional<Waveform>) {}
+    fn enter_if_generate_statement(&mut self, node: &IfGenerateStatement) {}
+    fn exit_if_generate_statement(&mut self, node: &IfGenerateStatement) {}
+    fn enter_if_statement(&mut self, node: &IfStatement) {}
+    fn exit_if_statement(&mut self, node: &IfStatement) {}
+    fn enter_conditional_expressions(&mut self, node: &ConditionalExpressions) {}
+    fn exit_conditional_expressions(&mut self, node: &ConditionalExpressions) {}
+    fn enter_conditionals_waveform(&mut self, node: &Conditionals<Waveform>) {}
+    fn exit_conditionals_waveform(&mut self, node: &Conditionals<Waveform>) {}
+    fn enter_alternative_generate_body(&mut self, node: &Alternative<GenerateBody>) {}
+    fn exit_alternative_generate_body(&mut self, node: &Alternative<GenerateBody>) {}
+    fn enter_alternative_vec_labeled_sequential_statement(
+        &mut self,
+        node: &Alternative<Vec<LabeledSequentialStatement>>,
+    ) {
+    }
+    fn exit_alternative_vec_labeled_sequential_statement(
+        &mut self,
+        node: &Alternative<Vec<LabeledSequentialStatement>>,
+    ) {
+    }
+    fn enter_alternative_waveform(&mut self, node: &Alternative<Waveform>) {}
+    fn exit_alternative_waveform(&mut self, node: &Alternative<Waveform>) {}
+    fn enter_alternative_with_pos_expression(&mut self, node: &Alternative<WithPos<Expression>>) {}
+    fn exit_alternative_with_pos_expression(&mut self, node: &Alternative<WithPos<Expression>>) {}
+    fn enter_case_generate_statement(&mut self, node: &CaseGenerateStatement) {}
+    fn exit_case_generate_statement(&mut self, node: &CaseGenerateStatement) {}
+    fn enter_case_statement(&mut self, node: &CaseStatement) {}
+    fn exit_case_statement(&mut self, node: &CaseStatement) {}
+    fn enter_selection_waveform(&mut self, node: &Selection<Waveform>) {}
+    fn exit_selection_waveform(&mut self, node: &Selection<Waveform>) {}
+    fn enter_selection_with_pos_expression(&mut self, node: &Selection<WithPos<Expression>>) {}
+    fn exit_selection_with_pos_expression(&mut self, node: &Selection<WithPos<Expression>>) {}
+    fn enter_iteration_scheme(&mut self, node: &IterationScheme) {}
+    fn exit_iteration_scheme(&mut self, node: &IterationScheme) {}
+    fn enter_loop_statement(&mut self, node: &LoopStatement) {}
+    fn exit_loop_statement(&mut self, node: &LoopStatement) {}
+    fn enter_next_statement(&mut self, node: &NextStatement) {}
+    fn exit_next_statement(&mut self, node: &NextStatement) {}
+    fn enter_exit_statement(&mut self, node: &ExitStatement) {}
+    fn exit_exit_statement(&mut self, node: &ExitStatement) {}
+    fn enter_return_statement(&mut self, node: &ReturnStatement) {}
+    fn exit_return_statement(&mut self, node: &ReturnStatement) {}
+    fn enter_sequential_statement(&mut self, node: &SequentialStatement) {}
+    fn exit_sequential_statement(&mut self, node: &SequentialStatement) {}
+    fn enter_labeled_sequential_statement(&mut self, node: &LabeledSequentialStatement) {}
+    fn exit_labeled_sequential_statement(&mut self, node: &LabeledSequentialStatement) {}
+    fn enter_block_statement(&mut self, node: &BlockStatement) {}
+    fn exit_block_statement(&mut self, node: &BlockStatement) {}
+    fn enter_sensitivity_list(&mut self, node: &SensitivityList) {}
+    fn exit_sensitivity_list(&mut self, node: &SensitivityList) {}
+    fn enter_process_statement(&mut self, node: &ProcessStatement) {}
+    fn exit_process_statement(&mut self, node: &ProcessStatement) {}
+    fn enter_concurrent_procedure_call(&mut self, node: &ConcurrentProcedureCall) {}
+    fn exit_concurrent_procedure_call(&mut self, node: &ConcurrentProcedureCall) {}
+    fn enter_concurrent_assert_statement(&mut self, node: &ConcurrentAssertStatement) {}
+    fn exit_concurrent_assert_statement(&mut self, node: &ConcurrentAssertStatement) {}
+    fn enter_concurrent_signal_assignment(&mut self, node: &ConcurrentSignalAssignment) {}
+    fn exit_concurrent_signal_assignment(&mut self, node: &ConcurrentSignalAssignment) {}
+    fn enter_instantiated_unit(&mut self, node: &InstantiatedUnit) {}
+    fn exit_instantiated_unit(&mut self, node: &InstantiatedUnit) {}
+    fn enter_instantiation_statement(&mut self, node: &InstantiationStatement) {}
+    fn exit_instantiation_statement(&mut self, node: &InstantiationStatement) {}
+    fn enter_generate_body(&mut self, node: &GenerateBody) {}
+    fn exit_generate_body(&mut self, node: &GenerateBody) {}
+    fn enter_for_generate_statement(&mut self, node: &ForGenerateStatement) {}
+    fn exit_for_generate_statement(&mut self, node: &ForGenerateStatement) {}
+    fn enter_concurrent_statement(&mut self, node: &ConcurrentStatement) {}
+    fn exit_concurrent_statement(&mut self, node: &ConcurrentStatement) {}
+    fn enter_labeled_concurrent_statement(&mut self, node: &LabeledConcurrentStatement) {}
+    fn exit_labeled_concurrent_statement(&mut self, node: &LabeledConcurrentStatement) {}
+    fn enter_library_clause(&mut self, node: &LibraryClause) {}
+    fn exit_library_clause(&mut self, node: &LibraryClause) {}
+    fn enter_use_clause(&mut self, node: &UseClause) {}
+    fn exit_use_clause(&mut self, node: &UseClause) {}
+    fn enter_context_reference(&mut self, node: &ContextReference) {}
+    fn exit_context_reference(&mut self, node: &ContextReference) {}
+    fn enter_context_item(&mut self, node: &ContextItem) {}
+    fn exit_context_item(&mut self, node: &ContextItem) {}
+    fn enter_context_declaration(&mut self, node: &ContextDeclaration) {}
+    fn exit_context_declaration(&mut self, node: &ContextDeclaration) {}
+    fn enter_package_instantiation(&mut self, node: &PackageInstantiation) {}
+    fn exit_package_instantiation(&mut self, node: &PackageInstantiation) {}
+    fn enter_instantiation_list(&mut self, node: &InstantiationList) {}
+    fn exit_instantiation_list(&mut self, node: &InstantiationList) {}
+    fn enter_entity_aspect(&mut self, node: &EntityAspect) {}
+    fn exit_entity_aspect(&mut self, node: &EntityAspect) {}
+    fn enter_binding_indication(&mut self, node: &BindingIndication) {}
+    fn exit_binding_indication(&mut self, node: &BindingIndication) {}
+    fn enter_component_specification(&mut self, node: &ComponentSpecification) {}
+    fn exit_component_specification(&mut self, node: &ComponentSpecification) {}
+    fn enter_v_unit_binding_indication(&mut self, node: &VUnitBindingIndication) {}
+    fn exit_v_unit_binding_indication(&mut self, node: &VUnitBindingIndication) {}
+    fn enter_configuration_specification(&mut self, node: &ConfigurationSpecification) {}
+    fn exit_configuration_specification(&mut self, node: &ConfigurationSpecification) {}
+    fn enter_configuration_declarative_item(&mut self, node: &ConfigurationDeclarativeItem) {}
+    fn exit_configuration_declarative_item(&mut self, node: &ConfigurationDeclarativeItem) {}
+    fn enter_component_configuration(&mut self, node: &ComponentConfiguration) {}
+    fn exit_component_configuration(&mut self, node: &ComponentConfiguration) {}
+    fn enter_configuration_item(&mut self, node: &ConfigurationItem) {}
+    fn exit_configuration_item(&mut self, node: &ConfigurationItem) {}
+    fn enter_block_configuration(&mut self, node: &BlockConfiguration) {}
+    fn exit_block_configuration(&mut self, node: &BlockConfiguration) {}
+    fn enter_configuration_declaration(&mut self, node: &ConfigurationDeclaration) {}
+    fn exit_configuration_declaration(&mut self, node: &ConfigurationDeclaration) {}
+    fn enter_entity_declaration(&mut self, node: &EntityDeclaration) {}
+    fn exit_entity_declaration(&mut self, node: &EntityDeclaration) {}
+    fn enter_architecture_body(&mut self, node: &ArchitectureBody) {}
+    fn exit_architecture_body(&mut self, node: &ArchitectureBody) {}
+    fn enter_package_declaration(&mut self, node: &PackageDeclaration) {}
+    fn exit_package_declaration(&mut self, node: &PackageDeclaration) {}
+    fn enter_package_body(&mut self, node: &PackageBody) {}
+    fn exit_package_body(&mut self, node: &PackageBody) {}
+    fn enter_primary_unit(&mut self, node: &PrimaryUnit) {}
+    fn exit_primary_unit(&mut self, node: &PrimaryUnit) {}
+    fn enter_secondary_unit(&mut self, node: &SecondaryUnit) {}
+    fn exit_secondary_unit(&mut self, node: &SecondaryUnit) {}
+    fn enter_design_unit_entity_declaration(&mut self, node: &DesignUnit<EntityDeclaration>) {}
+    fn exit_design_unit_entity_declaration(&mut self, node: &DesignUnit<EntityDeclaration>) {}
+    fn enter_design_unit_package_instantiation(&mut self, node: &DesignUnit<PackageInstantiation>) {
+    }
+    fn exit_design_unit_package_instantiation(&mut self, node: &DesignUnit<PackageInstantiation>) {}
+    fn enter_design_unit_configuration_declaration(
+        &mut self,
+        node: &DesignUnit<ConfigurationDeclaration>,
+    ) {
+    }
+    fn exit_design_unit_configuration_declaration(
+        &mut self,
+        node: &DesignUnit<ConfigurationDeclaration>,
+    ) {
+    }
+    fn enter_design_unit_package_body(&mut self, node: &DesignUnit<PackageBody>) {}
+    fn exit_design_unit_package_body(&mut self, node: &DesignUnit<PackageBody>) {}
+    fn enter_design_unit_architecture_body(&mut self, node: &DesignUnit<ArchitectureBody>) {}
+    fn exit_design_unit_architecture_body(&mut self, node: &DesignUnit<ArchitectureBody>) {}
+    fn enter_design_unit_package_declaration(&mut self, node: &DesignUnit<PackageDeclaration>) {}
+    fn exit_design_unit_package_declaration(&mut self, node: &DesignUnit<PackageDeclaration>) {}
+    fn enter_any_design_unit(&mut self, node: &AnyDesignUnit) {}
+    fn exit_any_design_unit(&mut self, node: &AnyDesignUnit) {}
+    fn enter_design_file(&mut self, node: &DesignFile) {}
+    fn exit_design_file(&mut self, node: &DesignFile) {}
 }
 
 trait Visit<'a> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T);
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T);
 }
 
 impl<'a, U> Visit<'a> for Vec<U>
-where U: Visit<'a> { 
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+where
+    U: Visit<'a>,
+{
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         for node in self {
             node.visit(visitor);
         }
     }
 }
 
-impl<'a,U,V> Visit<'a> for Vec<(U,V)> 
-where U: Visit<'a>,
-      V: Visit<'a>
+impl<'a, U, V> Visit<'a> for Vec<(U, V)>
+where
+    U: Visit<'a>,
+    V: Visit<'a>,
 {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         for nodes in self {
             nodes.0.visit(visitor);
             nodes.1.visit(visitor);
@@ -337,15 +380,19 @@ where U: Visit<'a>,
 }
 
 impl<'a, U> Visit<'a> for WithPos<U>
-where U: Visit<'a> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+where
+    U: Visit<'a>,
+{
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         self.item.visit(visitor);
     }
 }
 
 impl<'a, U> Visit<'a> for Option<U>
-where U: Visit<'a> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+where
+    U: Visit<'a>,
+{
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         match self {
             Some(node) => node.visit(visitor),
             None => (),
@@ -354,17 +401,19 @@ where U: Visit<'a> {
 }
 
 impl<'a, U> Visit<'a> for Box<U>
-where U: Visit<'a> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
-        let node : &U = self.borrow();
+where
+    U: Visit<'a>,
+{
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
+        let node: &U = self.borrow();
         node.visit(visitor);
     }
 }
 
 pub struct AstVisitor<'a> {
-    messages : Vec<Message>,
-    visitors : Vec<Box<&'a mut Visitor<'a>>>,
-    src_pos  : Option<&'a SrcPos>
+    messages: Vec<Message>,
+    visitors: Vec<Box<&'a mut Visitor<'a>>>,
+    src_pos: Option<&'a SrcPos>,
 }
 
 impl<'a> AstVisitor<'a> {
@@ -372,7 +421,7 @@ impl<'a> AstVisitor<'a> {
         AstVisitor {
             messages: Vec::new(),
             visitors: Vec::new(),
-            src_pos : None
+            src_pos: None,
         }
     }
     pub fn register<T: Visitor<'a>>(&mut self, visitor: &'a mut T) {
@@ -381,7 +430,6 @@ impl<'a> AstVisitor<'a> {
 }
 
 impl<'a> Visitor<'a> for AstVisitor<'a> {
-    
     // ===================================
     // Results
     // -----------------------------------
@@ -952,12 +1000,18 @@ impl<'a> Visitor<'a> for AstVisitor<'a> {
             visitor.exit_subprogram_default(node);
         }
     }
-    fn enter_interface_package_generic_map_aspect(&mut self, node: &InterfacePackageGenericMapAspect) {
+    fn enter_interface_package_generic_map_aspect(
+        &mut self,
+        node: &InterfacePackageGenericMapAspect,
+    ) {
         for visitor in &mut self.visitors {
             visitor.enter_interface_package_generic_map_aspect(node);
         }
     }
-    fn exit_interface_package_generic_map_aspect(&mut self, node: &InterfacePackageGenericMapAspect) {
+    fn exit_interface_package_generic_map_aspect(
+        &mut self,
+        node: &InterfacePackageGenericMapAspect,
+    ) {
         for visitor in &mut self.visitors {
             visitor.exit_interface_package_generic_map_aspect(node);
         }
@@ -1122,12 +1176,18 @@ impl<'a> Visitor<'a> for AstVisitor<'a> {
             visitor.exit_assignment_right_hand_waveform(node);
         }
     }
-    fn enter_assignment_right_hand_with_pos_expression(&mut self, node: &AssignmentRightHand<WithPos<Expression>>) {
+    fn enter_assignment_right_hand_with_pos_expression(
+        &mut self,
+        node: &AssignmentRightHand<WithPos<Expression>>,
+    ) {
         for visitor in &mut self.visitors {
             visitor.enter_assignment_right_hand_with_pos_expression(node);
         }
     }
-    fn exit_assignment_right_hand_with_pos_expression(&mut self, node: &AssignmentRightHand<WithPos<Expression>>) {
+    fn exit_assignment_right_hand_with_pos_expression(
+        &mut self,
+        node: &AssignmentRightHand<WithPos<Expression>>,
+    ) {
         for visitor in &mut self.visitors {
             visitor.exit_assignment_right_hand_with_pos_expression(node);
         }
@@ -1152,12 +1212,18 @@ impl<'a> Visitor<'a> for AstVisitor<'a> {
             visitor.exit_conditional_generate_body(node);
         }
     }
-    fn enter_conditional_vec_labeled_sequential_statement(&mut self, node: &Conditional<Vec<LabeledSequentialStatement>>) {
+    fn enter_conditional_vec_labeled_sequential_statement(
+        &mut self,
+        node: &Conditional<Vec<LabeledSequentialStatement>>,
+    ) {
         for visitor in &mut self.visitors {
             visitor.enter_conditional_vec_labeled_sequential_statement(node);
         }
     }
-    fn exit_conditional_vec_labeled_sequential_statement(&mut self, node: &Conditional<Vec<LabeledSequentialStatement>>) {
+    fn exit_conditional_vec_labeled_sequential_statement(
+        &mut self,
+        node: &Conditional<Vec<LabeledSequentialStatement>>,
+    ) {
         for visitor in &mut self.visitors {
             visitor.exit_conditional_vec_labeled_sequential_statement(node);
         }
@@ -1222,12 +1288,18 @@ impl<'a> Visitor<'a> for AstVisitor<'a> {
             visitor.exit_alternative_generate_body(node);
         }
     }
-    fn enter_alternative_vec_labeled_sequential_statement(&mut self, node: &Alternative<Vec<LabeledSequentialStatement>>) {
+    fn enter_alternative_vec_labeled_sequential_statement(
+        &mut self,
+        node: &Alternative<Vec<LabeledSequentialStatement>>,
+    ) {
         for visitor in &mut self.visitors {
             visitor.enter_alternative_vec_labeled_sequential_statement(node);
         }
     }
-    fn exit_alternative_vec_labeled_sequential_statement(&mut self, node: &Alternative<Vec<LabeledSequentialStatement>>) {
+    fn exit_alternative_vec_labeled_sequential_statement(
+        &mut self,
+        node: &Alternative<Vec<LabeledSequentialStatement>>,
+    ) {
         for visitor in &mut self.visitors {
             visitor.exit_alternative_vec_labeled_sequential_statement(node);
         }
@@ -1732,12 +1804,18 @@ impl<'a> Visitor<'a> for AstVisitor<'a> {
             visitor.exit_design_unit_package_instantiation(node);
         }
     }
-    fn enter_design_unit_configuration_declaration(&mut self, node: &DesignUnit<ConfigurationDeclaration>) {
+    fn enter_design_unit_configuration_declaration(
+        &mut self,
+        node: &DesignUnit<ConfigurationDeclaration>,
+    ) {
         for visitor in &mut self.visitors {
             visitor.enter_design_unit_configuration_declaration(node);
         }
     }
-    fn exit_design_unit_configuration_declaration(&mut self, node: &DesignUnit<ConfigurationDeclaration>) {
+    fn exit_design_unit_configuration_declaration(
+        &mut self,
+        node: &DesignUnit<ConfigurationDeclaration>,
+    ) {
         for visitor in &mut self.visitors {
             visitor.exit_design_unit_configuration_declaration(node);
         }
@@ -1795,14 +1873,14 @@ impl<'a> Visitor<'a> for AstVisitor<'a> {
 }
 
 impl<'a> Visit<'a> for Symbol {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_symbol(self);
         visitor.exit_symbol(self);
     }
 }
 
 impl<'a> Visit<'a> for AttributeName {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_attribute_name(self);
         self.name.visit(visitor);
         self.signature.visit(visitor);
@@ -1813,7 +1891,7 @@ impl<'a> Visit<'a> for AttributeName {
 }
 
 impl<'a> Visit<'a> for ExternalPath {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_external_path(self);
         match self {
             ExternalPath::Package(node) => node.visit(visitor),
@@ -1825,7 +1903,7 @@ impl<'a> Visit<'a> for ExternalPath {
 }
 
 impl<'a> Visit<'a> for ExternalName {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_external_name(self);
         self.path.visit(visitor);
         self.subtype.visit(visitor);
@@ -1834,7 +1912,7 @@ impl<'a> Visit<'a> for ExternalName {
 }
 
 impl<'a> Visit<'a> for Name {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_name(self);
         match self {
             Name::Designator(node) => node.visit(visitor),
@@ -1860,7 +1938,7 @@ impl<'a> Visit<'a> for Name {
 }
 
 impl<'a> Visit<'a> for SelectedName {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_selected_name(self);
         match self {
             SelectedName::Designator(node) => node.visit(visitor),
@@ -1874,7 +1952,7 @@ impl<'a> Visit<'a> for SelectedName {
 }
 
 impl<'a> Visit<'a> for FunctionCall {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_function_call(self);
         self.name.visit(visitor);
         self.parameters.visit(visitor);
@@ -1883,7 +1961,7 @@ impl<'a> Visit<'a> for FunctionCall {
 }
 
 impl<'a> Visit<'a> for Choice {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_choice(self);
         match self {
             Choice::Expression(node) => node.visit(visitor),
@@ -1895,7 +1973,7 @@ impl<'a> Visit<'a> for Choice {
 }
 
 impl<'a> Visit<'a> for ElementAssociation {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_element_association(self);
         match self {
             ElementAssociation::Positional(node) => node.visit(visitor),
@@ -1909,7 +1987,7 @@ impl<'a> Visit<'a> for ElementAssociation {
 }
 
 impl<'a> Visit<'a> for ActualPart {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_actual_part(self);
         match self {
             ActualPart::Expression(node) => node.visit(visitor),
@@ -1920,7 +1998,7 @@ impl<'a> Visit<'a> for ActualPart {
 }
 
 impl<'a> Visit<'a> for AssociationElement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_association_element(self);
         self.formal.visit(visitor);
         self.actual.visit(visitor);
@@ -1929,7 +2007,7 @@ impl<'a> Visit<'a> for AssociationElement {
 }
 
 impl<'a> Visit<'a> for AbstractLiteral {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_abstract_literal(self);
         match self {
             AbstractLiteral::Integer(..) => (),
@@ -1940,14 +2018,14 @@ impl<'a> Visit<'a> for AbstractLiteral {
 }
 
 impl<'a> Visit<'a> for BitString {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_bit_string(self);
         visitor.exit_bit_string(self);
     }
 }
 
 impl<'a> Visit<'a> for Literal {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_literal(self);
         match self {
             Literal::String(..) => (),
@@ -1965,7 +2043,7 @@ impl<'a> Visit<'a> for Literal {
 }
 
 impl<'a> Visit<'a> for Allocator {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_allocator(self);
         match self {
             Allocator::Qualified(node) => node.visit(visitor),
@@ -1976,7 +2054,7 @@ impl<'a> Visit<'a> for Allocator {
 }
 
 impl<'a> Visit<'a> for QualifiedExpression {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_qualified_expression(self);
         self.name.visit(visitor);
         self.expr.visit(visitor);
@@ -1985,7 +2063,7 @@ impl<'a> Visit<'a> for QualifiedExpression {
 }
 
 impl<'a> Visit<'a> for Expression {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_expression(self);
         match self {
             Expression::Binary(_node0, node1, node2) => {
@@ -2006,7 +2084,7 @@ impl<'a> Visit<'a> for Expression {
 }
 
 impl<'a> Visit<'a> for Direction {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_direction(self);
         match self {
             Direction::Ascending => (),
@@ -2017,7 +2095,7 @@ impl<'a> Visit<'a> for Direction {
 }
 
 impl<'a> Visit<'a> for DiscreteRange {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_discrete_range(self);
         match self {
             DiscreteRange::Discrete(node0, node1) => {
@@ -2031,7 +2109,7 @@ impl<'a> Visit<'a> for DiscreteRange {
 }
 
 impl<'a> Visit<'a> for RangeConstraint {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_range_constraint(self);
         self.direction.visit(visitor);
         self.left_expr.visit(visitor);
@@ -2041,7 +2119,7 @@ impl<'a> Visit<'a> for RangeConstraint {
 }
 
 impl<'a> Visit<'a> for Range {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_range(self);
         match self {
             Range::Range(node) => node.visit(visitor),
@@ -2052,7 +2130,7 @@ impl<'a> Visit<'a> for Range {
 }
 
 impl<'a> Visit<'a> for ElementConstraint {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_element_constraint(self);
         self.ident.visit(visitor);
         self.constraint.visit(visitor);
@@ -2061,7 +2139,7 @@ impl<'a> Visit<'a> for ElementConstraint {
 }
 
 impl<'a> Visit<'a> for SubtypeConstraint {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_subtype_constraint(self);
         match self {
             SubtypeConstraint::Range(node) => node.visit(visitor),
@@ -2076,7 +2154,7 @@ impl<'a> Visit<'a> for SubtypeConstraint {
 }
 
 impl<'a> Visit<'a> for RecordElementResolution {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_record_element_resolution(self);
         self.ident.visit(visitor);
         self.resolution.visit(visitor);
@@ -2085,7 +2163,7 @@ impl<'a> Visit<'a> for RecordElementResolution {
 }
 
 impl<'a> Visit<'a> for ResolutionIndication {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_resolution_indication(self);
         match self {
             ResolutionIndication::FunctionName(node) => node.visit(visitor),
@@ -2098,7 +2176,7 @@ impl<'a> Visit<'a> for ResolutionIndication {
 }
 
 impl<'a> Visit<'a> for SubtypeIndication {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_subtype_indication(self);
         self.resolution.visit(visitor);
         self.type_mark.visit(visitor);
@@ -2108,7 +2186,7 @@ impl<'a> Visit<'a> for SubtypeIndication {
 }
 
 impl<'a> Visit<'a> for ArrayIndex {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_array_index(self);
         match self {
             ArrayIndex::IndexSubtypeDefintion(node) => node.visit(visitor),
@@ -2119,7 +2197,7 @@ impl<'a> Visit<'a> for ArrayIndex {
 }
 
 impl<'a> Visit<'a> for ElementDeclaration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_element_declaration(self);
         self.ident.visit(visitor);
         self.subtype.visit(visitor);
@@ -2128,7 +2206,7 @@ impl<'a> Visit<'a> for ElementDeclaration {
 }
 
 impl<'a> Visit<'a> for ProtectedTypeDeclarativeItem {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_protected_type_declarative_item(self);
         match self {
             ProtectedTypeDeclarativeItem::Subprogram(node) => node.visit(visitor),
@@ -2138,7 +2216,7 @@ impl<'a> Visit<'a> for ProtectedTypeDeclarativeItem {
 }
 
 impl<'a> Visit<'a> for Designator {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_designator(self);
         match self {
             Designator::Identifier(node) => node.visit(visitor),
@@ -2150,7 +2228,7 @@ impl<'a> Visit<'a> for Designator {
 }
 
 impl<'a> Visit<'a> for AliasDeclaration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_alias_declaration(self);
         self.designator.visit(visitor);
         self.subtype_indication.visit(visitor);
@@ -2161,7 +2239,7 @@ impl<'a> Visit<'a> for AliasDeclaration {
 }
 
 impl<'a> Visit<'a> for AttributeDeclaration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_attribute_declaration(self);
         self.ident.visit(visitor);
         self.type_mark.visit(visitor);
@@ -2170,7 +2248,7 @@ impl<'a> Visit<'a> for AttributeDeclaration {
 }
 
 impl<'a> Visit<'a> for EntityTag {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_entity_tag(self);
         self.designator.visit(visitor);
         self.signature.visit(visitor);
@@ -2179,7 +2257,7 @@ impl<'a> Visit<'a> for EntityTag {
 }
 
 impl<'a> Visit<'a> for EntityName {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_entity_name(self);
         match self {
             EntityName::Name(node) => node.visit(visitor),
@@ -2191,7 +2269,7 @@ impl<'a> Visit<'a> for EntityName {
 }
 
 impl<'a> Visit<'a> for EntityClass {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_entity_class(self);
         match self {
             EntityClass::Entity => (),
@@ -2208,7 +2286,7 @@ impl<'a> Visit<'a> for EntityClass {
 }
 
 impl<'a> Visit<'a> for AttributeSpecification {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_attribute_specification(self);
         self.ident.visit(visitor);
         self.entity_name.visit(visitor);
@@ -2219,7 +2297,7 @@ impl<'a> Visit<'a> for AttributeSpecification {
 }
 
 impl<'a> Visit<'a> for Attribute {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_attribute(self);
         match self {
             Attribute::Specification(node) => node.visit(visitor),
@@ -2230,7 +2308,7 @@ impl<'a> Visit<'a> for Attribute {
 }
 
 impl<'a> Visit<'a> for ProtectedTypeDeclaration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_protected_type_declaration(self);
         self.items.visit(visitor);
         visitor.exit_protected_type_declaration(self);
@@ -2238,7 +2316,7 @@ impl<'a> Visit<'a> for ProtectedTypeDeclaration {
 }
 
 impl<'a> Visit<'a> for ProtectedTypeBody {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_protected_type_body(self);
         self.decl.visit(visitor);
         visitor.exit_protected_type_body(self);
@@ -2246,7 +2324,7 @@ impl<'a> Visit<'a> for ProtectedTypeBody {
 }
 
 impl<'a> Visit<'a> for PhysicalTypeDeclaration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_physical_type_declaration(self);
         self.range.visit(visitor);
         self.primary_unit.visit(visitor);
@@ -2256,7 +2334,7 @@ impl<'a> Visit<'a> for PhysicalTypeDeclaration {
 }
 
 impl<'a> Visit<'a> for EnumerationLiteral {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_enumeration_literal(self);
         match self {
             EnumerationLiteral::Identifier(node) => node.visit(visitor),
@@ -2267,7 +2345,7 @@ impl<'a> Visit<'a> for EnumerationLiteral {
 }
 
 impl<'a> Visit<'a> for TypeDefinition {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_type_definition(self);
         match self {
             TypeDefinition::Enumeration(node) => node.visit(visitor),
@@ -2290,7 +2368,7 @@ impl<'a> Visit<'a> for TypeDefinition {
 }
 
 impl<'a> Visit<'a> for TypeDeclaration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_type_declaration(self);
         self.ident.visit(visitor);
         self.def.visit(visitor);
@@ -2299,7 +2377,7 @@ impl<'a> Visit<'a> for TypeDeclaration {
 }
 
 impl<'a> Visit<'a> for ObjectClass {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_object_class(self);
         match self {
             ObjectClass::Signal => (),
@@ -2312,7 +2390,7 @@ impl<'a> Visit<'a> for ObjectClass {
 }
 
 impl<'a> Visit<'a> for ObjectDeclaration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_object_declaration(self);
         self.class.visit(visitor);
         self.ident.visit(visitor);
@@ -2323,7 +2401,7 @@ impl<'a> Visit<'a> for ObjectDeclaration {
 }
 
 impl<'a> Visit<'a> for FileDeclaration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_file_declaration(self);
         self.ident.visit(visitor);
         self.subtype_indication.visit(visitor);
@@ -2334,7 +2412,7 @@ impl<'a> Visit<'a> for FileDeclaration {
 }
 
 impl<'a> Visit<'a> for SubprogramDesignator {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_subprogram_designator(self);
         match self {
             SubprogramDesignator::Identifier(node) => node.visit(visitor),
@@ -2345,7 +2423,7 @@ impl<'a> Visit<'a> for SubprogramDesignator {
 }
 
 impl<'a> Visit<'a> for ProcedureSpecification {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_procedure_specification(self);
         self.designator.visit(visitor);
         self.parameter_list.visit(visitor);
@@ -2354,7 +2432,7 @@ impl<'a> Visit<'a> for ProcedureSpecification {
 }
 
 impl<'a> Visit<'a> for FunctionSpecification {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_function_specification(self);
         self.designator.visit(visitor);
         self.parameter_list.visit(visitor);
@@ -2364,7 +2442,7 @@ impl<'a> Visit<'a> for FunctionSpecification {
 }
 
 impl<'a> Visit<'a> for SubprogramBody {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_subprogram_body(self);
         self.specification.visit(visitor);
         self.declarations.visit(visitor);
@@ -2374,7 +2452,7 @@ impl<'a> Visit<'a> for SubprogramBody {
 }
 
 impl<'a> Visit<'a> for Signature {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_signature(self);
         match self {
             Signature::Function(node0, node1) => {
@@ -2388,7 +2466,7 @@ impl<'a> Visit<'a> for Signature {
 }
 
 impl<'a> Visit<'a> for SubprogramDeclaration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_subprogram_declaration(self);
         match self {
             SubprogramDeclaration::Procedure(node) => node.visit(visitor),
@@ -2399,7 +2477,7 @@ impl<'a> Visit<'a> for SubprogramDeclaration {
 }
 
 impl<'a> Visit<'a> for InterfaceFileDeclaration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_interface_file_declaration(self);
         self.ident.visit(visitor);
         self.subtype_indication.visit(visitor);
@@ -2408,7 +2486,7 @@ impl<'a> Visit<'a> for InterfaceFileDeclaration {
 }
 
 impl<'a> Visit<'a> for InterfaceObjectDeclaration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_interface_object_declaration(self);
         self.class.visit(visitor);
         self.ident.visit(visitor);
@@ -2420,7 +2498,7 @@ impl<'a> Visit<'a> for InterfaceObjectDeclaration {
 }
 
 impl<'a> Visit<'a> for SubprogramDefault {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_subprogram_default(self);
         match self {
             SubprogramDefault::Name(node) => node.visit(visitor),
@@ -2431,7 +2509,7 @@ impl<'a> Visit<'a> for SubprogramDefault {
 }
 
 impl<'a> Visit<'a> for InterfacePackageGenericMapAspect {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_interface_package_generic_map_aspect(self);
         match self {
             InterfacePackageGenericMapAspect::Map(node) => node.visit(visitor),
@@ -2443,7 +2521,7 @@ impl<'a> Visit<'a> for InterfacePackageGenericMapAspect {
 }
 
 impl<'a> Visit<'a> for InterfacePackageDeclaration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_interface_package_declaration(self);
         self.ident.visit(visitor);
         self.package_name.visit(visitor);
@@ -2453,7 +2531,7 @@ impl<'a> Visit<'a> for InterfacePackageDeclaration {
 }
 
 impl<'a> Visit<'a> for InterfaceDeclaration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_interface_declaration(self);
         match self {
             InterfaceDeclaration::Object(node) => node.visit(visitor),
@@ -2470,7 +2548,7 @@ impl<'a> Visit<'a> for InterfaceDeclaration {
 }
 
 impl<'a> Visit<'a> for Mode {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_mode(self);
         match self {
             Mode::In => (),
@@ -2484,7 +2562,7 @@ impl<'a> Visit<'a> for Mode {
 }
 
 impl<'a> Visit<'a> for PortClause {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_port_clause(self);
         self.port_list.visit(visitor);
         visitor.exit_port_clause(self);
@@ -2492,7 +2570,7 @@ impl<'a> Visit<'a> for PortClause {
 }
 
 impl<'a> Visit<'a> for ComponentDeclaration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_component_declaration(self);
         self.ident.visit(visitor);
         self.generic_list.visit(visitor);
@@ -2502,7 +2580,7 @@ impl<'a> Visit<'a> for ComponentDeclaration {
 }
 
 impl<'a> Visit<'a> for Declaration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_declaration(self);
         match self {
             Declaration::Object(node) => node.visit(visitor),
@@ -2522,7 +2600,7 @@ impl<'a> Visit<'a> for Declaration {
 }
 
 impl<'a> Visit<'a> for WaitStatement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_wait_statement(self);
         self.sensitivity_clause.visit(visitor);
         self.condition_clause.visit(visitor);
@@ -2532,7 +2610,7 @@ impl<'a> Visit<'a> for WaitStatement {
 }
 
 impl<'a> Visit<'a> for AssertStatement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_assert_statement(self);
         self.condition.visit(visitor);
         self.report.visit(visitor);
@@ -2542,7 +2620,7 @@ impl<'a> Visit<'a> for AssertStatement {
 }
 
 impl<'a> Visit<'a> for ReportStatement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_report_statement(self);
         self.report.visit(visitor);
         self.severity.visit(visitor);
@@ -2551,7 +2629,7 @@ impl<'a> Visit<'a> for ReportStatement {
 }
 
 impl<'a> Visit<'a> for Target {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_target(self);
         match self {
             Target::Name(node) => node.visit(visitor),
@@ -2562,7 +2640,7 @@ impl<'a> Visit<'a> for Target {
 }
 
 impl<'a> Visit<'a> for WaveformElement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_waveform_element(self);
         self.value.visit(visitor);
         self.after.visit(visitor);
@@ -2571,7 +2649,7 @@ impl<'a> Visit<'a> for WaveformElement {
 }
 
 impl<'a> Visit<'a> for Waveform {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_waveform(self);
         match self {
             Waveform::Elements(node) => node.visit(visitor),
@@ -2582,18 +2660,18 @@ impl<'a> Visit<'a> for Waveform {
 }
 
 impl<'a> Visit<'a> for DelayMechanism {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_delay_mechanism(self);
         match self {
             DelayMechanism::Transport => (),
-        DelayMechanism::Inertial{reject} => reject.visit(visitor),
+            DelayMechanism::Inertial { reject } => reject.visit(visitor),
         }
         visitor.exit_delay_mechanism(self);
     }
 }
 
 impl<'a> Visit<'a> for SignalAssignment {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_signal_assignment(self);
         self.target.visit(visitor);
         self.delay_mechanism.visit(visitor);
@@ -2603,7 +2681,7 @@ impl<'a> Visit<'a> for SignalAssignment {
 }
 
 impl<'a> Visit<'a> for VariableAssignment {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_variable_assignment(self);
         self.target.visit(visitor);
         self.rhs.visit(visitor);
@@ -2612,7 +2690,7 @@ impl<'a> Visit<'a> for VariableAssignment {
 }
 
 impl<'a> Visit<'a> for AssignmentRightHand<Waveform> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_assignment_right_hand_waveform(self);
         match self {
             AssignmentRightHand::Simple(node) => node.visit(visitor),
@@ -2624,7 +2702,7 @@ impl<'a> Visit<'a> for AssignmentRightHand<Waveform> {
 }
 
 impl<'a> Visit<'a> for AssignmentRightHand<WithPos<Expression>> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_assignment_right_hand_with_pos_expression(self);
         match self {
             AssignmentRightHand::Simple(node) => node.visit(visitor),
@@ -2636,7 +2714,7 @@ impl<'a> Visit<'a> for AssignmentRightHand<WithPos<Expression>> {
 }
 
 impl<'a> Visit<'a> for ConditionalExpression {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_conditional_expression(self);
         self.condition.visit(visitor);
         self.item.visit(visitor);
@@ -2645,7 +2723,7 @@ impl<'a> Visit<'a> for ConditionalExpression {
 }
 
 impl<'a> Visit<'a> for Conditional<GenerateBody> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_conditional_generate_body(self);
         self.condition.visit(visitor);
         self.item.visit(visitor);
@@ -2654,7 +2732,7 @@ impl<'a> Visit<'a> for Conditional<GenerateBody> {
 }
 
 impl<'a> Visit<'a> for Conditional<Vec<LabeledSequentialStatement>> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_conditional_vec_labeled_sequential_statement(self);
         self.condition.visit(visitor);
         self.item.visit(visitor);
@@ -2663,7 +2741,7 @@ impl<'a> Visit<'a> for Conditional<Vec<LabeledSequentialStatement>> {
 }
 
 impl<'a> Visit<'a> for Conditional<Waveform> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_conditional_waveform(self);
         self.condition.visit(visitor);
         self.item.visit(visitor);
@@ -2672,7 +2750,7 @@ impl<'a> Visit<'a> for Conditional<Waveform> {
 }
 
 impl<'a> Visit<'a> for IfGenerateStatement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_if_generate_statement(self);
         self.conditionals.visit(visitor);
         self.else_item.visit(visitor);
@@ -2681,7 +2759,7 @@ impl<'a> Visit<'a> for IfGenerateStatement {
 }
 
 impl<'a> Visit<'a> for IfStatement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_if_statement(self);
         self.conditionals.visit(visitor);
         self.else_item.visit(visitor);
@@ -2690,7 +2768,7 @@ impl<'a> Visit<'a> for IfStatement {
 }
 
 impl<'a> Visit<'a> for ConditionalExpressions {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_conditional_expressions(self);
         self.conditionals.visit(visitor);
         self.else_item.visit(visitor);
@@ -2699,7 +2777,7 @@ impl<'a> Visit<'a> for ConditionalExpressions {
 }
 
 impl<'a> Visit<'a> for Conditionals<Waveform> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_conditionals_waveform(self);
         self.conditionals.visit(visitor);
         self.else_item.visit(visitor);
@@ -2708,7 +2786,7 @@ impl<'a> Visit<'a> for Conditionals<Waveform> {
 }
 
 impl<'a> Visit<'a> for Alternative<GenerateBody> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_alternative_generate_body(self);
         self.choices.visit(visitor);
         self.item.visit(visitor);
@@ -2717,7 +2795,7 @@ impl<'a> Visit<'a> for Alternative<GenerateBody> {
 }
 
 impl<'a> Visit<'a> for Alternative<Vec<LabeledSequentialStatement>> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_alternative_vec_labeled_sequential_statement(self);
         self.choices.visit(visitor);
         self.item.visit(visitor);
@@ -2726,7 +2804,7 @@ impl<'a> Visit<'a> for Alternative<Vec<LabeledSequentialStatement>> {
 }
 
 impl<'a> Visit<'a> for Alternative<Waveform> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_alternative_waveform(self);
         self.choices.visit(visitor);
         self.item.visit(visitor);
@@ -2735,7 +2813,7 @@ impl<'a> Visit<'a> for Alternative<Waveform> {
 }
 
 impl<'a> Visit<'a> for Alternative<WithPos<Expression>> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_alternative_with_pos_expression(self);
         self.choices.visit(visitor);
         self.item.visit(visitor);
@@ -2744,7 +2822,7 @@ impl<'a> Visit<'a> for Alternative<WithPos<Expression>> {
 }
 
 impl<'a> Visit<'a> for CaseGenerateStatement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_case_generate_statement(self);
         self.expression.visit(visitor);
         self.alternatives.visit(visitor);
@@ -2753,7 +2831,7 @@ impl<'a> Visit<'a> for CaseGenerateStatement {
 }
 
 impl<'a> Visit<'a> for CaseStatement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_case_statement(self);
         self.expression.visit(visitor);
         self.alternatives.visit(visitor);
@@ -2762,7 +2840,7 @@ impl<'a> Visit<'a> for CaseStatement {
 }
 
 impl<'a> Visit<'a> for Selection<Waveform> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_selection_waveform(self);
         self.expression.visit(visitor);
         self.alternatives.visit(visitor);
@@ -2771,7 +2849,7 @@ impl<'a> Visit<'a> for Selection<Waveform> {
 }
 
 impl<'a> Visit<'a> for Selection<WithPos<Expression>> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_selection_with_pos_expression(self);
         self.expression.visit(visitor);
         self.alternatives.visit(visitor);
@@ -2780,7 +2858,7 @@ impl<'a> Visit<'a> for Selection<WithPos<Expression>> {
 }
 
 impl<'a> Visit<'a> for IterationScheme {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_iteration_scheme(self);
         match self {
             IterationScheme::While(node) => node.visit(visitor),
@@ -2794,7 +2872,7 @@ impl<'a> Visit<'a> for IterationScheme {
 }
 
 impl<'a> Visit<'a> for LoopStatement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_loop_statement(self);
         self.iteration_scheme.visit(visitor);
         self.statements.visit(visitor);
@@ -2803,7 +2881,7 @@ impl<'a> Visit<'a> for LoopStatement {
 }
 
 impl<'a> Visit<'a> for NextStatement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_next_statement(self);
         self.loop_label.visit(visitor);
         self.condition.visit(visitor);
@@ -2812,7 +2890,7 @@ impl<'a> Visit<'a> for NextStatement {
 }
 
 impl<'a> Visit<'a> for ExitStatement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_exit_statement(self);
         self.loop_label.visit(visitor);
         self.condition.visit(visitor);
@@ -2821,7 +2899,7 @@ impl<'a> Visit<'a> for ExitStatement {
 }
 
 impl<'a> Visit<'a> for ReturnStatement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_return_statement(self);
         self.expression.visit(visitor);
         visitor.exit_return_statement(self);
@@ -2829,7 +2907,7 @@ impl<'a> Visit<'a> for ReturnStatement {
 }
 
 impl<'a> Visit<'a> for SequentialStatement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_sequential_statement(self);
         match self {
             SequentialStatement::Wait(node) => node.visit(visitor),
@@ -2851,7 +2929,7 @@ impl<'a> Visit<'a> for SequentialStatement {
 }
 
 impl<'a> Visit<'a> for LabeledSequentialStatement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_labeled_sequential_statement(self);
         self.label.visit(visitor);
         self.statement.visit(visitor);
@@ -2860,7 +2938,7 @@ impl<'a> Visit<'a> for LabeledSequentialStatement {
 }
 
 impl<'a> Visit<'a> for BlockStatement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_block_statement(self);
         self.guard_condition.visit(visitor);
         self.decl.visit(visitor);
@@ -2870,7 +2948,7 @@ impl<'a> Visit<'a> for BlockStatement {
 }
 
 impl<'a> Visit<'a> for SensitivityList {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_sensitivity_list(self);
         match self {
             SensitivityList::Names(node) => node.visit(visitor),
@@ -2881,7 +2959,7 @@ impl<'a> Visit<'a> for SensitivityList {
 }
 
 impl<'a> Visit<'a> for ProcessStatement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_process_statement(self);
         self.sensitivity_list.visit(visitor);
         self.decl.visit(visitor);
@@ -2891,7 +2969,7 @@ impl<'a> Visit<'a> for ProcessStatement {
 }
 
 impl<'a> Visit<'a> for ConcurrentProcedureCall {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_concurrent_procedure_call(self);
         self.call.visit(visitor);
         visitor.exit_concurrent_procedure_call(self);
@@ -2899,7 +2977,7 @@ impl<'a> Visit<'a> for ConcurrentProcedureCall {
 }
 
 impl<'a> Visit<'a> for ConcurrentAssertStatement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_concurrent_assert_statement(self);
         self.statement.visit(visitor);
         visitor.exit_concurrent_assert_statement(self);
@@ -2907,7 +2985,7 @@ impl<'a> Visit<'a> for ConcurrentAssertStatement {
 }
 
 impl<'a> Visit<'a> for ConcurrentSignalAssignment {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_concurrent_signal_assignment(self);
         self.target.visit(visitor);
         self.delay_mechanism.visit(visitor);
@@ -2917,7 +2995,7 @@ impl<'a> Visit<'a> for ConcurrentSignalAssignment {
 }
 
 impl<'a> Visit<'a> for InstantiatedUnit {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_instantiated_unit(self);
         match self {
             InstantiatedUnit::Component(node) => node.visit(visitor),
@@ -2932,7 +3010,7 @@ impl<'a> Visit<'a> for InstantiatedUnit {
 }
 
 impl<'a> Visit<'a> for InstantiationStatement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_instantiation_statement(self);
         self.unit.visit(visitor);
         self.generic_map.visit(visitor);
@@ -2942,7 +3020,7 @@ impl<'a> Visit<'a> for InstantiationStatement {
 }
 
 impl<'a> Visit<'a> for GenerateBody {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_generate_body(self);
         self.alternative_label.visit(visitor);
         self.decl.visit(visitor);
@@ -2952,7 +3030,7 @@ impl<'a> Visit<'a> for GenerateBody {
 }
 
 impl<'a> Visit<'a> for ForGenerateStatement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_for_generate_statement(self);
         self.index_name.visit(visitor);
         self.discrete_range.visit(visitor);
@@ -2962,7 +3040,7 @@ impl<'a> Visit<'a> for ForGenerateStatement {
 }
 
 impl<'a> Visit<'a> for ConcurrentStatement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_concurrent_statement(self);
         match self {
             ConcurrentStatement::ProcedureCall(node) => node.visit(visitor),
@@ -2980,7 +3058,7 @@ impl<'a> Visit<'a> for ConcurrentStatement {
 }
 
 impl<'a> Visit<'a> for LabeledConcurrentStatement {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_labeled_concurrent_statement(self);
         self.label.visit(visitor);
         self.statement.visit(visitor);
@@ -2989,7 +3067,7 @@ impl<'a> Visit<'a> for LabeledConcurrentStatement {
 }
 
 impl<'a> Visit<'a> for LibraryClause {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_library_clause(self);
         self.name_list.visit(visitor);
         visitor.exit_library_clause(self);
@@ -2997,7 +3075,7 @@ impl<'a> Visit<'a> for LibraryClause {
 }
 
 impl<'a> Visit<'a> for UseClause {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_use_clause(self);
         self.name_list.visit(visitor);
         visitor.exit_use_clause(self);
@@ -3005,7 +3083,7 @@ impl<'a> Visit<'a> for UseClause {
 }
 
 impl<'a> Visit<'a> for ContextReference {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_context_reference(self);
         self.name_list.visit(visitor);
         visitor.exit_context_reference(self);
@@ -3013,7 +3091,7 @@ impl<'a> Visit<'a> for ContextReference {
 }
 
 impl<'a> Visit<'a> for ContextItem {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_context_item(self);
         match self {
             ContextItem::Use(node) => node.visit(visitor),
@@ -3025,7 +3103,7 @@ impl<'a> Visit<'a> for ContextItem {
 }
 
 impl<'a> Visit<'a> for ContextDeclaration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_context_declaration(self);
         self.ident.visit(visitor);
         self.items.visit(visitor);
@@ -3034,7 +3112,7 @@ impl<'a> Visit<'a> for ContextDeclaration {
 }
 
 impl<'a> Visit<'a> for PackageInstantiation {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_package_instantiation(self);
         self.ident.visit(visitor);
         self.package_name.visit(visitor);
@@ -3044,7 +3122,7 @@ impl<'a> Visit<'a> for PackageInstantiation {
 }
 
 impl<'a> Visit<'a> for InstantiationList {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_instantiation_list(self);
         match self {
             InstantiationList::Labels(node) => node.visit(visitor),
@@ -3056,7 +3134,7 @@ impl<'a> Visit<'a> for InstantiationList {
 }
 
 impl<'a> Visit<'a> for EntityAspect {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_entity_aspect(self);
         match self {
             EntityAspect::Entity(node0, node1) => {
@@ -3071,7 +3149,7 @@ impl<'a> Visit<'a> for EntityAspect {
 }
 
 impl<'a> Visit<'a> for BindingIndication {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_binding_indication(self);
         self.entity_aspect.visit(visitor);
         self.generic_map.visit(visitor);
@@ -3081,7 +3159,7 @@ impl<'a> Visit<'a> for BindingIndication {
 }
 
 impl<'a> Visit<'a> for ComponentSpecification {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_component_specification(self);
         self.instantiation_list.visit(visitor);
         self.component_name.visit(visitor);
@@ -3090,7 +3168,7 @@ impl<'a> Visit<'a> for ComponentSpecification {
 }
 
 impl<'a> Visit<'a> for VUnitBindingIndication {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_v_unit_binding_indication(self);
         self.vunit_list.visit(visitor);
         visitor.exit_v_unit_binding_indication(self);
@@ -3098,7 +3176,7 @@ impl<'a> Visit<'a> for VUnitBindingIndication {
 }
 
 impl<'a> Visit<'a> for ConfigurationSpecification {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_configuration_specification(self);
         self.spec.visit(visitor);
         self.bind_ind.visit(visitor);
@@ -3108,7 +3186,7 @@ impl<'a> Visit<'a> for ConfigurationSpecification {
 }
 
 impl<'a> Visit<'a> for ConfigurationDeclarativeItem {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_configuration_declarative_item(self);
         match self {
             ConfigurationDeclarativeItem::Use(node) => node.visit(visitor),
@@ -3118,7 +3196,7 @@ impl<'a> Visit<'a> for ConfigurationDeclarativeItem {
 }
 
 impl<'a> Visit<'a> for ComponentConfiguration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_component_configuration(self);
         self.spec.visit(visitor);
         self.bind_ind.visit(visitor);
@@ -3129,7 +3207,7 @@ impl<'a> Visit<'a> for ComponentConfiguration {
 }
 
 impl<'a> Visit<'a> for ConfigurationItem {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_configuration_item(self);
         match self {
             ConfigurationItem::Block(node) => node.visit(visitor),
@@ -3140,7 +3218,7 @@ impl<'a> Visit<'a> for ConfigurationItem {
 }
 
 impl<'a> Visit<'a> for BlockConfiguration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_block_configuration(self);
         self.block_spec.visit(visitor);
         self.items.visit(visitor);
@@ -3149,7 +3227,7 @@ impl<'a> Visit<'a> for BlockConfiguration {
 }
 
 impl<'a> Visit<'a> for ConfigurationDeclaration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_configuration_declaration(self);
         self.ident.visit(visitor);
         self.entity_name.visit(visitor);
@@ -3161,7 +3239,7 @@ impl<'a> Visit<'a> for ConfigurationDeclaration {
 }
 
 impl<'a> Visit<'a> for EntityDeclaration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_entity_declaration(self);
         self.ident.visit(visitor);
         self.generic_clause.visit(visitor);
@@ -3173,7 +3251,7 @@ impl<'a> Visit<'a> for EntityDeclaration {
 }
 
 impl<'a> Visit<'a> for ArchitectureBody {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_architecture_body(self);
         self.ident.visit(visitor);
         self.entity_name.visit(visitor);
@@ -3184,7 +3262,7 @@ impl<'a> Visit<'a> for ArchitectureBody {
 }
 
 impl<'a> Visit<'a> for PackageDeclaration {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_package_declaration(self);
         self.ident.visit(visitor);
         self.generic_clause.visit(visitor);
@@ -3194,7 +3272,7 @@ impl<'a> Visit<'a> for PackageDeclaration {
 }
 
 impl<'a> Visit<'a> for PackageBody {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_package_body(self);
         self.ident.visit(visitor);
         self.decl.visit(visitor);
@@ -3203,7 +3281,7 @@ impl<'a> Visit<'a> for PackageBody {
 }
 
 impl<'a> Visit<'a> for PrimaryUnit {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_primary_unit(self);
         match self {
             PrimaryUnit::EntityDeclaration(node) => node.visit(visitor),
@@ -3217,7 +3295,7 @@ impl<'a> Visit<'a> for PrimaryUnit {
 }
 
 impl<'a> Visit<'a> for SecondaryUnit {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_secondary_unit(self);
         match self {
             SecondaryUnit::Architecture(node) => node.visit(visitor),
@@ -3228,7 +3306,7 @@ impl<'a> Visit<'a> for SecondaryUnit {
 }
 
 impl<'a> Visit<'a> for DesignUnit<EntityDeclaration> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_design_unit_entity_declaration(self);
         self.context_clause.visit(visitor);
         self.unit.visit(visitor);
@@ -3237,7 +3315,7 @@ impl<'a> Visit<'a> for DesignUnit<EntityDeclaration> {
 }
 
 impl<'a> Visit<'a> for DesignUnit<PackageInstantiation> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_design_unit_package_instantiation(self);
         self.context_clause.visit(visitor);
         self.unit.visit(visitor);
@@ -3246,7 +3324,7 @@ impl<'a> Visit<'a> for DesignUnit<PackageInstantiation> {
 }
 
 impl<'a> Visit<'a> for DesignUnit<ConfigurationDeclaration> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_design_unit_configuration_declaration(self);
         self.context_clause.visit(visitor);
         self.unit.visit(visitor);
@@ -3255,7 +3333,7 @@ impl<'a> Visit<'a> for DesignUnit<ConfigurationDeclaration> {
 }
 
 impl<'a> Visit<'a> for DesignUnit<PackageBody> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_design_unit_package_body(self);
         self.context_clause.visit(visitor);
         self.unit.visit(visitor);
@@ -3264,7 +3342,7 @@ impl<'a> Visit<'a> for DesignUnit<PackageBody> {
 }
 
 impl<'a> Visit<'a> for DesignUnit<ArchitectureBody> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_design_unit_architecture_body(self);
         self.context_clause.visit(visitor);
         self.unit.visit(visitor);
@@ -3273,7 +3351,7 @@ impl<'a> Visit<'a> for DesignUnit<ArchitectureBody> {
 }
 
 impl<'a> Visit<'a> for DesignUnit<PackageDeclaration> {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_design_unit_package_declaration(self);
         self.context_clause.visit(visitor);
         self.unit.visit(visitor);
@@ -3282,7 +3360,7 @@ impl<'a> Visit<'a> for DesignUnit<PackageDeclaration> {
 }
 
 impl<'a> Visit<'a> for AnyDesignUnit {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_any_design_unit(self);
         match self {
             AnyDesignUnit::Primary(node) => node.visit(visitor),
@@ -3293,14 +3371,12 @@ impl<'a> Visit<'a> for AnyDesignUnit {
 }
 
 impl<'a> Visit<'a> for DesignFile {
-    fn visit<T: Visitor<'a>>(&self, visitor : &mut T) {
+    fn visit<T: Visitor<'a>>(&self, visitor: &mut T) {
         visitor.enter_design_file(self);
         self.design_units.visit(visitor);
         visitor.exit_design_file(self);
     }
 }
-
-
 
 // =====================================================================
 // TESTS
@@ -3308,9 +3384,9 @@ impl<'a> Visit<'a> for DesignFile {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
     use crate::design_unit::parse_design_file;
     use crate::test_util::{check_no_messages, Code};
+    use std::collections::HashMap;
 
     fn parse_str(code: &str) -> (Code, DesignFile, Vec<Message>) {
         let code = Code::new(code);
@@ -3325,10 +3401,9 @@ mod tests {
         (code, design_file)
     }
 
-
     struct TestVisitor {
-        messages : Vec<Message>,
-        visits   : HashMap<String, u32>
+        messages: Vec<Message>,
+        visits: HashMap<String, u32>,
     }
 
     impl<'a> TestVisitor {
@@ -3444,7 +3519,10 @@ mod tests {
             visits.insert(String::from("exit_interface_object_declaration"), 0);
             visits.insert(String::from("enter_subprogram_default"), 0);
             visits.insert(String::from("exit_subprogram_default"), 0);
-            visits.insert(String::from("enter_interface_package_generic_map_aspect"), 0);
+            visits.insert(
+                String::from("enter_interface_package_generic_map_aspect"),
+                0,
+            );
             visits.insert(String::from("exit_interface_package_generic_map_aspect"), 0);
             visits.insert(String::from("enter_interface_package_declaration"), 0);
             visits.insert(String::from("exit_interface_package_declaration"), 0);
@@ -3478,14 +3556,26 @@ mod tests {
             visits.insert(String::from("exit_variable_assignment"), 0);
             visits.insert(String::from("enter_assignment_right_hand_waveform"), 0);
             visits.insert(String::from("exit_assignment_right_hand_waveform"), 0);
-            visits.insert(String::from("enter_assignment_right_hand_with_pos_expression"), 0);
-            visits.insert(String::from("exit_assignment_right_hand_with_pos_expression"), 0);
+            visits.insert(
+                String::from("enter_assignment_right_hand_with_pos_expression"),
+                0,
+            );
+            visits.insert(
+                String::from("exit_assignment_right_hand_with_pos_expression"),
+                0,
+            );
             visits.insert(String::from("enter_conditional_expression"), 0);
             visits.insert(String::from("exit_conditional_expression"), 0);
             visits.insert(String::from("enter_conditional_generate_body"), 0);
             visits.insert(String::from("exit_conditional_generate_body"), 0);
-            visits.insert(String::from("enter_conditional_vec_labeled_sequential_statement"), 0);
-            visits.insert(String::from("exit_conditional_vec_labeled_sequential_statement"), 0);
+            visits.insert(
+                String::from("enter_conditional_vec_labeled_sequential_statement"),
+                0,
+            );
+            visits.insert(
+                String::from("exit_conditional_vec_labeled_sequential_statement"),
+                0,
+            );
             visits.insert(String::from("enter_conditional_waveform"), 0);
             visits.insert(String::from("exit_conditional_waveform"), 0);
             visits.insert(String::from("enter_if_generate_statement"), 0);
@@ -3498,8 +3588,14 @@ mod tests {
             visits.insert(String::from("exit_conditionals_waveform"), 0);
             visits.insert(String::from("enter_alternative_generate_body"), 0);
             visits.insert(String::from("exit_alternative_generate_body"), 0);
-            visits.insert(String::from("enter_alternative_vec_labeled_sequential_statement"), 0);
-            visits.insert(String::from("exit_alternative_vec_labeled_sequential_statement"), 0);
+            visits.insert(
+                String::from("enter_alternative_vec_labeled_sequential_statement"),
+                0,
+            );
+            visits.insert(
+                String::from("exit_alternative_vec_labeled_sequential_statement"),
+                0,
+            );
             visits.insert(String::from("enter_alternative_waveform"), 0);
             visits.insert(String::from("exit_alternative_waveform"), 0);
             visits.insert(String::from("enter_alternative_with_pos_expression"), 0);
@@ -3600,8 +3696,14 @@ mod tests {
             visits.insert(String::from("exit_design_unit_entity_declaration"), 0);
             visits.insert(String::from("enter_design_unit_package_instantiation"), 0);
             visits.insert(String::from("exit_design_unit_package_instantiation"), 0);
-            visits.insert(String::from("enter_design_unit_configuration_declaration"), 0);
-            visits.insert(String::from("exit_design_unit_configuration_declaration"), 0);
+            visits.insert(
+                String::from("enter_design_unit_configuration_declaration"),
+                0,
+            );
+            visits.insert(
+                String::from("exit_design_unit_configuration_declaration"),
+                0,
+            );
             visits.insert(String::from("enter_design_unit_package_body"), 0);
             visits.insert(String::from("exit_design_unit_package_body"), 0);
             visits.insert(String::from("enter_design_unit_architecture_body"), 0);
@@ -3615,7 +3717,7 @@ mod tests {
 
             TestVisitor {
                 messages: Vec::new(),
-                visits: visits
+                visits: visits,
             }
         }
 
@@ -3626,20 +3728,19 @@ mod tests {
 
     #[allow(unused_variables)]
     impl<'a> Visitor<'a> for TestVisitor {
-        
         // ===================================
         // Results
         // -----------------------------------
         fn messages(&self) -> &Vec<Message> {
             &self.messages
         }
-    
+
         // ===================================
         // Source position
         // -----------------------------------
-        fn enter_src_pos(&mut self, src_pos: &'a SrcPos){}
-        fn exit_src_pos(&mut self, src_pos: &'a SrcPos){}
-    
+        fn enter_src_pos(&mut self, src_pos: &'a SrcPos) {}
+        fn exit_src_pos(&mut self, src_pos: &'a SrcPos) {}
+
         // ===================================
         // AST events
         // -----------------------------------
@@ -3782,10 +3883,16 @@ mod tests {
             *self.visits.get_mut("exit_subtype_constraint").unwrap() += 1;
         }
         fn enter_record_element_resolution(&mut self, node: &RecordElementResolution) {
-            *self.visits.get_mut("enter_record_element_resolution").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_record_element_resolution")
+                .unwrap() += 1;
         }
         fn exit_record_element_resolution(&mut self, node: &RecordElementResolution) {
-            *self.visits.get_mut("exit_record_element_resolution").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_record_element_resolution")
+                .unwrap() += 1;
         }
         fn enter_resolution_indication(&mut self, node: &ResolutionIndication) {
             *self.visits.get_mut("enter_resolution_indication").unwrap() += 1;
@@ -3812,10 +3919,16 @@ mod tests {
             *self.visits.get_mut("exit_element_declaration").unwrap() += 1;
         }
         fn enter_protected_type_declarative_item(&mut self, node: &ProtectedTypeDeclarativeItem) {
-            *self.visits.get_mut("enter_protected_type_declarative_item").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_protected_type_declarative_item")
+                .unwrap() += 1;
         }
         fn exit_protected_type_declarative_item(&mut self, node: &ProtectedTypeDeclarativeItem) {
-            *self.visits.get_mut("exit_protected_type_declarative_item").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_protected_type_declarative_item")
+                .unwrap() += 1;
         }
         fn enter_designator(&mut self, node: &Designator) {
             *self.visits.get_mut("enter_designator").unwrap() += 1;
@@ -3854,7 +3967,10 @@ mod tests {
             *self.visits.get_mut("exit_entity_class").unwrap() += 1;
         }
         fn enter_attribute_specification(&mut self, node: &AttributeSpecification) {
-            *self.visits.get_mut("enter_attribute_specification").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_attribute_specification")
+                .unwrap() += 1;
         }
         fn exit_attribute_specification(&mut self, node: &AttributeSpecification) {
             *self.visits.get_mut("exit_attribute_specification").unwrap() += 1;
@@ -3866,10 +3982,16 @@ mod tests {
             *self.visits.get_mut("exit_attribute").unwrap() += 1;
         }
         fn enter_protected_type_declaration(&mut self, node: &ProtectedTypeDeclaration) {
-            *self.visits.get_mut("enter_protected_type_declaration").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_protected_type_declaration")
+                .unwrap() += 1;
         }
         fn exit_protected_type_declaration(&mut self, node: &ProtectedTypeDeclaration) {
-            *self.visits.get_mut("exit_protected_type_declaration").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_protected_type_declaration")
+                .unwrap() += 1;
         }
         fn enter_protected_type_body(&mut self, node: &ProtectedTypeBody) {
             *self.visits.get_mut("enter_protected_type_body").unwrap() += 1;
@@ -3878,10 +4000,16 @@ mod tests {
             *self.visits.get_mut("exit_protected_type_body").unwrap() += 1;
         }
         fn enter_physical_type_declaration(&mut self, node: &PhysicalTypeDeclaration) {
-            *self.visits.get_mut("enter_physical_type_declaration").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_physical_type_declaration")
+                .unwrap() += 1;
         }
         fn exit_physical_type_declaration(&mut self, node: &PhysicalTypeDeclaration) {
-            *self.visits.get_mut("exit_physical_type_declaration").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_physical_type_declaration")
+                .unwrap() += 1;
         }
         fn enter_enumeration_literal(&mut self, node: &EnumerationLiteral) {
             *self.visits.get_mut("enter_enumeration_literal").unwrap() += 1;
@@ -3926,7 +4054,10 @@ mod tests {
             *self.visits.get_mut("exit_subprogram_designator").unwrap() += 1;
         }
         fn enter_procedure_specification(&mut self, node: &ProcedureSpecification) {
-            *self.visits.get_mut("enter_procedure_specification").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_procedure_specification")
+                .unwrap() += 1;
         }
         fn exit_procedure_specification(&mut self, node: &ProcedureSpecification) {
             *self.visits.get_mut("exit_procedure_specification").unwrap() += 1;
@@ -3956,16 +4087,28 @@ mod tests {
             *self.visits.get_mut("exit_subprogram_declaration").unwrap() += 1;
         }
         fn enter_interface_file_declaration(&mut self, node: &InterfaceFileDeclaration) {
-            *self.visits.get_mut("enter_interface_file_declaration").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_interface_file_declaration")
+                .unwrap() += 1;
         }
         fn exit_interface_file_declaration(&mut self, node: &InterfaceFileDeclaration) {
-            *self.visits.get_mut("exit_interface_file_declaration").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_interface_file_declaration")
+                .unwrap() += 1;
         }
         fn enter_interface_object_declaration(&mut self, node: &InterfaceObjectDeclaration) {
-            *self.visits.get_mut("enter_interface_object_declaration").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_interface_object_declaration")
+                .unwrap() += 1;
         }
         fn exit_interface_object_declaration(&mut self, node: &InterfaceObjectDeclaration) {
-            *self.visits.get_mut("exit_interface_object_declaration").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_interface_object_declaration")
+                .unwrap() += 1;
         }
         fn enter_subprogram_default(&mut self, node: &SubprogramDefault) {
             *self.visits.get_mut("enter_subprogram_default").unwrap() += 1;
@@ -3973,17 +4116,35 @@ mod tests {
         fn exit_subprogram_default(&mut self, node: &SubprogramDefault) {
             *self.visits.get_mut("exit_subprogram_default").unwrap() += 1;
         }
-        fn enter_interface_package_generic_map_aspect(&mut self, node: &InterfacePackageGenericMapAspect) {
-            *self.visits.get_mut("enter_interface_package_generic_map_aspect").unwrap() += 1;
+        fn enter_interface_package_generic_map_aspect(
+            &mut self,
+            node: &InterfacePackageGenericMapAspect,
+        ) {
+            *self
+                .visits
+                .get_mut("enter_interface_package_generic_map_aspect")
+                .unwrap() += 1;
         }
-        fn exit_interface_package_generic_map_aspect(&mut self, node: &InterfacePackageGenericMapAspect) {
-            *self.visits.get_mut("exit_interface_package_generic_map_aspect").unwrap() += 1;
+        fn exit_interface_package_generic_map_aspect(
+            &mut self,
+            node: &InterfacePackageGenericMapAspect,
+        ) {
+            *self
+                .visits
+                .get_mut("exit_interface_package_generic_map_aspect")
+                .unwrap() += 1;
         }
         fn enter_interface_package_declaration(&mut self, node: &InterfacePackageDeclaration) {
-            *self.visits.get_mut("enter_interface_package_declaration").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_interface_package_declaration")
+                .unwrap() += 1;
         }
         fn exit_interface_package_declaration(&mut self, node: &InterfacePackageDeclaration) {
-            *self.visits.get_mut("exit_interface_package_declaration").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_interface_package_declaration")
+                .unwrap() += 1;
         }
         fn enter_interface_declaration(&mut self, node: &InterfaceDeclaration) {
             *self.visits.get_mut("enter_interface_declaration").unwrap() += 1;
@@ -4070,16 +4231,34 @@ mod tests {
             *self.visits.get_mut("exit_variable_assignment").unwrap() += 1;
         }
         fn enter_assignment_right_hand_waveform(&mut self, node: &AssignmentRightHand<Waveform>) {
-            *self.visits.get_mut("enter_assignment_right_hand_waveform").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_assignment_right_hand_waveform")
+                .unwrap() += 1;
         }
         fn exit_assignment_right_hand_waveform(&mut self, node: &AssignmentRightHand<Waveform>) {
-            *self.visits.get_mut("exit_assignment_right_hand_waveform").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_assignment_right_hand_waveform")
+                .unwrap() += 1;
         }
-        fn enter_assignment_right_hand_with_pos_expression(&mut self, node: &AssignmentRightHand<WithPos<Expression>>) {
-            *self.visits.get_mut("enter_assignment_right_hand_with_pos_expression").unwrap() += 1;
+        fn enter_assignment_right_hand_with_pos_expression(
+            &mut self,
+            node: &AssignmentRightHand<WithPos<Expression>>,
+        ) {
+            *self
+                .visits
+                .get_mut("enter_assignment_right_hand_with_pos_expression")
+                .unwrap() += 1;
         }
-        fn exit_assignment_right_hand_with_pos_expression(&mut self, node: &AssignmentRightHand<WithPos<Expression>>) {
-            *self.visits.get_mut("exit_assignment_right_hand_with_pos_expression").unwrap() += 1;
+        fn exit_assignment_right_hand_with_pos_expression(
+            &mut self,
+            node: &AssignmentRightHand<WithPos<Expression>>,
+        ) {
+            *self
+                .visits
+                .get_mut("exit_assignment_right_hand_with_pos_expression")
+                .unwrap() += 1;
         }
         fn enter_conditional_expression(&mut self, node: &ConditionalExpression) {
             *self.visits.get_mut("enter_conditional_expression").unwrap() += 1;
@@ -4088,16 +4267,34 @@ mod tests {
             *self.visits.get_mut("exit_conditional_expression").unwrap() += 1;
         }
         fn enter_conditional_generate_body(&mut self, node: &Conditional<GenerateBody>) {
-            *self.visits.get_mut("enter_conditional_generate_body").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_conditional_generate_body")
+                .unwrap() += 1;
         }
         fn exit_conditional_generate_body(&mut self, node: &Conditional<GenerateBody>) {
-            *self.visits.get_mut("exit_conditional_generate_body").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_conditional_generate_body")
+                .unwrap() += 1;
         }
-        fn enter_conditional_vec_labeled_sequential_statement(&mut self, node: &Conditional<Vec<LabeledSequentialStatement>>) {
-            *self.visits.get_mut("enter_conditional_vec_labeled_sequential_statement").unwrap() += 1;
+        fn enter_conditional_vec_labeled_sequential_statement(
+            &mut self,
+            node: &Conditional<Vec<LabeledSequentialStatement>>,
+        ) {
+            *self
+                .visits
+                .get_mut("enter_conditional_vec_labeled_sequential_statement")
+                .unwrap() += 1;
         }
-        fn exit_conditional_vec_labeled_sequential_statement(&mut self, node: &Conditional<Vec<LabeledSequentialStatement>>) {
-            *self.visits.get_mut("exit_conditional_vec_labeled_sequential_statement").unwrap() += 1;
+        fn exit_conditional_vec_labeled_sequential_statement(
+            &mut self,
+            node: &Conditional<Vec<LabeledSequentialStatement>>,
+        ) {
+            *self
+                .visits
+                .get_mut("exit_conditional_vec_labeled_sequential_statement")
+                .unwrap() += 1;
         }
         fn enter_conditional_waveform(&mut self, node: &Conditional<Waveform>) {
             *self.visits.get_mut("enter_conditional_waveform").unwrap() += 1;
@@ -4118,7 +4315,10 @@ mod tests {
             *self.visits.get_mut("exit_if_statement").unwrap() += 1;
         }
         fn enter_conditional_expressions(&mut self, node: &ConditionalExpressions) {
-            *self.visits.get_mut("enter_conditional_expressions").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_conditional_expressions")
+                .unwrap() += 1;
         }
         fn exit_conditional_expressions(&mut self, node: &ConditionalExpressions) {
             *self.visits.get_mut("exit_conditional_expressions").unwrap() += 1;
@@ -4130,16 +4330,34 @@ mod tests {
             *self.visits.get_mut("exit_conditionals_waveform").unwrap() += 1;
         }
         fn enter_alternative_generate_body(&mut self, node: &Alternative<GenerateBody>) {
-            *self.visits.get_mut("enter_alternative_generate_body").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_alternative_generate_body")
+                .unwrap() += 1;
         }
         fn exit_alternative_generate_body(&mut self, node: &Alternative<GenerateBody>) {
-            *self.visits.get_mut("exit_alternative_generate_body").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_alternative_generate_body")
+                .unwrap() += 1;
         }
-        fn enter_alternative_vec_labeled_sequential_statement(&mut self, node: &Alternative<Vec<LabeledSequentialStatement>>) {
-            *self.visits.get_mut("enter_alternative_vec_labeled_sequential_statement").unwrap() += 1;
+        fn enter_alternative_vec_labeled_sequential_statement(
+            &mut self,
+            node: &Alternative<Vec<LabeledSequentialStatement>>,
+        ) {
+            *self
+                .visits
+                .get_mut("enter_alternative_vec_labeled_sequential_statement")
+                .unwrap() += 1;
         }
-        fn exit_alternative_vec_labeled_sequential_statement(&mut self, node: &Alternative<Vec<LabeledSequentialStatement>>) {
-            *self.visits.get_mut("exit_alternative_vec_labeled_sequential_statement").unwrap() += 1;
+        fn exit_alternative_vec_labeled_sequential_statement(
+            &mut self,
+            node: &Alternative<Vec<LabeledSequentialStatement>>,
+        ) {
+            *self
+                .visits
+                .get_mut("exit_alternative_vec_labeled_sequential_statement")
+                .unwrap() += 1;
         }
         fn enter_alternative_waveform(&mut self, node: &Alternative<Waveform>) {
             *self.visits.get_mut("enter_alternative_waveform").unwrap() += 1;
@@ -4147,14 +4365,29 @@ mod tests {
         fn exit_alternative_waveform(&mut self, node: &Alternative<Waveform>) {
             *self.visits.get_mut("exit_alternative_waveform").unwrap() += 1;
         }
-        fn enter_alternative_with_pos_expression(&mut self, node: &Alternative<WithPos<Expression>>) {
-            *self.visits.get_mut("enter_alternative_with_pos_expression").unwrap() += 1;
+        fn enter_alternative_with_pos_expression(
+            &mut self,
+            node: &Alternative<WithPos<Expression>>,
+        ) {
+            *self
+                .visits
+                .get_mut("enter_alternative_with_pos_expression")
+                .unwrap() += 1;
         }
-        fn exit_alternative_with_pos_expression(&mut self, node: &Alternative<WithPos<Expression>>) {
-            *self.visits.get_mut("exit_alternative_with_pos_expression").unwrap() += 1;
+        fn exit_alternative_with_pos_expression(
+            &mut self,
+            node: &Alternative<WithPos<Expression>>,
+        ) {
+            *self
+                .visits
+                .get_mut("exit_alternative_with_pos_expression")
+                .unwrap() += 1;
         }
         fn enter_case_generate_statement(&mut self, node: &CaseGenerateStatement) {
-            *self.visits.get_mut("enter_case_generate_statement").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_case_generate_statement")
+                .unwrap() += 1;
         }
         fn exit_case_generate_statement(&mut self, node: &CaseGenerateStatement) {
             *self.visits.get_mut("exit_case_generate_statement").unwrap() += 1;
@@ -4172,10 +4405,16 @@ mod tests {
             *self.visits.get_mut("exit_selection_waveform").unwrap() += 1;
         }
         fn enter_selection_with_pos_expression(&mut self, node: &Selection<WithPos<Expression>>) {
-            *self.visits.get_mut("enter_selection_with_pos_expression").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_selection_with_pos_expression")
+                .unwrap() += 1;
         }
         fn exit_selection_with_pos_expression(&mut self, node: &Selection<WithPos<Expression>>) {
-            *self.visits.get_mut("exit_selection_with_pos_expression").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_selection_with_pos_expression")
+                .unwrap() += 1;
         }
         fn enter_iteration_scheme(&mut self, node: &IterationScheme) {
             *self.visits.get_mut("enter_iteration_scheme").unwrap() += 1;
@@ -4214,10 +4453,16 @@ mod tests {
             *self.visits.get_mut("exit_sequential_statement").unwrap() += 1;
         }
         fn enter_labeled_sequential_statement(&mut self, node: &LabeledSequentialStatement) {
-            *self.visits.get_mut("enter_labeled_sequential_statement").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_labeled_sequential_statement")
+                .unwrap() += 1;
         }
         fn exit_labeled_sequential_statement(&mut self, node: &LabeledSequentialStatement) {
-            *self.visits.get_mut("exit_labeled_sequential_statement").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_labeled_sequential_statement")
+                .unwrap() += 1;
         }
         fn enter_block_statement(&mut self, node: &BlockStatement) {
             *self.visits.get_mut("enter_block_statement").unwrap() += 1;
@@ -4238,22 +4483,40 @@ mod tests {
             *self.visits.get_mut("exit_process_statement").unwrap() += 1;
         }
         fn enter_concurrent_procedure_call(&mut self, node: &ConcurrentProcedureCall) {
-            *self.visits.get_mut("enter_concurrent_procedure_call").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_concurrent_procedure_call")
+                .unwrap() += 1;
         }
         fn exit_concurrent_procedure_call(&mut self, node: &ConcurrentProcedureCall) {
-            *self.visits.get_mut("exit_concurrent_procedure_call").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_concurrent_procedure_call")
+                .unwrap() += 1;
         }
         fn enter_concurrent_assert_statement(&mut self, node: &ConcurrentAssertStatement) {
-            *self.visits.get_mut("enter_concurrent_assert_statement").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_concurrent_assert_statement")
+                .unwrap() += 1;
         }
         fn exit_concurrent_assert_statement(&mut self, node: &ConcurrentAssertStatement) {
-            *self.visits.get_mut("exit_concurrent_assert_statement").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_concurrent_assert_statement")
+                .unwrap() += 1;
         }
         fn enter_concurrent_signal_assignment(&mut self, node: &ConcurrentSignalAssignment) {
-            *self.visits.get_mut("enter_concurrent_signal_assignment").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_concurrent_signal_assignment")
+                .unwrap() += 1;
         }
         fn exit_concurrent_signal_assignment(&mut self, node: &ConcurrentSignalAssignment) {
-            *self.visits.get_mut("exit_concurrent_signal_assignment").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_concurrent_signal_assignment")
+                .unwrap() += 1;
         }
         fn enter_instantiated_unit(&mut self, node: &InstantiatedUnit) {
             *self.visits.get_mut("enter_instantiated_unit").unwrap() += 1;
@@ -4262,7 +4525,10 @@ mod tests {
             *self.visits.get_mut("exit_instantiated_unit").unwrap() += 1;
         }
         fn enter_instantiation_statement(&mut self, node: &InstantiationStatement) {
-            *self.visits.get_mut("enter_instantiation_statement").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_instantiation_statement")
+                .unwrap() += 1;
         }
         fn exit_instantiation_statement(&mut self, node: &InstantiationStatement) {
             *self.visits.get_mut("exit_instantiation_statement").unwrap() += 1;
@@ -4286,10 +4552,16 @@ mod tests {
             *self.visits.get_mut("exit_concurrent_statement").unwrap() += 1;
         }
         fn enter_labeled_concurrent_statement(&mut self, node: &LabeledConcurrentStatement) {
-            *self.visits.get_mut("enter_labeled_concurrent_statement").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_labeled_concurrent_statement")
+                .unwrap() += 1;
         }
         fn exit_labeled_concurrent_statement(&mut self, node: &LabeledConcurrentStatement) {
-            *self.visits.get_mut("exit_labeled_concurrent_statement").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_labeled_concurrent_statement")
+                .unwrap() += 1;
         }
         fn enter_library_clause(&mut self, node: &LibraryClause) {
             *self.visits.get_mut("enter_library_clause").unwrap() += 1;
@@ -4346,31 +4618,55 @@ mod tests {
             *self.visits.get_mut("exit_binding_indication").unwrap() += 1;
         }
         fn enter_component_specification(&mut self, node: &ComponentSpecification) {
-            *self.visits.get_mut("enter_component_specification").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_component_specification")
+                .unwrap() += 1;
         }
         fn exit_component_specification(&mut self, node: &ComponentSpecification) {
             *self.visits.get_mut("exit_component_specification").unwrap() += 1;
         }
         fn enter_v_unit_binding_indication(&mut self, node: &VUnitBindingIndication) {
-            *self.visits.get_mut("enter_v_unit_binding_indication").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_v_unit_binding_indication")
+                .unwrap() += 1;
         }
         fn exit_v_unit_binding_indication(&mut self, node: &VUnitBindingIndication) {
-            *self.visits.get_mut("exit_v_unit_binding_indication").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_v_unit_binding_indication")
+                .unwrap() += 1;
         }
         fn enter_configuration_specification(&mut self, node: &ConfigurationSpecification) {
-            *self.visits.get_mut("enter_configuration_specification").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_configuration_specification")
+                .unwrap() += 1;
         }
         fn exit_configuration_specification(&mut self, node: &ConfigurationSpecification) {
-            *self.visits.get_mut("exit_configuration_specification").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_configuration_specification")
+                .unwrap() += 1;
         }
         fn enter_configuration_declarative_item(&mut self, node: &ConfigurationDeclarativeItem) {
-            *self.visits.get_mut("enter_configuration_declarative_item").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_configuration_declarative_item")
+                .unwrap() += 1;
         }
         fn exit_configuration_declarative_item(&mut self, node: &ConfigurationDeclarativeItem) {
-            *self.visits.get_mut("exit_configuration_declarative_item").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_configuration_declarative_item")
+                .unwrap() += 1;
         }
         fn enter_component_configuration(&mut self, node: &ComponentConfiguration) {
-            *self.visits.get_mut("enter_component_configuration").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_component_configuration")
+                .unwrap() += 1;
         }
         fn exit_component_configuration(&mut self, node: &ComponentConfiguration) {
             *self.visits.get_mut("exit_component_configuration").unwrap() += 1;
@@ -4388,10 +4684,16 @@ mod tests {
             *self.visits.get_mut("exit_block_configuration").unwrap() += 1;
         }
         fn enter_configuration_declaration(&mut self, node: &ConfigurationDeclaration) {
-            *self.visits.get_mut("enter_configuration_declaration").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_configuration_declaration")
+                .unwrap() += 1;
         }
         fn exit_configuration_declaration(&mut self, node: &ConfigurationDeclaration) {
-            *self.visits.get_mut("exit_configuration_declaration").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_configuration_declaration")
+                .unwrap() += 1;
         }
         fn enter_entity_declaration(&mut self, node: &EntityDeclaration) {
             *self.visits.get_mut("enter_entity_declaration").unwrap() += 1;
@@ -4430,40 +4732,88 @@ mod tests {
             *self.visits.get_mut("exit_secondary_unit").unwrap() += 1;
         }
         fn enter_design_unit_entity_declaration(&mut self, node: &DesignUnit<EntityDeclaration>) {
-            *self.visits.get_mut("enter_design_unit_entity_declaration").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_design_unit_entity_declaration")
+                .unwrap() += 1;
         }
         fn exit_design_unit_entity_declaration(&mut self, node: &DesignUnit<EntityDeclaration>) {
-            *self.visits.get_mut("exit_design_unit_entity_declaration").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_design_unit_entity_declaration")
+                .unwrap() += 1;
         }
-        fn enter_design_unit_package_instantiation(&mut self, node: &DesignUnit<PackageInstantiation>) {
-            *self.visits.get_mut("enter_design_unit_package_instantiation").unwrap() += 1;
+        fn enter_design_unit_package_instantiation(
+            &mut self,
+            node: &DesignUnit<PackageInstantiation>,
+        ) {
+            *self
+                .visits
+                .get_mut("enter_design_unit_package_instantiation")
+                .unwrap() += 1;
         }
-        fn exit_design_unit_package_instantiation(&mut self, node: &DesignUnit<PackageInstantiation>) {
-            *self.visits.get_mut("exit_design_unit_package_instantiation").unwrap() += 1;
+        fn exit_design_unit_package_instantiation(
+            &mut self,
+            node: &DesignUnit<PackageInstantiation>,
+        ) {
+            *self
+                .visits
+                .get_mut("exit_design_unit_package_instantiation")
+                .unwrap() += 1;
         }
-        fn enter_design_unit_configuration_declaration(&mut self, node: &DesignUnit<ConfigurationDeclaration>) {
-            *self.visits.get_mut("enter_design_unit_configuration_declaration").unwrap() += 1;
+        fn enter_design_unit_configuration_declaration(
+            &mut self,
+            node: &DesignUnit<ConfigurationDeclaration>,
+        ) {
+            *self
+                .visits
+                .get_mut("enter_design_unit_configuration_declaration")
+                .unwrap() += 1;
         }
-        fn exit_design_unit_configuration_declaration(&mut self, node: &DesignUnit<ConfigurationDeclaration>) {
-            *self.visits.get_mut("exit_design_unit_configuration_declaration").unwrap() += 1;
+        fn exit_design_unit_configuration_declaration(
+            &mut self,
+            node: &DesignUnit<ConfigurationDeclaration>,
+        ) {
+            *self
+                .visits
+                .get_mut("exit_design_unit_configuration_declaration")
+                .unwrap() += 1;
         }
         fn enter_design_unit_package_body(&mut self, node: &DesignUnit<PackageBody>) {
-            *self.visits.get_mut("enter_design_unit_package_body").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_design_unit_package_body")
+                .unwrap() += 1;
         }
         fn exit_design_unit_package_body(&mut self, node: &DesignUnit<PackageBody>) {
-            *self.visits.get_mut("exit_design_unit_package_body").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_design_unit_package_body")
+                .unwrap() += 1;
         }
         fn enter_design_unit_architecture_body(&mut self, node: &DesignUnit<ArchitectureBody>) {
-            *self.visits.get_mut("enter_design_unit_architecture_body").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_design_unit_architecture_body")
+                .unwrap() += 1;
         }
         fn exit_design_unit_architecture_body(&mut self, node: &DesignUnit<ArchitectureBody>) {
-            *self.visits.get_mut("exit_design_unit_architecture_body").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_design_unit_architecture_body")
+                .unwrap() += 1;
         }
         fn enter_design_unit_package_declaration(&mut self, node: &DesignUnit<PackageDeclaration>) {
-            *self.visits.get_mut("enter_design_unit_package_declaration").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("enter_design_unit_package_declaration")
+                .unwrap() += 1;
         }
         fn exit_design_unit_package_declaration(&mut self, node: &DesignUnit<PackageDeclaration>) {
-            *self.visits.get_mut("exit_design_unit_package_declaration").unwrap() += 1;
+            *self
+                .visits
+                .get_mut("exit_design_unit_package_declaration")
+                .unwrap() += 1;
         }
         fn enter_any_design_unit(&mut self, node: &AnyDesignUnit) {
             *self.visits.get_mut("enter_any_design_unit").unwrap() += 1;
@@ -4479,16 +4829,13 @@ mod tests {
         }
     }
 
-
-
     #[test]
     fn listen_to_design_file() {
-        
         let mut test_visitor = TestVisitor::new();
 
         let mut ast_visitor = AstVisitor::new();
         ast_visitor.register(&mut test_visitor);
-        
+
         #[allow(unused_mut)]
         let (_code, mut design_file) = parse_ok(
             "
@@ -4705,7 +5052,11 @@ end configuration mycnf;
         }
         assert!(
             missed.len() == 0,
-            format!("Not all events were called, missed the following {} events: {}", missed.len(), missed.join(", "))
+            format!(
+                "Not all events were called, missed the following {} events: {}",
+                missed.len(),
+                missed.join(", ")
+            )
         )
     }
 
