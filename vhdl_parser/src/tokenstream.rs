@@ -5,10 +5,10 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::ast::Ident;
-use crate::message::{MessageHandler, ParseResult};
-use crate::tokenizer::{kinds_str, Kind, Kind::*, Token, Tokenizer, TokenState, Value};
-use crate::source::SrcPos;
 use crate::latin_1::Latin1String;
+use crate::message::{MessageHandler, ParseResult};
+use crate::source::SrcPos;
+use crate::tokenizer::{kinds_str, Kind, Kind::*, Token, TokenState, Tokenizer, Value};
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct WithComment<T> {
@@ -30,7 +30,7 @@ pub fn combine_comments(
         comment.push(&leading_comment);
     }
     match trailing_comment {
-        None => {},
+        None => {}
         Some(trailing) => {
             if comment.len() > 0 {
                 comment.push_newline();
@@ -39,7 +39,7 @@ pub fn combine_comments(
         }
     }
     match unhandled_comments {
-        None => {},
+        None => {}
         Some(comments) => {
             // FIXME: Some handling should be done here to create warning messages
             // about the unhandled comments.
@@ -60,7 +60,10 @@ pub struct TokenStream {
 
 impl TokenStream {
     pub fn new(tokenizer: Tokenizer) -> TokenStream {
-        TokenStream { tokenizer, unhandled_comments: None}
+        TokenStream {
+            tokenizer,
+            unhandled_comments: None,
+        }
     }
 
     pub fn state(&self) -> TokenState {
@@ -70,23 +73,19 @@ impl TokenStream {
     pub fn set_state(&mut self, state: TokenState) {
         self.tokenizer.set_state(state);
         match &mut self.unhandled_comments {
-            None => {},
-            Some(comments) => {
-                loop {
-                    match comments.last() {
-                        None => {
-                            break
-                        },
-                        Some((comment_pos, _)) => {
-                            if comment_pos.start >= state.start() {
-                                comments.pop();
-                            } else {
-                                break;
-                            }
+            None => {}
+            Some(comments) => loop {
+                match comments.last() {
+                    None => break,
+                    Some((comment_pos, _)) => {
+                        if comment_pos.start >= state.start() {
+                            comments.pop();
+                        } else {
+                            break;
                         }
                     }
                 }
-            }
+            },
         }
     }
 
@@ -118,22 +117,24 @@ impl TokenStream {
             match maybe_token {
                 None => {
                     return Ok(None);
-                },
+                }
                 Some(token) => {
                     match (&token.kind, &token.value) {
-                        (LeadingComment, Value::String(comment)) | (TrailingComment, Value::String(comment)) => {
+                        (LeadingComment, Value::String(comment))
+                        | (TrailingComment, Value::String(comment)) => {
                             match &mut self.unhandled_comments {
                                 None => {
-                                    self.unhandled_comments = Some(vec!((token.pos, comment.clone())));
+                                    self.unhandled_comments =
+                                        Some(vec![(token.pos, comment.clone())]);
                                 }
                                 Some(comments) => {
                                     comments.push((token.pos, comment.clone()));
                                 }
                             };
-                        },
+                        }
                         _ => {
                             return Ok(Some(token));
-                        },
+                        }
                     };
                 }
             }
@@ -244,25 +245,23 @@ impl TokenStream {
     }
 
     pub fn leading_comments(&mut self) -> ParseResult<Vec<Latin1String>> {
-        let mut comments = vec!();
+        let mut comments = vec![];
         loop {
             let state = self.state();
             let maybe_token = self.tokenizer.pop()?;
             match maybe_token {
                 None => {
                     return Ok(comments);
-                },
-                Some(token) => {
-                    match (token.kind, token.value) {
-                        (LeadingComment, Value::String(comment)) => {
-                            comments.push(comment);
-                        },
-                        _ => {
-                            self.set_state(state);
-                            return Ok(comments);
-                        },
-                    }
                 }
+                Some(token) => match (token.kind, token.value) {
+                    (LeadingComment, Value::String(comment)) => {
+                        comments.push(comment);
+                    }
+                    _ => {
+                        self.set_state(state);
+                        return Ok(comments);
+                    }
+                },
             }
         }
     }
@@ -272,17 +271,13 @@ impl TokenStream {
         let maybe_token = self.tokenizer.pop()?;
         match maybe_token {
             None => Ok(None),
-            Some(token) => {
-                match (token.kind, token.value) {
-                    (LeadingComment, Value::String(comment)) => {
-                        Ok(Some(comment))
-                    },
-                    _ => {
-                        self.set_state(state);
-                        Ok(None)
-                    },
+            Some(token) => match (token.kind, token.value) {
+                (LeadingComment, Value::String(comment)) => Ok(Some(comment)),
+                _ => {
+                    self.set_state(state);
+                    Ok(None)
                 }
-            }
+            },
         }
     }
 

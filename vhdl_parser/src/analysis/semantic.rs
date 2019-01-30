@@ -287,7 +287,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                             return Err(Message::error(
                                 prefix.as_ref(),
                                 "'.all' may not be the prefix of a selected name",
-                            ))
+                            ));
                         }
                         others => return Ok(others),
                     }

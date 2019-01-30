@@ -17,7 +17,7 @@ use crate::range::{parse_array_index_constraint, parse_range};
 use crate::subprogram::parse_subprogram_declaration;
 use crate::subtype_indication::parse_subtype_indication;
 use crate::tokenizer::Kind::*;
-use crate::tokenstream::{TokenStream, combine_comments};
+use crate::tokenstream::{combine_comments, TokenStream};
 
 /// LRM 5.2.2 Enumeration types
 fn parse_enumeration_type_definition(stream: &mut TokenStream) -> ParseResult<TypeDefinition> {
@@ -293,8 +293,17 @@ pub fn parse_type_declaration(
     );
     let trailing_comment = stream.trailing_comment()?;
     let unhandled_comments = stream.unhandled_comments();
-    let comment = combine_comments(leading_comments, trailing_comment, unhandled_comments, messages);
-    Ok(TypeDeclaration { ident, def, comment: comment })
+    let comment = combine_comments(
+        leading_comments,
+        trailing_comment,
+        unhandled_comments,
+        messages,
+    );
+    Ok(TypeDeclaration {
+        ident,
+        def,
+        comment: comment,
+    })
 }
 
 #[cfg(test)]
@@ -304,7 +313,6 @@ mod tests {
     use crate::ast::{DiscreteRange, Ident};
     use crate::latin_1::Latin1String;
     use crate::test_util::Code;
-
 
     #[test]
     fn parse_integer_scalar_type_definition() {
@@ -808,10 +816,12 @@ end units;
 
     #[test]
     fn parse_integer_scalar_type_definition_comment_before() {
-        let code = Code::new("
+        let code = Code::new(
+            "
 -- This is a comment.
 type foo is range 0 to 1;
-");
+",
+        );
         let type_decl = TypeDeclaration {
             ident: code.s1("foo").ident(),
             def: TypeDefinition::Integer(code.s1("0 to 1").range()),

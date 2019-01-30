@@ -45,7 +45,8 @@ impl Latin1String {
     }
 
     pub fn push_newline(&mut self) {
-        self.bytes.extend(Latin1String::from_utf8("\n").unwrap().bytes);
+        self.bytes
+            .extend(Latin1String::from_utf8("\n").unwrap().bytes);
     }
 
     pub fn from_vec(bytes: Vec<u8>) -> Latin1String {

@@ -166,7 +166,7 @@ pub enum Kind {
     RightArrow,
 
     LeadingComment,
-    TrailingComment
+    TrailingComment,
 }
 use self::Kind::*;
 
@@ -410,9 +410,6 @@ pub struct Token {
     pub pos: SrcPos,
 }
 
-///
-
-
 use std::convert::AsRef;
 impl AsRef<SrcPos> for Token {
     fn as_ref(&self) -> &SrcPos {
@@ -516,7 +513,6 @@ impl Token {
             Err(self.kinds_error(&[StringLiteral]))
         }
     }
-
 }
 
 /// Resolves ir1045
@@ -730,9 +726,7 @@ fn parse_string(
     parse_quoted(buffer, cursor, b'"', false)
 }
 
-fn parse_comment(
-    cursor: &mut ByteCursor,
-) -> Result<Latin1String, String> {
+fn parse_comment(cursor: &mut ByteCursor) -> Result<Latin1String, String> {
     let mut buffer = Latin1String::empty();
     while let Some(chr) = cursor.pop() {
         if (chr == b'\n') | (chr == b'\r') {
@@ -979,7 +973,6 @@ fn newline_before_token(cursor: &mut ByteCursor) -> bool {
     }
     newline
 }
-
 
 #[derive(Clone)]
 pub struct Tokenizer {
@@ -1253,10 +1246,10 @@ impl Tokenizer {
                                     } else {
                                         (TrailingComment, Value::String(comment))
                                     }
-                                },
+                                }
                                 Err(msg) => {
                                     error!(msg);
-                                },
+                                }
                             }
                         } else {
                             (Minus, Value::NoValue)
@@ -1361,19 +1354,12 @@ impl Tokenizer {
             }
         }
     }
-
 }
 
 /// Tokenize the code into a vector of tokens
 /// String symbols are added to the SymbolTable
 #[cfg(test)]
-fn tokenize_result(
-    code: &str,
-) -> (
-    Source,
-    Arc<SymbolTable>,
-    Vec<Result<Token, Message>>,
-) {
+fn tokenize_result(code: &str) -> (Source, Arc<SymbolTable>, Vec<Result<Token, Message>>) {
     let symtab = Arc::new(SymbolTable::new());
     let source = Source::from_str(code);
     let mut tokens = Vec::new();
@@ -2098,11 +2084,14 @@ end entity"
     #[test]
     fn extract_final_comments() {
         let (source, _, tokens) = tokenize_result("--final");
-        assert_eq!(tokens, vec![Ok(Token {
-            kind: LeadingComment,
-            value: Value::String(Latin1String::from_utf8_unchecked("final")),
-            pos: source.first_substr_pos("--final"),
-            })]);
+        assert_eq!(
+            tokens,
+            vec![Ok(Token {
+                kind: LeadingComment,
+                value: Value::String(Latin1String::from_utf8_unchecked("final")),
+                pos: source.first_substr_pos("--final"),
+            })]
+        );
     }
 
     #[test]
@@ -2124,53 +2113,55 @@ end entity"
         let temp_pos = source.first_substr_pos("- --");
         let minus_pos = source.pos(temp_pos.start, 1);
 
-        let expected_tokens: Vec<ParseResult<Token>>  = vec![
-                Ok(Token {
-                    kind: LeadingComment,
-                    value: Value::String(Latin1String::from_utf8_unchecked("this is a plus")),
-                    pos: source.first_substr_pos("--this is a plus"),
-                    }),
-                Ok(Token {
-                    kind: Plus,
-                    value: Value::NoValue,
-                    pos: source.first_substr_pos("+"),
-                }),
-                Ok(Token {
-                    kind: TrailingComment,
-                    value: Value::String(Latin1String::from_utf8_unchecked("this is still a plus")),
-                    pos: source.first_substr_pos("--this is still a plus"),
-                    }),
-                Ok(Token {
-                    kind: LeadingComment,
-                    value: Value::String(Latin1String::from_utf8_unchecked("- this is not a minus")),
-                    pos: source.first_substr_pos("--- this is not a minus"),
-                    }),
-                Ok(Token {
-                    kind: LeadingComment,
-                    value: Value::String(Latin1String::from_utf8_unchecked(" Neither is this")),
-                    pos: source.first_substr_pos("-- Neither is this"),
-                    }),
-                Ok(Token {
-                    kind: Minus,
-                    value: Value::NoValue,
-                    pos: minus_pos,
-                    }),
-                Ok(Token {
-                    kind: TrailingComment,
-                    value: Value::String(Latin1String::from_utf8_unchecked(" this is a minus")),
-                    pos: source.first_substr_pos("-- this is a minus"),
-                    }),
-                Ok(Token {
-                    kind: LeadingComment,
-                    value: Value::String(Latin1String::from_utf8_unchecked(" a comment at the end of the file")),
-                    pos: source.first_substr_pos("-- a comment at the end of the file"),
-                    }),
-                Ok(Token {
-                    kind: LeadingComment,
-                    value: Value::String(Latin1String::from_utf8_unchecked(" and another one")),
-                    pos: source.first_substr_pos("-- and another one"),
-                    }),
-            ];
+        let expected_tokens: Vec<ParseResult<Token>> = vec![
+            Ok(Token {
+                kind: LeadingComment,
+                value: Value::String(Latin1String::from_utf8_unchecked("this is a plus")),
+                pos: source.first_substr_pos("--this is a plus"),
+            }),
+            Ok(Token {
+                kind: Plus,
+                value: Value::NoValue,
+                pos: source.first_substr_pos("+"),
+            }),
+            Ok(Token {
+                kind: TrailingComment,
+                value: Value::String(Latin1String::from_utf8_unchecked("this is still a plus")),
+                pos: source.first_substr_pos("--this is still a plus"),
+            }),
+            Ok(Token {
+                kind: LeadingComment,
+                value: Value::String(Latin1String::from_utf8_unchecked("- this is not a minus")),
+                pos: source.first_substr_pos("--- this is not a minus"),
+            }),
+            Ok(Token {
+                kind: LeadingComment,
+                value: Value::String(Latin1String::from_utf8_unchecked(" Neither is this")),
+                pos: source.first_substr_pos("-- Neither is this"),
+            }),
+            Ok(Token {
+                kind: Minus,
+                value: Value::NoValue,
+                pos: minus_pos,
+            }),
+            Ok(Token {
+                kind: TrailingComment,
+                value: Value::String(Latin1String::from_utf8_unchecked(" this is a minus")),
+                pos: source.first_substr_pos("-- this is a minus"),
+            }),
+            Ok(Token {
+                kind: LeadingComment,
+                value: Value::String(Latin1String::from_utf8_unchecked(
+                    " a comment at the end of the file",
+                )),
+                pos: source.first_substr_pos("-- a comment at the end of the file"),
+            }),
+            Ok(Token {
+                kind: LeadingComment,
+                value: Value::String(Latin1String::from_utf8_unchecked(" and another one")),
+                pos: source.first_substr_pos("-- and another one"),
+            }),
+        ];
         assert_eq!(tokens.len(), expected_tokens.len());
         for (token, expected_token) in tokens.iter().zip(&expected_tokens) {
             assert_eq!(token, expected_token);
