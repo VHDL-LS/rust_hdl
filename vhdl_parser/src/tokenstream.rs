@@ -272,7 +272,7 @@ impl TokenStream {
         match maybe_token {
             None => Ok(None),
             Some(token) => match (token.kind, token.value) {
-                (LeadingComment, Value::String(comment)) => Ok(Some(comment)),
+                (TrailingComment, Value::String(comment)) => Ok(Some(comment)),
                 _ => {
                     self.set_state(state);
                     Ok(None)
@@ -465,5 +465,55 @@ mod tests {
             })
             .is_ok());
         assert_eq!(stream.peek().map(|t| t.map(|t| t.kind)), Ok(Some(Plus)));
+    }
+
+    #[test]
+    fn leading_and_trailing_comments() {
+        let (src, tokens, mut stream) = new("--a leading comment
+-- another leading comment
+hello world -- a comment that we won't handle
+-- another comment we won't handle
+again --a trailing comment");
+        // Peek at the first non-comment token.
+        assert_eq!(stream.peek(), Ok(Some(tokens[2].clone())));
+        assert_eq!(
+            stream.leading_comments(),
+            Ok(vec![
+                Latin1String::from_utf8_unchecked("a leading comment"),
+                Latin1String::from_utf8_unchecked(" another leading comment"),
+            ])
+        );
+        // Pop the first non-comment token off.
+        assert_eq!(stream.pop(), Ok(Some(tokens[2].clone())));
+        // There are no comments between "hello" and "world"
+        assert_eq!(stream.leading_comments(), Ok(vec![]));
+        assert_eq!(stream.trailing_comment(), Ok(None));
+        assert_eq!(stream.pop(), Ok(Some(tokens[3].clone())));
+        assert_eq!(stream.pop(), Ok(Some(tokens[6].clone())));
+        assert_eq!(stream.leading_comments(), Ok(vec![]));
+        assert_eq!(
+            stream.trailing_comment(),
+            Ok(Some(Latin1String::from_utf8_unchecked(
+                "a trailing comment"
+            )))
+        );
+        assert_eq!(stream.peek(), Ok(None));
+        assert_eq!(stream.pop(), Ok(None));
+        assert_eq!(stream.peek(), Ok(None));
+        assert_eq!(stream.pop(), Ok(None));
+        assert_eq!(stream.pop(), Ok(None));
+        assert_eq!(
+            stream.unhandled_comments(),
+            Some(vec![
+                (
+                    src.first_substr_pos("-- a comment that we won't handle"),
+                    Latin1String::from_utf8_unchecked(" a comment that we won't handle")
+                ),
+                (
+                    src.first_substr_pos("-- another comment we won't handle"),
+                    Latin1String::from_utf8_unchecked(" another comment we won't handle")
+                ),
+            ])
+        );
     }
 }
