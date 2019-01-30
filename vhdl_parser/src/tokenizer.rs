@@ -6,7 +6,7 @@
 
 use self::fnv::FnvHashMap;
 use crate::message::{Message, ParseResult};
-use crate::source::{Pos, Source, SrcPos, WithPos};
+use crate::source::{Source, SrcPos, WithPos};
 use fnv;
 
 use crate::ast;
@@ -164,6 +164,9 @@ pub enum Kind {
     Comma,
     ColonEq,
     RightArrow,
+
+    LeadingComment,
+    TrailingComment
 }
 use self::Kind::*;
 
@@ -363,6 +366,10 @@ pub fn kind_str(kind: Kind) -> &'static str {
         Comma => &",",
         ColonEq => &":=",
         RightArrow => &"=>",
+
+        // Comments
+        LeadingComment => &"",
+        TrailingComment => &"",
     }
 }
 
@@ -401,20 +408,10 @@ pub struct Token {
     pub kind: Kind,
     pub value: Value,
     pub pos: SrcPos,
-    pub comments: Option<Box<TokenComments>>,
 }
 
-#[derive(PartialEq, Clone, Debug)]
-pub struct TokenComments {
-    pub leading: Vec<Comment>,
-    pub trailing: Option<Comment>,
-}
+///
 
-#[derive(PartialEq, Clone, Debug)]
-pub struct Comment {
-    pub value: Latin1String,
-    pub pos: Pos,
-}
 
 use std::convert::AsRef;
 impl AsRef<SrcPos> for Token {
@@ -519,6 +516,7 @@ impl Token {
             Err(self.kinds_error(&[StringLiteral]))
         }
     }
+
 }
 
 /// Resolves ir1045
@@ -676,14 +674,11 @@ impl TokenState {
     /// Set state to after token
     pub fn set_after(&mut self, token: &Token) {
         self.last_token_kind = Some(token.kind);
-        let no_comment_start = token.pos.start + token.pos.length;
-        self.start = match token.comments {
-            None => no_comment_start,
-            Some(ref comments) => match comments.trailing {
-                None => no_comment_start,
-                Some(ref comment) => comment.pos.start + comment.pos.length,
-            },
-        };
+        self.start = token.pos.start;
+    }
+
+    pub fn start(&self) -> usize {
+        self.start
     }
 }
 
@@ -735,9 +730,10 @@ fn parse_string(
     parse_quoted(buffer, cursor, b'"', false)
 }
 
-fn parse_comment(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Comment {
-    let start_pos = cursor.pos();
-    buffer.bytes.clear();
+fn parse_comment(
+    cursor: &mut ByteCursor,
+) -> Result<Latin1String, String> {
+    let mut buffer = Latin1String::empty();
     while let Some(chr) = cursor.pop() {
         if (chr == b'\n') | (chr == b'\r') {
             cursor.back();
@@ -746,14 +742,7 @@ fn parse_comment(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Comment 
             buffer.bytes.push(chr);
         }
     }
-    let end_pos = cursor.pos();
-    Comment {
-        value: buffer.clone(),
-        pos: Pos {
-            start: start_pos - 2,
-            length: end_pos - start_pos + 2,
-        },
-    }
+    Ok(buffer)
 }
 
 fn parse_real_literal(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Result<f64, String> {
@@ -971,20 +960,16 @@ fn parse_basic_identifier_or_keyword(
     }
 }
 
-fn get_leading_comments(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Vec<Comment> {
-    let mut comments: Vec<Comment> = Vec::new();
+fn newline_before_token(cursor: &mut ByteCursor) -> bool {
+    let mut newline = false;
     while let Some(byte) = cursor.pop() {
         match byte {
-            b' ' | b'\t' | b'\r' | b'\n' => {
+            b'\r' | b'\n' => {
+                newline = true;
                 continue;
             }
-            b'-' => {
-                if cursor.skip_if(b'-') {
-                    comments.push(parse_comment(buffer, cursor));
-                } else {
-                    cursor.back();
-                    break;
-                }
+            b' ' | b'\t' => {
+                continue;
             }
             _ => {
                 cursor.back();
@@ -992,35 +977,9 @@ fn get_leading_comments(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> V
             }
         };
     }
-    comments
+    newline
 }
 
-fn get_trailing_comment(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Option<Comment> {
-    while let Some(byte) = cursor.pop() {
-        let comment = match byte {
-            b' ' | b'\t' => {
-                continue;
-            }
-            b'\r' | b'\n' => None,
-            b'-' => {
-                if cursor.skip_if(b'-') {
-                    Some(parse_comment(buffer, cursor))
-                } else {
-                    cursor.back();
-                    None
-                }
-            }
-            _ => {
-                cursor.back();
-                None
-            }
-        };
-        return comment;
-    }
-    // This should never happen.
-    // FIXME: There must be a nicer way to write this function.
-    None
-}
 
 #[derive(Clone)]
 pub struct Tokenizer {
@@ -1030,7 +989,6 @@ pub struct Tokenizer {
     state: TokenState,
     source: Source,
     cursor: ByteCursor,
-    final_comments: Option<Vec<Comment>>,
     pub range_ident: Symbol,
     pub reverse_range_ident: Symbol,
 }
@@ -1150,7 +1108,6 @@ impl Tokenizer {
             buffer: Latin1String::empty(),
             source,
             cursor,
-            final_comments: None,
             range_ident,
             reverse_range_ident,
         }
@@ -1160,18 +1117,13 @@ impl Tokenizer {
         self.state
     }
 
-    pub fn eof_error(&self) -> Message {
-        Message::error(self.source.pos(self.state.start, 1), "Unexpected EOF")
-    }
-
     pub fn set_state(&mut self, state: TokenState) {
         self.state = state;
-        self.cursor.idx = state.start;
+        self.cursor.set(self.state.start);
     }
 
-    pub fn move_after(&mut self, token: &Token) {
-        self.state.set_after(token);
-        self.cursor.idx = self.state.start;
+    pub fn eof_error(&self) -> Message {
+        Message::error(self.source.pos(self.state.start, 1), "Unexpected EOF")
     }
 
     pub fn parse_token(&mut self) -> Result<Option<(Kind, Value)>, Message> {
@@ -1186,6 +1138,11 @@ impl Tokenizer {
                 return err;
             };
         }
+
+        // We need to know if there was a newline to distinguish leading and
+        // trailing comments.
+        let newline = newline_before_token(&mut self.cursor);
+        self.state.start = self.cursor.pos();
 
         match self.cursor.pop() {
             Some(byte) => {
@@ -1287,7 +1244,24 @@ impl Tokenizer {
                             (Tick, Value::NoValue)
                         }
                     }
-                    b'-' => (Minus, Value::NoValue),
+                    b'-' => {
+                        if self.cursor.skip_if(b'-') {
+                            match parse_comment(&mut self.cursor) {
+                                Ok(comment) => {
+                                    if newline || self.state.last_token_kind.is_none() {
+                                        (LeadingComment, Value::String(comment))
+                                    } else {
+                                        (TrailingComment, Value::String(comment))
+                                    }
+                                },
+                                Err(msg) => {
+                                    error!(msg);
+                                },
+                            }
+                        } else {
+                            (Minus, Value::NoValue)
+                        }
+                    }
                     b'"' => {
                         self.cursor.back();
                         match parse_string(&mut self.buffer, &mut self.cursor) {
@@ -1361,7 +1335,6 @@ impl Tokenizer {
     }
 
     pub fn pop(&mut self) -> ParseResult<Option<Token>> {
-        let leading_comments = get_leading_comments(&mut self.buffer, &mut self.cursor);
         self.state.start = self.cursor.pos();
 
         match self.parse_token() {
@@ -1369,23 +1342,13 @@ impl Tokenizer {
                 // Parsed a token.
                 let pos_start = self.state.start;
                 let length = self.cursor.pos() - self.state.start;
-                let trailing_comment = get_trailing_comment(&mut self.buffer, &mut self.cursor);
-                let token_comments = if (!leading_comments.is_empty()) | trailing_comment.is_some()
-                {
-                    Some(Box::new(TokenComments {
-                        leading: leading_comments,
-                        trailing: trailing_comment,
-                    }))
-                } else {
-                    None
-                };
                 let token = Token {
                     kind,
                     value,
                     pos: self.source.pos(pos_start, length),
-                    comments: token_comments,
                 };
-                self.move_after(&token);
+                self.state.start = token.pos.start + token.pos.length;
+                self.state.last_token_kind = Some(token.kind);
                 Ok(Some(token))
             }
             Err(msg) => {
@@ -1394,15 +1357,11 @@ impl Tokenizer {
             }
             Ok(None) => {
                 // End of file.
-                self.final_comments = Some(leading_comments);
                 Ok(None)
             }
         }
     }
 
-    pub fn get_final_comments(&self) -> Option<Vec<Comment>> {
-        self.final_comments.clone()
-    }
 }
 
 /// Tokenize the code into a vector of tokens
@@ -1414,12 +1373,10 @@ fn tokenize_result(
     Source,
     Arc<SymbolTable>,
     Vec<Result<Token, Message>>,
-    Vec<Comment>,
 ) {
     let symtab = Arc::new(SymbolTable::new());
     let source = Source::from_str(code);
     let mut tokens = Vec::new();
-    let final_comments: Vec<Comment>;
     {
         let code = source.contents().unwrap();
         let mut tokenizer = Tokenizer::new(symtab.clone(), source.clone(), code);
@@ -1432,17 +1389,13 @@ fn tokenize_result(
                 Err(err) => tokens.push(Err(err)),
             }
         }
-        match tokenizer.get_final_comments() {
-            Some(comments) => final_comments = comments,
-            None => panic!("Tokenizer failed to check for final comments."),
-        }
     }
-    (source, symtab, tokens, final_comments)
+    (source, symtab, tokens)
 }
 
 #[cfg(test)]
 pub fn tokenize(code: &str) -> (Source, Arc<SymbolTable>, Vec<Token>) {
-    let (source, symtab, tokens, _) = tokenize_result(code);
+    let (source, symtab, tokens) = tokenize_result(code);
     (
         source,
         symtab,
@@ -1456,14 +1409,6 @@ mod tests {
 
     fn kinds(tokens: &[Token]) -> Vec<Kind> {
         tokens.iter().map(|ref tok| tok.kind.clone()).collect()
-    }
-
-    pub fn comment_first_substr_pos(source: &Source, substr: &str) -> Pos {
-        let srcpos = source.first_substr_pos(substr);
-        Pos {
-            start: srcpos.start,
-            length: srcpos.length,
-        }
     }
 
     // Shorthand for testing
@@ -1517,7 +1462,6 @@ end entity"
                 kind: Entity,
                 value: Value::NoValue,
                 pos: source.first_substr_pos("entity"),
-                comments: None,
             }
         );
 
@@ -1527,7 +1471,6 @@ end entity"
                 kind: Identifier,
                 value: Value::Identifier(symtab.insert_utf8("foo")),
                 pos: source.first_substr_pos("foo"),
-                comments: None,
             }
         );
     }
@@ -1548,7 +1491,6 @@ end entity"
                 kind: Identifier,
                 value: Value::Identifier(symtab.insert_utf8("my_ident")),
                 pos: source.entire_pos(),
-                comments: None,
             }]
         );
     }
@@ -1562,7 +1504,6 @@ end entity"
                 kind: Identifier,
                 value: Value::Identifier(symtab.insert_utf8("my_ident")),
                 pos: source.entire_pos(),
-                comments: None,
             }]
         );
     }
@@ -1576,7 +1517,6 @@ end entity"
                 kind: Identifier,
                 value: Value::Identifier(symtab.insert_utf8("\\1$my_ident\\")),
                 pos: source.entire_pos(),
-                comments: None,
             }]
         );
         let (source, symtab, tokens) = tokenize("\\my\\\\_ident\\");
@@ -1586,7 +1526,6 @@ end entity"
                 kind: Identifier,
                 value: Value::Identifier(symtab.insert_utf8("\\my\\_ident\\")),
                 pos: source.entire_pos(),
-                comments: None,
             }]
         );
     }
@@ -1601,13 +1540,11 @@ end entity"
                     kind: Identifier,
                     value: Value::Identifier(symtab.insert_utf8("my_ident")),
                     pos: source.first_substr_pos("my_ident"),
-                    comments: None,
                 },
                 Token {
                     kind: Identifier,
                     value: Value::Identifier(symtab.insert_utf8("my_other_ident")),
                     pos: source.first_substr_pos("my_other_ident"),
-                    comments: None,
                 },
             ]
         );
@@ -1645,7 +1582,7 @@ end entity"
 
     #[test]
     fn tokenize_integer_negative_exponent() {
-        let (source, _, tokens, _) = tokenize_result("1e-1");
+        let (source, _, tokens) = tokenize_result("1e-1");
         assert_eq!(
             tokens,
             vec![Err(Message::error(
@@ -1727,7 +1664,6 @@ end entity"
                 kind: StringLiteral,
                 value: Value::String(Latin1String::from_utf8_unchecked("string")),
                 pos: source.entire_pos(),
-                comments: None,
             },]
         );
     }
@@ -1741,7 +1677,6 @@ end entity"
                 kind: StringLiteral,
                 value: Value::String(Latin1String::from_utf8_unchecked("str\"ing")),
                 pos: source.entire_pos(),
-                comments: None,
             },]
         );
     }
@@ -1756,13 +1691,11 @@ end entity"
                     kind: StringLiteral,
                     value: Value::String(Latin1String::from_utf8_unchecked("str")),
                     pos: source.first_substr_pos("\"str\""),
-                    comments: None,
                 },
                 Token {
                     kind: StringLiteral,
                     value: Value::String(Latin1String::from_utf8_unchecked("ing")),
                     pos: source.first_substr_pos("\"ing\""),
-                    comments: None,
                 },
             ]
         );
@@ -1771,7 +1704,7 @@ end entity"
     #[test]
     fn tokenize_string_literal_error_on_multiline() {
         // Multiline is illegal
-        let (source, _, tokens, _) = tokenize_result("\"str\ning\"");
+        let (source, _, tokens) = tokenize_result("\"str\ning\"");
         assert_eq!(
             tokens,
             vec![Err(Message::error(
@@ -1784,7 +1717,7 @@ end entity"
     #[test]
     fn tokenize_string_literal_error_on_early_eof() {
         // End of file
-        let (source, _, tokens, _) = tokenize_result("\"string");
+        let (source, _, tokens) = tokenize_result("\"string");
         assert_eq!(
             tokens,
             vec![Err(Message::error(
@@ -1807,7 +1740,6 @@ end entity"
                     value: Latin1String::from_utf8_unchecked("ff")
                 }),
                 pos: source.entire_pos(),
-                comments: None,
             },]
         );
         let (source, _, tokens) = tokenize("12ux\"ff\"");
@@ -1821,7 +1753,6 @@ end entity"
                     value: Latin1String::from_utf8_unchecked("ff")
                 }),
                 pos: source.entire_pos(),
-                comments: None,
             },]
         );
 
@@ -1832,7 +1763,6 @@ end entity"
                 kind: Identifier,
                 value: Value::Identifier(symtab.insert_utf8("u")),
                 pos: source.entire_pos(),
-                comments: None,
             },]
         );
     }
@@ -1865,7 +1795,7 @@ end entity"
     #[test]
     fn tokenize_illegal_based_integer() {
         // Base may only be 2-16
-        let (source, _, tokens, _) = tokenize_result("1#0#");
+        let (source, _, tokens) = tokenize_result("1#0#");
         assert_eq!(
             tokens,
             vec![Err(Message::error(
@@ -1873,7 +1803,7 @@ end entity"
                 "Base must be at least 2 and at most 16, got 1"
             ))]
         );
-        let (source, _, tokens, _) = tokenize_result("17#f#");
+        let (source, _, tokens) = tokenize_result("17#f#");
         assert_eq!(
             tokens,
             vec![Err(Message::error(
@@ -1882,7 +1812,7 @@ end entity"
             ))]
         );
         // May not use digit larger than or equal base
-        let (source, _, tokens, _) = tokenize_result("3#3#");
+        let (source, _, tokens) = tokenize_result("3#3#");
         assert_eq!(
             tokens,
             vec![Err(Message::error(
@@ -1890,7 +1820,7 @@ end entity"
                 "Illegal digit for base 3"
             ))]
         );
-        let (source, _, tokens, _) = tokenize_result("15#f#");
+        let (source, _, tokens) = tokenize_result("15#f#");
         assert_eq!(
             tokens,
             vec![Err(Message::error(
@@ -2022,7 +1952,7 @@ end entity"
     }
 
     #[test]
-    fn tokenize_ignores_comments() {
+    fn tokenize_captures_comments() {
         assert_eq!(
             kinds_tokenize(
                 "
@@ -2031,7 +1961,7 @@ end entity"
 -2
 "
             ),
-            vec![AbstractLiteral, Minus, AbstractLiteral]
+            vec![AbstractLiteral, LeadingComment, Minus, AbstractLiteral]
         );
     }
 
@@ -2047,7 +1977,7 @@ end entity"
     #[test]
     fn tokenize_too_large_integer() {
         let large_int = "100000000000000000000000000000000000000000";
-        let (source, _, tokens, _) = tokenize_result(large_int);
+        let (source, _, tokens) = tokenize_result(large_int);
         assert_eq!(
             tokens,
             vec![Err(Message::error(
@@ -2057,7 +1987,7 @@ end entity"
         );
 
         let large_int = "1e100";
-        let (source, _, tokens, _) = tokenize_result(large_int);
+        let (source, _, tokens) = tokenize_result(large_int);
         assert_eq!(
             tokens,
             vec![Err(Message::error(
@@ -2067,7 +1997,7 @@ end entity"
         );
 
         let large_int = format!("1e{}", (i32::max_value() as i64) + 1).to_string();
-        let (source, _, tokens, _) = tokenize_result(&large_int);
+        let (source, _, tokens) = tokenize_result(&large_int);
         assert_eq!(
             tokens,
             vec![Err(Message::error(
@@ -2077,7 +2007,7 @@ end entity"
         );
 
         let large_int = format!("1.0e{}", (i32::min_value() as i64) - 1).to_string();
-        let (source, _, tokens, _) = tokenize_result(&large_int);
+        let (source, _, tokens) = tokenize_result(&large_int);
         assert_eq!(
             tokens,
             vec![Err(Message::error(
@@ -2087,7 +2017,7 @@ end entity"
         );
 
         let large_int = ((i64::max_value() as i128) + 1).to_string();
-        let (source, _, tokens, _) = tokenize_result(&large_int);
+        let (source, _, tokens) = tokenize_result(&large_int);
         assert_eq!(
             tokens,
             vec![Err(Message::error(
@@ -2097,21 +2027,20 @@ end entity"
         );
 
         let large_int = i64::max_value().to_string();
-        let (source, _, tokens, _) = tokenize_result(&large_int);
+        let (source, _, tokens) = tokenize_result(&large_int);
         assert_eq!(
             tokens,
             vec![Ok(Token {
                 kind: AbstractLiteral,
                 value: Value::AbstractLiteral(ast::AbstractLiteral::Integer(i64::max_value())),
                 pos: source.entire_pos(),
-                comments: None,
             })]
         );
     }
 
     #[test]
     fn tokenize_illegal() {
-        let (source, _, tokens, _) = tokenize_result("begin?end");
+        let (source, _, tokens) = tokenize_result("begin?end");
         assert_eq!(
             tokens,
             vec![
@@ -2119,7 +2048,6 @@ end entity"
                     kind: Begin,
                     value: Value::NoValue,
                     pos: source.first_substr_pos("begin"),
-                    comments: None,
                 }),
                 Err(Message::error(
                     &source.first_substr_pos("?"),
@@ -2129,7 +2057,6 @@ end entity"
                     kind: End,
                     value: Value::NoValue,
                     pos: source.first_substr_pos("end"),
-                    comments: None,
                 }),
             ]
         );
@@ -2170,20 +2097,17 @@ end entity"
 
     #[test]
     fn extract_final_comments() {
-        let (source, _, tokens, final_comments) = tokenize_result("--final");
-        assert_eq!(tokens, vec![]);
-        assert_eq!(
-            final_comments,
-            vec![Comment {
-                value: Latin1String::from_utf8_unchecked("final"),
-                pos: comment_first_substr_pos(&source, "--final"),
-            },]
-        );
+        let (source, _, tokens) = tokenize_result("--final");
+        assert_eq!(tokens, vec![Ok(Token {
+            kind: LeadingComment,
+            value: Value::String(Latin1String::from_utf8_unchecked("final")),
+            pos: source.first_substr_pos("--final"),
+            })]);
     }
 
     #[test]
     fn extract_comments() {
-        let (source, _, tokens, final_comments) = tokenize_result(
+        let (source, _, tokens) = tokenize_result(
             "
  --this is a plus
 +--this is still a plus
@@ -2200,59 +2124,56 @@ end entity"
         let temp_pos = source.first_substr_pos("- --");
         let minus_pos = source.pos(temp_pos.start, 1);
 
-        assert_eq!(
-            tokens,
-            vec![
+        let expected_tokens: Vec<ParseResult<Token>>  = vec![
+                Ok(Token {
+                    kind: LeadingComment,
+                    value: Value::String(Latin1String::from_utf8_unchecked("this is a plus")),
+                    pos: source.first_substr_pos("--this is a plus"),
+                    }),
                 Ok(Token {
                     kind: Plus,
                     value: Value::NoValue,
                     pos: source.first_substr_pos("+"),
-                    comments: Some(Box::new(TokenComments {
-                        leading: vec![Comment {
-                            value: Latin1String::from_utf8_unchecked("this is a plus"),
-                            pos: comment_first_substr_pos(&source, "--this is a plus"),
-                        },],
-                        trailing: Some(Comment {
-                            pos: comment_first_substr_pos(&source, "--this is still a plus"),
-                            value: Latin1String::from_utf8_unchecked("this is still a plus"),
-                        }),
-                    })),
                 }),
+                Ok(Token {
+                    kind: TrailingComment,
+                    value: Value::String(Latin1String::from_utf8_unchecked("this is still a plus")),
+                    pos: source.first_substr_pos("--this is still a plus"),
+                    }),
+                Ok(Token {
+                    kind: LeadingComment,
+                    value: Value::String(Latin1String::from_utf8_unchecked("- this is not a minus")),
+                    pos: source.first_substr_pos("--- this is not a minus"),
+                    }),
+                Ok(Token {
+                    kind: LeadingComment,
+                    value: Value::String(Latin1String::from_utf8_unchecked(" Neither is this")),
+                    pos: source.first_substr_pos("-- Neither is this"),
+                    }),
                 Ok(Token {
                     kind: Minus,
                     value: Value::NoValue,
                     pos: minus_pos,
-                    comments: Some(Box::new(TokenComments {
-                        leading: vec![
-                            Comment {
-                                value: Latin1String::from_utf8_unchecked("- this is not a minus"),
-                                pos: comment_first_substr_pos(&source, "--- this is not a minus"),
-                            },
-                            Comment {
-                                value: Latin1String::from_utf8_unchecked(" Neither is this"),
-                                pos: comment_first_substr_pos(&source, "-- Neither is this"),
-                            },
-                        ],
-                        trailing: Some(Comment {
-                            pos: comment_first_substr_pos(&source, "-- this is a minus"),
-                            value: Latin1String::from_utf8_unchecked(" this is a minus"),
-                        }),
-                    })),
-                }),
-            ]
-        );
-        assert_eq!(
-            final_comments,
-            vec![
-                Comment {
-                    value: Latin1String::from_utf8_unchecked(" a comment at the end of the file"),
-                    pos: comment_first_substr_pos(&source, "-- a comment at the end of the file"),
-                },
-                Comment {
-                    value: Latin1String::from_utf8_unchecked(" and another one"),
-                    pos: comment_first_substr_pos(&source, "-- and another one"),
-                },
-            ]
-        );
+                    }),
+                Ok(Token {
+                    kind: TrailingComment,
+                    value: Value::String(Latin1String::from_utf8_unchecked(" this is a minus")),
+                    pos: source.first_substr_pos("-- this is a minus"),
+                    }),
+                Ok(Token {
+                    kind: LeadingComment,
+                    value: Value::String(Latin1String::from_utf8_unchecked(" a comment at the end of the file")),
+                    pos: source.first_substr_pos("-- a comment at the end of the file"),
+                    }),
+                Ok(Token {
+                    kind: LeadingComment,
+                    value: Value::String(Latin1String::from_utf8_unchecked(" and another one")),
+                    pos: source.first_substr_pos("-- and another one"),
+                    }),
+            ];
+        assert_eq!(tokens.len(), expected_tokens.len());
+        for (token, expected_token) in tokens.iter().zip(&expected_tokens) {
+            assert_eq!(token, expected_token);
+        }
     }
 }

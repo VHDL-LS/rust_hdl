@@ -6,15 +6,18 @@
 
 use crate::ast::Ident;
 use crate::message::{MessageHandler, ParseResult};
-use crate::tokenizer::{kinds_str, Kind, Kind::*, Token, TokenState, Tokenizer};
+use crate::tokenizer::{kinds_str, Kind, Kind::*, Token, Tokenizer, TokenState, Value};
+use crate::source::SrcPos;
+use crate::latin_1::Latin1String;
 
 pub struct TokenStream {
     pub tokenizer: Tokenizer,
+    unhandled_comments: Option<Vec<(SrcPos, Latin1String)>>,
 }
 
 impl TokenStream {
     pub fn new(tokenizer: Tokenizer) -> TokenStream {
-        TokenStream { tokenizer }
+        TokenStream { tokenizer, unhandled_comments: None}
     }
 
     pub fn state(&self) -> TokenState {
@@ -23,21 +26,82 @@ impl TokenStream {
 
     pub fn set_state(&mut self, state: TokenState) {
         self.tokenizer.set_state(state);
+        match &mut self.unhandled_comments {
+            None => {},
+            Some(comments) => {
+                loop {
+                    match comments.last() {
+                        None => {
+                            break
+                        },
+                        Some((comment_pos, _)) => {
+                            if comment_pos.start >= state.start() {
+                                comments.pop();
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     pub fn move_after(&mut self, token: &Token) {
-        self.tokenizer.move_after(token);
+        let current_pos = self.state().start();
+        let target_pos = token.pos.start + token.pos.length;
+        if current_pos > target_pos {
+            panic!("Cannot move use move_after to move backwards.");
+        } else if current_pos < target_pos {
+            loop {
+                // We assume that we won't get any tokenizing errors since we've
+                // already tokenized this.
+                let maybe_token = self.pop().unwrap();
+                match maybe_token {
+                    None => panic!("Unexpected end of file."),
+                    Some(popped_token) => {
+                        if popped_token.pos.start >= token.pos.start {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    pub fn pop(self: &mut Self) -> ParseResult<Option<Token>> {
-        self.tokenizer.pop()
+    pub fn pop(&mut self) -> ParseResult<Option<Token>> {
+        loop {
+            let maybe_token = self.tokenizer.pop()?;
+            match maybe_token {
+                None => {
+                    return Ok(None);
+                },
+                Some(token) => {
+                    match (&token.kind, &token.value) {
+                        (LeadingComment, Value::String(comment)) | (TrailingComment, Value::String(comment)) => {
+                            match &mut self.unhandled_comments {
+                                None => {
+                                    self.unhandled_comments = Some(vec!((token.pos, comment.clone())));
+                                }
+                                Some(comments) => {
+                                    comments.push((token.pos, comment.clone()));
+                                }
+                            };
+                        },
+                        _ => {
+                            return Ok(Some(token));
+                        },
+                    };
+                }
+            }
+        }
     }
 
     pub fn peek(self: &mut Self) -> ParseResult<Option<Token>> {
-        let state = self.tokenizer.state();
-        let result = self.tokenizer.pop();
-        self.tokenizer.set_state(state);
-        result
+        let state = self.state();
+        let token = self.pop();
+        self.set_state(state);
+        token
     }
 
     pub fn expect(self: &mut Self) -> ParseResult<Token> {
@@ -120,13 +184,13 @@ impl TokenStream {
         }
     }
 
-    pub fn expect_ident(self: &mut Self) -> ParseResult<Ident> {
+    pub fn expect_ident(&mut self) -> ParseResult<Ident> {
         let token = self.expect()?;
         token.expect_ident()
     }
 
     /// Expect identifier or range keyword
-    pub fn expect_ident_or_range(self: &mut Self) -> ParseResult<Ident> {
+    pub fn expect_ident_or_range(&mut self) -> ParseResult<Ident> {
         let token = self.expect()?;
         match_token_kind!(
             token,
@@ -134,6 +198,59 @@ impl TokenStream {
             Range => Ok(Ident {item: self.tokenizer.range_ident.clone(),
                                pos: token.pos})
         )
+    }
+
+    pub fn leading_comments(&mut self) -> ParseResult<Vec<Latin1String>> {
+        let mut comments = vec!();
+        loop {
+            let state = self.state();
+            let maybe_token = self.tokenizer.pop()?;
+            match maybe_token {
+                None => {
+                    return Ok(comments);
+                },
+                Some(token) => {
+                    match (token.kind, token.value) {
+                        (LeadingComment, Value::String(comment)) => {
+                            comments.push(comment);
+                        },
+                        _ => {
+                            self.set_state(state);
+                            return Ok(comments);
+                        },
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn trailing_comment(&mut self) -> ParseResult<Option<Latin1String>> {
+        let state = self.state();
+        let maybe_token = self.tokenizer.pop()?;
+        match maybe_token {
+            None => Ok(None),
+            Some(token) => {
+                match (token.kind, token.value) {
+                    (LeadingComment, Value::String(comment)) => {
+                        Ok(Some(comment))
+                    },
+                    _ => {
+                        self.set_state(state);
+                        Ok(None)
+                    },
+                }
+            }
+        }
+    }
+
+    pub fn unhandled_comments(&mut self) -> Option<Vec<(SrcPos, Latin1String)>> {
+        self.unhandled_comments.take()
+    }
+
+    pub fn assert_no_unhandled_comments(self: &mut Self) {
+        if self.unhandled_comments.is_some() {
+            panic!("Some comments were not handled.");
+        }
     }
 }
 
@@ -230,15 +347,10 @@ mod tests {
     #[test]
     fn expect() {
         let (source, tokens, mut stream) = new("hello");
-
         assert_eq!(stream.peek_expect(), Ok(tokens[0].clone()));
-        assert_eq!(stream.expect(), Ok(tokens[0].clone()));
+        let token = stream.pop();
         assert_eq!(
             stream.peek_expect(),
-            Err(Message::error(&source.pos(5, 1), "Unexpected EOF"))
-        );
-        assert_eq!(
-            stream.expect(),
             Err(Message::error(&source.pos(5, 1), "Unexpected EOF"))
         );
     }
