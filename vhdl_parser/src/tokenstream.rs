@@ -10,6 +10,49 @@ use crate::tokenizer::{kinds_str, Kind, Kind::*, Token, Tokenizer, TokenState, V
 use crate::source::SrcPos;
 use crate::latin_1::Latin1String;
 
+#[derive(PartialEq, Clone, Debug)]
+pub struct WithComment<T> {
+    pub item: T,
+    pub comment: Option<Latin1String>,
+}
+
+pub fn combine_comments(
+    leading_comments: Vec<Latin1String>,
+    trailing_comment: Option<Latin1String>,
+    unhandled_comments: Option<Vec<(SrcPos, Latin1String)>>,
+    messages: &mut dyn MessageHandler,
+) -> Option<Latin1String> {
+    let mut comment = Latin1String::empty();
+    for leading_comment in leading_comments {
+        if comment.len() > 0 {
+            comment.push_newline();
+        }
+        comment.push(&leading_comment);
+    }
+    match trailing_comment {
+        None => {},
+        Some(trailing) => {
+            if comment.len() > 0 {
+                comment.push_newline();
+            }
+            comment.push(&trailing);
+        }
+    }
+    match unhandled_comments {
+        None => {},
+        Some(comments) => {
+            // FIXME: Some handling should be done here to create warning messages
+            // about the unhandled comments.
+            // Requires modifying tests that expect no messages.
+        }
+    }
+    if comment.len() == 0 {
+        None
+    } else {
+        Some(comment)
+    }
+}
+
 pub struct TokenStream {
     pub tokenizer: Tokenizer,
     unhandled_comments: Option<Vec<(SrcPos, Latin1String)>>,

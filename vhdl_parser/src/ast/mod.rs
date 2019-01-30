@@ -467,6 +467,7 @@ pub enum TypeDefinition {
 pub struct TypeDeclaration {
     pub ident: Ident,
     pub def: TypeDefinition,
+    pub comment: Option<Latin1String>,
 }
 
 /// LRM 6.4.2 Object Declarations

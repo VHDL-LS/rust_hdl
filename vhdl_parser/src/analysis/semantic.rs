@@ -640,6 +640,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
             Declaration::Type(TypeDeclaration {
                 ref ident,
                 def: TypeDefinition::Enumeration(ref enumeration),
+                comment: _,
             }) => {
                 region.add(
                     VisibleDeclaration::new(ident, AnyDeclaration::Declaration(decl)),

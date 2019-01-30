@@ -17,7 +17,7 @@ use crate::range::{parse_array_index_constraint, parse_range};
 use crate::subprogram::parse_subprogram_declaration;
 use crate::subtype_indication::parse_subtype_indication;
 use crate::tokenizer::Kind::*;
-use crate::tokenstream::TokenStream;
+use crate::tokenstream::{TokenStream, combine_comments};
 
 /// LRM 5.2.2 Enumeration types
 fn parse_enumeration_type_definition(stream: &mut TokenStream) -> ParseResult<TypeDefinition> {
@@ -113,6 +113,7 @@ pub fn parse_subtype_declaration(stream: &mut TokenStream) -> ParseResult<TypeDe
     Ok(TypeDeclaration {
         ident,
         def: TypeDefinition::Subtype(subtype_indication),
+        comment: None,
     })
 }
 
@@ -205,34 +206,42 @@ pub fn parse_type_declaration(
     stream: &mut TokenStream,
     messages: &mut dyn MessageHandler,
 ) -> ParseResult<TypeDeclaration> {
-    let token = stream.peek_expect()?;
+    let state = stream.state();
+    let leading_comments = stream.leading_comments()?;
+    let token = stream.expect()?;
     try_token_kind!(
         token,
         Subtype => {
+            // FIXME: pass any comments on token.
+            stream.set_state(state);
             return parse_subtype_declaration(stream);
         },
-        Type => {
-            stream.move_after(&token);
-        }
+        Type => {}
     );
 
     let ident = stream.expect_ident()?;
 
+    let token = stream.expect()?;
     try_token_kind!(
-        stream.expect()?,
+        token,
         Is => {},
         SemiColon => {
+            let trailing_comment = stream.trailing_comment()?;
+            let unhandled_comments = stream.unhandled_comments();
             return Ok(TypeDeclaration {
                 ident,
                 def: TypeDefinition::Incomplete,
+                comment: combine_comments(leading_comments, trailing_comment, unhandled_comments, messages),
             });
         }
     );
 
+    let token = stream.expect()?;
     let def = try_token_kind!(
-        stream.expect()?,
+        token,
         // Integer
         Range => {
+            // FIXME: Skipping parsing of comments from range.
             let constraint = parse_range(stream)?.item;
             try_token_kind!(
                 stream.expect()?,
@@ -282,8 +291,10 @@ pub fn parse_type_declaration(
         // Enumeration
         LeftPar => parse_enumeration_type_definition(stream)?
     );
-
-    Ok(TypeDeclaration { ident, def })
+    let trailing_comment = stream.trailing_comment()?;
+    let unhandled_comments = stream.unhandled_comments();
+    let comment = combine_comments(leading_comments, trailing_comment, unhandled_comments, messages);
+    Ok(TypeDeclaration { ident, def, comment: comment })
 }
 
 #[cfg(test)]
@@ -291,7 +302,9 @@ mod tests {
     use super::*;
 
     use crate::ast::{DiscreteRange, Ident};
+    use crate::latin_1::Latin1String;
     use crate::test_util::Code;
+
 
     #[test]
     fn parse_integer_scalar_type_definition() {
@@ -300,6 +313,7 @@ mod tests {
         let type_decl = TypeDeclaration {
             ident: code.s1("foo").ident(),
             def: TypeDefinition::Integer(code.s1("0 to 1").range()),
+            comment: None,
         };
         assert_eq!(
             code.with_stream_no_messages(parse_type_declaration),
@@ -321,6 +335,7 @@ mod tests {
                     .ident()
                     .map_into(EnumerationLiteral::Identifier),
             ]),
+            comment: None,
         };
         assert_eq!(
             code.with_stream_no_messages(parse_type_declaration),
@@ -342,6 +357,7 @@ mod tests {
                     .character()
                     .map_into(EnumerationLiteral::Character),
             ]),
+            comment: None,
         };
         assert_eq!(
             code.with_stream_no_messages(parse_type_declaration),
@@ -363,6 +379,7 @@ mod tests {
                     .character()
                     .map_into(EnumerationLiteral::Character),
             ]),
+            comment: None,
         };
         assert_eq!(
             code.with_stream_no_messages(parse_type_declaration),
@@ -382,6 +399,7 @@ mod tests {
                 )],
                 code.s1("boolean").subtype_indication(),
             ),
+            comment: None,
         };
 
         assert_eq!(
@@ -403,6 +421,7 @@ mod tests {
                 ))],
                 code.s1("boolean").subtype_indication(),
             ),
+            comment: None,
         };
 
         assert_eq!(
@@ -424,6 +443,7 @@ mod tests {
                 ))],
                 code.s1("boolean").subtype_indication(),
             ),
+            comment: None,
         };
 
         assert_eq!(
@@ -444,6 +464,7 @@ mod tests {
                 ))],
                 code.s1("boolean").subtype_indication(),
             ),
+            comment: None,
         };
 
         assert_eq!(
@@ -461,6 +482,7 @@ mod tests {
         let type_decl = TypeDeclaration {
             ident: code.s1("foo").ident(),
             def: TypeDefinition::Array(vec![index], code.s1("boolean").subtype_indication()),
+            comment: None,
         };
 
         assert_eq!(
@@ -483,6 +505,7 @@ mod tests {
                 vec![index0, index1],
                 code.s1("boolean").subtype_indication(),
             ),
+            comment: None,
         };
 
         assert_eq!(
@@ -508,6 +531,7 @@ end record;",
         let type_decl = TypeDeclaration {
             ident: code.s1("foo").ident(),
             def: TypeDefinition::Record(vec![elem_decl]),
+            comment: None,
         };
 
         assert_eq!(
@@ -544,6 +568,7 @@ end foo;",
         let type_decl = TypeDeclaration {
             ident: code.s1("foo").ident(),
             def: TypeDefinition::Record(vec![elem_decl0a, elem_decl0b, elem_decl1]),
+            comment: None,
         };
 
         assert_eq!(
@@ -562,7 +587,8 @@ end foo;",
                 ident: code.s1("vec_t").ident(),
                 def: TypeDefinition::Subtype(
                     code.s1("integer_vector(2-1 downto 0)").subtype_indication()
-                )
+                ),
+                comment: None,
             }
         );
     }
@@ -577,7 +603,8 @@ end foo;",
                 ident: code.s1("ptr_t").ident(),
                 def: TypeDefinition::Access(
                     code.s1("integer_vector(2-1 downto 0)").subtype_indication()
-                )
+                ),
+                comment: None,
             }
         );
     }
@@ -590,7 +617,8 @@ end foo;",
             code.with_stream_no_messages(parse_type_declaration),
             TypeDeclaration {
                 ident: code.s1("incomplete").ident(),
-                def: TypeDefinition::Incomplete
+                def: TypeDefinition::Incomplete,
+                comment: None,
             }
         );
     }
@@ -603,7 +631,8 @@ end foo;",
             code.with_stream_no_messages(parse_type_declaration),
             TypeDeclaration {
                 ident: code.s1("foo").ident(),
-                def: TypeDefinition::File(code.s1("character").selected_name())
+                def: TypeDefinition::File(code.s1("character").selected_name()),
+                comment: None,
             }
         );
     }
@@ -612,6 +641,7 @@ end foo;",
         TypeDeclaration {
             ident,
             def: TypeDefinition::Protected(ProtectedTypeDeclaration { items }),
+            comment: None,
         }
     }
 
@@ -691,6 +721,7 @@ end protected body;
             TypeDeclaration {
                 ident: code.s1("foo").ident(),
                 def: TypeDefinition::ProtectedBody(ProtectedTypeBody { decl }),
+                comment: None,
             }
         )
     }
@@ -713,7 +744,8 @@ end units phys;
                     range: code.s1("0 to 15").range(),
                     primary_unit: code.s1("primary_unit").ident(),
                     secondary_units: vec![]
-                })
+                }),
+                comment: None,
             }
         )
     }
@@ -740,7 +772,8 @@ end units;
                         code.s1("secondary_unit").ident(),
                         Literal::Physical(AbstractLiteral::Integer(5), code.symbol("primary_unit"))
                     ),]
-                })
+                }),
+                comment: None,
             }
         )
     }
@@ -767,9 +800,27 @@ end units;
                         code.s1("secondary_unit").ident(),
                         Literal::Physical(AbstractLiteral::Integer(1), code.symbol("primary_unit"))
                     ),]
-                })
+                }),
+                comment: None,
             }
         )
+    }
+
+    #[test]
+    fn parse_integer_scalar_type_definition_comment_before() {
+        let code = Code::new("
+-- This is a comment.
+type foo is range 0 to 1;
+");
+        let type_decl = TypeDeclaration {
+            ident: code.s1("foo").ident(),
+            def: TypeDefinition::Integer(code.s1("0 to 1").range()),
+            comment: Some(Latin1String::from_utf8_unchecked(" This is a comment.")),
+        };
+        assert_eq!(
+            code.with_stream_no_messages(parse_type_declaration),
+            type_decl
+        );
     }
 
 }
