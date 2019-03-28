@@ -389,6 +389,8 @@ pub enum EntityClass {
     Procedure,
     Function,
     Component,
+    Constant,
+    Type,
 }
 
 /// LRM 7.2 Attribute specification
