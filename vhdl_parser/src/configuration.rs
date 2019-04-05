@@ -10,6 +10,7 @@ use crate::ast::{
     ConfigurationSpecification, EntityAspect, InstantiationList, Name, VUnitBindingIndication,
 };
 use crate::common::error_on_end_identifier_mismatch;
+use crate::concurrent_statement::parse_generic_and_port_map;
 use crate::context::parse_use_clause_no_keyword;
 use crate::message::{Message, MessageHandler, ParseResult};
 use crate::names::{parse_name, parse_name_initial_token, parse_selected_name, to_simple_name};
@@ -45,10 +46,8 @@ fn parse_binding_indication_known_entity_aspect(
     entity_aspect: Option<EntityAspect>,
     stream: &mut TokenStream,
 ) -> ParseResult<BindingIndication> {
-    // @TODO generic map
-    let generic_map = None;
-    // @TODO port  map
-    let port_map = None;
+    let (generic_map, port_map) = parse_generic_and_port_map(stream)?;
+
     stream.expect_kind(SemiColon)?;
     Ok(BindingIndication {
         entity_aspect,

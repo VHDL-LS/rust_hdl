@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::ast::{
-    Alternative, AssignmentRightHand, BlockStatement, CaseGenerateStatement,
+    Alternative, AssignmentRightHand, AssociationElement, BlockStatement, CaseGenerateStatement,
     ConcurrentAssertStatement, ConcurrentProcedureCall, ConcurrentSignalAssignment,
     ConcurrentStatement, Conditional, Declaration, ForGenerateStatement, FunctionCall,
     GenerateBody, Ident, IfGenerateStatement, InstantiatedUnit, InstantiationStatement,
@@ -202,30 +202,42 @@ pub fn parse_concurrent_assert_statement(
     })
 }
 
-pub fn parse_instantiation_statement(
+pub fn parse_generic_and_port_map(
     stream: &mut TokenStream,
-    unit: InstantiatedUnit,
-) -> ParseResult<InstantiationStatement> {
+) -> ParseResult<(
+    Option<Vec<AssociationElement>>,
+    Option<Vec<AssociationElement>>,
+)> {
     let generic_map = {
         if stream.skip_if_kind(Generic)? {
             stream.expect_kind(Map)?;
-            parse_association_list(stream)?
+            Some(parse_association_list(stream)?)
         } else {
-            Vec::new()
+            None
         }
     };
     let port_map = {
         if stream.skip_if_kind(Port)? {
             stream.expect_kind(Map)?;
-            parse_association_list(stream)?
+            Some(parse_association_list(stream)?)
         } else {
-            Vec::new()
+            None
         }
     };
+
+    Ok((generic_map, port_map))
+}
+
+pub fn parse_instantiation_statement(
+    stream: &mut TokenStream,
+    unit: InstantiatedUnit,
+) -> ParseResult<InstantiationStatement> {
+    let (generic_map, port_map) = parse_generic_and_port_map(stream)?;
+
     let inst = InstantiationStatement {
         unit,
-        generic_map,
-        port_map,
+        generic_map: generic_map.unwrap_or_else(|| Vec::new()),
+        port_map: port_map.unwrap_or_else(|| Vec::new()),
     };
     stream.expect_kind(SemiColon)?;
     Ok(inst)
