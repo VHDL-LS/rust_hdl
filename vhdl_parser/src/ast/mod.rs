@@ -391,6 +391,7 @@ pub enum EntityClass {
     Component,
     Constant,
     Type,
+    Label,
 }
 
 /// LRM 7.2 Attribute specification

@@ -29,7 +29,8 @@ fn parse_entity_class(stream: &mut TokenStream) -> ParseResult<EntityClass> {
         Function => EntityClass::Function,
         Component => EntityClass::Component,
         Constant => EntityClass::Constant,
-        Type => EntityClass::Type
+        Type => EntityClass::Type,
+        Label => EntityClass::Label
     ))
 }
 
