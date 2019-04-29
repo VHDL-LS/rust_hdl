@@ -416,6 +416,7 @@ pub struct TokenComments {
 pub struct Comment {
     pub value: Latin1String,
     pub pos: Pos,
+    pub multi_line: bool,
 }
 
 use std::convert::AsRef;
@@ -755,7 +756,43 @@ fn parse_comment(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Comment 
             start: start_pos - 2,
             length: end_pos - start_pos + 2,
         },
+        multi_line: false,
     }
+}
+
+fn parse_multi_line_comment(
+    source: &Source,
+    buffer: &mut Latin1String,
+    cursor: &mut ByteCursor,
+) -> ParseResult<Comment> {
+    let start_pos = cursor.pos();
+    buffer.bytes.clear();
+    while let Some(chr) = cursor.pop() {
+        if chr == b'*' {
+            if cursor.skip_if(b'/') {
+                // Comment ended
+                let end_pos = cursor.pos();
+                return Ok(Comment {
+                    value: buffer.clone(),
+                    pos: Pos {
+                        start: start_pos - 2,
+                        length: end_pos - start_pos + 2,
+                    },
+                    multi_line: true,
+                });
+            } else {
+                buffer.bytes.push(chr);
+            }
+        } else {
+            buffer.bytes.push(chr);
+        }
+    }
+
+    let length = cursor.pos() - start_pos + 2;
+    Err(Message::error(
+        source.pos(start_pos - 2, length),
+        "Incomplete multi-line comment",
+    ))
 }
 
 fn parse_real_literal(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Result<f64, String> {
@@ -973,12 +1010,24 @@ fn parse_basic_identifier_or_keyword(
     }
 }
 
-fn get_leading_comments(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Vec<Comment> {
+fn get_leading_comments(
+    source: &Source,
+    buffer: &mut Latin1String,
+    cursor: &mut ByteCursor,
+) -> ParseResult<Vec<Comment>> {
     let mut comments: Vec<Comment> = Vec::new();
     while let Some(byte) = cursor.pop() {
         match byte {
             b' ' | b'\t' | b'\r' | b'\n' => {
                 continue;
+            }
+            b'/' => {
+                if cursor.skip_if(b'*') {
+                    comments.push(parse_multi_line_comment(source, buffer, cursor)?);
+                } else {
+                    cursor.back();
+                    break;
+                }
             }
             b'-' => {
                 if cursor.skip_if(b'-') {
@@ -994,7 +1043,7 @@ fn get_leading_comments(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> V
             }
         };
     }
-    comments
+    Ok(comments)
 }
 
 fn get_trailing_comment(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Option<Comment> {
@@ -1364,7 +1413,8 @@ impl Tokenizer {
     }
 
     pub fn pop(&mut self) -> ParseResult<Option<Token>> {
-        let leading_comments = get_leading_comments(&mut self.buffer, &mut self.cursor);
+        let leading_comments =
+            get_leading_comments(&self.source, &mut self.buffer, &mut self.cursor)?;
         self.state.start = self.cursor.pos();
 
         match self.parse_token() {
@@ -2039,6 +2089,27 @@ end entity"
     }
 
     #[test]
+    fn tokenize_ignores_multi_line_comments() {
+        assert_eq!(
+            kinds_tokenize(
+                "
+1
+
+/*
+comment
+*/
+
+-2 /*
+comment
+*/
+
+"
+            ),
+            vec![AbstractLiteral, Minus, AbstractLiteral]
+        );
+    }
+
+    #[test]
     fn tokenize_ir1045() {
         // http://www.eda-stds.org/isac/IRs-VHDL-93/IR1045.txt
         assert_eq!(
@@ -2180,8 +2251,23 @@ end entity"
             vec![Comment {
                 value: Latin1String::from_utf8_unchecked("final"),
                 pos: comment_first_substr_pos(&source, "--final"),
+                multi_line: false
             },]
         );
+    }
+
+    #[test]
+    fn extract_incomplete_multi_line_comment() {
+        let (source, _, tokens, final_comments) = tokenize_result("/* final");
+        assert_eq!(
+            tokens,
+            vec![Err(Message::error(
+                &source.first_substr_pos("/* final"),
+                "Incomplete multi-line comment"
+            ))]
+        );
+
+        assert_eq!(final_comments, vec![]);
     }
 
     #[test]
@@ -2214,10 +2300,12 @@ end entity"
                         leading: vec![Comment {
                             value: Latin1String::from_utf8_unchecked("this is a plus"),
                             pos: comment_first_substr_pos(&source, "--this is a plus"),
+                            multi_line: false
                         },],
                         trailing: Some(Comment {
                             pos: comment_first_substr_pos(&source, "--this is still a plus"),
                             value: Latin1String::from_utf8_unchecked("this is still a plus"),
+                            multi_line: false
                         }),
                     })),
                 }),
@@ -2230,15 +2318,18 @@ end entity"
                             Comment {
                                 value: Latin1String::from_utf8_unchecked("- this is not a minus"),
                                 pos: comment_first_substr_pos(&source, "--- this is not a minus"),
+                                multi_line: false
                             },
                             Comment {
                                 value: Latin1String::from_utf8_unchecked(" Neither is this"),
                                 pos: comment_first_substr_pos(&source, "-- Neither is this"),
+                                multi_line: false
                             },
                         ],
                         trailing: Some(Comment {
                             pos: comment_first_substr_pos(&source, "-- this is a minus"),
                             value: Latin1String::from_utf8_unchecked(" this is a minus"),
+                            multi_line: false
                         }),
                     })),
                 }),
@@ -2250,12 +2341,55 @@ end entity"
                 Comment {
                     value: Latin1String::from_utf8_unchecked(" a comment at the end of the file"),
                     pos: comment_first_substr_pos(&source, "-- a comment at the end of the file"),
+                    multi_line: false
                 },
                 Comment {
                     value: Latin1String::from_utf8_unchecked(" and another one"),
                     pos: comment_first_substr_pos(&source, "-- and another one"),
+                    multi_line: false
                 },
             ]
         );
     }
+
+    #[test]
+    fn extract_multi_line_comments() {
+        let (source, _, tokens, final_comments) = tokenize_result(
+            "
+/*foo
+com*ment
+bar*/
+
+2
+
+/*final*/
+",
+        );
+
+        assert_eq!(
+            tokens,
+            vec![Ok(Token {
+                kind: AbstractLiteral,
+                value: Value::AbstractLiteral(ast::AbstractLiteral::Integer(2)),
+                pos: source.first_substr_pos("2"),
+                comments: Some(Box::new(TokenComments {
+                    leading: vec![Comment {
+                        value: Latin1String::from_utf8_unchecked("foo\ncom*ment\nbar"),
+                        pos: comment_first_substr_pos(&source, "/*foo\ncom*ment\nbar*/"),
+                        multi_line: true
+                    },],
+                    trailing: None,
+                })),
+            }),]
+        );
+        assert_eq!(
+            final_comments,
+            vec![Comment {
+                value: Latin1String::from_utf8_unchecked("final"),
+                pos: comment_first_substr_pos(&source, "/*final*/"),
+                multi_line: true
+            },]
+        );
+    }
+
 }
