@@ -429,7 +429,7 @@ impl SrcPos {
                 write!(result, "{}  |  ", lineno_str).unwrap();
             }
 
-            for chr in line.trim_right().chars() {
+            for chr in line.trim_end().chars() {
                 if chr == '\t' {
                     Self::push_replicate(&mut result, ' ', Self::visual_width(chr));
                 } else {

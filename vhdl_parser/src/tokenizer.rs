@@ -1456,6 +1456,7 @@ impl Tokenizer {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_final_comments(&self) -> Option<Vec<Comment>> {
         self.final_comments.clone()
     }
