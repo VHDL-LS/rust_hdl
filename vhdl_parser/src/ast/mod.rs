@@ -184,7 +184,7 @@ pub struct AssociationElement {
 /// LRM 15.5 Abstract literals
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum AbstractLiteral {
-    Integer(i64),
+    Integer(u64),
     Real(f64),
 }
 

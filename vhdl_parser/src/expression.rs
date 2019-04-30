@@ -503,7 +503,7 @@ mod tests {
         );
     }
 
-    fn int(value: i64) -> Literal {
+    fn int(value: u64) -> Literal {
         Literal::AbstractLiteral(AbstractLiteral::Integer(value))
     }
 

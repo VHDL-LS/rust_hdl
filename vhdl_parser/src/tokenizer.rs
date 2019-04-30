@@ -584,12 +584,12 @@ impl ByteCursor {
     }
 }
 
-fn parse_integer(cursor: &mut ByteCursor, base: i64, stop_on_e: bool) -> Result<i64, String> {
-    let mut result = Some(0);
+fn parse_integer(cursor: &mut ByteCursor, base: u64, stop_on_e: bool) -> Result<u64, String> {
+    let mut result = Some(0 as u64);
     let mut too_large_base = false;
 
     while let Some(b) = cursor.peek(0) {
-        let digit = i64::from(match b {
+        let digit = u64::from(match b {
             b'0'..=b'9' => {
                 cursor.pop();
                 (b - b'0')
@@ -629,25 +629,29 @@ fn parse_integer(cursor: &mut ByteCursor, base: i64, stop_on_e: bool) -> Result<
     } else if let Some(result) = result {
         Ok(result)
     } else {
-        Err("Integer too large for 64-bits signed".to_string())
+        Err("Integer too large for 64-bit unsigned".to_string())
     }
 }
 
 fn parse_exponent(cursor: &mut ByteCursor) -> Result<i32, String> {
-    let sign = {
+    let negative = {
         if cursor.peek(0) == Some(b'-') {
             cursor.pop();
-            -1
+            true
         } else {
-            1
+            false
         }
     };
 
     cursor.skip_if(b'+');
 
     let exp = parse_integer(cursor, 10, false)?;
-    if let Some(exp) = exp.checked_mul(sign) {
-        if i64::from(i32::min_value()) <= exp && exp <= i64::from(i32::max_value()) {
+    if negative {
+        if exp <= (-(i32::min_value() as i64)) as u64 {
+            return Ok((-(exp as i64)) as i32);
+        }
+    } else {
+        if exp <= i32::max_value() as u64 {
             return Ok(exp as i32);
         }
     }
@@ -655,13 +659,10 @@ fn parse_exponent(cursor: &mut ByteCursor) -> Result<i32, String> {
     Err("Exponent too large for 32-bits signed".to_string())
 }
 
-fn pow(value: i64, exp: u32) -> Option<i64> {
-    // @TODO use no_panic_pow once stable
-    let mut value = value;
-    for _ in 0..exp {
-        value = value.checked_mul(10)?;
-    }
-    Some(value)
+fn exponentiate(value: u64, exp: u32) -> Option<u64> {
+    (10 as u64)
+        .checked_pow(exp)
+        .and_then(|x| x.checked_mul(value))
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -865,13 +866,13 @@ fn parse_abstract_literal(
             cursor.pop();
             let exp = parse_exponent(cursor)?;
             if exp >= 0 {
-                if let Some(value) = pow(integer, exp as u32) {
+                if let Some(value) = exponentiate(integer, exp as u32) {
                     Ok((
                         AbstractLiteral,
                         Value::AbstractLiteral(ast::AbstractLiteral::Integer(value)),
                     ))
                 } else {
-                    Err("Integer too large for 64-bits signed".to_string())
+                    Err("Integer too large for 64-bit unsigned".to_string())
                 }
             } else {
                 Err("Integer literals may not have negative exponent".to_string())
@@ -2132,7 +2133,7 @@ comment
             tokens,
             vec![Err(Message::error(
                 &source.entire_pos(),
-                "Integer too large for 64-bits signed"
+                "Integer too large for 64-bit unsigned"
             ))]
         );
 
@@ -2142,7 +2143,7 @@ comment
             tokens,
             vec![Err(Message::error(
                 &source.entire_pos(),
-                "Integer too large for 64-bits signed"
+                "Integer too large for 64-bit unsigned"
             ))]
         );
 
@@ -2166,23 +2167,23 @@ comment
             ))]
         );
 
-        let large_int = ((i64::max_value() as i128) + 1).to_string();
+        let large_int = ((u64::max_value() as i128) + 1).to_string();
         let (source, _, tokens, _) = tokenize_result(&large_int);
         assert_eq!(
             tokens,
             vec![Err(Message::error(
                 &source.entire_pos(),
-                "Integer too large for 64-bits signed"
+                "Integer too large for 64-bit unsigned"
             ))]
         );
 
-        let large_int = i64::max_value().to_string();
+        let large_int = u64::max_value().to_string();
         let (source, _, tokens, _) = tokenize_result(&large_int);
         assert_eq!(
             tokens,
             vec![Ok(Token {
                 kind: AbstractLiteral,
-                value: Value::AbstractLiteral(ast::AbstractLiteral::Integer(i64::max_value())),
+                value: Value::AbstractLiteral(ast::AbstractLiteral::Integer(u64::max_value())),
                 pos: source.entire_pos(),
                 comments: None,
             })]
