@@ -643,6 +643,8 @@ fn parse_exponent(cursor: &mut ByteCursor) -> Result<i32, String> {
         }
     };
 
+    cursor.skip_if(b'+');
+
     let exp = parse_integer(cursor, 10, false)?;
     if let Some(exp) = exp.checked_mul(sign) {
         if i64::from(i32::min_value()) <= exp && exp <= i64::from(i32::max_value()) {
@@ -1711,7 +1713,7 @@ end entity"
     #[test]
     fn tokenize_real() {
         assert_eq!(
-            kind_value_tokenize("0.1 -2_2.3_3 2.0e3 3.33E2 2.1e-2"),
+            kind_value_tokenize("0.1 -2_2.3_3 2.0e3 3.33E2 2.1e-2 4.4e+1"),
             vec![
                 (
                     AbstractLiteral,
@@ -1733,6 +1735,10 @@ end entity"
                 (
                     AbstractLiteral,
                     Value::AbstractLiteral(ast::AbstractLiteral::Real(0.021))
+                ),
+                (
+                    AbstractLiteral,
+                    Value::AbstractLiteral(ast::AbstractLiteral::Real(44.0))
                 )
             ]
         );
