@@ -660,9 +660,16 @@ fn parse_exponent(cursor: &mut ByteCursor) -> Result<i32, String> {
 }
 
 fn exponentiate(value: u64, exp: u32) -> Option<u64> {
-    (10 as u64)
-        .checked_pow(exp)
-        .and_then(|x| x.checked_mul(value))
+    // @TODO use checked_pow once it is common in recent releases
+    // (10 as u64)
+    //     .checked_pow(exp)
+    //     and_then(|x| x.checked_mul(value))
+
+    let mut value = value;
+    for _ in 0..exp {
+        value = value.checked_mul(10)?;
+    }
+    Some(value)
 }
 
 #[derive(PartialEq, Clone, Copy)]
