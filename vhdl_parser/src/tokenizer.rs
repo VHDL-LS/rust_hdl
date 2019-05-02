@@ -639,11 +639,10 @@ fn parse_exponent(cursor: &mut ByteCursor) -> Result<i32, String> {
             cursor.pop();
             true
         } else {
+            cursor.skip_if(b'+');
             false
         }
     };
-
-    cursor.skip_if(b'+');
 
     let exp = parse_integer(cursor, 10, false)?;
     if negative {
@@ -811,6 +810,9 @@ fn parse_real_literal(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Res
     while let Some(b) = cursor.peek(0) {
         match b {
             b'e' => {
+                break;
+            }
+            b'E' => {
                 break;
             }
             b'0'..=b'9' | b'a'..=b'd' | b'f' | b'A'..=b'F' | b'.' => {
@@ -1722,7 +1724,7 @@ end entity"
     #[test]
     fn tokenize_real() {
         assert_eq!(
-            kind_value_tokenize("0.1 -2_2.3_3 2.0e3 3.33E2 2.1e-2 4.4e+1"),
+            kind_value_tokenize("0.1 -2_2.3_3 2.0e3 3.33E2 2.1e-2 4.4e+1 2.5E+3"),
             vec![
                 (
                     AbstractLiteral,
@@ -1748,6 +1750,10 @@ end entity"
                 (
                     AbstractLiteral,
                     Value::AbstractLiteral(ast::AbstractLiteral::Real(44.0))
+                ),
+                (
+                    AbstractLiteral,
+                    Value::AbstractLiteral(ast::AbstractLiteral::Real(2500.0))
                 )
             ]
         );
