@@ -644,7 +644,6 @@ fn parse_exponent(cursor: &mut ByteCursor) -> Result<i32, String> {
         }
     };
 
-
     let exp = parse_integer(cursor, 10, false)?;
     if negative {
         if exp <= (-(i32::min_value() as i64)) as u64 {
