@@ -1086,7 +1086,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         if let Some(ref body) = package.body {
             let mut root_region = primary_region
                 .clone_parent()
-                .expect("Expected parent region");;
+                .expect("Expected parent region");
             self.analyze_context_clause(&mut root_region, &body.context_clause, messages);
             let mut region = primary_region.clone().into_extended(&root_region);
             self.analyze_declarative_part(&mut region, &body.unit.decl, messages);
@@ -3682,5 +3682,4 @@ end package;
             )],
         );
     }
-
 }

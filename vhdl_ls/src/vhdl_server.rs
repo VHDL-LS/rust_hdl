@@ -798,5 +798,4 @@ lib.files = [
         mock.expect_notification_contains("window/showMessage", "missing_file.vhd");
         initialize_server(&mut server, root_uri);
     }
-
 }

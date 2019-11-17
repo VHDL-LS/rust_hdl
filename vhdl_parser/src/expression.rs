@@ -1150,5 +1150,4 @@ mod tests {
 
         assert_expression_is("and 1 + 2", "((And Integer(1)) Plus Integer(2))");
     }
-
 }

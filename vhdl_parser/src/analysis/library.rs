@@ -1080,5 +1080,4 @@ package ipkg is new work.lib.gpkg generic map (const => 1);
             })
         );
     }
-
 }

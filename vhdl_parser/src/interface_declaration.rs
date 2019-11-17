@@ -853,5 +853,4 @@ package foo is new lib.pkg
             })
         );
     }
-
 }

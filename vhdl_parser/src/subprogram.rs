@@ -417,5 +417,4 @@ function foo(arg : natural) return natural;
             Declaration::SubprogramDeclaration(specification)
         );
     }
-
 }
