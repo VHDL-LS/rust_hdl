@@ -25,11 +25,22 @@ pub trait RpcChannel {
             },
         );
     }
+
+    fn window_log_message(&self, typ: MessageType, message: impl Into<String>) {
+        self.send_notification(
+            "window/logMessage",
+            LogMessageParams {
+                typ,
+                message: message.into(),
+            },
+        );
+    }
 }
 
 #[cfg(test)]
 pub mod test_support {
 
+    use pretty_assertions::assert_eq;
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::rc::Rc;

@@ -34,7 +34,7 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
     }
 
     /// Load the vhdl_ls.toml config file from initalizeParams.rootUri
-    fn load_config(init_params: &InitializeParams) -> io::Result<Config> {
+    fn load_root_uri_config(&self, init_params: &InitializeParams) -> io::Result<Config> {
         let root_uri = init_params.root_uri.as_ref().ok_or_else(|| {
             io::Error::new(io::ErrorKind::Other, "initializeParams.rootUri not set")
         })?;
@@ -52,33 +52,45 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         let config_file = root_path.join("vhdl_ls.toml");
         let config = Config::read_file_path(&config_file)?;
 
+        // Log which file was loaded
+        self.rpc_channel.window_log_message(
+            MessageType::Log,
+            format!(
+                "Loaded configuration file: {}",
+                config_file.to_str().unwrap()
+            ),
+        );
+
         Ok(config)
+    }
+
+    /// Load the configuration or use a default configuration if unsuccessful
+    /// Log info/error messages to the client
+    fn load_config(&self, init_params: &InitializeParams) -> Config {
+        match self.load_root_uri_config(&init_params) {
+            Ok(config) => config,
+            Err(ref err) => {
+                self.rpc_channel.window_show_message(
+                    MessageType::Warning,
+                    format!(
+                        "Found no vhdl_ls.toml config file in the root path: {}",
+                        err
+                    ),
+                );
+                self.rpc_channel.window_show_message(
+                    MessageType::Warning,
+                    "Semantic analysis disabled, will perform syntax checking only",
+                );
+                Config::default()
+            }
+        }
     }
 
     pub fn initialize_request(
         &mut self,
         params: InitializeParams,
     ) -> jsonrpc_core::Result<InitializeResult> {
-        let config = {
-            match Self::load_config(&params) {
-                Ok(config) => config,
-                Err(ref err) => {
-                    self.rpc_channel.window_show_message(
-                        MessageType::Warning,
-                        format!(
-                            "Found no vhdl_ls.toml config file in the root path: {}",
-                            err
-                        ),
-                    );
-                    self.rpc_channel.window_show_message(
-                        MessageType::Warning,
-                        "Semantic analysis disabled, will perform syntax checking only",
-                    );
-                    Config::default()
-                }
-            }
-        };
-
+        let config = self.load_config(&params);
         let (server, result) = InitializedVHDLServer::new(self.rpc_channel.clone(), config, params);
         self.server = Some(server);
         Ok(result)
@@ -590,8 +602,8 @@ end entity ent;
         Url::from_file_path(path).unwrap()
     }
 
-    fn write_config(root_uri: &Url, contents: impl AsRef<str>) {
-        write_file(root_uri, "vhdl_ls.toml", contents);
+    fn write_config(root_uri: &Url, contents: impl AsRef<str>) -> Url {
+        write_file(root_uri, "vhdl_ls.toml", contents)
     }
 
     #[test]
@@ -612,7 +624,7 @@ end;
 ",
         );
 
-        write_config(
+        let config_uri = write_config(
             &root_uri,
             "
 [libraries]
@@ -643,6 +655,16 @@ lib.files = [
             }],
         };
 
+        let file_name = config_uri
+            .to_file_path()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        mock.expect_notification_contains(
+            "window/logMessage",
+            format!("Loaded configuration file: {}", file_name),
+        );
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
 
         initialize_server(&mut server, root_uri);
@@ -677,7 +699,7 @@ lib.files = [
         let mut server = VHDLServer::new(mock.clone());
         let (_tempdir, root_uri) = temp_root_uri();
 
-        write_config(
+        let config_uri = write_config(
             &root_uri,
             "
 [libraries]
@@ -687,6 +709,16 @@ lib.files = [
 ",
         );
 
+        let file_name = config_uri
+            .to_file_path()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        mock.expect_notification_contains(
+            "window/logMessage",
+            format!("Loaded configuration file: {}", file_name),
+        );
         mock.expect_notification_contains("window/showMessage", "missing_file.vhd");
         initialize_server(&mut server, root_uri);
     }
