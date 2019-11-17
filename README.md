@@ -107,9 +107,15 @@ This repository includes a medium sized example [project](example_project/README
 > cargo build --release
 ```
 
-### Project file
+### Configuration
 The language server uses a configuration file in the [TOML](https://github.com/toml-lang/toml) format named `vhdl_ls.toml`.
 The file contains the library mapping of all files within the project. Files outside of the project without library mapping are checked for syntax errors only.
+
+`vhdl_ls` will load configuration files in the following order of priority (first to last):
+1. A file name from the `VHDL_LS_CONFIG` environment variable.
+2. A file named `vhdl_ls.toml` in the workspace root.
+
+Settings in a later files overwrites those from previously loaded files.
 
 **Example vhdl_ls.toml**
 

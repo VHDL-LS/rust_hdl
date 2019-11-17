@@ -22,15 +22,53 @@ use vhdl_parser;
 
 pub struct VHDLServer<T: RpcChannel + Clone> {
     rpc_channel: T,
+    // To have well defined unit tests that are not affected by environment
+    use_external_config: bool,
     server: Option<InitializedVHDLServer<T>>,
 }
 
 impl<T: RpcChannel + Clone> VHDLServer<T> {
     pub fn new(rpc_channel: T) -> VHDLServer<T> {
+        Self::new_external_config(rpc_channel, true)
+    }
+
+    fn new_external_config(rpc_channel: T, use_external_config: bool) -> VHDLServer<T> {
         VHDLServer {
             rpc_channel,
+            use_external_config,
             server: None,
         }
+    }
+
+    /// Load configuration file from environment
+    fn load_env_config(&self, config: &mut Config) {
+        let env_name = "VHDL_LS_CONFIG";
+
+        if let Some(file_name) = std::env::var_os(env_name) {
+            match Config::read_file_path(&Path::new(&file_name)) {
+                Ok(env_config) => {
+                    self.rpc_channel.window_log_message(
+                        MessageType::Log,
+                        format!(
+                            "Loaded {} configuration file: {}",
+                            env_name,
+                            file_name.to_string_lossy()
+                        ),
+                    );
+
+                    config.append(&env_config);
+                }
+                Err(ref err) => {
+                    self.rpc_channel.window_show_message(
+                        MessageType::Error,
+                        format!(
+                            "Error while loading {} environment variable: {} ",
+                            env_name, err
+                        ),
+                    );
+                }
+            }
+        };
     }
 
     /// Load the vhdl_ls.toml config file from initalizeParams.rootUri
@@ -56,7 +94,7 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         self.rpc_channel.window_log_message(
             MessageType::Log,
             format!(
-                "Loaded configuration file: {}",
+                "Loaded workspace root configuration file: {}",
                 config_file.to_str().unwrap()
             ),
         );
@@ -66,38 +104,38 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
 
     /// Load the configuration or use a default configuration if unsuccessful
     /// Log info/error messages to the client
-    fn load_config(&self, init_params: &InitializeParams) -> Option<Config> {
+    fn load_config(&self, init_params: &InitializeParams) -> Config {
+        let mut config = Config::default();
+
+        if self.use_external_config {
+            self.load_env_config(&mut config);
+        }
+
         match self.load_root_uri_config(&init_params) {
-            Ok(config) => Some(config),
+            Ok(root_config) => config.append(&root_config),
             Err(ref err) => {
                 self.rpc_channel.window_show_message(
                     MessageType::Warning,
                     format!(
-                        "Found no vhdl_ls.toml config file in the root path: {}",
+                        "Found no vhdl_ls.toml config file in the workspace root path: {}",
                         err
                     ),
                 );
-                None
+                self.rpc_channel.window_show_message(
+                    MessageType::Warning,
+                    "Found no library mapping, semantic analysis disabled, will perform syntax checking only",
+                );
             }
-        }
+        };
+
+        config
     }
 
     pub fn initialize_request(
         &mut self,
         params: InitializeParams,
     ) -> jsonrpc_core::Result<InitializeResult> {
-        let config = {
-            if let Some(config) = self.load_config(&params) {
-                config
-            } else {
-                self.rpc_channel.window_show_message(
-                    MessageType::Warning,
-                    "Found no library mapping, semantic analysis disabled, will perform syntax checking only",
-                );
-
-                Config::default()
-            }
-        };
+        let config = self.load_config(&params);
         let (server, result) = InitializedVHDLServer::new(self.rpc_channel.clone(), config, params);
         self.server = Some(server);
         Ok(result)
@@ -472,7 +510,7 @@ mod tests {
     fn expect_missing_config_messages(mock: &RpcMock) {
         mock.expect_notification_contains(
             "window/showMessage",
-            "Found no vhdl_ls.toml config file in the root path",
+            "Found no vhdl_ls.toml config file in the workspace root path",
         );
         mock.expect_notification_contains(
             "window/showMessage",
@@ -483,7 +521,7 @@ mod tests {
     /// Create RpcMock and VHDLServer
     fn setup_server() -> (RpcMock, VHDLServer<RpcMock>) {
         let mock = RpcMock::new();
-        let server = VHDLServer::new(mock.clone());
+        let server = VHDLServer::new_external_config(mock.clone(), false);
         (mock, server)
     }
 
@@ -662,7 +700,7 @@ lib.files = [
             .to_owned();
         mock.expect_notification_contains(
             "window/logMessage",
-            format!("Loaded configuration file: {}", file_name),
+            format!("Loaded workspace root configuration file: {}", file_name),
         );
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
 
@@ -682,7 +720,7 @@ lib.files = [
         );
         mock.expect_notification_contains(
             "window/showMessage",
-            "Found no vhdl_ls.toml config file in the root path",
+            "Found no vhdl_ls.toml config file in the workspace root path",
         );
         mock.expect_notification_contains(
             "window/showMessage",
@@ -714,7 +752,7 @@ lib.files = [
             .to_owned();
         mock.expect_notification_contains(
             "window/logMessage",
-            format!("Loaded configuration file: {}", file_name),
+            format!("Loaded workspace root configuration file: {}", file_name),
         );
         mock.expect_notification_contains("window/showMessage", "missing_file.vhd");
         initialize_server(&mut server, root_uri);
