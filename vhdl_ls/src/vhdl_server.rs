@@ -480,10 +480,16 @@ mod tests {
         );
     }
 
+    /// Create RpcMock and VHDLServer
+    fn setup_server() -> (RpcMock, VHDLServer<RpcMock>) {
+        let mock = RpcMock::new();
+        let server = VHDLServer::new(mock.clone());
+        (mock, server)
+    }
+
     #[test]
     fn initialize() {
-        let mock = RpcMock::new();
-        let mut server = VHDLServer::new(mock.clone());
+        let (mock, mut server) = setup_server();
         let (_tempdir, root_uri) = temp_root_uri();
         expect_missing_config_messages(&mock);
         initialize_server(&mut server, root_uri);
@@ -491,9 +497,7 @@ mod tests {
 
     #[test]
     fn did_open_no_diagnostics() {
-        let mock = RpcMock::new();
-        let mut server = VHDLServer::new(mock.clone());
-
+        let (mock, mut server) = setup_server();
         let (_tempdir, root_uri) = temp_root_uri();
         expect_missing_config_messages(&mock);
         initialize_server(&mut server, root_uri.clone());
@@ -519,8 +523,7 @@ end entity ent;
 
     #[test]
     fn did_open_with_diagnostics_and_change_without() {
-        let mock = RpcMock::new();
-        let mut server = VHDLServer::new(mock.clone());
+        let (mock, mut server) = setup_server();
 
         let (_tempdir, root_uri) = temp_root_uri();
         expect_missing_config_messages(&mock);
@@ -605,8 +608,7 @@ end entity ent;
 
     #[test]
     fn initialize_with_config() {
-        let mock = RpcMock::new();
-        let mut server = VHDLServer::new(mock.clone());
+        let (mock, mut server) = setup_server();
         let (_tempdir, root_uri) = temp_root_uri();
         let file_uri = write_file(
             &root_uri,
@@ -669,8 +671,7 @@ lib.files = [
 
     #[test]
     fn initialize_with_bad_config() {
-        let mock = RpcMock::new();
-        let mut server = VHDLServer::new(mock.clone());
+        let (mock, mut server) = setup_server();
         let (_tempdir, root_uri) = temp_root_uri();
 
         write_config(
@@ -692,8 +693,7 @@ lib.files = [
 
     #[test]
     fn initialize_with_config_missing_files() {
-        let mock = RpcMock::new();
-        let mut server = VHDLServer::new(mock.clone());
+        let (mock, mut server) = setup_server();
         let (_tempdir, root_uri) = temp_root_uri();
 
         let config_uri = write_config(
