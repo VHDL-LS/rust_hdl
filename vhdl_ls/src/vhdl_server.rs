@@ -6,7 +6,6 @@
 
 use self::languageserver_types::*;
 use languageserver_types;
-use serde;
 
 use self::url::Url;
 use url;
@@ -16,17 +15,10 @@ use fnv;
 use std::collections::hash_map::Entry;
 
 use self::vhdl_parser::{Config, Message, Project, Severity, Source, SrcPos};
+use crate::rpc_channel::RpcChannel;
 use std::io;
 use std::path::Path;
 use vhdl_parser;
-
-pub trait RpcChannel {
-    fn send_notification(
-        &self,
-        method: impl Into<String>,
-        notification: impl serde::ser::Serialize,
-    );
-}
 
 pub struct VHDLServer<T: RpcChannel + Clone> {
     rpc_channel: T,
@@ -87,6 +79,17 @@ struct InitializedVHDLServer<T: RpcChannel> {
     config: io::Result<Config>,
     project: Project,
     files_with_notifications: FnvHashMap<Url, ()>,
+}
+
+/// Allow VHDL Server to act as an RpcChannel
+impl<T: RpcChannel> RpcChannel for InitializedVHDLServer<T> {
+    fn send_notification(
+        &self,
+        method: impl Into<String>,
+        notification: impl serde::ser::Serialize,
+    ) {
+        self.rpc_channel.send_notification(method, notification);
+    }
 }
 
 impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
@@ -235,8 +238,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
                 diagnostics,
             };
 
-            self.rpc_channel
-                .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
+            self.send_notification("textDocument/publishDiagnostics", publish_diagnostics);
 
             self.files_with_notifications.insert(file_uri.clone(), ());
         }
@@ -249,8 +251,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
                     diagnostics: vec![],
                 };
 
-                self.rpc_channel
-                    .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
+                self.send_notification("textDocument/publishDiagnostics", publish_diagnostics);
             }
         }
     }
@@ -266,16 +267,6 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         // @TODO log error to client
         self.project.update_source(&file_name, &source).unwrap();
         self.publish_diagnostics();
-    }
-
-    fn window_show_message(&self, typ: MessageType, message: impl Into<String>) {
-        self.rpc_channel.send_notification(
-            "window/showMessage",
-            ShowMessageParams {
-                typ,
-                message: message.into(),
-            },
-        );
     }
 
     pub fn initialized_notification(&mut self, _params: &InitializedParams) {
@@ -427,111 +418,8 @@ fn to_diagnostic(message: Message) -> Diagnostic {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cell::RefCell;
-    use std::collections::VecDeque;
-    use std::rc::Rc;
+    use crate::rpc_channel::test_support::*;
     use tempfile;
-
-    #[derive(Debug, Clone)]
-    enum RpcExpected {
-        Notification {
-            method: String,
-            notification: serde_json::Value,
-        },
-        /// Check that the string representation of the notification contains a string
-        NotificationContainsString { method: String, contains: String },
-    }
-
-    #[derive(Clone)]
-    struct RpcMock {
-        expected: Rc<RefCell<VecDeque<RpcExpected>>>,
-    }
-
-    impl RpcMock {
-        fn new() -> RpcMock {
-            RpcMock {
-                expected: Rc::new(RefCell::new(VecDeque::new())),
-            }
-        }
-
-        fn expect_notification(
-            &self,
-            method: impl Into<String>,
-            notification: impl serde::ser::Serialize,
-        ) {
-            self.expected
-                .borrow_mut()
-                .push_back(RpcExpected::Notification {
-                    method: method.into(),
-                    notification: serde_json::to_value(notification).unwrap(),
-                });
-        }
-
-        fn expect_notification_contains(
-            &self,
-            method: impl Into<String>,
-            contains: impl Into<String>,
-        ) {
-            self.expected
-                .borrow_mut()
-                .push_back(RpcExpected::NotificationContainsString {
-                    method: method.into(),
-                    contains: contains.into(),
-                });
-        }
-    }
-
-    impl Drop for RpcMock {
-        fn drop(&mut self) {
-            if !std::thread::panicking() {
-                let expected = self.expected.replace(VecDeque::new());
-                if expected.len() > 0 {
-                    panic!("Not all expected data was consumed\n{:#?}", expected);
-                }
-            }
-        }
-    }
-
-    impl RpcChannel for RpcMock {
-        fn send_notification(
-            &self,
-            method: impl Into<String>,
-            notification: impl serde::ser::Serialize,
-        ) {
-            let method = method.into();
-            let notification = serde_json::to_value(notification).unwrap();
-            let expected = self
-                .expected
-                .borrow_mut()
-                .pop_front()
-                .ok_or_else(|| {
-                    panic!(
-                        "No expected value, got method={} {:?}",
-                        method, notification
-                    )
-                })
-                .unwrap();
-
-            match expected {
-                RpcExpected::Notification {
-                    method: exp_method,
-                    notification: exp_notification,
-                } => {
-                    assert_eq!(method, exp_method);
-                    assert_eq!(notification, exp_notification);
-                }
-                RpcExpected::NotificationContainsString {
-                    method: exp_method,
-                    contains,
-                } => {
-                    assert_eq!(method, exp_method);
-                    if !notification.to_string().contains(&contains) {
-                        panic!("{:?} does not contain string {:?}", notification, contains);
-                    }
-                }
-            }
-        }
-    }
 
     fn initialize_server(server: &mut VHDLServer<RpcMock>, root_uri: Url) {
         let capabilities = ClientCapabilities {

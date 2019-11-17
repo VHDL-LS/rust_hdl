@@ -19,7 +19,8 @@ use std::thread::spawn;
 
 use std::sync::{Arc, Mutex};
 
-use crate::vhdl_server::{RpcChannel, VHDLServer};
+use crate::rpc_channel::RpcChannel;
+use crate::vhdl_server::VHDLServer;
 
 pub fn start() {
     let (request_sender, request_receiver) = sync_channel(1);
