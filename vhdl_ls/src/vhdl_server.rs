@@ -66,9 +66,9 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
 
     /// Load the configuration or use a default configuration if unsuccessful
     /// Log info/error messages to the client
-    fn load_config(&self, init_params: &InitializeParams) -> Config {
+    fn load_config(&self, init_params: &InitializeParams) -> Option<Config> {
         match self.load_root_uri_config(&init_params) {
-            Ok(config) => config,
+            Ok(config) => Some(config),
             Err(ref err) => {
                 self.rpc_channel.window_show_message(
                     MessageType::Warning,
@@ -77,11 +77,7 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
                         err
                     ),
                 );
-                self.rpc_channel.window_show_message(
-                    MessageType::Warning,
-                    "Semantic analysis disabled, will perform syntax checking only",
-                );
-                Config::default()
+                None
             }
         }
     }
@@ -90,7 +86,18 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         &mut self,
         params: InitializeParams,
     ) -> jsonrpc_core::Result<InitializeResult> {
-        let config = self.load_config(&params);
+        let config = {
+            if let Some(config) = self.load_config(&params) {
+                config
+            } else {
+                self.rpc_channel.window_show_message(
+                    MessageType::Warning,
+                    "Found no library mapping, semantic analysis disabled, will perform syntax checking only",
+                );
+
+                Config::default()
+            }
+        };
         let (server, result) = InitializedVHDLServer::new(self.rpc_channel.clone(), config, params);
         self.server = Some(server);
         Ok(result)
@@ -462,19 +469,23 @@ mod tests {
         (tempdir, root_uri)
     }
 
-    #[test]
-    fn initialize() {
-        let mock = RpcMock::new();
-        let mut server = VHDLServer::new(mock.clone());
-        let (_tempdir, root_uri) = temp_root_uri();
+    fn expect_missing_config_messages(mock: &RpcMock) {
         mock.expect_notification_contains(
             "window/showMessage",
             "Found no vhdl_ls.toml config file in the root path",
         );
         mock.expect_notification_contains(
             "window/showMessage",
-            "Semantic analysis disabled, will perform syntax checking only",
+            "Found no library mapping, semantic analysis disabled, will perform syntax checking only",
         );
+    }
+
+    #[test]
+    fn initialize() {
+        let mock = RpcMock::new();
+        let mut server = VHDLServer::new(mock.clone());
+        let (_tempdir, root_uri) = temp_root_uri();
+        expect_missing_config_messages(&mock);
         initialize_server(&mut server, root_uri);
     }
 
@@ -484,14 +495,7 @@ mod tests {
         let mut server = VHDLServer::new(mock.clone());
 
         let (_tempdir, root_uri) = temp_root_uri();
-        mock.expect_notification_contains(
-            "window/showMessage",
-            "Found no vhdl_ls.toml config file in the root path",
-        );
-        mock.expect_notification_contains(
-            "window/showMessage",
-            "Semantic analysis disabled, will perform syntax checking only",
-        );
+        expect_missing_config_messages(&mock);
         initialize_server(&mut server, root_uri.clone());
 
         let file_url = root_uri.join("ent.vhd").unwrap();
@@ -519,14 +523,7 @@ end entity ent;
         let mut server = VHDLServer::new(mock.clone());
 
         let (_tempdir, root_uri) = temp_root_uri();
-        mock.expect_notification_contains(
-            "window/showMessage",
-            "Found no vhdl_ls.toml config file in the root path",
-        );
-        mock.expect_notification_contains(
-            "window/showMessage",
-            "Semantic analysis disabled, will perform syntax checking only",
-        );
+        expect_missing_config_messages(&mock);
         initialize_server(&mut server, root_uri.clone());
 
         let file_url = root_uri.join("ent.vhd").unwrap();
@@ -688,7 +685,7 @@ lib.files = [
         );
         mock.expect_notification_contains(
             "window/showMessage",
-            "Semantic analysis disabled, will perform syntax checking only",
+            "Found no library mapping, semantic analysis disabled, will perform syntax checking only",
         );
         initialize_server(&mut server, root_uri);
     }
