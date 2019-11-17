@@ -130,24 +130,12 @@ lib1.files = [
 Add the following to your `.emacs.el`:
 ```elisp
 (require 'lsp-mode)
-
-(lsp-define-stdio-client
- lsp-vhdl-mode
- "VHDL"
- (lsp-make-traverser "vhdl_ls.toml")
- '("<PATH_TO_RUST_HDL>/target/release/vhdl_ls"))
-
-(require 'lsp-ui)
-(add-hook 'lsp-mode-hook 'lsp-ui-mode)
-(add-hook 'vhdl-mode-hook 'flycheck-mode)
-(add-hook 'vhdl-mode-hook 'lsp-vhdl-mode-enable)
-```
-#### eglot
-Using the language server in `emacs` with the `eglot` language server package it is enough to simply add the following line to your `.emacs.el`:
-```elisp
-(require 'eglot)
-(add-to-list 'eglot-server-programs
-             '(vhdl-mode . ("<PATH_TO_RUST_HDL>/target/release/vhdl_ls")))
+(lsp-register-client
+ (make-lsp-client :new-connection (lsp-stdio-connection "${PATH_TO_RUST_HDL}/target/release/vhdl_ls")
+                  :major-modes '(vhdl-mode)
+                  :server-id 'vhdl-lsp))
+(add-to-list 'lsp-language-id-configuration '(vhdl-mode . "vhdl-mode"))
+(add-hook 'vhdl-mode-hook #'lsp)
 ```
 
 ### Use in Atom
