@@ -90,29 +90,33 @@ struct InitializedVHDLServer<T: RpcChannel> {
 }
 
 impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
+    /// Load the vhdl_ls.toml config file from initalizeParams.rootUri
+    fn load_config(init_params: &InitializeParams) -> io::Result<Config> {
+        let root_uri = init_params.root_uri.as_ref().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::Other, "initializeParams.rootUri not set")
+        })?;
+
+        let root_path = root_uri.to_file_path().map_err(|_| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "initializeParams.rootUri {:?} not a valid file path",
+                    root_uri
+                ),
+            )
+        })?;
+
+        let config_file = root_path.join("vhdl_ls.toml");
+        let config = Config::read_file_path(&config_file)?;
+
+        Ok(config)
+    }
+
     pub fn initialize(
         rpc_channel: T,
         init_params: InitializeParams,
     ) -> jsonrpc_core::Result<(InitializedVHDLServer<T>, InitializeResult)> {
-        let config = init_params
-            .root_uri
-            .as_ref()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "initializeParams.rootUri not set"))
-            .and_then(|root_uri| {
-                root_uri.to_file_path().map_err(|_| {
-                    io::Error::new(
-                        io::ErrorKind::Other,
-                        format!(
-                            "initializeParams.rootUri {:?} not a valid file path",
-                            root_uri
-                        ),
-                    )
-                })
-            })
-            .and_then(|root_path| {
-                let config_file = root_path.join("vhdl_ls.toml");
-                Config::read_file_path(&config_file)
-            });
+        let config = Self::load_config(&init_params);
 
         let server = InitializedVHDLServer {
             rpc_channel,
