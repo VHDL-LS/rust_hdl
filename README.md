@@ -112,8 +112,9 @@ The language server uses a configuration file in the [TOML](https://github.com/t
 The file contains the library mapping of all files within the project. Files outside of the project without library mapping are checked for syntax errors only.
 
 `vhdl_ls` will load configuration files in the following order of priority (first to last):
-1. A file name from the `VHDL_LS_CONFIG` environment variable.
-2. A file named `vhdl_ls.toml` in the workspace root.
+1. A file named `.vhdl_ls.toml` in the user home folder.
+2. A file name from the `VHDL_LS_CONFIG` environment variable.
+3. A file named `vhdl_ls.toml` in the workspace root.
 
 Settings in a later files overwrites those from previously loaded files.
 

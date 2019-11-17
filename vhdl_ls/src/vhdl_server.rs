@@ -40,6 +40,33 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         }
     }
 
+    /// Load configuration file from home folder
+    fn load_home_config(&self, config: &mut Config) {
+        if let Some(home_dir) = dirs::home_dir() {
+            let file_name = home_dir.join(".vhdl_ls.toml");
+
+            match Config::read_file_path(&file_name) {
+                Ok(env_config) => {
+                    self.rpc_channel.window_log_message(
+                        MessageType::Log,
+                        format!(
+                            "Loaded HOME folder configuration file: {}",
+                            file_name.to_string_lossy()
+                        ),
+                    );
+
+                    config.append(&env_config);
+                }
+                Err(ref err) => {
+                    self.rpc_channel.window_show_message(
+                        MessageType::Error,
+                        format!("Error while loading HOME folder variable: {} ", err),
+                    );
+                }
+            }
+        }
+    }
+
     /// Load configuration file from environment
     fn load_env_config(&self, config: &mut Config) {
         let env_name = "VHDL_LS_CONFIG";
@@ -108,6 +135,7 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         let mut config = Config::default();
 
         if self.use_external_config {
+            self.load_home_config(&mut config);
             self.load_env_config(&mut config);
         }
 
