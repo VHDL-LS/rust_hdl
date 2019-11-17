@@ -16,11 +16,13 @@ use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 
+#[derive(Clone, PartialEq, Debug)]
 pub struct Config {
     // A map from library name to file name
     libraries: FnvHashMap<String, LibraryConfig>,
 }
 
+#[derive(Clone, PartialEq, Debug)]
 pub struct LibraryConfig {
     name: String,
     files: Vec<String>,
@@ -97,11 +99,33 @@ impl Config {
     pub fn iter_libraries(&self) -> impl Iterator<Item = &LibraryConfig> {
         self.libraries.values()
     }
+
+    /// Append another config to self
+    ///
+    /// In case of conflict the appended config takes precedence
+    pub fn append(&mut self, config: &Config) {
+        for library in config.iter_libraries() {
+            if let Some(parent_library) = self.libraries.get_mut(&library.name) {
+                for file_name in library.file_names() {
+                    parent_library.files.push(file_name.clone());
+                }
+            } else {
+                self.libraries.insert(
+                    library.name.clone(),
+                    LibraryConfig {
+                        name: library.name.clone(),
+                        files: library.file_names().clone(),
+                    },
+                );
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn config_from_str() {
@@ -159,4 +183,59 @@ lib1.files = [
         assert_eq!(lib2.file_names(), &[pkg2_path, absolute_vhd]);
     }
 
+    #[test]
+    fn test_append_config() {
+        let parent0 = Path::new("parent_folder0");
+        let config0 = Config::from_str(
+            "
+[libraries]
+lib1.files = [
+  'pkg1.vhd',
+]
+lib2.files = [
+  'pkg2.vhd'
+]
+",
+            &parent0,
+        )
+        .unwrap();
+
+        let parent1 = Path::new("parent_folder1");
+        let config1 = Config::from_str(
+            "
+[libraries]
+lib2.files = [
+  'ent.vhd'
+]
+lib3.files = [
+  'pkg3.vhd',
+]
+",
+            &parent1,
+        )
+        .unwrap();
+
+        let expected_parent = Path::new("");
+        let expected_config = Config::from_str(
+            "
+[libraries]
+lib1.files = [
+  'parent_folder0/pkg1.vhd',
+]
+lib2.files = [
+  'parent_folder0/pkg2.vhd',
+  'parent_folder1/ent.vhd'
+]
+lib3.files = [
+  'parent_folder1/pkg3.vhd',
+]
+",
+            &expected_parent,
+        )
+        .unwrap();
+
+        let mut merged_config = config0.clone();
+        merged_config.append(&config1);
+        assert_eq!(merged_config, expected_config);
+    }
 }
