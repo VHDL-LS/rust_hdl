@@ -16,13 +16,13 @@ use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Default, Debug)]
 pub struct Config {
     // A map from library name to file name
     libraries: FnvHashMap<String, LibraryConfig>,
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Default, Debug)]
 pub struct LibraryConfig {
     name: String,
     files: Vec<String>,

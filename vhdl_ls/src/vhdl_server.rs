@@ -33,11 +33,53 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         }
     }
 
+    /// Load the vhdl_ls.toml config file from initalizeParams.rootUri
+    fn load_config(init_params: &InitializeParams) -> io::Result<Config> {
+        let root_uri = init_params.root_uri.as_ref().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::Other, "initializeParams.rootUri not set")
+        })?;
+
+        let root_path = root_uri.to_file_path().map_err(|_| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "initializeParams.rootUri {:?} not a valid file path",
+                    root_uri
+                ),
+            )
+        })?;
+
+        let config_file = root_path.join("vhdl_ls.toml");
+        let config = Config::read_file_path(&config_file)?;
+
+        Ok(config)
+    }
+
     pub fn initialize_request(
         &mut self,
         params: InitializeParams,
     ) -> jsonrpc_core::Result<InitializeResult> {
-        let (server, result) = InitializedVHDLServer::initialize(self.rpc_channel.clone(), params)?;
+        let config = {
+            match Self::load_config(&params) {
+                Ok(config) => config,
+                Err(ref err) => {
+                    self.rpc_channel.window_show_message(
+                        MessageType::Warning,
+                        format!(
+                            "Found no vhdl_ls.toml config file in the root path: {}",
+                            err
+                        ),
+                    );
+                    self.rpc_channel.window_show_message(
+                        MessageType::Warning,
+                        "Semantic analysis disabled, will perform syntax checking only",
+                    );
+                    Config::default()
+                }
+            }
+        };
+
+        let (server, result) = InitializedVHDLServer::new(self.rpc_channel.clone(), config, params);
         self.server = Some(server);
         Ok(result)
     }
@@ -76,7 +118,6 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
 struct InitializedVHDLServer<T: RpcChannel> {
     rpc_channel: T,
     init_params: InitializeParams,
-    config: io::Result<Config>,
     project: Project,
     files_with_notifications: FnvHashMap<Url, ()>,
 }
@@ -93,39 +134,25 @@ impl<T: RpcChannel> RpcChannel for InitializedVHDLServer<T> {
 }
 
 impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
-    /// Load the vhdl_ls.toml config file from initalizeParams.rootUri
-    fn load_config(init_params: &InitializeParams) -> io::Result<Config> {
-        let root_uri = init_params.root_uri.as_ref().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::Other, "initializeParams.rootUri not set")
-        })?;
-
-        let root_path = root_uri.to_file_path().map_err(|_| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "initializeParams.rootUri {:?} not a valid file path",
-                    root_uri
-                ),
-            )
-        })?;
-
-        let config_file = root_path.join("vhdl_ls.toml");
-        let config = Config::read_file_path(&config_file)?;
-
-        Ok(config)
-    }
-
-    pub fn initialize(
+    pub fn new(
         rpc_channel: T,
+        config: Config,
         init_params: InitializeParams,
-    ) -> jsonrpc_core::Result<(InitializedVHDLServer<T>, InitializeResult)> {
-        let config = Self::load_config(&init_params);
+    ) -> (InitializedVHDLServer<T>, InitializeResult) {
+        // @TODO read num_threads from config file
+        let num_threads = 4;
+        // @TODO send error to client
+        let mut errors = Vec::new();
+        let project = Project::from_config(&config, num_threads, &mut errors);
+
+        for error in errors {
+            rpc_channel.window_show_message(MessageType::Error, error.to_string());
+        }
 
         let server = InitializedVHDLServer {
             rpc_channel,
             init_params,
-            config,
-            project: Project::new(),
+            project,
             files_with_notifications: FnvHashMap::default(),
         };
 
@@ -198,7 +225,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             },
         };
 
-        Ok((server, result))
+        (server, result)
     }
 
     fn client_supports_related_information(&self) -> bool {
@@ -270,33 +297,6 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
     }
 
     pub fn initialized_notification(&mut self, _params: &InitializedParams) {
-        match &self.config {
-            Err(ref err) => {
-                self.window_show_message(
-                    MessageType::Warning,
-                    format!(
-                        "Found no vhdl_ls.toml config file in the root path: {}",
-                        err
-                    ),
-                );
-                self.window_show_message(
-                    MessageType::Warning,
-                    "Semantic analysis disabled, will perform syntax checking only",
-                );
-            }
-            Ok(config) => {
-                // @TODO read num_threads from config file
-                let num_threads = 4;
-                // @TODO send error to client
-                let mut errors = Vec::new();
-                let project = Project::from_config(&config, num_threads, &mut errors);
-                self.project = project;
-                for error in errors {
-                    self.window_show_message(MessageType::Error, error.to_string());
-                }
-            }
-        }
-
         self.publish_diagnostics();
     }
 
