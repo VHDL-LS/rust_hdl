@@ -141,18 +141,18 @@ pub trait Recover<T> {
     fn or_recover_until(
         self,
         stream: &mut TokenStream,
-        msgs: &mut MessageHandler,
+        msgs: &mut dyn MessageHandler,
         cond: fn(&Kind) -> bool,
     ) -> ParseResult<T>;
 
-    fn log(self, msgs: &mut MessageHandler);
+    fn log(self, msgs: &mut dyn MessageHandler);
 }
 
 impl<T: std::fmt::Debug> Recover<T> for ParseResult<T> {
     fn or_recover_until(
         self,
         stream: &mut TokenStream,
-        msgs: &mut MessageHandler,
+        msgs: &mut dyn MessageHandler,
         cond: fn(&Kind) -> bool,
     ) -> ParseResult<T> {
         if self.is_ok() {
@@ -169,7 +169,7 @@ impl<T: std::fmt::Debug> Recover<T> for ParseResult<T> {
         }
     }
 
-    fn log(self, msgs: &mut MessageHandler) {
+    fn log(self, msgs: &mut dyn MessageHandler) {
         match self {
             Err(err) => msgs.push(err),
             Ok(_) => (),

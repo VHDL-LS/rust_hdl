@@ -183,8 +183,8 @@ macro_rules! match_token_kind {
                     $(
                         $(
                             kinds.push($kind);
-                        );*;
-                    );*;
+                        )*
+                    )*
 
                     Err($token.kinds_error(&kinds))
                 }
@@ -207,8 +207,8 @@ macro_rules! try_token_kind {
                 $(
                     $(
                         kinds.push($kind);
-                    );*;
-                );*;
+                    )*
+                )*
 
                 return Err($token.kinds_error(&kinds));
             }

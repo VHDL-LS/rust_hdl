@@ -2686,8 +2686,6 @@ end entity;
         }
 
         fn new() -> LibraryBuilder {
-            use crate::latin_1::Latin1String;
-
             let mut library = LibraryBuilder::new_no_std();
             library.code_from_source(
                 "std",
