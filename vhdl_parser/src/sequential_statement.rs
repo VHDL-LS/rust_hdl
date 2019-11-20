@@ -12,8 +12,8 @@ use crate::ast::{
     WaitStatement, Waveform,
 };
 use crate::common::parse_optional;
+use crate::diagnostic::{Diagnostic, DiagnosticHandler, ParseResult};
 use crate::expression::{parse_aggregate_leftpar_known, parse_choices, parse_expression};
-use crate::message::{Message, MessageHandler, ParseResult};
 use crate::names::{parse_name, parse_name_initial_token, to_simple_name};
 use crate::range::parse_discrete_range;
 use crate::source::WithPos;
@@ -71,7 +71,7 @@ fn parse_report_statement_known_keyword(stream: &mut TokenStream) -> ParseResult
 
 pub fn parse_labeled_sequential_statements(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<(Vec<LabeledSequentialStatement>, Token)> {
     let mut statements = Vec::new();
     loop {
@@ -82,7 +82,9 @@ pub fn parse_labeled_sequential_statements(
             }
             _ => {
                 statements.push(parse_sequential_statement_initial_token(
-                    stream, token, messages,
+                    stream,
+                    token,
+                    diagnostics,
                 )?);
             }
         }
@@ -92,7 +94,7 @@ pub fn parse_labeled_sequential_statements(
 /// LRM 10.8 If statement
 fn parse_if_statement_known_keyword(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<IfStatement> {
     let mut conditionals = Vec::new();
     let mut else_branch = None;
@@ -100,7 +102,7 @@ fn parse_if_statement_known_keyword(
     loop {
         let condition = parse_expression(stream)?;
         stream.expect_kind(Then)?;
-        let (statements, end_token) = parse_labeled_sequential_statements(stream, messages)?;
+        let (statements, end_token) = parse_labeled_sequential_statements(stream, diagnostics)?;
 
         let conditional = Conditional {
             condition,
@@ -116,7 +118,7 @@ fn parse_if_statement_known_keyword(
 
             Else => {
                 conditionals.push(conditional);
-                let (statements, end_token) = parse_labeled_sequential_statements(stream, messages)?;
+                let (statements, end_token) = parse_labeled_sequential_statements(stream, diagnostics)?;
 
                 try_token_kind!(
                     end_token,
@@ -147,7 +149,7 @@ fn parse_if_statement_known_keyword(
 /// LRM 10.9 Case statement
 fn parse_case_statement_known_keyword(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<CaseStatement> {
     let expression = parse_expression(stream)?;
     stream.expect_kind(Is)?;
@@ -157,7 +159,7 @@ fn parse_case_statement_known_keyword(
     loop {
         let choices = parse_choices(stream)?;
         stream.expect_kind(RightArrow)?;
-        let (statements, end_token) = parse_labeled_sequential_statements(stream, messages)?;
+        let (statements, end_token) = parse_labeled_sequential_statements(stream, diagnostics)?;
         let alternative = Alternative {
             choices,
             item: statements,
@@ -189,7 +191,7 @@ fn parse_case_statement_known_keyword(
 fn parse_loop_statement_initial_token(
     stream: &mut TokenStream,
     token: &Token,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<LoopStatement> {
     let iteration_scheme = {
         try_token_kind!(
@@ -210,7 +212,7 @@ fn parse_loop_statement_initial_token(
         )
     };
 
-    let (statements, end_token) = parse_labeled_sequential_statements(stream, messages)?;
+    let (statements, end_token) = parse_labeled_sequential_statements(stream, diagnostics)?;
     try_token_kind!(
         end_token,
         End => {
@@ -426,7 +428,7 @@ fn parse_assignment_or_procedure_call(
                         })
                 }
                 Target::Aggregate(..) => {
-                    return Err(Message::error(target, "Expected procedure call, got aggregate"));
+                    return Err(Diagnostic::error(target, "Expected procedure call, got aggregate"));
                 }
             }
         }
@@ -478,7 +480,7 @@ fn parse_selected_assignment(stream: &mut TokenStream) -> ParseResult<Sequential
 fn parse_unlabeled_sequential_statement(
     stream: &mut TokenStream,
     token: Token,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SequentialStatement> {
     let statement = {
         try_token_kind!(
@@ -486,10 +488,10 @@ fn parse_unlabeled_sequential_statement(
             Wait => SequentialStatement::Wait(parse_wait_statement_known_keyword(stream)?),
             Assert => SequentialStatement::Assert(parse_assert_statement_known_keyword(stream)?),
             Report => SequentialStatement::Report(parse_report_statement_known_keyword(stream)?),
-            If => SequentialStatement::If(parse_if_statement_known_keyword(stream, messages)?),
-            Case => SequentialStatement::Case(parse_case_statement_known_keyword(stream, messages)?),
+            If => SequentialStatement::If(parse_if_statement_known_keyword(stream, diagnostics)?),
+            Case => SequentialStatement::Case(parse_case_statement_known_keyword(stream, diagnostics)?),
             For | Loop | While => {
-                SequentialStatement::Loop(parse_loop_statement_initial_token(stream, &token, messages)?)
+                SequentialStatement::Loop(parse_loop_statement_initial_token(stream, &token, diagnostics)?)
             },
             Next => SequentialStatement::Next(parse_next_statement_known_keyword(stream)?),
             Exit => SequentialStatement::Exit(parse_exit_statement_known_keyword(stream)?),
@@ -514,16 +516,16 @@ fn parse_unlabeled_sequential_statement(
 #[cfg(test)]
 pub fn parse_sequential_statement(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<LabeledSequentialStatement> {
     let token = stream.expect()?;
-    parse_sequential_statement_initial_token(stream, token, messages)
+    parse_sequential_statement_initial_token(stream, token, diagnostics)
 }
 
 pub fn parse_sequential_statement_initial_token(
     stream: &mut TokenStream,
     token: Token,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<LabeledSequentialStatement> {
     if token.kind == Identifier {
         let name = parse_name_initial_token(stream, token)?;
@@ -531,7 +533,7 @@ pub fn parse_sequential_statement_initial_token(
         if token.kind == Colon {
             let label = Some(to_simple_name(name)?);
             let token = stream.expect()?;
-            let statement = parse_unlabeled_sequential_statement(stream, token, messages)?;
+            let statement = parse_unlabeled_sequential_statement(stream, token, diagnostics)?;
             Ok(LabeledSequentialStatement { label, statement })
         } else {
             let target = name.map_into(Target::Name);
@@ -542,7 +544,7 @@ pub fn parse_sequential_statement_initial_token(
             })
         }
     } else {
-        let statement = parse_unlabeled_sequential_statement(stream, token, messages)?;
+        let statement = parse_unlabeled_sequential_statement(stream, token, diagnostics)?;
         Ok(LabeledSequentialStatement {
             label: None,
             statement,
@@ -559,7 +561,7 @@ mod tests {
 
     fn parse(code: &str) -> (Code, LabeledSequentialStatement) {
         let code = Code::new(code);
-        let stmt = code.with_stream_no_messages(parse_sequential_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_sequential_statement);
         (code, stmt)
     }
 

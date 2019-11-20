@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::ast::AliasDeclaration;
-use crate::message::ParseResult;
+use crate::diagnostic::ParseResult;
 use crate::names::{parse_designator, parse_name};
 use crate::subprogram::parse_signature;
 use crate::subtype_indication::parse_subtype_indication;

@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-// @TODO add related information to message
+// @TODO add related information to diagnostic
 
 use self::fnv::FnvHashMap;
 use fnv;
@@ -15,7 +15,7 @@ use crate::ast::{
     DesignUnit, Designator, EntityDeclaration, HasIdent, Ident, PackageBody, PackageDeclaration,
     PackageInstantiation, PrimaryUnit, SecondaryUnit, SelectedName,
 };
-use crate::message::{Message, MessageHandler};
+use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::source::{SrcPos, WithPos};
 use crate::symbol_table::Symbol;
 
@@ -23,11 +23,11 @@ impl EntityDesignUnit {
     fn add_architecture(
         &mut self,
         architecture: DesignUnit<ArchitectureBody>,
-        messages: &mut dyn MessageHandler,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) {
         match self.architectures.entry(architecture.name().clone()) {
             Entry::Occupied(..) => {
-                messages.push(Message::error(
+                diagnostics.push(Diagnostic::error(
                     &architecture.ident(),
                     format!(
                         "Duplicate architecture '{}' of entity '{}'",
@@ -43,7 +43,7 @@ impl EntityDesignUnit {
                     if primary_pos.source == secondary_pos.source
                         && primary_pos.start > secondary_pos.start
                     {
-                        messages.push(Message::error(
+                        diagnostics.push(Diagnostic::error(
                             secondary_pos,
                             format!(
                                 "Architecture '{}' declared before entity '{}'",
@@ -62,11 +62,11 @@ impl EntityDesignUnit {
     fn add_configuration(
         &mut self,
         configuration: DesignUnit<ConfigurationDeclaration>,
-        messages: &mut dyn MessageHandler,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) {
         match self.configurations.entry(configuration.name().clone()) {
             Entry::Occupied(..) => {
-                messages.push(Message::error(
+                diagnostics.push(Diagnostic::error(
                     &configuration.ident(),
                     format!(
                         "Duplicate configuration '{}' of entity '{}'",
@@ -82,7 +82,7 @@ impl EntityDesignUnit {
                     if primary_pos.source == secondary_pos.source
                         && primary_pos.start > secondary_pos.start
                     {
-                        messages.push(Message::error(
+                        diagnostics.push(Diagnostic::error(
                             secondary_pos,
                             format!(
                                 "Configuration '{}' declared before entity '{}'",
@@ -104,9 +104,9 @@ impl EntityDesignUnit {
 }
 
 impl PackageDesignUnit {
-    fn set_body(&mut self, body: DesignUnit<PackageBody>, messages: &mut dyn MessageHandler) {
+    fn set_body(&mut self, body: DesignUnit<PackageBody>, diagnostics: &mut dyn DiagnosticHandler) {
         if self.body.is_some() {
-            messages.push(Message::error(
+            diagnostics.push(Diagnostic::error(
                 body.ident(),
                 format!(
                     "Duplicate package body of package '{}'",
@@ -120,7 +120,7 @@ impl PackageDesignUnit {
                 if primary_pos.source == secondary_pos.source
                     && primary_pos.start > secondary_pos.start
                 {
-                    messages.push(Message::error(
+                    diagnostics.push(Diagnostic::error(
                         secondary_pos,
                         format!(
                             "Package body declared before package '{}'",
@@ -170,7 +170,7 @@ impl<'a> Library {
         name: Symbol,
         work_sym: &Symbol,
         design_files: Vec<DesignFile>,
-        messages: &mut dyn MessageHandler,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) -> Library {
         let mut primary_names: FnvHashMap<Symbol, SrcPos> = FnvHashMap::default();
         let mut entities = FnvHashMap::default();
@@ -189,14 +189,14 @@ impl<'a> Library {
 
                         match primary_names.entry(primary_ident.item) {
                             Entry::Occupied(entry) => {
-                                let msg = Message::error(
+                                let diagnostic = Diagnostic::error(
                                     primary_ident.pos,
                                     format!(
                                         "A primary unit has already been declared with name '{}' in library '{}'",
                                         entry.key(),
                                         name
                                     )).related(entry.get(), "Previously defined here");
-                                messages.push(msg);
+                                diagnostics.push(diagnostic);
                             }
                             Entry::Vacant(entry) => match primary {
                                 PrimaryUnit::EntityDeclaration(entity) => {
@@ -247,9 +247,9 @@ impl<'a> Library {
 
         for architecture in architectures {
             if let Some(ref mut entity) = entities.get_mut(&architecture.unit.entity_name.item) {
-                entity.add_architecture(architecture, messages)
+                entity.add_architecture(architecture, diagnostics)
             } else {
-                messages.push(Message::error(
+                diagnostics.push(Diagnostic::error(
                     &architecture.unit.entity_name.pos,
                     format!(
                         "No entity '{}' within library '{}'",
@@ -261,9 +261,9 @@ impl<'a> Library {
 
         for body in package_bodies {
             if let Some(ref mut package) = packages.get_mut(&body.name()) {
-                package.set_body(body, messages)
+                package.set_body(body, diagnostics)
             } else {
-                messages.push(Message::error(
+                diagnostics.push(Diagnostic::error(
                     &body.ident(),
                     format!("No package '{}' within library '{}'", &body.name(), name),
                 ));
@@ -278,7 +278,7 @@ impl<'a> Library {
                             // @TODO use real scope and visibilty rules to resolve entity name
                             // @TODO does not detect missing library clause for libname
                             // @TODO does not detect if libname is shadowed by other use clause
-                            messages.push(Message::error(
+                            diagnostics.push(Diagnostic::error(
                                 libname,
                                 format!("Configuration must be within the same library '{}' as the corresponding entity", name),
                             ));
@@ -288,8 +288,8 @@ impl<'a> Library {
                         }
                     }
                     Ok((None, entname)) => entname,
-                    Err(msg) => {
-                        messages.push(msg);
+                    Err(diagnostic) => {
+                        diagnostics.push(diagnostic);
                         continue;
                     }
                 };
@@ -297,7 +297,7 @@ impl<'a> Library {
                 if let Some(entity) = entities.get_mut(&entname.item) {
                     entity
                 } else {
-                    messages.push(Message::error(
+                    diagnostics.push(Diagnostic::error(
                         entname.pos,
                         format!("No entity '{}' within library '{}'", entname.item, name),
                     ));
@@ -305,7 +305,7 @@ impl<'a> Library {
                 }
             };
 
-            entity.add_configuration(config, messages);
+            entity.add_configuration(config, diagnostics);
         }
 
         let mut cfg_to_entity = FnvHashMap::default();
@@ -378,7 +378,7 @@ impl<'a> Library {
 /// Extract library_name.entity_name for entity name in configurations
 fn to_entity_name(
     selected_name: &WithPos<SelectedName>,
-) -> Result<(Option<Ident>, Ident), Message> {
+) -> Result<(Option<Ident>, Ident), Diagnostic> {
     match selected_name.item {
         SelectedName::Selected(
             ref prefix,
@@ -399,7 +399,7 @@ fn to_entity_name(
         _ => {}
     }
     Err(
-        Message::error(&selected_name, "Invalid selected name for entity").related(
+        Diagnostic::error(&selected_name, "Invalid selected name for entity").related(
             &selected_name,
             "Entity name must be of the form library.entity_name or entity_name",
         ),
@@ -433,22 +433,22 @@ impl DesignRoot {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_util::{check_messages, check_no_messages, Code, CodeBuilder};
+    use crate::test_util::{check_diagnostics, check_no_diagnostics, Code, CodeBuilder};
 
-    fn new_library_with_messages<'a>(code: &Code, name: &str) -> (Library, Vec<Message>) {
-        let mut messages = Vec::new();
+    fn new_library_with_diagnostics<'a>(code: &Code, name: &str) -> (Library, Vec<Diagnostic>) {
+        let mut diagnostics = Vec::new();
         let library = Library::new(
             code.symbol(name),
             &code.symbol("work"),
             vec![code.design_file()],
-            &mut messages,
+            &mut diagnostics,
         );
-        (library, messages)
+        (library, diagnostics)
     }
 
     fn new_library<'a>(code: &Code, name: &str) -> Library {
-        let (library, messages) = new_library_with_messages(code, name);
-        check_no_messages(&messages);
+        let (library, diagnostics) = new_library_with_diagnostics(code, name);
+        check_no_diagnostics(&diagnostics);
         library
     }
 
@@ -483,12 +483,12 @@ package body pkg is
 end package body;
 ",
         );
-        let (library, messages) = new_library_with_messages(&code, "libname");
+        let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
         assert_eq!(library.packages.len(), 0);
-        check_messages(
-            messages,
-            vec![Message::error(
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1("pkg"),
                 "No package 'pkg' within library 'libname'",
             )],
@@ -504,12 +504,12 @@ begin
 end architecture;
 ",
         );
-        let (library, messages) = new_library_with_messages(&code, "libname");
+        let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
         assert_eq!(library.entities.len(), 0);
-        check_messages(
-            messages,
-            vec![Message::error(
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1("ent"),
                 "No entity 'ent' within library 'libname'",
             )],
@@ -528,12 +528,12 @@ begin
 end architecture;
 ",
         );
-        let (library, messages) = new_library_with_messages(&code, "libname");
+        let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
         assert!(library.package(&code.symbol("pkg")).unwrap().body.is_none());
-        check_messages(
-            messages,
-            vec![Message::error(
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s("pkg", 2),
                 "No entity 'pkg' within library 'libname'",
             )],
@@ -551,7 +551,7 @@ package body entname is
 end package body;
 ",
         );
-        let (library, messages) = new_library_with_messages(&code, "libname");
+        let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
         assert_eq!(
             library
@@ -561,9 +561,9 @@ end package body;
                 .len(),
             0
         );
-        check_messages(
-            messages,
-            vec![Message::error(
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s("entname", 2),
                 "No package 'entname' within library 'libname'",
             )],
@@ -584,12 +584,12 @@ package body pkg is
 end package body;
 ",
         );
-        let (library, messages) = new_library_with_messages(&code, "libname");
+        let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
         assert!(library.package(&code.symbol("pkg")).unwrap().body.is_some());
-        check_messages(
-            messages,
-            vec![Message::error(
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s("pkg", 3),
                 "Duplicate package body of package 'pkg'",
             )],
@@ -620,26 +620,26 @@ end configuration;
 package pkg is new gpkg generic map (const => foo);
 ",
         );
-        let (library, messages) = new_library_with_messages(&code, "libname");
+        let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
         assert_eq!(library.entities.len(), 1);
         assert_eq!(library.packages.len(), 1);
-        check_messages(
-            messages,
+        check_diagnostics(
+            diagnostics,
             vec![
-                Message::error(
+                Diagnostic::error(
                     code.s("pkg", 2),
                     "A primary unit has already been declared with name 'pkg' in library 'libname'"
                 ).related(code.s("pkg", 1), "Previously defined here"),
-                Message::error(
+                Diagnostic::error(
                     code.s("entname", 2),
                     "A primary unit has already been declared with name 'entname' in library 'libname'"
                 ).related(code.s("entname", 1), "Previously defined here"),
-                Message::error(
+                Diagnostic::error(
                     code.s("pkg", 3),
                     "A primary unit has already been declared with name 'pkg' in library 'libname'"
                 ).related(code.s("pkg", 1), "Previously defined here"),
-                Message::error(
+                Diagnostic::error(
                     code.s("pkg", 4),
                     "A primary unit has already been declared with name 'pkg' in library 'libname'"
                 ).related(code.s("pkg", 1), "Previously defined here"),
@@ -665,19 +665,19 @@ entity entname is
 end entity;
 ",
         );
-        let (library, messages) = new_library_with_messages(&code, "libname");
+        let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
         // Should still be added as a secondary unit
         assert!(library.package(&code.symbol("pkg")).unwrap().body.is_some());
 
-        check_messages(
-            messages,
+        check_diagnostics(
+            diagnostics,
             vec![
-                Message::error(
+                Diagnostic::error(
                     code.s("pkg", 1),
                     "Package body declared before package 'pkg'",
                 ),
-                Message::error(
+                Diagnostic::error(
                     code.s("rtl", 1),
                     "Architecture 'rtl' declared before entity 'entname'",
                 ),
@@ -702,12 +702,12 @@ end package;
 ",
         );
 
-        let mut messages = Vec::new();
+        let mut diagnostics = Vec::new();
         let library = Library::new(
             builder.symbol("libname"),
             &builder.symbol("work"),
             vec![file1.design_file(), file2.design_file()],
-            &mut messages,
+            &mut diagnostics,
         );
 
         // Should still be added as a secondary unit
@@ -717,7 +717,7 @@ end package;
             .body
             .is_some());
 
-        check_no_messages(&messages);
+        check_no_diagnostics(&diagnostics);
     }
 
     #[test]
@@ -736,7 +736,7 @@ begin
 end architecture;
 ",
         );
-        let (library, messages) = new_library_with_messages(&code, "libname");
+        let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
         assert_eq!(
             library
@@ -746,9 +746,9 @@ end architecture;
                 .len(),
             1
         );
-        check_messages(
-            messages,
-            vec![Message::error(
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s("rtl", 2),
                 "Duplicate architecture 'rtl' of entity 'ent'",
             )],
@@ -935,7 +935,7 @@ configuration cfg of work.ent is
 end configuration;
 ",
         );
-        let (library, messages) = new_library_with_messages(&code, "libname");
+        let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
         let entity = library.entity(&code.symbol("ent")).unwrap();
         let cfg = code
@@ -949,9 +949,9 @@ end configuration;
                 unit: cfg,
             },
         );
-        check_messages(
-            messages,
-            vec![Message::error(
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s("cfg", 2),
                 "Duplicate configuration 'cfg' of entity 'ent'",
             )],
@@ -972,7 +972,7 @@ entity ent is
 end entity;
 ",
         );
-        let (library, messages) = new_library_with_messages(&code, "libname");
+        let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
         let entity = library.entity(&code.symbol("ent")).unwrap();
         let cfg = code
@@ -986,9 +986,9 @@ end entity;
                 unit: cfg,
             },
         );
-        check_messages(
-            messages,
-            vec![Message::error(
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s("cfg", 1),
                 "Configuration 'cfg' declared before entity 'ent'",
             )],
@@ -1006,11 +1006,11 @@ configuration cfg of ent is
 end configuration;
 ",
         );
-        let (_, messages) = new_library_with_messages(&code, "libname");
+        let (_, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
-        check_messages(
-            messages,
-            vec![Message::error(
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s("ent", 1),
                 "No entity 'ent' within library 'libname'",
             )],
@@ -1027,11 +1027,11 @@ configuration cfg of lib2.ent is
 end configuration;
 ",
         );
-        let (_, messages) = new_library_with_messages(&code, "libname");
+        let (_, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
-        check_messages(
-            messages,
-            vec![Message::error(
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s("lib2", 1),
                 "Configuration must be within the same library 'libname' as the corresponding entity",
             )],
@@ -1048,12 +1048,12 @@ configuration cfg of lib2.pkg.ent is
 end configuration;
 ",
         );
-        let (_, messages) = new_library_with_messages(&code, "libname");
+        let (_, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
-        check_messages(
-            messages,
+        check_diagnostics(
+            diagnostics,
             vec![
-                Message::error(code.s1("lib2.pkg.ent"), "Invalid selected name for entity")
+                Diagnostic::error(code.s1("lib2.pkg.ent"), "Invalid selected name for entity")
                     .related(
                         code.s1("lib2.pkg.ent"),
                         "Entity name must be of the form library.entity_name or entity_name",

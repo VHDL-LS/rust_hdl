@@ -8,8 +8,8 @@ use self::fnv::FnvHashMap;
 use crate::analysis::{Analyzer, DesignRoot, Library};
 use crate::ast::DesignFile;
 use crate::config::Config;
+use crate::diagnostic::Diagnostic;
 use crate::latin_1::Latin1String;
-use crate::message::Message;
 use crate::parser::{FileToParse, ParserError, VHDLParser};
 use crate::source::Source;
 use crate::symbol_table::Symbol;
@@ -73,14 +73,14 @@ impl Project {
 
         let files_to_parse = files_to_parse.drain().map(|(_, v)| v).collect();
 
-        for (file_to_parse, mut parser_messages, design_file) in project
+        for (file_to_parse, mut parser_diagnostics, design_file) in project
             .parser
             .parse_design_files(files_to_parse, num_threads)
         {
             let design_file = match design_file {
                 Ok(design_file) => Some(design_file),
-                Err(ParserError::Message(msg)) => {
-                    parser_messages.push(msg);
+                Err(ParserError::Diagnostic(diagnostic)) => {
+                    parser_diagnostics.push(diagnostic);
                     None
                 }
                 Err(ParserError::IOError(err)) => {
@@ -96,7 +96,7 @@ impl Project {
                 file_to_parse.file_name,
                 SourceFile {
                     library_names: file_to_parse.library_names,
-                    parser_messages,
+                    parser_diagnostics,
                     design_file,
                 },
             );
@@ -112,29 +112,29 @@ impl Project {
             } else {
                 SourceFile {
                     library_names: vec![],
-                    parser_messages: vec![],
+                    parser_diagnostics: vec![],
                     design_file: None,
                 }
             }
         };
         source_file.design_file = None;
-        source_file.parser_messages.clear();
+        source_file.parser_diagnostics.clear();
 
         let design_file = self
             .parser
-            .parse_design_source(source, &mut source_file.parser_messages);
+            .parse_design_source(source, &mut source_file.parser_diagnostics);
 
         let result = match design_file {
             Ok(design_file) => {
                 source_file.design_file = Some(design_file);
                 Ok(())
             }
-            Err(ParserError::Message(msg)) => {
-                source_file.parser_messages.push(msg);
+            Err(ParserError::Diagnostic(diagnostic)) => {
+                source_file.parser_diagnostics.push(diagnostic);
                 Ok(())
             }
             Err(ParserError::IOError(err)) => {
-                // @TODO convert to soft error and push to messages
+                // @TODO convert to soft error and push to diagnostics
                 Err(err)
             }
         };
@@ -144,11 +144,11 @@ impl Project {
         result
     }
 
-    pub fn analyse(&mut self) -> Vec<Message> {
+    pub fn analyse(&mut self) -> Vec<Diagnostic> {
         // @TODO clones all design unit and re-create all libraries
         // Investigate *correct* methonds to do this incrementally
         let mut library_to_design_file: FnvHashMap<Symbol, Vec<DesignFile>> = FnvHashMap::default();
-        let mut messages = Vec::new();
+        let mut diagnostics = Vec::new();
         let mut root = DesignRoot::new();
 
         for source_file in self.files.values() {
@@ -165,8 +165,8 @@ impl Project {
                 }
             }
 
-            for message in source_file.parser_messages.iter().cloned() {
-                messages.push(message);
+            for diagnostic in source_file.parser_diagnostics.iter().cloned() {
+                diagnostics.push(diagnostic);
             }
         }
 
@@ -176,12 +176,12 @@ impl Project {
                 library_name,
                 &work_sym,
                 design_files,
-                &mut messages,
+                &mut diagnostics,
             ));
         }
 
-        Analyzer::new(&root, &self.parser.symtab.clone()).analyze(&mut messages);
-        messages
+        Analyzer::new(&root, &self.parser.symtab.clone()).analyze(&mut diagnostics);
+        diagnostics
     }
 }
 
@@ -205,5 +205,5 @@ impl FileToParse for LibraryFileToParse {
 struct SourceFile {
     library_names: Vec<Symbol>,
     design_file: Option<DesignFile>,
-    parser_messages: Vec<Message>,
+    parser_diagnostics: Vec<Diagnostic>,
 }

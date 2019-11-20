@@ -4,8 +4,8 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
+use crate::diagnostic::{Diagnostic, ParseResult};
 use crate::latin_1::Latin1String;
-use crate::message::{Message, ParseResult};
 use pad;
 use std::cmp::{max, min};
 use std::collections::VecDeque;
@@ -255,7 +255,7 @@ impl<T> WithPos<T> {
                 item,
                 pos: self.pos,
             }),
-            Err(msg) => Err(Message::error(&self.pos, msg)),
+            Err(msg) => Err(Diagnostic::error(&self.pos, msg)),
         }
     }
 

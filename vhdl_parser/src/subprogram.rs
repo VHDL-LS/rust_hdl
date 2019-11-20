@@ -9,8 +9,8 @@ use crate::ast::{
     SubprogramDeclaration, SubprogramDesignator,
 };
 use crate::declarative_part::parse_declarative_part;
+use crate::diagnostic::{Diagnostic, DiagnosticHandler, ParseResult};
 use crate::interface_declaration::parse_parameter_interface_list;
-use crate::message::{Message, MessageHandler, ParseResult};
 use crate::names::parse_selected_name;
 use crate::sequential_statement::parse_labeled_sequential_statements;
 use crate::source::WithPos;
@@ -41,7 +41,7 @@ pub fn parse_signature(stream: &mut TokenStream) -> ParseResult<Signature> {
                     Return => {
                         let new_return_mark = Some(parse_selected_name(stream)?);
                         if return_mark.is_some() {
-                            errmsg = Some(Message::error(sep_token, "Duplicate return in signature"));
+                            errmsg = Some(Diagnostic::error(sep_token, "Duplicate return in signature"));
                         } else {
                             return_mark = new_return_mark;
                         }
@@ -52,7 +52,7 @@ pub fn parse_signature(stream: &mut TokenStream) -> ParseResult<Signature> {
                 stream.move_after(&token);
                 let new_return_mark = Some(parse_selected_name(stream)?);
                 if return_mark.is_some() {
-                    errmsg = Some(Message::error(token, "Duplicate return in signature"));
+                    errmsg = Some(Diagnostic::error(token, "Duplicate return in signature"));
                 } else {
                     return_mark = new_return_mark;
                 }
@@ -63,9 +63,9 @@ pub fn parse_signature(stream: &mut TokenStream) -> ParseResult<Signature> {
             }
         )
     }
-    if let Some(msg) = errmsg {
+    if let Some(diagnostic) = errmsg {
         // @TODO recoverable error should not return Err
-        return Err(msg);
+        return Err(diagnostic);
     }
 
     Ok(match return_mark {
@@ -85,7 +85,7 @@ fn parse_designator(stream: &mut TokenStream) -> ParseResult<WithPos<SubprogramD
 
 pub fn parse_subprogram_declaration_no_semi(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SubprogramDeclaration> {
     let token = stream.expect()?;
 
@@ -105,7 +105,7 @@ pub fn parse_subprogram_declaration_no_semi(
 
     let parameter_list = {
         if stream.peek_kind()? == Some(LeftPar) {
-            parse_parameter_interface_list(stream, messages)?
+            parse_parameter_interface_list(stream, diagnostics)?
         } else {
             Vec::new()
         }
@@ -130,9 +130,9 @@ pub fn parse_subprogram_declaration_no_semi(
 
 pub fn parse_subprogram_declaration(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SubprogramDeclaration> {
-    let res = parse_subprogram_declaration_no_semi(stream, messages);
+    let res = parse_subprogram_declaration_no_semi(stream, diagnostics);
     stream.expect_kind(SemiColon)?;
     res
 }
@@ -141,7 +141,7 @@ pub fn parse_subprogram_declaration(
 pub fn parse_subprogram_body(
     stream: &mut TokenStream,
     specification: SubprogramDeclaration,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SubprogramBody> {
     let end_kind = {
         match specification {
@@ -149,9 +149,9 @@ pub fn parse_subprogram_body(
             SubprogramDeclaration::Function(..) => Function,
         }
     };
-    let declarations = parse_declarative_part(stream, messages, true)?;
+    let declarations = parse_declarative_part(stream, diagnostics, true)?;
 
-    let (statements, end_token) = parse_labeled_sequential_statements(stream, messages)?;
+    let (statements, end_token) = parse_labeled_sequential_statements(stream, diagnostics)?;
     try_token_kind!(
         end_token,
         End => {
@@ -170,13 +170,13 @@ pub fn parse_subprogram_body(
 
 pub fn parse_subprogram(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Declaration> {
-    let specification = parse_subprogram_declaration_no_semi(stream, messages)?;
+    let specification = parse_subprogram_declaration_no_semi(stream, diagnostics)?;
     match_token_kind!(
         stream.expect()?,
         Is => {
-            Ok(Declaration::SubprogramBody(parse_subprogram_body(stream, specification, messages)?))
+            Ok(Declaration::SubprogramBody(parse_subprogram_body(stream, specification, diagnostics)?))
         },
         SemiColon => {
             Ok(Declaration::SubprogramDeclaration(specification))
@@ -199,7 +199,7 @@ procedure foo;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_subprogram_declaration),
+            code.with_stream_no_diagnostics(parse_subprogram_declaration),
             SubprogramDeclaration::Procedure(ProcedureSpecification {
                 designator: code
                     .s1("foo")
@@ -218,7 +218,7 @@ function foo return lib.foo.natural;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_subprogram_declaration),
+            code.with_stream_no_diagnostics(parse_subprogram_declaration),
             SubprogramDeclaration::Function(FunctionSpecification {
                 pure: true,
                 designator: code
@@ -239,7 +239,7 @@ function \"+\" return lib.foo.natural;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_subprogram_declaration),
+            code.with_stream_no_diagnostics(parse_subprogram_declaration),
             SubprogramDeclaration::Function(FunctionSpecification {
                 pure: true,
                 designator: WithPos {
@@ -262,7 +262,7 @@ impure function foo return lib.foo.natural;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_subprogram_declaration),
+            code.with_stream_no_diagnostics(parse_subprogram_declaration),
             SubprogramDeclaration::Function(FunctionSpecification {
                 pure: false,
                 designator: code
@@ -283,7 +283,7 @@ procedure foo(foo : natural);
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_subprogram_declaration),
+            code.with_stream_no_diagnostics(parse_subprogram_declaration),
             SubprogramDeclaration::Procedure(ProcedureSpecification {
                 designator: code
                     .s1("foo")
@@ -302,7 +302,7 @@ function foo(foo : natural) return lib.foo.natural;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_subprogram_declaration),
+            code.with_stream_no_diagnostics(parse_subprogram_declaration),
             SubprogramDeclaration::Function(FunctionSpecification {
                 pure: true,
                 designator: code
@@ -365,13 +365,13 @@ function foo(foo : natural) return lib.foo.natural;
         let code = Code::new("[return bar.type_mark return bar2]");
         assert_eq!(
             code.with_stream_err(parse_signature),
-            Message::error(code.s("return", 2), "Duplicate return in signature")
+            Diagnostic::error(code.s("return", 2), "Duplicate return in signature")
         );
 
         let code = Code::new("[foo return bar.type_mark return bar2]");
         assert_eq!(
             code.with_stream_err(parse_signature),
-            Message::error(code.s("return", 2), "Duplicate return in signature")
+            Diagnostic::error(code.s("return", 2), "Duplicate return in signature")
         );
     }
 
@@ -397,7 +397,7 @@ end function;
             statements,
         };
         assert_eq!(
-            code.with_stream_no_messages(parse_subprogram),
+            code.with_stream_no_diagnostics(parse_subprogram),
             Declaration::SubprogramBody(body)
         );
     }
@@ -413,7 +413,7 @@ function foo(arg : natural) return natural;
             .s1("function foo(arg : natural) return natural")
             .subprogram_decl();
         assert_eq!(
-            code.with_stream_no_messages(parse_subprogram),
+            code.with_stream_no_diagnostics(parse_subprogram),
             Declaration::SubprogramDeclaration(specification)
         );
     }

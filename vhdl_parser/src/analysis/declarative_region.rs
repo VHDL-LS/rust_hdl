@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 use super::library::{EntityDesignUnit, Library, PackageDesignUnit};
 use crate::ast::*;
-use crate::message::{Message, MessageHandler};
+use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::source::{SrcPos, WithPos};
 
 use self::fnv::FnvHashMap;
@@ -17,19 +17,25 @@ use std::sync::Arc;
 /// The analysis result of the primary unit
 #[derive(Clone)]
 pub struct PrimaryUnitData<'a> {
-    messages: Vec<Message>,
+    diagnostics: Vec<Diagnostic>,
     pub region: DeclarativeRegion<'a, 'a>,
 }
 
 // @TODO store data in library, declarative region or in analysis context?
 impl<'a> PrimaryUnitData<'a> {
-    pub fn new(messages: Vec<Message>, region: DeclarativeRegion<'a, 'a>) -> PrimaryUnitData<'_> {
-        PrimaryUnitData { messages, region }
+    pub fn new(
+        diagnostics: Vec<Diagnostic>,
+        region: DeclarativeRegion<'a, 'a>,
+    ) -> PrimaryUnitData<'_> {
+        PrimaryUnitData {
+            diagnostics,
+            region,
+        }
     }
 
-    pub fn push_to(&self, messages: &mut dyn MessageHandler) {
-        for message in self.messages.iter().cloned() {
-            messages.push(message);
+    pub fn push_to(&self, diagnostics: &mut dyn DiagnosticHandler) {
+        for diagnostic in self.diagnostics.iter().cloned() {
+            diagnostics.push(diagnostic);
         }
     }
 }
@@ -135,15 +141,15 @@ impl<'a> VisibleDeclaration<'a> {
         }
     }
 
-    fn error(&self, messages: &mut dyn MessageHandler, message: impl Into<String>) {
+    fn error(&self, diagnostics: &mut dyn DiagnosticHandler, message: impl Into<String>) {
         if let Some(ref pos) = self.decl_pos {
-            messages.push(Message::error(pos, message));
+            diagnostics.push(Diagnostic::error(pos, message));
         }
     }
 
-    fn hint(&self, messages: &mut dyn MessageHandler, message: impl Into<String>) {
+    fn hint(&self, diagnostics: &mut dyn DiagnosticHandler, message: impl Into<String>) {
         if let Some(ref pos) = self.decl_pos {
-            messages.push(Message::hint(pos, message));
+            diagnostics.push(Diagnostic::hint(pos, message));
         }
     }
 
@@ -259,20 +265,20 @@ impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
         }
     }
 
-    pub fn close_immediate(&mut self, messages: &mut dyn MessageHandler) {
+    pub fn close_immediate(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
         let mut to_remove = Vec::new();
 
         for decl in self.decls.values() {
             if decl.decl.is_incomplete_type() {
                 to_remove.push(decl.designator.clone());
                 decl.error(
-                    messages,
+                    diagnostics,
                     format!(
                         "Missing full type declaration of incomplete type '{}'",
                         &decl.designator
                     ),
                 );
-                decl.hint(messages, "The full type declaration shall occur immediately within the same declarative part");
+                decl.hint(diagnostics, "The full type declaration shall occur immediately within the same declarative part");
             }
         }
 
@@ -281,17 +287,17 @@ impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
         }
     }
 
-    pub fn close_extended(&mut self, messages: &mut dyn MessageHandler) {
+    pub fn close_extended(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
         let mut to_remove = Vec::new();
 
         for decl in self.decls.values() {
             if decl.decl.is_deferred_constant() {
                 to_remove.push(decl.designator.clone());
-                decl.error(messages, format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", &decl.designator));
+                decl.error(diagnostics, format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", &decl.designator));
             } else if decl.decl.is_protected_type() {
                 to_remove.push(decl.designator.clone());
                 decl.error(
-                    messages,
+                    diagnostics,
                     format!("Missing body for protected type '{}'", &decl.designator),
                 );
             }
@@ -302,15 +308,15 @@ impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
         }
     }
 
-    pub fn close_both(&mut self, messages: &mut dyn MessageHandler) {
-        self.close_immediate(messages);
-        self.close_extended(messages);
+    pub fn close_both(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
+        self.close_immediate(diagnostics);
+        self.close_extended(diagnostics);
     }
 
-    pub fn add(&mut self, decl: VisibleDeclaration<'a>, messages: &mut dyn MessageHandler) {
+    pub fn add(&mut self, decl: VisibleDeclaration<'a>, diagnostics: &mut dyn DiagnosticHandler) {
         if self.kind != RegionKind::PackageDeclaration && decl.decl.is_deferred_constant() {
             decl.error(
-                messages,
+                diagnostics,
                 "Deferred constants are only allowed in package declarations (not body)",
             );
         }
@@ -324,28 +330,28 @@ impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
                         if self.kind != RegionKind::PackageBody
                             && decl.decl.is_non_deferred_constant()
                         {
-                            decl.error(messages, "Full declaration of deferred constant is only allowed in a package body");
+                            decl.error(diagnostics, "Full declaration of deferred constant is only allowed in a package body");
                         }
 
                         std::mem::replace(old_decl, decl);
                     } else if let Some(ref pos) = decl.decl_pos {
-                        let mut msg = Message::error(
+                        let mut diagnostic = Diagnostic::error(
                             pos,
                             format!("Duplicate declaration of '{}'", decl.designator),
                         );
 
                         if let Some(ref old_pos) = old_decl.decl_pos {
-                            msg.add_related(old_pos, "Previously defined here");
+                            diagnostic.add_related(old_pos, "Previously defined here");
                         }
 
-                        messages.push(msg)
+                        diagnostics.push(diagnostic)
                     }
                 }
             }
             Entry::Vacant(entry) => {
                 if decl.decl.is_protected_type_body() {
                     decl.error(
-                        messages,
+                        diagnostics,
                         format!("No declaration of protected type '{}'", &decl.designator),
                     );
                 } else {

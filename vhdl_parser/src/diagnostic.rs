@@ -17,16 +17,16 @@ pub enum Severity {
 
 #[must_use]
 #[derive(PartialEq, Debug, Clone, Eq, Hash)]
-pub struct Message {
+pub struct Diagnostic {
     pub pos: SrcPos,
     pub message: String,
     pub severity: Severity,
     pub related: Vec<(SrcPos, String)>,
 }
 
-impl Message {
-    pub fn new(item: impl AsRef<SrcPos>, msg: impl Into<String>, severity: Severity) -> Message {
-        Message {
+impl Diagnostic {
+    pub fn new(item: impl AsRef<SrcPos>, msg: impl Into<String>, severity: Severity) -> Diagnostic {
+        Diagnostic {
             pos: item.as_ref().clone(),
             message: msg.into(),
             severity,
@@ -34,24 +34,24 @@ impl Message {
         }
     }
 
-    pub fn error(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Message {
+    pub fn error(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Diagnostic {
         Self::new(item, msg, Severity::Error)
     }
 
-    pub fn warning(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Message {
+    pub fn warning(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Diagnostic {
         Self::new(item, msg, Severity::Warning)
     }
 
-    pub fn hint(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Message {
+    pub fn hint(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Diagnostic {
         Self::new(item, msg, Severity::Hint)
     }
 
-    pub fn info(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Message {
+    pub fn info(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Diagnostic {
         Self::new(item, msg, Severity::Info)
     }
 
-    pub fn when(self, message: impl AsRef<str>) -> Message {
-        Message {
+    pub fn when(self, message: impl AsRef<str>) -> Diagnostic {
+        Diagnostic {
             message: format!("{}, when {}", &self.message, message.as_ref()),
             pos: self.pos,
             severity: self.severity,
@@ -59,10 +59,10 @@ impl Message {
         }
     }
 
-    pub fn related(self, item: impl AsRef<SrcPos>, message: impl Into<String>) -> Message {
-        let mut msg = self;
-        msg.add_related(item, message);
-        msg
+    pub fn related(self, item: impl AsRef<SrcPos>, message: impl Into<String>) -> Diagnostic {
+        let mut diagnostic = self;
+        diagnostic.add_related(item, message);
+        diagnostic
     }
 
     pub fn add_related(&mut self, item: impl AsRef<SrcPos>, message: impl Into<String>) {
@@ -70,17 +70,17 @@ impl Message {
             .push((item.as_ref().to_owned(), message.into()));
     }
 
-    pub fn drain_related(&mut self) -> Vec<Message> {
-        let mut messages = Vec::with_capacity(self.related.len());
+    pub fn drain_related(&mut self) -> Vec<Diagnostic> {
+        let mut diagnostics = Vec::with_capacity(self.related.len());
         let related = std::mem::replace(&mut self.related, Vec::new());
         for (pos, msg) in related {
-            messages.push(Message::new(
+            diagnostics.push(Diagnostic::new(
                 pos,
                 format!("related: {}", msg),
                 Severity::Hint,
             ));
         }
-        messages
+        diagnostics
     }
 
     pub fn show(&self) -> String {
@@ -100,29 +100,29 @@ impl Message {
     }
 }
 
-pub trait MessageHandler {
-    fn push(self: &mut Self, err: Message);
+pub trait DiagnosticHandler {
+    fn push(self: &mut Self, err: Diagnostic);
 }
 
-pub fn push_result<T>(messages: &mut dyn MessageHandler, msg: Result<T, Message>) {
-    if let Err(msg) = msg {
-        messages.push(msg);
+pub fn push_result<T>(diagnostics: &mut dyn DiagnosticHandler, diagnostic: Result<T, Diagnostic>) {
+    if let Err(diagnostic) = diagnostic {
+        diagnostics.push(diagnostic);
     }
 }
 
-pub fn push_some(messages: &mut dyn MessageHandler, msg: Option<Message>) {
-    if let Some(msg) = msg {
-        messages.push(msg);
+pub fn push_some(diagnostics: &mut dyn DiagnosticHandler, diagnostic: Option<Diagnostic>) {
+    if let Some(diagnostic) = diagnostic {
+        diagnostics.push(diagnostic);
     }
 }
 
-impl MessageHandler for Vec<Message> {
-    fn push(self: &mut Self, msg: Message) {
-        self.push(msg)
+impl DiagnosticHandler for Vec<Diagnostic> {
+    fn push(self: &mut Self, diagnostic: Diagnostic) {
+        self.push(diagnostic)
     }
 }
 
-pub type ParseResult<T> = Result<T, Message>;
+pub type ParseResult<T> = Result<T, Diagnostic>;
 
 #[cfg(test)]
 mod tests {
@@ -133,7 +133,7 @@ mod tests {
     fn show_warning() {
         let code = Code::new("hello\nworld\nline\n");
         assert_eq!(
-            Message::warning(code.s1("world"), "Greetings").show(),
+            Diagnostic::warning(code.s1("world"), "Greetings").show(),
             "\
 warning: Greetings
   --> {unknown file}:2
@@ -150,7 +150,7 @@ warning: Greetings
     fn show_error() {
         let code = Code::new("hello\nworld\nline\n");
         assert_eq!(
-            Message::error(code.s1("world"), "Greetings").show(),
+            Diagnostic::error(code.s1("world"), "Greetings").show(),
             "\
 error: Greetings
   --> {unknown file}:2
@@ -168,7 +168,7 @@ error: Greetings
         let code = Code::new("hello\nworld\nline\n");
 
         let err =
-            Message::error(code.s1("line"), "Greetings").related(code.s1("hello"), "From here");
+            Diagnostic::error(code.s1("line"), "Greetings").related(code.s1("hello"), "From here");
 
         assert_eq!(
             err.show(),

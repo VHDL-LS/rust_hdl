@@ -12,7 +12,7 @@ use crate::ast::{
 use crate::common::error_on_end_identifier_mismatch;
 use crate::concurrent_statement::parse_generic_and_port_map;
 use crate::context::parse_use_clause_no_keyword;
-use crate::message::{Message, MessageHandler, ParseResult};
+use crate::diagnostic::{Diagnostic, DiagnosticHandler, ParseResult};
 use crate::names::{parse_name, parse_name_initial_token, parse_selected_name, to_simple_name};
 use crate::source::WithPos;
 use crate::tokenizer::Kind::*;
@@ -69,7 +69,7 @@ fn parse_binding_indication(stream: &mut TokenStream) -> ParseResult<BindingIndi
 fn parse_component_configuration_known_spec(
     stream: &mut TokenStream,
     spec: ComponentSpecification,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ComponentConfiguration> {
     let token = stream.peek_expect()?;
     let (bind_ind, vunit_bind_inds) = try_token_kind!(
@@ -99,7 +99,7 @@ fn parse_component_configuration_known_spec(
         token,
         End => None,
         For => {
-            let block_config = parse_block_configuration_known_keyword(stream, messages)?;
+            let block_config = parse_block_configuration_known_keyword(stream, diagnostics)?;
             stream.expect_kind(End)?;
             Some(block_config)
         }
@@ -182,16 +182,16 @@ fn parse_component_specification_or_name(
 
 fn parse_configuration_item_known_keyword(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ConfigurationItem> {
     match parse_component_specification_or_name(stream)? {
         ComponentSpecificationOrName::ComponentSpec(component_spec) => {
             Ok(ConfigurationItem::Component(
-                parse_component_configuration_known_spec(stream, component_spec, messages)?,
+                parse_component_configuration_known_spec(stream, component_spec, diagnostics)?,
             ))
         }
         ComponentSpecificationOrName::Name(name) => Ok(ConfigurationItem::Block(
-            parse_block_configuration_known_name(stream, name, messages)?,
+            parse_block_configuration_known_name(stream, name, diagnostics)?,
         )),
     }
 }
@@ -199,7 +199,7 @@ fn parse_configuration_item_known_keyword(
 fn parse_block_configuration_known_name(
     stream: &mut TokenStream,
     name: WithPos<Name>,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<BlockConfiguration> {
     let block_spec = name;
     // @TODO use clauses
@@ -214,7 +214,7 @@ fn parse_block_configuration_known_name(
                 break;
             },
             For => {
-                items.push(parse_configuration_item_known_keyword(stream, messages)?);
+                items.push(parse_configuration_item_known_keyword(stream, diagnostics)?);
             }
         );
     }
@@ -229,10 +229,10 @@ fn parse_block_configuration_known_name(
 
 fn parse_block_configuration_known_keyword(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<BlockConfiguration> {
     let name = parse_name(stream)?;
-    parse_block_configuration_known_name(stream, name, messages)
+    parse_block_configuration_known_name(stream, name, diagnostics)
 }
 
 fn parse_vunit_binding_indication_list_known_keyword(
@@ -271,7 +271,7 @@ fn parse_vunit_binding_indication_list_known_keyword(
 /// LRM 3.4 Configuration declaration
 pub fn parse_configuration_declaration(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ConfigurationDeclaration> {
     stream.expect_kind(Configuration)?;
     let ident = stream.expect_ident()?;
@@ -298,13 +298,13 @@ pub fn parse_configuration_declaration(
     };
 
     stream.expect_kind(For)?;
-    let block_config = parse_block_configuration_known_keyword(stream, messages)?;
+    let block_config = parse_block_configuration_known_keyword(stream, diagnostics)?;
 
     stream.expect_kind(End)?;
     stream.pop_if_kind(Configuration)?;
     let end_ident = stream.pop_optional_ident()?;
-    if let Some(msg) = error_on_end_identifier_mismatch(&ident, &end_ident) {
-        messages.push(msg)
+    if let Some(diagnostic) = error_on_end_identifier_mismatch(&ident, &end_ident) {
+        diagnostics.push(diagnostic)
     }
     stream.expect_kind(SemiColon)?;
     Ok(ConfigurationDeclaration {
@@ -347,7 +347,7 @@ pub fn parse_configuration_specification(
             }
         }
         ComponentSpecificationOrName::Name(name) => {
-            Err(Message::error(name, "Expected component specification"))
+            Err(Diagnostic::error(name, "Expected component specification"))
         }
     }
 }
@@ -368,7 +368,7 @@ end;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_configuration_declaration),
+            code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
@@ -394,7 +394,7 @@ end configuration cfg;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_configuration_declaration),
+            code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
@@ -421,7 +421,7 @@ end configuration cfg;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_configuration_declaration),
+            code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
@@ -452,7 +452,7 @@ end configuration cfg;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_configuration_declaration),
+            code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
@@ -482,7 +482,7 @@ end configuration cfg;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_configuration_declaration),
+            code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
@@ -512,7 +512,7 @@ end configuration cfg;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_configuration_declaration),
+            code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
@@ -553,7 +553,7 @@ end configuration cfg;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_configuration_declaration),
+            code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
@@ -599,7 +599,7 @@ end configuration cfg;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_configuration_declaration),
+            code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
@@ -651,7 +651,7 @@ end configuration cfg;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_configuration_declaration),
+            code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
@@ -702,7 +702,7 @@ end configuration cfg;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_configuration_declaration),
+            code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),

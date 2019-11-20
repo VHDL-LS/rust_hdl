@@ -11,7 +11,7 @@ use crate::ast::{
     SubprogramDefault,
 };
 
-use crate::message::{push_result, Message, MessageHandler, ParseResult};
+use crate::diagnostic::{push_result, Diagnostic, DiagnosticHandler, ParseResult};
 use crate::names::{parse_association_list_no_leftpar, parse_identifier_list, parse_selected_name};
 use crate::object_declaration::{parse_file_declaration_no_semi, parse_optional_assignment};
 use crate::subprogram::parse_subprogram_declaration_no_semi;
@@ -31,7 +31,7 @@ fn parse_optional_mode(stream: &mut TokenStream) -> ParseResult<Option<Mode>> {
     })
 }
 
-fn unexpected_object_class_kind(list_type: InterfaceListType, token: &Token) -> Message {
+fn unexpected_object_class_kind(list_type: InterfaceListType, token: &Token) -> Diagnostic {
     match list_type {
         InterfaceListType::Generic => token.kinds_error(&[Constant, Identifier]),
         InterfaceListType::Port => token.kinds_error(&[Signal, Identifier]),
@@ -62,13 +62,13 @@ fn parse_interface_file_declaration(
     let file_objects = parse_file_declaration_no_semi(stream)?;
     for file_object in file_objects.iter() {
         if file_object.open_info.is_some() {
-            return Err(Message::error(
+            return Err(Diagnostic::error(
                 &file_object.ident,
                 "interface_file_declaration may not have file open information",
             ));
         }
         if file_object.file_name.is_some() {
-            return Err(Message::error(
+            return Err(Diagnostic::error(
                 &file_object.ident,
                 "interface_file_declaration may not have file name",
             ));
@@ -123,7 +123,7 @@ fn parse_interface_object_declaration(
     for ident in idents.iter() {
         if object_class == ObjectClass::Constant && mode != Mode::In {
             let pos = mode_pos.as_ref().unwrap_or(&ident.pos);
-            return Err(Message::error(
+            return Err(Diagnostic::error(
                 &pos,
                 "Interface constant declaration may only have mode=in",
             ));
@@ -131,7 +131,7 @@ fn parse_interface_object_declaration(
 
         if list_type == InterfaceListType::Port && object_class != ObjectClass::Signal {
             let pos = object_class_pos.as_ref().unwrap_or(&ident.pos);
-            return Err(Message::error(
+            return Err(Diagnostic::error(
                 &pos,
                 "Port list only allows signal object class",
             ));
@@ -139,7 +139,7 @@ fn parse_interface_object_declaration(
 
         if list_type == InterfaceListType::Generic && object_class != ObjectClass::Constant {
             let pos = object_class_pos.as_ref().unwrap_or(&ident.pos);
-            return Err(Message::error(
+            return Err(Diagnostic::error(
                 &pos,
                 "Generic list only allows constant object class",
             ));
@@ -217,7 +217,7 @@ fn parse_interface_package_declaration_known_keyword(
 
 fn parse_interface_declaration(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
     list_type: InterfaceListType,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     let token = stream.peek_expect()?;
@@ -234,7 +234,7 @@ fn parse_interface_declaration(
             Ok(vec![InterfaceDeclaration::Type(ident)])
         },
         Function | Procedure | Impure => {
-            let decl = parse_subprogram_declaration_no_semi(stream, messages)?;
+            let decl = parse_subprogram_declaration_no_semi(stream, diagnostics)?;
             let default = parse_subprogram_default(stream)?;
 
             Ok(vec![InterfaceDeclaration::Subprogram(decl, default)])
@@ -254,7 +254,7 @@ fn parse_semicolon_separator(stream: &mut TokenStream) -> ParseResult<()> {
                       SemiColon => {
                           stream.move_after(&token);
                           if stream.peek_expect()?.kind == RightPar {
-                              return Err(Message::error(&token,
+                              return Err(Diagnostic::error(&token,
                                                         format!("Last interface element may not end with {}",
                                                     kinds_str(&[SemiColon]))));
                           }
@@ -284,7 +284,7 @@ fn is_sync_kind(list_type: InterfaceListType, kind: Kind) -> bool {
 
 fn parse_interface_list(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
     list_type: InterfaceListType,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     let mut interface_list = Vec::new();
@@ -301,12 +301,12 @@ fn parse_interface_list(
             _ => {
                 let state = stream.state();
 
-                match parse_interface_declaration(stream, messages, list_type) {
+                match parse_interface_declaration(stream, diagnostics, list_type) {
                     Ok(ref mut decl_list) => {
                         interface_list.append(decl_list);
                     }
                     Err(err) => {
-                        messages.push(err);
+                        diagnostics.push(err);
                         stream.set_state(state);
                         if let Some(token) = stream.peek()? {
                             if is_sync_kind(list_type, token.kind) {
@@ -337,9 +337,9 @@ fn parse_interface_list(
                 }
 
                 if let Err(err) = parse_semicolon_separator(stream) {
-                    messages.push(err);
+                    diagnostics.push(err);
                     // Ignore comma when recovering from errors
-                    push_result(messages, stream.pop_if_kind(Comma));
+                    push_result(diagnostics, stream.pop_if_kind(Comma));
                 }
             }
         }
@@ -350,23 +350,23 @@ fn parse_interface_list(
 
 pub fn parse_generic_interface_list(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
-    parse_interface_list(stream, messages, InterfaceListType::Generic)
+    parse_interface_list(stream, diagnostics, InterfaceListType::Generic)
 }
 
 pub fn parse_port_interface_list(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
-    parse_interface_list(stream, messages, InterfaceListType::Port)
+    parse_interface_list(stream, diagnostics, InterfaceListType::Port)
 }
 
 pub fn parse_parameter_interface_list(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
-    parse_interface_list(stream, messages, InterfaceListType::Parameter)
+    parse_interface_list(stream, diagnostics, InterfaceListType::Parameter)
 }
 
 #[cfg(test)]
@@ -374,12 +374,12 @@ fn parse_one_interface_declaration(
     stream: &mut TokenStream,
     list_type: InterfaceListType,
 ) -> ParseResult<InterfaceDeclaration> {
-    let mut messages = Vec::new();
-    let result = parse_interface_declaration(stream, &mut messages, list_type).map(|decls| {
+    let mut diagnostics = Vec::new();
+    let result = parse_interface_declaration(stream, &mut diagnostics, list_type).map(|decls| {
         assert_eq!(decls.len(), 1);
         decls[0].clone()
     });
-    assert_eq!(messages, vec![]);
+    assert_eq!(diagnostics, vec![]);
     result
 }
 
@@ -408,7 +408,7 @@ mod tests {
     fn parses_interface_identifier_list() {
         let code = Code::new("(constant foo, bar : natural)");
         assert_eq!(
-            code.with_stream_no_messages(parse_generic_interface_list),
+            code.with_stream_no_diagnostics(parse_generic_interface_list),
             vec![
                 InterfaceDeclaration::Object(InterfaceObjectDeclaration {
                     mode: Mode::In,
@@ -460,7 +460,7 @@ mod tests {
         let code = Code::new("file foo : text open read_mode");
         assert_eq!(
             code.with_stream_err(parse_parameter),
-            Message::error(
+            Diagnostic::error(
                 code.s1("foo"),
                 "interface_file_declaration may not have file open information"
             )
@@ -472,7 +472,7 @@ mod tests {
         let code = Code::new("file foo : text is \"file_name\"");
         assert_eq!(
             code.with_stream_err(parse_parameter),
-            Message::error(
+            Diagnostic::error(
                 code.s1("foo"),
                 "interface_file_declaration may not have file name"
             )
@@ -583,7 +583,7 @@ mod tests {
         let code = Code::new("foo : out boolean");
         assert_eq!(
             code.with_partial_stream(parse_generic),
-            Err(Message::error(
+            Err(Diagnostic::error(
                 &code.s1("out").pos(),
                 "Interface constant declaration may only have mode=in"
             ))
@@ -599,7 +599,7 @@ bar : natural)",
         );
 
         assert_eq!(
-            code.with_stream_no_messages(parse_generic_interface_list),
+            code.with_stream_no_diagnostics(parse_generic_interface_list),
             vec![
                 code.s1("constant foo : std_logic").generic(),
                 code.s1("bar : natural").generic()
@@ -615,7 +615,7 @@ bar : natural)",
  bar : natural;
 )",
         );
-        let (result, messages) = code.with_stream_messages(parse_generic_interface_list);
+        let (result, diagnostics) = code.with_stream_diagnostics(parse_generic_interface_list);
 
         assert_eq!(
             result,
@@ -625,8 +625,8 @@ bar : natural)",
             ]
         );
         assert_eq!(
-            messages,
-            vec![Message::error(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s(";", 2),
                 "Last interface element may not end with ';'"
             )]
@@ -642,7 +642,7 @@ bar : natural)",
         );
 
         assert_eq!(
-            code.with_stream_no_messages(parse_port_interface_list),
+            code.with_stream_no_diagnostics(parse_port_interface_list),
             vec![
                 code.s1("signal foo : in std_logic").port(),
                 code.s1("bar : natural").port()
@@ -660,7 +660,7 @@ bar : natural)",
         );
 
         assert_eq!(
-            code.with_stream_no_messages(parse_parameter_interface_list),
+            code.with_stream_no_diagnostics(parse_parameter_interface_list),
             vec![
                 code.s1("signal foo : in std_logic").parameter(),
                 code.s1("constant bar : natural").parameter(),
@@ -677,7 +677,7 @@ bar : natural)",
  constant c2 : natural)",
         );
 
-        let (result, messages) = code.with_stream_messages(parse_generic_interface_list);
+        let (result, diagnostics) = code.with_stream_diagnostics(parse_generic_interface_list);
         assert_eq!(
             result,
             vec![
@@ -686,7 +686,7 @@ bar : natural)",
             ]
         );
         assert_eq!(
-            messages,
+            diagnostics,
             vec![kinds_error(code.s1(","), &[SemiColon, RightPar])]
         );
     }
@@ -694,10 +694,10 @@ bar : natural)",
     #[test]
     fn test_parse_generic_interface_no_signal() {
         let code = Code::new("(signal c1 : natural)");
-        let (_, messages) = code.with_stream_messages(parse_generic_interface_list);
+        let (_, diagnostics) = code.with_stream_diagnostics(parse_generic_interface_list);
         assert_eq!(
-            messages,
-            vec![Message::error(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1("signal"),
                 "Generic list only allows constant object class"
             )]
@@ -707,10 +707,10 @@ bar : natural)",
     #[test]
     fn test_parse_port_interface_no_constant() {
         let code = Code::new("(constant c1 : natural)");
-        let (_, messages) = code.with_stream_messages(parse_port_interface_list);
+        let (_, diagnostics) = code.with_stream_diagnostics(parse_port_interface_list);
         assert_eq!(
-            messages,
-            vec![Message::error(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1("constant"),
                 "Port list only allows signal object class"
             )]
@@ -733,7 +733,7 @@ bar : natural)",
  constant c7_err :)",
         );
 
-        let (result, messages) = code.with_stream_messages(parse_generic_interface_list);
+        let (result, diagnostics) = code.with_stream_diagnostics(parse_generic_interface_list);
         assert_eq!(
             result,
             vec![
@@ -743,7 +743,7 @@ bar : natural)",
                 code.s1("constant c6 : natural").generic()
             ]
         );
-        assert_eq!(messages.len(), 4);
+        assert_eq!(diagnostics.len(), 4);
     }
 
     #[test]

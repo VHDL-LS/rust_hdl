@@ -4,8 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use self::languageserver_types::*;
-use languageserver_types;
+use languageserver_types::*;
 
 use self::url::Url;
 use url;
@@ -14,7 +13,7 @@ use self::fnv::FnvHashMap;
 use fnv;
 use std::collections::hash_map::Entry;
 
-use self::vhdl_parser::{Config, Message, Project, Severity, Source, SrcPos};
+use self::vhdl_parser::{Config, Diagnostic, Project, Severity, Source, SrcPos};
 use crate::rpc_channel::RpcChannel;
 use std::io;
 use std::path::Path;
@@ -328,26 +327,26 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
 
     fn publish_diagnostics(&mut self) {
         let supports_related_information = self.client_supports_related_information();
-        let messages = self.project.analyse();
-        let messages = {
+        let diagnostics = self.project.analyse();
+        let diagnostics = {
             if supports_related_information {
-                messages
+                diagnostics
             } else {
-                flatten_related(messages)
+                flatten_related(diagnostics)
             }
         };
 
         let mut files_with_notifications =
             std::mem::replace(&mut self.files_with_notifications, FnvHashMap::default());
-        for (file_uri, messages) in messages_by_uri(messages).into_iter() {
-            let mut diagnostics = Vec::new();
-            for message in messages {
-                diagnostics.push(to_diagnostic(message));
+        for (file_uri, diagnostics) in diagnostics_by_uri(diagnostics).into_iter() {
+            let mut lsp_diagnostics = Vec::new();
+            for diagnostic in diagnostics {
+                lsp_diagnostics.push(to_lsp_diagnostic(diagnostic));
             }
 
             let publish_diagnostics = PublishDiagnosticsParams {
                 uri: file_uri.clone(),
-                diagnostics,
+                diagnostics: lsp_diagnostics,
             };
 
             self.send_notification("textDocument/publishDiagnostics", publish_diagnostics);
@@ -429,15 +428,15 @@ fn srcpos_to_range(srcpos: &SrcPos) -> Range {
     }
 }
 
-fn messages_by_uri(messages: Vec<Message>) -> FnvHashMap<Url, Vec<Message>> {
-    let mut map: FnvHashMap<Url, Vec<Message>> = FnvHashMap::default();
+fn diagnostics_by_uri(diagnostics: Vec<Diagnostic>) -> FnvHashMap<Url, Vec<Diagnostic>> {
+    let mut map: FnvHashMap<Url, Vec<Diagnostic>> = FnvHashMap::default();
 
-    for message in messages {
-        let uri = file_name_to_uri(message.pos.source.file_name());
+    for diagnostic in diagnostics {
+        let uri = file_name_to_uri(diagnostic.pos.source.file_name());
         match map.entry(uri) {
-            Entry::Occupied(mut entry) => entry.get_mut().push(message),
+            Entry::Occupied(mut entry) => entry.get_mut().push(diagnostic),
             Entry::Vacant(entry) => {
-                let vec = vec![message];
+                let vec = vec![diagnostic];
                 entry.insert(vec);
             }
         }
@@ -446,13 +445,13 @@ fn messages_by_uri(messages: Vec<Message>) -> FnvHashMap<Url, Vec<Message>> {
     map
 }
 
-fn flatten_related(messages: Vec<Message>) -> Vec<Message> {
-    let mut flat_messages = Vec::new();
-    for mut message in messages {
-        flat_messages.extend(message.drain_related());
-        flat_messages.push(message);
+fn flatten_related(diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
+    let mut flat_diagnostics = Vec::new();
+    for mut diagnostic in diagnostics {
+        flat_diagnostics.extend(diagnostic.drain_related());
+        flat_diagnostics.push(diagnostic);
     }
-    flat_messages
+    flat_diagnostics
 }
 
 fn file_name_to_uri(file_name: impl AsRef<str>) -> Url {
@@ -465,17 +464,17 @@ fn uri_to_file_name(uri: &Url) -> String {
     uri.to_file_path().unwrap().to_str().unwrap().to_owned()
 }
 
-fn to_diagnostic(message: Message) -> Diagnostic {
-    let severity = match message.severity {
+fn to_lsp_diagnostic(diagnostic: Diagnostic) -> languageserver_types::Diagnostic {
+    let severity = match diagnostic.severity {
         Severity::Error => DiagnosticSeverity::Error,
         Severity::Warning => DiagnosticSeverity::Warning,
         Severity::Info => DiagnosticSeverity::Information,
         Severity::Hint => DiagnosticSeverity::Hint,
     };
 
-    let related_information = if !message.related.is_empty() {
+    let related_information = if !diagnostic.related.is_empty() {
         let mut related_information = Vec::new();
-        for (pos, msg) in message.related {
+        for (pos, msg) in diagnostic.related {
             let uri = file_name_to_uri(pos.source.file_name());
             related_information.push(DiagnosticRelatedInformation {
                 location: Location {
@@ -490,12 +489,12 @@ fn to_diagnostic(message: Message) -> Diagnostic {
         None
     };
 
-    Diagnostic {
-        range: srcpos_to_range(&message.pos),
+    languageserver_types::Diagnostic {
+        range: srcpos_to_range(&diagnostic.pos),
         severity: Some(severity),
         code: None,
         source: Some("vhdl ls".to_owned()),
-        message: message.message,
+        message: diagnostic.message,
         related_information,
     }
 }
@@ -613,7 +612,7 @@ end entity ent2;
 
         let publish_diagnostics = PublishDiagnosticsParams {
             uri: file_url.clone(),
-            diagnostics: vec![Diagnostic {
+            diagnostics: vec![languageserver_types::Diagnostic {
                 range: Range {
                     start: Position {
                         line: 2,
@@ -701,7 +700,7 @@ lib.files = [
 
         let publish_diagnostics = PublishDiagnosticsParams {
             uri: file_uri.clone(),
-            diagnostics: vec![Diagnostic {
+            diagnostics: vec![languageserver_types::Diagnostic {
                 range: Range {
                     start: Position {
                         line: 3,

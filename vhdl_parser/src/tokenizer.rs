@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use self::fnv::FnvHashMap;
-use crate::message::{Message, ParseResult};
+use crate::diagnostic::{Diagnostic, ParseResult};
 use crate::source::{Pos, Source, SrcPos, WithPos};
 use fnv;
 
@@ -194,7 +194,7 @@ macro_rules! match_token_kind {
 }
 
 /// Expect any number of token kind patterns, return on no match with
-/// error message based on expected kinds
+/// error diagnostic based on expected kinds
 #[macro_export]
 macro_rules! try_token_kind {
     ($token:expr, $($($kind:ident)|+ => $result:expr),*) => {
@@ -433,15 +433,15 @@ impl Into<SrcPos> for Token {
     }
 }
 
-pub fn kinds_error<T: AsRef<SrcPos>>(pos: T, kinds: &[Kind]) -> Message {
-    Message::error(
+pub fn kinds_error<T: AsRef<SrcPos>>(pos: T, kinds: &[Kind]) -> Diagnostic {
+    Diagnostic::error(
         pos.as_ref(),
         format!("Expected {}", kinds_str(&kinds)).as_str(),
     )
 }
 
 impl Token {
-    pub fn kinds_error(&self, kinds: &[Kind]) -> Message {
+    pub fn kinds_error(&self, kinds: &[Kind]) -> Diagnostic {
         kinds_error(self, kinds)
     }
 
@@ -798,7 +798,7 @@ fn parse_multi_line_comment(
     }
 
     let length = cursor.pos() - start_pos + 2;
-    Err(Message::error(
+    Err(Diagnostic::error(
         source.pos(start_pos - 2, length),
         "Incomplete multi-line comment",
     ))
@@ -1224,8 +1224,8 @@ impl Tokenizer {
         self.state
     }
 
-    pub fn eof_error(&self) -> Message {
-        Message::error(self.source.pos(self.state.start, 1), "Unexpected EOF")
+    pub fn eof_error(&self) -> Diagnostic {
+        Diagnostic::error(self.source.pos(self.state.start, 1), "Unexpected EOF")
     }
 
     pub fn set_state(&mut self, state: TokenState) {
@@ -1238,11 +1238,11 @@ impl Tokenizer {
         self.cursor.idx = self.state.start;
     }
 
-    pub fn parse_token(&mut self) -> Result<Option<(Kind, Value)>, Message> {
+    pub fn parse_token(&mut self) -> Result<Option<(Kind, Value)>, Diagnostic> {
         macro_rules! error {
             ($message:expr) => {
                 let length = self.cursor.pos() - self.state.start;
-                let err = Err(Message::error(
+                let err = Err(Diagnostic::error(
                     &self.source.pos(self.state.start, length),
                     $message,
                 ));
@@ -1453,9 +1453,9 @@ impl Tokenizer {
                 self.move_after(&token);
                 Ok(Some(token))
             }
-            Err(msg) => {
+            Err(diagnostic) => {
                 // Got a tokenizing error.
-                Err(msg)
+                Err(diagnostic)
             }
             Ok(None) => {
                 // End of file.
@@ -1479,7 +1479,7 @@ fn tokenize_result(
 ) -> (
     Source,
     Arc<SymbolTable>,
-    Vec<Result<Token, Message>>,
+    Vec<Result<Token, Diagnostic>>,
     Vec<Comment>,
 ) {
     let symtab = Arc::new(SymbolTable::new());
@@ -1714,7 +1714,7 @@ end entity"
         let (source, _, tokens, _) = tokenize_result("1e-1");
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
                 "Integer literals may not have negative exponent"
             ))]
@@ -1848,7 +1848,7 @@ end entity"
         let (source, _, tokens, _) = tokenize_result("\"str\ning\"");
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
                 "Multi line string"
             ))]
@@ -1861,7 +1861,7 @@ end entity"
         let (source, _, tokens, _) = tokenize_result("\"string");
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
                 "Reached EOF before end quote"
             ))]
@@ -1942,7 +1942,7 @@ end entity"
         let (source, _, tokens, _) = tokenize_result("1#0#");
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
                 "Base must be at least 2 and at most 16, got 1"
             ))]
@@ -1950,7 +1950,7 @@ end entity"
         let (source, _, tokens, _) = tokenize_result("17#f#");
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
                 "Base must be at least 2 and at most 16, got 17"
             ))]
@@ -1959,7 +1959,7 @@ end entity"
         let (source, _, tokens, _) = tokenize_result("3#3#");
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
                 "Illegal digit for base 3"
             ))]
@@ -1967,7 +1967,7 @@ end entity"
         let (source, _, tokens, _) = tokenize_result("15#f#");
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
                 "Illegal digit for base 15"
             ))]
@@ -2145,7 +2145,7 @@ comment
         let (source, _, tokens, _) = tokenize_result(large_int);
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
                 "Integer too large for 64-bit unsigned"
             ))]
@@ -2155,7 +2155,7 @@ comment
         let (source, _, tokens, _) = tokenize_result(large_int);
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
                 "Integer too large for 64-bit unsigned"
             ))]
@@ -2165,7 +2165,7 @@ comment
         let (source, _, tokens, _) = tokenize_result(&large_int);
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
                 "Exponent too large for 32-bits signed"
             ))]
@@ -2175,7 +2175,7 @@ comment
         let (source, _, tokens, _) = tokenize_result(&large_int);
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
                 "Exponent too large for 32-bits signed"
             ))]
@@ -2185,7 +2185,7 @@ comment
         let (source, _, tokens, _) = tokenize_result(&large_int);
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
                 "Integer too large for 64-bit unsigned"
             ))]
@@ -2216,7 +2216,7 @@ comment
                     pos: source.first_substr_pos("begin"),
                     comments: None,
                 }),
-                Err(Message::error(
+                Err(Diagnostic::error(
                     &source.first_substr_pos("?"),
                     "Illegal token"
                 )),
@@ -2282,7 +2282,7 @@ comment
         let (source, _, tokens, final_comments) = tokenize_result("/* final");
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.first_substr_pos("/* final"),
                 "Incomplete multi-line comment"
             ))]

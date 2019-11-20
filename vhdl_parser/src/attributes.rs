@@ -8,8 +8,8 @@ use crate::ast::{
     Attribute, AttributeDeclaration, AttributeSpecification, Designator, EntityClass, EntityName,
     EntityTag,
 };
+use crate::diagnostic::ParseResult;
 use crate::expression::parse_expression;
-use crate::message::ParseResult;
 use crate::names::parse_selected_name;
 use crate::subprogram::parse_signature;
 use crate::tokenizer::Kind::*;

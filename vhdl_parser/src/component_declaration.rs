@@ -6,14 +6,14 @@
 
 use crate::ast::{ComponentDeclaration, InterfaceDeclaration};
 use crate::common::error_on_end_identifier_mismatch;
+use crate::diagnostic::{push_some, Diagnostic, DiagnosticHandler, ParseResult};
 use crate::interface_declaration::{parse_generic_interface_list, parse_port_interface_list};
-use crate::message::{push_some, Message, MessageHandler, ParseResult};
 use crate::tokenizer::Kind::*;
 use crate::tokenstream::TokenStream;
 
 pub fn parse_optional_generic_list(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
     let mut list = None;
     loop {
@@ -21,10 +21,10 @@ pub fn parse_optional_generic_list(
         match token.kind {
             Generic => {
                 stream.move_after(&token);
-                let new_list = parse_generic_interface_list(stream, messages)?;
+                let new_list = parse_generic_interface_list(stream, diagnostics)?;
                 stream.expect_kind(SemiColon)?;
                 if list.is_some() {
-                    messages.push(Message::error(token, "Duplicate generic clause"));
+                    diagnostics.push(Diagnostic::error(token, "Duplicate generic clause"));
                 } else {
                     list = Some(new_list);
                 }
@@ -38,7 +38,7 @@ pub fn parse_optional_generic_list(
 
 pub fn parse_optional_port_list(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
     let mut list = None;
     loop {
@@ -46,19 +46,19 @@ pub fn parse_optional_port_list(
         match token.kind {
             Port => {
                 stream.move_after(&token);
-                let new_list = parse_port_interface_list(stream, messages)?;
+                let new_list = parse_port_interface_list(stream, diagnostics)?;
                 stream.expect_kind(SemiColon)?;
                 if list.is_some() {
-                    messages.push(Message::error(token, "Duplicate port clause"));
+                    diagnostics.push(Diagnostic::error(token, "Duplicate port clause"));
                 } else {
                     list = Some(new_list);
                 }
             }
             Generic => {
                 stream.move_after(&token);
-                parse_generic_interface_list(stream, messages)?;
+                parse_generic_interface_list(stream, diagnostics)?;
                 stream.expect_kind(SemiColon)?;
-                messages.push(Message::error(
+                diagnostics.push(Diagnostic::error(
                     token,
                     "Generic clause must come before port clause",
                 ));
@@ -72,19 +72,19 @@ pub fn parse_optional_port_list(
 
 pub fn parse_component_declaration(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ComponentDeclaration> {
     stream.expect_kind(Component)?;
     let ident = stream.expect_ident()?;
     stream.pop_if_kind(Is)?;
 
-    let generic_list = parse_optional_generic_list(stream, messages)?;
-    let port_list = parse_optional_port_list(stream, messages)?;
+    let generic_list = parse_optional_generic_list(stream, diagnostics)?;
+    let port_list = parse_optional_port_list(stream, diagnostics)?;
     stream.expect_kind(End)?;
     stream.expect_kind(Component)?;
     if let Some(token) = stream.pop_if_kind(Identifier)? {
         push_some(
-            messages,
+            diagnostics,
             error_on_end_identifier_mismatch(&ident, &Some(token.expect_ident()?)),
         );
     }
@@ -124,7 +124,7 @@ component foo
 end component;
 ",
         );
-        let component = code.with_stream_no_messages(parse_component_declaration);
+        let component = code.with_stream_no_diagnostics(parse_component_declaration);
         assert_eq!(
             component,
             to_component(code.s1("foo").ident(), vec![], vec![])
@@ -136,7 +136,7 @@ component foo is
 end component;
 ",
         );
-        let component = code.with_stream_no_messages(parse_component_declaration);
+        let component = code.with_stream_no_diagnostics(parse_component_declaration);
         assert_eq!(
             component,
             to_component(code.s1("foo").ident(), vec![], vec![])
@@ -148,7 +148,7 @@ component foo is
 end component foo;
 ",
         );
-        let component = code.with_stream_no_messages(parse_component_declaration);
+        let component = code.with_stream_no_diagnostics(parse_component_declaration);
         assert_eq!(
             component,
             to_component(code.s1("foo").ident(), vec![], vec![])
@@ -166,7 +166,7 @@ component foo is
 end component;
 ",
         );
-        let component = code.with_stream_no_messages(parse_component_declaration);
+        let component = code.with_stream_no_diagnostics(parse_component_declaration);
         assert_eq!(
             component,
             to_component(
@@ -188,7 +188,7 @@ component foo is
 end component;
 ",
         );
-        let component = code.with_stream_no_messages(parse_component_declaration);
+        let component = code.with_stream_no_diagnostics(parse_component_declaration);
         assert_eq!(
             component,
             to_component(
@@ -213,10 +213,11 @@ end
 ",
         );
 
-        let (result, messages) = code.with_partial_stream_messages(parse_optional_generic_list);
+        let (result, diagnostics) =
+            code.with_partial_stream_diagnostics(parse_optional_generic_list);
         assert_eq!(
-            messages,
-            vec![Message::error(
+            diagnostics,
+            vec![Diagnostic::error(
                 &code.s("generic", 2).pos(),
                 "Duplicate generic clause"
             )]
@@ -237,10 +238,13 @@ port (
 end
 ",
         );
-        let (result, messages) = code.with_partial_stream_messages(parse_optional_port_list);
+        let (result, diagnostics) = code.with_partial_stream_diagnostics(parse_optional_port_list);
         assert_eq!(
-            messages,
-            vec![Message::error(code.s("port", 2), "Duplicate port clause")]
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s("port", 2),
+                "Duplicate port clause"
+            )]
         );
         assert_eq!(result, Ok(Some(vec![code.s1("foo : natural").port()])),);
     }
@@ -258,10 +262,10 @@ generic (
 end
 ",
         );
-        let (result, messages) = code.with_partial_stream_messages(parse_optional_port_list);
+        let (result, diagnostics) = code.with_partial_stream_diagnostics(parse_optional_port_list);
         assert_eq!(
-            messages,
-            vec![Message::error(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1("generic"),
                 "Generic clause must come before port clause"
             )]

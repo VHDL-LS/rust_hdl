@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::ast::Ident;
-use crate::message::{MessageHandler, ParseResult};
+use crate::diagnostic::{DiagnosticHandler, ParseResult};
 use crate::tokenizer::{kinds_str, Kind, Kind::*, Token, TokenState, Tokenizer};
 
 pub struct TokenStream {
@@ -141,18 +141,18 @@ pub trait Recover<T> {
     fn or_recover_until(
         self,
         stream: &mut TokenStream,
-        msgs: &mut dyn MessageHandler,
+        msgs: &mut dyn DiagnosticHandler,
         cond: fn(&Kind) -> bool,
     ) -> ParseResult<T>;
 
-    fn log(self, msgs: &mut dyn MessageHandler);
+    fn log(self, msgs: &mut dyn DiagnosticHandler);
 }
 
 impl<T: std::fmt::Debug> Recover<T> for ParseResult<T> {
     fn or_recover_until(
         self,
         stream: &mut TokenStream,
-        msgs: &mut dyn MessageHandler,
+        msgs: &mut dyn DiagnosticHandler,
         cond: fn(&Kind) -> bool,
     ) -> ParseResult<T> {
         if self.is_ok() {
@@ -169,7 +169,7 @@ impl<T: std::fmt::Debug> Recover<T> for ParseResult<T> {
         }
     }
 
-    fn log(self, msgs: &mut dyn MessageHandler) {
+    fn log(self, msgs: &mut dyn DiagnosticHandler) {
         match self {
             Err(err) => msgs.push(err),
             Ok(_) => (),
@@ -180,7 +180,7 @@ impl<T: std::fmt::Debug> Recover<T> for ParseResult<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::message::Message;
+    use crate::diagnostic::Diagnostic;
     use crate::source::Source;
     use crate::tokenizer::tokenize;
 
@@ -235,11 +235,11 @@ mod tests {
         assert_eq!(stream.expect(), Ok(tokens[0].clone()));
         assert_eq!(
             stream.peek_expect(),
-            Err(Message::error(&source.pos(5, 1), "Unexpected EOF"))
+            Err(Diagnostic::error(&source.pos(5, 1), "Unexpected EOF"))
         );
         assert_eq!(
             stream.expect(),
-            Err(Message::error(&source.pos(5, 1), "Unexpected EOF"))
+            Err(Diagnostic::error(&source.pos(5, 1), "Unexpected EOF"))
         );
     }
 
@@ -272,7 +272,7 @@ mod tests {
 
         assert_eq!(
             stream.expect(),
-            Err(Message::error(&source.pos(0, 1), "Unexpected EOF"))
+            Err(Diagnostic::error(&source.pos(0, 1), "Unexpected EOF"))
         );
     }
 
@@ -283,7 +283,7 @@ mod tests {
         stream.expect().unwrap();
         assert_eq!(
             stream.expect(),
-            Err(Message::error(&source.pos(3, 1), "Unexpected EOF"))
+            Err(Diagnostic::error(&source.pos(3, 1), "Unexpected EOF"))
         );
     }
 
@@ -294,7 +294,7 @@ mod tests {
         stream.expect().unwrap();
         assert_eq!(
             stream.expect(),
-            Err(Message::error(&source.pos(9, 1), "Unexpected EOF"))
+            Err(Diagnostic::error(&source.pos(9, 1), "Unexpected EOF"))
         );
     }
 

@@ -6,8 +6,8 @@
 
 /// LRM 6.4.2 Object Declarations
 use crate::ast::{Expression, FileDeclaration, ObjectClass, ObjectDeclaration};
+use crate::diagnostic::ParseResult;
 use crate::expression::parse_expression;
-use crate::message::ParseResult;
 use crate::names::parse_identifier_list;
 use crate::source::WithPos;
 use crate::subtype_indication::parse_subtype_indication;

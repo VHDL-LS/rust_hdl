@@ -15,7 +15,7 @@ extern crate clap;
 use std::path::Path;
 
 use vhdl_parser::ast::{AnyDesignUnit, PrimaryUnit, SecondaryUnit};
-use vhdl_parser::{Config, Message, ParserError, Project, Severity, VHDLParser};
+use vhdl_parser::{Config, Diagnostic, ParserError, Project, Severity, VHDLParser};
 
 fn main() {
     use clap::{App, Arg};
@@ -67,7 +67,7 @@ fn main() {
 
         let mut errors = Vec::new();
         let mut project = Project::from_config(&config, num_threads, &mut errors);
-        show_messages(&project.analyse());
+        show_diagnostics(&project.analyse());
 
         if !errors.is_empty() {
             println!("Errors when reading config {}:", file_name);
@@ -156,9 +156,9 @@ fn show_design_unit(design_unit: &AnyDesignUnit) {
     }
 }
 
-fn show_messages(messages: &[Message]) {
-    for message in messages {
-        println!("{}", message.show());
+fn show_diagnostics(diagnostics: &[Diagnostic]) {
+    for diagnostic in diagnostics {
+        println!("{}", diagnostic.show());
     }
 }
 
@@ -166,13 +166,14 @@ fn parse(parser: &VHDLParser, file_names: Vec<String>, num_threads: usize, show:
     let mut num_errors = 0;
     let mut num_warnings = 0;
 
-    for (file_name, messages, design_file) in parser.parse_design_files(file_names, num_threads) {
+    for (file_name, diagnostics, design_file) in parser.parse_design_files(file_names, num_threads)
+    {
         let design_file = match design_file {
             Ok(design_file) => design_file,
-            Err(ParserError::Message(msg)) => {
+            Err(ParserError::Diagnostic(diagnostic)) => {
                 println!("Error when parsing {}", file_name);
-                show_messages(&messages);
-                println!("{}", msg.show());
+                show_diagnostics(&diagnostics);
+                println!("{}", diagnostic.show());
                 num_errors += 1;
                 continue;
             }
@@ -193,8 +194,8 @@ fn parse(parser: &VHDLParser, file_names: Vec<String>, num_threads: usize, show:
 
         let mut file_has_errors = false;
 
-        for message in messages.iter() {
-            match message.severity {
+        for diagnostic in diagnostics.iter() {
+            match diagnostic.severity {
                 Severity::Warning => {
                     num_warnings += 1;
                 }
@@ -205,7 +206,7 @@ fn parse(parser: &VHDLParser, file_names: Vec<String>, num_threads: usize, show:
             };
         }
 
-        show_messages(&messages);
+        show_diagnostics(&diagnostics);
         if file_has_errors {
             num_errors += 1;
         }
