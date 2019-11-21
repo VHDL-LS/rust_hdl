@@ -37,15 +37,15 @@ impl Project {
         messages: &mut Vec<Message>,
     ) -> Project {
         let mut project = Project::new();
-        let mut files_to_parse: FnvHashMap<&str, LibraryFileToParse> = FnvHashMap::default();
+        let mut files_to_parse: FnvHashMap<String, LibraryFileToParse> = FnvHashMap::default();
 
         for library in config.iter_libraries() {
             let library_name =
                 Latin1String::from_utf8(library.name()).expect("Library name not latin-1 encoded");
             let library_name = project.parser.symbol(&library_name);
 
-            for file_name in library.file_names() {
-                match files_to_parse.entry(file_name) {
+            for file_name in library.file_names(messages) {
+                match files_to_parse.entry(file_name.clone()) {
                     Entry::Occupied(mut entry) => {
                         entry.get_mut().library_names.push(library_name.clone());
                     }

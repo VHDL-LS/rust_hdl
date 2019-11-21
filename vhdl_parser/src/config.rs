@@ -10,6 +10,7 @@ use toml;
 
 use self::fnv::FnvHashMap;
 use self::toml::Value;
+use crate::message::Message;
 use fnv;
 use std::fs::File;
 use std::io;
@@ -29,10 +30,24 @@ pub struct LibraryConfig {
 }
 
 impl LibraryConfig {
-    pub fn file_names(&self) -> &Vec<String> {
-        &self.files
+    /// Return a vector of file names
+    /// Only include files that exists
+    /// Files that do not exist produce a warning message
+    pub fn file_names(&self, messages: &mut Vec<Message>) -> Vec<String> {
+        let mut result = Vec::new();
+        for file_name in self.files.iter() {
+            if !Path::new(file_name).exists() {
+                messages.push(Message::warning(
+                    format! {"File {} does not exist", file_name},
+                ));
+            } else {
+                result.push(file_name.clone());
+            }
+        }
+        result
     }
 
+    /// Returns the name of the library
     pub fn name(&self) -> &str {
         self.name.as_str()
     }
@@ -106,7 +121,7 @@ impl Config {
     pub fn append(&mut self, config: &Config) {
         for library in config.iter_libraries() {
             if let Some(parent_library) = self.libraries.get_mut(&library.name) {
-                for file_name in library.file_names() {
+                for file_name in library.files.iter() {
                     parent_library.files.push(file_name.clone());
                 }
             } else {
@@ -114,7 +129,7 @@ impl Config {
                     library.name.clone(),
                     LibraryConfig {
                         name: library.name.clone(),
-                        files: library.file_names().clone(),
+                        files: library.files.clone(),
                     },
                 );
             }
@@ -126,29 +141,26 @@ impl Config {
 mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
+    use tempfile;
+
+    /// Utility function to create an empty file in parent folder
+    fn touch(parent: &Path, file_name: &str) -> String {
+        let path = parent.join(file_name);
+        File::create(&path).expect("Assume file can be created");
+        path.to_str().expect("Assume valid string").to_owned()
+    }
 
     #[test]
     fn config_from_str() {
-        let parent = Path::new("parent_folder");
+        let tempdir = tempfile::tempdir().unwrap();
+        let parent = tempdir.path();
 
-        let absolute_path = {
-            let win_path = Path::new("C:\\");
-            let unix_path = Path::new("/");
-
-            if unix_path.is_absolute() {
-                unix_path
-            } else if win_path.is_absolute() {
-                win_path
-            } else {
-                panic!("Cannot create absolute path");
-            }
-        };
-
-        let absolute_vhd = absolute_path
-            .join("absolute.vhd")
-            .to_str()
-            .unwrap()
-            .to_owned();
+        let tempdir2 = tempfile::tempdir().unwrap();
+        let absolute_path = tempdir2
+            .path()
+            .canonicalize()
+            .expect("Assume valid abspath");
+        let absolute_vhd = touch(&absolute_path, "absolute.vhd");
 
         let config = Config::from_str(
             &format!(
@@ -175,12 +187,14 @@ lib1.files = [
         let lib1 = config.get_library("lib1").unwrap();
         let lib2 = config.get_library("lib2").unwrap();
 
-        let pkg1_path = parent.join("pkg1.vhd").to_str().unwrap().to_owned();
-        let pkg2_path = parent.join("pkg2.vhd").to_str().unwrap().to_owned();
-        let tb_ent_path = parent.join("tb_ent.vhd").to_str().unwrap().to_owned();
+        let pkg1_path = touch(&parent, "pkg1.vhd");
+        let pkg2_path = touch(&parent, "pkg2.vhd");
+        let tb_ent_path = touch(&parent, "tb_ent.vhd");
 
-        assert_eq!(lib1.file_names(), &[pkg1_path, tb_ent_path]);
-        assert_eq!(lib2.file_names(), &[pkg2_path, absolute_vhd]);
+        let mut messages = vec![];
+        assert_eq!(lib1.file_names(&mut messages), &[pkg1_path, tb_ent_path]);
+        assert_eq!(lib2.file_names(&mut messages), &[pkg2_path, absolute_vhd]);
+        assert_eq!(messages, vec![]);
     }
 
     #[test]
@@ -237,5 +251,31 @@ lib3.files = [
         let mut merged_config = config0.clone();
         merged_config.append(&config1);
         assert_eq!(merged_config, expected_config);
+    }
+
+    #[test]
+    fn test_warning_on_missing_file() {
+        let parent = Path::new("parent_folder");
+        let config = Config::from_str(
+            "
+[libraries]
+lib.files = [
+  'missing.vhd'
+]
+",
+            &parent,
+        )
+        .unwrap();
+
+        let mut messages = vec![];
+        let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
+        let expected: Vec<String> = Vec::new();
+        assert_eq!(file_names, expected);
+        assert_eq!(
+            messages,
+            vec![Message::warning(
+                "File parent_folder/missing.vhd does not exist"
+            )]
+        );
     }
 }
