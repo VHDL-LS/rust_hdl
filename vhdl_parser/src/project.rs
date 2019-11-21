@@ -10,6 +10,7 @@ use crate::ast::DesignFile;
 use crate::config::Config;
 use crate::diagnostic::Diagnostic;
 use crate::latin_1::Latin1String;
+use crate::message::Message;
 use crate::parser::{FileToParse, ParserError, VHDLParser};
 use crate::source::Source;
 use crate::symbol_table::Symbol;
@@ -20,17 +21,6 @@ use std::io;
 pub struct Project {
     parser: VHDLParser,
     files: FnvHashMap<String, SourceFile>,
-}
-
-pub struct FileError {
-    file_name: String,
-    error: io::Error,
-}
-
-impl std::fmt::Display for FileError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Error in {} ({})", self.file_name, self.error)
-    }
 }
 
 impl Project {
@@ -44,7 +34,7 @@ impl Project {
     pub fn from_config(
         config: &Config,
         num_threads: usize,
-        errors: &mut Vec<FileError>,
+        messages: &mut Vec<Message>,
     ) -> Project {
         let mut project = Project::new();
         let mut files_to_parse: FnvHashMap<&str, LibraryFileToParse> = FnvHashMap::default();
@@ -84,10 +74,10 @@ impl Project {
                     None
                 }
                 Err(ParserError::IOError(err)) => {
-                    errors.push(FileError {
-                        file_name: file_to_parse.file_name,
-                        error: err,
-                    });
+                    messages.push(Message::file_error(
+                        err.to_string(),
+                        file_to_parse.file_name,
+                    ));
                     continue;
                 }
             };

@@ -22,6 +22,7 @@ mod diagnostic;
 mod expression;
 mod interface_declaration;
 mod latin_1;
+mod message;
 mod names;
 mod object_declaration;
 mod parser;
@@ -41,6 +42,7 @@ mod test_util;
 
 pub use crate::config::Config;
 pub use crate::diagnostic::{Diagnostic, Severity};
+pub use crate::message::{Message, MessageType};
 pub use crate::parser::{ParserError, ParserResult, VHDLParser};
 pub use crate::project::Project;
 pub use crate::source::{Source, SrcPos};

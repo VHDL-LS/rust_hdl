@@ -225,12 +225,11 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
     ) -> (InitializedVHDLServer<T>, InitializeResult) {
         // @TODO read num_threads from config file
         let num_threads = 4;
-        // @TODO send error to client
-        let mut errors = Vec::new();
-        let project = Project::from_config(&config, num_threads, &mut errors);
+        let mut messages = Vec::new();
+        let project = Project::from_config(&config, num_threads, &mut messages);
 
-        for error in errors {
-            rpc_channel.window_show_message(MessageType::Error, error.to_string());
+        for message in messages {
+            rpc_channel.window_show_message_struct(&message);
         }
 
         let server = InitializedVHDLServer {

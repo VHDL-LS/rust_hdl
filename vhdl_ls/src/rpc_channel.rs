@@ -8,6 +8,7 @@
 
 use languageserver_types::*;
 use serde;
+use vhdl_parser::Message;
 
 pub trait RpcChannel {
     fn send_notification(
@@ -15,6 +16,13 @@ pub trait RpcChannel {
         method: impl Into<String>,
         notification: impl serde::ser::Serialize,
     );
+
+    fn window_show_message_struct(&self, message: &Message) {
+        self.window_show_message(
+            to_lsp_message_type(&message.message_type),
+            message.message.clone(),
+        );
+    }
 
     fn window_show_message(&self, typ: MessageType, message: impl Into<String>) {
         self.send_notification(
@@ -34,6 +42,14 @@ pub trait RpcChannel {
                 message: message.into(),
             },
         );
+    }
+}
+fn to_lsp_message_type(message_type: &vhdl_parser::MessageType) -> MessageType {
+    match message_type {
+        vhdl_parser::MessageType::Error => MessageType::Error,
+        vhdl_parser::MessageType::Warning => MessageType::Warning,
+        vhdl_parser::MessageType::Info => MessageType::Info,
+        vhdl_parser::MessageType::Log => MessageType::Log,
     }
 }
 
