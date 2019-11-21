@@ -18,6 +18,7 @@ pad = "^0"
 fnv = "^1"
 clap = "^2"
 toml = "^0"
+glob = "^0"
 
 [dev-dependencies]
 tempfile = "^3"

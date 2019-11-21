@@ -35,16 +35,86 @@ impl LibraryConfig {
     /// Files that do not exist produce a warning message
     pub fn file_names(&self, messages: &mut Vec<Message>) -> Vec<String> {
         let mut result = Vec::new();
-        for file_name in self.files.iter() {
-            if !Path::new(file_name).exists() {
-                messages.push(Message::warning(
-                    format! {"File {} does not exist", file_name},
-                ));
+        for pattern in self.files.iter() {
+            if Self::is_literal(&pattern) {
+                if !Path::new(pattern).exists() {
+                    messages.push(Message::warning(
+                        format! {"File {} does not exist", pattern},
+                    ));
+                } else {
+                    result.push(pattern.clone());
+                }
             } else {
-                result.push(file_name.clone());
+                match glob::glob(pattern) {
+                    Ok(paths) => {
+                        let mut empty_pattern = true;
+
+                        for file_path_or_error in paths {
+                            empty_pattern = false;
+                            match file_path_or_error {
+                                Ok(file_path) => match file_path.to_str() {
+                                    Some(file_name) => {
+                                        result.push(file_name.to_owned());
+                                    }
+                                    None => {
+                                        messages.push(Message::error(format!(
+                                            "File name not valid utf-8 {}",
+                                            file_path.to_string_lossy()
+                                        )));
+                                    }
+                                },
+                                Err(err) => {
+                                    messages.push(Message::error(err.to_string()));
+                                }
+                            }
+                        }
+
+                        if empty_pattern {
+                            messages.push(Message::warning(format!(
+                                "Pattern '{}' did not match any file",
+                                pattern
+                            )));
+                        }
+                    }
+                    Err(err) => {
+                        messages.push(Message::error(format!(
+                            "Invalid pattern '{}' {}",
+                            pattern, err
+                        )));
+                    }
+                }
+            }
+        }
+        Self::remove_duplicates(result)
+    }
+
+    /// Remove duplicate file names from the result
+    fn remove_duplicates(file_names: Vec<String>) -> Vec<String> {
+        let mut result = Vec::with_capacity(file_names.len());
+        let mut fileset = std::collections::HashSet::new();
+
+        for file_name in file_names.into_iter() {
+            let path = Path::new(&file_name).to_owned();
+            let canon_path = path.canonicalize().unwrap_or(path);
+
+            if fileset.insert(canon_path) {
+                result.push(file_name);
             }
         }
         result
+    }
+
+    /// Returns true if the pattern is a plain file name and not a glob pattern
+    fn is_literal(pattern: &str) -> bool {
+        for chr in pattern.chars() {
+            match chr {
+                '?' | '*' | '[' => {
+                    return false;
+                }
+                _ => {}
+            }
+        }
+        return true;
     }
 
     /// Returns the name of the library
@@ -275,6 +345,82 @@ lib.files = [
             messages,
             vec![Message::warning(
                 "File parent_folder/missing.vhd does not exist"
+            )]
+        );
+    }
+
+    #[test]
+    fn test_file_wildcard_pattern() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let parent = tempdir.path();
+        let config = Config::from_str(
+            "
+[libraries]
+lib.files = [
+  '*.vhd'
+]
+",
+            &parent,
+        )
+        .unwrap();
+
+        let file1 = touch(&parent, "file1.vhd");
+        let file2 = touch(&parent, "file2.vhd");
+
+        let mut messages = vec![];
+        let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
+        let expected: Vec<String> = vec![file1, file2];
+        assert_eq!(file_names, expected);
+        assert_eq!(messages, vec![]);
+    }
+
+    #[test]
+    fn test_file_wildcard_pattern_removes_duplicates() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let parent = tempdir.path();
+        let config = Config::from_str(
+            "
+[libraries]
+lib.files = [
+  '*.vhd',
+  'file*.vhd'
+]
+",
+            &parent,
+        )
+        .unwrap();
+
+        let file1 = touch(&parent, "file1.vhd");
+        let file2 = touch(&parent, "file2.vhd");
+
+        let mut messages = vec![];
+        let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
+        let expected: Vec<String> = vec![file1, file2];
+        assert_eq!(file_names, expected);
+        assert_eq!(messages, vec![]);
+    }
+    #[test]
+    fn test_warning_on_emtpy_glob_pattern() {
+        let parent = Path::new("parent_folder");
+        let config = Config::from_str(
+            "
+[libraries]
+lib.files = [
+  'missing*.vhd'
+]
+",
+            &parent,
+        )
+        .unwrap();
+
+        let mut messages = vec![];
+        let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
+        let expected: Vec<String> = Vec::new();
+        assert_eq!(file_names, expected);
+        assert_eq!(
+            messages,
+            vec![Message::warning(
+                "Pattern 'parent_folder/missing*.vhd' did not match any file"
             )]
         );
     }

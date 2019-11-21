@@ -27,6 +27,13 @@ impl Message {
         }
     }
 
+    pub fn error(message: impl Into<String>) -> Message {
+        Message {
+            message_type: MessageType::Error,
+            message: message.into(),
+        }
+    }
+
     pub fn file_error(message: impl Into<String>, file_name: impl Into<String>) -> Message {
         Message {
             message_type: MessageType::Error,
