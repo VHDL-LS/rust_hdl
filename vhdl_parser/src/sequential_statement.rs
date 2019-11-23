@@ -439,10 +439,10 @@ fn parse_target_initial_token(
     stream: &mut TokenStream,
     token: Token,
 ) -> ParseResult<WithPos<Target>> {
-    if token.kind == Identifier {
-        Ok(parse_name_initial_token(stream, token)?.map_into(Target::Name))
-    } else {
+    if token.kind == LeftPar {
         Ok(parse_aggregate_leftpar_known(stream)?.map_into(Target::Aggregate))
+    } else {
+        Ok(parse_name_initial_token(stream, token)?.map_into(Target::Name))
     }
 }
 
@@ -503,7 +503,7 @@ fn parse_unlabeled_sequential_statement(
             With => {
                 parse_selected_assignment(stream)?
             },
-            Identifier|LeftPar => {
+            Identifier|LeftPar|LtLt => {
                 let target = parse_target_initial_token(stream, token)?;
                 let token = stream.expect()?;
                 parse_assignment_or_procedure_call(stream, &token, target)?
@@ -733,6 +733,26 @@ mod tests {
     }
 
     #[test]
+    fn parse_signal_assignment_external_name() {
+        let (code, statement) = parse("<< signal dut.foo : boolean  >> <= bar(1,2);");
+
+        assert_eq!(
+            statement,
+            with_label(
+                None,
+                SequentialStatement::SignalAssignment(SignalAssignment {
+                    target: code
+                        .s1("<< signal dut.foo : boolean  >>")
+                        .name()
+                        .map_into(Target::Name),
+                    delay_mechanism: None,
+                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").waveform())
+                })
+            )
+        );
+    }
+
+    #[test]
     fn parse_simple_signal_assignment_delay_mechanism() {
         let (code, statement) = parse("foo(0) <= transport bar(1,2);");
 
@@ -758,6 +778,24 @@ mod tests {
                 None,
                 SequentialStatement::VariableAssignment(VariableAssignment {
                     target: code.s1("foo(0)").name().map_into(Target::Name),
+                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
+                })
+            )
+        );
+    }
+
+    #[test]
+    fn parse_variable_assignment_external_name() {
+        let (code, statement) = parse("<< variable dut.foo : boolean >> := bar(1,2);");
+        assert_eq!(
+            statement,
+            with_label(
+                None,
+                SequentialStatement::VariableAssignment(VariableAssignment {
+                    target: code
+                        .s1("<< variable dut.foo : boolean >>")
+                        .name()
+                        .map_into(Target::Name),
                     rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
                 })
             )
