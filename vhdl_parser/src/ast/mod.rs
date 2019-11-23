@@ -21,7 +21,7 @@ use crate::source::WithPos;
 use crate::symbol_table::Symbol;
 
 /// LRM 15.8 Bit string literals
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum BaseSpecifier {
     B,
     O,

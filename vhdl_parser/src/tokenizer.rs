@@ -584,27 +584,32 @@ impl ByteCursor {
     }
 }
 
-fn parse_integer(cursor: &mut ByteCursor, base: u64, stop_on_e: bool) -> Result<u64, String> {
+fn parse_integer(cursor: &mut ByteCursor, base: u64, stop_on_suffix: bool) -> Result<u64, String> {
     let mut result = Some(0 as u64);
-    let mut too_large_base = false;
+    let mut too_large_digit = None;
+    let mut invalid_character = None;
 
     while let Some(b) = cursor.peek(0) {
         let digit = u64::from(match b {
+            // Bit string literal or exponent
+            // Lower case
+            b's' | b'u' | b'b' | b'o' | b'x' | b'd' | b'e' if stop_on_suffix => {
+                break;
+            }
+            // Upper case
+            b'S' | b'U' | b'B' | b'O' | b'X' | b'D' | b'E' if stop_on_suffix => {
+                break;
+            }
+
             b'0'..=b'9' => {
                 cursor.pop();
                 (b - b'0')
             }
             b'a'..=b'f' => {
-                if stop_on_e && b == b'e' {
-                    break;
-                }
                 cursor.pop();
                 (10 + b - b'a')
             }
             b'A'..=b'F' => {
-                if stop_on_e && b == b'E' {
-                    break;
-                }
                 cursor.pop();
                 (10 + b - b'A')
             }
@@ -612,20 +617,34 @@ fn parse_integer(cursor: &mut ByteCursor, base: u64, stop_on_e: bool) -> Result<
                 cursor.pop();
                 continue;
             }
+            b'g'..=b'z' | b'G'..=b'Z' => {
+                cursor.pop();
+                invalid_character = Some(b);
+                continue;
+            }
             _ => {
                 break;
             }
         });
 
-        too_large_base = too_large_base || (digit >= base);
+        if digit >= base {
+            too_large_digit = Some(b);
+        }
 
         result = result
             .and_then(|x| base.checked_mul(x))
             .and_then(|x| x.checked_add(digit));
     }
 
-    if too_large_base {
-        Err(format!("Illegal digit for base {}", base).to_string())
+    if let Some(b) = invalid_character {
+        Err(format!("Invalid integer character '{}'", Latin1String::new(&[b])).to_string())
+    } else if let Some(b) = too_large_digit {
+        Err(format!(
+            "Illegal digit '{}' for base {}",
+            Latin1String::new(&[b]),
+            base
+        )
+        .to_string())
     } else if let Some(result) = result {
         Ok(result)
     } else {
@@ -807,7 +826,7 @@ fn parse_multi_line_comment(
 fn parse_real_literal(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Result<f64, String> {
     buffer.bytes.clear();
 
-    while let Some(b) = cursor.peek(0) {
+    while let Some(b) = cursor.peek(0).map(Latin1String::lowercase) {
         match b {
             b'e' => {
                 break;
@@ -844,7 +863,7 @@ fn parse_abstract_literal(
     let pos = cursor.pos();
     let initial = parse_integer(cursor, 10, true);
 
-    match cursor.peek(0) {
+    match cursor.peek(0).map(Latin1String::lowercase) {
         // Real
         Some(b'.') => {
             cursor.set(pos);
@@ -870,7 +889,7 @@ fn parse_abstract_literal(
         }
 
         // Integer exponent
-        Some(b'e') | Some(b'E') => {
+        Some(b'e') => {
             let integer = initial?;
             cursor.pop();
             let exp = parse_exponent(cursor)?;
@@ -909,35 +928,30 @@ fn parse_abstract_literal(
                 Err("Based integer did not end with #".to_string())
             }
         }
-        _ => {
+
+        // Bit string literal
+        Some(b's') | Some(b'u') | Some(b'b') | Some(b'o') | Some(b'x') | Some(b'd') => {
             let integer = initial?;
             // @TODO check overflow
-            if let Some((kind, bit_string)) =
-                parse_bit_string(buffer, cursor, Some(integer as u32))?
-            {
-                Ok((kind, bit_string))
-            } else {
-                // Plain integer
-                Ok((
-                    AbstractLiteral,
-                    Value::AbstractLiteral(ast::AbstractLiteral::Integer(integer)),
-                ))
-            }
+            parse_bit_string(buffer, cursor, Some(integer as u32))
+        }
+        _ => {
+            // Plain integer
+            Ok((
+                AbstractLiteral,
+                Value::AbstractLiteral(ast::AbstractLiteral::Integer(initial?)),
+            ))
         }
     }
 }
 
 /// LRM 15.8 Bit string literals
-fn parse_bit_string(
-    buffer: &mut Latin1String,
-    cursor: &mut ByteCursor,
-    bit_string_length: Option<u32>,
-) -> Result<Option<(Kind, Value)>, String> {
+fn is_bit_string(cursor: &mut ByteCursor) -> bool {
     let first_byte = {
         if let Some(byte) = cursor.peek(0) {
             Latin1String::lowercase(byte)
         } else {
-            return Ok(None);
+            return false;
         }
     };
 
@@ -945,7 +959,55 @@ fn parse_bit_string(
         if let Some(byte) = cursor.peek(1) {
             Latin1String::lowercase(byte)
         } else {
-            return Ok(None);
+            return false;
+        }
+    };
+
+    let len = match first_byte {
+        b'u' => match second_byte {
+            b'b' => 2,
+            b'o' => 2,
+            b'x' => 2,
+            _ => return false,
+        },
+        b's' => match second_byte {
+            b'b' => 2,
+            b'o' => 2,
+            b'x' => 2,
+            _ => return false,
+        },
+        b'b' => 1,
+        b'o' => 1,
+        b'x' => 1,
+        b'd' => 1,
+        _ => return false,
+    };
+
+    return Some(b'"') == cursor.peek(len);
+}
+
+fn parse_bit_string(
+    buffer: &mut Latin1String,
+    cursor: &mut ByteCursor,
+    bit_string_length: Option<u32>,
+) -> Result<(Kind, Value), String> {
+    let err = Err("Invalid bit string literal".to_string());
+
+    let first_byte = {
+        if let Some(byte) = cursor.peek(0) {
+            Latin1String::lowercase(byte)
+        } else {
+            cursor.pop();
+            return err;
+        }
+    };
+
+    let second_byte = {
+        if let Some(byte) = cursor.peek(1) {
+            Latin1String::lowercase(byte)
+        } else {
+            cursor.pop();
+            return err;
         }
     };
 
@@ -954,35 +1016,36 @@ fn parse_bit_string(
             b'b' => (2, BaseSpecifier::UB),
             b'o' => (2, BaseSpecifier::UO),
             b'x' => (2, BaseSpecifier::UX),
-            _ => return Ok(None),
+            _ => return err,
         },
         b's' => match second_byte {
             b'b' => (2, BaseSpecifier::SB),
             b'o' => (2, BaseSpecifier::SO),
             b'x' => (2, BaseSpecifier::SX),
-            _ => return Ok(None),
+            _ => return err,
         },
         b'b' => (1, BaseSpecifier::B),
         b'o' => (1, BaseSpecifier::O),
         b'x' => (1, BaseSpecifier::X),
         b'd' => (1, BaseSpecifier::D),
-        _ => return Ok(None),
+        _ => return err,
     };
 
     cursor.idx += len;
 
-    if let Some(b'"') = cursor.peek(0) {
-        Ok(Some((
-            BitString,
-            Value::BitString(ast::BitString {
-                length: bit_string_length,
-                base: base_specifier,
-                value: parse_string(buffer, cursor)?,
-            }),
-        )))
-    } else {
-        return Ok(None);
-    }
+    let value = match parse_string(buffer, cursor) {
+        Ok(value) => value,
+        Err(_) => return err,
+    };
+
+    Ok((
+        BitString,
+        Value::BitString(ast::BitString {
+            length: bit_string_length,
+            base: base_specifier,
+            value,
+        }),
+    ))
 }
 
 /// LRM 15.4 Identifiers
@@ -1386,28 +1449,25 @@ impl Tokenizer {
                     }
                     b'a'..=b'z' | b'A'..=b'Z' => {
                         self.cursor.back();
-                        let pos = self.cursor.pos();
-                        match parse_bit_string(&mut self.buffer, &mut self.cursor, None) {
-                            Ok(opt) => {
-                                if let Some((kind, bit_string)) = opt {
-                                    (kind, bit_string)
-                                } else {
-                                    self.cursor.set(pos);
-                                    match parse_basic_identifier_or_keyword(
-                                        &mut self.buffer,
-                                        &mut self.cursor,
-                                        &self.keywords,
-                                        &self.symtab,
-                                    ) {
-                                        Ok((kind, value)) => (kind, value),
-                                        Err(msg) => {
-                                            error!(msg);
-                                        }
-                                    }
+
+                        if is_bit_string(&mut self.cursor) {
+                            match parse_bit_string(&mut self.buffer, &mut self.cursor, None) {
+                                Ok((kind, bit_string)) => (kind, bit_string),
+                                Err(msg) => {
+                                    error!(msg);
                                 }
                             }
-                            Err(msg) => {
-                                error!(msg);
+                        } else {
+                            match parse_basic_identifier_or_keyword(
+                                &mut self.buffer,
+                                &mut self.cursor,
+                                &self.keywords,
+                                &self.symtab,
+                            ) {
+                                Ok((kind, value)) => (kind, value),
+                                Err(msg) => {
+                                    error!(msg);
+                                }
                             }
                         }
                     }
@@ -1868,46 +1928,87 @@ end entity"
         );
     }
 
+    // @TODO test incorrect value for base, ex: 2x"ff"
+    // @TODO test incorrect value for length ex: 2x"1111"
     #[test]
     fn tokenize_bit_string_literal() {
-        let (source, _, tokens) = tokenize("X\"ff\"");
-        assert_eq!(
-            tokens,
-            vec![Token {
-                kind: BitString,
-                value: Value::BitString(ast::BitString {
-                    length: None,
-                    base: BaseSpecifier::X,
-                    value: Latin1String::from_utf8_unchecked("ff")
-                }),
-                pos: source.entire_pos(),
-                comments: None,
-            },]
-        );
-        let (source, _, tokens) = tokenize("12ux\"ff\"");
-        assert_eq!(
-            tokens,
-            vec![Token {
-                kind: BitString,
-                value: Value::BitString(ast::BitString {
-                    length: Some(12),
-                    base: BaseSpecifier::UX,
-                    value: Latin1String::from_utf8_unchecked("ff")
-                }),
-                pos: source.entire_pos(),
-                comments: None,
-            },]
-        );
+        use BaseSpecifier::{B, D, O, SB, SO, SX, UB, UO, UX, X};
 
-        let (source, symtab, tokens) = tokenize("u");
+        // Test all base specifiers
+        for &base in [B, O, X, D, SB, SO, SX, UB, UO, UX].iter() {
+            let (base_spec, value, length) = match base {
+                B => ("b", "10", 2),
+                O => ("o", "76543210", 8 * 3),
+                X => ("x", "fedcba987654321", 16 * 4),
+                D => ("d", "9876543210", 34),
+                SB => ("sb", "10", 2),
+                SO => ("so", "76543210", 8 * 3),
+                SX => ("sx", "fedcba987654321", 16 * 4),
+                UB => ("ub", "10", 2),
+                UO => ("uo", "76543210", 8 * 3),
+                UX => ("ux", "fedcba987654321", 16 * 4),
+            };
+
+            // Test with upper and lower case base specifier
+            for &upper_case in [true, false].iter() {
+                // Test with and without length prefix
+                for &use_length in [true, false].iter() {
+                    let (length_str, length_opt) = if use_length {
+                        (length.to_string(), Some(length))
+                    } else {
+                        ("".to_owned(), None)
+                    };
+
+                    let code = format!("{}{}\"{}\"", length_str, base_spec, value);
+
+                    let code = if upper_case {
+                        code.to_ascii_uppercase()
+                    } else {
+                        code
+                    };
+
+                    let value = if upper_case {
+                        value.to_ascii_uppercase()
+                    } else {
+                        value.to_owned()
+                    };
+
+                    let (source, _, tokens) = tokenize(code.as_str());
+                    assert_eq!(
+                        tokens,
+                        vec![Token {
+                            kind: BitString,
+                            value: Value::BitString(ast::BitString {
+                                length: length_opt,
+                                base: base,
+                                value: Latin1String::from_utf8_unchecked(value.as_str())
+                            }),
+                            pos: source.entire_pos(),
+                            comments: None,
+                        },]
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn tokenize_illegal_bit_string() {
+        let (source, _, tokens, _) = tokenize_result("10x");
         assert_eq!(
             tokens,
-            vec![Token {
-                kind: Identifier,
-                value: Value::Identifier(symtab.insert_utf8("u")),
-                pos: source.entire_pos(),
-                comments: None,
-            },]
+            vec![Err(Diagnostic::error(
+                &source.entire_pos(),
+                "Invalid bit string literal"
+            ))]
+        );
+        let (source, _, tokens, _) = tokenize_result("10ux");
+        assert_eq!(
+            tokens,
+            vec![Err(Diagnostic::error(
+                &source.entire_pos(),
+                "Invalid bit string literal"
+            ))]
         );
     }
 
@@ -1937,6 +2038,18 @@ end entity"
     }
 
     #[test]
+    fn tokenize_illegal_integer() {
+        let (source, _, tokens, _) = tokenize_result("100k");
+        assert_eq!(
+            tokens,
+            vec![Err(Diagnostic::error(
+                &source.entire_pos(),
+                "Invalid integer character 'k'"
+            ))]
+        );
+    }
+
+    #[test]
     fn tokenize_illegal_based_integer() {
         // Base may only be 2-16
         let (source, _, tokens, _) = tokenize_result("1#0#");
@@ -1961,7 +2074,7 @@ end entity"
             tokens,
             vec![Err(Diagnostic::error(
                 &source.entire_pos(),
-                "Illegal digit for base 3"
+                "Illegal digit '3' for base 3"
             ))]
         );
         let (source, _, tokens, _) = tokenize_result("15#f#");
@@ -1969,7 +2082,7 @@ end entity"
             tokens,
             vec![Err(Diagnostic::error(
                 &source.entire_pos(),
-                "Illegal digit for base 15"
+                "Illegal digit 'f' for base 15"
             ))]
         );
     }
