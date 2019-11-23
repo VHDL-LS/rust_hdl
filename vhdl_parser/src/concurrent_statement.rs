@@ -145,6 +145,27 @@ fn to_procedure_call(
     }
 }
 
+/// Assume target and <= is parsed already
+fn parse_assignment_known_target(
+    stream: &mut TokenStream,
+    target: WithPos<Target>,
+) -> ParseResult<ConcurrentStatement> {
+    // @TODO postponed
+    let postponed = false;
+    // @TODO guarded
+    let guarded = false;
+    let delay_mechanism = parse_delay_mechanism(stream)?;
+    Ok(ConcurrentStatement::Assignment(
+        ConcurrentSignalAssignment {
+            postponed,
+            guarded,
+            target,
+            delay_mechanism,
+            rhs: parse_signal_assignment_right_hand(stream)?,
+        },
+    ))
+}
+
 fn parse_assignment_or_procedure_call(
     stream: &mut TokenStream,
     token: &Token,
@@ -153,18 +174,7 @@ fn parse_assignment_or_procedure_call(
     match_token_kind!(
     token,
     LTE => {
-        // @TODO postponed
-        let postponed = false;
-        // @TODO guarded
-        let guarded = false;
-        let delay_mechanism = parse_delay_mechanism(stream)?;
-        Ok(ConcurrentStatement::Assignment(ConcurrentSignalAssignment {
-            postponed,
-            guarded,
-            target,
-            delay_mechanism,
-            rhs: parse_signal_assignment_right_hand(stream)?
-        }))
+        parse_assignment_known_target(stream, target)
     },
     SemiColon => {
         Ok(ConcurrentStatement::ProcedureCall(to_procedure_call(target, false)?))
@@ -510,6 +520,11 @@ pub fn parse_concurrent_statement(
                         parse_assignment_or_procedure_call(stream, &token, name.map_into(Target::Name))?
                     }
                 }
+            },
+            LtLt => {
+                let name = parse_name_initial_token(stream, token)?;
+                stream.expect_kind(LTE)?;
+                parse_assignment_known_target(stream, name.map_into(Target::Name))?
             },
             LeftPar => {
                 let target = parse_aggregate_leftpar_known(stream)?.map_into(Target::Aggregate);
@@ -913,6 +928,28 @@ foo <= bar(2 to 3);
             postponed: false,
             guarded: false,
             target: code.s1("foo").name().map_into(Target::Name),
+            delay_mechanism: None,
+            rhs: AssignmentRightHand::Simple(code.s1("bar(2 to 3)").waveform()),
+        };
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, None);
+        assert_eq!(stmt.statement, ConcurrentStatement::Assignment(assign));
+    }
+
+    #[test]
+    fn test_concurrent_signal_assignment_external_name() {
+        let code = Code::new(
+            "\
+<< signal dut.foo : std_logic >> <= bar(2 to 3);
+",
+        );
+        let assign = ConcurrentSignalAssignment {
+            postponed: false,
+            guarded: false,
+            target: code
+                .s1("<< signal dut.foo : std_logic >>")
+                .name()
+                .map_into(Target::Name),
             delay_mechanism: None,
             rhs: AssignmentRightHand::Simple(code.s1("bar(2 to 3)").waveform()),
         };
