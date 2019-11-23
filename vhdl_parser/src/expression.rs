@@ -246,7 +246,7 @@ fn parse_primary_initial_token(
     token: Token,
 ) -> ParseResult<WithPos<Expression>> {
     match token.kind {
-        Identifier => {
+        Identifier | LtLt => {
             let name = parse_name_initial_token(stream, token)?;
             if stream.skip_if_kind(Tick)? {
                 let expr = parse_expression(stream)?;
@@ -481,11 +481,22 @@ mod tests {
     }
 
     #[test]
-    fn parses_operator_symol() {
+    fn parses_operator_symbol() {
         let code = Code::new("\"string\"(1, 2)");
         assert_eq!(
             code.with_stream(parse_expression),
             code.s1("\"string\"(1, 2)")
+                .name()
+                .map_into(|name| Expression::Name(Box::new(name)))
+        );
+    }
+
+    #[test]
+    fn parses_exteral_name() {
+        let code = Code::new("<< signal dut.foo : boolean >>");
+        assert_eq!(
+            code.with_stream(parse_expression),
+            code.s1("<< signal dut.foo : boolean >>")
                 .name()
                 .map_into(|name| Expression::Name(Box::new(name)))
         );
