@@ -686,6 +686,25 @@ pub struct SignalAssignment {
     pub rhs: AssignmentRightHand<Waveform>,
 }
 
+#[derive(PartialEq, Debug, Clone)]
+pub enum ForceMode {
+    In,
+    Out,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct SignalForceAssignment {
+    pub target: WithPos<Target>,
+    pub force_mode: Option<ForceMode>,
+    pub rhs: AssignmentRightHand<WithPos<Expression>>,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct SignalReleaseAssignment {
+    pub target: WithPos<Target>,
+    pub force_mode: Option<ForceMode>,
+}
+
 /// LRM 10.6 Variable assignment statement
 #[derive(PartialEq, Debug, Clone)]
 pub struct VariableAssignment {
@@ -777,6 +796,8 @@ pub enum SequentialStatement {
     Report(ReportStatement),
     VariableAssignment(VariableAssignment),
     SignalAssignment(SignalAssignment),
+    SignalForceAssignment(SignalForceAssignment),
+    SignalReleaseAssignment(SignalReleaseAssignment),
     ProcedureCall(FunctionCall),
     If(IfStatement),
     Case(CaseStatement),

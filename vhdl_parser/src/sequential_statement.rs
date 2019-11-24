@@ -6,10 +6,10 @@
 
 use crate::ast::{
     Alternative, AssertStatement, AssignmentRightHand, CaseStatement, Conditional, Conditionals,
-    ExitStatement, Expression, FunctionCall, IfStatement, IterationScheme,
+    ExitStatement, Expression, ForceMode, FunctionCall, IfStatement, IterationScheme,
     LabeledSequentialStatement, LoopStatement, Name, NextStatement, ReportStatement,
-    ReturnStatement, Selection, SequentialStatement, SignalAssignment, Target, VariableAssignment,
-    WaitStatement, Waveform,
+    ReturnStatement, Selection, SequentialStatement, SignalAssignment, SignalForceAssignment,
+    SignalReleaseAssignment, Target, VariableAssignment, WaitStatement, Waveform,
 };
 use crate::common::parse_optional;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler, ParseResult};
@@ -394,6 +394,23 @@ where
     })
 }
 
+fn parse_optional_force_mode(stream: &mut TokenStream) -> ParseResult<Option<ForceMode>> {
+    let token = stream.peek_expect()?;
+    let optional_force_mode = match token.kind {
+        In => {
+            stream.move_after(&token);
+            Some(ForceMode::In)
+        }
+        Out => {
+            stream.move_after(&token);
+            Some(ForceMode::Out)
+        }
+        _ => None,
+    };
+
+    Ok(optional_force_mode)
+}
+
 fn parse_assignment_or_procedure_call(
     stream: &mut TokenStream,
     token: &Token,
@@ -408,12 +425,35 @@ fn parse_assignment_or_procedure_call(
             })
         },
         LTE => {
-            let delay_mechanism = parse_delay_mechanism(stream)?;
-            SequentialStatement::SignalAssignment(SignalAssignment {
-                target,
-                delay_mechanism,
-                rhs: parse_signal_assignment_right_hand(stream)?
-            })
+            let token = stream.peek_expect()?;
+            match token.kind {
+                Force => {
+                    stream.move_after(&token);
+                    SequentialStatement::SignalForceAssignment(SignalForceAssignment {
+                        target,
+                        force_mode: parse_optional_force_mode(stream)?,
+                        rhs: parse_variable_assignment_right_hand(stream)?
+                    })
+                },
+                Release => {
+                    stream.move_after(&token);
+                    let force_mode = parse_optional_force_mode(stream)?;
+                    stream.expect_kind(SemiColon)?;
+
+                    SequentialStatement::SignalReleaseAssignment(SignalReleaseAssignment {
+                        target,
+                        force_mode
+                    })
+                }
+                _ => {
+                    let delay_mechanism = parse_delay_mechanism(stream)?;
+                    SequentialStatement::SignalAssignment(SignalAssignment {
+                        target,
+                        delay_mechanism,
+                        rhs: parse_signal_assignment_right_hand(stream)?
+                    })
+                }
+            }
         },
         SemiColon => {
             match target.item {
@@ -466,13 +506,19 @@ fn parse_selected_assignment(stream: &mut TokenStream) -> ParseResult<Sequential
             }))
         },
         LTE => {
-            let delay_mechanism = parse_delay_mechanism(stream)?;
-            let rhs = AssignmentRightHand::Selected(parse_selection(stream, expression, parse_waveform)?);
-            Ok(SequentialStatement::SignalAssignment(SignalAssignment {
-                target,
-                delay_mechanism,
-                rhs
+            if stream.skip_if_kind(Force)? {
+                Ok(SequentialStatement::SignalForceAssignment(SignalForceAssignment {
+                    target,
+                    force_mode: parse_optional_force_mode(stream)?,
+                    rhs: AssignmentRightHand::Selected(parse_selection(stream, expression, parse_expression)?)
+                }))
+            } else {
+                Ok(SequentialStatement::SignalAssignment(SignalAssignment {
+                    target,
+                    delay_mechanism: parse_delay_mechanism(stream)?,
+                    rhs: AssignmentRightHand::Selected(parse_selection(stream, expression, parse_waveform)?)
             }))
+        }
         }
     )
 }
@@ -733,6 +779,69 @@ mod tests {
     }
 
     #[test]
+    fn parse_simple_signal_force_assignment() {
+        let (code, statement) = parse("foo(0) <= force bar(1,2);");
+
+        assert_eq!(
+            statement,
+            with_label(
+                None,
+                SequentialStatement::SignalForceAssignment(SignalForceAssignment {
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
+                    force_mode: None,
+                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
+                })
+            )
+        );
+
+        // Fore mode in
+        let (code, statement) = parse("foo(0) <= force in bar(1,2);");
+
+        assert_eq!(
+            statement,
+            with_label(
+                None,
+                SequentialStatement::SignalForceAssignment(SignalForceAssignment {
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
+                    force_mode: Some(ForceMode::In),
+                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
+                })
+            )
+        );
+
+        // Fore mode out
+        let (code, statement) = parse("foo(0) <= force out bar(1,2);");
+
+        assert_eq!(
+            statement,
+            with_label(
+                None,
+                SequentialStatement::SignalForceAssignment(SignalForceAssignment {
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
+                    force_mode: Some(ForceMode::Out),
+                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
+                })
+            )
+        );
+    }
+
+    #[test]
+    fn parse_simple_signal_release_assignment() {
+        let (code, statement) = parse("foo(0) <= release;");
+
+        assert_eq!(
+            statement,
+            with_label(
+                None,
+                SequentialStatement::SignalReleaseAssignment(SignalReleaseAssignment {
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
+                    force_mode: None
+                })
+            )
+        );
+    }
+
+    #[test]
     fn parse_signal_assignment_external_name() {
         let (code, statement) = parse("<< signal dut.foo : boolean  >> <= bar(1,2);");
 
@@ -982,6 +1091,31 @@ with x(0) + 1 select
     }
 
     #[test]
+    fn parse_conditional_signal_force_assignment() {
+        let (code, statement) = parse("foo(0) <= force bar(1,2) when cond;");
+
+        let conditionals = Conditionals {
+            conditionals: vec![Conditional {
+                condition: code.s1("cond").expr(),
+                item: code.s1("bar(1,2)").expr(),
+            }],
+            else_item: None,
+        };
+
+        assert_eq!(
+            statement,
+            with_label(
+                None,
+                SequentialStatement::SignalForceAssignment(SignalForceAssignment {
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
+                    force_mode: None,
+                    rhs: AssignmentRightHand::Conditional(conditionals)
+                })
+            )
+        );
+    }
+
+    #[test]
     fn parse_selected_signal_assignment() {
         let (code, statement) = parse(
             "\
@@ -1011,6 +1145,42 @@ with x(0) + 1 select
                 SequentialStatement::SignalAssignment(SignalAssignment {
                     target: code.s1("foo(0)").name().map_into(Target::Name),
                     delay_mechanism: Some(DelayMechanism::Transport),
+                    rhs: AssignmentRightHand::Selected(selection)
+                })
+            )
+        );
+    }
+
+    #[test]
+    fn parse_selected_signal_force_assignment() {
+        let (code, statement) = parse(
+            "\
+with x(0) + 1 select
+   foo(0) <= force bar(1,2) when 0|1,
+                       def when others;",
+        );
+
+        let selection = Selection {
+            expression: code.s1("x(0) + 1").expr(),
+            alternatives: vec![
+                Alternative {
+                    choices: code.s1("0|1").choices(),
+                    item: code.s1("bar(1,2)").expr(),
+                },
+                Alternative {
+                    choices: code.s1("others").choices(),
+                    item: code.s1("def").expr(),
+                },
+            ],
+        };
+
+        assert_eq!(
+            statement,
+            with_label(
+                None,
+                SequentialStatement::SignalForceAssignment(SignalForceAssignment {
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
+                    force_mode: None,
                     rhs: AssignmentRightHand::Selected(selection)
                 })
             )
