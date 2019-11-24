@@ -44,6 +44,10 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         if let Some(home_dir) = dirs::home_dir() {
             let file_name = home_dir.join(".vhdl_ls.toml");
 
+            if !file_name.exists() {
+                return;
+            }
+
             match Config::read_file_path(&file_name) {
                 Ok(env_config) => {
                     self.rpc_channel.window_log_message(
