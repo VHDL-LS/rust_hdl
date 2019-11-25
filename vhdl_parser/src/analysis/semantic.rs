@@ -206,54 +206,43 @@ impl<'a> Analyzer<'a> {
             for package in library.packages() {
                 let package_sym = package.package.unit.ident.item.clone();
 
-                let decl = VisibleDeclaration {
-                    designator: Designator::Identifier(package_sym.clone()),
-                    decl: AnyDeclaration::Package(library.name.clone(), package_sym),
-                    decl_pos: Some(package.package.unit.ident.pos.clone()),
-                    may_overload: false,
-                };
+                let decl = VisibleDeclaration::new(
+                    &package.package.unit.ident,
+                    AnyDeclaration::Package(library.name.clone(), package_sym),
+                );
+
                 region.add(decl, &mut diagnostics);
             }
 
             for context in library.contexts() {
                 let context_sym = context.ident.item.clone();
-                let decl = VisibleDeclaration {
-                    designator: Designator::Identifier(context_sym.clone()),
-                    decl: AnyDeclaration::Context(library.name.clone(), context_sym.clone()),
-                    decl_pos: Some(context.ident.pos.clone()),
-                    may_overload: false,
-                };
+
+                let decl = VisibleDeclaration::new(
+                    &context.ident,
+                    AnyDeclaration::Context(library.name.clone(), context_sym),
+                );
+
                 region.add(decl, &mut diagnostics);
             }
 
             for entity in library.entities() {
-                let decl = VisibleDeclaration {
-                    designator: Designator::Identifier(entity.entity.unit.ident.item.clone()),
-                    decl: AnyDeclaration::Other,
-                    decl_pos: Some(entity.entity.unit.ident.pos.clone()),
-                    may_overload: false,
-                };
+                let decl =
+                    VisibleDeclaration::new(&entity.entity.unit.ident, AnyDeclaration::Other);
                 region.add(decl, &mut diagnostics);
 
                 for configuration in entity.configurations() {
-                    let decl = VisibleDeclaration {
-                        designator: Designator::Identifier(configuration.ident().item.clone()),
-                        decl: AnyDeclaration::Other,
-                        decl_pos: Some(configuration.ident().pos.clone()),
-                        may_overload: false,
-                    };
+                    let decl =
+                        VisibleDeclaration::new(configuration.ident(), AnyDeclaration::Other);
                     region.add(decl, &mut diagnostics);
                 }
             }
 
             for instance in library.package_instances() {
                 let instance_sym = instance.ident().item.clone();
-                let decl = VisibleDeclaration {
-                    designator: Designator::Identifier(instance_sym.clone()),
-                    decl: AnyDeclaration::PackageInstance(library.name.clone(), instance_sym),
-                    decl_pos: Some(instance.ident().pos.clone()),
-                    may_overload: false,
-                };
+                let decl = VisibleDeclaration::new(
+                    instance.ident(),
+                    AnyDeclaration::PackageInstance(library.name.clone(), instance_sym),
+                );
                 region.add(decl, &mut diagnostics);
             }
 
@@ -297,7 +286,7 @@ impl<'a> Analyzer<'a> {
                     }
                 };
 
-                match visible_decl.decl {
+                match visible_decl.first() {
                     AnyDeclaration::Library(ref library_name) => {
                         if let Some(visible_decl) =
                             self.library_regions[library_name].lookup(&suffix.item, false)
@@ -466,8 +455,7 @@ impl<'a> Analyzer<'a> {
             InterfaceDeclaration::Subprogram(subpgm, ..) => {
                 self.analyze_subprogram_declaration(region, subpgm, diagnostics);
                 region.add(
-                    VisibleDeclaration::new(subpgm.designator(), AnyDeclaration::Other)
-                        .with_overload(true),
+                    VisibleDeclaration::new(subpgm.designator(), AnyDeclaration::Overloaded),
                     diagnostics,
                 );
             }
@@ -568,9 +556,12 @@ impl<'a> Analyzer<'a> {
                 region.add(
                     VisibleDeclaration::new(
                         alias.designator.clone(),
-                        AnyDeclaration::from_declaration(decl),
-                    )
-                    .with_overload(alias.signature.is_some()),
+                        if alias.signature.is_some() {
+                            AnyDeclaration::Overloaded
+                        } else {
+                            AnyDeclaration::Other
+                        },
+                    ),
                     diagnostics,
                 );
             }
@@ -583,7 +574,7 @@ impl<'a> Analyzer<'a> {
                 region.add(
                     VisibleDeclaration::new(
                         &object_decl.ident,
-                        AnyDeclaration::from_declaration(decl),
+                        AnyDeclaration::from_object_declaration(object_decl),
                     ),
                     diagnostics,
                 );
@@ -591,19 +582,13 @@ impl<'a> Analyzer<'a> {
             Declaration::File(ref file_decl) => {
                 self.analyze_subtype_indicaton(region, &file_decl.subtype_indication, diagnostics);
                 region.add(
-                    VisibleDeclaration::new(
-                        &file_decl.ident,
-                        AnyDeclaration::from_declaration(decl),
-                    ),
+                    VisibleDeclaration::new(&file_decl.ident, AnyDeclaration::Other),
                     diagnostics,
                 );
             }
             Declaration::Component(ref component) => {
                 region.add(
-                    VisibleDeclaration::new(
-                        &component.ident,
-                        AnyDeclaration::from_declaration(decl),
-                    ),
+                    VisibleDeclaration::new(&component.ident, AnyDeclaration::Other),
                     diagnostics,
                 );
 
@@ -625,10 +610,7 @@ impl<'a> Analyzer<'a> {
                         diagnostics.push(diagnostic);
                     }
                     region.add(
-                        VisibleDeclaration::new(
-                            &attr_decl.ident,
-                            AnyDeclaration::from_declaration(decl),
-                        ),
+                        VisibleDeclaration::new(&attr_decl.ident, AnyDeclaration::Other),
                         diagnostics,
                     );
                 }
@@ -639,9 +621,8 @@ impl<'a> Analyzer<'a> {
                 region.add(
                     VisibleDeclaration::new(
                         body.specification.designator(),
-                        AnyDeclaration::from_declaration(decl),
-                    )
-                    .with_overload(true),
+                        AnyDeclaration::Overloaded,
+                    ),
                     diagnostics,
                 );
                 self.analyze_subprogram_declaration(region, &body.specification, diagnostics);
@@ -650,11 +631,7 @@ impl<'a> Analyzer<'a> {
             }
             Declaration::SubprogramDeclaration(subdecl) => {
                 region.add(
-                    VisibleDeclaration::new(
-                        subdecl.designator(),
-                        AnyDeclaration::from_declaration(decl),
-                    )
-                    .with_overload(true),
+                    VisibleDeclaration::new(subdecl.designator(), AnyDeclaration::Overloaded),
                     diagnostics,
                 );
                 self.analyze_subprogram_declaration(region, &subdecl, diagnostics);
@@ -682,36 +659,28 @@ impl<'a> Analyzer<'a> {
                 }
             }
             Declaration::Configuration(..) => {}
-            Declaration::Type(TypeDeclaration {
-                ref ident,
-                def: TypeDefinition::Enumeration(ref enumeration),
-            }) => {
-                region.add(
-                    VisibleDeclaration::new(ident, AnyDeclaration::from_declaration(decl)),
-                    diagnostics,
-                );
-                for literal in enumeration.iter() {
-                    region.add(
-                        VisibleDeclaration::new(
-                            literal.clone().map_into(|lit| lit.into_designator()),
-                            AnyDeclaration::Other,
-                        )
-                        .with_overload(true),
-                        diagnostics,
-                    )
-                }
-            }
             Declaration::Type(ref type_decl) => {
                 // Protected types are visible inside their declaration
                 region.add(
                     VisibleDeclaration::new(
                         &type_decl.ident,
-                        AnyDeclaration::from_declaration(decl),
+                        AnyDeclaration::from_type_declaration(type_decl),
                     ),
                     diagnostics,
                 );
 
                 match type_decl.def {
+                    TypeDefinition::Enumeration(ref enumeration) => {
+                        for literal in enumeration.iter() {
+                            region.add(
+                                VisibleDeclaration::new(
+                                    literal.clone().map_into(|lit| lit.into_designator()),
+                                    AnyDeclaration::Overloaded,
+                                ),
+                                diagnostics,
+                            )
+                        }
+                    }
                     TypeDefinition::ProtectedBody(ref body) => {
                         let mut region = DeclarativeRegion::new(Some(region));
                         self.analyze_declarative_part(&mut region, &body.decl, diagnostics);
@@ -791,7 +760,7 @@ impl<'a> Analyzer<'a> {
                     region.make_potentially_visible(visible_decl);
                 }
                 Ok(LookupResult::AllWithin(prefix, visible_decl)) => {
-                    match visible_decl.decl {
+                    match visible_decl.first() {
                         AnyDeclaration::Library(ref library_name) => {
                             region
                                 .make_all_potentially_visible(&self.library_regions[library_name]);
@@ -906,7 +875,7 @@ impl<'a> Analyzer<'a> {
 
                         match self.lookup_selected_name(&region, &name) {
                             Ok(LookupResult::Single(visible_decl)) => {
-                                match visible_decl.decl {
+                                match visible_decl.first() {
                                     // OK
                                     AnyDeclaration::Context(ref library_name, ref context_name) => {
                                         let library = self
@@ -1070,10 +1039,10 @@ impl<'a> Analyzer<'a> {
         if let Some(library) = self.root.get_library(&self.std_sym) {
             region.make_library_visible(&self.std_sym, library);
 
-            if let Some(VisibleDeclaration {
-                decl: AnyDeclaration::Package(.., ref standard_pkg_name),
-                ..
-            }) = self.library_regions[&library.name].lookup(&self.standard_designator, false)
+            let decl = self.library_regions[&library.name].lookup(&self.standard_designator, false);
+
+            if let Some(AnyDeclaration::Package(.., ref standard_pkg_name)) =
+                decl.map(|decl| decl.first())
             {
                 let standard_pkg_region = &self
                     .analysis_context
@@ -1154,11 +1123,10 @@ impl<'a> Analyzer<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
         if let Some(ref body) = package.body {
-            let mut root_region = primary_region
-                .clone_parent()
-                .expect("Expected parent region");
+            // @TODO make pattern of primary/secondary extension
+            let mut root_region = primary_region.get_parent().unwrap().extend(None);
             self.analyze_context_clause(&mut root_region, &body.context_clause, diagnostics);
-            let mut region = primary_region.clone().into_extended(&root_region);
+            let mut region = primary_region.extend(Some(&root_region));
             self.analyze_declarative_part(&mut region, &body.unit.decl, diagnostics);
             region.close_both(diagnostics);
         }
@@ -1203,7 +1171,7 @@ impl<'a> Analyzer<'a> {
         match self.lookup_selected_name(parent, &package_name)? {
             LookupResult::Single(visible_decl) => {
                 if let AnyDeclaration::Package(ref library_name, ref package_name) =
-                    visible_decl.decl
+                    visible_decl.first()
                 {
                     let library = self
                         .root
@@ -1313,24 +1281,26 @@ impl<'a> Analyzer<'a> {
         }
 
         for entity in library.entities() {
-            let mut root_region = DeclarativeRegion::new(None);
-            self.add_implicit_context_clause(&mut root_region, library);
+            let mut primary_root_region = DeclarativeRegion::new(None);
+            self.add_implicit_context_clause(&mut primary_root_region, library);
             self.analyze_context_clause(
-                &mut root_region,
+                &mut primary_root_region,
                 &entity.entity.context_clause,
                 diagnostics,
             );
-            let mut region = DeclarativeRegion::new(Some(&root_region));
-            self.analyze_entity_declaration(&mut region, &entity.entity.unit, diagnostics);
-            region.close_immediate(diagnostics);
+
+            let mut primary_region = DeclarativeRegion::new(Some(&primary_root_region));
+            self.analyze_entity_declaration(&mut primary_region, &entity.entity.unit, diagnostics);
+            primary_region.close_immediate(diagnostics);
+
             for architecture in entity.architectures.values() {
-                let mut root_region = region.clone();
+                let mut root_region = primary_root_region.extend(None);
                 self.analyze_context_clause(
                     &mut root_region,
                     &architecture.context_clause,
                     diagnostics,
                 );
-                let mut region = region.clone().into_extended(&root_region);
+                let mut region = primary_region.extend(Some(&root_region));
                 self.analyze_architecture_body(&mut region, &architecture.unit, diagnostics);
                 region.close_both(diagnostics);
             }
@@ -1511,6 +1481,9 @@ end package;
         check_diagnostics(
             diagnostics,
             vec![Diagnostic::error(
+                &code.s("a1", 1),
+                "Deferred constant 'a1' lacks corresponding full constant declaration in package body",
+            ),Diagnostic::error(
                 &code.s("a1", 2),
                 "Full declaration of deferred constant is only allowed in a package body",
             )],
@@ -1754,7 +1727,12 @@ end package body;
         );
 
         let diagnostics = builder.analyze();
-        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1", "b1"]));
+        let mut expected = vec![Diagnostic::error(
+            &code.s("b1", 2),
+            "No declaration of protected type 'b1'",
+        )];
+        expected.append(&mut expected_diagnostics(&code, &["a1", "b1"]));
+        check_diagnostics(diagnostics, expected);
     }
 
     #[test]

@@ -16,7 +16,6 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 /// The analysis result of the primary unit
-#[derive(Clone)]
 pub struct PrimaryUnitData {
     diagnostics: Vec<Diagnostic>,
     pub region: DeclarativeRegion<'static>,
@@ -44,6 +43,7 @@ impl PrimaryUnitData {
 #[derive(Clone)]
 pub enum AnyDeclaration {
     Other,
+    Overloaded,
     TypeDeclaration,
     IncompleteType,
     Constant,
@@ -58,33 +58,38 @@ pub enum AnyDeclaration {
 }
 
 impl AnyDeclaration {
-    pub fn from_declaration(decl: &Declaration) -> AnyDeclaration {
+    pub fn from_object_declaration(decl: &ObjectDeclaration) -> AnyDeclaration {
         match decl {
-            Declaration::Object(ObjectDeclaration {
+            ObjectDeclaration {
                 class: ObjectClass::Constant,
                 ref expression,
                 ..
-            }) => {
+            } => {
                 if expression.is_none() {
                     AnyDeclaration::DeferredConstant
                 } else {
                     AnyDeclaration::Constant
                 }
             }
-            Declaration::Type(TypeDeclaration {
+            _ => AnyDeclaration::Other,
+        }
+    }
+
+    pub fn from_type_declaration(decl: &TypeDeclaration) -> AnyDeclaration {
+        match decl {
+            TypeDeclaration {
                 def: TypeDefinition::Protected { .. },
                 ..
-            }) => AnyDeclaration::ProtectedType,
-            Declaration::Type(TypeDeclaration {
+            } => AnyDeclaration::ProtectedType,
+            TypeDeclaration {
                 def: TypeDefinition::ProtectedBody { .. },
                 ..
-            }) => AnyDeclaration::ProtectedTypeBody,
-            Declaration::Type(TypeDeclaration {
+            } => AnyDeclaration::ProtectedTypeBody,
+            TypeDeclaration {
                 def: TypeDefinition::Incomplete,
                 ..
-            }) => AnyDeclaration::IncompleteType,
-            Declaration::Type(..) => return AnyDeclaration::TypeDeclaration,
-            _ => AnyDeclaration::Other,
+            } => AnyDeclaration::IncompleteType,
+            _ => AnyDeclaration::TypeDeclaration,
         }
     }
 
@@ -138,30 +143,14 @@ impl AnyDeclaration {
 }
 
 #[derive(Clone)]
-pub struct VisibleDeclaration {
-    pub designator: Designator,
-
+struct AnyDeclarationData {
     /// The location where the declaration was made
     /// Builtin and implicit declaration will not have a source position
-    pub decl_pos: Option<SrcPos>,
-    pub decl: AnyDeclaration,
-    pub may_overload: bool,
+    decl_pos: Option<SrcPos>,
+    decl: AnyDeclaration,
 }
 
-impl VisibleDeclaration {
-    pub fn new(
-        designator: impl Into<WithPos<Designator>>,
-        decl: AnyDeclaration,
-    ) -> VisibleDeclaration {
-        let designator = designator.into();
-        VisibleDeclaration {
-            designator: designator.item,
-            decl_pos: Some(designator.pos),
-            decl,
-            may_overload: false,
-        }
-    }
-
+impl AnyDeclarationData {
     fn error(&self, diagnostics: &mut dyn DiagnosticHandler, message: impl Into<String>) {
         if let Some(ref pos) = self.decl_pos {
             diagnostics.push(Diagnostic::error(pos, message));
@@ -173,18 +162,73 @@ impl VisibleDeclaration {
             diagnostics.push(Diagnostic::hint(pos, message));
         }
     }
+}
 
-    pub fn with_overload(mut self, value: bool) -> VisibleDeclaration {
-        self.may_overload = value;
-        self
+#[derive(Clone)]
+pub struct VisibleDeclaration {
+    pub designator: Designator,
+    data: Vec<AnyDeclarationData>,
+}
+
+impl VisibleDeclaration {
+    pub fn new(
+        designator: impl Into<WithPos<Designator>>,
+        decl: AnyDeclaration,
+    ) -> VisibleDeclaration {
+        let designator = designator.into();
+
+        VisibleDeclaration {
+            designator: designator.item,
+            data: vec![AnyDeclarationData {
+                decl_pos: Some(designator.pos),
+                decl,
+            }],
+        }
     }
 
-    fn is_deferred_of(&self, other: &Self) -> bool {
-        (self.decl.is_deferred_constant() && other.decl.is_non_deferred_constant())
-            || (self.decl.is_protected_type() && other.decl.is_protected_type_body())
-            || (self.decl.is_incomplete_type()
-                && other.decl.is_type_declaration()
-                && !other.decl.is_incomplete_type())
+    fn first_data(&self) -> &AnyDeclarationData {
+        self.data
+            .first()
+            .expect("Declaration always contains one entry")
+    }
+
+    pub fn first(&self) -> &AnyDeclaration {
+        &self.first_data().decl
+    }
+
+    pub fn second(&self) -> Option<&AnyDeclaration> {
+        self.data.get(1).map(|data| &data.decl)
+    }
+
+    fn is_overloaded(&self) -> bool {
+        if let AnyDeclaration::Overloaded = self.first_data().decl {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Return a duplicate declaration of the previous declaration if it exists
+    fn find_duplicate_of<'a>(&self, prev_decl: &'a Self) -> Option<&'a AnyDeclarationData> {
+        if self.is_overloaded() && prev_decl.is_overloaded() {
+            return None;
+        }
+
+        let ref later_decl = self.first();
+        for prev_decl_data in prev_decl.data.iter() {
+            let ref prev_decl = prev_decl_data.decl;
+
+            match prev_decl {
+                // Everything expect deferred combinations are forbidden
+                AnyDeclaration::DeferredConstant if later_decl.is_non_deferred_constant() => {}
+                AnyDeclaration::ProtectedType if later_decl.is_protected_type_body() => {}
+                AnyDeclaration::IncompleteType if later_decl.is_type_declaration() => {}
+                _ => {
+                    return Some(prev_decl_data);
+                }
+            }
+        }
+        None
     }
 }
 
@@ -217,6 +261,7 @@ impl<'a> Deref for ParentRegion<'a> {
 #[derive(Clone)]
 pub struct DeclarativeRegion<'a> {
     parent: Option<ParentRegion<'a>>,
+    extends: Option<ParentRegion<'a>>,
     visible: FnvHashMap<Designator, VisibleDeclaration>,
     decls: FnvHashMap<Designator, VisibleDeclaration>,
     kind: RegionKind,
@@ -226,6 +271,7 @@ impl<'a> DeclarativeRegion<'a> {
     pub fn new(parent: Option<&'a DeclarativeRegion<'a>>) -> DeclarativeRegion<'a> {
         DeclarativeRegion {
             parent: parent.map(|parent| ParentRegion::Borrowed(parent)),
+            extends: None,
             visible: FnvHashMap::default(),
             decls: FnvHashMap::default(),
             kind: RegionKind::Other,
@@ -235,10 +281,15 @@ impl<'a> DeclarativeRegion<'a> {
     pub fn new_owned_parent(parent: Box<DeclarativeRegion<'static>>) -> DeclarativeRegion<'static> {
         DeclarativeRegion {
             parent: Some(ParentRegion::Owned(parent)),
+            extends: None,
             visible: FnvHashMap::default(),
             decls: FnvHashMap::default(),
             kind: RegionKind::Other,
         }
+    }
+
+    pub fn get_parent(&'a self) -> Option<&'a DeclarativeRegion<'a>> {
+        self.parent.as_ref().map(|parent| parent.deref())
     }
 
     pub fn in_package_declaration(mut self) -> DeclarativeRegion<'a> {
@@ -246,114 +297,287 @@ impl<'a> DeclarativeRegion<'a> {
         self
     }
 
-    pub fn clone_parent(&self) -> Option<DeclarativeRegion<'a>> {
-        self.parent.as_ref().map(|parent| parent.deref().to_owned())
-    }
-
-    pub fn into_extended(self, parent: &'a DeclarativeRegion<'a>) -> DeclarativeRegion<'a> {
+    pub fn extend(&'a self, parent: Option<&'a DeclarativeRegion<'a>>) -> DeclarativeRegion<'a> {
         let kind = match self.kind {
             RegionKind::PackageDeclaration => RegionKind::PackageBody,
             _ => RegionKind::Other,
         };
 
         DeclarativeRegion {
-            parent: Some(ParentRegion::Borrowed(parent)),
-            visible: self.visible,
-            decls: self.decls,
+            parent: parent.map(|parent| ParentRegion::Borrowed(parent)),
+            extends: Some(ParentRegion::Borrowed(self)),
+            visible: FnvHashMap::default(),
+            decls: FnvHashMap::default(),
             kind,
         }
     }
 
     pub fn close_immediate(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
-        let mut to_remove = Vec::new();
+        assert!(self.extends.is_none());
+        self.check_incomplete_types_are_defined(diagnostics);
+    }
 
+    /// Incomplete types must be defined in the same immediate region as they are declared
+    fn check_incomplete_types_are_defined(&self, diagnostics: &mut dyn DiagnosticHandler) {
         for decl in self.decls.values() {
-            if decl.decl.is_incomplete_type() {
-                to_remove.push(decl.designator.clone());
-                decl.error(
-                    diagnostics,
-                    format!(
-                        "Missing full type declaration of incomplete type '{}'",
-                        &decl.designator
-                    ),
-                );
-                decl.hint(diagnostics, "The full type declaration shall occur immediately within the same declarative part");
-            }
-        }
+            if decl.first().is_incomplete_type() {
+                let mut check_ok = false;
+                if let Some(second) = decl.second() {
+                    if second.is_type_declaration() {
+                        check_ok = true;
+                    }
+                }
 
-        for designator in to_remove {
-            self.decls.remove(&designator);
+                if !check_ok {
+                    decl.first_data().error(
+                        diagnostics,
+                        format!(
+                            "Missing full type declaration of incomplete type '{}'",
+                            &decl.designator
+                        ),
+                    );
+                    decl.first_data().hint(diagnostics, "The full type declaration shall occur immediately within the same declarative part");
+                }
+            }
         }
     }
 
-    pub fn close_extended(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
-        let mut to_remove = Vec::new();
+    fn check_deferred_constant_pairs(&self, diagnostics: &mut dyn DiagnosticHandler) {
+        match self.kind {
+            // Package without body may not have deferred constants
+            RegionKind::PackageDeclaration => {
+                for decl in self.decls.values() {
+                    match decl.first() {
+                        AnyDeclaration::DeferredConstant => {
+                            decl.first_data().error(diagnostics, format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", &decl.designator));
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            RegionKind::PackageBody => {
+                let ref extends = self
+                    .extends
+                    .as_ref()
+                    .expect("Package body must extend package");
+                for ext_decl in extends.decls.values() {
+                    match ext_decl.first() {
+                        AnyDeclaration::DeferredConstant => {
+                            // Deferred constants may only be located in a package
+                            // And only matched with a constant in the body
+                            let mut found = false;
+                            let decl = self.decls.get(&ext_decl.designator);
 
+                            if let Some(decl) = decl {
+                                if let AnyDeclaration::Constant = decl.first() {
+                                    found = true;
+                                }
+                            }
+
+                            if !found {
+                                ext_decl.first_data().error(diagnostics, format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", &ext_decl.designator));
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            RegionKind::Other => {}
+        }
+    }
+
+    fn check_protected_types_have_body(&self, diagnostics: &mut dyn DiagnosticHandler) {
         for decl in self.decls.values() {
-            if decl.decl.is_deferred_constant() {
-                to_remove.push(decl.designator.clone());
-                decl.error(diagnostics, format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", &decl.designator));
-            } else if decl.decl.is_protected_type() {
-                to_remove.push(decl.designator.clone());
-                decl.error(
+            if decl.first().is_protected_type() {
+                if let Some(second_decl) = decl.second() {
+                    if second_decl.is_protected_type_body() {
+                        continue;
+                    }
+                }
+                decl.first_data().error(
                     diagnostics,
                     format!("Missing body for protected type '{}'", &decl.designator),
                 );
             }
         }
 
-        for designator in to_remove {
-            self.decls.remove(&designator);
+        if let Some(ref extends) = self.extends {
+            for ext_decl in extends.decls.values() {
+                if ext_decl.first().is_protected_type() {
+                    if let Some(second_decl) = ext_decl.second() {
+                        if second_decl.is_protected_type_body() {
+                            continue;
+                        }
+                    }
+
+                    if let Some(decl) = self.decls.get(&ext_decl.designator) {
+                        if decl.first().is_protected_type_body() {
+                            continue;
+                        }
+                    }
+                    ext_decl.first_data().error(
+                        diagnostics,
+                        format!("Missing body for protected type '{}'", &ext_decl.designator),
+                    );
+                }
+            }
         }
     }
 
-    pub fn close_both(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
-        self.close_immediate(diagnostics);
-        self.close_extended(diagnostics);
-    }
-
-    pub fn add(&mut self, decl: VisibleDeclaration, diagnostics: &mut dyn DiagnosticHandler) {
-        if self.kind != RegionKind::PackageDeclaration && decl.decl.is_deferred_constant() {
-            decl.error(
+    #[must_use]
+    fn check_deferred_constant_only_in_package(
+        &self,
+        decl: &VisibleDeclaration,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> bool {
+        if self.kind != RegionKind::PackageDeclaration && decl.first().is_deferred_constant() {
+            decl.first_data().error(
                 diagnostics,
                 "Deferred constants are only allowed in package declarations (not body)",
             );
+            false
+        } else {
+            true
+        }
+    }
+
+    #[must_use]
+    fn check_full_constand_of_deferred_only_in_body(
+        &self,
+        decl: &VisibleDeclaration,
+        prev_decl: &VisibleDeclaration,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> bool {
+        if self.kind != RegionKind::PackageBody && decl.first().is_non_deferred_constant() {
+            if prev_decl.first().is_deferred_constant() {
+                decl.first_data().error(
+                    diagnostics,
+                    "Full declaration of deferred constant is only allowed in a package body",
+                );
+                return false;
+            }
+        }
+        true
+    }
+
+    pub fn close_both(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
+        self.check_incomplete_types_are_defined(diagnostics);
+        self.check_deferred_constant_pairs(diagnostics);
+        self.check_protected_types_have_body(diagnostics);
+    }
+
+    /// Check duplicate declarations
+    /// Allow deferred constants, incomplete types and protected type bodies
+    /// Returns true if the declaration does not duplicates an existing declaration
+    #[must_use]
+    fn check_duplicate(
+        decl: &VisibleDeclaration,
+        prev_decl: &VisibleDeclaration,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> bool {
+        if let Some(duplicate_decl) = decl.find_duplicate_of(&prev_decl) {
+            if let Some(ref pos) = decl.first_data().decl_pos {
+                let mut diagnostic = Diagnostic::error(
+                    pos,
+                    format!("Duplicate declaration of '{}'", decl.designator),
+                );
+
+                if let Some(ref prev_pos) = duplicate_decl.decl_pos {
+                    diagnostic.add_related(prev_pos, "Previously defined here");
+                }
+
+                diagnostics.push(diagnostic)
+            }
+            false
+        } else {
+            true
+        }
+    }
+
+    /// true if the declaration can be added
+    fn check_add(
+        // The declaration to add
+        decl: &VisibleDeclaration,
+        // Previous declaration in the same region
+        prev_decl: Option<&VisibleDeclaration>,
+        // Previous declaration in the region extended by this region
+        ext_decl: Option<&VisibleDeclaration>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> bool {
+        let mut check_ok = true;
+
+        if let Some(prev_decl) = prev_decl {
+            if !Self::check_duplicate(&decl, &prev_decl, diagnostics) {
+                check_ok = false;
+            }
+        }
+
+        if let Some(ext_decl) = ext_decl {
+            if !Self::check_duplicate(&decl, &ext_decl, diagnostics) {
+                check_ok = false;
+            }
+        }
+
+        if decl.first().is_protected_type_body() {
+            let mut is_orphan = true;
+
+            if let Some(prev_decl) = prev_decl {
+                if prev_decl.first().is_protected_type() {
+                    is_orphan = false;
+                }
+            }
+
+            if let Some(ext_decl) = ext_decl {
+                if ext_decl.first().is_protected_type() {
+                    is_orphan = false;
+                }
+            }
+            if is_orphan {
+                decl.first_data().error(
+                    diagnostics,
+                    format!("No declaration of protected type '{}'", &decl.designator),
+                );
+                check_ok = false;
+            }
+        }
+
+        check_ok
+    }
+
+    pub fn add(&mut self, decl: VisibleDeclaration, diagnostics: &mut dyn DiagnosticHandler) {
+        let ext_decl = self
+            .extends
+            .as_ref()
+            .and_then(|extends| extends.decls.get(&decl.designator));
+
+        if !self.check_deferred_constant_only_in_package(&decl, diagnostics) {
+            return;
+        }
+
+        if let Some(ext_decl) = ext_decl {
+            if !self.check_full_constand_of_deferred_only_in_body(&decl, ext_decl, diagnostics) {
+                return;
+            }
+        }
+
+        // @TODO merge with .entry below
+        if let Some(prev_decl) = self.decls.get(&decl.designator) {
+            if !self.check_full_constand_of_deferred_only_in_body(&decl, prev_decl, diagnostics) {
+                return;
+            }
         }
 
         match self.decls.entry(decl.designator.clone()) {
-            Entry::Occupied(mut entry) => {
-                let old_decl = entry.get_mut();
+            Entry::Occupied(ref mut entry) => {
+                let prev_decl = entry.get_mut();
 
-                if !decl.may_overload || !old_decl.may_overload {
-                    if old_decl.is_deferred_of(&decl) {
-                        if self.kind != RegionKind::PackageBody
-                            && decl.decl.is_non_deferred_constant()
-                        {
-                            decl.error(diagnostics, "Full declaration of deferred constant is only allowed in a package body");
-                        }
-
-                        std::mem::replace(old_decl, decl);
-                    } else if let Some(ref pos) = decl.decl_pos {
-                        let mut diagnostic = Diagnostic::error(
-                            pos,
-                            format!("Duplicate declaration of '{}'", decl.designator),
-                        );
-
-                        if let Some(ref old_pos) = old_decl.decl_pos {
-                            diagnostic.add_related(old_pos, "Previously defined here");
-                        }
-
-                        diagnostics.push(diagnostic)
-                    }
+                if Self::check_add(&decl, Some(&prev_decl), ext_decl, diagnostics) {
+                    let mut decl = decl;
+                    prev_decl.data.append(&mut decl.data);
                 }
             }
             Entry::Vacant(entry) => {
-                if decl.decl.is_protected_type_body() {
-                    decl.error(
-                        diagnostics,
-                        format!("No declaration of protected type '{}'", &decl.designator),
-                    );
-                } else {
+                if Self::check_add(&decl, None, ext_decl, diagnostics) {
                     entry.insert(decl);
                 }
             }
@@ -363,9 +587,10 @@ impl<'a> DeclarativeRegion<'a> {
     pub fn make_library_visible(&mut self, designator: impl Into<Designator>, library: &Library) {
         let decl = VisibleDeclaration {
             designator: designator.into(),
-            decl_pos: None,
-            decl: AnyDeclaration::Library(library.name.clone()),
-            may_overload: false,
+            data: vec![AnyDeclarationData {
+                decl_pos: None,
+                decl: AnyDeclaration::Library(library.name.clone()),
+            }],
         };
         self.visible.insert(decl.designator.clone(), decl);
     }
@@ -381,6 +606,9 @@ impl<'a> DeclarativeRegion<'a> {
         }
     }
 
+    /// Lookup a designator in the region
+    /// inside: true if looking from inside the region
+    ///         false if looking from the outside such as through a selected name
     pub fn lookup(&self, designator: &Designator, inside: bool) -> Option<&VisibleDeclaration> {
         self.decls
             .get(designator)
@@ -390,6 +618,11 @@ impl<'a> DeclarativeRegion<'a> {
                 } else {
                     None
                 }
+            })
+            .or_else(|| {
+                self.extends
+                    .as_ref()
+                    .and_then(|parent| parent.lookup(designator, inside))
             })
             .or_else(|| {
                 self.parent

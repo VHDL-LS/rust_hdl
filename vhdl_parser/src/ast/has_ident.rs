@@ -107,6 +107,12 @@ impl From<Symbol> for Designator {
     }
 }
 
+impl From<WithPos<Symbol>> for WithPos<Designator> {
+    fn from(other: WithPos<Symbol>) -> WithPos<Designator> {
+        other.map_into(|sym| sym.into())
+    }
+}
+
 impl<'a> From<&'a Symbol> for Designator {
     fn from(other: &'a Symbol) -> Designator {
         other.clone().into()
