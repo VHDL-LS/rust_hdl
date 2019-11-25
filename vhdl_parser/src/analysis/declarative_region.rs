@@ -3,10 +3,11 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
-use super::library::{EntityDesignUnit, Library, PackageDesignUnit};
+use super::library::Library;
 use crate::ast::*;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::source::{SrcPos, WithPos};
+use crate::symbol_table::Symbol;
 
 use self::fnv::FnvHashMap;
 use fnv;
@@ -16,17 +17,17 @@ use std::sync::Arc;
 
 /// The analysis result of the primary unit
 #[derive(Clone)]
-pub struct PrimaryUnitData<'a> {
+pub struct PrimaryUnitData {
     diagnostics: Vec<Diagnostic>,
-    pub region: DeclarativeRegion<'a, 'a>,
+    pub region: DeclarativeRegion<'static>,
 }
 
 // @TODO store data in library, declarative region or in analysis context?
-impl<'a> PrimaryUnitData<'a> {
+impl PrimaryUnitData {
     pub fn new(
         diagnostics: Vec<Diagnostic>,
-        region: DeclarativeRegion<'a, 'a>,
-    ) -> PrimaryUnitData<'_> {
+        region: DeclarativeRegion<'static>,
+    ) -> PrimaryUnitData {
         PrimaryUnitData {
             diagnostics,
             region,
@@ -41,97 +42,117 @@ impl<'a> PrimaryUnitData<'a> {
 }
 
 #[derive(Clone)]
-pub enum AnyDeclaration<'a> {
-    Declaration(&'a Declaration),
-    Element(&'a ElementDeclaration),
-    Enum(&'a WithPos<EnumerationLiteral>),
-    Interface(&'a InterfaceDeclaration),
-    Library(&'a Library),
-    Package(&'a Library, &'a PackageDesignUnit),
-    Context(&'a ContextDeclaration),
-    Entity(&'a EntityDesignUnit),
-    Configuration(&'a DesignUnit<ConfigurationDeclaration>),
-    PackageInstance(&'a Library, &'a DesignUnit<PackageInstantiation>),
-    LocalPackageInstance(&'a Ident, Arc<PrimaryUnitData<'a>>),
+pub enum AnyDeclaration {
+    Other,
+    TypeDeclaration,
+    IncompleteType,
+    Constant,
+    DeferredConstant,
+    ProtectedType,
+    ProtectedTypeBody,
+    Library(Symbol),
+    Package(Symbol, Symbol),
+    Context(Symbol, Symbol),
+    PackageInstance(Symbol, Symbol),
+    LocalPackageInstance(Symbol, Arc<PrimaryUnitData>),
 }
 
-impl<'a> AnyDeclaration<'a> {
-    fn is_deferred_constant(&self) -> bool {
-        match self {
-            AnyDeclaration::Declaration(Declaration::Object(ObjectDeclaration {
-                ref class,
+impl AnyDeclaration {
+    pub fn from_declaration(decl: &Declaration) -> AnyDeclaration {
+        match decl {
+            Declaration::Object(ObjectDeclaration {
+                class: ObjectClass::Constant,
                 ref expression,
                 ..
-            })) => *class == ObjectClass::Constant && expression.is_none(),
-            _ => false,
+            }) => {
+                if expression.is_none() {
+                    AnyDeclaration::DeferredConstant
+                } else {
+                    AnyDeclaration::Constant
+                }
+            }
+            Declaration::Type(TypeDeclaration {
+                def: TypeDefinition::Protected { .. },
+                ..
+            }) => AnyDeclaration::ProtectedType,
+            Declaration::Type(TypeDeclaration {
+                def: TypeDefinition::ProtectedBody { .. },
+                ..
+            }) => AnyDeclaration::ProtectedTypeBody,
+            Declaration::Type(TypeDeclaration {
+                def: TypeDefinition::Incomplete,
+                ..
+            }) => AnyDeclaration::IncompleteType,
+            Declaration::Type(..) => return AnyDeclaration::TypeDeclaration,
+            _ => AnyDeclaration::Other,
+        }
+    }
+
+    fn is_deferred_constant(&self) -> bool {
+        if let AnyDeclaration::DeferredConstant = self {
+            true
+        } else {
+            false
         }
     }
 
     fn is_non_deferred_constant(&self) -> bool {
-        match self {
-            AnyDeclaration::Declaration(Declaration::Object(ObjectDeclaration {
-                ref class,
-                ref expression,
-                ..
-            })) => *class == ObjectClass::Constant && expression.is_some(),
-            _ => false,
+        if let AnyDeclaration::Constant = self {
+            true
+        } else {
+            false
         }
     }
 
     fn is_protected_type(&self) -> bool {
-        match self {
-            AnyDeclaration::Declaration(Declaration::Type(TypeDeclaration {
-                def: TypeDefinition::Protected { .. },
-                ..
-            })) => true,
-            _ => false,
+        if let AnyDeclaration::ProtectedType = self {
+            true
+        } else {
+            false
         }
     }
 
     fn is_protected_type_body(&self) -> bool {
-        match self {
-            AnyDeclaration::Declaration(Declaration::Type(TypeDeclaration {
-                def: TypeDefinition::ProtectedBody { .. },
-                ..
-            })) => true,
-            _ => false,
+        if let AnyDeclaration::ProtectedTypeBody = self {
+            true
+        } else {
+            false
         }
     }
 
     fn is_incomplete_type(&self) -> bool {
-        match self {
-            AnyDeclaration::Declaration(Declaration::Type(TypeDeclaration {
-                def: TypeDefinition::Incomplete,
-                ..
-            })) => true,
-            _ => false,
+        if let AnyDeclaration::IncompleteType = self {
+            true
+        } else {
+            false
         }
     }
 
     fn is_type_declaration(&self) -> bool {
-        match self {
-            AnyDeclaration::Declaration(Declaration::Type(..)) => true,
-            _ => false,
+        if let AnyDeclaration::TypeDeclaration = self {
+            true
+        } else {
+            false
         }
     }
 }
 
 #[derive(Clone)]
-pub struct VisibleDeclaration<'a> {
+pub struct VisibleDeclaration {
     pub designator: Designator,
 
     /// The location where the declaration was made
     /// Builtin and implicit declaration will not have a source position
     pub decl_pos: Option<SrcPos>,
-    pub decl: AnyDeclaration<'a>,
+    pub decl: AnyDeclaration,
     pub may_overload: bool,
 }
 
-impl<'a> VisibleDeclaration<'a> {
+impl VisibleDeclaration {
     pub fn new(
         designator: impl Into<WithPos<Designator>>,
-        decl: AnyDeclaration<'a>,
-    ) -> VisibleDeclaration<'a> {
+        decl: AnyDeclaration,
+    ) -> VisibleDeclaration {
         let designator = designator.into();
         VisibleDeclaration {
             designator: designator.item,
@@ -153,7 +174,7 @@ impl<'a> VisibleDeclaration<'a> {
         }
     }
 
-    pub fn with_overload(mut self, value: bool) -> VisibleDeclaration<'a> {
+    pub fn with_overload(mut self, value: bool) -> VisibleDeclaration {
         self.may_overload = value;
         self
     }
@@ -177,15 +198,15 @@ enum RegionKind {
 /// Most parent regions can just be temporarily borrowed
 /// For public regions of design units the parent must be owned such that these regions can be stored in a map
 #[derive(Clone)]
-enum ParentRegion<'r, 'a: 'r> {
-    Borrowed(&'r DeclarativeRegion<'r, 'a>),
-    Owned(Box<DeclarativeRegion<'r, 'a>>),
+enum ParentRegion<'a> {
+    Borrowed(&'a DeclarativeRegion<'a>),
+    Owned(Box<DeclarativeRegion<'static>>),
 }
 
-impl<'r, 'a> Deref for ParentRegion<'r, 'a> {
-    type Target = DeclarativeRegion<'r, 'a>;
+impl<'a> Deref for ParentRegion<'a> {
+    type Target = DeclarativeRegion<'a>;
 
-    fn deref(&self) -> &DeclarativeRegion<'r, 'a> {
+    fn deref(&self) -> &DeclarativeRegion<'a> {
         match self {
             ParentRegion::Borrowed(region) => region,
             ParentRegion::Owned(ref region) => region.as_ref(),
@@ -193,29 +214,16 @@ impl<'r, 'a> Deref for ParentRegion<'r, 'a> {
     }
 }
 
-impl<'r, 'a> ParentRegion<'r, 'a> {
-    fn into_owned(self) -> ParentRegion<'a, 'a> {
-        match self {
-            ParentRegion::Borrowed(region) => {
-                ParentRegion::Owned(Box::new(region.clone().into_owned_parent()))
-            }
-            ParentRegion::Owned(region) => {
-                ParentRegion::Owned(Box::new(region.into_owned_parent()))
-            }
-        }
-    }
-}
-
 #[derive(Clone)]
-pub struct DeclarativeRegion<'r, 'a: 'r> {
-    parent: Option<ParentRegion<'r, 'a>>,
-    visible: FnvHashMap<Designator, VisibleDeclaration<'a>>,
-    decls: FnvHashMap<Designator, VisibleDeclaration<'a>>,
+pub struct DeclarativeRegion<'a> {
+    parent: Option<ParentRegion<'a>>,
+    visible: FnvHashMap<Designator, VisibleDeclaration>,
+    decls: FnvHashMap<Designator, VisibleDeclaration>,
     kind: RegionKind,
 }
 
-impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
-    pub fn new(parent: Option<&'r DeclarativeRegion<'r, 'a>>) -> DeclarativeRegion<'r, 'a> {
+impl<'a> DeclarativeRegion<'a> {
+    pub fn new(parent: Option<&'a DeclarativeRegion<'a>>) -> DeclarativeRegion<'a> {
         DeclarativeRegion {
             parent: parent.map(|parent| ParentRegion::Borrowed(parent)),
             visible: FnvHashMap::default(),
@@ -224,34 +232,25 @@ impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
         }
     }
 
-    pub fn in_package_declaration(mut self) -> DeclarativeRegion<'r, 'a> {
+    pub fn new_owned_parent(parent: Box<DeclarativeRegion<'static>>) -> DeclarativeRegion<'static> {
+        DeclarativeRegion {
+            parent: Some(ParentRegion::Owned(parent)),
+            visible: FnvHashMap::default(),
+            decls: FnvHashMap::default(),
+            kind: RegionKind::Other,
+        }
+    }
+
+    pub fn in_package_declaration(mut self) -> DeclarativeRegion<'a> {
         self.kind = RegionKind::PackageDeclaration;
         self
     }
 
-    /// Clone the region with owned version of all parents
-    pub fn into_owned_parent<'s>(self) -> DeclarativeRegion<'s, 'a> {
-        let parent = {
-            if let Some(parent) = self.parent {
-                Some(parent.into_owned())
-            } else {
-                None
-            }
-        };
-
-        DeclarativeRegion {
-            parent,
-            visible: self.visible,
-            decls: self.decls,
-            kind: self.kind,
-        }
-    }
-
-    pub fn clone_parent(&self) -> Option<DeclarativeRegion<'r, 'a>> {
+    pub fn clone_parent(&self) -> Option<DeclarativeRegion<'a>> {
         self.parent.as_ref().map(|parent| parent.deref().to_owned())
     }
 
-    pub fn into_extended(self, parent: &'r DeclarativeRegion<'r, 'a>) -> DeclarativeRegion<'r, 'a> {
+    pub fn into_extended(self, parent: &'a DeclarativeRegion<'a>) -> DeclarativeRegion<'a> {
         let kind = match self.kind {
             RegionKind::PackageDeclaration => RegionKind::PackageBody,
             _ => RegionKind::Other,
@@ -313,7 +312,7 @@ impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
         self.close_extended(diagnostics);
     }
 
-    pub fn add(&mut self, decl: VisibleDeclaration<'a>, diagnostics: &mut dyn DiagnosticHandler) {
+    pub fn add(&mut self, decl: VisibleDeclaration, diagnostics: &mut dyn DiagnosticHandler) {
         if self.kind != RegionKind::PackageDeclaration && decl.decl.is_deferred_constant() {
             decl.error(
                 diagnostics,
@@ -361,32 +360,28 @@ impl<'r, 'a: 'r> DeclarativeRegion<'r, 'a> {
         }
     }
 
-    pub fn make_library_visible(
-        &mut self,
-        designator: impl Into<Designator>,
-        library: &'a Library,
-    ) {
+    pub fn make_library_visible(&mut self, designator: impl Into<Designator>, library: &Library) {
         let decl = VisibleDeclaration {
             designator: designator.into(),
             decl_pos: None,
-            decl: AnyDeclaration::Library(library),
+            decl: AnyDeclaration::Library(library.name.clone()),
             may_overload: false,
         };
         self.visible.insert(decl.designator.clone(), decl);
     }
 
-    pub fn make_potentially_visible(&mut self, decl: impl Into<VisibleDeclaration<'a>>) {
+    pub fn make_potentially_visible(&mut self, decl: impl Into<VisibleDeclaration>) {
         let decl = decl.into();
         self.visible.insert(decl.designator.clone(), decl);
     }
 
-    pub fn make_all_potentially_visible(&mut self, region: &DeclarativeRegion<'_, 'a>) {
+    pub fn make_all_potentially_visible(&mut self, region: &DeclarativeRegion<'a>) {
         for decl in region.decls.values() {
             self.make_potentially_visible(decl.clone());
         }
     }
 
-    pub fn lookup(&self, designator: &Designator, inside: bool) -> Option<&VisibleDeclaration<'a>> {
+    pub fn lookup(&self, designator: &Designator, inside: bool) -> Option<&VisibleDeclaration> {
         self.decls
             .get(designator)
             .or_else(|| {

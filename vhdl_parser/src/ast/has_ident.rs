@@ -135,6 +135,12 @@ impl SubprogramDeclaration {
                 .map_into(|des| des.into_designator()),
         }
     }
+    pub fn pos(&self) -> &SrcPos {
+        match self {
+            SubprogramDeclaration::Function(ref function) => &function.designator.pos,
+            SubprogramDeclaration::Procedure(ref procedure) => &procedure.designator.pos,
+        }
+    }
 }
 
 impl EnumerationLiteral {

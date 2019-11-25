@@ -345,7 +345,6 @@ impl<'a> Library {
         self.packages.get(name)
     }
 
-    #[cfg(test)]
     pub fn package_instance(
         &'a self,
         name: &Symbol,
@@ -353,7 +352,6 @@ impl<'a> Library {
         self.package_instances.get(name)
     }
 
-    #[cfg(test)]
     pub fn context(&'a self, name: &Symbol) -> Option<&'a ContextDeclaration> {
         self.contexts.get(name)
     }
