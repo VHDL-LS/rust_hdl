@@ -30,12 +30,14 @@ pub fn parse_designator(stream: &mut TokenStream) -> ParseResult<WithPos<Designa
 }
 
 pub fn parse_selected_name(stream: &mut TokenStream) -> ParseResult<WithPos<SelectedName>> {
-    let mut name = parse_designator(stream)?.map_into(SelectedName::Designator);
+    let mut name = parse_designator(stream)?
+        .into_ref()
+        .map_into(SelectedName::Designator);
     loop {
         if !stream.skip_if_kind(Dot)? {
             break;
         }
-        let suffix = parse_designator(stream)?;
+        let suffix = parse_designator(stream)?.into_ref();
         let pos = suffix.pos.combine(&name.pos);
         name = WithPos::from(SelectedName::Selected(Box::new(name), suffix), pos);
     }
@@ -86,11 +88,11 @@ fn expression_to_name(expr: WithPos<Expression>) -> ParseResult<WithPos<Name>> {
             pos: expr.pos,
         }),
         Expression::Literal(Literal::String(val)) => Ok(WithPos {
-            item: Name::Designator(Designator::OperatorSymbol(val)),
+            item: Name::Designator(Designator::OperatorSymbol(val).into_ref()),
             pos: expr.pos,
         }),
         Expression::Literal(Literal::Character(val)) => Ok(WithPos {
-            item: Name::Designator(Designator::Character(val)),
+            item: Name::Designator(Designator::Character(val).into_ref()),
             pos: expr.pos,
         }),
         _ => Err(Diagnostic::error(&expr, "Expected name")),
@@ -299,7 +301,7 @@ pub fn parse_name_initial_token(
             let suffix = to_suffix(token)?;
             match suffix.item {
                 DesignatorOrAll::Designator(designator) => {
-                    WithPos::from(Name::Designator(designator), suffix.pos)
+                    WithPos::from(Name::Designator(designator.into_ref()), suffix.pos)
                 }
                 DesignatorOrAll::All => {
                     return Err(Diagnostic::error(
@@ -324,7 +326,7 @@ pub fn parse_name_initial_token(
                         name = WithPos {
                             item: Name::Selected(
                                 Box::new(name),
-                                WithPos::from(designator, suffix.pos),
+                                WithPos::from(designator.into_ref(), suffix.pos),
                             ),
                             pos,
                         }
@@ -427,19 +429,28 @@ mod tests {
             code.with_stream(parse_selected_name),
             code.s1("foo")
                 .ident()
-                .map_into(|sym| SelectedName::Designator(Designator::Identifier(sym)))
+                .map_into(|sym| SelectedName::Designator(Designator::Identifier(sym).into_ref()))
         );
     }
 
     #[test]
     fn test_parse_selected_name_multiple() {
         let code = Code::new("foo.bar.baz");
-        let baz = code.s1("baz").ident().map_into(Designator::Identifier);
-        let bar = code.s1("bar").ident().map_into(Designator::Identifier);
+        let baz = code
+            .s1("baz")
+            .ident()
+            .map_into(Designator::Identifier)
+            .into_ref();
+        let bar = code
+            .s1("bar")
+            .ident()
+            .map_into(Designator::Identifier)
+            .into_ref();
         let foo = code
             .s1("foo")
             .ident()
             .map_into(Designator::Identifier)
+            .into_ref()
             .map_into(SelectedName::Designator);
         let foo_bar = WithPos::from(
             SelectedName::Selected(Box::new(foo), bar),
@@ -472,7 +483,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_name),
             WithPos {
-                item: Name::Designator(Designator::Identifier(code.symbol("foo"))),
+                item: Name::Designator(Designator::Identifier(code.symbol("foo")).into_ref()),
                 pos: code.s1("foo").pos()
             }
         );
@@ -484,7 +495,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_name),
             WithPos {
-                item: Name::Designator(Designator::Character(b'a')),
+                item: Name::Designator(Designator::Character(b'a').into_ref()),
                 pos: code.s1("'a'").pos()
             }
         );
@@ -496,9 +507,9 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_name),
             WithPos {
-                item: Name::Designator(Designator::OperatorSymbol(
-                    Latin1String::from_utf8_unchecked("+")
-                )),
+                item: Name::Designator(
+                    Designator::OperatorSymbol(Latin1String::from_utf8_unchecked("+")).into_ref()
+                ),
                 pos: code.s1("\"+\"").pos()
             }
         );
@@ -509,7 +520,7 @@ mod tests {
         let code = Code::new("foo.bar.baz");
 
         let foo = WithPos {
-            item: Name::Designator(Designator::Identifier(code.symbol("foo"))),
+            item: Name::Designator(Designator::Identifier(code.symbol("foo")).into_ref()),
             pos: code.s1("foo").pos(),
         };
 
@@ -524,12 +535,12 @@ mod tests {
         };
 
         let foo_bar = WithPos {
-            item: Name::Selected(Box::new(foo), bar),
+            item: Name::Selected(Box::new(foo), bar.into_ref()),
             pos: code.s1("foo.bar").pos(),
         };
 
         let foo_bar_baz = WithPos {
-            item: Name::Selected(Box::new(foo_bar), baz),
+            item: Name::Selected(Box::new(foo_bar), baz.into_ref()),
             pos: code.s1("foo.bar.baz").pos(),
         };
 
@@ -541,7 +552,7 @@ mod tests {
         let code = Code::new("foo.all");
 
         let foo = WithPos {
-            item: Name::Designator(Designator::Identifier(code.symbol("foo"))),
+            item: Name::Designator(Designator::Identifier(code.symbol("foo")).into_ref()),
             pos: code.s1("foo").pos(),
         };
 
@@ -557,7 +568,7 @@ mod tests {
     fn test_slice_name_range_to() {
         let code = Code::new("prefix(0 to 3)");
         let prefix = WithPos {
-            item: Name::Designator(Designator::Identifier(code.symbol("prefix"))),
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
             pos: code.s1("prefix").pos(),
         };
         let slice = WithPos {
@@ -571,7 +582,7 @@ mod tests {
     fn test_slice_name_range_downto() {
         let code = Code::new("prefix(3 downto 0)");
         let prefix = WithPos {
-            item: Name::Designator(Designator::Identifier(code.symbol("prefix"))),
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
             pos: code.s1("prefix").pos(),
         };
         let slice = WithPos {
@@ -585,7 +596,7 @@ mod tests {
     fn test_attribute_name() {
         let code = Code::new("prefix'foo");
         let prefix = WithPos {
-            item: Name::Designator(Designator::Identifier(code.symbol("prefix"))),
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
             pos: code.s1("prefix").pos(),
         };
         let attr = WithPos {
@@ -604,7 +615,7 @@ mod tests {
     fn test_attribute_name_range() {
         let code = Code::new("prefix'range");
         let prefix = WithPos {
-            item: Name::Designator(Designator::Identifier(code.symbol("prefix"))),
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
             pos: code.s1("prefix").pos(),
         };
         let attr = WithPos {
@@ -626,7 +637,7 @@ mod tests {
     fn test_attribute_name_expression() {
         let code = Code::new("prefix'foo(expr+1)");
         let prefix = WithPos {
-            item: Name::Designator(Designator::Identifier(code.symbol("prefix"))),
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
             pos: code.s1("prefix").pos(),
         };
         let attr = WithPos {
@@ -645,7 +656,7 @@ mod tests {
     fn test_attribute_name_signature_expression() {
         let code = Code::new("prefix[return natural]'foo(expr+1)");
         let prefix = WithPos {
-            item: Name::Designator(Designator::Identifier(code.symbol("prefix"))),
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
             pos: code.s1("prefix").pos(),
         };
         let attr = WithPos {
@@ -670,7 +681,7 @@ mod tests {
             result
         });
         let prefix = WithPos {
-            item: Name::Designator(Designator::Identifier(code.symbol("prefix"))),
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
             pos: code.s1("prefix").pos(),
         };
         assert_eq!(name, Ok(prefix));
@@ -686,7 +697,7 @@ mod tests {
             result
         });
         let prefix = WithPos {
-            item: Name::Designator(Designator::Identifier(code.symbol("prefix"))),
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
             pos: code.s1("prefix").pos(),
         };
         assert_eq!(name, prefix);
@@ -697,7 +708,7 @@ mod tests {
         let code = Code::new("foo(0)");
 
         let foo = WithPos {
-            item: Name::Designator(Designator::Identifier(code.symbol("foo"))),
+            item: Name::Designator(Designator::Identifier(code.symbol("foo")).into_ref()),
             pos: code.s1("foo").pos(),
         };
 
@@ -720,7 +731,7 @@ mod tests {
         let code = Code::new("prefix(0, 1)(3).suffix");
 
         let prefix = WithPos {
-            item: Name::Designator(Designator::Identifier(code.symbol("prefix"))),
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
             pos: code.s1("prefix").pos(),
         };
 
@@ -758,7 +769,7 @@ mod tests {
         };
 
         let prefix_index_3_suffix = WithPos {
-            item: Name::Selected(Box::new(prefix_index_3), suffix),
+            item: Name::Selected(Box::new(prefix_index_3), suffix.into_ref()),
             pos: code.s1("prefix(0, 1)(3).suffix").pos(),
         };
 
@@ -770,12 +781,12 @@ mod tests {
         let code = Code::new("foo(arg => 0)");
 
         let foo = WithPos {
-            item: Name::Designator(Designator::Identifier(code.symbol("foo"))),
+            item: Name::Designator(Designator::Identifier(code.symbol("foo")).into_ref()),
             pos: code.s1("foo").pos(),
         };
 
         let arg = WithPos {
-            item: Name::Designator(Designator::Identifier(code.symbol("arg"))),
+            item: Name::Designator(Designator::Identifier(code.symbol("arg")).into_ref()),
             pos: code.s1("arg").pos(),
         };
 

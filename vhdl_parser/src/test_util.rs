@@ -256,6 +256,10 @@ impl Code {
         self.parse_ok(parse_designator)
     }
 
+    pub fn designator_ref(&self) -> WithPos<WithRef<Designator>> {
+        self.parse_ok(parse_designator).into_ref()
+    }
+
     pub fn character(&self) -> WithPos<u8> {
         self.parse_ok(|stream: &mut TokenStream| stream.expect()?.expect_character())
     }

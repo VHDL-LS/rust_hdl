@@ -7,7 +7,7 @@
 use crate::ast::{
     Allocator, Binary, Choice, Designator, Direction, DiscreteRange, ElementAssociation,
     Expression, Literal, Name, QualifiedExpression, Range, RangeConstraint, ResolutionIndication,
-    SubtypeIndication, Unary,
+    SubtypeIndication, Unary, WithRef,
 };
 use crate::diagnostic::{Diagnostic, ParseResult};
 use crate::names::{parse_name_initial_token, parse_selected_name};
@@ -271,7 +271,10 @@ fn parse_primary_initial_token(
         StringLiteral => {
             let name = parse_name_initial_token(stream, token)?;
             match name.item {
-                Name::Designator(Designator::OperatorSymbol(string)) => Ok(WithPos {
+                Name::Designator(WithRef {
+                    item: Designator::OperatorSymbol(string),
+                    ..
+                }) => Ok(WithPos {
                     item: Expression::Literal(Literal::String(string)),
                     pos: name.pos,
                 }),
@@ -597,9 +600,9 @@ mod tests {
     fn parses_not_expression() {
         let code = Code::new("not false");
         let name_false = WithPos {
-            item: Expression::Name(Box::new(Name::Designator(Designator::Identifier(
-                code.symbol("false"),
-            )))),
+            item: Expression::Name(Box::new(Name::Designator(
+                Designator::Identifier(code.symbol("false")).into_ref(),
+            ))),
             pos: code.s1("false").pos(),
         };
 
@@ -616,7 +619,7 @@ mod tests {
         let code = Code::new("new integer_vector'(0, 1)");
         let vec_name = code
             .s1("integer_vector")
-            .designator()
+            .designator_ref()
             .map_into(Name::Designator);
         let expr = code.s1("(0, 1)").expr();
 
@@ -757,7 +760,7 @@ mod tests {
     #[test]
     fn parses_qualified_expression() {
         let code = Code::new("foo'(1+2)");
-        let foo_name = code.s1("foo").designator().map_into(Name::Designator);
+        let foo_name = code.s1("foo").designator_ref().map_into(Name::Designator);
         let expr = code.s1("(1+2)").expr();
 
         let qexpr = WithPos {
@@ -774,7 +777,7 @@ mod tests {
     #[test]
     fn parses_qualified_aggregate() {
         let code = Code::new("foo'(others => '1')");
-        let foo_name = code.s1("foo").designator().map_into(Name::Designator);
+        let foo_name = code.s1("foo").designator_ref().map_into(Name::Designator);
         let expr = code.s1("(others => '1')").expr();
 
         let qexpr = WithPos {

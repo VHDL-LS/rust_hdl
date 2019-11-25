@@ -19,11 +19,17 @@ impl Display for Designator {
     }
 }
 
+impl<T: Display> Display for WithRef<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{}", &self.item)
+    }
+}
+
 impl Display for SelectedName {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            SelectedName::Selected(ref prefix, ref des) => write!(f, "{}.{}", prefix, des),
-            SelectedName::Designator(ref des) => write!(f, "{}", des),
+            SelectedName::Selected(ref prefix, ref des) => write!(f, "{}.{}", prefix, &des),
+            SelectedName::Designator(ref des) => write!(f, "{}", &des),
         }
     }
 }

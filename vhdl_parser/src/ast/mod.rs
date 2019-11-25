@@ -16,7 +16,7 @@ pub use self::display::*;
 pub use self::name_util::*;
 
 use crate::latin_1::Latin1String;
-use crate::source::WithPos;
+use crate::source::{SrcPos, WithPos};
 use crate::symbol_table::Symbol;
 
 /// LRM 15.8 Bit string literals
@@ -126,8 +126,8 @@ pub struct ExternalName {
 /// LRM 8. Names
 #[derive(PartialEq, Debug, Clone)]
 pub enum Name {
-    Designator(Designator),
-    Selected(Box<WithPos<Name>>, WithPos<Designator>),
+    Designator(WithRef<Designator>),
+    Selected(Box<WithPos<Name>>, WithPos<WithRef<Designator>>),
     SelectedAll(Box<WithPos<Name>>),
     Indexed(Box<WithPos<Name>>, Vec<WithPos<Expression>>),
     Slice(Box<WithPos<Name>>, DiscreteRange),
@@ -140,8 +140,8 @@ pub enum Name {
 /// A subset of a full name allowing only selected name
 #[derive(PartialEq, Debug, Clone)]
 pub enum SelectedName {
-    Designator(Designator),
-    Selected(Box<WithPos<SelectedName>>, WithPos<Designator>),
+    Designator(WithRef<Designator>),
+    Selected(Box<WithPos<SelectedName>>, WithPos<WithRef<Designator>>),
 }
 
 /// LRM 9.3.4 Function calls
@@ -342,6 +342,20 @@ pub enum Designator {
     Identifier(Symbol),
     OperatorSymbol(Latin1String),
     Character(u8),
+}
+
+/// An item which has a reference to a declaration
+#[derive(PartialEq, Debug, Clone)]
+pub struct WithRef<T> {
+    pub item: T,
+    // @TODO just store the positions of the reference for now
+    references: Vec<SrcPos>,
+}
+
+impl<T> WithRef<T> {
+    pub fn reference_positions(&self) -> impl Iterator<Item = &SrcPos> {
+        self.references.iter()
+    }
 }
 
 /// LRM 6.6 Alias declarations

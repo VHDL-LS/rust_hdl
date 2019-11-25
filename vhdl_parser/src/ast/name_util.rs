@@ -30,7 +30,10 @@ impl From<WithPos<SelectedName>> for WithPos<Name> {
 
 pub fn to_simple_name(name: WithPos<Name>) -> ParseResult<Ident> {
     match name.item {
-        Name::Designator(Designator::Identifier(ident)) => Ok(WithPos {
+        Name::Designator(WithRef {
+            item: Designator::Identifier(ident),
+            ..
+        }) => Ok(WithPos {
             item: ident,
             pos: name.pos,
         }),
@@ -51,6 +54,27 @@ impl<T: HasDesignator> HasDesignator for WithPos<T> {
 impl HasDesignator for Designator {
     fn designator(&self) -> &Designator {
         self
+    }
+}
+
+impl<T: HasDesignator> HasDesignator for WithRef<T> {
+    fn designator(&self) -> &Designator {
+        self.item.designator()
+    }
+}
+
+impl Designator {
+    pub fn into_ref(self) -> WithRef<Designator> {
+        WithRef {
+            item: self,
+            references: Vec::new(),
+        }
+    }
+}
+
+impl WithPos<Designator> {
+    pub fn into_ref(self) -> WithPos<WithRef<Designator>> {
+        self.map_into(|name| name.into_ref())
     }
 }
 

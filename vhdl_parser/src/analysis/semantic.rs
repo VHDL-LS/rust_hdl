@@ -232,7 +232,7 @@ impl<'a> Analyzer<'a> {
                 others => Ok(others),
             },
             Name::Designator(ref designator) => {
-                if let Some(visible_item) = region.lookup(&designator, true) {
+                if let Some(visible_item) = region.lookup(designator.designator(), true) {
                     Ok(LookupResult::Single(visible_item.clone()))
                 } else {
                     Err(Diagnostic::error(

@@ -123,7 +123,7 @@ pub fn parse_element_resolution_indication(
     Ok(try_token_kind!(
         token,
         Dot | RightPar => {
-            let selected_name = first_ident.map_into(|sym| SelectedName::Designator(Designator::Identifier(sym)));
+            let selected_name = first_ident.map_into(|sym| SelectedName::Designator(Designator::Identifier(sym).into_ref()));
             stream.expect_kind(RightPar)?;
             ResolutionIndication::ArrayElement(selected_name)
         },
