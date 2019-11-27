@@ -21,6 +21,7 @@ use std::io;
 pub struct Project {
     parser: VHDLParser,
     files: FnvHashMap<String, SourceFile>,
+    empty_libraries: Vec<Symbol>,
 }
 
 impl Project {
@@ -28,6 +29,7 @@ impl Project {
         Project {
             parser: VHDLParser::new(),
             files: FnvHashMap::default(),
+            empty_libraries: Vec::new(),
         }
     }
 
@@ -44,7 +46,10 @@ impl Project {
                 Latin1String::from_utf8(library.name()).expect("Library name not latin-1 encoded");
             let library_name = project.parser.symbol(&library_name);
 
+            let mut empty_library = true;
             for file_name in library.file_names(messages) {
+                empty_library = false;
+
                 match files_to_parse.entry(file_name.clone()) {
                     Entry::Occupied(mut entry) => {
                         entry.get_mut().library_names.push(library_name.clone());
@@ -58,6 +63,10 @@ impl Project {
                         entry.insert(file_to_parse);
                     }
                 }
+            }
+
+            if empty_library {
+                project.empty_libraries.push(library_name)
             }
         }
 
@@ -170,6 +179,15 @@ impl Project {
             ));
         }
 
+        for library_name in self.empty_libraries.iter() {
+            root.add_library(Library::new(
+                library_name.clone(),
+                &work_sym,
+                Vec::new(),
+                &mut diagnostics,
+            ));
+        }
+
         Analyzer::new(&root, &self.parser.symtab.clone()).analyze(&mut diagnostics);
         diagnostics
     }
@@ -196,4 +214,41 @@ struct SourceFile {
     library_names: Vec<Symbol>,
     design_file: Option<DesignFile>,
     parser_diagnostics: Vec<Diagnostic>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_util::check_no_diagnostics;
+
+    /// Test that an empty library is created
+    /// Thus test case was added when fixing a bug
+    /// Where a library with no files was never added
+    #[test]
+    fn test_empty_library_is_defined() {
+        let root = tempfile::tempdir().unwrap();
+        let vhdl_file_path = root.path().join("file.vhd");
+        std::fs::write(
+            &vhdl_file_path,
+            "
+library missing;
+
+entity ent is
+end entity;
+        ",
+        )
+        .unwrap();
+
+        let config_str = "
+[libraries]
+missing.files = []
+lib.files = ['file.vhd']
+        ";
+
+        let config = Config::from_str(config_str, root.path()).unwrap();
+        let mut messages = Vec::new();
+        let mut project = Project::from_config(&config, 1, &mut messages);
+        assert_eq!(messages, vec![]);
+        check_no_diagnostics(&project.analyse());
+    }
 }
