@@ -251,4 +251,51 @@ lib.files = ['file.vhd']
         assert_eq!(messages, vec![]);
         check_no_diagnostics(&project.analyse());
     }
+
+    /// Test that the same file can be added to several libraries
+    #[test]
+    fn test_same_file_in_multiple_libraries() {
+        let root = tempfile::tempdir().unwrap();
+        let vhdl_file_path1 = root.path().join("file.vhd");
+        std::fs::write(
+            &vhdl_file_path1,
+            "
+package pkg is
+end package;
+        ",
+        )
+        .unwrap();
+
+        let vhdl_file_path2 = root.path().join("use_file.vhd");
+        std::fs::write(
+            &vhdl_file_path2,
+            "
+library lib1;
+use lib1.pkg.all;
+
+package use_pkg1 is
+end package;
+
+library lib2;
+use lib2.pkg.all;
+
+package use_pkg2 is
+end package;
+        ",
+        )
+        .unwrap();
+
+        let config_str = "
+[libraries]
+lib1.files = ['file.vhd']
+lib2.files = ['file.vhd']
+use_lib.files = ['use_file.vhd']
+        ";
+
+        let config = Config::from_str(config_str, root.path()).unwrap();
+        let mut messages = Vec::new();
+        let mut project = Project::from_config(&config, 1, &mut messages);
+        assert_eq!(messages, vec![]);
+        check_no_diagnostics(&project.analyse());
+    }
 }
