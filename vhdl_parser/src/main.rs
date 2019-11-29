@@ -67,13 +67,12 @@ fn main() {
 
         let mut messages = Vec::new();
         let mut project = Project::from_config(&config, num_threads, &mut messages);
-        show_diagnostics(&project.analyse());
-
         if !messages.is_empty() {
             for message in messages {
                 println!("{}", message);
             }
         }
+        show_diagnostics(&project.analyse());
     }
 }
 
