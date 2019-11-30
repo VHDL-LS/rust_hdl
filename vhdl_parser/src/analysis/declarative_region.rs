@@ -544,7 +544,14 @@ impl<'a> DeclarativeRegion<'a> {
         check_ok
     }
 
-    pub fn add(&mut self, decl: VisibleDeclaration, diagnostics: &mut dyn DiagnosticHandler) {
+    pub fn add(
+        &mut self,
+        designator: impl Into<WithPos<Designator>>,
+        decl: AnyDeclaration,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        let decl = VisibleDeclaration::new(designator, decl);
+
         let ext_decl = self
             .extends
             .as_ref()

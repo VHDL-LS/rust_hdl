@@ -206,44 +206,46 @@ impl<'a> Analyzer<'a> {
             for package in library.packages() {
                 let package_sym = package.package.unit.ident.item.clone();
 
-                let decl = VisibleDeclaration::new(
+                region.add(
                     &package.package.unit.ident,
                     AnyDeclaration::Package(library.name.clone(), package_sym),
+                    &mut diagnostics,
                 );
-
-                region.add(decl, &mut diagnostics);
             }
 
             for context in library.contexts() {
                 let context_sym = context.ident.item.clone();
 
-                let decl = VisibleDeclaration::new(
+                region.add(
                     &context.ident,
                     AnyDeclaration::Context(library.name.clone(), context_sym),
+                    &mut diagnostics,
                 );
-
-                region.add(decl, &mut diagnostics);
             }
 
             for entity in library.entities() {
-                let decl =
-                    VisibleDeclaration::new(&entity.entity.unit.ident, AnyDeclaration::Other);
-                region.add(decl, &mut diagnostics);
+                region.add(
+                    &entity.entity.unit.ident,
+                    AnyDeclaration::Other,
+                    &mut diagnostics,
+                );
 
                 for configuration in entity.configurations() {
-                    let decl =
-                        VisibleDeclaration::new(configuration.ident(), AnyDeclaration::Other);
-                    region.add(decl, &mut diagnostics);
+                    region.add(
+                        configuration.ident(),
+                        AnyDeclaration::Other,
+                        &mut diagnostics,
+                    );
                 }
             }
 
             for instance in library.package_instances() {
                 let instance_sym = instance.ident().item.clone();
-                let decl = VisibleDeclaration::new(
+                region.add(
                     instance.ident(),
                     AnyDeclaration::PackageInstance(library.name.clone(), instance_sym),
+                    &mut diagnostics,
                 );
-                region.add(decl, &mut diagnostics);
             }
 
             library_regions.insert(library.name.clone(), region);
@@ -430,10 +432,7 @@ impl<'a> Analyzer<'a> {
         match decl {
             InterfaceDeclaration::File(ref file_decl) => {
                 self.analyze_subtype_indicaton(region, &file_decl.subtype_indication, diagnostics);
-                region.add(
-                    VisibleDeclaration::new(&file_decl.ident, AnyDeclaration::Other),
-                    diagnostics,
-                );
+                region.add(&file_decl.ident, AnyDeclaration::Other, diagnostics);
             }
             InterfaceDeclaration::Object(ref object_decl) => {
                 self.analyze_subtype_indicaton(
@@ -441,33 +440,22 @@ impl<'a> Analyzer<'a> {
                     &object_decl.subtype_indication,
                     diagnostics,
                 );
-                region.add(
-                    VisibleDeclaration::new(&object_decl.ident, AnyDeclaration::Other),
-                    diagnostics,
-                );
+                region.add(&object_decl.ident, AnyDeclaration::Other, diagnostics);
             }
             InterfaceDeclaration::Type(ref ident) => {
-                region.add(
-                    VisibleDeclaration::new(ident, AnyDeclaration::Other),
-                    diagnostics,
-                );
+                region.add(ident, AnyDeclaration::Other, diagnostics);
             }
             InterfaceDeclaration::Subprogram(subpgm, ..) => {
                 self.analyze_subprogram_declaration(region, subpgm, diagnostics);
-                region.add(
-                    VisibleDeclaration::new(subpgm.designator(), AnyDeclaration::Overloaded),
-                    diagnostics,
-                );
+                region.add(subpgm.designator(), AnyDeclaration::Overloaded, diagnostics);
             }
             InterfaceDeclaration::Package(ref instance) => {
                 match self.analyze_package_instance_name(region, &instance.package_name) {
                     Ok(package_region) => region.add(
-                        VisibleDeclaration::new(
-                            &instance.ident,
-                            AnyDeclaration::LocalPackageInstance(
-                                instance.ident.item.clone(),
-                                package_region,
-                            ),
+                        &instance.ident,
+                        AnyDeclaration::LocalPackageInstance(
+                            instance.ident.item.clone(),
+                            package_region,
                         ),
                         diagnostics,
                     ),
@@ -554,14 +542,12 @@ impl<'a> Analyzer<'a> {
                     self.analyze_subtype_indicaton(region, subtype_indication, diagnostics);
                 }
                 region.add(
-                    VisibleDeclaration::new(
-                        alias.designator.clone(),
-                        if alias.signature.is_some() {
-                            AnyDeclaration::Overloaded
-                        } else {
-                            AnyDeclaration::Other
-                        },
-                    ),
+                    alias.designator.clone(),
+                    if alias.signature.is_some() {
+                        AnyDeclaration::Overloaded
+                    } else {
+                        AnyDeclaration::Other
+                    },
                     diagnostics,
                 );
             }
@@ -572,25 +558,17 @@ impl<'a> Analyzer<'a> {
                     diagnostics,
                 );
                 region.add(
-                    VisibleDeclaration::new(
-                        &object_decl.ident,
-                        AnyDeclaration::from_object_declaration(object_decl),
-                    ),
+                    &object_decl.ident,
+                    AnyDeclaration::from_object_declaration(object_decl),
                     diagnostics,
                 );
             }
             Declaration::File(ref file_decl) => {
                 self.analyze_subtype_indicaton(region, &file_decl.subtype_indication, diagnostics);
-                region.add(
-                    VisibleDeclaration::new(&file_decl.ident, AnyDeclaration::Other),
-                    diagnostics,
-                );
+                region.add(&file_decl.ident, AnyDeclaration::Other, diagnostics);
             }
             Declaration::Component(ref component) => {
-                region.add(
-                    VisibleDeclaration::new(&component.ident, AnyDeclaration::Other),
-                    diagnostics,
-                );
+                region.add(&component.ident, AnyDeclaration::Other, diagnostics);
 
                 {
                     let mut region = DeclarativeRegion::new(Some(region));
@@ -609,20 +587,15 @@ impl<'a> Analyzer<'a> {
                     if let Err(diagnostic) = self.lookup_type_mark(region, &attr_decl.type_mark) {
                         diagnostics.push(diagnostic);
                     }
-                    region.add(
-                        VisibleDeclaration::new(&attr_decl.ident, AnyDeclaration::Other),
-                        diagnostics,
-                    );
+                    region.add(&attr_decl.ident, AnyDeclaration::Other, diagnostics);
                 }
                 // @TODO Ignored for now
                 Attribute::Specification(..) => {}
             },
             Declaration::SubprogramBody(body) => {
                 region.add(
-                    VisibleDeclaration::new(
-                        body.specification.designator(),
-                        AnyDeclaration::Overloaded,
-                    ),
+                    body.specification.designator(),
+                    AnyDeclaration::Overloaded,
                     diagnostics,
                 );
                 self.analyze_subprogram_declaration(region, &body.specification, diagnostics);
@@ -631,7 +604,8 @@ impl<'a> Analyzer<'a> {
             }
             Declaration::SubprogramDeclaration(subdecl) => {
                 region.add(
-                    VisibleDeclaration::new(subdecl.designator(), AnyDeclaration::Overloaded),
+                    subdecl.designator(),
+                    AnyDeclaration::Overloaded,
                     diagnostics,
                 );
                 self.analyze_subprogram_declaration(region, &subdecl, diagnostics);
@@ -644,12 +618,10 @@ impl<'a> Analyzer<'a> {
             Declaration::Package(ref instance) => {
                 match self.analyze_package_instance(region, instance) {
                     Ok(package_region) => region.add(
-                        VisibleDeclaration::new(
-                            &instance.ident,
-                            AnyDeclaration::LocalPackageInstance(
-                                instance.ident.item.clone(),
-                                package_region,
-                            ),
+                        &instance.ident,
+                        AnyDeclaration::LocalPackageInstance(
+                            instance.ident.item.clone(),
+                            package_region,
                         ),
                         diagnostics,
                     ),
@@ -662,10 +634,8 @@ impl<'a> Analyzer<'a> {
             Declaration::Type(ref type_decl) => {
                 // Protected types are visible inside their declaration
                 region.add(
-                    VisibleDeclaration::new(
-                        &type_decl.ident,
-                        AnyDeclaration::from_type_declaration(type_decl),
-                    ),
+                    &type_decl.ident,
+                    AnyDeclaration::from_type_declaration(type_decl),
                     diagnostics,
                 );
 
@@ -673,10 +643,8 @@ impl<'a> Analyzer<'a> {
                     TypeDefinition::Enumeration(ref enumeration) => {
                         for literal in enumeration.iter() {
                             region.add(
-                                VisibleDeclaration::new(
-                                    literal.clone().map_into(|lit| lit.into_designator()),
-                                    AnyDeclaration::Overloaded,
-                                ),
+                                literal.clone().map_into(|lit| lit.into_designator()),
+                                AnyDeclaration::Overloaded,
                                 diagnostics,
                             )
                         }
@@ -702,10 +670,7 @@ impl<'a> Analyzer<'a> {
                         let mut record_region = DeclarativeRegion::new(None);
                         for elem_decl in element_decls.iter() {
                             self.analyze_subtype_indicaton(region, &elem_decl.subtype, diagnostics);
-                            record_region.add(
-                                VisibleDeclaration::new(&elem_decl.ident, AnyDeclaration::Other),
-                                diagnostics,
-                            );
+                            record_region.add(&elem_decl.ident, AnyDeclaration::Other, diagnostics);
                         }
                         record_region.close_both(diagnostics);
                     }
