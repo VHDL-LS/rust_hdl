@@ -9,36 +9,11 @@ use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::source::{SrcPos, WithPos};
 use crate::symbol_table::Symbol;
 
-use self::fnv::FnvHashMap;
-use fnv;
+use super::pending::AnalysisData;
+use fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
 use std::ops::Deref;
 use std::sync::Arc;
-
-/// The analysis result of the primary unit
-pub struct PrimaryUnitData {
-    diagnostics: Vec<Diagnostic>,
-    pub region: DeclarativeRegion<'static>,
-}
-
-// @TODO store data in library, declarative region or in analysis context?
-impl PrimaryUnitData {
-    pub fn new(
-        diagnostics: Vec<Diagnostic>,
-        region: DeclarativeRegion<'static>,
-    ) -> PrimaryUnitData {
-        PrimaryUnitData {
-            diagnostics,
-            region,
-        }
-    }
-
-    pub fn push_to(&self, diagnostics: &mut dyn DiagnosticHandler) {
-        for diagnostic in self.diagnostics.iter().cloned() {
-            diagnostics.push(diagnostic);
-        }
-    }
-}
 
 #[derive(Clone)]
 pub enum AnyDeclaration {
@@ -55,7 +30,7 @@ pub enum AnyDeclaration {
     UninstPackage(Symbol, Symbol),
     Context(Symbol, Symbol),
     PackageInstance(Symbol, Symbol),
-    LocalPackageInstance(Symbol, Arc<PrimaryUnitData>),
+    LocalPackageInstance(Symbol, Arc<AnalysisData>),
 }
 
 impl AnyDeclaration {

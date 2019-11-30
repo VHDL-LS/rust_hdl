@@ -4,21 +4,17 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use super::declarative_region::{
-    AnyDeclaration, DeclarativeRegion, PrimaryUnitData, VisibleDeclaration,
-};
+use super::declarative_region::{AnyDeclaration, DeclarativeRegion, VisibleDeclaration};
 use super::library::{DesignRoot, Library, PackageDesignUnit};
 use crate::ast::{HasIdent, *};
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::latin_1::Latin1String;
 use crate::source::{SrcPos, WithPos};
 use crate::symbol_table::{Symbol, SymbolTable};
-use std::cell::RefCell;
-use std::collections::hash_map::Entry;
 use std::sync::Arc;
 
-use self::fnv::FnvHashMap;
-use fnv;
+use super::pending::{AnalysisContext, AnalysisData, AnalysisResult, StartAnalysisResult};
+use fnv::FnvHashMap;
 
 enum LookupResult<'a> {
     /// A single name was selected
@@ -29,158 +25,6 @@ enum LookupResult<'a> {
     NotSelected,
     /// A prefix but found but lookup was not implemented yet
     Unfinished,
-}
-
-#[derive(Clone, Debug)]
-struct Dependency {
-    library_name: Symbol,
-    primary_unit_name: Symbol,
-    location: SrcPos,
-}
-
-#[derive(Clone, Debug)]
-struct CircularDependencyError {
-    path: Vec<Dependency>,
-}
-
-impl CircularDependencyError {
-    fn push_into(self, diagnostics: &mut dyn DiagnosticHandler) {
-        for dependency in self.path {
-            diagnostics.push(Diagnostic::error(
-                dependency.location,
-                format!(
-                    "Found circular dependency when referencing '{}.{}'",
-                    dependency.library_name, dependency.primary_unit_name
-                ),
-            ));
-        }
-    }
-}
-
-type AnalysisResult = Result<Arc<PrimaryUnitData>, CircularDependencyError>;
-
-enum StartAnalysisResult<'a> {
-    AlreadyAnalyzed(AnalysisResult),
-    NotYetAnalyzed(PendingAnalysis<'a>),
-}
-
-struct PendingAnalysis<'a> {
-    context: &'a AnalysisContext,
-    key: (Symbol, Symbol),
-}
-
-impl<'a> PendingAnalysis<'a> {
-    fn new(context: &'a AnalysisContext, key: (Symbol, Symbol)) -> PendingAnalysis<'a> {
-        PendingAnalysis { context, key }
-    }
-
-    fn end_analysis(self, data: PrimaryUnitData) -> AnalysisResult {
-        match self
-            .context
-            .primary_unit_data
-            .borrow_mut()
-            .entry(self.key.clone())
-        {
-            // Analysis already done, keep old value
-            Entry::Occupied(entry) => {
-                // Will always be a circular dependency error
-                assert!(entry.get().is_err());
-                entry.get().clone()
-            }
-            Entry::Vacant(entry) => {
-                let result = Ok(Arc::new(data));
-                entry.insert(result.clone());
-                result
-            }
-        }
-    }
-}
-
-impl Drop for PendingAnalysis<'_> {
-    fn drop(&mut self) {
-        self.context.locked.borrow_mut().remove(&self.key);
-        self.context.path.borrow_mut().pop();
-    }
-}
-
-struct AnalysisContext {
-    primary_unit_data: RefCell<FnvHashMap<(Symbol, Symbol), AnalysisResult>>,
-    locked: RefCell<FnvHashMap<(Symbol, Symbol), ()>>,
-    path: RefCell<Vec<Option<Dependency>>>,
-}
-
-impl<'a> AnalysisContext {
-    fn new() -> AnalysisContext {
-        AnalysisContext {
-            primary_unit_data: RefCell::new(FnvHashMap::default()),
-            locked: RefCell::new(FnvHashMap::default()),
-            path: RefCell::new(Vec::new()),
-        }
-    }
-
-    fn start_analysis(
-        &'a self,
-        // The optional location where the design unit was used
-        entry_point: Option<SrcPos>,
-        library_name: &Symbol,
-        primary_unit_name: &Symbol,
-    ) -> StartAnalysisResult<'a> {
-        if let Some(result) = self.get_result(library_name, primary_unit_name) {
-            return StartAnalysisResult::AlreadyAnalyzed(result);
-        }
-
-        let key = (library_name.clone(), primary_unit_name.clone());
-
-        self.path
-            .borrow_mut()
-            .push(entry_point.map(|location| Dependency {
-                library_name: library_name.clone(),
-                primary_unit_name: primary_unit_name.clone(),
-                location,
-            }));
-
-        if self.locked.borrow_mut().insert(key.clone(), ()).is_some() {
-            let path: Vec<Dependency> = self
-                .path
-                .borrow()
-                .iter()
-                .cloned()
-                .filter_map(|d| d)
-                .collect();
-            let path_result = Err(CircularDependencyError { path });
-
-            // All locked units will have circular dependencies
-            for other_key in self.locked.borrow().keys() {
-                let result = {
-                    if *other_key != key {
-                        Err(CircularDependencyError { path: Vec::new() })
-                    } else {
-                        path_result.clone()
-                    }
-                };
-
-                self.primary_unit_data
-                    .borrow_mut()
-                    .insert(other_key.clone(), result);
-            }
-
-            // Only provide full path error to one unit so that duplicate diagnostics are not created
-            StartAnalysisResult::AlreadyAnalyzed(path_result)
-        } else {
-            StartAnalysisResult::NotYetAnalyzed(PendingAnalysis::new(self, key))
-        }
-    }
-
-    fn get_result(
-        &self,
-        library_name: &Symbol,
-        primary_unit_name: &Symbol,
-    ) -> Option<AnalysisResult> {
-        self.primary_unit_data
-            .borrow()
-            .get(&(library_name.clone(), primary_unit_name.clone()))
-            .cloned()
-    }
 }
 
 pub struct Analyzer<'a> {
@@ -322,7 +166,7 @@ impl<'a> Analyzer<'a> {
                             .expect("Assume package exists if made visible");
 
                         if let Ok(data) = self.analyze_package_declaration_unit(
-                            Some(prefix.pos.clone()),
+                            Some(&prefix.pos),
                             library,
                             package,
                         ) {
@@ -355,11 +199,9 @@ impl<'a> Analyzer<'a> {
                             .package_instance(instance_name)
                             .expect("Assume package instance exists if made visible");
 
-                        if let Ok(data) = self.analyze_package_instance_unit(
-                            Some(prefix.pos.clone()),
-                            library,
-                            instance,
-                        ) {
+                        if let Ok(data) =
+                            self.analyze_package_instance_unit(Some(&prefix.pos), library, instance)
+                        {
                             if let Some(visible_decl) = data.region.lookup(&suffix.item, false) {
                                 Ok(LookupResult::Single(visible_decl.clone()))
                             } else {
@@ -750,7 +592,7 @@ impl<'a> Analyzer<'a> {
                                 .expect("Assume package exists if made visible");
 
                             if let Ok(data) = self.analyze_package_declaration_unit(
-                                Some(prefix.pos.clone()),
+                                Some(&prefix.pos),
                                 library,
                                 package,
                             ) {
@@ -771,7 +613,7 @@ impl<'a> Analyzer<'a> {
                                 .expect("Assume package exists if made visible");
 
                             if let Ok(data) = self.analyze_package_instance_unit(
-                                Some(prefix.pos.clone()),
+                                Some(&prefix.pos),
                                 library,
                                 package,
                             ) {
@@ -1033,7 +875,7 @@ impl<'a> Analyzer<'a> {
         &self,
         // The optional entry point where the package declarartion was used
         // None if the package was directly analyzed and not due to a use clause
-        entry_point: Option<SrcPos>,
+        entry_point: Option<&SrcPos>,
         library: &Library,
         package: &PackageDesignUnit,
     ) -> AnalysisResult {
@@ -1070,7 +912,7 @@ impl<'a> Analyzer<'a> {
                     region.close_both(&mut diagnostics);
                 }
 
-                pending.end_analysis(PrimaryUnitData::new(diagnostics, region))
+                pending.end_analysis(AnalysisData::new(diagnostics, region))
             }
 
             StartAnalysisResult::AlreadyAnalyzed(result) => result,
@@ -1115,7 +957,7 @@ impl<'a> Analyzer<'a> {
         &self,
         parent: &DeclarativeRegion<'_>,
         package_instance: &PackageInstantiation,
-    ) -> Result<Arc<PrimaryUnitData>, Diagnostic> {
+    ) -> Result<Arc<AnalysisData>, Diagnostic> {
         self.analyze_package_instance_name(parent, &package_instance.package_name)
     }
 
@@ -1125,8 +967,8 @@ impl<'a> Analyzer<'a> {
         &self,
         parent: &DeclarativeRegion<'_>,
         package_name: &WithPos<SelectedName>,
-    ) -> Result<Arc<PrimaryUnitData>, Diagnostic> {
-        let entry_point = package_name.pos.clone();
+    ) -> Result<Arc<AnalysisData>, Diagnostic> {
+        let ref entry_point = package_name.pos;
         let package_name = package_name.clone().into();
 
         match self.lookup_selected_name(parent, &package_name)? {
@@ -1142,11 +984,9 @@ impl<'a> Analyzer<'a> {
                     let package = library
                         .uninst_package(package_name)
                         .expect("Assume package exists if made visible");
-                    if let Ok(data) = self.analyze_package_declaration_unit(
-                        Some(entry_point.clone()),
-                        library,
-                        package,
-                    ) {
+                    if let Ok(data) =
+                        self.analyze_package_declaration_unit(Some(entry_point), library, package)
+                    {
                         return Ok(data.clone());
                     } else {
                         return Err(Diagnostic::error(
@@ -1180,7 +1020,7 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_package_instance_unit(
         &self,
-        entry_point: Option<SrcPos>,
+        entry_point: Option<&SrcPos>,
         library: &Library,
         package_instance: &DesignUnit<PackageInstantiation>,
     ) -> AnalysisResult {
@@ -1203,12 +1043,12 @@ impl<'a> Analyzer<'a> {
                 match self.analyze_package_instance(&region, &package_instance.unit) {
                     Ok(data) => {
                         // @TODO avoid clone?
-                        pending.end_analysis(PrimaryUnitData::new(diagnostics, data.region.clone()))
+                        pending.end_analysis(AnalysisData::new(diagnostics, data.region.clone()))
                     }
                     Err(diagnostic) => {
                         diagnostics.push(diagnostic);
                         // Failed to analyze, add empty region
-                        pending.end_analysis(PrimaryUnitData::new(
+                        pending.end_analysis(AnalysisData::new(
                             diagnostics,
                             DeclarativeRegion::new(None),
                         ))
