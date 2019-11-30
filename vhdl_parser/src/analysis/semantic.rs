@@ -14,7 +14,6 @@ use crate::symbol_table::{Symbol, SymbolTable};
 use std::sync::Arc;
 
 use super::pending::{AnalysisContext, AnalysisData, AnalysisResult, StartAnalysisResult};
-use fnv::FnvHashMap;
 
 enum LookupResult<'a> {
     /// A single name was selected
@@ -33,72 +32,11 @@ pub struct Analyzer<'a> {
     standard_designator: Designator,
     standard_sym: Symbol,
     root: &'a DesignRoot,
-
-    /// DeclarativeRegion for each library containing the primary units
-    library_regions: FnvHashMap<Symbol, DeclarativeRegion<'static>>,
     analysis_context: AnalysisContext,
 }
 
 impl<'a> Analyzer<'a> {
     pub fn new(root: &'a DesignRoot, symtab: &Arc<SymbolTable>) -> Analyzer<'a> {
-        let mut library_regions = FnvHashMap::default();
-        let mut diagnostics = Vec::new();
-
-        for library in root.iter_libraries() {
-            let mut region = DeclarativeRegion::new(None);
-
-            for package_ident in library.package_names() {
-                let package_sym = package_ident.item.clone();
-
-                region.add(
-                    package_ident,
-                    AnyDeclaration::Package(library.name.clone(), package_sym),
-                    &mut diagnostics,
-                );
-            }
-
-            for package_ident in library.uninst_package_names() {
-                let package_sym = package_ident.item.clone();
-
-                region.add(
-                    package_ident,
-                    AnyDeclaration::UninstPackage(library.name.clone(), package_sym),
-                    &mut diagnostics,
-                );
-            }
-
-            for ident in library.context_names() {
-                let sym = ident.item.clone();
-
-                region.add(
-                    ident,
-                    AnyDeclaration::Context(library.name.clone(), sym),
-                    &mut diagnostics,
-                );
-            }
-
-            for ident in library.entitity_names() {
-                region.add(ident, AnyDeclaration::Other, &mut diagnostics);
-            }
-
-            for ident in library.configuration_names() {
-                region.add(ident, AnyDeclaration::Other, &mut diagnostics);
-            }
-
-            for ident in library.package_instance_names() {
-                let sym = ident.item.clone();
-                region.add(
-                    ident,
-                    AnyDeclaration::PackageInstance(library.name.clone(), sym),
-                    &mut diagnostics,
-                );
-            }
-
-            library_regions.insert(library.name.clone(), region);
-        }
-
-        assert!(diagnostics.is_empty());
-
         let standard_sym = symtab.insert(&Latin1String::new(b"standard"));
         Analyzer {
             work_sym: symtab.insert(&Latin1String::new(b"work")),
@@ -106,7 +44,6 @@ impl<'a> Analyzer<'a> {
             standard_designator: Designator::Identifier(standard_sym.clone()),
             standard_sym,
             root,
-            library_regions,
             analysis_context: AnalysisContext::new(),
         }
     }
@@ -136,8 +73,11 @@ impl<'a> Analyzer<'a> {
 
                 match visible_decl.first() {
                     AnyDeclaration::Library(ref library_name) => {
-                        if let Some(visible_decl) =
-                            self.library_regions[library_name].lookup(&suffix.item, false)
+                        if let Some(visible_decl) = self
+                            .root
+                            .expect_library(library_name)
+                            .region
+                            .lookup(&suffix.item, false)
                         {
                             Ok(LookupResult::Single(visible_decl.clone()))
                         } else {
@@ -156,10 +96,7 @@ impl<'a> Analyzer<'a> {
                     ),
 
                     AnyDeclaration::Package(ref library_sym, ref package_sym) => {
-                        let library = self
-                            .root
-                            .get_library(library_sym)
-                            .expect("Assume library exists if made visible");
+                        let library = self.root.expect_library(library_sym);
 
                         let package = library
                             .package(package_sym)
@@ -190,10 +127,7 @@ impl<'a> Analyzer<'a> {
                     }
 
                     AnyDeclaration::PackageInstance(ref library_name, ref instance_name) => {
-                        let library = self
-                            .root
-                            .get_library(library_name)
-                            .expect("Assume library exists if made visible");
+                        let library = self.root.expect_library(library_name);
 
                         let instance = library
                             .package_instance(instance_name)
@@ -571,8 +505,9 @@ impl<'a> Analyzer<'a> {
                 Ok(LookupResult::AllWithin(prefix, visible_decl)) => {
                     match visible_decl.first() {
                         AnyDeclaration::Library(ref library_name) => {
-                            region
-                                .make_all_potentially_visible(&self.library_regions[library_name]);
+                            region.make_all_potentially_visible(
+                                &self.root.expect_library(library_name).region,
+                            );
                         }
                         AnyDeclaration::UninstPackage(ref library_sym, ref package_sym) => {
                             diagnostics.push(uninstantiated_package_prefix_error(
@@ -582,10 +517,7 @@ impl<'a> Analyzer<'a> {
                             ));
                         }
                         AnyDeclaration::Package(ref library_name, ref package_name) => {
-                            let library = self
-                                .root
-                                .get_library(library_name)
-                                .expect("Assume library exists if made visible");
+                            let library = self.root.expect_library(library_name);
 
                             let package = library
                                 .package(package_name)
@@ -603,10 +535,7 @@ impl<'a> Analyzer<'a> {
                             }
                         }
                         AnyDeclaration::PackageInstance(ref library_name, ref package_name) => {
-                            let library = self
-                                .root
-                                .get_library(library_name)
-                                .expect("Assume library exists if made visible");
+                            let library = self.root.expect_library(library_name);
 
                             let package = library
                                 .package_instance(package_name)
@@ -690,10 +619,7 @@ impl<'a> Analyzer<'a> {
                                 match visible_decl.first() {
                                     // OK
                                     AnyDeclaration::Context(ref library_name, ref context_name) => {
-                                        let library = self
-                                            .root
-                                            .get_library(library_name)
-                                            .expect("Assume library exists if made visible");
+                                        let library = self.root.expect_library(library_name);
 
                                         let context = library
                                             .context(context_name)
@@ -842,7 +768,7 @@ impl<'a> Analyzer<'a> {
         if let Some(library) = self.root.get_library(&self.std_sym) {
             region.make_library_visible(&self.std_sym, library);
 
-            let decl = self.library_regions[&library.name].lookup(&self.standard_designator, false);
+            let decl = library.region.lookup(&self.standard_designator, false);
 
             if let Some(AnyDeclaration::Package(.., ref standard_pkg_name)) =
                 decl.map(|decl| decl.first())

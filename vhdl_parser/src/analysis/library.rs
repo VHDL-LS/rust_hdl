@@ -10,6 +10,7 @@ use self::fnv::FnvHashMap;
 use fnv;
 use std::collections::hash_map::Entry;
 
+use super::declarative_region::{AnyDeclaration, DeclarativeRegion};
 use crate::ast::{
     AnyDesignUnit, ArchitectureBody, ConfigurationDeclaration, ContextDeclaration, DesignFile,
     DesignUnit, Designator, EntityDeclaration, HasIdent, Ident, PackageBody, PackageDeclaration,
@@ -112,6 +113,7 @@ impl PackageDesignUnit {
 
 pub struct Library {
     pub name: Symbol,
+    pub region: DeclarativeRegion<'static>,
     entities: FnvHashMap<Symbol, EntityDesignUnit>,
     configurations: FnvHashMap<Symbol, DesignUnit<ConfigurationDeclaration>>,
     packages: FnvHashMap<Symbol, PackageDesignUnit>,
@@ -269,8 +271,52 @@ impl<'a> Library {
             }
         }
 
+        let mut region = DeclarativeRegion::new(None);
+
+        for pkg in packages.values() {
+            let package_sym = pkg.package.ident().item.clone();
+
+            region.add(
+                pkg.package.ident(),
+                if pkg.is_generic() {
+                    AnyDeclaration::UninstPackage(name.clone(), package_sym)
+                } else {
+                    AnyDeclaration::Package(name.clone(), package_sym)
+                },
+                diagnostics,
+            );
+        }
+
+        for ctx in contexts.values() {
+            let sym = ctx.ident.item.clone();
+
+            region.add(
+                &ctx.ident,
+                AnyDeclaration::Context(name.clone(), sym),
+                diagnostics,
+            );
+        }
+
+        for ent in entities.values() {
+            region.add(ent.entity.ident(), AnyDeclaration::Other, diagnostics);
+        }
+
+        for cfg in configurations.values() {
+            region.add(cfg.ident(), AnyDeclaration::Other, diagnostics);
+        }
+
+        for pkg in package_instances.values() {
+            let sym = pkg.ident().item.clone();
+            region.add(
+                pkg.ident(),
+                AnyDeclaration::PackageInstance(name.clone(), sym),
+                diagnostics,
+            );
+        }
+
         Library {
             name,
+            region,
             entities,
             configurations,
             packages,
@@ -319,16 +365,9 @@ impl<'a> Library {
         self.entities.values()
     }
 
-    pub fn entitity_names(&self) -> impl Iterator<Item = &Ident> {
-        self.entities.values().map(|ent| &ent.entity.unit.ident)
-    }
-
+    #[cfg(test)]
     pub fn configurations(&self) -> impl Iterator<Item = &DesignUnit<ConfigurationDeclaration>> {
         self.configurations.values()
-    }
-
-    pub fn configuration_names(&self) -> impl Iterator<Item = &Ident> {
-        self.configurations().map(|cfg| cfg.ident())
     }
 
     /// Iterate over packages
@@ -341,30 +380,12 @@ impl<'a> Library {
         self.packages.values().filter(|pkg| pkg.is_generic())
     }
 
-    /// Iterate over names of packages
-    pub fn package_names(&self) -> impl Iterator<Item = &Ident> {
-        self.packages().map(|pkg| &pkg.package.unit.ident)
-    }
-
-    /// Iterate over names of generic packages
-    pub fn uninst_package_names(&self) -> impl Iterator<Item = &Ident> {
-        self.uninst_packages().map(|pkg| &pkg.package.unit.ident)
-    }
-
     pub fn package_instances(&self) -> impl Iterator<Item = &DesignUnit<PackageInstantiation>> {
         self.package_instances.values()
     }
 
-    pub fn package_instance_names(&self) -> impl Iterator<Item = &Ident> {
-        self.package_instances.values().map(|pkg| &pkg.unit.ident)
-    }
-
     pub fn contexts(&self) -> impl Iterator<Item = &ContextDeclaration> {
         self.contexts.values()
-    }
-
-    pub fn context_names(&self) -> impl Iterator<Item = &Ident> {
-        self.contexts().map(|context| &context.ident)
     }
 }
 
@@ -416,6 +437,11 @@ impl DesignRoot {
 
     pub fn get_library(&self, library_name: &Symbol) -> Option<&Library> {
         self.libraries.get(library_name)
+    }
+
+    pub fn expect_library(&self, library_name: &Symbol) -> &Library {
+        self.get_library(library_name)
+            .expect("Library must be defined")
     }
 
     pub fn iter_libraries(&self) -> impl Iterator<Item = &Library> {
