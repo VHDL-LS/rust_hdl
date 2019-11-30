@@ -52,6 +52,7 @@ pub enum AnyDeclaration {
     ProtectedTypeBody,
     Library(Symbol),
     Package(Symbol, Symbol),
+    UninstPackage(Symbol, Symbol),
     Context(Symbol, Symbol),
     PackageInstance(Symbol, Symbol),
     LocalPackageInstance(Symbol, Arc<PrimaryUnitData>),

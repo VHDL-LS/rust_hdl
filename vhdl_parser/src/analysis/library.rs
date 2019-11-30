@@ -294,7 +294,15 @@ impl<'a> Library {
     }
 
     pub fn package(&'a self, name: &Symbol) -> Option<&'a PackageDesignUnit> {
-        self.packages.get(name)
+        self.packages
+            .get(name)
+            .and_then(|pkg| if pkg.is_generic() { None } else { Some(pkg) })
+    }
+
+    pub fn uninst_package(&'a self, name: &Symbol) -> Option<&'a PackageDesignUnit> {
+        self.packages
+            .get(name)
+            .and_then(|pkg| if pkg.is_generic() { Some(pkg) } else { None })
     }
 
     pub fn package_instance(
@@ -316,21 +324,32 @@ impl<'a> Library {
         self.entities.values().map(|ent| &ent.entity.unit.ident)
     }
 
-    #[cfg(test)]
     pub fn configurations(&self) -> impl Iterator<Item = &DesignUnit<ConfigurationDeclaration>> {
         self.configurations.values()
     }
 
     pub fn configuration_names(&self) -> impl Iterator<Item = &Ident> {
-        self.configurations.values().map(|cfg| cfg.ident())
+        self.configurations().map(|cfg| cfg.ident())
     }
 
+    /// Iterate over packages
     pub fn packages(&self) -> impl Iterator<Item = &PackageDesignUnit> {
-        self.packages.values()
+        self.packages.values().filter(|pkg| !pkg.is_generic())
     }
 
+    /// Iterate uninstantiated packages
+    pub fn uninst_packages(&self) -> impl Iterator<Item = &PackageDesignUnit> {
+        self.packages.values().filter(|pkg| pkg.is_generic())
+    }
+
+    /// Iterate over names of packages
     pub fn package_names(&self) -> impl Iterator<Item = &Ident> {
-        self.packages.values().map(|pkg| &pkg.package.unit.ident)
+        self.packages().map(|pkg| &pkg.package.unit.ident)
+    }
+
+    /// Iterate over names of generic packages
+    pub fn uninst_package_names(&self) -> impl Iterator<Item = &Ident> {
+        self.uninst_packages().map(|pkg| &pkg.package.unit.ident)
     }
 
     pub fn package_instances(&self) -> impl Iterator<Item = &DesignUnit<PackageInstantiation>> {
@@ -346,7 +365,7 @@ impl<'a> Library {
     }
 
     pub fn context_names(&self) -> impl Iterator<Item = &Ident> {
-        self.contexts.values().map(|context| &context.ident)
+        self.contexts().map(|context| &context.ident)
     }
 }
 

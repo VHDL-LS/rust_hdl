@@ -213,6 +213,16 @@ impl<'a> Analyzer<'a> {
                 );
             }
 
+            for package_ident in library.uninst_package_names() {
+                let package_sym = package_ident.item.clone();
+
+                region.add(
+                    package_ident,
+                    AnyDeclaration::UninstPackage(library.name.clone(), package_sym),
+                    &mut diagnostics,
+                );
+            }
+
             for ident in library.context_names() {
                 let sym = ident.item.clone();
 
@@ -297,25 +307,25 @@ impl<'a> Analyzer<'a> {
                         }
                     }
 
-                    AnyDeclaration::Package(ref library_name, ref package_name) => {
+                    AnyDeclaration::UninstPackage(ref library_sym, ref package_sym) => Err(
+                        uninstantiated_package_prefix_error(&prefix.pos, library_sym, package_sym),
+                    ),
+
+                    AnyDeclaration::Package(ref library_sym, ref package_sym) => {
                         let library = self
                             .root
-                            .get_library(library_name)
+                            .get_library(library_sym)
                             .expect("Assume library exists if made visible");
 
                         let package = library
-                            .package(package_name)
+                            .package(package_sym)
                             .expect("Assume package exists if made visible");
 
-                        if package.is_generic() {
-                            Err(uninstantiated_package_prefix_error(
-                                &prefix.pos,
-                                library,
-                                package,
-                            ))
-                        } else if let Ok(data) =
-                            self.get_package_result(Some(prefix.pos.clone()), library, package)
-                        {
+                        if let Ok(data) = self.analyze_package_declaration_unit(
+                            Some(prefix.pos.clone()),
+                            library,
+                            package,
+                        ) {
                             if let Some(visible_decl) = data.region.lookup(&suffix.item, false) {
                                 Ok(LookupResult::Single(visible_decl.clone()))
                             } else {
@@ -722,6 +732,13 @@ impl<'a> Analyzer<'a> {
                             region
                                 .make_all_potentially_visible(&self.library_regions[library_name]);
                         }
+                        AnyDeclaration::UninstPackage(ref library_sym, ref package_sym) => {
+                            diagnostics.push(uninstantiated_package_prefix_error(
+                                &prefix.pos,
+                                library_sym,
+                                package_sym,
+                            ));
+                        }
                         AnyDeclaration::Package(ref library_name, ref package_name) => {
                             let library = self
                                 .root
@@ -732,15 +749,11 @@ impl<'a> Analyzer<'a> {
                                 .package(package_name)
                                 .expect("Assume package exists if made visible");
 
-                            if package.is_generic() {
-                                diagnostics.push(uninstantiated_package_prefix_error(
-                                    &prefix.pos,
-                                    library,
-                                    package,
-                                ));
-                            } else if let Ok(data) =
-                                self.get_package_result(Some(prefix.pos.clone()), library, package)
-                            {
+                            if let Ok(data) = self.analyze_package_declaration_unit(
+                                Some(prefix.pos.clone()),
+                                library,
+                                package,
+                            ) {
                                 region.make_all_potentially_visible(&data.region);
                             } else {
                                 // Circular dependency, return
@@ -888,15 +901,6 @@ impl<'a> Analyzer<'a> {
                 }
             }
         }
-    }
-
-    fn get_package_result(
-        &self,
-        entry_point: Option<SrcPos>,
-        library: &Library,
-        package: &PackageDesignUnit,
-    ) -> AnalysisResult {
-        self.analyze_package_declaration_unit(entry_point, library, package)
     }
 
     fn analyze_generate_body(
@@ -1127,7 +1131,7 @@ impl<'a> Analyzer<'a> {
 
         match self.lookup_selected_name(parent, &package_name)? {
             LookupResult::Single(visible_decl) => {
-                if let AnyDeclaration::Package(ref library_name, ref package_name) =
+                if let AnyDeclaration::UninstPackage(ref library_name, ref package_name) =
                     visible_decl.first()
                 {
                     let library = self
@@ -1136,23 +1140,23 @@ impl<'a> Analyzer<'a> {
                         .expect("Assume library exists if made visible");
 
                     let package = library
-                        .package(package_name)
+                        .uninst_package(package_name)
                         .expect("Assume package exists if made visible");
-
-                    if package.is_generic() {
-                        if let Ok(data) =
-                            self.get_package_result(Some(entry_point.clone()), library, package)
-                        {
-                            return Ok(data.clone());
-                        } else {
-                            return Err(Diagnostic::error(
-                                &entry_point,
-                                format!(
-                                    "'Could not instantiate package '{}.{}' with circular dependency'",
-                                    &library.name, package.package.name()
-                                ),
-                            ));
-                        }
+                    if let Ok(data) = self.analyze_package_declaration_unit(
+                        Some(entry_point.clone()),
+                        library,
+                        package,
+                    ) {
+                        return Ok(data.clone());
+                    } else {
+                        return Err(Diagnostic::error(
+                            &entry_point,
+                            format!(
+                                "'Could not instantiate package '{}.{}' with circular dependency'",
+                                &library.name,
+                                package.package.name()
+                            ),
+                        ));
                     }
                 }
                 Err(Diagnostic::error(
@@ -1217,6 +1221,10 @@ impl<'a> Analyzer<'a> {
 
     pub fn analyze_library(&self, library: &Library, diagnostics: &mut dyn DiagnosticHandler) {
         for package in library.packages() {
+            self.analyze_package(library, package, diagnostics);
+        }
+
+        for package in library.uninst_packages() {
             self.analyze_package(library, package, diagnostics);
         }
 
@@ -1291,15 +1299,14 @@ impl<'a> Analyzer<'a> {
 
 fn uninstantiated_package_prefix_error(
     prefix: &SrcPos,
-    library: &Library,
-    package: &PackageDesignUnit,
+    library_sym: &Symbol,
+    package_sym: &Symbol,
 ) -> Diagnostic {
     Diagnostic::error(
         prefix,
         format!(
             "Uninstantiated generic package '{}.{}' may not be the prefix of a selected name",
-            &library.name,
-            package.package.name()
+            library_sym, package_sym
         ),
     )
 }
