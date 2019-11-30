@@ -312,20 +312,41 @@ impl<'a> Library {
         self.entities.values()
     }
 
+    pub fn entitity_names(&self) -> impl Iterator<Item = &Ident> {
+        self.entities.values().map(|ent| &ent.entity.unit.ident)
+    }
+
+    #[cfg(test)]
     pub fn configurations(&self) -> impl Iterator<Item = &DesignUnit<ConfigurationDeclaration>> {
         self.configurations.values()
     }
 
-    pub fn packages(&'a self) -> impl Iterator<Item = &'a PackageDesignUnit> {
+    pub fn configuration_names(&self) -> impl Iterator<Item = &Ident> {
+        self.configurations.values().map(|cfg| cfg.ident())
+    }
+
+    pub fn packages(&self) -> impl Iterator<Item = &PackageDesignUnit> {
         self.packages.values()
+    }
+
+    pub fn package_names(&self) -> impl Iterator<Item = &Ident> {
+        self.packages.values().map(|pkg| &pkg.package.unit.ident)
     }
 
     pub fn package_instances(&self) -> impl Iterator<Item = &DesignUnit<PackageInstantiation>> {
         self.package_instances.values()
     }
 
+    pub fn package_instance_names(&self) -> impl Iterator<Item = &Ident> {
+        self.package_instances.values().map(|pkg| &pkg.unit.ident)
+    }
+
     pub fn contexts(&self) -> impl Iterator<Item = &ContextDeclaration> {
         self.contexts.values()
+    }
+
+    pub fn context_names(&self) -> impl Iterator<Item = &Ident> {
+        self.contexts.values().map(|context| &context.ident)
     }
 }
 

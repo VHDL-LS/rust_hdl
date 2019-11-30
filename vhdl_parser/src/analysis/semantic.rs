@@ -203,47 +203,39 @@ impl<'a> Analyzer<'a> {
         for library in root.iter_libraries() {
             let mut region = DeclarativeRegion::new(None);
 
-            for package in library.packages() {
-                let package_sym = package.package.unit.ident.item.clone();
+            for package_ident in library.package_names() {
+                let package_sym = package_ident.item.clone();
 
                 region.add(
-                    &package.package.unit.ident,
+                    package_ident,
                     AnyDeclaration::Package(library.name.clone(), package_sym),
                     &mut diagnostics,
                 );
             }
 
-            for context in library.contexts() {
-                let context_sym = context.ident.item.clone();
+            for ident in library.context_names() {
+                let sym = ident.item.clone();
 
                 region.add(
-                    &context.ident,
-                    AnyDeclaration::Context(library.name.clone(), context_sym),
+                    ident,
+                    AnyDeclaration::Context(library.name.clone(), sym),
                     &mut diagnostics,
                 );
             }
 
-            for entity in library.entities() {
-                region.add(
-                    &entity.entity.unit.ident,
-                    AnyDeclaration::Other,
-                    &mut diagnostics,
-                );
+            for ident in library.entitity_names() {
+                region.add(ident, AnyDeclaration::Other, &mut diagnostics);
             }
 
-            for configuration in library.configurations() {
-                region.add(
-                    configuration.ident(),
-                    AnyDeclaration::Other,
-                    &mut diagnostics,
-                );
+            for ident in library.configuration_names() {
+                region.add(ident, AnyDeclaration::Other, &mut diagnostics);
             }
 
-            for instance in library.package_instances() {
-                let instance_sym = instance.ident().item.clone();
+            for ident in library.package_instance_names() {
+                let sym = ident.item.clone();
                 region.add(
-                    instance.ident(),
-                    AnyDeclaration::PackageInstance(library.name.clone(), instance_sym),
+                    ident,
+                    AnyDeclaration::PackageInstance(library.name.clone(), sym),
                     &mut diagnostics,
                 );
             }
