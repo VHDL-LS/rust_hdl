@@ -21,36 +21,36 @@ use crate::context::{
 use crate::declarative_part::{
     parse_declarative_part, parse_declarative_part_leave_end_token, parse_package_instantiation,
 };
+use crate::diagnostic::{Diagnostic, DiagnosticHandler, ParseResult};
 use crate::interface_declaration::parse_generic_interface_list;
-use crate::message::{Message, MessageHandler, ParseResult};
 use crate::source::WithPos;
 
 /// Parse an entity declaration, token is initial entity token
 /// If a parse error occurs the stream is consumed until and end entity
 pub fn parse_entity_declaration(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<EntityDeclaration> {
     stream.expect_kind(Entity)?;
 
     let ident = stream.expect_ident()?;
     stream.expect_kind(Is)?;
 
-    let generic_clause = parse_optional_generic_list(stream, messages)?;
-    let port_clause = parse_optional_port_list(stream, messages)?;
+    let generic_clause = parse_optional_generic_list(stream, diagnostics)?;
+    let port_clause = parse_optional_port_list(stream, diagnostics)?;
 
-    let decl = parse_declarative_part_leave_end_token(stream, messages)?;
+    let decl = parse_declarative_part_leave_end_token(stream, diagnostics)?;
 
     let token = stream.expect()?;
     let statements = try_token_kind!(
         token,
         End => Vec::new(),
-        Begin => parse_labeled_concurrent_statements(stream, messages)?
+        Begin => parse_labeled_concurrent_statements(stream, diagnostics)?
     );
     stream.pop_if_kind(Entity)?;
     let end_ident = stream.pop_optional_ident()?;
-    if let Some(msg) = error_on_end_identifier_mismatch(&ident, &end_ident) {
-        messages.push(msg);
+    if let Some(diagnostic) = error_on_end_identifier_mismatch(&ident, &end_ident) {
+        diagnostics.push(diagnostic);
     }
     stream.expect_kind(SemiColon)?;
     Ok(EntityDeclaration {
@@ -65,7 +65,7 @@ pub fn parse_entity_declaration(
 /// LRM 3.3.1
 pub fn parse_architecture_body(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ArchitectureBody> {
     stream.expect_kind(Architecture)?;
     let ident = stream.expect_ident()?;
@@ -73,14 +73,14 @@ pub fn parse_architecture_body(
     let entity_name = stream.expect_ident()?;
     stream.expect_kind(Is)?;
 
-    let decl = parse_declarative_part(stream, messages, true)?;
+    let decl = parse_declarative_part(stream, diagnostics, true)?;
 
-    let statements = parse_labeled_concurrent_statements(stream, messages)?;
+    let statements = parse_labeled_concurrent_statements(stream, diagnostics)?;
     stream.pop_if_kind(Architecture)?;
 
     let end_ident = stream.pop_optional_ident()?;
-    if let Some(msg) = error_on_end_identifier_mismatch(&ident, &end_ident) {
-        messages.push(msg);
+    if let Some(diagnostic) = error_on_end_identifier_mismatch(&ident, &end_ident) {
+        diagnostics.push(diagnostic);
     }
 
     stream.expect_kind(SemiColon)?;
@@ -96,7 +96,7 @@ pub fn parse_architecture_body(
 /// LRM 4.7 Package declarations
 pub fn parse_package_declaration(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<PackageDeclaration> {
     stream.expect_kind(Package)?;
     let ident = stream.expect_ident()?;
@@ -104,18 +104,18 @@ pub fn parse_package_declaration(
     stream.expect_kind(Is)?;
     let generic_clause = {
         if stream.skip_if_kind(Generic)? {
-            let decl = parse_generic_interface_list(stream, messages)?;
+            let decl = parse_generic_interface_list(stream, diagnostics)?;
             stream.expect_kind(SemiColon)?;
             Some(decl)
         } else {
             None
         }
     };
-    let decl = parse_declarative_part(stream, messages, false)?;
+    let decl = parse_declarative_part(stream, diagnostics, false)?;
     stream.pop_if_kind(Package)?;
     let end_ident = stream.pop_optional_ident()?;
-    if let Some(msg) = error_on_end_identifier_mismatch(&ident, &end_ident) {
-        messages.push(msg);
+    if let Some(diagnostic) = error_on_end_identifier_mismatch(&ident, &end_ident) {
+        diagnostics.push(diagnostic);
     }
     stream.pop_if_kind(Identifier)?;
     stream.expect_kind(SemiColon)?;
@@ -129,20 +129,20 @@ pub fn parse_package_declaration(
 /// LRM 4.8 Package bodies
 pub fn parse_package_body(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<PackageBody> {
     stream.expect_kind(Package)?;
     stream.expect_kind(Body)?;
     let ident = stream.expect_ident()?;
 
     stream.expect_kind(Is)?;
-    let decl = parse_declarative_part(stream, messages, false)?;
+    let decl = parse_declarative_part(stream, diagnostics, false)?;
     if stream.skip_if_kind(Package)? {
         stream.expect_kind(Body)?;
     }
     let end_ident = stream.pop_optional_ident()?;
-    if let Some(msg) = error_on_end_identifier_mismatch(&ident, &end_ident) {
-        messages.push(msg);
+    if let Some(diagnostic) = error_on_end_identifier_mismatch(&ident, &end_ident) {
+        diagnostics.push(diagnostic);
     }
     stream.expect_kind(SemiColon)?;
 
@@ -168,7 +168,7 @@ fn context_item_message(context_item: &ContextItem, message: impl AsRef<str>) ->
 
 pub fn parse_design_file(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<DesignFile> {
     let mut context_clause = vec![];
     let mut design_units = vec![];
@@ -181,7 +181,7 @@ pub fn parse_design_file(
                     Ok(library) => {
                         context_clause.push(library.map_into(ContextItem::Library));
                     },
-                    Err(msg) => messages.push(msg),
+                    Err(diagnostic) => diagnostics.push(diagnostic),
                 }
             },
             Use => {
@@ -189,19 +189,19 @@ pub fn parse_design_file(
                     Ok(use_clause) => {
                         context_clause.push(use_clause.map_into(ContextItem::Use));
                     },
-                    Err(msg) => messages.push(msg),
+                    Err(diagnostic) => diagnostics.push(diagnostic),
                 }
             },
-            Context => match parse_context(stream, messages) {
+            Context => match parse_context(stream, diagnostics) {
                 Ok(DeclarationOrReference::Declaration(context_decl)) => {
                     if !context_clause.is_empty() {
-                        let mut message = Message::error(&context_decl.ident, "Context declaration may not be preceeded by a context clause");
+                        let mut diagnostic = Diagnostic::error(&context_decl.ident, "Context declaration may not be preceeded by a context clause");
 
                         for context_item in context_clause.iter() {
-                            message.add_related(&context_item, context_item_message(&context_item.item, "may not come before context declaration"));
+                            diagnostic.add_related(&context_item, context_item_message(&context_item.item, "may not come before context declaration"));
                         }
 
-                        messages.push(message);
+                        diagnostics.push(diagnostic);
                         context_clause.clear();
                     }
 
@@ -210,47 +210,47 @@ pub fn parse_design_file(
                 Ok(DeclarationOrReference::Reference(context_ref)) => {
                     context_clause.push(context_ref.map_into(ContextItem::Context));
                 }
-                Err(msg) => messages.push(msg),
+                Err(diagnostic) => diagnostics.push(diagnostic),
             },
-            Entity => match parse_entity_declaration(stream, messages) {
+            Entity => match parse_entity_declaration(stream, diagnostics) {
                 Ok(entity) => {
                     design_units.push(AnyDesignUnit::Primary(PrimaryUnit::EntityDeclaration(to_design_unit(&mut context_clause, entity))));
                 }
-                Err(msg) => messages.push(msg),
+                Err(diagnostic) => diagnostics.push(diagnostic),
             },
 
-            Architecture => match parse_architecture_body(stream, messages) {
+            Architecture => match parse_architecture_body(stream, diagnostics) {
                 Ok(architecture) => {
                     design_units.push(AnyDesignUnit::Secondary(SecondaryUnit::Architecture(to_design_unit(&mut context_clause, architecture))));
                 }
-                Err(msg) => messages.push(msg),
+                Err(diagnostic) => diagnostics.push(diagnostic),
             },
 
-            Configuration => match parse_configuration_declaration(stream, messages) {
+            Configuration => match parse_configuration_declaration(stream, diagnostics) {
                 Ok(configuration) => {
                     design_units.push(AnyDesignUnit::Primary(PrimaryUnit::Configuration(to_design_unit(&mut context_clause, configuration))));
                 }
-                Err(msg) => messages.push(msg),
+                Err(diagnostic) => diagnostics.push(diagnostic),
             },
             Package => {
                 if stream.next_kinds_are(&[Package, Body])? {
-                    match parse_package_body(stream, messages) {
+                    match parse_package_body(stream, diagnostics) {
                         Ok(package_body) => {
                             design_units.push(AnyDesignUnit::Secondary(SecondaryUnit::PackageBody(to_design_unit(&mut context_clause, package_body))));
                         }
-                        Err(msg) => messages.push(msg),
+                        Err(diagnostic) => diagnostics.push(diagnostic),
                     };
                 } else if stream.next_kinds_are(&[Package, Identifier, Is, New])? {
                     match parse_package_instantiation(stream) {
                         Ok(inst) => design_units.push(AnyDesignUnit::Primary(PrimaryUnit::PackageInstance(to_design_unit(&mut context_clause, inst)))),
-                        Err(msg) => messages.push(msg),
+                        Err(diagnostic) => diagnostics.push(diagnostic),
                     }
                 } else {
-                    match parse_package_declaration(stream, messages) {
+                    match parse_package_declaration(stream, diagnostics) {
                         Ok(package) => {
                             design_units.push(AnyDesignUnit::Primary(PrimaryUnit::PackageDeclaration(to_design_unit(&mut context_clause, package))))
                         }
-                        Err(msg) => messages.push(msg),
+                        Err(diagnostic) => diagnostics.push(diagnostic),
                     };
                 }
             }
@@ -258,7 +258,7 @@ pub fn parse_design_file(
     }
 
     for context_item in context_clause {
-        messages.push(Message::warning(
+        diagnostics.push(Diagnostic::warning(
             &context_item,
             context_item_message(&context_item.item, "not associated with any design unit"),
         ));
@@ -272,19 +272,19 @@ mod tests {
     use super::*;
 
     use crate::ast::*;
-    use crate::message::Message;
-    use crate::test_util::{check_messages, check_no_messages, Code};
+    use crate::diagnostic::Diagnostic;
+    use crate::test_util::{check_diagnostics, check_no_diagnostics, Code};
 
-    fn parse_str(code: &str) -> (Code, DesignFile, Vec<Message>) {
+    fn parse_str(code: &str) -> (Code, DesignFile, Vec<Diagnostic>) {
         let code = Code::new(code);
-        let mut messages = vec![];
-        let design_file = code.with_stream(|stream| parse_design_file(stream, &mut messages));
-        (code, design_file, messages)
+        let mut diagnostics = vec![];
+        let design_file = code.with_stream(|stream| parse_design_file(stream, &mut diagnostics));
+        (code, design_file, diagnostics)
     }
 
     fn parse_ok(code: &str) -> (Code, DesignFile) {
-        let (code, design_file, messages) = parse_str(code);
-        check_no_messages(&messages);
+        let (code, design_file, diagnostics) = parse_str(code);
+        check_no_diagnostics(&diagnostics);
         (code, design_file)
     }
 
@@ -579,7 +579,7 @@ end package;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_package_declaration),
+            code.with_stream_no_diagnostics(parse_package_declaration),
             PackageDeclaration {
                 ident: code.s1("pkg_name").ident(),
                 generic_clause: None,
@@ -599,7 +599,7 @@ end package;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_package_declaration),
+            code.with_stream_no_diagnostics(parse_package_declaration),
             PackageDeclaration {
                 ident: code.s1("pkg_name").ident(),
                 generic_clause: None,
@@ -626,7 +626,7 @@ end package;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_package_declaration),
+            code.with_stream_no_diagnostics(parse_package_declaration),
             PackageDeclaration {
                 ident: code.s1("pkg_name").ident(),
                 generic_clause: Some(vec![
@@ -684,19 +684,19 @@ use lib.foo;
 context lib.ctx;
     ",
         );
-        let (design_file, messages) = code.with_stream_messages(parse_design_file);
-        check_messages(
-            messages,
+        let (design_file, diagnostics) = code.with_stream_diagnostics(parse_design_file);
+        check_diagnostics(
+            diagnostics,
             vec![
-                Message::warning(
+                Diagnostic::warning(
                     code.s1("library lib;"),
                     "Library clause not associated with any design unit",
                 ),
-                Message::warning(
+                Diagnostic::warning(
                     code.s1("use lib.foo;"),
                     "Use clause not associated with any design unit",
                 ),
-                Message::warning(
+                Diagnostic::warning(
                     code.s1("context lib.ctx;"),
                     "Context reference not associated with any design unit",
                 ),
@@ -725,10 +725,10 @@ entity ent is
 end entity;
     ",
         );
-        let (design_file, messages) = code.with_stream_messages(parse_design_file);
-        check_messages(
-            messages,
-            vec![Message::error(
+        let (design_file, diagnostics) = code.with_stream_diagnostics(parse_design_file);
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1("ctx"),
                 "Context declaration may not be preceeded by a context clause",
             )
@@ -753,5 +753,4 @@ end entity;
             _ => panic!("Expected entity"),
         }
     }
-
 }

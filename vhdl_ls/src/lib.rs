@@ -7,6 +7,7 @@
 #[macro_use]
 extern crate log;
 
+mod rpc_channel;
 mod stdio_server;
 mod vhdl_server;
 pub use crate::stdio_server::start;

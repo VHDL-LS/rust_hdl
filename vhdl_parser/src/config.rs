@@ -10,27 +10,114 @@ use toml;
 
 use self::fnv::FnvHashMap;
 use self::toml::Value;
+use crate::message::Message;
 use fnv;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 
+#[derive(Clone, PartialEq, Default, Debug)]
 pub struct Config {
     // A map from library name to file name
     libraries: FnvHashMap<String, LibraryConfig>,
 }
 
+#[derive(Clone, PartialEq, Default, Debug)]
 pub struct LibraryConfig {
     name: String,
     files: Vec<String>,
 }
 
 impl LibraryConfig {
-    pub fn file_names(&self) -> &Vec<String> {
-        &self.files
+    /// Return a vector of file names
+    /// Only include files that exists
+    /// Files that do not exist produce a warning message
+    pub fn file_names(&self, messages: &mut Vec<Message>) -> Vec<String> {
+        let mut result = Vec::new();
+        for pattern in self.files.iter() {
+            if Self::is_literal(&pattern) {
+                if !Path::new(pattern).exists() {
+                    messages.push(Message::warning(
+                        format! {"File {} does not exist", pattern},
+                    ));
+                } else {
+                    result.push(pattern.clone());
+                }
+            } else {
+                match glob::glob(pattern) {
+                    Ok(paths) => {
+                        let mut empty_pattern = true;
+
+                        for file_path_or_error in paths {
+                            empty_pattern = false;
+                            match file_path_or_error {
+                                Ok(file_path) => match file_path.to_str() {
+                                    Some(file_name) => {
+                                        result.push(file_name.to_owned());
+                                    }
+                                    None => {
+                                        messages.push(Message::error(format!(
+                                            "File name not valid utf-8 {}",
+                                            file_path.to_string_lossy()
+                                        )));
+                                    }
+                                },
+                                Err(err) => {
+                                    messages.push(Message::error(err.to_string()));
+                                }
+                            }
+                        }
+
+                        if empty_pattern {
+                            messages.push(Message::warning(format!(
+                                "Pattern '{}' did not match any file",
+                                pattern
+                            )));
+                        }
+                    }
+                    Err(err) => {
+                        messages.push(Message::error(format!(
+                            "Invalid pattern '{}' {}",
+                            pattern, err
+                        )));
+                    }
+                }
+            }
+        }
+        Self::remove_duplicates(result)
     }
 
+    /// Remove duplicate file names from the result
+    fn remove_duplicates(file_names: Vec<String>) -> Vec<String> {
+        let mut result = Vec::with_capacity(file_names.len());
+        let mut fileset = std::collections::HashSet::new();
+
+        for file_name in file_names.into_iter() {
+            let path = Path::new(&file_name).to_owned();
+            let canon_path = path.canonicalize().unwrap_or(path);
+
+            if fileset.insert(canon_path) {
+                result.push(file_name);
+            }
+        }
+        result
+    }
+
+    /// Returns true if the pattern is a plain file name and not a glob pattern
+    fn is_literal(pattern: &str) -> bool {
+        for chr in pattern.chars() {
+            match chr {
+                '?' | '*' | '[' => {
+                    return false;
+                }
+                _ => {}
+            }
+        }
+        return true;
+    }
+
+    /// Returns the name of the library
     pub fn name(&self) -> &str {
         self.name.as_str()
     }
@@ -97,34 +184,53 @@ impl Config {
     pub fn iter_libraries(&self) -> impl Iterator<Item = &LibraryConfig> {
         self.libraries.values()
     }
+
+    /// Append another config to self
+    ///
+    /// In case of conflict the appended config takes precedence
+    pub fn append(&mut self, config: &Config) {
+        for library in config.iter_libraries() {
+            if let Some(parent_library) = self.libraries.get_mut(&library.name) {
+                for file_name in library.files.iter() {
+                    parent_library.files.push(file_name.clone());
+                }
+            } else {
+                self.libraries.insert(
+                    library.name.clone(),
+                    LibraryConfig {
+                        name: library.name.clone(),
+                        files: library.files.clone(),
+                    },
+                );
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
+    use tempfile;
+
+    /// Utility function to create an empty file in parent folder
+    fn touch(parent: &Path, file_name: &str) -> String {
+        let path = parent.join(file_name);
+        File::create(&path).expect("Assume file can be created");
+        path.to_str().expect("Assume valid string").to_owned()
+    }
 
     #[test]
     fn config_from_str() {
-        let parent = Path::new("parent_folder");
+        let tempdir = tempfile::tempdir().unwrap();
+        let parent = tempdir.path();
 
-        let absolute_path = {
-            let win_path = Path::new("C:\\");
-            let unix_path = Path::new("/");
-
-            if unix_path.is_absolute() {
-                unix_path
-            } else if win_path.is_absolute() {
-                win_path
-            } else {
-                panic!("Cannot create absolute path");
-            }
-        };
-
-        let absolute_vhd = absolute_path
-            .join("absolute.vhd")
-            .to_str()
-            .unwrap()
-            .to_owned();
+        let tempdir2 = tempfile::tempdir().unwrap();
+        let absolute_path = tempdir2
+            .path()
+            .canonicalize()
+            .expect("Assume valid abspath");
+        let absolute_vhd = touch(&absolute_path, "absolute.vhd");
 
         let config = Config::from_str(
             &format!(
@@ -151,12 +257,171 @@ lib1.files = [
         let lib1 = config.get_library("lib1").unwrap();
         let lib2 = config.get_library("lib2").unwrap();
 
-        let pkg1_path = parent.join("pkg1.vhd").to_str().unwrap().to_owned();
-        let pkg2_path = parent.join("pkg2.vhd").to_str().unwrap().to_owned();
-        let tb_ent_path = parent.join("tb_ent.vhd").to_str().unwrap().to_owned();
+        let pkg1_path = touch(&parent, "pkg1.vhd");
+        let pkg2_path = touch(&parent, "pkg2.vhd");
+        let tb_ent_path = touch(&parent, "tb_ent.vhd");
 
-        assert_eq!(lib1.file_names(), &[pkg1_path, tb_ent_path]);
-        assert_eq!(lib2.file_names(), &[pkg2_path, absolute_vhd]);
+        let mut messages = vec![];
+        assert_eq!(lib1.file_names(&mut messages), &[pkg1_path, tb_ent_path]);
+        assert_eq!(lib2.file_names(&mut messages), &[pkg2_path, absolute_vhd]);
+        assert_eq!(messages, vec![]);
     }
 
+    #[test]
+    fn test_append_config() {
+        let parent0 = Path::new("parent_folder0");
+        let config0 = Config::from_str(
+            "
+[libraries]
+lib1.files = [
+  'pkg1.vhd',
+]
+lib2.files = [
+  'pkg2.vhd'
+]
+",
+            &parent0,
+        )
+        .unwrap();
+
+        let parent1 = Path::new("parent_folder1");
+        let config1 = Config::from_str(
+            "
+[libraries]
+lib2.files = [
+  'ent.vhd'
+]
+lib3.files = [
+  'pkg3.vhd',
+]
+",
+            &parent1,
+        )
+        .unwrap();
+
+        let expected_parent = Path::new("");
+        let expected_config = Config::from_str(
+            "
+[libraries]
+lib1.files = [
+  'parent_folder0/pkg1.vhd',
+]
+lib2.files = [
+  'parent_folder0/pkg2.vhd',
+  'parent_folder1/ent.vhd'
+]
+lib3.files = [
+  'parent_folder1/pkg3.vhd',
+]
+",
+            &expected_parent,
+        )
+        .unwrap();
+
+        let mut merged_config = config0.clone();
+        merged_config.append(&config1);
+        assert_eq!(merged_config, expected_config);
+    }
+
+    #[test]
+    fn test_warning_on_missing_file() {
+        let parent = Path::new("parent_folder");
+        let config = Config::from_str(
+            "
+[libraries]
+lib.files = [
+  'missing.vhd'
+]
+",
+            &parent,
+        )
+        .unwrap();
+
+        let mut messages = vec![];
+        let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
+        let expected: Vec<String> = Vec::new();
+        assert_eq!(file_names, expected);
+        assert_eq!(
+            messages,
+            vec![Message::warning(
+                "File parent_folder/missing.vhd does not exist"
+            )]
+        );
+    }
+
+    #[test]
+    fn test_file_wildcard_pattern() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let parent = tempdir.path();
+        let config = Config::from_str(
+            "
+[libraries]
+lib.files = [
+  '*.vhd'
+]
+",
+            &parent,
+        )
+        .unwrap();
+
+        let file1 = touch(&parent, "file1.vhd");
+        let file2 = touch(&parent, "file2.vhd");
+
+        let mut messages = vec![];
+        let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
+        let expected: Vec<String> = vec![file1, file2];
+        assert_eq!(file_names, expected);
+        assert_eq!(messages, vec![]);
+    }
+
+    #[test]
+    fn test_file_wildcard_pattern_removes_duplicates() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let parent = tempdir.path();
+        let config = Config::from_str(
+            "
+[libraries]
+lib.files = [
+  '*.vhd',
+  'file*.vhd'
+]
+",
+            &parent,
+        )
+        .unwrap();
+
+        let file1 = touch(&parent, "file1.vhd");
+        let file2 = touch(&parent, "file2.vhd");
+
+        let mut messages = vec![];
+        let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
+        let expected: Vec<String> = vec![file1, file2];
+        assert_eq!(file_names, expected);
+        assert_eq!(messages, vec![]);
+    }
+    #[test]
+    fn test_warning_on_emtpy_glob_pattern() {
+        let parent = Path::new("parent_folder");
+        let config = Config::from_str(
+            "
+[libraries]
+lib.files = [
+  'missing*.vhd'
+]
+",
+            &parent,
+        )
+        .unwrap();
+
+        let mut messages = vec![];
+        let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
+        let expected: Vec<String> = Vec::new();
+        assert_eq!(file_names, expected);
+        assert_eq!(
+            messages,
+            vec![Message::warning(
+                "Pattern 'parent_folder/missing*.vhd' did not match any file"
+            )]
+        );
+    }
 }

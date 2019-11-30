@@ -10,8 +10,8 @@ use crate::ast::{
     Expression, ExternalName, ExternalObjectClass, ExternalPath, FunctionCall, Ident, Literal,
     Name, Range, RangeConstraint, SelectedName, Signature,
 };
+use crate::diagnostic::{Diagnostic, ParseResult};
 use crate::expression::{parse_expression, parse_expression_initial_token};
-use crate::message::{Message, ParseResult};
 use crate::source::WithPos;
 use crate::subprogram::parse_signature;
 use crate::subtype_indication::parse_subtype_indication;
@@ -55,7 +55,7 @@ pub fn into_selected_name(name: WithPos<Name>) -> ParseResult<WithPos<SelectedNa
             SelectedName::Designator(designator),
             name.pos,
         )),
-        _ => Err(Message::error(&name, "Expected selected name")),
+        _ => Err(Diagnostic::error(&name, "Expected selected name")),
     }
 }
 
@@ -70,7 +70,7 @@ pub fn to_simple_name(name: WithPos<Name>) -> ParseResult<Ident> {
             item: ident,
             pos: name.pos,
         }),
-        _ => Err(Message::error(&name, "Expected selected name")),
+        _ => Err(Diagnostic::error(&name, "Expected selected name")),
     }
 }
 
@@ -103,27 +103,27 @@ fn expression_to_name(expr: WithPos<Expression>) -> ParseResult<WithPos<Name>> {
             item: Name::Designator(Designator::Character(val)),
             pos: expr.pos,
         }),
-        _ => Err(Message::error(&expr, "Expected name")),
+        _ => Err(Diagnostic::error(&expr, "Expected name")),
     }
 }
 
 fn actual_to_expression(actual: WithPos<ActualPart>) -> ParseResult<WithPos<Expression>> {
     match actual.item {
         ActualPart::Expression(expr) => Ok(WithPos::from(expr, actual.pos)),
-        _ => Err(Message::error(&actual, "Expected expression")),
+        _ => Err(Diagnostic::error(&actual, "Expected expression")),
     }
 }
 
 fn actual_part_to_name(actual: WithPos<ActualPart>) -> ParseResult<WithPos<Name>> {
     match actual.item {
         ActualPart::Expression(expr) => expression_to_name(WithPos::from(expr, actual.pos)),
-        _ => Err(Message::error(&actual, "Expected name")),
+        _ => Err(Diagnostic::error(&actual, "Expected name")),
     }
 }
 
 fn assoc_to_expression(assoc: AssociationElement) -> ParseResult<WithPos<Expression>> {
     match assoc.formal {
-        Some(name) => Err(Message::error(&name, "Expected expression")),
+        Some(name) => Err(Diagnostic::error(&name, "Expected expression")),
         None => actual_to_expression(assoc.actual),
     }
 }
@@ -312,7 +312,10 @@ pub fn parse_name_initial_token(
                     WithPos::from(Name::Designator(designator), suffix.pos)
                 }
                 DesignatorOrAll::All => {
-                    return Err(Message::error(suffix.pos, "Illegal prefix 'all' for name"));
+                    return Err(Diagnostic::error(
+                        suffix.pos,
+                        "Illegal prefix 'all' for name",
+                    ));
                 }
             }
         }
@@ -913,7 +916,7 @@ mod tests {
         let code = Code::new("all");
         assert_eq!(
             code.with_partial_stream(parse_name),
-            Err(Message::error(
+            Err(Diagnostic::error(
                 code.s1("all"),
                 "Illegal prefix 'all' for name"
             ))
@@ -925,11 +928,10 @@ mod tests {
         let code = Code::new("all.foo");
         assert_eq!(
             code.with_partial_stream(parse_name),
-            Err(Message::error(
+            Err(Diagnostic::error(
                 code.s1("all"),
                 "Illegal prefix 'all' for name"
             ))
         );
     }
-
 }

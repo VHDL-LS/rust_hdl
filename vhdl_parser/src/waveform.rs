@@ -7,8 +7,8 @@
 use crate::ast::{DelayMechanism, Waveform, WaveformElement};
 
 use crate::common::parse_optional;
+use crate::diagnostic::ParseResult;
 use crate::expression::parse_expression;
-use crate::message::ParseResult;
 use crate::tokenizer::Kind::*;
 use crate::tokenstream::TokenStream;
 

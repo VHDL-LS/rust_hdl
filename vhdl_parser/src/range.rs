@@ -6,8 +6,8 @@
 
 use crate::ast::{ArrayIndex, Direction, DiscreteRange, Expression, Name, Range, RangeConstraint};
 use crate::common::parse_optional;
+use crate::diagnostic::{Diagnostic, ParseResult};
 use crate::expression::parse_expression;
-use crate::message::{Message, ParseResult};
 use crate::names::into_selected_name;
 use crate::source::WithPos;
 use crate::tokenizer::Kind::*;
@@ -63,7 +63,7 @@ fn parse_name_or_range(stream: &mut TokenStream) -> ParseResult<NameOrRange> {
         return Ok(NameOrRange::Name(WithPos::from(*name, pos)));
     }
 
-    Err(Message::error(&expr, "Expected name or range"))
+    Err(Diagnostic::error(&expr, "Expected name or range"))
 }
 
 /// {selected_name}'range
@@ -72,7 +72,7 @@ fn parse_name_or_range(stream: &mut TokenStream) -> ParseResult<NameOrRange> {
 pub fn parse_range(stream: &mut TokenStream) -> ParseResult<WithPos<Range>> {
     match parse_name_or_range(stream)? {
         NameOrRange::Range(range) => Ok(range),
-        NameOrRange::Name(name) => Err(Message::error(&name, "Expected range")),
+        NameOrRange::Name(name) => Err(Diagnostic::error(&name, "Expected range")),
     }
 }
 
@@ -84,7 +84,7 @@ pub fn parse_discrete_range(stream: &mut TokenStream) -> ParseResult<DiscreteRan
             let range = parse_optional(stream, Range, parse_range)?.map(|range| range.item);
             Ok(DiscreteRange::Discrete(selected_name, range))
         }
-        Err(msg) => Err(msg.when("parsing discrete_range")),
+        Err(diagnostic) => Err(diagnostic.when("parsing discrete_range")),
     }
 }
 
@@ -110,7 +110,7 @@ pub fn parse_array_index_constraint(stream: &mut TokenStream) -> ParseResult<Arr
                 )))
             }
         }
-        Err(msg) => Err(msg.when("parsing array index constraint")),
+        Err(diagnostic) => Err(diagnostic.when("parsing array index constraint")),
     }
 }
 

@@ -6,8 +6,8 @@
 
 use crate::ast::DesignFile;
 use crate::design_unit::parse_design_file;
+use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::latin_1::Latin1String;
-use crate::message::{Message, MessageHandler};
 use crate::source::Source;
 use crate::symbol_table::Symbol;
 use crate::symbol_table::SymbolTable;
@@ -24,7 +24,7 @@ use fnv;
 
 #[derive(Debug)]
 pub enum ParserError {
-    Message(Message),
+    Diagnostic(Diagnostic),
     IOError(io::Error),
 }
 
@@ -41,9 +41,9 @@ impl From<io::Error> for ParserError {
     }
 }
 
-impl From<Message> for ParserError {
-    fn from(msg: Message) -> ParserError {
-        ParserError::Message(msg)
+impl From<Diagnostic> for ParserError {
+    fn from(diagnostic: Diagnostic) -> ParserError {
+        ParserError::Diagnostic(diagnostic)
     }
 }
 
@@ -61,28 +61,28 @@ impl VHDLParser {
     pub fn parse_design_source(
         &self,
         source: &Source,
-        messages: &mut dyn MessageHandler,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) -> ParserResult {
         let code = source.contents()?;
         let tokenizer = Tokenizer::new(self.symtab.clone(), source.clone(), code);
         let mut stream = TokenStream::new(tokenizer);
-        Ok(parse_design_file(&mut stream, messages)?)
+        Ok(parse_design_file(&mut stream, diagnostics)?)
     }
 
     pub fn parse_design_file(
         &self,
         file_name: &str,
-        messages: &mut dyn MessageHandler,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) -> ParserResult {
         let source = Source::from_file(file_name);
-        Ok(self.parse_design_source(&source, messages)?)
+        Ok(self.parse_design_source(&source, diagnostics)?)
     }
 
     pub fn parse_design_files<T>(
         &self,
         files_to_parse: Vec<T>,
         num_threads: usize,
-    ) -> impl Iterator<Item = (T, Vec<Message>, ParserResult)>
+    ) -> impl Iterator<Item = (T, Vec<Diagnostic>, ParserResult)>
     where
         T: FileToParse + Send + 'static,
     {
@@ -106,7 +106,7 @@ impl FileToParse for String {
     }
 }
 
-type ParallelResult<T> = (T, Vec<Message>, ParserResult);
+type ParallelResult<T> = (T, Vec<Diagnostic>, ParserResult);
 
 struct ParallelParser<T> {
     result_receiver: Receiver<(usize, ParallelResult<Box<T>>)>,
@@ -127,10 +127,11 @@ impl<T: Send + FileToParse + 'static> ParallelParser<T> {
             let item = input.lock().unwrap().recv().unwrap();
             match item {
                 Some((idx, file_to_parse)) => {
-                    let mut messages = Vec::new();
-                    let result = parser.parse_design_file(file_to_parse.file_name(), &mut messages);
+                    let mut diagnostics = Vec::new();
+                    let result =
+                        parser.parse_design_file(file_to_parse.file_name(), &mut diagnostics);
                     output
-                        .send((idx, (file_to_parse, messages, result)))
+                        .send((idx, (file_to_parse, diagnostics, result)))
                         .unwrap();
                 }
                 None => {
@@ -195,7 +196,7 @@ impl<T> Iterator for ParallelParser<T> {
         };
 
         self.idx += 1;
-        let (file_to_parse, messages, result) = value;
-        Some((*file_to_parse, messages, result))
+        let (file_to_parse, diagnostics, result) = value;
+        Some((*file_to_parse, diagnostics, result))
     }
 }

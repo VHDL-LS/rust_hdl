@@ -8,8 +8,8 @@ use crate::ast::{
     Attribute, AttributeDeclaration, AttributeSpecification, Designator, EntityClass, EntityName,
     EntityTag,
 };
+use crate::diagnostic::ParseResult;
 use crate::expression::parse_expression;
-use crate::message::ParseResult;
 use crate::names::parse_selected_name;
 use crate::subprogram::parse_signature;
 use crate::tokenizer::Kind::*;
@@ -26,7 +26,11 @@ fn parse_entity_class(stream: &mut TokenStream) -> ParseResult<EntityClass> {
         Signal => EntityClass::Signal,
         Variable => EntityClass::Variable,
         Procedure => EntityClass::Procedure,
-        Function => EntityClass::Function
+        Function => EntityClass::Function,
+        Component => EntityClass::Component,
+        Constant => EntityClass::Constant,
+        Type => EntityClass::Type,
+        Label => EntityClass::Label
     ))
 }
 
@@ -241,5 +245,4 @@ mod tests {
             })]
         )
     }
-
 }

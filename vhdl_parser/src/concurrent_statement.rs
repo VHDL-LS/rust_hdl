@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::ast::{
-    Alternative, AssignmentRightHand, BlockStatement, CaseGenerateStatement,
+    Alternative, AssignmentRightHand, AssociationElement, BlockStatement, CaseGenerateStatement,
     ConcurrentAssertStatement, ConcurrentProcedureCall, ConcurrentSignalAssignment,
     ConcurrentStatement, Conditional, Declaration, ForGenerateStatement, FunctionCall,
     GenerateBody, Ident, IfGenerateStatement, InstantiatedUnit, InstantiationStatement,
@@ -13,9 +13,9 @@ use crate::ast::{
 };
 use crate::common::error_on_end_identifier_mismatch;
 use crate::declarative_part::{is_declarative_part, parse_declarative_part};
+use crate::diagnostic::{push_some, Diagnostic, DiagnosticHandler, ParseResult};
 use crate::expression::parse_aggregate_leftpar_known;
 use crate::expression::{parse_choices, parse_expression};
-use crate::message::{push_some, Message, MessageHandler, ParseResult};
 use crate::names::{
     expression_to_ident, into_selected_name, parse_association_list, parse_name_initial_token,
     parse_selected_name, to_simple_name,
@@ -33,7 +33,7 @@ use crate::waveform::{parse_delay_mechanism, parse_waveform};
 /// LRM 11.2 Block statement
 pub fn parse_block_statement(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<BlockStatement> {
     let token = stream.peek_expect()?;
     let guard_condition = {
@@ -51,8 +51,8 @@ pub fn parse_block_statement(
             _ => None,
         }
     };
-    let decl = parse_declarative_part(stream, messages, true)?;
-    let statements = parse_labeled_concurrent_statements(stream, messages)?;
+    let decl = parse_declarative_part(stream, diagnostics, true)?;
+    let statements = parse_labeled_concurrent_statements(stream, diagnostics)?;
     stream.expect_kind(Block)?;
     // @TODO check name
     stream.pop_if_kind(Identifier)?;
@@ -68,7 +68,7 @@ pub fn parse_block_statement(
 pub fn parse_process_statement(
     stream: &mut TokenStream,
     postponed: bool,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ProcessStatement> {
     let token = stream.peek_expect()?;
     let sensitivity_list = {
@@ -87,8 +87,8 @@ pub fn parse_process_statement(
                         match token.kind {
                             RightPar => {
                                 if names.is_empty() {
-                                    messages.push(
-                                        Message::error(token, "Processes with sensitivity lists must contain at least one element.")
+                                    diagnostics.push(
+                                        Diagnostic::error(token, "Processes with sensitivity lists must contain at least one element.")
                                     );
                                 }
                                 break Some(SensitivityList::Names(names));
@@ -107,8 +107,8 @@ pub fn parse_process_statement(
         }
     };
     stream.pop_if_kind(Is)?;
-    let decl = parse_declarative_part(stream, messages, true)?;
-    let (statements, end_token) = parse_labeled_sequential_statements(stream, messages)?;
+    let decl = parse_declarative_part(stream, diagnostics, true)?;
+    let (statements, end_token) = parse_labeled_sequential_statements(stream, diagnostics)?;
     try_token_kind!(end_token, End => {});
     stream.expect_kind(Process)?;
     // @TODO check name
@@ -138,11 +138,32 @@ fn to_procedure_call(
                 parameters: vec![],
             },
         }),
-        Target::Aggregate(..) => Err(Message::error(
+        Target::Aggregate(..) => Err(Diagnostic::error(
             target,
             "Expected procedure call, got aggregate",
         )),
     }
+}
+
+/// Assume target and <= is parsed already
+fn parse_assignment_known_target(
+    stream: &mut TokenStream,
+    target: WithPos<Target>,
+) -> ParseResult<ConcurrentStatement> {
+    // @TODO postponed
+    let postponed = false;
+    // @TODO guarded
+    let guarded = false;
+    let delay_mechanism = parse_delay_mechanism(stream)?;
+    Ok(ConcurrentStatement::Assignment(
+        ConcurrentSignalAssignment {
+            postponed,
+            guarded,
+            target,
+            delay_mechanism,
+            rhs: parse_signal_assignment_right_hand(stream)?,
+        },
+    ))
 }
 
 fn parse_assignment_or_procedure_call(
@@ -153,18 +174,7 @@ fn parse_assignment_or_procedure_call(
     match_token_kind!(
     token,
     LTE => {
-        // @TODO postponed
-        let postponed = false;
-        // @TODO guarded
-        let guarded = false;
-        let delay_mechanism = parse_delay_mechanism(stream)?;
-        Ok(ConcurrentStatement::Assignment(ConcurrentSignalAssignment {
-            postponed,
-            guarded,
-            target,
-            delay_mechanism,
-            rhs: parse_signal_assignment_right_hand(stream)?
-        }))
+        parse_assignment_known_target(stream, target)
     },
     SemiColon => {
         Ok(ConcurrentStatement::ProcedureCall(to_procedure_call(target, false)?))
@@ -202,30 +212,42 @@ pub fn parse_concurrent_assert_statement(
     })
 }
 
-pub fn parse_instantiation_statement(
+pub fn parse_generic_and_port_map(
     stream: &mut TokenStream,
-    unit: InstantiatedUnit,
-) -> ParseResult<InstantiationStatement> {
+) -> ParseResult<(
+    Option<Vec<AssociationElement>>,
+    Option<Vec<AssociationElement>>,
+)> {
     let generic_map = {
         if stream.skip_if_kind(Generic)? {
             stream.expect_kind(Map)?;
-            parse_association_list(stream)?
+            Some(parse_association_list(stream)?)
         } else {
-            Vec::new()
+            None
         }
     };
     let port_map = {
         if stream.skip_if_kind(Port)? {
             stream.expect_kind(Map)?;
-            parse_association_list(stream)?
+            Some(parse_association_list(stream)?)
         } else {
-            Vec::new()
+            None
         }
     };
+
+    Ok((generic_map, port_map))
+}
+
+pub fn parse_instantiation_statement(
+    stream: &mut TokenStream,
+    unit: InstantiatedUnit,
+) -> ParseResult<InstantiationStatement> {
+    let (generic_map, port_map) = parse_generic_and_port_map(stream)?;
+
     let inst = InstantiationStatement {
         unit,
-        generic_map,
-        port_map,
+        generic_map: generic_map.unwrap_or_else(|| Vec::new()),
+        port_map: port_map.unwrap_or_else(|| Vec::new()),
     };
     stream.expect_kind(SemiColon)?;
     Ok(inst)
@@ -233,10 +255,10 @@ pub fn parse_instantiation_statement(
 
 fn parse_optional_declarative_part(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Option<Vec<Declaration>>> {
     if is_declarative_part(stream, true)? {
-        Ok(Some(parse_declarative_part(stream, messages, true)?))
+        Ok(Some(parse_declarative_part(stream, diagnostics, true)?))
     } else {
         Ok(None)
     }
@@ -245,11 +267,11 @@ fn parse_optional_declarative_part(
 fn parse_generate_body_end_token(
     stream: &mut TokenStream,
     alternative_label: Option<Ident>,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<(GenerateBody, Token)> {
-    let decl = parse_optional_declarative_part(stream, messages)?;
+    let decl = parse_optional_declarative_part(stream, diagnostics)?;
     let (statements, mut end_token) =
-        parse_labeled_concurrent_statements_end_token(stream, messages)?;
+        parse_labeled_concurrent_statements_end_token(stream, diagnostics)?;
 
     // Potential inner end [ alternative_label ];
     if end_token.kind == End {
@@ -270,7 +292,7 @@ fn parse_generate_body_end_token(
             // Inner with identifier
             let end_ident = token.expect_ident()?;
             if let Some(ref ident) = alternative_label {
-                push_some(messages, error_on_end_identifier_mismatch(ident, &Some(end_ident)));
+                push_some(diagnostics, error_on_end_identifier_mismatch(ident, &Some(end_ident)));
             };
             stream.expect_kind(SemiColon)?;
             end_token = stream.expect()?;
@@ -289,9 +311,9 @@ fn parse_generate_body_end_token(
 fn parse_generate_body(
     stream: &mut TokenStream,
     alternative_label: Option<Ident>,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<GenerateBody> {
-    let (body, end_token) = parse_generate_body_end_token(stream, alternative_label, messages)?;
+    let (body, end_token) = parse_generate_body_end_token(stream, alternative_label, diagnostics)?;
     end_token.expect_kind(End)?;
     Ok(body)
 }
@@ -299,13 +321,13 @@ fn parse_generate_body(
 /// 11.8 Generate statements
 fn parse_for_generate_statement(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ForGenerateStatement> {
     let index_name = stream.expect_ident()?;
     stream.expect_kind(In)?;
     let discrete_range = parse_discrete_range(stream)?;
     stream.expect_kind(Generate)?;
-    let body = parse_generate_body(stream, None, messages)?;
+    let body = parse_generate_body(stream, None, diagnostics)?;
     stream.expect_kind(Generate)?;
     // @TODO check identifier
     stream.pop_if_kind(Identifier)?;
@@ -321,7 +343,7 @@ fn parse_for_generate_statement(
 /// 11.8 Generate statements
 fn parse_if_generate_statement(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<IfGenerateStatement> {
     let mut conditionals = Vec::new();
     let else_branch;
@@ -334,7 +356,8 @@ fn parse_if_generate_statement(
             condition = parse_expression(stream)?;
         }
         stream.expect_kind(Generate)?;
-        let (body, end_token) = parse_generate_body_end_token(stream, alternative_label, messages)?;
+        let (body, end_token) =
+            parse_generate_body_end_token(stream, alternative_label, diagnostics)?;
 
         let conditional = Conditional {
             condition,
@@ -365,7 +388,7 @@ fn parse_if_generate_statement(
                         Some(token.expect_ident()?)
                     }
                 );
-                let body = parse_generate_body(stream, alternative_label, messages)?;
+                let body = parse_generate_body(stream, alternative_label, diagnostics)?;
                 else_branch = Some(body);
                 break;
             }
@@ -386,7 +409,7 @@ fn parse_if_generate_statement(
 /// 11.8 Generate statements
 fn parse_case_generate_statement(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<CaseGenerateStatement> {
     let expression = parse_expression(stream)?;
     stream.expect_kind(Generate)?;
@@ -405,7 +428,8 @@ fn parse_case_generate_statement(
         };
         let choices = parse_choices(stream)?;
         stream.expect_kind(RightArrow)?;
-        let (body, end_token) = parse_generate_body_end_token(stream, alternative_label, messages)?;
+        let (body, end_token) =
+            parse_generate_body_end_token(stream, alternative_label, diagnostics)?;
         alternatives.push(Alternative {
             choices,
             item: body,
@@ -432,16 +456,16 @@ fn parse_case_generate_statement(
 pub fn parse_concurrent_statement(
     stream: &mut TokenStream,
     token: Token,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ConcurrentStatement> {
     let statement = {
         try_token_kind!(
             token,
             Block => {
-                ConcurrentStatement::Block(parse_block_statement(stream, messages)?)
+                ConcurrentStatement::Block(parse_block_statement(stream, diagnostics)?)
             },
             Process => {
-                ConcurrentStatement::Process(parse_process_statement(stream, false, messages)?)
+                ConcurrentStatement::Process(parse_process_statement(stream, false, diagnostics)?)
             },
             Component => {
                 let unit = InstantiatedUnit::Component(parse_selected_name(stream)?);
@@ -465,14 +489,14 @@ pub fn parse_concurrent_statement(
                 let unit = InstantiatedUnit::Entity(name, arch);
                 ConcurrentStatement::Instance(parse_instantiation_statement(stream, unit)?)
             },
-            For => ConcurrentStatement::ForGenerate(parse_for_generate_statement(stream, messages)?),
-            If => ConcurrentStatement::IfGenerate(parse_if_generate_statement(stream, messages)?),
-            Case => ConcurrentStatement::CaseGenerate(parse_case_generate_statement(stream, messages)?),
+            For => ConcurrentStatement::ForGenerate(parse_for_generate_statement(stream, diagnostics)?),
+            If => ConcurrentStatement::IfGenerate(parse_if_generate_statement(stream, diagnostics)?),
+            Case => ConcurrentStatement::CaseGenerate(parse_case_generate_statement(stream, diagnostics)?),
             Assert => ConcurrentStatement::Assert(parse_concurrent_assert_statement(stream, false)?),
             Postponed => {
                 let token = stream.expect()?;
                 match token.kind {
-                    Process => ConcurrentStatement::Process(parse_process_statement(stream, true, messages)?),
+                    Process => ConcurrentStatement::Process(parse_process_statement(stream, true, diagnostics)?),
                     Assert => ConcurrentStatement::Assert(parse_concurrent_assert_statement(stream, true)?),
                     With => ConcurrentStatement::Assignment(parse_selected_signal_assignment(stream, true)?),
                     _ => {
@@ -497,6 +521,11 @@ pub fn parse_concurrent_statement(
                     }
                 }
             },
+            LtLt => {
+                let name = parse_name_initial_token(stream, token)?;
+                stream.expect_kind(LTE)?;
+                parse_assignment_known_target(stream, name.map_into(Target::Name))?
+            },
             LeftPar => {
                 let target = parse_aggregate_leftpar_known(stream)?.map_into(Target::Aggregate);
                 let token = stream.expect()?;
@@ -509,7 +538,7 @@ pub fn parse_concurrent_statement(
 
 pub fn parse_labeled_concurrent_statements_end_token(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<(Vec<LabeledConcurrentStatement>, Token)> {
     let mut statements = Vec::new();
     loop {
@@ -520,7 +549,9 @@ pub fn parse_labeled_concurrent_statements_end_token(
             }
             _ => {
                 statements.push(parse_labeled_concurrent_statement_initial_token(
-                    stream, token, messages,
+                    stream,
+                    token,
+                    diagnostics,
                 )?);
             }
         }
@@ -529,16 +560,16 @@ pub fn parse_labeled_concurrent_statements_end_token(
 
 pub fn parse_labeled_concurrent_statements(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Vec<LabeledConcurrentStatement>> {
-    let (statement, _) = parse_labeled_concurrent_statements_end_token(stream, messages)?;
+    let (statement, _) = parse_labeled_concurrent_statements_end_token(stream, diagnostics)?;
     Ok(statement)
 }
 
 pub fn parse_labeled_concurrent_statement_initial_token(
     stream: &mut TokenStream,
     token: Token,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<LabeledConcurrentStatement> {
     if token.kind == Identifier {
         let name = parse_name_initial_token(stream, token)?;
@@ -546,7 +577,7 @@ pub fn parse_labeled_concurrent_statement_initial_token(
         if token.kind == Colon {
             let label = Some(to_simple_name(name)?);
             let token = stream.expect()?;
-            let statement = parse_concurrent_statement(stream, token, messages)?;
+            let statement = parse_concurrent_statement(stream, token, diagnostics)?;
             Ok(LabeledConcurrentStatement { label, statement })
         } else {
             let target = name.map_into(Target::Name);
@@ -557,7 +588,7 @@ pub fn parse_labeled_concurrent_statement_initial_token(
             })
         }
     } else {
-        let statement = parse_concurrent_statement(stream, token, messages)?;
+        let statement = parse_concurrent_statement(stream, token, diagnostics)?;
         Ok(LabeledConcurrentStatement {
             label: None,
             statement,
@@ -568,10 +599,10 @@ pub fn parse_labeled_concurrent_statement_initial_token(
 #[cfg(test)]
 pub fn parse_labeled_concurrent_statement(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<LabeledConcurrentStatement> {
     let token = stream.expect()?;
-    parse_labeled_concurrent_statement_initial_token(stream, token, messages)
+    parse_labeled_concurrent_statement_initial_token(stream, token, diagnostics)
 }
 
 #[cfg(test)]
@@ -591,7 +622,7 @@ mod tests {
             postponed: false,
             call: code.s1("foo(clk)").function_call(),
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(stmt.statement, ConcurrentStatement::ProcedureCall(call));
     }
@@ -607,7 +638,7 @@ mod tests {
             postponed: true,
             call: code.s1("foo(clk)").function_call(),
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(stmt.statement, ConcurrentStatement::ProcedureCall(call));
     }
@@ -623,7 +654,7 @@ mod tests {
             postponed: false,
             call: code.s1("foo(clk)").function_call(),
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("name").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::ProcedureCall(call));
     }
@@ -639,7 +670,7 @@ mod tests {
             postponed: false,
             call: code.s1("foo").function_call(),
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(stmt.statement, ConcurrentStatement::ProcedureCall(call));
     }
@@ -668,7 +699,7 @@ end block;
                 statement: ConcurrentStatement::ProcedureCall(call),
             }],
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("name").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Block(block));
     }
@@ -687,7 +718,7 @@ end block name;
             decl: vec![],
             statements: vec![],
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("name").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Block(block));
     }
@@ -706,7 +737,7 @@ end block;
             decl: vec![],
             statements: vec![],
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("name").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Block(block));
     }
@@ -726,7 +757,7 @@ end process;
             decl: vec![],
             statements: vec![],
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
     }
@@ -746,7 +777,7 @@ end process name;
             decl: vec![],
             statements: vec![],
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("name").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
     }
@@ -766,7 +797,7 @@ end process;
             decl: vec![],
             statements: vec![],
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
     }
@@ -789,7 +820,7 @@ end process;
             decl: vec![],
             statements: vec![],
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
     }
@@ -803,7 +834,7 @@ begin
 end process;
 ",
         );
-        let (stmt, messages) = code.with_stream_messages(parse_labeled_concurrent_statement);
+        let (stmt, diagnostics) = code.with_stream_diagnostics(parse_labeled_concurrent_statement);
         let process = ProcessStatement {
             postponed: false,
             sensitivity_list: Some(SensitivityList::Names(Vec::new())),
@@ -811,8 +842,8 @@ end process;
             statements: Vec::new(),
         };
         assert_eq!(
-            messages,
-            vec![Message::error(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1(")"),
                 "Processes with sensitivity lists must contain at least one element."
             )]
@@ -841,7 +872,7 @@ end process;
                 code.s1("wait;").sequential_statement(),
             ],
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
     }
@@ -861,7 +892,7 @@ assert cond = true;
                 severity: None,
             },
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Assert(assert));
     }
@@ -881,7 +912,7 @@ postponed assert cond = true;
                 severity: None,
             },
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Assert(assert));
     }
@@ -900,7 +931,29 @@ foo <= bar(2 to 3);
             delay_mechanism: None,
             rhs: AssignmentRightHand::Simple(code.s1("bar(2 to 3)").waveform()),
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, None);
+        assert_eq!(stmt.statement, ConcurrentStatement::Assignment(assign));
+    }
+
+    #[test]
+    fn test_concurrent_signal_assignment_external_name() {
+        let code = Code::new(
+            "\
+<< signal dut.foo : std_logic >> <= bar(2 to 3);
+",
+        );
+        let assign = ConcurrentSignalAssignment {
+            postponed: false,
+            guarded: false,
+            target: code
+                .s1("<< signal dut.foo : std_logic >>")
+                .name()
+                .map_into(Target::Name),
+            delay_mechanism: None,
+            rhs: AssignmentRightHand::Simple(code.s1("bar(2 to 3)").waveform()),
+        };
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Assignment(assign));
     }
@@ -921,7 +974,7 @@ with x(0) + 1 select
             }],
         };
 
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
         assert_eq!(
             stmt.statement,
@@ -948,7 +1001,7 @@ inst: component lib.foo.bar;
             generic_map: vec![],
             port_map: vec![],
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
@@ -966,7 +1019,7 @@ inst: configuration lib.foo.bar;
             generic_map: vec![],
             port_map: vec![],
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
@@ -984,7 +1037,7 @@ inst: entity lib.foo.bar;
             generic_map: vec![],
             port_map: vec![],
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
@@ -1005,7 +1058,7 @@ inst: entity lib.foo.bar(arch);
             generic_map: vec![],
             port_map: vec![],
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
@@ -1037,7 +1090,7 @@ inst: component lib.foo.bar
   )")
                 .association_list(),
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
@@ -1062,7 +1115,7 @@ inst: lib.foo.bar
   )")
                 .association_list(),
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
@@ -1087,7 +1140,7 @@ inst: lib.foo.bar
                 .association_list(),
             port_map: vec![],
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
@@ -1109,7 +1162,7 @@ end generate;
                 statements: vec![],
             },
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::ForGenerate(gen));
     }
@@ -1132,7 +1185,7 @@ end generate;
                 statements: vec![code.s1("foo <= bar;").concurrent_statement()],
             },
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::ForGenerate(gen));
     }
@@ -1156,7 +1209,7 @@ end generate;
                 statements: vec![code.s1("foo <= bar;").concurrent_statement()],
             },
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::ForGenerate(gen));
     }
@@ -1181,7 +1234,7 @@ end generate;
                 statements: vec![code.s1("foo <= bar;").concurrent_statement()],
             },
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::ForGenerate(gen));
     }
@@ -1205,7 +1258,7 @@ end generate;
             }],
             else_item: None,
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
     }
@@ -1230,7 +1283,7 @@ end generate;
             }],
             else_item: None,
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
     }
@@ -1270,7 +1323,7 @@ end generate;
                 statements: vec![],
             }),
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
     }
@@ -1318,7 +1371,7 @@ end generate;
                 statements: vec![code.s1("foo3(clk);").concurrent_statement()],
             }),
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
     }
@@ -1359,12 +1412,12 @@ end generate;
                 statements: vec![],
             }),
         };
-        let (stmt, messages) = code.with_stream_messages(parse_labeled_concurrent_statement);
+        let (stmt, diagnostics) = code.with_stream_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
         assert_eq!(
-            messages,
-            vec![Message::error(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1("alt4"),
                 "End identifier mismatch, expected alt3"
             )]
@@ -1408,7 +1461,7 @@ end generate;
                 statements: vec![],
             }),
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
     }
@@ -1446,7 +1499,7 @@ end generate;
                 },
             ],
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::CaseGenerate(gen));
     }
@@ -1484,7 +1537,7 @@ end generate;
                 },
             ],
         };
-        let stmt = code.with_stream_no_messages(parse_labeled_concurrent_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::CaseGenerate(gen));
     }

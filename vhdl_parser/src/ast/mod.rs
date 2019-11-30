@@ -21,7 +21,7 @@ use crate::source::WithPos;
 use crate::symbol_table::Symbol;
 
 /// LRM 15.8 Bit string literals
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum BaseSpecifier {
     B,
     O,
@@ -184,7 +184,7 @@ pub struct AssociationElement {
 /// LRM 15.5 Abstract literals
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum AbstractLiteral {
-    Integer(i64),
+    Integer(u64),
     Real(f64),
 }
 
@@ -388,6 +388,10 @@ pub enum EntityClass {
     Variable,
     Procedure,
     Function,
+    Component,
+    Constant,
+    Type,
+    Label,
 }
 
 /// LRM 7.2 Attribute specification
@@ -682,6 +686,25 @@ pub struct SignalAssignment {
     pub rhs: AssignmentRightHand<Waveform>,
 }
 
+#[derive(PartialEq, Debug, Clone)]
+pub enum ForceMode {
+    In,
+    Out,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct SignalForceAssignment {
+    pub target: WithPos<Target>,
+    pub force_mode: Option<ForceMode>,
+    pub rhs: AssignmentRightHand<WithPos<Expression>>,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub struct SignalReleaseAssignment {
+    pub target: WithPos<Target>,
+    pub force_mode: Option<ForceMode>,
+}
+
 /// LRM 10.6 Variable assignment statement
 #[derive(PartialEq, Debug, Clone)]
 pub struct VariableAssignment {
@@ -773,6 +796,8 @@ pub enum SequentialStatement {
     Report(ReportStatement),
     VariableAssignment(VariableAssignment),
     SignalAssignment(SignalAssignment),
+    SignalForceAssignment(SignalForceAssignment),
+    SignalReleaseAssignment(SignalReleaseAssignment),
     ProcedureCall(FunctionCall),
     If(IfStatement),
     Case(CaseStatement),

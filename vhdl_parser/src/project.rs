@@ -8,6 +8,7 @@ use self::fnv::FnvHashMap;
 use crate::analysis::{Analyzer, DesignRoot, Library};
 use crate::ast::DesignFile;
 use crate::config::Config;
+use crate::diagnostic::Diagnostic;
 use crate::latin_1::Latin1String;
 use crate::message::Message;
 use crate::parser::{FileToParse, ParserError, VHDLParser};
@@ -20,17 +21,7 @@ use std::io;
 pub struct Project {
     parser: VHDLParser,
     files: FnvHashMap<String, SourceFile>,
-}
-
-pub struct FileError {
-    file_name: String,
-    error: io::Error,
-}
-
-impl std::fmt::Display for FileError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Error in {} ({})", self.file_name, self.error)
-    }
+    empty_libraries: Vec<Symbol>,
 }
 
 impl Project {
@@ -38,24 +29,28 @@ impl Project {
         Project {
             parser: VHDLParser::new(),
             files: FnvHashMap::default(),
+            empty_libraries: Vec::new(),
         }
     }
 
     pub fn from_config(
         config: &Config,
         num_threads: usize,
-        errors: &mut Vec<FileError>,
+        messages: &mut Vec<Message>,
     ) -> Project {
         let mut project = Project::new();
-        let mut files_to_parse: FnvHashMap<&str, LibraryFileToParse> = FnvHashMap::default();
+        let mut files_to_parse: FnvHashMap<String, LibraryFileToParse> = FnvHashMap::default();
 
         for library in config.iter_libraries() {
             let library_name =
                 Latin1String::from_utf8(library.name()).expect("Library name not latin-1 encoded");
             let library_name = project.parser.symbol(&library_name);
 
-            for file_name in library.file_names() {
-                match files_to_parse.entry(file_name) {
+            let mut empty_library = true;
+            for file_name in library.file_names(messages) {
+                empty_library = false;
+
+                match files_to_parse.entry(file_name.clone()) {
                     Entry::Occupied(mut entry) => {
                         entry.get_mut().library_names.push(library_name.clone());
                     }
@@ -69,25 +64,29 @@ impl Project {
                     }
                 }
             }
+
+            if empty_library {
+                project.empty_libraries.push(library_name)
+            }
         }
 
         let files_to_parse = files_to_parse.drain().map(|(_, v)| v).collect();
 
-        for (file_to_parse, mut parser_messages, design_file) in project
+        for (file_to_parse, mut parser_diagnostics, design_file) in project
             .parser
             .parse_design_files(files_to_parse, num_threads)
         {
             let design_file = match design_file {
                 Ok(design_file) => Some(design_file),
-                Err(ParserError::Message(msg)) => {
-                    parser_messages.push(msg);
+                Err(ParserError::Diagnostic(diagnostic)) => {
+                    parser_diagnostics.push(diagnostic);
                     None
                 }
                 Err(ParserError::IOError(err)) => {
-                    errors.push(FileError {
-                        file_name: file_to_parse.file_name,
-                        error: err,
-                    });
+                    messages.push(Message::file_error(
+                        err.to_string(),
+                        file_to_parse.file_name,
+                    ));
                     continue;
                 }
             };
@@ -96,7 +95,7 @@ impl Project {
                 file_to_parse.file_name,
                 SourceFile {
                     library_names: file_to_parse.library_names,
-                    parser_messages,
+                    parser_diagnostics,
                     design_file,
                 },
             );
@@ -112,29 +111,29 @@ impl Project {
             } else {
                 SourceFile {
                     library_names: vec![],
-                    parser_messages: vec![],
+                    parser_diagnostics: vec![],
                     design_file: None,
                 }
             }
         };
         source_file.design_file = None;
-        source_file.parser_messages.clear();
+        source_file.parser_diagnostics.clear();
 
         let design_file = self
             .parser
-            .parse_design_source(source, &mut source_file.parser_messages);
+            .parse_design_source(source, &mut source_file.parser_diagnostics);
 
         let result = match design_file {
             Ok(design_file) => {
                 source_file.design_file = Some(design_file);
                 Ok(())
             }
-            Err(ParserError::Message(msg)) => {
-                source_file.parser_messages.push(msg);
+            Err(ParserError::Diagnostic(diagnostic)) => {
+                source_file.parser_diagnostics.push(diagnostic);
                 Ok(())
             }
             Err(ParserError::IOError(err)) => {
-                // @TODO convert to soft error and push to messages
+                // @TODO convert to soft error and push to diagnostics
                 Err(err)
             }
         };
@@ -144,11 +143,11 @@ impl Project {
         result
     }
 
-    pub fn analyse(&mut self) -> Vec<Message> {
+    pub fn analyse(&mut self) -> Vec<Diagnostic> {
         // @TODO clones all design unit and re-create all libraries
         // Investigate *correct* methonds to do this incrementally
         let mut library_to_design_file: FnvHashMap<Symbol, Vec<DesignFile>> = FnvHashMap::default();
-        let mut messages = Vec::new();
+        let mut diagnostics = Vec::new();
         let mut root = DesignRoot::new();
 
         for source_file in self.files.values() {
@@ -165,8 +164,8 @@ impl Project {
                 }
             }
 
-            for message in source_file.parser_messages.iter().cloned() {
-                messages.push(message);
+            for diagnostic in source_file.parser_diagnostics.iter().cloned() {
+                diagnostics.push(diagnostic);
             }
         }
 
@@ -176,12 +175,21 @@ impl Project {
                 library_name,
                 &work_sym,
                 design_files,
-                &mut messages,
+                &mut diagnostics,
             ));
         }
 
-        Analyzer::new(&root, &self.parser.symtab.clone()).analyze(&mut messages);
-        messages
+        for library_name in self.empty_libraries.iter() {
+            root.add_library(Library::new(
+                library_name.clone(),
+                &work_sym,
+                Vec::new(),
+                &mut diagnostics,
+            ));
+        }
+
+        Analyzer::new(&root, &self.parser.symtab.clone()).analyze(&mut diagnostics);
+        diagnostics
     }
 }
 
@@ -205,5 +213,89 @@ impl FileToParse for LibraryFileToParse {
 struct SourceFile {
     library_names: Vec<Symbol>,
     design_file: Option<DesignFile>,
-    parser_messages: Vec<Message>,
+    parser_diagnostics: Vec<Diagnostic>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_util::check_no_diagnostics;
+
+    /// Test that an empty library is created
+    /// Thus test case was added when fixing a bug
+    /// Where a library with no files was never added
+    #[test]
+    fn test_empty_library_is_defined() {
+        let root = tempfile::tempdir().unwrap();
+        let vhdl_file_path = root.path().join("file.vhd");
+        std::fs::write(
+            &vhdl_file_path,
+            "
+library missing;
+
+entity ent is
+end entity;
+        ",
+        )
+        .unwrap();
+
+        let config_str = "
+[libraries]
+missing.files = []
+lib.files = ['file.vhd']
+        ";
+
+        let config = Config::from_str(config_str, root.path()).unwrap();
+        let mut messages = Vec::new();
+        let mut project = Project::from_config(&config, 1, &mut messages);
+        assert_eq!(messages, vec![]);
+        check_no_diagnostics(&project.analyse());
+    }
+
+    /// Test that the same file can be added to several libraries
+    #[test]
+    fn test_same_file_in_multiple_libraries() {
+        let root = tempfile::tempdir().unwrap();
+        let vhdl_file_path1 = root.path().join("file.vhd");
+        std::fs::write(
+            &vhdl_file_path1,
+            "
+package pkg is
+end package;
+        ",
+        )
+        .unwrap();
+
+        let vhdl_file_path2 = root.path().join("use_file.vhd");
+        std::fs::write(
+            &vhdl_file_path2,
+            "
+library lib1;
+use lib1.pkg.all;
+
+package use_pkg1 is
+end package;
+
+library lib2;
+use lib2.pkg.all;
+
+package use_pkg2 is
+end package;
+        ",
+        )
+        .unwrap();
+
+        let config_str = "
+[libraries]
+lib1.files = ['file.vhd']
+lib2.files = ['file.vhd']
+use_lib.files = ['use_file.vhd']
+        ";
+
+        let config = Config::from_str(config_str, root.path()).unwrap();
+        let mut messages = Vec::new();
+        let mut project = Project::from_config(&config, 1, &mut messages);
+        assert_eq!(messages, vec![]);
+        check_no_diagnostics(&project.analyse());
+    }
 }

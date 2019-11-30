@@ -107,6 +107,12 @@ impl From<Symbol> for Designator {
     }
 }
 
+impl From<WithPos<Symbol>> for WithPos<Designator> {
+    fn from(other: WithPos<Symbol>) -> WithPos<Designator> {
+        other.map_into(|sym| sym.into())
+    }
+}
+
 impl<'a> From<&'a Symbol> for Designator {
     fn from(other: &'a Symbol) -> Designator {
         other.clone().into()
@@ -133,6 +139,12 @@ impl SubprogramDeclaration {
                 .designator
                 .clone()
                 .map_into(|des| des.into_designator()),
+        }
+    }
+    pub fn pos(&self) -> &SrcPos {
+        match self {
+            SubprogramDeclaration::Function(ref function) => &function.designator.pos,
+            SubprogramDeclaration::Procedure(ref procedure) => &procedure.designator.pos,
         }
     }
 }

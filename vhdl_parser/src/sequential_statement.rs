@@ -6,14 +6,14 @@
 
 use crate::ast::{
     Alternative, AssertStatement, AssignmentRightHand, CaseStatement, Conditional, Conditionals,
-    ExitStatement, Expression, FunctionCall, IfStatement, IterationScheme,
+    ExitStatement, Expression, ForceMode, FunctionCall, IfStatement, IterationScheme,
     LabeledSequentialStatement, LoopStatement, Name, NextStatement, ReportStatement,
-    ReturnStatement, Selection, SequentialStatement, SignalAssignment, Target, VariableAssignment,
-    WaitStatement, Waveform,
+    ReturnStatement, Selection, SequentialStatement, SignalAssignment, SignalForceAssignment,
+    SignalReleaseAssignment, Target, VariableAssignment, WaitStatement, Waveform,
 };
 use crate::common::parse_optional;
+use crate::diagnostic::{Diagnostic, DiagnosticHandler, ParseResult};
 use crate::expression::{parse_aggregate_leftpar_known, parse_choices, parse_expression};
-use crate::message::{Message, MessageHandler, ParseResult};
 use crate::names::{parse_name, parse_name_initial_token, to_simple_name};
 use crate::range::parse_discrete_range;
 use crate::source::WithPos;
@@ -71,7 +71,7 @@ fn parse_report_statement_known_keyword(stream: &mut TokenStream) -> ParseResult
 
 pub fn parse_labeled_sequential_statements(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<(Vec<LabeledSequentialStatement>, Token)> {
     let mut statements = Vec::new();
     loop {
@@ -82,7 +82,9 @@ pub fn parse_labeled_sequential_statements(
             }
             _ => {
                 statements.push(parse_sequential_statement_initial_token(
-                    stream, token, messages,
+                    stream,
+                    token,
+                    diagnostics,
                 )?);
             }
         }
@@ -92,7 +94,7 @@ pub fn parse_labeled_sequential_statements(
 /// LRM 10.8 If statement
 fn parse_if_statement_known_keyword(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<IfStatement> {
     let mut conditionals = Vec::new();
     let mut else_branch = None;
@@ -100,7 +102,7 @@ fn parse_if_statement_known_keyword(
     loop {
         let condition = parse_expression(stream)?;
         stream.expect_kind(Then)?;
-        let (statements, end_token) = parse_labeled_sequential_statements(stream, messages)?;
+        let (statements, end_token) = parse_labeled_sequential_statements(stream, diagnostics)?;
 
         let conditional = Conditional {
             condition,
@@ -116,7 +118,7 @@ fn parse_if_statement_known_keyword(
 
             Else => {
                 conditionals.push(conditional);
-                let (statements, end_token) = parse_labeled_sequential_statements(stream, messages)?;
+                let (statements, end_token) = parse_labeled_sequential_statements(stream, diagnostics)?;
 
                 try_token_kind!(
                     end_token,
@@ -147,7 +149,7 @@ fn parse_if_statement_known_keyword(
 /// LRM 10.9 Case statement
 fn parse_case_statement_known_keyword(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<CaseStatement> {
     let expression = parse_expression(stream)?;
     stream.expect_kind(Is)?;
@@ -157,7 +159,7 @@ fn parse_case_statement_known_keyword(
     loop {
         let choices = parse_choices(stream)?;
         stream.expect_kind(RightArrow)?;
-        let (statements, end_token) = parse_labeled_sequential_statements(stream, messages)?;
+        let (statements, end_token) = parse_labeled_sequential_statements(stream, diagnostics)?;
         let alternative = Alternative {
             choices,
             item: statements,
@@ -189,7 +191,7 @@ fn parse_case_statement_known_keyword(
 fn parse_loop_statement_initial_token(
     stream: &mut TokenStream,
     token: &Token,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<LoopStatement> {
     let iteration_scheme = {
         try_token_kind!(
@@ -210,7 +212,7 @@ fn parse_loop_statement_initial_token(
         )
     };
 
-    let (statements, end_token) = parse_labeled_sequential_statements(stream, messages)?;
+    let (statements, end_token) = parse_labeled_sequential_statements(stream, diagnostics)?;
     try_token_kind!(
         end_token,
         End => {
@@ -392,6 +394,23 @@ where
     })
 }
 
+fn parse_optional_force_mode(stream: &mut TokenStream) -> ParseResult<Option<ForceMode>> {
+    let token = stream.peek_expect()?;
+    let optional_force_mode = match token.kind {
+        In => {
+            stream.move_after(&token);
+            Some(ForceMode::In)
+        }
+        Out => {
+            stream.move_after(&token);
+            Some(ForceMode::Out)
+        }
+        _ => None,
+    };
+
+    Ok(optional_force_mode)
+}
+
 fn parse_assignment_or_procedure_call(
     stream: &mut TokenStream,
     token: &Token,
@@ -406,12 +425,35 @@ fn parse_assignment_or_procedure_call(
             })
         },
         LTE => {
-            let delay_mechanism = parse_delay_mechanism(stream)?;
-            SequentialStatement::SignalAssignment(SignalAssignment {
-                target,
-                delay_mechanism,
-                rhs: parse_signal_assignment_right_hand(stream)?
-            })
+            let token = stream.peek_expect()?;
+            match token.kind {
+                Force => {
+                    stream.move_after(&token);
+                    SequentialStatement::SignalForceAssignment(SignalForceAssignment {
+                        target,
+                        force_mode: parse_optional_force_mode(stream)?,
+                        rhs: parse_variable_assignment_right_hand(stream)?
+                    })
+                },
+                Release => {
+                    stream.move_after(&token);
+                    let force_mode = parse_optional_force_mode(stream)?;
+                    stream.expect_kind(SemiColon)?;
+
+                    SequentialStatement::SignalReleaseAssignment(SignalReleaseAssignment {
+                        target,
+                        force_mode
+                    })
+                }
+                _ => {
+                    let delay_mechanism = parse_delay_mechanism(stream)?;
+                    SequentialStatement::SignalAssignment(SignalAssignment {
+                        target,
+                        delay_mechanism,
+                        rhs: parse_signal_assignment_right_hand(stream)?
+                    })
+                }
+            }
         },
         SemiColon => {
             match target.item {
@@ -426,7 +468,7 @@ fn parse_assignment_or_procedure_call(
                         })
                 }
                 Target::Aggregate(..) => {
-                    return Err(Message::error(target, "Expected procedure call, got aggregate"));
+                    return Err(Diagnostic::error(target, "Expected procedure call, got aggregate"));
                 }
             }
         }
@@ -437,10 +479,10 @@ fn parse_target_initial_token(
     stream: &mut TokenStream,
     token: Token,
 ) -> ParseResult<WithPos<Target>> {
-    if token.kind == Identifier {
-        Ok(parse_name_initial_token(stream, token)?.map_into(Target::Name))
-    } else {
+    if token.kind == LeftPar {
         Ok(parse_aggregate_leftpar_known(stream)?.map_into(Target::Aggregate))
+    } else {
+        Ok(parse_name_initial_token(stream, token)?.map_into(Target::Name))
     }
 }
 
@@ -464,13 +506,19 @@ fn parse_selected_assignment(stream: &mut TokenStream) -> ParseResult<Sequential
             }))
         },
         LTE => {
-            let delay_mechanism = parse_delay_mechanism(stream)?;
-            let rhs = AssignmentRightHand::Selected(parse_selection(stream, expression, parse_waveform)?);
-            Ok(SequentialStatement::SignalAssignment(SignalAssignment {
-                target,
-                delay_mechanism,
-                rhs
+            if stream.skip_if_kind(Force)? {
+                Ok(SequentialStatement::SignalForceAssignment(SignalForceAssignment {
+                    target,
+                    force_mode: parse_optional_force_mode(stream)?,
+                    rhs: AssignmentRightHand::Selected(parse_selection(stream, expression, parse_expression)?)
+                }))
+            } else {
+                Ok(SequentialStatement::SignalAssignment(SignalAssignment {
+                    target,
+                    delay_mechanism: parse_delay_mechanism(stream)?,
+                    rhs: AssignmentRightHand::Selected(parse_selection(stream, expression, parse_waveform)?)
             }))
+        }
         }
     )
 }
@@ -478,7 +526,7 @@ fn parse_selected_assignment(stream: &mut TokenStream) -> ParseResult<Sequential
 fn parse_unlabeled_sequential_statement(
     stream: &mut TokenStream,
     token: Token,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SequentialStatement> {
     let statement = {
         try_token_kind!(
@@ -486,10 +534,10 @@ fn parse_unlabeled_sequential_statement(
             Wait => SequentialStatement::Wait(parse_wait_statement_known_keyword(stream)?),
             Assert => SequentialStatement::Assert(parse_assert_statement_known_keyword(stream)?),
             Report => SequentialStatement::Report(parse_report_statement_known_keyword(stream)?),
-            If => SequentialStatement::If(parse_if_statement_known_keyword(stream, messages)?),
-            Case => SequentialStatement::Case(parse_case_statement_known_keyword(stream, messages)?),
+            If => SequentialStatement::If(parse_if_statement_known_keyword(stream, diagnostics)?),
+            Case => SequentialStatement::Case(parse_case_statement_known_keyword(stream, diagnostics)?),
             For | Loop | While => {
-                SequentialStatement::Loop(parse_loop_statement_initial_token(stream, &token, messages)?)
+                SequentialStatement::Loop(parse_loop_statement_initial_token(stream, &token, diagnostics)?)
             },
             Next => SequentialStatement::Next(parse_next_statement_known_keyword(stream)?),
             Exit => SequentialStatement::Exit(parse_exit_statement_known_keyword(stream)?),
@@ -501,7 +549,7 @@ fn parse_unlabeled_sequential_statement(
             With => {
                 parse_selected_assignment(stream)?
             },
-            Identifier|LeftPar => {
+            Identifier|LeftPar|LtLt => {
                 let target = parse_target_initial_token(stream, token)?;
                 let token = stream.expect()?;
                 parse_assignment_or_procedure_call(stream, &token, target)?
@@ -514,16 +562,16 @@ fn parse_unlabeled_sequential_statement(
 #[cfg(test)]
 pub fn parse_sequential_statement(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<LabeledSequentialStatement> {
     let token = stream.expect()?;
-    parse_sequential_statement_initial_token(stream, token, messages)
+    parse_sequential_statement_initial_token(stream, token, diagnostics)
 }
 
 pub fn parse_sequential_statement_initial_token(
     stream: &mut TokenStream,
     token: Token,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<LabeledSequentialStatement> {
     if token.kind == Identifier {
         let name = parse_name_initial_token(stream, token)?;
@@ -531,7 +579,7 @@ pub fn parse_sequential_statement_initial_token(
         if token.kind == Colon {
             let label = Some(to_simple_name(name)?);
             let token = stream.expect()?;
-            let statement = parse_unlabeled_sequential_statement(stream, token, messages)?;
+            let statement = parse_unlabeled_sequential_statement(stream, token, diagnostics)?;
             Ok(LabeledSequentialStatement { label, statement })
         } else {
             let target = name.map_into(Target::Name);
@@ -542,7 +590,7 @@ pub fn parse_sequential_statement_initial_token(
             })
         }
     } else {
-        let statement = parse_unlabeled_sequential_statement(stream, token, messages)?;
+        let statement = parse_unlabeled_sequential_statement(stream, token, diagnostics)?;
         Ok(LabeledSequentialStatement {
             label: None,
             statement,
@@ -559,7 +607,7 @@ mod tests {
 
     fn parse(code: &str) -> (Code, LabeledSequentialStatement) {
         let code = Code::new(code);
-        let stmt = code.with_stream_no_messages(parse_sequential_statement);
+        let stmt = code.with_stream_no_diagnostics(parse_sequential_statement);
         (code, stmt)
     }
 
@@ -731,6 +779,89 @@ mod tests {
     }
 
     #[test]
+    fn parse_simple_signal_force_assignment() {
+        let (code, statement) = parse("foo(0) <= force bar(1,2);");
+
+        assert_eq!(
+            statement,
+            with_label(
+                None,
+                SequentialStatement::SignalForceAssignment(SignalForceAssignment {
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
+                    force_mode: None,
+                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
+                })
+            )
+        );
+
+        // Fore mode in
+        let (code, statement) = parse("foo(0) <= force in bar(1,2);");
+
+        assert_eq!(
+            statement,
+            with_label(
+                None,
+                SequentialStatement::SignalForceAssignment(SignalForceAssignment {
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
+                    force_mode: Some(ForceMode::In),
+                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
+                })
+            )
+        );
+
+        // Fore mode out
+        let (code, statement) = parse("foo(0) <= force out bar(1,2);");
+
+        assert_eq!(
+            statement,
+            with_label(
+                None,
+                SequentialStatement::SignalForceAssignment(SignalForceAssignment {
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
+                    force_mode: Some(ForceMode::Out),
+                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
+                })
+            )
+        );
+    }
+
+    #[test]
+    fn parse_simple_signal_release_assignment() {
+        let (code, statement) = parse("foo(0) <= release;");
+
+        assert_eq!(
+            statement,
+            with_label(
+                None,
+                SequentialStatement::SignalReleaseAssignment(SignalReleaseAssignment {
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
+                    force_mode: None
+                })
+            )
+        );
+    }
+
+    #[test]
+    fn parse_signal_assignment_external_name() {
+        let (code, statement) = parse("<< signal dut.foo : boolean  >> <= bar(1,2);");
+
+        assert_eq!(
+            statement,
+            with_label(
+                None,
+                SequentialStatement::SignalAssignment(SignalAssignment {
+                    target: code
+                        .s1("<< signal dut.foo : boolean  >>")
+                        .name()
+                        .map_into(Target::Name),
+                    delay_mechanism: None,
+                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").waveform())
+                })
+            )
+        );
+    }
+
+    #[test]
     fn parse_simple_signal_assignment_delay_mechanism() {
         let (code, statement) = parse("foo(0) <= transport bar(1,2);");
 
@@ -756,6 +887,24 @@ mod tests {
                 None,
                 SequentialStatement::VariableAssignment(VariableAssignment {
                     target: code.s1("foo(0)").name().map_into(Target::Name),
+                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
+                })
+            )
+        );
+    }
+
+    #[test]
+    fn parse_variable_assignment_external_name() {
+        let (code, statement) = parse("<< variable dut.foo : boolean >> := bar(1,2);");
+        assert_eq!(
+            statement,
+            with_label(
+                None,
+                SequentialStatement::VariableAssignment(VariableAssignment {
+                    target: code
+                        .s1("<< variable dut.foo : boolean >>")
+                        .name()
+                        .map_into(Target::Name),
                     rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
                 })
             )
@@ -942,6 +1091,31 @@ with x(0) + 1 select
     }
 
     #[test]
+    fn parse_conditional_signal_force_assignment() {
+        let (code, statement) = parse("foo(0) <= force bar(1,2) when cond;");
+
+        let conditionals = Conditionals {
+            conditionals: vec![Conditional {
+                condition: code.s1("cond").expr(),
+                item: code.s1("bar(1,2)").expr(),
+            }],
+            else_item: None,
+        };
+
+        assert_eq!(
+            statement,
+            with_label(
+                None,
+                SequentialStatement::SignalForceAssignment(SignalForceAssignment {
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
+                    force_mode: None,
+                    rhs: AssignmentRightHand::Conditional(conditionals)
+                })
+            )
+        );
+    }
+
+    #[test]
     fn parse_selected_signal_assignment() {
         let (code, statement) = parse(
             "\
@@ -971,6 +1145,42 @@ with x(0) + 1 select
                 SequentialStatement::SignalAssignment(SignalAssignment {
                     target: code.s1("foo(0)").name().map_into(Target::Name),
                     delay_mechanism: Some(DelayMechanism::Transport),
+                    rhs: AssignmentRightHand::Selected(selection)
+                })
+            )
+        );
+    }
+
+    #[test]
+    fn parse_selected_signal_force_assignment() {
+        let (code, statement) = parse(
+            "\
+with x(0) + 1 select
+   foo(0) <= force bar(1,2) when 0|1,
+                       def when others;",
+        );
+
+        let selection = Selection {
+            expression: code.s1("x(0) + 1").expr(),
+            alternatives: vec![
+                Alternative {
+                    choices: code.s1("0|1").choices(),
+                    item: code.s1("bar(1,2)").expr(),
+                },
+                Alternative {
+                    choices: code.s1("others").choices(),
+                    item: code.s1("def").expr(),
+                },
+            ],
+        };
+
+        assert_eq!(
+            statement,
+            with_label(
+                None,
+                SequentialStatement::SignalForceAssignment(SignalForceAssignment {
+                    target: code.s1("foo(0)").name().map_into(Target::Name),
+                    force_mode: None,
                     rhs: AssignmentRightHand::Selected(selection)
                 })
             )

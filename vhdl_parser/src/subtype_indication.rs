@@ -9,7 +9,7 @@ use crate::ast::{
     Designator, ElementConstraint, RecordElementResolution, ResolutionIndication, SelectedName,
     SubtypeConstraint, SubtypeIndication,
 };
-use crate::message::ParseResult;
+use crate::diagnostic::ParseResult;
 use crate::names::parse_selected_name;
 use crate::range::{parse_discrete_range, parse_range};
 use crate::source::WithPos;

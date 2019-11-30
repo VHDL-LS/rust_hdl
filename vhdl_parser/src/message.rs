@@ -2,194 +2,59 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
+// Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::source::SrcPos;
-use std::convert::{AsRef, Into};
-
-#[derive(PartialEq, Debug, Clone, Copy, Eq, Hash)]
-pub enum Severity {
-    Hint,
-    Info,
-    Warning,
+#[derive(Debug, PartialEq)]
+pub enum MessageType {
     Error,
+    Warning,
+    Info,
+    Log,
 }
 
 #[must_use]
-#[derive(PartialEq, Debug, Clone, Eq, Hash)]
+#[derive(Debug, PartialEq)]
 pub struct Message {
-    pub pos: SrcPos,
+    pub message_type: MessageType,
     pub message: String,
-    pub severity: Severity,
-    pub related: Vec<(SrcPos, String)>,
 }
 
 impl Message {
-    pub fn new(item: impl AsRef<SrcPos>, msg: impl Into<String>, severity: Severity) -> Message {
+    pub fn warning(message: impl Into<String>) -> Message {
         Message {
-            pos: item.as_ref().clone(),
-            message: msg.into(),
-            severity,
-            related: vec![],
+            message_type: MessageType::Warning,
+            message: message.into(),
         }
     }
 
-    pub fn error(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Message {
-        Self::new(item, msg, Severity::Error)
-    }
-
-    pub fn warning(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Message {
-        Self::new(item, msg, Severity::Warning)
-    }
-
-    pub fn hint(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Message {
-        Self::new(item, msg, Severity::Hint)
-    }
-
-    pub fn info(item: impl AsRef<SrcPos>, msg: impl Into<String>) -> Message {
-        Self::new(item, msg, Severity::Info)
-    }
-
-    pub fn when(self, message: impl AsRef<str>) -> Message {
+    pub fn error(message: impl Into<String>) -> Message {
         Message {
-            message: format!("{}, when {}", &self.message, message.as_ref()),
-            pos: self.pos,
-            severity: self.severity,
-            related: vec![],
+            message_type: MessageType::Error,
+            message: message.into(),
         }
     }
 
-    pub fn related(self, item: impl AsRef<SrcPos>, message: impl Into<String>) -> Message {
-        let mut msg = self;
-        msg.add_related(item, message);
-        msg
-    }
-
-    pub fn add_related(&mut self, item: impl AsRef<SrcPos>, message: impl Into<String>) {
-        self.related
-            .push((item.as_ref().to_owned(), message.into()));
-    }
-
-    pub fn drain_related(&mut self) -> Vec<Message> {
-        let mut messages = Vec::with_capacity(self.related.len());
-        let related = std::mem::replace(&mut self.related, Vec::new());
-        for (pos, msg) in related {
-            messages.push(Message::new(
-                pos,
-                format!("related: {}", msg),
-                Severity::Hint,
-            ));
+    pub fn file_error(message: impl Into<String>, file_name: impl Into<String>) -> Message {
+        Message {
+            message_type: MessageType::Error,
+            message: format!("{} (In file {})", message.into(), file_name.into()),
         }
-        messages
     }
+}
 
-    pub fn show(&self) -> String {
-        let mut result = String::new();
-        for (pos, message) in self.related.iter() {
-            result.push_str(&pos.show(&format!("related: {}", message)));
-            result.push('\n');
+impl std::fmt::Display for Message {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.message_type.as_ref(), self.message)
+    }
+}
+
+impl AsRef<str> for MessageType {
+    fn as_ref(&self) -> &str {
+        match self {
+            Self::Error => "error",
+            Self::Warning => "warning",
+            Self::Info => "info",
+            Self::Log => "log",
         }
-        let severity = match self.severity {
-            Severity::Error => &"error",
-            Severity::Warning => &"warning",
-            Severity::Info => &"info",
-            Severity::Hint => &"hint",
-        };
-        result.push_str(&self.pos.show(&format!("{}: {}", severity, self.message)));
-        result
     }
-}
-
-pub trait MessageHandler {
-    fn push(self: &mut Self, err: Message);
-}
-
-pub fn push_result<T>(messages: &mut dyn MessageHandler, msg: Result<T, Message>) {
-    if let Err(msg) = msg {
-        messages.push(msg);
-    }
-}
-
-pub fn push_some(messages: &mut dyn MessageHandler, msg: Option<Message>) {
-    if let Some(msg) = msg {
-        messages.push(msg);
-    }
-}
-
-impl MessageHandler for Vec<Message> {
-    fn push(self: &mut Self, msg: Message) {
-        self.push(msg)
-    }
-}
-
-pub type ParseResult<T> = Result<T, Message>;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::test_util::Code;
-
-    #[test]
-    fn show_warning() {
-        let code = Code::new("hello\nworld\nline\n");
-        assert_eq!(
-            Message::warning(code.s1("world"), "Greetings").show(),
-            "\
-warning: Greetings
-  --> {unknown file}:2
-   |
-1  |  hello
-2 --> world
-   |  ~~~~~
-3  |  line
-"
-        );
-    }
-
-    #[test]
-    fn show_error() {
-        let code = Code::new("hello\nworld\nline\n");
-        assert_eq!(
-            Message::error(code.s1("world"), "Greetings").show(),
-            "\
-error: Greetings
-  --> {unknown file}:2
-   |
-1  |  hello
-2 --> world
-   |  ~~~~~
-3  |  line
-"
-        );
-    }
-
-    #[test]
-    fn show_related() {
-        let code = Code::new("hello\nworld\nline\n");
-
-        let err =
-            Message::error(code.s1("line"), "Greetings").related(code.s1("hello"), "From here");
-
-        assert_eq!(
-            err.show(),
-            "\
-related: From here
-  --> {unknown file}:1
-   |
-1 --> hello
-   |  ~~~~~
-2  |  world
-3  |  line
-
-error: Greetings
-  --> {unknown file}:3
-   |
-1  |  hello
-2  |  world
-3 --> line
-   |  ~~~~
-"
-        );
-    }
-
 }

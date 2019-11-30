@@ -9,8 +9,8 @@ use super::declarative_region::{
 };
 use super::library::{DesignRoot, Library, PackageDesignUnit};
 use crate::ast::{HasIdent, *};
+use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::latin_1::Latin1String;
-use crate::message::{Message, MessageHandler};
 use crate::source::{SrcPos, WithPos};
 use crate::symbol_table::{Symbol, SymbolTable};
 use std::cell::RefCell;
@@ -20,11 +20,11 @@ use std::sync::Arc;
 use self::fnv::FnvHashMap;
 use fnv;
 
-enum LookupResult<'n, 'a> {
+enum LookupResult<'a> {
     /// A single name was selected
-    Single(VisibleDeclaration<'a>),
+    Single(VisibleDeclaration),
     /// A single name was selected
-    AllWithin(&'n WithPos<Name>, VisibleDeclaration<'a>),
+    AllWithin(&'a WithPos<Name>, VisibleDeclaration),
     /// The name to lookup (or some part thereof was not a selected name)
     NotSelected,
     /// A prefix but found but lookup was not implemented yet
@@ -44,9 +44,9 @@ struct CircularDependencyError {
 }
 
 impl CircularDependencyError {
-    fn push_into(self, messages: &mut dyn MessageHandler) {
+    fn push_into(self, diagnostics: &mut dyn DiagnosticHandler) {
         for dependency in self.path {
-            messages.push(Message::error(
+            diagnostics.push(Diagnostic::error(
                 dependency.location,
                 format!(
                     "Found circular dependency when referencing '{}.{}'",
@@ -57,24 +57,24 @@ impl CircularDependencyError {
     }
 }
 
-type AnalysisResult<'a> = Result<Arc<PrimaryUnitData<'a>>, CircularDependencyError>;
+type AnalysisResult = Result<Arc<PrimaryUnitData>, CircularDependencyError>;
 
-enum StartAnalysisResult<'s, 'a: 's> {
-    AlreadyAnalyzed(AnalysisResult<'a>),
-    NotYetAnalyzed(PendingAnalysis<'s, 'a>),
+enum StartAnalysisResult<'a> {
+    AlreadyAnalyzed(AnalysisResult),
+    NotYetAnalyzed(PendingAnalysis<'a>),
 }
 
-struct PendingAnalysis<'s, 'a: 's> {
-    context: &'s AnalysisContext<'a>,
+struct PendingAnalysis<'a> {
+    context: &'a AnalysisContext,
     key: (Symbol, Symbol),
 }
 
-impl<'s, 'a: 's> PendingAnalysis<'s, 'a> {
-    fn new(context: &'s AnalysisContext<'a>, key: (Symbol, Symbol)) -> PendingAnalysis<'s, 'a> {
+impl<'a> PendingAnalysis<'a> {
+    fn new(context: &'a AnalysisContext, key: (Symbol, Symbol)) -> PendingAnalysis<'a> {
         PendingAnalysis { context, key }
     }
 
-    fn end_analysis(self, data: PrimaryUnitData<'a>) -> AnalysisResult<'a> {
+    fn end_analysis(self, data: PrimaryUnitData) -> AnalysisResult {
         match self
             .context
             .primary_unit_data
@@ -96,21 +96,21 @@ impl<'s, 'a: 's> PendingAnalysis<'s, 'a> {
     }
 }
 
-impl<'s, 'a: 's> Drop for PendingAnalysis<'s, 'a> {
+impl Drop for PendingAnalysis<'_> {
     fn drop(&mut self) {
         self.context.locked.borrow_mut().remove(&self.key);
         self.context.path.borrow_mut().pop();
     }
 }
 
-struct AnalysisContext<'a> {
-    primary_unit_data: RefCell<FnvHashMap<(Symbol, Symbol), AnalysisResult<'a>>>,
+struct AnalysisContext {
+    primary_unit_data: RefCell<FnvHashMap<(Symbol, Symbol), AnalysisResult>>,
     locked: RefCell<FnvHashMap<(Symbol, Symbol), ()>>,
     path: RefCell<Vec<Option<Dependency>>>,
 }
 
-impl<'a> AnalysisContext<'a> {
-    fn new() -> AnalysisContext<'a> {
+impl<'a> AnalysisContext {
+    fn new() -> AnalysisContext {
         AnalysisContext {
             primary_unit_data: RefCell::new(FnvHashMap::default()),
             locked: RefCell::new(FnvHashMap::default()),
@@ -118,13 +118,13 @@ impl<'a> AnalysisContext<'a> {
         }
     }
 
-    fn start_analysis<'s>(
-        &'s self,
+    fn start_analysis(
+        &'a self,
         // The optional location where the design unit was used
         entry_point: Option<SrcPos>,
         library_name: &Symbol,
         primary_unit_name: &Symbol,
-    ) -> StartAnalysisResult<'s, 'a> {
+    ) -> StartAnalysisResult<'a> {
         if let Some(result) = self.get_result(library_name, primary_unit_name) {
             return StartAnalysisResult::AlreadyAnalyzed(result);
         }
@@ -164,7 +164,7 @@ impl<'a> AnalysisContext<'a> {
                     .insert(other_key.clone(), result);
             }
 
-            // Only provide full path error to one unit so that duplicate messages are not created
+            // Only provide full path error to one unit so that duplicate diagnostics are not created
             StartAnalysisResult::AlreadyAnalyzed(path_result)
         } else {
             StartAnalysisResult::NotYetAnalyzed(PendingAnalysis::new(self, key))
@@ -175,7 +175,7 @@ impl<'a> AnalysisContext<'a> {
         &self,
         library_name: &Symbol,
         primary_unit_name: &Symbol,
-    ) -> Option<AnalysisResult<'a>> {
+    ) -> Option<AnalysisResult> {
         self.primary_unit_data
             .borrow()
             .get(&(library_name.clone(), primary_unit_name.clone()))
@@ -191,72 +191,67 @@ pub struct Analyzer<'a> {
     root: &'a DesignRoot,
 
     /// DeclarativeRegion for each library containing the primary units
-    library_regions: FnvHashMap<Symbol, DeclarativeRegion<'a, 'a>>,
-    analysis_context: AnalysisContext<'a>,
+    library_regions: FnvHashMap<Symbol, DeclarativeRegion<'static>>,
+    analysis_context: AnalysisContext,
 }
 
-impl<'r, 'a: 'r> Analyzer<'a> {
+impl<'a> Analyzer<'a> {
     pub fn new(root: &'a DesignRoot, symtab: &Arc<SymbolTable>) -> Analyzer<'a> {
         let mut library_regions = FnvHashMap::default();
-        let mut messages = Vec::new();
+        let mut diagnostics = Vec::new();
 
         for library in root.iter_libraries() {
             let mut region = DeclarativeRegion::new(None);
 
             for package in library.packages() {
-                let decl = VisibleDeclaration {
-                    designator: Designator::Identifier(package.package.unit.ident.item.clone()),
-                    decl: AnyDeclaration::Package(library, package),
-                    decl_pos: Some(package.package.unit.ident.pos.clone()),
-                    may_overload: false,
-                };
-                region.add(decl, &mut messages);
+                let package_sym = package.package.unit.ident.item.clone();
+
+                region.add(
+                    &package.package.unit.ident,
+                    AnyDeclaration::Package(library.name.clone(), package_sym),
+                    &mut diagnostics,
+                );
             }
 
             for context in library.contexts() {
-                let decl = VisibleDeclaration {
-                    designator: Designator::Identifier(context.ident.item.clone()),
-                    decl: AnyDeclaration::Context(context),
-                    decl_pos: Some(context.ident.pos.clone()),
-                    may_overload: false,
-                };
-                region.add(decl, &mut messages);
+                let context_sym = context.ident.item.clone();
+
+                region.add(
+                    &context.ident,
+                    AnyDeclaration::Context(library.name.clone(), context_sym),
+                    &mut diagnostics,
+                );
             }
 
             for entity in library.entities() {
-                let decl = VisibleDeclaration {
-                    designator: Designator::Identifier(entity.entity.unit.ident.item.clone()),
-                    decl: AnyDeclaration::Entity(entity),
-                    decl_pos: Some(entity.entity.unit.ident.pos.clone()),
-                    may_overload: false,
-                };
-                region.add(decl, &mut messages);
+                region.add(
+                    &entity.entity.unit.ident,
+                    AnyDeclaration::Other,
+                    &mut diagnostics,
+                );
 
                 for configuration in entity.configurations() {
-                    let decl = VisibleDeclaration {
-                        designator: Designator::Identifier(configuration.ident().item.clone()),
-                        decl: AnyDeclaration::Configuration(configuration),
-                        decl_pos: Some(configuration.ident().pos.clone()),
-                        may_overload: false,
-                    };
-                    region.add(decl, &mut messages);
+                    region.add(
+                        configuration.ident(),
+                        AnyDeclaration::Other,
+                        &mut diagnostics,
+                    );
                 }
             }
 
             for instance in library.package_instances() {
-                let decl = VisibleDeclaration {
-                    designator: Designator::Identifier(instance.ident().item.clone()),
-                    decl: AnyDeclaration::PackageInstance(library, instance),
-                    decl_pos: Some(instance.ident().pos.clone()),
-                    may_overload: false,
-                };
-                region.add(decl, &mut messages);
+                let instance_sym = instance.ident().item.clone();
+                region.add(
+                    instance.ident(),
+                    AnyDeclaration::PackageInstance(library.name.clone(), instance_sym),
+                    &mut diagnostics,
+                );
             }
 
             library_regions.insert(library.name.clone(), region);
         }
 
-        assert!(messages.is_empty());
+        assert!(diagnostics.is_empty());
 
         let standard_sym = symtab.insert(&Latin1String::new(b"standard"));
         Analyzer {
@@ -275,42 +270,51 @@ impl<'r, 'a: 'r> Analyzer<'a> {
     /// @TODO We only lookup selected names since other names such as slice and index require typechecking
     fn lookup_selected_name<'n>(
         &self,
-        region: &DeclarativeRegion<'_, 'a>,
+        region: &DeclarativeRegion<'_>,
         name: &'n WithPos<Name>,
-    ) -> Result<LookupResult<'n, 'a>, Message> {
+    ) -> Result<LookupResult<'n>, Diagnostic> {
         match name.item {
             Name::Selected(ref prefix, ref suffix) => {
                 let visible_decl = {
                     match self.lookup_selected_name(region, prefix)? {
                         LookupResult::Single(visible_decl) => visible_decl,
                         LookupResult::AllWithin(..) => {
-                            return Err(Message::error(
+                            return Err(Diagnostic::error(
                                 prefix.as_ref(),
                                 "'.all' may not be the prefix of a selected name",
-                            ))
+                            ));
                         }
                         others => return Ok(others),
                     }
                 };
 
-                match visible_decl.decl {
-                    AnyDeclaration::Library(ref library) => {
+                match visible_decl.first() {
+                    AnyDeclaration::Library(ref library_name) => {
                         if let Some(visible_decl) =
-                            self.library_regions[&library.name].lookup(&suffix.item, false)
+                            self.library_regions[library_name].lookup(&suffix.item, false)
                         {
                             Ok(LookupResult::Single(visible_decl.clone()))
                         } else {
-                            Err(Message::error(
+                            Err(Diagnostic::error(
                                 suffix.as_ref(),
                                 format!(
                                     "No primary unit '{}' within '{}'",
-                                    suffix.item, &library.name
+                                    suffix.item, library_name
                                 ),
                             ))
                         }
                     }
 
-                    AnyDeclaration::Package(ref library, ref package) => {
+                    AnyDeclaration::Package(ref library_name, ref package_name) => {
+                        let library = self
+                            .root
+                            .get_library(library_name)
+                            .expect("Assume library exists if made visible");
+
+                        let package = library
+                            .package(package_name)
+                            .expect("Assume package exists if made visible");
+
                         if package.is_generic() {
                             Err(uninstantiated_package_prefix_error(
                                 &prefix.pos,
@@ -323,7 +327,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                             if let Some(visible_decl) = data.region.lookup(&suffix.item, false) {
                                 Ok(LookupResult::Single(visible_decl.clone()))
                             } else {
-                                Err(Message::error(
+                                Err(Diagnostic::error(
                                     suffix.as_ref(),
                                     format!(
                                         "No declaration of '{}' within package '{}.{}'",
@@ -334,12 +338,21 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                                 ))
                             }
                         } else {
-                            // Circular dependency, message will never be used
-                            Err(Message::error(&prefix.pos, ""))
+                            // Circular dependency, diagnostic will never be used
+                            Err(Diagnostic::error(&prefix.pos, ""))
                         }
                     }
 
-                    AnyDeclaration::PackageInstance(ref library, ref instance) => {
+                    AnyDeclaration::PackageInstance(ref library_name, ref instance_name) => {
+                        let library = self
+                            .root
+                            .get_library(library_name)
+                            .expect("Assume library exists if made visible");
+
+                        let instance = library
+                            .package_instance(instance_name)
+                            .expect("Assume package instance exists if made visible");
+
                         if let Ok(data) = self.analyze_package_instance_unit(
                             Some(prefix.pos.clone()),
                             library,
@@ -348,7 +361,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                             if let Some(visible_decl) = data.region.lookup(&suffix.item, false) {
                                 Ok(LookupResult::Single(visible_decl.clone()))
                             } else {
-                                Err(Message::error(
+                                Err(Diagnostic::error(
                                     suffix.as_ref(),
                                     format!(
                                         "No declaration of '{}' within package instance '{}.{}'",
@@ -359,8 +372,8 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                                 ))
                             }
                         } else {
-                            // Circular dependency, message will never be used
-                            Err(Message::error(&prefix.pos, ""))
+                            // Circular dependency, diagnostic will never be used
+                            Err(Diagnostic::error(&prefix.pos, ""))
                         }
                     }
 
@@ -368,11 +381,11 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                         if let Some(visible_decl) = data.region.lookup(&suffix.item, false) {
                             Ok(LookupResult::Single(visible_decl.clone()))
                         } else {
-                            Err(Message::error(
+                            Err(Diagnostic::error(
                                 suffix.as_ref(),
                                 format!(
                                     "No declaration of '{}' within package instance '{}'",
-                                    suffix.item, &instance_name.item
+                                    suffix.item, &instance_name
                                 ),
                             ))
                         }
@@ -386,7 +399,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                 LookupResult::Single(visible_decl) => {
                     Ok(LookupResult::AllWithin(prefix, visible_decl))
                 }
-                LookupResult::AllWithin(..) => Err(Message::error(
+                LookupResult::AllWithin(..) => Err(Diagnostic::error(
                     prefix.as_ref(),
                     "'.all' may not be the prefix of a selected name",
                 )),
@@ -396,7 +409,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                 if let Some(visible_item) = region.lookup(&designator, true) {
                     Ok(LookupResult::Single(visible_item.clone()))
                 } else {
-                    Err(Message::error(
+                    Err(Diagnostic::error(
                         &name.pos,
                         format!("No declaration of '{}'", designator),
                     ))
@@ -412,50 +425,42 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
     fn analyze_interface_declaration(
         &self,
-        region: &mut DeclarativeRegion<'_, 'a>,
-        decl: &'a InterfaceDeclaration,
-        messages: &mut dyn MessageHandler,
+        region: &mut DeclarativeRegion<'_>,
+        decl: &InterfaceDeclaration,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) {
         match decl {
             InterfaceDeclaration::File(ref file_decl) => {
-                self.analyze_subtype_indicaton(region, &file_decl.subtype_indication, messages);
-                region.add(
-                    VisibleDeclaration::new(&file_decl.ident, AnyDeclaration::Interface(decl)),
-                    messages,
-                );
+                self.analyze_subtype_indicaton(region, &file_decl.subtype_indication, diagnostics);
+                region.add(&file_decl.ident, AnyDeclaration::Other, diagnostics);
             }
             InterfaceDeclaration::Object(ref object_decl) => {
-                self.analyze_subtype_indicaton(region, &object_decl.subtype_indication, messages);
-                region.add(
-                    VisibleDeclaration::new(&object_decl.ident, AnyDeclaration::Interface(decl)),
-                    messages,
+                self.analyze_subtype_indicaton(
+                    region,
+                    &object_decl.subtype_indication,
+                    diagnostics,
                 );
+                region.add(&object_decl.ident, AnyDeclaration::Other, diagnostics);
             }
             InterfaceDeclaration::Type(ref ident) => {
-                region.add(
-                    VisibleDeclaration::new(ident, AnyDeclaration::Interface(decl)),
-                    messages,
-                );
+                region.add(ident, AnyDeclaration::Other, diagnostics);
             }
             InterfaceDeclaration::Subprogram(subpgm, ..) => {
-                self.analyze_subprogram_declaration(region, subpgm, messages);
-                region.add(
-                    VisibleDeclaration::new(subpgm.designator(), AnyDeclaration::Interface(decl))
-                        .with_overload(true),
-                    messages,
-                );
+                self.analyze_subprogram_declaration(region, subpgm, diagnostics);
+                region.add(subpgm.designator(), AnyDeclaration::Overloaded, diagnostics);
             }
             InterfaceDeclaration::Package(ref instance) => {
                 match self.analyze_package_instance_name(region, &instance.package_name) {
                     Ok(package_region) => region.add(
-                        VisibleDeclaration::new(
-                            &instance.ident,
-                            AnyDeclaration::LocalPackageInstance(&instance.ident, package_region),
+                        &instance.ident,
+                        AnyDeclaration::LocalPackageInstance(
+                            instance.ident.item.clone(),
+                            package_region,
                         ),
-                        messages,
+                        diagnostics,
                     ),
-                    Err(msg) => {
-                        messages.push(msg);
+                    Err(diagnostic) => {
+                        diagnostics.push(diagnostic);
                     }
                 }
             }
@@ -464,27 +469,27 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
     fn analyze_interface_list(
         &self,
-        region: &mut DeclarativeRegion<'_, 'a>,
-        declarations: &'a [InterfaceDeclaration],
-        messages: &mut dyn MessageHandler,
+        region: &mut DeclarativeRegion<'_>,
+        declarations: &[InterfaceDeclaration],
+        diagnostics: &mut dyn DiagnosticHandler,
     ) {
         for decl in declarations.iter() {
-            self.analyze_interface_declaration(region, decl, messages);
+            self.analyze_interface_declaration(region, decl, diagnostics);
         }
     }
 
     #[allow(clippy::ptr_arg)]
     fn lookup_type_mark(
         &self,
-        region: &DeclarativeRegion<'_, 'a>,
+        region: &DeclarativeRegion<'_>,
         type_mark: &WithPos<SelectedName>,
-    ) -> Result<VisibleDeclaration<'a>, Message> {
+    ) -> Result<VisibleDeclaration, Diagnostic> {
         let type_mark_name = type_mark.clone().into();
         match self.lookup_selected_name(region, &type_mark_name)? {
             LookupResult::Single(visible_decl) => Ok(visible_decl),
             _ => {
                 // Cannot really happen with SelectedName but refactoring might change it...
-                Err(Message::error(
+                Err(Diagnostic::error(
                     &type_mark_name.pos,
                     "Invalid name for type mark",
                 ))
@@ -494,186 +499,168 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
     fn analyze_subtype_indicaton(
         &self,
-        region: &mut DeclarativeRegion<'_, 'a>,
-        subtype_indication: &'a SubtypeIndication,
-        messages: &mut dyn MessageHandler,
+        region: &mut DeclarativeRegion<'_>,
+        subtype_indication: &SubtypeIndication,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) {
-        if let Err(msg) = self.lookup_type_mark(region, &subtype_indication.type_mark) {
-            messages.push(msg);
+        if let Err(diagnostic) = self.lookup_type_mark(region, &subtype_indication.type_mark) {
+            diagnostics.push(diagnostic);
         }
     }
 
     fn analyze_subprogram_declaration(
         &self,
-        parent: &DeclarativeRegion<'_, 'a>,
-        subprogram: &'a SubprogramDeclaration,
-        messages: &mut dyn MessageHandler,
+        parent: &DeclarativeRegion<'_>,
+        subprogram: &SubprogramDeclaration,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) {
         let mut region = DeclarativeRegion::new(Some(parent));
 
         match subprogram {
             SubprogramDeclaration::Function(fun) => {
-                self.analyze_interface_list(&mut region, &fun.parameter_list, messages);
-                if let Err(msg) = self.lookup_type_mark(&parent, &fun.return_type) {
-                    messages.push(msg);
+                self.analyze_interface_list(&mut region, &fun.parameter_list, diagnostics);
+                if let Err(diagnostic) = self.lookup_type_mark(&parent, &fun.return_type) {
+                    diagnostics.push(diagnostic);
                 }
             }
             SubprogramDeclaration::Procedure(proc) => {
-                self.analyze_interface_list(&mut region, &proc.parameter_list, messages);
+                self.analyze_interface_list(&mut region, &proc.parameter_list, diagnostics);
             }
         }
-        region.close_both(messages);
+        region.close_both(diagnostics);
     }
 
     fn analyze_declaration(
         &self,
-        region: &mut DeclarativeRegion<'_, 'a>,
+        region: &mut DeclarativeRegion<'_>,
         decl: &'a Declaration,
-        messages: &mut dyn MessageHandler,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) {
         match decl {
             Declaration::Alias(alias) => {
                 if let Some(ref subtype_indication) = alias.subtype_indication {
-                    self.analyze_subtype_indicaton(region, subtype_indication, messages);
+                    self.analyze_subtype_indicaton(region, subtype_indication, diagnostics);
                 }
                 region.add(
-                    VisibleDeclaration::new(
-                        alias.designator.clone(),
-                        AnyDeclaration::Declaration(decl),
-                    )
-                    .with_overload(alias.signature.is_some()),
-                    messages,
+                    alias.designator.clone(),
+                    if alias.signature.is_some() {
+                        AnyDeclaration::Overloaded
+                    } else {
+                        AnyDeclaration::Other
+                    },
+                    diagnostics,
                 );
             }
             Declaration::Object(ref object_decl) => {
-                self.analyze_subtype_indicaton(region, &object_decl.subtype_indication, messages);
+                self.analyze_subtype_indicaton(
+                    region,
+                    &object_decl.subtype_indication,
+                    diagnostics,
+                );
                 region.add(
-                    VisibleDeclaration::new(&object_decl.ident, AnyDeclaration::Declaration(decl)),
-                    messages,
+                    &object_decl.ident,
+                    AnyDeclaration::from_object_declaration(object_decl),
+                    diagnostics,
                 );
             }
             Declaration::File(ref file_decl) => {
-                self.analyze_subtype_indicaton(region, &file_decl.subtype_indication, messages);
-                region.add(
-                    VisibleDeclaration::new(&file_decl.ident, AnyDeclaration::Declaration(decl)),
-                    messages,
-                );
+                self.analyze_subtype_indicaton(region, &file_decl.subtype_indication, diagnostics);
+                region.add(&file_decl.ident, AnyDeclaration::Other, diagnostics);
             }
             Declaration::Component(ref component) => {
-                region.add(
-                    VisibleDeclaration::new(&component.ident, AnyDeclaration::Declaration(decl)),
-                    messages,
-                );
+                region.add(&component.ident, AnyDeclaration::Other, diagnostics);
 
                 {
                     let mut region = DeclarativeRegion::new(Some(region));
-                    self.analyze_interface_list(&mut region, &component.generic_list, messages);
-                    region.close_both(messages);
+                    self.analyze_interface_list(&mut region, &component.generic_list, diagnostics);
+                    region.close_both(diagnostics);
                 }
 
                 {
                     let mut region = DeclarativeRegion::new(Some(region));
-                    self.analyze_interface_list(&mut region, &component.port_list, messages);
-                    region.close_both(messages);
+                    self.analyze_interface_list(&mut region, &component.port_list, diagnostics);
+                    region.close_both(diagnostics);
                 }
             }
             Declaration::Attribute(ref attr) => match attr {
                 Attribute::Declaration(ref attr_decl) => {
-                    if let Err(msg) = self.lookup_type_mark(region, &attr_decl.type_mark) {
-                        messages.push(msg);
+                    if let Err(diagnostic) = self.lookup_type_mark(region, &attr_decl.type_mark) {
+                        diagnostics.push(diagnostic);
                     }
-                    region.add(
-                        VisibleDeclaration::new(
-                            &attr_decl.ident,
-                            AnyDeclaration::Declaration(decl),
-                        ),
-                        messages,
-                    );
+                    region.add(&attr_decl.ident, AnyDeclaration::Other, diagnostics);
                 }
                 // @TODO Ignored for now
                 Attribute::Specification(..) => {}
             },
             Declaration::SubprogramBody(body) => {
                 region.add(
-                    VisibleDeclaration::new(
-                        body.specification.designator(),
-                        AnyDeclaration::Declaration(decl),
-                    )
-                    .with_overload(true),
-                    messages,
+                    body.specification.designator(),
+                    AnyDeclaration::Overloaded,
+                    diagnostics,
                 );
-                self.analyze_subprogram_declaration(region, &body.specification, messages);
+                self.analyze_subprogram_declaration(region, &body.specification, diagnostics);
                 let mut region = DeclarativeRegion::new(Some(region));
-                self.analyze_declarative_part(&mut region, &body.declarations, messages);
+                self.analyze_declarative_part(&mut region, &body.declarations, diagnostics);
             }
             Declaration::SubprogramDeclaration(subdecl) => {
                 region.add(
-                    VisibleDeclaration::new(
-                        subdecl.designator(),
-                        AnyDeclaration::Declaration(decl),
-                    )
-                    .with_overload(true),
-                    messages,
+                    subdecl.designator(),
+                    AnyDeclaration::Overloaded,
+                    diagnostics,
                 );
-                self.analyze_subprogram_declaration(region, &subdecl, messages);
+                self.analyze_subprogram_declaration(region, &subdecl, diagnostics);
             }
 
             // @TODO Ignored for now
             Declaration::Use(ref use_clause) => {
-                self.analyze_use_clause(region, &use_clause.item, &use_clause.pos, messages);
+                self.analyze_use_clause(region, &use_clause.item, &use_clause.pos, diagnostics);
             }
             Declaration::Package(ref instance) => {
                 match self.analyze_package_instance(region, instance) {
                     Ok(package_region) => region.add(
-                        VisibleDeclaration::new(
-                            &instance.ident,
-                            AnyDeclaration::LocalPackageInstance(&instance.ident, package_region),
+                        &instance.ident,
+                        AnyDeclaration::LocalPackageInstance(
+                            instance.ident.item.clone(),
+                            package_region,
                         ),
-                        messages,
+                        diagnostics,
                     ),
-                    Err(msg) => {
-                        messages.push(msg);
+                    Err(diagnostic) => {
+                        diagnostics.push(diagnostic);
                     }
                 }
             }
             Declaration::Configuration(..) => {}
-            Declaration::Type(TypeDeclaration {
-                ref ident,
-                def: TypeDefinition::Enumeration(ref enumeration),
-            }) => {
-                region.add(
-                    VisibleDeclaration::new(ident, AnyDeclaration::Declaration(decl)),
-                    messages,
-                );
-                for literal in enumeration.iter() {
-                    region.add(
-                        VisibleDeclaration::new(
-                            literal.clone().map_into(|lit| lit.into_designator()),
-                            AnyDeclaration::Enum(literal),
-                        )
-                        .with_overload(true),
-                        messages,
-                    )
-                }
-            }
             Declaration::Type(ref type_decl) => {
                 // Protected types are visible inside their declaration
                 region.add(
-                    VisibleDeclaration::new(&type_decl.ident, AnyDeclaration::Declaration(decl)),
-                    messages,
+                    &type_decl.ident,
+                    AnyDeclaration::from_type_declaration(type_decl),
+                    diagnostics,
                 );
 
                 match type_decl.def {
+                    TypeDefinition::Enumeration(ref enumeration) => {
+                        for literal in enumeration.iter() {
+                            region.add(
+                                literal.clone().map_into(|lit| lit.into_designator()),
+                                AnyDeclaration::Overloaded,
+                                diagnostics,
+                            )
+                        }
+                    }
                     TypeDefinition::ProtectedBody(ref body) => {
                         let mut region = DeclarativeRegion::new(Some(region));
-                        self.analyze_declarative_part(&mut region, &body.decl, messages);
+                        self.analyze_declarative_part(&mut region, &body.decl, diagnostics);
                     }
                     TypeDefinition::Protected(ref prot_decl) => {
                         for item in prot_decl.items.iter() {
                             match item {
                                 ProtectedTypeDeclarativeItem::Subprogram(subprogram) => {
                                     self.analyze_subprogram_declaration(
-                                        region, subprogram, messages,
+                                        region,
+                                        subprogram,
+                                        diagnostics,
                                     );
                                 }
                             }
@@ -682,25 +669,19 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     TypeDefinition::Record(ref element_decls) => {
                         let mut record_region = DeclarativeRegion::new(None);
                         for elem_decl in element_decls.iter() {
-                            self.analyze_subtype_indicaton(region, &elem_decl.subtype, messages);
-                            record_region.add(
-                                VisibleDeclaration::new(
-                                    &elem_decl.ident,
-                                    AnyDeclaration::Element(elem_decl),
-                                ),
-                                messages,
-                            );
+                            self.analyze_subtype_indicaton(region, &elem_decl.subtype, diagnostics);
+                            record_region.add(&elem_decl.ident, AnyDeclaration::Other, diagnostics);
                         }
-                        record_region.close_both(messages);
+                        record_region.close_both(diagnostics);
                     }
                     TypeDefinition::Access(ref subtype_indication) => {
-                        self.analyze_subtype_indicaton(region, subtype_indication, messages);
+                        self.analyze_subtype_indicaton(region, subtype_indication, diagnostics);
                     }
                     TypeDefinition::Array(.., ref subtype_indication) => {
-                        self.analyze_subtype_indicaton(region, subtype_indication, messages);
+                        self.analyze_subtype_indicaton(region, subtype_indication, diagnostics);
                     }
                     TypeDefinition::Subtype(ref subtype_indication) => {
-                        self.analyze_subtype_indicaton(region, subtype_indication, messages);
+                        self.analyze_subtype_indicaton(region, subtype_indication, diagnostics);
                     }
                     _ => {}
                 }
@@ -710,28 +691,28 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
     fn analyze_declarative_part(
         &self,
-        region: &mut DeclarativeRegion<'_, 'a>,
-        declarations: &'a [Declaration],
-        messages: &mut dyn MessageHandler,
+        region: &mut DeclarativeRegion<'_>,
+        declarations: &[Declaration],
+        diagnostics: &mut dyn DiagnosticHandler,
     ) {
         for decl in declarations.iter() {
-            self.analyze_declaration(region, decl, messages);
+            self.analyze_declaration(region, decl, diagnostics);
         }
     }
 
     fn analyze_use_clause(
         &self,
-        region: &mut DeclarativeRegion<'_, 'a>,
+        region: &mut DeclarativeRegion<'_>,
         use_clause: &UseClause,
         use_pos: &SrcPos,
-        messages: &mut dyn MessageHandler,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) {
         for name in use_clause.name_list.iter() {
             match name.item {
                 Name::Selected(..) => {}
                 Name::SelectedAll(..) => {}
                 _ => {
-                    messages.push(Message::error(
+                    diagnostics.push(Diagnostic::error(
                         &use_pos,
                         "Use clause must be a selected name",
                     ));
@@ -744,14 +725,23 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     region.make_potentially_visible(visible_decl);
                 }
                 Ok(LookupResult::AllWithin(prefix, visible_decl)) => {
-                    match visible_decl.decl {
-                        AnyDeclaration::Library(ref library) => {
+                    match visible_decl.first() {
+                        AnyDeclaration::Library(ref library_name) => {
                             region
-                                .make_all_potentially_visible(&self.library_regions[&library.name]);
+                                .make_all_potentially_visible(&self.library_regions[library_name]);
                         }
-                        AnyDeclaration::Package(ref library, ref package) => {
+                        AnyDeclaration::Package(ref library_name, ref package_name) => {
+                            let library = self
+                                .root
+                                .get_library(library_name)
+                                .expect("Assume library exists if made visible");
+
+                            let package = library
+                                .package(package_name)
+                                .expect("Assume package exists if made visible");
+
                             if package.is_generic() {
-                                messages.push(uninstantiated_package_prefix_error(
+                                diagnostics.push(uninstantiated_package_prefix_error(
                                     &prefix.pos,
                                     library,
                                     package,
@@ -765,7 +755,16 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                                 return;
                             }
                         }
-                        AnyDeclaration::PackageInstance(ref library, ref package) => {
+                        AnyDeclaration::PackageInstance(ref library_name, ref package_name) => {
+                            let library = self
+                                .root
+                                .get_library(library_name)
+                                .expect("Assume library exists if made visible");
+
+                            let package = library
+                                .package_instance(package_name)
+                                .expect("Assume package exists if made visible");
+
                             if let Ok(data) = self.analyze_package_instance_unit(
                                 Some(prefix.pos.clone()),
                                 library,
@@ -786,13 +785,13 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                 }
                 Ok(LookupResult::Unfinished) => {}
                 Ok(LookupResult::NotSelected) => {
-                    messages.push(Message::error(
+                    diagnostics.push(Diagnostic::error(
                         &use_pos,
                         "Use clause must be a selected name",
                     ));
                 }
-                Err(msg) => {
-                    messages.push(msg);
+                Err(diagnostic) => {
+                    diagnostics.push(diagnostic);
                 }
             }
         }
@@ -800,23 +799,23 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
     fn analyze_context_clause(
         &self,
-        region: &mut DeclarativeRegion<'_, 'a>,
+        region: &mut DeclarativeRegion<'_>,
         context_clause: &[WithPos<ContextItem>],
-        messages: &mut dyn MessageHandler,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) {
         for context_item in context_clause.iter() {
             match context_item.item {
                 ContextItem::Library(LibraryClause { ref name_list }) => {
                     for library_name in name_list.iter() {
                         if self.work_sym == library_name.item {
-                            messages.push(Message::hint(
+                            diagnostics.push(Diagnostic::hint(
                                 &library_name,
                                 "Library clause not necessary for current working library",
                             ))
                         } else if let Some(library) = self.root.get_library(&library_name.item) {
                             region.make_library_visible(&library.name, library);
                         } else {
-                            messages.push(Message::error(
+                            diagnostics.push(Diagnostic::error(
                                 &library_name,
                                 format!("No such library '{}'", library_name.item),
                             ));
@@ -824,14 +823,14 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                     }
                 }
                 ContextItem::Use(ref use_clause) => {
-                    self.analyze_use_clause(region, use_clause, &context_item.pos, messages);
+                    self.analyze_use_clause(region, use_clause, &context_item.pos, diagnostics);
                 }
                 ContextItem::Context(ContextReference { ref name_list }) => {
                     for name in name_list {
                         match name.item {
                             Name::Selected(..) => {}
                             _ => {
-                                messages.push(Message::error(
+                                diagnostics.push(Diagnostic::error(
                                     &context_item,
                                     "Context reference must be a selected name",
                                 ));
@@ -841,25 +840,34 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
                         match self.lookup_selected_name(&region, &name) {
                             Ok(LookupResult::Single(visible_decl)) => {
-                                match visible_decl.decl {
+                                match visible_decl.first() {
                                     // OK
-                                    AnyDeclaration::Context(ref context) => {
+                                    AnyDeclaration::Context(ref library_name, ref context_name) => {
+                                        let library = self
+                                            .root
+                                            .get_library(library_name)
+                                            .expect("Assume library exists if made visible");
+
+                                        let context = library
+                                            .context(context_name)
+                                            .expect("Assume context exists if made visible");
+
                                         // Error will be given when
                                         // analyzing the context
                                         // clause specifically and
                                         // shall not be duplicated
                                         // here
-                                        let mut ignore_messages = Vec::new();
+                                        let mut ignore_diagnostics = Vec::new();
                                         self.analyze_context_clause(
                                             region,
                                             &context.items,
-                                            &mut ignore_messages,
+                                            &mut ignore_diagnostics,
                                         );
                                     }
                                     _ => {
                                         // @TODO maybe lookup should return the source position of the suffix
                                         if let Name::Selected(_, ref suffix) = name.item {
-                                            messages.push(Message::error(
+                                            diagnostics.push(Diagnostic::error(
                                                 &suffix,
                                                 format!(
                                                     "'{}' does not denote a context declaration",
@@ -875,13 +883,13 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                             }
                             Ok(LookupResult::Unfinished) => {}
                             Ok(LookupResult::NotSelected) => {
-                                messages.push(Message::error(
+                                diagnostics.push(Diagnostic::error(
                                     &context_item,
                                     "Context reference must be a selected name",
                                 ));
                             }
-                            Err(msg) => {
-                                messages.push(msg);
+                            Err(diagnostic) => {
+                                diagnostics.push(diagnostic);
                             }
                         }
                     }
@@ -893,56 +901,56 @@ impl<'r, 'a: 'r> Analyzer<'a> {
     fn get_package_result(
         &self,
         entry_point: Option<SrcPos>,
-        library: &'a Library,
-        package: &'a PackageDesignUnit,
-    ) -> AnalysisResult<'a> {
+        library: &Library,
+        package: &PackageDesignUnit,
+    ) -> AnalysisResult {
         self.analyze_package_declaration_unit(entry_point, library, package)
     }
 
     fn analyze_generate_body(
         &self,
-        parent: &DeclarativeRegion<'_, 'a>,
-        body: &'a GenerateBody,
-        messages: &mut dyn MessageHandler,
+        parent: &DeclarativeRegion<'_>,
+        body: &GenerateBody,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) {
         let mut region = DeclarativeRegion::new(Some(parent));
 
         if let Some(ref decl) = body.decl {
-            self.analyze_declarative_part(&mut region, &decl, messages);
+            self.analyze_declarative_part(&mut region, &decl, diagnostics);
         }
-        self.analyze_concurrent_part(&region, &body.statements, messages);
+        self.analyze_concurrent_part(&region, &body.statements, diagnostics);
     }
 
     fn analyze_concurrent_statement(
         &self,
-        parent: &DeclarativeRegion<'_, 'a>,
-        statement: &'a LabeledConcurrentStatement,
-        messages: &mut dyn MessageHandler,
+        parent: &DeclarativeRegion<'_>,
+        statement: &LabeledConcurrentStatement,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) {
         match statement.statement {
             ConcurrentStatement::Block(ref block) => {
                 let mut region = DeclarativeRegion::new(Some(parent));
-                self.analyze_declarative_part(&mut region, &block.decl, messages);
-                self.analyze_concurrent_part(&region, &block.statements, messages);
+                self.analyze_declarative_part(&mut region, &block.decl, diagnostics);
+                self.analyze_concurrent_part(&region, &block.statements, diagnostics);
             }
             ConcurrentStatement::Process(ref process) => {
                 let mut region = DeclarativeRegion::new(Some(parent));
-                self.analyze_declarative_part(&mut region, &process.decl, messages);
+                self.analyze_declarative_part(&mut region, &process.decl, diagnostics);
             }
             ConcurrentStatement::ForGenerate(ref gen) => {
-                self.analyze_generate_body(parent, &gen.body, messages);
+                self.analyze_generate_body(parent, &gen.body, diagnostics);
             }
             ConcurrentStatement::IfGenerate(ref gen) => {
                 for conditional in gen.conditionals.iter() {
-                    self.analyze_generate_body(parent, &conditional.item, messages);
+                    self.analyze_generate_body(parent, &conditional.item, diagnostics);
                 }
                 if let Some(ref else_item) = gen.else_item {
-                    self.analyze_generate_body(parent, else_item, messages);
+                    self.analyze_generate_body(parent, else_item, diagnostics);
                 }
             }
             ConcurrentStatement::CaseGenerate(ref gen) => {
                 for alternative in gen.alternatives.iter() {
-                    self.analyze_generate_body(parent, &alternative.item, messages);
+                    self.analyze_generate_body(parent, &alternative.item, diagnostics);
                 }
             }
             _ => {}
@@ -951,63 +959,59 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
     fn analyze_concurrent_part(
         &self,
-        parent: &DeclarativeRegion<'_, 'a>,
-        statements: &'a [LabeledConcurrentStatement],
-        messages: &mut dyn MessageHandler,
+        parent: &DeclarativeRegion<'_>,
+        statements: &[LabeledConcurrentStatement],
+        diagnostics: &mut dyn DiagnosticHandler,
     ) {
         for statement in statements.iter() {
-            self.analyze_concurrent_statement(parent, statement, messages);
+            self.analyze_concurrent_statement(parent, statement, diagnostics);
         }
     }
 
     fn analyze_architecture_body(
         &self,
-        entity_region: &mut DeclarativeRegion<'_, 'a>,
-        architecture: &'a ArchitectureBody,
-        messages: &mut dyn MessageHandler,
+        entity_region: &mut DeclarativeRegion<'_>,
+        architecture: &ArchitectureBody,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) {
-        self.analyze_declarative_part(entity_region, &architecture.decl, messages);
-        self.analyze_concurrent_part(entity_region, &architecture.statements, messages);
+        self.analyze_declarative_part(entity_region, &architecture.decl, diagnostics);
+        self.analyze_concurrent_part(entity_region, &architecture.statements, diagnostics);
     }
 
     fn analyze_entity_declaration(
         &self,
-        region: &mut DeclarativeRegion<'_, 'a>,
-        entity: &'a EntityDeclaration,
-        messages: &mut dyn MessageHandler,
+        region: &mut DeclarativeRegion<'_>,
+        entity: &EntityDeclaration,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) {
         if let Some(ref list) = entity.generic_clause {
-            self.analyze_interface_list(region, list, messages);
+            self.analyze_interface_list(region, list, diagnostics);
         }
         if let Some(ref list) = entity.port_clause {
-            self.analyze_interface_list(region, list, messages);
+            self.analyze_interface_list(region, list, diagnostics);
         }
-        self.analyze_declarative_part(region, &entity.decl, messages);
-        self.analyze_concurrent_part(region, &entity.statements, messages);
+        self.analyze_declarative_part(region, &entity.decl, diagnostics);
+        self.analyze_concurrent_part(region, &entity.statements, diagnostics);
     }
 
     /// Add implicit context clause for all packages except STD.STANDARD
     /// library STD, WORK;
     /// use STD.STANDARD.all;
-    fn add_implicit_context_clause(
-        &self,
-        region: &mut DeclarativeRegion<'a, 'a>,
-        work: &'a Library,
-    ) {
+    fn add_implicit_context_clause(&self, region: &mut DeclarativeRegion<'_>, work: &Library) {
         region.make_library_visible(&self.work_sym, work);
 
         // @TODO maybe add warning if standard library is missing
         if let Some(library) = self.root.get_library(&self.std_sym) {
             region.make_library_visible(&self.std_sym, library);
 
-            if let Some(VisibleDeclaration {
-                decl: AnyDeclaration::Package(.., standard_pkg),
-                ..
-            }) = self.library_regions[&library.name].lookup(&self.standard_designator, false)
+            let decl = self.library_regions[&library.name].lookup(&self.standard_designator, false);
+
+            if let Some(AnyDeclaration::Package(.., ref standard_pkg_name)) =
+                decl.map(|decl| decl.first())
             {
                 let standard_pkg_region = &self
                     .analysis_context
-                    .get_result(&library.name, standard_pkg.package.name())
+                    .get_result(&library.name, standard_pkg_name)
                     .expect("STD.STANDARD package must be analyzed at this point")
                     .expect("Found circular dependency when using STD.STANDARD package")
                     .region;
@@ -1019,16 +1023,14 @@ impl<'r, 'a: 'r> Analyzer<'a> {
     }
     fn analyze_package_declaration(
         &self,
-        parent: &'r DeclarativeRegion<'r, 'a>,
-        package: &'a PackageDeclaration,
-        messages: &mut dyn MessageHandler,
-    ) -> DeclarativeRegion<'r, 'a> {
-        let mut region = DeclarativeRegion::new(Some(parent)).in_package_declaration();
+        region: &mut DeclarativeRegion,
+        package: &PackageDeclaration,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
         if let Some(ref list) = package.generic_clause {
-            self.analyze_interface_list(&mut region, list, messages);
+            self.analyze_interface_list(region, list, diagnostics);
         }
-        self.analyze_declarative_part(&mut region, &package.decl, messages);
-        region
+        self.analyze_declarative_part(region, &package.decl, diagnostics);
     }
 
     fn analyze_package_declaration_unit(
@@ -1036,10 +1038,10 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         // The optional entry point where the package declarartion was used
         // None if the package was directly analyzed and not due to a use clause
         entry_point: Option<SrcPos>,
-        library: &'a Library,
-        package: &'a PackageDesignUnit,
-    ) -> AnalysisResult<'a> {
-        let mut messages = Vec::new();
+        library: &Library,
+        package: &PackageDesignUnit,
+    ) -> AnalysisResult {
+        let mut diagnostics = Vec::new();
 
         match self.analysis_context.start_analysis(
             entry_point,
@@ -1047,7 +1049,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
             package.package.name(),
         ) {
             StartAnalysisResult::NotYetAnalyzed(pending) => {
-                let mut root_region = DeclarativeRegion::new(None);
+                let mut root_region = Box::new(DeclarativeRegion::new(None));
                 if !(library.name == self.std_sym && *package.package.name() == self.standard_sym) {
                     self.add_implicit_context_clause(&mut root_region, library);
                 }
@@ -1055,22 +1057,24 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                 self.analyze_context_clause(
                     &mut root_region,
                     &package.package.context_clause,
-                    &mut messages,
+                    &mut diagnostics,
                 );
 
-                let mut region = self.analyze_package_declaration(
-                    &root_region,
+                let mut region =
+                    DeclarativeRegion::new_owned_parent(root_region).in_package_declaration();
+                self.analyze_package_declaration(
+                    &mut region,
                     &package.package.unit,
-                    &mut messages,
+                    &mut diagnostics,
                 );
 
                 if package.body.is_some() {
-                    region.close_immediate(&mut messages);
+                    region.close_immediate(&mut diagnostics);
                 } else {
-                    region.close_both(&mut messages);
+                    region.close_both(&mut diagnostics);
                 }
 
-                pending.end_analysis(PrimaryUnitData::new(messages, region.into_owned_parent()))
+                pending.end_analysis(PrimaryUnitData::new(diagnostics, region))
             }
 
             StartAnalysisResult::AlreadyAnalyzed(result) => result,
@@ -1079,34 +1083,33 @@ impl<'r, 'a: 'r> Analyzer<'a> {
 
     fn analyze_package_body_unit(
         &self,
-        primary_region: &DeclarativeRegion<'_, 'a>,
-        package: &'a PackageDesignUnit,
-        messages: &mut dyn MessageHandler,
+        primary_region: &DeclarativeRegion<'_>,
+        package: &PackageDesignUnit,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) {
         if let Some(ref body) = package.body {
-            let mut root_region = primary_region
-                .clone_parent()
-                .expect("Expected parent region");;
-            self.analyze_context_clause(&mut root_region, &body.context_clause, messages);
-            let mut region = primary_region.clone().into_extended(&root_region);
-            self.analyze_declarative_part(&mut region, &body.unit.decl, messages);
-            region.close_both(messages);
+            // @TODO make pattern of primary/secondary extension
+            let mut root_region = primary_region.get_parent().unwrap().extend(None);
+            self.analyze_context_clause(&mut root_region, &body.context_clause, diagnostics);
+            let mut region = primary_region.extend(Some(&root_region));
+            self.analyze_declarative_part(&mut region, &body.unit.decl, diagnostics);
+            region.close_both(diagnostics);
         }
     }
 
     pub fn analyze_package(
         &self,
-        library: &'a Library,
-        package: &'a PackageDesignUnit,
-        messages: &mut dyn MessageHandler,
+        library: &Library,
+        package: &PackageDesignUnit,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) {
         match self.analyze_package_declaration_unit(None, library, package) {
             Ok(data) => {
-                data.push_to(messages);
-                self.analyze_package_body_unit(&data.region, &package, messages);
+                data.push_to(diagnostics);
+                self.analyze_package_body_unit(&data.region, &package, diagnostics);
             }
             Err(circular_dependency) => {
-                circular_dependency.push_into(messages);
+                circular_dependency.push_into(diagnostics);
             }
         };
     }
@@ -1114,9 +1117,9 @@ impl<'r, 'a: 'r> Analyzer<'a> {
     /// Returns a reference to the the uninstantiated package
     pub fn analyze_package_instance(
         &self,
-        parent: &'r DeclarativeRegion<'r, 'a>,
-        package_instance: &'a PackageInstantiation,
-    ) -> Result<Arc<PrimaryUnitData<'a>>, Message> {
+        parent: &DeclarativeRegion<'_>,
+        package_instance: &PackageInstantiation,
+    ) -> Result<Arc<PrimaryUnitData>, Diagnostic> {
         self.analyze_package_instance_name(parent, &package_instance.package_name)
     }
 
@@ -1124,22 +1127,33 @@ impl<'r, 'a: 'r> Analyzer<'a> {
     #[allow(clippy::ptr_arg)]
     pub fn analyze_package_instance_name(
         &self,
-        parent: &'r DeclarativeRegion<'r, 'a>,
+        parent: &DeclarativeRegion<'_>,
         package_name: &WithPos<SelectedName>,
-    ) -> Result<Arc<PrimaryUnitData<'a>>, Message> {
+    ) -> Result<Arc<PrimaryUnitData>, Diagnostic> {
         let entry_point = package_name.pos.clone();
         let package_name = package_name.clone().into();
 
         match self.lookup_selected_name(parent, &package_name)? {
             LookupResult::Single(visible_decl) => {
-                if let AnyDeclaration::Package(ref library, ref package) = visible_decl.decl {
+                if let AnyDeclaration::Package(ref library_name, ref package_name) =
+                    visible_decl.first()
+                {
+                    let library = self
+                        .root
+                        .get_library(library_name)
+                        .expect("Assume library exists if made visible");
+
+                    let package = library
+                        .package(package_name)
+                        .expect("Assume package exists if made visible");
+
                     if package.is_generic() {
                         if let Ok(data) =
                             self.get_package_result(Some(entry_point.clone()), library, package)
                         {
                             return Ok(data.clone());
                         } else {
-                            return Err(Message::error(
+                            return Err(Diagnostic::error(
                                 &entry_point,
                                 format!(
                                     "'Could not instantiate package '{}.{}' with circular dependency'",
@@ -1149,7 +1163,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                         }
                     }
                 }
-                Err(Message::error(
+                Err(Diagnostic::error(
                     &package_name.pos,
                     format!(
                         "'{}' is not an uninstantiated generic package",
@@ -1160,7 +1174,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
             _ => {
                 // Cannot really happen as package_name is a SelectedName so cannot test it
                 // Leave here in case of future refactoring changes the type
-                Err(Message::error(
+                Err(Diagnostic::error(
                     &package_name.pos,
                     "Invalid selected name for generic package",
                 ))
@@ -1171,10 +1185,10 @@ impl<'r, 'a: 'r> Analyzer<'a> {
     fn analyze_package_instance_unit(
         &self,
         entry_point: Option<SrcPos>,
-        library: &'a Library,
-        package_instance: &'a DesignUnit<PackageInstantiation>,
-    ) -> AnalysisResult<'a> {
-        let mut messages = Vec::new();
+        library: &Library,
+        package_instance: &DesignUnit<PackageInstantiation>,
+    ) -> AnalysisResult {
+        let mut diagnostics = Vec::new();
 
         match self.analysis_context.start_analysis(
             entry_point,
@@ -1187,19 +1201,19 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                 self.analyze_context_clause(
                     &mut region,
                     &package_instance.context_clause,
-                    &mut messages,
+                    &mut diagnostics,
                 );
 
                 match self.analyze_package_instance(&region, &package_instance.unit) {
                     Ok(data) => {
                         // @TODO avoid clone?
-                        pending.end_analysis(PrimaryUnitData::new(messages, data.region.clone()))
+                        pending.end_analysis(PrimaryUnitData::new(diagnostics, data.region.clone()))
                     }
-                    Err(msg) => {
-                        messages.push(msg);
+                    Err(diagnostic) => {
+                        diagnostics.push(diagnostic);
                         // Failed to analyze, add empty region
                         pending.end_analysis(PrimaryUnitData::new(
-                            messages,
+                            diagnostics,
                             DeclarativeRegion::new(None),
                         ))
                     }
@@ -1209,18 +1223,18 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         }
     }
 
-    pub fn analyze_library(&self, library: &'a Library, messages: &mut dyn MessageHandler) {
+    pub fn analyze_library(&self, library: &Library, diagnostics: &mut dyn DiagnosticHandler) {
         for package in library.packages() {
-            self.analyze_package(library, package, messages);
+            self.analyze_package(library, package, diagnostics);
         }
 
         for package_instance in library.package_instances() {
             match self.analyze_package_instance_unit(None, library, package_instance) {
                 Ok(data) => {
-                    data.push_to(messages);
+                    data.push_to(diagnostics);
                 }
                 Err(circular_dependency) => {
-                    circular_dependency.push_into(messages);
+                    circular_dependency.push_into(diagnostics);
                 }
             }
         }
@@ -1228,40 +1242,46 @@ impl<'r, 'a: 'r> Analyzer<'a> {
         for context in library.contexts() {
             let mut root_region = DeclarativeRegion::new(None);
             self.add_implicit_context_clause(&mut root_region, library);
-            self.analyze_context_clause(&mut root_region, &context.items, messages);
+            self.analyze_context_clause(&mut root_region, &context.items, diagnostics);
         }
 
         for entity in library.entities() {
-            let mut root_region = DeclarativeRegion::new(None);
-            self.add_implicit_context_clause(&mut root_region, library);
-            self.analyze_context_clause(&mut root_region, &entity.entity.context_clause, messages);
-            let mut region = DeclarativeRegion::new(Some(&root_region));
-            self.analyze_entity_declaration(&mut region, &entity.entity.unit, messages);
-            region.close_immediate(messages);
+            let mut primary_root_region = DeclarativeRegion::new(None);
+            self.add_implicit_context_clause(&mut primary_root_region, library);
+            self.analyze_context_clause(
+                &mut primary_root_region,
+                &entity.entity.context_clause,
+                diagnostics,
+            );
+
+            let mut primary_region = DeclarativeRegion::new(Some(&primary_root_region));
+            self.analyze_entity_declaration(&mut primary_region, &entity.entity.unit, diagnostics);
+            primary_region.close_immediate(diagnostics);
+
             for architecture in entity.architectures.values() {
-                let mut root_region = region.clone();
+                let mut root_region = primary_root_region.extend(None);
                 self.analyze_context_clause(
                     &mut root_region,
                     &architecture.context_clause,
-                    messages,
+                    diagnostics,
                 );
-                let mut region = region.clone().into_extended(&root_region);
-                self.analyze_architecture_body(&mut region, &architecture.unit, messages);
-                region.close_both(messages);
+                let mut region = primary_region.extend(Some(&root_region));
+                self.analyze_architecture_body(&mut region, &architecture.unit, diagnostics);
+                region.close_both(diagnostics);
             }
         }
     }
 
-    pub fn analyze(&self, messages: &mut dyn MessageHandler) {
+    pub fn analyze(&self, diagnostics: &mut dyn DiagnosticHandler) {
         // Analyze standard library first
         if let Some(library) = self.root.get_library(&self.std_sym) {
             let standard_package = library
                 .package(&self.standard_sym)
                 .expect("Failed to find package STD.STANDARD");
-            self.analyze_package(library, standard_package, messages);
+            self.analyze_package(library, standard_package, diagnostics);
             for package in library.packages() {
                 if *package.package.name() != self.standard_sym {
-                    self.analyze_package(library, package, messages);
+                    self.analyze_package(library, package, diagnostics);
                 }
             }
         }
@@ -1272,7 +1292,7 @@ impl<'r, 'a: 'r> Analyzer<'a> {
                 continue;
             }
 
-            self.analyze_library(library, messages);
+            self.analyze_library(library, diagnostics);
         }
     }
 }
@@ -1281,8 +1301,8 @@ fn uninstantiated_package_prefix_error(
     prefix: &SrcPos,
     library: &Library,
     package: &PackageDesignUnit,
-) -> Message {
-    Message::error(
+) -> Diagnostic {
+    Diagnostic::error(
         prefix,
         format!(
             "Uninstantiated generic package '{}.{}' may not be the prefix of a selected name",
@@ -1295,37 +1315,37 @@ fn uninstantiated_package_prefix_error(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::message::Message;
-    use crate::test_util::{check_messages, check_no_messages, Code, CodeBuilder};
+    use crate::diagnostic::Diagnostic;
+    use crate::test_util::{check_diagnostics, check_no_diagnostics, Code, CodeBuilder};
 
-    fn expected_message(code: &Code, name: &str, occ1: usize, occ2: usize) -> Message {
-        Message::error(
+    fn expected_message(code: &Code, name: &str, occ1: usize, occ2: usize) -> Diagnostic {
+        Diagnostic::error(
             code.s(&name, occ2),
             format!("Duplicate declaration of '{}'", &name),
         )
         .related(code.s(&name, occ1), "Previously defined here")
     }
 
-    fn expected_messages(code: &Code, names: &[&str]) -> Vec<Message> {
-        let mut messages = Vec::new();
+    fn expected_diagnostics(code: &Code, names: &[&str]) -> Vec<Diagnostic> {
+        let mut diagnostics = Vec::new();
         for name in names {
-            messages.push(expected_message(code, name, 1, 2));
+            diagnostics.push(expected_message(code, name, 1, 2));
         }
-        messages
+        diagnostics
     }
 
-    fn expected_messages_multi(code1: &Code, code2: &Code, names: &[&str]) -> Vec<Message> {
-        let mut messages = Vec::new();
+    fn expected_diagnostics_multi(code1: &Code, code2: &Code, names: &[&str]) -> Vec<Diagnostic> {
+        let mut diagnostics = Vec::new();
         for name in names {
-            messages.push(
-                Message::error(
+            diagnostics.push(
+                Diagnostic::error(
                     code2.s1(&name),
                     format!("Duplicate declaration of '{}'", &name),
                 )
                 .related(code1.s1(&name), "Previously defined here"),
             )
         }
-        messages
+        diagnostics
     }
 
     #[test]
@@ -1342,8 +1362,8 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_no_messages(&messages);
+        let diagnostics = builder.analyze();
+        check_no_diagnostics(&diagnostics);
     }
 
     #[test]
@@ -1362,8 +1382,8 @@ end package body;
 ",
         );
 
-        let messages = builder.analyze();
-        check_no_messages(&messages);
+        let diagnostics = builder.analyze();
+        check_no_diagnostics(&diagnostics);
     }
 
     #[test]
@@ -1379,8 +1399,8 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1"]));
     }
 
     #[test]
@@ -1399,10 +1419,10 @@ end package body;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(
-            messages,
-            vec![Message::error(
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 &code.s1("a1"),
                 "Deferred constants are only allowed in package declarations (not body)",
             )],
@@ -1422,10 +1442,13 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(
-            messages,
-            vec![Message::error(
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                &code.s("a1", 1),
+                "Deferred constant 'a1' lacks corresponding full constant declaration in package body",
+            ),Diagnostic::error(
                 &code.s("a1", 2),
                 "Full declaration of deferred constant is only allowed in a package body",
             )],
@@ -1451,15 +1474,15 @@ end package body;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(
-            messages,
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
             vec![
-                Message::error(
+                Diagnostic::error(
                     &code.s1("a1"),
                     "Deferred constant 'a1' lacks corresponding full constant declaration in package body",
                 ),
-                Message::error(
+                Diagnostic::error(
                     &code.s1("b1"),
                     "Deferred constant 'b1' lacks corresponding full constant declaration in package body",
                 ),
@@ -1488,12 +1511,12 @@ end package body;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(
-            messages,
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
             vec![
-                Message::error(&code.s1("a1"), "Missing body for protected type 'a1'"),
-                Message::error(&code.s1("b1"), "Missing body for protected type 'b1'"),
+                Diagnostic::error(&code.s1("a1"), "Missing body for protected type 'a1'"),
+                Diagnostic::error(&code.s1("b1"), "Missing body for protected type 'b1'"),
             ],
         );
     }
@@ -1522,13 +1545,13 @@ end package body;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(
-            messages,
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
             vec![
-                Message::error(&code.s1("a1"), "No declaration of protected type 'a1'"),
-                Message::error(&code.s1("b1"), "No declaration of protected type 'b1'"),
-                Message::error(&code.s("b1", 2), "Missing body for protected type 'b1'"),
+                Diagnostic::error(&code.s1("a1"), "No declaration of protected type 'a1'"),
+                Diagnostic::error(&code.s1("b1"), "No declaration of protected type 'b1'"),
+                Diagnostic::error(&code.s("b1", 2), "Missing body for protected type 'b1'"),
             ],
         );
     }
@@ -1550,8 +1573,8 @@ end package body;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, vec![expected_message(&code, "a1", 2, 3)]);
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, vec![expected_message(&code, "a1", 2, 3)]);
     }
 
     #[test]
@@ -1568,8 +1591,8 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1"]));
     }
 
     #[test]
@@ -1588,8 +1611,8 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_no_messages(&messages);
+        let diagnostics = builder.analyze();
+        check_no_diagnostics(&diagnostics);
     }
 
     #[test]
@@ -1611,8 +1634,8 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["prot_t"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["prot_t"]));
     }
 
     #[test]
@@ -1634,8 +1657,8 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, vec![expected_message(&code, "prot_t", 2, 3)]);
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, vec![expected_message(&code, "prot_t", 2, 3)]);
     }
 
     #[test]
@@ -1668,8 +1691,13 @@ end package body;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
+        let diagnostics = builder.analyze();
+        let mut expected = vec![Diagnostic::error(
+            &code.s("b1", 2),
+            "No declaration of protected type 'b1'",
+        )];
+        expected.append(&mut expected_diagnostics(&code, &["a1", "b1"]));
+        check_diagnostics(diagnostics, expected);
     }
 
     #[test]
@@ -1686,8 +1714,8 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_no_messages(&messages);
+        let diagnostics = builder.analyze();
+        check_no_diagnostics(&diagnostics);
     }
 
     #[test]
@@ -1705,8 +1733,8 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["rec_t"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["rec_t"]));
     }
 
     #[test]
@@ -1759,21 +1787,21 @@ end package body;
 ",
         );
 
-        let mut expected_messages = Vec::new();
+        let mut expected_diagnostics = Vec::new();
         for code in [code_pkg, code_ent, code_pkg2].iter() {
-            expected_messages.push(Message::error(
+            expected_diagnostics.push(Diagnostic::error(
                 code.s1("rec_t"),
                 "Missing full type declaration of incomplete type 'rec_t'",
             ));
-            expected_messages.push(
-                Message::hint(
+            expected_diagnostics.push(
+                Diagnostic::hint(
                     code.s1("rec_t"),
                     "The full type declaration shall occur immediately within the same declarative part",
                 ));
         }
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages);
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics);
     }
 
     #[test]
@@ -1804,10 +1832,10 @@ end package body;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(
-            messages,
-            expected_messages(&code, &["a1", "b1", "c1", "d1"]),
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
+            expected_diagnostics(&code, &["a1", "b1", "c1", "d1"]),
         );
     }
 
@@ -1834,8 +1862,8 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1", "b1"]));
     }
 
     #[test]
@@ -1854,8 +1882,8 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1"]));
     }
 
     #[test]
@@ -1878,8 +1906,8 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1", "b1"]));
     }
 
     #[test]
@@ -1895,8 +1923,8 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1", "b1"]));
     }
 
     #[test]
@@ -1923,8 +1951,8 @@ end entity;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1", "b1"]));
     }
 
     #[test]
@@ -1945,8 +1973,8 @@ end entity;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1"]));
     }
 
     #[test]
@@ -1973,8 +2001,8 @@ end entity;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1", "b1"]));
     }
 
     #[test]
@@ -2014,10 +2042,10 @@ end entity;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(
-            messages,
-            expected_messages(&code, &["a1", "b1", "c1", "d1"]),
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
+            expected_diagnostics(&code, &["a1", "b1", "c1", "d1"]),
         );
     }
 
@@ -2046,8 +2074,8 @@ end entity;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1", "b1"]));
     }
 
     #[test]
@@ -2084,10 +2112,10 @@ end entity;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(
-            messages,
-            expected_messages(&code, &["a1", "b1", "c1", "d1"]),
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
+            expected_diagnostics(&code, &["a1", "b1", "c1", "d1"]),
         );
     }
 
@@ -2117,8 +2145,8 @@ end architecture;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1", "b1"]));
     }
 
     #[test]
@@ -2134,8 +2162,8 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1"]));
     }
 
     #[test]
@@ -2153,8 +2181,8 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1"]));
     }
 
     #[test]
@@ -2170,8 +2198,8 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1"]));
     }
 
     #[test]
@@ -2191,8 +2219,8 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1"]));
     }
 
     #[test]
@@ -2208,8 +2236,8 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1"]));
     }
 
     #[test]
@@ -2229,8 +2257,8 @@ end package pkg;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1"]));
     }
 
     #[test]
@@ -2249,8 +2277,8 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1", "b1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1", "b1"]));
     }
 
     #[test]
@@ -2268,8 +2296,8 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_no_messages(&messages);
+        let diagnostics = builder.analyze();
+        check_no_diagnostics(&diagnostics);
     }
 
     #[test]
@@ -2286,8 +2314,8 @@ end package pkg;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1"]));
     }
 
     #[test]
@@ -2302,8 +2330,8 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1"]));
     }
 
     #[test]
@@ -2321,8 +2349,8 @@ end entity;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1"]));
     }
 
     #[test]
@@ -2344,8 +2372,8 @@ end entity;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(messages, expected_messages(&code, &["a1"]));
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected_diagnostics(&code, &["a1"]));
     }
 
     #[test]
@@ -2397,15 +2425,15 @@ end architecture;
 ",
         );
 
-        let messages = builder.analyze();
-        let mut expected = expected_messages(&ent, &["g1", "g2", "p1"]);
-        expected.append(&mut expected_messages_multi(
+        let diagnostics = builder.analyze();
+        let mut expected = expected_diagnostics(&ent, &["g1", "g2", "p1"]);
+        expected.append(&mut expected_diagnostics_multi(
             &ent,
             &arch1,
             &["g3", "p2", "e1"],
         ));
-        expected.append(&mut expected_messages_multi(&ent, &arch2, &["e2"]));
-        check_messages(messages, expected);
+        expected.append(&mut expected_diagnostics_multi(&ent, &arch2, &["e2"]));
+        check_diagnostics(diagnostics, expected);
     }
 
     #[test]
@@ -2433,10 +2461,10 @@ package body pkg is
 end package body;",
         );
 
-        let messages = builder.analyze();
-        let mut expected = expected_messages(&pkg, &["g1"]);
-        expected.append(&mut expected_messages_multi(&pkg, &body, &["g1", "g2"]));
-        check_messages(messages, expected);
+        let diagnostics = builder.analyze();
+        let mut expected = expected_diagnostics(&pkg, &["g1"]);
+        expected.append(&mut expected_diagnostics_multi(&pkg, &body, &["g1", "g2"]));
+        check_diagnostics(diagnostics, expected);
     }
 
     #[test]
@@ -2452,11 +2480,11 @@ end entity;
             ",
         );
 
-        let messages = builder.analyze();
+        let diagnostics = builder.analyze();
 
-        check_messages(
-            messages,
-            vec![Message::error(
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1("missing_lib"),
                 "No such library 'missing_lib'",
             )],
@@ -2500,9 +2528,9 @@ end package body;
             ",
         );
 
-        let messages = builder.analyze();
+        let diagnostics = builder.analyze();
 
-        check_no_messages(&messages);
+        check_no_diagnostics(&diagnostics);
     }
 
     /// Check that context clause in secondary units work
@@ -2537,9 +2565,9 @@ end package body;
             ",
         );
 
-        let messages = builder.analyze();
+        let diagnostics = builder.analyze();
 
-        check_no_messages(&messages);
+        check_no_diagnostics(&diagnostics);
     }
 
     #[test]
@@ -2565,10 +2593,10 @@ package body pkg is
 end package body;
 ",
         );
-        let messages = builder.analyze();
-        check_messages(
-            messages,
-            vec![Message::error(
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s("pkg2", 3),
                 "No declaration of 'pkg2'",
             )],
@@ -2587,11 +2615,11 @@ end context;
             ",
         );
 
-        let messages = builder.analyze();
+        let diagnostics = builder.analyze();
 
-        check_messages(
-            messages,
-            vec![Message::error(
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1("missing_lib"),
                 "No such library 'missing_lib'",
             )],
@@ -2623,9 +2651,9 @@ end package;
             ",
         );
 
-        let messages = builder.analyze();
+        let diagnostics = builder.analyze();
 
-        check_no_messages(&messages);
+        check_no_diagnostics(&diagnostics);
     }
 
     #[test]
@@ -2641,8 +2669,8 @@ end entity;
             ",
         );
 
-        let messages = builder.analyze();
-        check_no_messages(&messages);
+        let diagnostics = builder.analyze();
+        check_no_diagnostics(&diagnostics);
     }
 
     #[test]
@@ -2658,11 +2686,11 @@ end entity;
             ",
         );
 
-        let messages = builder.analyze();
+        let diagnostics = builder.analyze();
 
-        check_messages(
-            messages,
-            vec![Message::hint(
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::hint(
                 code.s1("work"),
                 "Library clause not necessary for current working library",
             )],
@@ -2686,8 +2714,6 @@ end entity;
         }
 
         fn new() -> LibraryBuilder {
-            use crate::latin_1::Latin1String;
-
             let mut library = LibraryBuilder::new_no_std();
             library.code_from_source(
                 "std",
@@ -2743,9 +2769,9 @@ end entity;
             code
         }
 
-        fn analyze(&self) -> Vec<Message> {
+        fn analyze(&self) -> Vec<Diagnostic> {
             let mut root = DesignRoot::new();
-            let mut messages = Vec::new();
+            let mut diagnostics = Vec::new();
 
             for (library_name, codes) in self.libraries.iter() {
                 let design_files = codes.iter().map(|code| code.design_file()).collect();
@@ -2753,14 +2779,14 @@ end entity;
                     library_name.clone(),
                     &self.code_builder.symbol("work"),
                     design_files,
-                    &mut messages,
+                    &mut diagnostics,
                 );
                 root.add_library(library);
             }
 
-            Analyzer::new(&root, &self.code_builder.symtab.clone()).analyze(&mut messages);
+            Analyzer::new(&root, &self.code_builder.symtab.clone()).analyze(&mut diagnostics);
 
-            messages
+            diagnostics
         }
     }
 
@@ -2812,16 +2838,16 @@ end entity;
             ",
         );
 
-        let messages = builder.analyze();
+        let diagnostics = builder.analyze();
 
-        check_messages(
-            messages,
+        check_diagnostics(
+            diagnostics,
             vec![
-                Message::error(
+                Diagnostic::error(
                     code.s("missing_pkg", 1),
                     "No primary unit 'missing_pkg' within 'libname'",
                 ),
-                Message::error(
+                Diagnostic::error(
                     code.s("missing_pkg", 2),
                     "No primary unit 'missing_pkg' within 'libname'",
                 ),
@@ -2845,11 +2871,11 @@ end entity;
             ",
         );
 
-        let messages = builder.analyze();
+        let diagnostics = builder.analyze();
 
-        check_messages(
-            messages,
-            vec![Message::error(
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s("libname", 1),
                 "No declaration of 'libname'",
             )],
@@ -2891,14 +2917,14 @@ end architecture;
             ",
         );
 
-        let messages = builder.analyze();
+        let diagnostics = builder.analyze();
 
-        check_messages(
-            messages,
+        check_diagnostics(
+            diagnostics,
             vec![
-                Message::error(code.s("pkg1", 1), "No primary unit 'pkg1' within 'libname'"),
-                Message::error(code.s("pkg1", 2), "No primary unit 'pkg1' within 'libname'"),
-                Message::error(code.s("pkg1", 3), "No primary unit 'pkg1' within 'libname'"),
+                Diagnostic::error(code.s("pkg1", 1), "No primary unit 'pkg1' within 'libname'"),
+                Diagnostic::error(code.s("pkg1", 2), "No primary unit 'pkg1' within 'libname'"),
+                Diagnostic::error(code.s("pkg1", 3), "No primary unit 'pkg1' within 'libname'"),
             ],
         )
     }
@@ -2920,11 +2946,11 @@ end entity;
             ",
         );
 
-        let messages = builder.analyze();
+        let diagnostics = builder.analyze();
 
-        check_messages(
-            messages,
-            vec![Message::error(
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1("missing_ctx"),
                 "No primary unit 'missing_ctx' within 'libname'",
             )],
@@ -2947,11 +2973,11 @@ end entity;
             ",
         );
 
-        let messages = builder.analyze();
+        let diagnostics = builder.analyze();
 
-        check_messages(
-            messages,
-            vec![Message::error(
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s("pkg", 2),
                 "'pkg' does not denote a context declaration",
             )],
@@ -2978,25 +3004,25 @@ end entity;
             ",
         );
 
-        let messages = builder.analyze();
+        let diagnostics = builder.analyze();
 
-        check_messages(
-            messages,
+        check_diagnostics(
+            diagnostics,
             vec![
-                Message::error(
+                Diagnostic::error(
                     code.s1("context libname;"),
                     "Context reference must be a selected name",
                 ),
-                Message::error(code.s1("use work;"), "Use clause must be a selected name"),
-                Message::error(
+                Diagnostic::error(code.s1("use work;"), "Use clause must be a selected name"),
+                Diagnostic::error(
                     code.s1("use libname;"),
                     "Use clause must be a selected name",
                 ),
-                Message::error(
+                Diagnostic::error(
                     code.s1("use work.pkg(0);"),
                     "Use clause must be a selected name",
                 ),
-                Message::error(
+                Diagnostic::error(
                     code.s1("context work.ctx'range;"),
                     "Context reference must be a selected name",
                 ),
@@ -3023,10 +3049,10 @@ package pkg2 is
 end package;
             ",
         );
-        let messages = builder.analyze();
-        check_messages(
-            messages,
-            vec![Message::error(
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1("const2"),
                 "No declaration of 'const2' within package 'libname.pkg'",
             )],
@@ -3050,10 +3076,10 @@ package pkg2 is
 end package;
             ",
         );
-        let messages = builder.analyze();
-        check_messages(
-            messages,
-            vec![Message::error(
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1("const2"),
                 "No declaration of 'const2' within package 'libname.pkg'",
             )],
@@ -3083,12 +3109,12 @@ package pkg is
 end package;
             ",
         );
-        let messages = builder.analyze();
-        check_messages(
-            messages,
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
             vec![
-                // @TODO add use instance path in error message
-                Message::error(
+                // @TODO add use instance path in error diagnostic
+                Diagnostic::error(
                     code.s1("const2"),
                     "No declaration of 'const2' within package instance 'libname.ipkg'",
                 ),
@@ -3123,15 +3149,15 @@ entity ent is
 end entity;
             ",
         );
-        let messages = builder.analyze();
-        check_messages(
-            messages,
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
             vec![
-                Message::error(
+                Diagnostic::error(
                     code.s("const1", 3),
                     "No declaration of 'const1' within package 'libname.pkg'",
                 ),
-                Message::error(
+                Diagnostic::error(
                     code.s("const2", 3),
                     "No declaration of 'const2' within package 'libname.pkg'",
                 ),
@@ -3156,15 +3182,15 @@ entity ent is
 end entity;
             ",
         );
-        let messages = builder.analyze();
-        check_messages(
-            messages,
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
             vec![
-                Message::error(
+                Diagnostic::error(
                     code.s("work.all", 1),
                     "'.all' may not be the prefix of a selected name",
                 ),
-                Message::error(
+                Diagnostic::error(
                     code.s("work.all", 2),
                     "'.all' may not be the prefix of a selected name",
                 ),
@@ -3189,15 +3215,15 @@ package pkg is
 end package;
             ",
         );
-        let messages = builder.analyze();
-        check_messages(
-            messages,
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
             vec![
-                Message::error(
+                Diagnostic::error(
                     code.s("work.gpkg", 1),
                     "Uninstantiated generic package 'libname.gpkg' may not be the prefix of a selected name",
                 ),
-                Message::error(
+                Diagnostic::error(
                     code.s("work.gpkg", 2),
                     "Uninstantiated generic package 'libname.gpkg' may not be the prefix of a selected name",
                 ),
@@ -3224,12 +3250,12 @@ package nested is
 end package;
             ",
         );
-        let messages = builder.analyze();
-        check_messages(
-            messages,
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
             vec![
-                Message::error(code.s("gpkg", 2), "No declaration of 'gpkg'"),
-                Message::error(code.s("gpkg", 4), "No declaration of 'gpkg'"),
+                Diagnostic::error(code.s("gpkg", 2), "No declaration of 'gpkg'"),
+                Diagnostic::error(code.s("gpkg", 4), "No declaration of 'gpkg'"),
             ],
         );
     }
@@ -3251,15 +3277,15 @@ package nested is
 end package;
             ",
         );
-        let messages = builder.analyze();
-        check_messages(
-            messages,
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
             vec![
-                Message::error(
+                Diagnostic::error(
                     code.s1("work.pkg"),
                     "'pkg' is not an uninstantiated generic package",
                 ),
-                Message::error(
+                Diagnostic::error(
                     code.s1("work.pkg.const"),
                     "'const' is not an uninstantiated generic package",
                 ),
@@ -3289,8 +3315,8 @@ entity ent is
 end entity;
             ",
         );
-        let messages = builder.analyze();
-        check_no_messages(&messages);
+        let diagnostics = builder.analyze();
+        check_no_diagnostics(&diagnostics);
     }
 
     #[test]
@@ -3314,8 +3340,8 @@ begin
 end architecture;
             ",
         );
-        let messages = builder.analyze();
-        check_no_messages(&messages);
+        let diagnostics = builder.analyze();
+        check_no_diagnostics(&diagnostics);
     }
 
     #[test]
@@ -3336,15 +3362,15 @@ package pkg2 is
   constant const : natural := 0;
 end package;",
         );
-        let messages = builder.analyze();
-        check_messages(
-            messages,
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
             vec![
-                Message::error(
+                Diagnostic::error(
                     code.s1("work.pkg1"),
                     "Found circular dependency when referencing 'libname.pkg1'",
                 ),
-                Message::error(
+                Diagnostic::error(
                     code.s1("work.pkg2"),
                     "Found circular dependency when referencing 'libname.pkg2'",
                 ),
@@ -3370,15 +3396,15 @@ package pkg2 is
   constant const : natural := 0;
 end package;",
         );
-        let messages = builder.analyze();
-        check_messages(
-            messages,
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
             vec![
-                Message::error(
+                Diagnostic::error(
                     code.s1("work.pkg1"),
                     "Found circular dependency when referencing 'libname.pkg1'",
                 ),
-                Message::error(
+                Diagnostic::error(
                     code.s1("work.pkg2"),
                     "Found circular dependency when referencing 'libname.pkg2'",
                 ),
@@ -3404,8 +3430,8 @@ package pkg2 is
   constant const : natural := 0;
 end package;",
         );
-        let messages = builder.analyze();
-        check_no_messages(&messages);
+        let diagnostics = builder.analyze();
+        check_no_diagnostics(&diagnostics);
     }
 
     #[test]
@@ -3456,11 +3482,11 @@ end package;",
         );
 
         let expected = (0..9)
-            .map(|idx| Message::error(code.s("missing", 1 + idx), "No declaration of 'missing'"))
+            .map(|idx| Diagnostic::error(code.s("missing", 1 + idx), "No declaration of 'missing'"))
             .collect();
 
-        let messages = builder.analyze();
-        check_messages(messages, expected);
+        let diagnostics = builder.analyze();
+        check_diagnostics(diagnostics, expected);
     }
 
     #[test]
@@ -3475,10 +3501,10 @@ package pkg is
 end package;",
         );
 
-        let messages = builder.analyze();
-        check_messages(
-            messages,
-            vec![Message::error(
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1("missing"),
                 "No declaration of 'missing'",
             )],
@@ -3497,10 +3523,10 @@ package pkg is
 end package;",
         );
 
-        let messages = builder.analyze();
-        check_messages(
-            messages,
-            vec![Message::error(
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1("missing"),
                 "No declaration of 'missing'",
             )],
@@ -3526,8 +3552,8 @@ package pkg1 is
 end package;",
         );
 
-        let messages = builder.analyze();
-        check_no_messages(&messages);
+        let diagnostics = builder.analyze();
+        check_no_diagnostics(&diagnostics);
     }
 
     #[test]
@@ -3549,10 +3575,10 @@ end package;
 
 ",
         );
-        let messages = builder.analyze();
-        check_messages(
-            messages,
-            vec![Message::error(
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1("missing"),
                 "No declaration of 'missing'",
             )],
@@ -3581,10 +3607,10 @@ end package;
 
 ",
         );
-        let messages = builder.analyze();
-        check_messages(
-            messages,
-            vec![Message::error(
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1("missing"),
                 "No declaration of 'missing'",
             )],
@@ -3610,10 +3636,10 @@ end package;
 ",
         );
 
-        let messages = builder.analyze();
-        check_messages(
-            messages,
-            vec![Message::error(
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1("missing"),
                 "No declaration of 'missing' within package instance 'ipkg'",
             )],
@@ -3641,10 +3667,10 @@ end package;
 
 ",
         );
-        let messages = builder.analyze();
-        check_messages(
-            messages,
-            vec![Message::error(
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1("missing"),
                 "No declaration of 'missing'",
             )],
@@ -3673,14 +3699,13 @@ end package;
 
 ",
         );
-        let messages = builder.analyze();
-        check_messages(
-            messages,
-            vec![Message::error(
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1("missing"),
                 "No declaration of 'missing'",
             )],
         );
     }
-
 }

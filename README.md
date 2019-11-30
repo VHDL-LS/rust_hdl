@@ -107,9 +107,16 @@ This repository includes a medium sized example [project](example_project/README
 > cargo build --release
 ```
 
-### Project file
+### Configuration
 The language server uses a configuration file in the [TOML](https://github.com/toml-lang/toml) format named `vhdl_ls.toml`.
 The file contains the library mapping of all files within the project. Files outside of the project without library mapping are checked for syntax errors only.
+
+`vhdl_ls` will load configuration files in the following order of priority (first to last):
+1. A file named `.vhdl_ls.toml` in the user home folder.
+2. A file name from the `VHDL_LS_CONFIG` environment variable.
+3. A file named `vhdl_ls.toml` in the workspace root.
+
+Settings in a later files overwrites those from previously loaded files.
 
 **Example vhdl_ls.toml**
 
@@ -130,24 +137,12 @@ lib1.files = [
 Add the following to your `.emacs.el`:
 ```elisp
 (require 'lsp-mode)
-
-(lsp-define-stdio-client
- lsp-vhdl-mode
- "VHDL"
- (lsp-make-traverser "vhdl_ls.toml")
- '("<PATH_TO_RUST_HDL>/target/release/vhdl_ls"))
-
-(require 'lsp-ui)
-(add-hook 'lsp-mode-hook 'lsp-ui-mode)
-(add-hook 'vhdl-mode-hook 'flycheck-mode)
-(add-hook 'vhdl-mode-hook 'lsp-vhdl-mode-enable)
-```
-#### eglot
-Using the language server in `emacs` with the `eglot` language server package it is enough to simply add the following line to your `.emacs.el`:
-```elisp
-(require 'eglot)
-(add-to-list 'eglot-server-programs
-             '(vhdl-mode . ("<PATH_TO_RUST_HDL>/target/release/vhdl_ls")))
+(lsp-register-client
+ (make-lsp-client :new-connection (lsp-stdio-connection "${PATH_TO_RUST_HDL}/target/release/vhdl_ls")
+                  :major-modes '(vhdl-mode)
+                  :server-id 'vhdl-lsp))
+(add-to-list 'lsp-language-id-configuration '(vhdl-mode . "vhdl-mode"))
+(add-hook 'vhdl-mode-hook #'lsp)
 ```
 
 ### Use in Atom

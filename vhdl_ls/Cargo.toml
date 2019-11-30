@@ -23,6 +23,8 @@ url = "^1"
 fnv = "^1"
 log = "0.4.6"
 env_logger = "0.6.0"
+dirs = "^2"
 
 [dev-dependencies]
 tempfile = "^3"
+pretty_assertions = "^0"

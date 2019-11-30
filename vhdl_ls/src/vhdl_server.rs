@@ -4,9 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use self::languageserver_types::*;
-use languageserver_types;
-use serde;
+use languageserver_types::*;
 
 use self::url::Url;
 use url;
@@ -15,37 +13,161 @@ use self::fnv::FnvHashMap;
 use fnv;
 use std::collections::hash_map::Entry;
 
-use self::vhdl_parser::{Config, Message, Project, Severity, Source, SrcPos};
+use self::vhdl_parser::{Config, Diagnostic, Project, Severity, Source, SrcPos};
+use crate::rpc_channel::RpcChannel;
 use std::io;
 use std::path::Path;
 use vhdl_parser;
 
-pub trait RpcChannel {
-    fn send_notification(
-        &self,
-        method: impl Into<String>,
-        notification: impl serde::ser::Serialize,
-    );
-}
-
 pub struct VHDLServer<T: RpcChannel + Clone> {
     rpc_channel: T,
+    // To have well defined unit tests that are not affected by environment
+    use_external_config: bool,
     server: Option<InitializedVHDLServer<T>>,
 }
 
 impl<T: RpcChannel + Clone> VHDLServer<T> {
     pub fn new(rpc_channel: T) -> VHDLServer<T> {
+        Self::new_external_config(rpc_channel, true)
+    }
+
+    fn new_external_config(rpc_channel: T, use_external_config: bool) -> VHDLServer<T> {
         VHDLServer {
             rpc_channel,
+            use_external_config,
             server: None,
         }
+    }
+
+    /// Load configuration file from home folder
+    fn load_home_config(&self, config: &mut Config) {
+        if let Some(home_dir) = dirs::home_dir() {
+            let file_name = home_dir.join(".vhdl_ls.toml");
+
+            if !file_name.exists() {
+                return;
+            }
+
+            match Config::read_file_path(&file_name) {
+                Ok(env_config) => {
+                    self.rpc_channel.window_log_message(
+                        MessageType::Log,
+                        format!(
+                            "Loaded HOME folder configuration file: {}",
+                            file_name.to_string_lossy()
+                        ),
+                    );
+
+                    config.append(&env_config);
+                }
+                Err(ref err) => {
+                    self.rpc_channel.window_show_message(
+                        MessageType::Error,
+                        format!("Error while loading HOME folder variable: {} ", err),
+                    );
+                }
+            }
+        }
+    }
+
+    /// Load configuration file from environment
+    fn load_env_config(&self, config: &mut Config) {
+        let env_name = "VHDL_LS_CONFIG";
+
+        if let Some(file_name) = std::env::var_os(env_name) {
+            match Config::read_file_path(&Path::new(&file_name)) {
+                Ok(env_config) => {
+                    self.rpc_channel.window_log_message(
+                        MessageType::Log,
+                        format!(
+                            "Loaded {} configuration file: {}",
+                            env_name,
+                            file_name.to_string_lossy()
+                        ),
+                    );
+
+                    config.append(&env_config);
+                }
+                Err(ref err) => {
+                    self.rpc_channel.window_show_message(
+                        MessageType::Error,
+                        format!(
+                            "Error while loading {} environment variable: {} ",
+                            env_name, err
+                        ),
+                    );
+                }
+            }
+        };
+    }
+
+    /// Load the vhdl_ls.toml config file from initalizeParams.rootUri
+    fn load_root_uri_config(&self, init_params: &InitializeParams) -> io::Result<Config> {
+        let root_uri = init_params.root_uri.as_ref().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::Other, "initializeParams.rootUri not set")
+        })?;
+
+        let root_path = root_uri.to_file_path().map_err(|_| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "initializeParams.rootUri {:?} not a valid file path",
+                    root_uri
+                ),
+            )
+        })?;
+
+        let config_file = root_path.join("vhdl_ls.toml");
+        let config = Config::read_file_path(&config_file)?;
+
+        // Log which file was loaded
+        self.rpc_channel.window_log_message(
+            MessageType::Log,
+            format!(
+                "Loaded workspace root configuration file: {}",
+                config_file.to_str().unwrap()
+            ),
+        );
+
+        Ok(config)
+    }
+
+    /// Load the configuration or use a default configuration if unsuccessful
+    /// Log info/error messages to the client
+    fn load_config(&self, init_params: &InitializeParams) -> Config {
+        let mut config = Config::default();
+
+        if self.use_external_config {
+            self.load_home_config(&mut config);
+            self.load_env_config(&mut config);
+        }
+
+        match self.load_root_uri_config(&init_params) {
+            Ok(root_config) => config.append(&root_config),
+            Err(ref err) => {
+                self.rpc_channel.window_show_message(
+                    MessageType::Warning,
+                    format!(
+                        "Found no vhdl_ls.toml config file in the workspace root path: {}",
+                        err
+                    ),
+                );
+                self.rpc_channel.window_show_message(
+                    MessageType::Warning,
+                    "Found no library mapping, semantic analysis disabled, will perform syntax checking only",
+                );
+            }
+        };
+
+        config
     }
 
     pub fn initialize_request(
         &mut self,
         params: InitializeParams,
     ) -> jsonrpc_core::Result<InitializeResult> {
-        let (server, result) = InitializedVHDLServer::initialize(self.rpc_channel.clone(), params)?;
+        let config = self.load_config(&params);
+        let (server, result) = InitializedVHDLServer::new(self.rpc_channel.clone(), config, params);
         self.server = Some(server);
         Ok(result)
     }
@@ -84,41 +206,40 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
 struct InitializedVHDLServer<T: RpcChannel> {
     rpc_channel: T,
     init_params: InitializeParams,
-    config: io::Result<Config>,
     project: Project,
     files_with_notifications: FnvHashMap<Url, ()>,
 }
 
+/// Allow VHDL Server to act as an RpcChannel
+impl<T: RpcChannel> RpcChannel for InitializedVHDLServer<T> {
+    fn send_notification(
+        &self,
+        method: impl Into<String>,
+        notification: impl serde::ser::Serialize,
+    ) {
+        self.rpc_channel.send_notification(method, notification);
+    }
+}
+
 impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
-    pub fn initialize(
+    pub fn new(
         rpc_channel: T,
+        config: Config,
         init_params: InitializeParams,
-    ) -> jsonrpc_core::Result<(InitializedVHDLServer<T>, InitializeResult)> {
-        let config = init_params
-            .root_uri
-            .as_ref()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "initializeParams.rootUri not set"))
-            .and_then(|root_uri| {
-                root_uri.to_file_path().map_err(|_| {
-                    io::Error::new(
-                        io::ErrorKind::Other,
-                        format!(
-                            "initializeParams.rootUri {:?} not a valid file path",
-                            root_uri
-                        ),
-                    )
-                })
-            })
-            .and_then(|root_path| {
-                let config_file = root_path.join("vhdl_ls.toml");
-                Config::read_file_path(&config_file)
-            });
+    ) -> (InitializedVHDLServer<T>, InitializeResult) {
+        // @TODO read num_threads from config file
+        let num_threads = 4;
+        let mut messages = Vec::new();
+        let project = Project::from_config(&config, num_threads, &mut messages);
+
+        for message in messages {
+            rpc_channel.window_show_message_struct(&message);
+        }
 
         let server = InitializedVHDLServer {
             rpc_channel,
             init_params,
-            config,
-            project: Project::new(),
+            project,
             files_with_notifications: FnvHashMap::default(),
         };
 
@@ -191,7 +312,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             },
         };
 
-        Ok((server, result))
+        (server, result)
     }
 
     fn client_supports_related_information(&self) -> bool {
@@ -209,30 +330,29 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
 
     fn publish_diagnostics(&mut self) {
         let supports_related_information = self.client_supports_related_information();
-        let messages = self.project.analyse();
-        let messages = {
+        let diagnostics = self.project.analyse();
+        let diagnostics = {
             if supports_related_information {
-                messages
+                diagnostics
             } else {
-                flatten_related(messages)
+                flatten_related(diagnostics)
             }
         };
 
         let mut files_with_notifications =
             std::mem::replace(&mut self.files_with_notifications, FnvHashMap::default());
-        for (file_uri, messages) in messages_by_uri(messages).into_iter() {
-            let mut diagnostics = Vec::new();
-            for message in messages {
-                diagnostics.push(to_diagnostic(message));
+        for (file_uri, diagnostics) in diagnostics_by_uri(diagnostics).into_iter() {
+            let mut lsp_diagnostics = Vec::new();
+            for diagnostic in diagnostics {
+                lsp_diagnostics.push(to_lsp_diagnostic(diagnostic));
             }
 
             let publish_diagnostics = PublishDiagnosticsParams {
                 uri: file_uri.clone(),
-                diagnostics,
+                diagnostics: lsp_diagnostics,
             };
 
-            self.rpc_channel
-                .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
+            self.send_notification("textDocument/publishDiagnostics", publish_diagnostics);
 
             self.files_with_notifications.insert(file_uri.clone(), ());
         }
@@ -245,8 +365,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
                     diagnostics: vec![],
                 };
 
-                self.rpc_channel
-                    .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
+                self.send_notification("textDocument/publishDiagnostics", publish_diagnostics);
             }
         }
     }
@@ -264,44 +383,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         self.publish_diagnostics();
     }
 
-    fn window_show_message(&self, typ: MessageType, message: impl Into<String>) {
-        self.rpc_channel.send_notification(
-            "window/showMessage",
-            ShowMessageParams {
-                typ,
-                message: message.into(),
-            },
-        );
-    }
-
     pub fn initialized_notification(&mut self, _params: &InitializedParams) {
-        match &self.config {
-            Err(ref err) => {
-                self.window_show_message(
-                    MessageType::Warning,
-                    format!(
-                        "Found no vhdl_ls.toml config file in the root path: {}",
-                        err
-                    ),
-                );
-                self.window_show_message(
-                    MessageType::Warning,
-                    "Semantic analysis disabled, will perform syntax checking only",
-                );
-            }
-            Ok(config) => {
-                // @TODO read num_threads from config file
-                let num_threads = 4;
-                // @TODO send error to client
-                let mut errors = Vec::new();
-                let project = Project::from_config(&config, num_threads, &mut errors);
-                self.project = project;
-                for error in errors {
-                    self.window_show_message(MessageType::Error, error.to_string());
-                }
-            }
-        }
-
         self.publish_diagnostics();
     }
 
@@ -349,15 +431,15 @@ fn srcpos_to_range(srcpos: &SrcPos) -> Range {
     }
 }
 
-fn messages_by_uri(messages: Vec<Message>) -> FnvHashMap<Url, Vec<Message>> {
-    let mut map: FnvHashMap<Url, Vec<Message>> = FnvHashMap::default();
+fn diagnostics_by_uri(diagnostics: Vec<Diagnostic>) -> FnvHashMap<Url, Vec<Diagnostic>> {
+    let mut map: FnvHashMap<Url, Vec<Diagnostic>> = FnvHashMap::default();
 
-    for message in messages {
-        let uri = file_name_to_uri(message.pos.source.file_name());
+    for diagnostic in diagnostics {
+        let uri = file_name_to_uri(diagnostic.pos.source.file_name());
         match map.entry(uri) {
-            Entry::Occupied(mut entry) => entry.get_mut().push(message),
+            Entry::Occupied(mut entry) => entry.get_mut().push(diagnostic),
             Entry::Vacant(entry) => {
-                let vec = vec![message];
+                let vec = vec![diagnostic];
                 entry.insert(vec);
             }
         }
@@ -366,13 +448,13 @@ fn messages_by_uri(messages: Vec<Message>) -> FnvHashMap<Url, Vec<Message>> {
     map
 }
 
-fn flatten_related(messages: Vec<Message>) -> Vec<Message> {
-    let mut flat_messages = Vec::new();
-    for mut message in messages {
-        flat_messages.extend(message.drain_related());
-        flat_messages.push(message);
+fn flatten_related(diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
+    let mut flat_diagnostics = Vec::new();
+    for mut diagnostic in diagnostics {
+        flat_diagnostics.extend(diagnostic.drain_related());
+        flat_diagnostics.push(diagnostic);
     }
-    flat_messages
+    flat_diagnostics
 }
 
 fn file_name_to_uri(file_name: impl AsRef<str>) -> Url {
@@ -385,17 +467,17 @@ fn uri_to_file_name(uri: &Url) -> String {
     uri.to_file_path().unwrap().to_str().unwrap().to_owned()
 }
 
-fn to_diagnostic(message: Message) -> Diagnostic {
-    let severity = match message.severity {
+fn to_lsp_diagnostic(diagnostic: Diagnostic) -> languageserver_types::Diagnostic {
+    let severity = match diagnostic.severity {
         Severity::Error => DiagnosticSeverity::Error,
         Severity::Warning => DiagnosticSeverity::Warning,
         Severity::Info => DiagnosticSeverity::Information,
         Severity::Hint => DiagnosticSeverity::Hint,
     };
 
-    let related_information = if !message.related.is_empty() {
+    let related_information = if !diagnostic.related.is_empty() {
         let mut related_information = Vec::new();
-        for (pos, msg) in message.related {
+        for (pos, msg) in diagnostic.related {
             let uri = file_name_to_uri(pos.source.file_name());
             related_information.push(DiagnosticRelatedInformation {
                 location: Location {
@@ -410,12 +492,12 @@ fn to_diagnostic(message: Message) -> Diagnostic {
         None
     };
 
-    Diagnostic {
-        range: srcpos_to_range(&message.pos),
+    languageserver_types::Diagnostic {
+        range: srcpos_to_range(&diagnostic.pos),
         severity: Some(severity),
         code: None,
         source: Some("vhdl ls".to_owned()),
-        message: message.message,
+        message: diagnostic.message,
         related_information,
     }
 }
@@ -423,111 +505,8 @@ fn to_diagnostic(message: Message) -> Diagnostic {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cell::RefCell;
-    use std::collections::VecDeque;
-    use std::rc::Rc;
+    use crate::rpc_channel::test_support::*;
     use tempfile;
-
-    #[derive(Debug, Clone)]
-    enum RpcExpected {
-        Notification {
-            method: String,
-            notification: serde_json::Value,
-        },
-        /// Check that the string representation of the notification contains a string
-        NotificationContainsString { method: String, contains: String },
-    }
-
-    #[derive(Clone)]
-    struct RpcMock {
-        expected: Rc<RefCell<VecDeque<RpcExpected>>>,
-    }
-
-    impl RpcMock {
-        fn new() -> RpcMock {
-            RpcMock {
-                expected: Rc::new(RefCell::new(VecDeque::new())),
-            }
-        }
-
-        fn expect_notification(
-            &self,
-            method: impl Into<String>,
-            notification: impl serde::ser::Serialize,
-        ) {
-            self.expected
-                .borrow_mut()
-                .push_back(RpcExpected::Notification {
-                    method: method.into(),
-                    notification: serde_json::to_value(notification).unwrap(),
-                });
-        }
-
-        fn expect_notification_contains(
-            &self,
-            method: impl Into<String>,
-            contains: impl Into<String>,
-        ) {
-            self.expected
-                .borrow_mut()
-                .push_back(RpcExpected::NotificationContainsString {
-                    method: method.into(),
-                    contains: contains.into(),
-                });
-        }
-    }
-
-    impl Drop for RpcMock {
-        fn drop(&mut self) {
-            if !std::thread::panicking() {
-                let expected = self.expected.replace(VecDeque::new());
-                if expected.len() > 0 {
-                    panic!("Not all expected data was consumed\n{:#?}", expected);
-                }
-            }
-        }
-    }
-
-    impl RpcChannel for RpcMock {
-        fn send_notification(
-            &self,
-            method: impl Into<String>,
-            notification: impl serde::ser::Serialize,
-        ) {
-            let method = method.into();
-            let notification = serde_json::to_value(notification).unwrap();
-            let expected = self
-                .expected
-                .borrow_mut()
-                .pop_front()
-                .ok_or_else(|| {
-                    panic!(
-                        "No expected value, got method={} {:?}",
-                        method, notification
-                    )
-                })
-                .unwrap();
-
-            match expected {
-                RpcExpected::Notification {
-                    method: exp_method,
-                    notification: exp_notification,
-                } => {
-                    assert_eq!(method, exp_method);
-                    assert_eq!(notification, exp_notification);
-                }
-                RpcExpected::NotificationContainsString {
-                    method: exp_method,
-                    contains,
-                } => {
-                    assert_eq!(method, exp_method);
-                    if !notification.to_string().contains(&contains) {
-                        panic!("{:?} does not contain string {:?}", notification, contains);
-                    }
-                }
-            }
-        }
-    }
 
     fn initialize_server(server: &mut VHDLServer<RpcMock>, root_uri: Url) {
         let capabilities = ClientCapabilities {
@@ -558,36 +537,37 @@ mod tests {
         (tempdir, root_uri)
     }
 
+    fn expect_missing_config_messages(mock: &RpcMock) {
+        mock.expect_notification_contains(
+            "window/showMessage",
+            "Found no vhdl_ls.toml config file in the workspace root path",
+        );
+        mock.expect_notification_contains(
+            "window/showMessage",
+            "Found no library mapping, semantic analysis disabled, will perform syntax checking only",
+        );
+    }
+
+    /// Create RpcMock and VHDLServer
+    fn setup_server() -> (RpcMock, VHDLServer<RpcMock>) {
+        let mock = RpcMock::new();
+        let server = VHDLServer::new_external_config(mock.clone(), false);
+        (mock, server)
+    }
+
     #[test]
     fn initialize() {
-        let mock = RpcMock::new();
-        let mut server = VHDLServer::new(mock.clone());
+        let (mock, mut server) = setup_server();
         let (_tempdir, root_uri) = temp_root_uri();
-        mock.expect_notification_contains(
-            "window/showMessage",
-            "Found no vhdl_ls.toml config file in the root path",
-        );
-        mock.expect_notification_contains(
-            "window/showMessage",
-            "Semantic analysis disabled, will perform syntax checking only",
-        );
+        expect_missing_config_messages(&mock);
         initialize_server(&mut server, root_uri);
     }
 
     #[test]
     fn did_open_no_diagnostics() {
-        let mock = RpcMock::new();
-        let mut server = VHDLServer::new(mock.clone());
-
+        let (mock, mut server) = setup_server();
         let (_tempdir, root_uri) = temp_root_uri();
-        mock.expect_notification_contains(
-            "window/showMessage",
-            "Found no vhdl_ls.toml config file in the root path",
-        );
-        mock.expect_notification_contains(
-            "window/showMessage",
-            "Semantic analysis disabled, will perform syntax checking only",
-        );
+        expect_missing_config_messages(&mock);
         initialize_server(&mut server, root_uri.clone());
 
         let file_url = root_uri.join("ent.vhd").unwrap();
@@ -611,18 +591,10 @@ end entity ent;
 
     #[test]
     fn did_open_with_diagnostics_and_change_without() {
-        let mock = RpcMock::new();
-        let mut server = VHDLServer::new(mock.clone());
+        let (mock, mut server) = setup_server();
 
         let (_tempdir, root_uri) = temp_root_uri();
-        mock.expect_notification_contains(
-            "window/showMessage",
-            "Found no vhdl_ls.toml config file in the root path",
-        );
-        mock.expect_notification_contains(
-            "window/showMessage",
-            "Semantic analysis disabled, will perform syntax checking only",
-        );
+        expect_missing_config_messages(&mock);
         initialize_server(&mut server, root_uri.clone());
 
         let file_url = root_uri.join("ent.vhd").unwrap();
@@ -643,7 +615,7 @@ end entity ent2;
 
         let publish_diagnostics = PublishDiagnosticsParams {
             uri: file_url.clone(),
-            diagnostics: vec![Diagnostic {
+            diagnostics: vec![languageserver_types::Diagnostic {
                 range: Range {
                     start: Position {
                         line: 2,
@@ -698,14 +670,13 @@ end entity ent;
         Url::from_file_path(path).unwrap()
     }
 
-    fn write_config(root_uri: &Url, contents: impl AsRef<str>) {
-        write_file(root_uri, "vhdl_ls.toml", contents);
+    fn write_config(root_uri: &Url, contents: impl AsRef<str>) -> Url {
+        write_file(root_uri, "vhdl_ls.toml", contents)
     }
 
     #[test]
     fn initialize_with_config() {
-        let mock = RpcMock::new();
-        let mut server = VHDLServer::new(mock.clone());
+        let (mock, mut server) = setup_server();
         let (_tempdir, root_uri) = temp_root_uri();
         let file_uri = write_file(
             &root_uri,
@@ -720,7 +691,7 @@ end;
 ",
         );
 
-        write_config(
+        let config_uri = write_config(
             &root_uri,
             "
 [libraries]
@@ -732,7 +703,7 @@ lib.files = [
 
         let publish_diagnostics = PublishDiagnosticsParams {
             uri: file_uri.clone(),
-            diagnostics: vec![Diagnostic {
+            diagnostics: vec![languageserver_types::Diagnostic {
                 range: Range {
                     start: Position {
                         line: 3,
@@ -751,6 +722,16 @@ lib.files = [
             }],
         };
 
+        let file_name = config_uri
+            .to_file_path()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        mock.expect_notification_contains(
+            "window/logMessage",
+            format!("Loaded workspace root configuration file: {}", file_name),
+        );
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
 
         initialize_server(&mut server, root_uri);
@@ -758,8 +739,7 @@ lib.files = [
 
     #[test]
     fn initialize_with_bad_config() {
-        let mock = RpcMock::new();
-        let mut server = VHDLServer::new(mock.clone());
+        let (mock, mut server) = setup_server();
         let (_tempdir, root_uri) = temp_root_uri();
 
         write_config(
@@ -770,22 +750,21 @@ lib.files = [
         );
         mock.expect_notification_contains(
             "window/showMessage",
-            "Found no vhdl_ls.toml config file in the root path",
+            "Found no vhdl_ls.toml config file in the workspace root path",
         );
         mock.expect_notification_contains(
             "window/showMessage",
-            "Semantic analysis disabled, will perform syntax checking only",
+            "Found no library mapping, semantic analysis disabled, will perform syntax checking only",
         );
         initialize_server(&mut server, root_uri);
     }
 
     #[test]
     fn initialize_with_config_missing_files() {
-        let mock = RpcMock::new();
-        let mut server = VHDLServer::new(mock.clone());
+        let (mock, mut server) = setup_server();
         let (_tempdir, root_uri) = temp_root_uri();
 
-        write_config(
+        let config_uri = write_config(
             &root_uri,
             "
 [libraries]
@@ -795,8 +774,17 @@ lib.files = [
 ",
         );
 
+        let file_name = config_uri
+            .to_file_path()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        mock.expect_notification_contains(
+            "window/logMessage",
+            format!("Loaded workspace root configuration file: {}", file_name),
+        );
         mock.expect_notification_contains("window/showMessage", "missing_file.vhd");
         initialize_server(&mut server, root_uri);
     }
-
 }

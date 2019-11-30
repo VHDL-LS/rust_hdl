@@ -8,7 +8,7 @@ use crate::ast::{
     ContextDeclaration, ContextItem, ContextReference, Designator, LibraryClause, Name, UseClause,
 };
 use crate::common::error_on_end_identifier_mismatch;
-use crate::message::{push_some, Message, MessageHandler, ParseResult};
+use crate::diagnostic::{push_some, Diagnostic, DiagnosticHandler, ParseResult};
 use crate::names::parse_name;
 use crate::source::WithPos;
 use crate::tokenizer::{Kind::*, Token};
@@ -90,7 +90,7 @@ fn parse_context_reference_no_keyword(
 /// LRM 13.4 Context clauses
 pub fn parse_context(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<DeclarationOrReference> {
     let context_token = stream.expect_kind(Context)?;
     let name = parse_name(stream)?;
@@ -120,13 +120,13 @@ pub fn parse_context(
                     pos: name.pos,
                 },
                 _ => {
-                    return Err(Message::error(&name, "Expected simple name"));
+                    return Err(Diagnostic::error(&name, "Expected simple name"));
                 }
             }
         };
 
         push_some(
-            messages,
+            diagnostics,
             error_on_end_identifier_mismatch(&ident, &end_ident),
         );
 
@@ -217,7 +217,7 @@ mod tests {
     fn test_context_reference_single_name() {
         let code = Code::new("context lib.foo;");
         assert_eq!(
-            code.with_stream_no_messages(parse_context),
+            code.with_stream_no_diagnostics(parse_context),
             DeclarationOrReference::Reference(WithPos::new(
                 ContextReference {
                     name_list: vec![code.s1("lib.foo").name()]
@@ -231,7 +231,7 @@ mod tests {
     fn test_context_reference_multiple_names() {
         let code = Code::new("context work.foo, lib.bar.all;");
         assert_eq!(
-            code.with_stream_no_messages(parse_context),
+            code.with_stream_no_diagnostics(parse_context),
             DeclarationOrReference::Reference(WithPos::new(
                 ContextReference {
                     name_list: vec![code.s1("work.foo").name(), code.s1("lib.bar.all").name()]
@@ -264,7 +264,7 @@ end context ident;
         for variant in variants {
             let code = Code::new(variant);
             assert_eq!(
-                code.with_stream_no_messages(parse_context),
+                code.with_stream_no_diagnostics(parse_context),
                 DeclarationOrReference::Declaration(ContextDeclaration {
                     ident: code.s1("ident").ident(),
                     items: vec![]
@@ -281,10 +281,10 @@ context ident is
 end context ident2;
 ",
         );
-        let (context, messages) = code.with_stream_messages(parse_context);
+        let (context, diagnostics) = code.with_stream_diagnostics(parse_context);
         assert_eq!(
-            messages,
-            vec![Message::error(
+            diagnostics,
+            vec![Diagnostic::error(
                 code.s1("ident2"),
                 "End identifier mismatch, expected ident"
             )]
@@ -310,7 +310,7 @@ end context;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_context),
+            code.with_stream_no_diagnostics(parse_context),
             DeclarationOrReference::Declaration(ContextDeclaration {
                 ident: code.s1("ident").ident(),
                 items: vec![
@@ -336,5 +336,4 @@ end context;
             })
         )
     }
-
 }

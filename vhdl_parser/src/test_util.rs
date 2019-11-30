@@ -16,10 +16,10 @@ use crate::design_unit::{
     parse_architecture_body, parse_design_file, parse_entity_declaration, parse_package_body,
     parse_package_declaration,
 };
+use crate::diagnostic::{Diagnostic, DiagnosticHandler, ParseResult};
 use crate::expression::{parse_aggregate, parse_choices, parse_expression};
 use crate::interface_declaration::{parse_generic, parse_parameter, parse_port};
 use crate::latin_1::Latin1String;
-use crate::message::{Message, MessageHandler, ParseResult};
 use crate::names::{parse_association_list, parse_designator, parse_name, parse_selected_name};
 use crate::range::{parse_discrete_range, parse_range};
 use crate::sequential_statement::parse_sequential_statement;
@@ -139,8 +139,8 @@ impl Code {
     {
         match self.parse(parse_fun) {
             Ok(res) => res,
-            Err(msg) => {
-                panic!("{}", msg.show());
+            Err(diagnostic) => {
+                panic!("{}", diagnostic.show());
             }
         }
     }
@@ -184,7 +184,7 @@ impl Code {
         self.with_partial_stream(parse_fun_eof)
     }
 
-    pub fn with_stream_err<F, R>(&self, parse_fun: F) -> Message
+    pub fn with_stream_err<F, R>(&self, parse_fun: F) -> Diagnostic
     where
         R: Debug,
         F: FnOnce(&mut TokenStream) -> ParseResult<R>,
@@ -208,42 +208,43 @@ impl Code {
         self.with_partial_stream(parse_fun_eof)
     }
 
-    pub fn with_partial_stream_messages<F, R>(&self, parse_fun: F) -> (R, Vec<Message>)
+    pub fn with_partial_stream_diagnostics<F, R>(&self, parse_fun: F) -> (R, Vec<Diagnostic>)
     where
         R: Debug,
-        F: FnOnce(&mut TokenStream, &mut dyn MessageHandler) -> R,
+        F: FnOnce(&mut TokenStream, &mut dyn DiagnosticHandler) -> R,
     {
-        let mut messages = Vec::new();
+        let mut diagnostics = Vec::new();
+        let result = self
+            .with_partial_stream(|stream: &mut TokenStream| parse_fun(stream, &mut diagnostics));
+        (result, diagnostics)
+    }
+
+    pub fn with_stream_diagnostics<F, R>(&self, parse_fun: F) -> (R, Vec<Diagnostic>)
+    where
+        R: Debug,
+        F: FnOnce(&mut TokenStream, &mut dyn DiagnosticHandler) -> ParseResult<R>,
+    {
+        let mut diagnostics = Vec::new();
         let result =
-            self.with_partial_stream(|stream: &mut TokenStream| parse_fun(stream, &mut messages));
-        (result, messages)
+            self.with_stream(|stream: &mut TokenStream| parse_fun(stream, &mut diagnostics));
+        (result, diagnostics)
     }
 
-    pub fn with_stream_messages<F, R>(&self, parse_fun: F) -> (R, Vec<Message>)
+    pub fn with_stream_no_diagnostics<F, R>(&self, parse_fun: F) -> R
     where
         R: Debug,
-        F: FnOnce(&mut TokenStream, &mut dyn MessageHandler) -> ParseResult<R>,
+        F: FnOnce(&mut TokenStream, &mut dyn DiagnosticHandler) -> ParseResult<R>,
     {
-        let mut messages = Vec::new();
-        let result = self.with_stream(|stream: &mut TokenStream| parse_fun(stream, &mut messages));
-        (result, messages)
-    }
-
-    pub fn with_stream_no_messages<F, R>(&self, parse_fun: F) -> R
-    where
-        R: Debug,
-        F: FnOnce(&mut TokenStream, &mut dyn MessageHandler) -> ParseResult<R>,
-    {
-        let (result, messages) = self.with_stream_messages(parse_fun);
-        check_no_messages(&messages);
+        let (result, diagnostics) = self.with_stream_diagnostics(parse_fun);
+        check_no_diagnostics(&diagnostics);
         result
     }
 
     pub fn declarative_part(&self) -> Vec<Declaration> {
-        let mut messages = Vec::new();
-        let res =
-            self.parse_ok(|stream| parse_declarative_part_leave_end_token(stream, &mut messages));
-        check_no_messages(&messages);
+        let mut diagnostics = Vec::new();
+        let res = self
+            .parse_ok(|stream| parse_declarative_part_leave_end_token(stream, &mut diagnostics));
+        check_no_diagnostics(&diagnostics);
         res
     }
     /// Helper to create a identifier at first occurence of name
@@ -309,22 +310,22 @@ impl Code {
         }
     }
 
-    pub fn parse_ok_no_messages<F, R>(&self, parse_fun: F) -> R
+    pub fn parse_ok_no_diagnostics<F, R>(&self, parse_fun: F) -> R
     where
-        F: FnOnce(&mut TokenStream, &mut dyn MessageHandler) -> ParseResult<R>,
+        F: FnOnce(&mut TokenStream, &mut dyn DiagnosticHandler) -> ParseResult<R>,
     {
-        let mut messages = Vec::new();
-        let res = self.parse_ok(|stream| parse_fun(stream, &mut messages));
-        check_no_messages(&messages);
+        let mut diagnostics = Vec::new();
+        let res = self.parse_ok(|stream| parse_fun(stream, &mut diagnostics));
+        check_no_diagnostics(&diagnostics);
         res
     }
 
     pub fn sequential_statement(&self) -> LabeledSequentialStatement {
-        self.parse_ok_no_messages(parse_sequential_statement)
+        self.parse_ok_no_diagnostics(parse_sequential_statement)
     }
 
     pub fn concurrent_statement(&self) -> LabeledConcurrentStatement {
-        self.parse_ok_no_messages(parse_labeled_concurrent_statement)
+        self.parse_ok_no_diagnostics(parse_labeled_concurrent_statement)
     }
 
     pub fn association_list(&self) -> Vec<AssociationElement> {
@@ -360,19 +361,19 @@ impl Code {
     }
 
     pub fn entity(&self) -> EntityDeclaration {
-        self.parse_ok_no_messages(parse_entity_declaration)
+        self.parse_ok_no_diagnostics(parse_entity_declaration)
     }
 
     pub fn package(&self) -> PackageDeclaration {
-        self.parse_ok_no_messages(parse_package_declaration)
+        self.parse_ok_no_diagnostics(parse_package_declaration)
     }
 
     pub fn package_body(&self) -> PackageBody {
-        self.parse_ok_no_messages(parse_package_body)
+        self.parse_ok_no_diagnostics(parse_package_body)
     }
 
     pub fn design_file(&self) -> DesignFile {
-        self.parse_ok_no_messages(parse_design_file)
+        self.parse_ok_no_diagnostics(parse_design_file)
     }
 
     pub fn package_instance(&self) -> PackageInstantiation {
@@ -380,15 +381,15 @@ impl Code {
     }
 
     pub fn architecture(&self) -> ArchitectureBody {
-        self.parse_ok_no_messages(parse_architecture_body)
+        self.parse_ok_no_diagnostics(parse_architecture_body)
     }
 
     pub fn configuration(&self) -> ConfigurationDeclaration {
-        self.parse_ok_no_messages(parse_configuration_declaration)
+        self.parse_ok_no_diagnostics(parse_configuration_declaration)
     }
 
     pub fn context(&self) -> ContextDeclaration {
-        match self.parse_ok_no_messages(parse_context) {
+        match self.parse_ok_no_diagnostics(parse_context) {
             DeclarationOrReference::Declaration(context) => context,
             reference => {
                 panic!("Expected context declaration, got {:?}", reference);
@@ -397,7 +398,7 @@ impl Code {
     }
 
     pub fn subprogram_decl(&self) -> SubprogramDeclaration {
-        self.parse_ok_no_messages(parse_subprogram_declaration_no_semi)
+        self.parse_ok_no_diagnostics(parse_subprogram_declaration_no_semi)
     }
 
     pub fn attribute_name(&self) -> AttributeName {
@@ -420,20 +421,20 @@ fn forward(stream: &mut TokenStream, pos: &SrcPos) {
 }
 
 /// Check that no errors where found
-pub fn check_no_messages(messages: &Vec<Message>) {
-    for err in messages.iter() {
+pub fn check_no_diagnostics(diagnostics: &Vec<Diagnostic>) {
+    for err in diagnostics.iter() {
         println!("{}", err.show());
     }
-    if messages.len() > 0 {
+    if diagnostics.len() > 0 {
         panic!("Found errors");
     }
 }
 
-/// Create map from message -> count
-fn messages_to_map(messages: Vec<Message>) -> HashMap<Message, usize> {
+/// Create map from diagnostic -> count
+fn diagnostics_to_map(diagnostics: Vec<Diagnostic>) -> HashMap<Diagnostic, usize> {
     let mut map = HashMap::new();
-    for msg in messages {
-        match map.entry(msg) {
+    for diagnostic in diagnostics {
+        match map.entry(diagnostic) {
             Entry::Occupied(mut entry) => {
                 let count = *entry.get() + 1;
                 entry.insert(count);
@@ -446,47 +447,47 @@ fn messages_to_map(messages: Vec<Message>) -> HashMap<Message, usize> {
     map
 }
 
-/// Check messages are equal without considering order
-pub fn check_messages(got: Vec<Message>, expected: Vec<Message>) {
-    let mut expected = messages_to_map(expected);
-    let mut got = messages_to_map(got);
+/// Check diagnostics are equal without considering order
+pub fn check_diagnostics(got: Vec<Diagnostic>, expected: Vec<Diagnostic>) {
+    let mut expected = diagnostics_to_map(expected);
+    let mut got = diagnostics_to_map(got);
 
     let mut found_errors = false;
 
-    for (msg, count) in expected.drain() {
-        match got.remove(&msg) {
+    for (diagnostic, count) in expected.drain() {
+        match got.remove(&diagnostic) {
             Some(got_count) => {
                 if count != got_count {
                     found_errors = true;
                     println!("-------------------------------------------------------");
                     println!(
-                        "Got right message but wrong count {}, expected {}",
+                        "Got right diagnostic but wrong count {}, expected {}",
                         got_count, count
                     );
                     println!("-------------------------------------------------------");
-                    println!("{}", msg.show());
+                    println!("{}", diagnostic.show());
                 }
             }
             None => {
                 found_errors = true;
                 println!("-------------------------------------------------------");
-                println!("Got no message, expected {}", count);
+                println!("Got no diagnostic, expected {}", count);
                 println!("-------------------------------------------------------");
-                println!("{}", msg.show());
+                println!("{}", diagnostic.show());
             }
         }
     }
 
-    for (msg, _) in got.drain() {
+    for (diagnostic, _) in got.drain() {
         found_errors = true;
         println!("-------------------------------------------------------");
-        println!("Got unexpected message");
+        println!("Got unexpected diagnostic");
         println!("-------------------------------------------------------");
-        println!("{}", msg.show());
+        println!("{}", diagnostic.show());
     }
 
     if found_errors {
-        panic!("Found message mismatch");
+        panic!("Found diagnostic mismatch");
     }
 }
 
@@ -501,75 +502,75 @@ mod tests {
     use super::*;
 
     #[test]
-    fn check_messages_ok() {
+    fn check_diagnostics_ok() {
         let code = Code::new("foo bar");
-        check_messages(
-            vec![Message::error(code.s1("foo"), "hello")],
-            vec![Message::error(code.s1("foo"), "hello")],
+        check_diagnostics(
+            vec![Diagnostic::error(code.s1("foo"), "hello")],
+            vec![Diagnostic::error(code.s1("foo"), "hello")],
         )
     }
 
     #[test]
-    fn check_messages_ok_out_of_order() {
+    fn check_diagnostics_ok_out_of_order() {
         let code = Code::new("foo bar");
-        check_messages(
+        check_diagnostics(
             vec![
-                Message::error(code.s1("foo"), "hello"),
-                Message::error(code.s1("bar"), "msg"),
+                Diagnostic::error(code.s1("foo"), "hello"),
+                Diagnostic::error(code.s1("bar"), "msg"),
             ],
             vec![
-                Message::error(code.s1("bar"), "msg"),
-                Message::error(code.s1("foo"), "hello"),
-            ],
-        )
-    }
-
-    #[test]
-    #[should_panic]
-    fn check_messages_not_ok_mismatch() {
-        let code = Code::new("foo bar");
-        check_messages(
-            vec![Message::error(code.s1("bar"), "msg")],
-            vec![Message::error(code.s1("foo"), "hello")],
-        )
-    }
-
-    #[test]
-    #[should_panic]
-    fn check_messages_not_ok_count_mismatch() {
-        let code = Code::new("foo bar");
-        check_messages(
-            vec![
-                Message::error(code.s1("bar"), "msg"),
-                Message::error(code.s1("bar"), "msg"),
-            ],
-            vec![Message::error(code.s1("bar"), "msg")],
-        )
-    }
-
-    #[test]
-    #[should_panic]
-    fn check_messages_not_ok_missing() {
-        let code = Code::new("foo bar");
-        check_messages(
-            vec![Message::error(code.s1("bar"), "msg")],
-            vec![
-                Message::error(code.s1("bar"), "msg"),
-                Message::error(code.s1("bar"), "missing"),
+                Diagnostic::error(code.s1("bar"), "msg"),
+                Diagnostic::error(code.s1("foo"), "hello"),
             ],
         )
     }
 
     #[test]
     #[should_panic]
-    fn check_messages_not_ok_unexpected() {
+    fn check_diagnostics_not_ok_mismatch() {
         let code = Code::new("foo bar");
-        check_messages(
+        check_diagnostics(
+            vec![Diagnostic::error(code.s1("bar"), "msg")],
+            vec![Diagnostic::error(code.s1("foo"), "hello")],
+        )
+    }
+
+    #[test]
+    #[should_panic]
+    fn check_diagnostics_not_ok_count_mismatch() {
+        let code = Code::new("foo bar");
+        check_diagnostics(
             vec![
-                Message::error(code.s1("bar"), "msg"),
-                Message::error(code.s1("bar"), "unexpected"),
+                Diagnostic::error(code.s1("bar"), "msg"),
+                Diagnostic::error(code.s1("bar"), "msg"),
             ],
-            vec![Message::error(code.s1("bar"), "msg")],
+            vec![Diagnostic::error(code.s1("bar"), "msg")],
+        )
+    }
+
+    #[test]
+    #[should_panic]
+    fn check_diagnostics_not_ok_missing() {
+        let code = Code::new("foo bar");
+        check_diagnostics(
+            vec![Diagnostic::error(code.s1("bar"), "msg")],
+            vec![
+                Diagnostic::error(code.s1("bar"), "msg"),
+                Diagnostic::error(code.s1("bar"), "missing"),
+            ],
+        )
+    }
+
+    #[test]
+    #[should_panic]
+    fn check_diagnostics_not_ok_unexpected() {
+        let code = Code::new("foo bar");
+        check_diagnostics(
+            vec![
+                Diagnostic::error(code.s1("bar"), "msg"),
+                Diagnostic::error(code.s1("bar"), "unexpected"),
+            ],
+            vec![Diagnostic::error(code.s1("bar"), "msg")],
         )
     }
 }

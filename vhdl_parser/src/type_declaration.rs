@@ -11,7 +11,7 @@ use crate::ast::{
 };
 use crate::common::error_on_end_identifier_mismatch;
 use crate::declarative_part::parse_declarative_part;
-use crate::message::{push_some, MessageHandler, ParseResult};
+use crate::diagnostic::{push_some, DiagnosticHandler, ParseResult};
 use crate::names::{parse_identifier_list, parse_selected_name};
 use crate::range::{parse_array_index_constraint, parse_range};
 use crate::subprogram::parse_subprogram_declaration;
@@ -119,7 +119,7 @@ pub fn parse_subtype_declaration(stream: &mut TokenStream) -> ParseResult<TypeDe
 /// LRM 5.6.2 Protected type declarations
 pub fn parse_protected_type_declaration(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<(ProtectedTypeDeclaration, Option<Ident>)> {
     let mut items = Vec::new();
 
@@ -129,7 +129,7 @@ pub fn parse_protected_type_declaration(
         try_token_kind!(
             token,
             Impure | Function | Procedure => items.push(ProtectedTypeDeclarativeItem::Subprogram(
-                parse_subprogram_declaration(stream, messages)?,
+                parse_subprogram_declaration(stream, diagnostics)?,
             )),
             End => {
                 stream.move_after(&token);
@@ -203,7 +203,7 @@ fn parse_physical_type_definition(
 /// LRM 6.2
 pub fn parse_type_declaration(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<TypeDeclaration> {
     let token = stream.peek_expect()?;
     try_token_kind!(
@@ -239,7 +239,7 @@ pub fn parse_type_declaration(
                 SemiColon => TypeDefinition::Integer(constraint),
                 Units => {
                     let (def, end_ident) = parse_physical_type_definition(stream, constraint)?;
-                    push_some(messages, error_on_end_identifier_mismatch(&ident, &end_ident));
+                    push_some(diagnostics, error_on_end_identifier_mismatch(&ident, &end_ident));
                     def
                 }
             )
@@ -253,7 +253,7 @@ pub fn parse_type_declaration(
 
         Protected => {
             if stream.skip_if_kind(Body)? {
-                let decl = parse_declarative_part(stream, messages, false)?;
+                let decl = parse_declarative_part(stream, diagnostics, false)?;
                 stream.expect_kind(Protected)?;
                 stream.expect_kind(Body)?;
                 // @TODO check name
@@ -261,8 +261,8 @@ pub fn parse_type_declaration(
                 stream.expect_kind(SemiColon)?;
                 TypeDefinition::ProtectedBody(ProtectedTypeBody {decl})
             } else {
-                let (protected_type_decl, end_ident) = parse_protected_type_declaration(stream, messages)?;
-                push_some(messages, error_on_end_identifier_mismatch(&ident, &end_ident));
+                let (protected_type_decl, end_ident) = parse_protected_type_declaration(stream, diagnostics)?;
+                push_some(diagnostics, error_on_end_identifier_mismatch(&ident, &end_ident));
                 stream.expect_kind(SemiColon)?;
                 TypeDefinition::Protected(protected_type_decl)
             }
@@ -276,7 +276,7 @@ pub fn parse_type_declaration(
         Array => parse_array_type_definition(stream)?,
         Record =>  {
             let (def, end_ident) = parse_record_type_definition(stream)?;
-            push_some(messages, error_on_end_identifier_mismatch(&ident, &end_ident));
+            push_some(diagnostics, error_on_end_identifier_mismatch(&ident, &end_ident));
             def
         },
         // Enumeration
@@ -302,7 +302,7 @@ mod tests {
             def: TypeDefinition::Integer(code.s1("0 to 1").range()),
         };
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -323,7 +323,7 @@ mod tests {
             ]),
         };
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -344,7 +344,7 @@ mod tests {
             ]),
         };
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -365,7 +365,7 @@ mod tests {
             ]),
         };
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -385,7 +385,7 @@ mod tests {
         };
 
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -406,7 +406,7 @@ mod tests {
         };
 
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -427,7 +427,7 @@ mod tests {
         };
 
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -447,7 +447,7 @@ mod tests {
         };
 
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -464,7 +464,7 @@ mod tests {
         };
 
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -486,7 +486,7 @@ mod tests {
         };
 
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -511,7 +511,7 @@ end record;",
         };
 
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -547,7 +547,7 @@ end foo;",
         };
 
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             type_decl
         );
     }
@@ -557,7 +557,7 @@ end foo;",
         let code = Code::new("subtype vec_t is integer_vector(2-1 downto 0);");
 
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
                 ident: code.s1("vec_t").ident(),
                 def: TypeDefinition::Subtype(
@@ -572,7 +572,7 @@ end foo;",
         let code = Code::new("type ptr_t is access integer_vector(2-1 downto 0);");
 
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
                 ident: code.s1("ptr_t").ident(),
                 def: TypeDefinition::Access(
@@ -587,7 +587,7 @@ end foo;",
         let code = Code::new("type incomplete;");
 
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
                 ident: code.s1("incomplete").ident(),
                 def: TypeDefinition::Incomplete
@@ -600,7 +600,7 @@ end foo;",
         let code = Code::new("type foo is file of character;");
 
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
                 ident: code.s1("foo").ident(),
                 def: TypeDefinition::File(code.s1("character").selected_name())
@@ -624,7 +624,7 @@ end protected;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             protected_decl(code.s1("foo").ident(), vec![])
         )
     }
@@ -638,7 +638,7 @@ end protected foo;
 ",
         );
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             protected_decl(code.s1("foo").ident(), vec![])
         )
     }
@@ -661,7 +661,7 @@ end protected;
         ];
 
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             protected_decl(code.s1("foo").ident(), items)
         )
     }
@@ -687,7 +687,7 @@ end protected body;
   end;")
             .declarative_part();
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
                 ident: code.s1("foo").ident(),
                 def: TypeDefinition::ProtectedBody(ProtectedTypeBody { decl }),
@@ -706,7 +706,7 @@ end units phys;
         );
 
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
                 ident: code.s1("phys").ident(),
                 def: TypeDefinition::Physical(PhysicalTypeDeclaration {
@@ -730,7 +730,7 @@ end units;
         );
 
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
                 ident: code.s1("phys").ident(),
                 def: TypeDefinition::Physical(PhysicalTypeDeclaration {
@@ -757,7 +757,7 @@ end units;
         );
 
         assert_eq!(
-            code.with_stream_no_messages(parse_type_declaration),
+            code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
                 ident: code.s1("phys").ident(),
                 def: TypeDefinition::Physical(PhysicalTypeDeclaration {
@@ -771,5 +771,4 @@ end units;
             }
         )
     }
-
 }

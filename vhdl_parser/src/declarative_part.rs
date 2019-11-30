@@ -10,7 +10,7 @@ use crate::attributes::parse_attribute;
 use crate::component_declaration::parse_component_declaration;
 use crate::configuration::parse_configuration_specification;
 use crate::context::parse_use_clause;
-use crate::message::{MessageHandler, ParseResult};
+use crate::diagnostic::{DiagnosticHandler, ParseResult};
 use crate::names::{parse_association_list, parse_selected_name};
 use crate::object_declaration::{parse_file_declaration, parse_object_declaration};
 use crate::subprogram::parse_subprogram;
@@ -64,19 +64,19 @@ fn check_declarative_part(token: &Token, may_end: bool, may_begin: bool) -> Pars
 }
 pub fn parse_declarative_part(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
     begin_is_end: bool,
 ) -> ParseResult<Vec<Declaration>> {
     let end_token = if begin_is_end { Begin } else { End };
-    let decl = parse_declarative_part_leave_end_token(stream, messages)?;
+    let decl = parse_declarative_part_leave_end_token(stream, diagnostics)?;
 
-    stream.expect_kind(end_token).log(messages);
+    stream.expect_kind(end_token).log(diagnostics);
     Ok(decl)
 }
 
 pub fn parse_declarative_part_leave_end_token(
     stream: &mut TokenStream,
-    messages: &mut dyn MessageHandler,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Vec<Declaration>> {
     let mut declarations: Vec<Declaration> = Vec::new();
 
@@ -94,11 +94,11 @@ pub fn parse_declarative_part_leave_end_token(
             Type | Subtype | Component | Impure | Function | Procedure | Package | For => {
                 let decl = match token.kind {
                     Type | Subtype => {
-                        parse_type_declaration(stream, messages).map(|d| Declaration::Type(d))?
+                        parse_type_declaration(stream, diagnostics).map(|d| Declaration::Type(d))?
                     }
-                    Component => parse_component_declaration(stream, messages)
+                    Component => parse_component_declaration(stream, diagnostics)
                         .map(|d| Declaration::Component(d))?,
-                    Impure | Function | Procedure => parse_subprogram(stream, messages)?,
+                    Impure | Function | Procedure => parse_subprogram(stream, diagnostics)?,
                     Package => {
                         parse_package_instantiation(stream).map(|d| Declaration::Package(d))?
                     }
@@ -123,10 +123,10 @@ pub fn parse_declarative_part_leave_end_token(
                     }),
                     _ => unreachable!(),
                 };
-                match decls.or_recover_until(stream, messages, is_recover_token) {
+                match decls.or_recover_until(stream, diagnostics, is_recover_token) {
                     Ok(ref mut decls) => declarations.append(decls),
                     Err(err) => {
-                        messages.push(err);
+                        diagnostics.push(err);
                         continue;
                     }
                 }
@@ -138,17 +138,17 @@ pub fn parse_declarative_part_leave_end_token(
                     Alias => parse_alias_declaration(stream).map(|d| Declaration::Alias(d)),
                     _ => unreachable!(),
                 };
-                match decl.or_recover_until(stream, messages, is_recover_token) {
+                match decl.or_recover_until(stream, diagnostics, is_recover_token) {
                     Ok(decl) => declarations.push(decl),
                     Err(err) => {
-                        messages.push(err);
+                        diagnostics.push(err);
                         continue;
                     }
                 }
             }
 
             _ => {
-                messages.push(token.kinds_error(&[
+                diagnostics.push(token.kinds_error(&[
                     Type, Subtype, Component, Impure, Function, Procedure, Package, For, File,
                     Shared, Constant, Signal, Variable, Attribute, Use, Alias,
                 ]));
@@ -165,7 +165,7 @@ pub fn parse_declarative_part_leave_end_token(
 mod tests {
     use super::*;
     use crate::ast::{ObjectClass, ObjectDeclaration};
-    use crate::message::Message;
+    use crate::diagnostic::Diagnostic;
     use crate::test_util::Code;
 
     #[test]
@@ -219,7 +219,7 @@ constant x: natural := 5;
 ",
         );
         let (decls, msgs) =
-            code.with_partial_stream_messages(parse_declarative_part_leave_end_token);
+            code.with_partial_stream_diagnostics(parse_declarative_part_leave_end_token);
         assert_eq!(
             decls,
             Ok(vec![Declaration::Object(ObjectDeclaration {
@@ -232,7 +232,7 @@ constant x: natural := 5;
 
         assert_eq!(
             msgs,
-            vec![Message::error(
+            vec![Diagnostic::error(
                 code.s1("var").pos(),
                 "Expected 'type', 'subtype', 'component', 'impure', \
                  'function', 'procedure', 'package', 'for', 'file', \
@@ -246,7 +246,8 @@ constant x: natural := 5;
     fn parse_declarative_part_error() {
         // Just checking that there is not an infinite loop
         let code = Code::new("invalid");
-        let (decl, _) = code.with_partial_stream_messages(parse_declarative_part_leave_end_token);
+        let (decl, _) =
+            code.with_partial_stream_diagnostics(parse_declarative_part_leave_end_token);
         assert!(decl.is_err());
     }
 }

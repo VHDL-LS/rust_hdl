@@ -9,7 +9,7 @@ use crate::ast::{
     Expression, Literal, Name, QualifiedExpression, Range, RangeConstraint, ResolutionIndication,
     SubtypeIndication, Unary,
 };
-use crate::message::{Message, ParseResult};
+use crate::diagnostic::{Diagnostic, ParseResult};
 use crate::names::{parse_name_initial_token, parse_selected_name};
 use crate::source::WithPos;
 use crate::subtype_indication::parse_subtype_constraint;
@@ -108,14 +108,14 @@ pub fn parse_aggregate_initial_choices(
                     result.push(ElementAssociation::Positional(choice.clone()));
                     return Ok(WithPos::from(result, token))
                 } else {
-                    return Err(Message::error(&token, "Expected => after others"));
+                    return Err(Diagnostic::error(&token, "Expected => after others"));
                 }
             },
             Comma => {
                 if let [Choice::Expression(ref choice)] = *choices.as_slice() {
                     result.push(ElementAssociation::Positional(choice.clone()));
                 } else {
-                    return Err(Message::error(&token, "Expected => after others"));
+                    return Err(Diagnostic::error(&token, "Expected => after others"));
                 }
                 choices = parse_choices(stream)?;
             },
@@ -246,7 +246,7 @@ fn parse_primary_initial_token(
     token: Token,
 ) -> ParseResult<WithPos<Expression>> {
     match token.kind {
-        Identifier => {
+        Identifier | LtLt => {
             let name = parse_name_initial_token(stream, token)?;
             if stream.skip_if_kind(Tick)? {
                 let expr = parse_expression(stream)?;
@@ -355,7 +355,7 @@ fn parse_primary_initial_token(
                     pos,
                 })
             } else {
-                Err(Message::error(&token, "Expected {expression}"))
+                Err(Diagnostic::error(&token, "Expected {expression}"))
             }
         }
     }
@@ -481,11 +481,22 @@ mod tests {
     }
 
     #[test]
-    fn parses_operator_symol() {
+    fn parses_operator_symbol() {
         let code = Code::new("\"string\"(1, 2)");
         assert_eq!(
             code.with_stream(parse_expression),
             code.s1("\"string\"(1, 2)")
+                .name()
+                .map_into(|name| Expression::Name(Box::new(name)))
+        );
+    }
+
+    #[test]
+    fn parses_exteral_name() {
+        let code = Code::new("<< signal dut.foo : boolean >>");
+        assert_eq!(
+            code.with_stream(parse_expression),
+            code.s1("<< signal dut.foo : boolean >>")
                 .name()
                 .map_into(|name| Expression::Name(Box::new(name)))
         );
@@ -503,7 +514,7 @@ mod tests {
         );
     }
 
-    fn int(value: i64) -> Literal {
+    fn int(value: u64) -> Literal {
         Literal::AbstractLiteral(AbstractLiteral::Integer(value))
     }
 
@@ -1094,18 +1105,24 @@ mod tests {
         let code = Code::new("fun(,)");
         assert_eq!(
             code.with_partial_stream(parse_expression),
-            Err(Message::error(&code.s1(",").pos(), "Expected {expression}"))
+            Err(Diagnostic::error(
+                &code.s1(",").pos(),
+                "Expected {expression}"
+            ))
         );
 
         let code = Code::new("fun(arg0,)");
         assert_eq!(
             code.with_partial_stream(parse_expression),
-            Err(Message::error(&code.s1(")").pos(), "Expected {expression}"))
+            Err(Diagnostic::error(
+                &code.s1(")").pos(),
+                "Expected {expression}"
+            ))
         );
         let code = Code::new("fun(arg0,,)");
         assert_eq!(
             code.with_partial_stream(parse_expression),
-            Err(Message::error(
+            Err(Diagnostic::error(
                 &code.s(",", 2).pos(),
                 "Expected {expression}"
             ))
@@ -1150,5 +1167,4 @@ mod tests {
 
         assert_expression_is("and 1 + 2", "((And Integer(1)) Plus Integer(2))");
     }
-
 }

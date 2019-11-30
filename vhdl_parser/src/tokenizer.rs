@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use self::fnv::FnvHashMap;
-use crate::message::{Message, ParseResult};
+use crate::diagnostic::{Diagnostic, ParseResult};
 use crate::source::{Pos, Source, SrcPos, WithPos};
 use fnv;
 
@@ -28,6 +28,7 @@ pub enum Kind {
     Generate,
     Postponed,
     Library,
+    Label,
     Use,
     Context,
     Body,
@@ -56,6 +57,8 @@ pub enum Kind {
     Next,
     Exit,
     For,
+    Force,
+    Release,
     Assert,
     Report,
     Severity,
@@ -182,8 +185,8 @@ macro_rules! match_token_kind {
                     $(
                         $(
                             kinds.push($kind);
-                        );*;
-                    );*;
+                        )*
+                    )*
 
                     Err($token.kinds_error(&kinds))
                 }
@@ -193,7 +196,7 @@ macro_rules! match_token_kind {
 }
 
 /// Expect any number of token kind patterns, return on no match with
-/// error message based on expected kinds
+/// error diagnostic based on expected kinds
 #[macro_export]
 macro_rules! try_token_kind {
     ($token:expr, $($($kind:ident)|+ => $result:expr),*) => {
@@ -206,8 +209,8 @@ macro_rules! try_token_kind {
                 $(
                     $(
                         kinds.push($kind);
-                    );*;
-                );*;
+                    )*
+                )*
 
                 return Err($token.kinds_error(&kinds));
             }
@@ -227,6 +230,7 @@ pub fn kind_str(kind: Kind) -> &'static str {
         Generate => &"generate",
         Postponed => &"postponed",
         Library => &"library",
+        Label => &"label",
         Use => &"use",
         Context => &"context",
         Body => &"body",
@@ -255,6 +259,8 @@ pub fn kind_str(kind: Kind) -> &'static str {
         Next => &"next",
         Exit => &"exit",
         For => &"for",
+        Force => &"force",
+        Release => &"release",
         Assert => &"assert",
         Report => &"report",
         Severity => &"severity",
@@ -414,6 +420,7 @@ pub struct TokenComments {
 pub struct Comment {
     pub value: Latin1String,
     pub pos: Pos,
+    pub multi_line: bool,
 }
 
 use std::convert::AsRef;
@@ -430,15 +437,15 @@ impl Into<SrcPos> for Token {
     }
 }
 
-pub fn kinds_error<T: AsRef<SrcPos>>(pos: T, kinds: &[Kind]) -> Message {
-    Message::error(
+pub fn kinds_error<T: AsRef<SrcPos>>(pos: T, kinds: &[Kind]) -> Diagnostic {
+    Diagnostic::error(
         pos.as_ref(),
         format!("Expected {}", kinds_str(&kinds)).as_str(),
     )
 }
 
 impl Token {
-    pub fn kinds_error(&self, kinds: &[Kind]) -> Message {
+    pub fn kinds_error(&self, kinds: &[Kind]) -> Diagnostic {
         kinds_error(self, kinds)
     }
 
@@ -581,27 +588,32 @@ impl ByteCursor {
     }
 }
 
-fn parse_integer(cursor: &mut ByteCursor, base: i64, stop_on_e: bool) -> Result<i64, String> {
-    let mut result = Some(0);
-    let mut too_large_base = false;
+fn parse_integer(cursor: &mut ByteCursor, base: u64, stop_on_suffix: bool) -> Result<u64, String> {
+    let mut result = Some(0 as u64);
+    let mut too_large_digit = None;
+    let mut invalid_character = None;
 
     while let Some(b) = cursor.peek(0) {
-        let digit = i64::from(match b {
+        let digit = u64::from(match b {
+            // Bit string literal or exponent
+            // Lower case
+            b's' | b'u' | b'b' | b'o' | b'x' | b'd' | b'e' if stop_on_suffix => {
+                break;
+            }
+            // Upper case
+            b'S' | b'U' | b'B' | b'O' | b'X' | b'D' | b'E' if stop_on_suffix => {
+                break;
+            }
+
             b'0'..=b'9' => {
                 cursor.pop();
                 (b - b'0')
             }
             b'a'..=b'f' => {
-                if stop_on_e && b == b'e' {
-                    break;
-                }
                 cursor.pop();
                 (10 + b - b'a')
             }
             b'A'..=b'F' => {
-                if stop_on_e && b == b'E' {
-                    break;
-                }
                 cursor.pop();
                 (10 + b - b'A')
             }
@@ -609,40 +621,59 @@ fn parse_integer(cursor: &mut ByteCursor, base: i64, stop_on_e: bool) -> Result<
                 cursor.pop();
                 continue;
             }
+            b'g'..=b'z' | b'G'..=b'Z' => {
+                cursor.pop();
+                invalid_character = Some(b);
+                continue;
+            }
             _ => {
                 break;
             }
         });
 
-        too_large_base = too_large_base || (digit >= base);
+        if digit >= base {
+            too_large_digit = Some(b);
+        }
 
         result = result
             .and_then(|x| base.checked_mul(x))
             .and_then(|x| x.checked_add(digit));
     }
 
-    if too_large_base {
-        Err(format!("Illegal digit for base {}", base).to_string())
+    if let Some(b) = invalid_character {
+        Err(format!("Invalid integer character '{}'", Latin1String::new(&[b])).to_string())
+    } else if let Some(b) = too_large_digit {
+        Err(format!(
+            "Illegal digit '{}' for base {}",
+            Latin1String::new(&[b]),
+            base
+        )
+        .to_string())
     } else if let Some(result) = result {
         Ok(result)
     } else {
-        Err("Integer too large for 64-bits signed".to_string())
+        Err("Integer too large for 64-bit unsigned".to_string())
     }
 }
 
 fn parse_exponent(cursor: &mut ByteCursor) -> Result<i32, String> {
-    let sign = {
+    let negative = {
         if cursor.peek(0) == Some(b'-') {
             cursor.pop();
-            -1
+            true
         } else {
-            1
+            cursor.skip_if(b'+');
+            false
         }
     };
 
     let exp = parse_integer(cursor, 10, false)?;
-    if let Some(exp) = exp.checked_mul(sign) {
-        if i64::from(i32::min_value()) <= exp && exp <= i64::from(i32::max_value()) {
+    if negative {
+        if exp <= (-(i32::min_value() as i64)) as u64 {
+            return Ok((-(exp as i64)) as i32);
+        }
+    } else {
+        if exp <= i32::max_value() as u64 {
             return Ok(exp as i32);
         }
     }
@@ -650,8 +681,12 @@ fn parse_exponent(cursor: &mut ByteCursor) -> Result<i32, String> {
     Err("Exponent too large for 32-bits signed".to_string())
 }
 
-fn pow(value: i64, exp: u32) -> Option<i64> {
-    // @TODO use no_panic_pow once stable
+fn exponentiate(value: u64, exp: u32) -> Option<u64> {
+    // @TODO use checked_pow once it is common in recent releases
+    // (10 as u64)
+    //     .checked_pow(exp)
+    //     and_then(|x| x.checked_mul(value))
+
     let mut value = value;
     for _ in 0..exp {
         value = value.checked_mul(10)?;
@@ -753,15 +788,54 @@ fn parse_comment(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Comment 
             start: start_pos - 2,
             length: end_pos - start_pos + 2,
         },
+        multi_line: false,
     }
+}
+
+fn parse_multi_line_comment(
+    source: &Source,
+    buffer: &mut Latin1String,
+    cursor: &mut ByteCursor,
+) -> ParseResult<Comment> {
+    let start_pos = cursor.pos();
+    buffer.bytes.clear();
+    while let Some(chr) = cursor.pop() {
+        if chr == b'*' {
+            if cursor.skip_if(b'/') {
+                // Comment ended
+                let end_pos = cursor.pos();
+                return Ok(Comment {
+                    value: buffer.clone(),
+                    pos: Pos {
+                        start: start_pos - 2,
+                        length: end_pos - start_pos + 2,
+                    },
+                    multi_line: true,
+                });
+            } else {
+                buffer.bytes.push(chr);
+            }
+        } else {
+            buffer.bytes.push(chr);
+        }
+    }
+
+    let length = cursor.pos() - start_pos + 2;
+    Err(Diagnostic::error(
+        source.pos(start_pos - 2, length),
+        "Incomplete multi-line comment",
+    ))
 }
 
 fn parse_real_literal(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Result<f64, String> {
     buffer.bytes.clear();
 
-    while let Some(b) = cursor.peek(0) {
+    while let Some(b) = cursor.peek(0).map(Latin1String::lowercase) {
         match b {
             b'e' => {
+                break;
+            }
+            b'E' => {
                 break;
             }
             b'0'..=b'9' | b'a'..=b'd' | b'f' | b'A'..=b'F' | b'.' => {
@@ -793,7 +867,7 @@ fn parse_abstract_literal(
     let pos = cursor.pos();
     let initial = parse_integer(cursor, 10, true);
 
-    match cursor.peek(0) {
+    match cursor.peek(0).map(Latin1String::lowercase) {
         // Real
         Some(b'.') => {
             cursor.set(pos);
@@ -819,18 +893,18 @@ fn parse_abstract_literal(
         }
 
         // Integer exponent
-        Some(b'e') | Some(b'E') => {
+        Some(b'e') => {
             let integer = initial?;
             cursor.pop();
             let exp = parse_exponent(cursor)?;
             if exp >= 0 {
-                if let Some(value) = pow(integer, exp as u32) {
+                if let Some(value) = exponentiate(integer, exp as u32) {
                     Ok((
                         AbstractLiteral,
                         Value::AbstractLiteral(ast::AbstractLiteral::Integer(value)),
                     ))
                 } else {
-                    Err("Integer too large for 64-bits signed".to_string())
+                    Err("Integer too large for 64-bit unsigned".to_string())
                 }
             } else {
                 Err("Integer literals may not have negative exponent".to_string())
@@ -858,35 +932,30 @@ fn parse_abstract_literal(
                 Err("Based integer did not end with #".to_string())
             }
         }
-        _ => {
+
+        // Bit string literal
+        Some(b's') | Some(b'u') | Some(b'b') | Some(b'o') | Some(b'x') | Some(b'd') => {
             let integer = initial?;
             // @TODO check overflow
-            if let Some((kind, bit_string)) =
-                parse_bit_string(buffer, cursor, Some(integer as u32))?
-            {
-                Ok((kind, bit_string))
-            } else {
-                // Plain integer
-                Ok((
-                    AbstractLiteral,
-                    Value::AbstractLiteral(ast::AbstractLiteral::Integer(integer)),
-                ))
-            }
+            parse_bit_string(buffer, cursor, Some(integer as u32))
+        }
+        _ => {
+            // Plain integer
+            Ok((
+                AbstractLiteral,
+                Value::AbstractLiteral(ast::AbstractLiteral::Integer(initial?)),
+            ))
         }
     }
 }
 
 /// LRM 15.8 Bit string literals
-fn parse_bit_string(
-    buffer: &mut Latin1String,
-    cursor: &mut ByteCursor,
-    bit_string_length: Option<u32>,
-) -> Result<Option<(Kind, Value)>, String> {
+fn is_bit_string(cursor: &mut ByteCursor) -> bool {
     let first_byte = {
         if let Some(byte) = cursor.peek(0) {
             Latin1String::lowercase(byte)
         } else {
-            return Ok(None);
+            return false;
         }
     };
 
@@ -894,7 +963,55 @@ fn parse_bit_string(
         if let Some(byte) = cursor.peek(1) {
             Latin1String::lowercase(byte)
         } else {
-            return Ok(None);
+            return false;
+        }
+    };
+
+    let len = match first_byte {
+        b'u' => match second_byte {
+            b'b' => 2,
+            b'o' => 2,
+            b'x' => 2,
+            _ => return false,
+        },
+        b's' => match second_byte {
+            b'b' => 2,
+            b'o' => 2,
+            b'x' => 2,
+            _ => return false,
+        },
+        b'b' => 1,
+        b'o' => 1,
+        b'x' => 1,
+        b'd' => 1,
+        _ => return false,
+    };
+
+    return Some(b'"') == cursor.peek(len);
+}
+
+fn parse_bit_string(
+    buffer: &mut Latin1String,
+    cursor: &mut ByteCursor,
+    bit_string_length: Option<u32>,
+) -> Result<(Kind, Value), String> {
+    let err = Err("Invalid bit string literal".to_string());
+
+    let first_byte = {
+        if let Some(byte) = cursor.peek(0) {
+            Latin1String::lowercase(byte)
+        } else {
+            cursor.pop();
+            return err;
+        }
+    };
+
+    let second_byte = {
+        if let Some(byte) = cursor.peek(1) {
+            Latin1String::lowercase(byte)
+        } else {
+            cursor.pop();
+            return err;
         }
     };
 
@@ -903,35 +1020,36 @@ fn parse_bit_string(
             b'b' => (2, BaseSpecifier::UB),
             b'o' => (2, BaseSpecifier::UO),
             b'x' => (2, BaseSpecifier::UX),
-            _ => return Ok(None),
+            _ => return err,
         },
         b's' => match second_byte {
             b'b' => (2, BaseSpecifier::SB),
             b'o' => (2, BaseSpecifier::SO),
             b'x' => (2, BaseSpecifier::SX),
-            _ => return Ok(None),
+            _ => return err,
         },
         b'b' => (1, BaseSpecifier::B),
         b'o' => (1, BaseSpecifier::O),
         b'x' => (1, BaseSpecifier::X),
         b'd' => (1, BaseSpecifier::D),
-        _ => return Ok(None),
+        _ => return err,
     };
 
     cursor.idx += len;
 
-    if let Some(b'"') = cursor.peek(0) {
-        Ok(Some((
-            BitString,
-            Value::BitString(ast::BitString {
-                length: bit_string_length,
-                base: base_specifier,
-                value: parse_string(buffer, cursor)?,
-            }),
-        )))
-    } else {
-        return Ok(None);
-    }
+    let value = match parse_string(buffer, cursor) {
+        Ok(value) => value,
+        Err(_) => return err,
+    };
+
+    Ok((
+        BitString,
+        Value::BitString(ast::BitString {
+            length: bit_string_length,
+            base: base_specifier,
+            value,
+        }),
+    ))
 }
 
 /// LRM 15.4 Identifiers
@@ -971,12 +1089,24 @@ fn parse_basic_identifier_or_keyword(
     }
 }
 
-fn get_leading_comments(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Vec<Comment> {
+fn get_leading_comments(
+    source: &Source,
+    buffer: &mut Latin1String,
+    cursor: &mut ByteCursor,
+) -> ParseResult<Vec<Comment>> {
     let mut comments: Vec<Comment> = Vec::new();
     while let Some(byte) = cursor.pop() {
         match byte {
             b' ' | b'\t' | b'\r' | b'\n' => {
                 continue;
+            }
+            b'/' => {
+                if cursor.skip_if(b'*') {
+                    comments.push(parse_multi_line_comment(source, buffer, cursor)?);
+                } else {
+                    cursor.back();
+                    break;
+                }
             }
             b'-' => {
                 if cursor.skip_if(b'-') {
@@ -992,7 +1122,7 @@ fn get_leading_comments(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> V
             }
         };
     }
-    comments
+    Ok(comments)
 }
 
 fn get_trailing_comment(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Option<Comment> {
@@ -1047,6 +1177,7 @@ impl Tokenizer {
             ("generate", Generate),
             ("postponed", Postponed),
             ("library", Library),
+            ("label", Label),
             ("use", Use),
             ("context", Context),
             ("body", Body),
@@ -1076,6 +1207,8 @@ impl Tokenizer {
             ("next", Next),
             ("exit", Exit),
             ("for", For),
+            ("force", Force),
+            ("release", Release),
             ("assert", Assert),
             ("report", Report),
             ("severity", Severity),
@@ -1160,8 +1293,8 @@ impl Tokenizer {
         self.state
     }
 
-    pub fn eof_error(&self) -> Message {
-        Message::error(self.source.pos(self.state.start, 1), "Unexpected EOF")
+    pub fn eof_error(&self) -> Diagnostic {
+        Diagnostic::error(self.source.pos(self.state.start, 1), "Unexpected EOF")
     }
 
     pub fn set_state(&mut self, state: TokenState) {
@@ -1174,11 +1307,11 @@ impl Tokenizer {
         self.cursor.idx = self.state.start;
     }
 
-    pub fn parse_token(&mut self) -> Result<Option<(Kind, Value)>, Message> {
+    pub fn parse_token(&mut self) -> Result<Option<(Kind, Value)>, Diagnostic> {
         macro_rules! error {
             ($message:expr) => {
                 let length = self.cursor.pos() - self.state.start;
-                let err = Err(Message::error(
+                let err = Err(Diagnostic::error(
                     &self.source.pos(self.state.start, length),
                     $message,
                 ));
@@ -1322,28 +1455,25 @@ impl Tokenizer {
                     }
                     b'a'..=b'z' | b'A'..=b'Z' => {
                         self.cursor.back();
-                        let pos = self.cursor.pos();
-                        match parse_bit_string(&mut self.buffer, &mut self.cursor, None) {
-                            Ok(opt) => {
-                                if let Some((kind, bit_string)) = opt {
-                                    (kind, bit_string)
-                                } else {
-                                    self.cursor.set(pos);
-                                    match parse_basic_identifier_or_keyword(
-                                        &mut self.buffer,
-                                        &mut self.cursor,
-                                        &self.keywords,
-                                        &self.symtab,
-                                    ) {
-                                        Ok((kind, value)) => (kind, value),
-                                        Err(msg) => {
-                                            error!(msg);
-                                        }
-                                    }
+
+                        if is_bit_string(&mut self.cursor) {
+                            match parse_bit_string(&mut self.buffer, &mut self.cursor, None) {
+                                Ok((kind, bit_string)) => (kind, bit_string),
+                                Err(msg) => {
+                                    error!(msg);
                                 }
                             }
-                            Err(msg) => {
-                                error!(msg);
+                        } else {
+                            match parse_basic_identifier_or_keyword(
+                                &mut self.buffer,
+                                &mut self.cursor,
+                                &self.keywords,
+                                &self.symtab,
+                            ) {
+                                Ok((kind, value)) => (kind, value),
+                                Err(msg) => {
+                                    error!(msg);
+                                }
                             }
                         }
                     }
@@ -1361,7 +1491,8 @@ impl Tokenizer {
     }
 
     pub fn pop(&mut self) -> ParseResult<Option<Token>> {
-        let leading_comments = get_leading_comments(&mut self.buffer, &mut self.cursor);
+        let leading_comments =
+            get_leading_comments(&self.source, &mut self.buffer, &mut self.cursor)?;
         self.state.start = self.cursor.pos();
 
         match self.parse_token() {
@@ -1388,9 +1519,9 @@ impl Tokenizer {
                 self.move_after(&token);
                 Ok(Some(token))
             }
-            Err(msg) => {
+            Err(diagnostic) => {
                 // Got a tokenizing error.
-                Err(msg)
+                Err(diagnostic)
             }
             Ok(None) => {
                 // End of file.
@@ -1400,6 +1531,7 @@ impl Tokenizer {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_final_comments(&self) -> Option<Vec<Comment>> {
         self.final_comments.clone()
     }
@@ -1413,7 +1545,7 @@ fn tokenize_result(
 ) -> (
     Source,
     Arc<SymbolTable>,
-    Vec<Result<Token, Message>>,
+    Vec<Result<Token, Diagnostic>>,
     Vec<Comment>,
 ) {
     let symtab = Arc::new(SymbolTable::new());
@@ -1648,7 +1780,7 @@ end entity"
         let (source, _, tokens, _) = tokenize_result("1e-1");
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
                 "Integer literals may not have negative exponent"
             ))]
@@ -1658,7 +1790,7 @@ end entity"
     #[test]
     fn tokenize_real() {
         assert_eq!(
-            kind_value_tokenize("0.1 -2_2.3_3 2.0e3 3.33E2 2.1e-2"),
+            kind_value_tokenize("0.1 -2_2.3_3 2.0e3 3.33E2 2.1e-2 4.4e+1 2.5E+3"),
             vec![
                 (
                     AbstractLiteral,
@@ -1680,6 +1812,14 @@ end entity"
                 (
                     AbstractLiteral,
                     Value::AbstractLiteral(ast::AbstractLiteral::Real(0.021))
+                ),
+                (
+                    AbstractLiteral,
+                    Value::AbstractLiteral(ast::AbstractLiteral::Real(44.0))
+                ),
+                (
+                    AbstractLiteral,
+                    Value::AbstractLiteral(ast::AbstractLiteral::Real(2500.0))
                 )
             ]
         );
@@ -1774,7 +1914,7 @@ end entity"
         let (source, _, tokens, _) = tokenize_result("\"str\ning\"");
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
                 "Multi line string"
             ))]
@@ -1787,53 +1927,94 @@ end entity"
         let (source, _, tokens, _) = tokenize_result("\"string");
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
                 "Reached EOF before end quote"
             ))]
         );
     }
 
+    // @TODO test incorrect value for base, ex: 2x"ff"
+    // @TODO test incorrect value for length ex: 2x"1111"
     #[test]
     fn tokenize_bit_string_literal() {
-        let (source, _, tokens) = tokenize("X\"ff\"");
-        assert_eq!(
-            tokens,
-            vec![Token {
-                kind: BitString,
-                value: Value::BitString(ast::BitString {
-                    length: None,
-                    base: BaseSpecifier::X,
-                    value: Latin1String::from_utf8_unchecked("ff")
-                }),
-                pos: source.entire_pos(),
-                comments: None,
-            },]
-        );
-        let (source, _, tokens) = tokenize("12ux\"ff\"");
-        assert_eq!(
-            tokens,
-            vec![Token {
-                kind: BitString,
-                value: Value::BitString(ast::BitString {
-                    length: Some(12),
-                    base: BaseSpecifier::UX,
-                    value: Latin1String::from_utf8_unchecked("ff")
-                }),
-                pos: source.entire_pos(),
-                comments: None,
-            },]
-        );
+        use BaseSpecifier::{B, D, O, SB, SO, SX, UB, UO, UX, X};
 
-        let (source, symtab, tokens) = tokenize("u");
+        // Test all base specifiers
+        for &base in [B, O, X, D, SB, SO, SX, UB, UO, UX].iter() {
+            let (base_spec, value, length) = match base {
+                B => ("b", "10", 2),
+                O => ("o", "76543210", 8 * 3),
+                X => ("x", "fedcba987654321", 16 * 4),
+                D => ("d", "9876543210", 34),
+                SB => ("sb", "10", 2),
+                SO => ("so", "76543210", 8 * 3),
+                SX => ("sx", "fedcba987654321", 16 * 4),
+                UB => ("ub", "10", 2),
+                UO => ("uo", "76543210", 8 * 3),
+                UX => ("ux", "fedcba987654321", 16 * 4),
+            };
+
+            // Test with upper and lower case base specifier
+            for &upper_case in [true, false].iter() {
+                // Test with and without length prefix
+                for &use_length in [true, false].iter() {
+                    let (length_str, length_opt) = if use_length {
+                        (length.to_string(), Some(length))
+                    } else {
+                        ("".to_owned(), None)
+                    };
+
+                    let code = format!("{}{}\"{}\"", length_str, base_spec, value);
+
+                    let code = if upper_case {
+                        code.to_ascii_uppercase()
+                    } else {
+                        code
+                    };
+
+                    let value = if upper_case {
+                        value.to_ascii_uppercase()
+                    } else {
+                        value.to_owned()
+                    };
+
+                    let (source, _, tokens) = tokenize(code.as_str());
+                    assert_eq!(
+                        tokens,
+                        vec![Token {
+                            kind: BitString,
+                            value: Value::BitString(ast::BitString {
+                                length: length_opt,
+                                base: base,
+                                value: Latin1String::from_utf8_unchecked(value.as_str())
+                            }),
+                            pos: source.entire_pos(),
+                            comments: None,
+                        },]
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn tokenize_illegal_bit_string() {
+        let (source, _, tokens, _) = tokenize_result("10x");
         assert_eq!(
             tokens,
-            vec![Token {
-                kind: Identifier,
-                value: Value::Identifier(symtab.insert_utf8("u")),
-                pos: source.entire_pos(),
-                comments: None,
-            },]
+            vec![Err(Diagnostic::error(
+                &source.entire_pos(),
+                "Invalid bit string literal"
+            ))]
+        );
+        let (source, _, tokens, _) = tokenize_result("10ux");
+        assert_eq!(
+            tokens,
+            vec![Err(Diagnostic::error(
+                &source.entire_pos(),
+                "Invalid bit string literal"
+            ))]
         );
     }
 
@@ -1863,12 +2044,24 @@ end entity"
     }
 
     #[test]
+    fn tokenize_illegal_integer() {
+        let (source, _, tokens, _) = tokenize_result("100k");
+        assert_eq!(
+            tokens,
+            vec![Err(Diagnostic::error(
+                &source.entire_pos(),
+                "Invalid integer character 'k'"
+            ))]
+        );
+    }
+
+    #[test]
     fn tokenize_illegal_based_integer() {
         // Base may only be 2-16
         let (source, _, tokens, _) = tokenize_result("1#0#");
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
                 "Base must be at least 2 and at most 16, got 1"
             ))]
@@ -1876,7 +2069,7 @@ end entity"
         let (source, _, tokens, _) = tokenize_result("17#f#");
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
                 "Base must be at least 2 and at most 16, got 17"
             ))]
@@ -1885,17 +2078,17 @@ end entity"
         let (source, _, tokens, _) = tokenize_result("3#3#");
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
-                "Illegal digit for base 3"
+                "Illegal digit '3' for base 3"
             ))]
         );
         let (source, _, tokens, _) = tokenize_result("15#f#");
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
-                "Illegal digit for base 15"
+                "Illegal digit 'f' for base 15"
             ))]
         );
     }
@@ -2036,6 +2229,27 @@ end entity"
     }
 
     #[test]
+    fn tokenize_ignores_multi_line_comments() {
+        assert_eq!(
+            kinds_tokenize(
+                "
+1
+
+/*
+comment
+*/
+
+-2 /*
+comment
+*/
+
+"
+            ),
+            vec![AbstractLiteral, Minus, AbstractLiteral]
+        );
+    }
+
+    #[test]
     fn tokenize_ir1045() {
         // http://www.eda-stds.org/isac/IRs-VHDL-93/IR1045.txt
         assert_eq!(
@@ -2050,9 +2264,9 @@ end entity"
         let (source, _, tokens, _) = tokenize_result(large_int);
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
-                "Integer too large for 64-bits signed"
+                "Integer too large for 64-bit unsigned"
             ))]
         );
 
@@ -2060,9 +2274,9 @@ end entity"
         let (source, _, tokens, _) = tokenize_result(large_int);
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
-                "Integer too large for 64-bits signed"
+                "Integer too large for 64-bit unsigned"
             ))]
         );
 
@@ -2070,7 +2284,7 @@ end entity"
         let (source, _, tokens, _) = tokenize_result(&large_int);
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
                 "Exponent too large for 32-bits signed"
             ))]
@@ -2080,29 +2294,29 @@ end entity"
         let (source, _, tokens, _) = tokenize_result(&large_int);
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
                 "Exponent too large for 32-bits signed"
             ))]
         );
 
-        let large_int = ((i64::max_value() as i128) + 1).to_string();
+        let large_int = ((u64::max_value() as i128) + 1).to_string();
         let (source, _, tokens, _) = tokenize_result(&large_int);
         assert_eq!(
             tokens,
-            vec![Err(Message::error(
+            vec![Err(Diagnostic::error(
                 &source.entire_pos(),
-                "Integer too large for 64-bits signed"
+                "Integer too large for 64-bit unsigned"
             ))]
         );
 
-        let large_int = i64::max_value().to_string();
+        let large_int = u64::max_value().to_string();
         let (source, _, tokens, _) = tokenize_result(&large_int);
         assert_eq!(
             tokens,
             vec![Ok(Token {
                 kind: AbstractLiteral,
-                value: Value::AbstractLiteral(ast::AbstractLiteral::Integer(i64::max_value())),
+                value: Value::AbstractLiteral(ast::AbstractLiteral::Integer(u64::max_value())),
                 pos: source.entire_pos(),
                 comments: None,
             })]
@@ -2121,7 +2335,7 @@ end entity"
                     pos: source.first_substr_pos("begin"),
                     comments: None,
                 }),
-                Err(Message::error(
+                Err(Diagnostic::error(
                     &source.first_substr_pos("?"),
                     "Illegal token"
                 )),
@@ -2177,8 +2391,23 @@ end entity"
             vec![Comment {
                 value: Latin1String::from_utf8_unchecked("final"),
                 pos: comment_first_substr_pos(&source, "--final"),
+                multi_line: false
             },]
         );
+    }
+
+    #[test]
+    fn extract_incomplete_multi_line_comment() {
+        let (source, _, tokens, final_comments) = tokenize_result("/* final");
+        assert_eq!(
+            tokens,
+            vec![Err(Diagnostic::error(
+                &source.first_substr_pos("/* final"),
+                "Incomplete multi-line comment"
+            ))]
+        );
+
+        assert_eq!(final_comments, vec![]);
     }
 
     #[test]
@@ -2211,10 +2440,12 @@ end entity"
                         leading: vec![Comment {
                             value: Latin1String::from_utf8_unchecked("this is a plus"),
                             pos: comment_first_substr_pos(&source, "--this is a plus"),
+                            multi_line: false
                         },],
                         trailing: Some(Comment {
                             pos: comment_first_substr_pos(&source, "--this is still a plus"),
                             value: Latin1String::from_utf8_unchecked("this is still a plus"),
+                            multi_line: false
                         }),
                     })),
                 }),
@@ -2227,15 +2458,18 @@ end entity"
                             Comment {
                                 value: Latin1String::from_utf8_unchecked("- this is not a minus"),
                                 pos: comment_first_substr_pos(&source, "--- this is not a minus"),
+                                multi_line: false
                             },
                             Comment {
                                 value: Latin1String::from_utf8_unchecked(" Neither is this"),
                                 pos: comment_first_substr_pos(&source, "-- Neither is this"),
+                                multi_line: false
                             },
                         ],
                         trailing: Some(Comment {
                             pos: comment_first_substr_pos(&source, "-- this is a minus"),
                             value: Latin1String::from_utf8_unchecked(" this is a minus"),
+                            multi_line: false
                         }),
                     })),
                 }),
@@ -2247,12 +2481,54 @@ end entity"
                 Comment {
                     value: Latin1String::from_utf8_unchecked(" a comment at the end of the file"),
                     pos: comment_first_substr_pos(&source, "-- a comment at the end of the file"),
+                    multi_line: false
                 },
                 Comment {
                     value: Latin1String::from_utf8_unchecked(" and another one"),
                     pos: comment_first_substr_pos(&source, "-- and another one"),
+                    multi_line: false
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn extract_multi_line_comments() {
+        let (source, _, tokens, final_comments) = tokenize_result(
+            "
+/*foo
+com*ment
+bar*/
+
+2
+
+/*final*/
+",
+        );
+
+        assert_eq!(
+            tokens,
+            vec![Ok(Token {
+                kind: AbstractLiteral,
+                value: Value::AbstractLiteral(ast::AbstractLiteral::Integer(2)),
+                pos: source.first_substr_pos("2"),
+                comments: Some(Box::new(TokenComments {
+                    leading: vec![Comment {
+                        value: Latin1String::from_utf8_unchecked("foo\ncom*ment\nbar"),
+                        pos: comment_first_substr_pos(&source, "/*foo\ncom*ment\nbar*/"),
+                        multi_line: true
+                    },],
+                    trailing: None,
+                })),
+            }),]
+        );
+        assert_eq!(
+            final_comments,
+            vec![Comment {
+                value: Latin1String::from_utf8_unchecked("final"),
+                pos: comment_first_substr_pos(&source, "/*final*/"),
+                multi_line: true
+            },]
         );
     }
 }
