@@ -91,13 +91,13 @@ impl PackageDesignUnit {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq, Debug))]
 pub struct EntityDesignUnit {
     pub entity: DesignUnit<EntityDeclaration>,
     pub architectures: FnvHashMap<Symbol, DesignUnit<ArchitectureBody>>,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq, Debug))]
 pub struct PackageDesignUnit {
     /// The declarative region is None when it has not yet been computed
     pub package: DesignUnit<PackageDeclaration>,
@@ -110,7 +110,6 @@ impl PackageDesignUnit {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
 pub struct Library {
     pub name: Symbol,
     entities: FnvHashMap<Symbol, EntityDesignUnit>,
