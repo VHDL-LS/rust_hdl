@@ -985,6 +985,84 @@ impl<'a> Analyzer<'a> {
         }
     }
 
+    pub fn analyze_configuration(
+        &self,
+        library: &Library,
+        cfg: &DesignUnit<ConfigurationDeclaration>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        let mut region = DeclarativeRegion::new(None);
+        self.add_implicit_context_clause(&mut region, library);
+        self.analyze_context_clause(&mut region, &cfg.context_clause, diagnostics);
+
+        let ent_name: WithPos<Name> = cfg.unit.entity_name.clone().into();
+
+        let lookup_result = {
+            match ent_name.item {
+                // Entitities are implicitly defined for configurations
+                // configuratio cfg of ent
+                Name::Designator(_) => self.lookup_selected_name(&library.region, &ent_name),
+
+                // configuratio cfg of lib.ent
+                _ => self.lookup_selected_name(&region, &ent_name),
+            }
+        };
+
+        let entity;
+        match lookup_result {
+            Ok(LookupResult::NotSelected) | Ok(LookupResult::AllWithin(_, _)) => {
+                diagnostics.push(
+                    Diagnostic::error(&cfg.unit.entity_name, "Invalid selected name for entity")
+                        .related(
+                            &cfg.unit.entity_name,
+                            "Entity name must be of the form library.entity_name or entity_name",
+                        ),
+                );
+                return;
+            }
+            Ok(LookupResult::Single(decl)) => match decl.first() {
+                AnyDeclaration::Entity(ref libsym, ref entsym) => {
+                    if libsym != &library.name {
+                        diagnostics.push(Diagnostic::error(
+                                    &ent_name,
+                                    format!("Configuration must be within the same library '{}' as the corresponding entity", &library.name),
+                                ));
+                        return;
+                    }
+
+                    entity = library.entity(entsym).expect("Expect entity is available");
+                }
+                _ => {
+                    diagnostics.push(Diagnostic::error(
+                        &ent_name,
+                        format!("'{}' does not denote an entity", &library.name),
+                    ));
+                    return;
+                }
+            },
+            Ok(LookupResult::Unfinished) => {
+                return;
+            }
+            Err(diagnostic) => {
+                diagnostics.push(diagnostic);
+                return;
+            }
+        };
+
+        let primary_pos = &entity.entity.pos();
+        let secondary_pos = &cfg.pos();
+        if primary_pos.source == secondary_pos.source && primary_pos.start > secondary_pos.start {
+            diagnostics.push(Diagnostic::error(
+                secondary_pos,
+                format!(
+                    "Configuration '{}' declared before entity '{}'",
+                    &cfg.name(),
+                    entity.entity.name()
+                ),
+            ));
+        }
+    }
+
     pub fn analyze_library(&self, library: &Library, diagnostics: &mut dyn DiagnosticHandler) {
         for package in library.packages() {
             self.analyze_package(library, package, diagnostics);
@@ -1035,6 +1113,10 @@ impl<'a> Analyzer<'a> {
                 self.analyze_architecture_body(&mut region, &architecture.unit, diagnostics);
                 region.close_both(diagnostics);
             }
+        }
+
+        for cfg in library.configurations() {
+            self.analyze_configuration(library, cfg, diagnostics);
         }
     }
 
@@ -2540,12 +2622,7 @@ end entity;
 
             for (library_name, codes) in self.libraries.iter() {
                 let design_files = codes.iter().map(|code| code.design_file()).collect();
-                let library = Library::new(
-                    library_name.clone(),
-                    &self.code_builder.symbol("work"),
-                    design_files,
-                    &mut diagnostics,
-                );
+                let library = Library::new(library_name.clone(), design_files, &mut diagnostics);
                 root.add_library(library);
             }
 
@@ -3470,6 +3547,114 @@ end package;
             vec![Diagnostic::error(
                 code.s1("missing"),
                 "No declaration of 'missing'",
+            )],
+        );
+    }
+
+    #[test]
+    fn error_on_configuration_before_entity_in_same_file() {
+        let mut builder = LibraryBuilder::new();
+
+        let code = builder.code(
+            "libname",
+            "
+configuration cfg of ent is
+  for rtl
+  end for;
+end configuration;
+
+entity ent is
+end entity;
+",
+        );
+
+        check_diagnostics(
+            builder.analyze(),
+            vec![Diagnostic::error(
+                code.s("cfg", 1),
+                "Configuration 'cfg' declared before entity 'ent'",
+            )],
+        );
+    }
+
+    #[test]
+    fn error_on_configuration_of_missing_entity() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+configuration cfg of ent is
+  for rtl
+  end for;
+end configuration;
+",
+        );
+
+        check_diagnostics(
+            builder.analyze(),
+            vec![Diagnostic::error(
+                code.s("ent", 1),
+                "No declaration of 'ent'",
+            )],
+        );
+    }
+
+    #[test]
+    fn good_configurations() {
+        let mut builder = LibraryBuilder::new();
+        builder.code(
+            "libname",
+            "
+entity ent is
+end entity;
+
+configuration cfg_good1 of ent is
+for rtl
+end for;
+end configuration;
+
+configuration cfg_good2 of work.ent is
+for rtl
+end for;
+end configuration;
+
+library libname;
+configuration cfg_good3 of libname.ent is
+for rtl
+end for;
+end configuration;
+",
+        );
+
+        check_no_diagnostics(&builder.analyze());
+    }
+
+    #[test]
+    fn error_on_configuration_of_entity_outside_of_library() {
+        let mut builder = LibraryBuilder::new();
+        builder.code(
+            "lib2",
+            "
+entity ent is
+end entity;",
+        );
+        let code = builder.code(
+            "libname",
+            "
+library lib2;
+
+configuration cfg of lib2.ent is
+  for rtl
+  end for;
+end configuration;
+",
+        );
+
+        check_diagnostics(
+            builder.analyze(),
+            vec![Diagnostic::error(
+                code.s("lib2.ent", 1),
+                "Configuration must be within the same library 'libname' as the corresponding entity",
             )],
         );
     }

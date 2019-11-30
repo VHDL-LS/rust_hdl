@@ -11,13 +11,9 @@ use fnv;
 use std::collections::hash_map::Entry;
 
 use super::declarative_region::{AnyDeclaration, DeclarativeRegion};
-use crate::ast::{
-    AnyDesignUnit, ArchitectureBody, ConfigurationDeclaration, ContextDeclaration, DesignFile,
-    DesignUnit, Designator, EntityDeclaration, HasIdent, Ident, PackageBody, PackageDeclaration,
-    PackageInstantiation, PrimaryUnit, SecondaryUnit, SelectedName,
-};
+use crate::ast::*;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
-use crate::source::{SrcPos, WithPos};
+use crate::source::SrcPos;
 use crate::symbol_table::Symbol;
 
 impl EntityDesignUnit {
@@ -124,7 +120,6 @@ pub struct Library {
 impl<'a> Library {
     pub fn new(
         name: Symbol,
-        work_sym: &Symbol,
         design_files: Vec<DesignFile>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> Library {
@@ -224,53 +219,6 @@ impl<'a> Library {
             }
         }
 
-        for config in configurations.values() {
-            let entname = match to_entity_name(&config.unit.entity_name) {
-                Ok((Some(libname), entname)) => {
-                    if !(libname.item == name || &libname.item == work_sym) {
-                        // @TODO use real scope and visibilty rules to resolve entity name
-                        // @TODO does not detect missing library clause for libname
-                        // @TODO does not detect if libname is shadowed by other use clause
-                        diagnostics.push(Diagnostic::error(
-                                libname,
-                                format!("Configuration must be within the same library '{}' as the corresponding entity", name),
-                            ));
-                        continue;
-                    } else {
-                        entname
-                    }
-                }
-                Ok((None, entname)) => entname,
-                Err(diagnostic) => {
-                    diagnostics.push(diagnostic);
-                    continue;
-                }
-            };
-
-            if let Some(entity) = entities.get(&entname.item) {
-                let primary_pos = &entity.entity.pos();
-                let secondary_pos = &config.pos();
-                if primary_pos.source == secondary_pos.source
-                    && primary_pos.start > secondary_pos.start
-                {
-                    diagnostics.push(Diagnostic::error(
-                        secondary_pos,
-                        format!(
-                            "Configuration '{}' declared before entity '{}'",
-                            &config.name(),
-                            entity.entity.name()
-                        ),
-                    ));
-                }
-            } else {
-                diagnostics.push(Diagnostic::error(
-                    entname.pos,
-                    format!("No entity '{}' within library '{}'", entname.item, name),
-                ));
-                continue;
-            }
-        }
-
         let mut region = DeclarativeRegion::new(None);
 
         for pkg in packages.values() {
@@ -298,7 +246,12 @@ impl<'a> Library {
         }
 
         for ent in entities.values() {
-            region.add(ent.entity.ident(), AnyDeclaration::Other, diagnostics);
+            let sym = ent.entity.ident().item.clone();
+            region.add(
+                ent.entity.ident(),
+                AnyDeclaration::Entity(name.clone(), sym),
+                diagnostics,
+            );
         }
 
         for cfg in configurations.values() {
@@ -325,7 +278,6 @@ impl<'a> Library {
         }
     }
 
-    #[cfg(test)]
     pub fn entity(&'a self, name: &Symbol) -> Option<&'a EntityDesignUnit> {
         self.entities.get(name)
     }
@@ -365,7 +317,6 @@ impl<'a> Library {
         self.entities.values()
     }
 
-    #[cfg(test)]
     pub fn configurations(&self) -> impl Iterator<Item = &DesignUnit<ConfigurationDeclaration>> {
         self.configurations.values()
     }
@@ -387,37 +338,6 @@ impl<'a> Library {
     pub fn contexts(&self) -> impl Iterator<Item = &ContextDeclaration> {
         self.contexts.values()
     }
-}
-
-/// Extract library_name.entity_name for entity name in configurations
-fn to_entity_name(
-    selected_name: &WithPos<SelectedName>,
-) -> Result<(Option<Ident>, Ident), Diagnostic> {
-    match selected_name.item {
-        SelectedName::Selected(
-            ref prefix,
-            WithPos {
-                item: Designator::Identifier(ref sym),
-                ref pos,
-            },
-        ) => {
-            if let SelectedName::Designator(Designator::Identifier(ref lib_sym)) = prefix.item {
-                let library_name = WithPos::from(lib_sym.clone(), prefix.pos.clone());
-                let entity_name = WithPos::from(sym.clone(), pos.clone());
-                return Ok((Some(library_name), entity_name));
-            }
-        }
-        SelectedName::Designator(Designator::Identifier(ref sym)) => {
-            return Ok((None, WithPos::from(sym.clone(), selected_name.pos.clone())));
-        }
-        _ => {}
-    }
-    Err(
-        Diagnostic::error(&selected_name, "Invalid selected name for entity").related(
-            &selected_name,
-            "Entity name must be of the form library.entity_name or entity_name",
-        ),
-    )
 }
 
 pub struct DesignRoot {
@@ -458,7 +378,6 @@ mod tests {
         let mut diagnostics = Vec::new();
         let library = Library::new(
             code.symbol(name),
-            &code.symbol("work"),
             vec![code.design_file()],
             &mut diagnostics,
         );
@@ -723,7 +642,6 @@ end package;
         let mut diagnostics = Vec::new();
         let library = Library::new(
             builder.symbol("libname"),
-            &builder.symbol("work"),
             vec![file1.design_file(), file2.design_file()],
             &mut diagnostics,
         );
@@ -974,108 +892,6 @@ end configuration;
             .related(code.s1("cfg"), "Previously defined here")],
         );
         assert_eq!(library.configurations, configurations);
-    }
-
-    #[test]
-    fn error_on_configuration_before_entity_in_same_file() {
-        let code = Code::new(
-            "
-configuration cfg of ent is
-  for rtl
-  end for;
-end configuration;
-
-entity ent is
-end entity;
-",
-        );
-        let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
-
-        let cfg = code
-            .between("configuration cfg", "end configuration;")
-            .configuration();
-        let mut configurations = FnvHashMap::default();
-        configurations.insert(
-            code.symbol("cfg"),
-            DesignUnit {
-                context_clause: vec![],
-                unit: cfg,
-            },
-        );
-        check_diagnostics(
-            diagnostics,
-            vec![Diagnostic::error(
-                code.s("cfg", 1),
-                "Configuration 'cfg' declared before entity 'ent'",
-            )],
-        );
-        assert_eq!(library.configurations, configurations);
-    }
-
-    #[test]
-    fn error_on_configuration_of_missing_entity() {
-        let code = Code::new(
-            "
-configuration cfg of ent is
-  for rtl
-  end for;
-end configuration;
-",
-        );
-        let (_, diagnostics) = new_library_with_diagnostics(&code, "libname");
-
-        check_diagnostics(
-            diagnostics,
-            vec![Diagnostic::error(
-                code.s("ent", 1),
-                "No entity 'ent' within library 'libname'",
-            )],
-        );
-    }
-
-    #[test]
-    fn error_on_configuration_of_entity_outside_of_library() {
-        let code = Code::new(
-            "
-configuration cfg of lib2.ent is
-  for rtl
-  end for;
-end configuration;
-",
-        );
-        let (_, diagnostics) = new_library_with_diagnostics(&code, "libname");
-
-        check_diagnostics(
-            diagnostics,
-            vec![Diagnostic::error(
-                code.s("lib2", 1),
-                "Configuration must be within the same library 'libname' as the corresponding entity",
-            )],
-        );
-    }
-
-    #[test]
-    fn error_on_configuration_of_with_bad_selected_name() {
-        let code = Code::new(
-            "
-configuration cfg of lib2.pkg.ent is
-  for rtl
-  end for;
-end configuration;
-",
-        );
-        let (_, diagnostics) = new_library_with_diagnostics(&code, "libname");
-
-        check_diagnostics(
-            diagnostics,
-            vec![
-                Diagnostic::error(code.s1("lib2.pkg.ent"), "Invalid selected name for entity")
-                    .related(
-                        code.s1("lib2.pkg.ent"),
-                        "Entity name must be of the form library.entity_name or entity_name",
-                    ),
-            ],
-        );
     }
 
     #[test]

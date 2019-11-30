@@ -169,20 +169,13 @@ impl Project {
             }
         }
 
-        let work_sym = self.parser.symbol(&Latin1String::new(b"work"));
         for (library_name, design_files) in library_to_design_file.drain() {
-            root.add_library(Library::new(
-                library_name,
-                &work_sym,
-                design_files,
-                &mut diagnostics,
-            ));
+            root.add_library(Library::new(library_name, design_files, &mut diagnostics));
         }
 
         for library_name in self.empty_libraries.iter() {
             root.add_library(Library::new(
                 library_name.clone(),
-                &work_sym,
                 Vec::new(),
                 &mut diagnostics,
             ));
