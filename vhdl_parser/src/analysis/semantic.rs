@@ -229,14 +229,14 @@ impl<'a> Analyzer<'a> {
                     AnyDeclaration::Other,
                     &mut diagnostics,
                 );
+            }
 
-                for configuration in entity.configurations() {
-                    region.add(
-                        configuration.ident(),
-                        AnyDeclaration::Other,
-                        &mut diagnostics,
-                    );
-                }
+            for configuration in library.configurations() {
+                region.add(
+                    configuration.ident(),
+                    AnyDeclaration::Other,
+                    &mut diagnostics,
+                );
             }
 
             for instance in library.package_instances() {

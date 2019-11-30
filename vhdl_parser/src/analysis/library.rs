@@ -58,49 +58,6 @@ impl EntityDesignUnit {
             }
         }
     }
-
-    fn add_configuration(
-        &mut self,
-        configuration: DesignUnit<ConfigurationDeclaration>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) {
-        match self.configurations.entry(configuration.name().clone()) {
-            Entry::Occupied(..) => {
-                diagnostics.push(Diagnostic::error(
-                    &configuration.ident(),
-                    format!(
-                        "Duplicate configuration '{}' of entity '{}'",
-                        &configuration.name(),
-                        self.entity.name(),
-                    ),
-                ));
-            }
-            Entry::Vacant(entry) => {
-                {
-                    let primary_pos = &self.entity.pos();
-                    let secondary_pos = &configuration.pos();
-                    if primary_pos.source == secondary_pos.source
-                        && primary_pos.start > secondary_pos.start
-                    {
-                        diagnostics.push(Diagnostic::error(
-                            secondary_pos,
-                            format!(
-                                "Configuration '{}' declared before entity '{}'",
-                                &configuration.name(),
-                                self.entity.name()
-                            ),
-                        ));
-                    }
-                };
-
-                entry.insert(configuration);
-            }
-        }
-    }
-
-    pub fn configurations(&self) -> impl Iterator<Item = &DesignUnit<ConfigurationDeclaration>> {
-        self.configurations.values()
-    }
 }
 
 impl PackageDesignUnit {
@@ -138,7 +95,6 @@ impl PackageDesignUnit {
 pub struct EntityDesignUnit {
     pub entity: DesignUnit<EntityDeclaration>,
     pub architectures: FnvHashMap<Symbol, DesignUnit<ArchitectureBody>>,
-    pub configurations: FnvHashMap<Symbol, DesignUnit<ConfigurationDeclaration>>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -158,8 +114,7 @@ impl PackageDesignUnit {
 pub struct Library {
     pub name: Symbol,
     entities: FnvHashMap<Symbol, EntityDesignUnit>,
-    // Name to entity name mapping
-    cfg_to_entity: FnvHashMap<Symbol, Symbol>,
+    configurations: FnvHashMap<Symbol, DesignUnit<ConfigurationDeclaration>>,
     packages: FnvHashMap<Symbol, PackageDesignUnit>,
     package_instances: FnvHashMap<Symbol, DesignUnit<PackageInstantiation>>,
     contexts: FnvHashMap<Symbol, ContextDeclaration>,
@@ -179,7 +134,7 @@ impl<'a> Library {
         let mut contexts = FnvHashMap::default();
         let mut architectures = Vec::new();
         let mut package_bodies = Vec::new();
-        let mut configurations = Vec::new();
+        let mut configurations = FnvHashMap::default();
 
         for design_file in design_files {
             for design_unit in design_file.design_units {
@@ -198,41 +153,39 @@ impl<'a> Library {
                                     )).related(entry.get(), "Previously defined here");
                                 diagnostics.push(diagnostic);
                             }
-                            Entry::Vacant(entry) => match primary {
-                                PrimaryUnit::EntityDeclaration(entity) => {
-                                    entry.insert(entity.unit.ident.pos.clone());
-                                    entities.insert(
-                                        entity.name().clone(),
-                                        EntityDesignUnit {
-                                            entity,
-                                            architectures: FnvHashMap::default(),
-                                            configurations: FnvHashMap::default(),
-                                        },
-                                    );
-                                }
-                                PrimaryUnit::PackageDeclaration(package) => {
-                                    entry.insert(package.ident().pos.clone());
-                                    packages.insert(
-                                        package.name().clone(),
-                                        PackageDesignUnit {
-                                            package,
-                                            body: None,
-                                        },
-                                    );
-                                }
-                                PrimaryUnit::PackageInstance(inst) => {
-                                    entry.insert(inst.ident().pos.clone());
-                                    package_instances.insert(inst.name().clone(), inst);
-                                }
-                                PrimaryUnit::ContextDeclaration(context) => {
-                                    entry.insert(context.ident().pos.clone());
-                                    contexts.insert(context.name().clone(), context);
-                                }
+                            Entry::Vacant(entry) => {
+                                entry.insert(primary_ident.pos.clone());
+                                match primary {
+                                    PrimaryUnit::EntityDeclaration(entity) => {
+                                        entities.insert(
+                                            entity.name().clone(),
+                                            EntityDesignUnit {
+                                                entity,
+                                                architectures: FnvHashMap::default(),
+                                            },
+                                        );
+                                    }
+                                    PrimaryUnit::PackageDeclaration(package) => {
+                                        packages.insert(
+                                            package.name().clone(),
+                                            PackageDesignUnit {
+                                                package,
+                                                body: None,
+                                            },
+                                        );
+                                    }
+                                    PrimaryUnit::PackageInstance(inst) => {
+                                        package_instances.insert(inst.name().clone(), inst);
+                                    }
+                                    PrimaryUnit::ContextDeclaration(context) => {
+                                        contexts.insert(context.name().clone(), context);
+                                    }
 
-                                PrimaryUnit::Configuration(config) => {
-                                    configurations.push(config);
+                                    PrimaryUnit::Configuration(config) => {
+                                        configurations.insert(config.name().clone(), config);
+                                    }
                                 }
-                            },
+                            }
                         }
                     }
                     AnyDesignUnit::Secondary(secondary) => match secondary {
@@ -270,55 +223,57 @@ impl<'a> Library {
             }
         }
 
-        for config in configurations {
-            let entity = {
-                let entname = match to_entity_name(&config.unit.entity_name) {
-                    Ok((Some(libname), entname)) => {
-                        if !(libname.item == name || &libname.item == work_sym) {
-                            // @TODO use real scope and visibilty rules to resolve entity name
-                            // @TODO does not detect missing library clause for libname
-                            // @TODO does not detect if libname is shadowed by other use clause
-                            diagnostics.push(Diagnostic::error(
+        for config in configurations.values() {
+            let entname = match to_entity_name(&config.unit.entity_name) {
+                Ok((Some(libname), entname)) => {
+                    if !(libname.item == name || &libname.item == work_sym) {
+                        // @TODO use real scope and visibilty rules to resolve entity name
+                        // @TODO does not detect missing library clause for libname
+                        // @TODO does not detect if libname is shadowed by other use clause
+                        diagnostics.push(Diagnostic::error(
                                 libname,
                                 format!("Configuration must be within the same library '{}' as the corresponding entity", name),
                             ));
-                            continue;
-                        } else {
-                            entname
-                        }
-                    }
-                    Ok((None, entname)) => entname,
-                    Err(diagnostic) => {
-                        diagnostics.push(diagnostic);
                         continue;
+                    } else {
+                        entname
                     }
-                };
-
-                if let Some(entity) = entities.get_mut(&entname.item) {
-                    entity
-                } else {
-                    diagnostics.push(Diagnostic::error(
-                        entname.pos,
-                        format!("No entity '{}' within library '{}'", entname.item, name),
-                    ));
+                }
+                Ok((None, entname)) => entname,
+                Err(diagnostic) => {
+                    diagnostics.push(diagnostic);
                     continue;
                 }
             };
 
-            entity.add_configuration(config, diagnostics);
-        }
-
-        let mut cfg_to_entity = FnvHashMap::default();
-        for entity in entities.values() {
-            for configuration in entity.configurations.values() {
-                cfg_to_entity.insert(configuration.name().clone(), entity.entity.name().clone());
+            if let Some(entity) = entities.get(&entname.item) {
+                let primary_pos = &entity.entity.pos();
+                let secondary_pos = &config.pos();
+                if primary_pos.source == secondary_pos.source
+                    && primary_pos.start > secondary_pos.start
+                {
+                    diagnostics.push(Diagnostic::error(
+                        secondary_pos,
+                        format!(
+                            "Configuration '{}' declared before entity '{}'",
+                            &config.name(),
+                            entity.entity.name()
+                        ),
+                    ));
+                }
+            } else {
+                diagnostics.push(Diagnostic::error(
+                    entname.pos,
+                    format!("No entity '{}' within library '{}'", entname.item, name),
+                ));
+                continue;
             }
         }
 
         Library {
             name,
             entities,
-            cfg_to_entity,
+            configurations,
             packages,
             package_instances,
             contexts,
@@ -335,10 +290,7 @@ impl<'a> Library {
         &'a self,
         name: &Symbol,
     ) -> Option<&'a DesignUnit<ConfigurationDeclaration>> {
-        self.cfg_to_entity
-            .get(name)
-            .and_then(|entity_name| self.entities.get(entity_name))
-            .and_then(|entity| entity.configurations.get(name))
+        self.configurations.get(name)
     }
 
     pub fn package(&'a self, name: &Symbol) -> Option<&'a PackageDesignUnit> {
@@ -358,6 +310,10 @@ impl<'a> Library {
 
     pub fn entities(&self) -> impl Iterator<Item = &EntityDesignUnit> {
         self.entities.values()
+    }
+
+    pub fn configurations(&self) -> impl Iterator<Item = &DesignUnit<ConfigurationDeclaration>> {
+        self.configurations.values()
     }
 
     pub fn packages(&'a self) -> impl Iterator<Item = &'a PackageDesignUnit> {
@@ -468,7 +424,6 @@ end entity;
                     unit: code.entity()
                 },
                 architectures: FnvHashMap::default(),
-                configurations: FnvHashMap::default()
             })
         );
     }
@@ -802,8 +757,7 @@ end architecture;
                     context_clause: vec![],
                     unit: entity
                 },
-                architectures,
-                configurations: FnvHashMap::default()
+                architectures
             })
         );
     }
@@ -883,7 +837,7 @@ end configuration;
 ",
         );
         let library = new_library(&code, "libname");
-        let entity = library.entity(&code.symbol("ent")).unwrap();
+
         let cfg1 = DesignUnit {
             context_clause: vec![],
             unit: code
@@ -908,7 +862,7 @@ end configuration;
         configurations.insert(code.symbol("cfg2"), cfg2.clone());
         configurations.insert(code.symbol("cfg3"), cfg3.clone());
 
-        assert_eq!(entity.configurations, configurations);
+        assert_eq!(library.configurations, configurations);
         assert_eq!(library.configuration(&code.symbol("cfg1")), Some(&cfg1));
         assert_eq!(library.configuration(&code.symbol("cfg2")), Some(&cfg2));
         assert_eq!(library.configuration(&code.symbol("cfg3")), Some(&cfg3));
@@ -935,7 +889,6 @@ end configuration;
         );
         let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
-        let entity = library.entity(&code.symbol("ent")).unwrap();
         let cfg = code
             .between("configuration cfg", "end configuration;")
             .configuration();
@@ -951,10 +904,11 @@ end configuration;
             diagnostics,
             vec![Diagnostic::error(
                 code.s("cfg", 2),
-                "Duplicate configuration 'cfg' of entity 'ent'",
-            )],
+                "A primary unit has already been declared with name 'cfg' in library 'libname'",
+            )
+            .related(code.s1("cfg"), "Previously defined here")],
         );
-        assert_eq!(entity.configurations, configurations);
+        assert_eq!(library.configurations, configurations);
     }
 
     #[test]
@@ -972,7 +926,6 @@ end entity;
         );
         let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
-        let entity = library.entity(&code.symbol("ent")).unwrap();
         let cfg = code
             .between("configuration cfg", "end configuration;")
             .configuration();
@@ -991,7 +944,7 @@ end entity;
                 "Configuration 'cfg' declared before entity 'ent'",
             )],
         );
-        assert_eq!(entity.configurations, configurations);
+        assert_eq!(library.configurations, configurations);
     }
 
     #[test]
