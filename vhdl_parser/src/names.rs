@@ -6,9 +6,9 @@
 
 /// LRM 8. Names
 use crate::ast::{
-    ActualPart, AssociationElement, AttributeName, Designator, Direction, DiscreteRange,
-    Expression, ExternalName, ExternalObjectClass, ExternalPath, FunctionCall, Ident, Literal,
-    Name, Range, RangeConstraint, SelectedName, Signature,
+    to_simple_name, ActualPart, AssociationElement, AttributeName, Designator, Direction,
+    DiscreteRange, Expression, ExternalName, ExternalObjectClass, ExternalPath, FunctionCall,
+    Ident, Literal, Name, Range, RangeConstraint, SelectedName, Signature,
 };
 use crate::diagnostic::{Diagnostic, ParseResult};
 use crate::expression::{parse_expression, parse_expression_initial_token};
@@ -62,16 +62,6 @@ pub fn into_selected_name(name: WithPos<Name>) -> ParseResult<WithPos<SelectedNa
 pub fn expression_to_ident(name: WithPos<Expression>) -> ParseResult<Ident> {
     let name = expression_to_name(name)?;
     to_simple_name(name)
-}
-
-pub fn to_simple_name(name: WithPos<Name>) -> ParseResult<Ident> {
-    match name.item {
-        Name::Designator(Designator::Identifier(ident)) => Ok(WithPos {
-            item: ident,
-            pos: name.pos,
-        }),
-        _ => Err(Diagnostic::error(&name, "Expected selected name")),
-    }
 }
 
 pub fn parse_identifier_list(stream: &mut TokenStream) -> ParseResult<Vec<Ident>> {

@@ -4,11 +4,10 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::ast::{
-    ContextDeclaration, ContextItem, ContextReference, Designator, LibraryClause, Name, UseClause,
-};
+use crate::ast::to_simple_name;
+use crate::ast::{ContextDeclaration, ContextItem, ContextReference, LibraryClause, UseClause};
 use crate::common::error_on_end_identifier_mismatch;
-use crate::diagnostic::{push_some, Diagnostic, DiagnosticHandler, ParseResult};
+use crate::diagnostic::{push_some, DiagnosticHandler, ParseResult};
 use crate::names::parse_name;
 use crate::source::WithPos;
 use crate::tokenizer::{Kind::*, Token};
@@ -113,17 +112,7 @@ pub fn parse_context(
             )
         }
 
-        let ident = {
-            match name.item {
-                Name::Designator(Designator::Identifier(symbol)) => WithPos {
-                    item: symbol,
-                    pos: name.pos,
-                },
-                _ => {
-                    return Err(Diagnostic::error(&name, "Expected simple name"));
-                }
-            }
-        };
+        let ident = to_simple_name(name)?;
 
         push_some(
             diagnostics,
@@ -155,6 +144,7 @@ pub fn parse_context(
 mod tests {
     use super::*;
 
+    use crate::diagnostic::Diagnostic;
     use crate::test_util::Code;
 
     #[test]

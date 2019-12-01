@@ -5,11 +5,12 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::ast::{
-    Alternative, AssignmentRightHand, AssociationElement, BlockStatement, CaseGenerateStatement,
-    ConcurrentAssertStatement, ConcurrentProcedureCall, ConcurrentSignalAssignment,
-    ConcurrentStatement, Conditional, Declaration, ForGenerateStatement, FunctionCall,
-    GenerateBody, Ident, IfGenerateStatement, InstantiatedUnit, InstantiationStatement,
-    LabeledConcurrentStatement, Name, ProcessStatement, SensitivityList, Target,
+    to_simple_name, Alternative, AssignmentRightHand, AssociationElement, BlockStatement,
+    CaseGenerateStatement, ConcurrentAssertStatement, ConcurrentProcedureCall,
+    ConcurrentSignalAssignment, ConcurrentStatement, Conditional, Declaration,
+    ForGenerateStatement, FunctionCall, GenerateBody, Ident, IfGenerateStatement, InstantiatedUnit,
+    InstantiationStatement, LabeledConcurrentStatement, Name, ProcessStatement, SensitivityList,
+    Target,
 };
 use crate::common::error_on_end_identifier_mismatch;
 use crate::declarative_part::{is_declarative_part, parse_declarative_part};
@@ -18,7 +19,7 @@ use crate::expression::parse_aggregate_leftpar_known;
 use crate::expression::{parse_choices, parse_expression};
 use crate::names::{
     expression_to_ident, into_selected_name, parse_association_list, parse_name_initial_token,
-    parse_selected_name, to_simple_name,
+    parse_selected_name,
 };
 use crate::range::parse_discrete_range;
 use crate::sequential_statement::{

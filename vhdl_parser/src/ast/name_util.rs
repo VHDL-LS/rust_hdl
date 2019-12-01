@@ -4,11 +4,55 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-//! Traits concerning identiers and designators
-
+//! Name conversions
 use super::*;
+use crate::diagnostic::{Diagnostic, ParseResult};
 use crate::source::{SrcPos, WithPos};
 use crate::symbol_table::Symbol;
+
+impl From<WithPos<SelectedName>> for WithPos<Name> {
+    fn from(selected_name: WithPos<SelectedName>) -> WithPos<Name> {
+        match selected_name.item {
+            SelectedName::Designator(designator) => {
+                WithPos::from(Name::Designator(designator), selected_name.pos)
+            }
+
+            SelectedName::Selected(prefix, suffix) => {
+                let prefix: WithPos<SelectedName> = *prefix;
+                WithPos::from(
+                    Name::Selected(Box::new(prefix.into()), suffix),
+                    selected_name.pos,
+                )
+            }
+        }
+    }
+}
+
+pub fn to_simple_name(name: WithPos<Name>) -> ParseResult<Ident> {
+    match name.item {
+        Name::Designator(Designator::Identifier(ident)) => Ok(WithPos {
+            item: ident,
+            pos: name.pos,
+        }),
+        _ => Err(Diagnostic::error(&name, "Expected simple name")),
+    }
+}
+
+pub trait HasDesignator {
+    fn designator(&self) -> &Designator;
+}
+
+impl<T: HasDesignator> HasDesignator for WithPos<T> {
+    fn designator(&self) -> &Designator {
+        self.item.designator()
+    }
+}
+
+impl HasDesignator for Designator {
+    fn designator(&self) -> &Designator {
+        self
+    }
+}
 
 pub trait HasIdent {
     fn ident(&self) -> &Ident;

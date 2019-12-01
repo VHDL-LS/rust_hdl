@@ -9,12 +9,10 @@
 #![allow(clippy::large_enum_variant)]
 
 mod display;
-mod has_ident;
-mod name;
+mod name_util;
 
 pub use self::display::*;
-pub use self::has_ident::*;
-pub use self::name::*;
+pub use self::name_util::*;
 
 use crate::latin_1::Latin1String;
 use crate::source::WithPos;

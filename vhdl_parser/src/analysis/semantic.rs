@@ -77,7 +77,7 @@ impl<'a> Analyzer<'a> {
                             .root
                             .expect_library(library_name)
                             .region
-                            .lookup(&suffix.item, false)
+                            .lookup(suffix.designator(), false)
                         {
                             Ok(LookupResult::Single(visible_decl.clone()))
                         } else {
@@ -107,7 +107,9 @@ impl<'a> Analyzer<'a> {
                             library,
                             package,
                         ) {
-                            if let Some(visible_decl) = data.region.lookup(&suffix.item, false) {
+                            if let Some(visible_decl) =
+                                data.region.lookup(suffix.designator(), false)
+                            {
                                 Ok(LookupResult::Single(visible_decl.clone()))
                             } else {
                                 Err(Diagnostic::error(
@@ -136,7 +138,9 @@ impl<'a> Analyzer<'a> {
                         if let Ok(data) =
                             self.analyze_package_instance_unit(Some(&prefix.pos), library, instance)
                         {
-                            if let Some(visible_decl) = data.region.lookup(&suffix.item, false) {
+                            if let Some(visible_decl) =
+                                data.region.lookup(suffix.designator(), false)
+                            {
                                 Ok(LookupResult::Single(visible_decl.clone()))
                             } else {
                                 Err(Diagnostic::error(
@@ -156,7 +160,7 @@ impl<'a> Analyzer<'a> {
                     }
 
                     AnyDeclaration::LocalPackageInstance(ref instance_name, ref data) => {
-                        if let Some(visible_decl) = data.region.lookup(&suffix.item, false) {
+                        if let Some(visible_decl) = data.region.lookup(suffix.designator(), false) {
                             Ok(LookupResult::Single(visible_decl.clone()))
                         } else {
                             Err(Diagnostic::error(
@@ -644,7 +648,7 @@ impl<'a> Analyzer<'a> {
                                                 &suffix,
                                                 format!(
                                                     "'{}' does not denote a context declaration",
-                                                    &suffix.item
+                                                    suffix.designator()
                                                 ),
                                             ));
                                         }

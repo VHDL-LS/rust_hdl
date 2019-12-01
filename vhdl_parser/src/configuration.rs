@@ -5,15 +5,16 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::ast::{
-    BindingIndication, BlockConfiguration, ComponentConfiguration, ComponentSpecification,
-    ConfigurationDeclaration, ConfigurationDeclarativeItem, ConfigurationItem,
-    ConfigurationSpecification, EntityAspect, InstantiationList, Name, VUnitBindingIndication,
+    to_simple_name, BindingIndication, BlockConfiguration, ComponentConfiguration,
+    ComponentSpecification, ConfigurationDeclaration, ConfigurationDeclarativeItem,
+    ConfigurationItem, ConfigurationSpecification, EntityAspect, InstantiationList, Name,
+    VUnitBindingIndication,
 };
 use crate::common::error_on_end_identifier_mismatch;
 use crate::concurrent_statement::parse_generic_and_port_map;
 use crate::context::parse_use_clause_no_keyword;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler, ParseResult};
-use crate::names::{parse_name, parse_name_initial_token, parse_selected_name, to_simple_name};
+use crate::names::{parse_name, parse_name_initial_token, parse_selected_name};
 use crate::source::WithPos;
 use crate::tokenizer::Kind::*;
 use crate::tokenstream::TokenStream;

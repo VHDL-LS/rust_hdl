@@ -5,8 +5,8 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::ast::{
-    Alternative, AssertStatement, AssignmentRightHand, CaseStatement, Conditional, Conditionals,
-    ExitStatement, Expression, ForceMode, FunctionCall, IfStatement, IterationScheme,
+    to_simple_name, Alternative, AssertStatement, AssignmentRightHand, CaseStatement, Conditional,
+    Conditionals, ExitStatement, Expression, ForceMode, FunctionCall, IfStatement, IterationScheme,
     LabeledSequentialStatement, LoopStatement, Name, NextStatement, ReportStatement,
     ReturnStatement, Selection, SequentialStatement, SignalAssignment, SignalForceAssignment,
     SignalReleaseAssignment, Target, VariableAssignment, WaitStatement, Waveform,
@@ -14,7 +14,7 @@ use crate::ast::{
 use crate::common::parse_optional;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler, ParseResult};
 use crate::expression::{parse_aggregate_leftpar_known, parse_choices, parse_expression};
-use crate::names::{parse_name, parse_name_initial_token, to_simple_name};
+use crate::names::{parse_name, parse_name_initial_token};
 use crate::range::parse_discrete_range;
 use crate::source::WithPos;
 use crate::tokenizer::{Kind::*, Token};
