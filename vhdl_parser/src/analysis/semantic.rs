@@ -296,7 +296,7 @@ impl<'a> Analyzer<'a> {
         subprogram: &SubprogramDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
-        let mut region = DeclarativeRegion::new(Some(parent));
+        let mut region = DeclarativeRegion::new_borrowed_parent(parent);
 
         match subprogram {
             SubprogramDeclaration::Function(fun) => {
@@ -353,13 +353,13 @@ impl<'a> Analyzer<'a> {
                 region.add(&component.ident, AnyDeclaration::Other, diagnostics);
 
                 {
-                    let mut region = DeclarativeRegion::new(Some(region));
+                    let mut region = DeclarativeRegion::new_borrowed_parent(region);
                     self.analyze_interface_list(&mut region, &component.generic_list, diagnostics);
                     region.close_both(diagnostics);
                 }
 
                 {
-                    let mut region = DeclarativeRegion::new(Some(region));
+                    let mut region = DeclarativeRegion::new_borrowed_parent(region);
                     self.analyze_interface_list(&mut region, &component.port_list, diagnostics);
                     region.close_both(diagnostics);
                 }
@@ -381,7 +381,7 @@ impl<'a> Analyzer<'a> {
                     diagnostics,
                 );
                 self.analyze_subprogram_declaration(region, &body.specification, diagnostics);
-                let mut region = DeclarativeRegion::new(Some(region));
+                let mut region = DeclarativeRegion::new_borrowed_parent(region);
                 self.analyze_declarative_part(&mut region, &body.declarations, diagnostics);
             }
             Declaration::SubprogramDeclaration(subdecl) => {
@@ -432,7 +432,7 @@ impl<'a> Analyzer<'a> {
                         }
                     }
                     TypeDefinition::ProtectedBody(ref body) => {
-                        let mut region = DeclarativeRegion::new(Some(region));
+                        let mut region = DeclarativeRegion::new_borrowed_parent(region);
                         self.analyze_declarative_part(&mut region, &body.decl, diagnostics);
                     }
                     TypeDefinition::Protected(ref prot_decl) => {
@@ -449,7 +449,7 @@ impl<'a> Analyzer<'a> {
                         }
                     }
                     TypeDefinition::Record(ref element_decls) => {
-                        let mut record_region = DeclarativeRegion::new(None);
+                        let mut record_region = DeclarativeRegion::default();
                         for elem_decl in element_decls.iter() {
                             self.analyze_subtype_indicaton(region, &elem_decl.subtype, diagnostics);
                             record_region.add(&elem_decl.ident, AnyDeclaration::Other, diagnostics);
@@ -681,7 +681,7 @@ impl<'a> Analyzer<'a> {
         body: &GenerateBody,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
-        let mut region = DeclarativeRegion::new(Some(parent));
+        let mut region = DeclarativeRegion::new_borrowed_parent(parent);
 
         if let Some(ref decl) = body.decl {
             self.analyze_declarative_part(&mut region, &decl, diagnostics);
@@ -697,12 +697,12 @@ impl<'a> Analyzer<'a> {
     ) {
         match statement.statement {
             ConcurrentStatement::Block(ref block) => {
-                let mut region = DeclarativeRegion::new(Some(parent));
+                let mut region = DeclarativeRegion::new_borrowed_parent(parent);
                 self.analyze_declarative_part(&mut region, &block.decl, diagnostics);
                 self.analyze_concurrent_part(&region, &block.statements, diagnostics);
             }
             ConcurrentStatement::Process(ref process) => {
-                let mut region = DeclarativeRegion::new(Some(parent));
+                let mut region = DeclarativeRegion::new_borrowed_parent(parent);
                 self.analyze_declarative_part(&mut region, &process.decl, diagnostics);
             }
             ConcurrentStatement::ForGenerate(ref gen) => {
@@ -817,7 +817,7 @@ impl<'a> Analyzer<'a> {
             package.package.name(),
         ) {
             StartAnalysisResult::NotYetAnalyzed(pending) => {
-                let mut root_region = Box::new(DeclarativeRegion::new(None));
+                let mut root_region = Box::new(DeclarativeRegion::default());
                 if !(library.name == self.std_sym && *package.package.name() == self.standard_sym) {
                     self.add_implicit_context_clause(&mut root_region, library);
                 }
@@ -962,7 +962,7 @@ impl<'a> Analyzer<'a> {
             package_instance.unit.name(),
         ) {
             StartAnalysisResult::NotYetAnalyzed(pending) => {
-                let mut region = DeclarativeRegion::new(None);
+                let mut region = DeclarativeRegion::default();
                 self.add_implicit_context_clause(&mut region, library);
                 self.analyze_context_clause(
                     &mut region,
@@ -980,7 +980,7 @@ impl<'a> Analyzer<'a> {
                         // Failed to analyze, add empty region
                         pending.end_analysis(AnalysisData::new(
                             diagnostics,
-                            DeclarativeRegion::new(None),
+                            DeclarativeRegion::default(),
                         ))
                     }
                 }
@@ -995,7 +995,7 @@ impl<'a> Analyzer<'a> {
         cfg: &DesignUnit<ConfigurationDeclaration>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
-        let mut region = DeclarativeRegion::new(None);
+        let mut region = DeclarativeRegion::default();
         self.add_implicit_context_clause(&mut region, library);
         self.analyze_context_clause(&mut region, &cfg.context_clause, diagnostics);
 
@@ -1088,13 +1088,13 @@ impl<'a> Analyzer<'a> {
         }
 
         for context in library.contexts() {
-            let mut root_region = DeclarativeRegion::new(None);
+            let mut root_region = DeclarativeRegion::default();
             self.add_implicit_context_clause(&mut root_region, library);
             self.analyze_context_clause(&mut root_region, &context.items, diagnostics);
         }
 
         for entity in library.entities() {
-            let mut primary_root_region = DeclarativeRegion::new(None);
+            let mut primary_root_region = DeclarativeRegion::default();
             self.add_implicit_context_clause(&mut primary_root_region, library);
             self.analyze_context_clause(
                 &mut primary_root_region,
@@ -1102,7 +1102,7 @@ impl<'a> Analyzer<'a> {
                 diagnostics,
             );
 
-            let mut primary_region = DeclarativeRegion::new(Some(&primary_root_region));
+            let mut primary_region = DeclarativeRegion::new_borrowed_parent(&primary_root_region);
             self.analyze_entity_declaration(&mut primary_region, &entity.entity.unit, diagnostics);
             primary_region.close_immediate(diagnostics);
 

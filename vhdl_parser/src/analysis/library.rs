@@ -219,7 +219,7 @@ impl<'a> Library {
             }
         }
 
-        let mut region = DeclarativeRegion::new(None);
+        let mut region = DeclarativeRegion::default();
 
         for pkg in packages.values() {
             let package_sym = pkg.package.ident().item.clone();

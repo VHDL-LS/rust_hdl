@@ -245,9 +245,19 @@ pub struct DeclarativeRegion<'a> {
 }
 
 impl<'a> DeclarativeRegion<'a> {
-    pub fn new(parent: Option<&'a DeclarativeRegion<'a>>) -> DeclarativeRegion<'a> {
+    pub fn default() -> DeclarativeRegion<'static> {
         DeclarativeRegion {
-            parent: parent.map(|parent| ParentRegion::Borrowed(parent)),
+            parent: None,
+            extends: None,
+            visible: FnvHashMap::default(),
+            decls: FnvHashMap::default(),
+            kind: RegionKind::Other,
+        }
+    }
+
+    pub fn new_borrowed_parent(parent: &'a DeclarativeRegion<'a>) -> DeclarativeRegion<'a> {
+        DeclarativeRegion {
+            parent: Some(ParentRegion::Borrowed(parent)),
             extends: None,
             visible: FnvHashMap::default(),
             decls: FnvHashMap::default(),
