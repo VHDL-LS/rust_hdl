@@ -16,6 +16,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 #[derive(Clone)]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum AnyDeclaration {
     Other,
     Overloaded,
@@ -120,6 +121,7 @@ impl AnyDeclaration {
 }
 
 #[derive(Clone)]
+#[cfg_attr(test, derive(PartialEq))]
 struct AnyDeclarationData {
     /// The location where the declaration was made
     /// Builtin and implicit declaration will not have a source position
@@ -142,6 +144,7 @@ impl AnyDeclarationData {
 }
 
 #[derive(Clone)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct VisibleDeclaration {
     pub designator: Designator,
     data: Vec<AnyDeclarationData>,
@@ -219,6 +222,7 @@ enum RegionKind {
 /// Most parent regions can just be temporarily borrowed
 /// For public regions of design units the parent must be owned such that these regions can be stored in a map
 #[derive(Clone)]
+#[cfg_attr(test, derive(PartialEq))]
 enum ParentRegion<'a> {
     Borrowed(&'a DeclarativeRegion<'a>),
     Owned(Box<DeclarativeRegion<'static>>),
@@ -236,6 +240,7 @@ impl<'a> Deref for ParentRegion<'a> {
 }
 
 #[derive(Clone)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct DeclarativeRegion<'a> {
     parent: Option<ParentRegion<'a>>,
     extends: Option<ParentRegion<'a>>,
