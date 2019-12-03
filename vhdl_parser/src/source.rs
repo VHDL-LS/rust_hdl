@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::diagnostic::{Diagnostic, ParseResult};
-use crate::latin_1::Latin1String;
+use crate::latin_1::{Latin1String, Utf8ToLatin1Error};
 use pad;
 use std::cmp::{max, min};
 use std::collections::VecDeque;
@@ -117,9 +117,11 @@ impl Source {
         }
     }
 
-    pub fn inline_utf8(file_name: impl Into<String>, contents: &str) -> io::Result<Self> {
-        let latin1 = Latin1String::from_utf8(contents)
-            .map_err(|msg| io::Error::new(io::ErrorKind::Other, msg))?;
+    pub fn inline_utf8(
+        file_name: impl Into<String>,
+        contents: &str,
+    ) -> Result<Self, Utf8ToLatin1Error> {
+        let latin1 = Latin1String::from_utf8(contents)?;
         Ok(Self::inline(file_name, Arc::new(latin1)))
     }
 

@@ -75,38 +75,56 @@ impl Latin1String {
         Self::from_utf8(string).unwrap()
     }
 
-    pub fn from_utf8(string: &str) -> Result<Latin1String, String> {
+    pub fn from_utf8(string: &str) -> Result<Latin1String, Utf8ToLatin1Error> {
         let bytes = string.as_bytes();
         let mut latin1_bytes = Vec::with_capacity(string.len());
         let mut i = 0;
+
+        let mut line = 0;
+        let mut column = 0;
+
         while i < bytes.len() {
             let byte = bytes[i];
 
+            let mut error = false;
             if byte < 128 {
                 latin1_bytes.push(byte);
                 i += 1;
-                continue;
             } else if byte == 0xc2 {
                 let next_byte = bytes[i + 1];
                 if 128 <= next_byte && next_byte < 192 {
                     latin1_bytes.push(next_byte);
                     i += 2;
-                    continue;
+                } else {
+                    error = true;
                 }
             } else if byte == 0xc3 {
                 let next_byte = bytes[i + 1];
                 if 128 <= next_byte && next_byte < 192 {
                     latin1_bytes.push(next_byte + 64);
                     i += 2;
-                    continue;
+                } else {
+                    error = true;
                 }
+            } else {
+                error = true;
             }
 
-            return Err(format!(
-                "Invalid latin-1 character {} in {}",
-                string[i..].chars().next().unwrap(),
-                string
-            ));
+            if error {
+                let value = string[i..].chars().next().unwrap();
+                return Err(Utf8ToLatin1Error {
+                    line,
+                    column,
+                    value,
+                });
+            }
+
+            if byte == b'\n' {
+                line += 1;
+                column = 0;
+            } else {
+                column += 1;
+            }
         }
         Ok(Latin1String::from_vec(latin1_bytes))
     }
@@ -124,12 +142,41 @@ impl fmt::Display for Latin1String {
     }
 }
 
+#[derive(Debug)]
+pub struct Utf8ToLatin1Error {
+    pub line: u64,
+    pub column: u64,
+    pub value: char,
+}
+
+impl Utf8ToLatin1Error {
+    pub fn message(&self) -> String {
+        format!(
+            "Found invalid latin-1 character '{}' when decoding from utf-8",
+            self.value
+        )
+    }
+}
+
+impl fmt::Display for Utf8ToLatin1Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}: line {} column {}",
+            self.message(),
+            self.line + 1,
+            self.column
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use assert_matches::assert_matches;
 
     #[test]
-    fn test_latin1_to_utf8() {
+    fn latin1_to_utf8() {
         for byte in 0..=255 {
             let latin1 = Latin1String::new(&[byte]);
             assert_eq!(
@@ -140,11 +187,38 @@ mod tests {
     }
 
     #[test]
-    fn test_latin1_lowercase() {
+    fn latin1_lowercase() {
         for byte in 0..=255 {
             let latin1 = Latin1String::new(&[byte]);
             let utf8 = latin1.to_string();
             assert_eq!(latin1.to_lowercase().to_string(), utf8.to_lowercase());
         }
+    }
+
+    #[test]
+    fn utf8_to_latin1() {
+        let utf8 = "åäö";
+        assert_matches!(Latin1String::from_utf8(utf8), Ok(latin1) => {
+            assert_eq!(latin1.bytes, [229, 228, 246]);
+            assert_eq!(latin1.to_string(), utf8);
+        })
+    }
+
+    #[test]
+    fn utf8_to_latin1_error() {
+        let utf8 = "abö€";
+        assert_matches!(Latin1String::from_utf8(utf8), Err(err) => {
+            assert_eq!(err.line, 0);
+            assert_eq!(err.column, 3);
+            assert_eq!(err.value, '€');
+        });
+
+        let utf8 = "a\nbö\n€";
+        assert_matches!(Latin1String::from_utf8(utf8), Err(err) => {
+            assert_eq!(err.line, 2);
+            assert_eq!(err.column, 0);
+            assert_eq!(err.value, '€');
+            assert_eq!(err.to_string(), "Found invalid latin-1 character '€' when decoding from utf-8: line 3 column 0");
+        });
     }
 }

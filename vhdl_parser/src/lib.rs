@@ -42,6 +42,7 @@ mod test_util;
 
 pub use crate::config::Config;
 pub use crate::diagnostic::{Diagnostic, Severity};
+pub use crate::latin_1::Utf8ToLatin1Error;
 pub use crate::message::{Message, MessageType};
 pub use crate::parser::{ParserError, ParserResult, VHDLParser};
 pub use crate::project::Project;
