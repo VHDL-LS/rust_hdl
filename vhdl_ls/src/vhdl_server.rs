@@ -13,7 +13,7 @@ use self::fnv::FnvHashMap;
 use fnv;
 use std::collections::hash_map::Entry;
 
-use self::vhdl_parser::{Config, Diagnostic, Project, Severity, Source, SrcPos};
+use self::vhdl_parser::{Config, Diagnostic, Project, Severity, Source, SrcPos, Utf8ToLatin1Error};
 use crate::rpc_channel::RpcChannel;
 use std::io;
 use std::path::Path;
@@ -374,13 +374,21 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         // @TODO return error to client
         let file_name = uri_to_file_name(&uri);
 
-        // @TODO return error to client
-        let source =
-            Source::inline_utf8(file_name.to_string(), code).expect("Source was not legal latin-1");
+        match Source::inline_utf8(file_name.to_string(), code) {
+            Ok(source) => {
+                // @TODO log error to client
+                self.project.update_source(&file_name, &source).unwrap();
+                self.publish_diagnostics();
+            }
+            Err(err) => {
+                let publish_diagnostics = PublishDiagnosticsParams {
+                    uri: uri.clone(),
+                    diagnostics: vec![decode_error_to_lsp_diagnostic(&err)],
+                };
 
-        // @TODO log error to client
-        self.project.update_source(&file_name, &source).unwrap();
-        self.publish_diagnostics();
+                self.send_notification("textDocument/publishDiagnostics", publish_diagnostics);
+            }
+        }
     }
 
     pub fn initialized_notification(&mut self, _params: &InitializedParams) {
@@ -465,6 +473,28 @@ fn file_name_to_uri(file_name: impl AsRef<str>) -> Url {
 fn uri_to_file_name(uri: &Url) -> String {
     // @TODO return error to client
     uri.to_file_path().unwrap().to_str().unwrap().to_owned()
+}
+
+fn decode_error_to_lsp_diagnostic(err: &Utf8ToLatin1Error) -> languageserver_types::Diagnostic {
+    let range = Range {
+        start: Position {
+            line: err.line,
+            character: err.column,
+        },
+        end: Position {
+            line: err.line,
+            character: err.column + 1,
+        },
+    };
+
+    languageserver_types::Diagnostic {
+        range,
+        severity: Some(DiagnosticSeverity::Error),
+        code: None,
+        source: Some("vhdl ls".to_owned()),
+        message: err.message(),
+        related_information: None,
+    }
 }
 
 fn to_lsp_diagnostic(diagnostic: Diagnostic) -> languageserver_types::Diagnostic {
@@ -786,5 +816,54 @@ lib.files = [
         );
         mock.expect_notification_contains("window/showMessage", "missing_file.vhd");
         initialize_server(&mut server, root_uri);
+    }
+
+    #[test]
+    fn utf8_to_latin1_conversion_gives_error_diagnostic() {
+        let (mock, mut server) = setup_server();
+        let (_tempdir, root_uri) = temp_root_uri();
+        expect_missing_config_messages(&mock);
+        initialize_server(&mut server, root_uri.clone());
+
+        let file_url = root_uri.join("ent.vhd").unwrap();
+        let code = "\
+entity ent is
+-- €
+end entity ent;
+"
+        .to_owned();
+
+        let did_open = DidOpenTextDocumentParams {
+            text_document: TextDocumentItem {
+                uri: file_url.clone(),
+                language_id: "vhdl".to_owned(),
+                version: 0,
+                text: code.to_owned(),
+            },
+        };
+
+        let publish_diagnostics = PublishDiagnosticsParams {
+            uri: file_url.clone(),
+            diagnostics: vec![languageserver_types::Diagnostic {
+                range: Range {
+                    start: Position {
+                        line: 1,
+                        character: 3,
+                    },
+                    end: Position {
+                        line: 1,
+                        character: 4,
+                    },
+                },
+                code: None,
+                severity: Some(DiagnosticSeverity::Error),
+                source: Some("vhdl ls".to_owned()),
+                message: "Found invalid latin-1 character '€' when decoding from utf-8".to_owned(),
+                related_information: None,
+            }],
+        };
+
+        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
+        server.text_document_did_open_notification(&did_open);
     }
 }
