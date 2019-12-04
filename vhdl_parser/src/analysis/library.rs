@@ -16,6 +16,12 @@ use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::source::SrcPos;
 use crate::symbol_table::Symbol;
 
+#[cfg_attr(test, derive(PartialEq, Debug))]
+pub struct EntityDesignUnit {
+    pub entity: DesignUnit<EntityDeclaration>,
+    pub architectures: FnvHashMap<Symbol, DesignUnit<ArchitectureBody>>,
+}
+
 impl EntityDesignUnit {
     fn add_architecture(
         &mut self,
@@ -57,7 +63,18 @@ impl EntityDesignUnit {
     }
 }
 
+#[cfg_attr(test, derive(PartialEq, Debug))]
+pub struct PackageDesignUnit {
+    /// The declarative region is None when it has not yet been computed
+    pub package: DesignUnit<PackageDeclaration>,
+    pub body: Option<DesignUnit<PackageBody>>,
+}
+
 impl PackageDesignUnit {
+    pub fn is_generic(&self) -> bool {
+        self.package.unit.generic_clause.is_some()
+    }
+
     fn set_body(&mut self, body: DesignUnit<PackageBody>, diagnostics: &mut dyn DiagnosticHandler) {
         if self.body.is_some() {
             diagnostics.push(Diagnostic::error(
@@ -85,25 +102,6 @@ impl PackageDesignUnit {
             }
             self.body = Some(body);
         }
-    }
-}
-
-#[cfg_attr(test, derive(PartialEq, Debug))]
-pub struct EntityDesignUnit {
-    pub entity: DesignUnit<EntityDeclaration>,
-    pub architectures: FnvHashMap<Symbol, DesignUnit<ArchitectureBody>>,
-}
-
-#[cfg_attr(test, derive(PartialEq, Debug))]
-pub struct PackageDesignUnit {
-    /// The declarative region is None when it has not yet been computed
-    pub package: DesignUnit<PackageDeclaration>,
-    pub body: Option<DesignUnit<PackageBody>>,
-}
-
-impl PackageDesignUnit {
-    pub fn is_generic(&self) -> bool {
-        self.package.unit.generic_clause.is_some()
     }
 }
 
