@@ -95,17 +95,11 @@ impl<'a> Analyzer<'a> {
                         uninstantiated_package_prefix_error(&prefix.pos, library_sym, package_sym),
                     ),
 
-                    AnyDeclaration::Package(ref library_sym, ref package_sym) => {
-                        let library = self.root.expect_library(library_sym);
-
-                        let package = library
-                            .package(package_sym)
-                            .expect("Assume package exists if made visible");
-
+                    AnyDeclaration::Package(ref library_name, ref package_name) => {
                         if let Ok(data) = self.analyze_package_declaration_unit(
                             Some(&prefix.pos),
-                            library,
-                            package,
+                            library_name,
+                            package_name,
                         ) {
                             if let Some(visible_decl) =
                                 data.region.lookup(suffix.designator(), false)
@@ -116,9 +110,7 @@ impl<'a> Analyzer<'a> {
                                     suffix.as_ref(),
                                     format!(
                                         "No declaration of '{}' within package '{}.{}'",
-                                        suffix.item,
-                                        &library.name,
-                                        package.package.name()
+                                        suffix.item, library_name, package_name
                                     ),
                                 ))
                             }
@@ -129,15 +121,11 @@ impl<'a> Analyzer<'a> {
                     }
 
                     AnyDeclaration::PackageInstance(ref library_name, ref instance_name) => {
-                        let library = self.root.expect_library(library_name);
-
-                        let instance = library
-                            .package_instance(instance_name)
-                            .expect("Assume package instance exists if made visible");
-
-                        if let Ok(data) =
-                            self.analyze_package_instance_unit(Some(&prefix.pos), library, instance)
-                        {
+                        if let Ok(data) = self.analyze_package_instance_unit(
+                            Some(&prefix.pos),
+                            library_name,
+                            instance_name,
+                        ) {
                             if let Some(visible_decl) =
                                 data.region.lookup(suffix.designator(), false)
                             {
@@ -147,9 +135,7 @@ impl<'a> Analyzer<'a> {
                                     suffix.as_ref(),
                                     format!(
                                         "No declaration of '{}' within package instance '{}.{}'",
-                                        suffix.item,
-                                        &library.name,
-                                        instance.unit.name()
+                                        suffix.item, library_name, instance_name
                                     ),
                                 ))
                             }
@@ -521,16 +507,10 @@ impl<'a> Analyzer<'a> {
                             ));
                         }
                         AnyDeclaration::Package(ref library_name, ref package_name) => {
-                            let library = self.root.expect_library(library_name);
-
-                            let package = library
-                                .package(package_name)
-                                .expect("Assume package exists if made visible");
-
                             if let Ok(data) = self.analyze_package_declaration_unit(
                                 Some(&prefix.pos),
-                                library,
-                                package,
+                                library_name,
+                                package_name,
                             ) {
                                 region.make_all_potentially_visible(&data.region);
                             } else {
@@ -539,16 +519,10 @@ impl<'a> Analyzer<'a> {
                             }
                         }
                         AnyDeclaration::PackageInstance(ref library_name, ref package_name) => {
-                            let library = self.root.expect_library(library_name);
-
-                            let package = library
-                                .package_instance(package_name)
-                                .expect("Assume package exists if made visible");
-
                             if let Ok(data) = self.analyze_package_instance_unit(
                                 Some(&prefix.pos),
-                                library,
-                                package,
+                                library_name,
+                                package_name,
                             ) {
                                 region.make_all_potentially_visible(&data.region);
                             } else {
@@ -806,17 +780,19 @@ impl<'a> Analyzer<'a> {
         // The optional entry point where the package declarartion was used
         // None if the package was directly analyzed and not due to a use clause
         entry_point: Option<&SrcPos>,
-        library: &Library,
-        package: &PackageDesignUnit,
+        library_name: &Symbol,
+        package_name: &Symbol,
     ) -> AnalysisResult {
         let mut diagnostics = Vec::new();
 
-        match self.analysis_context.start_analysis(
-            entry_point,
-            &library.name,
-            package.package.name(),
-        ) {
+        match self
+            .analysis_context
+            .start_analysis(entry_point, library_name, package_name)
+        {
             StartAnalysisResult::NotYetAnalyzed(pending) => {
+                let library = self.root.expect_library(library_name);
+                let package = library.expect_any_package(package_name);
+
                 let mut root_region = Box::new(DeclarativeRegion::default());
                 if !(library.name == self.std_sym && *package.package.name() == self.standard_sym) {
                     self.add_implicit_context_clause(&mut root_region, library);
@@ -871,7 +847,7 @@ impl<'a> Analyzer<'a> {
         package: &PackageDesignUnit,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
-        match self.analyze_package_declaration_unit(None, library, package) {
+        match self.analyze_package_declaration_unit(None, &library.name, package.package.name()) {
             Ok(data) => {
                 data.push_to(diagnostics);
                 self.analyze_package_body_unit(&data.region, &package, diagnostics);
@@ -906,25 +882,18 @@ impl<'a> Analyzer<'a> {
                 if let AnyDeclaration::UninstPackage(ref library_name, ref package_name) =
                     visible_decl.first()
                 {
-                    let library = self
-                        .root
-                        .get_library(library_name)
-                        .expect("Assume library exists if made visible");
-
-                    let package = library
-                        .uninst_package(package_name)
-                        .expect("Assume package exists if made visible");
-                    if let Ok(data) =
-                        self.analyze_package_declaration_unit(Some(entry_point), library, package)
-                    {
+                    if let Ok(data) = self.analyze_package_declaration_unit(
+                        Some(entry_point),
+                        library_name,
+                        package_name,
+                    ) {
                         return Ok(data.clone());
                     } else {
                         return Err(Diagnostic::error(
                             &entry_point,
                             format!(
                                 "'Could not instantiate package '{}.{}' with circular dependency'",
-                                &library.name,
-                                package.package.name()
+                                library_name, package_name
                             ),
                         ));
                     }
@@ -951,17 +920,18 @@ impl<'a> Analyzer<'a> {
     fn analyze_package_instance_unit(
         &self,
         entry_point: Option<&SrcPos>,
-        library: &Library,
-        package_instance: &DesignUnit<PackageInstantiation>,
+        library_name: &Symbol,
+        instance_name: &Symbol,
     ) -> AnalysisResult {
         let mut diagnostics = Vec::new();
 
-        match self.analysis_context.start_analysis(
-            entry_point,
-            &library.name,
-            package_instance.unit.name(),
-        ) {
+        match self
+            .analysis_context
+            .start_analysis(entry_point, library_name, instance_name)
+        {
             StartAnalysisResult::NotYetAnalyzed(pending) => {
+                let library = self.root.expect_library(library_name);
+                let package_instance = library.expect_package_instance(instance_name);
                 let mut region = DeclarativeRegion::default();
                 self.add_implicit_context_clause(&mut region, library);
                 self.analyze_context_clause(
@@ -1077,7 +1047,7 @@ impl<'a> Analyzer<'a> {
         }
 
         for package_instance in library.package_instances() {
-            match self.analyze_package_instance_unit(None, library, package_instance) {
+            match self.analyze_package_instance_unit(None, &library.name, package_instance.name()) {
                 Ok(data) => {
                     data.push_to(diagnostics);
                 }
@@ -1125,12 +1095,11 @@ impl<'a> Analyzer<'a> {
     }
 
     pub fn analyze(&self, diagnostics: &mut dyn DiagnosticHandler) {
-        // Analyze standard library first
         if let Some(library) = self.root.get_library(&self.std_sym) {
-            let standard_package = library
-                .package(&self.standard_sym)
-                .expect("Failed to find package STD.STANDARD");
-            self.analyze_package(library, standard_package, diagnostics);
+            // Analyze standard library first
+            self.analyze_package_declaration_unit(None, &self.std_sym, &self.standard_sym)
+                .expect("Expect no circular error when analyzing std.standard");
+
             for package in library.packages() {
                 if *package.package.name() != self.standard_sym {
                     self.analyze_package(library, package, diagnostics);

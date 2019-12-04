@@ -288,23 +288,33 @@ impl<'a> Library {
         self.configurations.get(name)
     }
 
+    /// Return a non-generic packate
+    #[cfg(test)]
     pub fn package(&'a self, name: &Symbol) -> Option<&'a PackageDesignUnit> {
         self.packages
             .get(name)
             .and_then(|pkg| if pkg.is_generic() { None } else { Some(pkg) })
     }
 
-    pub fn uninst_package(&'a self, name: &Symbol) -> Option<&'a PackageDesignUnit> {
-        self.packages
-            .get(name)
-            .and_then(|pkg| if pkg.is_generic() { Some(pkg) } else { None })
+    pub fn expect_any_package(&'a self, name: &Symbol) -> &'a PackageDesignUnit {
+        self.packages.get(name).expect("Package must exist")
     }
 
+    #[cfg(test)]
     pub fn package_instance(
         &'a self,
         name: &Symbol,
     ) -> Option<&'a DesignUnit<PackageInstantiation>> {
         self.package_instances.get(name)
+    }
+
+    pub fn expect_package_instance(
+        &'a self,
+        name: &Symbol,
+    ) -> &'a DesignUnit<PackageInstantiation> {
+        self.package_instances
+            .get(name)
+            .expect("Package instance must exist")
     }
 
     pub fn context(&'a self, name: &Symbol) -> Option<&'a ContextDeclaration> {
