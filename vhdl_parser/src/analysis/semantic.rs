@@ -2626,8 +2626,7 @@ end entity;
 
             for (library_name, codes) in self.libraries.iter() {
                 let design_files = codes.iter().map(|code| code.design_file()).collect();
-                let library = Library::new(library_name.clone(), design_files, &mut diagnostics);
-                root.add_library(library);
+                root.add_library(library_name.clone(), design_files, &mut diagnostics);
             }
 
             Analyzer::new(&root, &self.code_builder.symtab.clone()).analyze(&mut diagnostics);

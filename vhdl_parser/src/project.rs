@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use self::fnv::FnvHashMap;
-use crate::analysis::{Analyzer, DesignRoot, Library};
+use crate::analysis::{Analyzer, DesignRoot};
 use crate::ast::DesignFile;
 use crate::config::Config;
 use crate::diagnostic::Diagnostic;
@@ -170,15 +170,11 @@ impl Project {
         }
 
         for (library_name, design_files) in library_to_design_file.drain() {
-            root.add_library(Library::new(library_name, design_files, &mut diagnostics));
+            root.add_library(library_name, design_files, &mut diagnostics);
         }
 
         for library_name in self.empty_libraries.iter() {
-            root.add_library(Library::new(
-                library_name.clone(),
-                Vec::new(),
-                &mut diagnostics,
-            ));
+            root.add_library(library_name.clone(), Vec::new(), &mut diagnostics);
         }
 
         Analyzer::new(&root, &self.parser.symtab.clone()).analyze(&mut diagnostics);

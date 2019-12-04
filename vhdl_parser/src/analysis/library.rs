@@ -118,7 +118,7 @@ pub struct Library {
 }
 
 impl<'a> Library {
-    pub fn new(
+    fn new(
         name: Symbol,
         design_files: Vec<DesignFile>,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -351,7 +351,13 @@ impl DesignRoot {
         }
     }
 
-    pub fn add_library(&mut self, library: Library) {
+    pub fn add_library(
+        &mut self,
+        name: Symbol,
+        design_files: Vec<DesignFile>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        let library = Library::new(name, design_files, diagnostics);
         self.libraries.insert(library.name.clone(), library);
     }
 
