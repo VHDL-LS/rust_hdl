@@ -3,13 +3,13 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
+use super::library::AnalysisData;
 use super::library::Library;
 use crate::ast::*;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::source::{SrcPos, WithPos};
 use crate::symbol_table::Symbol;
 
-use super::pending::AnalysisData;
 use fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
 use std::ops::Deref;

@@ -16,6 +16,35 @@ use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::source::SrcPos;
 use crate::symbol_table::Symbol;
 
+/// The analysis result of the primary unit
+#[cfg_attr(test, derive(Clone, PartialEq))]
+pub struct AnalysisData {
+    diagnostics: Vec<Diagnostic>,
+    pub region: DeclarativeRegion<'static>,
+}
+
+#[cfg(test)]
+impl std::fmt::Debug for AnalysisData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "AnalysisData")
+    }
+}
+
+impl AnalysisData {
+    pub fn new(diagnostics: Vec<Diagnostic>, region: DeclarativeRegion<'static>) -> AnalysisData {
+        AnalysisData {
+            diagnostics,
+            region,
+        }
+    }
+
+    pub fn push_to(&self, diagnostics: &mut dyn DiagnosticHandler) {
+        for diagnostic in self.diagnostics.iter().cloned() {
+            diagnostics.push(diagnostic);
+        }
+    }
+}
+
 #[cfg_attr(test, derive(PartialEq, Debug))]
 pub struct EntityDesignUnit {
     pub entity: DesignUnit<EntityDeclaration>,

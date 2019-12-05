@@ -5,15 +5,67 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use super::declarative_region::{AnyDeclaration, DeclarativeRegion, VisibleDeclaration};
-use super::library::{DesignRoot, Library, PackageDesignUnit};
+use super::library::{AnalysisData, DesignRoot, EntityDesignUnit, Library, PackageDesignUnit};
 use crate::ast::{HasIdent, *};
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::latin_1::Latin1String;
 use crate::source::{SrcPos, WithPos};
 use crate::symbol_table::{Symbol, SymbolTable};
+use fnv::FnvHashMap;
 use std::sync::Arc;
 
-use super::pending::{AnalysisContext, AnalysisData, AnalysisResult, StartAnalysisResult};
+use super::lock::{AnalysisEntry, AnalysisLock, CircularDependencyError};
+
+enum AnalysisError {
+    Fatal(CircularDependencyError),
+    NotFatal(Diagnostic),
+}
+
+impl From<CircularDependencyError> for AnalysisError {
+    fn from(err: CircularDependencyError) -> AnalysisError {
+        AnalysisError::Fatal(err)
+    }
+}
+
+impl From<Diagnostic> for AnalysisError {
+    fn from(diagnostic: Diagnostic) -> AnalysisError {
+        AnalysisError::NotFatal(diagnostic)
+    }
+}
+
+type FatalResult<T> = Result<T, CircularDependencyError>;
+type FatalNullResult = FatalResult<()>;
+
+impl AnalysisError {
+    // Add Non-fatal error to diagnostics or return fatal error
+    fn add_to(self, diagnostics: &mut dyn DiagnosticHandler) -> FatalNullResult {
+        match self {
+            AnalysisError::Fatal(err) => Err(err),
+            AnalysisError::NotFatal(diag) => {
+                diagnostics.push(diag);
+                Ok(())
+            }
+        }
+    }
+
+    fn add_circular_reference(&mut self, location: &SrcPos) {
+        if let AnalysisError::Fatal(ref mut err) = self {
+            err.add_reference(location);
+        }
+    }
+}
+
+trait HandleFatal<T> {
+    fn push_fatal_error(&mut self, error: FatalResult<T>);
+}
+
+impl<'a, T> HandleFatal<T> for dyn DiagnosticHandler + 'a {
+    fn push_fatal_error(&mut self, error: FatalResult<T>) {
+        if let Err(err) = error {
+            err.push_into(self);
+        }
+    }
+}
 
 enum LookupResult<'a> {
     /// A single name was selected
@@ -32,19 +84,37 @@ pub struct Analyzer<'a> {
     standard_designator: Designator,
     standard_sym: Symbol,
     root: &'a DesignRoot,
-    analysis_context: AnalysisContext,
+
+    // @TODO move to design units themselves
+    locks: FnvHashMap<(Symbol, Symbol), AnalysisLock<Arc<AnalysisData>>>,
 }
 
 impl<'a> Analyzer<'a> {
     pub fn new(root: &'a DesignRoot, symtab: &Arc<SymbolTable>) -> Analyzer<'a> {
         let standard_sym = symtab.insert(&Latin1String::new(b"standard"));
+
+        let mut locks = FnvHashMap::default();
+
+        for library in root.iter_libraries() {
+            for package in library.packages().chain(library.uninst_packages()) {
+                let data = AnalysisData::new(Vec::new(), DeclarativeRegion::default());
+                let key = (library.name.clone(), package.package.name().clone());
+                locks.insert(key, AnalysisLock::new(Arc::new(data)));
+            }
+            for instance in library.package_instances() {
+                let data = AnalysisData::new(Vec::new(), DeclarativeRegion::default());
+                let key = (library.name.clone(), instance.unit.name().clone());
+                locks.insert(key, AnalysisLock::new(Arc::new(data)));
+            }
+        }
+
         Analyzer {
             work_sym: symtab.insert(&Latin1String::new(b"work")),
             std_sym: symtab.insert(&Latin1String::new(b"std")),
             standard_designator: Designator::Identifier(standard_sym.clone()),
             standard_sym,
             root,
-            analysis_context: AnalysisContext::new(),
+            locks,
         }
     }
 
@@ -55,7 +125,7 @@ impl<'a> Analyzer<'a> {
         &self,
         region: &DeclarativeRegion<'_>,
         name: &'n WithPos<Name>,
-    ) -> Result<LookupResult<'n>, Diagnostic> {
+    ) -> Result<LookupResult<'n>, AnalysisError> {
         match name.item {
             Name::Selected(ref prefix, ref suffix) => {
                 let visible_decl = {
@@ -65,7 +135,7 @@ impl<'a> Analyzer<'a> {
                             return Err(Diagnostic::error(
                                 prefix.as_ref(),
                                 "'.all' may not be the prefix of a selected name",
-                            ));
+                            ))?;
                         }
                         others => return Ok(others),
                     }
@@ -87,61 +157,59 @@ impl<'a> Analyzer<'a> {
                                     "No primary unit '{}' within '{}'",
                                     suffix.item, library_name
                                 ),
-                            ))
+                            ))?
                         }
                     }
 
                     AnyDeclaration::UninstPackage(ref library_sym, ref package_sym) => Err(
                         uninstantiated_package_prefix_error(&prefix.pos, library_sym, package_sym),
-                    ),
+                    )?,
 
                     AnyDeclaration::Package(ref library_name, ref package_name) => {
-                        if let Ok(data) = self.analyze_package_declaration_unit(
-                            Some(&prefix.pos),
-                            library_name,
-                            package_name,
-                        ) {
-                            if let Some(visible_decl) =
-                                data.region.lookup(suffix.designator(), false)
-                            {
-                                Ok(LookupResult::Single(visible_decl.clone()))
-                            } else {
-                                Err(Diagnostic::error(
-                                    suffix.as_ref(),
-                                    format!(
-                                        "No declaration of '{}' within package '{}.{}'",
-                                        suffix.item, library_name, package_name
-                                    ),
-                                ))
+                        match self.analyze_package_declaration_unit(library_name, package_name) {
+                            Ok(data) => {
+                                if let Some(visible_decl) =
+                                    data.region.lookup(suffix.designator(), false)
+                                {
+                                    Ok(LookupResult::Single(visible_decl.clone()))
+                                } else {
+                                    Err(Diagnostic::error(
+                                        suffix.as_ref(),
+                                        format!(
+                                            "No declaration of '{}' within package '{}.{}'",
+                                            suffix.item, library_name, package_name
+                                        ),
+                                    ))?
+                                }
                             }
-                        } else {
-                            // Circular dependency, diagnostic will never be used
-                            Err(Diagnostic::error(&prefix.pos, ""))
+                            Err(mut err) => {
+                                err.add_reference(&name.pos);
+                                return Err(AnalysisError::Fatal(err));
+                            }
                         }
                     }
 
                     AnyDeclaration::PackageInstance(ref library_name, ref instance_name) => {
-                        if let Ok(data) = self.analyze_package_instance_unit(
-                            Some(&prefix.pos),
-                            library_name,
-                            instance_name,
-                        ) {
-                            if let Some(visible_decl) =
-                                data.region.lookup(suffix.designator(), false)
-                            {
-                                Ok(LookupResult::Single(visible_decl.clone()))
-                            } else {
-                                Err(Diagnostic::error(
-                                    suffix.as_ref(),
-                                    format!(
+                        match self.analyze_package_instance_unit(library_name, instance_name) {
+                            Ok(data) => {
+                                if let Some(visible_decl) =
+                                    data.region.lookup(suffix.designator(), false)
+                                {
+                                    Ok(LookupResult::Single(visible_decl.clone()))
+                                } else {
+                                    Err(Diagnostic::error(
+                                        suffix.as_ref(),
+                                        format!(
                                         "No declaration of '{}' within package instance '{}.{}'",
                                         suffix.item, library_name, instance_name
                                     ),
-                                ))
+                                    ))?
+                                }
                             }
-                        } else {
-                            // Circular dependency, diagnostic will never be used
-                            Err(Diagnostic::error(&prefix.pos, ""))
+                            Err(mut err) => {
+                                err.add_reference(&name.pos);
+                                Err(err)?
+                            }
                         }
                     }
 
@@ -155,7 +223,7 @@ impl<'a> Analyzer<'a> {
                                     "No declaration of '{}' within package instance '{}'",
                                     suffix.item, &instance_name
                                 ),
-                            ))
+                            ))?
                         }
                     }
                     // @TODO ignore other declarations for now
@@ -170,7 +238,7 @@ impl<'a> Analyzer<'a> {
                 LookupResult::AllWithin(..) => Err(Diagnostic::error(
                     prefix.as_ref(),
                     "'.all' may not be the prefix of a selected name",
-                )),
+                ))?,
                 others => Ok(others),
             },
             Name::Designator(ref designator) => {
@@ -180,7 +248,7 @@ impl<'a> Analyzer<'a> {
                     Err(Diagnostic::error(
                         &name.pos,
                         format!("No declaration of '{}'", designator),
-                    ))
+                    ))?
                 }
             }
             _ => {
@@ -196,10 +264,10 @@ impl<'a> Analyzer<'a> {
         region: &mut DeclarativeRegion<'_>,
         decl: &InterfaceDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) {
+    ) -> FatalNullResult {
         match decl {
             InterfaceDeclaration::File(ref file_decl) => {
-                self.analyze_subtype_indicaton(region, &file_decl.subtype_indication, diagnostics);
+                self.analyze_subtype_indicaton(region, &file_decl.subtype_indication, diagnostics)?;
                 region.add(&file_decl.ident, AnyDeclaration::Other, diagnostics);
             }
             InterfaceDeclaration::Object(ref object_decl) => {
@@ -207,14 +275,14 @@ impl<'a> Analyzer<'a> {
                     region,
                     &object_decl.subtype_indication,
                     diagnostics,
-                );
+                )?;
                 region.add(&object_decl.ident, AnyDeclaration::Other, diagnostics);
             }
             InterfaceDeclaration::Type(ref ident) => {
                 region.add(ident, AnyDeclaration::Other, diagnostics);
             }
             InterfaceDeclaration::Subprogram(subpgm, ..) => {
-                self.analyze_subprogram_declaration(region, subpgm, diagnostics);
+                self.analyze_subprogram_declaration(region, subpgm, diagnostics)?;
                 region.add(subpgm.designator(), AnyDeclaration::Overloaded, diagnostics);
             }
             InterfaceDeclaration::Package(ref instance) => {
@@ -227,12 +295,14 @@ impl<'a> Analyzer<'a> {
                         ),
                         diagnostics,
                     ),
-                    Err(diagnostic) => {
-                        diagnostics.push(diagnostic);
+                    Err(mut err) => {
+                        err.add_circular_reference(&instance.package_name.pos);
+                        err.add_to(diagnostics)?;
                     }
                 }
             }
-        }
+        };
+        Ok(())
     }
 
     fn analyze_interface_list(
@@ -240,10 +310,11 @@ impl<'a> Analyzer<'a> {
         region: &mut DeclarativeRegion<'_>,
         declarations: &[InterfaceDeclaration],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) {
+    ) -> FatalNullResult {
         for decl in declarations.iter() {
-            self.analyze_interface_declaration(region, decl, diagnostics);
+            self.analyze_interface_declaration(region, decl, diagnostics)?;
         }
+        Ok(())
     }
 
     #[allow(clippy::ptr_arg)]
@@ -251,7 +322,7 @@ impl<'a> Analyzer<'a> {
         &self,
         region: &DeclarativeRegion<'_>,
         type_mark: &WithPos<SelectedName>,
-    ) -> Result<VisibleDeclaration, Diagnostic> {
+    ) -> Result<VisibleDeclaration, AnalysisError> {
         let type_mark_name = type_mark.clone().into();
         match self.lookup_selected_name(region, &type_mark_name)? {
             LookupResult::Single(visible_decl) => Ok(visible_decl),
@@ -260,7 +331,7 @@ impl<'a> Analyzer<'a> {
                 Err(Diagnostic::error(
                     &type_mark_name.pos,
                     "Invalid name for type mark",
-                ))
+                ))?
             }
         }
     }
@@ -270,9 +341,11 @@ impl<'a> Analyzer<'a> {
         region: &mut DeclarativeRegion<'_>,
         subtype_indication: &SubtypeIndication,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) {
-        if let Err(diagnostic) = self.lookup_type_mark(region, &subtype_indication.type_mark) {
-            diagnostics.push(diagnostic);
+    ) -> FatalNullResult {
+        if let Err(err) = self.lookup_type_mark(region, &subtype_indication.type_mark) {
+            err.add_to(diagnostics)
+        } else {
+            Ok(())
         }
     }
 
@@ -281,21 +354,22 @@ impl<'a> Analyzer<'a> {
         parent: &DeclarativeRegion<'_>,
         subprogram: &SubprogramDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) {
+    ) -> FatalNullResult {
         let mut region = DeclarativeRegion::new_borrowed_parent(parent);
 
         match subprogram {
             SubprogramDeclaration::Function(fun) => {
-                self.analyze_interface_list(&mut region, &fun.parameter_list, diagnostics);
-                if let Err(diagnostic) = self.lookup_type_mark(&parent, &fun.return_type) {
-                    diagnostics.push(diagnostic);
+                self.analyze_interface_list(&mut region, &fun.parameter_list, diagnostics)?;
+                if let Err(err) = self.lookup_type_mark(&parent, &fun.return_type) {
+                    err.add_to(diagnostics)?
                 }
             }
             SubprogramDeclaration::Procedure(proc) => {
-                self.analyze_interface_list(&mut region, &proc.parameter_list, diagnostics);
+                self.analyze_interface_list(&mut region, &proc.parameter_list, diagnostics)?;
             }
         }
         region.close_both(diagnostics);
+        Ok(())
     }
 
     fn analyze_declaration(
@@ -303,11 +377,11 @@ impl<'a> Analyzer<'a> {
         region: &mut DeclarativeRegion<'_>,
         decl: &'a Declaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) {
+    ) -> FatalNullResult {
         match decl {
             Declaration::Alias(alias) => {
                 if let Some(ref subtype_indication) = alias.subtype_indication {
-                    self.analyze_subtype_indicaton(region, subtype_indication, diagnostics);
+                    self.analyze_subtype_indicaton(region, subtype_indication, diagnostics)?;
                 }
                 region.add(
                     alias.designator.clone(),
@@ -324,7 +398,7 @@ impl<'a> Analyzer<'a> {
                     region,
                     &object_decl.subtype_indication,
                     diagnostics,
-                );
+                )?;
                 region.add(
                     &object_decl.ident,
                     AnyDeclaration::from_object_declaration(object_decl),
@@ -332,7 +406,7 @@ impl<'a> Analyzer<'a> {
                 );
             }
             Declaration::File(ref file_decl) => {
-                self.analyze_subtype_indicaton(region, &file_decl.subtype_indication, diagnostics);
+                self.analyze_subtype_indicaton(region, &file_decl.subtype_indication, diagnostics)?;
                 region.add(&file_decl.ident, AnyDeclaration::Other, diagnostics);
             }
             Declaration::Component(ref component) => {
@@ -340,20 +414,20 @@ impl<'a> Analyzer<'a> {
 
                 {
                     let mut region = DeclarativeRegion::new_borrowed_parent(region);
-                    self.analyze_interface_list(&mut region, &component.generic_list, diagnostics);
+                    self.analyze_interface_list(&mut region, &component.generic_list, diagnostics)?;
                     region.close_both(diagnostics);
                 }
 
                 {
                     let mut region = DeclarativeRegion::new_borrowed_parent(region);
-                    self.analyze_interface_list(&mut region, &component.port_list, diagnostics);
+                    self.analyze_interface_list(&mut region, &component.port_list, diagnostics)?;
                     region.close_both(diagnostics);
                 }
             }
             Declaration::Attribute(ref attr) => match attr {
                 Attribute::Declaration(ref attr_decl) => {
-                    if let Err(diagnostic) = self.lookup_type_mark(region, &attr_decl.type_mark) {
-                        diagnostics.push(diagnostic);
+                    if let Err(err) = self.lookup_type_mark(region, &attr_decl.type_mark) {
+                        err.add_to(diagnostics)?;
                     }
                     region.add(&attr_decl.ident, AnyDeclaration::Other, diagnostics);
                 }
@@ -366,9 +440,9 @@ impl<'a> Analyzer<'a> {
                     AnyDeclaration::Overloaded,
                     diagnostics,
                 );
-                self.analyze_subprogram_declaration(region, &body.specification, diagnostics);
+                self.analyze_subprogram_declaration(region, &body.specification, diagnostics)?;
                 let mut region = DeclarativeRegion::new_borrowed_parent(region);
-                self.analyze_declarative_part(&mut region, &body.declarations, diagnostics);
+                self.analyze_declarative_part(&mut region, &body.declarations, diagnostics)?;
             }
             Declaration::SubprogramDeclaration(subdecl) => {
                 region.add(
@@ -376,13 +450,13 @@ impl<'a> Analyzer<'a> {
                     AnyDeclaration::Overloaded,
                     diagnostics,
                 );
-                self.analyze_subprogram_declaration(region, &subdecl, diagnostics);
+                self.analyze_subprogram_declaration(region, &subdecl, diagnostics)?;
             }
 
-            // @TODO Ignored for now
             Declaration::Use(ref use_clause) => {
-                self.analyze_use_clause(region, &use_clause.item, &use_clause.pos, diagnostics);
+                self.analyze_use_clause(region, &use_clause.item, &use_clause.pos, diagnostics)?;
             }
+
             Declaration::Package(ref instance) => {
                 match self.analyze_package_instance(region, instance) {
                     Ok(package_region) => region.add(
@@ -393,8 +467,9 @@ impl<'a> Analyzer<'a> {
                         ),
                         diagnostics,
                     ),
-                    Err(diagnostic) => {
-                        diagnostics.push(diagnostic);
+                    Err(mut err) => {
+                        err.add_circular_reference(&instance.package_name.pos);
+                        err.add_to(diagnostics)?
                     }
                 }
             }
@@ -419,7 +494,7 @@ impl<'a> Analyzer<'a> {
                     }
                     TypeDefinition::ProtectedBody(ref body) => {
                         let mut region = DeclarativeRegion::new_borrowed_parent(region);
-                        self.analyze_declarative_part(&mut region, &body.decl, diagnostics);
+                        self.analyze_declarative_part(&mut region, &body.decl, diagnostics)?;
                     }
                     TypeDefinition::Protected(ref prot_decl) => {
                         for item in prot_decl.items.iter() {
@@ -429,7 +504,7 @@ impl<'a> Analyzer<'a> {
                                         region,
                                         subprogram,
                                         diagnostics,
-                                    );
+                                    )?;
                                 }
                             }
                         }
@@ -437,24 +512,30 @@ impl<'a> Analyzer<'a> {
                     TypeDefinition::Record(ref element_decls) => {
                         let mut record_region = DeclarativeRegion::default();
                         for elem_decl in element_decls.iter() {
-                            self.analyze_subtype_indicaton(region, &elem_decl.subtype, diagnostics);
+                            self.analyze_subtype_indicaton(
+                                region,
+                                &elem_decl.subtype,
+                                diagnostics,
+                            )?;
                             record_region.add(&elem_decl.ident, AnyDeclaration::Other, diagnostics);
                         }
                         record_region.close_both(diagnostics);
                     }
                     TypeDefinition::Access(ref subtype_indication) => {
-                        self.analyze_subtype_indicaton(region, subtype_indication, diagnostics);
+                        self.analyze_subtype_indicaton(region, subtype_indication, diagnostics)?;
                     }
                     TypeDefinition::Array(.., ref subtype_indication) => {
-                        self.analyze_subtype_indicaton(region, subtype_indication, diagnostics);
+                        self.analyze_subtype_indicaton(region, subtype_indication, diagnostics)?;
                     }
                     TypeDefinition::Subtype(ref subtype_indication) => {
-                        self.analyze_subtype_indicaton(region, subtype_indication, diagnostics);
+                        self.analyze_subtype_indicaton(region, subtype_indication, diagnostics)?;
                     }
                     _ => {}
                 }
             }
-        }
+        };
+
+        Ok(())
     }
 
     fn analyze_declarative_part(
@@ -462,10 +543,11 @@ impl<'a> Analyzer<'a> {
         region: &mut DeclarativeRegion<'_>,
         declarations: &[Declaration],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) {
+    ) -> FatalNullResult {
         for decl in declarations.iter() {
-            self.analyze_declaration(region, decl, diagnostics);
+            self.analyze_declaration(region, decl, diagnostics)?;
         }
+        Ok(())
     }
 
     fn analyze_use_clause(
@@ -474,7 +556,7 @@ impl<'a> Analyzer<'a> {
         use_clause: &UseClause,
         use_pos: &SrcPos,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) {
+    ) -> FatalNullResult {
         for name in use_clause.name_list.iter() {
             match name.item {
                 Name::Selected(..) => {}
@@ -507,27 +589,26 @@ impl<'a> Analyzer<'a> {
                             ));
                         }
                         AnyDeclaration::Package(ref library_name, ref package_name) => {
-                            if let Ok(data) = self.analyze_package_declaration_unit(
-                                Some(&prefix.pos),
-                                library_name,
-                                package_name,
-                            ) {
-                                region.make_all_potentially_visible(&data.region);
-                            } else {
-                                // Circular dependency, return
-                                return;
+                            match self.analyze_package_declaration_unit(library_name, package_name)
+                            {
+                                Ok(data) => {
+                                    region.make_all_potentially_visible(&data.region);
+                                }
+                                Err(mut err) => {
+                                    err.add_reference(&name.pos);
+                                    return Err(err);
+                                }
                             }
                         }
                         AnyDeclaration::PackageInstance(ref library_name, ref package_name) => {
-                            if let Ok(data) = self.analyze_package_instance_unit(
-                                Some(&prefix.pos),
-                                library_name,
-                                package_name,
-                            ) {
-                                region.make_all_potentially_visible(&data.region);
-                            } else {
-                                // Circular dependency, return
-                                return;
+                            match self.analyze_package_instance_unit(library_name, package_name) {
+                                Ok(data) => {
+                                    region.make_all_potentially_visible(&data.region);
+                                }
+                                Err(mut err) => {
+                                    err.add_reference(&name.pos);
+                                    return Err(err);
+                                }
                             }
                         }
                         AnyDeclaration::LocalPackageInstance(_, ref data) => {
@@ -544,11 +625,13 @@ impl<'a> Analyzer<'a> {
                         "Use clause must be a selected name",
                     ));
                 }
-                Err(diagnostic) => {
-                    diagnostics.push(diagnostic);
+                Err(err) => {
+                    err.add_to(diagnostics)?;
                 }
             }
         }
+
+        Ok(())
     }
 
     fn analyze_context_clause(
@@ -556,7 +639,7 @@ impl<'a> Analyzer<'a> {
         region: &mut DeclarativeRegion<'_>,
         context_clause: &[WithPos<ContextItem>],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) {
+    ) -> FatalNullResult {
         for context_item in context_clause.iter() {
             match context_item.item {
                 ContextItem::Library(LibraryClause { ref name_list }) => {
@@ -577,7 +660,7 @@ impl<'a> Analyzer<'a> {
                     }
                 }
                 ContextItem::Use(ref use_clause) => {
-                    self.analyze_use_clause(region, use_clause, &context_item.pos, diagnostics);
+                    self.analyze_use_clause(region, use_clause, &context_item.pos, diagnostics)?;
                 }
                 ContextItem::Context(ContextReference { ref name_list }) => {
                     for name in name_list {
@@ -613,7 +696,7 @@ impl<'a> Analyzer<'a> {
                                             region,
                                             &context.items,
                                             &mut ignore_diagnostics,
-                                        );
+                                        )?;
                                     }
                                     _ => {
                                         // @TODO maybe lookup should return the source position of the suffix
@@ -639,14 +722,16 @@ impl<'a> Analyzer<'a> {
                                     "Context reference must be a selected name",
                                 ));
                             }
-                            Err(diagnostic) => {
-                                diagnostics.push(diagnostic);
+                            Err(err) => {
+                                err.add_to(diagnostics)?;
                             }
                         }
                     }
                 }
             }
         }
+
+        Ok(())
     }
 
     fn analyze_generate_body(
@@ -654,13 +739,15 @@ impl<'a> Analyzer<'a> {
         parent: &DeclarativeRegion<'_>,
         body: &GenerateBody,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) {
+    ) -> FatalNullResult {
         let mut region = DeclarativeRegion::new_borrowed_parent(parent);
 
         if let Some(ref decl) = body.decl {
-            self.analyze_declarative_part(&mut region, &decl, diagnostics);
+            self.analyze_declarative_part(&mut region, &decl, diagnostics)?;
         }
-        self.analyze_concurrent_part(&region, &body.statements, diagnostics);
+        self.analyze_concurrent_part(&region, &body.statements, diagnostics)?;
+
+        Ok(())
     }
 
     fn analyze_concurrent_statement(
@@ -668,35 +755,36 @@ impl<'a> Analyzer<'a> {
         parent: &DeclarativeRegion<'_>,
         statement: &LabeledConcurrentStatement,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) {
+    ) -> FatalNullResult {
         match statement.statement {
             ConcurrentStatement::Block(ref block) => {
                 let mut region = DeclarativeRegion::new_borrowed_parent(parent);
-                self.analyze_declarative_part(&mut region, &block.decl, diagnostics);
-                self.analyze_concurrent_part(&region, &block.statements, diagnostics);
+                self.analyze_declarative_part(&mut region, &block.decl, diagnostics)?;
+                self.analyze_concurrent_part(&region, &block.statements, diagnostics)?;
             }
             ConcurrentStatement::Process(ref process) => {
                 let mut region = DeclarativeRegion::new_borrowed_parent(parent);
-                self.analyze_declarative_part(&mut region, &process.decl, diagnostics);
+                self.analyze_declarative_part(&mut region, &process.decl, diagnostics)?;
             }
             ConcurrentStatement::ForGenerate(ref gen) => {
-                self.analyze_generate_body(parent, &gen.body, diagnostics);
+                self.analyze_generate_body(parent, &gen.body, diagnostics)?;
             }
             ConcurrentStatement::IfGenerate(ref gen) => {
                 for conditional in gen.conditionals.iter() {
-                    self.analyze_generate_body(parent, &conditional.item, diagnostics);
+                    self.analyze_generate_body(parent, &conditional.item, diagnostics)?;
                 }
                 if let Some(ref else_item) = gen.else_item {
-                    self.analyze_generate_body(parent, else_item, diagnostics);
+                    self.analyze_generate_body(parent, else_item, diagnostics)?;
                 }
             }
             ConcurrentStatement::CaseGenerate(ref gen) => {
                 for alternative in gen.alternatives.iter() {
-                    self.analyze_generate_body(parent, &alternative.item, diagnostics);
+                    self.analyze_generate_body(parent, &alternative.item, diagnostics)?;
                 }
             }
             _ => {}
-        }
+        };
+        Ok(())
     }
 
     fn analyze_concurrent_part(
@@ -704,10 +792,12 @@ impl<'a> Analyzer<'a> {
         parent: &DeclarativeRegion<'_>,
         statements: &[LabeledConcurrentStatement],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) {
+    ) -> FatalNullResult {
         for statement in statements.iter() {
-            self.analyze_concurrent_statement(parent, statement, diagnostics);
+            self.analyze_concurrent_statement(parent, statement, diagnostics)?;
         }
+
+        Ok(())
     }
 
     fn analyze_architecture_body(
@@ -715,9 +805,10 @@ impl<'a> Analyzer<'a> {
         entity_region: &mut DeclarativeRegion<'_>,
         architecture: &ArchitectureBody,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) {
-        self.analyze_declarative_part(entity_region, &architecture.decl, diagnostics);
-        self.analyze_concurrent_part(entity_region, &architecture.statements, diagnostics);
+    ) -> FatalNullResult {
+        self.analyze_declarative_part(entity_region, &architecture.decl, diagnostics)?;
+        self.analyze_concurrent_part(entity_region, &architecture.statements, diagnostics)?;
+        Ok(())
     }
 
     fn analyze_entity_declaration(
@@ -725,15 +816,16 @@ impl<'a> Analyzer<'a> {
         region: &mut DeclarativeRegion<'_>,
         entity: &EntityDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) {
+    ) -> FatalNullResult {
         if let Some(ref list) = entity.generic_clause {
-            self.analyze_interface_list(region, list, diagnostics);
+            self.analyze_interface_list(region, list, diagnostics)?;
         }
         if let Some(ref list) = entity.port_clause {
-            self.analyze_interface_list(region, list, diagnostics);
+            self.analyze_interface_list(region, list, diagnostics)?;
         }
-        self.analyze_declarative_part(region, &entity.decl, diagnostics);
-        self.analyze_concurrent_part(region, &entity.statements, diagnostics);
+        self.analyze_declarative_part(region, &entity.decl, diagnostics)?;
+        self.analyze_concurrent_part(region, &entity.statements, diagnostics)?;
+        Ok(())
     }
 
     /// Add implicit context clause for all packages except STD.STANDARD
@@ -752,10 +844,8 @@ impl<'a> Analyzer<'a> {
                 decl.map(|decl| decl.first())
             {
                 let standard_pkg_region = &self
-                    .analysis_context
-                    .get_result(&library.name, standard_pkg_name)
-                    .expect("STD.STANDARD package must be analyzed at this point")
-                    .expect("Found circular dependency when using STD.STANDARD package")
+                    .analyze_package_declaration_unit(&library.name, standard_pkg_name)
+                    .expect("Found fatal error when using STD.STANDARD package")
                     .region;
                 region.make_all_potentially_visible(standard_pkg_region);
             } else {
@@ -768,28 +858,25 @@ impl<'a> Analyzer<'a> {
         region: &mut DeclarativeRegion,
         package: &PackageDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) {
+    ) -> FatalNullResult {
         if let Some(ref list) = package.generic_clause {
-            self.analyze_interface_list(region, list, diagnostics);
+            self.analyze_interface_list(region, list, diagnostics)?;
         }
-        self.analyze_declarative_part(region, &package.decl, diagnostics);
+        self.analyze_declarative_part(region, &package.decl, diagnostics)?;
+
+        Ok(())
     }
 
     fn analyze_package_declaration_unit(
         &self,
-        // The optional entry point where the package declarartion was used
-        // None if the package was directly analyzed and not due to a use clause
-        entry_point: Option<&SrcPos>,
         library_name: &Symbol,
         package_name: &Symbol,
-    ) -> AnalysisResult {
+    ) -> Result<Arc<AnalysisData>, CircularDependencyError> {
         let mut diagnostics = Vec::new();
 
-        match self
-            .analysis_context
-            .start_analysis(entry_point, library_name, package_name)
-        {
-            StartAnalysisResult::NotYetAnalyzed(pending) => {
+        let key = (library_name.clone(), package_name.clone());
+        match self.locks.get(&key).unwrap().entry()? {
+            AnalysisEntry::Vacant(mut entry) => {
                 let library = self.root.expect_library(library_name);
                 let package = library.expect_any_package(package_name);
 
@@ -802,7 +889,7 @@ impl<'a> Analyzer<'a> {
                     &mut root_region,
                     &package.package.context_clause,
                     &mut diagnostics,
-                );
+                )?;
 
                 let mut region =
                     DeclarativeRegion::new_owned_parent(root_region).in_package_declaration();
@@ -810,7 +897,7 @@ impl<'a> Analyzer<'a> {
                     &mut region,
                     &package.package.unit,
                     &mut diagnostics,
-                );
+                )?;
 
                 if package.body.is_some() {
                     region.close_immediate(&mut diagnostics);
@@ -818,10 +905,11 @@ impl<'a> Analyzer<'a> {
                     region.close_both(&mut diagnostics);
                 }
 
-                pending.end_analysis(AnalysisData::new(diagnostics, region))
+                let data = Arc::new(AnalysisData::new(diagnostics, region));
+                *entry = data.clone();
+                Ok(data)
             }
-
-            StartAnalysisResult::AlreadyAnalyzed(result) => result,
+            AnalysisEntry::Occupied(entry) => Ok(entry.clone()),
         }
     }
 
@@ -830,81 +918,93 @@ impl<'a> Analyzer<'a> {
         primary_region: &DeclarativeRegion<'_>,
         package: &PackageDesignUnit,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) {
+    ) -> FatalNullResult {
         if let Some(ref body) = package.body {
             // @TODO make pattern of primary/secondary extension
             let mut root_region = primary_region.get_parent().unwrap().extend(None);
-            self.analyze_context_clause(&mut root_region, &body.context_clause, diagnostics);
+            self.analyze_context_clause(&mut root_region, &body.context_clause, diagnostics)?;
             let mut region = primary_region.extend(Some(&root_region));
-            self.analyze_declarative_part(&mut region, &body.unit.decl, diagnostics);
+            self.analyze_declarative_part(&mut region, &body.unit.decl, diagnostics)?;
             region.close_both(diagnostics);
         }
+        Ok(())
     }
 
-    pub fn analyze_package(
+    fn analyze_package(
         &self,
         library: &Library,
         package: &PackageDesignUnit,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) {
-        match self.analyze_package_declaration_unit(None, &library.name, package.package.name()) {
-            Ok(data) => {
-                data.push_to(diagnostics);
-                self.analyze_package_body_unit(&data.region, &package, diagnostics);
-            }
-            Err(circular_dependency) => {
-                circular_dependency.push_into(diagnostics);
-            }
-        };
+    ) -> FatalNullResult {
+        let data = self.analyze_package_declaration_unit(&library.name, package.package.name())?;
+        data.push_to(diagnostics);
+        self.analyze_package_body_unit(&data.region, &package, diagnostics)?;
+        Ok(())
+    }
+
+    fn analyze_entity(
+        &self,
+        library: &Library,
+        entity: &EntityDesignUnit,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        let mut primary_root_region = DeclarativeRegion::default();
+        self.add_implicit_context_clause(&mut primary_root_region, library);
+        self.analyze_context_clause(
+            &mut primary_root_region,
+            &entity.entity.context_clause,
+            diagnostics,
+        )?;
+
+        let mut primary_region = DeclarativeRegion::new_borrowed_parent(&primary_root_region);
+        self.analyze_entity_declaration(&mut primary_region, &entity.entity.unit, diagnostics)?;
+        primary_region.close_immediate(diagnostics);
+
+        for architecture in entity.architectures.values() {
+            let mut root_region = primary_root_region.extend(None);
+            self.analyze_context_clause(
+                &mut root_region,
+                &architecture.context_clause,
+                diagnostics,
+            )?;
+            let mut region = primary_region.extend(Some(&root_region));
+            self.analyze_architecture_body(&mut region, &architecture.unit, diagnostics)?;
+            region.close_both(diagnostics);
+        }
+        Ok(())
     }
 
     /// Returns a reference to the the uninstantiated package
-    pub fn analyze_package_instance(
+    fn analyze_package_instance(
         &self,
         parent: &DeclarativeRegion<'_>,
         package_instance: &PackageInstantiation,
-    ) -> Result<Arc<AnalysisData>, Diagnostic> {
+    ) -> Result<Arc<AnalysisData>, AnalysisError> {
         self.analyze_package_instance_name(parent, &package_instance.package_name)
     }
 
-    /// Returns a reference to the the uninstantiated package
-    #[allow(clippy::ptr_arg)]
-    pub fn analyze_package_instance_name(
+    fn lookup_package_instance_name(
         &self,
-        parent: &DeclarativeRegion<'_>,
+        region: &DeclarativeRegion<'_>,
         package_name: &WithPos<SelectedName>,
-    ) -> Result<Arc<AnalysisData>, Diagnostic> {
-        let ref entry_point = package_name.pos;
+    ) -> Result<(Symbol, Symbol), AnalysisError> {
         let package_name = package_name.clone().into();
 
-        match self.lookup_selected_name(parent, &package_name)? {
+        match self.lookup_selected_name(region, &package_name)? {
             LookupResult::Single(visible_decl) => {
                 if let AnyDeclaration::UninstPackage(ref library_name, ref package_name) =
                     visible_decl.first()
                 {
-                    if let Ok(data) = self.analyze_package_declaration_unit(
-                        Some(entry_point),
-                        library_name,
-                        package_name,
-                    ) {
-                        return Ok(data.clone());
-                    } else {
-                        return Err(Diagnostic::error(
-                            &entry_point,
-                            format!(
-                                "'Could not instantiate package '{}.{}' with circular dependency'",
-                                library_name, package_name
-                            ),
-                        ));
-                    }
+                    Ok((library_name.clone(), package_name.clone()))
+                } else {
+                    Err(Diagnostic::error(
+                        &package_name.pos,
+                        format!(
+                            "'{}' is not an uninstantiated generic package",
+                            &visible_decl.designator
+                        ),
+                    ))?
                 }
-                Err(Diagnostic::error(
-                    &package_name.pos,
-                    format!(
-                        "'{}' is not an uninstantiated generic package",
-                        &visible_decl.designator
-                    ),
-                ))
             }
             _ => {
                 // Cannot really happen as package_name is a SelectedName so cannot test it
@@ -912,24 +1012,36 @@ impl<'a> Analyzer<'a> {
                 Err(Diagnostic::error(
                     &package_name.pos,
                     "Invalid selected name for generic package",
-                ))
+                ))?
             }
+        }
+    }
+    /// Returns a reference to the the uninstantiated package
+    #[allow(clippy::ptr_arg)]
+    fn analyze_package_instance_name(
+        &self,
+        region: &DeclarativeRegion<'_>,
+        package_name: &WithPos<SelectedName>,
+    ) -> Result<Arc<AnalysisData>, AnalysisError> {
+        let (library_name, package_name) =
+            self.lookup_package_instance_name(region, package_name)?;
+
+        match self.analyze_package_declaration_unit(&library_name, &package_name) {
+            Ok(data) => Ok(data.clone()),
+            Err(err) => Err(AnalysisError::Fatal(err)),
         }
     }
 
     fn analyze_package_instance_unit(
         &self,
-        entry_point: Option<&SrcPos>,
         library_name: &Symbol,
         instance_name: &Symbol,
-    ) -> AnalysisResult {
+    ) -> Result<Arc<AnalysisData>, CircularDependencyError> {
         let mut diagnostics = Vec::new();
 
-        match self
-            .analysis_context
-            .start_analysis(entry_point, library_name, instance_name)
-        {
-            StartAnalysisResult::NotYetAnalyzed(pending) => {
+        let key = (library_name.clone(), instance_name.clone());
+        match self.locks.get(&key).unwrap().entry()? {
+            AnalysisEntry::Vacant(mut entry) => {
                 let library = self.root.expect_library(library_name);
                 let package_instance = library.expect_package_instance(instance_name);
                 let mut region = DeclarativeRegion::default();
@@ -938,36 +1050,39 @@ impl<'a> Analyzer<'a> {
                     &mut region,
                     &package_instance.context_clause,
                     &mut diagnostics,
-                );
+                )?;
 
                 match self.analyze_package_instance(&region, &package_instance.unit) {
                     Ok(data) => {
-                        // @TODO avoid clone?
-                        pending.end_analysis(AnalysisData::new(diagnostics, data.region.clone()))
+                        *entry = Arc::new(AnalysisData::new(diagnostics, data.region.clone()));
+                        Ok(entry.clone())
                     }
-                    Err(diagnostic) => {
+                    Err(AnalysisError::NotFatal(diagnostic)) => {
                         diagnostics.push(diagnostic);
-                        // Failed to analyze, add empty region
-                        pending.end_analysis(AnalysisData::new(
-                            diagnostics,
-                            DeclarativeRegion::default(),
-                        ))
+                        // Failed to analyze, add empty region with diagnostics
+                        *entry =
+                            Arc::new(AnalysisData::new(diagnostics, DeclarativeRegion::default()));
+                        Ok(entry.clone())
+                    }
+                    Err(AnalysisError::Fatal(mut err)) => {
+                        err.add_reference(&package_instance.unit.package_name.pos);
+                        Err(err)
                     }
                 }
             }
-            StartAnalysisResult::AlreadyAnalyzed(result) => result,
+            AnalysisEntry::Occupied(entry) => Ok(entry.clone()),
         }
     }
 
-    pub fn analyze_configuration(
+    fn analyze_configuration(
         &self,
         library: &Library,
         cfg: &DesignUnit<ConfigurationDeclaration>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) {
+    ) -> FatalNullResult {
         let mut region = DeclarativeRegion::default();
         self.add_implicit_context_clause(&mut region, library);
-        self.analyze_context_clause(&mut region, &cfg.context_clause, diagnostics);
+        self.analyze_context_clause(&mut region, &cfg.context_clause, diagnostics)?;
 
         let ent_name: WithPos<Name> = cfg.unit.entity_name.clone().into();
 
@@ -992,7 +1107,7 @@ impl<'a> Analyzer<'a> {
                             "Entity name must be of the form library.entity_name or entity_name",
                         ),
                 );
-                return;
+                return Ok(());
             }
             Ok(LookupResult::Single(decl)) => match decl.first() {
                 AnyDeclaration::Entity(ref libsym, ref entsym) => {
@@ -1001,7 +1116,7 @@ impl<'a> Analyzer<'a> {
                                     &ent_name,
                                     format!("Configuration must be within the same library '{}' as the corresponding entity", &library.name),
                                 ));
-                        return;
+                        return Ok(());
                     }
 
                     entity = library.entity(entsym).expect("Expect entity is available");
@@ -1011,15 +1126,15 @@ impl<'a> Analyzer<'a> {
                         &ent_name,
                         format!("'{}' does not denote an entity", &library.name),
                     ));
-                    return;
+                    return Ok(());
                 }
             },
             Ok(LookupResult::Unfinished) => {
-                return;
+                return Ok(());
             }
-            Err(diagnostic) => {
-                diagnostics.push(diagnostic);
-                return;
+            Err(err) => {
+                err.add_to(diagnostics)?;
+                return Ok(());
             }
         };
 
@@ -1035,24 +1150,28 @@ impl<'a> Analyzer<'a> {
                 ),
             ));
         }
+
+        Ok(())
     }
 
-    pub fn analyze_library(&self, library: &Library, diagnostics: &mut dyn DiagnosticHandler) {
+    fn analyze_library(&self, library: &Library, diagnostics: &mut dyn DiagnosticHandler) {
         for package in library.packages() {
-            self.analyze_package(library, package, diagnostics);
+            let fatal_err = self.analyze_package(library, package, diagnostics);
+            diagnostics.push_fatal_error(fatal_err);
         }
 
         for package in library.uninst_packages() {
-            self.analyze_package(library, package, diagnostics);
+            let fatal_err = self.analyze_package(library, package, diagnostics);
+            diagnostics.push_fatal_error(fatal_err);
         }
 
         for package_instance in library.package_instances() {
-            match self.analyze_package_instance_unit(None, &library.name, package_instance.name()) {
+            match self.analyze_package_instance_unit(&library.name, package_instance.name()) {
                 Ok(data) => {
                     data.push_to(diagnostics);
                 }
-                Err(circular_dependency) => {
-                    circular_dependency.push_into(diagnostics);
+                Err(fatal_err) => {
+                    fatal_err.push_into(diagnostics);
                 }
             }
         }
@@ -1060,49 +1179,32 @@ impl<'a> Analyzer<'a> {
         for context in library.contexts() {
             let mut root_region = DeclarativeRegion::default();
             self.add_implicit_context_clause(&mut root_region, library);
-            self.analyze_context_clause(&mut root_region, &context.items, diagnostics);
+            let fatal_err =
+                self.analyze_context_clause(&mut root_region, &context.items, diagnostics);
+            diagnostics.push_fatal_error(fatal_err);
         }
 
         for entity in library.entities() {
-            let mut primary_root_region = DeclarativeRegion::default();
-            self.add_implicit_context_clause(&mut primary_root_region, library);
-            self.analyze_context_clause(
-                &mut primary_root_region,
-                &entity.entity.context_clause,
-                diagnostics,
-            );
-
-            let mut primary_region = DeclarativeRegion::new_borrowed_parent(&primary_root_region);
-            self.analyze_entity_declaration(&mut primary_region, &entity.entity.unit, diagnostics);
-            primary_region.close_immediate(diagnostics);
-
-            for architecture in entity.architectures.values() {
-                let mut root_region = primary_root_region.extend(None);
-                self.analyze_context_clause(
-                    &mut root_region,
-                    &architecture.context_clause,
-                    diagnostics,
-                );
-                let mut region = primary_region.extend(Some(&root_region));
-                self.analyze_architecture_body(&mut region, &architecture.unit, diagnostics);
-                region.close_both(diagnostics);
-            }
+            let fatal_err = self.analyze_entity(library, entity, diagnostics);
+            diagnostics.push_fatal_error(fatal_err);
         }
 
         for cfg in library.configurations() {
-            self.analyze_configuration(library, cfg, diagnostics);
+            let fatal_err = self.analyze_configuration(library, cfg, diagnostics);
+            diagnostics.push_fatal_error(fatal_err);
         }
     }
 
     pub fn analyze(&self, diagnostics: &mut dyn DiagnosticHandler) {
         if let Some(library) = self.root.get_library(&self.std_sym) {
             // Analyze standard library first
-            self.analyze_package_declaration_unit(None, &self.std_sym, &self.standard_sym)
-                .expect("Expect no circular error when analyzing std.standard");
+            self.analyze_package_declaration_unit(&self.std_sym, &self.standard_sym)
+                .expect("Expect no fatal error when STD.STANDARD package");
 
             for package in library.packages() {
                 if *package.package.name() != self.standard_sym {
-                    self.analyze_package(library, package, diagnostics);
+                    self.analyze_package(library, package, diagnostics)
+                        .expect("Expect no circular error when analyzing packages in STD library");
                 }
             }
         }
@@ -3159,7 +3261,7 @@ end architecture;
     }
 
     #[test]
-    fn detects_circular_dependencies() {
+    fn detects_package_circular_dependencies() {
         let mut builder = LibraryBuilder::new();
         let code = builder.code(
             "libname",
@@ -3180,20 +3282,104 @@ end package;",
         check_diagnostics(
             diagnostics,
             vec![
-                Diagnostic::error(
-                    code.s1("work.pkg1"),
-                    "Found circular dependency when referencing 'libname.pkg1'",
-                ),
-                Diagnostic::error(
-                    code.s1("work.pkg2"),
-                    "Found circular dependency when referencing 'libname.pkg2'",
-                ),
+                Diagnostic::error(code.s1("work.pkg1.const"), "Found circular dependency"),
+                Diagnostic::error(code.s1("work.pkg2.const"), "Found circular dependency"),
             ],
         );
     }
 
     #[test]
-    fn detects_circular_dependencies_all() {
+    fn detects_package_instance_circular_dependencies() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package gpkg is
+  generic (c : boolean);
+  constant const : boolean := c;
+end package;
+
+use work.pkg2.const;
+package pkg1 is new work.gpkg generic map(c => false);
+
+use work.pkg1.const;
+package pkg2 is new work.gpkg generic map(c => true);
+",
+        );
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
+            vec![
+                Diagnostic::error(code.s1("work.pkg1.const"), "Found circular dependency"),
+                Diagnostic::error(code.s1("work.pkg2.const"), "Found circular dependency"),
+            ],
+        );
+    }
+
+    #[test]
+    fn detects_package_instance_circular_dependencies_in_declarative_region() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+use work.pkg2.const;
+package gpkg is
+  generic (c : boolean);
+  constant const : boolean := c;
+end package;
+
+package pkg2 is
+   package ipkg is new work.gpkg generic map(c => false);
+   constant const : boolean := false;
+end package;
+
+",
+        );
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
+            vec![
+                Diagnostic::error(code.s1("work.pkg2.const"), "Found circular dependency"),
+                Diagnostic::error(code.s1("work.gpkg"), "Found circular dependency"),
+            ],
+        );
+    }
+
+    #[test]
+    fn detects_package_instance_circular_dependencies_in_interface() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+use work.pkg3.const;
+package gpkg is
+  generic (c : boolean);
+  constant const : boolean := c;
+end package;
+
+package pkg2 is
+   generic (
+      package ipkg is new work.gpkg generic map(c => true)
+   );
+   constant const : boolean := false;
+end package;
+
+package pkg3 is new work.pkg2;
+",
+        );
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
+            vec![
+                Diagnostic::error(code.s1("work.pkg3.const"), "Found circular dependency"),
+                Diagnostic::error(code.s1("work.gpkg"), "Found circular dependency"),
+                Diagnostic::error(code.s1("work.pkg2"), "Found circular dependency"),
+            ],
+        );
+    }
+
+    #[test]
+    fn detects_package_circular_dependencies_all() {
         let mut builder = LibraryBuilder::new();
         let code = builder.code(
             "libname",
@@ -3214,14 +3400,39 @@ end package;",
         check_diagnostics(
             diagnostics,
             vec![
-                Diagnostic::error(
-                    code.s1("work.pkg1"),
-                    "Found circular dependency when referencing 'libname.pkg1'",
-                ),
-                Diagnostic::error(
-                    code.s1("work.pkg2"),
-                    "Found circular dependency when referencing 'libname.pkg2'",
-                ),
+                Diagnostic::error(code.s1("work.pkg1.all"), "Found circular dependency"),
+                Diagnostic::error(code.s1("work.pkg2.all"), "Found circular dependency"),
+            ],
+        );
+    }
+
+    #[test]
+    fn detects_package_instance_circular_dependencies_all() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+package gpkg is
+  generic (g : boolean);
+end package;
+
+use work.pkg2.all;
+
+package pkg1 is
+  constant const : natural := 0;
+end package;
+
+use work.pkg1.all;
+
+package pkg2 is new work.gpkg generic map (g => true);
+",
+        );
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
+            vec![
+                Diagnostic::error(code.s1("work.pkg1.all"), "Found circular dependency"),
+                Diagnostic::error(code.s1("work.pkg2.all"), "Found circular dependency"),
             ],
         );
     }
