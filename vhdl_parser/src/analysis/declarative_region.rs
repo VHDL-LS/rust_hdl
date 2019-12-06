@@ -3,7 +3,6 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
-use super::library::AnalysisData;
 use super::library::Library;
 use crate::ast::*;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
@@ -32,7 +31,7 @@ pub enum AnyDeclaration {
     UninstPackage(Symbol, Symbol),
     Context(Symbol, Symbol),
     PackageInstance(Symbol, Symbol),
-    LocalPackageInstance(Symbol, Arc<AnalysisData>),
+    LocalPackageInstance(Symbol, Arc<DeclarativeRegion<'static>>),
 }
 
 impl AnyDeclaration {

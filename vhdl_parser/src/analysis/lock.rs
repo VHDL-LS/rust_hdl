@@ -56,7 +56,7 @@ impl<T> AnalysisLock<T> {
     }
 
     /// Get an immutable reference to the data if it is already been analyzed
-    pub fn get(&self) -> Option<ReadGuard<T>> {
+    fn get(&self) -> Option<ReadGuard<T>> {
         match self.data.try_read() {
             Ok(guard) => {
                 if guard.done {
@@ -71,7 +71,7 @@ impl<T> AnalysisLock<T> {
     }
 
     /// Get a mutable reference to the data if it has not already been analyzed
-    pub fn get_mut(&self) -> Result<Option<WriteGuard<T>>, CircularDependencyError> {
+    fn get_mut(&self) -> Result<Option<WriteGuard<T>>, CircularDependencyError> {
         match self.data.try_write() {
             Ok(guard) => {
                 if guard.done {
@@ -83,6 +83,17 @@ impl<T> AnalysisLock<T> {
             Err(std::sync::TryLockError::WouldBlock) => Err(CircularDependencyError::default()),
             Err(err) => panic!("{:?}", err),
         }
+    }
+
+    /// Get an immmutable reference to the data, assuming it has already been analyzed
+    pub fn expect_analyzed(&self) -> ReadGuard<T> {
+        let guard = self.data.read().unwrap();
+
+        if !guard.done {
+            panic!("Expected analysis to have already been done");
+        }
+
+        ReadGuard { guard }
     }
 
     /// Get either:

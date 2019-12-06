@@ -14,7 +14,7 @@ use crate::symbol_table::{Symbol, SymbolTable};
 use fnv::FnvHashMap;
 use std::sync::Arc;
 
-use super::lock::{AnalysisEntry, AnalysisLock, CircularDependencyError};
+use super::lock::{AnalysisEntry, AnalysisLock, CircularDependencyError, ReadGuard};
 
 enum AnalysisError {
     Fatal(CircularDependencyError),
@@ -86,7 +86,7 @@ pub struct Analyzer<'a> {
     root: &'a DesignRoot,
 
     // @TODO move to design units themselves
-    locks: FnvHashMap<(Symbol, Symbol), AnalysisLock<Arc<AnalysisData>>>,
+    locks: FnvHashMap<(Symbol, Symbol), AnalysisLock<AnalysisData>>,
 }
 
 impl<'a> Analyzer<'a> {
@@ -99,12 +99,12 @@ impl<'a> Analyzer<'a> {
             for package in library.packages().chain(library.uninst_packages()) {
                 let data = AnalysisData::new(Vec::new(), DeclarativeRegion::default());
                 let key = (library.name.clone(), package.package.name().clone());
-                locks.insert(key, AnalysisLock::new(Arc::new(data)));
+                locks.insert(key, AnalysisLock::new(data));
             }
             for instance in library.package_instances() {
                 let data = AnalysisData::new(Vec::new(), DeclarativeRegion::default());
                 let key = (library.name.clone(), instance.unit.name().clone());
-                locks.insert(key, AnalysisLock::new(Arc::new(data)));
+                locks.insert(key, AnalysisLock::new(data));
             }
         }
 
@@ -213,8 +213,13 @@ impl<'a> Analyzer<'a> {
                         }
                     }
 
-                    AnyDeclaration::LocalPackageInstance(ref instance_name, ref data) => {
-                        if let Some(visible_decl) = data.region.lookup(suffix.designator(), false) {
+                    AnyDeclaration::LocalPackageInstance(
+                        ref instance_name,
+                        ref instance_region,
+                    ) => {
+                        if let Some(visible_decl) =
+                            instance_region.lookup(suffix.designator(), false)
+                        {
                             Ok(LookupResult::Single(visible_decl.clone()))
                         } else {
                             Err(Diagnostic::error(
@@ -287,11 +292,11 @@ impl<'a> Analyzer<'a> {
             }
             InterfaceDeclaration::Package(ref instance) => {
                 match self.analyze_package_instance_name(region, &instance.package_name) {
-                    Ok(package_region) => region.add(
+                    Ok(data) => region.add(
                         &instance.ident,
                         AnyDeclaration::LocalPackageInstance(
                             instance.ident.item.clone(),
-                            package_region,
+                            Arc::new(data.region.clone()),
                         ),
                         diagnostics,
                     ),
@@ -459,11 +464,11 @@ impl<'a> Analyzer<'a> {
 
             Declaration::Package(ref instance) => {
                 match self.analyze_package_instance(region, instance) {
-                    Ok(package_region) => region.add(
+                    Ok(data) => region.add(
                         &instance.ident,
                         AnyDeclaration::LocalPackageInstance(
                             instance.ident.item.clone(),
-                            package_region,
+                            Arc::new(data.region.clone()),
                         ),
                         diagnostics,
                     ),
@@ -611,8 +616,8 @@ impl<'a> Analyzer<'a> {
                                 }
                             }
                         }
-                        AnyDeclaration::LocalPackageInstance(_, ref data) => {
-                            region.make_all_potentially_visible(&data.region);
+                        AnyDeclaration::LocalPackageInstance(_, ref instance_region) => {
+                            region.make_all_potentially_visible(&instance_region);
                         }
                         // @TODO handle others
                         _ => {}
@@ -871,11 +876,13 @@ impl<'a> Analyzer<'a> {
         &self,
         library_name: &Symbol,
         package_name: &Symbol,
-    ) -> Result<Arc<AnalysisData>, CircularDependencyError> {
+    ) -> Result<ReadGuard<AnalysisData>, CircularDependencyError> {
         let mut diagnostics = Vec::new();
 
         let key = (library_name.clone(), package_name.clone());
-        match self.locks.get(&key).unwrap().entry()? {
+        let lock = self.locks.get(&key).unwrap();
+
+        match lock.entry()? {
             AnalysisEntry::Vacant(mut entry) => {
                 let library = self.root.expect_library(library_name);
                 let package = library.expect_any_package(package_name);
@@ -905,11 +912,12 @@ impl<'a> Analyzer<'a> {
                     region.close_both(&mut diagnostics);
                 }
 
-                let data = Arc::new(AnalysisData::new(diagnostics, region));
-                *entry = data.clone();
-                Ok(data)
+                *entry = AnalysisData::new(diagnostics, region);
+                // Drop write lock and take a read lock
+                drop(entry);
+                Ok(lock.expect_analyzed())
             }
-            AnalysisEntry::Occupied(entry) => Ok(entry.clone()),
+            AnalysisEntry::Occupied(entry) => Ok(entry),
         }
     }
 
@@ -979,7 +987,7 @@ impl<'a> Analyzer<'a> {
         &self,
         parent: &DeclarativeRegion<'_>,
         package_instance: &PackageInstantiation,
-    ) -> Result<Arc<AnalysisData>, AnalysisError> {
+    ) -> Result<ReadGuard<AnalysisData>, AnalysisError> {
         self.analyze_package_instance_name(parent, &package_instance.package_name)
     }
 
@@ -1022,12 +1030,12 @@ impl<'a> Analyzer<'a> {
         &self,
         region: &DeclarativeRegion<'_>,
         package_name: &WithPos<SelectedName>,
-    ) -> Result<Arc<AnalysisData>, AnalysisError> {
+    ) -> Result<ReadGuard<AnalysisData>, AnalysisError> {
         let (library_name, package_name) =
             self.lookup_package_instance_name(region, package_name)?;
 
         match self.analyze_package_declaration_unit(&library_name, &package_name) {
-            Ok(data) => Ok(data.clone()),
+            Ok(data) => Ok(data),
             Err(err) => Err(AnalysisError::Fatal(err)),
         }
     }
@@ -1036,11 +1044,12 @@ impl<'a> Analyzer<'a> {
         &self,
         library_name: &Symbol,
         instance_name: &Symbol,
-    ) -> Result<Arc<AnalysisData>, CircularDependencyError> {
+    ) -> Result<ReadGuard<AnalysisData>, CircularDependencyError> {
         let mut diagnostics = Vec::new();
 
         let key = (library_name.clone(), instance_name.clone());
-        match self.locks.get(&key).unwrap().entry()? {
+        let lock = self.locks.get(&key).unwrap();
+        match lock.entry()? {
             AnalysisEntry::Vacant(mut entry) => {
                 let library = self.root.expect_library(library_name);
                 let package_instance = library.expect_package_instance(instance_name);
@@ -1054,15 +1063,16 @@ impl<'a> Analyzer<'a> {
 
                 match self.analyze_package_instance(&region, &package_instance.unit) {
                     Ok(data) => {
-                        *entry = Arc::new(AnalysisData::new(diagnostics, data.region.clone()));
-                        Ok(entry.clone())
+                        *entry = AnalysisData::new(diagnostics, data.region.clone());
+                        drop(entry);
+                        Ok(lock.expect_analyzed())
                     }
                     Err(AnalysisError::NotFatal(diagnostic)) => {
                         diagnostics.push(diagnostic);
                         // Failed to analyze, add empty region with diagnostics
-                        *entry =
-                            Arc::new(AnalysisData::new(diagnostics, DeclarativeRegion::default()));
-                        Ok(entry.clone())
+                        entry.diagnostics = diagnostics;
+                        drop(entry);
+                        Ok(lock.expect_analyzed())
                     }
                     Err(AnalysisError::Fatal(mut err)) => {
                         err.add_reference(&package_instance.unit.package_name.pos);
@@ -1070,7 +1080,7 @@ impl<'a> Analyzer<'a> {
                     }
                 }
             }
-            AnalysisEntry::Occupied(entry) => Ok(entry.clone()),
+            AnalysisEntry::Occupied(entry) => Ok(entry),
         }
     }
 

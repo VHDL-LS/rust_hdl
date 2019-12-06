@@ -19,7 +19,7 @@ use crate::symbol_table::Symbol;
 /// The analysis result of the primary unit
 #[cfg_attr(test, derive(Clone, PartialEq))]
 pub struct AnalysisData {
-    diagnostics: Vec<Diagnostic>,
+    pub diagnostics: Vec<Diagnostic>,
     pub region: DeclarativeRegion<'static>,
 }
 
