@@ -1,0 +1,29 @@
+name: Build & test all configs
+
+on: [push, pull_request]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install cross tool
+      run: cargo install cross
+    - name: Build & test vhdl_parser Linux
+      run: |
+        cross build --package vhdl_parser --target x86_64-unknown-linux-gnu
+        cross test --package vhdl_parser --target x86_64-unknown-linux-gnu
+    - name: Build & test vhdl_parser Windows
+      run: |
+        cross build --package vhdl_parser --target x86_64-pc-windows-gnu
+        cross test --package vhdl_parser --target x86_64-pc-windows-gnu
+    - name: Build & test vhdl_ls Linux
+      run: |
+        cross build --package vhdl_ls --target x86_64-unknown-linux-gnu
+        cross test --package vhdl_ls --target x86_64-unknown-linux-gnu
+    - name: Build & test vhdl_ls Windows
+      run: |
+        cross build --package vhdl_ls --target x86_64-pc-windows-gnu
+        cross test --package vhdl_ls --target x86_64-pc-windows-gnu
