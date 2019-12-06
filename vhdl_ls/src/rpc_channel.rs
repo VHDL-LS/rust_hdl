@@ -61,7 +61,7 @@ pub mod test_support {
     use std::collections::VecDeque;
     use std::rc::Rc;
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug)]
     pub enum RpcExpected {
         Notification {
             method: String,
@@ -121,6 +121,22 @@ pub mod test_support {
         }
     }
 
+    /// True if any string field of the value has string as a substring
+    fn contains_string(value: &serde_json::Value, string: &str) -> bool {
+        match value {
+            serde_json::Value::Array(values) => {
+                values.iter().any(|value| contains_string(value, string))
+            }
+            serde_json::Value::Object(map) => {
+                map.values().any(|value| contains_string(value, string))
+            }
+            serde_json::Value::String(got_string) => got_string.contains(string),
+            serde_json::Value::Null => false,
+            serde_json::Value::Bool(..) => false,
+            serde_json::Value::Number(..) => false,
+        }
+    }
+
     impl super::RpcChannel for RpcMock {
         fn send_notification(
             &self,
@@ -154,8 +170,11 @@ pub mod test_support {
                     contains,
                 } => {
                     assert_eq!(method, exp_method);
-                    if !notification.to_string().contains(&contains) {
-                        panic!("{:?} does not contain string {:?}", notification, contains);
+                    if !contains_string(&notification, &contains) {
+                        panic!(
+                            "{:?} does not contain sub-string {:?}",
+                            notification, contains
+                        );
                     }
                 }
             }
