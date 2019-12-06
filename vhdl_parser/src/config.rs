@@ -301,19 +301,25 @@ lib3.files = [
 
         let expected_parent = Path::new("");
         let expected_config = Config::from_str(
-            "
+            &format!(
+                "
 [libraries]
 lib1.files = [
-  'parent_folder0/pkg1.vhd',
+  '{pkg1}',
 ]
 lib2.files = [
-  'parent_folder0/pkg2.vhd',
-  'parent_folder1/ent.vhd'
+  '{pkg2}',
+  '{ent}'
 ]
 lib3.files = [
-  'parent_folder1/pkg3.vhd',
+  '{pkg3}',
 ]
 ",
+                pkg1 = parent0.join("pkg1.vhd").to_str().unwrap(),
+                pkg2 = parent0.join("pkg2.vhd").to_str().unwrap(),
+                ent = parent1.join("ent.vhd").to_str().unwrap(),
+                pkg3 = parent1.join("pkg3.vhd").to_str().unwrap()
+            ),
             &expected_parent,
         )
         .unwrap();
@@ -343,9 +349,10 @@ lib.files = [
         assert_eq!(file_names, expected);
         assert_eq!(
             messages,
-            vec![Message::warning(
-                "File parent_folder/missing.vhd does not exist"
-            )]
+            vec![Message::warning(format!(
+                "File {} does not exist",
+                parent.join("missing.vhd").to_str().unwrap()
+            ))]
         );
     }
 
@@ -419,9 +426,10 @@ lib.files = [
         assert_eq!(file_names, expected);
         assert_eq!(
             messages,
-            vec![Message::warning(
-                "Pattern 'parent_folder/missing*.vhd' did not match any file"
-            )]
+            vec![Message::warning(format!(
+                "Pattern '{}' did not match any file",
+                parent.join("missing*.vhd").to_str().unwrap()
+            ))]
         );
     }
 }
