@@ -36,7 +36,7 @@ impl LibraryConfig {
     pub fn file_names(&self, messages: &mut Vec<Message>) -> Vec<String> {
         let mut result = Vec::new();
         for pattern in self.files.iter() {
-            if Self::is_literal(&pattern) {
+            if is_literal(&pattern, cfg!(windows)) {
                 if !Path::new(pattern).exists() {
                     messages.push(Message::warning(
                         format! {"File {} does not exist", pattern},
@@ -102,19 +102,6 @@ impl LibraryConfig {
             }
         }
         result
-    }
-
-    /// Returns true if the pattern is a plain file name and not a glob pattern
-    fn is_literal(pattern: &str) -> bool {
-        for chr in pattern.chars() {
-            match chr {
-                '?' | '*' | '[' => {
-                    return false;
-                }
-                _ => {}
-            }
-        }
-        return true;
     }
 
     /// Returns the name of the library
@@ -207,6 +194,28 @@ impl Config {
     }
 }
 
+/// Returns true if the pattern is a plain file name and not a glob pattern
+fn is_literal(pattern: &str, is_windows: bool) -> bool {
+    let mut chars = pattern.chars();
+
+    let extended_path_prefix = "\\\\?";
+    if is_windows && pattern.starts_with(extended_path_prefix) {
+        for _ in 0..extended_path_prefix.len() {
+            chars.next();
+        }
+    };
+
+    for chr in chars {
+        match chr {
+            '?' | '*' | '[' => {
+                return false;
+            }
+            _ => {}
+        }
+    }
+    return true;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -218,6 +227,19 @@ mod tests {
         let path = parent.join(file_name);
         File::create(&path).expect("Assume file can be created");
         path.to_str().expect("Assume valid string").to_owned()
+    }
+
+    #[test]
+    fn test_is_literal() {
+        for is_windows in &[false, true] {
+            assert_eq!(is_literal("file.vhd", *is_windows), true);
+            assert_eq!(is_literal("file*.vhd", *is_windows), false);
+            assert_eq!(is_literal("file?.vhd", *is_windows), false);
+            assert_eq!(is_literal("file[ab].vhd", *is_windows), false);
+        }
+
+        assert_eq!(is_literal("\\\\?file.vhd", true), true);
+        assert_eq!(is_literal("\\\\?*file.vhd", true), false);
     }
 
     #[test]
