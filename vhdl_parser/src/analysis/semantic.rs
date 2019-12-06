@@ -5,16 +5,15 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use super::declarative_region::{AnyDeclaration, DeclarativeRegion, VisibleDeclaration};
-use super::library::{AnalysisData, DesignRoot, EntityDesignUnit, Library, PackageDesignUnit};
+use super::library::{AnalysisUnit, DesignRoot, EntityDesignUnit, Library, PackageDesignUnit};
 use crate::ast::{HasIdent, *};
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::latin_1::Latin1String;
 use crate::source::{SrcPos, WithPos};
 use crate::symbol_table::{Symbol, SymbolTable};
-use fnv::FnvHashMap;
 use std::sync::Arc;
 
-use super::lock::{AnalysisEntry, AnalysisLock, CircularDependencyError, ReadGuard};
+use super::lock::{AnalysisEntry, CircularDependencyError, ReadGuard};
 
 enum AnalysisError {
     Fatal(CircularDependencyError),
@@ -84,29 +83,11 @@ pub struct Analyzer<'a> {
     standard_designator: Designator,
     standard_sym: Symbol,
     root: &'a DesignRoot,
-
-    // @TODO move to design units themselves
-    locks: FnvHashMap<(Symbol, Symbol), AnalysisLock<AnalysisData>>,
 }
 
 impl<'a> Analyzer<'a> {
     pub fn new(root: &'a DesignRoot, symtab: &Arc<SymbolTable>) -> Analyzer<'a> {
         let standard_sym = symtab.insert(&Latin1String::new(b"standard"));
-
-        let mut locks = FnvHashMap::default();
-
-        for library in root.iter_libraries() {
-            for package in library.packages().chain(library.uninst_packages()) {
-                let data = AnalysisData::new(Vec::new(), DeclarativeRegion::default());
-                let key = (library.name.clone(), package.package.name().clone());
-                locks.insert(key, AnalysisLock::new(data));
-            }
-            for instance in library.package_instances() {
-                let data = AnalysisData::new(Vec::new(), DeclarativeRegion::default());
-                let key = (library.name.clone(), instance.unit.name().clone());
-                locks.insert(key, AnalysisLock::new(data));
-            }
-        }
 
         Analyzer {
             work_sym: symtab.insert(&Latin1String::new(b"work")),
@@ -114,7 +95,6 @@ impl<'a> Analyzer<'a> {
             standard_designator: Designator::Identifier(standard_sym.clone()),
             standard_sym,
             root,
-            locks,
         }
     }
 
@@ -167,9 +147,9 @@ impl<'a> Analyzer<'a> {
 
                     AnyDeclaration::Package(ref library_name, ref package_name) => {
                         match self.analyze_package_declaration_unit(library_name, package_name) {
-                            Ok(data) => {
+                            Ok(package) => {
                                 if let Some(visible_decl) =
-                                    data.region.lookup(suffix.designator(), false)
+                                    package.region.lookup(suffix.designator(), false)
                                 {
                                     Ok(LookupResult::Single(visible_decl.clone()))
                                 } else {
@@ -191,9 +171,9 @@ impl<'a> Analyzer<'a> {
 
                     AnyDeclaration::PackageInstance(ref library_name, ref instance_name) => {
                         match self.analyze_package_instance_unit(library_name, instance_name) {
-                            Ok(data) => {
+                            Ok(instance) => {
                                 if let Some(visible_decl) =
-                                    data.region.lookup(suffix.designator(), false)
+                                    instance.region.lookup(suffix.designator(), false)
                                 {
                                     Ok(LookupResult::Single(visible_decl.clone()))
                                 } else {
@@ -292,11 +272,11 @@ impl<'a> Analyzer<'a> {
             }
             InterfaceDeclaration::Package(ref instance) => {
                 match self.analyze_package_instance_name(region, &instance.package_name) {
-                    Ok(data) => region.add(
+                    Ok(package) => region.add(
                         &instance.ident,
                         AnyDeclaration::LocalPackageInstance(
                             instance.ident.item.clone(),
-                            Arc::new(data.region.clone()),
+                            Arc::new(package.region.clone()),
                         ),
                         diagnostics,
                     ),
@@ -876,48 +856,42 @@ impl<'a> Analyzer<'a> {
         &self,
         library_name: &Symbol,
         package_name: &Symbol,
-    ) -> Result<ReadGuard<AnalysisData>, CircularDependencyError> {
+    ) -> Result<ReadGuard<AnalysisUnit<PackageDeclaration>>, CircularDependencyError> {
         let mut diagnostics = Vec::new();
 
-        let key = (library_name.clone(), package_name.clone());
-        let lock = self.locks.get(&key).unwrap();
-
-        match lock.entry()? {
-            AnalysisEntry::Vacant(mut entry) => {
-                let library = self.root.expect_library(library_name);
-                let package = library.expect_any_package(package_name);
-
+        let library = self.root.expect_library(library_name);
+        let package_unit = library.expect_any_package(package_name);
+        match package_unit.package.entry()? {
+            AnalysisEntry::Vacant(mut package) => {
                 let mut root_region = Box::new(DeclarativeRegion::default());
-                if !(library.name == self.std_sym && *package.package.name() == self.standard_sym) {
+                if !(library.name == self.std_sym && *package.name() == self.standard_sym) {
                     self.add_implicit_context_clause(&mut root_region, library);
                 }
 
                 self.analyze_context_clause(
                     &mut root_region,
-                    &package.package.context_clause,
+                    &package.context_clause,
                     &mut diagnostics,
                 )?;
 
                 let mut region =
                     DeclarativeRegion::new_owned_parent(root_region).in_package_declaration();
-                self.analyze_package_declaration(
-                    &mut region,
-                    &package.package.unit,
-                    &mut diagnostics,
-                )?;
+                self.analyze_package_declaration(&mut region, &package.unit, &mut diagnostics)?;
 
-                if package.body.is_some() {
+                if package_unit.body.is_some() {
                     region.close_immediate(&mut diagnostics);
                 } else {
                     region.close_both(&mut diagnostics);
                 }
 
-                *entry = AnalysisData::new(diagnostics, region);
+                package.diagnostics = diagnostics;
+                package.region = region;
+
                 // Drop write lock and take a read lock
-                drop(entry);
-                Ok(lock.expect_analyzed())
+                drop(package);
+                Ok(package_unit.package.expect_analyzed())
             }
-            AnalysisEntry::Occupied(entry) => Ok(entry),
+            AnalysisEntry::Occupied(package) => Ok(package),
         }
     }
 
@@ -941,12 +915,12 @@ impl<'a> Analyzer<'a> {
     fn analyze_package(
         &self,
         library: &Library,
-        package: &PackageDesignUnit,
+        package_unit: &PackageDesignUnit,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        let data = self.analyze_package_declaration_unit(&library.name, package.package.name())?;
-        data.push_to(diagnostics);
-        self.analyze_package_body_unit(&data.region, &package, diagnostics)?;
+        let package = self.analyze_package_declaration_unit(&library.name, package_unit.name())?;
+        diagnostics.append(package.diagnostics.clone());
+        self.analyze_package_body_unit(&package.region, &package_unit, diagnostics)?;
         Ok(())
     }
 
@@ -987,7 +961,7 @@ impl<'a> Analyzer<'a> {
         &self,
         parent: &DeclarativeRegion<'_>,
         package_instance: &PackageInstantiation,
-    ) -> Result<ReadGuard<AnalysisData>, AnalysisError> {
+    ) -> Result<ReadGuard<AnalysisUnit<PackageDeclaration>>, AnalysisError> {
         self.analyze_package_instance_name(parent, &package_instance.package_name)
     }
 
@@ -1030,12 +1004,12 @@ impl<'a> Analyzer<'a> {
         &self,
         region: &DeclarativeRegion<'_>,
         package_name: &WithPos<SelectedName>,
-    ) -> Result<ReadGuard<AnalysisData>, AnalysisError> {
+    ) -> Result<ReadGuard<AnalysisUnit<PackageDeclaration>>, AnalysisError> {
         let (library_name, package_name) =
             self.lookup_package_instance_name(region, package_name)?;
 
         match self.analyze_package_declaration_unit(&library_name, &package_name) {
-            Ok(data) => Ok(data),
+            Ok(package) => Ok(package),
             Err(err) => Err(AnalysisError::Fatal(err)),
         }
     }
@@ -1044,38 +1018,34 @@ impl<'a> Analyzer<'a> {
         &self,
         library_name: &Symbol,
         instance_name: &Symbol,
-    ) -> Result<ReadGuard<AnalysisData>, CircularDependencyError> {
+    ) -> Result<ReadGuard<AnalysisUnit<PackageInstantiation>>, CircularDependencyError> {
         let mut diagnostics = Vec::new();
 
-        let key = (library_name.clone(), instance_name.clone());
-        let lock = self.locks.get(&key).unwrap();
-        match lock.entry()? {
-            AnalysisEntry::Vacant(mut entry) => {
-                let library = self.root.expect_library(library_name);
-                let package_instance = library.expect_package_instance(instance_name);
+        let library = self.root.expect_library(library_name);
+        let instance = library.expect_package_instance(instance_name);
+
+        match instance.instance.entry()? {
+            AnalysisEntry::Vacant(mut unit) => {
                 let mut region = DeclarativeRegion::default();
                 self.add_implicit_context_clause(&mut region, library);
-                self.analyze_context_clause(
-                    &mut region,
-                    &package_instance.context_clause,
-                    &mut diagnostics,
-                )?;
+                self.analyze_context_clause(&mut region, &unit.context_clause, &mut diagnostics)?;
 
-                match self.analyze_package_instance(&region, &package_instance.unit) {
-                    Ok(data) => {
-                        *entry = AnalysisData::new(diagnostics, data.region.clone());
-                        drop(entry);
-                        Ok(lock.expect_analyzed())
+                match self.analyze_package_instance(&region, &unit.unit) {
+                    Ok(package) => {
+                        unit.diagnostics = diagnostics;
+                        unit.region = package.region.clone();
+                        drop(unit);
+                        Ok(instance.instance.expect_analyzed())
                     }
                     Err(AnalysisError::NotFatal(diagnostic)) => {
                         diagnostics.push(diagnostic);
                         // Failed to analyze, add empty region with diagnostics
-                        entry.diagnostics = diagnostics;
-                        drop(entry);
-                        Ok(lock.expect_analyzed())
+                        unit.diagnostics = diagnostics;
+                        drop(unit);
+                        Ok(instance.instance.expect_analyzed())
                     }
                     Err(AnalysisError::Fatal(mut err)) => {
-                        err.add_reference(&package_instance.unit.package_name.pos);
+                        err.add_reference(&unit.unit.package_name.pos);
                         Err(err)
                     }
                 }
@@ -1087,7 +1057,7 @@ impl<'a> Analyzer<'a> {
     fn analyze_configuration(
         &self,
         library: &Library,
-        cfg: &DesignUnit<ConfigurationDeclaration>,
+        cfg: &AnalysisUnit<ConfigurationDeclaration>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         let mut region = DeclarativeRegion::default();
@@ -1177,8 +1147,8 @@ impl<'a> Analyzer<'a> {
 
         for package_instance in library.package_instances() {
             match self.analyze_package_instance_unit(&library.name, package_instance.name()) {
-                Ok(data) => {
-                    data.push_to(diagnostics);
+                Ok(instance) => {
+                    diagnostics.append(instance.diagnostics.clone());
                 }
                 Err(fatal_err) => {
                     fatal_err.push_into(diagnostics);
@@ -1212,7 +1182,7 @@ impl<'a> Analyzer<'a> {
                 .expect("Expect no fatal error when STD.STANDARD package");
 
             for package in library.packages() {
-                if *package.package.name() != self.standard_sym {
+                if *package.name() != self.standard_sym {
                     self.analyze_package(library, package, diagnostics)
                         .expect("Expect no circular error when analyzing packages in STD library");
                 }

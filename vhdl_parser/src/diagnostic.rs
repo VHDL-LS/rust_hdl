@@ -101,7 +101,12 @@ impl Diagnostic {
 }
 
 pub trait DiagnosticHandler {
-    fn push(self: &mut Self, err: Diagnostic);
+    fn push(self: &mut Self, diagnostic: Diagnostic);
+    fn append(self: &mut Self, diagnostics: Vec<Diagnostic>) {
+        for diagnostic in diagnostics.into_iter() {
+            self.push(diagnostic);
+        }
+    }
 }
 
 pub fn push_result<T>(diagnostics: &mut dyn DiagnosticHandler, diagnostic: Result<T, Diagnostic>) {

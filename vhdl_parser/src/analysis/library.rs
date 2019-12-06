@@ -11,50 +11,56 @@ use fnv;
 use std::collections::hash_map::Entry;
 
 use super::declarative_region::{AnyDeclaration, DeclarativeRegion};
+use super::lock::AnalysisLock;
 use crate::ast::*;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
-use crate::source::SrcPos;
+use crate::source::{SrcPos, WithPos};
 use crate::symbol_table::Symbol;
 
-/// The analysis result of the primary unit
-#[cfg_attr(test, derive(Clone, PartialEq))]
-pub struct AnalysisData {
+/// A design unit with design unit data
+#[cfg_attr(test, derive(PartialEq, Debug, Clone))]
+pub struct AnalysisUnit<T> {
     pub diagnostics: Vec<Diagnostic>,
     pub region: DeclarativeRegion<'static>,
+    pub context_clause: Vec<WithPos<ContextItem>>,
+    pub unit: T,
 }
 
-#[cfg(test)]
-impl std::fmt::Debug for AnalysisData {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "AnalysisData")
+pub type LockedUnit<T> = AnalysisLock<AnalysisUnit<T>>;
+
+impl<T: HasIdent> HasIdent for AnalysisUnit<T> {
+    fn ident(&self) -> &Ident {
+        self.unit.ident()
     }
 }
 
-impl AnalysisData {
-    pub fn new(diagnostics: Vec<Diagnostic>, region: DeclarativeRegion<'static>) -> AnalysisData {
-        AnalysisData {
-            diagnostics,
-            region,
+impl<T> Into<AnalysisUnit<T>> for DesignUnit<T> {
+    fn into(self) -> AnalysisUnit<T> {
+        AnalysisUnit {
+            diagnostics: Vec::new(),
+            region: DeclarativeRegion::default(),
+            context_clause: self.context_clause,
+            unit: self.unit,
         }
     }
+}
 
-    pub fn push_to(&self, diagnostics: &mut dyn DiagnosticHandler) {
-        for diagnostic in self.diagnostics.iter().cloned() {
-            diagnostics.push(diagnostic);
-        }
+impl<T> Into<LockedUnit<T>> for DesignUnit<T> {
+    fn into(self) -> LockedUnit<T> {
+        AnalysisLock::new(self.into())
     }
 }
 
 #[cfg_attr(test, derive(PartialEq, Debug))]
 pub struct EntityDesignUnit {
-    pub entity: DesignUnit<EntityDeclaration>,
-    pub architectures: FnvHashMap<Symbol, DesignUnit<ArchitectureBody>>,
+    pub entity: AnalysisUnit<EntityDeclaration>,
+    pub architectures: FnvHashMap<Symbol, AnalysisUnit<ArchitectureBody>>,
 }
 
 impl EntityDesignUnit {
     fn add_architecture(
         &mut self,
-        architecture: DesignUnit<ArchitectureBody>,
+        architecture: AnalysisUnit<ArchitectureBody>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
         match self.architectures.entry(architecture.name().clone()) {
@@ -92,30 +98,26 @@ impl EntityDesignUnit {
     }
 }
 
-#[cfg_attr(test, derive(PartialEq, Debug))]
 pub struct PackageDesignUnit {
-    /// The declarative region is None when it has not yet been computed
-    pub package: DesignUnit<PackageDeclaration>,
-    pub body: Option<DesignUnit<PackageBody>>,
+    pub ident: Ident,
+    pub package: LockedUnit<PackageDeclaration>,
+    pub body: Option<AnalysisUnit<PackageBody>>,
 }
 
 impl PackageDesignUnit {
-    pub fn is_generic(&self) -> bool {
-        self.package.unit.generic_clause.is_some()
-    }
-
-    fn set_body(&mut self, body: DesignUnit<PackageBody>, diagnostics: &mut dyn DiagnosticHandler) {
+    fn set_body(
+        &mut self,
+        body: AnalysisUnit<PackageBody>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
         if self.body.is_some() {
             diagnostics.push(Diagnostic::error(
                 body.ident(),
-                format!(
-                    "Duplicate package body of package '{}'",
-                    self.package.name(),
-                ),
+                format!("Duplicate package body of package '{}'", self.ident.name(),),
             ));
         } else {
             {
-                let primary_pos = &self.package.pos();
+                let primary_pos = &self.ident.pos();
                 let secondary_pos = &body.pos();
                 if primary_pos.source == secondary_pos.source
                     && primary_pos.start > secondary_pos.start
@@ -124,7 +126,7 @@ impl PackageDesignUnit {
                         secondary_pos,
                         format!(
                             "Package body declared before package '{}'",
-                            self.package.name()
+                            self.ident.name()
                         ),
                     ));
                 }
@@ -134,13 +136,31 @@ impl PackageDesignUnit {
     }
 }
 
+impl HasIdent for PackageDesignUnit {
+    fn ident(&self) -> &Ident {
+        &self.ident
+    }
+}
+
+pub struct PackageInstance {
+    ident: Ident,
+    pub instance: LockedUnit<PackageInstantiation>,
+}
+
+impl HasIdent for PackageInstance {
+    fn ident(&self) -> &Ident {
+        &self.ident
+    }
+}
+
 pub struct Library {
     pub name: Symbol,
     pub region: DeclarativeRegion<'static>,
     entities: FnvHashMap<Symbol, EntityDesignUnit>,
-    configurations: FnvHashMap<Symbol, DesignUnit<ConfigurationDeclaration>>,
+    configurations: FnvHashMap<Symbol, AnalysisUnit<ConfigurationDeclaration>>,
     packages: FnvHashMap<Symbol, PackageDesignUnit>,
-    package_instances: FnvHashMap<Symbol, DesignUnit<PackageInstantiation>>,
+    uninst_packages: FnvHashMap<Symbol, PackageDesignUnit>,
+    package_instances: FnvHashMap<Symbol, PackageInstance>,
     contexts: FnvHashMap<Symbol, ContextDeclaration>,
 }
 
@@ -153,11 +173,13 @@ impl<'a> Library {
         let mut primary_names: FnvHashMap<Symbol, SrcPos> = FnvHashMap::default();
         let mut entities = FnvHashMap::default();
         let mut packages = FnvHashMap::default();
+        let mut uninst_packages = FnvHashMap::default();
         let mut package_instances = FnvHashMap::default();
         let mut contexts = FnvHashMap::default();
         let mut architectures = Vec::new();
         let mut package_bodies = Vec::new();
-        let mut configurations = FnvHashMap::default();
+        let mut configurations: FnvHashMap<Symbol, AnalysisUnit<ConfigurationDeclaration>> =
+            FnvHashMap::default();
 
         for design_file in design_files {
             for design_unit in design_file.design_units {
@@ -183,29 +205,41 @@ impl<'a> Library {
                                         entities.insert(
                                             entity.name().clone(),
                                             EntityDesignUnit {
-                                                entity,
+                                                entity: entity.into(),
                                                 architectures: FnvHashMap::default(),
                                             },
                                         );
                                     }
                                     PrimaryUnit::PackageDeclaration(package) => {
-                                        packages.insert(
+                                        let map = if package.unit.generic_clause.is_some() {
+                                            &mut uninst_packages
+                                        } else {
+                                            &mut packages
+                                        };
+                                        map.insert(
                                             package.name().clone(),
                                             PackageDesignUnit {
-                                                package,
+                                                ident: package.ident().clone(),
+                                                package: package.into(),
                                                 body: None,
                                             },
                                         );
                                     }
                                     PrimaryUnit::PackageInstance(inst) => {
-                                        package_instances.insert(inst.name().clone(), inst);
+                                        package_instances.insert(
+                                            inst.name().clone(),
+                                            PackageInstance {
+                                                ident: inst.ident().clone(),
+                                                instance: inst.into(),
+                                            },
+                                        );
                                     }
                                     PrimaryUnit::ContextDeclaration(context) => {
                                         contexts.insert(context.name().clone(), context);
                                     }
 
                                     PrimaryUnit::Configuration(config) => {
-                                        configurations.insert(config.name().clone(), config);
+                                        configurations.insert(config.name().clone(), config.into());
                                     }
                                 }
                             }
@@ -223,7 +257,7 @@ impl<'a> Library {
 
         for architecture in architectures {
             if let Some(ref mut entity) = entities.get_mut(&architecture.unit.entity_name.item) {
-                entity.add_architecture(architecture, diagnostics)
+                entity.add_architecture(architecture.into(), diagnostics)
             } else {
                 diagnostics.push(Diagnostic::error(
                     &architecture.unit.entity_name.pos,
@@ -237,7 +271,9 @@ impl<'a> Library {
 
         for body in package_bodies {
             if let Some(ref mut package) = packages.get_mut(&body.name()) {
-                package.set_body(body, diagnostics)
+                package.set_body(body.into(), diagnostics)
+            } else if let Some(ref mut package) = uninst_packages.get_mut(&body.name()) {
+                package.set_body(body.into(), diagnostics)
             } else {
                 diagnostics.push(Diagnostic::error(
                     &body.ident(),
@@ -249,21 +285,23 @@ impl<'a> Library {
         let mut region = DeclarativeRegion::default();
 
         for pkg in packages.values() {
-            let package_sym = pkg.package.ident().item.clone();
-
             region.add(
-                pkg.package.ident(),
-                if pkg.is_generic() {
-                    AnyDeclaration::UninstPackage(name.clone(), package_sym)
-                } else {
-                    AnyDeclaration::Package(name.clone(), package_sym)
-                },
+                pkg.ident(),
+                AnyDeclaration::Package(name.clone(), pkg.name().clone()),
+                diagnostics,
+            );
+        }
+
+        for pkg in uninst_packages.values() {
+            region.add(
+                pkg.ident(),
+                AnyDeclaration::UninstPackage(name.clone(), pkg.name().clone()),
                 diagnostics,
             );
         }
 
         for ctx in contexts.values() {
-            let sym = ctx.ident.item.clone();
+            let sym = ctx.name().clone();
 
             region.add(
                 &ctx.ident,
@@ -286,10 +324,9 @@ impl<'a> Library {
         }
 
         for pkg in package_instances.values() {
-            let sym = pkg.ident().item.clone();
             region.add(
                 pkg.ident(),
-                AnyDeclaration::PackageInstance(name.clone(), sym),
+                AnyDeclaration::PackageInstance(name.clone(), pkg.name().clone()),
                 diagnostics,
             );
         }
@@ -300,6 +337,7 @@ impl<'a> Library {
             entities,
             configurations,
             packages,
+            uninst_packages,
             package_instances,
             contexts,
         }
@@ -313,34 +351,29 @@ impl<'a> Library {
     pub fn configuration(
         &'a self,
         name: &Symbol,
-    ) -> Option<&'a DesignUnit<ConfigurationDeclaration>> {
+    ) -> Option<&'a AnalysisUnit<ConfigurationDeclaration>> {
         self.configurations.get(name)
     }
 
     /// Return a non-generic packate
     #[cfg(test)]
     pub fn package(&'a self, name: &Symbol) -> Option<&'a PackageDesignUnit> {
-        self.packages
-            .get(name)
-            .and_then(|pkg| if pkg.is_generic() { None } else { Some(pkg) })
+        self.packages.get(name)
     }
 
     pub fn expect_any_package(&'a self, name: &Symbol) -> &'a PackageDesignUnit {
-        self.packages.get(name).expect("Package must exist")
+        self.packages
+            .get(name)
+            .or_else(|| self.uninst_packages.get(name))
+            .expect("Package must exist")
     }
 
     #[cfg(test)]
-    pub fn package_instance(
-        &'a self,
-        name: &Symbol,
-    ) -> Option<&'a DesignUnit<PackageInstantiation>> {
+    pub fn package_instance(&'a self, name: &Symbol) -> Option<&'a PackageInstance> {
         self.package_instances.get(name)
     }
 
-    pub fn expect_package_instance(
-        &'a self,
-        name: &Symbol,
-    ) -> &'a DesignUnit<PackageInstantiation> {
+    pub fn expect_package_instance(&'a self, name: &Symbol) -> &'a PackageInstance {
         self.package_instances
             .get(name)
             .expect("Package instance must exist")
@@ -354,21 +387,21 @@ impl<'a> Library {
         self.entities.values()
     }
 
-    pub fn configurations(&self) -> impl Iterator<Item = &DesignUnit<ConfigurationDeclaration>> {
+    pub fn configurations(&self) -> impl Iterator<Item = &AnalysisUnit<ConfigurationDeclaration>> {
         self.configurations.values()
     }
 
     /// Iterate over packages
     pub fn packages(&self) -> impl Iterator<Item = &PackageDesignUnit> {
-        self.packages.values().filter(|pkg| !pkg.is_generic())
+        self.packages.values()
     }
 
     /// Iterate uninstantiated packages
     pub fn uninst_packages(&self) -> impl Iterator<Item = &PackageDesignUnit> {
-        self.packages.values().filter(|pkg| pkg.is_generic())
+        self.uninst_packages.values()
     }
 
-    pub fn package_instances(&self) -> impl Iterator<Item = &DesignUnit<PackageInstantiation>> {
+    pub fn package_instances(&self) -> impl Iterator<Item = &PackageInstance> {
         self.package_instances.values()
     }
 
@@ -442,17 +475,9 @@ end entity;
 ",
         );
         let library = new_library(&code, "libname");
-
-        assert_eq!(
-            library.entity(&code.symbol("ent")),
-            Some(&EntityDesignUnit {
-                entity: DesignUnit {
-                    context_clause: vec![],
-                    unit: code.entity()
-                },
-                architectures: FnvHashMap::default(),
-            })
-        );
+        let unit = library.entity(&code.symbol("ent")).unwrap();
+        assert_eq!(unit.entity.unit, code.entity());
+        assert_eq!(unit.architectures, FnvHashMap::default());
     }
 
     #[test]
@@ -766,14 +791,16 @@ end architecture;
             DesignUnit {
                 context_clause: vec![],
                 unit: architecture0,
-            },
+            }
+            .into(),
         );
         architectures.insert(
             code.symbol("arch1"),
             DesignUnit {
                 context_clause: vec![],
                 unit: architecture1,
-            },
+            }
+            .into(),
         );
 
         assert_eq!(
@@ -782,7 +809,8 @@ end architecture;
                 entity: DesignUnit {
                     context_clause: vec![],
                     unit: entity
-                },
+                }
+                .into(),
                 architectures
             })
         );
@@ -804,20 +832,28 @@ end package body;
         let package = code.between("package", "package;").package();
         let body = code.between("package body", "package body;").package_body();
 
-        let body = DesignUnit {
-            context_clause: vec![],
-            unit: body,
-        };
+        let design_unit = library.package(&code.symbol("pkg")).unwrap();
+
+        assert_eq!(&design_unit.ident, package.ident());
 
         assert_eq!(
-            library.package(&code.symbol("pkg")),
-            Some(&PackageDesignUnit {
-                package: DesignUnit {
+            *design_unit.package.expect_read(),
+            DesignUnit {
+                context_clause: vec![],
+                unit: package
+            }
+            .into()
+        );
+
+        assert_eq!(
+            design_unit.body,
+            Some(
+                DesignUnit {
                     context_clause: vec![],
-                    unit: package
-                },
-                body: Some(body)
-            })
+                    unit: body
+                }
+                .into()
+            )
         );
     }
 
@@ -869,30 +905,33 @@ end configuration;
             unit: code
                 .between("configuration cfg1", "end configuration;")
                 .configuration(),
-        };
+        }
+        .into();
         let cfg2 = DesignUnit {
             context_clause: vec![],
             unit: code
                 .between("configuration cfg2", "end configuration;")
                 .configuration(),
-        };
+        }
+        .into();
         let cfg3 = DesignUnit {
             context_clause: vec![],
             unit: code
                 .between("configuration cfg3", "end configuration;")
                 .configuration(),
-        };
+        }
+        .into();
+
+        assert_eq!(library.configuration(&code.symbol("cfg1")), Some(&cfg1));
+        assert_eq!(library.configuration(&code.symbol("cfg2")), Some(&cfg2));
+        assert_eq!(library.configuration(&code.symbol("cfg3")), Some(&cfg3));
+        assert_eq!(library.configuration(&code.symbol("cfg4")), None);
 
         let mut configurations = FnvHashMap::default();
         configurations.insert(code.symbol("cfg1"), cfg1.clone());
         configurations.insert(code.symbol("cfg2"), cfg2.clone());
         configurations.insert(code.symbol("cfg3"), cfg3.clone());
-
         assert_eq!(library.configurations, configurations);
-        assert_eq!(library.configuration(&code.symbol("cfg1")), Some(&cfg1));
-        assert_eq!(library.configuration(&code.symbol("cfg2")), Some(&cfg2));
-        assert_eq!(library.configuration(&code.symbol("cfg3")), Some(&cfg3));
-        assert_eq!(library.configuration(&code.symbol("cfg4")), None);
     }
 
     #[test]
@@ -924,7 +963,8 @@ end configuration;
             DesignUnit {
                 context_clause: vec![],
                 unit: cfg,
-            },
+            }
+            .into(),
         );
         check_diagnostics(
             diagnostics,
@@ -947,12 +987,14 @@ package ipkg is new work.lib.gpkg generic map (const => 1);
         let library = new_library(&code, "libname");
         let instance = code.package_instance();
 
+        let got_instance = library.package_instance(&code.symbol("ipkg")).unwrap();
         assert_eq!(
-            library.package_instance(&code.symbol("ipkg")),
-            Some(&DesignUnit {
+            *got_instance.instance.expect_read(),
+            DesignUnit {
                 context_clause: vec![],
                 unit: instance
-            })
+            }
+            .into()
         );
     }
 }

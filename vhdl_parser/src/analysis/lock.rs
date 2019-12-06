@@ -70,6 +70,13 @@ impl<T> AnalysisLock<T> {
         }
     }
 
+    /// Expect non-blocking read of data
+    pub fn expect_read(&self) -> ReadGuard<T> {
+        ReadGuard {
+            guard: self.data.try_read().expect("Expect non-blocking read"),
+        }
+    }
+
     /// Get a mutable reference to the data if it has not already been analyzed
     fn get_mut(&self) -> Result<Option<WriteGuard<T>>, CircularDependencyError> {
         match self.data.try_write() {
