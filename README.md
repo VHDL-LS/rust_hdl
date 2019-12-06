@@ -7,6 +7,7 @@ I am interested in [collaboration](#Collaboration) with other people especially 
 
 [![Join the chat at https://gitter.im/rust_hdl/Lobby](https://badges.gitter.im/rust_hdl/Lobby.svg)](https://gitter.im/rust_hdl/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Build Status](https://travis-ci.com/kraigher/rust_hdl.svg?branch=master)](https://travis-ci.com/kraigher/rust_hdl)
+[![Build Status](https://github.com/kraigher/rust_hdl/workflows/Build%20%26%20test%20all%20configs/badge.svg)](https://github.com/kraigher/rust_hdl/actions?query=workflow%3A%22Build+%26+test+all+configs%22)
 
 # Projects
 # VHDL Parser
