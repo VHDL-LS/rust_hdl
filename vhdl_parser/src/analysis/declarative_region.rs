@@ -604,6 +604,13 @@ impl<'a> DeclarativeRegion<'a> {
         }
     }
 
+    /// Used when useing context clauses
+    pub fn copy_visibility_from(&mut self, region: &DeclarativeRegion<'a>) {
+        for decl in region.visible.values() {
+            self.make_potentially_visible(decl.clone());
+        }
+    }
+
     /// Lookup a designator in the region
     /// inside: true if looking from inside the region
     ///         false if looking from the outside such as through a selected name

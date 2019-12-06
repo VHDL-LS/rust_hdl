@@ -5,7 +5,9 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use super::declarative_region::{AnyDeclaration, DeclarativeRegion, VisibleDeclaration};
-use super::library::{AnalysisUnit, DesignRoot, EntityDesignUnit, Library, PackageDesignUnit};
+use super::library::{
+    AnalysisUnit, Context, DesignRoot, EntityDesignUnit, Library, PackageDesignUnit,
+};
 use crate::ast::{HasIdent, *};
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::latin_1::Latin1String;
@@ -13,7 +15,7 @@ use crate::source::{SrcPos, WithPos};
 use crate::symbol_table::{Symbol, SymbolTable};
 use std::sync::Arc;
 
-use super::lock::{AnalysisEntry, CircularDependencyError, ReadGuard};
+use super::lock::{AnalysisEntry, AnalysisLock, CircularDependencyError, ReadGuard};
 
 enum AnalysisError {
     Fatal(CircularDependencyError),
@@ -47,9 +49,12 @@ impl AnalysisError {
         }
     }
 
-    fn add_circular_reference(&mut self, location: &SrcPos) {
-        if let AnalysisError::Fatal(ref mut err) = self {
-            err.add_reference(location);
+    /// Return self to enforce #[must_use]
+    fn add_circular_reference(self, location: &SrcPos) -> AnalysisError {
+        if let AnalysisError::Fatal(err) = self {
+            AnalysisError::Fatal(err.add_reference(location))
+        } else {
+            self
         }
     }
 }
@@ -162,8 +167,8 @@ impl<'a> Analyzer<'a> {
                                     ))?
                                 }
                             }
-                            Err(mut err) => {
-                                err.add_reference(&name.pos);
+                            Err(err) => {
+                                let err = err.add_reference(&name.pos);
                                 return Err(AnalysisError::Fatal(err));
                             }
                         }
@@ -186,9 +191,9 @@ impl<'a> Analyzer<'a> {
                                     ))?
                                 }
                             }
-                            Err(mut err) => {
-                                err.add_reference(&name.pos);
-                                Err(err)?
+                            Err(err) => {
+                                let err = err.add_reference(&name.pos);
+                                return Err(AnalysisError::Fatal(err));
                             }
                         }
                     }
@@ -280,8 +285,8 @@ impl<'a> Analyzer<'a> {
                         ),
                         diagnostics,
                     ),
-                    Err(mut err) => {
-                        err.add_circular_reference(&instance.package_name.pos);
+                    Err(err) => {
+                        let err = err.add_circular_reference(&instance.package_name.pos);
                         err.add_to(diagnostics)?;
                     }
                 }
@@ -452,8 +457,8 @@ impl<'a> Analyzer<'a> {
                         ),
                         diagnostics,
                     ),
-                    Err(mut err) => {
-                        err.add_circular_reference(&instance.package_name.pos);
+                    Err(err) => {
+                        let err = err.add_circular_reference(&instance.package_name.pos);
                         err.add_to(diagnostics)?
                     }
                 }
@@ -579,9 +584,8 @@ impl<'a> Analyzer<'a> {
                                 Ok(data) => {
                                     region.make_all_potentially_visible(&data.region);
                                 }
-                                Err(mut err) => {
-                                    err.add_reference(&name.pos);
-                                    return Err(err);
+                                Err(err) => {
+                                    return Err(err.add_reference(&name.pos));
                                 }
                             }
                         }
@@ -590,9 +594,8 @@ impl<'a> Analyzer<'a> {
                                 Ok(data) => {
                                     region.make_all_potentially_visible(&data.region);
                                 }
-                                Err(mut err) => {
-                                    err.add_reference(&name.pos);
-                                    return Err(err);
+                                Err(err) => {
+                                    return Err(err.add_reference(&name.pos));
                                 }
                             }
                         }
@@ -667,21 +670,17 @@ impl<'a> Analyzer<'a> {
                                     AnyDeclaration::Context(ref library_name, ref context_name) => {
                                         let library = self.root.expect_library(library_name);
 
-                                        let context = library
+                                        let context_lock = library
                                             .context(context_name)
                                             .expect("Assume context exists if made visible");
-
-                                        // Error will be given when
-                                        // analyzing the context
-                                        // clause specifically and
-                                        // shall not be duplicated
-                                        // here
-                                        let mut ignore_diagnostics = Vec::new();
-                                        self.analyze_context_clause(
-                                            region,
-                                            &context.items,
-                                            &mut ignore_diagnostics,
-                                        )?;
+                                        match self.analyze_context(library, context_lock) {
+                                            Ok(context) => {
+                                                region.copy_visibility_from(&context.region);
+                                            }
+                                            Err(fatal_err) => {
+                                                return Err(fatal_err.add_reference(&name.pos));
+                                            }
+                                        }
                                     }
                                     _ => {
                                         // @TODO maybe lookup should return the source position of the suffix
@@ -1044,13 +1043,33 @@ impl<'a> Analyzer<'a> {
                         drop(unit);
                         Ok(instance.instance.expect_analyzed())
                     }
-                    Err(AnalysisError::Fatal(mut err)) => {
-                        err.add_reference(&unit.unit.package_name.pos);
-                        Err(err)
+                    Err(AnalysisError::Fatal(err)) => {
+                        Err(err.add_reference(&unit.unit.package_name.pos))
                     }
                 }
             }
             AnalysisEntry::Occupied(entry) => Ok(entry),
+        }
+    }
+
+    fn analyze_context(
+        &self,
+        library: &Library,
+        lock: &'a AnalysisLock<Context>,
+    ) -> Result<ReadGuard<'a, Context>, CircularDependencyError> {
+        match lock.entry()? {
+            AnalysisEntry::Vacant(mut context) => {
+                let mut root_region = DeclarativeRegion::default();
+                self.add_implicit_context_clause(&mut root_region, library);
+                let mut diagnostics = Vec::new();
+                let mut region = DeclarativeRegion::new_owned_parent(Box::new(root_region));
+                self.analyze_context_clause(&mut region, &context.decl.items, &mut diagnostics)?;
+                context.region = region;
+                context.diagnostics = diagnostics;
+                drop(context);
+                Ok(lock.expect_analyzed())
+            }
+            AnalysisEntry::Occupied(context) => Ok(context),
         }
     }
 
@@ -1157,11 +1176,12 @@ impl<'a> Analyzer<'a> {
         }
 
         for context in library.contexts() {
-            let mut root_region = DeclarativeRegion::default();
-            self.add_implicit_context_clause(&mut root_region, library);
-            let fatal_err =
-                self.analyze_context_clause(&mut root_region, &context.items, diagnostics);
-            diagnostics.push_fatal_error(fatal_err);
+            match self.analyze_context(library, context) {
+                Ok(context) => diagnostics.append(context.diagnostics.clone()),
+                Err(fatal_err) => {
+                    fatal_err.push_into(diagnostics);
+                }
+            }
         }
 
         for entity in library.entities() {
@@ -2558,6 +2578,45 @@ end package;
         check_no_diagnostics(&diagnostics);
     }
 
+    // This test was added to fix an accidental mistake when refactoring
+    #[test]
+    fn context_clause_does_change_work_symbol_meaning() {
+        let mut builder = LibraryBuilder::new();
+        builder.code(
+            "libname",
+            "
+-- Package will be used for testing
+package pkg1 is
+  constant const : natural := 0;
+end package;
+
+context ctx is
+  library libname;
+  use libname.pkg1;
+end context;
+            ",
+        );
+
+        builder.code(
+            "libname2",
+            "
+package pkg2 is
+end package;
+
+library libname;
+context libname.ctx;
+
+use work.pkg2;
+package pkg3 is
+end package;
+            ",
+        );
+
+        let diagnostics = builder.analyze();
+
+        check_no_diagnostics(&diagnostics);
+    }
+
     #[test]
     fn library_std_is_pre_defined() {
         let mut builder = LibraryBuilder::new();
@@ -3238,6 +3297,32 @@ end architecture;
         );
         let diagnostics = builder.analyze();
         check_no_diagnostics(&diagnostics);
+    }
+
+    #[test]
+    fn detects_context_circular_dependencies() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code(
+            "libname",
+            "
+
+context ctx1 is
+  context work.ctx2;
+end context;
+
+context ctx2 is
+  context work.ctx1;
+end context;
+",
+        );
+        let diagnostics = builder.analyze();
+        check_diagnostics(
+            diagnostics,
+            vec![
+                Diagnostic::error(code.s1("work.ctx1"), "Found circular dependency"),
+                Diagnostic::error(code.s1("work.ctx2"), "Found circular dependency"),
+            ],
+        );
     }
 
     #[test]

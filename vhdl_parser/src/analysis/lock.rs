@@ -19,11 +19,14 @@ pub struct CircularDependencyError {
 }
 
 impl CircularDependencyError {
-    pub fn add_reference(&mut self, location: &SrcPos) {
+    /// Return self to enforce #[must_use]
+    pub fn add_reference(mut self, location: &SrcPos) -> CircularDependencyError {
         self.references.push(location.clone());
+        self
     }
 
     pub fn push_into(self, diagnostics: &mut dyn DiagnosticHandler) {
+        assert!(!self.references.is_empty());
         for pos in self.references {
             diagnostics.push(Diagnostic::error(
                 pos,

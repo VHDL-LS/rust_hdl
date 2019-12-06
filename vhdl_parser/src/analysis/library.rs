@@ -153,6 +153,22 @@ impl HasIdent for PackageInstance {
     }
 }
 
+pub struct Context {
+    pub diagnostics: Vec<Diagnostic>,
+    pub region: DeclarativeRegion<'static>,
+    pub decl: ContextDeclaration,
+}
+
+impl Context {
+    fn new(decl: ContextDeclaration) -> Context {
+        Context {
+            diagnostics: Vec::new(),
+            region: DeclarativeRegion::default(),
+            decl,
+        }
+    }
+}
+
 pub struct Library {
     pub name: Symbol,
     pub region: DeclarativeRegion<'static>,
@@ -161,7 +177,7 @@ pub struct Library {
     packages: FnvHashMap<Symbol, PackageDesignUnit>,
     uninst_packages: FnvHashMap<Symbol, PackageDesignUnit>,
     package_instances: FnvHashMap<Symbol, PackageInstance>,
-    contexts: FnvHashMap<Symbol, ContextDeclaration>,
+    contexts: FnvHashMap<Symbol, AnalysisLock<Context>>,
 }
 
 impl<'a> Library {
@@ -180,6 +196,8 @@ impl<'a> Library {
         let mut package_bodies = Vec::new();
         let mut configurations: FnvHashMap<Symbol, AnalysisUnit<ConfigurationDeclaration>> =
             FnvHashMap::default();
+
+        let mut region = DeclarativeRegion::default();
 
         for design_file in design_files {
             for design_unit in design_file.design_units {
@@ -234,8 +252,18 @@ impl<'a> Library {
                                             },
                                         );
                                     }
-                                    PrimaryUnit::ContextDeclaration(context) => {
-                                        contexts.insert(context.name().clone(), context);
+                                    PrimaryUnit::ContextDeclaration(ctx) => {
+                                        let sym = ctx.name().clone();
+
+                                        region.add(
+                                            &ctx.ident,
+                                            AnyDeclaration::Context(name.clone(), sym),
+                                            diagnostics,
+                                        );
+                                        contexts.insert(
+                                            ctx.name().clone(),
+                                            AnalysisLock::new(Context::new(ctx)),
+                                        );
                                     }
 
                                     PrimaryUnit::Configuration(config) => {
@@ -282,8 +310,6 @@ impl<'a> Library {
             }
         }
 
-        let mut region = DeclarativeRegion::default();
-
         for pkg in packages.values() {
             region.add(
                 pkg.ident(),
@@ -296,16 +322,6 @@ impl<'a> Library {
             region.add(
                 pkg.ident(),
                 AnyDeclaration::UninstPackage(name.clone(), pkg.name().clone()),
-                diagnostics,
-            );
-        }
-
-        for ctx in contexts.values() {
-            let sym = ctx.name().clone();
-
-            region.add(
-                &ctx.ident,
-                AnyDeclaration::Context(name.clone(), sym),
                 diagnostics,
             );
         }
@@ -379,7 +395,7 @@ impl<'a> Library {
             .expect("Package instance must exist")
     }
 
-    pub fn context(&'a self, name: &Symbol) -> Option<&'a ContextDeclaration> {
+    pub fn context(&'a self, name: &Symbol) -> Option<&'a AnalysisLock<Context>> {
         self.contexts.get(name)
     }
 
@@ -405,7 +421,7 @@ impl<'a> Library {
         self.package_instances.values()
     }
 
-    pub fn contexts(&self) -> impl Iterator<Item = &ContextDeclaration> {
+    pub fn contexts(&self) -> impl Iterator<Item = &AnalysisLock<Context>> {
         self.contexts.values()
     }
 }
@@ -866,9 +882,8 @@ end context;
 ",
         );
         let library = new_library(&code, "libname");
-        let context = code.context();
-
-        assert_eq!(library.context(&code.symbol("ctx")), Some(&context));
+        let lock = library.context(&code.symbol("ctx")).unwrap();
+        assert_eq!(lock.expect_read().decl, code.context());
     }
 
     #[test]
