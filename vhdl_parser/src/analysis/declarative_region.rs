@@ -175,6 +175,10 @@ impl VisibleDeclaration {
         &self.first_data().decl
     }
 
+    pub fn first_pos(&self) -> Option<&SrcPos> {
+        self.first_data().decl_pos.as_ref()
+    }
+
     pub fn second(&self) -> Option<&AnyDeclaration> {
         self.data.get(1).map(|data| &data.decl)
     }

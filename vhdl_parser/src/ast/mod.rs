@@ -349,7 +349,7 @@ pub enum Designator {
 pub struct WithRef<T> {
     pub item: T,
     // @TODO just store the positions of the reference for now
-    references: Vec<SrcPos>,
+    pub references: Vec<SrcPos>,
 }
 
 impl<T> WithRef<T> {

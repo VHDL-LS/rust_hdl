@@ -103,11 +103,11 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn resolve_within(
+    fn lookup_within(
         &self,
         prefix_pos: &SrcPos,
         prefix: &VisibleDeclaration,
-        suffix: &mut WithPos<WithRef<Designator>>,
+        suffix: &WithPos<WithRef<Designator>>,
     ) -> AnalysisResult<VisibleDeclaration> {
         match prefix.first() {
             AnyDeclaration::Library(ref library_name) => {
@@ -229,8 +229,11 @@ impl<'a> Analyzer<'a> {
             SelectedNameRefMut::Selected(prefix, suffix) => {
                 let prefix_pos = prefix.pos.clone(); // @TODO who does resolve_prefix extend lifetime?
                 let decl = self.resolve_prefix(region, prefix)?;
-                match self.resolve_within(&prefix_pos, &decl, suffix) {
-                    Ok(decl) => Ok(LookupResult::Single(decl)),
+                match self.lookup_within(&prefix_pos, &decl, suffix) {
+                    Ok(decl) => {
+                        suffix.set_reference(&decl);
+                        Ok(LookupResult::Single(decl))
+                    }
                     Err(err) => Err(err.add_circular_reference(&name.pos)),
                 }
             }
@@ -241,8 +244,9 @@ impl<'a> Analyzer<'a> {
                 Ok(LookupResult::AllWithin(prefix_pos, decl))
             }
             SelectedNameRefMut::Designator(designator) => {
-                if let Some(visible_item) = region.lookup(designator.designator(), true) {
-                    Ok(LookupResult::Single(visible_item.clone()))
+                if let Some(decl) = region.lookup(designator.designator(), true) {
+                    designator.set_reference(decl);
+                    Ok(LookupResult::Single(decl.clone()))
                 } else {
                     Err(Diagnostic::error(
                         &name.pos,
@@ -1276,6 +1280,26 @@ impl<'a> Analyzer<'a> {
 
             self.analyze_library(library, diagnostics);
         }
+    }
+}
+
+trait SetReference {
+    fn set_reference(&mut self, decl: &VisibleDeclaration);
+}
+
+impl<T> SetReference for WithRef<T> {
+    fn set_reference(&mut self, decl: &VisibleDeclaration) {
+        // @TODO handle built-ins without position
+        // @TODO handle mutliple overloaded declarations
+        if let Some(pos) = decl.first_pos() {
+            self.references.push(pos.clone());
+        }
+    }
+}
+
+impl<T: SetReference> SetReference for WithPos<T> {
+    fn set_reference(&mut self, decl: &VisibleDeclaration) {
+        self.item.set_reference(decl);
     }
 }
 
