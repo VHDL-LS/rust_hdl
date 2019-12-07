@@ -257,18 +257,22 @@ impl<'a> Analyzer<'a> {
     fn analyze_interface_declaration(
         &self,
         region: &mut DeclarativeRegion<'_>,
-        decl: &InterfaceDeclaration,
+        decl: &mut InterfaceDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         match decl {
-            InterfaceDeclaration::File(ref file_decl) => {
-                self.analyze_subtype_indicaton(region, &file_decl.subtype_indication, diagnostics)?;
-                region.add(&file_decl.ident, AnyDeclaration::Other, diagnostics);
-            }
-            InterfaceDeclaration::Object(ref object_decl) => {
+            InterfaceDeclaration::File(ref mut file_decl) => {
                 self.analyze_subtype_indicaton(
                     region,
-                    &object_decl.subtype_indication,
+                    &mut file_decl.subtype_indication,
+                    diagnostics,
+                )?;
+                region.add(&file_decl.ident, AnyDeclaration::Other, diagnostics);
+            }
+            InterfaceDeclaration::Object(ref mut object_decl) => {
+                self.analyze_subtype_indicaton(
+                    region,
+                    &mut object_decl.subtype_indication,
                     diagnostics,
                 )?;
                 region.add(&object_decl.ident, AnyDeclaration::Other, diagnostics);
@@ -276,7 +280,7 @@ impl<'a> Analyzer<'a> {
             InterfaceDeclaration::Type(ref ident) => {
                 region.add(ident, AnyDeclaration::Other, diagnostics);
             }
-            InterfaceDeclaration::Subprogram(subpgm, ..) => {
+            InterfaceDeclaration::Subprogram(ref mut subpgm, ..) => {
                 self.analyze_subprogram_declaration(region, subpgm, diagnostics)?;
                 region.add(subpgm.designator(), AnyDeclaration::Overloaded, diagnostics);
             }
@@ -303,10 +307,10 @@ impl<'a> Analyzer<'a> {
     fn analyze_interface_list(
         &self,
         region: &mut DeclarativeRegion<'_>,
-        declarations: &[InterfaceDeclaration],
+        declarations: &mut [InterfaceDeclaration],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        for decl in declarations.iter() {
+        for decl in declarations.iter_mut() {
             self.analyze_interface_declaration(region, decl, diagnostics)?;
         }
         Ok(())
@@ -315,7 +319,7 @@ impl<'a> Analyzer<'a> {
     fn lookup_type_mark(
         &self,
         region: &DeclarativeRegion<'_>,
-        type_mark: &WithPos<SelectedName>,
+        type_mark: &mut WithPos<SelectedName>,
     ) -> AnalysisResult<VisibleDeclaration> {
         self.lookup_selected_name(region, &type_mark)
     }
@@ -323,10 +327,10 @@ impl<'a> Analyzer<'a> {
     fn analyze_subtype_indicaton(
         &self,
         region: &mut DeclarativeRegion<'_>,
-        subtype_indication: &SubtypeIndication,
+        subtype_indication: &mut SubtypeIndication,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        if let Err(err) = self.lookup_type_mark(region, &subtype_indication.type_mark) {
+        if let Err(err) = self.lookup_type_mark(region, &mut subtype_indication.type_mark) {
             err.add_to(diagnostics)
         } else {
             Ok(())
@@ -336,20 +340,24 @@ impl<'a> Analyzer<'a> {
     fn analyze_subprogram_declaration(
         &self,
         parent: &DeclarativeRegion<'_>,
-        subprogram: &SubprogramDeclaration,
+        subprogram: &mut SubprogramDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         let mut region = DeclarativeRegion::new_borrowed_parent(parent);
 
         match subprogram {
             SubprogramDeclaration::Function(fun) => {
-                self.analyze_interface_list(&mut region, &fun.parameter_list, diagnostics)?;
-                if let Err(err) = self.lookup_type_mark(&parent, &fun.return_type) {
+                self.analyze_interface_list(&mut region, &mut fun.parameter_list, diagnostics)?;
+                if let Err(err) = self.lookup_type_mark(&parent, &mut fun.return_type) {
                     err.add_to(diagnostics)?
                 }
             }
-            SubprogramDeclaration::Procedure(proc) => {
-                self.analyze_interface_list(&mut region, &proc.parameter_list, diagnostics)?;
+            SubprogramDeclaration::Procedure(procedure) => {
+                self.analyze_interface_list(
+                    &mut region,
+                    &mut procedure.parameter_list,
+                    diagnostics,
+                )?;
             }
         }
         region.close_both(diagnostics);
@@ -364,7 +372,7 @@ impl<'a> Analyzer<'a> {
     ) -> FatalNullResult {
         match decl {
             Declaration::Alias(alias) => {
-                if let Some(ref subtype_indication) = alias.subtype_indication {
+                if let Some(ref mut subtype_indication) = alias.subtype_indication {
                     self.analyze_subtype_indicaton(region, subtype_indication, diagnostics)?;
                 }
                 region.add(
@@ -377,10 +385,10 @@ impl<'a> Analyzer<'a> {
                     diagnostics,
                 );
             }
-            Declaration::Object(ref object_decl) => {
+            Declaration::Object(ref mut object_decl) => {
                 self.analyze_subtype_indicaton(
                     region,
-                    &object_decl.subtype_indication,
+                    &mut object_decl.subtype_indication,
                     diagnostics,
                 )?;
                 region.add(
@@ -389,28 +397,40 @@ impl<'a> Analyzer<'a> {
                     diagnostics,
                 );
             }
-            Declaration::File(ref file_decl) => {
-                self.analyze_subtype_indicaton(region, &file_decl.subtype_indication, diagnostics)?;
+            Declaration::File(ref mut file_decl) => {
+                self.analyze_subtype_indicaton(
+                    region,
+                    &mut file_decl.subtype_indication,
+                    diagnostics,
+                )?;
                 region.add(&file_decl.ident, AnyDeclaration::Other, diagnostics);
             }
-            Declaration::Component(ref component) => {
+            Declaration::Component(ref mut component) => {
                 region.add(&component.ident, AnyDeclaration::Other, diagnostics);
 
                 {
                     let mut region = DeclarativeRegion::new_borrowed_parent(region);
-                    self.analyze_interface_list(&mut region, &component.generic_list, diagnostics)?;
+                    self.analyze_interface_list(
+                        &mut region,
+                        &mut component.generic_list,
+                        diagnostics,
+                    )?;
                     region.close_both(diagnostics);
                 }
 
                 {
                     let mut region = DeclarativeRegion::new_borrowed_parent(region);
-                    self.analyze_interface_list(&mut region, &component.port_list, diagnostics)?;
+                    self.analyze_interface_list(
+                        &mut region,
+                        &mut component.port_list,
+                        diagnostics,
+                    )?;
                     region.close_both(diagnostics);
                 }
             }
-            Declaration::Attribute(ref attr) => match attr {
-                Attribute::Declaration(ref attr_decl) => {
-                    if let Err(err) = self.lookup_type_mark(region, &attr_decl.type_mark) {
+            Declaration::Attribute(ref mut attr) => match attr {
+                Attribute::Declaration(ref mut attr_decl) => {
+                    if let Err(err) = self.lookup_type_mark(region, &mut attr_decl.type_mark) {
                         err.add_to(diagnostics)?;
                     }
                     region.add(&attr_decl.ident, AnyDeclaration::Other, diagnostics);
@@ -424,17 +444,17 @@ impl<'a> Analyzer<'a> {
                     AnyDeclaration::Overloaded,
                     diagnostics,
                 );
-                self.analyze_subprogram_declaration(region, &body.specification, diagnostics)?;
+                self.analyze_subprogram_declaration(region, &mut body.specification, diagnostics)?;
                 let mut region = DeclarativeRegion::new_borrowed_parent(region);
                 self.analyze_declarative_part(&mut region, &mut body.declarations, diagnostics)?;
             }
-            Declaration::SubprogramDeclaration(subdecl) => {
+            Declaration::SubprogramDeclaration(ref mut subdecl) => {
                 region.add(
                     subdecl.designator(),
                     AnyDeclaration::Overloaded,
                     diagnostics,
                 );
-                self.analyze_subprogram_declaration(region, &subdecl, diagnostics)?;
+                self.analyze_subprogram_declaration(region, subdecl, diagnostics)?;
             }
 
             Declaration::Use(ref mut use_clause) => {
@@ -485,10 +505,10 @@ impl<'a> Analyzer<'a> {
                         let mut region = DeclarativeRegion::new_borrowed_parent(region);
                         self.analyze_declarative_part(&mut region, &mut body.decl, diagnostics)?;
                     }
-                    TypeDefinition::Protected(ref prot_decl) => {
-                        for item in prot_decl.items.iter() {
+                    TypeDefinition::Protected(ref mut prot_decl) => {
+                        for item in prot_decl.items.iter_mut() {
                             match item {
-                                ProtectedTypeDeclarativeItem::Subprogram(subprogram) => {
+                                ProtectedTypeDeclarativeItem::Subprogram(ref mut subprogram) => {
                                     self.analyze_subprogram_declaration(
                                         region,
                                         subprogram,
@@ -498,25 +518,25 @@ impl<'a> Analyzer<'a> {
                             }
                         }
                     }
-                    TypeDefinition::Record(ref element_decls) => {
+                    TypeDefinition::Record(ref mut element_decls) => {
                         let mut record_region = DeclarativeRegion::default();
-                        for elem_decl in element_decls.iter() {
+                        for elem_decl in element_decls.iter_mut() {
                             self.analyze_subtype_indicaton(
                                 region,
-                                &elem_decl.subtype,
+                                &mut elem_decl.subtype,
                                 diagnostics,
                             )?;
                             record_region.add(&elem_decl.ident, AnyDeclaration::Other, diagnostics);
                         }
                         record_region.close_both(diagnostics);
                     }
-                    TypeDefinition::Access(ref subtype_indication) => {
+                    TypeDefinition::Access(ref mut subtype_indication) => {
                         self.analyze_subtype_indicaton(region, subtype_indication, diagnostics)?;
                     }
-                    TypeDefinition::Array(.., ref subtype_indication) => {
+                    TypeDefinition::Array(.., ref mut subtype_indication) => {
                         self.analyze_subtype_indicaton(region, subtype_indication, diagnostics)?;
                     }
-                    TypeDefinition::Subtype(ref subtype_indication) => {
+                    TypeDefinition::Subtype(ref mut subtype_indication) => {
                         self.analyze_subtype_indicaton(region, subtype_indication, diagnostics)?;
                     }
                     _ => {}
@@ -827,7 +847,7 @@ impl<'a> Analyzer<'a> {
 
         let mut region = DeclarativeRegion::new_owned_parent(root_region).in_package_declaration();
 
-        if let Some(ref list) = package.unit.generic_clause {
+        if let Some(ref mut list) = package.unit.generic_clause {
             self.analyze_interface_list(&mut region, list, &mut diagnostics)?;
         }
         self.analyze_declarative_part(&mut region, &mut package.unit.decl, &mut diagnostics)?;
@@ -959,10 +979,10 @@ impl<'a> Analyzer<'a> {
 
         let mut region = DeclarativeRegion::new_owned_parent(Box::new(root_region));
 
-        if let Some(ref list) = entity.unit.generic_clause {
+        if let Some(ref mut list) = entity.unit.generic_clause {
             self.analyze_interface_list(&mut region, list, &mut diagnostics)?;
         }
-        if let Some(ref list) = entity.unit.port_clause {
+        if let Some(ref mut list) = entity.unit.port_clause {
             self.analyze_interface_list(&mut region, list, &mut diagnostics)?;
         }
         self.analyze_declarative_part(&mut region, &mut entity.unit.decl, &mut diagnostics)?;
