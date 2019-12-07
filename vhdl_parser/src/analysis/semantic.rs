@@ -312,7 +312,6 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
-    #[allow(clippy::ptr_arg)]
     fn lookup_type_mark(
         &self,
         region: &DeclarativeRegion<'_>,
@@ -1011,7 +1010,6 @@ impl<'a> Analyzer<'a> {
         }
     }
     /// Returns a reference to the the uninstantiated package
-    #[allow(clippy::ptr_arg)]
     fn analyze_package_instance_name(
         &self,
         region: &DeclarativeRegion<'_>,
