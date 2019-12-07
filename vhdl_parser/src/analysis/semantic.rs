@@ -625,7 +625,7 @@ impl<'a> Analyzer<'a> {
     fn analyze_context_clause(
         &self,
         region: &mut DeclarativeRegion<'_>,
-        context_clause: &[WithPos<ContextItem>],
+        context_clause: &mut [WithPos<ContextItem>],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         for context_item in context_clause.iter() {
@@ -833,7 +833,7 @@ impl<'a> Analyzer<'a> {
             self.add_implicit_context_clause(&mut root_region, library);
         }
 
-        self.analyze_context_clause(&mut root_region, &package.context_clause, &mut diagnostics)?;
+        self.analyze_context_clause(&mut root_region, &mut package.context_clause, &mut diagnostics)?;
 
         let mut region = DeclarativeRegion::new_owned_parent(root_region).in_package_declaration();
 
@@ -882,7 +882,7 @@ impl<'a> Analyzer<'a> {
         let mut diagnostics = Vec::new();
         // @TODO make pattern of primary/secondary extension
         let mut root_region = primary_region.get_parent().unwrap().extend(None);
-        self.analyze_context_clause(&mut root_region, &body.context_clause, &mut diagnostics)?;
+        self.analyze_context_clause(&mut root_region, &mut body.context_clause, &mut diagnostics)?;
         let mut region = primary_region.extend(Some(&root_region));
         self.analyze_declarative_part(&mut region, &body.unit.decl, &mut diagnostics)?;
         region.close_both(&mut diagnostics);
@@ -920,7 +920,7 @@ impl<'a> Analyzer<'a> {
     ) -> FatalNullResult {
         let mut diagnostics = Vec::new();
         let mut root_region = entity.region.get_parent().unwrap().extend(None);
-        self.analyze_context_clause(&mut root_region, &arch.context_clause, &mut diagnostics)?;
+        self.analyze_context_clause(&mut root_region, &mut arch.context_clause, &mut diagnostics)?;
         let mut region = entity.region.extend(Some(&root_region));
         self.analyze_architecture_body(&mut region, &arch.unit, &mut diagnostics)?;
         region.close_both(&mut diagnostics);
@@ -960,7 +960,7 @@ impl<'a> Analyzer<'a> {
         let mut diagnostics = Vec::new();
         let mut root_region = DeclarativeRegion::default();
         self.add_implicit_context_clause(&mut root_region, library);
-        self.analyze_context_clause(&mut root_region, &entity.context_clause, &mut diagnostics)?;
+        self.analyze_context_clause(&mut root_region, &mut entity.context_clause, &mut diagnostics)?;
 
         let mut region = DeclarativeRegion::new_owned_parent(Box::new(root_region));
 
@@ -1052,7 +1052,7 @@ impl<'a> Analyzer<'a> {
         let mut diagnostics = Vec::new();
         let mut region = DeclarativeRegion::default();
         self.add_implicit_context_clause(&mut region, library);
-        self.analyze_context_clause(&mut region, &instance.context_clause, &mut diagnostics)?;
+        self.analyze_context_clause(&mut region, &mut instance.context_clause, &mut diagnostics)?;
 
         match self.analyze_package_instance_name(&region, &instance.unit.package_name) {
             Ok(package) => {
@@ -1095,7 +1095,7 @@ impl<'a> Analyzer<'a> {
         self.add_implicit_context_clause(&mut root_region, library);
         let mut diagnostics = Vec::new();
         let mut region = DeclarativeRegion::new_owned_parent(Box::new(root_region));
-        self.analyze_context_clause(&mut region, &context.decl.items, &mut diagnostics)?;
+        self.analyze_context_clause(&mut region, &mut context.decl.items, &mut diagnostics)?;
         context.region = region;
         context.diagnostics = diagnostics;
         Ok(())
@@ -1171,7 +1171,7 @@ impl<'a> Analyzer<'a> {
         let mut diagnostics = Vec::new();
         let mut region = DeclarativeRegion::default();
         self.add_implicit_context_clause(&mut region, library);
-        self.analyze_context_clause(&mut region, &config.context_clause, &mut diagnostics)?;
+        self.analyze_context_clause(&mut region, &mut config.context_clause, &mut diagnostics)?;
 
         match self.lookup_entity_for_configuration(library, &region, &config.unit) {
             Ok(entity_unit) => {
