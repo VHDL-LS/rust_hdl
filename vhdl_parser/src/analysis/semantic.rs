@@ -365,7 +365,7 @@ impl<'a> Analyzer<'a> {
     fn analyze_declaration(
         &self,
         region: &mut DeclarativeRegion<'_>,
-        decl: &'a Declaration,
+        decl: &mut Declaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         match decl {
@@ -424,7 +424,7 @@ impl<'a> Analyzer<'a> {
                 // @TODO Ignored for now
                 Attribute::Specification(..) => {}
             },
-            Declaration::SubprogramBody(body) => {
+            Declaration::SubprogramBody(ref mut body) => {
                 region.add(
                     body.specification.designator(),
                     AnyDeclaration::Overloaded,
@@ -432,7 +432,7 @@ impl<'a> Analyzer<'a> {
                 );
                 self.analyze_subprogram_declaration(region, &body.specification, diagnostics)?;
                 let mut region = DeclarativeRegion::new_borrowed_parent(region);
-                self.analyze_declarative_part(&mut region, &body.declarations, diagnostics)?;
+                self.analyze_declarative_part(&mut region, &mut body.declarations, diagnostics)?;
             }
             Declaration::SubprogramDeclaration(subdecl) => {
                 region.add(
@@ -443,8 +443,13 @@ impl<'a> Analyzer<'a> {
                 self.analyze_subprogram_declaration(region, &subdecl, diagnostics)?;
             }
 
-            Declaration::Use(ref use_clause) => {
-                self.analyze_use_clause(region, &use_clause.item, &use_clause.pos, diagnostics)?;
+            Declaration::Use(ref mut use_clause) => {
+                self.analyze_use_clause(
+                    region,
+                    &mut use_clause.item,
+                    &use_clause.pos,
+                    diagnostics,
+                )?;
             }
 
             Declaration::Package(ref instance) => {
@@ -464,7 +469,7 @@ impl<'a> Analyzer<'a> {
                 }
             }
             Declaration::Configuration(..) => {}
-            Declaration::Type(ref type_decl) => {
+            Declaration::Type(ref mut type_decl) => {
                 // Protected types are visible inside their declaration
                 region.add(
                     &type_decl.ident,
@@ -482,9 +487,9 @@ impl<'a> Analyzer<'a> {
                             )
                         }
                     }
-                    TypeDefinition::ProtectedBody(ref body) => {
+                    TypeDefinition::ProtectedBody(ref mut body) => {
                         let mut region = DeclarativeRegion::new_borrowed_parent(region);
-                        self.analyze_declarative_part(&mut region, &body.decl, diagnostics)?;
+                        self.analyze_declarative_part(&mut region, &mut body.decl, diagnostics)?;
                     }
                     TypeDefinition::Protected(ref prot_decl) => {
                         for item in prot_decl.items.iter() {
@@ -531,10 +536,10 @@ impl<'a> Analyzer<'a> {
     fn analyze_declarative_part(
         &self,
         region: &mut DeclarativeRegion<'_>,
-        declarations: &[Declaration],
+        declarations: &mut [Declaration],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        for decl in declarations.iter() {
+        for decl in declarations.iter_mut() {
             self.analyze_declaration(region, decl, diagnostics)?;
         }
         Ok(())
@@ -543,7 +548,7 @@ impl<'a> Analyzer<'a> {
     fn analyze_use_clause(
         &self,
         region: &mut DeclarativeRegion<'_>,
-        use_clause: &UseClause,
+        use_clause: &mut UseClause,
         use_pos: &SrcPos,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -628,7 +633,7 @@ impl<'a> Analyzer<'a> {
         context_clause: &mut [WithPos<ContextItem>],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        for context_item in context_clause.iter() {
+        for context_item in context_clause.iter_mut() {
             match context_item.item {
                 ContextItem::Library(LibraryClause { ref name_list }) => {
                     for library_name in name_list.iter() {
@@ -647,7 +652,7 @@ impl<'a> Analyzer<'a> {
                         }
                     }
                 }
-                ContextItem::Use(ref use_clause) => {
+                ContextItem::Use(ref mut use_clause) => {
                     self.analyze_use_clause(region, use_clause, &context_item.pos, diagnostics)?;
                 }
                 ContextItem::Context(ContextReference { ref name_list }) => {
@@ -721,15 +726,15 @@ impl<'a> Analyzer<'a> {
     fn analyze_generate_body(
         &self,
         parent: &DeclarativeRegion<'_>,
-        body: &GenerateBody,
+        body: &mut GenerateBody,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         let mut region = DeclarativeRegion::new_borrowed_parent(parent);
 
-        if let Some(ref decl) = body.decl {
-            self.analyze_declarative_part(&mut region, &decl, diagnostics)?;
+        if let Some(ref mut decl) = body.decl {
+            self.analyze_declarative_part(&mut region, decl, diagnostics)?;
         }
-        self.analyze_concurrent_part(&region, &body.statements, diagnostics)?;
+        self.analyze_concurrent_part(&region, &mut body.statements, diagnostics)?;
 
         Ok(())
     }
@@ -737,33 +742,33 @@ impl<'a> Analyzer<'a> {
     fn analyze_concurrent_statement(
         &self,
         parent: &DeclarativeRegion<'_>,
-        statement: &LabeledConcurrentStatement,
+        statement: &mut LabeledConcurrentStatement,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         match statement.statement {
-            ConcurrentStatement::Block(ref block) => {
+            ConcurrentStatement::Block(ref mut block) => {
                 let mut region = DeclarativeRegion::new_borrowed_parent(parent);
-                self.analyze_declarative_part(&mut region, &block.decl, diagnostics)?;
-                self.analyze_concurrent_part(&region, &block.statements, diagnostics)?;
+                self.analyze_declarative_part(&mut region, &mut block.decl, diagnostics)?;
+                self.analyze_concurrent_part(&region, &mut block.statements, diagnostics)?;
             }
-            ConcurrentStatement::Process(ref process) => {
+            ConcurrentStatement::Process(ref mut process) => {
                 let mut region = DeclarativeRegion::new_borrowed_parent(parent);
-                self.analyze_declarative_part(&mut region, &process.decl, diagnostics)?;
+                self.analyze_declarative_part(&mut region, &mut process.decl, diagnostics)?;
             }
-            ConcurrentStatement::ForGenerate(ref gen) => {
-                self.analyze_generate_body(parent, &gen.body, diagnostics)?;
+            ConcurrentStatement::ForGenerate(ref mut gen) => {
+                self.analyze_generate_body(parent, &mut gen.body, diagnostics)?;
             }
-            ConcurrentStatement::IfGenerate(ref gen) => {
-                for conditional in gen.conditionals.iter() {
-                    self.analyze_generate_body(parent, &conditional.item, diagnostics)?;
+            ConcurrentStatement::IfGenerate(ref mut gen) => {
+                for conditional in gen.conditionals.iter_mut() {
+                    self.analyze_generate_body(parent, &mut conditional.item, diagnostics)?;
                 }
-                if let Some(ref else_item) = gen.else_item {
+                if let Some(ref mut else_item) = gen.else_item {
                     self.analyze_generate_body(parent, else_item, diagnostics)?;
                 }
             }
-            ConcurrentStatement::CaseGenerate(ref gen) => {
-                for alternative in gen.alternatives.iter() {
-                    self.analyze_generate_body(parent, &alternative.item, diagnostics)?;
+            ConcurrentStatement::CaseGenerate(ref mut gen) => {
+                for alternative in gen.alternatives.iter_mut() {
+                    self.analyze_generate_body(parent, &mut alternative.item, diagnostics)?;
                 }
             }
             _ => {}
@@ -774,24 +779,13 @@ impl<'a> Analyzer<'a> {
     fn analyze_concurrent_part(
         &self,
         parent: &DeclarativeRegion<'_>,
-        statements: &[LabeledConcurrentStatement],
+        statements: &mut [LabeledConcurrentStatement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        for statement in statements.iter() {
+        for statement in statements.iter_mut() {
             self.analyze_concurrent_statement(parent, statement, diagnostics)?;
         }
 
-        Ok(())
-    }
-
-    fn analyze_architecture_body(
-        &self,
-        entity_region: &mut DeclarativeRegion<'_>,
-        architecture: &ArchitectureBody,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
-        self.analyze_declarative_part(entity_region, &architecture.decl, diagnostics)?;
-        self.analyze_concurrent_part(entity_region, &architecture.statements, diagnostics)?;
         Ok(())
     }
 
@@ -833,14 +827,18 @@ impl<'a> Analyzer<'a> {
             self.add_implicit_context_clause(&mut root_region, library);
         }
 
-        self.analyze_context_clause(&mut root_region, &mut package.context_clause, &mut diagnostics)?;
+        self.analyze_context_clause(
+            &mut root_region,
+            &mut package.context_clause,
+            &mut diagnostics,
+        )?;
 
         let mut region = DeclarativeRegion::new_owned_parent(root_region).in_package_declaration();
 
         if let Some(ref list) = package.unit.generic_clause {
             self.analyze_interface_list(&mut region, list, &mut diagnostics)?;
         }
-        self.analyze_declarative_part(&mut region, &package.unit.decl, &mut diagnostics)?;
+        self.analyze_declarative_part(&mut region, &mut package.unit.decl, &mut diagnostics)?;
 
         if has_body {
             region.close_immediate(&mut diagnostics);
@@ -884,7 +882,7 @@ impl<'a> Analyzer<'a> {
         let mut root_region = primary_region.get_parent().unwrap().extend(None);
         self.analyze_context_clause(&mut root_region, &mut body.context_clause, &mut diagnostics)?;
         let mut region = primary_region.extend(Some(&root_region));
-        self.analyze_declarative_part(&mut region, &body.unit.decl, &mut diagnostics)?;
+        self.analyze_declarative_part(&mut region, &mut body.unit.decl, &mut diagnostics)?;
         region.close_both(&mut diagnostics);
         // Body does not need region
         body.diagnostics = diagnostics;
@@ -922,7 +920,8 @@ impl<'a> Analyzer<'a> {
         let mut root_region = entity.region.get_parent().unwrap().extend(None);
         self.analyze_context_clause(&mut root_region, &mut arch.context_clause, &mut diagnostics)?;
         let mut region = entity.region.extend(Some(&root_region));
-        self.analyze_architecture_body(&mut region, &arch.unit, &mut diagnostics)?;
+        self.analyze_declarative_part(&mut region, &mut arch.unit.decl, &mut diagnostics)?;
+        self.analyze_concurrent_part(&mut region, &mut arch.unit.statements, &mut diagnostics)?;
         region.close_both(&mut diagnostics);
         // @TODO architecture does not need a region
         arch.diagnostics = diagnostics;
@@ -960,7 +959,11 @@ impl<'a> Analyzer<'a> {
         let mut diagnostics = Vec::new();
         let mut root_region = DeclarativeRegion::default();
         self.add_implicit_context_clause(&mut root_region, library);
-        self.analyze_context_clause(&mut root_region, &mut entity.context_clause, &mut diagnostics)?;
+        self.analyze_context_clause(
+            &mut root_region,
+            &mut entity.context_clause,
+            &mut diagnostics,
+        )?;
 
         let mut region = DeclarativeRegion::new_owned_parent(Box::new(root_region));
 
@@ -970,8 +973,8 @@ impl<'a> Analyzer<'a> {
         if let Some(ref list) = entity.unit.port_clause {
             self.analyze_interface_list(&mut region, list, &mut diagnostics)?;
         }
-        self.analyze_declarative_part(&mut region, &entity.unit.decl, &mut diagnostics)?;
-        self.analyze_concurrent_part(&region, &entity.unit.statements, &mut diagnostics)?;
+        self.analyze_declarative_part(&mut region, &mut entity.unit.decl, &mut diagnostics)?;
+        self.analyze_concurrent_part(&region, &mut entity.unit.statements, &mut diagnostics)?;
 
         region.close_immediate(&mut diagnostics);
 
