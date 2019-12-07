@@ -22,6 +22,10 @@ enum AnalysisError {
     NotFatal(Diagnostic),
 }
 
+type AnalysisResult<T> = Result<T, AnalysisError>;
+type FatalResult<T> = Result<T, CircularDependencyError>;
+type FatalNullResult = FatalResult<()>;
+
 impl From<CircularDependencyError> for AnalysisError {
     fn from(err: CircularDependencyError) -> AnalysisError {
         AnalysisError::Fatal(err)
@@ -33,9 +37,6 @@ impl From<Diagnostic> for AnalysisError {
         AnalysisError::NotFatal(diagnostic)
     }
 }
-
-type FatalResult<T> = Result<T, CircularDependencyError>;
-type FatalNullResult = FatalResult<()>;
 
 impl AnalysisError {
     // Add Non-fatal error to diagnostics or return fatal error
@@ -106,7 +107,7 @@ impl<'a> Analyzer<'a> {
         prefix_pos: &SrcPos,
         prefix: &VisibleDeclaration,
         suffix: &WithPos<WithRef<Designator>>,
-    ) -> Result<VisibleDeclaration, AnalysisError> {
+    ) -> AnalysisResult<VisibleDeclaration> {
         match prefix.first() {
             AnyDeclaration::Library(ref library_name) => {
                 if let Some(decl) = self
@@ -186,7 +187,7 @@ impl<'a> Analyzer<'a> {
         &self,
         region: &DeclarativeRegion<'_>,
         name: &'n WithPos<SelectedName>,
-    ) -> Result<VisibleDeclaration, AnalysisError> {
+    ) -> AnalysisResult<VisibleDeclaration> {
         match self.lookup_selected_name_ref(region, name)? {
             LookupResult::Single(decl) => Ok(decl),
             _ => {
@@ -200,7 +201,7 @@ impl<'a> Analyzer<'a> {
         &self,
         region: &DeclarativeRegion<'_>,
         prefix: &'n WithPos<T>,
-    ) -> Result<VisibleDeclaration, AnalysisError> {
+    ) -> AnalysisResult<VisibleDeclaration> {
         match self.lookup_selected_name_ref(region, prefix)? {
             LookupResult::Single(decl) => Ok(decl),
             LookupResult::AllWithin(..) => Err(Diagnostic::error(
@@ -221,7 +222,7 @@ impl<'a> Analyzer<'a> {
         &self,
         region: &DeclarativeRegion<'_>,
         name: &'n WithPos<T>,
-    ) -> Result<LookupResult<'n, T>, AnalysisError> {
+    ) -> AnalysisResult<LookupResult<'n, T>> {
         match name.item.as_selected_name_ref() {
             SelectedNameRef::Selected(ref prefix, ref suffix) => {
                 let decl = self.lookup_prefix(region, prefix)?;
@@ -316,7 +317,7 @@ impl<'a> Analyzer<'a> {
         &self,
         region: &DeclarativeRegion<'_>,
         type_mark: &WithPos<SelectedName>,
-    ) -> Result<VisibleDeclaration, AnalysisError> {
+    ) -> AnalysisResult<VisibleDeclaration> {
         self.lookup_selected_name(region, &type_mark)
     }
 
@@ -847,7 +848,7 @@ impl<'a> Analyzer<'a> {
         &self,
         library_name: &Symbol,
         package_name: &Symbol,
-    ) -> Result<ReadGuard<AnalysisUnit<PackageDeclaration>>, CircularDependencyError> {
+    ) -> FatalResult<ReadGuard<AnalysisUnit<PackageDeclaration>>> {
         let library = self.root.expect_library(library_name);
         let package_unit = library.expect_any_package(package_name);
         match package_unit.package.entry()? {
@@ -979,7 +980,7 @@ impl<'a> Analyzer<'a> {
         &self,
         library: &Library,
         entity_lock: &'a LockedUnit<EntityDeclaration>,
-    ) -> Result<ReadGuard<AnalysisUnit<EntityDeclaration>>, CircularDependencyError> {
+    ) -> FatalResult<ReadGuard<AnalysisUnit<EntityDeclaration>>> {
         match entity_lock.entry()? {
             AnalysisEntry::Vacant(mut entity) => {
                 self.analyze_entity_declaration(library, &mut entity)?;
@@ -994,7 +995,7 @@ impl<'a> Analyzer<'a> {
         &self,
         region: &DeclarativeRegion<'_>,
         package_name: &WithPos<SelectedName>,
-    ) -> Result<(Symbol, Symbol), AnalysisError> {
+    ) -> AnalysisResult<(Symbol, Symbol)> {
         let decl = self.lookup_selected_name(region, &package_name)?;
 
         if let AnyDeclaration::UninstPackage(ref library_name, ref package_name) = decl.first() {
@@ -1015,7 +1016,7 @@ impl<'a> Analyzer<'a> {
         &self,
         region: &DeclarativeRegion<'_>,
         package_name: &WithPos<SelectedName>,
-    ) -> Result<ReadGuard<AnalysisUnit<PackageDeclaration>>, AnalysisError> {
+    ) -> AnalysisResult<ReadGuard<AnalysisUnit<PackageDeclaration>>> {
         let (library_name, package_name) =
             self.lookup_package_instance_name(region, package_name)?;
 
@@ -1057,7 +1058,7 @@ impl<'a> Analyzer<'a> {
         &self,
         library_name: &Symbol,
         instance_name: &Symbol,
-    ) -> Result<ReadGuard<AnalysisUnit<PackageInstantiation>>, CircularDependencyError> {
+    ) -> FatalResult<ReadGuard<AnalysisUnit<PackageInstantiation>>> {
         let library = self.root.expect_library(library_name);
         let instance = library.expect_package_instance(instance_name);
 
@@ -1086,7 +1087,7 @@ impl<'a> Analyzer<'a> {
         &self,
         library: &Library,
         lock: &'a AnalysisLock<Context>,
-    ) -> Result<ReadGuard<'a, Context>, CircularDependencyError> {
+    ) -> FatalResult<ReadGuard<'a, Context>> {
         match lock.entry()? {
             AnalysisEntry::Vacant(mut context) => {
                 self.analyze_context(library, &mut context)?;
@@ -1102,7 +1103,7 @@ impl<'a> Analyzer<'a> {
         library: &'l Library,
         region: &DeclarativeRegion<'_>,
         config: &ConfigurationDeclaration,
-    ) -> Result<&'l EntityDesignUnit, AnalysisError> {
+    ) -> AnalysisResult<&'l EntityDesignUnit> {
         let ref ent_name = config.entity_name;
 
         let decl = {
@@ -1172,7 +1173,7 @@ impl<'a> Analyzer<'a> {
         &self,
         library: &Library,
         config_lock: &'a LockedUnit<ConfigurationDeclaration>,
-    ) -> Result<ReadGuard<AnalysisUnit<ConfigurationDeclaration>>, CircularDependencyError> {
+    ) -> FatalResult<ReadGuard<AnalysisUnit<ConfigurationDeclaration>>> {
         match config_lock.entry()? {
             AnalysisEntry::Vacant(mut config) => {
                 self.analyze_configuration(library, &mut config)?;
