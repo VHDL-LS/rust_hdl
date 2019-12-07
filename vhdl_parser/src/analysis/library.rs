@@ -107,7 +107,7 @@ impl HasIdent for EntityDesignUnit {
 pub struct PackageDesignUnit {
     pub ident: Ident,
     pub package: LockedUnit<PackageDeclaration>,
-    pub body: Option<AnalysisUnit<PackageBody>>,
+    pub body: Option<LockedUnit<PackageBody>>,
 }
 
 impl PackageDesignUnit {
@@ -137,7 +137,7 @@ impl PackageDesignUnit {
                     ));
                 }
             }
-            self.body = Some(body);
+            self.body = Some(AnalysisLock::new(body));
         }
     }
 }
@@ -866,14 +866,12 @@ end package body;
         );
 
         assert_eq!(
-            design_unit.body,
-            Some(
-                DesignUnit {
-                    context_clause: vec![],
-                    unit: body
-                }
-                .into()
-            )
+            *design_unit.body.as_ref().unwrap().expect_read(),
+            DesignUnit {
+                context_clause: vec![],
+                unit: body
+            }
+            .into()
         );
     }
 

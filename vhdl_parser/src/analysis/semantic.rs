@@ -877,17 +877,17 @@ impl<'a> Analyzer<'a> {
     fn analyze_package_body_unit(
         &self,
         primary_region: &DeclarativeRegion<'_>,
-        package: &PackageDesignUnit,
-        diagnostics: &mut dyn DiagnosticHandler,
+        body: &mut AnalysisUnit<PackageBody>,
     ) -> FatalNullResult {
-        if let Some(ref body) = package.body {
-            // @TODO make pattern of primary/secondary extension
-            let mut root_region = primary_region.get_parent().unwrap().extend(None);
-            self.analyze_context_clause(&mut root_region, &body.context_clause, diagnostics)?;
-            let mut region = primary_region.extend(Some(&root_region));
-            self.analyze_declarative_part(&mut region, &body.unit.decl, diagnostics)?;
-            region.close_both(diagnostics);
-        }
+        let mut diagnostics = Vec::new();
+        // @TODO make pattern of primary/secondary extension
+        let mut root_region = primary_region.get_parent().unwrap().extend(None);
+        self.analyze_context_clause(&mut root_region, &body.context_clause, &mut diagnostics)?;
+        let mut region = primary_region.extend(Some(&root_region));
+        self.analyze_declarative_part(&mut region, &body.unit.decl, &mut diagnostics)?;
+        region.close_both(&mut diagnostics);
+        // Body does not need region
+        body.diagnostics = diagnostics;
         Ok(())
     }
 
@@ -899,7 +899,17 @@ impl<'a> Analyzer<'a> {
     ) -> FatalNullResult {
         let package = self.get_package_declaration_analysis(&library.name, package_unit.name())?;
         diagnostics.append(package.diagnostics.clone());
-        self.analyze_package_body_unit(&package.region, &package_unit, diagnostics)?;
+        if let Some(ref body_lock) = package_unit.body {
+            match body_lock.entry()? {
+                AnalysisEntry::Vacant(mut body) => {
+                    self.analyze_package_body_unit(&package.region, &mut body)?;
+                    diagnostics.append(body.diagnostics.clone());
+                }
+                AnalysisEntry::Occupied(body) => {
+                    diagnostics.append(body.diagnostics.clone());
+                }
+            }
+        }
         Ok(())
     }
 
