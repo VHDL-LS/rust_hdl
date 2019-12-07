@@ -178,9 +178,7 @@ impl Config {
     pub fn append(&mut self, config: &Config) {
         for library in config.iter_libraries() {
             if let Some(parent_library) = self.libraries.get_mut(&library.name) {
-                for file_name in library.files.iter() {
-                    parent_library.files.push(file_name.clone());
-                }
+                *parent_library = library.clone();
             } else {
                 self.libraries.insert(
                     library.name.clone(),
@@ -330,7 +328,6 @@ lib1.files = [
   '{pkg1}',
 ]
 lib2.files = [
-  '{pkg2}',
   '{ent}'
 ]
 lib3.files = [
@@ -338,7 +335,6 @@ lib3.files = [
 ]
 ",
                 pkg1 = parent0.join("pkg1.vhd").to_str().unwrap(),
-                pkg2 = parent0.join("pkg2.vhd").to_str().unwrap(),
                 ent = parent1.join("ent.vhd").to_str().unwrap(),
                 pkg3 = parent1.join("pkg3.vhd").to_str().unwrap()
             ),
