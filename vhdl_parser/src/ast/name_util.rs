@@ -225,3 +225,38 @@ impl EnumerationLiteral {
         }
     }
 }
+
+// Enum to handle SelectedName and Name by the same code
+pub enum SelectedNameRef<'a, T: AsSelectedNameRef<'a, T>> {
+    Selected(&'a WithPos<T>, &'a WithPos<WithRef<Designator>>),
+    Designator(&'a WithRef<Designator>),
+    SelectedAll(&'a WithPos<T>),
+    Other,
+}
+
+// Trait to handle SelectedName and Name by the same code
+pub trait AsSelectedNameRef<'a, T: AsSelectedNameRef<'a, T>> {
+    fn as_selected_name_ref(&'a self) -> SelectedNameRef<'a, T>;
+}
+
+impl<'a> AsSelectedNameRef<'a, SelectedName> for SelectedName {
+    fn as_selected_name_ref(&'a self) -> SelectedNameRef<'a, SelectedName> {
+        match self {
+            SelectedName::Selected(ref prefix, ref suffix) => {
+                SelectedNameRef::Selected(prefix, suffix)
+            }
+            SelectedName::Designator(ref designator) => SelectedNameRef::Designator(designator),
+        }
+    }
+}
+
+impl<'a> AsSelectedNameRef<'a, Name> for Name {
+    fn as_selected_name_ref(&'a self) -> SelectedNameRef<'a, Name> {
+        match self {
+            Name::Selected(ref prefix, ref suffix) => SelectedNameRef::Selected(prefix, suffix),
+            Name::SelectedAll(ref prefix) => SelectedNameRef::SelectedAll(prefix),
+            Name::Designator(ref designator) => SelectedNameRef::Designator(designator),
+            _ => SelectedNameRef::Other,
+        }
+    }
+}

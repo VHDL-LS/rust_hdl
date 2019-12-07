@@ -71,15 +71,13 @@ impl<'a, T> HandleFatal<T> for dyn DiagnosticHandler + 'a {
     }
 }
 
-enum LookupResult<'a> {
+enum LookupResult<'a, T> {
     /// A single name was selected
     Single(VisibleDeclaration),
-    /// A single name was selected
-    AllWithin(&'a WithPos<Name>, VisibleDeclaration),
+    /// All names within was selected
+    AllWithin(&'a WithPos<T>, VisibleDeclaration),
     /// The name to lookup (or some part thereof was not a selected name)
     NotSelected,
-    /// A prefix but found but lookup was not implemented yet
-    Unfinished,
 }
 
 pub struct Analyzer<'a> {
@@ -103,135 +101,141 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    /// Returns the VisibleDeclaration or None if it was not a selected name
-    /// Returns error message if a name was not declared
-    /// @TODO We only lookup selected names since other names such as slice and index require typechecking
-    fn lookup_selected_name<'n>(
+    fn lookup_within(
         &self,
-        region: &DeclarativeRegion<'_>,
-        name: &'n WithPos<Name>,
-    ) -> Result<LookupResult<'n>, AnalysisError> {
-        match name.item {
-            Name::Selected(ref prefix, ref suffix) => {
-                let visible_decl = {
-                    match self.lookup_selected_name(region, prefix)? {
-                        LookupResult::Single(visible_decl) => visible_decl,
-                        LookupResult::AllWithin(..) => {
-                            return Err(Diagnostic::error(
-                                prefix.as_ref(),
-                                "'.all' may not be the prefix of a selected name",
-                            ))?;
-                        }
-                        others => return Ok(others),
-                    }
-                };
-
-                match visible_decl.first() {
-                    AnyDeclaration::Library(ref library_name) => {
-                        if let Some(visible_decl) = self
-                            .root
-                            .expect_library(library_name)
-                            .region
-                            .lookup(suffix.designator(), false)
-                        {
-                            Ok(LookupResult::Single(visible_decl.clone()))
-                        } else {
-                            Err(Diagnostic::error(
-                                suffix.as_ref(),
-                                format!(
-                                    "No primary unit '{}' within '{}'",
-                                    suffix.item, library_name
-                                ),
-                            ))?
-                        }
-                    }
-
-                    AnyDeclaration::UninstPackage(ref library_sym, ref package_sym) => Err(
-                        uninstantiated_package_prefix_error(&prefix.pos, library_sym, package_sym),
-                    )?,
-
-                    AnyDeclaration::Package(ref library_name, ref package_name) => {
-                        match self.get_package_declaration_analysis(library_name, package_name) {
-                            Ok(package) => {
-                                if let Some(visible_decl) =
-                                    package.region.lookup(suffix.designator(), false)
-                                {
-                                    Ok(LookupResult::Single(visible_decl.clone()))
-                                } else {
-                                    Err(Diagnostic::error(
-                                        suffix.as_ref(),
-                                        format!(
-                                            "No declaration of '{}' within package '{}.{}'",
-                                            suffix.item, library_name, package_name
-                                        ),
-                                    ))?
-                                }
-                            }
-                            Err(err) => {
-                                let err = err.add_reference(&name.pos);
-                                return Err(AnalysisError::Fatal(err));
-                            }
-                        }
-                    }
-
-                    AnyDeclaration::PackageInstance(ref library_name, ref instance_name) => {
-                        match self.get_package_instance_analysis(library_name, instance_name) {
-                            Ok(instance) => {
-                                if let Some(visible_decl) =
-                                    instance.region.lookup(suffix.designator(), false)
-                                {
-                                    Ok(LookupResult::Single(visible_decl.clone()))
-                                } else {
-                                    Err(Diagnostic::error(
-                                        suffix.as_ref(),
-                                        format!(
-                                        "No declaration of '{}' within package instance '{}.{}'",
-                                        suffix.item, library_name, instance_name
-                                    ),
-                                    ))?
-                                }
-                            }
-                            Err(err) => {
-                                let err = err.add_reference(&name.pos);
-                                return Err(AnalysisError::Fatal(err));
-                            }
-                        }
-                    }
-
-                    AnyDeclaration::LocalPackageInstance(
-                        ref instance_name,
-                        ref instance_region,
-                    ) => {
-                        if let Some(visible_decl) =
-                            instance_region.lookup(suffix.designator(), false)
-                        {
-                            Ok(LookupResult::Single(visible_decl.clone()))
-                        } else {
-                            Err(Diagnostic::error(
-                                suffix.as_ref(),
-                                format!(
-                                    "No declaration of '{}' within package instance '{}'",
-                                    suffix.item, &instance_name
-                                ),
-                            ))?
-                        }
-                    }
-                    // @TODO ignore other declarations for now
-                    _ => Ok(LookupResult::Unfinished),
+        prefix_pos: &SrcPos,
+        prefix: &VisibleDeclaration,
+        suffix: &WithPos<WithRef<Designator>>,
+    ) -> Result<VisibleDeclaration, AnalysisError> {
+        match prefix.first() {
+            AnyDeclaration::Library(ref library_name) => {
+                if let Some(decl) = self
+                    .root
+                    .expect_library(library_name)
+                    .region
+                    .lookup(suffix.designator(), false)
+                {
+                    Ok(decl.clone())
+                } else {
+                    Err(Diagnostic::error(
+                        suffix.as_ref(),
+                        format!(
+                            "No primary unit '{}' within '{}'",
+                            suffix.item, library_name
+                        ),
+                    ))?
                 }
             }
 
-            Name::SelectedAll(ref prefix) => match self.lookup_selected_name(region, prefix)? {
-                LookupResult::Single(visible_decl) => {
-                    Ok(LookupResult::AllWithin(prefix, visible_decl))
+            AnyDeclaration::UninstPackage(ref library_sym, ref package_sym) => Err(
+                uninstantiated_package_prefix_error(prefix_pos, library_sym, package_sym),
+            )?,
+
+            AnyDeclaration::Package(ref library_name, ref package_name) => {
+                let package = self.get_package_declaration_analysis(library_name, package_name)?;
+
+                if let Some(decl) = package.region.lookup(suffix.designator(), false) {
+                    Ok(decl.clone())
+                } else {
+                    Err(Diagnostic::error(
+                        suffix.as_ref(),
+                        format!(
+                            "No declaration of '{}' within package '{}.{}'",
+                            suffix.item, library_name, package_name
+                        ),
+                    ))?
                 }
-                LookupResult::AllWithin(..) => Err(Diagnostic::error(
-                    prefix.as_ref(),
-                    "'.all' may not be the prefix of a selected name",
-                ))?,
-                others => Ok(others),
-            },
-            Name::Designator(ref designator) => {
+            }
+
+            AnyDeclaration::PackageInstance(ref library_name, ref instance_name) => {
+                let instance = self.get_package_instance_analysis(library_name, instance_name)?;
+                if let Some(decl) = instance.region.lookup(suffix.designator(), false) {
+                    Ok(decl.clone())
+                } else {
+                    Err(Diagnostic::error(
+                        suffix.as_ref(),
+                        format!(
+                            "No declaration of '{}' within package instance '{}.{}'",
+                            suffix.item, library_name, instance_name
+                        ),
+                    ))?
+                }
+            }
+
+            AnyDeclaration::LocalPackageInstance(ref instance_name, ref instance_region) => {
+                if let Some(decl) = instance_region.lookup(suffix.designator(), false) {
+                    Ok(decl.clone())
+                } else {
+                    Err(Diagnostic::error(
+                        suffix.as_ref(),
+                        format!(
+                            "No declaration of '{}' within package instance '{}'",
+                            suffix.item, &instance_name
+                        ),
+                    ))?
+                }
+            }
+            _ => Err(Diagnostic::error(
+                prefix_pos,
+                "Invalid prefix for selected name",
+            ))?,
+        }
+    }
+
+    fn lookup_selected_name<'n>(
+        &self,
+        region: &DeclarativeRegion<'_>,
+        name: &'n WithPos<SelectedName>,
+    ) -> Result<VisibleDeclaration, AnalysisError> {
+        match self.lookup_selected_name_ref(region, name)? {
+            LookupResult::Single(decl) => Ok(decl),
+            _ => {
+                panic!("Can only lookup single within SelectedName");
+            }
+        }
+    }
+
+    /// Lookup the prefix of a selected name
+    fn lookup_prefix<'n, T: AsSelectedNameRef<'n, T>>(
+        &self,
+        region: &DeclarativeRegion<'_>,
+        prefix: &'n WithPos<T>,
+    ) -> Result<VisibleDeclaration, AnalysisError> {
+        match self.lookup_selected_name_ref(region, prefix)? {
+            LookupResult::Single(decl) => Ok(decl),
+            LookupResult::AllWithin(..) => Err(Diagnostic::error(
+                prefix.as_ref(),
+                "'.all' may not be the prefix of a selected name",
+            ))?,
+            LookupResult::NotSelected => Err(Diagnostic::error(
+                prefix.as_ref(),
+                "may not be the prefix of a selected name",
+            ))?,
+        }
+    }
+
+    /// Returns the VisibleDeclaration or None if it was not a selected name
+    /// Returns error message if a name was not declared
+    /// @TODO We only lookup selected names since other names such as slice and index require typechecking
+    fn lookup_selected_name_ref<'n, T: AsSelectedNameRef<'n, T>>(
+        &self,
+        region: &DeclarativeRegion<'_>,
+        name: &'n WithPos<T>,
+    ) -> Result<LookupResult<'n, T>, AnalysisError> {
+        match name.item.as_selected_name_ref() {
+            SelectedNameRef::Selected(ref prefix, ref suffix) => {
+                let decl = self.lookup_prefix(region, prefix)?;
+                match self.lookup_within(&prefix.pos, &decl, suffix) {
+                    Ok(decl) => Ok(LookupResult::Single(decl)),
+                    Err(err) => Err(err.add_circular_reference(&name.pos)),
+                }
+            }
+
+            SelectedNameRef::SelectedAll(ref prefix) => {
+                let decl = self.lookup_prefix(region, prefix)?;
+                Ok(LookupResult::AllWithin(prefix, decl))
+            }
+            SelectedNameRef::Designator(ref designator) => {
                 if let Some(visible_item) = region.lookup(designator.designator(), true) {
                     Ok(LookupResult::Single(visible_item.clone()))
                 } else {
@@ -241,7 +245,7 @@ impl<'a> Analyzer<'a> {
                     ))?
                 }
             }
-            _ => {
+            SelectedNameRef::Other => {
                 // Not a selected name
                 // @TODO at least lookup prefix for now
                 Ok(LookupResult::NotSelected)
@@ -313,17 +317,7 @@ impl<'a> Analyzer<'a> {
         region: &DeclarativeRegion<'_>,
         type_mark: &WithPos<SelectedName>,
     ) -> Result<VisibleDeclaration, AnalysisError> {
-        let type_mark_name = type_mark.clone().into();
-        match self.lookup_selected_name(region, &type_mark_name)? {
-            LookupResult::Single(visible_decl) => Ok(visible_decl),
-            _ => {
-                // Cannot really happen with SelectedName but refactoring might change it...
-                Err(Diagnostic::error(
-                    &type_mark_name.pos,
-                    "Invalid name for type mark",
-                ))?
-            }
-        }
+        self.lookup_selected_name(region, &type_mark)
     }
 
     fn analyze_subtype_indicaton(
@@ -565,7 +559,7 @@ impl<'a> Analyzer<'a> {
                 }
             }
 
-            match self.lookup_selected_name(&region, &name) {
+            match self.lookup_selected_name_ref(&region, &name) {
                 Ok(LookupResult::Single(visible_decl)) => {
                     region.make_potentially_visible(visible_decl);
                 }
@@ -611,7 +605,6 @@ impl<'a> Analyzer<'a> {
                         _ => {}
                     }
                 }
-                Ok(LookupResult::Unfinished) => {}
                 Ok(LookupResult::NotSelected) => {
                     diagnostics.push(Diagnostic::error(
                         &use_pos,
@@ -668,7 +661,7 @@ impl<'a> Analyzer<'a> {
                             }
                         }
 
-                        match self.lookup_selected_name(&region, &name) {
+                        match self.lookup_selected_name_ref(&region, &name) {
                             Ok(LookupResult::Single(visible_decl)) => {
                                 match visible_decl.first() {
                                     // OK
@@ -704,7 +697,6 @@ impl<'a> Analyzer<'a> {
                             Ok(LookupResult::AllWithin(..)) => {
                                 // @TODO
                             }
-                            Ok(LookupResult::Unfinished) => {}
                             Ok(LookupResult::NotSelected) => {
                                 diagnostics.push(Diagnostic::error(
                                     &context_item,
@@ -1003,32 +995,18 @@ impl<'a> Analyzer<'a> {
         region: &DeclarativeRegion<'_>,
         package_name: &WithPos<SelectedName>,
     ) -> Result<(Symbol, Symbol), AnalysisError> {
-        let package_name = package_name.clone().into();
+        let decl = self.lookup_selected_name(region, &package_name)?;
 
-        match self.lookup_selected_name(region, &package_name)? {
-            LookupResult::Single(visible_decl) => {
-                if let AnyDeclaration::UninstPackage(ref library_name, ref package_name) =
-                    visible_decl.first()
-                {
-                    Ok((library_name.clone(), package_name.clone()))
-                } else {
-                    Err(Diagnostic::error(
-                        &package_name.pos,
-                        format!(
-                            "'{}' is not an uninstantiated generic package",
-                            &visible_decl.designator
-                        ),
-                    ))?
-                }
-            }
-            _ => {
-                // Cannot really happen as package_name is a SelectedName so cannot test it
-                // Leave here in case of future refactoring changes the type
-                Err(Diagnostic::error(
-                    &package_name.pos,
-                    "Invalid selected name for generic package",
-                ))?
-            }
+        if let AnyDeclaration::UninstPackage(ref library_name, ref package_name) = decl.first() {
+            Ok((library_name.clone(), package_name.clone()))
+        } else {
+            Err(Diagnostic::error(
+                &package_name.pos,
+                format!(
+                    "'{}' is not an uninstantiated generic package",
+                    &decl.designator
+                ),
+            ))?
         }
     }
     /// Returns a reference to the the uninstantiated package
@@ -1125,44 +1103,31 @@ impl<'a> Analyzer<'a> {
         region: &DeclarativeRegion<'_>,
         config: &ConfigurationDeclaration,
     ) -> Result<&'l EntityDesignUnit, AnalysisError> {
-        let ent_name: WithPos<Name> = config.entity_name.clone().into();
+        let ref ent_name = config.entity_name;
 
-        let lookup_result = {
+        let decl = {
             match ent_name.item {
                 // Entitities are implicitly defined for configurations
                 // configuration cfg of ent
-                Name::Designator(_) => self.lookup_selected_name(&library.region, &ent_name),
+                SelectedName::Designator(_) => self.lookup_selected_name(&library.region, ent_name),
 
                 // configuration cfg of lib.ent
                 _ => self.lookup_selected_name(&region, &ent_name),
             }
         }?;
 
-        match lookup_result {
-            LookupResult::NotSelected | LookupResult::AllWithin(_, _) => Err(Diagnostic::error(
-                &config.entity_name,
-                "Invalid selected name for entity",
-            )
-            .related(
-                &config.entity_name,
-                "Entity name must be of the form library.entity_name or entity_name",
-            ))?,
-            LookupResult::Single(decl) => match decl.first() {
-                AnyDeclaration::Entity(ref libsym, ref entsym) => {
-                    if libsym != &library.name {
-                        Err(Diagnostic::error(
+        match decl.first() {
+            AnyDeclaration::Entity(ref libsym, ref entsym) => {
+                if libsym != &library.name {
+                    Err(Diagnostic::error(
                                     &ent_name,
                                     format!("Configuration must be within the same library '{}' as the corresponding entity", &library.name),
                                 ))?
-                    } else {
-                        Ok(&library.entity(entsym).expect("Expect entity is available"))
-                    }
+                } else {
+                    Ok(&library.entity(entsym).expect("Expect entity is available"))
                 }
-                _ => Err(Diagnostic::error(&ent_name, "does not denote an entity"))?,
-            },
-            LookupResult::Unfinished => {
-                Err(Diagnostic::error(&ent_name, "does not denote an entity"))?
             }
+            _ => Err(Diagnostic::error(&ent_name, "does not denote an entity"))?,
         }
     }
 

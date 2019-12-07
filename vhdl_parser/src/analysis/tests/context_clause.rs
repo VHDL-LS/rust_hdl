@@ -919,3 +919,30 @@ end package;
         )],
     );
 }
+
+#[test]
+fn use_with_invalid_selected_name_prefix() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg1 is
+  subtype typ is natural range 0 to 1;
+end package;
+
+use work.pkg1.typ.foo;
+
+package pkg2 is
+end package;
+
+",
+    );
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("work.pkg1.typ"),
+            "Invalid prefix for selected name",
+        )],
+    );
+}
