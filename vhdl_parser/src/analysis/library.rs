@@ -54,7 +54,7 @@ impl<T> Into<LockedUnit<T>> for DesignUnit<T> {
 pub struct EntityDesignUnit {
     ident: Ident,
     pub entity: LockedUnit<EntityDeclaration>,
-    pub architectures: FnvHashMap<Symbol, AnalysisUnit<ArchitectureBody>>,
+    pub architectures: FnvHashMap<Symbol, LockedUnit<ArchitectureBody>>,
 }
 
 impl EntityDesignUnit {
@@ -498,7 +498,7 @@ end entity;
         let library = new_library(&code, "libname");
         let unit = library.entity(&code.symbol("ent")).unwrap();
         assert_eq!(unit.entity.expect_read().unit, code.entity());
-        assert_eq!(unit.architectures, FnvHashMap::default());
+        assert!(unit.architectures.is_empty());
     }
 
     #[test]
@@ -805,24 +805,6 @@ end architecture;
         let architecture1 = code
             .between("architecture arch1 ", "architecture;")
             .architecture();
-        let mut architectures = FnvHashMap::default();
-
-        architectures.insert(
-            code.symbol("arch0"),
-            DesignUnit {
-                context_clause: vec![],
-                unit: architecture0,
-            }
-            .into(),
-        );
-        architectures.insert(
-            code.symbol("arch1"),
-            DesignUnit {
-                context_clause: vec![],
-                unit: architecture1,
-            }
-            .into(),
-        );
 
         let ent = library.entity(&code.symbol("ent")).unwrap();
         assert_eq!(ent.ident, ent.ident);
@@ -835,7 +817,23 @@ end architecture;
             .into()
         );
 
-        assert_eq!(ent.architectures, architectures);
+        assert_eq!(ent.architectures.len(), 2);
+        assert_eq!(
+            ent.architectures
+                .get(architecture0.name())
+                .unwrap()
+                .expect_read()
+                .unit,
+            architecture0
+        );
+        assert_eq!(
+            ent.architectures
+                .get(architecture1.name())
+                .unwrap()
+                .expect_read()
+                .unit,
+            architecture1
+        );
     }
 
     #[test]

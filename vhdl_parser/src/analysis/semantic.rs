@@ -903,6 +903,22 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
+    fn analyze_architecture(
+        &self,
+        entity: &AnalysisUnit<EntityDeclaration>,
+        arch: &mut AnalysisUnit<ArchitectureBody>,
+    ) -> FatalNullResult {
+        let mut diagnostics = Vec::new();
+        let mut root_region = entity.region.get_parent().unwrap().extend(None);
+        self.analyze_context_clause(&mut root_region, &arch.context_clause, &mut diagnostics)?;
+        let mut region = entity.region.extend(Some(&root_region));
+        self.analyze_architecture_body(&mut region, &arch.unit, &mut diagnostics)?;
+        region.close_both(&mut diagnostics);
+        // @TODO architecture does not need a region
+        arch.diagnostics = diagnostics;
+        Ok(())
+    }
+
     fn analyze_entity(
         &self,
         library: &Library,
@@ -912,16 +928,16 @@ impl<'a> Analyzer<'a> {
         let entity = self.get_entity_declaration_analysis(library, &entity_unit.entity)?;
         diagnostics.append(entity.diagnostics.clone());
 
-        for architecture in entity_unit.architectures.values() {
-            let mut root_region = entity.region.get_parent().unwrap().extend(None);
-            self.analyze_context_clause(
-                &mut root_region,
-                &architecture.context_clause,
-                diagnostics,
-            )?;
-            let mut region = entity.region.extend(Some(&root_region));
-            self.analyze_architecture_body(&mut region, &architecture.unit, diagnostics)?;
-            region.close_both(diagnostics);
+        for arch_lock in entity_unit.architectures.values() {
+            match arch_lock.entry()? {
+                AnalysisEntry::Vacant(mut arch) => {
+                    self.analyze_architecture(&entity, &mut arch)?;
+                    diagnostics.append(arch.diagnostics.clone());
+                }
+                AnalysisEntry::Occupied(arch) => {
+                    diagnostics.append(arch.diagnostics.clone());
+                }
+            };
         }
         Ok(())
     }
