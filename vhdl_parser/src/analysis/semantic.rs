@@ -795,23 +795,6 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
-    fn analyze_entity_declaration(
-        &self,
-        region: &mut DeclarativeRegion<'_>,
-        entity: &EntityDeclaration,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
-        if let Some(ref list) = entity.generic_clause {
-            self.analyze_interface_list(region, list, diagnostics)?;
-        }
-        if let Some(ref list) = entity.port_clause {
-            self.analyze_interface_list(region, list, diagnostics)?;
-        }
-        self.analyze_declarative_part(region, &entity.decl, diagnostics)?;
-        self.analyze_concurrent_part(region, &entity.statements, diagnostics)?;
-        Ok(())
-    }
-
     /// Add implicit context clause for all packages except STD.STANDARD
     /// library STD, WORK;
     /// use STD.STANDARD.all;
@@ -923,33 +906,67 @@ impl<'a> Analyzer<'a> {
     fn analyze_entity(
         &self,
         library: &Library,
-        entity: &EntityDesignUnit,
+        entity_unit: &EntityDesignUnit,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        let mut primary_root_region = DeclarativeRegion::default();
-        self.add_implicit_context_clause(&mut primary_root_region, library);
-        self.analyze_context_clause(
-            &mut primary_root_region,
-            &entity.entity.context_clause,
-            diagnostics,
-        )?;
+        let entity = self.get_entity_declaration_analysis(library, &entity_unit.entity)?;
+        diagnostics.append(entity.diagnostics.clone());
 
-        let mut primary_region = DeclarativeRegion::new_borrowed_parent(&primary_root_region);
-        self.analyze_entity_declaration(&mut primary_region, &entity.entity.unit, diagnostics)?;
-        primary_region.close_immediate(diagnostics);
-
-        for architecture in entity.architectures.values() {
-            let mut root_region = primary_root_region.extend(None);
+        for architecture in entity_unit.architectures.values() {
+            let mut root_region = entity.region.get_parent().unwrap().extend(None);
             self.analyze_context_clause(
                 &mut root_region,
                 &architecture.context_clause,
                 diagnostics,
             )?;
-            let mut region = primary_region.extend(Some(&root_region));
+            let mut region = entity.region.extend(Some(&root_region));
             self.analyze_architecture_body(&mut region, &architecture.unit, diagnostics)?;
             region.close_both(diagnostics);
         }
         Ok(())
+    }
+
+    fn analyze_entity_declaration(
+        &self,
+        library: &Library,
+        entity: &mut AnalysisUnit<EntityDeclaration>,
+    ) -> FatalNullResult {
+        let mut diagnostics = Vec::new();
+        let mut root_region = DeclarativeRegion::default();
+        self.add_implicit_context_clause(&mut root_region, library);
+        self.analyze_context_clause(&mut root_region, &entity.context_clause, &mut diagnostics)?;
+
+        let mut region = DeclarativeRegion::new_owned_parent(Box::new(root_region));
+
+        if let Some(ref list) = entity.unit.generic_clause {
+            self.analyze_interface_list(&mut region, list, &mut diagnostics)?;
+        }
+        if let Some(ref list) = entity.unit.port_clause {
+            self.analyze_interface_list(&mut region, list, &mut diagnostics)?;
+        }
+        self.analyze_declarative_part(&mut region, &entity.unit.decl, &mut diagnostics)?;
+        self.analyze_concurrent_part(&region, &entity.unit.statements, &mut diagnostics)?;
+
+        region.close_immediate(&mut diagnostics);
+
+        entity.region = region;
+        entity.diagnostics = diagnostics;
+        Ok(())
+    }
+
+    fn get_entity_declaration_analysis(
+        &self,
+        library: &Library,
+        entity_lock: &'a LockedUnit<EntityDeclaration>,
+    ) -> Result<ReadGuard<AnalysisUnit<EntityDeclaration>>, CircularDependencyError> {
+        match entity_lock.entry()? {
+            AnalysisEntry::Vacant(mut entity) => {
+                self.analyze_entity_declaration(library, &mut entity)?;
+                drop(entity);
+                Ok(entity_lock.expect_analyzed())
+            }
+            AnalysisEntry::Occupied(entity) => Ok(entity),
+        }
     }
 
     fn lookup_package_instance_name(
@@ -1078,7 +1095,7 @@ impl<'a> Analyzer<'a> {
         library: &'l Library,
         region: &DeclarativeRegion<'_>,
         config: &ConfigurationDeclaration,
-    ) -> Result<&'l EntityDeclaration, AnalysisError> {
+    ) -> Result<&'l EntityDesignUnit, AnalysisError> {
         let ent_name: WithPos<Name> = config.entity_name.clone().into();
 
         let lookup_result = {
@@ -1109,11 +1126,7 @@ impl<'a> Analyzer<'a> {
                                     format!("Configuration must be within the same library '{}' as the corresponding entity", &library.name),
                                 ))?
                     } else {
-                        Ok(&library
-                            .entity(entsym)
-                            .expect("Expect entity is available")
-                            .entity
-                            .unit)
+                        Ok(&library.entity(entsym).expect("Expect entity is available"))
                     }
                 }
                 _ => Err(Diagnostic::error(&ent_name, "does not denote an entity"))?,
@@ -1135,8 +1148,8 @@ impl<'a> Analyzer<'a> {
         self.analyze_context_clause(&mut region, &config.context_clause, &mut diagnostics)?;
 
         match self.lookup_entity_for_configuration(library, &region, &config.unit) {
-            Ok(entity) => {
-                let primary_pos = entity.pos();
+            Ok(entity_unit) => {
+                let primary_pos = entity_unit.pos();
                 let secondary_pos = config.pos();
                 if primary_pos.source == secondary_pos.source
                     && primary_pos.start > secondary_pos.start
@@ -1146,7 +1159,7 @@ impl<'a> Analyzer<'a> {
                         format!(
                             "Configuration '{}' declared before entity '{}'",
                             &config.name(),
-                            entity.name()
+                            entity_unit.name()
                         ),
                     ));
                 }

@@ -51,16 +51,16 @@ impl<T> Into<LockedUnit<T>> for DesignUnit<T> {
     }
 }
 
-#[cfg_attr(test, derive(PartialEq, Debug))]
 pub struct EntityDesignUnit {
-    pub entity: AnalysisUnit<EntityDeclaration>,
+    ident: Ident,
+    pub entity: LockedUnit<EntityDeclaration>,
     pub architectures: FnvHashMap<Symbol, AnalysisUnit<ArchitectureBody>>,
 }
 
 impl EntityDesignUnit {
     fn add_architecture(
         &mut self,
-        architecture: AnalysisUnit<ArchitectureBody>,
+        architecture: DesignUnit<ArchitectureBody>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
         match self.architectures.entry(architecture.name().clone()) {
@@ -70,13 +70,13 @@ impl EntityDesignUnit {
                     format!(
                         "Duplicate architecture '{}' of entity '{}'",
                         &architecture.name(),
-                        self.entity.name(),
+                        self.ident.name(),
                     ),
                 ));
             }
             Entry::Vacant(entry) => {
                 {
-                    let primary_pos = &self.entity.pos();
+                    let primary_pos = self.ident.pos();
                     let secondary_pos = &architecture.pos();
                     if primary_pos.source == secondary_pos.source
                         && primary_pos.start > secondary_pos.start
@@ -86,15 +86,21 @@ impl EntityDesignUnit {
                             format!(
                                 "Architecture '{}' declared before entity '{}'",
                                 &architecture.name(),
-                                self.entity.name()
+                                self.ident.name()
                             ),
                         ));
                     }
                 };
 
-                entry.insert(architecture);
+                entry.insert(architecture.into());
             }
         }
+    }
+}
+
+impl HasIdent for EntityDesignUnit {
+    fn ident(&self) -> &Ident {
+        &self.ident
     }
 }
 
@@ -223,6 +229,7 @@ impl<'a> Library {
                                         entities.insert(
                                             entity.name().clone(),
                                             EntityDesignUnit {
+                                                ident: entity.ident().clone(),
                                                 entity: entity.into(),
                                                 architectures: FnvHashMap::default(),
                                             },
@@ -287,7 +294,7 @@ impl<'a> Library {
 
         for architecture in architectures {
             if let Some(ref mut entity) = entities.get_mut(&architecture.unit.entity_name.item) {
-                entity.add_architecture(architecture.into(), diagnostics)
+                entity.add_architecture(architecture, diagnostics)
             } else {
                 diagnostics.push(Diagnostic::error(
                     &architecture.unit.entity_name.pos,
@@ -329,9 +336,9 @@ impl<'a> Library {
         }
 
         for ent in entities.values() {
-            let sym = ent.entity.ident().item.clone();
+            let sym = ent.name().clone();
             region.add(
-                ent.entity.ident(),
+                ent.ident(),
                 AnyDeclaration::Entity(name.clone(), sym),
                 diagnostics,
             );
@@ -490,7 +497,7 @@ end entity;
         );
         let library = new_library(&code, "libname");
         let unit = library.entity(&code.symbol("ent")).unwrap();
-        assert_eq!(unit.entity.unit, code.entity());
+        assert_eq!(unit.entity.expect_read().unit, code.entity());
         assert_eq!(unit.architectures, FnvHashMap::default());
     }
 
@@ -817,17 +824,18 @@ end architecture;
             .into(),
         );
 
+        let ent = library.entity(&code.symbol("ent")).unwrap();
+        assert_eq!(ent.ident, ent.ident);
         assert_eq!(
-            library.entity(&code.symbol("ent")),
-            Some(&EntityDesignUnit {
-                entity: DesignUnit {
-                    context_clause: vec![],
-                    unit: entity
-                }
-                .into(),
-                architectures
-            })
+            *ent.entity.expect_read(),
+            DesignUnit {
+                context_clause: vec![],
+                unit: entity
+            }
+            .into()
         );
+
+        assert_eq!(ent.architectures, architectures);
     }
 
     #[test]
