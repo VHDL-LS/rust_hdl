@@ -72,11 +72,12 @@ impl<'a, T> HandleFatal<T> for dyn DiagnosticHandler + 'a {
     }
 }
 
-enum LookupResult<'a, T> {
+enum LookupResult {
     /// A single name was selected
     Single(VisibleDeclaration),
     /// All names within was selected
-    AllWithin(&'a WithPos<T>, VisibleDeclaration),
+    /// @TODO add pos for where declaration was made visible into VisibleDeclaration
+    AllWithin(SrcPos, VisibleDeclaration),
     /// The name to lookup (or some part thereof was not a selected name)
     NotSelected,
 }
@@ -102,11 +103,11 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn lookup_within(
+    fn resolve_within(
         &self,
         prefix_pos: &SrcPos,
         prefix: &VisibleDeclaration,
-        suffix: &WithPos<WithRef<Designator>>,
+        suffix: &mut WithPos<WithRef<Designator>>,
     ) -> AnalysisResult<VisibleDeclaration> {
         match prefix.first() {
             AnyDeclaration::Library(ref library_name) => {
@@ -183,12 +184,12 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn lookup_selected_name<'n>(
+    fn resolve_selected_name(
         &self,
         region: &DeclarativeRegion<'_>,
-        name: &'n WithPos<SelectedName>,
+        name: &mut WithPos<SelectedName>,
     ) -> AnalysisResult<VisibleDeclaration> {
-        match self.lookup_selected_name_ref(region, name)? {
+        match self.resolve_selected_name_ref(region, name)? {
             LookupResult::Single(decl) => Ok(decl),
             _ => {
                 panic!("Can only lookup single within SelectedName");
@@ -196,20 +197,21 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    /// Lookup the prefix of a selected name
-    fn lookup_prefix<'n, T: AsSelectedNameRef<'n, T>>(
+    /// Resolve the prefix of a selected name
+    fn resolve_prefix<'n, T: AsSelectedNameRefMut<'n, T>>(
         &self,
         region: &DeclarativeRegion<'_>,
-        prefix: &'n WithPos<T>,
+        prefix: &'n mut WithPos<T>,
     ) -> AnalysisResult<VisibleDeclaration> {
-        match self.lookup_selected_name_ref(region, prefix)? {
+        let prefix_pos = prefix.pos.clone();
+        match self.resolve_selected_name_ref(region, prefix)? {
             LookupResult::Single(decl) => Ok(decl),
             LookupResult::AllWithin(..) => Err(Diagnostic::error(
-                prefix.as_ref(),
+                prefix_pos,
                 "'.all' may not be the prefix of a selected name",
             ))?,
             LookupResult::NotSelected => Err(Diagnostic::error(
-                prefix.as_ref(),
+                prefix_pos,
                 "may not be the prefix of a selected name",
             ))?,
         }
@@ -218,25 +220,27 @@ impl<'a> Analyzer<'a> {
     /// Returns the VisibleDeclaration or None if it was not a selected name
     /// Returns error message if a name was not declared
     /// @TODO We only lookup selected names since other names such as slice and index require typechecking
-    fn lookup_selected_name_ref<'n, T: AsSelectedNameRef<'n, T>>(
+    fn resolve_selected_name_ref<'n, T: AsSelectedNameRefMut<'n, T>>(
         &self,
         region: &DeclarativeRegion<'_>,
-        name: &'n WithPos<T>,
-    ) -> AnalysisResult<LookupResult<'n, T>> {
-        match name.item.as_selected_name_ref() {
-            SelectedNameRef::Selected(ref prefix, ref suffix) => {
-                let decl = self.lookup_prefix(region, prefix)?;
-                match self.lookup_within(&prefix.pos, &decl, suffix) {
+        name: &'n mut WithPos<T>,
+    ) -> AnalysisResult<LookupResult> {
+        match name.item.as_selected_name_ref_mut() {
+            SelectedNameRefMut::Selected(prefix, suffix) => {
+                let prefix_pos = prefix.pos.clone(); // @TODO who does resolve_prefix extend lifetime?
+                let decl = self.resolve_prefix(region, prefix)?;
+                match self.resolve_within(&prefix_pos, &decl, suffix) {
                     Ok(decl) => Ok(LookupResult::Single(decl)),
                     Err(err) => Err(err.add_circular_reference(&name.pos)),
                 }
             }
 
-            SelectedNameRef::SelectedAll(ref prefix) => {
-                let decl = self.lookup_prefix(region, prefix)?;
-                Ok(LookupResult::AllWithin(prefix, decl))
+            SelectedNameRefMut::SelectedAll(prefix) => {
+                let prefix_pos = prefix.pos.clone(); // @TODO who does resolve_prefix extend lifetime?
+                let decl = self.resolve_prefix(region, prefix)?;
+                Ok(LookupResult::AllWithin(prefix_pos, decl))
             }
-            SelectedNameRef::Designator(ref designator) => {
+            SelectedNameRefMut::Designator(designator) => {
                 if let Some(visible_item) = region.lookup(designator.designator(), true) {
                     Ok(LookupResult::Single(visible_item.clone()))
                 } else {
@@ -246,7 +250,7 @@ impl<'a> Analyzer<'a> {
                     ))?
                 }
             }
-            SelectedNameRef::Other => {
+            SelectedNameRefMut::Other => {
                 // Not a selected name
                 // @TODO at least lookup prefix for now
                 Ok(LookupResult::NotSelected)
@@ -284,8 +288,8 @@ impl<'a> Analyzer<'a> {
                 self.analyze_subprogram_declaration(region, subpgm, diagnostics)?;
                 region.add(subpgm.designator(), AnyDeclaration::Overloaded, diagnostics);
             }
-            InterfaceDeclaration::Package(ref instance) => {
-                match self.analyze_package_instance_name(region, &instance.package_name) {
+            InterfaceDeclaration::Package(ref mut instance) => {
+                match self.analyze_package_instance_name(region, &mut instance.package_name) {
                     Ok(package) => region.add(
                         &instance.ident,
                         AnyDeclaration::LocalPackageInstance(
@@ -316,12 +320,12 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
-    fn lookup_type_mark(
+    fn resolve_type_mark(
         &self,
         region: &DeclarativeRegion<'_>,
         type_mark: &mut WithPos<SelectedName>,
     ) -> AnalysisResult<VisibleDeclaration> {
-        self.lookup_selected_name(region, &type_mark)
+        self.resolve_selected_name(region, type_mark)
     }
 
     fn analyze_subtype_indicaton(
@@ -330,7 +334,7 @@ impl<'a> Analyzer<'a> {
         subtype_indication: &mut SubtypeIndication,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        if let Err(err) = self.lookup_type_mark(region, &mut subtype_indication.type_mark) {
+        if let Err(err) = self.resolve_type_mark(region, &mut subtype_indication.type_mark) {
             err.add_to(diagnostics)
         } else {
             Ok(())
@@ -348,7 +352,7 @@ impl<'a> Analyzer<'a> {
         match subprogram {
             SubprogramDeclaration::Function(fun) => {
                 self.analyze_interface_list(&mut region, &mut fun.parameter_list, diagnostics)?;
-                if let Err(err) = self.lookup_type_mark(&parent, &mut fun.return_type) {
+                if let Err(err) = self.resolve_type_mark(&parent, &mut fun.return_type) {
                     err.add_to(diagnostics)?
                 }
             }
@@ -430,7 +434,7 @@ impl<'a> Analyzer<'a> {
             }
             Declaration::Attribute(ref mut attr) => match attr {
                 Attribute::Declaration(ref mut attr_decl) => {
-                    if let Err(err) = self.lookup_type_mark(region, &mut attr_decl.type_mark) {
+                    if let Err(err) = self.resolve_type_mark(region, &mut attr_decl.type_mark) {
                         err.add_to(diagnostics)?;
                     }
                     region.add(&attr_decl.ident, AnyDeclaration::Other, diagnostics);
@@ -466,8 +470,8 @@ impl<'a> Analyzer<'a> {
                 )?;
             }
 
-            Declaration::Package(ref instance) => {
-                match self.analyze_package_instance_name(region, &instance.package_name) {
+            Declaration::Package(ref mut instance) => {
+                match self.analyze_package_instance_name(region, &mut instance.package_name) {
                     Ok(data) => region.add(
                         &instance.ident,
                         AnyDeclaration::LocalPackageInstance(
@@ -566,7 +570,7 @@ impl<'a> Analyzer<'a> {
         use_pos: &SrcPos,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        for name in use_clause.name_list.iter() {
+        for name in use_clause.name_list.iter_mut() {
             match name.item {
                 Name::Selected(..) => {}
                 Name::SelectedAll(..) => {}
@@ -579,11 +583,11 @@ impl<'a> Analyzer<'a> {
                 }
             }
 
-            match self.lookup_selected_name_ref(&region, &name) {
+            match self.resolve_selected_name_ref(&region, name) {
                 Ok(LookupResult::Single(visible_decl)) => {
                     region.make_potentially_visible(visible_decl);
                 }
-                Ok(LookupResult::AllWithin(prefix, visible_decl)) => {
+                Ok(LookupResult::AllWithin(visibility_pos, visible_decl)) => {
                     match visible_decl.first() {
                         AnyDeclaration::Library(ref library_name) => {
                             region.make_all_potentially_visible(
@@ -592,7 +596,7 @@ impl<'a> Analyzer<'a> {
                         }
                         AnyDeclaration::UninstPackage(ref library_sym, ref package_sym) => {
                             diagnostics.push(uninstantiated_package_prefix_error(
-                                &prefix.pos,
+                                &visibility_pos,
                                 library_sym,
                                 package_sym,
                             ));
@@ -668,20 +672,20 @@ impl<'a> Analyzer<'a> {
                 ContextItem::Use(ref mut use_clause) => {
                     self.analyze_use_clause(region, use_clause, &context_item.pos, diagnostics)?;
                 }
-                ContextItem::Context(ContextReference { ref name_list }) => {
-                    for name in name_list {
+                ContextItem::Context(ContextReference { ref mut name_list }) => {
+                    for name in name_list.iter_mut() {
                         match name.item {
                             Name::Selected(..) => {}
                             _ => {
                                 diagnostics.push(Diagnostic::error(
-                                    &context_item,
+                                    &context_item.pos,
                                     "Context reference must be a selected name",
                                 ));
                                 continue;
                             }
                         }
 
-                        match self.lookup_selected_name_ref(&region, &name) {
+                        match self.resolve_selected_name_ref(&region, name) {
                             Ok(LookupResult::Single(visible_decl)) => {
                                 match visible_decl.first() {
                                     // OK
@@ -719,7 +723,7 @@ impl<'a> Analyzer<'a> {
                             }
                             Ok(LookupResult::NotSelected) => {
                                 diagnostics.push(Diagnostic::error(
-                                    &context_item,
+                                    &context_item.pos,
                                     "Context reference must be a selected name",
                                 ));
                             }
@@ -1010,12 +1014,12 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn lookup_package_instance_name(
+    fn resolve_package_instance_name(
         &self,
         region: &DeclarativeRegion<'_>,
-        package_name: &WithPos<SelectedName>,
+        package_name: &mut WithPos<SelectedName>,
     ) -> AnalysisResult<(Symbol, Symbol)> {
-        let decl = self.lookup_selected_name(region, &package_name)?;
+        let decl = self.resolve_selected_name(region, package_name)?;
 
         if let AnyDeclaration::UninstPackage(ref library_name, ref package_name) = decl.first() {
             Ok((library_name.clone(), package_name.clone()))
@@ -1033,10 +1037,10 @@ impl<'a> Analyzer<'a> {
     fn analyze_package_instance_name(
         &self,
         region: &DeclarativeRegion<'_>,
-        package_name: &WithPos<SelectedName>,
+        package_name: &mut WithPos<SelectedName>,
     ) -> AnalysisResult<ReadGuard<AnalysisUnit<PackageDeclaration>>> {
         let (library_name, package_name) =
-            self.lookup_package_instance_name(region, package_name)?;
+            self.resolve_package_instance_name(region, package_name)?;
 
         match self.get_package_declaration_analysis(&library_name, &package_name) {
             Ok(package) => Ok(package),
@@ -1054,7 +1058,7 @@ impl<'a> Analyzer<'a> {
         self.add_implicit_context_clause(&mut region, library);
         self.analyze_context_clause(&mut region, &mut instance.context_clause, &mut diagnostics)?;
 
-        match self.analyze_package_instance_name(&region, &instance.unit.package_name) {
+        match self.analyze_package_instance_name(&region, &mut instance.unit.package_name) {
             Ok(package) => {
                 instance.diagnostics = diagnostics;
                 instance.region = package.region.clone();
@@ -1120,18 +1124,20 @@ impl<'a> Analyzer<'a> {
         &self,
         library: &'l Library,
         region: &DeclarativeRegion<'_>,
-        config: &ConfigurationDeclaration,
+        config: &mut ConfigurationDeclaration,
     ) -> AnalysisResult<&'l EntityDesignUnit> {
-        let ref ent_name = config.entity_name;
+        let ref mut ent_name = config.entity_name;
 
         let decl = {
             match ent_name.item {
                 // Entitities are implicitly defined for configurations
                 // configuration cfg of ent
-                SelectedName::Designator(_) => self.lookup_selected_name(&library.region, ent_name),
+                SelectedName::Designator(_) => {
+                    self.resolve_selected_name(&library.region, ent_name)
+                }
 
                 // configuration cfg of lib.ent
-                _ => self.lookup_selected_name(&region, &ent_name),
+                _ => self.resolve_selected_name(&region, ent_name),
             }
         }?;
 
@@ -1160,7 +1166,7 @@ impl<'a> Analyzer<'a> {
         self.add_implicit_context_clause(&mut region, library);
         self.analyze_context_clause(&mut region, &mut config.context_clause, &mut diagnostics)?;
 
-        match self.lookup_entity_for_configuration(library, &region, &config.unit) {
+        match self.lookup_entity_for_configuration(library, &region, &mut config.unit) {
             Ok(entity_unit) => {
                 let primary_pos = entity_unit.pos();
                 let secondary_pos = config.pos();

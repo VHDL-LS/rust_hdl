@@ -260,3 +260,42 @@ impl<'a> AsSelectedNameRef<'a, Name> for Name {
         }
     }
 }
+
+// Enum to handle SelectedName and Name by the same code
+pub enum SelectedNameRefMut<'a, T: AsSelectedNameRefMut<'a, T>> {
+    Selected(&'a mut WithPos<T>, &'a mut WithPos<WithRef<Designator>>),
+    Designator(&'a mut WithRef<Designator>),
+    SelectedAll(&'a mut WithPos<T>),
+    Other,
+}
+
+// Trait to handle SelectedName and Name by the same code
+pub trait AsSelectedNameRefMut<'a, T: AsSelectedNameRefMut<'a, T>> {
+    fn as_selected_name_ref_mut(&'a mut self) -> SelectedNameRefMut<'a, T>;
+}
+
+impl<'a> AsSelectedNameRefMut<'a, SelectedName> for SelectedName {
+    fn as_selected_name_ref_mut(&'a mut self) -> SelectedNameRefMut<'a, SelectedName> {
+        match self {
+            SelectedName::Selected(ref mut prefix, ref mut suffix) => {
+                SelectedNameRefMut::Selected(prefix, suffix)
+            }
+            SelectedName::Designator(ref mut designator) => {
+                SelectedNameRefMut::Designator(designator)
+            }
+        }
+    }
+}
+
+impl<'a> AsSelectedNameRefMut<'a, Name> for Name {
+    fn as_selected_name_ref_mut(&'a mut self) -> SelectedNameRefMut<'a, Name> {
+        match self {
+            Name::Selected(ref mut prefix, ref mut suffix) => {
+                SelectedNameRefMut::Selected(prefix, suffix)
+            }
+            Name::SelectedAll(ref mut prefix) => SelectedNameRefMut::SelectedAll(prefix),
+            Name::Designator(ref mut designator) => SelectedNameRefMut::Designator(designator),
+            _ => SelectedNameRefMut::Other,
+        }
+    }
+}
