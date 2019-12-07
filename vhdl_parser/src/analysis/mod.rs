@@ -8,5 +8,9 @@ mod declarative_region;
 mod library;
 mod lock;
 mod semantic;
+
+#[cfg(test)]
+mod tests;
+
 pub use self::library::{DesignRoot, Library};
 pub use self::semantic::Analyzer;
