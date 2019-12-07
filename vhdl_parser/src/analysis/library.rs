@@ -173,7 +173,7 @@ pub struct Library {
     pub name: Symbol,
     pub region: DeclarativeRegion<'static>,
     entities: FnvHashMap<Symbol, EntityDesignUnit>,
-    configurations: FnvHashMap<Symbol, AnalysisUnit<ConfigurationDeclaration>>,
+    configurations: FnvHashMap<Symbol, LockedUnit<ConfigurationDeclaration>>,
     packages: FnvHashMap<Symbol, PackageDesignUnit>,
     uninst_packages: FnvHashMap<Symbol, PackageDesignUnit>,
     package_instances: FnvHashMap<Symbol, PackageInstance>,
@@ -194,7 +194,7 @@ impl<'a> Library {
         let mut contexts = FnvHashMap::default();
         let mut architectures = Vec::new();
         let mut package_bodies = Vec::new();
-        let mut configurations: FnvHashMap<Symbol, AnalysisUnit<ConfigurationDeclaration>> =
+        let mut configurations: FnvHashMap<Symbol, LockedUnit<ConfigurationDeclaration>> =
             FnvHashMap::default();
 
         let mut region = DeclarativeRegion::default();
@@ -257,16 +257,18 @@ impl<'a> Library {
 
                                         region.add(
                                             &ctx.ident,
-                                            AnyDeclaration::Context(name.clone(), sym),
+                                            AnyDeclaration::Context(name.clone(), sym.clone()),
                                             diagnostics,
                                         );
-                                        contexts.insert(
-                                            ctx.name().clone(),
-                                            AnalysisLock::new(Context::new(ctx)),
-                                        );
+                                        contexts.insert(sym, AnalysisLock::new(Context::new(ctx)));
                                     }
 
                                     PrimaryUnit::Configuration(config) => {
+                                        region.add(
+                                            config.ident(),
+                                            AnyDeclaration::Other,
+                                            diagnostics,
+                                        );
                                         configurations.insert(config.name().clone(), config.into());
                                     }
                                 }
@@ -335,10 +337,6 @@ impl<'a> Library {
             );
         }
 
-        for cfg in configurations.values() {
-            region.add(cfg.ident(), AnyDeclaration::Other, diagnostics);
-        }
-
         for pkg in package_instances.values() {
             region.add(
                 pkg.ident(),
@@ -367,7 +365,7 @@ impl<'a> Library {
     pub fn configuration(
         &'a self,
         name: &Symbol,
-    ) -> Option<&'a AnalysisUnit<ConfigurationDeclaration>> {
+    ) -> Option<&'a LockedUnit<ConfigurationDeclaration>> {
         self.configurations.get(name)
     }
 
@@ -403,7 +401,7 @@ impl<'a> Library {
         self.entities.values()
     }
 
-    pub fn configurations(&self) -> impl Iterator<Item = &AnalysisUnit<ConfigurationDeclaration>> {
+    pub fn configurations(&self) -> impl Iterator<Item = &LockedUnit<ConfigurationDeclaration>> {
         self.configurations.values()
     }
 
@@ -897,17 +895,7 @@ architecture rtl of ent is
 begin
 end architecture;
 
-configuration cfg1 of ent is
-  for rtl
-  end for;
-end configuration;
-
-configuration cfg2 of work.ent is
-  for rtl
-  end for;
-end configuration;
-
-configuration cfg3 of libname.ent is
+configuration cfg of ent is
   for rtl
   end for;
 end configuration;
@@ -915,38 +903,20 @@ end configuration;
         );
         let library = new_library(&code, "libname");
 
-        let cfg1 = DesignUnit {
+        let config: AnalysisUnit<_> = DesignUnit {
             context_clause: vec![],
             unit: code
-                .between("configuration cfg1", "end configuration;")
-                .configuration(),
-        }
-        .into();
-        let cfg2 = DesignUnit {
-            context_clause: vec![],
-            unit: code
-                .between("configuration cfg2", "end configuration;")
-                .configuration(),
-        }
-        .into();
-        let cfg3 = DesignUnit {
-            context_clause: vec![],
-            unit: code
-                .between("configuration cfg3", "end configuration;")
+                .between("configuration cfg", "end configuration;")
                 .configuration(),
         }
         .into();
 
-        assert_eq!(library.configuration(&code.symbol("cfg1")), Some(&cfg1));
-        assert_eq!(library.configuration(&code.symbol("cfg2")), Some(&cfg2));
-        assert_eq!(library.configuration(&code.symbol("cfg3")), Some(&cfg3));
-        assert_eq!(library.configuration(&code.symbol("cfg4")), None);
-
-        let mut configurations = FnvHashMap::default();
-        configurations.insert(code.symbol("cfg1"), cfg1.clone());
-        configurations.insert(code.symbol("cfg2"), cfg2.clone());
-        configurations.insert(code.symbol("cfg3"), cfg3.clone());
-        assert_eq!(library.configurations, configurations);
+        let got_cfg = library
+            .configuration(&code.symbol("cfg"))
+            .unwrap()
+            .expect_read();
+        assert_eq!(*got_cfg, config);
+        assert_eq!(library.configurations.len(), 1);
     }
 
     #[test]
@@ -969,18 +939,10 @@ end configuration;
         );
         let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
-        let cfg = code
+        let config = code
             .between("configuration cfg", "end configuration;")
             .configuration();
-        let mut configurations = FnvHashMap::default();
-        configurations.insert(
-            code.symbol("cfg"),
-            DesignUnit {
-                context_clause: vec![],
-                unit: cfg,
-            }
-            .into(),
-        );
+
         check_diagnostics(
             diagnostics,
             vec![Diagnostic::error(
@@ -989,7 +951,14 @@ end configuration;
             )
             .related(code.s1("cfg"), "Previously defined here")],
         );
-        assert_eq!(library.configurations, configurations);
+
+        let got_cfg = library
+            .configuration(&code.symbol("cfg"))
+            .unwrap()
+            .expect_read();
+        assert_eq!(got_cfg.unit, config);
+
+        assert_eq!(library.configurations.len(), 1);
     }
 
     #[test]

@@ -6,7 +6,7 @@
 
 use super::declarative_region::{AnyDeclaration, DeclarativeRegion, VisibleDeclaration};
 use super::library::{
-    AnalysisUnit, Context, DesignRoot, EntityDesignUnit, Library, PackageDesignUnit,
+    AnalysisUnit, Context, DesignRoot, EntityDesignUnit, Library, LockedUnit, PackageDesignUnit,
 };
 use crate::ast::{HasIdent, *};
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
@@ -1073,84 +1073,98 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn analyze_configuration(
+    fn lookup_entity_for_configuration<'l>(
         &self,
-        library: &Library,
-        cfg: &AnalysisUnit<ConfigurationDeclaration>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
-        let mut region = DeclarativeRegion::default();
-        self.add_implicit_context_clause(&mut region, library);
-        self.analyze_context_clause(&mut region, &cfg.context_clause, diagnostics)?;
-
-        let ent_name: WithPos<Name> = cfg.unit.entity_name.clone().into();
+        library: &'l Library,
+        region: &DeclarativeRegion<'_>,
+        config: &ConfigurationDeclaration,
+    ) -> Result<&'l EntityDeclaration, AnalysisError> {
+        let ent_name: WithPos<Name> = config.entity_name.clone().into();
 
         let lookup_result = {
             match ent_name.item {
                 // Entitities are implicitly defined for configurations
-                // configuratio cfg of ent
+                // configuration cfg of ent
                 Name::Designator(_) => self.lookup_selected_name(&library.region, &ent_name),
 
-                // configuratio cfg of lib.ent
+                // configuration cfg of lib.ent
                 _ => self.lookup_selected_name(&region, &ent_name),
             }
-        };
+        }?;
 
-        let entity;
         match lookup_result {
-            Ok(LookupResult::NotSelected) | Ok(LookupResult::AllWithin(_, _)) => {
-                diagnostics.push(
-                    Diagnostic::error(&cfg.unit.entity_name, "Invalid selected name for entity")
-                        .related(
-                            &cfg.unit.entity_name,
-                            "Entity name must be of the form library.entity_name or entity_name",
-                        ),
-                );
-                return Ok(());
-            }
-            Ok(LookupResult::Single(decl)) => match decl.first() {
+            LookupResult::NotSelected | LookupResult::AllWithin(_, _) => Err(Diagnostic::error(
+                &config.entity_name,
+                "Invalid selected name for entity",
+            )
+            .related(
+                &config.entity_name,
+                "Entity name must be of the form library.entity_name or entity_name",
+            ))?,
+            LookupResult::Single(decl) => match decl.first() {
                 AnyDeclaration::Entity(ref libsym, ref entsym) => {
                     if libsym != &library.name {
-                        diagnostics.push(Diagnostic::error(
+                        Err(Diagnostic::error(
                                     &ent_name,
                                     format!("Configuration must be within the same library '{}' as the corresponding entity", &library.name),
-                                ));
-                        return Ok(());
+                                ))?
+                    } else {
+                        Ok(&library
+                            .entity(entsym)
+                            .expect("Expect entity is available")
+                            .entity
+                            .unit)
                     }
-
-                    entity = library.entity(entsym).expect("Expect entity is available");
                 }
-                _ => {
-                    diagnostics.push(Diagnostic::error(
-                        &ent_name,
-                        format!("'{}' does not denote an entity", &library.name),
-                    ));
-                    return Ok(());
-                }
+                _ => Err(Diagnostic::error(&ent_name, "does not denote an entity"))?,
             },
-            Ok(LookupResult::Unfinished) => {
-                return Ok(());
+            LookupResult::Unfinished => {
+                Err(Diagnostic::error(&ent_name, "does not denote an entity"))?
             }
-            Err(err) => {
-                err.add_to(diagnostics)?;
-                return Ok(());
-            }
-        };
-
-        let primary_pos = &entity.entity.pos();
-        let secondary_pos = &cfg.pos();
-        if primary_pos.source == secondary_pos.source && primary_pos.start > secondary_pos.start {
-            diagnostics.push(Diagnostic::error(
-                secondary_pos,
-                format!(
-                    "Configuration '{}' declared before entity '{}'",
-                    &cfg.name(),
-                    entity.entity.name()
-                ),
-            ));
         }
+    }
 
-        Ok(())
+    fn analyze_configuration(
+        &self,
+        library: &Library,
+        config_lock: &'a LockedUnit<ConfigurationDeclaration>,
+    ) -> Result<ReadGuard<AnalysisUnit<ConfigurationDeclaration>>, CircularDependencyError> {
+        match config_lock.entry()? {
+            AnalysisEntry::Vacant(mut config) => {
+                let mut diagnostics = Vec::new();
+                let mut region = DeclarativeRegion::default();
+                self.add_implicit_context_clause(&mut region, library);
+                self.analyze_context_clause(&mut region, &config.context_clause, &mut diagnostics)?;
+
+                match self.lookup_entity_for_configuration(library, &region, &config.unit) {
+                    Ok(entity) => {
+                        let primary_pos = entity.pos();
+                        let secondary_pos = config.pos();
+                        if primary_pos.source == secondary_pos.source
+                            && primary_pos.start > secondary_pos.start
+                        {
+                            diagnostics.push(Diagnostic::error(
+                                secondary_pos,
+                                format!(
+                                    "Configuration '{}' declared before entity '{}'",
+                                    &config.name(),
+                                    entity.name()
+                                ),
+                            ));
+                        }
+                    }
+                    Err(err) => {
+                        err.add_to(&mut diagnostics)?;
+                    }
+                };
+
+                config.region = region;
+                config.diagnostics = diagnostics;
+                drop(config);
+                Ok(config_lock.expect_analyzed())
+            }
+            AnalysisEntry::Occupied(config) => Ok(config),
+        }
     }
 
     fn analyze_library(&self, library: &Library, diagnostics: &mut dyn DiagnosticHandler) {
@@ -1189,9 +1203,13 @@ impl<'a> Analyzer<'a> {
             diagnostics.push_fatal_error(fatal_err);
         }
 
-        for cfg in library.configurations() {
-            let fatal_err = self.analyze_configuration(library, cfg, diagnostics);
-            diagnostics.push_fatal_error(fatal_err);
+        for config in library.configurations() {
+            match self.analyze_configuration(library, config) {
+                Ok(config) => diagnostics.append(config.diagnostics.clone()),
+                Err(fatal_err) => {
+                    fatal_err.push_into(diagnostics);
+                }
+            }
         }
     }
 
