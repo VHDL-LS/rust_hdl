@@ -142,6 +142,7 @@ pub type SymbolMap<T> = FnvHashMap<Symbol, T>;
 pub struct Library {
     pub name: Symbol,
     pub region: DeclarativeRegion<'static>,
+    primary_names: SymbolMap<SrcPos>,
     entities: SymbolMap<Entity>,
     architectures: SymbolMap<SymbolMap<Architecture>>,
     configurations: SymbolMap<Configuration>,
@@ -158,153 +159,203 @@ impl<'a> Library {
         design_files: Vec<DesignFile>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> Library {
-        let mut primary_names: SymbolMap<SrcPos> = SymbolMap::default();
-        let mut entities = SymbolMap::default();
-        let mut packages = SymbolMap::default();
-        let mut uninst_packages = SymbolMap::default();
-        let mut package_instances = SymbolMap::default();
-        let mut contexts = SymbolMap::default();
-        let mut architectures: SymbolMap<SymbolMap<_>> = SymbolMap::default();
-        let mut package_bodies = SymbolMap::default();
-        let mut configurations = SymbolMap::default();
-
-        let mut region = DeclarativeRegion::default();
+        let mut library = Library {
+            name,
+            region: DeclarativeRegion::default(),
+            primary_names: SymbolMap::default(),
+            entities: SymbolMap::default(),
+            architectures: SymbolMap::default(),
+            configurations: SymbolMap::default(),
+            packages: SymbolMap::default(),
+            package_bodies: SymbolMap::default(),
+            uninst_packages: SymbolMap::default(),
+            package_instances: SymbolMap::default(),
+            contexts: SymbolMap::default(),
+        };
 
         for design_file in design_files {
             for design_unit in design_file.design_units {
-                match design_unit {
-                    AnyDesignUnit::Primary(primary) => {
-                        let primary_ident = primary.ident().clone();
-
-                        match primary_names.entry(primary_ident.item) {
-                            Entry::Occupied(entry) => {
-                                let diagnostic = Diagnostic::error(
-                                    primary_ident.pos,
-                                    format!(
-                                        "A primary unit has already been declared with name '{}' in library '{}'",
-                                        entry.key(),
-                                        name
-                                    )).related(entry.get(), "Previously defined here");
-                                diagnostics.push(diagnostic);
-                            }
-                            Entry::Vacant(entry) => {
-                                entry.insert(primary_ident.pos.clone());
-                                match primary {
-                                    AnyPrimaryUnit::EntityDeclaration(entity) => {
-                                        entities.insert(
-                                            entity.name().clone(),
-                                            PrimaryUnit::new(entity),
-                                        );
-                                    }
-                                    AnyPrimaryUnit::PackageDeclaration(package) => {
-                                        let map = if package.unit.generic_clause.is_some() {
-                                            &mut uninst_packages
-                                        } else {
-                                            &mut packages
-                                        };
-                                        map.insert(
-                                            package.name().clone(),
-                                            PrimaryUnit::new(package),
-                                        );
-                                    }
-                                    AnyPrimaryUnit::PackageInstance(inst) => {
-                                        package_instances
-                                            .insert(inst.name().clone(), PrimaryUnit::new(inst));
-                                    }
-                                    AnyPrimaryUnit::ContextDeclaration(ctx) => {
-                                        let sym = ctx.name().clone();
-
-                                        region.add(
-                                            &ctx.ident,
-                                            AnyDeclaration::Context(name.clone(), sym.clone()),
-                                            diagnostics,
-                                        );
-                                        contexts.insert(sym, PrimaryUnit::new(ctx));
-                                    }
-
-                                    AnyPrimaryUnit::Configuration(config) => {
-                                        region.add(
-                                            config.ident(),
-                                            AnyDeclaration::Other,
-                                            diagnostics,
-                                        );
-                                        configurations.insert(
-                                            config.name().clone(),
-                                            PrimaryUnit::new(config),
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    AnyDesignUnit::Secondary(secondary) => match secondary {
-                        AnySecondaryUnit::Architecture(architecture) => {
-                            let ref entity_ident = architecture.unit.entity_name;
-                            match architectures.entry(entity_ident.name().clone()) {
-                                Entry::Occupied(mut entry) => {
-                                    let map = entry.get_mut();
-                                    match map.entry(architecture.name().clone()) {
-                                        Entry::Occupied(..) => {
-                                            diagnostics.push(Diagnostic::error(
-                                                &architecture.ident(),
-                                                format!(
-                                                    "Duplicate architecture '{}' of entity '{}'",
-                                                    &architecture.name(),
-                                                    entity_ident.name(),
-                                                ),
-                                            ));
-                                        }
-                                        Entry::Vacant(entry) => {
-                                            entry.insert(SecondaryUnit::new(architecture));
-                                        }
-                                    }
-                                }
-                                Entry::Vacant(entry) => {
-                                    let mut map = SymbolMap::default();
-                                    map.insert(
-                                        architecture.name().clone(),
-                                        SecondaryUnit::new(architecture),
-                                    );
-                                    entry.insert(map);
-                                }
-                            }
-                        }
-                        AnySecondaryUnit::PackageBody(body) => {
-                            match package_bodies.entry(body.name().clone()) {
-                                Entry::Occupied(_) => {
-                                    diagnostics.push(Diagnostic::error(
-                                        body.pos(),
-                                        format!(
-                                            "Duplicate package body of package '{}'",
-                                            body.name(),
-                                        ),
-                                    ));
-                                }
-                                Entry::Vacant(entry) => {
-                                    entry.insert(SecondaryUnit::new(body));
-                                }
-                            }
-                        }
-                    },
-                }
+                library.add_design_unit(design_unit, diagnostics);
             }
         }
 
-        for (entity_name, architectures) in architectures.iter() {
-            if entities.get(&entity_name).is_none() {
+        library.validate_package_body(diagnostics);
+        library.validate_entity_architecture(diagnostics);
+        library.rebuild_region();
+        library
+    }
+
+    fn add_primary_unit(
+        &mut self,
+        primary_unit: AnyPrimaryUnit,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        match self.primary_names.entry(primary_unit.name().clone()) {
+            Entry::Occupied(entry) => {
+                diagnostics.push(
+                    Diagnostic::error(
+                        primary_unit.pos(),
+                        format!(
+                        "A primary unit has already been declared with name '{}' in library '{}'",
+                        primary_unit.name(),
+                        &self.name
+                    ),
+                    )
+                    .related(entry.get(), "Previously defined here"),
+                );
+                return;
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(primary_unit.pos().clone());
+            }
+        }
+
+        match primary_unit {
+            AnyPrimaryUnit::EntityDeclaration(entity) => {
+                self.entities
+                    .insert(entity.name().clone(), PrimaryUnit::new(entity));
+            }
+            AnyPrimaryUnit::PackageDeclaration(package) => {
+                let map = if package.unit.generic_clause.is_some() {
+                    &mut self.uninst_packages
+                } else {
+                    &mut self.packages
+                };
+                map.insert(package.name().clone(), PrimaryUnit::new(package));
+            }
+            AnyPrimaryUnit::PackageInstance(inst) => {
+                self.package_instances
+                    .insert(inst.name().clone(), PrimaryUnit::new(inst));
+            }
+            AnyPrimaryUnit::ContextDeclaration(ctx) => {
+                self.contexts
+                    .insert(ctx.name().clone(), PrimaryUnit::new(ctx));
+            }
+
+            AnyPrimaryUnit::Configuration(config) => {
+                self.configurations
+                    .insert(config.name().clone(), PrimaryUnit::new(config));
+            }
+        }
+    }
+
+    fn add_secondary_unit(
+        &mut self,
+        secondary_unit: AnySecondaryUnit,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        match secondary_unit {
+            AnySecondaryUnit::Architecture(architecture) => {
+                match self
+                    .architectures
+                    .entry(architecture.primary_name().clone())
+                {
+                    Entry::Occupied(mut entry) => {
+                        let map = entry.get_mut();
+                        match map.entry(architecture.name().clone()) {
+                            Entry::Occupied(..) => {
+                                diagnostics.push(Diagnostic::error(
+                                    &architecture.ident(),
+                                    format!(
+                                        "Duplicate architecture '{}' of entity '{}'",
+                                        architecture.name(),
+                                        architecture.primary_name(),
+                                    ),
+                                ));
+                            }
+                            Entry::Vacant(entry) => {
+                                entry.insert(SecondaryUnit::new(architecture));
+                            }
+                        }
+                    }
+                    Entry::Vacant(entry) => {
+                        let mut map = SymbolMap::default();
+                        map.insert(
+                            architecture.name().clone(),
+                            SecondaryUnit::new(architecture),
+                        );
+                        entry.insert(map);
+                    }
+                }
+            }
+            AnySecondaryUnit::PackageBody(body) => {
+                match self.package_bodies.entry(body.name().clone()) {
+                    Entry::Occupied(_) => {
+                        diagnostics.push(Diagnostic::error(
+                            body.pos(),
+                            format!("Duplicate package body of package '{}'", body.name(),),
+                        ));
+                    }
+                    Entry::Vacant(entry) => {
+                        entry.insert(SecondaryUnit::new(body));
+                    }
+                }
+            }
+        };
+    }
+
+    fn add_design_unit(
+        &mut self,
+        design_unit: AnyDesignUnit,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        match design_unit {
+            AnyDesignUnit::Primary(primary) => self.add_primary_unit(primary, diagnostics),
+            AnyDesignUnit::Secondary(secondary) => self.add_secondary_unit(secondary, diagnostics),
+        };
+    }
+
+    fn validate_package_body(&self, diagnostics: &mut dyn DiagnosticHandler) {
+        for body in self.package_bodies.values() {
+            let package = {
+                if let Some(package) = self.packages.get(&body.name()) {
+                    package
+                } else if let Some(package) = self.uninst_packages.get(&body.name()) {
+                    package
+                } else {
+                    diagnostics.push(Diagnostic::error(
+                        &body.ident(),
+                        format!(
+                            "No package '{}' within library '{}'",
+                            &body.name(),
+                            &self.name
+                        ),
+                    ));
+                    continue;
+                }
+            };
+
+            let primary_pos = &package.pos();
+            let secondary_pos = &body.pos();
+            if primary_pos.source == secondary_pos.source && primary_pos.start > secondary_pos.start
+            {
+                diagnostics.push(Diagnostic::error(
+                    secondary_pos,
+                    format!("Package body declared before package '{}'", package.name()),
+                ));
+            }
+        }
+    }
+
+    fn validate_entity_architecture(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
+        for (entity_name, architectures) in self.architectures.iter() {
+            if self.entities.get(&entity_name).is_none() {
                 for architecture in architectures.values() {
                     diagnostics.push(Diagnostic::error(
                         &architecture.primary_pos(),
-                        format!("No entity '{}' within library '{}'", entity_name, name),
+                        format!(
+                            "No entity '{}' within library '{}'",
+                            entity_name, &self.name
+                        ),
                     ));
                 }
             }
         }
 
-        // Add empty architecture map for entities without architecture
-        for (entity_name, entity) in entities.iter() {
-            match architectures.entry(entity_name.clone()) {
+        for (entity_name, entity) in self.entities.iter() {
+            match self.architectures.entry(entity_name.clone()) {
                 Entry::Vacant(entry) => {
+                    // Add empty architecture map for entities without architecture
                     entry.insert(SymbolMap::default());
                 }
                 Entry::Occupied(entry) => {
@@ -327,78 +378,61 @@ impl<'a> Library {
                 }
             }
         }
+    }
 
-        for body in package_bodies.values() {
-            let package = {
-                if let Some(package) = packages.get(&body.name()) {
-                    package
-                } else if let Some(package) = uninst_packages.get(&body.name()) {
-                    package
-                } else {
-                    diagnostics.push(Diagnostic::error(
-                        &body.ident(),
-                        format!("No package '{}' within library '{}'", &body.name(), name),
-                    ));
-                    continue;
-                }
-            };
+    fn rebuild_region(&mut self) {
+        let mut diagnostics = Vec::new();
+        self.region = DeclarativeRegion::default();
 
-            let primary_pos = &package.pos();
-            let secondary_pos = &body.pos();
-            if primary_pos.source == secondary_pos.source && primary_pos.start > secondary_pos.start
-            {
-                diagnostics.push(Diagnostic::error(
-                    secondary_pos,
-                    format!("Package body declared before package '{}'", package.name()),
-                ));
-            }
-        }
-
-        for pkg in packages.values() {
-            region.add(
-                pkg.ident(),
-                AnyDeclaration::Package(name.clone(), pkg.name().clone()),
-                diagnostics,
+        for ctx in self.contexts.values() {
+            self.region.add(
+                ctx.ident(),
+                AnyDeclaration::Context(self.name.clone(), ctx.name().clone()),
+                &mut diagnostics,
             );
         }
 
-        for pkg in uninst_packages.values() {
-            region.add(
+        for config in self.configurations.values() {
+            self.region
+                .add(config.ident(), AnyDeclaration::Other, &mut diagnostics);
+        }
+
+        for pkg in self.packages.values() {
+            self.region.add(
                 pkg.ident(),
-                AnyDeclaration::UninstPackage(name.clone(), pkg.name().clone()),
-                diagnostics,
+                AnyDeclaration::Package(self.name.clone(), pkg.name().clone()),
+                &mut diagnostics,
             );
         }
 
-        for ent in entities.values() {
-            let sym = ent.name().clone();
-            region.add(
+        for pkg in self.uninst_packages.values() {
+            self.region.add(
+                pkg.ident(),
+                AnyDeclaration::UninstPackage(self.name.clone(), pkg.name().clone()),
+                &mut diagnostics,
+            );
+        }
+
+        for ent in self.entities.values() {
+            self.region.add(
                 ent.ident(),
-                AnyDeclaration::Entity(name.clone(), sym),
-                diagnostics,
+                AnyDeclaration::Entity(self.name.clone(), ent.name().clone()),
+                &mut diagnostics,
             );
         }
 
-        for pkg in package_instances.values() {
-            region.add(
+        for pkg in self.package_instances.values() {
+            self.region.add(
                 pkg.ident(),
-                AnyDeclaration::PackageInstance(name.clone(), pkg.name().clone()),
-                diagnostics,
+                AnyDeclaration::PackageInstance(self.name.clone(), pkg.name().clone()),
+                &mut diagnostics,
             );
         }
 
-        Library {
-            name,
-            region,
-            entities,
-            architectures,
-            configurations,
-            packages,
-            package_bodies,
-            uninst_packages,
-            package_instances,
-            contexts,
-        }
+        assert!(
+            diagnostics.is_empty(),
+            "Expect no diagnostics when building library region"
+        );
     }
 
     pub fn entity(&'a self, name: &Symbol) -> Option<&'a Entity> {
