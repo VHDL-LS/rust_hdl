@@ -7,7 +7,7 @@
 //! Name conversions
 use super::*;
 use crate::diagnostic::{Diagnostic, ParseResult};
-use crate::source::{Source, SrcPos, WithPos};
+use crate::source::{HasSrcPos, SrcPos, WithPos};
 use crate::symbol_table::Symbol;
 
 impl From<WithPos<SelectedName>> for WithPos<Name> {
@@ -83,11 +83,11 @@ pub trait HasIdent {
     fn name(&self) -> &Symbol {
         &self.ident().item
     }
+}
+
+impl<T: HasIdent> HasSrcPos for T {
     fn pos(&self) -> &SrcPos {
         &self.ident().pos
-    }
-    fn source(&self) -> &Source {
-        &self.pos().source
     }
 }
 

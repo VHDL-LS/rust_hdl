@@ -498,6 +498,32 @@ impl SrcPos {
     }
 }
 
+pub trait HasSource {
+    fn source(&self) -> &Source;
+}
+
+impl HasSource for Source {
+    fn source(&self) -> &Source {
+        &self
+    }
+}
+
+pub trait HasSrcPos {
+    fn pos(&self) -> &SrcPos;
+}
+
+impl HasSrcPos for SrcPos {
+    fn pos(&self) -> &SrcPos {
+        &self
+    }
+}
+
+impl<T: HasSrcPos> HasSource for T {
+    fn source(&self) -> &Source {
+        &self.pos().source
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
