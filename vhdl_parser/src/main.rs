@@ -14,7 +14,7 @@ extern crate clap;
 
 use std::path::Path;
 
-use vhdl_parser::ast::{AnyDesignUnit, PrimaryUnit, SecondaryUnit};
+use vhdl_parser::ast::{AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit};
 use vhdl_parser::{Config, Diagnostic, ParserError, Project, Severity, VHDLParser};
 
 fn main() {
@@ -79,7 +79,7 @@ fn main() {
 fn show_design_unit(design_unit: &AnyDesignUnit) {
     match design_unit {
         AnyDesignUnit::Primary(ref primary) => match primary {
-            PrimaryUnit::EntityDeclaration(ref entity) => {
+            AnyPrimaryUnit::EntityDeclaration(ref entity) => {
                 let entity = &entity.unit;
                 println!("entity {}", entity.ident.item.name());
                 if let Some(ref list) = entity.generic_clause {
@@ -95,13 +95,13 @@ fn show_design_unit(design_unit: &AnyDesignUnit) {
                     println!("  with {} concurrent statements", entity.statements.len())
                 }
             }
-            PrimaryUnit::ContextDeclaration(ref context) => {
+            AnyPrimaryUnit::ContextDeclaration(ref context) => {
                 println!("context {}", context.ident.item.name());
                 if !context.items.is_empty() {
                     println!("  with {} items", context.items.len())
                 }
             }
-            PrimaryUnit::PackageDeclaration(ref package) => {
+            AnyPrimaryUnit::PackageDeclaration(ref package) => {
                 let package = &package.unit;
                 println!("package {}", package.ident.item.name());
                 if let Some(ref list) = package.generic_clause {
@@ -111,7 +111,7 @@ fn show_design_unit(design_unit: &AnyDesignUnit) {
                     println!("  with {} declarations", package.decl.len())
                 }
             }
-            PrimaryUnit::Configuration(ref config) => {
+            AnyPrimaryUnit::Configuration(ref config) => {
                 let config = &config.unit;
                 println!(
                     "configuration {} of {}",
@@ -119,7 +119,7 @@ fn show_design_unit(design_unit: &AnyDesignUnit) {
                     &config.entity_name
                 );
             }
-            PrimaryUnit::PackageInstance(ref inst) => {
+            AnyPrimaryUnit::PackageInstance(ref inst) => {
                 let inst = &inst.unit;
                 println!(
                     "package instance {} of {}",
@@ -129,7 +129,7 @@ fn show_design_unit(design_unit: &AnyDesignUnit) {
             }
         },
         AnyDesignUnit::Secondary(ref secondary) => match secondary {
-            SecondaryUnit::Architecture(ref arch) => {
+            AnySecondaryUnit::Architecture(ref arch) => {
                 let arch = &arch.unit;
                 println!(
                     "architecture {} of {}",
@@ -143,7 +143,7 @@ fn show_design_unit(design_unit: &AnyDesignUnit) {
                     println!("  with {} concurrent statements", arch.statements.len())
                 }
             }
-            SecondaryUnit::PackageBody(ref package_body) => {
+            AnySecondaryUnit::PackageBody(ref package_body) => {
                 let package_body = &package_body.unit;
                 println!("package body {}", package_body.ident.item.name());
                 if !package_body.decl.is_empty() {

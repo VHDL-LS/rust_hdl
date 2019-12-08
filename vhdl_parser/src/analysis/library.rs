@@ -14,176 +14,142 @@ use super::declarative_region::{AnyDeclaration, DeclarativeRegion};
 use super::lock::AnalysisLock;
 use crate::ast::*;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
-use crate::source::{SrcPos, WithPos};
+use crate::source::SrcPos;
 use crate::symbol_table::Symbol;
 
 /// A design unit with design unit data
 #[cfg_attr(test, derive(PartialEq, Debug, Clone))]
-pub struct AnalysisUnit<T> {
+pub struct AnalysisData<T> {
     pub diagnostics: Vec<Diagnostic>,
     pub region: DeclarativeRegion<'static>,
-    pub context_clause: Vec<WithPos<ContextItem>>,
-    pub unit: T,
+    pub ast: T,
 }
 
-pub type LockedUnit<T> = AnalysisLock<AnalysisUnit<T>>;
-
-impl<T: HasIdent> HasIdent for AnalysisUnit<T> {
-    fn ident(&self) -> &Ident {
-        self.unit.ident()
-    }
-}
-
-impl<T> Into<AnalysisUnit<T>> for DesignUnit<T> {
-    fn into(self) -> AnalysisUnit<T> {
-        AnalysisUnit {
+impl<T> AnalysisData<T> {
+    fn new(ast: T) -> AnalysisData<T> {
+        AnalysisData {
             diagnostics: Vec::new(),
             region: DeclarativeRegion::default(),
-            context_clause: self.context_clause,
-            unit: self.unit,
+            ast,
         }
     }
 }
 
-impl<T> Into<LockedUnit<T>> for DesignUnit<T> {
-    fn into(self) -> LockedUnit<T> {
-        AnalysisLock::new(self.into())
+pub trait HasUnit<T> {
+    fn unit(&self) -> &T;
+}
+
+impl<T> HasUnit<T> for DesignUnit<T> {
+    fn unit(&self) -> &T {
+        &self.unit
     }
 }
 
-pub struct EntityDesignUnit {
+impl HasUnit<ContextDeclaration> for ContextDeclaration {
+    fn unit(&self) -> &ContextDeclaration {
+        &self
+    }
+}
+
+impl<T, U: HasUnit<T>> HasUnit<T> for AnalysisData<U> {
+    fn unit(&self) -> &T {
+        self.ast.unit()
+    }
+}
+
+pub type LockedData<T> = AnalysisLock<AnalysisData<T>>;
+
+impl<T: HasIdent> HasIdent for AnalysisData<T> {
+    fn ident(&self) -> &Ident {
+        self.ast.ident()
+    }
+}
+
+pub struct PrimaryUnit<T> {
     ident: Ident,
-    pub entity: LockedUnit<EntityDeclaration>,
-    pub architectures: FnvHashMap<Symbol, LockedUnit<ArchitectureBody>>,
+    pub data: LockedData<T>,
 }
 
-impl EntityDesignUnit {
-    fn add_architecture(
-        &mut self,
-        architecture: DesignUnit<ArchitectureBody>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) {
-        match self.architectures.entry(architecture.name().clone()) {
-            Entry::Occupied(..) => {
-                diagnostics.push(Diagnostic::error(
-                    &architecture.ident(),
-                    format!(
-                        "Duplicate architecture '{}' of entity '{}'",
-                        &architecture.name(),
-                        self.ident.name(),
-                    ),
-                ));
-            }
-            Entry::Vacant(entry) => {
-                {
-                    let primary_pos = self.ident.pos();
-                    let secondary_pos = &architecture.pos();
-                    if primary_pos.source == secondary_pos.source
-                        && primary_pos.start > secondary_pos.start
-                    {
-                        diagnostics.push(Diagnostic::error(
-                            secondary_pos,
-                            format!(
-                                "Architecture '{}' declared before entity '{}'",
-                                &architecture.name(),
-                                self.ident.name()
-                            ),
-                        ));
-                    }
-                };
-
-                entry.insert(architecture.into());
-            }
+impl<T: HasIdent> PrimaryUnit<T> {
+    fn new(unit: T) -> PrimaryUnit<T> {
+        PrimaryUnit {
+            ident: unit.ident().clone(),
+            data: AnalysisLock::new(AnalysisData::new(unit)),
         }
     }
 }
 
-impl HasIdent for EntityDesignUnit {
+impl<T> HasIdent for PrimaryUnit<T> {
     fn ident(&self) -> &Ident {
         &self.ident
     }
 }
 
-pub struct PackageDesignUnit {
-    pub ident: Ident,
-    pub package: LockedUnit<PackageDeclaration>,
-    pub body: Option<LockedUnit<PackageBody>>,
-}
-
-impl PackageDesignUnit {
-    fn set_body(
-        &mut self,
-        body: AnalysisUnit<PackageBody>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) {
-        if self.body.is_some() {
-            diagnostics.push(Diagnostic::error(
-                body.ident(),
-                format!("Duplicate package body of package '{}'", self.ident.name(),),
-            ));
-        } else {
-            {
-                let primary_pos = &self.ident.pos();
-                let secondary_pos = &body.pos();
-                if primary_pos.source == secondary_pos.source
-                    && primary_pos.start > secondary_pos.start
-                {
-                    diagnostics.push(Diagnostic::error(
-                        secondary_pos,
-                        format!(
-                            "Package body declared before package '{}'",
-                            self.ident.name()
-                        ),
-                    ));
-                }
-            }
-            self.body = Some(AnalysisLock::new(body));
-        }
-    }
-}
-
-impl HasIdent for PackageDesignUnit {
-    fn ident(&self) -> &Ident {
-        &self.ident
-    }
-}
-
-pub struct PackageInstance {
+pub struct SecondaryUnit<T> {
     ident: Ident,
-    pub instance: LockedUnit<PackageInstantiation>,
+    primary_ident: Ident,
+    pub data: LockedData<T>,
 }
 
-impl HasIdent for PackageInstance {
+impl<T: HasIdent + HasPrimaryIdent> SecondaryUnit<T> {
+    fn new(unit: T) -> SecondaryUnit<T> {
+        SecondaryUnit {
+            ident: unit.ident().clone(),
+            primary_ident: unit.primary_ident().clone(),
+            data: AnalysisLock::new(AnalysisData::new(unit)),
+        }
+    }
+}
+
+impl<T> HasIdent for SecondaryUnit<T> {
     fn ident(&self) -> &Ident {
         &self.ident
     }
 }
 
-pub struct Context {
-    pub diagnostics: Vec<Diagnostic>,
-    pub region: DeclarativeRegion<'static>,
-    pub decl: ContextDeclaration,
-}
-
-impl Context {
-    fn new(decl: ContextDeclaration) -> Context {
-        Context {
-            diagnostics: Vec::new(),
-            region: DeclarativeRegion::default(),
-            decl,
-        }
+impl<T> HasPrimaryIdent for SecondaryUnit<T> {
+    fn primary_ident(&self) -> &Ident {
+        &self.primary_ident
     }
 }
+
+pub type EntityAst = DesignUnit<EntityDeclaration>;
+pub type ArchitectureAst = DesignUnit<ArchitectureBody>;
+pub type ConfigurationAst = DesignUnit<ConfigurationDeclaration>;
+pub type ContextAst = ContextDeclaration;
+pub type PackageAst = DesignUnit<PackageDeclaration>;
+pub type PackageBodyAst = DesignUnit<crate::ast::PackageBody>;
+pub type PackageInstanceAst = DesignUnit<PackageInstantiation>;
+
+pub type EntityData = AnalysisData<EntityAst>;
+pub type ArchitectureData = AnalysisData<ArchitectureAst>;
+pub type ConfigurationData = AnalysisData<ConfigurationAst>;
+pub type ContextData = AnalysisData<ContextAst>;
+pub type PackageData = AnalysisData<PackageAst>;
+pub type PackageBodyData = AnalysisData<PackageBodyAst>;
+pub type PackageInstanceData = AnalysisData<PackageInstanceAst>;
+
+pub type Entity = PrimaryUnit<EntityAst>;
+pub type Architecture = SecondaryUnit<ArchitectureAst>;
+pub type Configuration = PrimaryUnit<ConfigurationAst>;
+pub type Context = PrimaryUnit<ContextAst>;
+pub type Package = PrimaryUnit<PackageAst>;
+pub type PackageBody = SecondaryUnit<PackageBodyAst>;
+pub type PackageInstance = PrimaryUnit<PackageInstanceAst>;
+
+pub type SymbolMap<T> = FnvHashMap<Symbol, T>;
 
 pub struct Library {
     pub name: Symbol,
     pub region: DeclarativeRegion<'static>,
-    entities: FnvHashMap<Symbol, EntityDesignUnit>,
-    configurations: FnvHashMap<Symbol, LockedUnit<ConfigurationDeclaration>>,
-    packages: FnvHashMap<Symbol, PackageDesignUnit>,
-    uninst_packages: FnvHashMap<Symbol, PackageDesignUnit>,
-    package_instances: FnvHashMap<Symbol, PackageInstance>,
-    contexts: FnvHashMap<Symbol, AnalysisLock<Context>>,
+    entities: SymbolMap<Entity>,
+    architectures: SymbolMap<SymbolMap<Architecture>>,
+    configurations: SymbolMap<Configuration>,
+    packages: SymbolMap<Package>,
+    package_bodies: SymbolMap<PackageBody>,
+    uninst_packages: SymbolMap<Package>,
+    package_instances: SymbolMap<PackageInstance>,
+    contexts: SymbolMap<Context>,
 }
 
 impl<'a> Library {
@@ -192,16 +158,15 @@ impl<'a> Library {
         design_files: Vec<DesignFile>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> Library {
-        let mut primary_names: FnvHashMap<Symbol, SrcPos> = FnvHashMap::default();
-        let mut entities = FnvHashMap::default();
-        let mut packages = FnvHashMap::default();
-        let mut uninst_packages = FnvHashMap::default();
-        let mut package_instances = FnvHashMap::default();
-        let mut contexts = FnvHashMap::default();
-        let mut architectures = Vec::new();
-        let mut package_bodies = Vec::new();
-        let mut configurations: FnvHashMap<Symbol, LockedUnit<ConfigurationDeclaration>> =
-            FnvHashMap::default();
+        let mut primary_names: SymbolMap<SrcPos> = SymbolMap::default();
+        let mut entities = SymbolMap::default();
+        let mut packages = SymbolMap::default();
+        let mut uninst_packages = SymbolMap::default();
+        let mut package_instances = SymbolMap::default();
+        let mut contexts = SymbolMap::default();
+        let mut architectures: SymbolMap<SymbolMap<_>> = SymbolMap::default();
+        let mut package_bodies = SymbolMap::default();
+        let mut configurations = SymbolMap::default();
 
         let mut region = DeclarativeRegion::default();
 
@@ -225,17 +190,13 @@ impl<'a> Library {
                             Entry::Vacant(entry) => {
                                 entry.insert(primary_ident.pos.clone());
                                 match primary {
-                                    PrimaryUnit::EntityDeclaration(entity) => {
+                                    AnyPrimaryUnit::EntityDeclaration(entity) => {
                                         entities.insert(
                                             entity.name().clone(),
-                                            EntityDesignUnit {
-                                                ident: entity.ident().clone(),
-                                                entity: entity.into(),
-                                                architectures: FnvHashMap::default(),
-                                            },
+                                            PrimaryUnit::new(entity),
                                         );
                                     }
-                                    PrimaryUnit::PackageDeclaration(package) => {
+                                    AnyPrimaryUnit::PackageDeclaration(package) => {
                                         let map = if package.unit.generic_clause.is_some() {
                                             &mut uninst_packages
                                         } else {
@@ -243,23 +204,14 @@ impl<'a> Library {
                                         };
                                         map.insert(
                                             package.name().clone(),
-                                            PackageDesignUnit {
-                                                ident: package.ident().clone(),
-                                                package: package.into(),
-                                                body: None,
-                                            },
+                                            PrimaryUnit::new(package),
                                         );
                                     }
-                                    PrimaryUnit::PackageInstance(inst) => {
-                                        package_instances.insert(
-                                            inst.name().clone(),
-                                            PackageInstance {
-                                                ident: inst.ident().clone(),
-                                                instance: inst.into(),
-                                            },
-                                        );
+                                    AnyPrimaryUnit::PackageInstance(inst) => {
+                                        package_instances
+                                            .insert(inst.name().clone(), PrimaryUnit::new(inst));
                                     }
-                                    PrimaryUnit::ContextDeclaration(ctx) => {
+                                    AnyPrimaryUnit::ContextDeclaration(ctx) => {
                                         let sym = ctx.name().clone();
 
                                         region.add(
@@ -267,54 +219,137 @@ impl<'a> Library {
                                             AnyDeclaration::Context(name.clone(), sym.clone()),
                                             diagnostics,
                                         );
-                                        contexts.insert(sym, AnalysisLock::new(Context::new(ctx)));
+                                        contexts.insert(sym, PrimaryUnit::new(ctx));
                                     }
 
-                                    PrimaryUnit::Configuration(config) => {
+                                    AnyPrimaryUnit::Configuration(config) => {
                                         region.add(
                                             config.ident(),
                                             AnyDeclaration::Other,
                                             diagnostics,
                                         );
-                                        configurations.insert(config.name().clone(), config.into());
+                                        configurations.insert(
+                                            config.name().clone(),
+                                            PrimaryUnit::new(config),
+                                        );
                                     }
                                 }
                             }
                         }
                     }
                     AnyDesignUnit::Secondary(secondary) => match secondary {
-                        SecondaryUnit::Architecture(architecture) => {
-                            architectures.push(architecture)
+                        AnySecondaryUnit::Architecture(architecture) => {
+                            let ref entity_ident = architecture.unit.entity_name;
+                            match architectures.entry(entity_ident.name().clone()) {
+                                Entry::Occupied(mut entry) => {
+                                    let map = entry.get_mut();
+                                    match map.entry(architecture.name().clone()) {
+                                        Entry::Occupied(..) => {
+                                            diagnostics.push(Diagnostic::error(
+                                                &architecture.ident(),
+                                                format!(
+                                                    "Duplicate architecture '{}' of entity '{}'",
+                                                    &architecture.name(),
+                                                    entity_ident.name(),
+                                                ),
+                                            ));
+                                        }
+                                        Entry::Vacant(entry) => {
+                                            entry.insert(SecondaryUnit::new(architecture));
+                                        }
+                                    }
+                                }
+                                Entry::Vacant(entry) => {
+                                    let mut map = SymbolMap::default();
+                                    map.insert(
+                                        architecture.name().clone(),
+                                        SecondaryUnit::new(architecture),
+                                    );
+                                    entry.insert(map);
+                                }
+                            }
                         }
-                        SecondaryUnit::PackageBody(body) => package_bodies.push(body),
+                        AnySecondaryUnit::PackageBody(body) => {
+                            match package_bodies.entry(body.name().clone()) {
+                                Entry::Occupied(_) => {
+                                    diagnostics.push(Diagnostic::error(
+                                        body.pos(),
+                                        format!(
+                                            "Duplicate package body of package '{}'",
+                                            body.name(),
+                                        ),
+                                    ));
+                                }
+                                Entry::Vacant(entry) => {
+                                    entry.insert(SecondaryUnit::new(body));
+                                }
+                            }
+                        }
                     },
                 }
             }
         }
 
-        for architecture in architectures {
-            if let Some(ref mut entity) = entities.get_mut(&architecture.unit.entity_name.item) {
-                entity.add_architecture(architecture, diagnostics)
-            } else {
-                diagnostics.push(Diagnostic::error(
-                    &architecture.unit.entity_name.pos,
-                    format!(
-                        "No entity '{}' within library '{}'",
-                        architecture.unit.entity_name.item, name
-                    ),
-                ));
+        for (entity_name, architectures) in architectures.iter() {
+            if entities.get(&entity_name).is_none() {
+                for architecture in architectures.values() {
+                    diagnostics.push(Diagnostic::error(
+                        &architecture.primary_pos(),
+                        format!("No entity '{}' within library '{}'", entity_name, name),
+                    ));
+                }
             }
         }
 
-        for body in package_bodies {
-            if let Some(ref mut package) = packages.get_mut(&body.name()) {
-                package.set_body(body.into(), diagnostics)
-            } else if let Some(ref mut package) = uninst_packages.get_mut(&body.name()) {
-                package.set_body(body.into(), diagnostics)
-            } else {
+        // Add empty architecture map for entities without architecture
+        for (entity_name, entity) in entities.iter() {
+            match architectures.entry(entity_name.clone()) {
+                Entry::Vacant(entry) => {
+                    entry.insert(SymbolMap::default());
+                }
+                Entry::Occupied(entry) => {
+                    for architecture in entry.get().values() {
+                        let primary_pos = entity.ident.pos();
+                        let secondary_pos = &architecture.pos();
+                        if primary_pos.source == secondary_pos.source
+                            && primary_pos.start > secondary_pos.start
+                        {
+                            diagnostics.push(Diagnostic::error(
+                                secondary_pos,
+                                format!(
+                                    "Architecture '{}' declared before entity '{}'",
+                                    &architecture.name(),
+                                    entity.name()
+                                ),
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+
+        for body in package_bodies.values() {
+            let package = {
+                if let Some(package) = packages.get(&body.name()) {
+                    package
+                } else if let Some(package) = uninst_packages.get(&body.name()) {
+                    package
+                } else {
+                    diagnostics.push(Diagnostic::error(
+                        &body.ident(),
+                        format!("No package '{}' within library '{}'", &body.name(), name),
+                    ));
+                    continue;
+                }
+            };
+
+            let primary_pos = &package.pos();
+            let secondary_pos = &body.pos();
+            if primary_pos.source == secondary_pos.source && primary_pos.start > secondary_pos.start
+            {
                 diagnostics.push(Diagnostic::error(
-                    &body.ident(),
-                    format!("No package '{}' within library '{}'", &body.name(), name),
+                    secondary_pos,
+                    format!("Package body declared before package '{}'", package.name()),
                 ));
             }
         }
@@ -356,33 +391,32 @@ impl<'a> Library {
             name,
             region,
             entities,
+            architectures,
             configurations,
             packages,
+            package_bodies,
             uninst_packages,
             package_instances,
             contexts,
         }
     }
 
-    pub fn entity(&'a self, name: &Symbol) -> Option<&'a EntityDesignUnit> {
+    pub fn entity(&'a self, name: &Symbol) -> Option<&'a Entity> {
         self.entities.get(name)
     }
 
     #[cfg(test)]
-    pub fn configuration(
-        &'a self,
-        name: &Symbol,
-    ) -> Option<&'a LockedUnit<ConfigurationDeclaration>> {
+    pub fn configuration(&'a self, name: &Symbol) -> Option<&'a Configuration> {
         self.configurations.get(name)
     }
 
     /// Return a non-generic packate
     #[cfg(test)]
-    pub fn package(&'a self, name: &Symbol) -> Option<&'a PackageDesignUnit> {
+    pub fn package(&'a self, name: &Symbol) -> Option<&'a Package> {
         self.packages.get(name)
     }
 
-    pub fn expect_any_package(&'a self, name: &Symbol) -> &'a PackageDesignUnit {
+    pub fn expect_any_package(&'a self, name: &Symbol) -> &'a Package {
         self.packages
             .get(name)
             .or_else(|| self.uninst_packages.get(name))
@@ -400,25 +434,36 @@ impl<'a> Library {
             .expect("Package instance must exist")
     }
 
-    pub fn context(&'a self, name: &Symbol) -> Option<&'a AnalysisLock<Context>> {
+    pub fn package_body(&'a self, name: &Symbol) -> Option<&'a PackageBody> {
+        self.package_bodies.get(name)
+    }
+
+    pub fn context(&'a self, name: &Symbol) -> Option<&'a Context> {
         self.contexts.get(name)
     }
 
-    pub fn entities(&self) -> impl Iterator<Item = &EntityDesignUnit> {
+    pub fn entities(&self) -> impl Iterator<Item = &Entity> {
         self.entities.values()
     }
 
-    pub fn configurations(&self) -> impl Iterator<Item = &LockedUnit<ConfigurationDeclaration>> {
+    // @TODO add entity reference wrapper type
+    pub fn architectures(&'a self, entity_name: &Symbol) -> &'a SymbolMap<Architecture> {
+        self.architectures
+            .get(entity_name)
+            .expect("Entity must be defined")
+    }
+
+    pub fn configurations(&self) -> impl Iterator<Item = &Configuration> {
         self.configurations.values()
     }
 
     /// Iterate over packages
-    pub fn packages(&self) -> impl Iterator<Item = &PackageDesignUnit> {
+    pub fn packages(&self) -> impl Iterator<Item = &Package> {
         self.packages.values()
     }
 
     /// Iterate uninstantiated packages
-    pub fn uninst_packages(&self) -> impl Iterator<Item = &PackageDesignUnit> {
+    pub fn uninst_packages(&self) -> impl Iterator<Item = &Package> {
         self.uninst_packages.values()
     }
 
@@ -426,19 +471,19 @@ impl<'a> Library {
         self.package_instances.values()
     }
 
-    pub fn contexts(&self) -> impl Iterator<Item = &AnalysisLock<Context>> {
+    pub fn contexts(&self) -> impl Iterator<Item = &Context> {
         self.contexts.values()
     }
 }
 
 pub struct DesignRoot {
-    libraries: FnvHashMap<Symbol, Library>,
+    libraries: SymbolMap<Library>,
 }
 
 impl DesignRoot {
     pub fn new() -> DesignRoot {
         DesignRoot {
-            libraries: FnvHashMap::default(),
+            libraries: SymbolMap::default(),
         }
     }
 
@@ -496,9 +541,9 @@ end entity;
 ",
         );
         let library = new_library(&code, "libname");
-        let unit = library.entity(&code.symbol("ent")).unwrap();
-        assert_eq!(unit.entity.expect_read().unit, code.entity());
-        assert!(unit.architectures.is_empty());
+        let primary = library.entity(&code.symbol("ent")).unwrap();
+        assert_eq!(primary.data.expect_read().unit(), &code.entity());
+        assert!(library.architectures(primary.name()).is_empty());
     }
 
     #[test]
@@ -556,7 +601,7 @@ end architecture;
         );
         let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
-        assert!(library.package(&code.symbol("pkg")).unwrap().body.is_none());
+        assert!(library.package_body(&code.symbol("pkg")).is_none());
         check_diagnostics(
             diagnostics,
             vec![Diagnostic::error(
@@ -579,14 +624,7 @@ end package body;
         );
         let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
-        assert_eq!(
-            library
-                .entity(&code.symbol("entname"))
-                .unwrap()
-                .architectures
-                .len(),
-            0
-        );
+        assert!(library.architectures(&code.symbol("entname")).is_empty());
         check_diagnostics(
             diagnostics,
             vec![Diagnostic::error(
@@ -612,7 +650,7 @@ end package body;
         );
         let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
-        assert!(library.package(&code.symbol("pkg")).unwrap().body.is_some());
+        assert!(library.package_body(&code.symbol("pkg")).is_some());
         check_diagnostics(
             diagnostics,
             vec![Diagnostic::error(
@@ -694,7 +732,7 @@ end entity;
         let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
         // Should still be added as a secondary unit
-        assert!(library.package(&code.symbol("pkg")).unwrap().body.is_some());
+        assert!(library.package_body(&code.symbol("pkg")).is_some());
 
         check_diagnostics(
             diagnostics,
@@ -736,11 +774,7 @@ end package;
         );
 
         // Should still be added as a secondary unit
-        assert!(library
-            .package(&builder.symbol("pkg"))
-            .unwrap()
-            .body
-            .is_some());
+        assert!(library.package_body(&builder.symbol("pkg")).is_some());
 
         check_no_diagnostics(&diagnostics);
     }
@@ -763,14 +797,7 @@ end architecture;
         );
         let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
-        assert_eq!(
-            library
-                .entity(&code.symbol("ent"))
-                .unwrap()
-                .architectures
-                .len(),
-            1
-        );
+        assert_eq!(library.architectures(&code.symbol("ent")).len(), 1);
         check_diagnostics(
             diagnostics,
             vec![Diagnostic::error(
@@ -807,32 +834,29 @@ end architecture;
             .architecture();
 
         let ent = library.entity(&code.symbol("ent")).unwrap();
-        assert_eq!(ent.ident, ent.ident);
-        assert_eq!(
-            *ent.entity.expect_read(),
-            DesignUnit {
-                context_clause: vec![],
-                unit: entity
-            }
-            .into()
-        );
+        let architectures = library.architectures(entity.name());
 
-        assert_eq!(ent.architectures.len(), 2);
+        assert_eq!(ent.ident, ent.ident);
+        assert_eq!(ent.data.expect_read().unit(), &entity);
+
+        assert_eq!(architectures.len(), 2);
         assert_eq!(
-            ent.architectures
+            architectures
                 .get(architecture0.name())
                 .unwrap()
+                .data
                 .expect_read()
-                .unit,
-            architecture0
+                .unit(),
+            &architecture0
         );
         assert_eq!(
-            ent.architectures
+            architectures
                 .get(architecture1.name())
                 .unwrap()
+                .data
                 .expect_read()
-                .unit,
-            architecture1
+                .unit(),
+            &architecture1
         );
     }
 
@@ -852,27 +876,14 @@ end package body;
         let package = code.between("package", "package;").package();
         let body = code.between("package body", "package body;").package_body();
 
-        let design_unit = library.package(&code.symbol("pkg")).unwrap();
+        let primary = library.package(&code.symbol("pkg")).unwrap();
+        assert_eq!(primary.ident(), package.ident());
+        assert_eq!(primary.data.expect_read().unit(), &package);
 
-        assert_eq!(&design_unit.ident, package.ident());
-
-        assert_eq!(
-            *design_unit.package.expect_read(),
-            DesignUnit {
-                context_clause: vec![],
-                unit: package
-            }
-            .into()
-        );
-
-        assert_eq!(
-            *design_unit.body.as_ref().unwrap().expect_read(),
-            DesignUnit {
-                context_clause: vec![],
-                unit: body
-            }
-            .into()
-        );
+        let secondary = library.package_body(&code.symbol("pkg")).unwrap();
+        assert_eq!(secondary.ident(), body.ident());
+        assert_eq!(secondary.primary_ident(), body.primary_ident());
+        assert_eq!(secondary.data.expect_read().unit(), &body);
     }
 
     #[test]
@@ -884,8 +895,8 @@ end context;
 ",
         );
         let library = new_library(&code, "libname");
-        let lock = library.context(&code.symbol("ctx")).unwrap();
-        assert_eq!(lock.expect_read().decl, code.context());
+        let primary = library.context(&code.symbol("ctx")).unwrap();
+        assert_eq!(primary.data.expect_read().unit(), &code.context());
     }
 
     #[test]
@@ -907,19 +918,19 @@ end configuration;
         );
         let library = new_library(&code, "libname");
 
-        let config: AnalysisUnit<_> = DesignUnit {
-            context_clause: vec![],
-            unit: code
-                .between("configuration cfg", "end configuration;")
-                .configuration(),
-        }
-        .into();
+        let config = code
+            .between("configuration cfg", "end configuration;")
+            .configuration();
 
-        let got_cfg = library
-            .configuration(&code.symbol("cfg"))
-            .unwrap()
-            .expect_read();
-        assert_eq!(*got_cfg, config);
+        assert_eq!(
+            library
+                .configuration(&code.symbol("cfg"))
+                .unwrap()
+                .data
+                .expect_read()
+                .unit(),
+            &config
+        );
         assert_eq!(library.configurations.len(), 1);
     }
 
@@ -959,8 +970,9 @@ end configuration;
         let got_cfg = library
             .configuration(&code.symbol("cfg"))
             .unwrap()
+            .data
             .expect_read();
-        assert_eq!(got_cfg.unit, config);
+        assert_eq!(got_cfg.unit(), &config);
 
         assert_eq!(library.configurations.len(), 1);
     }
@@ -976,13 +988,6 @@ package ipkg is new work.lib.gpkg generic map (const => 1);
         let instance = code.package_instance();
 
         let got_instance = library.package_instance(&code.symbol("ipkg")).unwrap();
-        assert_eq!(
-            *got_instance.instance.expect_read(),
-            DesignUnit {
-                context_clause: vec![],
-                unit: instance
-            }
-            .into()
-        );
+        assert_eq!(got_instance.data.expect_read().unit(), &instance);
     }
 }

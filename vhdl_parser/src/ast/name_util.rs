@@ -136,14 +136,14 @@ impl HasIdent for ConfigurationDeclaration {
     }
 }
 
-impl HasIdent for PrimaryUnit {
+impl HasIdent for AnyPrimaryUnit {
     fn ident(&self) -> &Ident {
         match self {
-            PrimaryUnit::EntityDeclaration(ref unit) => &unit.unit.ident,
-            PrimaryUnit::Configuration(ref unit) => &unit.unit.ident,
-            PrimaryUnit::PackageDeclaration(ref unit) => &unit.unit.ident,
-            PrimaryUnit::PackageInstance(ref unit) => &unit.unit.ident,
-            PrimaryUnit::ContextDeclaration(ref unit) => &unit.ident,
+            AnyPrimaryUnit::EntityDeclaration(ref unit) => &unit.unit.ident,
+            AnyPrimaryUnit::Configuration(ref unit) => &unit.unit.ident,
+            AnyPrimaryUnit::PackageDeclaration(ref unit) => &unit.unit.ident,
+            AnyPrimaryUnit::PackageInstance(ref unit) => &unit.unit.ident,
+            AnyPrimaryUnit::ContextDeclaration(ref unit) => &unit.ident,
         }
     }
 }
@@ -157,6 +157,36 @@ impl<T: HasIdent> HasIdent for DesignUnit<T> {
 impl<'a, T: HasIdent> From<&'a T> for WithPos<Designator> {
     fn from(other: &'a T) -> WithPos<Designator> {
         other.ident().to_owned().map_into(Designator::Identifier)
+    }
+}
+
+/// Primary identifier in secondary units
+pub trait HasPrimaryIdent {
+    fn primary_ident(&self) -> &Ident;
+    fn primary_name(&self) -> &Symbol {
+        &self.primary_ident().item
+    }
+    /// The position of the primary name in the secondary unit declaration
+    fn primary_pos(&self) -> &SrcPos {
+        &self.primary_ident().pos
+    }
+}
+
+impl HasPrimaryIdent for ArchitectureBody {
+    fn primary_ident(&self) -> &Ident {
+        &self.entity_name
+    }
+}
+
+impl HasPrimaryIdent for PackageBody {
+    fn primary_ident(&self) -> &Ident {
+        &self.ident
+    }
+}
+
+impl<T: HasPrimaryIdent> HasPrimaryIdent for DesignUnit<T> {
+    fn primary_ident(&self) -> &Ident {
+        self.unit.primary_ident()
     }
 }
 

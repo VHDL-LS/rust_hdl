@@ -1094,7 +1094,7 @@ pub struct PackageBody {
 
 /// LRM 13.1 Design units
 #[derive(PartialEq, Debug, Clone)]
-pub enum PrimaryUnit {
+pub enum AnyPrimaryUnit {
     /// LRM 3.2 Entity declaration
     EntityDeclaration(DesignUnit<EntityDeclaration>),
 
@@ -1113,7 +1113,7 @@ pub enum PrimaryUnit {
 
 /// LRM 13.1 Design units
 #[derive(PartialEq, Debug, Clone)]
-pub enum SecondaryUnit {
+pub enum AnySecondaryUnit {
     /// LRM 3.3 Architecture bodies
     Architecture(DesignUnit<ArchitectureBody>),
 
@@ -1121,18 +1121,20 @@ pub enum SecondaryUnit {
     PackageBody(DesignUnit<PackageBody>),
 }
 
+pub type ContextClause = Vec<WithPos<ContextItem>>;
+
 /// LRM 13.1 Design units
 #[derive(PartialEq, Debug, Clone)]
 pub struct DesignUnit<T> {
-    pub context_clause: Vec<WithPos<ContextItem>>,
+    pub context_clause: ContextClause,
     pub unit: T,
 }
 
 /// LRM 13.1 Design units
 #[derive(PartialEq, Debug, Clone)]
 pub enum AnyDesignUnit {
-    Primary(PrimaryUnit),
-    Secondary(SecondaryUnit),
+    Primary(AnyPrimaryUnit),
+    Secondary(AnySecondaryUnit),
 }
 
 #[derive(PartialEq, Debug, Clone)]
