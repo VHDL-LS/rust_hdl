@@ -88,8 +88,11 @@ impl LibraryBuilder {
         let mut diagnostics = Vec::new();
 
         for (library_name, codes) in self.libraries.iter() {
-            let design_files = codes.iter().map(|code| code.design_file()).collect();
-            root.add_library(library_name.clone(), design_files, &mut diagnostics);
+            let library = root.ensure_library(library_name.clone());
+            for code in codes {
+                library.add_design_file(code.design_file());
+            }
+            library.refresh(&mut diagnostics);
         }
 
         Analyzer::new(&root, &self.code_builder.symtab.clone()).analyze(&mut diagnostics);

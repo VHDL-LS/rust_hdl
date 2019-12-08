@@ -16,7 +16,7 @@ pub use self::display::*;
 pub use self::name_util::*;
 
 use crate::latin_1::Latin1String;
-pub use crate::source::{HasSource, HasSrcPos, SrcPos, WithPos};
+pub use crate::source::{HasSource, HasSrcPos, Source, SrcPos, WithPos};
 pub use crate::symbol_table::Symbol;
 
 /// LRM 15.8 Bit string literals

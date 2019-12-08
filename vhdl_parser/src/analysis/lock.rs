@@ -81,6 +81,13 @@ impl<T> AnalysisLock<T> {
         }
     }
 
+    /// Reset analysis state, analysis needs to be redone
+    pub fn reset(&self, reset_fun: &impl Fn(&mut T)) {
+        let mut guard = self.data.try_write().unwrap();
+        guard.done = false;
+        reset_fun(&mut guard.data);
+    }
+
     /// Get a mutable reference to the data if it has not already been analyzed
     fn get_mut(&self) -> Result<Option<WriteGuard<T>>, CircularDependencyError> {
         match self.data.try_write() {

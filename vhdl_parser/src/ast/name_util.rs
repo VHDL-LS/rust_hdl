@@ -142,11 +142,29 @@ impl HasIdent for ConfigurationDeclaration {
 impl HasIdent for AnyPrimaryUnit {
     fn ident(&self) -> &Ident {
         match self {
-            AnyPrimaryUnit::EntityDeclaration(ref unit) => &unit.unit.ident,
-            AnyPrimaryUnit::Configuration(ref unit) => &unit.unit.ident,
-            AnyPrimaryUnit::PackageDeclaration(ref unit) => &unit.unit.ident,
-            AnyPrimaryUnit::PackageInstance(ref unit) => &unit.unit.ident,
-            AnyPrimaryUnit::ContextDeclaration(ref unit) => &unit.ident,
+            AnyPrimaryUnit::EntityDeclaration(ref unit) => unit.ident(),
+            AnyPrimaryUnit::Configuration(ref unit) => unit.ident(),
+            AnyPrimaryUnit::PackageDeclaration(ref unit) => unit.ident(),
+            AnyPrimaryUnit::PackageInstance(ref unit) => unit.ident(),
+            AnyPrimaryUnit::ContextDeclaration(ref unit) => unit.ident(),
+        }
+    }
+}
+
+impl HasIdent for AnySecondaryUnit {
+    fn ident(&self) -> &Ident {
+        match self {
+            AnySecondaryUnit::PackageBody(ref unit) => unit.ident(),
+            AnySecondaryUnit::Architecture(ref unit) => unit.ident(),
+        }
+    }
+}
+
+impl HasIdent for AnyDesignUnit {
+    fn ident(&self) -> &Ident {
+        match self {
+            AnyDesignUnit::Primary(ref unit) => unit.ident(),
+            AnyDesignUnit::Secondary(ref unit) => unit.ident(),
         }
     }
 }

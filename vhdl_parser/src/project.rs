@@ -20,6 +20,7 @@ use std::io;
 
 pub struct Project {
     parser: VHDLParser,
+    root: DesignRoot,
     files: FnvHashMap<String, SourceFile>,
     empty_libraries: Vec<Symbol>,
 }
@@ -28,6 +29,7 @@ impl Project {
     pub fn new() -> Project {
         Project {
             parser: VHDLParser::new(),
+            root: DesignRoot::new(),
             files: FnvHashMap::default(),
             empty_libraries: Vec::new(),
         }
@@ -104,9 +106,14 @@ impl Project {
         project
     }
 
-    pub fn update_source(&mut self, file_name: &str, source: &Source) -> io::Result<()> {
+    pub fn update_source(&mut self, source: &Source) -> io::Result<()> {
         let mut source_file = {
-            if let Some(source_file) = self.files.remove(file_name) {
+            if let Some(source_file) = self.files.remove(source.file_name()) {
+                for library_name in source_file.library_names.iter() {
+                    self.root
+                        .ensure_library(library_name.clone())
+                        .remove_source(source);
+                }
                 source_file
             } else {
                 SourceFile {
@@ -138,29 +145,24 @@ impl Project {
             }
         };
 
-        self.files.insert(file_name.to_owned(), source_file);
+        self.files
+            .insert(source.file_name().to_owned(), source_file);
 
         result
     }
 
     pub fn analyse(&mut self) -> Vec<Diagnostic> {
-        // @TODO clones all design unit and re-create all libraries
-        // Investigate *correct* methonds to do this incrementally
-        let mut library_to_design_file: FnvHashMap<Symbol, Vec<DesignFile>> = FnvHashMap::default();
         let mut diagnostics = Vec::new();
-        let mut root = DesignRoot::new();
 
-        for source_file in self.files.values() {
-            for library_name in &source_file.library_names {
-                if let Some(ref design_file) = source_file.design_file {
-                    match library_to_design_file.entry(library_name.clone()) {
-                        Entry::Occupied(mut entry) => {
-                            entry.get_mut().push(design_file.clone());
-                        }
-                        Entry::Vacant(entry) => {
-                            entry.insert(vec![design_file.clone()]);
-                        }
-                    }
+        for source_file in self.files.values_mut() {
+            let design_file = source_file.take_design_file();
+            // Avoid cloning design files for single library
+            let mut design_files = multiply(design_file, source_file.library_names.len());
+
+            for library_name in source_file.library_names.iter() {
+                let library = self.root.ensure_library(library_name.clone());
+                if let Some(design_file) = design_files.pop().unwrap() {
+                    library.add_design_file(design_file);
                 }
             }
 
@@ -169,16 +171,33 @@ impl Project {
             }
         }
 
-        for (library_name, design_files) in library_to_design_file.drain() {
-            root.add_library(library_name, design_files, &mut diagnostics);
-        }
-
         for library_name in self.empty_libraries.iter() {
-            root.add_library(library_name.clone(), Vec::new(), &mut diagnostics);
+            self.root.ensure_library(library_name.clone());
         }
 
-        Analyzer::new(&root, &self.parser.symtab.clone()).analyze(&mut diagnostics);
+        for library in self.root.iter_libraries_mut() {
+            library.refresh(&mut diagnostics);
+        }
+
+        Analyzer::new(&mut self.root, &self.parser.symtab.clone()).analyze(&mut diagnostics);
         diagnostics
+    }
+}
+
+/// Multiply clonable value by cloning
+/// Avoid clone for n=1
+fn multiply<T: Clone>(value: T, n: usize) -> Vec<T> {
+    if n == 0 {
+        vec![]
+    } else if n == 1 {
+        vec![value]
+    } else {
+        let mut res = Vec::with_capacity(n);
+        for _ in 0..n - 1 {
+            res.push(value.clone());
+        }
+        res.push(value);
+        res
     }
 }
 
@@ -203,6 +222,12 @@ struct SourceFile {
     library_names: Vec<Symbol>,
     design_file: Option<DesignFile>,
     parser_diagnostics: Vec<Diagnostic>,
+}
+
+impl SourceFile {
+    fn take_design_file(&mut self) -> Option<DesignFile> {
+        std::mem::replace(&mut self.design_file, None)
+    }
 }
 
 #[cfg(test)]
@@ -285,6 +310,107 @@ use_lib.files = ['use_file.vhd']
         let mut messages = Vec::new();
         let mut project = Project::from_config(&config, 1, &mut messages);
         assert_eq!(messages, vec![]);
+        check_no_diagnostics(&project.analyse());
+    }
+
+    fn update(project: &mut Project, source: &Source, contents: &str) {
+        std::fs::write(&std::path::Path::new(source.file_name()), contents).unwrap();
+        project.update_source(source).unwrap();
+    }
+
+    /// Test that the same file can be added to several libraries
+    #[test]
+    fn test_re_analyze_after_update() {
+        let root = tempfile::tempdir().unwrap();
+        let path1 = root.path().join("file1.vhd");
+        let source1 = Source::from_file(path1.to_str().unwrap());
+
+        let path2 = root.path().join("file2.vhd");
+        let source2 = Source::from_file(path2.to_str().unwrap());
+
+        std::fs::write(
+            &path1,
+            "
+package pkg is
+end package;
+        ",
+        )
+        .unwrap();
+
+        std::fs::write(
+            &path2,
+            "
+library lib1;
+use lib1.pkg.all;
+
+package pkg is
+end package;
+        ",
+        )
+        .unwrap();
+
+        let config_str = "
+[libraries]
+lib1.files = ['file1.vhd']
+lib2.files = ['file2.vhd']
+        ";
+
+        let config = Config::from_str(config_str, root.path()).unwrap();
+        let mut messages = Vec::new();
+        let mut project = Project::from_config(&config, 1, &mut messages);
+        assert_eq!(messages, vec![]);
+        check_no_diagnostics(&project.analyse());
+
+        // Add syntax error
+        update(
+            &mut project,
+            &source1,
+            "
+package is
+        ",
+        );
+        let diagnostics = project.analyse();
+        assert_eq!(diagnostics.len(), 2);
+        // Syntax error comes first
+        assert_eq!(diagnostics[0].pos.source.file_name(), source1.file_name());
+        assert_eq!(diagnostics[1].pos.source.file_name(), source2.file_name());
+
+        // Make it good again
+        update(
+            &mut project,
+            &source1,
+            "
+package pkg is
+end package;
+        ",
+        );
+        check_no_diagnostics(&project.analyse());
+
+        // Add analysis error
+        update(
+            &mut project,
+            &source2,
+            "
+package pkg is
+end package;
+
+package pkg is
+end package;
+        ",
+        );
+        let diagnostics = project.analyse();
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].pos.source.file_name(), source2.file_name());
+
+        // Make it good again
+        update(
+            &mut project,
+            &source2,
+            "
+package pkg is
+end package;
+        ",
+        );
         check_no_diagnostics(&project.analyse());
     }
 }
