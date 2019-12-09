@@ -6,7 +6,7 @@
 
 //! Contains the RpcChannel Traid and associated convenience functions
 
-use languageserver_types::*;
+use lsp_types::*;
 use serde;
 use vhdl_parser::Message;
 

@@ -83,7 +83,7 @@ impl LibraryBuilder {
         code
     }
 
-    pub fn analyze(&self) -> Vec<Diagnostic> {
+    pub fn get_analyzed_root(&self) -> (DesignRoot, Vec<Diagnostic>) {
         let mut root = DesignRoot::new();
         let mut diagnostics = Vec::new();
 
@@ -97,7 +97,11 @@ impl LibraryBuilder {
 
         Analyzer::new(&root, &self.code_builder.symtab.clone()).analyze(&mut diagnostics);
 
-        diagnostics
+        (root, diagnostics)
+    }
+
+    pub fn analyze(&self) -> Vec<Diagnostic> {
+        self.get_analyzed_root().1
     }
 }
 

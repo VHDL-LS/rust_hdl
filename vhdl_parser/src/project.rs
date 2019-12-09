@@ -12,7 +12,7 @@ use crate::diagnostic::Diagnostic;
 use crate::latin_1::Latin1String;
 use crate::message::Message;
 use crate::parser::{FileToParse, ParserError, VHDLParser};
-use crate::source::Source;
+use crate::source::{Source, SrcPos};
 use crate::symbol_table::Symbol;
 use fnv;
 use std::collections::hash_map::Entry;
@@ -181,6 +181,17 @@ impl Project {
 
         Analyzer::new(&mut self.root, &self.parser.symtab.clone()).analyze(&mut diagnostics);
         diagnostics
+    }
+
+    /// Search for reference at position
+    /// Character offset on a line in a document (zero-based). Assuming that the line is
+    /// represented as a string, the `character` value represents the gap between the
+    /// `character` and `character + 1`.
+    ///
+    /// If the character value is greater than the line length it defaults back to the
+    /// line length.
+    pub fn search_reference(&self, source: &Source, cursor: usize) -> Option<SrcPos> {
+        self.root.search_reference(source, cursor)
     }
 }
 

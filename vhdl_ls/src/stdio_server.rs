@@ -31,15 +31,14 @@ pub fn start() {
     let lang_server = Arc::new(Mutex::new(VHDLServer::new(response_sender.clone())));
     let server = lang_server.clone();
     io.add_method("initialize", move |params: Params| {
-        let result = server.lock().unwrap().initialize_request(params.parse()?)?;
-        // @TODO log error
-        Ok(serde_json::to_value(result).map_err(|_| jsonrpc_core::Error::internal_error())?)
+        let value = server.lock().unwrap().initialize_request(params.parse()?)?;
+        serde_json::to_value(value).map_err(|_| jsonrpc_core::Error::internal_error())
     });
 
     let server = lang_server.clone();
     io.add_method("shutdown", move |params: Params| {
-        server.lock().unwrap().shutdown_server(params.parse()?)?;
-        Ok(serde_json::to_value(()).map_err(|_| jsonrpc_core::Error::internal_error())?)
+        let value = server.lock().unwrap().shutdown_server(params.parse()?)?;
+        serde_json::to_value(value).map_err(|_| jsonrpc_core::Error::internal_error())
     });
 
     let server = lang_server.clone();
@@ -69,6 +68,24 @@ pub fn start() {
             .lock()
             .unwrap()
             .text_document_did_open_notification(&params.parse().unwrap())
+    });
+
+    let server = lang_server.clone();
+    io.add_method("textDocument/declaration", move |params: Params| {
+        let value = server
+            .lock()
+            .unwrap()
+            .text_document_declaration(&params.parse().unwrap());
+        serde_json::to_value(value).map_err(|_| jsonrpc_core::Error::internal_error())
+    });
+
+    let server = lang_server.clone();
+    io.add_method("textDocument/definition", move |params: Params| {
+        let value = server
+            .lock()
+            .unwrap()
+            .text_document_definition(&params.parse().unwrap());
+        serde_json::to_value(value).map_err(|_| jsonrpc_core::Error::internal_error())
     });
 
     // Spawn thread to read requests from stdin

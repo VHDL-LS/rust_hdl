@@ -67,7 +67,7 @@ impl Designator {
     pub fn into_ref(self) -> WithRef<Designator> {
         WithRef {
             item: self,
-            references: Vec::new(),
+            reference: None,
         }
     }
 }

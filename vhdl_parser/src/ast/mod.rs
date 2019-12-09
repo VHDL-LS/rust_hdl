@@ -12,6 +12,9 @@
 mod display;
 mod name_util;
 
+#[macro_use]
+pub mod search;
+
 pub use self::display::*;
 pub use self::name_util::*;
 
@@ -349,12 +352,12 @@ pub enum Designator {
 pub struct WithRef<T> {
     pub item: T,
     // @TODO just store the positions of the reference for now
-    pub references: Vec<SrcPos>,
+    pub reference: Option<SrcPos>,
 }
 
 impl<T> WithRef<T> {
     pub fn reference_positions(&self) -> impl Iterator<Item = &SrcPos> {
-        self.references.iter()
+        self.reference.iter()
     }
 }
 

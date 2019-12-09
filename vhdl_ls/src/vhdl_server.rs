@@ -4,10 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use languageserver_types::*;
-
-use self::url::Url;
-use url;
+use lsp_types::*;
 
 use self::fnv::FnvHashMap;
 use fnv;
@@ -201,12 +198,30 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         self.mut_server()
             .text_document_did_open_notification(&params)
     }
+
+    // textDocument/declaration
+    pub fn text_document_declaration(
+        &mut self,
+        params: &TextDocumentPositionParams,
+    ) -> Option<Location> {
+        self.mut_server().text_document_declaration(&params)
+    }
+
+    // textDocument/definition
+    pub fn text_document_definition(
+        &mut self,
+        params: &TextDocumentPositionParams,
+    ) -> Option<Location> {
+        self.mut_server().text_document_definition(&params)
+    }
 }
 
 struct InitializedVHDLServer<T: RpcChannel> {
     rpc_channel: T,
     init_params: InitializeParams,
     project: Project,
+    // @TODO manage open/close of these to save memory
+    source_map: FnvHashMap<Url, Source>,
     files_with_notifications: FnvHashMap<Url, ()>,
 }
 
@@ -240,76 +255,18 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             rpc_channel,
             init_params,
             project,
+            source_map: FnvHashMap::default(),
             files_with_notifications: FnvHashMap::default(),
         };
 
+        let mut capabilities = ServerCapabilities::default();
+        capabilities.text_document_sync =
+            Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::Full));
+        capabilities.declaration_provider = Some(true);
+        capabilities.definition_provider = Some(true);
         let result = InitializeResult {
-            capabilities: ServerCapabilities {
-                /// Defines how text documents are synced.
-                text_document_sync: Some(TextDocumentSyncCapability::Kind(
-                    TextDocumentSyncKind::Full,
-                )),
-
-                /// The server provides hover support.
-                hover_provider: None,
-
-                /// The server provides completion support.
-                completion_provider: None,
-
-                /// The server provides signature help support.
-                signature_help_provider: None,
-
-                /// The server provides goto definition support.
-                definition_provider: None,
-
-                /// The server provides goto type definition support.
-                type_definition_provider: None,
-
-                /// the server provides goto implementation support.
-                implementation_provider: None,
-
-                /// The server provides find references support.
-                references_provider: None,
-
-                /// The server provides document highlight support.
-                document_highlight_provider: None,
-
-                /// The server provides document symbol support.
-                document_symbol_provider: None,
-
-                /// The server provides workspace symbol support.
-                workspace_symbol_provider: None,
-
-                /// The server provides code actions.
-                code_action_provider: None,
-
-                /// The server provides code lens.
-                code_lens_provider: None,
-
-                /// The server provides document formatting.
-                document_formatting_provider: None,
-
-                /// The server provides document range formatting.
-                document_range_formatting_provider: None,
-
-                /// The server provides document formatting on typing.
-                document_on_type_formatting_provider: None,
-
-                /// The server provides rename support.
-                rename_provider: None,
-
-                /// The server provides color provider support.
-                color_provider: None,
-
-                /// The server provides folding provider support.
-                folding_range_provider: None,
-
-                /// The server provides execute command support.
-                execute_command_provider: None,
-
-                /// Workspace specific server capabilities
-                workspace: None,
-            },
+            capabilities,
+            server_info: None,
         };
 
         (server, result)
@@ -350,6 +307,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             let publish_diagnostics = PublishDiagnosticsParams {
                 uri: file_uri.clone(),
                 diagnostics: lsp_diagnostics,
+                version: None,
             };
 
             self.send_notification("textDocument/publishDiagnostics", publish_diagnostics);
@@ -363,6 +321,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
                 let publish_diagnostics = PublishDiagnosticsParams {
                     uri: file_uri.clone(),
                     diagnostics: vec![],
+                    version: None,
                 };
 
                 self.send_notification("textDocument/publishDiagnostics", publish_diagnostics);
@@ -377,6 +336,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         match Source::inline_utf8(file_name.to_string(), code) {
             Ok(source) => {
                 // @TODO log error to client
+                self.source_map.insert(uri.clone(), source.clone());
                 self.project.update_source(&source).unwrap();
                 self.publish_diagnostics();
             }
@@ -384,6 +344,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
                 let publish_diagnostics = PublishDiagnosticsParams {
                     uri: uri.clone(),
                     diagnostics: vec![decode_error_to_lsp_diagnostic(&err)],
+                    version: None,
                 };
 
                 self.send_notification("textDocument/publishDiagnostics", publish_diagnostics);
@@ -405,6 +366,62 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
     pub fn text_document_did_open_notification(&mut self, params: &DidOpenTextDocumentParams) {
         self.parse_and_publish_diagnostics(&params.text_document.uri, &params.text_document.text);
     }
+
+    pub fn text_document_declaration(
+        &mut self,
+        params: &TextDocumentPositionParams,
+    ) -> Option<Location> {
+        self.source_map
+            .get(&params.text_document.uri)
+            .and_then(|source| {
+                position_to_cursor(&source, &params.position)
+                    .and_then(|cursor| self.project.search_reference(source, cursor))
+            })
+            .map(|result| srcpos_to_location(&result))
+    }
+
+    // Copy goto-declaration for now
+    pub fn text_document_definition(
+        &mut self,
+        params: &TextDocumentPositionParams,
+    ) -> Option<Location> {
+        self.text_document_declaration(params)
+    }
+}
+
+fn srcpos_to_location(pos: &SrcPos) -> Location {
+    let uri = file_name_to_uri(pos.source.file_name());
+    Location {
+        uri: uri.to_owned(),
+        range: srcpos_to_range(&pos),
+    }
+}
+
+fn position_to_cursor(source: &Source, position: &Position) -> Option<usize> {
+    let contents = source.contents().unwrap();
+
+    let mut cursor = Position {
+        line: 0,
+        character: 0,
+    };
+
+    let mut num_r = 0;
+    for (i, byte) in contents.bytes.iter().enumerate() {
+        if position.line == cursor.line {
+            if position.character == cursor.character {
+                return Some(i - num_r);
+            }
+        }
+        if *byte == b'\r' {
+            num_r += 1;
+        } else if *byte == b'\n' {
+            cursor.line += 1;
+            cursor.character = 0;
+        } else {
+            cursor.character += 1;
+        };
+    }
+    return None;
 }
 
 fn srcpos_to_range(srcpos: &SrcPos) -> Range {
@@ -475,7 +492,7 @@ fn uri_to_file_name(uri: &Url) -> String {
     uri.to_file_path().unwrap().to_str().unwrap().to_owned()
 }
 
-fn decode_error_to_lsp_diagnostic(err: &Utf8ToLatin1Error) -> languageserver_types::Diagnostic {
+fn decode_error_to_lsp_diagnostic(err: &Utf8ToLatin1Error) -> lsp_types::Diagnostic {
     let range = Range {
         start: Position {
             line: err.line,
@@ -487,17 +504,18 @@ fn decode_error_to_lsp_diagnostic(err: &Utf8ToLatin1Error) -> languageserver_typ
         },
     };
 
-    languageserver_types::Diagnostic {
+    lsp_types::Diagnostic {
         range,
         severity: Some(DiagnosticSeverity::Error),
         code: None,
         source: Some("vhdl ls".to_owned()),
         message: err.message(),
         related_information: None,
+        tags: None,
     }
 }
 
-fn to_lsp_diagnostic(diagnostic: Diagnostic) -> languageserver_types::Diagnostic {
+fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {
     let severity = match diagnostic.severity {
         Severity::Error => DiagnosticSeverity::Error,
         Severity::Warning => DiagnosticSeverity::Warning,
@@ -522,13 +540,14 @@ fn to_lsp_diagnostic(diagnostic: Diagnostic) -> languageserver_types::Diagnostic
         None
     };
 
-    languageserver_types::Diagnostic {
+    lsp_types::Diagnostic {
         range: srcpos_to_range(&diagnostic.pos),
         severity: Some(severity),
         code: None,
         source: Some("vhdl ls".to_owned()),
         message: diagnostic.message,
         related_information,
+        tags: None,
     }
 }
 
@@ -539,12 +558,9 @@ mod tests {
     use tempfile;
 
     fn initialize_server(server: &mut VHDLServer<RpcMock>, root_uri: Url) {
-        let capabilities = ClientCapabilities {
-            workspace: None,
-            text_document: None,
-            experimental: None,
-        };
+        let capabilities = ClientCapabilities::default();
 
+        #[allow(deprecated)]
         let initialize_params = InitializeParams {
             process_id: None,
             root_path: None,
@@ -553,6 +569,7 @@ mod tests {
             capabilities,
             trace: None,
             workspace_folders: None,
+            client_info: None,
         };
 
         server
@@ -565,6 +582,19 @@ mod tests {
         let tempdir = tempfile::tempdir().unwrap();
         let root_uri = Url::from_file_path(tempdir.path()).unwrap();
         (tempdir, root_uri)
+    }
+
+    fn expect_loaded_config_messages(mock: &RpcMock, config_uri: &Url) {
+        let file_name = config_uri
+            .to_file_path()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned();
+        mock.expect_notification_contains(
+            "window/logMessage",
+            format!("Loaded workspace root configuration file: {}", file_name),
+        );
     }
 
     fn expect_missing_config_messages(mock: &RpcMock) {
@@ -645,7 +675,7 @@ end entity ent2;
 
         let publish_diagnostics = PublishDiagnosticsParams {
             uri: file_url.clone(),
-            diagnostics: vec![languageserver_types::Diagnostic {
+            diagnostics: vec![lsp_types::Diagnostic {
                 range: Range {
                     start: Position {
                         line: 2,
@@ -661,7 +691,9 @@ end entity ent2;
                 source: Some("vhdl ls".to_owned()),
                 message: "End identifier mismatch, expected ent".to_owned(),
                 related_information: None,
+                tags: None,
             }],
+            version: None,
         };
 
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
@@ -688,6 +720,7 @@ end entity ent;
         let publish_diagnostics = PublishDiagnosticsParams {
             uri: file_url.clone(),
             diagnostics: vec![],
+            version: None,
         };
 
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
@@ -733,7 +766,7 @@ lib.files = [
 
         let publish_diagnostics = PublishDiagnosticsParams {
             uri: file_uri.clone(),
-            diagnostics: vec![languageserver_types::Diagnostic {
+            diagnostics: vec![lsp_types::Diagnostic {
                 range: Range {
                     start: Position {
                         line: 3,
@@ -749,19 +782,12 @@ lib.files = [
                 source: Some("vhdl ls".to_owned()),
                 message: "No entity \'ent2\' within library \'lib\'".to_owned(),
                 related_information: None,
+                tags: None,
             }],
+            version: None,
         };
 
-        let file_name = config_uri
-            .to_file_path()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_owned();
-        mock.expect_notification_contains(
-            "window/logMessage",
-            format!("Loaded workspace root configuration file: {}", file_name),
-        );
+        expect_loaded_config_messages(&mock, &config_uri);
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
 
         initialize_server(&mut server, root_uri);
@@ -804,16 +830,7 @@ lib.files = [
 ",
         );
 
-        let file_name = config_uri
-            .to_file_path()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_owned();
-        mock.expect_notification_contains(
-            "window/logMessage",
-            format!("Loaded workspace root configuration file: {}", file_name),
-        );
+        expect_loaded_config_messages(&mock, &config_uri);
         mock.expect_notification_contains("window/showMessage", "missing_file.vhd");
         initialize_server(&mut server, root_uri);
     }
@@ -844,7 +861,7 @@ end entity ent;
 
         let publish_diagnostics = PublishDiagnosticsParams {
             uri: file_url.clone(),
-            diagnostics: vec![languageserver_types::Diagnostic {
+            diagnostics: vec![lsp_types::Diagnostic {
                 range: Range {
                     start: Position {
                         line: 1,
@@ -860,10 +877,87 @@ end entity ent;
                 source: Some("vhdl ls".to_owned()),
                 message: "Found invalid latin-1 character '€' when decoding from utf-8".to_owned(),
                 related_information: None,
+                tags: None,
             }],
+            version: None,
         };
 
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
         server.text_document_did_open_notification(&did_open);
+    }
+
+    #[test]
+    fn text_document_declaration() {
+        let (mock, mut server) = setup_server();
+        let (_tempdir, root_uri) = temp_root_uri();
+
+        let file_url1 = write_file(
+            &root_uri,
+            "pkg1.vhd",
+            "\
+package pkg1 is
+  type typ_t is (foo, bar);
+end package;
+",
+        );
+
+        let code2 = "\
+use work.pkg1.all;
+package pkg2 is
+  constant c : typ_t := bar;
+end package;
+        "
+        .to_owned();
+        let file_url2 = write_file(&root_uri, "pkg2.vhd", &code2);
+
+        let config_uri = write_config(
+            &root_uri,
+            "
+[libraries]
+lib.files = [
+  '*.vhd'
+]
+",
+        );
+
+        expect_loaded_config_messages(&mock, &config_uri);
+        initialize_server(&mut server, root_uri.clone());
+
+        let did_open = DidOpenTextDocumentParams {
+            text_document: TextDocumentItem {
+                uri: file_url2.clone(),
+                language_id: "vhdl".to_owned(),
+                version: 0,
+                text: code2.to_owned(),
+            },
+        };
+
+        server.text_document_did_open_notification(&did_open);
+
+        let response = server.text_document_declaration(&TextDocumentPositionParams {
+            text_document: TextDocumentIdentifier {
+                uri: file_url2.clone(),
+            },
+            position: Position {
+                line: 2,
+                character: "  constant c : t".len() as u64,
+            },
+        });
+
+        let expected = Location {
+            uri: file_url1.clone(),
+            range: Range {
+                start: Position {
+                    line: 1,
+                    character: "  type ".len() as u64,
+                },
+                end: Position {
+                    line: 1,
+                    character: "  type tpe_t".len() as u64,
+                },
+            },
+        };
+
+        assert_eq!(response, Some(expected));
     }
 }

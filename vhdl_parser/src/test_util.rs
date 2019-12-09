@@ -132,6 +132,10 @@ impl Code {
         self.pos.clone()
     }
 
+    pub fn source(&self) -> &Source {
+        &self.source
+    }
+
     /// Helper method to run lower level parsing function at specific substring
     pub fn parse<F, R>(&self, parse_fun: F) -> R
     where

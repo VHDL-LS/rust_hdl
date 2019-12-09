@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
+#[macro_use]
 pub mod ast;
 #[macro_use]
 mod tokenizer;

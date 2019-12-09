@@ -81,6 +81,12 @@ impl<T> AnalysisLock<T> {
         }
     }
 
+    pub fn read(&self) -> ReadGuard<T> {
+        ReadGuard {
+            guard: self.data.read().unwrap(),
+        }
+    }
+
     /// Reset analysis state, analysis needs to be redone
     pub fn reset(&self, reset_fun: &impl Fn(&mut T)) {
         let mut guard = self.data.try_write().unwrap();

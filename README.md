@@ -96,7 +96,8 @@ architecture a of uart_tx
 ### Status
 - Publishes diagnosics based on parse errors and warnings as well as semantic analysis.
 - Usable today to get full live syntax error checking.
-- Only full document sync
+- Checks for missing declaration of type marks such as `std_logic`
+- Supports goto-definition/declaration for type marks.
 
 ## Trying it out
 The language server has a command line binary `vhdl_ls` which implements a stdio based language server.

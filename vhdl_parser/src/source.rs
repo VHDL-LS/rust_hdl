@@ -426,6 +426,10 @@ impl SrcPos {
         offset + line_len >= self.start + 1 && offset < self.start + self.length
     }
 
+    pub fn end(&self) -> usize {
+        self.start + self.length
+    }
+
     fn code_context_from_reader(self: &Self, reader: &mut dyn BufRead) -> (usize, usize, String) {
         const LINE_CONTEXT: usize = 2;
         let (first_lineno, lines) = self.get_line_context(LINE_CONTEXT, reader);

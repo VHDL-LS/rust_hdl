@@ -10,6 +10,7 @@ use std::collections::hash_map::Entry;
 
 use super::declarative_region::{AnyDeclaration, DeclarativeRegion};
 use super::lock::AnalysisLock;
+use crate::ast::search::{Found, NotFound, ReferenceSearcher, Search, SearchResult, Searcher};
 use crate::ast::*;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 
@@ -629,6 +630,52 @@ impl DesignRoot {
 
     pub fn iter_libraries_mut(&mut self) -> impl Iterator<Item = &mut Library> {
         self.libraries.values_mut()
+    }
+    /// Search for reference at position
+    /// Character offset on a line in a document (zero-based). Assuming that the line is
+    /// represented as a string, the `character` value represents the gap between the
+    /// `character` and `character + 1`.
+    ///
+    /// If the character value is greater than the line length it defaults back to the
+    /// line length.
+    pub fn search_reference(&self, source: &Source, cursor: usize) -> Option<SrcPos> {
+        self.search(&mut ReferenceSearcher::new(source, cursor))
+            .into()
+    }
+}
+
+impl<T> Search<T> for DesignRoot {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        for library in self.iter_libraries() {
+            return_if!(library.search(searcher));
+        }
+        NotFound
+    }
+}
+
+impl<T> Search<T> for Library {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        for package in self.packages() {
+            return_if!(package.data.read().ast.search(searcher));
+        }
+        for package in self.uninst_packages() {
+            return_if!(package.data.read().ast.search(searcher));
+        }
+        for body in self.package_bodies.values() {
+            return_if!(body.data.read().ast.search(searcher));
+        }
+        for instance in self.package_instances() {
+            return_if!(instance.data.read().ast.search(searcher));
+        }
+        for entity in self.entities() {
+            return_if!(entity.data.read().ast.search(searcher));
+        }
+        for archs in self.architectures.values() {
+            for arch in archs.values() {
+                return_if!(arch.data.read().ast.search(searcher));
+            }
+        }
+        NotFound
     }
 }
 

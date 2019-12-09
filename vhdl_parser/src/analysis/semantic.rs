@@ -1327,7 +1327,7 @@ impl<T> SetReference for WithRef<T> {
         // @TODO handle built-ins without position
         // @TODO handle mutliple overloaded declarations
         if let Some(pos) = decl.first_pos() {
-            self.references = vec![pos.clone()];
+            self.reference = Some(pos.clone());
         }
     }
 }

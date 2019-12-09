@@ -104,3 +104,55 @@ end package;",
         )],
     );
 }
+
+#[test]
+fn search_resolved_type_mark() {
+    let mut builder = LibraryBuilder::new();
+    let code1 = builder.code(
+        "libname",
+        "
+package pkg is
+  type typ_t is (foo, bar);
+end package;",
+    );
+
+    let code2 = builder.code(
+        "libname",
+        "
+use work.pkg.all;
+
+package pkg2 is
+  constant c : typ_t := bar;
+end package;",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    let ref_pos = code2.s1("typ_t").pos();
+    let decl_pos = code1.s1("typ_t").pos();
+
+    // Cursor before symbol
+    assert_eq!(
+        root.search_reference(code2.source(), ref_pos.start - 1),
+        None
+    );
+
+    // Cursor at beginning of symbol
+    assert_eq!(
+        root.search_reference(code2.source(), ref_pos.start),
+        Some(decl_pos.clone())
+    );
+
+    // Cursor at end of symbol
+    assert_eq!(
+        root.search_reference(code2.source(), ref_pos.end()),
+        Some(decl_pos.clone())
+    );
+
+    // Cursor after end of symbol
+    assert_eq!(
+        root.search_reference(code2.source(), ref_pos.end() + 1),
+        None
+    );
+}
