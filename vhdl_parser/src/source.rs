@@ -8,11 +8,13 @@ use crate::diagnostic::{Diagnostic, ParseResult};
 use crate::latin_1::{Latin1String, Utf8ToLatin1Error};
 use pad;
 use std::cmp::{max, min};
+use std::collections::hash_map::DefaultHasher;
 use std::collections::VecDeque;
 use std::convert::AsRef;
 use std::fmt;
 use std::fmt::Write;
 use std::fs::File;
+use std::hash::{Hash, Hasher};
 use std::io;
 use std::io::prelude::Read;
 use std::io::BufRead;
@@ -45,33 +47,62 @@ impl SourceDataProvider for InlineSource {
     }
 }
 
+struct FileId {
+    name: String,
+    hash: u64, // Hash of name
+}
+
+impl FileId {
+    fn new(name: impl Into<String>) -> FileId {
+        let name = name.into();
+        let hash = hash(&name);
+        Self { name, hash }
+    }
+}
+
+impl PartialEq for FileId {
+    fn eq(&self, other: &Self) -> bool {
+        // Use file name hash to speedup comparison
+        if self.hash == other.hash {
+            self.name == other.name
+        } else {
+            false
+        }
+    }
+}
+
+fn hash(value: &str) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    hasher.write(value.as_bytes());
+    hasher.finish()
+}
+
 struct UniqueSource {
-    file_name: String,
+    file_id: FileId,
     data_provider: Box<dyn SourceDataProvider + Sync + Send>,
 }
 
 impl fmt::Debug for UniqueSource {
     /// Custom implementation to avoid large contents strings
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Source {{file_name: {:?}}}", self.file_name.as_str())
+        write!(f, "Source {{file_name: {:?}}}", self.file_name())
     }
 }
 
 impl UniqueSource {
     fn inline(file_name: impl Into<String>, contents: Arc<Latin1String>) -> Self {
         Self {
-            file_name: file_name.into(),
+            file_id: FileId::new(file_name),
             data_provider: Box::new(InlineSource { contents }),
         }
     }
 
     fn from_file(file_name: impl Into<String>) -> Self {
-        let file_name = file_name.into();
         let data_provider = Box::new(SourceFile {
-            file_name: file_name.to_string(),
+            file_name: file_name.into(),
         });
         Self {
-            file_name,
+            file_id: FileId::new(data_provider.file_name.clone()),
             data_provider,
         }
     }
@@ -81,7 +112,7 @@ impl UniqueSource {
     }
 
     fn file_name(&self) -> &str {
-        self.file_name.as_ref()
+        self.file_id.name.as_ref()
     }
 }
 
@@ -92,14 +123,14 @@ pub struct Source {
 
 impl PartialEq for Source {
     fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.source, &other.source)
+        self.source.file_id == other.source.file_id
     }
 }
 
 impl Eq for Source {}
 
-impl std::hash::Hash for Source {
-    fn hash<H: std::hash::Hasher>(&self, hasher: &mut H) {
+impl Hash for Source {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
         Arc::into_raw(self.source.clone()).hash(hasher);
     }
 }
@@ -123,11 +154,6 @@ impl Source {
     ) -> Result<Self, Utf8ToLatin1Error> {
         let latin1 = Latin1String::from_utf8(contents)?;
         Ok(Self::inline(file_name, Arc::new(latin1)))
-    }
-
-    #[cfg(test)]
-    pub fn from_str(contents: &str) -> Self {
-        Self::inline_utf8("{unknown file}", contents).unwrap()
     }
 
     pub fn contents(&self) -> io::Result<Arc<Latin1String>> {
@@ -531,7 +557,7 @@ mod tests {
 
     #[test]
     fn srcpos_combine() {
-        let source = Source::from_str("hello world");
+        let source = from_str("hello world");
 
         assert_eq!(
             source.pos(0, 2).combine(&source.pos(2, 2)),
@@ -561,6 +587,10 @@ mod tests {
         fun(Source::from_file(file_name))
     }
 
+    fn from_str(contents: &str) -> Source {
+        Source::inline_utf8("file_name", contents).unwrap()
+    }
+
     #[test]
     fn code_context_pos_from_filename() {
         with_source_from_file("hello\nworld\n", |source: Source| {
@@ -577,7 +607,7 @@ mod tests {
 
     #[test]
     fn code_context_pos_last_line_without_newline() {
-        let source = Source::from_str("hello world");
+        let source = from_str("hello world");
         let pos = source.first_substr_pos("hello");
         assert_eq!(
             pos.code_context(),
@@ -590,7 +620,7 @@ mod tests {
 
     #[test]
     fn code_context_pos_with_indent() {
-        let source = Source::from_str("    hello world");
+        let source = from_str("    hello world");
         let pos = source.first_substr_pos("hello");
         assert_eq!(
             pos.code_context(),
@@ -603,7 +633,7 @@ mod tests {
 
     #[test]
     fn code_context_eof() {
-        let source = Source::from_str("h");
+        let source = from_str("h");
         let pos = source.pos(1, 1);
         assert_eq!(
             pos.code_context(),
@@ -616,14 +646,14 @@ mod tests {
 
     #[test]
     fn code_context_eof_empty() {
-        let source = Source::from_str("");
+        let source = from_str("");
         let pos = source.pos(0, 1);
         assert_eq!(pos.code_context(), "1 --> \n   |  ~\n",);
     }
 
     #[test]
     fn code_context_with_context() {
-        let source = Source::from_str("hello\nworld");
+        let source = from_str("hello\nworld");
         let pos = source.first_substr_pos("hello");
         assert_eq!(
             pos.code_context(),
@@ -637,7 +667,7 @@ mod tests {
 
     #[test]
     fn code_context_with_tabs() {
-        let source = Source::from_str("\thello\t");
+        let source = from_str("\thello\t");
         let pos = source.first_substr_pos("hello\t");
         assert_eq!(
             pos.code_context(),
@@ -650,7 +680,7 @@ mod tests {
 
     #[test]
     fn code_context_non_ascii() {
-        let source = Source::from_str("åäö\nåäö\n__å_ä_ö__");
+        let source = from_str("åäö\nåäö\n__å_ä_ö__");
         let pos = source.first_substr_pos("å_ä_ö");
         assert_eq!(pos.length, 5);
         assert_eq!(
@@ -683,7 +713,7 @@ mod tests {
 
     #[test]
     fn code_context_with_full_context() {
-        let source = Source::from_str(
+        let source = from_str(
             "\
 line1
 line2
@@ -736,12 +766,12 @@ Greetings
 
     #[test]
     fn show_contents() {
-        let source = Source::from_str("hello\nworld\nline\n");
+        let source = from_str("hello\nworld\nline\n");
         assert_eq!(
             &source.first_substr_pos("world").show("Greetings"),
             "\
 Greetings
-  --> {unknown file}:2
+  --> file_name:2
    |
 1  |  hello
 2 --> world

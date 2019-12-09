@@ -372,8 +372,8 @@ package is
         let diagnostics = project.analyse();
         assert_eq!(diagnostics.len(), 2);
         // Syntax error comes first
-        assert_eq!(diagnostics[0].pos.source.file_name(), source1.file_name());
-        assert_eq!(diagnostics[1].pos.source.file_name(), source2.file_name());
+        assert_eq!(diagnostics[0].pos.source, source1);
+        assert_eq!(diagnostics[1].pos.source, source2);
 
         // Make it good again
         update(
@@ -400,7 +400,7 @@ end package;
         );
         let diagnostics = project.analyse();
         assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].pos.source.file_name(), source2.file_name());
+        assert_eq!(diagnostics[0].pos.source, source2);
 
         // Make it good again
         update(

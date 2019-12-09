@@ -30,9 +30,11 @@ use crate::symbol_table::{Symbol, SymbolTable};
 use crate::tokenizer::Tokenizer;
 use crate::tokenstream::TokenStream;
 use crate::waveform::parse_waveform;
+use std::collections::hash_map::DefaultHasher;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::hash::Hasher;
 use std::sync::Arc;
 
 pub struct CodeBuilder {
@@ -63,8 +65,15 @@ impl CodeBuilder {
         code
     }
 
+    pub fn code_with_file_name(&self, file_name: impl Into<String>, code: &str) -> Code {
+        self.code_from_source(Source::inline_utf8(file_name, code).unwrap())
+    }
+
     pub fn code(&self, code: &str) -> Code {
-        self.code_from_source(Source::from_str(code))
+        let mut hasher = DefaultHasher::new();
+        hasher.write(code.as_bytes());
+        let file_name = format!("<unknown file with hash {}>", hasher.finish());
+        self.code_with_file_name(file_name, code)
     }
 
     pub fn symbol(&self, name: &str) -> Symbol {
@@ -82,6 +91,10 @@ pub struct Code {
 impl Code {
     pub fn new(code: &str) -> Code {
         CodeBuilder::new().code(code)
+    }
+
+    pub fn new_with_file_name(file_name: &str, code: &str) -> Code {
+        CodeBuilder::new().code_with_file_name(file_name, code)
     }
 
     /// Create new Code from n:th occurence of substr

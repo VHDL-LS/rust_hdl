@@ -1549,7 +1549,7 @@ fn tokenize_result(
     Vec<Comment>,
 ) {
     let symtab = Arc::new(SymbolTable::new());
-    let source = Source::from_str(code);
+    let source = Source::inline_utf8("<token file>", code).unwrap();
     let mut tokens = Vec::new();
     let final_comments: Vec<Comment>;
     {

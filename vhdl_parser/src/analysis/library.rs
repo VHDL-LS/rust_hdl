@@ -489,12 +489,11 @@ impl<'a> Library {
     }
 
     fn remove_source_from<T: HasSource>(map: &mut SymbolMap<T>, source: &Source) {
-        map.retain(|_, value| value.source().file_name() != source.file_name());
+        map.retain(|_, value| value.source() != source);
     }
 
     /// Remove all design units defined in source
     /// This is used for incremental analysis where only a single source file is updated
-    /// Important to use file_name() equality rather than object identity equality
     pub fn remove_source(&mut self, source: &Source) {
         Self::remove_source_from(&mut self.primary_names, source);
         Self::remove_source_from(&mut self.entities, source);
@@ -511,14 +510,14 @@ impl<'a> Library {
         Self::remove_source_from(&mut self.contexts, source);
 
         self.duplicates
-            .retain(|(_, value)| value.source().file_name() != source.file_name());
+            .retain(|(_, value)| value.source() != source);
 
         // Try to add duplicates that were duplicated by a design unit in the removed file
         let num_duplicates = self.duplicates.len();
         let duplicates =
             std::mem::replace(&mut self.duplicates, Vec::with_capacity(num_duplicates));
         for (prev_pos, design_unit) in duplicates.into_iter() {
-            if prev_pos.source().file_name() == source.file_name() {
+            if prev_pos.source() == source {
                 self.add_design_unit(design_unit)
             } else {
                 self.duplicates.push((prev_pos, design_unit));
