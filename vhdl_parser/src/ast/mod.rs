@@ -1092,20 +1092,27 @@ pub struct PackageBody {
     pub decl: Vec<Declaration>,
 }
 
+pub type EntityUnit = DesignUnit<EntityDeclaration>;
+pub type ArchitectureUnit = DesignUnit<ArchitectureBody>;
+pub type ConfigurationUnit = DesignUnit<ConfigurationDeclaration>;
+pub type PackageUnit = DesignUnit<PackageDeclaration>;
+pub type PackageBodyUnit = DesignUnit<crate::ast::PackageBody>;
+pub type PackageInstanceUnit = DesignUnit<PackageInstantiation>;
+
 /// LRM 13.1 Design units
 #[derive(PartialEq, Debug, Clone)]
 pub enum AnyPrimaryUnit {
     /// LRM 3.2 Entity declaration
-    EntityDeclaration(DesignUnit<EntityDeclaration>),
+    EntityDeclaration(EntityUnit),
 
     /// LRM 3.4 Configuration declarations
-    Configuration(DesignUnit<ConfigurationDeclaration>),
+    Configuration(ConfigurationUnit),
 
     /// LRM 4.7 Package declarations
-    PackageDeclaration(DesignUnit<PackageDeclaration>),
+    PackageDeclaration(PackageUnit),
 
     /// LRM 4.9 Package instatiation declaration
-    PackageInstance(DesignUnit<PackageInstantiation>),
+    PackageInstance(PackageInstanceUnit),
 
     /// LRM 13.4 Context clauses
     ContextDeclaration(ContextDeclaration),
@@ -1115,10 +1122,10 @@ pub enum AnyPrimaryUnit {
 #[derive(PartialEq, Debug, Clone)]
 pub enum AnySecondaryUnit {
     /// LRM 3.3 Architecture bodies
-    Architecture(DesignUnit<ArchitectureBody>),
+    Architecture(ArchitectureUnit),
 
     /// LRM 4.8 Package bodies
-    PackageBody(DesignUnit<PackageBody>),
+    PackageBody(PackageBodyUnit),
 }
 
 pub type ContextClause = Vec<WithPos<ContextItem>>;

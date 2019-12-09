@@ -122,29 +122,21 @@ impl<T> HasPrimaryIdent for SecondaryUnit<T> {
     }
 }
 
-pub type EntityAst = DesignUnit<EntityDeclaration>;
-pub type ArchitectureAst = DesignUnit<ArchitectureBody>;
-pub type ConfigurationAst = DesignUnit<ConfigurationDeclaration>;
-pub type ContextAst = ContextDeclaration;
-pub type PackageAst = DesignUnit<PackageDeclaration>;
-pub type PackageBodyAst = DesignUnit<crate::ast::PackageBody>;
-pub type PackageInstanceAst = DesignUnit<PackageInstantiation>;
+pub type EntityData = AnalysisData<EntityUnit>;
+pub type ArchitectureData = AnalysisData<ArchitectureUnit>;
+pub type ConfigurationData = AnalysisData<ConfigurationUnit>;
+pub type ContextData = AnalysisData<ContextDeclaration>;
+pub type PackageData = AnalysisData<PackageUnit>;
+pub type PackageBodyData = AnalysisData<PackageBodyUnit>;
+pub type PackageInstanceData = AnalysisData<PackageInstanceUnit>;
 
-pub type EntityData = AnalysisData<EntityAst>;
-pub type ArchitectureData = AnalysisData<ArchitectureAst>;
-pub type ConfigurationData = AnalysisData<ConfigurationAst>;
-pub type ContextData = AnalysisData<ContextAst>;
-pub type PackageData = AnalysisData<PackageAst>;
-pub type PackageBodyData = AnalysisData<PackageBodyAst>;
-pub type PackageInstanceData = AnalysisData<PackageInstanceAst>;
-
-pub type Entity = PrimaryUnit<EntityAst>;
-pub type Architecture = SecondaryUnit<ArchitectureAst>;
-pub type Configuration = PrimaryUnit<ConfigurationAst>;
-pub type Context = PrimaryUnit<ContextAst>;
-pub type Package = PrimaryUnit<PackageAst>;
-pub type PackageBody = SecondaryUnit<PackageBodyAst>;
-pub type PackageInstance = PrimaryUnit<PackageInstanceAst>;
+pub type Entity = PrimaryUnit<EntityUnit>;
+pub type Architecture = SecondaryUnit<ArchitectureUnit>;
+pub type Configuration = PrimaryUnit<ConfigurationUnit>;
+pub type Context = PrimaryUnit<ContextDeclaration>;
+pub type Package = PrimaryUnit<PackageUnit>;
+pub type PackageBody = SecondaryUnit<PackageBodyUnit>;
+pub type PackageInstance = PrimaryUnit<PackageInstanceUnit>;
 
 pub type SymbolMap<T> = FnvHashMap<Symbol, T>;
 
