@@ -60,13 +60,20 @@ pub trait Searcher<T> {
     fn search_declaration(&mut self, _decl: &Declaration) -> SearchState<T> {
         NotFinished
     }
+    fn search_type_declaration(&mut self, _decl: &TypeDeclaration) -> SearchState<T> {
+        NotFinished
+    }
     fn search_interface_declaration(&mut self, _decl: &InterfaceDeclaration) -> SearchState<T> {
         NotFinished
     }
     fn search_subtype_indication(&mut self, _decl: &SubtypeIndication) -> SearchState<T> {
         NotFinished
     }
-    fn search_designator_ref(&mut self, _designator: &WithRef<Designator>) -> SearchState<T> {
+    fn search_designator_ref(
+        &mut self,
+        _pos: &SrcPos,
+        _designator: &WithRef<Designator>,
+    ) -> SearchState<T> {
         NotFinished
     }
     fn search_with_pos(&mut self, _pos: &SrcPos) -> SearchState<T> {
@@ -157,31 +164,27 @@ impl<T> Search<T> for LabeledConcurrentStatement {
     }
 }
 
-impl<T> Search<T> for WithRef<Designator> {
+impl<T> Search<T> for WithPos<WithRef<Designator>> {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
-        searcher.search_designator_ref(self).or_else(|| NotFound)
+        searcher.search_with_pos(&self.pos).or_else(|| {
+            searcher
+                .search_designator_ref(&self.pos, &self.item)
+                .or_not_found()
+        })
     }
 }
 
-impl<T, U: Search<T>> Search<T> for WithPos<U> {
+impl<T> Search<T> for WithPos<SelectedName> {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
-        searcher
-            .search_with_pos(&self.pos)
-            .or_else(|| self.item.search(searcher))
-    }
-}
-
-impl<T> Search<T> for SelectedName {
-    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
-        match self {
-            SelectedName::Selected(prefix, designator) => {
+        match self.item {
+            SelectedName::Selected(ref prefix, ref designator) => {
                 return_if!(prefix.search(searcher));
                 return_if!(designator.search(searcher));
                 NotFound
             }
-            SelectedName::Designator(designator) => {
-                searcher.search_designator_ref(designator).or_not_found()
-            }
+            SelectedName::Designator(ref designator) => searcher
+                .search_designator_ref(&self.pos, designator)
+                .or_not_found(),
         }
     }
 }
@@ -197,37 +200,39 @@ impl<T> Search<T> for SubtypeIndication {
 
 impl<T> Search<T> for TypeDeclaration {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
-        match self.def {
-            TypeDefinition::ProtectedBody(ref body) => {
-                return_if!(body.decl.search(searcher));
-            }
-            TypeDefinition::Protected(ref prot_decl) => {
-                for item in prot_decl.items.iter() {
-                    match item {
-                        ProtectedTypeDeclarativeItem::Subprogram(ref subprogram) => {
-                            return_if!(subprogram.search(searcher));
+        searcher.search_type_declaration(self).or_else(|| {
+            match self.def {
+                TypeDefinition::ProtectedBody(ref body) => {
+                    return_if!(body.decl.search(searcher));
+                }
+                TypeDefinition::Protected(ref prot_decl) => {
+                    for item in prot_decl.items.iter() {
+                        match item {
+                            ProtectedTypeDeclarativeItem::Subprogram(ref subprogram) => {
+                                return_if!(subprogram.search(searcher));
+                            }
                         }
                     }
                 }
-            }
-            TypeDefinition::Record(ref element_decls) => {
-                for elem in element_decls {
-                    return_if!(elem.subtype.search(searcher));
+                TypeDefinition::Record(ref element_decls) => {
+                    for elem in element_decls {
+                        return_if!(elem.subtype.search(searcher));
+                    }
                 }
-            }
-            TypeDefinition::Access(ref subtype_indication) => {
-                return_if!(subtype_indication.search(searcher));
-            }
-            TypeDefinition::Array(.., ref subtype_indication) => {
-                return_if!(subtype_indication.search(searcher));
-            }
-            TypeDefinition::Subtype(ref subtype_indication) => {
-                return_if!(subtype_indication.search(searcher));
-            }
+                TypeDefinition::Access(ref subtype_indication) => {
+                    return_if!(subtype_indication.search(searcher));
+                }
+                TypeDefinition::Array(.., ref subtype_indication) => {
+                    return_if!(subtype_indication.search(searcher));
+                }
+                TypeDefinition::Subtype(ref subtype_indication) => {
+                    return_if!(subtype_indication.search(searcher));
+                }
 
-            _ => {}
-        }
-        NotFound
+                _ => {}
+            }
+            NotFound
+        })
     }
 }
 
@@ -299,8 +304,7 @@ impl<T> Search<T> for EntityUnit {
             return_if!(self.unit.generic_clause.search(searcher));
             return_if!(self.unit.port_clause.search(searcher));
             return_if!(self.unit.decl.search(searcher));
-            return_if!(self.unit.statements.search(searcher));
-            self.unit.decl.search(searcher)
+            self.unit.statements.search(searcher)
         })
     }
 }
@@ -309,8 +313,7 @@ impl<T> Search<T> for ArchitectureUnit {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         searcher.search_source(self.source()).or_else(|| {
             return_if!(self.unit.decl.search(searcher));
-            return_if!(self.unit.statements.search(searcher));
-            self.unit.decl.search(searcher)
+            self.unit.statements.search(searcher)
         })
     }
 }
@@ -340,34 +343,55 @@ impl<T> Search<T> for PackageInstanceUnit {
     }
 }
 
-pub struct ReferenceSearcher {
+// Search for reference to declaration/definition at cursor
+pub struct ItemAtCursor {
     source: Source,
     cursor: usize,
 }
 
-impl ReferenceSearcher {
-    pub fn new(source: &Source, cursor: usize) -> ReferenceSearcher {
-        ReferenceSearcher {
+impl ItemAtCursor {
+    pub fn new(source: &Source, cursor: usize) -> ItemAtCursor {
+        ItemAtCursor {
             source: source.clone(),
             cursor,
         }
     }
+
+    pub fn is_inside(&self, pos: &SrcPos) -> bool {
+        // cursor is the gap between character cursor and cursor + 1
+        // Thus cursor will match character cursor and cursor + 1
+        pos.start <= self.cursor && self.cursor <= pos.end()
+    }
 }
 
-impl Searcher<SrcPos> for ReferenceSearcher {
+impl Searcher<SrcPos> for ItemAtCursor {
     fn search_with_pos(&mut self, pos: &SrcPos) -> SearchState<SrcPos> {
         // cursor is the gap between character cursor and cursor + 1
         // Thus cursor will match character cursor and cursor + 1
-        if pos.start <= self.cursor && self.cursor <= pos.end() {
+        if self.is_inside(pos) {
             NotFinished
         } else {
             Finished(NotFound)
         }
     }
 
-    fn search_designator_ref(&mut self, designator: &WithRef<Designator>) -> SearchState<SrcPos> {
-        if let Some(ref reference) = designator.reference {
+    fn search_designator_ref(
+        &mut self,
+        pos: &SrcPos,
+        designator: &WithRef<Designator>,
+    ) -> SearchState<SrcPos> {
+        if !self.is_inside(pos) {
+            Finished(NotFound)
+        } else if let Some(ref reference) = designator.reference {
             Finished(Found(reference.clone()))
+        } else {
+            Finished(NotFound)
+        }
+    }
+
+    fn search_type_declaration(&mut self, decl: &TypeDeclaration) -> SearchState<SrcPos> {
+        if self.is_inside(decl.ident.pos()) {
+            Finished(Found(decl.ident.pos().clone()))
         } else {
             Finished(NotFound)
         }
@@ -379,5 +403,40 @@ impl Searcher<SrcPos> for ReferenceSearcher {
         } else {
             Finished(NotFound)
         }
+    }
+}
+
+// Search for all reference to declaration/defintion
+pub struct FindAllReferences {
+    decl_pos: SrcPos,
+    references: Vec<SrcPos>,
+}
+
+impl FindAllReferences {
+    pub fn new(decl_pos: &SrcPos) -> FindAllReferences {
+        FindAllReferences {
+            decl_pos: decl_pos.clone(),
+            references: Vec::new(),
+        }
+    }
+
+    pub fn search(mut self, searchable: &impl Search<()>) -> Vec<SrcPos> {
+        let _unnused = searchable.search(&mut self);
+        self.references
+    }
+}
+
+impl Searcher<()> for FindAllReferences {
+    fn search_designator_ref(
+        &mut self,
+        pos: &SrcPos,
+        designator: &WithRef<Designator>,
+    ) -> SearchState<()> {
+        if let Some(ref reference) = designator.reference {
+            if reference.pos() == &self.decl_pos {
+                self.references.push(pos.clone());
+            }
+        };
+        NotFinished
     }
 }

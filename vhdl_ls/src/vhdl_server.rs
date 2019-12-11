@@ -214,6 +214,11 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
     ) -> Option<Location> {
         self.mut_server().text_document_definition(&params)
     }
+
+    // textDocument/references
+    pub fn text_document_references(&mut self, params: &ReferenceParams) -> Vec<Location> {
+        self.mut_server().text_document_references(&params)
+    }
 }
 
 struct InitializedVHDLServer<T: RpcChannel> {
@@ -264,6 +269,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::Full));
         capabilities.declaration_provider = Some(true);
         capabilities.definition_provider = Some(true);
+        capabilities.references_provider = Some(true);
         let result = InitializeResult {
             capabilities,
             server_info: None,
@@ -386,6 +392,26 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         params: &TextDocumentPositionParams,
     ) -> Option<Location> {
         self.text_document_declaration(params)
+    }
+
+    pub fn text_document_references(&mut self, params: &ReferenceParams) -> Vec<Location> {
+        let decl_pos = self
+            .source_map
+            .get(&params.text_document_position.text_document.uri)
+            .and_then(|source| {
+                position_to_cursor(&source, &params.text_document_position.position)
+                    .and_then(|cursor| self.project.search_reference(source, cursor))
+            });
+
+        if let Some(ref decl_pos) = decl_pos {
+            self.project
+                .find_all_references(decl_pos)
+                .iter()
+                .map(|pos| srcpos_to_location(pos))
+                .collect()
+        } else {
+            Vec::new()
+        }
     }
 }
 

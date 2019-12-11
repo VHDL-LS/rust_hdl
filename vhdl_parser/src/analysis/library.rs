@@ -10,7 +10,7 @@ use std::collections::hash_map::Entry;
 
 use super::declarative_region::{AnyDeclaration, DeclarativeRegion};
 use super::lock::AnalysisLock;
-use crate::ast::search::{Found, NotFound, ReferenceSearcher, Search, SearchResult, Searcher};
+use crate::ast::search::*;
 use crate::ast::*;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 
@@ -639,8 +639,11 @@ impl DesignRoot {
     /// If the character value is greater than the line length it defaults back to the
     /// line length.
     pub fn search_reference(&self, source: &Source, cursor: usize) -> Option<SrcPos> {
-        self.search(&mut ReferenceSearcher::new(source, cursor))
-            .into()
+        self.search(&mut ItemAtCursor::new(source, cursor)).into()
+    }
+
+    pub fn find_all_references(&self, decl_pos: &SrcPos) -> Vec<SrcPos> {
+        FindAllReferences::new(decl_pos).search(self)
     }
 }
 

@@ -156,3 +156,63 @@ end package;",
         None
     );
 }
+
+#[test]
+fn search_reference_on_declaration_returns_declaration() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+  type typ_t is (foo, bar);
+end package;",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    let decl_pos = code.s1("typ_t").pos();
+
+    assert_eq!(
+        root.search_reference(code.source(), decl_pos.start),
+        Some(decl_pos)
+    );
+}
+
+#[test]
+fn find_all_references_of_type_mark() {
+    let mut builder = LibraryBuilder::new();
+    let code1 = builder.code(
+        "libname",
+        "
+package pkg is
+  type typ_t is (foo, bar);
+  constant c1 : typ_t := bar;
+end package;",
+    );
+
+    let code2 = builder.code(
+        "libname",
+        "
+use work.pkg.all;
+
+package pkg2 is
+  constant c2 : typ_t := bar;
+  constant c3 : typ_t := bar;
+end package;",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    let references = vec![
+        code1.s("typ_t", 2).pos().clone(),
+        code2.s("typ_t", 1).pos().clone(),
+        code2.s("typ_t", 2).pos().clone(),
+    ];
+
+    assert_eq_unordered(
+        &root.find_all_references(&code1.s1("typ_t").pos()),
+        &references,
+    );
+}

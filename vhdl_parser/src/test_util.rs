@@ -512,6 +512,24 @@ pub fn check_diagnostics(got: Vec<Diagnostic>, expected: Vec<Diagnostic>) {
     }
 }
 
+fn compare_unordered<T: PartialEq + Debug>(got: &[T], expected: &[T]) -> bool {
+    if got.len() != expected.len() {
+        return false;
+    }
+    for exp in expected.iter() {
+        if !got.contains(exp) {
+            return false;
+        }
+    }
+    true
+}
+
+pub fn assert_eq_unordered<T: PartialEq + Debug>(got: &[T], expected: &[T]) {
+    if !compare_unordered(got, expected) {
+        panic!("\ngot: {:?}\nexp: {:?}", got, expected);
+    }
+}
+
 impl AsRef<SrcPos> for Code {
     fn as_ref(&self) -> &SrcPos {
         &self.pos

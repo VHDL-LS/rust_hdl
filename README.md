@@ -98,6 +98,7 @@ architecture a of uart_tx
 - Usable today to get full live syntax error checking.
 - Checks for missing declaration of type marks such as `std_logic`
 - Supports goto-definition/declaration for type marks.
+- Supports find-references for type marks.
 
 ## Trying it out
 The language server has a command line binary `vhdl_ls` which implements a stdio based language server.

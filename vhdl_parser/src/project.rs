@@ -193,6 +193,10 @@ impl Project {
     pub fn search_reference(&self, source: &Source, cursor: usize) -> Option<SrcPos> {
         self.root.search_reference(source, cursor)
     }
+
+    pub fn find_all_references(&self, decl_pos: &SrcPos) -> Vec<SrcPos> {
+        self.root.find_all_references(decl_pos)
+    }
 }
 
 /// Multiply clonable value by cloning
