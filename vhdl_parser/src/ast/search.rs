@@ -121,9 +121,7 @@ impl<T> Search<T> for LabeledSequentialStatement {
 
 impl<T> Search<T> for GenerateBody {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
-        if let Some(ref decl) = self.decl {
-            return_if!(decl.search(searcher));
-        }
+        return_if!(self.decl.search(searcher));
         self.statements.search(searcher)
     }
 }
@@ -145,11 +143,7 @@ impl<T> Search<T> for LabeledConcurrentStatement {
                     for conditional in gen.conditionals.iter() {
                         return_if!(conditional.item.search(searcher));
                     }
-                    if let Some(ref else_item) = gen.else_item {
-                        else_item.search(searcher)
-                    } else {
-                        NotFound
-                    }
+                    gen.else_item.search(searcher)
                 }
                 ConcurrentStatement::CaseGenerate(ref gen) => {
                     for alternative in gen.alternatives.iter() {
