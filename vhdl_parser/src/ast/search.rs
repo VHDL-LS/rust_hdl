@@ -254,6 +254,9 @@ impl<T> Search<T> for Declaration {
                 Declaration::Attribute(Attribute::Declaration(decl)) => {
                     return_if!(decl.type_mark.search(searcher));
                 }
+                Declaration::Alias(decl) => {
+                    return_if!(decl.subtype_indication.search(searcher));
+                }
                 _ => {}
             }
             NotFound
