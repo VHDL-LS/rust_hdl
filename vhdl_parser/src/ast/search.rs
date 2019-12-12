@@ -251,6 +251,9 @@ impl<T> Search<T> for Declaration {
                 Declaration::SubprogramDeclaration(decl) => {
                     return_if!(decl.search(searcher));
                 }
+                Declaration::Attribute(Attribute::Declaration(decl)) => {
+                    return_if!(decl.type_mark.search(searcher));
+                }
                 _ => {}
             }
             NotFound
