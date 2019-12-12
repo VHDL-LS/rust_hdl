@@ -12,7 +12,7 @@ use crate::diagnostic::Diagnostic;
 use crate::latin_1::Latin1String;
 use crate::message::Message;
 use crate::parser::{FileToParse, ParserError, VHDLParser};
-use crate::source::{Source, SrcPos};
+use crate::source::{Position, Source, SrcPos};
 use crate::symbol_table::Symbol;
 use fnv;
 use std::collections::hash_map::Entry;
@@ -190,7 +190,7 @@ impl Project {
     ///
     /// If the character value is greater than the line length it defaults back to the
     /// line length.
-    pub fn search_reference(&self, source: &Source, cursor: usize) -> Option<SrcPos> {
+    pub fn search_reference(&self, source: &Source, cursor: Position) -> Option<SrcPos> {
         self.root.search_reference(source, cursor)
     }
 

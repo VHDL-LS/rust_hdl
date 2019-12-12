@@ -379,7 +379,8 @@ impl<'a> Library {
 
             let primary_pos = &package.pos();
             let secondary_pos = &body.pos();
-            if primary_pos.source == secondary_pos.source && primary_pos.start > secondary_pos.start
+            if primary_pos.source == secondary_pos.source
+                && primary_pos.range.start > secondary_pos.range.start
             {
                 diagnostics.push(Diagnostic::error(
                     secondary_pos,
@@ -410,7 +411,7 @@ impl<'a> Library {
                     let primary_pos = entity.ident.pos();
                     let secondary_pos = &architecture.pos();
                     if primary_pos.source == secondary_pos.source
-                        && primary_pos.start > secondary_pos.start
+                        && primary_pos.range.start > secondary_pos.range.start
                     {
                         diagnostics.push(Diagnostic::error(
                             secondary_pos,
@@ -638,7 +639,7 @@ impl DesignRoot {
     ///
     /// If the character value is greater than the line length it defaults back to the
     /// line length.
-    pub fn search_reference(&self, source: &Source, cursor: usize) -> Option<SrcPos> {
+    pub fn search_reference(&self, source: &Source, cursor: Position) -> Option<SrcPos> {
         self.search(&mut ItemAtCursor::new(source, cursor)).into()
     }
 

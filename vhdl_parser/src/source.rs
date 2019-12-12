@@ -164,38 +164,40 @@ impl Source {
         self.source.file_name()
     }
 
-    pub fn pos(self: &Self, start: usize, length: usize) -> SrcPos {
+    pub fn pos(&self, start: Position, end: Position) -> SrcPos {
         SrcPos {
             source: self.clone(),
-            start,
-            length,
+            range: Range { start, end },
         }
-    }
-
-    /// Helper method to create a source position from a substring
-    #[cfg(test)]
-    pub fn substr_pos(self: &Self, substr: &str, occurence: usize) -> SrcPos {
-        self.entire_pos().substr_pos(&self, substr, occurence)
-    }
-
-    /// First occurence
-    #[cfg(test)]
-    pub fn first_substr_pos(self: &Self, substr: &str) -> SrcPos {
-        self.substr_pos(substr, 1)
-    }
-
-    /// Position covers entire contents
-    #[cfg(test)]
-    pub fn entire_pos(self: &Self) -> SrcPos {
-        let length = self.contents().unwrap().bytes.len();
-        self.pos(0, length)
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
-pub struct Pos {
-    pub start: usize,
-    pub length: usize,
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash, Debug)]
+pub struct Position {
+    pub byte_offset: usize,
+}
+
+impl Position {
+    pub fn next_char(&self) -> Position {
+        Position {
+            byte_offset: self.byte_offset + 1,
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]
+pub struct Range {
+    pub start: Position,
+    pub end: Position,
+}
+
+impl Range {
+    pub fn new(start: Position, end: Position) -> Range {
+        Range { start, end }
+    }
+    pub fn length(&self) -> usize {
+        self.end.byte_offset - self.start.byte_offset
+    }
 }
 
 /// Lexical position in a file.
@@ -203,43 +205,7 @@ pub struct Pos {
 pub struct SrcPos {
     /// The source
     pub source: Source,
-    /// The start character position
-    pub start: usize,
-    /// The length of the token in characters
-    pub length: usize,
-}
-
-impl SrcPos {
-    #[cfg(test)]
-    pub fn substr_pos(&self, source: &Source, substr: &str, occurence: usize) -> SrcPos {
-        let substr = Latin1String::from_utf8_unchecked(substr);
-        let contents = source.contents().unwrap();
-        let mut count = occurence;
-
-        if self.length < substr.len() {
-            let code = Latin1String::new(&contents.bytes[self.start..self.start + self.length]);
-            panic!(
-                "Substring {:?} is longer than code {:?}",
-                substr,
-                &code.to_string()
-            )
-        }
-
-        let start = self.start;
-        let end = self.start + self.length - substr.len() + 1;
-        for i in start..end {
-            if &contents.bytes[i..i + substr.len()] == substr.bytes.as_slice() {
-                count -= 1;
-                if count == 0 {
-                    return self.source.pos(i, substr.len());
-                }
-            }
-        }
-        panic!(
-            "Could not find occurence {} of substring {:?} in {:?}",
-            occurence, substr, contents
-        );
-    }
+    pub range: Range,
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -355,16 +321,16 @@ impl SrcPos {
             buf.clear();
         }
 
-        if early_eof && self.start + self.length > offset {
+        if early_eof && self.range.end.byte_offset > offset {
             if !lines.is_empty() {
                 let last_idx = lines.len() - 1;
                 let (_, ref offset, ref mut line) = &mut lines[last_idx];
-                let line_len = self.start + self.length - offset;
+                let line_len = self.range.end.byte_offset - offset;
                 for _ in line.len()..line_len {
                     line.bytes.push(b' ');
                 }
             } else {
-                let line_len = self.start + self.length - offset;
+                let line_len = self.range.end.byte_offset - offset;
                 let mut line = Latin1String::from_vec(Vec::with_capacity(line_len));
                 for _ in 0..line_len {
                     line.bytes.push(b' ');
@@ -392,9 +358,9 @@ impl SrcPos {
 
     /// Write ~~~ to underline symbol
     fn underline(self: &Self, lineno_len: usize, offset: usize, line: &str, into: &mut String) {
-        let start = min(self.start, offset);
+        let start = min(self.range.start.byte_offset, offset);
         // non-inclusive end
-        let end = min(offset + line.len(), self.start + self.length);
+        let end = min(offset + line.len(), self.range.end.byte_offset);
 
         const NEWLINE_SIZE: usize = 1;
         into.reserve(5 + lineno_len + end - start + NEWLINE_SIZE);
@@ -408,7 +374,7 @@ impl SrcPos {
         // Padding before underline
         for (i, chr) in line.chars().enumerate() {
             let idx = offset + i;
-            if idx < self.start {
+            if idx < self.range.start.byte_offset {
                 Self::push_replicate(into, ' ', Self::visual_width(chr));
             } else if idx < end {
                 Self::push_replicate(into, '~', Self::visual_width(chr));
@@ -423,11 +389,11 @@ impl SrcPos {
 
     /// Check is line at offset overlaps source position
     fn overlaps(self: &Self, offset: usize, line_len: usize) -> bool {
-        offset + line_len >= self.start + 1 && offset < self.start + self.length
+        offset + line_len >= self.range.start.byte_offset + 1 && offset < self.range.end.byte_offset
     }
 
     pub fn end(&self) -> usize {
-        self.start + self.length
+        self.range.length()
     }
 
     fn code_context_from_reader(self: &Self, reader: &mut dyn BufRead) -> (usize, usize, String) {
@@ -513,13 +479,12 @@ impl SrcPos {
         let other = other.as_ref();
         debug_assert!(self.source == other.source, "Assumes sources are equal");
 
-        let start = min(self.start, other.start);
-        let end = max(self.start + self.length, other.start + other.length);
+        let start = min(self.range.start, other.range.start);
+        let end = max(self.range.end, other.range.end);
 
         SrcPos {
             source: self.source,
-            start,
-            length: end - start,
+            range: Range { start, end },
         }
     }
 
@@ -557,49 +522,40 @@ impl<T: HasSrcPos> HasSource for T {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_util::{Code, CodeBuilder};
     use tempfile;
 
     #[test]
     fn srcpos_combine() {
-        let source = from_str("hello world");
+        let code = Code::new("hello world");
 
         assert_eq!(
-            source.pos(0, 2).combine(&source.pos(2, 2)),
-            source.pos(0, 4)
+            code.s1("hello").pos().combine(&code.s1("world").pos()),
+            code.pos()
         );
 
-        assert_eq!(
-            source.pos(0, 2).combine(&source.pos(4, 2)),
-            source.pos(0, 6)
-        );
+        assert_eq!(code.s1("h").pos().combine(&code.s1("d").pos()), code.pos());
 
-        assert_eq!(
-            source.pos(4, 2).combine(&source.pos(0, 2)),
-            source.pos(0, 6)
-        );
+        assert_eq!(code.s1("d").pos().combine(&code.s1("h").pos()), code.pos());
     }
 
-    fn with_source_from_file<F, R>(contents: &str, fun: F) -> R
+    fn with_code_from_file<F, R>(contents: &str, fun: F) -> R
     where
-        F: Fn(Source) -> R,
+        F: Fn(Code) -> R,
     {
         use std::io::Write;
         let mut file = tempfile::NamedTempFile::new().unwrap();
         let file_name = file.path().to_str().unwrap().to_string();
         file.write(&Latin1String::from_utf8_unchecked(contents).bytes)
             .unwrap();
-        fun(Source::from_file(file_name))
-    }
-
-    fn from_str(contents: &str) -> Source {
-        Source::inline_utf8("file_name", contents).unwrap()
+        fun(CodeBuilder::new().code_from_source(Source::from_file(file_name)))
     }
 
     #[test]
     fn code_context_pos_from_filename() {
-        with_source_from_file("hello\nworld\n", |source: Source| {
+        with_code_from_file("hello\nworld\n", |code: Code| {
             assert_eq!(
-                source.first_substr_pos("hello").code_context(),
+                code.s1("hello").pos().code_context(),
                 "\
 1 --> hello
    |  ~~~~~
@@ -611,8 +567,8 @@ mod tests {
 
     #[test]
     fn code_context_pos_last_line_without_newline() {
-        let source = from_str("hello world");
-        let pos = source.first_substr_pos("hello");
+        let code = Code::new("hello world");
+        let pos = code.s1("hello").pos();
         assert_eq!(
             pos.code_context(),
             "\
@@ -624,8 +580,8 @@ mod tests {
 
     #[test]
     fn code_context_pos_with_indent() {
-        let source = from_str("    hello world");
-        let pos = source.first_substr_pos("hello");
+        let code = Code::new("    hello world");
+        let pos = code.s1("hello").pos();
         assert_eq!(
             pos.code_context(),
             "\
@@ -637,10 +593,9 @@ mod tests {
 
     #[test]
     fn code_context_eof() {
-        let source = from_str("h");
-        let pos = source.pos(1, 1);
+        let code = Code::new("h");
         assert_eq!(
-            pos.code_context(),
+            code.eof_pos().code_context(),
             "\
 1 --> h
    |   ~
@@ -650,15 +605,14 @@ mod tests {
 
     #[test]
     fn code_context_eof_empty() {
-        let source = from_str("");
-        let pos = source.pos(0, 1);
-        assert_eq!(pos.code_context(), "1 --> \n   |  ~\n",);
+        let code = Code::new("");
+        assert_eq!(code.eof_pos().code_context(), "1 --> \n   |  ~\n",);
     }
 
     #[test]
     fn code_context_with_context() {
-        let source = from_str("hello\nworld");
-        let pos = source.first_substr_pos("hello");
+        let code = Code::new("hello\nworld");
+        let pos = code.s1("hello").pos();
         assert_eq!(
             pos.code_context(),
             "\
@@ -671,8 +625,8 @@ mod tests {
 
     #[test]
     fn code_context_with_tabs() {
-        let source = from_str("\thello\t");
-        let pos = source.first_substr_pos("hello\t");
+        let code = Code::new("\thello\t");
+        let pos = code.s1("hello\t").pos();
         assert_eq!(
             pos.code_context(),
             "\
@@ -684,9 +638,9 @@ mod tests {
 
     #[test]
     fn code_context_non_ascii() {
-        let source = from_str("åäö\nåäö\n__å_ä_ö__");
-        let pos = source.first_substr_pos("å_ä_ö");
-        assert_eq!(pos.length, 5);
+        let code = Code::new("åäö\nåäö\n__å_ä_ö__");
+        let pos = code.s1("å_ä_ö").pos();
+        assert_eq!(pos.range.length(), 5);
         assert_eq!(
             pos.code_context(),
             "\
@@ -700,9 +654,9 @@ mod tests {
 
     #[test]
     fn code_context_non_ascii_from_file() {
-        with_source_from_file("åäö\nåäö\n__å_ä_ö__", |source: Source| {
-            let pos = source.first_substr_pos("å_ä_ö");
-            assert_eq!(pos.length, 5);
+        with_code_from_file("åäö\nåäö\n__å_ä_ö__", |code: Code| {
+            let pos = code.s1("å_ä_ö").pos();
+            assert_eq!(pos.range.length(), 5);
             assert_eq!(
                 pos.code_context(),
                 "\
@@ -717,7 +671,7 @@ mod tests {
 
     #[test]
     fn code_context_with_full_context() {
-        let source = from_str(
+        let code = Code::new(
             "\
 line1
 line2
@@ -733,7 +687,7 @@ line11
 line12
 line13",
         );
-        let pos = source.first_substr_pos("line10");
+        let pos = code.s1("line10").pos();
         assert_eq!(
             pos.code_context(),
             " \
@@ -749,9 +703,9 @@ line13",
 
     #[test]
     fn show_from_filename() {
-        with_source_from_file("hello\nworld\nline\n", |source: Source| {
+        with_code_from_file("hello\nworld\nline\n", |code: Code| {
             assert_eq!(
-                source.first_substr_pos("world").show("Greetings"),
+                code.s1("world").pos().show("Greetings"),
                 format!(
                     "\
 Greetings
@@ -762,7 +716,7 @@ Greetings
    |  ~~~~~
 3  |  line
 ",
-                    source.file_name()
+                    code.source().file_name()
                 )
             )
         });
@@ -770,18 +724,21 @@ Greetings
 
     #[test]
     fn show_contents() {
-        let source = from_str("hello\nworld\nline\n");
+        let code = Code::new("hello\nworld\nline\n");
         assert_eq!(
-            &source.first_substr_pos("world").show("Greetings"),
-            "\
+            code.s1("world").pos().show("Greetings"),
+            format!(
+                "\
 Greetings
-  --> file_name:2
+  --> {}:2
    |
 1  |  hello
 2 --> world
    |  ~~~~~
 3  |  line
-"
+",
+                code.source().file_name()
+            )
         );
     }
 }

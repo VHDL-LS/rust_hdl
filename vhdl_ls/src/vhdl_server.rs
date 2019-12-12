@@ -423,10 +423,13 @@ fn srcpos_to_location(pos: &SrcPos) -> Location {
     }
 }
 
-fn position_to_cursor(source: &Source, position: &Position) -> Option<usize> {
+fn position_to_cursor(
+    source: &Source,
+    position: &lsp_types::Position,
+) -> Option<vhdl_parser::Position> {
     let contents = source.contents().unwrap();
 
-    let mut cursor = Position {
+    let mut cursor = lsp_types::Position {
         line: 0,
         character: 0,
     };
@@ -435,7 +438,9 @@ fn position_to_cursor(source: &Source, position: &Position) -> Option<usize> {
     for (i, byte) in contents.bytes.iter().enumerate() {
         if position.line == cursor.line {
             if position.character == cursor.character {
-                return Some(i - num_r);
+                return Some(vhdl_parser::Position {
+                    byte_offset: i - num_r,
+                });
             }
         }
         if *byte == b'\r' {
@@ -450,21 +455,21 @@ fn position_to_cursor(source: &Source, position: &Position) -> Option<usize> {
     return None;
 }
 
-fn srcpos_to_range(srcpos: &SrcPos) -> Range {
+fn srcpos_to_range(srcpos: &SrcPos) -> lsp_types::Range {
     let contents = srcpos.source.contents().unwrap();
     let mut start = None;
     let mut end = None;
 
-    let mut cursor = Position {
+    let mut cursor = lsp_types::Position {
         line: 0,
         character: 0,
     };
     for (i, byte) in contents.bytes.iter().enumerate() {
-        if i == srcpos.start {
+        if i == srcpos.range.start.byte_offset {
             start = Some(cursor);
         }
 
-        if i == srcpos.start + srcpos.length {
+        if i == srcpos.range.end.byte_offset {
             end = Some(cursor);
         }
 
@@ -520,11 +525,11 @@ fn uri_to_file_name(uri: &Url) -> String {
 
 fn decode_error_to_lsp_diagnostic(err: &Utf8ToLatin1Error) -> lsp_types::Diagnostic {
     let range = Range {
-        start: Position {
+        start: lsp_types::Position {
             line: err.line,
             character: err.column,
         },
-        end: Position {
+        end: lsp_types::Position {
             line: err.line,
             character: err.column + 1,
         },
@@ -703,11 +708,11 @@ end entity ent2;
             uri: file_url.clone(),
             diagnostics: vec![lsp_types::Diagnostic {
                 range: Range {
-                    start: Position {
+                    start: lsp_types::Position {
                         line: 2,
                         character: "end entity ".len() as u64,
                     },
-                    end: Position {
+                    end: lsp_types::Position {
                         line: 2,
                         character: "end entity ent2".len() as u64,
                     },
@@ -794,11 +799,11 @@ lib.files = [
             uri: file_uri.clone(),
             diagnostics: vec![lsp_types::Diagnostic {
                 range: Range {
-                    start: Position {
+                    start: lsp_types::Position {
                         line: 3,
                         character: "architecture rtl of ".len() as u64,
                     },
-                    end: Position {
+                    end: lsp_types::Position {
                         line: 3,
                         character: "architecture rtl of ent2".len() as u64,
                     },
@@ -889,11 +894,11 @@ end entity ent;
             uri: file_url.clone(),
             diagnostics: vec![lsp_types::Diagnostic {
                 range: Range {
-                    start: Position {
+                    start: lsp_types::Position {
                         line: 1,
                         character: 3,
                     },
-                    end: Position {
+                    end: lsp_types::Position {
                         line: 1,
                         character: 4,
                     },
@@ -964,7 +969,7 @@ lib.files = [
             text_document: TextDocumentIdentifier {
                 uri: file_url2.clone(),
             },
-            position: Position {
+            position: lsp_types::Position {
                 line: 2,
                 character: "  constant c : t".len() as u64,
             },
@@ -973,11 +978,11 @@ lib.files = [
         let expected = Location {
             uri: file_url1.clone(),
             range: Range {
-                start: Position {
+                start: lsp_types::Position {
                     line: 1,
                     character: "  type ".len() as u64,
                 },
-                end: Position {
+                end: lsp_types::Position {
                     line: 1,
                     character: "  type tpe_t".len() as u64,
                 },

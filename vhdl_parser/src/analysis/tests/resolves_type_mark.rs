@@ -129,30 +129,29 @@ end package;",
     let (root, diagnostics) = builder.get_analyzed_root();
     check_no_diagnostics(&diagnostics);
 
-    let ref_pos = code2.s1("typ_t").pos();
     let decl_pos = code1.s1("typ_t").pos();
 
     // Cursor before symbol
     assert_eq!(
-        root.search_reference(code2.source(), ref_pos.start - 1),
+        root.search_reference(code2.source(), code2.s1(" typ_t").start()),
         None
     );
 
     // Cursor at beginning of symbol
     assert_eq!(
-        root.search_reference(code2.source(), ref_pos.start),
+        root.search_reference(code2.source(), code2.s1("typ_t").start()),
         Some(decl_pos.clone())
     );
 
     // Cursor at end of symbol
     assert_eq!(
-        root.search_reference(code2.source(), ref_pos.end()),
+        root.search_reference(code2.source(), code2.s1("typ_t").end()),
         Some(decl_pos.clone())
     );
 
     // Cursor after end of symbol
     assert_eq!(
-        root.search_reference(code2.source(), ref_pos.end() + 1),
+        root.search_reference(code2.source(), code2.s1("typ_t ").end()),
         None
     );
 }
@@ -174,7 +173,7 @@ end package;",
     let decl_pos = code.s1("typ_t").pos();
 
     assert_eq!(
-        root.search_reference(code.source(), decl_pos.start),
+        root.search_reference(code.source(), decl_pos.range.start),
         Some(decl_pos)
     );
 }

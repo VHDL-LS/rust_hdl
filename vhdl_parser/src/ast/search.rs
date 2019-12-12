@@ -352,11 +352,11 @@ impl<T> Search<T> for PackageInstanceUnit {
 // Search for reference to declaration/definition at cursor
 pub struct ItemAtCursor {
     source: Source,
-    cursor: usize,
+    cursor: Position,
 }
 
 impl ItemAtCursor {
-    pub fn new(source: &Source, cursor: usize) -> ItemAtCursor {
+    pub fn new(source: &Source, cursor: Position) -> ItemAtCursor {
         ItemAtCursor {
             source: source.clone(),
             cursor,
@@ -366,7 +366,7 @@ impl ItemAtCursor {
     pub fn is_inside(&self, pos: &SrcPos) -> bool {
         // cursor is the gap between character cursor and cursor + 1
         // Thus cursor will match character cursor and cursor + 1
-        pos.start <= self.cursor && self.cursor <= pos.end()
+        pos.range.start <= self.cursor && self.cursor <= pos.range.end
     }
 }
 

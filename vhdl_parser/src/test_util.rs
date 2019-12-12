@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
+use crate::ast;
 use crate::ast::*;
 use crate::concurrent_statement::parse_labeled_concurrent_statement;
 use crate::configuration::parse_configuration_declaration;
@@ -23,11 +24,11 @@ use crate::latin_1::Latin1String;
 use crate::names::{parse_association_list, parse_designator, parse_name, parse_selected_name};
 use crate::range::{parse_discrete_range, parse_range};
 use crate::sequential_statement::parse_sequential_statement;
-use crate::source::{Source, SrcPos, WithPos};
+use crate::source::{Range, Source, SrcPos, WithPos};
 use crate::subprogram::{parse_signature, parse_subprogram_declaration_no_semi};
 use crate::subtype_indication::parse_subtype_indication;
 use crate::symbol_table::{Symbol, SymbolTable};
-use crate::tokenizer::Tokenizer;
+use crate::tokenizer::{Comment, Token, Tokenizer};
 use crate::tokenstream::TokenStream;
 use crate::waveform::parse_waveform;
 use std::collections::hash_map::DefaultHasher;
@@ -49,19 +50,24 @@ impl CodeBuilder {
     }
 
     pub fn code_from_source(&self, source: Source) -> Code {
-        let pos = source.entire_pos();
+        let length = source.contents().unwrap().bytes.len();
+        let pos = SrcPos {
+            source: source.clone(),
+            range: Range::new(
+                Position { byte_offset: 0 },
+                Position {
+                    byte_offset: length,
+                },
+            ),
+        };
+
         let code = Code {
-            source,
             symtab: self.symtab.clone(),
             pos,
         };
 
         // Ensure symbol table is populated
-        code.with_stream(|stream| {
-            while stream.pop()?.is_some() {}
-            Ok(())
-        });
-
+        code.tokenize_result();
         code
     }
 
@@ -83,7 +89,6 @@ impl CodeBuilder {
 
 #[derive(Clone)]
 pub struct Code {
-    source: Source,
     pub symtab: Arc<SymbolTable>,
     pos: SrcPos,
 }
@@ -97,13 +102,24 @@ impl Code {
         CodeBuilder::new().code_with_file_name(file_name, code)
     }
 
+    pub fn in_range(&self, range: Range) -> Code {
+        Code {
+            symtab: self.symtab.clone(),
+            pos: SrcPos {
+                source: self.pos.source.clone(),
+                range,
+            },
+        }
+    }
+
     /// Create new Code from n:th occurence of substr
     pub fn s(&self, substr: &str, occurence: usize) -> Code {
-        Code {
-            source: self.source.clone(),
-            symtab: self.symtab.clone(),
-            pos: self.pos().substr_pos(&self.source, substr, occurence),
-        }
+        self.in_range(substr_range(
+            &self.pos.source,
+            &self.pos.range,
+            substr,
+            occurence,
+        ))
     }
 
     /// Create new Code from first n:th occurence of substr
@@ -113,27 +129,69 @@ impl Code {
 
     /// Create new code between two substring matches
     pub fn between(&self, start: &str, end: &str) -> Code {
-        let start = self.pos.substr_pos(&self.source, start, 1);
-        let trailing = self.source.pos(
-            start.start,
-            self.pos.length - (start.start - self.pos.start),
-        );
-        let end = trailing.substr_pos(&self.source, end, 1);
-        let length = (end.start + end.length) - start.start;
+        let start_range = substr_range(&self.pos.source, &self.pos.range, start, 1);
+        let trailing_range = Range::new(start_range.start, self.pos.range.end);
+        let end_range = substr_range(&self.pos.source, &trailing_range, end, 1);
 
-        Code {
-            source: self.source.clone(),
-            symtab: self.symtab.clone(),
-            pos: self.source.pos(start.start, length),
-        }
+        self.in_range(Range::new(start_range.start, end_range.end))
     }
 
     pub fn pos(self: &Self) -> SrcPos {
         self.pos.clone()
     }
 
+    // Position after code
+    pub fn eof_pos(self: &Self) -> SrcPos {
+        SrcPos {
+            source: self.source().clone(),
+            range: Range::new(self.pos().range.end, self.pos().range.end.next_char()),
+        }
+    }
+
+    pub fn start(self: &Self) -> Position {
+        self.pos.range.start.clone()
+    }
+
+    pub fn end(self: &Self) -> Position {
+        self.pos.range.end.clone()
+    }
+
     pub fn source(&self) -> &Source {
-        &self.source
+        &self.pos.source
+    }
+
+    pub fn latin1(&self) -> Arc<Latin1String> {
+        self.source().contents().unwrap()
+    }
+
+    /// Helper method to test tokenization functions
+    pub fn tokenize_result(&self) -> (Vec<Result<Token, Diagnostic>>, Vec<Comment>) {
+        let mut tokens = Vec::new();
+        let final_comments: Vec<Comment>;
+        {
+            let code = self.pos.source.contents().unwrap();
+            let mut tokenizer = Tokenizer::new(self.symtab.clone(), self.pos.source.clone(), code);
+            loop {
+                let token = tokenizer.pop();
+
+                match token {
+                    Ok(None) => break,
+                    Ok(Some(token)) => tokens.push(Ok(token)),
+                    Err(err) => tokens.push(Err(err)),
+                }
+            }
+            match tokenizer.get_final_comments() {
+                Some(comments) => final_comments = comments,
+                None => panic!("Tokenizer failed to check for final comments."),
+            }
+        }
+        (tokens, final_comments)
+    }
+
+    /// Tokenize and check that there are no errors, ignore final comments
+    pub fn tokenize(&self) -> Vec<Token> {
+        let tokens = self.tokenize_result().0;
+        tokens.into_iter().map(|tok| tok.unwrap()).collect()
     }
 
     /// Helper method to run lower level parsing function at specific substring
@@ -141,11 +199,15 @@ impl Code {
     where
         F: FnOnce(&mut TokenStream) -> R,
     {
-        let latin1 = self.source.contents().unwrap();
-        let latin1 = Latin1String::new(&latin1.bytes[..self.pos.start + self.pos.length]);
-        let tokenizer = Tokenizer::new(self.symtab.clone(), self.source.clone(), Arc::new(latin1));
+        let latin1 = self.pos.source.contents().unwrap();
+        let latin1 = Latin1String::new(&latin1.bytes[..self.pos.range.end.byte_offset]);
+        let tokenizer = Tokenizer::new(
+            self.symtab.clone(),
+            self.pos.source.clone(),
+            Arc::new(latin1),
+        );
         let mut stream = TokenStream::new(tokenizer);
-        forward(&mut stream, &self.pos);
+        forward(&mut stream, self.pos.range.start);
         parse_fun(&mut stream)
     }
 
@@ -168,8 +230,8 @@ impl Code {
     {
         let tokenizer = Tokenizer::new(
             self.symtab.clone(),
-            self.source.clone(),
-            self.source.contents().unwrap(),
+            self.pos.source.clone(),
+            self.pos.source.contents().unwrap(),
         );
         let mut stream = TokenStream::new(tokenizer);
         parse_fun(&mut stream)
@@ -361,7 +423,7 @@ impl Code {
         self.parse_ok(|stream| parse_aggregate(stream))
     }
 
-    pub fn range(&self) -> Range {
+    pub fn range(&self) -> ast::Range {
         self.parse_ok(parse_range).item
     }
 
@@ -430,11 +492,48 @@ impl Code {
     }
 }
 
+#[cfg(test)]
+pub fn substr_range(source: &Source, range: &Range, substr: &str, occurence: usize) -> Range {
+    let substr = Latin1String::from_utf8_unchecked(substr);
+    let contents = source.contents().unwrap();
+    let mut count = occurence;
+
+    if range.length() < substr.len() {
+        let code =
+            Latin1String::new(&contents.bytes[range.start.byte_offset..range.end.byte_offset]);
+        panic!(
+            "Substring {:?} is longer than code {:?}",
+            substr,
+            &code.to_string()
+        )
+    }
+
+    let start = range.start.byte_offset;
+    let end = range.end.byte_offset - substr.len() + 1;
+    for i in start..end {
+        if &contents.bytes[i..i + substr.len()] == substr.bytes.as_slice() {
+            count -= 1;
+            if count == 0 {
+                return Range::new(
+                    Position { byte_offset: i },
+                    Position {
+                        byte_offset: i + substr.len(),
+                    },
+                );
+            }
+        }
+    }
+    panic!(
+        "Could not find occurence {} of substring {:?} in {:?}",
+        occurence, substr, contents
+    );
+}
+
 /// Fast forward tokenstream until position
-fn forward(stream: &mut TokenStream, pos: &SrcPos) {
+fn forward(stream: &mut TokenStream, start: Position) {
     loop {
         let token = stream.peek_expect().unwrap();
-        if token.pos.start >= pos.start {
+        if token.pos.range.start >= start {
             break;
         }
         stream.move_after(&token);

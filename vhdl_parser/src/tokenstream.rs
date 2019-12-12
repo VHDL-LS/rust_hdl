@@ -181,14 +181,18 @@ impl<T: std::fmt::Debug> Recover<T> for ParseResult<T> {
 mod tests {
     use super::*;
     use crate::diagnostic::Diagnostic;
-    use crate::source::Source;
-    use crate::tokenizer::tokenize;
+    use crate::test_util::Code;
 
-    fn new(code: &str) -> (Source, Vec<Token>, TokenStream) {
-        let (source, symtab, tokens) = tokenize(code);
-        let tokenizer = Tokenizer::new(symtab, source.clone(), source.contents().unwrap());
+    fn new(code: &str) -> (Code, Vec<Token>, TokenStream) {
+        let code = Code::new(code);
+        let tokens = code.tokenize();
+        let tokenizer = Tokenizer::new(
+            code.symtab.clone(),
+            code.source().clone(),
+            code.source().contents().unwrap(),
+        );
         let stream = TokenStream::new(tokenizer);
-        (source, tokens, stream)
+        (code, tokens, stream)
     }
 
     #[test]
@@ -229,17 +233,17 @@ mod tests {
 
     #[test]
     fn expect() {
-        let (source, tokens, mut stream) = new("hello");
+        let (code, tokens, mut stream) = new("hello");
 
         assert_eq!(stream.peek_expect(), Ok(tokens[0].clone()));
         assert_eq!(stream.expect(), Ok(tokens[0].clone()));
         assert_eq!(
             stream.peek_expect(),
-            Err(Diagnostic::error(&source.pos(5, 1), "Unexpected EOF"))
+            Err(Diagnostic::error(code.eof_pos(), "Unexpected EOF"))
         );
         assert_eq!(
             stream.expect(),
-            Err(Diagnostic::error(&source.pos(5, 1), "Unexpected EOF"))
+            Err(Diagnostic::error(code.eof_pos(), "Unexpected EOF"))
         );
     }
 
@@ -268,33 +272,33 @@ mod tests {
 
     #[test]
     fn expect_when_eof_empty() {
-        let (source, _, mut stream) = new("");
+        let (code, _, mut stream) = new("");
 
         assert_eq!(
             stream.expect(),
-            Err(Diagnostic::error(&source.pos(0, 1), "Unexpected EOF"))
+            Err(Diagnostic::error(code.eof_pos(), "Unexpected EOF"))
         );
     }
 
     #[test]
     fn expect_eof_after_whitespace() {
-        let (source, _, mut stream) = new("a  ");
+        let (code, _, mut stream) = new("a  ");
 
         stream.expect().unwrap();
         assert_eq!(
             stream.expect(),
-            Err(Diagnostic::error(&source.pos(3, 1), "Unexpected EOF"))
+            Err(Diagnostic::error(code.eof_pos(), "Unexpected EOF"))
         );
     }
 
     #[test]
     fn expect_eof_after_comment() {
-        let (source, _, mut stream) = new("a  -- foo");
+        let (code, _, mut stream) = new("a  -- foo");
 
         stream.expect().unwrap();
         assert_eq!(
             stream.expect(),
-            Err(Diagnostic::error(&source.pos(9, 1), "Unexpected EOF"))
+            Err(Diagnostic::error(code.eof_pos(), "Unexpected EOF"))
         );
     }
 
