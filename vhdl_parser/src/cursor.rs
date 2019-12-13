@@ -26,12 +26,8 @@ impl BytePos {
     /// Return the range from self to end
     pub fn range_to(self, end: BytePos) -> Range {
         Range {
-            start: Position {
-                byte_offset: self.idx,
-            },
-            end: Position {
-                byte_offset: end.idx,
-            },
+            start: self.to_position(),
+            end: end.to_position(),
         }
     }
 
@@ -114,7 +110,8 @@ impl BytePos {
 
     pub fn to_position(self) -> Position {
         Position {
-            byte_offset: self.idx,
+            line: self.line,
+            character: self.character,
         }
     }
 

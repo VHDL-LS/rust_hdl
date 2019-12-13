@@ -380,8 +380,8 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         self.source_map
             .get(&params.text_document.uri)
             .and_then(|source| {
-                position_to_cursor(&source, &params.position)
-                    .and_then(|cursor| self.project.search_reference(source, cursor))
+                self.project
+                    .search_reference(source, position_to_cursor(&params.position))
             })
             .map(|result| srcpos_to_location(&result))
     }
@@ -399,8 +399,10 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             .source_map
             .get(&params.text_document_position.text_document.uri)
             .and_then(|source| {
-                position_to_cursor(&source, &params.text_document_position.position)
-                    .and_then(|cursor| self.project.search_reference(source, cursor))
+                self.project.search_reference(
+                    source,
+                    position_to_cursor(&params.text_document_position.position),
+                )
             });
 
         if let Some(ref decl_pos) = decl_pos {
@@ -419,71 +421,28 @@ fn srcpos_to_location(pos: &SrcPos) -> Location {
     let uri = file_name_to_uri(pos.source.file_name());
     Location {
         uri: uri.to_owned(),
-        range: srcpos_to_range(&pos),
+        range: to_lsp_range(&pos.range),
     }
 }
 
-fn position_to_cursor(
-    source: &Source,
-    position: &lsp_types::Position,
-) -> Option<vhdl_parser::Position> {
-    let contents = source.contents().unwrap();
-
-    let mut cursor = lsp_types::Position {
-        line: 0,
-        character: 0,
-    };
-
-    let mut num_r = 0;
-    for (i, byte) in contents.bytes.iter().enumerate() {
-        if position.line == cursor.line {
-            if position.character == cursor.character {
-                return Some(vhdl_parser::Position {
-                    byte_offset: i - num_r,
-                });
-            }
-        }
-        if *byte == b'\r' {
-            num_r += 1;
-        } else if *byte == b'\n' {
-            cursor.line += 1;
-            cursor.character = 0;
-        } else {
-            cursor.character += 1;
-        };
+fn position_to_cursor(position: &lsp_types::Position) -> vhdl_parser::Position {
+    vhdl_parser::Position {
+        line: position.line,
+        character: position.character,
     }
-    return None;
 }
 
-fn srcpos_to_range(srcpos: &SrcPos) -> lsp_types::Range {
-    let contents = srcpos.source.contents().unwrap();
-    let mut start = None;
-    let mut end = None;
-
-    let mut cursor = lsp_types::Position {
-        line: 0,
-        character: 0,
-    };
-    for (i, byte) in contents.bytes.iter().enumerate() {
-        if i == srcpos.range.start.byte_offset {
-            start = Some(cursor);
-        }
-
-        if i == srcpos.range.end.byte_offset {
-            end = Some(cursor);
-        }
-
-        if *byte == b'\n' {
-            cursor.line += 1;
-            cursor.character = 0;
-        } else {
-            cursor.character += 1;
-        };
+fn to_lsp_pos(position: &vhdl_parser::Position) -> lsp_types::Position {
+    lsp_types::Position {
+        line: position.line,
+        character: position.character,
     }
+}
 
-    Range {
-        start: start.unwrap_or(cursor),
-        end: end.unwrap_or(cursor),
+fn to_lsp_range(range: &vhdl_parser::Range) -> lsp_types::Range {
+    lsp_types::Range {
+        start: to_lsp_pos(&range.start),
+        end: to_lsp_pos(&range.end),
     }
 }
 
@@ -561,7 +520,7 @@ fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {
             related_information.push(DiagnosticRelatedInformation {
                 location: Location {
                     uri: uri.to_owned(),
-                    range: srcpos_to_range(&pos),
+                    range: to_lsp_range(&pos.range),
                 },
                 message: msg,
             })
@@ -572,7 +531,7 @@ fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {
     };
 
     lsp_types::Diagnostic {
-        range: srcpos_to_range(&diagnostic.pos),
+        range: to_lsp_range(&diagnostic.pos.range),
         severity: Some(severity),
         code: None,
         source: Some("vhdl ls".to_owned()),

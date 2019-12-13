@@ -174,13 +174,15 @@ impl Source {
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash, Debug)]
 pub struct Position {
-    pub byte_offset: usize,
+    pub line: u64,
+    pub character: u64,
 }
 
 impl Position {
     pub fn next_char(&self) -> Position {
         Position {
-            byte_offset: self.byte_offset + 1,
+            line: self.line,
+            character: self.character + 1,
         }
     }
 }
@@ -277,66 +279,39 @@ impl<T> Into<SrcPos> for WithPos<T> {
 }
 
 impl SrcPos {
+    const LINE_CONTEXT: u64 = 2;
+
     fn get_line_context(
-        self: &Self,
-        context_lines: usize,
+        &self,
+        context_lines: u64,
         reader: &mut dyn BufRead,
-    ) -> (usize, VecDeque<(usize, usize, Latin1String)>) {
-        let mut first_lineno = None;
+    ) -> VecDeque<(u64, Latin1String)> {
         let mut lines = VecDeque::new();
-        let mut offset: usize = 0;
-        let mut lineno = 1;
         let mut buf = String::new();
-        let mut early_eof = false;
+        let mut lineno = 0;
 
         while let Ok(bytes_read) = reader.read_line(&mut buf) {
-            let line = Latin1String::from_utf8(&buf).unwrap();
-
             if bytes_read == 0 {
-                early_eof = true;
                 break;
             }
 
-            match first_lineno {
-                Some(first_lineno) => {
-                    if lineno > first_lineno + context_lines {
-                        break;
-                    }
-                }
-                None => {
-                    if self.overlaps(offset, line.len()) {
-                        first_lineno = Some(lineno);
-                    } else if lines.len() >= context_lines {
-                        lines.pop_front();
-                    }
-                }
-            };
+            let line = Latin1String::from_utf8(&buf).unwrap();
 
-            lines.push_back((lineno, offset, line.clone()));
-            offset += line.len();
+            if lineno <= (self.range.end.line + context_lines) {
+                if (lineno + context_lines) >= self.range.start.line {
+                    lines.push_back((lineno, line.clone()));
+                }
+            } else {
+                break;
+            }
+
             lineno += 1;
             buf.clear();
         }
-
-        if early_eof && self.range.end.byte_offset > offset {
-            if !lines.is_empty() {
-                let last_idx = lines.len() - 1;
-                let (_, ref offset, ref mut line) = &mut lines[last_idx];
-                let line_len = self.range.end.byte_offset - offset;
-                for _ in line.len()..line_len {
-                    line.bytes.push(b' ');
-                }
-            } else {
-                let line_len = self.range.end.byte_offset - offset;
-                let mut line = Latin1String::from_vec(Vec::with_capacity(line_len));
-                for _ in 0..line_len {
-                    line.bytes.push(b' ');
-                }
-                lines.push_back((lineno, offset, line));
-            }
+        if lines.is_empty() {
+            lines.push_back((lineno, Latin1String::empty()));
         }
-
-        (first_lineno.unwrap_or(lineno - 1), lines)
+        lines
     }
 
     fn push_replicate(line: &mut String, chr: char, times: usize) {
@@ -354,13 +329,9 @@ impl SrcPos {
     }
 
     /// Write ~~~ to underline symbol
-    fn underline(self: &Self, lineno_len: usize, offset: usize, line: &str, into: &mut String) {
-        let start = min(self.range.start.byte_offset, offset);
-        // non-inclusive end
-        let end = min(offset + line.len(), self.range.end.byte_offset);
-
+    fn underline(&self, lineno_len: usize, lineno: u64, line: &str, into: &mut String) {
         const NEWLINE_SIZE: usize = 1;
-        into.reserve(5 + lineno_len + end - start + NEWLINE_SIZE);
+        into.reserve("  |  ".len() + lineno_len + line.len() + NEWLINE_SIZE);
 
         // Prefix
         for _ in 0..lineno_len {
@@ -368,15 +339,27 @@ impl SrcPos {
         }
         into.push_str("  |  ");
 
+        let mut pos = Position {
+            line: lineno,
+            character: 0,
+        };
+
         // Padding before underline
-        for (i, chr) in line.chars().enumerate() {
-            let idx = offset + i;
-            if idx < self.range.start.byte_offset {
+        for chr in line.chars() {
+            if pos < self.range.start {
                 Self::push_replicate(into, ' ', Self::visual_width(chr));
-            } else if idx < end {
+            } else if pos < self.range.end {
                 Self::push_replicate(into, '~', Self::visual_width(chr));
             } else {
                 break;
+            }
+            pos.character += 1;
+        }
+
+        if lineno == self.range.end.line {
+            while pos < self.range.end {
+                into.push('~');
+                pos.character += 1;
             }
         }
 
@@ -384,35 +367,27 @@ impl SrcPos {
         into.push_str("\n");
     }
 
-    /// Check is line at offset overlaps source position
-    fn overlaps(self: &Self, offset: usize, line_len: usize) -> bool {
-        offset + line_len >= self.range.start.byte_offset + 1 && offset < self.range.end.byte_offset
-    }
-
-    fn code_context_from_reader(self: &Self, reader: &mut dyn BufRead) -> (usize, usize, String) {
-        const LINE_CONTEXT: usize = 2;
-        let (first_lineno, lines) = self.get_line_context(LINE_CONTEXT, reader);
-
+    fn code_context_from_reader(
+        &self,
+        reader: &mut dyn BufRead,
+        context_lines: u64,
+    ) -> (usize, String) {
+        let lines = self.get_line_context(context_lines, reader);
         use self::pad::{Alignment, PadStr};
-
-        let last_lineno = {
-            match lines.get(lines.len() - 1) {
-                Some((ref lineno, _, _)) => *lineno,
-                _ => 1,
-            }
-        };
-
-        let max_len = format!("{}", last_lineno).len();
+        // +1 since lines are shown with 1-index
+        let lineno_len = (self.range.start.line + context_lines + 1)
+            .to_string()
+            .len();
 
         let mut result = String::new();
 
-        for (lineno, offset, ref line) in lines {
+        for (lineno, line) in lines.iter() {
             let line = line.to_string();
             let line = line.trim_matches('\n');
-            let lineno_str = lineno
+            let lineno_str = (lineno + 1)
                 .to_string()
-                .pad_to_width_with_alignment(max_len, Alignment::Right);
-            let overlaps = self.overlaps(offset, line.len());
+                .pad_to_width_with_alignment(lineno_len, Alignment::Right);
+            let overlaps = self.range.start.line <= *lineno && *lineno <= self.range.end.line;
 
             if overlaps {
                 write!(result, "{} --> ", lineno_str).unwrap();
@@ -430,34 +405,34 @@ impl SrcPos {
             result.push('\n');
 
             if overlaps {
-                self.underline(max_len, offset, line, &mut result);
+                self.underline(lineno_len, *lineno, line, &mut result);
             }
         }
 
-        (first_lineno, max_len, result)
-    }
-
-    fn lineno_and_code_context(&self) -> (usize, usize, String) {
-        // @TODO handle errors
-        let latin1 = self.source.contents().unwrap();
-        self.code_context_from_reader(&mut latin1.to_string().as_bytes())
+        (lineno_len, result)
     }
 
     /// Create a string for pretty printing
-    pub fn code_context(self: &Self) -> String {
-        let (_, _, code_context) = self.lineno_and_code_context();
-        code_context
+    pub fn code_context(&self) -> String {
+        self.lineno_len_and_code_context().1
+    }
+
+    fn lineno_len_and_code_context(&self) -> (usize, String) {
+        let latin1 = self.source.contents().unwrap();
+        self.code_context_from_reader(&mut latin1.to_string().as_bytes(), Self::LINE_CONTEXT)
     }
 
     pub fn show(&self, message: &str) -> String {
-        let (lineno, lineno_len, pretty_str) = self.lineno_and_code_context();
+        let (lineno_len, pretty_str) = self.lineno_len_and_code_context();
         let file_name = self.source.file_name();
         let mut result = String::new();
+
+        let lineno = self.range.start.line;
         writeln!(result, "{}", &message).unwrap();
         for _ in 0..lineno_len {
             result.push(' ');
         }
-        writeln!(result, " --> {}:{}", file_name, lineno).unwrap();
+        writeln!(result, " --> {}:{}", file_name, lineno + 1).unwrap();
         for _ in 0..lineno_len {
             result.push(' ');
         }
@@ -516,6 +491,7 @@ impl<T: HasSrcPos> HasSource for T {
 mod tests {
     use super::*;
     use crate::test_util::{Code, CodeBuilder};
+    use pretty_assertions::assert_eq;
     use tempfile;
 
     #[test]
@@ -633,7 +609,6 @@ mod tests {
     fn code_context_non_ascii() {
         let code = Code::new("åäö\nåäö\n__å_ä_ö__");
         let substr = code.s1("å_ä_ö");
-        let pos = substr.pos();
         assert_eq!(substr.length(), 5);
         assert_eq!(
             substr.pos().code_context(),

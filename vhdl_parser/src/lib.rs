@@ -48,4 +48,4 @@ pub use crate::latin_1::Utf8ToLatin1Error;
 pub use crate::message::{Message, MessageType};
 pub use crate::parser::{ParserError, ParserResult, VHDLParser};
 pub use crate::project::Project;
-pub use crate::source::{Position, Source, SrcPos};
+pub use crate::source::{Position, Range, Source, SrcPos};
