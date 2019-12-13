@@ -12,7 +12,7 @@ vunit_lib.files = [
 'vunit/vunit/vhdl/string_ops/test/*.vhd',
 'vunit/vunit/vhdl/string_ops/src/*.vhd',
 
-'vunit/vunit/vhdl/core/src/stop_body_2008.vhd',
+'vunit/vunit/vhdl/core/src/stop_body_2008p.vhd',
 'vunit/vunit/vhdl/core/src/core_pkg.vhd',
 'vunit/vunit/vhdl/core/src/stop_pkg.vhd',
 
@@ -24,7 +24,7 @@ vunit_lib.files = [
 
 'vunit/vunit/vhdl/check/test/tb_checker.vhd',
 'vunit/vunit/vhdl/check/test/tb_check_next.vhd',
-'vunit/vunit/vhdl/check/test/tb_check_relation_2008.vhd',
+'vunit/vunit/vhdl/check/test/tb_check_relation_2008p.vhd',
 'vunit/vunit/vhdl/check/test/tb_check_stable.vhd',
 'vunit/vunit/vhdl/check/test/test_support.vhd',
 'vunit/vunit/vhdl/check/test/tb_check_passed.vhd',
@@ -50,7 +50,6 @@ vunit_lib.files = [
 
 'vunit/vunit/vhdl/data_types/test/*.vhd',
 
-'vunit/vunit/vhdl/data_types/src/string_ptr_pkg-body-200x.vhd',
 'vunit/vunit/vhdl/data_types/src/codec.vhd',
 'vunit/vunit/vhdl/data_types/src/integer_array_pkg-body.vhd',
 'vunit/vunit/vhdl/data_types/src/queue_pool_pkg.vhd',
@@ -58,16 +57,18 @@ vunit_lib.files = [
 'vunit/vunit/vhdl/data_types/src/queue_pkg-body.vhd',
 'vunit/vunit/vhdl/data_types/src/integer_vector_ptr_pkg.vhd',
 'vunit/vunit/vhdl/data_types/src/dict_pkg.vhd',
-'vunit/vunit/vhdl/data_types/src/queue_pkg-2008.vhd',
+'vunit/vunit/vhdl/data_types/src/queue_pkg-2008p.vhd',
 'vunit/vunit/vhdl/data_types/src/string_ptr_pool_pkg.vhd',
-'vunit/vunit/vhdl/data_types/src/codec-2008.vhd',
+'vunit/vunit/vhdl/data_types/src/codec-2008p.vhd',
 'vunit/vunit/vhdl/data_types/src/string_ptr_pkg.vhd',
 'vunit/vunit/vhdl/data_types/src/queue_pkg.vhd',
 'vunit/vunit/vhdl/data_types/src/codec_builder.vhd',
-'vunit/vunit/vhdl/data_types/src/integer_vector_ptr_pkg-body-200x.vhd',
 'vunit/vunit/vhdl/data_types/src/integer_array_pkg.vhd',
-'vunit/vunit/vhdl/data_types/src/codec_builder-2008.vhd',
+'vunit/vunit/vhdl/data_types/src/codec_builder-2008p.vhd',
 'vunit/vunit/vhdl/data_types/src/data_types_context.vhd',
+'vunit/vunit/vhdl/data_types/src/types.vhd',
+'vunit/vunit/vhdl/data_types/src/external/*novhpi.vhd',
+'vunit/vunit/vhdl/data_types/src/byte_vector*.vhd',
 
 'vunit/vunit/vhdl/path/test/*.vhd',
 'vunit/vunit/vhdl/path/src/*.vhd',
@@ -142,7 +143,7 @@ bitvis_vip_clock_generator.files = [
 ]
 
 bitvis_vip_scoreboard.files = [
-'UVVM/bitvis_vip_scoreboard/demo/*.vhd',
+#'UVVM/bitvis_vip_scoreboard/demo/*.vhd',
 'UVVM/bitvis_vip_scoreboard/src/*.vhd',
 ]
 
@@ -178,7 +179,7 @@ bitvis_vip_sbi.files = [
 
 bitvis_vip_gpio.files = [
 'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
-'UVVM/bitvis_vip_gpio/tb/*.vhd',
+#'UVVM/bitvis_vip_gpio/tb/*.vhd',
 'UVVM/bitvis_vip_gpio/src/*.vhd',
 ]
 
@@ -196,11 +197,11 @@ PoC.files = [
 'PoC/src/sim/sim_simulation.v08.vhdl',
 'PoC/src/sim/sim_waveform.vhdl',
 
-'PoC/src/io/iic/*.vhdl',
+#'PoC/src/io/iic/*.vhdl',
 'PoC/src/io/uart/*.vhdl',
 
-'PoC/src/io/pmod/*.vhdl',
-'PoC/src/io/*.vhdl',
+#'PoC/src/io/pmod/*.vhdl',
+#'PoC/src/io/*.vhdl',
 
 #'PoC/src/io/ddrio/ddrio_inout_xilinx.vhdl',
 'PoC/src/io/ddrio/ddrio_inout.vhdl',
@@ -241,13 +242,13 @@ PoC.files = [
 'PoC/src/arith/arith_counter_ring.vhdl',
 'PoC/src/arith/arith_div.vhdl',
 
-'PoC/src/net/arp/*.vhdl',
-'PoC/src/net/udp/*.vhdl',
-'PoC/src/net/ipv4/*.vhdl',
-'PoC/src/net/mac/*.vhdl',
-'PoC/src/net/icmpv4/*.vhdl',
-'PoC/src/net/ipv6/*.vhdl',
-'PoC/src/net/*.vhdl',
+#'PoC/src/net/arp/*.vhdl',
+#'PoC/src/net/udp/*.vhdl',
+#'PoC/src/net/ipv4/*.vhdl',
+#'PoC/src/net/mac/*.vhdl',
+#'PoC/src/net/icmpv4/*.vhdl',
+#'PoC/src/net/ipv6/*.vhdl',
+#'PoC/src/net/*.vhdl',
 
 'PoC/src/bus/stream/stream_Source.vhdl',
 'PoC/src/bus/stream/stream_DeMux.vhdl',
@@ -286,17 +287,17 @@ PoC.files = [
 #'PoC/src/xil/xil_ICAP.vhdl',
 #'PoC/src/xil/reconfig/reconfig_icap_wrapper.vhdl',
 'PoC/src/xil/reconfig/reconfig_icap_fsm.vhdl',
-'PoC/src/xil/xil_ChipScopeICON.vhdl',
+#'PoC/src/xil/xil_ChipScopeICON.vhdl',
 'PoC/src/xil/xil_Reconfigurator.vhdl',
 #'PoC/src/xil/xil_BSCAN.vhdl',
 #'PoC/src/xil/xil_SystemMonitor.vhdl',
 
 #'PoC/src/mem/sdram/sdram_ctrl_phy_de0.vhdl',
 #'PoC/src/mem/sdram/sdram_ctrl_phy_s3esk.vhdl',
-'PoC/src/mem/sdram/sdram_ctrl_de0.vhdl',
-'PoC/src/mem/sdram/sdram_ctrl_s3esk.vhdl',
-'PoC/src/mem/sdram/sdram_ctrl_fsm.vhdl',
-'PoC/src/mem/ddr2/ddr2_mem2mig_adapter_Spartan6.vhdl',
+#'PoC/src/mem/sdram/sdram_ctrl_de0.vhdl',
+#'PoC/src/mem/sdram/sdram_ctrl_s3esk.vhdl',
+#'PoC/src/mem/sdram/sdram_ctrl_fsm.vhdl',
+#'PoC/src/mem/ddr2/ddr2_mem2mig_adapter_Spartan6.vhdl',
 'PoC/src/mem/mem.pkg.vhdl',
 
 'PoC/src/mem/ocram/ocram.pkg.vhdl',
