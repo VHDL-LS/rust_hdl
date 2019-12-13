@@ -757,6 +757,24 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
+    fn analyze_instance(
+        &self,
+        parent: &DeclarativeRegion<'_>,
+        instance: &mut InstantiationStatement,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        match instance.unit {
+            InstantiatedUnit::Entity(ref mut entity_name, _) => {
+                if let Err(err) = self.resolve_selected_name(parent, entity_name) {
+                    err.add_to(diagnostics)?;
+                }
+            }
+            // @TODO more
+            _ => {}
+        };
+        Ok(())
+    }
+
     fn analyze_concurrent_statement(
         &self,
         parent: &DeclarativeRegion<'_>,
@@ -788,6 +806,9 @@ impl<'a> Analyzer<'a> {
                 for alternative in gen.alternatives.iter_mut() {
                     self.analyze_generate_body(parent, &mut alternative.item, diagnostics)?;
                 }
+            }
+            ConcurrentStatement::Instance(ref mut instance) => {
+                self.analyze_instance(parent, instance, diagnostics)?;
             }
             _ => {}
         };

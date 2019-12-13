@@ -151,3 +151,37 @@ end configuration;
         &vec![code.s("ename", 1).pos(), code.s("ename", 2).pos()],
     );
 }
+
+#[test]
+fn resolves_reference_to_entity_instance() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ename is
+end entity;
+
+architecture a of ename is
+begin
+end architecture;
+
+entity ename2 is
+end entity;
+
+architecture a of ename2 is
+begin
+  bad_inst : entity work.missing;
+  inst : entity work.ename;
+end architecture;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("missing"),
+            "No primary unit 'missing' within 'libname'",
+        )],
+    );
+}
