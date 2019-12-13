@@ -133,7 +133,7 @@ pub enum Name {
     Selected(Box<WithPos<Name>>, WithPos<WithRef<Designator>>),
     SelectedAll(Box<WithPos<Name>>),
     Indexed(Box<WithPos<Name>>, Vec<WithPos<Expression>>),
-    Slice(Box<WithPos<Name>>, DiscreteRange),
+    Slice(Box<WithPos<Name>>, Box<DiscreteRange>),
     Attribute(Box<AttributeName>),
     FunctionCall(Box<FunctionCall>),
     External(Box<ExternalName>),
@@ -233,7 +233,7 @@ pub enum Expression {
     Aggregate(Vec<ElementAssociation>),
 
     /// LRM 9.3.5 Qualified expressions
-    Qualified(QualifiedExpression),
+    Qualified(Box<QualifiedExpression>),
 
     /// LRM 8 Names
     Name(Box<Name>),
@@ -242,7 +242,7 @@ pub enum Expression {
     Literal(Literal),
 
     /// LRM 9.3.7 Allocators
-    New(WithPos<Allocator>),
+    New(Box<WithPos<Allocator>>),
 }
 
 pub type Ident = WithPos<Symbol>;

@@ -252,10 +252,10 @@ fn parse_primary_initial_token(
                 let expr = parse_expression(stream)?;
                 let pos = name.pos.combine(&expr);
                 Ok(WithPos {
-                    item: Expression::Qualified(QualifiedExpression {
+                    item: Expression::Qualified(Box::new(QualifiedExpression {
                         name: Box::new(name),
                         expr: Box::new(expr),
-                    }),
+                    })),
                     pos,
                 })
             } else {
@@ -290,7 +290,7 @@ fn parse_primary_initial_token(
 
             let new_pos = token.pos.combine_into(&alloc);
             Ok(WithPos {
-                item: Expression::New(alloc),
+                item: Expression::New(Box::new(alloc)),
                 pos: new_pos,
             })
         }
@@ -632,7 +632,7 @@ mod tests {
         };
 
         let new_expr = WithPos {
-            item: Expression::New(alloc),
+            item: Expression::New(Box::new(alloc)),
             pos: code.pos(),
         };
 
@@ -649,7 +649,7 @@ mod tests {
         };
 
         let new_expr = WithPos {
-            item: Expression::New(alloc),
+            item: Expression::New(Box::new(alloc)),
             pos: code.pos(),
         };
 
@@ -666,7 +666,7 @@ mod tests {
         };
 
         let new_expr = WithPos {
-            item: Expression::New(alloc),
+            item: Expression::New(Box::new(alloc)),
             pos: code.pos(),
         };
 
@@ -683,7 +683,7 @@ mod tests {
         };
 
         let new_expr = WithPos {
-            item: Expression::New(alloc),
+            item: Expression::New(Box::new(alloc)),
             pos: code.pos(),
         };
 
@@ -764,10 +764,10 @@ mod tests {
         let expr = code.s1("(1+2)").expr();
 
         let qexpr = WithPos {
-            item: Expression::Qualified(QualifiedExpression {
+            item: Expression::Qualified(Box::new(QualifiedExpression {
                 name: Box::new(foo_name),
                 expr: Box::new(expr),
-            }),
+            })),
             pos: code.pos(),
         };
 
@@ -781,10 +781,10 @@ mod tests {
         let expr = code.s1("(others => '1')").expr();
 
         let qexpr = WithPos {
-            item: Expression::Qualified(QualifiedExpression {
+            item: Expression::Qualified(Box::new(QualifiedExpression {
                 name: Box::new(foo_name),
                 expr: Box::new(expr),
-            }),
+            })),
             pos: code.pos(),
         };
 

@@ -385,7 +385,7 @@ pub fn parse_name_initial_token(
                             }));
 
                         name = WithPos {
-                            item: Name::Slice(Box::new(name), discrete_range),
+                            item: Name::Slice(Box::new(name), Box::new(discrete_range)),
                             pos: pos,
                         };
                     },
@@ -572,7 +572,10 @@ mod tests {
             pos: code.s1("prefix").pos(),
         };
         let slice = WithPos {
-            item: Name::Slice(Box::new(prefix), code.s1("0 to 3").discrete_range()),
+            item: Name::Slice(
+                Box::new(prefix),
+                Box::new(code.s1("0 to 3").discrete_range()),
+            ),
             pos: code.s1("prefix(0 to 3)").pos(),
         };
         assert_eq!(code.with_stream(parse_name), slice);
@@ -586,7 +589,10 @@ mod tests {
             pos: code.s1("prefix").pos(),
         };
         let slice = WithPos {
-            item: Name::Slice(Box::new(prefix), code.s1("3 downto 0").discrete_range()),
+            item: Name::Slice(
+                Box::new(prefix),
+                Box::new(code.s1("3 downto 0").discrete_range()),
+            ),
             pos: code.s1("prefix(3 downto 0)").pos(),
         };
         assert_eq!(code.with_stream(parse_name), slice);
