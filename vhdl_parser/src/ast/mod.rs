@@ -288,6 +288,7 @@ pub struct ElementConstraint {
 #[derive(PartialEq, Debug, Clone)]
 pub enum SubtypeConstraint {
     Range(Range),
+    /// Empty Vec means Open
     Array(Vec<DiscreteRange>, Option<Box<WithPos<SubtypeConstraint>>>),
     Record(Vec<ElementConstraint>),
 }

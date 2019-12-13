@@ -5,10 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 /// LRM 6.3 Subtype declarations
-use crate::ast::{
-    Designator, ElementConstraint, RecordElementResolution, ResolutionIndication, SelectedName,
-    SubtypeConstraint, SubtypeIndication,
-};
+use crate::ast::*;
 use crate::diagnostic::ParseResult;
 use crate::names::parse_selected_name;
 use crate::range::{parse_discrete_range, parse_range};
@@ -22,52 +19,70 @@ fn parse_record_element_constraint(stream: &mut TokenStream) -> ParseResult<Elem
     Ok(ElementConstraint { ident, constraint })
 }
 
+fn parse_array_constraint(
+    stream: &mut TokenStream,
+    leftpar_pos: SrcPos,
+    // Open is None
+    initial: Option<DiscreteRange>,
+) -> ParseResult<WithPos<SubtypeConstraint>> {
+    let mut discrete_ranges: Vec<_> = initial.into_iter().collect();
+
+    let mut end_pos = loop {
+        let sep_token = stream.expect()?;
+        try_token_kind!(
+            sep_token,
+            RightPar => break sep_token.pos,
+            Comma => {}
+        );
+
+        discrete_ranges.push(parse_discrete_range(stream)?);
+    };
+
+    // Array element constraint
+    let element_constraint = {
+        if let Some(elemement_constraint) = parse_subtype_constraint(stream)? {
+            end_pos = elemement_constraint.pos.clone();
+            Some(Box::new(elemement_constraint))
+        } else {
+            None
+        }
+    };
+
+    Ok(WithPos::from(
+        SubtypeConstraint::Array(discrete_ranges, element_constraint),
+        leftpar_pos.combine_into(&end_pos),
+    ))
+}
+
 fn parse_composite_constraint(stream: &mut TokenStream) -> ParseResult<WithPos<SubtypeConstraint>> {
     // There is no finite lookahead that can differentiate
     // between array and record element constraint
     let leftpar_pos = stream.expect_kind(LeftPar)?.pos;
     let state = stream.state();
-    let mut initial_constraint = parse_discrete_range(stream);
+
+    let mut initial = {
+        if stream.skip_if_kind(Open)? {
+            // Array constraint open
+            Ok(None)
+        } else {
+            parse_discrete_range(stream).map(|value| Some(value))
+        }
+    };
+
     if let Some(token) = stream.peek()? {
         match token.kind {
             RightPar | Comma => {}
             _ => {
-                initial_constraint = Err(token
+                initial = Err(token
                     .kinds_error(&[RightPar, Comma])
-                    .when("parsing discrete_range"));
+                    .when("parsing index constraint"));
             }
         }
     }
 
-    if let Ok(initial_constraint) = initial_constraint {
+    if let Ok(initial) = initial {
         // Array constraint
-        let mut constraints = vec![initial_constraint];
-
-        let mut end_pos = loop {
-            let sep_token = stream.expect()?;
-            try_token_kind!(
-                sep_token,
-                RightPar => break sep_token.pos,
-                Comma => {}
-            );
-
-            constraints.push(parse_discrete_range(stream)?);
-        };
-
-        // Array element constraint
-        let element_constraint = {
-            if let Some(elemement_constraint) = parse_subtype_constraint(stream)? {
-                end_pos = elemement_constraint.pos.clone();
-                Some(Box::new(elemement_constraint))
-            } else {
-                None
-            }
-        };
-
-        Ok(WithPos::from(
-            SubtypeConstraint::Array(constraints, element_constraint),
-            leftpar_pos.combine_into(&end_pos),
-        ))
+        parse_array_constraint(stream, leftpar_pos, initial)
     } else {
         // Record constraint
         stream.set_state(state);
@@ -418,6 +433,22 @@ mod tests {
             SubtypeConstraint::Array(vec![code.s1("lib.pkg.bar'range").discrete_range()], None),
             code.s1("(lib.pkg.bar'range)"),
         );
+
+        assert_eq!(
+            code.with_stream(parse_subtype_indication),
+            SubtypeIndication {
+                resolution: ResolutionIndication::Unresolved,
+                type_mark: code.s1("integer_vector").selected_name(),
+                constraint: Some(constraint)
+            }
+        );
+    }
+
+    #[test]
+    fn parse_subtype_indication_with_array_constraint_open() {
+        let code = Code::new("integer_vector(open)");
+
+        let constraint = WithPos::new(SubtypeConstraint::Array(vec![], None), code.s1("(open)"));
 
         assert_eq!(
             code.with_stream(parse_subtype_indication),
