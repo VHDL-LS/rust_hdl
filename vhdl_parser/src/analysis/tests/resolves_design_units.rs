@@ -158,10 +158,10 @@ fn resolves_reference_to_entity_instance() {
     let code = builder.code(
         "libname",
         "
-entity ename is
+entity ename1 is
 end entity;
 
-architecture a of ename is
+architecture a of ename1 is
 begin
 end architecture;
 
@@ -171,7 +171,7 @@ end entity;
 architecture a of ename2 is
 begin
   bad_inst : entity work.missing;
-  inst : entity work.ename;
+  inst : entity work.ename1;
 end architecture;
 ",
     );
@@ -183,5 +183,17 @@ end architecture;
             code.s1("missing"),
             "No primary unit 'missing' within 'libname'",
         )],
+    );
+
+    // From reference position
+    assert_eq!(
+        root.search_reference(code.source(), code.s("ename1", 3).start()),
+        Some(code.s("ename1", 1).pos())
+    );
+
+    // Find all references
+    assert_eq_unordered(
+        &root.find_all_references(&code.s1("ename1").pos()),
+        &vec![code.s("ename1", 1).pos(), code.s("ename1", 3).pos()],
     );
 }

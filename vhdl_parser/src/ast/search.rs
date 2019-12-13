@@ -135,6 +135,19 @@ impl<T> Search<T> for GenerateBody {
         self.statements.search(searcher)
     }
 }
+
+impl<T> Search<T> for InstantiationStatement {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        match self.unit {
+            InstantiatedUnit::Entity(ref ent_name, _) => {
+                return_if!(ent_name.search(searcher));
+            }
+            _ => {}
+        };
+        NotFound
+    }
+}
+
 impl<T> Search<T> for LabeledConcurrentStatement {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         searcher
@@ -161,6 +174,8 @@ impl<T> Search<T> for LabeledConcurrentStatement {
                     }
                     NotFound
                 }
+                ConcurrentStatement::Instance(ref inst) => inst.search(searcher),
+
                 // @TODO not searched
                 _ => NotFound,
             })
