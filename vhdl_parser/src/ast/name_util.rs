@@ -65,10 +65,13 @@ impl<T: HasDesignator> HasDesignator for WithRef<T> {
 
 impl Designator {
     pub fn into_ref(self) -> WithRef<Designator> {
-        WithRef {
-            item: self,
-            reference: None,
-        }
+        WithRef::new(self)
+    }
+}
+
+impl Ident {
+    pub fn into_ref(self) -> WithRef<Ident> {
+        WithRef::new(self)
     }
 }
 
@@ -111,7 +114,7 @@ impl HasIdent for PackageDeclaration {
 
 impl HasIdent for PackageBody {
     fn ident(&self) -> &Ident {
-        &self.ident
+        &self.ident.item
     }
 }
 
@@ -195,13 +198,13 @@ pub trait HasPrimaryIdent {
 
 impl HasPrimaryIdent for ArchitectureBody {
     fn primary_ident(&self) -> &Ident {
-        &self.entity_name
+        &self.entity_name.item
     }
 }
 
 impl HasPrimaryIdent for PackageBody {
     fn primary_ident(&self) -> &Ident {
-        &self.ident
+        &self.ident.item
     }
 }
 

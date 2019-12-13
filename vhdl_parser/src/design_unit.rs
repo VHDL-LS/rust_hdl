@@ -7,10 +7,7 @@
 use crate::tokenizer::Kind::*;
 use crate::tokenstream::TokenStream;
 
-use crate::ast::{
-    AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, ArchitectureBody, ContextItem, DesignFile,
-    DesignUnit, EntityDeclaration, PackageBody, PackageDeclaration,
-};
+use crate::ast::*;
 use crate::common::error_on_end_identifier_mismatch;
 use crate::component_declaration::{parse_optional_generic_list, parse_optional_port_list};
 use crate::concurrent_statement::parse_labeled_concurrent_statements;
@@ -87,7 +84,7 @@ pub fn parse_architecture_body(
 
     Ok(ArchitectureBody {
         ident,
-        entity_name,
+        entity_name: entity_name.into_ref(),
         decl,
         statements,
     })
@@ -146,7 +143,10 @@ pub fn parse_package_body(
     }
     stream.expect_kind(SemiColon)?;
 
-    Ok(PackageBody { ident, decl })
+    Ok(PackageBody {
+        ident: ident.into_ref(),
+        decl,
+    })
 }
 
 fn to_design_unit<T>(context_clause: &mut Vec<WithPos<ContextItem>>, unit: T) -> DesignUnit<T> {
@@ -271,7 +271,6 @@ pub fn parse_design_file(
 mod tests {
     use super::*;
 
-    use crate::ast::*;
     use crate::diagnostic::Diagnostic;
     use crate::test_util::{check_diagnostics, check_no_diagnostics, Code};
 
@@ -509,7 +508,7 @@ end;
             context_clause: vec![],
             unit: ArchitectureBody {
                 ident,
-                entity_name,
+                entity_name: entity_name.into_ref(),
                 decl: Vec::new(),
                 statements: vec![],
             },

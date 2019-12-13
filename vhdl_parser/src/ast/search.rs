@@ -69,12 +69,24 @@ pub trait Searcher<T> {
     fn search_subtype_indication(&mut self, _decl: &SubtypeIndication) -> SearchState<T> {
         NotFinished
     }
+
+    /// Search an position that has a reference to a declaration
+    fn search_pos_with_ref<U>(&mut self, _pos: &SrcPos, _ref: &WithRef<U>) -> SearchState<T> {
+        NotFinished
+    }
+
+    /// Search a designator that has a reference to a declaration
     fn search_designator_ref(
         &mut self,
-        _pos: &SrcPos,
-        _designator: &WithRef<Designator>,
+        pos: &SrcPos,
+        designator: &WithRef<Designator>,
     ) -> SearchState<T> {
-        NotFinished
+        self.search_pos_with_ref(pos, designator)
+    }
+
+    /// Search an identifier that has a reference to a declaration
+    fn search_ident_ref(&mut self, ident: &WithRef<Ident>) -> SearchState<T> {
+        self.search_pos_with_ref(&ident.item.pos, ident)
     }
 
     /// Search the position of a declaration of a named entity
@@ -384,13 +396,12 @@ impl<T> Search<T> for WithPos<ContextItem> {
 impl<T> Search<T> for EntityUnit {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         searcher.search_source(self.source()).or_else(|| {
-            searcher.search_decl_pos(self.ident().pos()).or_else(|| {
-                return_if!(self.context_clause.search(searcher));
-                return_if!(self.unit.generic_clause.search(searcher));
-                return_if!(self.unit.port_clause.search(searcher));
-                return_if!(self.unit.decl.search(searcher));
-                self.unit.statements.search(searcher)
-            })
+            return_if!(self.context_clause.search(searcher));
+            return_if!(searcher.search_decl_pos(self.ident().pos()).or_not_found());
+            return_if!(self.unit.generic_clause.search(searcher));
+            return_if!(self.unit.port_clause.search(searcher));
+            return_if!(self.unit.decl.search(searcher));
+            self.unit.statements.search(searcher)
         })
     }
 }
@@ -398,11 +409,12 @@ impl<T> Search<T> for EntityUnit {
 impl<T> Search<T> for ArchitectureUnit {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         searcher.search_source(self.source()).or_else(|| {
-            searcher.search_decl_pos(self.ident().pos()).or_else(|| {
-                return_if!(self.context_clause.search(searcher));
-                return_if!(self.unit.decl.search(searcher));
-                self.unit.statements.search(searcher)
-            })
+            return_if!(self.context_clause.search(searcher));
+            return_if!(searcher
+                .search_ident_ref(&self.unit.entity_name)
+                .or_not_found());
+            return_if!(self.unit.decl.search(searcher));
+            self.unit.statements.search(searcher)
         })
     }
 }
@@ -410,11 +422,10 @@ impl<T> Search<T> for ArchitectureUnit {
 impl<T> Search<T> for PackageUnit {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         searcher.search_source(self.source()).or_else(|| {
-            searcher.search_decl_pos(self.ident().pos()).or_else(|| {
-                return_if!(self.context_clause.search(searcher));
-                return_if!(self.unit.generic_clause.search(searcher));
-                self.unit.decl.search(searcher)
-            })
+            return_if!(self.context_clause.search(searcher));
+            return_if!(searcher.search_decl_pos(self.ident().pos()).or_not_found());
+            return_if!(self.unit.generic_clause.search(searcher));
+            self.unit.decl.search(searcher)
         })
     }
 }
@@ -422,10 +433,9 @@ impl<T> Search<T> for PackageUnit {
 impl<T> Search<T> for PackageBodyUnit {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         searcher.search_source(self.source()).or_else(|| {
-            searcher.search_decl_pos(self.ident().pos()).or_else(|| {
-                return_if!(self.context_clause.search(searcher));
-                self.unit.decl.search(searcher)
-            })
+            return_if!(searcher.search_ident_ref(&self.unit.ident).or_not_found());
+            return_if!(self.context_clause.search(searcher));
+            self.unit.decl.search(searcher)
         })
     }
 }
@@ -433,10 +443,9 @@ impl<T> Search<T> for PackageBodyUnit {
 impl<T> Search<T> for PackageInstanceUnit {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         searcher.search_source(self.source()).or_else(|| {
-            searcher.search_decl_pos(self.ident().pos()).or_else(|| {
-                return_if!(self.context_clause.search(searcher));
-                self.unit.package_name.search(searcher)
-            })
+            return_if!(self.context_clause.search(searcher));
+            return_if!(searcher.search_decl_pos(self.ident().pos()).or_not_found());
+            self.unit.package_name.search(searcher)
         })
     }
 }
@@ -444,10 +453,9 @@ impl<T> Search<T> for PackageInstanceUnit {
 impl<T> Search<T> for ConfigurationUnit {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         searcher.search_source(self.source()).or_else(|| {
-            searcher.search_decl_pos(self.ident().pos()).or_else(|| {
-                return_if!(self.context_clause.search(searcher));
-                self.unit.entity_name.search(searcher)
-            })
+            return_if!(searcher.search_decl_pos(self.ident().pos()).or_not_found());
+            return_if!(self.context_clause.search(searcher));
+            self.unit.entity_name.search(searcher)
         })
     }
 }
@@ -455,9 +463,8 @@ impl<T> Search<T> for ConfigurationUnit {
 impl<T> Search<T> for ContextDeclaration {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         searcher.search_source(self.source()).or_else(|| {
-            searcher
-                .search_decl_pos(self.ident().pos())
-                .or_else(|| self.items.search(searcher))
+            return_if!(searcher.search_decl_pos(self.ident().pos()).or_not_found());
+            self.items.search(searcher)
         })
     }
 }
@@ -502,14 +509,14 @@ impl Searcher<SrcPos> for ItemAtCursor {
         }
     }
 
-    fn search_designator_ref(
+    fn search_pos_with_ref<U>(
         &mut self,
         pos: &SrcPos,
-        designator: &WithRef<Designator>,
+        with_ref: &WithRef<U>,
     ) -> SearchState<SrcPos> {
         if !self.is_inside(pos) {
             Finished(NotFound)
-        } else if let Some(ref reference) = designator.reference {
+        } else if let Some(ref reference) = with_ref.reference {
             Finished(Found(reference.clone()))
         } else {
             Finished(NotFound)
@@ -562,14 +569,19 @@ impl Searcher<()> for FindAllReferences {
         NotFinished
     }
 
-    fn search_designator_ref(
-        &mut self,
-        pos: &SrcPos,
-        designator: &WithRef<Designator>,
-    ) -> SearchState<()> {
-        if let Some(ref reference) = designator.reference {
+    fn search_pos_with_ref<U>(&mut self, pos: &SrcPos, with_ref: &WithRef<U>) -> SearchState<()> {
+        if let Some(ref reference) = with_ref.reference {
             if reference == &self.decl_pos {
                 self.references.push(pos.clone());
+            }
+        };
+        NotFinished
+    }
+
+    fn search_ident_ref(&mut self, ident: &WithRef<Ident>) -> SearchState<()> {
+        if let Some(ref reference) = ident.reference {
+            if reference == &self.decl_pos {
+                self.references.push(ident.item.pos().clone());
             }
         };
         NotFinished

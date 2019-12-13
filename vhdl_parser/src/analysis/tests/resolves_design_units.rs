@@ -153,6 +153,37 @@ end configuration;
 }
 
 #[test]
+fn resolves_reference_from_architecture_to_entity() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ename1 is
+end entity;
+
+architecture a of ename1 is
+begin
+end architecture;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    // From reference position
+    assert_eq!(
+        root.search_reference(code.source(), code.s("ename1", 2).start()),
+        Some(code.s("ename1", 1).pos())
+    );
+
+    // Find all references
+    assert_eq_unordered(
+        &root.find_all_references(&code.s1("ename1").pos()),
+        &vec![code.s("ename1", 1).pos(), code.s("ename1", 2).pos()],
+    );
+}
+
+#[test]
 fn resolves_reference_to_entity_instance() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(
@@ -194,6 +225,46 @@ end architecture;
     // Find all references
     assert_eq_unordered(
         &root.find_all_references(&code.s1("ename1").pos()),
-        &vec![code.s("ename1", 1).pos(), code.s("ename1", 3).pos()],
+        &vec![
+            code.s("ename1", 1).pos(),
+            code.s("ename1", 2).pos(),
+            code.s("ename1", 3).pos(),
+        ],
+    );
+}
+
+#[test]
+fn resolves_reference_to_package_body() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+end package;
+
+package body pkg is
+end package body;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    // From declaration position
+    assert_eq!(
+        root.search_reference(code.source(), code.s("pkg", 1).start()),
+        Some(code.s("pkg", 1).pos())
+    );
+
+    // From reference position
+    assert_eq!(
+        root.search_reference(code.source(), code.s("pkg", 2).start()),
+        Some(code.s("pkg", 1).pos())
+    );
+
+    // Find all references
+    assert_eq_unordered(
+        &root.find_all_references(&code.s1("pkg").pos()),
+        &vec![code.s("pkg", 1).pos(), code.s("pkg", 2).pos()],
     );
 }

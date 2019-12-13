@@ -357,6 +357,13 @@ pub struct WithRef<T> {
 }
 
 impl<T> WithRef<T> {
+    pub fn new(item: T) -> WithRef<T> {
+        WithRef {
+            item,
+            reference: None,
+        }
+    }
+
     pub fn reference_positions(&self) -> impl Iterator<Item = &SrcPos> {
         self.reference.iter()
     }
@@ -1076,7 +1083,7 @@ pub struct EntityDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ArchitectureBody {
     pub ident: Ident,
-    pub entity_name: Ident,
+    pub entity_name: WithRef<Ident>,
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledConcurrentStatement>,
 }
@@ -1092,7 +1099,7 @@ pub struct PackageDeclaration {
 /// LRM 4.8 Package bodies
 #[derive(PartialEq, Debug, Clone)]
 pub struct PackageBody {
-    pub ident: Ident,
+    pub ident: WithRef<Ident>,
     pub decl: Vec<Declaration>,
 }
 

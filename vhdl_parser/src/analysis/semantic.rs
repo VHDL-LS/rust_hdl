@@ -921,18 +921,19 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_package_body_unit(
         &self,
-        primary_region: &DeclarativeRegion<'_>,
+        package_data: &PackageData,
         body: &mut PackageBodyData,
     ) -> FatalNullResult {
         let mut diagnostics = Vec::new();
+        body.ast.unit.ident.set_reference_pos(package_data.pos());
         // @TODO make pattern of primary/secondary extension
-        let mut root_region = primary_region.get_parent().unwrap().extend(None);
+        let mut root_region = package_data.region.get_parent().unwrap().extend(None);
         self.analyze_context_clause(
             &mut root_region,
             &mut body.ast.context_clause,
             &mut diagnostics,
         )?;
-        let mut region = primary_region.extend(Some(&root_region));
+        let mut region = package_data.region.extend(Some(&root_region));
         self.analyze_declarative_part(&mut region, &mut body.ast.unit.decl, &mut diagnostics)?;
         region.close_both(&mut diagnostics);
         // Body does not need region
@@ -951,7 +952,7 @@ impl<'a> Analyzer<'a> {
         if let Some(ref body) = library.package_body(package.name()) {
             match body.data.entry()? {
                 AnalysisEntry::Vacant(mut body_data) => {
-                    self.analyze_package_body_unit(&package_data.region, &mut body_data)?;
+                    self.analyze_package_body_unit(&package_data, &mut body_data)?;
                     diagnostics.append(body_data.diagnostics.clone());
                 }
                 AnalysisEntry::Occupied(body_data) => {
@@ -999,6 +1000,11 @@ impl<'a> Analyzer<'a> {
         for arch in library.architectures(entity.name()).values() {
             match arch.data.entry()? {
                 AnalysisEntry::Vacant(mut arch_data) => {
+                    arch_data
+                        .ast
+                        .unit
+                        .entity_name
+                        .set_reference_pos(entity_data.ast.pos());
                     self.analyze_architecture(&entity_data, &mut arch_data)?;
                     diagnostics.append(arch_data.diagnostics.clone());
                 }
@@ -1344,22 +1350,25 @@ impl<'a> Analyzer<'a> {
 }
 
 trait SetReference {
-    fn set_reference(&mut self, decl: &VisibleDeclaration);
-}
-
-impl<T> SetReference for WithRef<T> {
     fn set_reference(&mut self, decl: &VisibleDeclaration) {
         // @TODO handle built-ins without position
         // @TODO handle mutliple overloaded declarations
         if let Some(pos) = decl.first_pos() {
-            self.reference = Some(pos.clone());
+            self.set_reference_pos(pos)
         }
+    }
+    fn set_reference_pos(&mut self, pos: &SrcPos);
+}
+
+impl<T> SetReference for WithRef<T> {
+    fn set_reference_pos(&mut self, pos: &SrcPos) {
+        self.reference = Some(pos.clone());
     }
 }
 
 impl<T: SetReference> SetReference for WithPos<T> {
-    fn set_reference(&mut self, decl: &VisibleDeclaration) {
-        self.item.set_reference(decl);
+    fn set_reference_pos(&mut self, pos: &SrcPos) {
+        self.item.set_reference_pos(pos);
     }
 }
 

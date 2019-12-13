@@ -14,7 +14,7 @@ extern crate clap;
 
 use std::path::Path;
 
-use vhdl_parser::ast::{AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit};
+use vhdl_parser::ast::*;
 use vhdl_parser::{Config, Diagnostic, ParserError, Project, Severity, VHDLParser};
 
 fn main() {
@@ -134,7 +134,7 @@ fn show_design_unit(design_unit: &AnyDesignUnit) {
                 println!(
                     "architecture {} of {}",
                     arch.ident.item.name(),
-                    arch.entity_name.item.name()
+                    arch.primary_name()
                 );
                 if !arch.decl.is_empty() {
                     println!("  with {} declarations", arch.decl.len())

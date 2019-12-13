@@ -1030,6 +1030,7 @@ end package;
             code.s("pkg", 3).pos(),
             code.s("pkg", 4).pos(),
             code.s("pkg", 5).pos(),
+            code.s("pkg", 6).pos(),
             code.s("pkg", 7).pos(),
             code.s("pkg", 8).pos(),
             code.s("pkg", 9).pos(),
