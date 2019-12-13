@@ -946,3 +946,183 @@ end package;
         )],
     );
 }
+
+#[test]
+fn resolves_reference_to_use_of_package() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+end package;
+
+-- Entity context clause reference
+use work.pkg.all;
+entity ename1 is
+end entity;
+
+-- Architecture context clause reference
+use work.pkg.all;
+architecture a of ename1 is
+begin
+end architecture;
+
+-- Package context clause reference
+use work.pkg.all;
+package pname is
+end package;
+
+-- Package body context clause reference
+use work.pkg.all;
+package body pkg is
+end package body;
+
+-- Configuration context clause reference
+use work.pkg.all;
+configuration cfg of ename1 is
+for rtl
+end for;
+end configuration;
+
+package genpack is
+  generic (constant c : natural);
+end package;
+
+-- Package instance context clause reference
+use work.pkg.all;
+package ipack is new work.genpack generic map(c => natural);
+
+context ctx is
+  library libname;
+  -- Context declaration context clause reference
+  use libname.pkg.all;
+end context;
+
+package nested is
+  -- Use clause in declarative region
+  use work.pkg.all;
+end package;
+
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    // From declaration position
+    assert_eq!(
+        root.search_reference(code.source(), code.s("pkg", 1).start()),
+        Some(code.s("pkg", 1).pos())
+    );
+
+    // From reference position
+    assert_eq!(
+        root.search_reference(code.source(), code.s("pkg", 2).start()),
+        Some(code.s("pkg", 1).pos())
+    );
+
+    // Find all references
+    assert_eq_unordered(
+        &root.find_all_references(&code.s1("pkg").pos()),
+        &vec![
+            code.s("pkg", 1).pos(),
+            code.s("pkg", 2).pos(),
+            code.s("pkg", 3).pos(),
+            code.s("pkg", 4).pos(),
+            code.s("pkg", 5).pos(),
+            code.s("pkg", 7).pos(),
+            code.s("pkg", 8).pos(),
+            code.s("pkg", 9).pos(),
+            code.s("pkg", 10).pos(),
+        ],
+    );
+}
+
+#[test]
+fn resolves_library_reference() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+end package;
+
+library libname;
+use libname.pkg;
+use work.pkg;
+
+package pkg2 is
+end package;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    // From declaration position
+    assert_eq!(
+        root.search_reference(code.source(), code.s("libname", 1).start()),
+        Some(code.s("libname", 1).pos())
+    );
+
+    // From reference position
+    assert_eq!(
+        root.search_reference(code.source(), code.s("libname", 2).start()),
+        Some(code.s("libname", 1).pos())
+    );
+
+    // Work has no declaration
+    assert_eq!(
+        root.search_reference(code.source(), code.s("work", 1).start()),
+        None
+    );
+
+    // Find all references
+    assert_eq_unordered(
+        &root.find_all_references(&code.s("libname", 1).pos()),
+        &vec![code.s("libname", 1).pos(), code.s("libname", 2).pos()],
+    );
+}
+
+#[test]
+fn resolves_context_reference() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+end package;
+
+context ctx is
+  library libname;
+  use libname.pkg;
+end context;
+
+context work.ctx;
+
+package pkg2 is
+end package;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    // From declaration position
+    assert_eq!(
+        root.search_reference(code.source(), code.s("ctx", 1).start()),
+        Some(code.s("ctx", 1).pos())
+    );
+
+    // From reference position
+    assert_eq!(
+        root.search_reference(code.source(), code.s("ctx", 2).start()),
+        Some(code.s("ctx", 1).pos())
+    );
+
+    // Find all references
+    assert_eq_unordered(
+        &root.find_all_references(&code.s("ctx", 1).pos()),
+        &vec![code.s("ctx", 1).pos(), code.s("ctx", 2).pos()],
+    );
+}

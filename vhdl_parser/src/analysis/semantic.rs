@@ -662,7 +662,11 @@ impl<'a> Analyzer<'a> {
                                 "Library clause not necessary for current working library",
                             ))
                         } else if let Some(library) = self.root.get_library(&library_name.item) {
-                            region.make_library_visible(&library.name, library);
+                            region.make_library_visible(
+                                &library.name,
+                                library,
+                                Some(library_name.pos().clone()),
+                            );
                         } else {
                             diagnostics.push(Diagnostic::error(
                                 &library_name,
@@ -832,11 +836,11 @@ impl<'a> Analyzer<'a> {
     /// library STD, WORK;
     /// use STD.STANDARD.all;
     fn add_implicit_context_clause(&self, region: &mut DeclarativeRegion<'_>, work: &Library) {
-        region.make_library_visible(&self.work_sym, work);
+        region.make_library_visible(&self.work_sym, work, None);
 
         // @TODO maybe add warning if standard library is missing
         if let Some(library) = self.root.get_library(&self.std_sym) {
-            region.make_library_visible(&self.std_sym, library);
+            region.make_library_visible(&self.std_sym, library, None);
 
             let decl = library.region.lookup(&self.standard_designator, false);
 

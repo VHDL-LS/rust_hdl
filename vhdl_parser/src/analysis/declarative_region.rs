@@ -586,11 +586,16 @@ impl<'a> DeclarativeRegion<'a> {
         }
     }
 
-    pub fn make_library_visible(&mut self, designator: impl Into<Designator>, library: &Library) {
+    pub fn make_library_visible(
+        &mut self,
+        designator: impl Into<Designator>,
+        library: &Library,
+        decl_pos: Option<SrcPos>,
+    ) {
         let decl = VisibleDeclaration {
             designator: designator.into(),
             data: vec![AnyDeclarationData {
-                decl_pos: None,
+                decl_pos: decl_pos.clone(),
                 decl: AnyDeclaration::Library(library.name.clone()),
             }],
         };
