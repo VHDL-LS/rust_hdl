@@ -95,6 +95,23 @@ impl BytePos {
         byte_pos
     }
 
+    /// Return byte position at the end
+    #[cfg(test)]
+    pub fn end_pos(bytes: &[u8]) -> BytePos {
+        BytePos::at_byte_offset(bytes, bytes.len())
+    }
+
+    /// Return byte position at the end
+    #[cfg(test)]
+    pub fn at_byte_offset(bytes: &[u8], offset: usize) -> BytePos {
+        let mut byte_pos = BytePos::new();
+        while byte_pos.byte_offset() < offset {
+            byte_pos.pop(bytes);
+        }
+        assert_eq!(byte_pos.byte_offset(), offset);
+        byte_pos
+    }
+
     pub fn to_position(self) -> Position {
         Position {
             byte_offset: self.idx,

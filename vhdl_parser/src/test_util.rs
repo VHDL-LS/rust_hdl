@@ -10,6 +10,7 @@ use crate::concurrent_statement::parse_labeled_concurrent_statement;
 use crate::configuration::parse_configuration_declaration;
 use crate::context::{parse_context, DeclarationOrReference};
 use crate::context::{parse_library_clause, parse_use_clause};
+use crate::cursor::BytePos;
 use crate::declarative_part::{
     parse_declarative_part_leave_end_token, parse_package_instantiation,
 };
@@ -38,6 +39,29 @@ use std::fmt::Debug;
 use std::hash::Hasher;
 use std::sync::Arc;
 
+#[derive(Clone, Copy)]
+struct ByteRange {
+    start: BytePos,
+    end: BytePos,
+}
+
+impl ByteRange {
+    fn new(start: BytePos, end: BytePos) -> ByteRange {
+        ByteRange { start, end }
+    }
+
+    fn to_range(self) -> Range {
+        Range {
+            start: self.start.to_position(),
+            end: self.end.to_position(),
+        }
+    }
+
+    fn length(&self) -> usize {
+        self.end.byte_offset() - self.start.byte_offset()
+    }
+}
+
 pub struct CodeBuilder {
     pub symtab: Arc<SymbolTable>,
 }
@@ -50,20 +74,21 @@ impl CodeBuilder {
     }
 
     pub fn code_from_source(&self, source: Source) -> Code {
-        let length = source.contents().unwrap().bytes.len();
+        let contents = source.contents().unwrap();
+
+        let start = BytePos::new();
+        let end = BytePos::end_pos(&contents.bytes);
+        let byte_range = ByteRange::new(start, end);
+
         let pos = SrcPos {
             source: source.clone(),
-            range: Range::new(
-                Position { byte_offset: 0 },
-                Position {
-                    byte_offset: length,
-                },
-            ),
+            range: byte_range.clone().to_range(),
         };
 
         let code = Code {
             symtab: self.symtab.clone(),
             pos,
+            byte_range,
         };
 
         // Ensure symbol table is populated
@@ -91,6 +116,7 @@ impl CodeBuilder {
 pub struct Code {
     pub symtab: Arc<SymbolTable>,
     pos: SrcPos,
+    byte_range: ByteRange,
 }
 
 impl Code {
@@ -102,13 +128,14 @@ impl Code {
         CodeBuilder::new().code_with_file_name(file_name, code)
     }
 
-    pub fn in_range(&self, range: Range) -> Code {
+    fn in_range(&self, byte_range: ByteRange) -> Code {
         Code {
             symtab: self.symtab.clone(),
             pos: SrcPos {
                 source: self.pos.source.clone(),
-                range,
+                range: byte_range.clone().to_range(),
             },
+            byte_range: byte_range,
         }
     }
 
@@ -116,7 +143,7 @@ impl Code {
     pub fn s(&self, substr: &str, occurence: usize) -> Code {
         self.in_range(substr_range(
             &self.pos.source,
-            &self.pos.range,
+            &self.byte_range,
             substr,
             occurence,
         ))
@@ -129,31 +156,35 @@ impl Code {
 
     /// Create new code between two substring matches
     pub fn between(&self, start: &str, end: &str) -> Code {
-        let start_range = substr_range(&self.pos.source, &self.pos.range, start, 1);
-        let trailing_range = Range::new(start_range.start, self.pos.range.end);
+        let start_range = substr_range(&self.pos.source, &self.byte_range, start, 1);
+        let trailing_range = ByteRange::new(start_range.start, self.byte_range.end);
         let end_range = substr_range(&self.pos.source, &trailing_range, end, 1);
 
-        self.in_range(Range::new(start_range.start, end_range.end))
+        self.in_range(ByteRange::new(start_range.start, end_range.end))
     }
 
-    pub fn pos(self: &Self) -> SrcPos {
+    pub fn pos(&self) -> SrcPos {
         self.pos.clone()
     }
 
     // Position after code
-    pub fn eof_pos(self: &Self) -> SrcPos {
+    pub fn eof_pos(&self) -> SrcPos {
         SrcPos {
             source: self.source().clone(),
             range: Range::new(self.pos().range.end, self.pos().range.end.next_char()),
         }
     }
 
-    pub fn start(self: &Self) -> Position {
+    pub fn start(&self) -> Position {
         self.pos.range.start.clone()
     }
 
-    pub fn end(self: &Self) -> Position {
+    pub fn end(&self) -> Position {
         self.pos.range.end.clone()
+    }
+
+    pub fn length(&self) -> usize {
+        self.byte_range.length()
     }
 
     pub fn source(&self) -> &Source {
@@ -200,7 +231,7 @@ impl Code {
         F: FnOnce(&mut TokenStream) -> R,
     {
         let latin1 = self.pos.source.contents().unwrap();
-        let latin1 = Latin1String::new(&latin1.bytes[..self.pos.range.end.byte_offset]);
+        let latin1 = Latin1String::new(&latin1.bytes[..self.byte_range.end.byte_offset()]);
         let tokenizer = Tokenizer::new(
             self.symtab.clone(),
             self.pos.source.clone(),
@@ -492,15 +523,14 @@ impl Code {
     }
 }
 
-#[cfg(test)]
-pub fn substr_range(source: &Source, range: &Range, substr: &str, occurence: usize) -> Range {
+fn substr_range(source: &Source, range: &ByteRange, substr: &str, occurence: usize) -> ByteRange {
     let substr = Latin1String::from_utf8_unchecked(substr);
     let contents = source.contents().unwrap();
     let mut count = occurence;
 
     if range.length() < substr.len() {
         let code =
-            Latin1String::new(&contents.bytes[range.start.byte_offset..range.end.byte_offset]);
+            Latin1String::new(&contents.bytes[range.start.byte_offset()..range.end.byte_offset()]);
         panic!(
             "Substring {:?} is longer than code {:?}",
             substr,
@@ -508,17 +538,15 @@ pub fn substr_range(source: &Source, range: &Range, substr: &str, occurence: usi
         )
     }
 
-    let start = range.start.byte_offset;
-    let end = range.end.byte_offset - substr.len() + 1;
+    let start = range.start.byte_offset();
+    let end = range.end.byte_offset() - substr.len() + 1;
     for i in start..end {
         if &contents.bytes[i..i + substr.len()] == substr.bytes.as_slice() {
             count -= 1;
             if count == 0 {
-                return Range::new(
-                    Position { byte_offset: i },
-                    Position {
-                        byte_offset: i + substr.len(),
-                    },
+                return ByteRange::new(
+                    BytePos::at_byte_offset(&contents.bytes, i),
+                    BytePos::at_byte_offset(&contents.bytes, i + substr.len()),
                 );
             }
         }
@@ -635,7 +663,6 @@ impl AsRef<SrcPos> for Code {
     }
 }
 
-#[cfg(test)]
 mod tests {
     use super::*;
 

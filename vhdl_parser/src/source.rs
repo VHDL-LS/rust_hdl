@@ -195,9 +195,6 @@ impl Range {
     pub fn new(start: Position, end: Position) -> Range {
         Range { start, end }
     }
-    pub fn length(&self) -> usize {
-        self.end.byte_offset - self.start.byte_offset
-    }
 }
 
 /// Lexical position in a file.
@@ -390,10 +387,6 @@ impl SrcPos {
     /// Check is line at offset overlaps source position
     fn overlaps(self: &Self, offset: usize, line_len: usize) -> bool {
         offset + line_len >= self.range.start.byte_offset + 1 && offset < self.range.end.byte_offset
-    }
-
-    pub fn end(&self) -> usize {
-        self.range.length()
     }
 
     fn code_context_from_reader(self: &Self, reader: &mut dyn BufRead) -> (usize, usize, String) {
@@ -639,10 +632,11 @@ mod tests {
     #[test]
     fn code_context_non_ascii() {
         let code = Code::new("åäö\nåäö\n__å_ä_ö__");
-        let pos = code.s1("å_ä_ö").pos();
-        assert_eq!(pos.range.length(), 5);
+        let substr = code.s1("å_ä_ö");
+        let pos = substr.pos();
+        assert_eq!(substr.length(), 5);
         assert_eq!(
-            pos.code_context(),
+            substr.pos().code_context(),
             "\
 1  |  åäö
 2  |  åäö
@@ -655,10 +649,10 @@ mod tests {
     #[test]
     fn code_context_non_ascii_from_file() {
         with_code_from_file("åäö\nåäö\n__å_ä_ö__", |code: Code| {
-            let pos = code.s1("å_ä_ö").pos();
-            assert_eq!(pos.range.length(), 5);
+            let substr = code.s1("å_ä_ö");
+            assert_eq!(substr.length(), 5);
             assert_eq!(
-                pos.code_context(),
+                substr.pos().code_context(),
                 "\
 1  |  åäö
 2  |  åäö
