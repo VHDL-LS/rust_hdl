@@ -5,13 +5,13 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 mod circular_dependencies;
-mod configurations;
 mod context_clause;
 mod deferred_constant;
 mod homographs;
 mod incomplete_type;
 mod package_instance;
 mod protected_type;
+mod resolves_design_units;
 mod resolves_type_mark;
 mod util;
 

@@ -69,6 +69,9 @@ pub trait Searcher<T> {
     fn search_subtype_indication(&mut self, _decl: &SubtypeIndication) -> SearchState<T> {
         NotFinished
     }
+    fn search_entity(&mut self, _ent: &EntityUnit) -> SearchState<T> {
+        NotFinished
+    }
     fn search_designator_ref(
         &mut self,
         _pos: &SrcPos,
@@ -307,10 +310,12 @@ impl<T> Search<T> for FunctionSpecification {
 impl<T> Search<T> for EntityUnit {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         searcher.search_source(self.source()).or_else(|| {
-            return_if!(self.unit.generic_clause.search(searcher));
-            return_if!(self.unit.port_clause.search(searcher));
-            return_if!(self.unit.decl.search(searcher));
-            self.unit.statements.search(searcher)
+            searcher.search_entity(self).or_else(|| {
+                return_if!(self.unit.generic_clause.search(searcher));
+                return_if!(self.unit.port_clause.search(searcher));
+                return_if!(self.unit.decl.search(searcher));
+                self.unit.statements.search(searcher)
+            })
         })
     }
 }
@@ -349,6 +354,14 @@ impl<T> Search<T> for PackageInstanceUnit {
     }
 }
 
+impl<T> Search<T> for ConfigurationUnit {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        searcher
+            .search_source(self.source())
+            .or_else(|| self.unit.entity_name.search(searcher))
+    }
+}
+
 // Search for reference to declaration/definition at cursor
 pub struct ItemAtCursor {
     source: Source,
@@ -378,6 +391,15 @@ impl Searcher<SrcPos> for ItemAtCursor {
             NotFinished
         } else {
             Finished(NotFound)
+        }
+    }
+
+    fn search_entity(&mut self, ent: &EntityUnit) -> SearchState<SrcPos> {
+        let pos = ent.ident().pos();
+        if self.is_inside(pos) {
+            Finished(Found(pos.clone()))
+        } else {
+            NotFinished
         }
     }
 
@@ -430,16 +452,27 @@ impl FindAllReferences {
         let _unnused = searchable.search(&mut self);
         self.references
     }
+
+    fn search_decl_pos(&mut self, decl_pos: &SrcPos) {
+        if decl_pos == &self.decl_pos {
+            self.references.push(decl_pos.clone());
+        }
+    }
 }
 
 impl Searcher<()> for FindAllReferences {
+    fn search_entity(&mut self, ent: &EntityUnit) -> SearchState<()> {
+        self.search_decl_pos(ent.ident().pos());
+        NotFinished
+    }
+
     fn search_designator_ref(
         &mut self,
         pos: &SrcPos,
         designator: &WithRef<Designator>,
     ) -> SearchState<()> {
         if let Some(ref reference) = designator.reference {
-            if reference.pos() == &self.decl_pos {
+            if reference == &self.decl_pos {
                 self.references.push(pos.clone());
             }
         };

@@ -113,3 +113,41 @@ end configuration;
         )],
     );
 }
+
+#[test]
+fn search_reference_from_configuration_to_entity() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ename is
+end entity;
+
+configuration cfg_good1 of ename is
+for rtl
+end for;
+end configuration;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    // From reference
+    assert_eq!(
+        root.search_reference(code.source(), code.s("ename", 2).start()),
+        Some(code.s("ename", 1).pos())
+    );
+
+    // From declaration position
+    assert_eq!(
+        root.search_reference(code.source(), code.s("ename", 1).start()),
+        Some(code.s("ename", 1).pos())
+    );
+
+    // Find all references
+    assert_eq_unordered(
+        &root.find_all_references(&code.s1("ename").pos()),
+        &vec![code.s("ename", 1).pos(), code.s("ename", 2).pos()],
+    );
+}

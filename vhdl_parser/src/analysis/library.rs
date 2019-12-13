@@ -674,6 +674,9 @@ impl<T> Search<T> for Library {
         for entity in self.entities() {
             return_if!(entity.data.read().ast.search(searcher));
         }
+        for config in self.configurations() {
+            return_if!(config.data.read().ast.search(searcher));
+        }
         for archs in self.architectures.values() {
             for arch in archs.values() {
                 return_if!(arch.data.read().ast.search(searcher));
