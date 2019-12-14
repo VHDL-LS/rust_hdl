@@ -252,6 +252,10 @@ impl<'a> Analyzer<'a> {
                     ))?
                 }
             }
+            SelectedNameRefMut::Prefix(prefix) => {
+                self.resolve_prefix(region, prefix)?;
+                Ok(LookupResult::NotSelected)
+            }
             SelectedNameRefMut::Other => {
                 // Not a selected name
                 // @TODO at least lookup prefix for now

@@ -285,6 +285,7 @@ pub enum SelectedNameRef<'a, T: AsSelectedNameRef<'a, T>> {
     Selected(&'a WithPos<T>, &'a WithPos<WithRef<Designator>>),
     Designator(&'a WithRef<Designator>),
     SelectedAll(&'a WithPos<T>),
+    Prefix(&'a WithPos<T>),
     Other,
 }
 
@@ -310,7 +311,11 @@ impl<'a> AsSelectedNameRef<'a, Name> for Name {
             Name::Selected(ref prefix, ref suffix) => SelectedNameRef::Selected(prefix, suffix),
             Name::SelectedAll(ref prefix) => SelectedNameRef::SelectedAll(prefix),
             Name::Designator(ref designator) => SelectedNameRef::Designator(designator),
-            _ => SelectedNameRef::Other,
+            Name::Indexed(ref prefix, _) => SelectedNameRef::Prefix(prefix),
+            Name::Slice(ref prefix, _) => SelectedNameRef::Prefix(prefix),
+            Name::Attribute(ref attr) => SelectedNameRef::Prefix(&attr.name),
+            Name::FunctionCall(ref fcall) => SelectedNameRef::Prefix(&fcall.name),
+            Name::External(_) => SelectedNameRef::Other,
         }
     }
 }
@@ -320,6 +325,7 @@ pub enum SelectedNameRefMut<'a, T: AsSelectedNameRefMut<'a, T>> {
     Selected(&'a mut WithPos<T>, &'a mut WithPos<WithRef<Designator>>),
     Designator(&'a mut WithRef<Designator>),
     SelectedAll(&'a mut WithPos<T>),
+    Prefix(&'a mut WithPos<T>),
     Other,
 }
 
@@ -349,7 +355,11 @@ impl<'a> AsSelectedNameRefMut<'a, Name> for Name {
             }
             Name::SelectedAll(ref mut prefix) => SelectedNameRefMut::SelectedAll(prefix),
             Name::Designator(ref mut designator) => SelectedNameRefMut::Designator(designator),
-            _ => SelectedNameRefMut::Other,
+            Name::Indexed(ref mut prefix, _) => SelectedNameRefMut::Prefix(prefix),
+            Name::Slice(ref mut prefix, _) => SelectedNameRefMut::Prefix(prefix),
+            Name::Attribute(ref mut attr) => SelectedNameRefMut::Prefix(&mut attr.name),
+            Name::FunctionCall(ref mut fcall) => SelectedNameRefMut::Prefix(&mut fcall.name),
+            Name::External(_) => SelectedNameRefMut::Other,
         }
     }
 }
