@@ -183,7 +183,7 @@ impl VisibleDeclaration {
         self.data.get(1).map(|data| &data.decl)
     }
 
-    fn is_overloaded(&self) -> bool {
+    pub fn is_overloaded(&self) -> bool {
         if let AnyDeclaration::Overloaded = self.first_data().decl {
             true
         } else {

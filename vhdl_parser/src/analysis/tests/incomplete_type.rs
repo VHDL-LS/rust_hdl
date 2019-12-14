@@ -40,7 +40,7 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["rec_t"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["rec_t"]));
 }
 
 #[test]

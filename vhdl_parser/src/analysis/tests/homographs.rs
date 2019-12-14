@@ -39,7 +39,7 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1"]));
 }
 
 #[test]
@@ -71,10 +71,7 @@ end package body;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(
-        diagnostics,
-        duplication_diagnostics(&code, &["a1", "b1", "c1", "d1"]),
-    );
+    check_diagnostics(diagnostics, duplicates(&code, &["a1", "b1", "c1", "d1"]));
 }
 
 #[test]
@@ -101,7 +98,7 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1", "b1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1", "b1"]));
 }
 
 #[test]
@@ -121,7 +118,7 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1"]));
 }
 
 #[test]
@@ -145,7 +142,7 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1", "b1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1", "b1"]));
 }
 
 #[test]
@@ -162,7 +159,35 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1", "b1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1", "b1"]));
+}
+
+#[test]
+fn forbid_homographs_in_subprogram_iface_list_and_body() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+end package;
+
+package body pkg is
+  procedure proc(a1, a : natural) is
+     constant a1 : natural := 0;
+  begin
+  end;
+
+  function fun(b1, a : natural) return natural is
+     constant b1 : natural := 0;
+  begin
+     return 0;
+  end;
+end package body;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(diagnostics, duplicates(&code, &["a1", "b1"]));
 }
 
 #[test]
@@ -190,7 +215,7 @@ end entity;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1", "b1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1", "b1"]));
 }
 
 #[test]
@@ -212,7 +237,7 @@ end entity;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1"]));
 }
 
 #[test]
@@ -240,7 +265,7 @@ end entity;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1", "b1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1", "b1"]));
 }
 
 #[test]
@@ -281,10 +306,28 @@ end entity;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(
-        diagnostics,
-        duplication_diagnostics(&code, &["a1", "b1", "c1", "d1"]),
+    check_diagnostics(diagnostics, duplicates(&code, &["a1", "b1", "c1", "d1"]));
+}
+
+#[test]
+fn forbid_homographs_with_for_generate_loop_var() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+begin
+  gen_for: for a1 in 0 to 3 generate
+    constant a1 : natural := 0;
+    constant a : natural := 0;
+  begin
+  end generate;
+end entity;
+",
     );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(diagnostics, duplicates(&code, &["a1"]));
 }
 
 #[test]
@@ -313,7 +356,7 @@ end entity;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1", "b1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1", "b1"]));
 }
 
 #[test]
@@ -351,10 +394,7 @@ end entity;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(
-        diagnostics,
-        duplication_diagnostics(&code, &["a1", "b1", "c1", "d1"]),
-    );
+    check_diagnostics(diagnostics, duplicates(&code, &["a1", "b1", "c1", "d1"]));
 }
 
 #[test]
@@ -384,7 +424,7 @@ end architecture;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1", "b1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1", "b1"]));
 }
 
 #[test]
@@ -401,7 +441,7 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1"]));
 }
 
 #[test]
@@ -420,7 +460,7 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1"]));
 }
 
 #[test]
@@ -437,7 +477,7 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1"]));
 }
 
 #[test]
@@ -458,7 +498,7 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1"]));
 }
 
 #[test]
@@ -475,7 +515,7 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1"]));
 }
 
 #[test]
@@ -496,7 +536,7 @@ end package pkg;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1"]));
 }
 
 #[test]
@@ -516,7 +556,7 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1", "b1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1", "b1"]));
 }
 
 #[test]
@@ -553,7 +593,7 @@ end package pkg;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1"]));
 }
 
 #[test]
@@ -569,7 +609,7 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1"]));
 }
 
 #[test]
@@ -588,7 +628,7 @@ end entity;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1"]));
 }
 
 #[test]
@@ -611,7 +651,7 @@ end entity;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1"]));
 }
 
 #[test]
@@ -664,13 +704,13 @@ end architecture;
     );
 
     let diagnostics = builder.analyze();
-    let mut expected = duplication_diagnostics(&ent, &["g1", "g2", "p1"]);
-    expected.append(&mut duplication_diagnostics_two_file(
+    let mut expected = duplicates(&ent, &["g1", "g2", "p1"]);
+    expected.append(&mut duplicate_in_two_files(
         &ent,
         &arch1,
         &["g3", "p2", "e1"],
     ));
-    expected.append(&mut duplication_diagnostics_two_file(&ent, &arch2, &["e2"]));
+    expected.append(&mut duplicate_in_two_files(&ent, &arch2, &["e2"]));
     check_diagnostics(diagnostics, expected);
 }
 
@@ -700,11 +740,76 @@ end package body;",
     );
 
     let diagnostics = builder.analyze();
-    let mut expected = duplication_diagnostics(&pkg, &["g1"]);
-    expected.append(&mut duplication_diagnostics_two_file(
-        &pkg,
-        &body,
-        &["g1", "g2"],
-    ));
+    let mut expected = duplicates(&pkg, &["g1"]);
+    expected.append(&mut duplicate_in_two_files(&pkg, &body, &["g1", "g2"]));
     check_diagnostics(diagnostics, expected);
+}
+
+#[test]
+fn forbid_homographs_of_physical_type_units() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+  type phys_t is range 0 to 10
+    units
+       bangs;
+       bugs = 10 bangs;
+    end units;
+
+    type phys2_t is range 0 to 10
+    units
+       bangs;
+       bugs = 10 bangs;
+    end units;
+
+   constant bangs : natural := 0;
+   constant bugs : natural := 0;
+end package;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            // Primary unit
+            duplicate(&code, "bangs", 1, 3),
+            duplicate(&code, "bangs", 1, 5),
+            // Secondary units
+            duplicate(&code, "bugs", 1, 2),
+            duplicate(&code, "bugs", 1, 3),
+        ],
+    );
+}
+
+#[test]
+fn concurrent_labels_are_homographs_of_outer_declarations() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+  signal lab1 : natural;
+  signal lab2 : natural;
+begin
+  lab1 : process is
+    constant lab1 : natural := 0; -- Allow shadow
+  begin
+  end process;
+
+  lab2 : block is
+    constant lab2 : natural := 0; -- Allow shadow
+  begin
+  end block;
+end architecture;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(diagnostics, duplicates(&code, &["lab1", "lab2"]));
 }

@@ -11,6 +11,7 @@ use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::latin_1::Latin1String;
 use crate::source::{SrcPos, WithPos};
 use crate::symbol_table::{Symbol, SymbolTable};
+use std::ops::DerefMut;
 use std::sync::Arc;
 
 use super::lock::{AnalysisEntry, CircularDependencyError, ReadGuard};
@@ -80,6 +81,21 @@ enum LookupResult {
     NotSelected,
 }
 
+impl LookupResult {
+    fn to_single_prefix(self, prefix_pos: &SrcPos) -> Result<VisibleDeclaration, Diagnostic> {
+        match self {
+            LookupResult::Single(decl) => Ok(decl),
+            LookupResult::AllWithin(..) => Err(Diagnostic::error(
+                prefix_pos,
+                "'.all' may not be the prefix of a selected name",
+            ))?,
+            LookupResult::NotSelected => Err(Diagnostic::error(
+                prefix_pos,
+                "may not be the prefix of a selected name",
+            ))?,
+        }
+    }
+}
 pub struct Analyzer<'a> {
     work_sym: Symbol,
     std_sym: Symbol,
@@ -106,7 +122,8 @@ impl<'a> Analyzer<'a> {
         prefix_pos: &SrcPos,
         prefix: &VisibleDeclaration,
         suffix: &WithPos<WithRef<Designator>>,
-    ) -> AnalysisResult<VisibleDeclaration> {
+        allow_incomplete: bool,
+    ) -> AnalysisResult<Option<VisibleDeclaration>> {
         match prefix.first() {
             AnyDeclaration::Library(ref library_name) => {
                 if let Some(decl) = self
@@ -115,7 +132,7 @@ impl<'a> Analyzer<'a> {
                     .region
                     .lookup(suffix.designator(), false)
                 {
-                    Ok(decl.clone())
+                    Ok(Some(decl.clone()))
                 } else {
                     Err(Diagnostic::error(
                         suffix.as_ref(),
@@ -135,7 +152,7 @@ impl<'a> Analyzer<'a> {
                 let package = self.get_package_declaration_analysis(library_name, package_name)?;
 
                 if let Some(decl) = package.region.lookup(suffix.designator(), false) {
-                    Ok(decl.clone())
+                    Ok(Some(decl.clone()))
                 } else {
                     Err(Diagnostic::error(
                         suffix.as_ref(),
@@ -150,7 +167,7 @@ impl<'a> Analyzer<'a> {
             AnyDeclaration::PackageInstance(ref library_name, ref instance_name) => {
                 let instance = self.get_package_instance_analysis(library_name, instance_name)?;
                 if let Some(decl) = instance.region.lookup(suffix.designator(), false) {
-                    Ok(decl.clone())
+                    Ok(Some(decl.clone()))
                 } else {
                     Err(Diagnostic::error(
                         suffix.as_ref(),
@@ -164,7 +181,7 @@ impl<'a> Analyzer<'a> {
 
             AnyDeclaration::LocalPackageInstance(ref instance_name, ref instance_region) => {
                 if let Some(decl) = instance_region.lookup(suffix.designator(), false) {
-                    Ok(decl.clone())
+                    Ok(Some(decl.clone()))
                 } else {
                     Err(Diagnostic::error(
                         suffix.as_ref(),
@@ -175,6 +192,7 @@ impl<'a> Analyzer<'a> {
                     ))?
                 }
             }
+            _ if allow_incomplete => Ok(None),
             _ => Err(Diagnostic::error(
                 prefix_pos,
                 "Invalid prefix for selected name",
@@ -187,7 +205,7 @@ impl<'a> Analyzer<'a> {
         region: &DeclarativeRegion<'_>,
         name: &mut WithPos<SelectedName>,
     ) -> AnalysisResult<VisibleDeclaration> {
-        match self.resolve_selected_name_ref(region, name)? {
+        match self.resolve_selected_name_ref_pos(region, &name.pos, &mut name.item, false)? {
             LookupResult::Single(decl) => Ok(decl),
             _ => {
                 panic!("Can only lookup single within SelectedName");
@@ -195,51 +213,71 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    /// Resolve the prefix of a selected name
     fn resolve_prefix<'n, T: AsSelectedNameRefMut<'n, T>>(
         &self,
         region: &DeclarativeRegion<'_>,
-        prefix: &'n mut WithPos<T>,
-    ) -> AnalysisResult<VisibleDeclaration> {
-        let prefix_pos = prefix.pos.clone();
-        match self.resolve_selected_name_ref(region, prefix)? {
-            LookupResult::Single(decl) => Ok(decl),
-            LookupResult::AllWithin(..) => Err(Diagnostic::error(
-                prefix_pos,
-                "'.all' may not be the prefix of a selected name",
-            ))?,
-            LookupResult::NotSelected => Err(Diagnostic::error(
-                prefix_pos,
-                "may not be the prefix of a selected name",
-            ))?,
+        prefix_pos: &SrcPos,
+        prefix: &'n mut T,
+        // Allow the resolution to stop when encountering a non selected prefix
+        // which cannot be analyzed further without type information
+        allow_incomplete: bool,
+    ) -> AnalysisResult<Option<VisibleDeclaration>> {
+        let resolved =
+            self.resolve_selected_name_ref_pos(region, prefix_pos, prefix, allow_incomplete)?;
+
+        match resolved.to_single_prefix(prefix_pos) {
+            Ok(decl) => Ok(Some(decl)),
+            Err(err) => {
+                if allow_incomplete {
+                    Ok(None)
+                } else {
+                    Err(AnalysisError::NotFatal(err))
+                }
+            }
         }
     }
 
-    /// Returns the VisibleDeclaration or None if it was not a selected name
-    /// Returns error message if a name was not declared
-    /// @TODO We only lookup selected names since other names such as slice and index require typechecking
-    fn resolve_selected_name_ref<'n, T: AsSelectedNameRefMut<'n, T>>(
+    fn resolve_selected_name_ref_pos<'n, T: AsSelectedNameRefMut<'n, T>>(
         &self,
         region: &DeclarativeRegion<'_>,
-        name: &'n mut WithPos<T>,
+        name_pos: &SrcPos,
+        name: &'n mut T,
+        // Allow the resolution to stop when encountering a non selected prefix
+        // which cannot be analyzed further without type information
+        allow_incomplete: bool,
     ) -> AnalysisResult<LookupResult> {
-        match name.item.as_selected_name_ref_mut() {
+        match name.as_selected_name_ref_mut() {
             SelectedNameRefMut::Selected(prefix, suffix) => {
-                let prefix_pos = prefix.pos.clone(); // @TODO who does resolve_prefix extend lifetime?
-                let decl = self.resolve_prefix(region, prefix)?;
-                match self.lookup_within(&prefix_pos, &decl, suffix) {
-                    Ok(decl) => {
-                        suffix.set_reference(&decl);
-                        Ok(LookupResult::Single(decl))
+                match self.resolve_prefix(
+                    region,
+                    &prefix.pos,
+                    &mut prefix.item,
+                    allow_incomplete,
+                )? {
+                    Some(decl) => {
+                        match self.lookup_within(&prefix.pos, &decl, suffix, allow_incomplete) {
+                            Ok(Some(decl)) => {
+                                suffix.set_reference(&decl);
+                                Ok(LookupResult::Single(decl))
+                            }
+                            Ok(None) => Ok(LookupResult::NotSelected),
+                            Err(err) => Err(err.add_circular_reference(name_pos)),
+                        }
                     }
-                    Err(err) => Err(err.add_circular_reference(&name.pos)),
+                    None => Ok(LookupResult::NotSelected),
                 }
             }
 
             SelectedNameRefMut::SelectedAll(prefix) => {
-                let prefix_pos = prefix.pos.clone(); // @TODO who does resolve_prefix extend lifetime?
-                let decl = self.resolve_prefix(region, prefix)?;
-                Ok(LookupResult::AllWithin(prefix_pos, decl))
+                match self.resolve_prefix(
+                    region,
+                    &prefix.pos,
+                    &mut prefix.item,
+                    allow_incomplete,
+                )? {
+                    Some(decl) => Ok(LookupResult::AllWithin(prefix.pos.clone(), decl)),
+                    None => Ok(LookupResult::NotSelected),
+                }
             }
             SelectedNameRefMut::Designator(designator) => {
                 if let Some(decl) = region.lookup(designator.designator(), true) {
@@ -247,13 +285,18 @@ impl<'a> Analyzer<'a> {
                     Ok(LookupResult::Single(decl.clone()))
                 } else {
                     Err(Diagnostic::error(
-                        &name.pos,
+                        name_pos,
                         format!("No declaration of '{}'", designator),
                     ))?
                 }
             }
             SelectedNameRefMut::Prefix(prefix) => {
-                self.resolve_prefix(region, prefix)?;
+                self.resolve_selected_name_ref_pos(
+                    region,
+                    &prefix.pos,
+                    &mut prefix.item,
+                    allow_incomplete,
+                )?;
                 Ok(LookupResult::NotSelected)
             }
             SelectedNameRefMut::Other => {
@@ -262,6 +305,14 @@ impl<'a> Analyzer<'a> {
                 Ok(LookupResult::NotSelected)
             }
         }
+    }
+
+    fn resolve_context_item_name<'n, T: AsSelectedNameRefMut<'n, T>>(
+        &self,
+        region: &DeclarativeRegion<'_>,
+        name: &'n mut WithPos<T>,
+    ) -> AnalysisResult<LookupResult> {
+        self.resolve_selected_name_ref_pos(region, &name.pos, &mut name.item, false)
     }
 
     fn analyze_interface_declaration(
@@ -374,12 +425,12 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn analyze_subprogram_declaration(
+    fn analyze_subprogram_declaration<'r>(
         &self,
-        parent: &DeclarativeRegion<'_>,
+        parent: &'r DeclarativeRegion<'_>,
         subprogram: &mut SubprogramDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult<DeclarativeRegion<'r>> {
         let mut region = DeclarativeRegion::new_borrowed_parent(parent);
 
         match subprogram {
@@ -398,7 +449,35 @@ impl<'a> Analyzer<'a> {
             }
         }
         region.close_both(diagnostics);
-        Ok(())
+        Ok(region)
+    }
+
+    fn analyze_expression(
+        &self,
+        region: &mut DeclarativeRegion<'_>,
+        expr: &mut WithPos<Expression>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        match expr.item {
+            Expression::Binary(_, ref mut left, ref mut right) => {
+                self.analyze_expression(region, left, diagnostics)?;
+                self.analyze_expression(region, right, diagnostics)
+            }
+            Expression::Unary(_, ref mut inner) => {
+                self.analyze_expression(region, inner, diagnostics)
+            }
+            Expression::Name(ref mut name) => {
+                if let Err(err) =
+                    self.resolve_selected_name_ref_pos(region, &expr.pos, name.deref_mut(), true)
+                {
+                    err.add_to(diagnostics)
+                } else {
+                    Ok(())
+                }
+            }
+            // @TODO other
+            _ => Ok(()),
+        }
     }
 
     fn analyze_declaration(
@@ -428,6 +507,9 @@ impl<'a> Analyzer<'a> {
                     &mut object_decl.subtype_indication,
                     diagnostics,
                 )?;
+                if let Some(ref mut expr) = object_decl.expression {
+                    self.analyze_expression(region, expr, diagnostics)?;
+                }
                 region.add(
                     &object_decl.ident,
                     AnyDeclaration::from_object_declaration(object_decl),
@@ -481,9 +563,16 @@ impl<'a> Analyzer<'a> {
                     AnyDeclaration::Overloaded,
                     diagnostics,
                 );
-                self.analyze_subprogram_declaration(region, &mut body.specification, diagnostics)?;
-                let mut region = DeclarativeRegion::new_borrowed_parent(region);
-                self.analyze_declarative_part(&mut region, &mut body.declarations, diagnostics)?;
+                let mut spec_region = self.analyze_subprogram_declaration(
+                    region,
+                    &mut body.specification,
+                    diagnostics,
+                )?;
+                self.analyze_declarative_part(
+                    &mut spec_region,
+                    &mut body.declarations,
+                    diagnostics,
+                )?;
             }
             Declaration::SubprogramDeclaration(ref mut subdecl) => {
                 region.add(
@@ -579,6 +668,21 @@ impl<'a> Analyzer<'a> {
                     TypeDefinition::Subtype(ref mut subtype_indication) => {
                         self.analyze_subtype_indicaton(region, subtype_indication, diagnostics)?;
                     }
+                    TypeDefinition::Physical(ref mut physical) => {
+                        region.add(
+                            physical.primary_unit.clone(),
+                            AnyDeclaration::Constant,
+                            diagnostics,
+                        );
+                        for (secondary_unit_name, _) in physical.secondary_units.iter_mut() {
+                            region.add(
+                                secondary_unit_name.clone(),
+                                AnyDeclaration::Constant,
+                                diagnostics,
+                            )
+                        }
+                    }
+                    // @TODO more
                     _ => {}
                 }
             }
@@ -619,7 +723,7 @@ impl<'a> Analyzer<'a> {
                 }
             }
 
-            match self.resolve_selected_name_ref(&region, name) {
+            match self.resolve_context_item_name(&region, name) {
                 Ok(LookupResult::Single(visible_decl)) => {
                     region.make_potentially_visible(visible_decl);
                 }
@@ -725,7 +829,7 @@ impl<'a> Analyzer<'a> {
                             }
                         }
 
-                        match self.resolve_selected_name_ref(&region, name) {
+                        match self.resolve_context_item_name(&region, name) {
                             Ok(LookupResult::Single(visible_decl)) => {
                                 match visible_decl.first() {
                                     // OK
@@ -781,16 +885,14 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_generate_body(
         &self,
-        parent: &DeclarativeRegion<'_>,
+        region: &mut DeclarativeRegion<'_>,
         body: &mut GenerateBody,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        let mut region = DeclarativeRegion::new_borrowed_parent(parent);
-
         if let Some(ref mut decl) = body.decl {
-            self.analyze_declarative_part(&mut region, decl, diagnostics)?;
+            self.analyze_declarative_part(region, decl, diagnostics)?;
         }
-        self.analyze_concurrent_part(&region, &mut body.statements, diagnostics)?;
+        self.analyze_concurrent_part(region, &mut body.statements, diagnostics)?;
 
         Ok(())
     }
@@ -815,34 +917,43 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_concurrent_statement(
         &self,
-        parent: &DeclarativeRegion<'_>,
+        parent: &mut DeclarativeRegion<'_>,
         statement: &mut LabeledConcurrentStatement,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
+        if let Some(ref label) = statement.label {
+            parent.add(label.clone(), AnyDeclaration::Constant, diagnostics);
+        }
+
         match statement.statement {
             ConcurrentStatement::Block(ref mut block) => {
                 let mut region = DeclarativeRegion::new_borrowed_parent(parent);
                 self.analyze_declarative_part(&mut region, &mut block.decl, diagnostics)?;
-                self.analyze_concurrent_part(&region, &mut block.statements, diagnostics)?;
+                self.analyze_concurrent_part(&mut region, &mut block.statements, diagnostics)?;
             }
             ConcurrentStatement::Process(ref mut process) => {
                 let mut region = DeclarativeRegion::new_borrowed_parent(parent);
                 self.analyze_declarative_part(&mut region, &mut process.decl, diagnostics)?;
             }
             ConcurrentStatement::ForGenerate(ref mut gen) => {
-                self.analyze_generate_body(parent, &mut gen.body, diagnostics)?;
+                let mut region = DeclarativeRegion::new_borrowed_parent(parent);
+                region.add(&gen.index_name, AnyDeclaration::Constant, diagnostics);
+                self.analyze_generate_body(&mut region, &mut gen.body, diagnostics)?;
             }
             ConcurrentStatement::IfGenerate(ref mut gen) => {
                 for conditional in gen.conditionals.iter_mut() {
-                    self.analyze_generate_body(parent, &mut conditional.item, diagnostics)?;
+                    let mut region = DeclarativeRegion::new_borrowed_parent(parent);
+                    self.analyze_generate_body(&mut region, &mut conditional.item, diagnostics)?;
                 }
                 if let Some(ref mut else_item) = gen.else_item {
-                    self.analyze_generate_body(parent, else_item, diagnostics)?;
+                    let mut region = DeclarativeRegion::new_borrowed_parent(parent);
+                    self.analyze_generate_body(&mut region, else_item, diagnostics)?;
                 }
             }
             ConcurrentStatement::CaseGenerate(ref mut gen) => {
                 for alternative in gen.alternatives.iter_mut() {
-                    self.analyze_generate_body(parent, &mut alternative.item, diagnostics)?;
+                    let mut region = DeclarativeRegion::new_borrowed_parent(parent);
+                    self.analyze_generate_body(&mut region, &mut alternative.item, diagnostics)?;
                 }
             }
             ConcurrentStatement::Instance(ref mut instance) => {
@@ -855,7 +966,7 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_concurrent_part(
         &self,
-        parent: &DeclarativeRegion<'_>,
+        parent: &mut DeclarativeRegion<'_>,
         statements: &mut [LabeledConcurrentStatement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -1078,7 +1189,7 @@ impl<'a> Analyzer<'a> {
             &mut diagnostics,
         )?;
         self.analyze_concurrent_part(
-            &region,
+            &mut region,
             &mut entity_data.ast.unit.statements,
             &mut diagnostics,
         )?;
@@ -1387,8 +1498,12 @@ trait SetReference {
     fn set_reference(&mut self, decl: &VisibleDeclaration) {
         // @TODO handle built-ins without position
         // @TODO handle mutliple overloaded declarations
-        if let Some(pos) = decl.first_pos() {
-            self.set_reference_pos(pos)
+        if !decl.is_overloaded() {
+            // We do not set references to overloaded names to avoid
+            // To much incorrect behavior which will appear as low quality
+            if let Some(pos) = decl.first_pos() {
+                self.set_reference_pos(pos)
+            }
         }
     }
     fn set_reference_pos(&mut self, pos: &SrcPos);

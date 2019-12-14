@@ -112,7 +112,7 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["prot_t"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["prot_t"]));
 }
 
 #[test]
@@ -135,10 +135,7 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(
-        diagnostics,
-        vec![duplication_diagnostic(&code, "prot_t", 2, 3)],
-    );
+    check_diagnostics(diagnostics, vec![duplicate(&code, "prot_t", 2, 3)]);
 }
 
 #[test]
@@ -199,6 +196,6 @@ end package body;
         &code.s("b1", 2),
         "No declaration of protected type 'b1'",
     )];
-    expected.append(&mut duplication_diagnostics(&code, &["a1", "b1"]));
+    expected.append(&mut duplicates(&code, &["a1", "b1"]));
     check_diagnostics(diagnostics, expected);
 }

@@ -221,26 +221,50 @@ impl<T> Search<T> for WithPos<SelectedName> {
     }
 }
 
+fn search_pos_name<T>(
+    pos: &SrcPos,
+    name: &Name,
+    searcher: &mut impl Searcher<T>,
+) -> SearchResult<T> {
+    match name {
+        Name::Selected(ref prefix, ref designator) => {
+            return_if!(prefix.search(searcher));
+            return_if!(designator.search(searcher));
+            NotFound
+        }
+        Name::SelectedAll(ref prefix) => {
+            return_if!(prefix.search(searcher));
+            NotFound
+        }
+        Name::Designator(ref designator) => searcher
+            .search_designator_ref(&pos, designator)
+            .or_not_found(),
+        Name::Indexed(ref prefix, ..) => {
+            return_if!(prefix.search(searcher));
+            NotFound
+        }
+        Name::Slice(ref prefix, ..) => {
+            return_if!(prefix.search(searcher));
+            NotFound
+        }
+        Name::FunctionCall(ref fcall) => {
+            return_if!(fcall.name.search(searcher));
+            NotFound
+        }
+        Name::Attribute(ref attr) => {
+            return_if!(attr.name.search(searcher));
+            NotFound
+        }
+
+        // @TODO more
+        _ => NotFound,
+    }
+}
+
 impl<T> Search<T> for WithPos<Name> {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
-        searcher.search_with_pos(&self.pos).or_else(|| {
-            match self.item {
-                Name::Selected(ref prefix, ref designator) => {
-                    return_if!(prefix.search(searcher));
-                    return_if!(designator.search(searcher));
-                    NotFound
-                }
-                Name::SelectedAll(ref prefix) => {
-                    return_if!(prefix.search(searcher));
-                    NotFound
-                }
-                Name::Designator(ref designator) => searcher
-                    .search_designator_ref(&self.pos, designator)
-                    .or_not_found(),
-                // @TODO more
-                _ => NotFound,
-            }
-        })
+        return_if!(searcher.search_with_pos(&self.pos).or_not_found());
+        search_pos_name(&self.pos, &self.item, searcher)
     }
 }
 
@@ -307,12 +331,40 @@ impl<T> Search<T> for TypeDeclaration {
     }
 }
 
+impl<T> Search<T> for WithPos<Expression> {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        return_if!(searcher.search_with_pos(&self.pos).or_not_found());
+        match self.item {
+            Expression::Binary(_, ref left, ref right) => {
+                return_if!(left.search(searcher));
+                right.search(searcher)
+            }
+            Expression::Unary(_, ref expr) => expr.search(searcher),
+            Expression::Name(ref name) => search_pos_name(&self.pos, &name, searcher),
+            // @TODO more
+            _ => NotFound,
+        }
+    }
+}
+
+impl<T> Search<T> for ObjectDeclaration {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        return_if!(searcher.search_decl_pos(self.ident.pos()).or_not_found());
+        return_if!(self.subtype_indication.search(searcher));
+        if let Some(ref expr) = self.expression {
+            expr.search(searcher)
+        } else {
+            NotFound
+        }
+    }
+}
+
 impl<T> Search<T> for Declaration {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         searcher.search_declaration(self).or_else(|| {
             match self {
                 Declaration::Object(object) => {
-                    return_if!(object.subtype_indication.search(searcher))
+                    return_if!(object.search(searcher));
                 }
                 Declaration::Type(typ) => return_if!(typ.search(searcher)),
                 Declaration::SubprogramBody(body) => {

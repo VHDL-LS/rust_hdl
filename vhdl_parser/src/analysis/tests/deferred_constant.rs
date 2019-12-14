@@ -40,7 +40,7 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplication_diagnostics(&code, &["a1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1"]));
 }
 
 #[test]
@@ -148,5 +148,5 @@ end package body;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, vec![duplication_diagnostic(&code, "a1", 2, 3)]);
+    check_diagnostics(diagnostics, vec![duplicate(&code, "a1", 2, 3)]);
 }

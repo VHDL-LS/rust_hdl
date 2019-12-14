@@ -329,8 +329,9 @@ PoC.files = [
 #'PoC/src/misc/sync/sync_Bits_Xilinx.vhdl',
 'PoC/src/misc/sync/sync.pkg.vhdl',
 'PoC/src/misc/sync/sync_Command.vhdl',
-'PoC/src/misc/sync/sync_Pulse_Altera.vhdl',
-'PoC/src/misc/sync/sync_Pulse.vhdl',
+# Missing INIT/INIT_I
+#'PoC/src/misc/sync/sync_Pulse_Altera.vhdl',
+#'PoC/src/misc/sync/sync_Pulse.vhdl',
 
 'PoC/src/misc/*.vhdl',
 'PoC/src/dstruct/*.vhdl',

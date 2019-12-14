@@ -105,7 +105,11 @@ impl LibraryBuilder {
     }
 }
 
-pub fn duplication_diagnostic(code: &Code, name: &str, occ1: usize, occ2: usize) -> Diagnostic {
+pub fn missing(code: &Code, name: &str, occ: usize) -> Diagnostic {
+    Diagnostic::error(code.s(name, occ), format!("No declaration of '{}'", name))
+}
+
+pub fn duplicate(code: &Code, name: &str, occ1: usize, occ2: usize) -> Diagnostic {
     Diagnostic::error(
         code.s(&name, occ2),
         format!("Duplicate declaration of '{}'", &name),
@@ -113,19 +117,15 @@ pub fn duplication_diagnostic(code: &Code, name: &str, occ1: usize, occ2: usize)
     .related(code.s(&name, occ1), "Previously defined here")
 }
 
-pub fn duplication_diagnostics(code: &Code, names: &[&str]) -> Vec<Diagnostic> {
+pub fn duplicates(code: &Code, names: &[&str]) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for name in names {
-        diagnostics.push(duplication_diagnostic(code, name, 1, 2));
+        diagnostics.push(duplicate(code, name, 1, 2));
     }
     diagnostics
 }
 
-pub fn duplication_diagnostics_two_file(
-    code1: &Code,
-    code2: &Code,
-    names: &[&str],
-) -> Vec<Diagnostic> {
+pub fn duplicate_in_two_files(code1: &Code, code2: &Code, names: &[&str]) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for name in names {
         diagnostics.push(
