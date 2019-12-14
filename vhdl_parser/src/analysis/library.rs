@@ -380,7 +380,7 @@ impl<'a> Library {
             let primary_pos = &package.pos();
             let secondary_pos = &body.pos();
             if primary_pos.source == secondary_pos.source
-                && primary_pos.range.start > secondary_pos.range.start
+                && primary_pos.start() > secondary_pos.start()
             {
                 diagnostics.push(Diagnostic::error(
                     secondary_pos,
@@ -411,7 +411,7 @@ impl<'a> Library {
                     let primary_pos = entity.ident.pos();
                     let secondary_pos = &architecture.pos();
                     if primary_pos.source == secondary_pos.source
-                        && primary_pos.range.start > secondary_pos.range.start
+                        && primary_pos.start() > secondary_pos.start()
                     {
                         diagnostics.push(Diagnostic::error(
                             secondary_pos,

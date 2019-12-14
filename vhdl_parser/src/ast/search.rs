@@ -492,7 +492,7 @@ impl ItemAtCursor {
     fn is_inside(&self, pos: &SrcPos) -> bool {
         // cursor is the gap between character cursor and cursor + 1
         // Thus cursor will match character cursor and cursor + 1
-        pos.range.start <= self.cursor && self.cursor <= pos.range.end
+        pos.start() <= self.cursor && self.cursor <= pos.end()
     }
 }
 

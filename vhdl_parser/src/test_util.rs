@@ -80,10 +80,7 @@ impl CodeBuilder {
         let end = BytePos::end_pos(&contents.bytes);
         let byte_range = ByteRange::new(start, end);
 
-        let pos = SrcPos {
-            source: source.clone(),
-            range: byte_range.clone().to_range(),
-        };
+        let pos = SrcPos::new(source.clone(), byte_range.clone().to_range());
 
         let code = Code {
             symtab: self.symtab.clone(),
@@ -131,10 +128,7 @@ impl Code {
     fn in_range(&self, byte_range: ByteRange) -> Code {
         Code {
             symtab: self.symtab.clone(),
-            pos: SrcPos {
-                source: self.pos.source.clone(),
-                range: byte_range.clone().to_range(),
-            },
+            pos: SrcPos::new(self.pos.source.clone(), byte_range.to_range()),
             byte_range: byte_range,
         }
     }
@@ -169,18 +163,18 @@ impl Code {
 
     // Position after code
     pub fn eof_pos(&self) -> SrcPos {
-        SrcPos {
-            source: self.source().clone(),
-            range: Range::new(self.pos().range.end, self.pos().range.end.next_char()),
-        }
+        SrcPos::new(
+            self.source().clone(),
+            Range::new(self.end(), self.end().next_char()),
+        )
     }
 
     pub fn start(&self) -> Position {
-        self.pos.range.start.clone()
+        self.pos.start()
     }
 
     pub fn end(&self) -> Position {
-        self.pos.range.end.clone()
+        self.pos.end()
     }
 
     pub fn length(&self) -> usize {
@@ -238,7 +232,7 @@ impl Code {
             Arc::new(latin1),
         );
         let mut stream = TokenStream::new(tokenizer);
-        forward(&mut stream, self.pos.range.start);
+        forward(&mut stream, self.pos.start());
         parse_fun(&mut stream)
     }
 
@@ -561,7 +555,7 @@ fn substr_range(source: &Source, range: &ByteRange, substr: &str, occurence: usi
 fn forward(stream: &mut TokenStream, start: Position) {
     loop {
         let token = stream.peek_expect().unwrap();
-        if token.pos.range.start >= start {
+        if token.pos.start() >= start {
             break;
         }
         stream.move_after(&token);

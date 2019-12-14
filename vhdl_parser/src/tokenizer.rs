@@ -1577,7 +1577,7 @@ mod tests {
     }
 
     fn pos_at_end(code: &Code) -> BytePos {
-        BytePos::from_position(&code.latin1().bytes, code.pos().range.end)
+        BytePos::from_position(&code.latin1().bytes, code.end())
     }
 
     // Shorthand for testing
@@ -2414,7 +2414,7 @@ comment
             final_comments,
             vec![Comment {
                 value: Latin1String::from_utf8_unchecked("final"),
-                range: code.s1("--final").pos().range,
+                range: code.s1("--final").pos().range(),
                 multi_line: false
             },]
         );
@@ -2463,11 +2463,11 @@ comment
                     comments: Some(Box::new(TokenComments {
                         leading: vec![Comment {
                             value: Latin1String::from_utf8_unchecked("this is a plus"),
-                            range: code.s1("--this is a plus").pos().range,
+                            range: code.s1("--this is a plus").pos().range(),
                             multi_line: false
                         },],
                         trailing: Some(Comment {
-                            range: code.s1("--this is still a plus").pos().range,
+                            range: code.s1("--this is still a plus").pos().range(),
                             value: Latin1String::from_utf8_unchecked("this is still a plus"),
                             multi_line: false
                         }),
@@ -2482,17 +2482,17 @@ comment
                         leading: vec![
                             Comment {
                                 value: Latin1String::from_utf8_unchecked("- this is not a minus"),
-                                range: code.s1("--- this is not a minus").pos().range,
+                                range: code.s1("--- this is not a minus").pos().range(),
                                 multi_line: false
                             },
                             Comment {
                                 value: Latin1String::from_utf8_unchecked(" Neither is this"),
-                                range: code.s1("-- Neither is this").pos().range,
+                                range: code.s1("-- Neither is this").pos().range(),
                                 multi_line: false
                             },
                         ],
                         trailing: Some(Comment {
-                            range: code.s1("-- this is a minus").pos().range,
+                            range: code.s1("-- this is a minus").pos().range(),
                             value: Latin1String::from_utf8_unchecked(" this is a minus"),
                             multi_line: false
                         }),
@@ -2505,12 +2505,12 @@ comment
             vec![
                 Comment {
                     value: Latin1String::from_utf8_unchecked(" a comment at the end of the file"),
-                    range: code.s1("-- a comment at the end of the file").pos().range,
+                    range: code.s1("-- a comment at the end of the file").pos().range(),
                     multi_line: false
                 },
                 Comment {
                     value: Latin1String::from_utf8_unchecked(" and another one"),
-                    range: code.s1("-- and another one").pos().range,
+                    range: code.s1("-- and another one").pos().range(),
                     multi_line: false
                 },
             ]
@@ -2542,7 +2542,7 @@ bar*/
                 comments: Some(Box::new(TokenComments {
                     leading: vec![Comment {
                         value: Latin1String::from_utf8_unchecked("foo\ncom*ment\nbar"),
-                        range: code.s1("/*foo\ncom*ment\nbar*/").pos().range,
+                        range: code.s1("/*foo\ncom*ment\nbar*/").pos().range(),
                         multi_line: true
                     },],
                     trailing: None,
@@ -2553,7 +2553,7 @@ bar*/
             final_comments,
             vec![Comment {
                 value: Latin1String::from_utf8_unchecked("final"),
-                range: code.s1("/*final*/").pos().range,
+                range: code.s1("/*final*/").pos().range(),
                 multi_line: true
             },]
         );

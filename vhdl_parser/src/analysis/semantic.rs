@@ -1263,7 +1263,7 @@ impl<'a> Analyzer<'a> {
                 let primary_pos = entity_unit.pos();
                 let secondary_pos = config.pos();
                 if primary_pos.source == secondary_pos.source
-                    && primary_pos.range.start > secondary_pos.range.start
+                    && primary_pos.start() > secondary_pos.start()
                 {
                     diagnostics.push(Diagnostic::error(
                         secondary_pos,

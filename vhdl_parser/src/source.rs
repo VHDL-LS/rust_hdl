@@ -204,7 +204,7 @@ impl Range {
 pub struct SrcPos {
     /// The source
     pub source: Source,
-    pub range: Range,
+    range: Range,
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -280,6 +280,10 @@ impl<T> Into<SrcPos> for WithPos<T> {
 
 impl SrcPos {
     const LINE_CONTEXT: u64 = 2;
+
+    pub fn new(source: Source, range: Range) -> SrcPos {
+        SrcPos { source, range }
+    }
 
     fn get_line_context(
         &self,
@@ -454,6 +458,18 @@ impl SrcPos {
             source: self.source,
             range: Range { start, end },
         }
+    }
+
+    pub fn start(&self) -> Position {
+        self.range.start
+    }
+
+    pub fn end(&self) -> Position {
+        self.range.end
+    }
+
+    pub fn range(&self) -> Range {
+        self.range
     }
 
     pub fn combine(&self, other: &dyn AsRef<Self>) -> Self {

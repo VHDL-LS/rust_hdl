@@ -173,7 +173,7 @@ end package;",
     let decl_pos = code.s1("typ_t").pos();
 
     assert_eq!(
-        root.search_reference(code.source(), decl_pos.range.start),
+        root.search_reference(code.source(), decl_pos.start()),
         Some(decl_pos)
     );
 }

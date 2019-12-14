@@ -421,7 +421,7 @@ fn srcpos_to_location(pos: &SrcPos) -> Location {
     let uri = file_name_to_uri(pos.source.file_name());
     Location {
         uri: uri.to_owned(),
-        range: to_lsp_range(&pos.range),
+        range: to_lsp_range(pos.range()),
     }
 }
 
@@ -432,17 +432,17 @@ fn position_to_cursor(position: &lsp_types::Position) -> vhdl_parser::Position {
     }
 }
 
-fn to_lsp_pos(position: &vhdl_parser::Position) -> lsp_types::Position {
+fn to_lsp_pos(position: vhdl_parser::Position) -> lsp_types::Position {
     lsp_types::Position {
         line: position.line,
         character: position.character,
     }
 }
 
-fn to_lsp_range(range: &vhdl_parser::Range) -> lsp_types::Range {
+fn to_lsp_range(range: vhdl_parser::Range) -> lsp_types::Range {
     lsp_types::Range {
-        start: to_lsp_pos(&range.start),
-        end: to_lsp_pos(&range.end),
+        start: to_lsp_pos(range.start),
+        end: to_lsp_pos(range.end),
     }
 }
 
@@ -520,7 +520,7 @@ fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {
             related_information.push(DiagnosticRelatedInformation {
                 location: Location {
                     uri: uri.to_owned(),
-                    range: to_lsp_range(&pos.range),
+                    range: to_lsp_range(pos.range()),
                 },
                 message: msg,
             })
@@ -531,7 +531,7 @@ fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {
     };
 
     lsp_types::Diagnostic {
-        range: to_lsp_range(&diagnostic.pos.range),
+        range: to_lsp_range(diagnostic.pos.range()),
         severity: Some(severity),
         code: None,
         source: Some("vhdl ls".to_owned()),
