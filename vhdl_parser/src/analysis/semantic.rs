@@ -342,8 +342,16 @@ impl<'a> Analyzer<'a> {
                     err.add_to(diagnostics)?;
                 }
             }
-            _ => {
-                // @TODO more
+            ArrayIndex::Discrete(ref mut drange) => {
+                match drange {
+                    DiscreteRange::Discrete(ref mut type_mark, ..) => {
+                        if let Err(err) = self.resolve_type_mark(region, type_mark) {
+                            err.add_to(diagnostics)?;
+                        }
+                    }
+                    // @TODO more
+                    _ => {}
+                }
             }
         }
         Ok(())

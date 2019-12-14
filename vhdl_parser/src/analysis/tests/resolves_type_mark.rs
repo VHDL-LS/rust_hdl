@@ -5,6 +5,7 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use super::*;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn resolves_type_mark_in_subtype_indications() {
@@ -270,34 +271,38 @@ package pkg is
 
   -- With index subtype constraint
   type arr1_t is array (typ_t range <>) of typ_t;
-  type arr2_t is array (missing1_t range <>) of placeholder_t;
+  type arr2_t is array (missing_t range <>) of placeholder_t;
+
+  type arr3_t is array (typ_t) of typ_t;
+  type arr4_t is array (missing_t) of placeholder_t;
+
 end package;",
     );
 
     let (root, diagnostics) = builder.get_analyzed_root();
-    check_diagnostics(
-        diagnostics,
-        vec![Diagnostic::error(
-            code.s1("missing1_t"),
-            "No declaration of 'missing1_t'",
-        )],
-    );
-    // Goto declaration from reference
-    assert_eq!(
-        root.search_reference(code.source(), code.s("typ_t", 2).end()),
-        Some(code.s("typ_t", 1).pos())
-    );
-    assert_eq!(
-        root.search_reference(code.source(), code.s("typ_t", 3).end()),
-        Some(code.s("typ_t", 1).pos())
-    );
+
+    let num_missing = 2;
+    let expected = (1..=num_missing)
+        .map(|idx| Diagnostic::error(code.s("missing_t", idx), "No declaration of 'missing_t'"))
+        .collect();
+    check_diagnostics(diagnostics, expected);
+
+    let num_references = 5;
+    let mut references = Vec::new();
+
+    for i in 1..=num_references {
+        let refpos = code.s("typ_t", i).pos();
+        assert_eq!(
+            root.search_reference(code.source(), refpos.end()),
+            Some(code.s("typ_t", 1).pos()),
+            "i={}",
+            i
+        );
+        references.push(refpos.clone());
+    }
 
     assert_eq_unordered(
         &root.find_all_references(&code.s("typ_t", 1).pos()),
-        &vec![
-            code.s("typ_t", 1).pos().clone(),
-            code.s("typ_t", 2).pos().clone(),
-            code.s("typ_t", 3).pos().clone(),
-        ],
+        &references,
     );
 }

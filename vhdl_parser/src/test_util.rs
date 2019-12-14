@@ -647,7 +647,13 @@ fn compare_unordered<T: PartialEq + Debug>(got: &[T], expected: &[T]) -> bool {
 
 pub fn assert_eq_unordered<T: PartialEq + Debug>(got: &[T], expected: &[T]) {
     if !compare_unordered(got, expected) {
-        panic!("\ngot: {:?}\nexp: {:?}", got, expected);
+        panic!(
+            "\ngot(len={}): {:?}\nexp(len={}): {:?}",
+            got.len(),
+            got,
+            expected.len(),
+            expected
+        );
     }
 }
 

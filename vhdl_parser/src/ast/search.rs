@@ -284,8 +284,15 @@ impl<T> Search<T> for TypeDeclaration {
                         ArrayIndex::IndexSubtypeDefintion(ref type_mark) => {
                             return_if!(type_mark.search(searcher));
                         }
-                        // @TODO
-                        _ => {}
+                        ArrayIndex::Discrete(ref drange) => {
+                            match drange {
+                                DiscreteRange::Discrete(ref type_mark, ..) => {
+                                    return_if!(type_mark.search(searcher));
+                                }
+                                // @TODO more
+                                _ => {}
+                            }
+                        }
                     }
                 }
                 return_if!(subtype_indication.search(searcher));
