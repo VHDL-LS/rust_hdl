@@ -278,7 +278,16 @@ impl<T> Search<T> for TypeDeclaration {
             TypeDefinition::Access(ref subtype_indication) => {
                 return_if!(subtype_indication.search(searcher));
             }
-            TypeDefinition::Array(.., ref subtype_indication) => {
+            TypeDefinition::Array(ref indexes, ref subtype_indication) => {
+                for index in indexes.iter() {
+                    match index {
+                        ArrayIndex::IndexSubtypeDefintion(ref type_mark) => {
+                            return_if!(type_mark.search(searcher));
+                        }
+                        // @TODO
+                        _ => {}
+                    }
+                }
                 return_if!(subtype_indication.search(searcher));
             }
             TypeDefinition::Subtype(ref subtype_indication) => {

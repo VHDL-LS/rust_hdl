@@ -216,3 +216,88 @@ end package;",
         &references,
     );
 }
+
+#[test]
+fn find_references_in_record_defintions() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+  type typ_t is (foo, bar);
+  type rec_t is record
+    field : typ_t;
+  end record;
+end package;",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    // Goto declaration from declaration
+    assert_eq!(
+        root.search_reference(code.source(), code.s("typ_t", 1).end()),
+        Some(code.s("typ_t", 1).pos())
+    );
+
+    // Goto declaration from reference
+    assert_eq!(
+        root.search_reference(code.source(), code.s("typ_t", 2).end()),
+        Some(code.s("typ_t", 1).pos())
+    );
+
+    assert_eq_unordered(
+        &root.find_all_references(&code.s("typ_t", 1).pos()),
+        &vec![
+            code.s("typ_t", 1).pos().clone(),
+            code.s("typ_t", 2).pos().clone(),
+        ],
+    );
+}
+
+#[test]
+fn find_references_in_array_defintions() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+  -- Dummy type to use where we do not care
+  type placeholder_t is (a, b);
+
+  -- The type we want to resolve references to
+  type typ_t is (foo, bar);
+
+  -- With index subtype constraint
+  type arr1_t is array (typ_t range <>) of typ_t;
+  type arr2_t is array (missing1_t range <>) of placeholder_t;
+end package;",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("missing1_t"),
+            "No declaration of 'missing1_t'",
+        )],
+    );
+    // Goto declaration from reference
+    assert_eq!(
+        root.search_reference(code.source(), code.s("typ_t", 2).end()),
+        Some(code.s("typ_t", 1).pos())
+    );
+    assert_eq!(
+        root.search_reference(code.source(), code.s("typ_t", 3).end()),
+        Some(code.s("typ_t", 1).pos())
+    );
+
+    assert_eq_unordered(
+        &root.find_all_references(&code.s("typ_t", 1).pos()),
+        &vec![
+            code.s("typ_t", 1).pos().clone(),
+            code.s("typ_t", 2).pos().clone(),
+            code.s("typ_t", 3).pos().clone(),
+        ],
+    );
+}

@@ -6,7 +6,7 @@
 
 use super::declarative_region::{AnyDeclaration, DeclarativeRegion, VisibleDeclaration};
 use super::library::*;
-use crate::ast::{HasIdent, *};
+use crate::ast::*;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::latin_1::Latin1String;
 use crate::source::{SrcPos, WithPos};
@@ -330,6 +330,25 @@ impl<'a> Analyzer<'a> {
         self.resolve_selected_name(region, type_mark)
     }
 
+    fn analyze_array_index(
+        &self,
+        region: &mut DeclarativeRegion<'_>,
+        array_index: &mut ArrayIndex,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        match array_index {
+            ArrayIndex::IndexSubtypeDefintion(ref mut type_mark) => {
+                if let Err(err) = self.resolve_type_mark(region, type_mark) {
+                    err.add_to(diagnostics)?;
+                }
+            }
+            _ => {
+                // @TODO more
+            }
+        }
+        Ok(())
+    }
+
     fn analyze_subtype_indicaton(
         &self,
         region: &mut DeclarativeRegion<'_>,
@@ -539,7 +558,10 @@ impl<'a> Analyzer<'a> {
                     TypeDefinition::Access(ref mut subtype_indication) => {
                         self.analyze_subtype_indicaton(region, subtype_indication, diagnostics)?;
                     }
-                    TypeDefinition::Array(.., ref mut subtype_indication) => {
+                    TypeDefinition::Array(ref mut array_indexes, ref mut subtype_indication) => {
+                        for index in array_indexes.iter_mut() {
+                            self.analyze_array_index(region, index, diagnostics)?;
+                        }
                         self.analyze_subtype_indicaton(region, subtype_indication, diagnostics)?;
                     }
                     TypeDefinition::Subtype(ref mut subtype_indication) => {
