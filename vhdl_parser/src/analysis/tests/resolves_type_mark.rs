@@ -205,6 +205,7 @@ end package;",
     check_no_diagnostics(&diagnostics);
 
     let references = vec![
+        code1.s("typ_t", 1).pos().clone(),
         code1.s("typ_t", 2).pos().clone(),
         code2.s("typ_t", 1).pos().clone(),
         code2.s("typ_t", 2).pos().clone(),

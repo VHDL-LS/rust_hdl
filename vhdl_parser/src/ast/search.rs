@@ -60,9 +60,6 @@ pub trait Searcher<T> {
     fn search_declaration(&mut self, _decl: &Declaration) -> SearchState<T> {
         NotFinished
     }
-    fn search_type_declaration(&mut self, _decl: &TypeDeclaration) -> SearchState<T> {
-        NotFinished
-    }
     fn search_interface_declaration(&mut self, _decl: &InterfaceDeclaration) -> SearchState<T> {
         NotFinished
     }
@@ -258,39 +255,39 @@ impl<T> Search<T> for SubtypeIndication {
 
 impl<T> Search<T> for TypeDeclaration {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
-        searcher.search_type_declaration(self).or_else(|| {
-            match self.def {
-                TypeDefinition::ProtectedBody(ref body) => {
-                    return_if!(body.decl.search(searcher));
-                }
-                TypeDefinition::Protected(ref prot_decl) => {
-                    for item in prot_decl.items.iter() {
-                        match item {
-                            ProtectedTypeDeclarativeItem::Subprogram(ref subprogram) => {
-                                return_if!(subprogram.search(searcher));
-                            }
+        return_if!(searcher.search_decl_pos(self.ident.pos()).or_not_found());
+
+        match self.def {
+            TypeDefinition::ProtectedBody(ref body) => {
+                return_if!(body.decl.search(searcher));
+            }
+            TypeDefinition::Protected(ref prot_decl) => {
+                for item in prot_decl.items.iter() {
+                    match item {
+                        ProtectedTypeDeclarativeItem::Subprogram(ref subprogram) => {
+                            return_if!(subprogram.search(searcher));
                         }
                     }
                 }
-                TypeDefinition::Record(ref element_decls) => {
-                    for elem in element_decls {
-                        return_if!(elem.subtype.search(searcher));
-                    }
-                }
-                TypeDefinition::Access(ref subtype_indication) => {
-                    return_if!(subtype_indication.search(searcher));
-                }
-                TypeDefinition::Array(.., ref subtype_indication) => {
-                    return_if!(subtype_indication.search(searcher));
-                }
-                TypeDefinition::Subtype(ref subtype_indication) => {
-                    return_if!(subtype_indication.search(searcher));
-                }
-
-                _ => {}
             }
-            NotFound
-        })
+            TypeDefinition::Record(ref element_decls) => {
+                for elem in element_decls {
+                    return_if!(elem.subtype.search(searcher));
+                }
+            }
+            TypeDefinition::Access(ref subtype_indication) => {
+                return_if!(subtype_indication.search(searcher));
+            }
+            TypeDefinition::Array(.., ref subtype_indication) => {
+                return_if!(subtype_indication.search(searcher));
+            }
+            TypeDefinition::Subtype(ref subtype_indication) => {
+                return_if!(subtype_indication.search(searcher));
+            }
+
+            _ => {}
+        }
+        NotFound
     }
 }
 
@@ -518,14 +515,6 @@ impl Searcher<SrcPos> for ItemAtCursor {
             Finished(NotFound)
         } else if let Some(ref reference) = with_ref.reference {
             Finished(Found(reference.clone()))
-        } else {
-            Finished(NotFound)
-        }
-    }
-
-    fn search_type_declaration(&mut self, decl: &TypeDeclaration) -> SearchState<SrcPos> {
-        if self.is_inside(decl.ident.pos()) {
-            Finished(Found(decl.ident.pos().clone()))
         } else {
             Finished(NotFound)
         }
