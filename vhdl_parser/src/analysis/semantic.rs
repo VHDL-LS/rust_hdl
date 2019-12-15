@@ -682,6 +682,12 @@ impl<'a> Analyzer<'a> {
                 }
                 Ok(())
             }
+            Expression::Qualified(ref mut qexpr) => {
+                let QualifiedExpression { name, expr } = qexpr.as_mut();
+                self.resolve_name(region, &name.pos, &mut name.item, diagnostics)?;
+                self.analyze_expression(region, expr, diagnostics)?;
+                Ok(())
+            }
             // @TODO other
             _ => Ok(()),
         }

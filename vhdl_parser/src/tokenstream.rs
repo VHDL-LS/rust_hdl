@@ -29,18 +29,18 @@ impl TokenStream {
         self.tokenizer.move_after(token);
     }
 
-    pub fn pop(self: &mut Self) -> ParseResult<Option<Token>> {
+    pub fn pop(&mut self) -> ParseResult<Option<Token>> {
         self.tokenizer.pop()
     }
 
-    pub fn peek(self: &mut Self) -> ParseResult<Option<Token>> {
+    pub fn peek(&mut self) -> ParseResult<Option<Token>> {
         let state = self.tokenizer.state();
         let result = self.tokenizer.pop();
         self.tokenizer.set_state(state);
         result
     }
 
-    pub fn expect(self: &mut Self) -> ParseResult<Token> {
+    pub fn expect(&mut self) -> ParseResult<Token> {
         if let Some(token) = self.pop()? {
             Ok(token)
         } else {
@@ -48,7 +48,7 @@ impl TokenStream {
         }
     }
 
-    pub fn expect_kind(self: &mut Self, kind: Kind) -> ParseResult<Token> {
+    pub fn expect_kind(&mut self, kind: Kind) -> ParseResult<Token> {
         if let Some(token) = self.pop()? {
             token.expect_kind(kind)
         } else {
@@ -59,7 +59,7 @@ impl TokenStream {
         }
     }
 
-    pub fn peek_expect(self: &mut Self) -> ParseResult<Token> {
+    pub fn peek_expect(&mut self) -> ParseResult<Token> {
         if let Some(token) = self.peek()? {
             Ok(token)
         } else {
@@ -67,16 +67,16 @@ impl TokenStream {
         }
     }
 
-    pub fn pop_kind(self: &mut Self) -> ParseResult<Option<Kind>> {
+    pub fn pop_kind(&mut self) -> ParseResult<Option<Kind>> {
         let token = self.pop()?;
         Ok(token.map(|ref token| token.kind))
     }
 
-    pub fn peek_kind(self: &mut Self) -> ParseResult<Option<Kind>> {
+    pub fn peek_kind(&mut self) -> ParseResult<Option<Kind>> {
         Ok(self.peek()?.map(|ref token| token.kind))
     }
 
-    pub fn next_kinds_are(self: &mut Self, kinds: &[Kind]) -> ParseResult<bool> {
+    pub fn next_kinds_are(&mut self, kinds: &[Kind]) -> ParseResult<bool> {
         let state = self.state();
         for kind in kinds {
             if self.pop_kind()? != Some(*kind) {
@@ -88,7 +88,7 @@ impl TokenStream {
         Ok(true)
     }
 
-    pub fn pop_if_kind(self: &mut Self, kind: Kind) -> ParseResult<Option<Token>> {
+    pub fn pop_if_kind(&mut self, kind: Kind) -> ParseResult<Option<Token>> {
         if let Some(token) = self.peek()? {
             if token.kind == kind {
                 self.move_after(&token);
@@ -98,7 +98,7 @@ impl TokenStream {
         Ok(None)
     }
 
-    pub fn skip_if_kind(self: &mut Self, kind: Kind) -> ParseResult<bool> {
+    pub fn skip_if_kind(&mut self, kind: Kind) -> ParseResult<bool> {
         Ok(self.pop_if_kind(kind)?.is_some())
     }
 
@@ -120,13 +120,13 @@ impl TokenStream {
         }
     }
 
-    pub fn expect_ident(self: &mut Self) -> ParseResult<Ident> {
+    pub fn expect_ident(&mut self) -> ParseResult<Ident> {
         let token = self.expect()?;
         token.expect_ident()
     }
 
     /// Expect identifier or range keyword
-    pub fn expect_ident_or_range(self: &mut Self) -> ParseResult<Ident> {
+    pub fn expect_ident_or_range(&mut self) -> ParseResult<Ident> {
         let token = self.expect()?;
         match_token_kind!(
             token,

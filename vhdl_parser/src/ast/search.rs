@@ -458,6 +458,12 @@ fn search_pos_expr<T>(
             }
             NotFound
         }
+        Expression::Qualified(ref qexpr) => {
+            let QualifiedExpression {name, expr} = qexpr.as_ref();
+            return_if!(name.search(searcher));
+            return_if!(expr.search(searcher));
+            NotFound
+        }
         // @TODO more
         _ => NotFound,
     }

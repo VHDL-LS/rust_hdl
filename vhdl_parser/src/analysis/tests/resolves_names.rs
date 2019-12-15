@@ -347,6 +347,35 @@ end package;
     );
 }
 
+#[test]
+fn resolves_names_in_qualified_expr() {
+    check_missing(
+        "
+package pkg is
+  -- Named
+  constant c0 : missing := missing'(1 + missing);
+end package;
+",
+    );
+}
+
+#[test]
+fn search_names_in_qualified_expr() {
+    check_search_reference(
+        "
+package pkg is
+  type decl is range 0 to 1;
+  -- Named
+  constant c0 : decl := decl'(decl'(0));
+end package;
+",
+    );
+}
+
+
+
+
+
 fn check_missing(contents: &str) {
     let mut builder = LibraryBuilder::new();
     let code = builder.code("libname", contents);
