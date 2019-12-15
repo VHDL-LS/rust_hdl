@@ -313,6 +313,40 @@ end package body;
     );
 }
 
+#[test]
+fn resolves_names_in_aggregates() {
+    check_missing(
+        "
+package pkg is
+  -- Named
+  constant c0 : integer_vector(0 to 0) := (0 => missing);
+  constant c1 : integer_vector(0 to 0) := (missing to missing => 0);
+
+  -- Positional
+  constant c2 : integer_vector(0 to 1) := (missing, missing);
+end package;
+",
+    );
+}
+
+#[test]
+fn search_names_in_aggregates() {
+    check_search_reference(
+        "
+package pkg is
+  constant decl : natural := 0;
+
+  -- Named
+  constant c0 : integer_vector(0 to 0) := (0 => decl);
+  constant c1 : integer_vector(0 to 0) := (decl to decl => 0);
+
+  -- Positional
+  constant c2 : integer_vector(0 to 1) := (decl, decl);
+end package;
+",
+    );
+}
+
 fn check_missing(contents: &str) {
     let mut builder = LibraryBuilder::new();
     let code = builder.code("libname", contents);

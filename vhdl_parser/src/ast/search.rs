@@ -434,6 +434,30 @@ fn search_pos_expr<T>(
         }
         Expression::Unary(_, ref expr) => expr.search(searcher),
         Expression::Name(ref name) => search_pos_name(pos, &name, searcher),
+        Expression::Aggregate(ref assocs) => {
+            for assoc in assocs.iter() {
+                match assoc {
+                    ElementAssociation::Named(ref choices, ref expr) => {
+                        for choice in choices.iter() {
+                            match choice {
+                                Choice::DiscreteRange(ref drange) => {
+                                    return_if!(drange.search(searcher));
+                                }
+                                Choice::Expression(..) => {
+                                    // @TODO could be record field name
+                                }
+                                Choice::Others => {}
+                            }
+                        }
+                        return_if!(expr.search(searcher));
+                    }
+                    ElementAssociation::Positional(ref expr) => {
+                        return_if!(expr.search(searcher));
+                    }
+                }
+            }
+            NotFound
+        }
         // @TODO more
         _ => NotFound,
     }

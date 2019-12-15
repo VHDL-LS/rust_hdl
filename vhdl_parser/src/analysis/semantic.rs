@@ -658,6 +658,30 @@ impl<'a> Analyzer<'a> {
                 self.analyze_expression(region, inner, diagnostics)
             }
             Expression::Name(ref mut name) => self.resolve_name(region, pos, name, diagnostics),
+            Expression::Aggregate(ref mut assocs) => {
+                for assoc in assocs.iter_mut() {
+                    match assoc {
+                        ElementAssociation::Named(ref mut choices, ref mut expr) => {
+                            for choice in choices.iter_mut() {
+                                match choice {
+                                    Choice::Expression(..) => {
+                                        // @TODO could be record field so we cannot do more now
+                                    }
+                                    Choice::DiscreteRange(ref mut drange) => {
+                                        self.analyze_discrete_range(region, drange, diagnostics)?;
+                                    }
+                                    Choice::Others => {}
+                                }
+                            }
+                            self.analyze_expression(region, expr, diagnostics)?;
+                        }
+                        ElementAssociation::Positional(ref mut expr) => {
+                            self.analyze_expression(region, expr, diagnostics)?;
+                        }
+                    }
+                }
+                Ok(())
+            }
             // @TODO other
             _ => Ok(()),
         }
