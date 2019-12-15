@@ -45,12 +45,6 @@ impl<T> SearchState<T> {
 }
 
 pub trait Searcher<T> {
-    fn search_labeled_concurrent_statement(
-        &mut self,
-        _stmt: &LabeledConcurrentStatement,
-    ) -> SearchState<T> {
-        NotFinished
-    }
     fn search_labeled_sequential_statement(
         &mut self,
         _stmt: &LabeledSequentialStatement,
@@ -162,35 +156,36 @@ impl<T> Search<T> for InstantiationStatement {
 
 impl<T> Search<T> for LabeledConcurrentStatement {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
-        searcher
-            .search_labeled_concurrent_statement(self)
-            .or_else(|| match self.statement {
-                ConcurrentStatement::Block(ref block) => {
-                    return_if!(block.decl.search(searcher));
-                    block.statements.search(searcher)
+        if let Some(ref label) = self.label {
+            return_if!(searcher.search_decl_pos(label.pos()).or_not_found());
+        }
+        match self.statement {
+            ConcurrentStatement::Block(ref block) => {
+                return_if!(block.decl.search(searcher));
+                block.statements.search(searcher)
+            }
+            ConcurrentStatement::Process(ref process) => {
+                return_if!(process.decl.search(searcher));
+                process.statements.search(searcher)
+            }
+            ConcurrentStatement::ForGenerate(ref gen) => gen.body.search(searcher),
+            ConcurrentStatement::IfGenerate(ref gen) => {
+                for conditional in gen.conditionals.iter() {
+                    return_if!(conditional.item.search(searcher));
                 }
-                ConcurrentStatement::Process(ref process) => {
-                    return_if!(process.decl.search(searcher));
-                    process.statements.search(searcher)
+                gen.else_item.search(searcher)
+            }
+            ConcurrentStatement::CaseGenerate(ref gen) => {
+                for alternative in gen.alternatives.iter() {
+                    return_if!(alternative.item.search(searcher))
                 }
-                ConcurrentStatement::ForGenerate(ref gen) => gen.body.search(searcher),
-                ConcurrentStatement::IfGenerate(ref gen) => {
-                    for conditional in gen.conditionals.iter() {
-                        return_if!(conditional.item.search(searcher));
-                    }
-                    gen.else_item.search(searcher)
-                }
-                ConcurrentStatement::CaseGenerate(ref gen) => {
-                    for alternative in gen.alternatives.iter() {
-                        return_if!(alternative.item.search(searcher))
-                    }
-                    NotFound
-                }
-                ConcurrentStatement::Instance(ref inst) => inst.search(searcher),
+                NotFound
+            }
+            ConcurrentStatement::Instance(ref inst) => inst.search(searcher),
 
-                // @TODO not searched
-                _ => NotFound,
-            })
+            // @TODO not searched
+            _ => NotFound,
+        }
     }
 }
 

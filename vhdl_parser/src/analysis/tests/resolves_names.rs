@@ -148,9 +148,23 @@ end architecture;
 ",
     );
 
-    let diagnostics = builder.analyze();
+    let (root, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
         (1..=2).map(|idx| missing(&code, "missing", idx)).collect(),
     );
+
+    for i in 1..=3 {
+        assert_eq!(
+            root.search_reference(code.source(), code.s("lab1", i).end()),
+            Some(code.s("lab1", 1).pos())
+        );
+    }
+
+    for i in 1..=2 {
+        assert_eq!(
+            root.search_reference(code.source(), code.s("lab2", i).end()),
+            Some(code.s("lab2", 1).pos())
+        );
+    }
 }
