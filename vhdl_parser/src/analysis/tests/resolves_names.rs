@@ -372,9 +372,48 @@ end package;
     );
 }
 
+#[test]
+fn resolves_names_in_allocators() {
+    check_missing(
+        "
+package pkg is
+end package;
 
+package body pkg is
+    procedure p is
+       type acc_t is access integer_vector;
+       -- Qualified
+       variable ptr0 : acc_t := new integer_vector'(missing, missing);
+       -- Subtype
+       variable ptr1 : acc_t := new integer_vector(missing to missing);
+    begin
+    end procedure;
+end package body;
+",
+    );
+}
 
+#[test]
+fn search_names_in_allocators() {
+    check_search_reference(
+        "
+package pkg is
+end package;
 
+package body pkg is
+    constant decl : natural := 0;
+    procedure p is
+       type acc_t is access integer_vector;
+       -- Qualified
+       variable ptr0 : acc_t := new integer_vector'(decl, decl);
+       -- Subtype
+       variable ptr1 : acc_t := new integer_vector(decl to decl);
+    begin
+    end procedure;
+end package body;
+",
+    );
+}
 
 fn check_missing(contents: &str) {
     let mut builder = LibraryBuilder::new();

@@ -642,6 +642,18 @@ impl<'a> Analyzer<'a> {
         self.analyze_expression_pos(region, &expr.pos, &mut expr.item, diagnostics)
     }
 
+    fn analyze_qualified_expression(
+        &self,
+        region: &DeclarativeRegion<'_>,
+        qexpr: &mut QualifiedExpression,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        let QualifiedExpression { name, expr } = qexpr;
+        self.resolve_name(region, &name.pos, &mut name.item, diagnostics)?;
+        self.analyze_expression(region, expr, diagnostics)?;
+        Ok(())
+    }
+
     fn analyze_expression_pos(
         &self,
         region: &DeclarativeRegion<'_>,
@@ -683,13 +695,18 @@ impl<'a> Analyzer<'a> {
                 Ok(())
             }
             Expression::Qualified(ref mut qexpr) => {
-                let QualifiedExpression { name, expr } = qexpr.as_mut();
-                self.resolve_name(region, &name.pos, &mut name.item, diagnostics)?;
-                self.analyze_expression(region, expr, diagnostics)?;
-                Ok(())
+                self.analyze_qualified_expression(region, qexpr, diagnostics)
             }
-            // @TODO other
-            _ => Ok(()),
+
+            Expression::New(ref mut alloc) => match alloc.item {
+                Allocator::Qualified(ref mut qexpr) => {
+                    self.analyze_qualified_expression(region, qexpr, diagnostics)
+                }
+                Allocator::Subtype(ref mut subtype) => {
+                    self.analyze_subtype_indication(region, subtype, diagnostics)
+                }
+            },
+            Expression::Literal(_) => Ok(()),
         }
     }
 

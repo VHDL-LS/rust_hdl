@@ -458,14 +458,24 @@ fn search_pos_expr<T>(
             }
             NotFound
         }
-        Expression::Qualified(ref qexpr) => {
-            let QualifiedExpression {name, expr} = qexpr.as_ref();
-            return_if!(name.search(searcher));
-            return_if!(expr.search(searcher));
-            NotFound
+        Expression::Qualified(ref qexpr) => qexpr.search(searcher),
+        Expression::New(ref alloc) => {
+            return_if!(searcher.search_with_pos(&alloc.pos).or_not_found());
+            match alloc.item {
+                Allocator::Qualified(ref qexpr) => qexpr.search(searcher),
+                Allocator::Subtype(ref subtype) => subtype.search(searcher),
+            }
         }
-        // @TODO more
-        _ => NotFound,
+        Expression::Literal(_) => NotFound,
+    }
+}
+
+impl<T> Search<T> for QualifiedExpression {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        let QualifiedExpression { name, expr } = self;
+        return_if!(name.search(searcher));
+        return_if!(expr.search(searcher));
+        NotFound
     }
 }
 
