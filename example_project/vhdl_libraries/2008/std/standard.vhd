@@ -90,5 +90,6 @@ package standard is
   function to_string return string;
   function maximum return natural;
   function minimum return natural;
+  procedure deallocate;
 
 end package;

@@ -425,8 +425,15 @@ end package;
 package body pkg is
     function f return natural is
     begin
+       -- Variable assignment
        missing := missing;
        missing := missing when missing else missing;
+
+       -- Procedure call
+       missing;
+       missing(missing);
+
+       -- Return
        return missing;
     end;
 end package body;
@@ -442,11 +449,21 @@ package pkg is
 end package;
 
 package body pkg is
+  procedure proc(c : natural) is
+  begin
+  end;
+
   function f return natural is
     variable decl : natural := 0;
   begin
+    -- Variable assignment
     decl := decl;
     decl := decl when decl = 0 else decl;
+
+    -- Procedure call
+    proc(decl);
+
+    -- Return
     return decl;
   end;
 end package body;

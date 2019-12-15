@@ -356,23 +356,7 @@ impl<'a> Analyzer<'a> {
                 Ok(LookupResult::NotSelected)
             }
             Name::FunctionCall(ref mut fcall) => {
-                let FunctionCall { name, parameters } = fcall.as_mut();
-                self.resolve_name_pos(
-                    region,
-                    &name.pos,
-                    &mut name.item,
-                    allow_incomplete,
-                    diagnostics,
-                )?;
-                // @TODO more
-                for AssociationElement { actual, .. } in parameters.iter_mut() {
-                    match actual.item {
-                        ActualPart::Expression(ref mut expr) => {
-                            self.analyze_expression_pos(region, &actual.pos, expr, diagnostics)?;
-                        }
-                        ActualPart::Open => {}
-                    }
-                }
+                self.analyze_function_call(region, fcall, diagnostics)?;
                 Ok(LookupResult::NotSelected)
             }
             Name::External(..) => {
@@ -641,6 +625,31 @@ impl<'a> Analyzer<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         self.analyze_expression_pos(region, &expr.pos, &mut expr.item, diagnostics)
+    }
+
+    fn analyze_function_call(
+        &self,
+        region: &DeclarativeRegion<'_>,
+        fcall: &mut FunctionCall,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        let FunctionCall { name, parameters } = fcall;
+        if let Err(err) =
+            self.resolve_name_pos(region, &name.pos, &mut name.item, true, diagnostics)
+        {
+            err.add_to(diagnostics)?;
+        }
+
+        // @TODO more
+        for AssociationElement { actual, .. } in parameters.iter_mut() {
+            match actual.item {
+                ActualPart::Expression(ref mut expr) => {
+                    self.analyze_expression_pos(region, &actual.pos, expr, diagnostics)?;
+                }
+                ActualPart::Open => {}
+            }
+        }
+        Ok(())
     }
 
     fn analyze_qualified_expression(
@@ -1312,6 +1321,9 @@ impl<'a> Analyzer<'a> {
                 if let Some(ref mut expression) = expression {
                     self.analyze_expression(parent, expression, diagnostics)?;
                 }
+            }
+            SequentialStatement::ProcedureCall(ref mut pcall) => {
+                self.analyze_function_call(parent, pcall, diagnostics)?;
             }
             SequentialStatement::VariableAssignment(ref mut assign) => {
                 // @TODO more

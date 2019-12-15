@@ -126,6 +126,9 @@ impl<T> Search<T> for LabeledSequentialStatement {
             SequentialStatement::Return(ReturnStatement { ref expression }) => {
                 return_if!(expression.search(searcher));
             }
+            SequentialStatement::ProcedureCall(ref pcall) => {
+                return_if!(pcall.search(searcher));
+            }
             SequentialStatement::VariableAssignment(ref assign) => {
                 let VariableAssignment { target, rhs } = assign;
                 match target.item {
@@ -274,20 +277,7 @@ fn search_pos_name<T>(
             return_if!(dranges.search(searcher));
             NotFound
         }
-        Name::FunctionCall(ref fcall) => {
-            let FunctionCall { name, parameters } = fcall.as_ref();
-            return_if!(name.search(searcher));
-            // @TODO more formal
-            for AssociationElement { actual, .. } in parameters.iter() {
-                match actual.item {
-                    ActualPart::Expression(ref expr) => {
-                        return_if!(search_pos_expr(&actual.pos, expr, searcher));
-                    }
-                    ActualPart::Open => {}
-                }
-            }
-            NotFound
-        }
+        Name::FunctionCall(ref fcall) => fcall.search(searcher),
         Name::Attribute(ref attr) => {
             // @TODO more
             let AttributeName { name, expr, .. } = attr.as_ref();
@@ -514,6 +504,22 @@ impl<T> Search<T> for QualifiedExpression {
     }
 }
 
+impl<T> Search<T> for FunctionCall {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        let FunctionCall { name, parameters } = self;
+        return_if!(name.search(searcher));
+        // @TODO more formal
+        for AssociationElement { actual, .. } in parameters.iter() {
+            match actual.item {
+                ActualPart::Expression(ref expr) => {
+                    return_if!(search_pos_expr(&actual.pos, expr, searcher));
+                }
+                ActualPart::Open => {}
+            }
+        }
+        NotFound
+    }
+}
 impl<T> Search<T> for WithPos<Expression> {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         search_pos_expr(&self.pos, &self.item, searcher)
