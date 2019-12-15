@@ -126,6 +126,39 @@ impl<T> Search<T> for LabeledSequentialStatement {
             SequentialStatement::Return(ReturnStatement { ref expression }) => {
                 return_if!(expression.search(searcher));
             }
+            SequentialStatement::VariableAssignment(ref assign) => {
+                let VariableAssignment { target, rhs } = assign;
+                match target.item {
+                    Target::Name(ref name) => {
+                        return_if!(search_pos_name(&target.pos, name, searcher));
+                    }
+                    Target::Aggregate(..) => {
+                        // @TODO
+                    }
+                }
+                match rhs {
+                    AssignmentRightHand::Simple(expr) => {
+                        return_if!(expr.search(searcher));
+                    }
+                    AssignmentRightHand::Conditional(conditionals) => {
+                        let Conditionals {
+                            conditionals,
+                            else_item,
+                        } = conditionals;
+                        for conditional in conditionals {
+                            let Conditional { condition, item } = conditional;
+                            return_if!(item.search(searcher));
+                            return_if!(condition.search(searcher));
+                        }
+                        if let Some(expr) = else_item {
+                            return_if!(expr.search(searcher));
+                        }
+                    }
+                    AssignmentRightHand::Selected(..) => {
+                        // @TODO
+                    }
+                }
+            }
             // @TODO more
             _ => {}
         }

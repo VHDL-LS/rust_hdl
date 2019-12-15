@@ -1313,6 +1313,40 @@ impl<'a> Analyzer<'a> {
                     self.analyze_expression(parent, expression, diagnostics)?;
                 }
             }
+            SequentialStatement::VariableAssignment(ref mut assign) => {
+                // @TODO more
+                let VariableAssignment { target, rhs } = assign;
+                match target.item {
+                    Target::Name(ref mut name) => {
+                        self.resolve_name(parent, &target.pos, name, diagnostics)?;
+                    }
+                    Target::Aggregate(..) => {
+                        // @TODO
+                    }
+                }
+                match rhs {
+                    AssignmentRightHand::Simple(expr) => {
+                        self.analyze_expression(parent, expr, diagnostics)?;
+                    }
+                    AssignmentRightHand::Conditional(conditionals) => {
+                        let Conditionals {
+                            conditionals,
+                            else_item,
+                        } = conditionals;
+                        for conditional in conditionals {
+                            let Conditional { condition, item } = conditional;
+                            self.analyze_expression(parent, item, diagnostics)?;
+                            self.analyze_expression(parent, condition, diagnostics)?;
+                        }
+                        if let Some(expr) = else_item {
+                            self.analyze_expression(parent, expr, diagnostics)?;
+                        }
+                    }
+                    AssignmentRightHand::Selected(..) => {
+                        // @TODO
+                    }
+                }
+            }
             _ => {
                 // @TODO others
             }

@@ -425,6 +425,8 @@ end package;
 package body pkg is
     function f return natural is
     begin
+       missing := missing;
+       missing := missing when missing else missing;
        return missing;
     end;
 end package body;
@@ -440,9 +442,11 @@ package pkg is
 end package;
 
 package body pkg is
-  constant decl : natural := 0;
   function f return natural is
+    variable decl : natural := 0;
   begin
+    decl := decl;
+    decl := decl when decl = 0 else decl;
     return decl;
   end;
 end package body;
@@ -471,6 +475,7 @@ fn check_search_reference(contents: &str) {
     let (root, diagnostics) = builder.get_analyzed_root();
     check_no_diagnostics(&diagnostics);
 
+    let mut references = Vec::new();
     for idx in 1..=occurences {
         assert_eq!(
             root.search_reference(code.source(), code.s("decl", idx).end()),
@@ -478,5 +483,10 @@ fn check_search_reference(contents: &str) {
             "{}",
             idx
         );
+        references.push(code.s("decl", idx).pos());
     }
+    assert_eq_unordered(
+        &root.find_all_references(&code.s("decl", 1).pos()),
+        &references,
+    );
 }
