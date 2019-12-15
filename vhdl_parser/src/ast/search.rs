@@ -45,12 +45,6 @@ impl<T> SearchState<T> {
 }
 
 pub trait Searcher<T> {
-    fn search_labeled_sequential_statement(
-        &mut self,
-        _stmt: &LabeledSequentialStatement,
-    ) -> SearchState<T> {
-        NotFinished
-    }
     fn search_declaration(&mut self, _decl: &Declaration) -> SearchState<T> {
         NotFinished
     }
@@ -125,9 +119,19 @@ impl<T, V: Search<T>> Search<T> for Option<V> {
 
 impl<T> Search<T> for LabeledSequentialStatement {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
-        searcher
-            .search_labeled_sequential_statement(self)
-            .or_else(|| NotFound)
+        if let Some(ref label) = self.label {
+            return_if!(searcher.search_decl_pos(label.pos()).or_not_found());
+        }
+        match self.statement {
+            SequentialStatement::Return(ReturnStatement {ref expression}) => {
+                return_if!(expression.search(searcher));
+            }
+            // @TODO more
+            _ => {
+
+            }
+        }
+        NotFound
     }
 }
 
@@ -508,6 +512,7 @@ impl<T> Search<T> for Declaration {
                 Declaration::SubprogramBody(body) => {
                     return_if!(body.specification.search(searcher));
                     return_if!(body.declarations.search(searcher));
+                    return_if!(body.statements.search(searcher));
                 }
                 Declaration::SubprogramDeclaration(decl) => {
                     return_if!(decl.search(searcher));

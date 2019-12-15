@@ -788,6 +788,7 @@ impl<'a> Analyzer<'a> {
                     &mut body.declarations,
                     diagnostics,
                 )?;
+                self.analyze_sequential_part(&mut spec_region, &mut body.statements, diagnostics)?;
             }
             Declaration::SubprogramDeclaration(ref mut subdecl) => {
                 region.add(
@@ -1149,6 +1150,7 @@ impl<'a> Analyzer<'a> {
             ConcurrentStatement::Process(ref mut process) => {
                 let mut region = DeclarativeRegion::new_borrowed_parent(parent);
                 self.analyze_declarative_part(&mut region, &mut process.decl, diagnostics)?;
+                self.analyze_sequential_part(&mut region, &mut process.statements, diagnostics)?;
             }
             ConcurrentStatement::ForGenerate(ref mut gen) => {
                 let mut region = DeclarativeRegion::new_borrowed_parent(parent);
@@ -1187,6 +1189,43 @@ impl<'a> Analyzer<'a> {
     ) -> FatalNullResult {
         for statement in statements.iter_mut() {
             self.analyze_concurrent_statement(parent, statement, diagnostics)?;
+        }
+
+        Ok(())
+    }
+
+    fn analyze_sequential_statement(
+        &self,
+        parent: &mut DeclarativeRegion<'_>,
+        statement: &mut LabeledSequentialStatement,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        if let Some(ref label) = statement.label {
+            parent.add(label.clone(), AnyDeclaration::Constant, diagnostics);
+        }
+
+        match statement.statement {
+            SequentialStatement::Return(ref mut ret) => {
+                let ReturnStatement { expression } = ret;
+                if let Some(ref mut expression) = expression {
+                    self.analyze_expression(parent, expression, diagnostics)?;
+                }
+            }
+            _ => {
+                // @TODO others
+            }
+        }
+        Ok(())
+    }
+
+    fn analyze_sequential_part(
+        &self,
+        parent: &mut DeclarativeRegion<'_>,
+        statements: &mut [LabeledSequentialStatement],
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        for statement in statements.iter_mut() {
+            self.analyze_sequential_statement(parent, statement, diagnostics)?;
         }
 
         Ok(())

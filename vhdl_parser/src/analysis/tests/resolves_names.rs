@@ -415,6 +415,41 @@ end package body;
     );
 }
 
+#[test]
+fn resolves_names_in_sequential_statements() {
+    check_missing(
+        "
+package pkg is
+end package;
+
+package body pkg is
+    function f return natural is
+    begin
+       return missing;
+    end;
+end package body;
+",
+    );
+}
+
+#[test]
+fn search_names_in_sequential_statements() {
+    check_search_reference(
+        "
+package pkg is
+end package;
+
+package body pkg is
+  constant decl : natural := 0;
+  function f return natural is
+  begin
+    return decl;
+  end;
+end package body;
+",
+    );
+}
+
 fn check_missing(contents: &str) {
     let mut builder = LibraryBuilder::new();
     let code = builder.code("libname", contents);

@@ -86,4 +86,9 @@ package standard is
 
   attribute FOREIGN: STRING;
 
+  -- @TODO add implicitly
+  function to_string return string;
+  function maximum return natural;
+  function minimum return natural;
+
 end package;
