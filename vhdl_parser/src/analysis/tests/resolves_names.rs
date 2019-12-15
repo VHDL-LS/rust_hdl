@@ -59,12 +59,7 @@ package body pkg is
 end package body;
 ",
     );
-
-    let diagnostics = builder.analyze();
-    check_diagnostics(
-        diagnostics,
-        (1..=1).map(|idx| missing(&code, "missing", idx)).collect(),
-    );
+    check_missing(&builder, &code, 1);
 }
 
 /// Check that at least the prefix is resolved also for names which are not purely selected names
@@ -165,6 +160,116 @@ end architecture;
         assert_eq!(
             root.search_reference(code.source(), code.s("lab2", i).end()),
             Some(code.s("lab2", 1).pos())
+        );
+    }
+}
+
+#[test]
+fn resolves_names_in_discrete_ranges() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+  type arr_t is array (natural range missing to missing) of natural;
+  type arr2_t is array (missing to missing) of natural;
+  type arr3_t is array (missing'range) of natural;
+end package;
+",
+    );
+
+    check_missing(&builder, &code, 5);
+}
+
+#[test]
+fn search_names_in_discrete_ranges() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+  constant decl : natural := 0;
+  type arr_t is array (natural range decl to decl) of natural;
+  type arr2_t is array (decl to decl) of natural;
+  type arr3_t is array (decl'range) of natural;
+end package;
+",
+    );
+    check_search_reference(&builder, &code, "decl", 6);
+}
+
+#[test]
+fn resolves_names_in_subtype_constraints() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+  subtype sub1_t is integer_vector(missing to missing);
+  subtype sub2_t is integer range missing to missing;
+
+  type rec_t is record
+    field : integer_vector;
+  end record;
+
+  subtype sub3_t is rec_t(field(missing to missing));
+
+  type uarr_t is array (natural range <>) of integer_vector;
+  subtype sub4_t is uarr_t(open)(missing to missing);
+
+end package;
+",
+    );
+    // @TODO check for missing fields in record element constraints
+    check_missing(&builder, &code, 8);
+}
+
+#[test]
+fn search_names_in_subtype_constraints() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+  constant decl : natural := 0;
+  subtype sub1_t is integer_vector(decl to decl);
+  subtype sub2_t is integer range decl to decl;
+
+  type rec_t is record
+    field : integer_vector;
+  end record;
+
+  subtype sub3_t is rec_t(field(decl to decl));
+
+  type uarr_t is array (natural range <>) of integer_vector;
+  subtype sub4_t is uarr_t(open)(decl to decl);
+
+end package;
+",
+    );
+    check_search_reference(&builder, &code, "decl", 9);
+}
+
+fn check_missing(builder: &LibraryBuilder, code: &Code, occurences: usize) {
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        (1..=occurences)
+            .map(|idx| missing(&code, "missing", idx))
+            .collect(),
+    );
+}
+
+fn check_search_reference(builder: &LibraryBuilder, code: &Code, name: &str, occurences: usize) {
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    for idx in 1..=occurences {
+        assert_eq!(
+            root.search_reference(code.source(), code.s(name, idx).end()),
+            Some(code.s(name, 1).pos()),
+            "{}",
+            idx
         );
     }
 }

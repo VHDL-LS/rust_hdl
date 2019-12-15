@@ -57,10 +57,6 @@ pub trait Searcher<T> {
     fn search_interface_declaration(&mut self, _decl: &InterfaceDeclaration) -> SearchState<T> {
         NotFinished
     }
-    fn search_subtype_indication(&mut self, _decl: &SubtypeIndication) -> SearchState<T> {
-        NotFinished
-    }
-
     /// Search an position that has a reference to a declaration
     fn search_pos_with_ref<U>(&mut self, _pos: &SrcPos, _ref: &WithRef<U>) -> SearchState<T> {
         NotFinished
@@ -263,12 +259,101 @@ impl<T> Search<T> for WithPos<Name> {
     }
 }
 
+impl<T> Search<T> for ElementConstraint {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        // @TODO more
+        let ElementConstraint { constraint, .. } = self;
+        constraint.search(searcher)
+    }
+}
+
+impl<T> Search<T> for WithPos<ElementConstraint> {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        return_if!(searcher.search_with_pos(&self.pos).or_not_found());
+        self.item.search(searcher)
+    }
+}
+
+impl<T> Search<T> for WithPos<SubtypeConstraint> {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        return_if!(searcher.search_with_pos(&self.pos).or_not_found());
+
+        match self.item {
+            SubtypeConstraint::Array(ref dranges, ref constraint) => {
+                return_if!(dranges.search(searcher));
+                if let Some(ref constraint) = constraint {
+                    return_if!(constraint.search(searcher));
+                }
+            }
+            SubtypeConstraint::Range(ref range) => {
+                return_if!(range.search(searcher));
+            }
+            SubtypeConstraint::Record(ref constraints) => {
+                return_if!(constraints.search(searcher));
+            }
+        }
+        NotFound
+    }
+}
+
 impl<T> Search<T> for SubtypeIndication {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
-        searcher.search_subtype_indication(&self).or_else(|| {
-            return_if!(self.type_mark.search(searcher));
-            NotFound
-        })
+        // @TODO more
+        let SubtypeIndication {
+            type_mark,
+            constraint,
+            ..
+        } = self;
+        return_if!(type_mark.search(searcher));
+        return_if!(constraint.search(searcher));
+        NotFound
+    }
+}
+
+impl<T> Search<T> for RangeConstraint {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        let RangeConstraint {
+            direction: _,
+            left_expr,
+            right_expr,
+        } = self;
+        return_if!(left_expr.search(searcher));
+        return_if!(right_expr.search(searcher));
+        NotFound
+    }
+}
+
+impl<T> Search<T> for AttributeName {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        // @TODO more
+        let AttributeName { name, .. } = self;
+        name.search(searcher)
+    }
+}
+
+impl<T> Search<T> for Range {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        match self {
+            Range::Range(constraint) => {
+                return_if!(constraint.search(searcher));
+            }
+            Range::Attribute(attr) => {
+                return_if!(attr.search(searcher));
+            }
+        }
+        NotFound
+    }
+}
+
+impl<T> Search<T> for DiscreteRange {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        match self {
+            DiscreteRange::Discrete(ref type_mark, ref constraint) => {
+                return_if!(type_mark.search(searcher));
+                constraint.search(searcher)
+            }
+            DiscreteRange::Range(ref constraint) => constraint.search(searcher),
+        }
     }
 }
 
@@ -304,13 +389,7 @@ impl<T> Search<T> for TypeDeclaration {
                             return_if!(type_mark.search(searcher));
                         }
                         ArrayIndex::Discrete(ref drange) => {
-                            match drange {
-                                DiscreteRange::Discrete(ref type_mark, ..) => {
-                                    return_if!(type_mark.search(searcher));
-                                }
-                                // @TODO more
-                                _ => {}
-                            }
+                            return_if!(drange.search(searcher));
                         }
                     }
                 }
@@ -378,6 +457,18 @@ impl<T> Search<T> for Declaration {
                 Declaration::Use(use_clause) => return_if!(searcher
                     .search_with_pos(&use_clause.pos)
                     .or_else(|| use_clause.item.name_list.search(searcher))),
+                Declaration::Component(component) => {
+                    let ComponentDeclaration {
+                        ident,
+                        generic_list,
+                        port_list,
+                    } = component;
+                    return_if!(searcher.search_decl_pos(ident.pos()).or_not_found());
+                    return_if!(generic_list.search(searcher));
+                    return_if!(port_list.search(searcher));
+                }
+
+                // @TODO more
                 _ => {}
             }
             NotFound
@@ -390,6 +481,7 @@ impl<T> Search<T> for InterfaceDeclaration {
         searcher.search_interface_declaration(self).or_else(|| {
             match self {
                 InterfaceDeclaration::Object(ref decl) => {
+                    return_if!(searcher.search_decl_pos(decl.ident.pos()).or_not_found());
                     return_if!(decl.subtype_indication.search(searcher));
                 }
                 InterfaceDeclaration::Subprogram(ref decl, _) => {
@@ -414,12 +506,18 @@ impl<T> Search<T> for SubprogramDeclaration {
 
 impl<T> Search<T> for ProcedureSpecification {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        return_if!(searcher
+            .search_decl_pos(&self.designator.pos)
+            .or_not_found());
         self.parameter_list.search(searcher)
     }
 }
 
 impl<T> Search<T> for FunctionSpecification {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        return_if!(searcher
+            .search_decl_pos(&self.designator.pos)
+            .or_not_found());
         return_if!(self.parameter_list.search(searcher));
         self.return_type.search(searcher)
     }

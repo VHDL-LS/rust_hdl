@@ -85,12 +85,14 @@ component comp is
 generic (
   a1 : natural;
   a : natural;
-  a1 : natural
+  a1 : natural;
+  c1 : natural
 );
 port (
   b1 : natural;
   b : natural;
-  b1 : natural
+  b1 : natural;
+  c1 : natural
 );
 end component;
 end package;
@@ -98,7 +100,7 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplicates(&code, &["a1", "b1"]));
+    check_diagnostics(diagnostics, duplicates(&code, &["a1", "b1", "c1"]));
 }
 
 #[test]

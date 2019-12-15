@@ -11,7 +11,6 @@ use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::latin_1::Latin1String;
 use crate::source::{SrcPos, WithPos};
 use crate::symbol_table::{Symbol, SymbolTable};
-use std::ops::DerefMut;
 use std::sync::Arc;
 
 use super::lock::{AnalysisEntry, CircularDependencyError, ReadGuard};
@@ -323,7 +322,7 @@ impl<'a> Analyzer<'a> {
     ) -> FatalNullResult {
         match decl {
             InterfaceDeclaration::File(ref mut file_decl) => {
-                self.analyze_subtype_indicaton(
+                self.analyze_subtype_indication(
                     region,
                     &mut file_decl.subtype_indication,
                     diagnostics,
@@ -331,7 +330,7 @@ impl<'a> Analyzer<'a> {
                 region.add(&file_decl.ident, AnyDeclaration::Other, diagnostics);
             }
             InterfaceDeclaration::Object(ref mut object_decl) => {
-                self.analyze_subtype_indicaton(
+                self.analyze_subtype_indication(
                     region,
                     &mut object_decl.subtype_indication,
                     diagnostics,
@@ -385,6 +384,71 @@ impl<'a> Analyzer<'a> {
         self.resolve_selected_name(region, type_mark)
     }
 
+    fn resolve_name(
+        &self,
+        region: &DeclarativeRegion<'_>,
+        pos: &SrcPos,
+        name: &mut Name,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        if let Err(err) = self.resolve_selected_name_ref_pos(region, pos, name, true) {
+            err.add_to(diagnostics)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn analyze_attribute_name(
+        &self,
+        region: &DeclarativeRegion<'_>,
+        attr: &mut AttributeName,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        // @TODO more
+        let AttributeName { name, .. } = attr;
+        self.resolve_name(region, &name.pos, &mut name.item, diagnostics)
+    }
+
+    fn analyze_range(
+        &self,
+        region: &DeclarativeRegion<'_>,
+        range: &mut Range,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        match range {
+            Range::Range(ref mut constraint) => {
+                self.analyze_expression(region, &mut constraint.left_expr, diagnostics)?;
+                self.analyze_expression(region, &mut constraint.right_expr, diagnostics)?;
+            }
+            Range::Attribute(ref mut attr) => {
+                self.analyze_attribute_name(region, attr, diagnostics)?
+            }
+        }
+        Ok(())
+    }
+
+    fn analyze_discrete_range(
+        &self,
+        region: &DeclarativeRegion<'_>,
+        drange: &mut DiscreteRange,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        match drange {
+            DiscreteRange::Discrete(ref mut type_mark, ref mut range) => {
+                if let Err(err) = self.resolve_type_mark(region, type_mark) {
+                    err.add_to(diagnostics)?;
+                }
+                if let Some(ref mut range) = range {
+                    self.analyze_range(region, range, diagnostics)?;
+                }
+            }
+            DiscreteRange::Range(ref mut range) => {
+                self.analyze_range(region, range, diagnostics)?;
+            }
+        }
+        Ok(())
+    }
+
     fn analyze_array_index(
         &self,
         region: &mut DeclarativeRegion<'_>,
@@ -398,31 +462,71 @@ impl<'a> Analyzer<'a> {
                 }
             }
             ArrayIndex::Discrete(ref mut drange) => {
-                match drange {
-                    DiscreteRange::Discrete(ref mut type_mark, ..) => {
-                        if let Err(err) = self.resolve_type_mark(region, type_mark) {
-                            err.add_to(diagnostics)?;
-                        }
-                    }
-                    // @TODO more
-                    _ => {}
+                self.analyze_discrete_range(region, drange, diagnostics)?;
+            }
+        }
+        Ok(())
+    }
+    fn analyze_element_constraint(
+        &self,
+        region: &DeclarativeRegion<'_>,
+        constraint: &mut ElementConstraint,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        // @TODO more
+        let ElementConstraint { constraint, .. } = constraint;
+        self.analyze_subtype_constraint(region, &mut constraint.item, diagnostics)
+    }
+
+    fn analyze_subtype_constraint(
+        &self,
+        region: &DeclarativeRegion<'_>,
+        constraint: &mut SubtypeConstraint,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        match constraint {
+            SubtypeConstraint::Array(ref mut dranges, ref mut constraint) => {
+                for drange in dranges.iter_mut() {
+                    self.analyze_discrete_range(region, drange, diagnostics)?;
+                }
+                if let Some(constraint) = constraint {
+                    self.analyze_subtype_constraint(region, &mut constraint.item, diagnostics)?;
+                }
+            }
+            SubtypeConstraint::Range(ref mut range) => {
+                self.analyze_range(region, range, diagnostics)?;
+            }
+            SubtypeConstraint::Record(ref mut constraints) => {
+                for constraint in constraints.iter_mut() {
+                    self.analyze_element_constraint(region, constraint, diagnostics)?;
                 }
             }
         }
         Ok(())
     }
 
-    fn analyze_subtype_indicaton(
+    fn analyze_subtype_indication(
         &self,
-        region: &mut DeclarativeRegion<'_>,
+        region: &DeclarativeRegion<'_>,
         subtype_indication: &mut SubtypeIndication,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        if let Err(err) = self.resolve_type_mark(region, &mut subtype_indication.type_mark) {
-            err.add_to(diagnostics)
-        } else {
-            Ok(())
+        // @TODO more
+        let SubtypeIndication {
+            type_mark,
+            constraint,
+            ..
+        } = subtype_indication;
+
+        if let Err(err) = self.resolve_type_mark(region, type_mark) {
+            err.add_to(diagnostics)?
         }
+
+        if let Some(constraint) = constraint {
+            self.analyze_subtype_constraint(region, &mut constraint.item, diagnostics)?;
+        }
+
+        Ok(())
     }
 
     fn analyze_subprogram_declaration<'r>(
@@ -454,7 +558,7 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_expression(
         &self,
-        region: &mut DeclarativeRegion<'_>,
+        region: &DeclarativeRegion<'_>,
         expr: &mut WithPos<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -467,13 +571,7 @@ impl<'a> Analyzer<'a> {
                 self.analyze_expression(region, inner, diagnostics)
             }
             Expression::Name(ref mut name) => {
-                if let Err(err) =
-                    self.resolve_selected_name_ref_pos(region, &expr.pos, name.deref_mut(), true)
-                {
-                    err.add_to(diagnostics)
-                } else {
-                    Ok(())
-                }
+                self.resolve_name(region, &expr.pos, name, diagnostics)
             }
             // @TODO other
             _ => Ok(()),
@@ -489,7 +587,7 @@ impl<'a> Analyzer<'a> {
         match decl {
             Declaration::Alias(alias) => {
                 if let Some(ref mut subtype_indication) = alias.subtype_indication {
-                    self.analyze_subtype_indicaton(region, subtype_indication, diagnostics)?;
+                    self.analyze_subtype_indication(region, subtype_indication, diagnostics)?;
                 }
                 region.add(
                     alias.designator.clone(),
@@ -502,7 +600,7 @@ impl<'a> Analyzer<'a> {
                 );
             }
             Declaration::Object(ref mut object_decl) => {
-                self.analyze_subtype_indicaton(
+                self.analyze_subtype_indication(
                     region,
                     &mut object_decl.subtype_indication,
                     diagnostics,
@@ -517,7 +615,7 @@ impl<'a> Analyzer<'a> {
                 );
             }
             Declaration::File(ref mut file_decl) => {
-                self.analyze_subtype_indicaton(
+                self.analyze_subtype_indication(
                     region,
                     &mut file_decl.subtype_indication,
                     diagnostics,
@@ -526,26 +624,11 @@ impl<'a> Analyzer<'a> {
             }
             Declaration::Component(ref mut component) => {
                 region.add(&component.ident, AnyDeclaration::Other, diagnostics);
+                let mut region = DeclarativeRegion::new_borrowed_parent(region);
 
-                {
-                    let mut region = DeclarativeRegion::new_borrowed_parent(region);
-                    self.analyze_interface_list(
-                        &mut region,
-                        &mut component.generic_list,
-                        diagnostics,
-                    )?;
-                    region.close_both(diagnostics);
-                }
-
-                {
-                    let mut region = DeclarativeRegion::new_borrowed_parent(region);
-                    self.analyze_interface_list(
-                        &mut region,
-                        &mut component.port_list,
-                        diagnostics,
-                    )?;
-                    region.close_both(diagnostics);
-                }
+                self.analyze_interface_list(&mut region, &mut component.generic_list, diagnostics)?;
+                self.analyze_interface_list(&mut region, &mut component.port_list, diagnostics)?;
+                region.close_both(diagnostics);
             }
             Declaration::Attribute(ref mut attr) => match attr {
                 Attribute::Declaration(ref mut attr_decl) => {
@@ -647,7 +730,7 @@ impl<'a> Analyzer<'a> {
                     TypeDefinition::Record(ref mut element_decls) => {
                         let mut record_region = DeclarativeRegion::default();
                         for elem_decl in element_decls.iter_mut() {
-                            self.analyze_subtype_indicaton(
+                            self.analyze_subtype_indication(
                                 region,
                                 &mut elem_decl.subtype,
                                 diagnostics,
@@ -657,16 +740,16 @@ impl<'a> Analyzer<'a> {
                         record_region.close_both(diagnostics);
                     }
                     TypeDefinition::Access(ref mut subtype_indication) => {
-                        self.analyze_subtype_indicaton(region, subtype_indication, diagnostics)?;
+                        self.analyze_subtype_indication(region, subtype_indication, diagnostics)?;
                     }
                     TypeDefinition::Array(ref mut array_indexes, ref mut subtype_indication) => {
                         for index in array_indexes.iter_mut() {
                             self.analyze_array_index(region, index, diagnostics)?;
                         }
-                        self.analyze_subtype_indicaton(region, subtype_indication, diagnostics)?;
+                        self.analyze_subtype_indication(region, subtype_indication, diagnostics)?;
                     }
                     TypeDefinition::Subtype(ref mut subtype_indication) => {
-                        self.analyze_subtype_indicaton(region, subtype_indication, diagnostics)?;
+                        self.analyze_subtype_indication(region, subtype_indication, diagnostics)?;
                     }
                     TypeDefinition::Physical(ref mut physical) => {
                         region.add(
