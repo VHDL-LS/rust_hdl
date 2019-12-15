@@ -42,9 +42,7 @@ end package;",
 
 #[test]
 fn subprogram_parameters_are_visible_in_body() {
-    let mut builder = LibraryBuilder::new();
-    let code = builder.code(
-        "libname",
+    check_missing(
         "
 package pkg is
 end package;
@@ -59,7 +57,6 @@ package body pkg is
 end package body;
 ",
     );
-    check_missing(&builder, &code, 1);
 }
 
 /// Check that at least the prefix is resolved also for names which are not purely selected names
@@ -166,9 +163,7 @@ end architecture;
 
 #[test]
 fn resolves_names_in_discrete_ranges() {
-    let mut builder = LibraryBuilder::new();
-    let code = builder.code(
-        "libname",
+    check_missing(
         "
 package pkg is
   type arr_t is array (natural range missing to missing) of natural;
@@ -177,15 +172,11 @@ package pkg is
 end package;
 ",
     );
-
-    check_missing(&builder, &code, 5);
 }
 
 #[test]
 fn search_names_in_discrete_ranges() {
-    let mut builder = LibraryBuilder::new();
-    let code = builder.code(
-        "libname",
+    check_search_reference(
         "
 package pkg is
   constant decl : natural := 0;
@@ -195,14 +186,12 @@ package pkg is
 end package;
 ",
     );
-    check_search_reference(&builder, &code, "decl", 6);
 }
 
 #[test]
 fn resolves_names_in_subtype_constraints() {
-    let mut builder = LibraryBuilder::new();
-    let code = builder.code(
-        "libname",
+    // @TODO check for missing fields in record element constraints
+    check_missing(
         "
 package pkg is
   subtype sub1_t is integer_vector(missing to missing);
@@ -220,15 +209,11 @@ package pkg is
 end package;
 ",
     );
-    // @TODO check for missing fields in record element constraints
-    check_missing(&builder, &code, 8);
 }
 
 #[test]
 fn search_names_in_subtype_constraints() {
-    let mut builder = LibraryBuilder::new();
-    let code = builder.code(
-        "libname",
+    check_search_reference(
         "
 package pkg is
   constant decl : natural := 0;
@@ -247,11 +232,92 @@ package pkg is
 end package;
 ",
     );
-    check_search_reference(&builder, &code, "decl", 9);
 }
 
-fn check_missing(builder: &LibraryBuilder, code: &Code, occurences: usize) {
+#[test]
+fn resolves_names_in_inside_names() {
+    check_missing(
+        "
+package pkg is
+end package;
+
+package body pkg is
+  type arr2d_t is array (natural range 0 to 1, natural range 0 to 1) of natural;
+
+  function fun(a, b : natural) return natural is
+  begin
+    return 0;
+  end;
+
+  function fun2 return natural is
+     -- Function call
+     constant c : natural := fun(a => missing, b => missing);
+     -- Function call
+     constant c2 : natural := fun(missing, missing);
+
+     variable arr : arr2d_t;
+     -- Indexed
+     constant c3 : natural := arr(missing, missing);
+
+     -- Slice
+     constant vec : integer_vector(0 to 1) := (0, 1);
+     constant c4 : integer_vector(0 to 1) := vec(missing to missing);
+
+     constant c5 : natural := missing'val(0);
+     constant c6 : boolean := boolean'val(missing);
+  begin
+  end;
+
+end package body;
+",
+    );
+}
+
+#[test]
+fn search_names_in_inside_names() {
+    check_search_reference(
+        "
+package pkg is
+end package;
+
+package body pkg is
+  constant decl : natural := 0;
+  type arr2d_t is array (natural range 0 to 1, natural range 0 to 1) of natural;
+
+  function fun(a, b : natural) return natural is
+  begin
+    return 0;
+  end;
+
+  function fun2 return natural is
+     -- Function call
+     constant c : natural := fun(a => decl, b => decl);
+     -- Function call
+     constant c2 : natural := fun(decl, decl);
+
+     variable arr : arr2d_t;
+     -- Indexed
+     constant c3 : natural := arr(decl, decl);
+
+     -- Slice
+     constant vec : integer_vector(0 to 1) := (0, 1);
+     constant c4 : integer_vector(0 to 1) := vec(decl to decl);
+
+     constant c5 : string := decl'simple_name;
+     constant c6 : boolean := boolean'val(decl);
+  begin
+  end;
+
+end package body;
+",
+    );
+}
+
+fn check_missing(contents: &str) {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code("libname", contents);
     let diagnostics = builder.analyze();
+    let occurences = contents.matches("missing").count();
     check_diagnostics(
         diagnostics,
         (1..=occurences)
@@ -260,14 +326,18 @@ fn check_missing(builder: &LibraryBuilder, code: &Code, occurences: usize) {
     );
 }
 
-fn check_search_reference(builder: &LibraryBuilder, code: &Code, name: &str, occurences: usize) {
+fn check_search_reference(contents: &str) {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code("libname", contents);
+    let occurences = contents.matches("decl").count();
+
     let (root, diagnostics) = builder.get_analyzed_root();
     check_no_diagnostics(&diagnostics);
 
     for idx in 1..=occurences {
         assert_eq!(
-            root.search_reference(code.source(), code.s(name, idx).end()),
-            Some(code.s(name, 1).pos()),
+            root.search_reference(code.source(), code.s("decl", idx).end()),
+            Some(code.s("decl", 1).pos()),
             "{}",
             idx
         );

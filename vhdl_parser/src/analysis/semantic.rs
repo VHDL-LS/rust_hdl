@@ -236,8 +236,10 @@ impl<'a> Analyzer<'a> {
         // Allow the resolution to stop when encountering a non selected prefix
         // which cannot be analyzed further without type information
         allow_incomplete: bool,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) -> AnalysisResult<Option<VisibleDeclaration>> {
-        let resolved = self.resolve_name_pos(region, prefix_pos, prefix, allow_incomplete)?;
+        let resolved =
+            self.resolve_name_pos(region, prefix_pos, prefix, allow_incomplete, diagnostics)?;
 
         match resolved.to_single_prefix(prefix_pos) {
             Ok(decl) => Ok(Some(decl)),
@@ -259,6 +261,7 @@ impl<'a> Analyzer<'a> {
         // Allow the resolution to stop when encountering a non selected prefix
         // which cannot be analyzed further without type information
         allow_incomplete: bool,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) -> AnalysisResult<LookupResult> {
         match name {
             Name::Selected(prefix, suffix) => {
@@ -267,6 +270,7 @@ impl<'a> Analyzer<'a> {
                     &prefix.pos,
                     &mut prefix.item,
                     allow_incomplete,
+                    diagnostics,
                 )? {
                     Some(decl) => match self.lookup_within(&prefix.pos, &decl, suffix) {
                         Ok(Some(decl)) => {
@@ -295,6 +299,7 @@ impl<'a> Analyzer<'a> {
                     &prefix.pos,
                     &mut prefix.item,
                     allow_incomplete,
+                    diagnostics,
                 )? {
                     Some(decl) => Ok(LookupResult::AllWithin(prefix.pos.clone(), decl)),
                     None => Ok(LookupResult::NotSelected),
@@ -313,25 +318,61 @@ impl<'a> Analyzer<'a> {
             }
             // @TODO more
             Name::Indexed(ref mut prefix, ..) => {
-                self.resolve_name_pos(region, &prefix.pos, &mut prefix.item, allow_incomplete)?;
+                self.resolve_name_pos(
+                    region,
+                    &prefix.pos,
+                    &mut prefix.item,
+                    allow_incomplete,
+                    diagnostics,
+                )?;
                 Ok(LookupResult::NotSelected)
             }
 
             // @TODO more
-            Name::Slice(ref mut prefix, ..) => {
-                self.resolve_name_pos(region, &prefix.pos, &mut prefix.item, allow_incomplete)?;
+            Name::Slice(ref mut prefix, ref mut drange) => {
+                self.resolve_name_pos(
+                    region,
+                    &prefix.pos,
+                    &mut prefix.item,
+                    allow_incomplete,
+                    diagnostics,
+                )?;
+                self.analyze_discrete_range(region, drange.as_mut(), diagnostics)?;
                 Ok(LookupResult::NotSelected)
             }
             Name::Attribute(ref mut attr) => {
                 // @TODO more
-                let AttributeName { name, .. } = attr.as_mut();
-                self.resolve_name_pos(region, &name.pos, &mut name.item, allow_incomplete)?;
+                let AttributeName { name, expr, .. } = attr.as_mut();
+                self.resolve_name_pos(
+                    region,
+                    &name.pos,
+                    &mut name.item,
+                    allow_incomplete,
+                    diagnostics,
+                )?;
+                if let Some(ref mut expr) = expr {
+                    self.analyze_expression(region, expr, diagnostics)?;
+                }
                 Ok(LookupResult::NotSelected)
             }
             Name::FunctionCall(ref mut fcall) => {
+                let FunctionCall { name, parameters } = fcall.as_mut();
+                self.resolve_name_pos(
+                    region,
+                    &name.pos,
+                    &mut name.item,
+                    allow_incomplete,
+                    diagnostics,
+                )?;
                 // @TODO more
-                let FunctionCall { name, .. } = fcall.as_mut();
-                self.resolve_name_pos(region, &name.pos, &mut name.item, allow_incomplete)?;
+                for AssociationElement { actual, .. } in parameters.iter_mut() {
+                    match actual.item {
+                        ActualPart::Expression(ref mut expr) => {
+                            self.analyze_expression_pos(region, &actual.pos, expr, diagnostics)?;
+                        }
+                        ActualPart::Open => {}
+                    }
+                }
                 Ok(LookupResult::NotSelected)
             }
             Name::External(..) => {
@@ -345,8 +386,9 @@ impl<'a> Analyzer<'a> {
         &self,
         region: &DeclarativeRegion<'_>,
         name: &mut WithPos<Name>,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) -> AnalysisResult<LookupResult> {
-        self.resolve_name_pos(region, &name.pos, &mut name.item, false)
+        self.resolve_name_pos(region, &name.pos, &mut name.item, false, diagnostics)
     }
 
     fn analyze_interface_declaration(
@@ -426,7 +468,7 @@ impl<'a> Analyzer<'a> {
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        if let Err(err) = self.resolve_name_pos(region, pos, name, true) {
+        if let Err(err) = self.resolve_name_pos(region, pos, name, true, diagnostics) {
             err.add_to(diagnostics)
         } else {
             Ok(())
@@ -597,7 +639,17 @@ impl<'a> Analyzer<'a> {
         expr: &mut WithPos<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        match expr.item {
+        self.analyze_expression_pos(region, &expr.pos, &mut expr.item, diagnostics)
+    }
+
+    fn analyze_expression_pos(
+        &self,
+        region: &DeclarativeRegion<'_>,
+        pos: &SrcPos,
+        expr: &mut Expression,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        match expr {
             Expression::Binary(_, ref mut left, ref mut right) => {
                 self.analyze_expression(region, left, diagnostics)?;
                 self.analyze_expression(region, right, diagnostics)
@@ -605,9 +657,7 @@ impl<'a> Analyzer<'a> {
             Expression::Unary(_, ref mut inner) => {
                 self.analyze_expression(region, inner, diagnostics)
             }
-            Expression::Name(ref mut name) => {
-                self.resolve_name(region, &expr.pos, name, diagnostics)
-            }
+            Expression::Name(ref mut name) => self.resolve_name(region, pos, name, diagnostics),
             // @TODO other
             _ => Ok(()),
         }
@@ -841,7 +891,7 @@ impl<'a> Analyzer<'a> {
                 }
             }
 
-            match self.resolve_context_item_name(&region, name) {
+            match self.resolve_context_item_name(&region, name, diagnostics) {
                 Ok(LookupResult::Single(visible_decl)) => {
                     region.make_potentially_visible(visible_decl);
                 }
@@ -947,7 +997,7 @@ impl<'a> Analyzer<'a> {
                             }
                         }
 
-                        match self.resolve_context_item_name(&region, name) {
+                        match self.resolve_context_item_name(&region, name, diagnostics) {
                             Ok(LookupResult::Single(visible_decl)) => {
                                 match visible_decl.first() {
                                     // OK

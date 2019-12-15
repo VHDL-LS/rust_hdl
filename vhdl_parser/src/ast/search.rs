@@ -234,16 +234,32 @@ fn search_pos_name<T>(
             return_if!(prefix.search(searcher));
             NotFound
         }
-        Name::Slice(ref prefix, ..) => {
+        Name::Slice(ref prefix, ref dranges) => {
             return_if!(prefix.search(searcher));
+            return_if!(dranges.search(searcher));
             NotFound
         }
         Name::FunctionCall(ref fcall) => {
-            return_if!(fcall.name.search(searcher));
+            let FunctionCall { name, parameters } = fcall.as_ref();
+            return_if!(name.search(searcher));
+            // @TODO more formal
+            for AssociationElement { actual, .. } in parameters.iter() {
+                match actual.item {
+                    ActualPart::Expression(ref expr) => {
+                        return_if!(search_pos_expr(&actual.pos, expr, searcher));
+                    }
+                    ActualPart::Open => {}
+                }
+            }
             NotFound
         }
         Name::Attribute(ref attr) => {
-            return_if!(attr.name.search(searcher));
+            // @TODO more
+            let AttributeName { name, expr, .. } = attr.as_ref();
+            return_if!(name.search(searcher));
+            if let Some(expr) = expr {
+                return_if!(expr.search(searcher));
+            }
             NotFound
         }
 
@@ -405,19 +421,27 @@ impl<T> Search<T> for TypeDeclaration {
     }
 }
 
+fn search_pos_expr<T>(
+    pos: &SrcPos,
+    expr: &Expression,
+    searcher: &mut impl Searcher<T>,
+) -> SearchResult<T> {
+    return_if!(searcher.search_with_pos(pos).or_not_found());
+    match expr {
+        Expression::Binary(_, ref left, ref right) => {
+            return_if!(left.search(searcher));
+            right.search(searcher)
+        }
+        Expression::Unary(_, ref expr) => expr.search(searcher),
+        Expression::Name(ref name) => search_pos_name(pos, &name, searcher),
+        // @TODO more
+        _ => NotFound,
+    }
+}
+
 impl<T> Search<T> for WithPos<Expression> {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
-        return_if!(searcher.search_with_pos(&self.pos).or_not_found());
-        match self.item {
-            Expression::Binary(_, ref left, ref right) => {
-                return_if!(left.search(searcher));
-                right.search(searcher)
-            }
-            Expression::Unary(_, ref expr) => expr.search(searcher),
-            Expression::Name(ref name) => search_pos_name(&self.pos, &name, searcher),
-            // @TODO more
-            _ => NotFound,
-        }
+        search_pos_expr(&self.pos, &self.item, searcher)
     }
 }
 
