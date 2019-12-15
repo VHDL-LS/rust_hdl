@@ -12,10 +12,9 @@ use crate::symbol_table::Symbol;
 use fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
 use std::ops::Deref;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
-#[cfg_attr(test, derive(PartialEq, Debug))]
 pub enum AnyDeclaration {
     Other,
     Overloaded,
@@ -23,7 +22,7 @@ pub enum AnyDeclaration {
     IncompleteType,
     Constant,
     DeferredConstant,
-    ProtectedType,
+    ProtectedType(Arc<RwLock<DeclarativeRegion<'static>>>),
     ProtectedTypeBody,
     Library(Symbol),
     Package(Symbol, Symbol),
@@ -52,24 +51,6 @@ impl AnyDeclaration {
         }
     }
 
-    pub fn from_type_declaration(decl: &TypeDeclaration) -> AnyDeclaration {
-        match decl {
-            TypeDeclaration {
-                def: TypeDefinition::Protected { .. },
-                ..
-            } => AnyDeclaration::ProtectedType,
-            TypeDeclaration {
-                def: TypeDefinition::ProtectedBody { .. },
-                ..
-            } => AnyDeclaration::ProtectedTypeBody,
-            TypeDeclaration {
-                def: TypeDefinition::Incomplete,
-                ..
-            } => AnyDeclaration::IncompleteType,
-            _ => AnyDeclaration::TypeDeclaration,
-        }
-    }
-
     fn is_deferred_constant(&self) -> bool {
         if let AnyDeclaration::DeferredConstant = self {
             true
@@ -87,7 +68,7 @@ impl AnyDeclaration {
     }
 
     fn is_protected_type(&self) -> bool {
-        if let AnyDeclaration::ProtectedType = self {
+        if let AnyDeclaration::ProtectedType(..) = self {
             true
         } else {
             false
@@ -120,7 +101,6 @@ impl AnyDeclaration {
 }
 
 #[derive(Clone)]
-#[cfg_attr(test, derive(PartialEq, Debug))]
 struct AnyDeclarationData {
     /// The location where the declaration was made
     /// Builtin and implicit declaration will not have a source position
@@ -143,7 +123,6 @@ impl AnyDeclarationData {
 }
 
 #[derive(Clone)]
-#[cfg_attr(test, derive(PartialEq, Debug))]
 pub struct VisibleDeclaration {
     pub designator: Designator,
     data: Vec<AnyDeclarationData>,
@@ -204,7 +183,7 @@ impl VisibleDeclaration {
             match prev_decl {
                 // Everything expect deferred combinations are forbidden
                 AnyDeclaration::DeferredConstant if later_decl.is_non_deferred_constant() => {}
-                AnyDeclaration::ProtectedType if later_decl.is_protected_type_body() => {}
+                AnyDeclaration::ProtectedType(..) if later_decl.is_protected_type_body() => {}
                 AnyDeclaration::IncompleteType if later_decl.is_type_declaration() => {}
                 _ => {
                     return Some(prev_decl_data);
@@ -225,7 +204,6 @@ enum RegionKind {
 /// Most parent regions can just be temporarily borrowed
 /// For public regions of design units the parent must be owned such that these regions can be stored in a map
 #[derive(Clone)]
-#[cfg_attr(test, derive(PartialEq, Debug))]
 enum ParentRegion<'a> {
     Borrowed(&'a DeclarativeRegion<'a>),
     Owned(Box<DeclarativeRegion<'static>>),
@@ -243,7 +221,6 @@ impl<'a> Deref for ParentRegion<'a> {
 }
 
 #[derive(Clone)]
-#[cfg_attr(test, derive(PartialEq, Debug))]
 pub struct DeclarativeRegion<'a> {
     parent: Option<ParentRegion<'a>>,
     extends: Option<ParentRegion<'a>>,
@@ -279,6 +256,16 @@ impl<'a> DeclarativeRegion<'a> {
             extends: None,
             visible: FnvHashMap::default(),
             decls: FnvHashMap::default(),
+            kind: RegionKind::Other,
+        }
+    }
+
+    pub fn without_parent(self) -> DeclarativeRegion<'static> {
+        DeclarativeRegion {
+            parent: None,
+            extends: None,
+            visible: FnvHashMap::default(),
+            decls: self.decls,
             kind: RegionKind::Other,
         }
     }

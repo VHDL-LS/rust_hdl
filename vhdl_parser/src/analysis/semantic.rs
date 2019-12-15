@@ -11,7 +11,7 @@ use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::latin_1::Latin1String;
 use crate::source::{SrcPos, WithPos};
 use crate::symbol_table::{Symbol, SymbolTable};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use super::lock::{AnalysisEntry, CircularDependencyError, ReadGuard};
 
@@ -606,6 +606,7 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
+    // @TODO move add inside analyze_subprogram_declaration
     fn analyze_subprogram_declaration<'r>(
         &self,
         parent: &'r DeclarativeRegion<'_>,
@@ -826,83 +827,184 @@ impl<'a> Analyzer<'a> {
             }
             Declaration::Configuration(..) => {}
             Declaration::Type(ref mut type_decl) => {
-                // Protected types are visible inside their declaration
-                region.add(
+                self.analyze_type_declaration(region, type_decl, diagnostics)?;
+            }
+        };
+
+        Ok(())
+    }
+
+    fn analyze_type_declaration(
+        &self,
+        parent: &mut DeclarativeRegion<'_>,
+        type_decl: &mut TypeDeclaration,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        match type_decl.def {
+            TypeDefinition::Enumeration(ref enumeration) => {
+                for literal in enumeration.iter() {
+                    parent.add(
+                        literal.clone().map_into(|lit| lit.into_designator()),
+                        AnyDeclaration::Overloaded,
+                        diagnostics,
+                    )
+                }
+
+                parent.add(
                     &type_decl.ident,
-                    AnyDeclaration::from_type_declaration(type_decl),
+                    AnyDeclaration::TypeDeclaration,
                     diagnostics,
                 );
-
-                match type_decl.def {
-                    TypeDefinition::Enumeration(ref enumeration) => {
-                        for literal in enumeration.iter() {
-                            region.add(
-                                literal.clone().map_into(|lit| lit.into_designator()),
-                                AnyDeclaration::Overloaded,
-                                diagnostics,
-                            )
-                        }
-                    }
-                    TypeDefinition::ProtectedBody(ref mut body) => {
-                        let mut region = DeclarativeRegion::new_borrowed_parent(region);
-                        self.analyze_declarative_part(&mut region, &mut body.decl, diagnostics)?;
-                    }
-                    TypeDefinition::Protected(ref mut prot_decl) => {
-                        for item in prot_decl.items.iter_mut() {
-                            match item {
-                                ProtectedTypeDeclarativeItem::Subprogram(ref mut subprogram) => {
-                                    self.analyze_subprogram_declaration(
-                                        region,
-                                        subprogram,
-                                        diagnostics,
-                                    )?;
-                                }
+            }
+            TypeDefinition::ProtectedBody(ref mut body) => {
+                match parent.lookup(&type_decl.ident.item.clone().into(), true) {
+                    Some(decl) => {
+                        match decl.first() {
+                            AnyDeclaration::ProtectedType(extended_region) => {
+                                let extended_lock = extended_region.read().unwrap();
+                                let mut region = extended_lock.extend(Some(parent));
+                                self.analyze_declarative_part(
+                                    &mut region,
+                                    &mut body.decl,
+                                    diagnostics,
+                                )?;
+                            }
+                            _ => {
+                                // @TODO detect incorrect type here instead
                             }
                         }
                     }
-                    TypeDefinition::Record(ref mut element_decls) => {
-                        let mut record_region = DeclarativeRegion::default();
-                        for elem_decl in element_decls.iter_mut() {
-                            self.analyze_subtype_indication(
-                                region,
-                                &mut elem_decl.subtype,
+                    None => {
+                        // @TODO detect missing protected type here insted
+                    }
+                }
+                parent.add(
+                    &type_decl.ident,
+                    AnyDeclaration::ProtectedTypeBody,
+                    diagnostics,
+                );
+            }
+            TypeDefinition::Protected(ref mut prot_decl) => {
+                let empty_region = Arc::new(RwLock::new(DeclarativeRegion::default()));
+
+                // Protected type name is visible inside its declarative region
+                parent.add(
+                    &type_decl.ident,
+                    AnyDeclaration::ProtectedType(empty_region.clone()),
+                    diagnostics,
+                );
+
+                let mut region = DeclarativeRegion::new_borrowed_parent(parent);
+                for item in prot_decl.items.iter_mut() {
+                    match item {
+                        ProtectedTypeDeclarativeItem::Subprogram(ref mut subprogram) => {
+                            region.add(
+                                subprogram.designator(),
+                                AnyDeclaration::Overloaded,
+                                diagnostics,
+                            );
+                            self.analyze_subprogram_declaration(
+                                &mut region,
+                                subprogram,
                                 diagnostics,
                             )?;
-                            record_region.add(&elem_decl.ident, AnyDeclaration::Other, diagnostics);
-                        }
-                        record_region.close_both(diagnostics);
-                    }
-                    TypeDefinition::Access(ref mut subtype_indication) => {
-                        self.analyze_subtype_indication(region, subtype_indication, diagnostics)?;
-                    }
-                    TypeDefinition::Array(ref mut array_indexes, ref mut subtype_indication) => {
-                        for index in array_indexes.iter_mut() {
-                            self.analyze_array_index(region, index, diagnostics)?;
-                        }
-                        self.analyze_subtype_indication(region, subtype_indication, diagnostics)?;
-                    }
-                    TypeDefinition::Subtype(ref mut subtype_indication) => {
-                        self.analyze_subtype_indication(region, subtype_indication, diagnostics)?;
-                    }
-                    TypeDefinition::Physical(ref mut physical) => {
-                        region.add(
-                            physical.primary_unit.clone(),
-                            AnyDeclaration::Constant,
-                            diagnostics,
-                        );
-                        for (secondary_unit_name, _) in physical.secondary_units.iter_mut() {
-                            region.add(
-                                secondary_unit_name.clone(),
-                                AnyDeclaration::Constant,
-                                diagnostics,
-                            )
                         }
                     }
-                    // @TODO more
-                    _ => {}
                 }
+
+                // Save region for later since body extends region of declaration
+                *empty_region.write().unwrap() = region.without_parent();
             }
-        };
+            TypeDefinition::Record(ref mut element_decls) => {
+                let mut region = DeclarativeRegion::default();
+                for elem_decl in element_decls.iter_mut() {
+                    self.analyze_subtype_indication(parent, &mut elem_decl.subtype, diagnostics)?;
+                    region.add(&elem_decl.ident, AnyDeclaration::Other, diagnostics);
+                }
+                region.close_both(diagnostics);
+
+                parent.add(
+                    &type_decl.ident,
+                    AnyDeclaration::TypeDeclaration,
+                    diagnostics,
+                );
+            }
+            TypeDefinition::Access(ref mut subtype_indication) => {
+                self.analyze_subtype_indication(parent, subtype_indication, diagnostics)?;
+
+                parent.add(
+                    &type_decl.ident,
+                    AnyDeclaration::TypeDeclaration,
+                    diagnostics,
+                );
+            }
+            TypeDefinition::Array(ref mut array_indexes, ref mut subtype_indication) => {
+                for index in array_indexes.iter_mut() {
+                    self.analyze_array_index(parent, index, diagnostics)?;
+                }
+                self.analyze_subtype_indication(parent, subtype_indication, diagnostics)?;
+
+                parent.add(
+                    &type_decl.ident,
+                    AnyDeclaration::TypeDeclaration,
+                    diagnostics,
+                );
+            }
+            TypeDefinition::Subtype(ref mut subtype_indication) => {
+                self.analyze_subtype_indication(parent, subtype_indication, diagnostics)?;
+
+                parent.add(
+                    &type_decl.ident,
+                    AnyDeclaration::TypeDeclaration,
+                    diagnostics,
+                );
+            }
+            TypeDefinition::Physical(ref mut physical) => {
+                parent.add(
+                    physical.primary_unit.clone(),
+                    AnyDeclaration::Constant,
+                    diagnostics,
+                );
+                for (secondary_unit_name, _) in physical.secondary_units.iter_mut() {
+                    parent.add(
+                        secondary_unit_name.clone(),
+                        AnyDeclaration::Constant,
+                        diagnostics,
+                    )
+                }
+
+                parent.add(
+                    &type_decl.ident,
+                    AnyDeclaration::TypeDeclaration,
+                    diagnostics,
+                );
+            }
+            TypeDefinition::Incomplete => {
+                parent.add(
+                    &type_decl.ident,
+                    AnyDeclaration::IncompleteType,
+                    diagnostics,
+                );
+            }
+
+            // @TODO more
+            TypeDefinition::Integer(..) => {
+                parent.add(
+                    &type_decl.ident,
+                    AnyDeclaration::TypeDeclaration,
+                    diagnostics,
+                );
+            }
+
+            // @TODO more
+            TypeDefinition::File(..) => {
+                parent.add(
+                    &type_decl.ident,
+                    AnyDeclaration::TypeDeclaration,
+                    diagnostics,
+                );
+            }
+        }
 
         Ok(())
     }

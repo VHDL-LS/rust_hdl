@@ -15,7 +15,7 @@ use crate::ast::*;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 
 /// A design unit with design unit data
-#[cfg_attr(test, derive(PartialEq, Debug, Clone))]
+#[cfg_attr(test, derive(Clone))]
 pub struct AnalysisData<T> {
     pub diagnostics: Vec<Diagnostic>,
     pub region: DeclarativeRegion<'static>,

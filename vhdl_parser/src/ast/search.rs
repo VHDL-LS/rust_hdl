@@ -123,13 +123,11 @@ impl<T> Search<T> for LabeledSequentialStatement {
             return_if!(searcher.search_decl_pos(label.pos()).or_not_found());
         }
         match self.statement {
-            SequentialStatement::Return(ReturnStatement {ref expression}) => {
+            SequentialStatement::Return(ReturnStatement { ref expression }) => {
                 return_if!(expression.search(searcher));
             }
             // @TODO more
-            _ => {
-
-            }
+            _ => {}
         }
         NotFound
     }

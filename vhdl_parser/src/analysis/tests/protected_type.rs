@@ -199,3 +199,39 @@ end package body;
     expected.append(&mut duplicates(&code, &["a1", "b1"]));
     check_diagnostics(diagnostics, expected);
 }
+
+#[test]
+fn protected_type_body_extends_declaration() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg1 is
+  type prot_t is protected
+    function fun1 return natural;
+    function fun2 return natural;
+  end protected;
+
+  type prot_t is protected body
+    -- Function 2 should be visible before
+    function fun1 return natural is
+    begin
+      return fun2;
+    end;
+
+    function private return natural is
+    begin
+      return missing;
+    end;
+
+    function fun2 return natural is
+    begin
+      return 0;
+    end;
+  end protected body;
+end package;",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(diagnostics, vec![missing(&code, "missing", 1)]);
+}
