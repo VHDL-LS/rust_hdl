@@ -423,6 +423,11 @@ package pkg is
 end package;
 
 package body pkg is
+    function f2(c : natural) return natural is
+    begin
+      return c;
+    end;
+
     function f return natural is
     begin
        -- Variable assignment
@@ -441,6 +446,20 @@ package body pkg is
        else
          missing;
        end if;
+
+       -- Loops
+       for i in missing to missing loop
+         f2(i); -- Index is defined
+         missing;
+       end loop;
+
+       loop
+         missing;
+       end loop;
+
+       while missing loop
+         missing;
+       end loop;
 
        -- Return
        return missing;
@@ -482,6 +501,19 @@ package body pkg is
       proc(decl);
     end if;
 
+    -- Loops
+    for i in decl to decl loop
+      proc(decl);
+    end loop;
+
+    loop
+      proc(decl);
+    end loop;
+
+    while decl = 0 loop
+      proc(decl);
+    end loop;
+
     -- Return
     return decl;
   end;
@@ -521,8 +553,8 @@ fn check_search_reference(contents: &str) {
         );
         references.push(code.s("decl", idx).pos());
     }
-    assert_eq_unordered(
-        &root.find_all_references(&code.s("decl", 1).pos()),
-        &references,
+    assert_eq!(
+        root.find_all_references(&code.s("decl", 1).pos()),
+        references,
     );
 }

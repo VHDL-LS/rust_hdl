@@ -1338,6 +1338,28 @@ impl<'a> Analyzer<'a> {
                     self.analyze_sequential_part(parent, else_item, diagnostics)?;
                 }
             }
+            SequentialStatement::Loop(ref mut loop_stmt) => {
+                let LoopStatement {
+                    iteration_scheme,
+                    statements,
+                } = loop_stmt;
+                match iteration_scheme {
+                    Some(IterationScheme::For(ref mut index, ref mut drange)) => {
+                        self.analyze_discrete_range(parent, drange, diagnostics)?;
+                        let mut region = DeclarativeRegion::new_borrowed_parent(parent);
+                        let designator: WithPos<Designator> = index.clone().into();
+                        region.add(designator, AnyDeclaration::Constant, diagnostics);
+                        self.analyze_sequential_part(&mut region, statements, diagnostics)?;
+                    }
+                    Some(IterationScheme::While(ref mut expr)) => {
+                        self.analyze_expression(parent, expr, diagnostics)?;
+                        self.analyze_sequential_part(parent, statements, diagnostics)?;
+                    }
+                    None => {
+                        self.analyze_sequential_part(parent, statements, diagnostics)?;
+                    }
+                }
+            }
             SequentialStatement::ProcedureCall(ref mut pcall) => {
                 self.analyze_function_call(parent, pcall, diagnostics)?;
             }

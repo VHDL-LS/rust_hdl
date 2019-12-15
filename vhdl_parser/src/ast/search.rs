@@ -117,22 +117,31 @@ impl<T, V: Search<T>> Search<T> for Option<V> {
     }
 }
 
-impl<T, U: Search<T>> Search<T> for Conditionals<U> {
-    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
-        let Conditionals {
-            conditionals,
-            else_item,
-        } = self;
-        for conditional in conditionals {
-            let Conditional { condition, item } = conditional;
+fn search_conditionals<T, U: Search<T>>(
+    conditionals: &Conditionals<U>,
+    item_before_cond: bool,
+    searcher: &mut impl Searcher<T>,
+) -> SearchResult<T> {
+    let Conditionals {
+        conditionals,
+        else_item,
+    } = conditionals;
+    for conditional in conditionals {
+        let Conditional { condition, item } = conditional;
+        if item_before_cond {
+            // If
             return_if!(item.search(searcher));
             return_if!(condition.search(searcher));
+        } else {
+            // When
+            return_if!(condition.search(searcher));
+            return_if!(item.search(searcher));
         }
-        if let Some(expr) = else_item {
-            return_if!(expr.search(searcher));
-        }
-        NotFound
     }
+    if let Some(expr) = else_item {
+        return_if!(expr.search(searcher));
+    }
+    NotFound
 }
 
 impl<T> Search<T> for LabeledSequentialStatement {
@@ -148,7 +157,27 @@ impl<T> Search<T> for LabeledSequentialStatement {
                 return_if!(pcall.search(searcher));
             }
             SequentialStatement::If(ref ifstmt) => {
-                return_if!(ifstmt.search(searcher));
+                return_if!(search_conditionals(ifstmt, false, searcher));
+            }
+            SequentialStatement::Loop(ref loop_stmt) => {
+                let LoopStatement {
+                    iteration_scheme,
+                    statements,
+                } = loop_stmt;
+                match iteration_scheme {
+                    // @TODO index
+                    Some(IterationScheme::For(ref _index, ref drange)) => {
+                        return_if!(drange.search(searcher));
+                        return_if!(statements.search(searcher));
+                    }
+                    Some(IterationScheme::While(ref expr)) => {
+                        return_if!(expr.search(searcher));
+                        return_if!(statements.search(searcher));
+                    }
+                    None => {
+                        return_if!(statements.search(searcher));
+                    }
+                }
             }
             SequentialStatement::VariableAssignment(ref assign) => {
                 let VariableAssignment { target, rhs } = assign;
@@ -165,7 +194,7 @@ impl<T> Search<T> for LabeledSequentialStatement {
                         return_if!(expr.search(searcher));
                     }
                     AssignmentRightHand::Conditional(conditionals) => {
-                        return_if!(conditionals.search(searcher));
+                        return_if!(search_conditionals(conditionals, true, searcher));
                     }
                     AssignmentRightHand::Selected(..) => {
                         // @TODO
