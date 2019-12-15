@@ -1322,6 +1322,22 @@ impl<'a> Analyzer<'a> {
                     self.analyze_expression(parent, expression, diagnostics)?;
                 }
             }
+            SequentialStatement::If(ref mut ifstmt) => {
+                let IfStatement {
+                    conditionals,
+                    else_item,
+                } = ifstmt;
+
+                // @TODO write generic function for this
+                for conditional in conditionals {
+                    let Conditional { condition, item } = conditional;
+                    self.analyze_sequential_part(parent, item, diagnostics)?;
+                    self.analyze_expression(parent, condition, diagnostics)?;
+                }
+                if let Some(else_item) = else_item {
+                    self.analyze_sequential_part(parent, else_item, diagnostics)?;
+                }
+            }
             SequentialStatement::ProcedureCall(ref mut pcall) => {
                 self.analyze_function_call(parent, pcall, diagnostics)?;
             }

@@ -433,6 +433,15 @@ package body pkg is
        missing;
        missing(missing);
 
+       -- If statement
+       if missing = 1 then
+         missing;
+       elsif missing = 2 then
+         missing;
+       else
+         missing;
+       end if;
+
        -- Return
        return missing;
     end;
@@ -462,6 +471,16 @@ package body pkg is
 
     -- Procedure call
     proc(decl);
+
+
+    -- If statement
+    if decl = 1 then
+      proc(decl);
+    elsif decl = 2 then
+      proc(decl);
+    else
+      proc(decl);
+    end if;
 
     -- Return
     return decl;

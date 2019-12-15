@@ -117,6 +117,24 @@ impl<T, V: Search<T>> Search<T> for Option<V> {
     }
 }
 
+impl<T, U: Search<T>> Search<T> for Conditionals<U> {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        let Conditionals {
+            conditionals,
+            else_item,
+        } = self;
+        for conditional in conditionals {
+            let Conditional { condition, item } = conditional;
+            return_if!(item.search(searcher));
+            return_if!(condition.search(searcher));
+        }
+        if let Some(expr) = else_item {
+            return_if!(expr.search(searcher));
+        }
+        NotFound
+    }
+}
+
 impl<T> Search<T> for LabeledSequentialStatement {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         if let Some(ref label) = self.label {
@@ -128,6 +146,9 @@ impl<T> Search<T> for LabeledSequentialStatement {
             }
             SequentialStatement::ProcedureCall(ref pcall) => {
                 return_if!(pcall.search(searcher));
+            }
+            SequentialStatement::If(ref ifstmt) => {
+                return_if!(ifstmt.search(searcher));
             }
             SequentialStatement::VariableAssignment(ref assign) => {
                 let VariableAssignment { target, rhs } = assign;
@@ -144,18 +165,7 @@ impl<T> Search<T> for LabeledSequentialStatement {
                         return_if!(expr.search(searcher));
                     }
                     AssignmentRightHand::Conditional(conditionals) => {
-                        let Conditionals {
-                            conditionals,
-                            else_item,
-                        } = conditionals;
-                        for conditional in conditionals {
-                            let Conditional { condition, item } = conditional;
-                            return_if!(item.search(searcher));
-                            return_if!(condition.search(searcher));
-                        }
-                        if let Some(expr) = else_item {
-                            return_if!(expr.search(searcher));
-                        }
+                        return_if!(conditionals.search(searcher));
                     }
                     AssignmentRightHand::Selected(..) => {
                         // @TODO
