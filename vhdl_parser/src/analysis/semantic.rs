@@ -121,7 +121,6 @@ impl<'a> Analyzer<'a> {
         prefix_pos: &SrcPos,
         prefix: &VisibleDeclaration,
         suffix: &WithPos<WithRef<Designator>>,
-        allow_incomplete: bool,
     ) -> AnalysisResult<Option<VisibleDeclaration>> {
         match prefix.first() {
             AnyDeclaration::Library(ref library_name) => {
@@ -191,11 +190,7 @@ impl<'a> Analyzer<'a> {
                     ))?
                 }
             }
-            _ if allow_incomplete => Ok(None),
-            _ => Err(Diagnostic::error(
-                prefix_pos,
-                "Invalid prefix for selected name",
-            ))?,
+            _ => Ok(None),
         }
     }
 
@@ -204,25 +199,45 @@ impl<'a> Analyzer<'a> {
         region: &DeclarativeRegion<'_>,
         name: &mut WithPos<SelectedName>,
     ) -> AnalysisResult<VisibleDeclaration> {
-        match self.resolve_selected_name_ref_pos(region, &name.pos, &mut name.item, false)? {
-            LookupResult::Single(decl) => Ok(decl),
-            _ => {
-                panic!("Can only lookup single within SelectedName");
+        match name.item {
+            SelectedName::Selected(ref mut prefix, ref mut suffix) => {
+                let prefix_decl = self.resolve_selected_name(region, prefix)?;
+                match self.lookup_within(&prefix.pos, &prefix_decl, suffix) {
+                    Ok(Some(decl)) => {
+                        suffix.set_reference(&decl);
+                        Ok(decl)
+                    }
+                    Ok(None) => Err(Diagnostic::error(
+                        &prefix.pos,
+                        "Invalid prefix for selected name",
+                    ))?,
+                    Err(err) => Err(err.add_circular_reference(&name.pos)),
+                }
+            }
+            SelectedName::Designator(ref mut designator) => {
+                if let Some(decl) = region.lookup(designator.designator(), true) {
+                    designator.set_reference(decl);
+                    Ok(decl.clone())
+                } else {
+                    Err(Diagnostic::error(
+                        &name.pos,
+                        format!("No declaration of '{}'", designator),
+                    ))?
+                }
             }
         }
     }
 
-    fn resolve_prefix<'n, T: AsSelectedNameRefMut<'n, T>>(
+    fn resolve_prefix(
         &self,
         region: &DeclarativeRegion<'_>,
         prefix_pos: &SrcPos,
-        prefix: &'n mut T,
+        prefix: &mut Name,
         // Allow the resolution to stop when encountering a non selected prefix
         // which cannot be analyzed further without type information
         allow_incomplete: bool,
     ) -> AnalysisResult<Option<VisibleDeclaration>> {
-        let resolved =
-            self.resolve_selected_name_ref_pos(region, prefix_pos, prefix, allow_incomplete)?;
+        let resolved = self.resolve_name_pos(region, prefix_pos, prefix, allow_incomplete)?;
 
         match resolved.to_single_prefix(prefix_pos) {
             Ok(decl) => Ok(Some(decl)),
@@ -236,38 +251,45 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn resolve_selected_name_ref_pos<'n, T: AsSelectedNameRefMut<'n, T>>(
+    fn resolve_name_pos(
         &self,
         region: &DeclarativeRegion<'_>,
         name_pos: &SrcPos,
-        name: &'n mut T,
+        name: &mut Name,
         // Allow the resolution to stop when encountering a non selected prefix
         // which cannot be analyzed further without type information
         allow_incomplete: bool,
     ) -> AnalysisResult<LookupResult> {
-        match name.as_selected_name_ref_mut() {
-            SelectedNameRefMut::Selected(prefix, suffix) => {
+        match name {
+            Name::Selected(prefix, suffix) => {
                 match self.resolve_prefix(
                     region,
                     &prefix.pos,
                     &mut prefix.item,
                     allow_incomplete,
                 )? {
-                    Some(decl) => {
-                        match self.lookup_within(&prefix.pos, &decl, suffix, allow_incomplete) {
-                            Ok(Some(decl)) => {
-                                suffix.set_reference(&decl);
-                                Ok(LookupResult::Single(decl))
-                            }
-                            Ok(None) => Ok(LookupResult::NotSelected),
-                            Err(err) => Err(err.add_circular_reference(name_pos)),
+                    Some(decl) => match self.lookup_within(&prefix.pos, &decl, suffix) {
+                        Ok(Some(decl)) => {
+                            suffix.set_reference(&decl);
+                            Ok(LookupResult::Single(decl))
                         }
-                    }
+                        Ok(None) => {
+                            if allow_incomplete {
+                                Ok(LookupResult::NotSelected)
+                            } else {
+                                Err(Diagnostic::error(
+                                    &prefix.pos,
+                                    "Invalid prefix for selected name",
+                                ))?
+                            }
+                        }
+                        Err(err) => Err(err.add_circular_reference(name_pos)),
+                    },
                     None => Ok(LookupResult::NotSelected),
                 }
             }
 
-            SelectedNameRefMut::SelectedAll(prefix) => {
+            Name::SelectedAll(prefix) => {
                 match self.resolve_prefix(
                     region,
                     &prefix.pos,
@@ -278,7 +300,7 @@ impl<'a> Analyzer<'a> {
                     None => Ok(LookupResult::NotSelected),
                 }
             }
-            SelectedNameRefMut::Designator(designator) => {
+            Name::Designator(designator) => {
                 if let Some(decl) = region.lookup(designator.designator(), true) {
                     designator.set_reference(decl);
                     Ok(LookupResult::Single(decl.clone()))
@@ -289,29 +311,42 @@ impl<'a> Analyzer<'a> {
                     ))?
                 }
             }
-            SelectedNameRefMut::Prefix(prefix) => {
-                self.resolve_selected_name_ref_pos(
-                    region,
-                    &prefix.pos,
-                    &mut prefix.item,
-                    allow_incomplete,
-                )?;
+            // @TODO more
+            Name::Indexed(ref mut prefix, ..) => {
+                self.resolve_name_pos(region, &prefix.pos, &mut prefix.item, allow_incomplete)?;
                 Ok(LookupResult::NotSelected)
             }
-            SelectedNameRefMut::Other => {
-                // Not a selected name
-                // @TODO at least lookup prefix for now
+
+            // @TODO more
+            Name::Slice(ref mut prefix, ..) => {
+                self.resolve_name_pos(region, &prefix.pos, &mut prefix.item, allow_incomplete)?;
+                Ok(LookupResult::NotSelected)
+            }
+            Name::Attribute(ref mut attr) => {
+                // @TODO more
+                let AttributeName { name, .. } = attr.as_mut();
+                self.resolve_name_pos(region, &name.pos, &mut name.item, allow_incomplete)?;
+                Ok(LookupResult::NotSelected)
+            }
+            Name::FunctionCall(ref mut fcall) => {
+                // @TODO more
+                let FunctionCall { name, .. } = fcall.as_mut();
+                self.resolve_name_pos(region, &name.pos, &mut name.item, allow_incomplete)?;
+                Ok(LookupResult::NotSelected)
+            }
+            Name::External(..) => {
+                // @TODO more
                 Ok(LookupResult::NotSelected)
             }
         }
     }
 
-    fn resolve_context_item_name<'n, T: AsSelectedNameRefMut<'n, T>>(
+    fn resolve_context_item_name(
         &self,
         region: &DeclarativeRegion<'_>,
-        name: &'n mut WithPos<T>,
+        name: &mut WithPos<Name>,
     ) -> AnalysisResult<LookupResult> {
-        self.resolve_selected_name_ref_pos(region, &name.pos, &mut name.item, false)
+        self.resolve_name_pos(region, &name.pos, &mut name.item, false)
     }
 
     fn analyze_interface_declaration(
@@ -391,7 +426,7 @@ impl<'a> Analyzer<'a> {
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        if let Err(err) = self.resolve_selected_name_ref_pos(region, pos, name, true) {
+        if let Err(err) = self.resolve_name_pos(region, pos, name, true) {
             err.add_to(diagnostics)
         } else {
             Ok(())
