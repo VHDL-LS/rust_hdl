@@ -360,6 +360,23 @@ impl<T> Search<T> for LabeledConcurrentStatement {
                 NotFound
             }
             ConcurrentStatement::Instance(ref inst) => inst.search(searcher),
+            ConcurrentStatement::Assignment(ref assign) => {
+                let ConcurrentSignalAssignment { target, rhs, .. } = assign;
+                return_if!(target.search(searcher));
+                // @TODO make generic function
+                match rhs {
+                    AssignmentRightHand::Simple(expr) => {
+                        return_if!(expr.search(searcher));
+                    }
+                    AssignmentRightHand::Conditional(conditionals) => {
+                        return_if!(search_conditionals(conditionals, true, searcher));
+                    }
+                    AssignmentRightHand::Selected(..) => {
+                        // @TODO
+                    }
+                }
+                NotFound
+            }
 
             // @TODO not searched
             _ => NotFound,

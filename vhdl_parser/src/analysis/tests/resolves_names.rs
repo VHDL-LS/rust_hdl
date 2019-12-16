@@ -746,3 +746,36 @@ end package body;
 ",
     );
 }
+
+#[test]
+fn resolves_names_in_concurrent_statements() {
+    check_missing(
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+begin
+  missing <= missing;
+  missing <= missing when missing else missing;
+end architecture;
+",
+    );
+}
+
+#[test]
+fn search_names_in_concurrent_statements() {
+    check_search_reference(
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+  signal decl : natural := 0;
+begin
+  decl <= decl;
+  decl <= decl when decl = 0 else decl;
+end architecture;
+",
+    );
+}

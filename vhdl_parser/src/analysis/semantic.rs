@@ -1362,6 +1362,36 @@ impl<'a> Analyzer<'a> {
             ConcurrentStatement::Instance(ref mut instance) => {
                 self.analyze_instance(parent, instance, diagnostics)?;
             }
+            ConcurrentStatement::Assignment(ref mut assign) => {
+                // @TODO more
+                // @TODO add generic function
+                let ConcurrentSignalAssignment { target, rhs, .. } = assign;
+                self.analyze_target(parent, target, diagnostics)?;
+
+                match rhs {
+                    AssignmentRightHand::Simple(wavf) => {
+                        self.analyze_waveform(parent, wavf, diagnostics)?;
+                    }
+                    AssignmentRightHand::Conditional(conditionals) => {
+                        let Conditionals {
+                            conditionals,
+                            else_item,
+                        } = conditionals;
+                        for conditional in conditionals {
+                            let Conditional { condition, item } = conditional;
+                            self.analyze_waveform(parent, item, diagnostics)?;
+                            self.analyze_expression(parent, condition, diagnostics)?;
+                        }
+                        if let Some(wavf) = else_item {
+                            self.analyze_waveform(parent, wavf, diagnostics)?;
+                        }
+                    }
+                    AssignmentRightHand::Selected(..) => {
+                        // @TODO
+                    }
+                }
+            }
+
             _ => {}
         };
         Ok(())
