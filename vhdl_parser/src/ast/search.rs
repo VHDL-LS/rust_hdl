@@ -209,6 +209,17 @@ impl<T> Search<T> for LabeledSequentialStatement {
             SequentialStatement::If(ref ifstmt) => {
                 return_if!(search_conditionals(ifstmt, false, searcher));
             }
+            SequentialStatement::Wait(ref wait_stmt) => {
+                let WaitStatement {
+                    sensitivity_clause,
+                    condition_clause,
+                    timeout_clause,
+                } = wait_stmt;
+                return_if!(sensitivity_clause.search(searcher));
+                return_if!(condition_clause.search(searcher));
+                return_if!(timeout_clause.search(searcher));
+            }
+
             SequentialStatement::Case(ref case_stmt) => {
                 return_if!(case_stmt.search(searcher));
             }

@@ -144,6 +144,7 @@ pub fn check_missing(contents: &str) {
     let code = builder.code("libname", contents);
     let diagnostics = builder.analyze();
     let occurences = contents.matches("missing").count();
+    assert!(occurences > 0);
     check_diagnostics(
         diagnostics,
         (1..=occurences)
@@ -156,6 +157,7 @@ pub fn check_search_reference(contents: &str) {
     let mut builder = LibraryBuilder::new();
     let code = builder.code("libname", contents);
     let occurences = contents.matches("decl").count();
+    assert!(occurences > 0);
 
     let (root, diagnostics) = builder.get_analyzed_root();
     check_no_diagnostics(&diagnostics);

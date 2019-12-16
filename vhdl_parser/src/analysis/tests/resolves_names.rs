@@ -560,7 +560,7 @@ end package body;
 }
 
 #[test]
-fn check_missing_in_signal_assignments() {
+fn check_missing_in_process_statements() {
     check_missing(
         "
 entity ent is
@@ -570,6 +570,7 @@ architecture a of ent is
 begin
   main : process is
   begin
+    wait on missing until missing = 0 ns for missing;
     missing <= missing after missing;
   end process;
 end architecture;
@@ -578,8 +579,8 @@ end architecture;
 }
 
 #[test]
-fn search_in_signal_assignments() {
-    check_missing(
+fn search_in_process_statements() {
+    check_search_reference(
         "
 entity ent is
 end entity;
@@ -589,6 +590,7 @@ architecture a of ent is
 begin
   main : process is
   begin
+    wait on decl until decl = 0 ns for decl;
     decl <= decl after decl;
   end process;
 end architecture;
@@ -632,7 +634,7 @@ end architecture;
 
 #[test]
 fn check_search_in_instantiations() {
-    check_missing(
+    check_search_reference(
         "
 entity ename is
   generic (g : natural);
@@ -677,6 +679,7 @@ end package;
 use work.pkg.enum_t;
 package pkg2 is
   constant c : enum_t := alpha;
+  constant c2 : enum_t := missing;
 end package;
 ",
     );
@@ -698,6 +701,7 @@ package body pkg is
     file_open(f, \"foo.txt\");
     assert not endfile(f);
     file_close(f);
+    missing;
   end procedure;
 end package body;
 ",

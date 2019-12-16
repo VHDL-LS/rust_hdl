@@ -1414,6 +1414,22 @@ impl<'a> Analyzer<'a> {
                     self.analyze_expression(parent, expression, diagnostics)?;
                 }
             }
+            SequentialStatement::Wait(ref mut wait_stmt) => {
+                let WaitStatement {
+                    sensitivity_clause,
+                    condition_clause,
+                    timeout_clause,
+                } = wait_stmt;
+                for name in sensitivity_clause.iter_mut() {
+                    self.resolve_name(parent, &name.pos, &mut name.item, diagnostics)?;
+                }
+                if let Some(expr) = condition_clause {
+                    self.analyze_expression(parent, expr, diagnostics)?;
+                }
+                if let Some(expr) = timeout_clause {
+                    self.analyze_expression(parent, expr, diagnostics)?;
+                }
+            }
             SequentialStatement::If(ref mut ifstmt) => {
                 let IfStatement {
                     conditionals,
