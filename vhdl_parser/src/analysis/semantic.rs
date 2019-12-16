@@ -1430,6 +1430,20 @@ impl<'a> Analyzer<'a> {
                     self.analyze_expression(parent, expr, diagnostics)?;
                 }
             }
+            SequentialStatement::Assert(ref mut assert_stmt) => {
+                let AssertStatement {
+                    condition,
+                    report,
+                    severity,
+                } = assert_stmt;
+                self.analyze_expression(parent, condition, diagnostics)?;
+                if let Some(expr) = report {
+                    self.analyze_expression(parent, expr, diagnostics)?;
+                }
+                if let Some(expr) = severity {
+                    self.analyze_expression(parent, expr, diagnostics)?;
+                }
+            }
             SequentialStatement::If(ref mut ifstmt) => {
                 let IfStatement {
                     conditionals,

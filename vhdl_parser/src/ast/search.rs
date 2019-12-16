@@ -219,6 +219,16 @@ impl<T> Search<T> for LabeledSequentialStatement {
                 return_if!(condition_clause.search(searcher));
                 return_if!(timeout_clause.search(searcher));
             }
+            SequentialStatement::Assert(ref assert_stmt) => {
+                let AssertStatement {
+                    condition,
+                    report,
+                    severity,
+                } = assert_stmt;
+                return_if!(condition.search(searcher));
+                return_if!(report.search(searcher));
+                return_if!(severity.search(searcher));
+            }
 
             SequentialStatement::Case(ref case_stmt) => {
                 return_if!(case_stmt.search(searcher));

@@ -490,6 +490,8 @@ package body pkg is
            missing;
        end case;
 
+       assert missing report missing severity missing;
+
        -- Return
        return missing;
     end;
@@ -550,6 +552,8 @@ package body pkg is
       when decl to decl =>
         proc(decl);
     end case;
+
+    assert decl = 0 report natural'image(decl) severity severity_level'val(decl);
 
     -- Return
     return decl;
