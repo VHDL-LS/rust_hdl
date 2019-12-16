@@ -476,6 +476,7 @@ package body pkg is
 
        loop
          missing;
+         next when missing;
          exit when missing;
        end loop;
 
@@ -541,6 +542,7 @@ package body pkg is
 
     loop
       proc(decl);
+      next when decl = 0;
       exit when decl = 0;
     end loop;
 

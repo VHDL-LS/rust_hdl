@@ -1462,6 +1462,17 @@ impl<'a> Analyzer<'a> {
                     self.analyze_expression(parent, expr, diagnostics)?;
                 }
             }
+            SequentialStatement::Next(ref mut next_stmt) => {
+                let NextStatement {
+                    condition,
+                    // @TODO loop label
+                    ..
+                } = next_stmt;
+
+                if let Some(expr) = condition {
+                    self.analyze_expression(parent, expr, diagnostics)?;
+                }
+            }
             SequentialStatement::If(ref mut ifstmt) => {
                 let IfStatement {
                     conditionals,
