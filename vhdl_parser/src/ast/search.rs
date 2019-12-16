@@ -234,6 +234,11 @@ impl<T> Search<T> for LabeledSequentialStatement {
                 return_if!(report.search(searcher));
                 return_if!(severity.search(searcher));
             }
+            SequentialStatement::Exit(ref exit_stmt) => {
+                // @TODO loop label
+                let ExitStatement { condition, .. } = exit_stmt;
+                return_if!(condition.search(searcher));
+            }
 
             SequentialStatement::Case(ref case_stmt) => {
                 return_if!(case_stmt.search(searcher));
