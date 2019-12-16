@@ -1713,6 +1713,14 @@ impl<'a> Analyzer<'a> {
             &mut diagnostics,
         )?;
         let mut region = package_data.region.extend(Some(&root_region));
+
+        // Package name is visible in body
+        region.add(
+            package_data.ast.unit.ident(),
+            AnyDeclaration::Constant,
+            &mut diagnostics,
+        );
+
         self.analyze_declarative_part(&mut region, &mut body.ast.unit.decl, &mut diagnostics)?;
         region.close_both(&mut diagnostics);
         // Body does not need region

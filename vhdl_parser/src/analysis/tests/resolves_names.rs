@@ -717,3 +717,32 @@ end package body;
 ",
     );
 }
+
+#[test]
+fn package_name_visible_in_body() {
+    check_missing(
+        "
+package pkg is
+end package;
+
+package body pkg is
+  constant name : string := pkg'instance_name;
+  constant name2 : string := missing'instance_name;
+end package body;
+",
+    );
+}
+
+#[test]
+fn search_package_name_in_body() {
+    check_search_reference(
+        "
+package decl is
+end package;
+
+package body decl is
+  constant name : string := decl'instance_name;
+end package body;
+",
+    );
+}
