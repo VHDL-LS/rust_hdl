@@ -41,6 +41,27 @@ end package;",
 }
 
 #[test]
+fn resolves_names_in_iface_object_decl_init_expressions() {
+    check_missing(
+        "
+package pkg is
+  function foo(constant c2 : natural := missing) return natural;
+end package;",
+    );
+}
+
+#[test]
+fn search_names_in_iface_object_decl_init_expressions() {
+    check_search_reference(
+        "
+    package pkg is
+      constant decl : natural := 0;
+      function foo(constant c2 : natural := decl) return natural;
+    end package;",
+    );
+}
+
+#[test]
 fn subprogram_parameters_are_visible_in_body() {
     check_missing(
         "

@@ -396,6 +396,9 @@ impl<'a> Analyzer<'a> {
                     &mut object_decl.subtype_indication,
                     diagnostics,
                 )?;
+                if let Some(ref mut expression) = object_decl.expression {
+                    self.analyze_expression(region, expression, diagnostics)?
+                }
                 region.add(&object_decl.ident, AnyDeclaration::Other, diagnostics);
             }
             InterfaceDeclaration::Type(ref ident) => {

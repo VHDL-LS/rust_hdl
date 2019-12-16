@@ -628,6 +628,7 @@ impl<T> Search<T> for InterfaceDeclaration {
                 InterfaceDeclaration::Object(ref decl) => {
                     return_if!(searcher.search_decl_pos(decl.ident.pos()).or_not_found());
                     return_if!(decl.subtype_indication.search(searcher));
+                    return_if!(decl.expression.search(searcher));
                 }
                 InterfaceDeclaration::Subprogram(ref decl, _) => {
                     return_if!(decl.search(searcher));
