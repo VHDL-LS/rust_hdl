@@ -1391,7 +1391,11 @@ impl<'a> Analyzer<'a> {
                     }
                 }
             }
-
+            ConcurrentStatement::ProcedureCall(ref mut pcall) => {
+                // @TODO postponed
+                let ConcurrentProcedureCall { call, .. } = pcall;
+                self.analyze_function_call(parent, call, diagnostics)?;
+            }
             _ => {}
         };
         Ok(())

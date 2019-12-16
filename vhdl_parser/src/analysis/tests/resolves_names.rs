@@ -758,6 +758,7 @@ architecture a of ent is
 begin
   missing <= missing;
   missing <= missing when missing else missing;
+  missing(missing);
 end architecture;
 ",
     );
@@ -771,10 +772,15 @@ entity ent is
 end entity;
 
 architecture a of ent is
+  procedure proc(signal sig : in natural) is
+  begin
+  end;
+
   signal decl : natural := 0;
 begin
   decl <= decl;
   decl <= decl when decl = 0 else decl;
+  proc(decl);
 end architecture;
 ",
     );

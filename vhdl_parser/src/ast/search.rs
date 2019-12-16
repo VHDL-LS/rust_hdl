@@ -377,6 +377,14 @@ impl<T> Search<T> for LabeledConcurrentStatement {
                 }
                 NotFound
             }
+            ConcurrentStatement::ProcedureCall(ref pcall) => {
+                let ConcurrentProcedureCall {
+                    postponed: _postponed,
+                    call,
+                } = pcall;
+                return_if!(call.search(searcher));
+                NotFound
+            }
 
             // @TODO not searched
             _ => NotFound,
