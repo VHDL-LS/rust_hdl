@@ -1766,11 +1766,10 @@ impl<'a> Analyzer<'a> {
         let mut region = package_data.region.extend(Some(&root_region));
 
         // Package name is visible in body
-        region.add(
+        region.make_potentially_visible(VisibleDeclaration::new(
             package_data.ast.unit.ident(),
             AnyDeclaration::Constant,
-            &mut diagnostics,
-        );
+        ));
 
         self.analyze_declarative_part(&mut region, &mut body.ast.unit.decl, &mut diagnostics)?;
         region.close_both(&mut diagnostics);
@@ -1814,6 +1813,13 @@ impl<'a> Analyzer<'a> {
             &mut diagnostics,
         )?;
         let mut region = entity.region.extend(Some(&root_region));
+
+        // entity name is visible
+        region.make_potentially_visible(VisibleDeclaration::new(
+            entity.ast.unit.ident(),
+            AnyDeclaration::Constant,
+        ));
+
         self.analyze_declarative_part(&mut region, &mut arch_data.ast.unit.decl, &mut diagnostics)?;
         self.analyze_concurrent_part(
             &mut region,

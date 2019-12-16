@@ -748,6 +748,44 @@ end package body;
 }
 
 #[test]
+fn entity_name_visible_in_architecture() {
+    check_missing(
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+begin
+  main : process is
+  begin
+    report missing'instance_name;
+    report ent'instance_name;
+  end process;
+end;
+",
+    );
+}
+
+#[test]
+fn search_entity_name_in_entity() {
+    check_search_reference(
+        "
+entity decl is
+end entity;
+
+architecture a of decl is
+begin
+  main : process is
+  begin
+    report decl'instance_name;
+  end process;
+end architecture;
+
+",
+    );
+}
+
+#[test]
 fn resolves_names_in_concurrent_statements() {
     check_missing(
         "
