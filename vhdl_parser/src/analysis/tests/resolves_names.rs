@@ -543,6 +543,43 @@ end package body;
     );
 }
 
+#[test]
+fn check_missing_in_signal_assignments() {
+    check_missing(
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+begin
+  main : process is
+  begin
+    missing <= missing after missing;
+  end process;
+end architecture;
+",
+    );
+}
+
+#[test]
+fn search_in_signal_assignments() {
+    check_missing(
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+  signal decl : time;
+begin
+  main : process is
+  begin
+    decl <= decl after decl;
+  end process;
+end architecture;
+",
+    );
+}
+
 fn check_missing(contents: &str) {
     let mut builder = LibraryBuilder::new();
     let code = builder.code("libname", contents);

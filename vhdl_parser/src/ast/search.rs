@@ -144,6 +144,20 @@ fn search_conditionals<T, U: Search<T>>(
     NotFound
 }
 
+impl<T> Search<T> for WithPos<Target> {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        match self.item {
+            Target::Name(ref name) => {
+                return_if!(search_pos_name(&self.pos, name, searcher));
+            }
+            Target::Aggregate(..) => {
+                // @TODO
+            }
+        }
+        NotFound
+    }
+}
+
 impl<T> Search<T> for LabeledSequentialStatement {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         if let Some(ref label) = self.label {
@@ -179,16 +193,25 @@ impl<T> Search<T> for LabeledSequentialStatement {
                     }
                 }
             }
-            SequentialStatement::VariableAssignment(ref assign) => {
-                let VariableAssignment { target, rhs } = assign;
-                match target.item {
-                    Target::Name(ref name) => {
-                        return_if!(search_pos_name(&target.pos, name, searcher));
+            SequentialStatement::SignalAssignment(ref assign) => {
+                // @TODO more
+                let SignalAssignment { target, rhs, .. } = assign;
+                return_if!(target.search(searcher));
+                match rhs {
+                    AssignmentRightHand::Simple(expr) => {
+                        return_if!(expr.search(searcher));
                     }
-                    Target::Aggregate(..) => {
+                    AssignmentRightHand::Conditional(conditionals) => {
+                        return_if!(search_conditionals(conditionals, true, searcher));
+                    }
+                    AssignmentRightHand::Selected(..) => {
                         // @TODO
                     }
                 }
+            }
+            SequentialStatement::VariableAssignment(ref assign) => {
+                let VariableAssignment { target, rhs } = assign;
+                return_if!(target.search(searcher));
                 match rhs {
                     AssignmentRightHand::Simple(expr) => {
                         return_if!(expr.search(searcher));
@@ -559,6 +582,23 @@ impl<T> Search<T> for FunctionCall {
         NotFound
     }
 }
+
+impl<T> Search<T> for Waveform {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        match self {
+            Waveform::Elements(ref elems) => {
+                for elem in elems.iter() {
+                    let WaveformElement { value, after } = elem;
+                    return_if!(value.search(searcher));
+                    return_if!(after.search(searcher));
+                }
+            }
+            Waveform::Unaffected => {}
+        }
+        NotFound
+    }
+}
+
 impl<T> Search<T> for WithPos<Expression> {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         search_pos_expr(&self.pos, &self.item, searcher)

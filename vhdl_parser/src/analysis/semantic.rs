@@ -630,6 +630,26 @@ impl<'a> Analyzer<'a> {
         self.analyze_expression_pos(region, &expr.pos, &mut expr.item, diagnostics)
     }
 
+    fn analyze_waveform(
+        &self,
+        region: &DeclarativeRegion<'_>,
+        wavf: &mut Waveform,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        match wavf {
+            Waveform::Elements(ref mut elems) => {
+                for elem in elems.iter_mut() {
+                    let WaveformElement { value, after } = elem;
+                    self.analyze_expression(region, value, diagnostics)?;
+                    if let Some(expr) = after {
+                        self.analyze_expression(region, expr, diagnostics)?;
+                    }
+                }
+            }
+            Waveform::Unaffected => {}
+        }
+        Ok(())
+    }
     fn analyze_function_call(
         &self,
         region: &DeclarativeRegion<'_>,
@@ -1308,6 +1328,23 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
+    fn analyze_target(
+        &self,
+        parent: &mut DeclarativeRegion<'_>,
+        target: &mut WithPos<Target>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        match target.item {
+            Target::Name(ref mut name) => {
+                self.resolve_name(parent, &target.pos, name, diagnostics)?;
+            }
+            Target::Aggregate(..) => {
+                // @TODO
+            }
+        }
+        Ok(())
+    }
+
     fn analyze_sequential_statement(
         &self,
         parent: &mut DeclarativeRegion<'_>,
@@ -1366,17 +1403,38 @@ impl<'a> Analyzer<'a> {
             SequentialStatement::ProcedureCall(ref mut pcall) => {
                 self.analyze_function_call(parent, pcall, diagnostics)?;
             }
-            SequentialStatement::VariableAssignment(ref mut assign) => {
+            SequentialStatement::SignalAssignment(ref mut assign) => {
                 // @TODO more
-                let VariableAssignment { target, rhs } = assign;
-                match target.item {
-                    Target::Name(ref mut name) => {
-                        self.resolve_name(parent, &target.pos, name, diagnostics)?;
+                let SignalAssignment { target, rhs, .. } = assign;
+                self.analyze_target(parent, target, diagnostics)?;
+
+                match rhs {
+                    AssignmentRightHand::Simple(wavf) => {
+                        self.analyze_waveform(parent, wavf, diagnostics)?;
                     }
-                    Target::Aggregate(..) => {
+                    AssignmentRightHand::Conditional(conditionals) => {
+                        let Conditionals {
+                            conditionals,
+                            else_item,
+                        } = conditionals;
+                        for conditional in conditionals {
+                            let Conditional { condition, item } = conditional;
+                            self.analyze_waveform(parent, item, diagnostics)?;
+                            self.analyze_expression(parent, condition, diagnostics)?;
+                        }
+                        if let Some(wavf) = else_item {
+                            self.analyze_waveform(parent, wavf, diagnostics)?;
+                        }
+                    }
+                    AssignmentRightHand::Selected(..) => {
                         // @TODO
                     }
                 }
+            }
+            SequentialStatement::VariableAssignment(ref mut assign) => {
+                let VariableAssignment { target, rhs } = assign;
+                self.analyze_target(parent, target, diagnostics)?;
+
                 match rhs {
                     AssignmentRightHand::Simple(expr) => {
                         self.analyze_expression(parent, expr, diagnostics)?;
