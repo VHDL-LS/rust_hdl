@@ -1444,6 +1444,13 @@ impl<'a> Analyzer<'a> {
                     self.analyze_expression(parent, expr, diagnostics)?;
                 }
             }
+            SequentialStatement::Report(ref mut report_stmt) => {
+                let ReportStatement { report, severity } = report_stmt;
+                self.analyze_expression(parent, report, diagnostics)?;
+                if let Some(expr) = severity {
+                    self.analyze_expression(parent, expr, diagnostics)?;
+                }
+            }
             SequentialStatement::If(ref mut ifstmt) => {
                 let IfStatement {
                     conditionals,

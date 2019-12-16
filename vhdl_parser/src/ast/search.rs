@@ -229,6 +229,11 @@ impl<T> Search<T> for LabeledSequentialStatement {
                 return_if!(report.search(searcher));
                 return_if!(severity.search(searcher));
             }
+            SequentialStatement::Report(ref report_stmt) => {
+                let ReportStatement { report, severity } = report_stmt;
+                return_if!(report.search(searcher));
+                return_if!(severity.search(searcher));
+            }
 
             SequentialStatement::Case(ref case_stmt) => {
                 return_if!(case_stmt.search(searcher));
