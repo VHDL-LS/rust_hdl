@@ -253,8 +253,8 @@ impl<T> Search<T> for LabeledSequentialStatement {
                     statements,
                 } = loop_stmt;
                 match iteration_scheme {
-                    // @TODO index
-                    Some(IterationScheme::For(ref _index, ref drange)) => {
+                    Some(IterationScheme::For(ref index, ref drange)) => {
+                        return_if!(searcher.search_decl_pos(index.pos()).or_not_found());
                         return_if!(drange.search(searcher));
                         return_if!(statements.search(searcher));
                     }

@@ -825,3 +825,24 @@ end architecture;
 ",
     );
 }
+
+#[test]
+fn search_for_loop_index() {
+    check_search_reference(
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+begin
+main : process is
+begin
+ for decl in 0 to 3 loop
+     report integer'image(decl);
+ end loop;
+end process;
+end architecture;
+
+",
+    );
+}
