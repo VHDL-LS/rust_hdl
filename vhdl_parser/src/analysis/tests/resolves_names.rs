@@ -759,6 +759,7 @@ begin
   missing <= missing;
   missing <= missing when missing else missing;
   missing(missing);
+  assert missing report missing severity missing;
 end architecture;
 ",
     );
@@ -781,6 +782,7 @@ begin
   decl <= decl;
   decl <= decl when decl = 0 else decl;
   proc(decl);
+  assert decl = 0 report decl'instance_name severity severity_level'val(decl);
 end architecture;
 ",
     );

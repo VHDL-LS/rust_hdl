@@ -385,9 +385,21 @@ impl<T> Search<T> for LabeledConcurrentStatement {
                 return_if!(call.search(searcher));
                 NotFound
             }
-
-            // @TODO not searched
-            _ => NotFound,
+            ConcurrentStatement::Assert(ref assert) => {
+                let ConcurrentAssertStatement {
+                    postponed: _postponed,
+                    statement:
+                        AssertStatement {
+                            condition,
+                            report,
+                            severity,
+                        },
+                } = assert;
+                return_if!(condition.search(searcher));
+                return_if!(report.search(searcher));
+                return_if!(severity.search(searcher));
+                NotFound
+            }
         }
     }
 }

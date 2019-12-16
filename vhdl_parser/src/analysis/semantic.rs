@@ -1396,7 +1396,24 @@ impl<'a> Analyzer<'a> {
                 let ConcurrentProcedureCall { call, .. } = pcall;
                 self.analyze_function_call(parent, call, diagnostics)?;
             }
-            _ => {}
+            ConcurrentStatement::Assert(ref mut assert) => {
+                let ConcurrentAssertStatement {
+                    postponed: _postponed,
+                    statement:
+                        AssertStatement {
+                            condition,
+                            report,
+                            severity,
+                        },
+                } = assert;
+                self.analyze_expression(parent, condition, diagnostics)?;
+                if let Some(expr) = report {
+                    self.analyze_expression(parent, expr, diagnostics)?;
+                }
+                if let Some(expr) = severity {
+                    self.analyze_expression(parent, expr, diagnostics)?;
+                }
+            }
         };
         Ok(())
     }
