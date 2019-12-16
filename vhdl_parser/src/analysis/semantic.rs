@@ -650,6 +650,24 @@ impl<'a> Analyzer<'a> {
         }
         Ok(())
     }
+
+    fn analyze_assoc_elems(
+        &self,
+        region: &DeclarativeRegion<'_>,
+        elems: &mut Vec<AssociationElement>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        for AssociationElement { actual, .. } in elems.iter_mut() {
+            match actual.item {
+                ActualPart::Expression(ref mut expr) => {
+                    self.analyze_expression_pos(region, &actual.pos, expr, diagnostics)?;
+                }
+                ActualPart::Open => {}
+            }
+        }
+        Ok(())
+    }
+
     fn analyze_function_call(
         &self,
         region: &DeclarativeRegion<'_>,
@@ -662,17 +680,7 @@ impl<'a> Analyzer<'a> {
         {
             err.add_to(diagnostics)?;
         }
-
-        // @TODO more
-        for AssociationElement { actual, .. } in parameters.iter_mut() {
-            match actual.item {
-                ActualPart::Expression(ref mut expr) => {
-                    self.analyze_expression_pos(region, &actual.pos, expr, diagnostics)?;
-                }
-                ActualPart::Open => {}
-            }
-        }
-        Ok(())
+        self.analyze_assoc_elems(region, parameters, diagnostics)
     }
 
     fn analyze_qualified_expression(
@@ -1254,14 +1262,28 @@ impl<'a> Analyzer<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         match instance.unit {
-            InstantiatedUnit::Entity(ref mut entity_name, _) => {
+            // @TODO architecture
+            InstantiatedUnit::Entity(ref mut entity_name, ..) => {
                 if let Err(err) = self.resolve_selected_name(parent, entity_name) {
                     err.add_to(diagnostics)?;
                 }
             }
-            // @TODO more
-            _ => {}
+            InstantiatedUnit::Component(ref mut component_name) => {
+                if let Err(err) = self.resolve_selected_name(parent, component_name) {
+                    err.add_to(diagnostics)?;
+                }
+            }
+            // @TODO more configuration
+            InstantiatedUnit::Configuration(ref mut config_name) => {
+                if let Err(err) = self.resolve_selected_name(parent, config_name) {
+                    err.add_to(diagnostics)?;
+                }
+            }
         };
+
+        self.analyze_assoc_elems(parent, &mut instance.generic_map, diagnostics)?;
+        self.analyze_assoc_elems(parent, &mut instance.port_map, diagnostics)?;
+
         Ok(())
     }
 

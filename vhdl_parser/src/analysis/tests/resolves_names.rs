@@ -580,39 +580,72 @@ end architecture;
     );
 }
 
-fn check_missing(contents: &str) {
-    let mut builder = LibraryBuilder::new();
-    let code = builder.code("libname", contents);
-    let diagnostics = builder.analyze();
-    let occurences = contents.matches("missing").count();
-    check_diagnostics(
-        diagnostics,
-        (1..=occurences)
-            .map(|idx| missing(&code, "missing", idx))
-            .collect(),
+#[test]
+fn check_missing_in_instantiations() {
+    check_missing(
+        "
+entity ename is
+  generic (g : natural);
+  port (s : natural);
+end entity;
+
+entity ent is
+end entity;
+
+architecture a of ent is
+  component comp is
+    generic (g : natural);
+    port (s : natural);
+  end component;
+begin
+  inst: entity work.ename
+    generic map (
+      g => missing)
+    port map (
+      s => missing);
+
+  inst2: component comp
+    generic map (
+      g => missing)
+    port map (
+      s => missing);
+end architecture;
+",
     );
 }
 
-fn check_search_reference(contents: &str) {
-    let mut builder = LibraryBuilder::new();
-    let code = builder.code("libname", contents);
-    let occurences = contents.matches("decl").count();
+#[test]
+fn check_search_in_instantiations() {
+    check_missing(
+        "
+entity ename is
+  generic (g : natural);
+  port (s : natural);
+end entity;
 
-    let (root, diagnostics) = builder.get_analyzed_root();
-    check_no_diagnostics(&diagnostics);
+entity ent is
+end entity;
 
-    let mut references = Vec::new();
-    for idx in 1..=occurences {
-        assert_eq!(
-            root.search_reference(code.source(), code.s("decl", idx).end()),
-            Some(code.s("decl", 1).pos()),
-            "{}",
-            idx
-        );
-        references.push(code.s("decl", idx).pos());
-    }
-    assert_eq!(
-        root.find_all_references(&code.s("decl", 1).pos()),
-        references,
+architecture a of ent is
+  component comp is
+    generic (g : natural);
+    port (s : natural);
+  end component;
+
+  constant decl : natural := 0;
+begin
+  inst: entity work.ename
+    generic map (
+      g => decl)
+    port map (
+      s => decl);
+
+  inst2: component comp
+    generic map (
+      g => decl)
+    port map (
+      s => decl);
+end architecture;
+",
     );
 }

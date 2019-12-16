@@ -10,7 +10,7 @@ use crate::diagnostic::Diagnostic;
 use crate::latin_1::Latin1String;
 use crate::source::Source;
 use crate::symbol_table::Symbol;
-use crate::test_util::{Code, CodeBuilder};
+use crate::test_util::*;
 use std::collections::{hash_map::Entry, HashMap};
 use std::sync::Arc;
 
@@ -137,4 +137,41 @@ pub fn duplicate_in_two_files(code1: &Code, code2: &Code, names: &[&str]) -> Vec
         )
     }
     diagnostics
+}
+
+pub fn check_missing(contents: &str) {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code("libname", contents);
+    let diagnostics = builder.analyze();
+    let occurences = contents.matches("missing").count();
+    check_diagnostics(
+        diagnostics,
+        (1..=occurences)
+            .map(|idx| missing(&code, "missing", idx))
+            .collect(),
+    );
+}
+
+pub fn check_search_reference(contents: &str) {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code("libname", contents);
+    let occurences = contents.matches("decl").count();
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    let mut references = Vec::new();
+    for idx in 1..=occurences {
+        assert_eq!(
+            root.search_reference(code.source(), code.s("decl", idx).end()),
+            Some(code.s("decl", 1).pos()),
+            "{}",
+            idx
+        );
+        references.push(code.s("decl", idx).pos());
+    }
+    assert_eq!(
+        root.find_all_references(&code.s("decl", 1).pos()),
+        references,
+    );
 }

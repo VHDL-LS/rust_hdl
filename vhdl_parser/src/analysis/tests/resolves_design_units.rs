@@ -234,6 +234,75 @@ end architecture;
 }
 
 #[test]
+fn resolves_component_instance() {
+    check_missing(
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+begin
+  inst : component missing;
+end architecture;
+",
+    );
+}
+
+#[test]
+fn search_component_instance() {
+    check_search_reference(
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+  component decl is
+  end component;
+begin
+  inst : component decl;
+end architecture;
+",
+    );
+}
+
+#[test]
+fn resolves_configuration_instance() {
+    check_missing(
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+begin
+  inst : configuration missing;
+end architecture;
+",
+    );
+}
+
+#[test]
+fn search_configuration_instance() {
+    check_search_reference(
+        "
+entity ent is
+end entity;
+
+configuration decl of ent is
+  for a
+  end for;
+end configuration;
+
+architecture a of ent is
+begin
+  inst : configuration work.decl;
+end architecture;
+
+
+",
+    );
+}
+
+#[test]
 fn resolves_reference_to_package_body() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(

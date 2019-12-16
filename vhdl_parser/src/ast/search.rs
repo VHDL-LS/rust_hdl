@@ -244,8 +244,16 @@ impl<T> Search<T> for InstantiationStatement {
             InstantiatedUnit::Entity(ref ent_name, _) => {
                 return_if!(ent_name.search(searcher));
             }
-            _ => {}
+            InstantiatedUnit::Component(ref component_name) => {
+                return_if!(component_name.search(searcher));
+            }
+            InstantiatedUnit::Configuration(ref config_name) => {
+                return_if!(config_name.search(searcher));
+            }
         };
+        return_if!(self.generic_map.search(searcher));
+        return_if!(self.port_map.search(searcher));
+
         NotFound
     }
 }
@@ -566,19 +574,25 @@ impl<T> Search<T> for QualifiedExpression {
     }
 }
 
+impl<T> Search<T> for AssociationElement {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        // @TODO more formal
+        let AssociationElement { actual, .. } = self;
+        match actual.item {
+            ActualPart::Expression(ref expr) => {
+                return_if!(search_pos_expr(&actual.pos, expr, searcher));
+            }
+            ActualPart::Open => {}
+        }
+        NotFound
+    }
+}
+
 impl<T> Search<T> for FunctionCall {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         let FunctionCall { name, parameters } = self;
         return_if!(name.search(searcher));
-        // @TODO more formal
-        for AssociationElement { actual, .. } in parameters.iter() {
-            match actual.item {
-                ActualPart::Expression(ref expr) => {
-                    return_if!(search_pos_expr(&actual.pos, expr, searcher));
-                }
-                ActualPart::Open => {}
-            }
-        }
+        return_if!(parameters.search(searcher));
         NotFound
     }
 }
