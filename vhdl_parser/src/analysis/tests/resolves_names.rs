@@ -883,3 +883,31 @@ end architecture;
 ",
     );
 }
+
+#[test]
+fn resolves_missing_name_in_alias() {
+    check_missing(
+        "
+package pkg is
+  alias a is missing[missing return missing];
+  alias b is missing[missing];
+end package;
+",
+    );
+}
+
+#[test]
+fn search_name_in_alias() {
+    check_search_reference(
+        "
+package pkg is
+  type decl is (alpha, beta);
+  function fun(arg : decl) return decl;
+  procedure proc(arg : decl);
+  alias a is fun[decl return decl];
+  alias b is proc[decl];
+  alias c is decl;
+end package;
+",
+    );
+}

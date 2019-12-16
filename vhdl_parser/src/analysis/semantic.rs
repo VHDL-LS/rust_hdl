@@ -753,6 +753,34 @@ impl<'a> Analyzer<'a> {
         }
     }
 
+    fn analyze_signature(
+        &self,
+        region: &mut DeclarativeRegion<'_>,
+        signature: &mut Signature,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        match signature {
+            Signature::Function(ref mut args, ref mut ret) => {
+                for arg in args.iter_mut() {
+                    if let Err(err) = self.resolve_selected_name(region, arg) {
+                        err.add_to(diagnostics)?;
+                    }
+                }
+                if let Err(err) = self.resolve_selected_name(region, ret) {
+                    err.add_to(diagnostics)?;
+                }
+            }
+            Signature::Procedure(args) => {
+                for arg in args.iter_mut() {
+                    if let Err(err) = self.resolve_selected_name(region, arg) {
+                        err.add_to(diagnostics)?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn analyze_declaration(
         &self,
         region: &mut DeclarativeRegion<'_>,
@@ -761,12 +789,26 @@ impl<'a> Analyzer<'a> {
     ) -> FatalNullResult {
         match decl {
             Declaration::Alias(alias) => {
-                if let Some(ref mut subtype_indication) = alias.subtype_indication {
+                let AliasDeclaration {
+                    designator,
+                    name,
+                    subtype_indication,
+                    signature,
+                } = alias;
+
+                self.resolve_name(region, &name.pos, &mut name.item, diagnostics)?;
+
+                if let Some(ref mut subtype_indication) = subtype_indication {
                     self.analyze_subtype_indication(region, subtype_indication, diagnostics)?;
                 }
+
+                if let Some(ref mut signature) = signature {
+                    self.analyze_signature(region, signature, diagnostics)?;
+                }
+
                 region.add(
-                    alias.designator.clone(),
-                    if alias.signature.is_some() {
+                    designator.clone(),
+                    if signature.is_some() {
                         AnyDeclaration::Overloaded
                     } else {
                         AnyDeclaration::Other

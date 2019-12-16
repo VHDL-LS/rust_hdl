@@ -527,12 +527,19 @@ fn forbid_homographs_in_alias_declarations() {
         "libname",
         "
 package pkg is
-alias a1 is foo;
-alias a1 is bar;
+
+constant c0 : natural := 0;
+constant c1 : natural := 0;
+
+alias a1 is c0;
+alias a1 is c1;
+
+function f1 return natural;
+function f2 return natural;
 
 -- Legal since subprograms are overloaded
-alias b1 is foo[return natural];
-alias b1 is bar[return boolean];
+alias b1 is f1[return natural];
+alias b1 is f2[return boolean];
 end package pkg;
 ",
     );
@@ -548,6 +555,9 @@ fn forbid_homographs_for_overloaded_vs_non_overloaded() {
         "libname",
         "
 package pkg is
+constant foo : natural := 0;
+function bar return boolean;
+
 alias a1 is foo;
 alias a1 is bar[return boolean];
 

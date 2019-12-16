@@ -740,6 +740,20 @@ impl<T> Search<T> for ObjectDeclaration {
         }
     }
 }
+impl<T> Search<T> for Signature {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        match self {
+            Signature::Function(args, ret) => {
+                return_if!(args.search(searcher));
+                return_if!(ret.search(searcher));
+            }
+            Signature::Procedure(args) => {
+                return_if!(args.search(searcher));
+            }
+        }
+        NotFound
+    }
+}
 
 impl<T> Search<T> for Declaration {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
@@ -760,8 +774,17 @@ impl<T> Search<T> for Declaration {
                 Declaration::Attribute(Attribute::Declaration(decl)) => {
                     return_if!(decl.type_mark.search(searcher));
                 }
-                Declaration::Alias(decl) => {
-                    return_if!(decl.subtype_indication.search(searcher));
+                Declaration::Alias(alias) => {
+                    let AliasDeclaration {
+                        designator,
+                        subtype_indication,
+                        name,
+                        signature,
+                    } = alias;
+                    return_if!(searcher.search_decl_pos(&designator.pos).or_not_found());
+                    return_if!(subtype_indication.search(searcher));
+                    return_if!(name.search(searcher));
+                    return_if!(signature.search(searcher));
                 }
                 Declaration::Use(use_clause) => return_if!(searcher
                     .search_with_pos(&use_clause.pos)
