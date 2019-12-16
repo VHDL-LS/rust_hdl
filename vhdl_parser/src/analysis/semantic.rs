@@ -96,6 +96,7 @@ impl LookupResult {
     }
 }
 pub struct Analyzer<'a> {
+    symtab: Arc<SymbolTable>,
     work_sym: Symbol,
     std_sym: Symbol,
     standard_designator: Designator,
@@ -108,6 +109,7 @@ impl<'a> Analyzer<'a> {
         let standard_sym = symtab.insert(&Latin1String::new(b"standard"));
 
         Analyzer {
+            symtab: symtab.clone(),
             work_sym: symtab.insert(&Latin1String::new(b"work")),
             std_sym: symtab.insert(&Latin1String::new(b"std")),
             standard_designator: Designator::Identifier(standard_sym.clone()),
@@ -890,9 +892,20 @@ impl<'a> Analyzer<'a> {
                     )
                 }
 
+                let mut enum_region = DeclarativeRegion::default();
+                let mut ignored = Vec::new();
+                for literal in enumeration.iter() {
+                    enum_region.add(
+                        literal.clone().map_into(|lit| lit.into_designator()),
+                        AnyDeclaration::Overloaded,
+                        // Ignore diagnostics as they will be given above
+                        &mut ignored,
+                    )
+                }
+
                 parent.add(
                     &type_decl.ident,
-                    AnyDeclaration::TypeDeclaration,
+                    AnyDeclaration::TypeDeclaration(Some(Arc::new(enum_region))),
                     diagnostics,
                 );
             }
@@ -965,7 +978,7 @@ impl<'a> Analyzer<'a> {
 
                 parent.add(
                     &type_decl.ident,
-                    AnyDeclaration::TypeDeclaration,
+                    AnyDeclaration::TypeDeclaration(None),
                     diagnostics,
                 );
             }
@@ -974,7 +987,7 @@ impl<'a> Analyzer<'a> {
 
                 parent.add(
                     &type_decl.ident,
-                    AnyDeclaration::TypeDeclaration,
+                    AnyDeclaration::TypeDeclaration(None),
                     diagnostics,
                 );
             }
@@ -986,7 +999,7 @@ impl<'a> Analyzer<'a> {
 
                 parent.add(
                     &type_decl.ident,
-                    AnyDeclaration::TypeDeclaration,
+                    AnyDeclaration::TypeDeclaration(None),
                     diagnostics,
                 );
             }
@@ -995,7 +1008,7 @@ impl<'a> Analyzer<'a> {
 
                 parent.add(
                     &type_decl.ident,
-                    AnyDeclaration::TypeDeclaration,
+                    AnyDeclaration::TypeDeclaration(None),
                     diagnostics,
                 );
             }
@@ -1015,7 +1028,7 @@ impl<'a> Analyzer<'a> {
 
                 parent.add(
                     &type_decl.ident,
-                    AnyDeclaration::TypeDeclaration,
+                    AnyDeclaration::TypeDeclaration(None),
                     diagnostics,
                 );
             }
@@ -1031,16 +1044,27 @@ impl<'a> Analyzer<'a> {
             TypeDefinition::Integer(..) => {
                 parent.add(
                     &type_decl.ident,
-                    AnyDeclaration::TypeDeclaration,
+                    AnyDeclaration::TypeDeclaration(None),
                     diagnostics,
                 );
             }
 
             // @TODO more
             TypeDefinition::File(..) => {
+                let mut implicit = DeclarativeRegion::default();
+                for name in ["file_open", "file_close", "endfile"].iter() {
+                    implicit.add_implicit(
+                        Designator::Identifier(
+                            self.symtab.insert(&Latin1String::from_utf8(name).unwrap()),
+                        ),
+                        None,
+                        AnyDeclaration::Overloaded,
+                        diagnostics,
+                    );
+                }
                 parent.add(
                     &type_decl.ident,
-                    AnyDeclaration::TypeDeclaration,
+                    AnyDeclaration::TypeDeclaration(Some(Arc::new(implicit))),
                     diagnostics,
                 );
             }
@@ -1083,6 +1107,12 @@ impl<'a> Analyzer<'a> {
 
             match self.resolve_context_item_name(&region, name, diagnostics) {
                 Ok(LookupResult::Single(visible_decl)) => {
+                    if let AnyDeclaration::TypeDeclaration(ref implicit) = visible_decl.first() {
+                        // Add implicitic declarations when using type
+                        if let Some(implicit) = implicit {
+                            region.make_all_potentially_visible(&implicit);
+                        }
+                    }
                     region.make_potentially_visible(visible_decl);
                 }
                 Ok(LookupResult::AllWithin(visibility_pos, visible_decl)) => {

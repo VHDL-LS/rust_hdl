@@ -13,9 +13,12 @@ fn allows_incomplete_type_definition() {
         "libname",
         "
 package pkg is
-type rec_t;
-type rec_t is record
-end record;
+  type rec_t;
+  type rec_t is record
+  end record;
+
+  type enum_t;
+  type enum_t is (alpha, beta);
 end package;
 ",
     );

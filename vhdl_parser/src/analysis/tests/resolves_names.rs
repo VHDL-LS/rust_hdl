@@ -665,3 +665,41 @@ end architecture;
 ",
     );
 }
+
+#[test]
+fn adds_enum_variants_implicitly() {
+    check_missing(
+        "
+package pkg is
+  type enum_t is (alpha, beta);
+end package;
+
+use work.pkg.enum_t;
+package pkg2 is
+  constant c : enum_t := alpha;
+end package;
+",
+    );
+}
+
+#[test]
+fn adds_file_subprograms_implicitly() {
+    check_missing(
+        "
+use std.textio.text;
+
+package pkg is
+end package;
+
+package body pkg is
+  procedure proc is
+    file f : text;
+  begin
+    file_open(f, \"foo.txt\");
+    assert not endfile(f);
+    file_close(f);
+  end procedure;
+end package body;
+",
+    );
+}

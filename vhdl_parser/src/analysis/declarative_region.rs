@@ -18,10 +18,12 @@ use std::sync::{Arc, RwLock};
 pub enum AnyDeclaration {
     Other,
     Overloaded,
-    TypeDeclaration,
+    // An optional region with implicit declarations
+    TypeDeclaration(Option<Arc<DeclarativeRegion<'static>>>),
     IncompleteType,
     Constant,
     DeferredConstant,
+    // The region of the protected type which needs to be extendend by the body
     ProtectedType(Arc<RwLock<DeclarativeRegion<'static>>>),
     ProtectedTypeBody,
     Library(Symbol),
@@ -92,7 +94,7 @@ impl AnyDeclaration {
     }
 
     fn is_type_declaration(&self) -> bool {
-        if let AnyDeclaration::TypeDeclaration = self {
+        if let AnyDeclaration::TypeDeclaration(..) = self {
             true
         } else {
             false
@@ -526,14 +528,7 @@ impl<'a> DeclarativeRegion<'a> {
         check_ok
     }
 
-    pub fn add(
-        &mut self,
-        designator: impl Into<WithPos<Designator>>,
-        decl: AnyDeclaration,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) {
-        let decl = VisibleDeclaration::new(designator, decl);
-
+    fn add_decl(&mut self, decl: VisibleDeclaration, diagnostics: &mut dyn DiagnosticHandler) {
         let ext_decl = self
             .extends
             .as_ref()
@@ -571,6 +566,33 @@ impl<'a> DeclarativeRegion<'a> {
                 }
             }
         }
+    }
+
+    pub fn add(
+        &mut self,
+        designator: impl Into<WithPos<Designator>>,
+        decl: AnyDeclaration,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        let decl = VisibleDeclaration::new(designator, decl);
+        self.add_decl(decl, diagnostics);
+    }
+
+    pub fn add_implicit(
+        &mut self,
+        designator: impl Into<Designator>,
+        decl_pos: Option<&SrcPos>,
+        decl: AnyDeclaration,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        let decl = VisibleDeclaration {
+            designator: designator.into(),
+            data: vec![AnyDeclarationData {
+                decl_pos: decl_pos.cloned(),
+                decl,
+            }],
+        };
+        self.add_decl(decl, diagnostics);
     }
 
     pub fn make_library_visible(
