@@ -144,6 +144,42 @@ fn search_conditionals<T, U: Search<T>>(
     NotFound
 }
 
+impl<T, U: Search<T>> Search<T> for Alternative<U> {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        let Alternative { choices, item } = self;
+        return_if!(choices.search(searcher));
+        return_if!(item.search(searcher));
+        NotFound
+    }
+}
+
+impl<T, U: Search<T>> Search<T> for Selection<U> {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        let Selection {
+            expression,
+            alternatives,
+        } = self;
+        return_if!(expression.search(searcher));
+        return_if!(alternatives.search(searcher));
+        NotFound
+    }
+}
+
+impl<T> Search<T> for Choice {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        match self {
+            Choice::DiscreteRange(ref drange) => {
+                return_if!(drange.search(searcher));
+            }
+            Choice::Expression(ref expr) => {
+                return_if!(expr.search(searcher));
+            }
+            Choice::Others => {}
+        }
+        NotFound
+    }
+}
+
 impl<T> Search<T> for WithPos<Target> {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         match self.item {
@@ -172,6 +208,9 @@ impl<T> Search<T> for LabeledSequentialStatement {
             }
             SequentialStatement::If(ref ifstmt) => {
                 return_if!(search_conditionals(ifstmt, false, searcher));
+            }
+            SequentialStatement::Case(ref case_stmt) => {
+                return_if!(case_stmt.search(searcher));
             }
             SequentialStatement::Loop(ref loop_stmt) => {
                 let LoopStatement {
@@ -533,17 +572,7 @@ fn search_pos_expr<T>(
             for assoc in assocs.iter() {
                 match assoc {
                     ElementAssociation::Named(ref choices, ref expr) => {
-                        for choice in choices.iter() {
-                            match choice {
-                                Choice::DiscreteRange(ref drange) => {
-                                    return_if!(drange.search(searcher));
-                                }
-                                Choice::Expression(..) => {
-                                    // @TODO could be record field name
-                                }
-                                Choice::Others => {}
-                            }
-                        }
+                        return_if!(choices.search(searcher));
                         return_if!(expr.search(searcher));
                     }
                     ElementAssociation::Positional(ref expr) => {

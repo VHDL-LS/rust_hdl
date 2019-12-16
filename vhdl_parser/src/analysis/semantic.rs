@@ -1400,6 +1400,28 @@ impl<'a> Analyzer<'a> {
                     self.analyze_sequential_part(parent, else_item, diagnostics)?;
                 }
             }
+            SequentialStatement::Case(ref mut case_stmt) => {
+                let Selection {
+                    expression,
+                    alternatives,
+                } = case_stmt;
+                self.analyze_expression(parent, expression, diagnostics)?;
+                for alternative in alternatives.iter_mut() {
+                    let Alternative { choices, item } = alternative;
+                    for choice in choices.iter_mut() {
+                        match choice {
+                            Choice::Expression(ref mut expr) => {
+                                self.analyze_expression(parent, expr, diagnostics)?;
+                            }
+                            Choice::DiscreteRange(ref mut drange) => {
+                                self.analyze_discrete_range(parent, drange, diagnostics)?;
+                            }
+                            Choice::Others => {}
+                        }
+                    }
+                    self.analyze_sequential_part(parent, item, diagnostics)?;
+                }
+            }
             SequentialStatement::Loop(ref mut loop_stmt) => {
                 let LoopStatement {
                     iteration_scheme,

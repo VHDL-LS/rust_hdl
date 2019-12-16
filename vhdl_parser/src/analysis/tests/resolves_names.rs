@@ -482,6 +482,14 @@ package body pkg is
          missing;
        end loop;
 
+       -- Case
+       case missing is
+         when missing =>
+           missing;
+         when missing to missing =>
+           missing;
+       end case;
+
        -- Return
        return missing;
     end;
@@ -534,6 +542,14 @@ package body pkg is
     while decl = 0 loop
       proc(decl);
     end loop;
+
+    -- Case
+    case decl is
+      when decl =>
+        proc(decl);
+      when decl to decl =>
+        proc(decl);
+    end case;
 
     -- Return
     return decl;
