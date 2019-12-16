@@ -846,3 +846,40 @@ end architecture;
 ",
     );
 }
+
+#[test]
+fn search_for_generate_index_range() {
+    check_search_reference(
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+  constant decl : natural := 0;
+begin
+ for i in decl to decl+3 generate
+ end generate;
+end architecture;
+
+",
+    );
+}
+
+#[test]
+fn search_for_generate_index() {
+    check_search_reference(
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+  signal foo : integer_vector(0 to 3);
+begin
+ for decl in foo'range generate
+    foo(decl) <= 0;
+ end generate;
+end architecture;
+
+",
+    );
+}

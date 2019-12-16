@@ -346,7 +346,16 @@ impl<T> Search<T> for LabeledConcurrentStatement {
                 return_if!(process.decl.search(searcher));
                 process.statements.search(searcher)
             }
-            ConcurrentStatement::ForGenerate(ref gen) => gen.body.search(searcher),
+            ConcurrentStatement::ForGenerate(ref gen) => {
+                let ForGenerateStatement {
+                    index_name,
+                    discrete_range,
+                    body,
+                } = gen;
+                return_if!(searcher.search_decl_pos(index_name.pos()).or_not_found());
+                return_if!(discrete_range.search(searcher));
+                body.search(searcher)
+            }
             ConcurrentStatement::IfGenerate(ref gen) => {
                 for conditional in gen.conditionals.iter() {
                     return_if!(conditional.item.search(searcher));

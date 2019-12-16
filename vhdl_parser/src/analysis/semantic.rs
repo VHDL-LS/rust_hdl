@@ -1339,9 +1339,15 @@ impl<'a> Analyzer<'a> {
                 self.analyze_sequential_part(&mut region, &mut process.statements, diagnostics)?;
             }
             ConcurrentStatement::ForGenerate(ref mut gen) => {
+                let ForGenerateStatement {
+                    index_name,
+                    discrete_range,
+                    body,
+                } = gen;
+                self.analyze_discrete_range(parent, discrete_range, diagnostics)?;
                 let mut region = DeclarativeRegion::new_borrowed_parent(parent);
-                region.add(&gen.index_name, AnyDeclaration::Constant, diagnostics);
-                self.analyze_generate_body(&mut region, &mut gen.body, diagnostics)?;
+                region.add(index_name.clone(), AnyDeclaration::Constant, diagnostics);
+                self.analyze_generate_body(&mut region, body, diagnostics)?;
             }
             ConcurrentStatement::IfGenerate(ref mut gen) => {
                 for conditional in gen.conditionals.iter_mut() {
