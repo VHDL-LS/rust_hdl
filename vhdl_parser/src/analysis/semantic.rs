@@ -1319,10 +1319,18 @@ impl<'a> Analyzer<'a> {
         body: &mut GenerateBody,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        if let Some(ref mut decl) = body.decl {
+        let GenerateBody {
+            alternative_label,
+            decl,
+            statements,
+        } = body;
+        if let Some(label) = alternative_label {
+            region.add(label.clone(), AnyDeclaration::Constant, diagnostics);
+        }
+        if let Some(ref mut decl) = decl {
             self.analyze_declarative_part(region, decl, diagnostics)?;
         }
-        self.analyze_concurrent_part(region, &mut body.statements, diagnostics)?;
+        self.analyze_concurrent_part(region, statements, diagnostics)?;
 
         Ok(())
     }

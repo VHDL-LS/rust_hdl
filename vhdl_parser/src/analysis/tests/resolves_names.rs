@@ -905,6 +905,22 @@ end architecture;
 }
 
 #[test]
+fn search_generate_alternate_labels() {
+    check_search_reference(
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+begin
+ gen: if decl: true generate
+ end generate;
+end architecture;
+",
+    );
+}
+
+#[test]
 fn resolves_missing_name_in_alias() {
     check_missing(
         "

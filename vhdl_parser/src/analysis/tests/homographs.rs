@@ -825,3 +825,45 @@ end architecture;
     let diagnostics = builder.analyze();
     check_diagnostics(diagnostics, duplicates(&code, &["lab1", "lab2"]));
 }
+
+#[test]
+fn alternate_generate_labels_are_homographs_of_inner_declarations() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+begin
+  gen: if alt1: true generate
+    constant alt1 : boolean := true;
+    constant alt2 : boolean := true;
+    constant alt3 : boolean := true;
+  begin
+  elsif alt2: false generate
+    constant alt1 : boolean := true;
+    constant alt2 : boolean := true;
+    constant alt3 : boolean := true;
+  begin
+  else alt3: generate
+    constant alt1 : boolean := true;
+    constant alt2 : boolean := true;
+    constant alt3 : boolean := true;
+  begin
+  end generate;
+end architecture;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            duplicate(&code, "alt1", 1, 2),
+            duplicate(&code, "alt2", 2, 3),
+            duplicate(&code, "alt3", 3, 4),
+        ],
+    );
+}

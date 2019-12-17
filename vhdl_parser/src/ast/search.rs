@@ -302,8 +302,16 @@ impl<T> Search<T> for LabeledSequentialStatement {
 
 impl<T> Search<T> for GenerateBody {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
-        return_if!(self.decl.search(searcher));
-        self.statements.search(searcher)
+        let GenerateBody {
+            alternative_label,
+            decl,
+            statements,
+        } = self;
+        if let Some(ref label) = alternative_label {
+            return_if!(searcher.search_decl_pos(label.pos()).or_not_found());
+        }
+        return_if!(decl.search(searcher));
+        statements.search(searcher)
     }
 }
 
