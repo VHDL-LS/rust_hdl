@@ -256,6 +256,30 @@ end package;
 }
 
 #[test]
+fn search_names_in_integer_type_declaration_ranges() {
+    check_search_reference(
+        "
+package pkg is
+  constant decl : natural := 0;
+  type int_t is range 0 to decl;
+end package;
+",
+    );
+}
+
+#[test]
+fn search_names_in_integer_type_declaration() {
+    check_search_reference(
+        "
+package pkg is
+  type decl is range 0 to 3;
+  constant foo : decl := 0;
+end package;
+",
+    );
+}
+
+#[test]
 fn resolves_names_in_inside_names() {
     check_missing(
         "

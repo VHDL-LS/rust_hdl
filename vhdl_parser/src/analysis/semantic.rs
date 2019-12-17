@@ -1109,8 +1109,8 @@ impl<'a> Analyzer<'a> {
                 );
             }
 
-            // @TODO more
-            TypeDefinition::Integer(..) => {
+            TypeDefinition::Integer(ref mut range) => {
+                self.analyze_range(parent, range, diagnostics)?;
                 parent.add(
                     &type_decl.ident,
                     AnyDeclaration::TypeDeclaration(None),

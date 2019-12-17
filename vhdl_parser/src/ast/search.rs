@@ -661,7 +661,10 @@ impl<T> Search<T> for TypeDeclaration {
             TypeDefinition::Subtype(ref subtype_indication) => {
                 return_if!(subtype_indication.search(searcher));
             }
-
+            TypeDefinition::Integer(ref range) => {
+                return_if!(range.search(searcher));
+            }
+            // @TODO others
             _ => {}
         }
         NotFound
