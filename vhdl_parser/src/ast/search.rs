@@ -225,14 +225,9 @@ impl<T> Search<T> for Choice {
 impl<T> Search<T> for WithPos<Target> {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         match self.item {
-            Target::Name(ref name) => {
-                return_if!(search_pos_name(&self.pos, name, searcher));
-            }
-            Target::Aggregate(..) => {
-                // @TODO
-            }
+            Target::Name(ref name) => search_pos_name(&self.pos, name, searcher),
+            Target::Aggregate(ref assocs) => assocs.search(searcher),
         }
-        NotFound
     }
 }
 
@@ -686,20 +681,7 @@ fn search_pos_expr<T>(
         }
         Expression::Unary(_, ref expr) => expr.search(searcher),
         Expression::Name(ref name) => search_pos_name(pos, &name, searcher),
-        Expression::Aggregate(ref assocs) => {
-            for assoc in assocs.iter() {
-                match assoc {
-                    ElementAssociation::Named(ref choices, ref expr) => {
-                        return_if!(choices.search(searcher));
-                        return_if!(expr.search(searcher));
-                    }
-                    ElementAssociation::Positional(ref expr) => {
-                        return_if!(expr.search(searcher));
-                    }
-                }
-            }
-            NotFound
-        }
+        Expression::Aggregate(ref assocs) => assocs.search(searcher),
         Expression::Qualified(ref qexpr) => qexpr.search(searcher),
         Expression::New(ref alloc) => {
             return_if!(searcher.search_with_pos(&alloc.pos).or_not_found());
@@ -709,6 +691,21 @@ fn search_pos_expr<T>(
             }
         }
         Expression::Literal(_) => NotFound,
+    }
+}
+
+impl<T> Search<T> for ElementAssociation {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        match self {
+            ElementAssociation::Named(ref choices, ref expr) => {
+                return_if!(choices.search(searcher));
+                return_if!(expr.search(searcher));
+            }
+            ElementAssociation::Positional(ref expr) => {
+                return_if!(expr.search(searcher));
+            }
+        }
+        NotFound
     }
 }
 

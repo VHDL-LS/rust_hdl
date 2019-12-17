@@ -626,6 +626,25 @@ end architecture;
 }
 
 #[test]
+fn search_in_aggregate_target() {
+    check_search_reference(
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+  signal decl : natural;
+begin
+  main : process is
+  begin
+   (0 => decl) := (0 => decl);
+  end process;
+end architecture;
+",
+    );
+}
+
+#[test]
 fn check_missing_in_instantiations() {
     check_missing(
         "

@@ -703,6 +703,36 @@ impl<'a> Analyzer<'a> {
         self.analyze_assoc_elems(region, parameters, diagnostics)
     }
 
+    fn analyze_aggregate(
+        &self,
+        region: &DeclarativeRegion<'_>,
+        assocs: &mut Vec<ElementAssociation>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        for assoc in assocs.iter_mut() {
+            match assoc {
+                ElementAssociation::Named(ref mut choices, ref mut expr) => {
+                    for choice in choices.iter_mut() {
+                        match choice {
+                            Choice::Expression(..) => {
+                                // @TODO could be record field so we cannot do more now
+                            }
+                            Choice::DiscreteRange(ref mut drange) => {
+                                self.analyze_discrete_range(region, drange, diagnostics)?;
+                            }
+                            Choice::Others => {}
+                        }
+                    }
+                    self.analyze_expression(region, expr, diagnostics)?;
+                }
+                ElementAssociation::Positional(ref mut expr) => {
+                    self.analyze_expression(region, expr, diagnostics)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn analyze_qualified_expression(
         &self,
         region: &DeclarativeRegion<'_>,
@@ -732,28 +762,7 @@ impl<'a> Analyzer<'a> {
             }
             Expression::Name(ref mut name) => self.resolve_name(region, pos, name, diagnostics),
             Expression::Aggregate(ref mut assocs) => {
-                for assoc in assocs.iter_mut() {
-                    match assoc {
-                        ElementAssociation::Named(ref mut choices, ref mut expr) => {
-                            for choice in choices.iter_mut() {
-                                match choice {
-                                    Choice::Expression(..) => {
-                                        // @TODO could be record field so we cannot do more now
-                                    }
-                                    Choice::DiscreteRange(ref mut drange) => {
-                                        self.analyze_discrete_range(region, drange, diagnostics)?;
-                                    }
-                                    Choice::Others => {}
-                                }
-                            }
-                            self.analyze_expression(region, expr, diagnostics)?;
-                        }
-                        ElementAssociation::Positional(ref mut expr) => {
-                            self.analyze_expression(region, expr, diagnostics)?;
-                        }
-                    }
-                }
-                Ok(())
+                self.analyze_aggregate(region, assocs, diagnostics)
             }
             Expression::Qualified(ref mut qexpr) => {
                 self.analyze_qualified_expression(region, qexpr, diagnostics)
@@ -1604,8 +1613,8 @@ impl<'a> Analyzer<'a> {
             Target::Name(ref mut name) => {
                 self.resolve_name(parent, &target.pos, name, diagnostics)?;
             }
-            Target::Aggregate(..) => {
-                // @TODO
+            Target::Aggregate(ref mut assocs) => {
+                self.analyze_aggregate(parent, assocs, diagnostics)?;
             }
         }
         Ok(())
