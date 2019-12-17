@@ -588,6 +588,10 @@ begin
   begin
     wait on missing until missing = 0 ns for missing;
     missing <= missing after missing;
+    with missing select
+       missing <= missing when missing,
+                  missing when others;
+
   end process;
 end architecture;
 ",
@@ -608,6 +612,9 @@ begin
   begin
     wait on decl until decl = 0 ns for decl;
     decl <= decl after decl;
+    with decl select
+       decl <= decl when decl,
+               decl when others;
   end process;
 end architecture;
 ",
@@ -802,6 +809,9 @@ architecture a of ent is
 begin
   missing <= missing;
   missing <= missing when missing else missing;
+  with missing select
+     missing <= missing when missing,
+                missing when others;
   missing(missing);
   assert missing report missing severity missing;
 end architecture;
@@ -825,6 +835,9 @@ architecture a of ent is
 begin
   decl <= decl;
   decl <= decl when decl = 0 else decl;
+  with decl select
+     decl <= decl when decl,
+             decl when others;
   proc(decl);
   assert decl = 0 report decl'instance_name severity severity_level'val(decl);
 end architecture;

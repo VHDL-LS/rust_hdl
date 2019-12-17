@@ -1384,14 +1384,16 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
-    fn analyze_rhs(
+    fn analyze_assignment(
         &self,
         region: &DeclarativeRegion<'_>,
+        target: &mut WithPos<Target>,
         rhs: &mut AssignmentRightHand<Waveform>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         match rhs {
             AssignmentRightHand::Simple(wavf) => {
+                self.analyze_target(region, target, diagnostics)?;
                 self.analyze_waveform(region, wavf, diagnostics)?;
             }
             AssignmentRightHand::Conditional(conditionals) => {
@@ -1399,6 +1401,7 @@ impl<'a> Analyzer<'a> {
                     conditionals,
                     else_item,
                 } = conditionals;
+                self.analyze_target(region, target, diagnostics)?;
                 for conditional in conditionals {
                     let Conditional { condition, item } = conditional;
                     self.analyze_waveform(region, item, diagnostics)?;
@@ -1408,8 +1411,18 @@ impl<'a> Analyzer<'a> {
                     self.analyze_waveform(region, wavf, diagnostics)?;
                 }
             }
-            AssignmentRightHand::Selected(..) => {
-                // @TODO
+            AssignmentRightHand::Selected(selection) => {
+                let Selection {
+                    expression,
+                    alternatives,
+                } = selection;
+                self.analyze_expression(region, expression, diagnostics)?;
+                // target is located after expression
+                self.analyze_target(region, target, diagnostics)?;
+                for Alternative { choices, item } in alternatives.iter_mut() {
+                    self.analyze_waveform(region, item, diagnostics)?;
+                    self.analyze_choices(region, choices, diagnostics)?;
+                }
             }
         }
         Ok(())
@@ -1475,8 +1488,7 @@ impl<'a> Analyzer<'a> {
             ConcurrentStatement::Assignment(ref mut assign) => {
                 // @TODO more delaymechanism
                 let ConcurrentSignalAssignment { target, rhs, .. } = assign;
-                self.analyze_target(parent, target, diagnostics)?;
-                self.analyze_rhs(parent, rhs, diagnostics)?;
+                self.analyze_assignment(parent, target, rhs, diagnostics)?;
             }
             ConcurrentStatement::ProcedureCall(ref mut pcall) => {
                 let ConcurrentProcedureCall {
@@ -1669,8 +1681,7 @@ impl<'a> Analyzer<'a> {
             SequentialStatement::SignalAssignment(ref mut assign) => {
                 // @TODO more
                 let SignalAssignment { target, rhs, .. } = assign;
-                self.analyze_target(parent, target, diagnostics)?;
-                self.analyze_rhs(parent, rhs, diagnostics)?;
+                self.analyze_assignment(parent, target, rhs, diagnostics)?;
             }
             SequentialStatement::VariableAssignment(ref mut assign) => {
                 let VariableAssignment { target, rhs } = assign;
