@@ -1353,7 +1353,6 @@ impl<'a> Analyzer<'a> {
                     err.add_to(diagnostics)?;
                 }
             }
-            // @TODO more configuration
             InstantiatedUnit::Configuration(ref mut config_name) => {
                 if let Err(err) = self.resolve_selected_name(parent, config_name) {
                     err.add_to(diagnostics)?;
