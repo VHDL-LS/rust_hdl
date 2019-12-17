@@ -91,5 +91,7 @@ package standard is
   function maximum return natural;
   function minimum return natural;
   procedure deallocate;
+  function rising_edge return boolean;
+  function falling_edge return boolean;
 
 end package;
