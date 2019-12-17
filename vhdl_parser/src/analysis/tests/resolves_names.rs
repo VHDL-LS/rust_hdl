@@ -584,7 +584,7 @@ end entity;
 
 architecture a of ent is
 begin
-  main : process is
+  main : process(missing) is
   begin
     wait on missing until missing = 0 ns for missing;
     missing <= missing after missing;
@@ -608,7 +608,7 @@ end entity;
 architecture a of ent is
   signal decl : time;
 begin
-  main : process is
+  main : process (decl) is
   begin
     wait on decl until decl = 0 ns for decl;
     decl <= decl after decl;

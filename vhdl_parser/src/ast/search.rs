@@ -360,6 +360,15 @@ impl<T> Search<T> for InstantiationStatement {
     }
 }
 
+impl<T> Search<T> for SensitivityList {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        match self {
+            SensitivityList::Names(names) => names.search(searcher),
+            SensitivityList::All => NotFound,
+        }
+    }
+}
+
 impl<T> Search<T> for LabeledConcurrentStatement {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         if let Some(ref label) = self.label {
@@ -372,9 +381,15 @@ impl<T> Search<T> for LabeledConcurrentStatement {
                 block.statements.search(searcher)
             }
             ConcurrentStatement::Process(ref process) => {
-                // @TODO sensitivity list
-                return_if!(process.decl.search(searcher));
-                process.statements.search(searcher)
+                let ProcessStatement {
+                    postponed: _,
+                    sensitivity_list,
+                    decl,
+                    statements,
+                } = process;
+                return_if!(sensitivity_list.search(searcher));
+                return_if!(decl.search(searcher));
+                statements.search(searcher)
             }
             ConcurrentStatement::ForGenerate(ref gen) => {
                 let ForGenerateStatement {

@@ -1445,9 +1445,25 @@ impl<'a> Analyzer<'a> {
                 self.analyze_concurrent_part(&mut region, &mut block.statements, diagnostics)?;
             }
             ConcurrentStatement::Process(ref mut process) => {
+                let ProcessStatement {
+                    postponed: _,
+                    sensitivity_list,
+                    decl,
+                    statements,
+                } = process;
+                if let Some(sensitivity_list) = sensitivity_list {
+                    match sensitivity_list {
+                        SensitivityList::Names(names) => {
+                            for name in names.iter_mut() {
+                                self.resolve_name(parent, &name.pos, &mut name.item, diagnostics)?;
+                            }
+                        }
+                        SensitivityList::All => {}
+                    }
+                }
                 let mut region = DeclarativeRegion::new_borrowed_parent(parent);
-                self.analyze_declarative_part(&mut region, &mut process.decl, diagnostics)?;
-                self.analyze_sequential_part(&mut region, &mut process.statements, diagnostics)?;
+                self.analyze_declarative_part(&mut region, decl, diagnostics)?;
+                self.analyze_sequential_part(&mut region, statements, diagnostics)?;
             }
             ConcurrentStatement::ForGenerate(ref mut gen) => {
                 let ForGenerateStatement {
