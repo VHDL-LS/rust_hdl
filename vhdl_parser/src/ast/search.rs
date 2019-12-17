@@ -351,12 +351,7 @@ impl<T> Search<T> for LabeledConcurrentStatement {
                 return_if!(discrete_range.search(searcher));
                 body.search(searcher)
             }
-            ConcurrentStatement::IfGenerate(ref gen) => {
-                for conditional in gen.conditionals.iter() {
-                    return_if!(conditional.item.search(searcher));
-                }
-                gen.else_item.search(searcher)
-            }
+            ConcurrentStatement::IfGenerate(ref gen) => search_conditionals(gen, false, searcher),
             ConcurrentStatement::CaseGenerate(ref gen) => {
                 for alternative in gen.alternatives.iter() {
                     return_if!(alternative.item.search(searcher))

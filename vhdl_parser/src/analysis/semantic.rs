@@ -1423,11 +1423,17 @@ impl<'a> Analyzer<'a> {
                 self.analyze_generate_body(&mut region, body, diagnostics)?;
             }
             ConcurrentStatement::IfGenerate(ref mut gen) => {
-                for conditional in gen.conditionals.iter_mut() {
+                let Conditionals {
+                    conditionals,
+                    else_item,
+                } = gen;
+                for conditional in conditionals.iter_mut() {
+                    let Conditional { condition, item } = conditional;
+                    self.analyze_expression(parent, condition, diagnostics)?;
                     let mut region = DeclarativeRegion::new_borrowed_parent(parent);
-                    self.analyze_generate_body(&mut region, &mut conditional.item, diagnostics)?;
+                    self.analyze_generate_body(&mut region, item, diagnostics)?;
                 }
-                if let Some(ref mut else_item) = gen.else_item {
+                if let Some(ref mut else_item) = else_item {
                     let mut region = DeclarativeRegion::new_borrowed_parent(parent);
                     self.analyze_generate_body(&mut region, else_item, diagnostics)?;
                 }
@@ -1442,14 +1448,16 @@ impl<'a> Analyzer<'a> {
                 self.analyze_instance(parent, instance, diagnostics)?;
             }
             ConcurrentStatement::Assignment(ref mut assign) => {
-                // @TODO more
+                // @TODO more delaymechanism
                 let ConcurrentSignalAssignment { target, rhs, .. } = assign;
                 self.analyze_target(parent, target, diagnostics)?;
                 self.analyze_rhs(parent, rhs, diagnostics)?;
             }
             ConcurrentStatement::ProcedureCall(ref mut pcall) => {
-                // @TODO postponed
-                let ConcurrentProcedureCall { call, .. } = pcall;
+                let ConcurrentProcedureCall {
+                    call,
+                    postponed: _postponed,
+                } = pcall;
                 self.analyze_function_call(parent, call, diagnostics)?;
             }
             ConcurrentStatement::Assert(ref mut assert) => {

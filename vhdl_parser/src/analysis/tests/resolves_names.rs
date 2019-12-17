@@ -857,10 +857,9 @@ end entity;
 architecture a of ent is
   constant decl : natural := 0;
 begin
- for i in decl to decl+3 generate
+ gen: for i in decl to decl+3 generate
  end generate;
 end architecture;
-
 ",
     );
 }
@@ -875,11 +874,32 @@ end entity;
 architecture a of ent is
   signal foo : integer_vector(0 to 3);
 begin
- for decl in foo'range generate
+ gen: for decl in foo'range generate
     foo(decl) <= 0;
  end generate;
 end architecture;
 
+",
+    );
+}
+
+#[test]
+fn search_if_generate_conditions() {
+    check_search_reference(
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+  constant decl : natural := 0;
+  signal foo : natural;
+begin
+ gen: if decl = 0 generate
+   foo <= decl;
+ else generate
+   foo <= decl + 1;
+ end generate;
+end architecture;
 ",
     );
 }
