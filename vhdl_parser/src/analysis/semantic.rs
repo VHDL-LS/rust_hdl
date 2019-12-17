@@ -1359,6 +1359,37 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
+    fn analyze_rhs(
+        &self,
+        region: &DeclarativeRegion<'_>,
+        rhs: &mut AssignmentRightHand<Waveform>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        match rhs {
+            AssignmentRightHand::Simple(wavf) => {
+                self.analyze_waveform(region, wavf, diagnostics)?;
+            }
+            AssignmentRightHand::Conditional(conditionals) => {
+                let Conditionals {
+                    conditionals,
+                    else_item,
+                } = conditionals;
+                for conditional in conditionals {
+                    let Conditional { condition, item } = conditional;
+                    self.analyze_waveform(region, item, diagnostics)?;
+                    self.analyze_expression(region, condition, diagnostics)?;
+                }
+                if let Some(wavf) = else_item {
+                    self.analyze_waveform(region, wavf, diagnostics)?;
+                }
+            }
+            AssignmentRightHand::Selected(..) => {
+                // @TODO
+            }
+        }
+        Ok(())
+    }
+
     fn analyze_concurrent_statement(
         &self,
         parent: &mut DeclarativeRegion<'_>,
@@ -1412,32 +1443,9 @@ impl<'a> Analyzer<'a> {
             }
             ConcurrentStatement::Assignment(ref mut assign) => {
                 // @TODO more
-                // @TODO add generic function
                 let ConcurrentSignalAssignment { target, rhs, .. } = assign;
                 self.analyze_target(parent, target, diagnostics)?;
-
-                match rhs {
-                    AssignmentRightHand::Simple(wavf) => {
-                        self.analyze_waveform(parent, wavf, diagnostics)?;
-                    }
-                    AssignmentRightHand::Conditional(conditionals) => {
-                        let Conditionals {
-                            conditionals,
-                            else_item,
-                        } = conditionals;
-                        for conditional in conditionals {
-                            let Conditional { condition, item } = conditional;
-                            self.analyze_waveform(parent, item, diagnostics)?;
-                            self.analyze_expression(parent, condition, diagnostics)?;
-                        }
-                        if let Some(wavf) = else_item {
-                            self.analyze_waveform(parent, wavf, diagnostics)?;
-                        }
-                    }
-                    AssignmentRightHand::Selected(..) => {
-                        // @TODO
-                    }
-                }
+                self.analyze_rhs(parent, rhs, diagnostics)?;
             }
             ConcurrentStatement::ProcedureCall(ref mut pcall) => {
                 // @TODO postponed
@@ -1481,7 +1489,7 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_target(
         &self,
-        parent: &mut DeclarativeRegion<'_>,
+        parent: &DeclarativeRegion<'_>,
         target: &mut WithPos<Target>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -1639,29 +1647,7 @@ impl<'a> Analyzer<'a> {
                 // @TODO more
                 let SignalAssignment { target, rhs, .. } = assign;
                 self.analyze_target(parent, target, diagnostics)?;
-
-                match rhs {
-                    AssignmentRightHand::Simple(wavf) => {
-                        self.analyze_waveform(parent, wavf, diagnostics)?;
-                    }
-                    AssignmentRightHand::Conditional(conditionals) => {
-                        let Conditionals {
-                            conditionals,
-                            else_item,
-                        } = conditionals;
-                        for conditional in conditionals {
-                            let Conditional { condition, item } = conditional;
-                            self.analyze_waveform(parent, item, diagnostics)?;
-                            self.analyze_expression(parent, condition, diagnostics)?;
-                        }
-                        if let Some(wavf) = else_item {
-                            self.analyze_waveform(parent, wavf, diagnostics)?;
-                        }
-                    }
-                    AssignmentRightHand::Selected(..) => {
-                        // @TODO
-                    }
-                }
+                self.analyze_rhs(parent, rhs, diagnostics)?;
             }
             SequentialStatement::VariableAssignment(ref mut assign) => {
                 let VariableAssignment { target, rhs } = assign;

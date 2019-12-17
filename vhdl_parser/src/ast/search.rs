@@ -165,6 +165,21 @@ impl<T, U: Search<T>> Search<T> for Selection<U> {
     }
 }
 
+impl<T, U: Search<T>> Search<T> for AssignmentRightHand<U> {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        match self {
+            AssignmentRightHand::Simple(item) => item.search(searcher),
+            AssignmentRightHand::Conditional(conditionals) => {
+                search_conditionals(conditionals, true, searcher)
+            }
+            AssignmentRightHand::Selected(..) => {
+                // @TODO
+                NotFound
+            }
+        }
+    }
+}
+
 impl<T> Search<T> for Choice {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         match self {
@@ -271,32 +286,12 @@ impl<T> Search<T> for LabeledSequentialStatement {
                 // @TODO more
                 let SignalAssignment { target, rhs, .. } = assign;
                 return_if!(target.search(searcher));
-                match rhs {
-                    AssignmentRightHand::Simple(expr) => {
-                        return_if!(expr.search(searcher));
-                    }
-                    AssignmentRightHand::Conditional(conditionals) => {
-                        return_if!(search_conditionals(conditionals, true, searcher));
-                    }
-                    AssignmentRightHand::Selected(..) => {
-                        // @TODO
-                    }
-                }
+                return_if!(rhs.search(searcher));
             }
             SequentialStatement::VariableAssignment(ref assign) => {
                 let VariableAssignment { target, rhs } = assign;
                 return_if!(target.search(searcher));
-                match rhs {
-                    AssignmentRightHand::Simple(expr) => {
-                        return_if!(expr.search(searcher));
-                    }
-                    AssignmentRightHand::Conditional(conditionals) => {
-                        return_if!(search_conditionals(conditionals, true, searcher));
-                    }
-                    AssignmentRightHand::Selected(..) => {
-                        // @TODO
-                    }
-                }
+                return_if!(rhs.search(searcher));
             }
             // @TODO more
             _ => {}
@@ -372,18 +367,7 @@ impl<T> Search<T> for LabeledConcurrentStatement {
             ConcurrentStatement::Assignment(ref assign) => {
                 let ConcurrentSignalAssignment { target, rhs, .. } = assign;
                 return_if!(target.search(searcher));
-                // @TODO make generic function
-                match rhs {
-                    AssignmentRightHand::Simple(expr) => {
-                        return_if!(expr.search(searcher));
-                    }
-                    AssignmentRightHand::Conditional(conditionals) => {
-                        return_if!(search_conditionals(conditionals, true, searcher));
-                    }
-                    AssignmentRightHand::Selected(..) => {
-                        // @TODO
-                    }
-                }
+                return_if!(rhs.search(searcher));
                 NotFound
             }
             ConcurrentStatement::ProcedureCall(ref pcall) => {
