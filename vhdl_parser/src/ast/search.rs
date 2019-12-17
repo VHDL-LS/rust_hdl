@@ -664,6 +664,9 @@ impl<T> Search<T> for TypeDeclaration {
             TypeDefinition::Integer(ref range) => {
                 return_if!(range.search(searcher));
             }
+            TypeDefinition::File(ref type_mark) => {
+                return_if!(type_mark.search(searcher));
+            }
             // @TODO others
             _ => {}
         }
@@ -835,6 +838,19 @@ impl<T> Search<T> for Declaration {
                     return_if!(searcher.search_decl_pos(ident.pos()).or_not_found());
                     return_if!(generic_list.search(searcher));
                     return_if!(port_list.search(searcher));
+                }
+
+                Declaration::File(file) => {
+                    let FileDeclaration {
+                        ident,
+                        subtype_indication,
+                        open_info,
+                        file_name,
+                    } = file;
+                    return_if!(searcher.search_decl_pos(ident.pos()).or_not_found());
+                    return_if!(subtype_indication.search(searcher));
+                    return_if!(open_info.search(searcher));
+                    return_if!(file_name.search(searcher));
                 }
 
                 // @TODO more

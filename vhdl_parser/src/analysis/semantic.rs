@@ -858,13 +858,20 @@ impl<'a> Analyzer<'a> {
                     diagnostics,
                 );
             }
-            Declaration::File(ref mut file_decl) => {
+            Declaration::File(ref mut file) => {
+                let FileDeclaration {ident, subtype_indication, open_info, file_name} = file;
                 self.analyze_subtype_indication(
                     region,
-                    &mut file_decl.subtype_indication,
+                    subtype_indication,
                     diagnostics,
                 )?;
-                region.add(&file_decl.ident, AnyDeclaration::Other, diagnostics);
+                if let Some(ref mut expr) = open_info {
+                    self.analyze_expression(region, expr, diagnostics)?;
+                }
+                if let Some(ref mut expr) = file_name {
+                    self.analyze_expression(region, expr, diagnostics)?;
+                }
+                region.add(ident.clone(), AnyDeclaration::Other, diagnostics);
             }
             Declaration::Component(ref mut component) => {
                 region.add(&component.ident, AnyDeclaration::Other, diagnostics);
@@ -1118,8 +1125,11 @@ impl<'a> Analyzer<'a> {
                 );
             }
 
-            // @TODO more
-            TypeDefinition::File(..) => {
+            TypeDefinition::File(ref mut type_mark) => {
+                if let Err(err) = self.resolve_type_mark(parent, type_mark) {
+                    err.add_to(diagnostics)?;
+                }
+
                 let mut implicit = DeclarativeRegion::default();
                 for name in ["file_open", "file_close", "endfile"].iter() {
                     implicit.add_implicit(

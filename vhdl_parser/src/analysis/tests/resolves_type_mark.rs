@@ -306,3 +306,15 @@ end package;",
         &references,
     );
 }
+
+#[test]
+fn search_type_mark_in_file_object_declaration() {
+    check_search_reference(
+        "
+package pkg is
+  type decl is file of character;
+  file foo : decl;
+end package;
+",
+    );
+}

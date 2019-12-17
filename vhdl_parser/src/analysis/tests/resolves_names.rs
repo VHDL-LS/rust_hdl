@@ -280,6 +280,18 @@ end package;
 }
 
 #[test]
+fn search_names_in_file_type_declaration() {
+    check_search_reference(
+        "
+package pkg is
+  subtype decl is character;
+  type foo is file of decl;
+end package;
+",
+    );
+}
+
+#[test]
 fn resolves_names_in_inside_names() {
     check_missing(
         "
