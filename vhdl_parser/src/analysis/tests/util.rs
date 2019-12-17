@@ -11,6 +11,7 @@ use crate::latin_1::Latin1String;
 use crate::source::Source;
 use crate::symbol_table::Symbol;
 use crate::test_util::*;
+use pretty_assertions::assert_eq;
 use std::collections::{hash_map::Entry, HashMap};
 use std::sync::Arc;
 

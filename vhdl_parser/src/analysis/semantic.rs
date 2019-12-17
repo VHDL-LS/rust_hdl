@@ -330,7 +330,6 @@ impl<'a> Analyzer<'a> {
                 Ok(LookupResult::NotSelected)
             }
 
-            // @TODO more
             Name::Slice(ref mut prefix, ref mut drange) => {
                 self.resolve_name_pos(
                     region,
@@ -595,7 +594,6 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
-    // @TODO move add inside analyze_subprogram_declaration
     fn analyze_subprogram_declaration<'r>(
         &self,
         parent: &'r DeclarativeRegion<'_>,
@@ -621,6 +619,26 @@ impl<'a> Analyzer<'a> {
         }
         region.close_both(diagnostics);
         Ok(region)
+    }
+
+    fn analyze_choices(
+        &self,
+        region: &DeclarativeRegion<'_>,
+        choices: &mut Vec<Choice>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        for choice in choices.iter_mut() {
+            match choice {
+                Choice::Expression(ref mut expr) => {
+                    self.analyze_expression(region, expr, diagnostics)?;
+                }
+                Choice::DiscreteRange(ref mut drange) => {
+                    self.analyze_discrete_range(region, drange, diagnostics)?;
+                }
+                Choice::Others => {}
+            }
+        }
+        Ok(())
     }
 
     fn analyze_expression(
@@ -1619,17 +1637,7 @@ impl<'a> Analyzer<'a> {
                 self.analyze_expression(parent, expression, diagnostics)?;
                 for alternative in alternatives.iter_mut() {
                     let Alternative { choices, item } = alternative;
-                    for choice in choices.iter_mut() {
-                        match choice {
-                            Choice::Expression(ref mut expr) => {
-                                self.analyze_expression(parent, expr, diagnostics)?;
-                            }
-                            Choice::DiscreteRange(ref mut drange) => {
-                                self.analyze_discrete_range(parent, drange, diagnostics)?;
-                            }
-                            Choice::Others => {}
-                        }
-                    }
+                    self.analyze_choices(parent, choices, diagnostics)?;
                     self.analyze_sequential_part(parent, item, diagnostics)?;
                 }
             }
@@ -1666,10 +1674,9 @@ impl<'a> Analyzer<'a> {
             }
             SequentialStatement::VariableAssignment(ref mut assign) => {
                 let VariableAssignment { target, rhs } = assign;
-                self.analyze_target(parent, target, diagnostics)?;
-
                 match rhs {
                     AssignmentRightHand::Simple(expr) => {
+                        self.analyze_target(parent, target, diagnostics)?;
                         self.analyze_expression(parent, expr, diagnostics)?;
                     }
                     AssignmentRightHand::Conditional(conditionals) => {
@@ -1677,6 +1684,7 @@ impl<'a> Analyzer<'a> {
                             conditionals,
                             else_item,
                         } = conditionals;
+                        self.analyze_target(parent, target, diagnostics)?;
                         for conditional in conditionals {
                             let Conditional { condition, item } = conditional;
                             self.analyze_expression(parent, item, diagnostics)?;
@@ -1686,8 +1694,18 @@ impl<'a> Analyzer<'a> {
                             self.analyze_expression(parent, expr, diagnostics)?;
                         }
                     }
-                    AssignmentRightHand::Selected(..) => {
-                        // @TODO
+                    AssignmentRightHand::Selected(selection) => {
+                        let Selection {
+                            expression,
+                            alternatives,
+                        } = selection;
+                        self.analyze_expression(parent, expression, diagnostics)?;
+                        // target is located after expression
+                        self.analyze_target(parent, target, diagnostics)?;
+                        for Alternative { choices, item } in alternatives.iter_mut() {
+                            self.analyze_expression(parent, item, diagnostics)?;
+                            self.analyze_choices(parent, choices, diagnostics)?;
+                        }
                     }
                 }
             }

@@ -454,6 +454,9 @@ package body pkg is
        -- Variable assignment
        missing := missing;
        missing := missing when missing else missing;
+       with missing select
+         missing := missing when missing,
+                    missing when others;
 
        -- Procedure call
        missing;
@@ -521,6 +524,9 @@ package body pkg is
     -- Variable assignment
     decl := decl;
     decl := decl when decl = 0 else decl;
+    with decl select
+      decl := decl when decl,
+              decl when others;
 
     -- Procedure call
     proc(decl);
