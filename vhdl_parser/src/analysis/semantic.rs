@@ -1384,7 +1384,53 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
-    fn analyze_assignment(
+    // @TODO maybe make generic function for expression/waveform.
+    // wait until type checking to see if it makes sense
+    fn analyze_expr_assignment(
+        &self,
+        region: &DeclarativeRegion<'_>,
+        target: &mut WithPos<Target>,
+        rhs: &mut AssignmentRightHand<WithPos<Expression>>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        match rhs {
+            AssignmentRightHand::Simple(expr) => {
+                self.analyze_target(region, target, diagnostics)?;
+                self.analyze_expression(region, expr, diagnostics)?;
+            }
+            AssignmentRightHand::Conditional(conditionals) => {
+                let Conditionals {
+                    conditionals,
+                    else_item,
+                } = conditionals;
+                self.analyze_target(region, target, diagnostics)?;
+                for conditional in conditionals {
+                    let Conditional { condition, item } = conditional;
+                    self.analyze_expression(region, item, diagnostics)?;
+                    self.analyze_expression(region, condition, diagnostics)?;
+                }
+                if let Some(expr) = else_item {
+                    self.analyze_expression(region, expr, diagnostics)?;
+                }
+            }
+            AssignmentRightHand::Selected(selection) => {
+                let Selection {
+                    expression,
+                    alternatives,
+                } = selection;
+                self.analyze_expression(region, expression, diagnostics)?;
+                // target is located after expression
+                self.analyze_target(region, target, diagnostics)?;
+                for Alternative { choices, item } in alternatives.iter_mut() {
+                    self.analyze_expression(region, item, diagnostics)?;
+                    self.analyze_choices(region, choices, diagnostics)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn analyze_waveform_assignment(
         &self,
         region: &DeclarativeRegion<'_>,
         target: &mut WithPos<Target>,
@@ -1504,7 +1550,7 @@ impl<'a> Analyzer<'a> {
             ConcurrentStatement::Assignment(ref mut assign) => {
                 // @TODO more delaymechanism
                 let ConcurrentSignalAssignment { target, rhs, .. } = assign;
-                self.analyze_assignment(parent, target, rhs, diagnostics)?;
+                self.analyze_waveform_assignment(parent, target, rhs, diagnostics)?;
             }
             ConcurrentStatement::ProcedureCall(ref mut pcall) => {
                 let ConcurrentProcedureCall {
@@ -1697,48 +1743,28 @@ impl<'a> Analyzer<'a> {
             SequentialStatement::SignalAssignment(ref mut assign) => {
                 // @TODO more
                 let SignalAssignment { target, rhs, .. } = assign;
-                self.analyze_assignment(parent, target, rhs, diagnostics)?;
+                self.analyze_waveform_assignment(parent, target, rhs, diagnostics)?;
             }
             SequentialStatement::VariableAssignment(ref mut assign) => {
                 let VariableAssignment { target, rhs } = assign;
-                match rhs {
-                    AssignmentRightHand::Simple(expr) => {
-                        self.analyze_target(parent, target, diagnostics)?;
-                        self.analyze_expression(parent, expr, diagnostics)?;
-                    }
-                    AssignmentRightHand::Conditional(conditionals) => {
-                        let Conditionals {
-                            conditionals,
-                            else_item,
-                        } = conditionals;
-                        self.analyze_target(parent, target, diagnostics)?;
-                        for conditional in conditionals {
-                            let Conditional { condition, item } = conditional;
-                            self.analyze_expression(parent, item, diagnostics)?;
-                            self.analyze_expression(parent, condition, diagnostics)?;
-                        }
-                        if let Some(expr) = else_item {
-                            self.analyze_expression(parent, expr, diagnostics)?;
-                        }
-                    }
-                    AssignmentRightHand::Selected(selection) => {
-                        let Selection {
-                            expression,
-                            alternatives,
-                        } = selection;
-                        self.analyze_expression(parent, expression, diagnostics)?;
-                        // target is located after expression
-                        self.analyze_target(parent, target, diagnostics)?;
-                        for Alternative { choices, item } in alternatives.iter_mut() {
-                            self.analyze_expression(parent, item, diagnostics)?;
-                            self.analyze_choices(parent, choices, diagnostics)?;
-                        }
-                    }
-                }
+                self.analyze_expr_assignment(parent, target, rhs, diagnostics)?;
             }
-            _ => {
-                // @TODO others
+            SequentialStatement::SignalForceAssignment(ref mut assign) => {
+                let SignalForceAssignment {
+                    target,
+                    force_mode: _,
+                    rhs,
+                } = assign;
+                self.analyze_expr_assignment(parent, target, rhs, diagnostics)?;
             }
+            SequentialStatement::SignalReleaseAssignment(ref mut assign) => {
+                let SignalReleaseAssignment {
+                    target,
+                    force_mode: _,
+                } = assign;
+                self.analyze_target(parent, target, diagnostics)?;
+            }
+            SequentialStatement::Null => {}
         }
         Ok(())
     }

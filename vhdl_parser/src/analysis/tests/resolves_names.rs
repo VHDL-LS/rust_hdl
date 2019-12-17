@@ -588,6 +588,8 @@ begin
   begin
     wait on missing until missing = 0 ns for missing;
     missing <= missing after missing;
+    missing <= force missing;
+    missing <= release;
     with missing select
        missing <= missing when missing,
                   missing when others;
@@ -612,6 +614,8 @@ begin
   begin
     wait on decl until decl = 0 ns for decl;
     decl <= decl after decl;
+    decl <= force decl;
+    decl <= release;
     with decl select
        decl <= decl when decl,
                decl when others;

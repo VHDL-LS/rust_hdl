@@ -318,8 +318,22 @@ impl<T> Search<T> for LabeledSequentialStatement {
                 let VariableAssignment { target, rhs } = assign;
                 return_if!(search_assignment(target, rhs, searcher));
             }
-            // @TODO more
-            _ => {}
+            SequentialStatement::SignalForceAssignment(ref assign) => {
+                let SignalForceAssignment {
+                    target,
+                    force_mode: _,
+                    rhs,
+                } = assign;
+                return_if!(search_assignment(target, rhs, searcher));
+            }
+            SequentialStatement::SignalReleaseAssignment(ref assign) => {
+                let SignalReleaseAssignment {
+                    target,
+                    force_mode: _,
+                } = assign;
+                return_if!(target.search(searcher));
+            }
+            SequentialStatement::Null => {}
         }
         NotFound
     }
