@@ -7,17 +7,10 @@
 use crate::ast;
 use crate::ast::*;
 use crate::concurrent_statement::parse_labeled_concurrent_statement;
-use crate::configuration::parse_configuration_declaration;
-use crate::context::{parse_context, DeclarationOrReference};
 use crate::context::{parse_library_clause, parse_use_clause};
 use crate::cursor::BytePos;
-use crate::declarative_part::{
-    parse_declarative_part_leave_end_token, parse_package_instantiation,
-};
-use crate::design_unit::{
-    parse_architecture_body, parse_design_file, parse_entity_declaration, parse_package_body,
-    parse_package_declaration,
-};
+use crate::declarative_part::parse_declarative_part_leave_end_token;
+use crate::design_unit::parse_design_file;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler, ParseResult};
 use crate::expression::{parse_aggregate, parse_choices, parse_expression};
 use crate::interface_declaration::{parse_generic, parse_parameter, parse_port};
@@ -146,15 +139,6 @@ impl Code {
     /// Create new Code from first n:th occurence of substr
     pub fn s1(&self, substr: &str) -> Code {
         self.s(substr, 1)
-    }
-
-    /// Create new code between two substring matches
-    pub fn between(&self, start: &str, end: &str) -> Code {
-        let start_range = substr_range(&self.pos.source, &self.byte_range, start, 1);
-        let trailing_range = ByteRange::new(start_range.start, self.byte_range.end);
-        let end_range = substr_range(&self.pos.source, &trailing_range, end, 1);
-
-        self.in_range(ByteRange::new(start_range.start, end_range.end))
     }
 
     pub fn pos(&self) -> SrcPos {
@@ -468,41 +452,8 @@ impl Code {
         self.parse_ok(parse_library_clause)
     }
 
-    pub fn entity(&self) -> EntityDeclaration {
-        self.parse_ok_no_diagnostics(parse_entity_declaration)
-    }
-
-    pub fn package(&self) -> PackageDeclaration {
-        self.parse_ok_no_diagnostics(parse_package_declaration)
-    }
-
-    pub fn package_body(&self) -> PackageBody {
-        self.parse_ok_no_diagnostics(parse_package_body)
-    }
-
     pub fn design_file(&self) -> DesignFile {
         self.parse_ok_no_diagnostics(parse_design_file)
-    }
-
-    pub fn package_instance(&self) -> PackageInstantiation {
-        self.parse_ok(parse_package_instantiation)
-    }
-
-    pub fn architecture(&self) -> ArchitectureBody {
-        self.parse_ok_no_diagnostics(parse_architecture_body)
-    }
-
-    pub fn configuration(&self) -> ConfigurationDeclaration {
-        self.parse_ok_no_diagnostics(parse_configuration_declaration)
-    }
-
-    pub fn context(&self) -> ContextDeclaration {
-        match self.parse_ok_no_diagnostics(parse_context) {
-            DeclarationOrReference::Declaration(context) => context,
-            reference => {
-                panic!("Expected context declaration, got {:?}", reference);
-            }
-        }
     }
 
     pub fn subprogram_decl(&self) -> SubprogramDeclaration {

@@ -172,12 +172,6 @@ impl HasIdent for AnyDesignUnit {
     }
 }
 
-impl<T: HasIdent> HasIdent for DesignUnit<T> {
-    fn ident(&self) -> &Ident {
-        self.unit.ident()
-    }
-}
-
 impl<'a, T: HasIdent> From<&'a T> for WithPos<Designator> {
     fn from(other: &'a T) -> WithPos<Designator> {
         other.ident().to_owned().map_into(Designator::Identifier)
@@ -208,9 +202,12 @@ impl HasPrimaryIdent for PackageBody {
     }
 }
 
-impl<T: HasPrimaryIdent> HasPrimaryIdent for DesignUnit<T> {
+impl HasPrimaryIdent for AnySecondaryUnit {
     fn primary_ident(&self) -> &Ident {
-        self.unit.primary_ident()
+        match self {
+            AnySecondaryUnit::Architecture(unit) => unit.primary_ident(),
+            AnySecondaryUnit::PackageBody(unit) => unit.primary_ident(),
+        }
     }
 }
 

@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::alias_declaration::parse_alias_declaration;
-use crate::ast::{Declaration, PackageInstantiation};
+use crate::ast::{ContextClause, Declaration, PackageInstantiation};
 use crate::attributes::parse_attribute;
 use crate::component_declaration::parse_component_declaration;
 use crate::configuration::parse_configuration_specification;
@@ -36,6 +36,7 @@ pub fn parse_package_instantiation(stream: &mut TokenStream) -> ParseResult<Pack
         },
         SemiColon => None);
     Ok(PackageInstantiation {
+        context_clause: ContextClause::default(),
         ident,
         package_name,
         generic_map,
@@ -178,6 +179,7 @@ package ident is new lib.foo.bar;
         assert_eq!(
             code.with_stream(parse_package_instantiation),
             PackageInstantiation {
+                context_clause: ContextClause::default(),
                 ident: code.s1("ident").ident(),
                 package_name: code.s1("lib.foo.bar").selected_name(),
                 generic_map: None
@@ -198,6 +200,7 @@ package ident is new lib.foo.bar
         assert_eq!(
             code.with_stream(parse_package_instantiation),
             PackageInstantiation {
+                context_clause: ContextClause::default(),
                 ident: code.s1("ident").ident(),
                 package_name: code.s1("lib.foo.bar").selected_name(),
                 generic_map: Some(

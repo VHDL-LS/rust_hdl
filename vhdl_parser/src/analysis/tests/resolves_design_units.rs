@@ -49,7 +49,7 @@ end configuration;
         builder.analyze(),
         vec![Diagnostic::error(
             code.s("ent", 1),
-            "No declaration of 'ent'",
+            "No primary unit 'ent' within library 'libname'",
         )],
     );
 }
@@ -116,70 +116,133 @@ end configuration;
 
 #[test]
 fn search_reference_from_configuration_to_entity() {
-    let mut builder = LibraryBuilder::new();
-    let code = builder.code(
-        "libname",
+    check_search_reference(
         "
-entity ename is
+entity decl is
 end entity;
 
-configuration cfg_good1 of ename is
+configuration cfg_good1 of decl is
 for rtl
 end for;
 end configuration;
 ",
     );
-
-    let (root, diagnostics) = builder.get_analyzed_root();
-    check_no_diagnostics(&diagnostics);
-
-    // From reference
-    assert_eq!(
-        root.search_reference(code.source(), code.s("ename", 2).start()),
-        Some(code.s("ename", 1).pos())
-    );
-
-    // From declaration position
-    assert_eq!(
-        root.search_reference(code.source(), code.s("ename", 1).start()),
-        Some(code.s("ename", 1).pos())
-    );
-
-    // Find all references
-    assert_eq_unordered(
-        &root.find_all_references(&code.s1("ename").pos()),
-        &vec![code.s("ename", 1).pos(), code.s("ename", 2).pos()],
-    );
 }
 
 #[test]
-fn resolves_reference_from_architecture_to_entity() {
+fn error_on_architecture_of_missing_entity() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(
         "libname",
         "
-entity ename1 is
-end entity;
-
-architecture a of ename1 is
+architecture a of missing is
 begin
 end architecture;
 ",
     );
 
-    let (root, diagnostics) = builder.get_analyzed_root();
-    check_no_diagnostics(&diagnostics);
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::error(
+            code.s("missing", 1),
+            "No entity 'missing' within library 'libname'",
+        )],
+    );
+}
 
-    // From reference position
-    assert_eq!(
-        root.search_reference(code.source(), code.s("ename1", 2).start()),
-        Some(code.s("ename1", 1).pos())
+#[test]
+fn error_on_architecture_before_entity_in_same_file() {
+    let mut builder = LibraryBuilder::new();
+
+    let code = builder.code(
+        "libname",
+        "
+architecture aname of ent is
+begin
+end architecture;
+
+entity ent is
+end entity;
+",
     );
 
-    // Find all references
-    assert_eq_unordered(
-        &root.find_all_references(&code.s1("ename1").pos()),
-        &vec![code.s("ename1", 1).pos(), code.s("ename1", 2).pos()],
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::error(
+            code.s("aname", 1),
+            "Architecture 'aname' declared before entity 'ent'",
+        )],
+    );
+}
+
+#[test]
+fn error_on_body_of_missing_package() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package body missing is
+end package body;
+",
+    );
+
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::error(
+            code.s("missing", 1),
+            "No package 'missing' within library 'libname'",
+        )],
+    );
+}
+
+#[test]
+fn error_on_package_body_before_package_in_same_file() {
+    let mut builder = LibraryBuilder::new();
+
+    let code = builder.code(
+        "libname",
+        "
+package body pkg is
+end package body;
+
+package pkg is
+end package;
+",
+    );
+
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::error(
+            code.s("pkg", 1),
+            "Package body declared before package 'pkg'",
+        )],
+    );
+}
+
+#[test]
+fn resolves_reference_from_architecture_to_entity() {
+    check_search_reference(
+        "
+entity decl is
+end entity;
+
+architecture a of decl is
+begin
+end architecture;
+",
+    );
+}
+
+#[test]
+fn resolves_reference_from_package_body_to_package() {
+    check_search_reference(
+        "
+package decl is
+end package;
+
+package body decl is
+end package body;
+",
     );
 }
 
@@ -212,7 +275,7 @@ end architecture;
         diagnostics,
         vec![Diagnostic::error(
             code.s1("missing"),
-            "No primary unit 'missing' within 'libname'",
+            "No primary unit 'missing' within library 'libname'",
         )],
     );
 

@@ -4,15 +4,20 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use self::fnv::FnvHashMap;
-use fnv;
+use fnv::{FnvHashMap, FnvHashSet};
 use std::collections::hash_map::Entry;
 
-use super::declarative_region::{AnyDeclaration, DeclarativeRegion};
+use super::declarative_region::{AnyDeclaration, DeclarativeRegion, VisibleDeclaration};
 use super::lock::AnalysisLock;
+use super::lock::{AnalysisEntry, ReadGuard};
+use super::semantic::{Analyzer, FatalResult};
 use crate::ast::search::*;
 use crate::ast::*;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
+use crate::source::HasSource;
+use crate::symbol_table::SymbolTable;
+use std::cell::RefCell;
+use std::sync::{Arc, RwLock};
 
 /// A design unit with design unit data
 #[cfg_attr(test, derive(Clone))]
@@ -20,6 +25,230 @@ pub struct AnalysisData<T> {
     pub diagnostics: Vec<Diagnostic>,
     pub region: DeclarativeRegion<'static>,
     pub ast: T,
+}
+
+pub type EntityData = AnalysisData<EntityDeclaration>;
+pub type ArchitectureData = AnalysisData<ArchitectureBody>;
+pub type ConfigurationData = AnalysisData<ConfigurationDeclaration>;
+pub type ContextData = AnalysisData<ContextDeclaration>;
+pub type PackageData = AnalysisData<PackageDeclaration>;
+pub type PackageBodyData = AnalysisData<crate::ast::PackageBody>;
+pub type PackageInstanceData = AnalysisData<PackageInstantiation>;
+
+type Entity = PrimaryUnit<EntityDeclaration>;
+type Architecture = SecondaryUnit<ArchitectureBody>;
+type Configuration = PrimaryUnit<ConfigurationDeclaration>;
+type Context = PrimaryUnit<ContextDeclaration>;
+type Package = PrimaryUnit<PackageDeclaration>;
+type PackageBody = SecondaryUnit<crate::ast::PackageBody>;
+type PackageInstance = PrimaryUnit<PackageInstantiation>;
+
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+enum UnitId {
+    Primary(PrimaryKind, Symbol),
+    Secondary(SecondaryKind, Symbol, Symbol),
+}
+
+/// Without Kind to get name conflict between different primary units
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+enum UnitKey {
+    Primary(Symbol),
+    Secondary(Symbol, Symbol),
+}
+
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
+enum PrimaryKind {
+    Entity,
+    Configuration,
+    Package,
+    PackageInstance,
+    Context,
+}
+
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
+enum SecondaryKind {
+    Architecture,
+    PackageBody,
+}
+
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub struct LibraryUnitId {
+    library: Symbol,
+    unit_id: UnitId,
+}
+
+impl UnitId {
+    fn primary_name(&self) -> &Symbol {
+        match self {
+            UnitId::Primary(_, ref name) => name,
+            UnitId::Secondary(_, ref name, _) => name,
+        }
+    }
+
+    fn key(&self) -> UnitKey {
+        match self {
+            UnitId::Primary(_, ref name) => UnitKey::Primary(name.clone()),
+            UnitId::Secondary(_, ref primary_name, ref name) => {
+                UnitKey::Secondary(primary_name.clone(), name.clone())
+            }
+        }
+    }
+
+    fn in_library(&self, library_name: &Symbol) -> LibraryUnitId {
+        LibraryUnitId {
+            library: library_name.clone(),
+            unit_id: self.clone(),
+        }
+    }
+}
+
+impl LibraryUnitId {
+    pub fn package(library_name: &Symbol, primary_name: &Symbol) -> LibraryUnitId {
+        LibraryUnitId {
+            library: library_name.clone(),
+            unit_id: UnitId::Primary(PrimaryKind::Package, primary_name.clone()),
+        }
+    }
+
+    pub fn entity(library_name: &Symbol, primary_name: &Symbol) -> LibraryUnitId {
+        LibraryUnitId {
+            library: library_name.clone(),
+            unit_id: UnitId::Primary(PrimaryKind::Entity, primary_name.clone()),
+        }
+    }
+
+    pub fn library_name(&self) -> &Symbol {
+        &self.library
+    }
+
+    pub fn primary_name(&self) -> &Symbol {
+        self.unit_id.primary_name()
+    }
+}
+
+enum AnyLockedPrimary {
+    Entity(Entity),
+    Configuration(Configuration),
+    Package(Package),
+    PackageInstance(PackageInstance),
+    Context(Context),
+}
+
+enum AnyLockedSecondary {
+    Architecture(Architecture),
+    PackageBody(PackageBody),
+}
+
+enum AnyLocked {
+    Primary(AnyLockedPrimary),
+    Secondary(AnyLockedSecondary),
+}
+
+impl Into<AnyLockedPrimary> for AnyPrimaryUnit {
+    fn into(self) -> AnyLockedPrimary {
+        match self {
+            AnyPrimaryUnit::EntityDeclaration(entity) => {
+                AnyLockedPrimary::Entity(PrimaryUnit::new(PrimaryKind::Entity, entity))
+            }
+            AnyPrimaryUnit::PackageDeclaration(package) => {
+                AnyLockedPrimary::Package(PrimaryUnit::new(PrimaryKind::Package, package))
+            }
+            AnyPrimaryUnit::PackageInstance(inst) => AnyLockedPrimary::PackageInstance(
+                PrimaryUnit::new(PrimaryKind::PackageInstance, inst),
+            ),
+            AnyPrimaryUnit::ContextDeclaration(ctx) => {
+                AnyLockedPrimary::Context(PrimaryUnit::new(PrimaryKind::Context, ctx))
+            }
+            AnyPrimaryUnit::Configuration(config) => AnyLockedPrimary::Configuration(
+                PrimaryUnit::new(PrimaryKind::Configuration, config),
+            ),
+        }
+    }
+}
+
+impl Into<AnyLockedSecondary> for AnySecondaryUnit {
+    fn into(self) -> AnyLockedSecondary {
+        match self {
+            AnySecondaryUnit::Architecture(arch) => AnyLockedSecondary::Architecture(
+                SecondaryUnit::new(SecondaryKind::Architecture, arch),
+            ),
+            AnySecondaryUnit::PackageBody(body) => AnyLockedSecondary::PackageBody(
+                SecondaryUnit::new(SecondaryKind::PackageBody, body),
+            ),
+        }
+    }
+}
+
+impl Into<AnyLocked> for AnyDesignUnit {
+    fn into(self) -> AnyLocked {
+        match self {
+            AnyDesignUnit::Primary(unit) => AnyLocked::Primary(unit.into()),
+            AnyDesignUnit::Secondary(unit) => AnyLocked::Secondary(unit.into()),
+        }
+    }
+}
+
+macro_rules! delegate_primary {
+    ($primary:expr, $unit:ident, $block:expr) => {
+        match $primary {
+            AnyLockedPrimary::Entity($unit) => $block,
+            AnyLockedPrimary::Package($unit) => $block,
+            AnyLockedPrimary::PackageInstance($unit) => $block,
+            AnyLockedPrimary::Context($unit) => $block,
+            AnyLockedPrimary::Configuration($unit) => $block,
+        }
+    };
+}
+
+macro_rules! delegate_secondary {
+    ($primary:expr, $unit:ident, $block:expr) => {
+        match $primary {
+            AnyLockedSecondary::Architecture($unit) => $block,
+            AnyLockedSecondary::PackageBody($unit) => $block,
+        }
+    };
+}
+
+macro_rules! delegate_any_shallow {
+    ($primary:expr, $unit:ident, $block:expr) => {
+        match $primary {
+            AnyLocked::Primary($unit) => $block,
+            AnyLocked::Secondary($unit) => $block,
+        }
+    };
+}
+
+macro_rules! delegate_any {
+    ($primary:expr, $unit:ident, $block:expr) => {
+        match $primary {
+            AnyLocked::Primary($unit) => delegate_primary!($unit, $unit, $block),
+            AnyLocked::Secondary($unit) => delegate_secondary!($unit, $unit, $block),
+        }
+    };
+}
+
+impl HasIdent for AnyLockedPrimary {
+    fn ident(&self) -> &Ident {
+        delegate_primary!(self, unit, unit.ident())
+    }
+}
+
+impl HasIdent for AnyLockedSecondary {
+    fn ident(&self) -> &Ident {
+        delegate_secondary!(self, unit, unit.ident())
+    }
+}
+
+impl HasIdent for AnyLocked {
+    fn ident(&self) -> &Ident {
+        delegate_any_shallow!(self, unit, unit.ident())
+    }
+}
+
+impl HasPrimaryIdent for AnyLockedSecondary {
+    fn primary_ident(&self) -> &Ident {
+        delegate_secondary!(self, unit, unit.primary_ident())
+    }
 }
 
 impl<T> AnalysisData<T> {
@@ -40,32 +269,10 @@ impl<T> AnalysisData<T> {
     }
 }
 
-pub trait HasUnit<T> {
-    fn unit(&self) -> &T;
-}
-
-impl<T> HasUnit<T> for DesignUnit<T> {
-    fn unit(&self) -> &T {
-        &self.unit
-    }
-}
-
-impl HasUnit<ContextDeclaration> for ContextDeclaration {
-    fn unit(&self) -> &ContextDeclaration {
-        &self
-    }
-}
-
-impl<T, U: HasUnit<T>> HasUnit<T> for AnalysisData<U> {
-    fn unit(&self) -> &T {
-        self.ast.unit()
-    }
-}
-
-pub type LockedData<T> = AnalysisLock<AnalysisData<T>>;
+type LockedData<T> = AnalysisLock<AnalysisData<T>>;
 
 /// Reset analysis state of unit
-fn reset_data<T>(lock: &mut AnalysisLock<AnalysisData<T>>) {
+fn reset_data<T>(lock: &AnalysisLock<AnalysisData<T>>) {
     lock.reset(&|data| data.reset());
 }
 
@@ -75,14 +282,22 @@ impl<T: HasIdent> HasIdent for AnalysisData<T> {
     }
 }
 
-pub struct PrimaryUnit<T> {
+struct PrimaryUnit<T> {
     ident: Ident,
+    kind: PrimaryKind,
     pub data: LockedData<T>,
 }
 
+impl<T> PrimaryUnit<T> {
+    fn unit_id(&self) -> UnitId {
+        UnitId::Primary(self.kind, self.name().clone())
+    }
+}
+
 impl<T: HasIdent> PrimaryUnit<T> {
-    fn new(unit: T) -> PrimaryUnit<T> {
+    fn new(kind: PrimaryKind, unit: T) -> PrimaryUnit<T> {
         PrimaryUnit {
+            kind,
             ident: unit.ident().clone(),
             data: AnalysisLock::new(AnalysisData::new(unit)),
         }
@@ -95,17 +310,25 @@ impl<T> HasIdent for PrimaryUnit<T> {
     }
 }
 
-pub struct SecondaryUnit<T> {
+struct SecondaryUnit<T> {
     ident: Ident,
     primary_ident: Ident,
+    kind: SecondaryKind,
     pub data: LockedData<T>,
 }
 
+impl<T> SecondaryUnit<T> {
+    fn unit_id(&self) -> UnitId {
+        UnitId::Secondary(self.kind, self.primary_name().clone(), self.name().clone())
+    }
+}
+
 impl<T: HasIdent + HasPrimaryIdent> SecondaryUnit<T> {
-    fn new(unit: T) -> SecondaryUnit<T> {
+    fn new(kind: SecondaryKind, unit: T) -> SecondaryUnit<T> {
         SecondaryUnit {
             ident: unit.ident().clone(),
             primary_ident: unit.primary_ident().clone(),
+            kind,
             data: AnalysisLock::new(AnalysisData::new(unit)),
         }
     }
@@ -123,40 +346,38 @@ impl<T> HasPrimaryIdent for SecondaryUnit<T> {
     }
 }
 
-pub type EntityData = AnalysisData<EntityUnit>;
-pub type ArchitectureData = AnalysisData<ArchitectureUnit>;
-pub type ConfigurationData = AnalysisData<ConfigurationUnit>;
-pub type ContextData = AnalysisData<ContextDeclaration>;
-pub type PackageData = AnalysisData<PackageUnit>;
-pub type PackageBodyData = AnalysisData<PackageBodyUnit>;
-pub type PackageInstanceData = AnalysisData<PackageInstanceUnit>;
+impl AnyLocked {
+    fn unit_id(&self) -> UnitId {
+        delegate_any_shallow!(self, unit, unit.unit_id())
+    }
+}
 
-pub type Entity = PrimaryUnit<EntityUnit>;
-pub type Architecture = SecondaryUnit<ArchitectureUnit>;
-pub type Configuration = PrimaryUnit<ConfigurationUnit>;
-pub type Context = PrimaryUnit<ContextDeclaration>;
-pub type Package = PrimaryUnit<PackageUnit>;
-pub type PackageBody = SecondaryUnit<PackageBodyUnit>;
-pub type PackageInstance = PrimaryUnit<PackageInstanceUnit>;
+impl AnyLockedPrimary {
+    fn unit_id(&self) -> UnitId {
+        delegate_primary!(self, unit, unit.unit_id())
+    }
+}
 
-pub type SymbolMap<T> = FnvHashMap<Symbol, T>;
+impl AnyLockedSecondary {
+    fn unit_id(&self) -> UnitId {
+        delegate_secondary!(self, unit, unit.unit_id())
+    }
+}
 
-pub struct Library {
-    pub name: Symbol,
-    pub region: DeclarativeRegion<'static>,
-    primary_names: SymbolMap<SrcPos>,
-    entities: SymbolMap<Entity>,
-    architectures: SymbolMap<SymbolMap<Architecture>>,
-    configurations: SymbolMap<Configuration>,
-    packages: SymbolMap<Package>,
-    package_bodies: SymbolMap<PackageBody>,
-    uninst_packages: SymbolMap<Package>,
-    package_instances: SymbolMap<PackageInstance>,
-    contexts: SymbolMap<Context>,
+struct Library {
+    name: Symbol,
+    region: DeclarativeRegion<'static>,
+    units: FnvHashMap<UnitKey, AnyLocked>,
+    units_by_source: FnvHashMap<Source, FnvHashSet<UnitId>>,
+
+    /// Units removed since last analysis
+    removed: FnvHashSet<UnitId>,
+    /// Units added since last analysis
+    added: FnvHashSet<UnitId>,
 
     /// Design units which were not added since they were duplicates
     /// They need to be kept for later refresh which might make them not duplicates
-    duplicates: Vec<(SrcPos, AnyDesignUnit)>,
+    duplicates: Vec<(SrcPos, AnyLocked)>,
 }
 
 impl<'a> Library {
@@ -164,171 +385,58 @@ impl<'a> Library {
         Library {
             name,
             region: DeclarativeRegion::default(),
-            primary_names: SymbolMap::default(),
-            entities: SymbolMap::default(),
-            architectures: SymbolMap::default(),
-            configurations: SymbolMap::default(),
-            packages: SymbolMap::default(),
-            package_bodies: SymbolMap::default(),
-            uninst_packages: SymbolMap::default(),
-            package_instances: SymbolMap::default(),
-            contexts: SymbolMap::default(),
+            units: FnvHashMap::default(),
+            units_by_source: FnvHashMap::default(),
+            added: FnvHashSet::default(),
+            removed: FnvHashSet::default(),
             duplicates: Vec::new(),
         }
     }
 
-    fn add_primary_unit(&mut self, primary_unit: AnyPrimaryUnit) {
-        match self.primary_names.entry(primary_unit.name().clone()) {
+    pub fn name(&self) -> &Symbol {
+        &self.name
+    }
+
+    fn add_design_unit(&mut self, unit: AnyLocked) {
+        let unit_id = unit.unit_id();
+        match self.units.entry(unit_id.key()) {
             Entry::Occupied(entry) => {
-                self.duplicates.push((
-                    entry.get().pos().clone(),
-                    AnyDesignUnit::Primary(primary_unit),
-                ));
-                return;
+                self.duplicates
+                    .push((entry.get().ident().pos.clone(), unit));
             }
             Entry::Vacant(entry) => {
-                entry.insert(primary_unit.pos().clone());
-            }
-        }
-
-        match primary_unit {
-            AnyPrimaryUnit::EntityDeclaration(entity) => {
-                // Ensure entity without architecure has an entry with empty architecture map
-                self.architectures
-                    .entry(entity.name().clone())
-                    .or_insert_with(|| SymbolMap::default());
-                self.entities
-                    .insert(entity.name().clone(), PrimaryUnit::new(entity));
-            }
-            AnyPrimaryUnit::PackageDeclaration(package) => {
-                let map = if package.unit.generic_clause.is_some() {
-                    &mut self.uninst_packages
-                } else {
-                    &mut self.packages
-                };
-                map.insert(package.name().clone(), PrimaryUnit::new(package));
-            }
-            AnyPrimaryUnit::PackageInstance(inst) => {
-                self.package_instances
-                    .insert(inst.name().clone(), PrimaryUnit::new(inst));
-            }
-            AnyPrimaryUnit::ContextDeclaration(ctx) => {
-                self.contexts
-                    .insert(ctx.name().clone(), PrimaryUnit::new(ctx));
-            }
-
-            AnyPrimaryUnit::Configuration(config) => {
-                self.configurations
-                    .insert(config.name().clone(), PrimaryUnit::new(config));
+                self.added.insert(unit_id);
+                match self.units_by_source.entry(unit.source().clone()) {
+                    Entry::Occupied(mut entry) => {
+                        entry.get_mut().insert(unit.unit_id());
+                    }
+                    Entry::Vacant(entry) => {
+                        let mut set = FnvHashSet::default();
+                        set.insert(unit.unit_id());
+                        entry.insert(set);
+                    }
+                }
+                entry.insert(unit);
             }
         }
     }
 
-    fn add_secondary_unit(&mut self, secondary_unit: AnySecondaryUnit) {
-        match secondary_unit {
-            AnySecondaryUnit::Architecture(architecture) => {
-                match self
-                    .architectures
-                    .entry(architecture.primary_name().clone())
-                {
-                    Entry::Occupied(map_entry) => {
-                        let map = map_entry.into_mut();
-                        match map.entry(architecture.name().clone()) {
-                            Entry::Occupied(arch_entry) => {
-                                self.duplicates.push((
-                                    arch_entry.get().pos().clone(),
-                                    AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(
-                                        architecture,
-                                    )),
-                                ));
-                            }
-                            Entry::Vacant(entry) => {
-                                entry.insert(SecondaryUnit::new(architecture));
-                            }
-                        }
-                    }
-                    Entry::Vacant(entry) => {
-                        let mut map = SymbolMap::default();
-                        map.insert(
-                            architecture.name().clone(),
-                            SecondaryUnit::new(architecture),
-                        );
-                        entry.insert(map);
-                    }
-                }
-            }
-            AnySecondaryUnit::PackageBody(body) => {
-                match self.package_bodies.entry(body.name().clone()) {
-                    Entry::Occupied(entry) => {
-                        self.duplicates.push((
-                            entry.get().pos().clone(),
-                            AnyDesignUnit::Secondary(AnySecondaryUnit::PackageBody(body)),
-                        ));
-                    }
-                    Entry::Vacant(entry) => {
-                        entry.insert(SecondaryUnit::new(body));
-                    }
-                }
-            }
-        };
-    }
-
-    pub fn add_design_unit(&mut self, design_unit: AnyDesignUnit) {
-        match design_unit {
-            AnyDesignUnit::Primary(primary) => self.add_primary_unit(primary),
-            AnyDesignUnit::Secondary(secondary) => self.add_secondary_unit(secondary),
-        };
-    }
-
-    pub fn add_design_file(&mut self, design_file: DesignFile) {
+    fn add_design_file(&mut self, design_file: DesignFile) {
         for design_unit in design_file.design_units {
-            self.add_design_unit(design_unit);
+            self.add_design_unit(design_unit.into());
         }
     }
 
-    /// Validate library after removing or adding new design units
-    pub fn refresh(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
+    /// Refresh library after removing or adding new design units
+    fn refresh(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
         self.append_duplicate_diagnostics(diagnostics);
-        self.validate_package_body(diagnostics);
-        self.validate_entity_architecture(diagnostics);
-        self.reset();
         self.rebuild_region();
-    }
-
-    /// Reset analysis state of all design units
-    fn reset(&mut self) {
-        for entity in self.entities.values_mut() {
-            reset_data(&mut entity.data);
-        }
-        for archs in self.architectures.values_mut() {
-            for arch in archs.values_mut() {
-                reset_data(&mut arch.data);
-            }
-        }
-        for config in self.configurations.values_mut() {
-            reset_data(&mut config.data);
-        }
-        for pkg in self.packages.values_mut() {
-            reset_data(&mut pkg.data);
-        }
-        for pkg in self.uninst_packages.values_mut() {
-            reset_data(&mut pkg.data);
-        }
-        for body in self.package_bodies.values_mut() {
-            reset_data(&mut body.data);
-        }
-        for inst in self.package_instances.values_mut() {
-            reset_data(&mut inst.data);
-        }
-        for ctx in self.contexts.values_mut() {
-            reset_data(&mut ctx.data);
-        }
     }
 
     fn append_duplicate_diagnostics(&self, diagnostics: &mut dyn DiagnosticHandler) {
         for (prev_pos, design_unit) in self.duplicates.iter() {
             let diagnostic = match design_unit {
-                AnyDesignUnit::Primary(primary_unit) => Diagnostic::error(
+                AnyLocked::Primary(primary_unit) => Diagnostic::error(
                     primary_unit.pos(),
                     format!(
                         "A primary unit has already been declared with name '{}' in library '{}'",
@@ -336,8 +444,8 @@ impl<'a> Library {
                         &self.name
                     ),
                 ),
-                AnyDesignUnit::Secondary(secondary_unit) => match secondary_unit {
-                    AnySecondaryUnit::Architecture(arch) => Diagnostic::error(
+                AnyLocked::Secondary(secondary_unit) => match secondary_unit {
+                    AnyLockedSecondary::Architecture(arch) => Diagnostic::error(
                         &arch.ident(),
                         format!(
                             "Duplicate architecture '{}' of entity '{}'",
@@ -345,7 +453,7 @@ impl<'a> Library {
                             arch.primary_name(),
                         ),
                     ),
-                    AnySecondaryUnit::PackageBody(body) => Diagnostic::error(
+                    AnyLockedSecondary::PackageBody(body) => Diagnostic::error(
                         body.pos(),
                         format!("Duplicate package body of package '{}'", body.name()),
                     ),
@@ -357,152 +465,83 @@ impl<'a> Library {
         }
     }
 
-    fn validate_package_body(&self, diagnostics: &mut dyn DiagnosticHandler) {
-        for body in self.package_bodies.values() {
-            let package = {
-                if let Some(package) = self.packages.get(&body.name()) {
-                    package
-                } else if let Some(package) = self.uninst_packages.get(&body.name()) {
-                    package
-                } else {
-                    diagnostics.push(Diagnostic::error(
-                        &body.ident(),
-                        format!(
-                            "No package '{}' within library '{}'",
-                            &body.name(),
-                            &self.name
-                        ),
-                    ));
-                    continue;
-                }
-            };
-
-            let primary_pos = &package.pos();
-            let secondary_pos = &body.pos();
-            if primary_pos.source == secondary_pos.source
-                && primary_pos.start() > secondary_pos.start()
-            {
-                diagnostics.push(Diagnostic::error(
-                    secondary_pos,
-                    format!("Package body declared before package '{}'", package.name()),
-                ));
-            }
-        }
-    }
-
-    fn validate_entity_architecture(&self, diagnostics: &mut dyn DiagnosticHandler) {
-        for (entity_name, architectures) in self.architectures.iter() {
-            if self.entities.get(&entity_name).is_none() {
-                for architecture in architectures.values() {
-                    diagnostics.push(Diagnostic::error(
-                        &architecture.primary_pos(),
-                        format!(
-                            "No entity '{}' within library '{}'",
-                            entity_name, &self.name
-                        ),
-                    ));
-                }
-            }
-        }
-
-        for (entity_name, entity) in self.entities.iter() {
-            if let Some(architectures) = self.architectures.get(entity_name) {
-                for architecture in architectures.values() {
-                    let primary_pos = entity.ident.pos();
-                    let secondary_pos = &architecture.pos();
-                    if primary_pos.source == secondary_pos.source
-                        && primary_pos.start() > secondary_pos.start()
-                    {
-                        diagnostics.push(Diagnostic::error(
-                            secondary_pos,
-                            format!(
-                                "Architecture '{}' declared before entity '{}'",
-                                &architecture.name(),
-                                entity.name()
-                            ),
-                        ));
-                    }
-                }
-            };
-        }
-    }
-
     fn rebuild_region(&mut self) {
         let mut diagnostics = Vec::new();
         self.region = DeclarativeRegion::default();
 
-        for ctx in self.contexts.values() {
-            self.region.add(
-                ctx.ident(),
-                AnyDeclaration::Context(self.name.clone(), ctx.name().clone()),
-                &mut diagnostics,
-            );
+        for unit in self.units.values() {
+            let unit_id = unit.unit_id().in_library(&self.name);
+
+            match unit {
+                AnyLocked::Primary(unit) => match unit {
+                    AnyLockedPrimary::Entity(ent) => {
+                        self.region.add(
+                            ent.ident(),
+                            AnyDeclaration::Entity(unit_id),
+                            &mut diagnostics,
+                        );
+                    }
+                    AnyLockedPrimary::Configuration(config) => {
+                        self.region.add(
+                            config.ident(),
+                            AnyDeclaration::Configuration(unit_id),
+                            &mut diagnostics,
+                        );
+                    }
+                    AnyLockedPrimary::Package(pkg) => {
+                        if pkg.data.expect_read().ast.generic_clause.is_some() {
+                            self.region.add(
+                                pkg.ident(),
+                                AnyDeclaration::UninstPackage(unit_id),
+                                &mut diagnostics,
+                            );
+                        } else {
+                            self.region.add(
+                                pkg.ident(),
+                                AnyDeclaration::Package(unit_id),
+                                &mut diagnostics,
+                            );
+                        }
+                    }
+                    AnyLockedPrimary::Context(ctx) => {
+                        self.region.add(
+                            ctx.ident(),
+                            AnyDeclaration::Context(unit_id),
+                            &mut diagnostics,
+                        );
+                    }
+                    AnyLockedPrimary::PackageInstance(pkg) => {
+                        self.region.add(
+                            pkg.ident(),
+                            AnyDeclaration::PackageInstance(unit_id),
+                            &mut diagnostics,
+                        );
+                    }
+                },
+                AnyLocked::Secondary(_) => {}
+            }
         }
 
-        for config in self.configurations.values() {
-            self.region
-                .add(config.ident(), AnyDeclaration::Other, &mut diagnostics);
-        }
-
-        for pkg in self.packages.values() {
-            self.region.add(
-                pkg.ident(),
-                AnyDeclaration::Package(self.name.clone(), pkg.name().clone()),
-                &mut diagnostics,
-            );
-        }
-
-        for pkg in self.uninst_packages.values() {
-            self.region.add(
-                pkg.ident(),
-                AnyDeclaration::UninstPackage(self.name.clone(), pkg.name().clone()),
-                &mut diagnostics,
-            );
-        }
-
-        for ent in self.entities.values() {
-            self.region.add(
-                ent.ident(),
-                AnyDeclaration::Entity(self.name.clone(), ent.name().clone()),
-                &mut diagnostics,
-            );
-        }
-
-        for pkg in self.package_instances.values() {
-            self.region.add(
-                pkg.ident(),
-                AnyDeclaration::PackageInstance(self.name.clone(), pkg.name().clone()),
-                &mut diagnostics,
-            );
-        }
-
-        assert!(
-            diagnostics.is_empty(),
+        assert_eq!(
+            diagnostics,
+            vec![],
             "Expect no diagnostics when building library region"
         );
     }
 
-    fn remove_source_from<T: HasSource>(map: &mut SymbolMap<T>, source: &Source) {
-        map.retain(|_, value| value.source() != source);
-    }
-
     /// Remove all design units defined in source
     /// This is used for incremental analysis where only a single source file is updated
-    pub fn remove_source(&mut self, source: &Source) {
-        Self::remove_source_from(&mut self.primary_names, source);
-        Self::remove_source_from(&mut self.entities, source);
-        for architectures in self.architectures.values_mut() {
-            Self::remove_source_from(architectures, source);
-        }
-        // To not leak when both architecture and entity is removed
-        self.architectures.retain(|_, value| !value.is_empty());
-        Self::remove_source_from(&mut self.configurations, source);
-        Self::remove_source_from(&mut self.packages, source);
-        Self::remove_source_from(&mut self.package_bodies, source);
-        Self::remove_source_from(&mut self.uninst_packages, source);
-        Self::remove_source_from(&mut self.package_instances, source);
-        Self::remove_source_from(&mut self.contexts, source);
-
+    fn remove_source(&mut self, source: &Source) {
+        let ref mut removed = self.removed;
+        self.units.retain(|_, value| {
+            if value.source() != source {
+                true
+            } else {
+                removed.insert(value.unit_id());
+                false
+            }
+        });
+        self.units_by_source.remove(source);
         self.duplicates
             .retain(|(_, value)| value.source() != source);
 
@@ -512,101 +551,138 @@ impl<'a> Library {
             std::mem::replace(&mut self.duplicates, Vec::with_capacity(num_duplicates));
         for (prev_pos, design_unit) in duplicates.into_iter() {
             if prev_pos.source() == source {
-                self.add_design_unit(design_unit)
+                self.add_design_unit(design_unit);
             } else {
                 self.duplicates.push((prev_pos, design_unit));
             }
         }
     }
 
-    pub fn entity(&'a self, name: &Symbol) -> Option<&'a Entity> {
-        self.entities.get(name)
+    fn entity(&'a self, name: &Symbol) -> Option<&'a Entity> {
+        if let Some(AnyLocked::Primary(AnyLockedPrimary::Entity(ref unit))) =
+            self.units.get(&UnitKey::Primary(name.clone()))
+        {
+            Some(unit)
+        } else {
+            None
+        }
     }
 
-    #[cfg(test)]
-    pub fn configuration(&'a self, name: &Symbol) -> Option<&'a Configuration> {
-        self.configurations.get(name)
+    fn package(&'a self, name: &Symbol) -> Option<&'a Package> {
+        if let Some(AnyLocked::Primary(AnyLockedPrimary::Package(ref unit))) =
+            self.units.get(&UnitKey::Primary(name.clone()))
+        {
+            Some(unit)
+        } else {
+            None
+        }
     }
 
-    /// Return a non-generic packate
-    #[cfg(test)]
-    pub fn package(&'a self, name: &Symbol) -> Option<&'a Package> {
-        self.packages.get(name)
+    fn expect_package(&'a self, name: &Symbol) -> &'a Package {
+        self.package(name).expect("Package must exist")
     }
 
-    pub fn expect_any_package(&'a self, name: &Symbol) -> &'a Package {
-        self.packages
-            .get(name)
-            .or_else(|| self.uninst_packages.get(name))
-            .expect("Package must exist")
+    fn package_instance(&'a self, name: &Symbol) -> Option<&'a PackageInstance> {
+        if let Some(AnyLocked::Primary(AnyLockedPrimary::PackageInstance(ref unit))) =
+            self.units.get(&UnitKey::Primary(name.clone()))
+        {
+            Some(unit)
+        } else {
+            None
+        }
     }
 
-    #[cfg(test)]
-    pub fn package_instance(&'a self, name: &Symbol) -> Option<&'a PackageInstance> {
-        self.package_instances.get(name)
-    }
-
-    pub fn expect_package_instance(&'a self, name: &Symbol) -> &'a PackageInstance {
-        self.package_instances
-            .get(name)
+    fn expect_package_instance(&'a self, name: &Symbol) -> &'a PackageInstance {
+        self.package_instance(name)
             .expect("Package instance must exist")
     }
 
-    pub fn package_body(&'a self, name: &Symbol) -> Option<&'a PackageBody> {
-        self.package_bodies.get(name)
+    fn package_body(&'a self, name: &Symbol) -> Option<&'a PackageBody> {
+        if let Some(AnyLocked::Secondary(AnyLockedSecondary::PackageBody(ref unit))) = self
+            .units
+            .get(&UnitKey::Secondary(name.clone(), name.clone()))
+        {
+            Some(unit)
+        } else {
+            None
+        }
     }
 
-    pub fn context(&'a self, name: &Symbol) -> Option<&'a Context> {
-        self.contexts.get(name)
+    fn context(&'a self, name: &Symbol) -> Option<&'a Context> {
+        if let Some(AnyLocked::Primary(AnyLockedPrimary::Context(ref unit))) =
+            self.units.get(&UnitKey::Primary(name.clone()))
+        {
+            Some(unit)
+        } else {
+            None
+        }
     }
 
-    pub fn entities(&self) -> impl Iterator<Item = &Entity> {
-        self.entities.values()
-    }
+    /// Iterate over units in the order they appear in the file
+    /// Ensures diagnostics does not have to be sorted later
+    fn sorted_unit_ids(&self) -> Vec<UnitId> {
+        // @TODO insert sort when adding instead
+        let mut result = Vec::new();
 
-    // @TODO add entity reference wrapper type
-    pub fn architectures(&'a self, entity_name: &Symbol) -> &'a SymbolMap<Architecture> {
-        self.architectures
-            .get(entity_name)
-            .expect("Entity must be defined")
+        for unit_ids in self.units_by_source.values() {
+            let mut unit_ids: Vec<UnitId> = unit_ids.clone().into_iter().collect();
+            unit_ids.sort_by_key(|unit_id| {
+                self.units
+                    .get(&unit_id.key())
+                    .unwrap()
+                    .ident()
+                    .pos
+                    .range()
+                    .start
+            });
+            result.append(&mut unit_ids);
+        }
+        result
     }
+}
 
-    pub fn configurations(&self) -> impl Iterator<Item = &Configuration> {
-        self.configurations.values()
-    }
-
-    /// Iterate over packages
-    pub fn packages(&self) -> impl Iterator<Item = &Package> {
-        self.packages.values()
-    }
-
-    /// Iterate uninstantiated packages
-    pub fn uninst_packages(&self) -> impl Iterator<Item = &Package> {
-        self.uninst_packages.values()
-    }
-
-    pub fn package_instances(&self) -> impl Iterator<Item = &PackageInstance> {
-        self.package_instances.values()
-    }
-
-    pub fn contexts(&self) -> impl Iterator<Item = &Context> {
-        self.contexts.values()
+fn add_diagnostics<T>(
+    diagnostics: &mut dyn DiagnosticHandler,
+    data: FatalResult<ReadGuard<AnalysisData<T>>>,
+) {
+    match data {
+        Ok(data) => {
+            diagnostics.append(data.diagnostics.clone());
+        }
+        Err(fatal_err) => {
+            fatal_err.push_into(diagnostics);
+        }
     }
 }
 
 pub struct DesignRoot {
-    libraries: SymbolMap<Library>,
+    symtab: Arc<SymbolTable>,
+    libraries: FnvHashMap<Symbol, Library>,
+
+    // Dependency tracking for incremental analysis
+    // user => set(users)
+    users_of: RwLock<FnvHashMap<LibraryUnitId, FnvHashSet<LibraryUnitId>>>,
+
+    // missing primary name  => set(affected)
+    missing_primary: RwLock<FnvHashMap<(Symbol, Symbol), FnvHashSet<LibraryUnitId>>>,
+
+    // library name  => set(affected)
+    users_of_library_all: RwLock<FnvHashMap<Symbol, FnvHashSet<LibraryUnitId>>>,
 }
 
 impl DesignRoot {
-    pub fn new() -> DesignRoot {
+    pub fn new(symtab: Arc<SymbolTable>) -> DesignRoot {
         DesignRoot {
-            libraries: SymbolMap::default(),
+            symtab,
+            libraries: FnvHashMap::default(),
+            users_of: RwLock::new(FnvHashMap::default()),
+            missing_primary: RwLock::new(FnvHashMap::default()),
+            users_of_library_all: RwLock::new(FnvHashMap::default()),
         }
     }
 
     /// Create library if it does not exist or return existing
-    pub fn ensure_library(&mut self, name: Symbol) -> &mut Library {
+    fn get_or_create_library(&mut self, name: Symbol) -> &mut Library {
         match self.libraries.entry(name) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
@@ -616,22 +692,29 @@ impl DesignRoot {
         }
     }
 
-    pub fn get_library(&self, library_name: &Symbol) -> Option<&Library> {
+    pub fn ensure_library(&mut self, name: Symbol) {
+        self.get_or_create_library(name);
+    }
+
+    fn get_library(&self, library_name: &Symbol) -> Option<&Library> {
         self.libraries.get(library_name)
     }
 
-    pub fn expect_library(&self, library_name: &Symbol) -> &Library {
+    fn expect_library(&self, library_name: &Symbol) -> &Library {
         self.get_library(library_name)
             .expect("Library must be defined")
     }
 
-    pub fn iter_libraries(&self) -> impl Iterator<Item = &Library> {
-        self.libraries.values()
+    pub fn add_design_file(&mut self, library_name: Symbol, design_file: DesignFile) {
+        self.get_or_create_library(library_name.clone())
+            .add_design_file(design_file);
     }
 
-    pub fn iter_libraries_mut(&mut self) -> impl Iterator<Item = &mut Library> {
-        self.libraries.values_mut()
+    pub fn remove_source(&mut self, library_name: Symbol, source: &Source) {
+        self.get_or_create_library(library_name.clone())
+            .remove_source(source);
     }
+
     /// Search for reference at position
     /// Character offset on a line in a document (zero-based). Assuming that the line is
     /// represented as a string, the `character` value represents the gap between the
@@ -646,11 +729,341 @@ impl DesignRoot {
     pub fn find_all_references(&self, decl_pos: &SrcPos) -> Vec<SrcPos> {
         FindAllReferences::new(decl_pos).search(self)
     }
+
+    fn get_package_instance_analysis<'a>(
+        &self,
+        library: &Library,
+        instance: &'a PackageInstance,
+    ) -> FatalResult<ReadGuard<'a, PackageInstanceData>> {
+        match instance.data.entry()? {
+            AnalysisEntry::Vacant(mut instance_data) => {
+                let analyzer = Analyzer::new(
+                    DependencyRecorder::new(self, instance.unit_id().in_library(&library.name)),
+                    library.name().clone(),
+                    self.symtab.clone(),
+                );
+                analyzer.analyze_package_instance(&mut instance_data)?;
+                drop(instance_data);
+                Ok(instance.data.expect_analyzed())
+            }
+            AnalysisEntry::Occupied(instance_data) => Ok(instance_data),
+        }
+    }
+
+    fn get_configuration_analysis<'a>(
+        &self,
+        library: &Library,
+        config: &'a Configuration,
+    ) -> FatalResult<ReadGuard<'a, ConfigurationData>> {
+        match config.data.entry()? {
+            AnalysisEntry::Vacant(mut config_data) => {
+                let analyzer = Analyzer::new(
+                    DependencyRecorder::new(self, config.unit_id().in_library(&library.name)),
+                    library.name().clone(),
+                    self.symtab.clone(),
+                );
+                analyzer.analyze_configuration(&mut config_data)?;
+                drop(config_data);
+                Ok(config.data.expect_analyzed())
+            }
+            AnalysisEntry::Occupied(config_data) => Ok(config_data),
+        }
+    }
+
+    fn get_package_declaration_analysis<'a>(
+        &self,
+        library: &Library,
+        package: &'a Package,
+    ) -> FatalResult<ReadGuard<'a, PackageData>> {
+        match package.data.entry()? {
+            AnalysisEntry::Vacant(mut package_data) => {
+                let analyzer = Analyzer::new(
+                    DependencyRecorder::new(self, package.unit_id().in_library(&library.name)),
+                    library.name().clone(),
+                    self.symtab.clone(),
+                );
+                analyzer.analyze_package_declaration(
+                    library.package_body(package_data.ast.name()).is_some(),
+                    &mut package_data,
+                )?;
+                drop(package_data);
+                Ok(package.data.expect_analyzed())
+            }
+            AnalysisEntry::Occupied(package) => Ok(package),
+        }
+    }
+
+    fn get_package_body_analysis<'a>(
+        &self,
+        library: &Library,
+        body: &'a PackageBody,
+    ) -> FatalResult<ReadGuard<'a, PackageBodyData>> {
+        match body.data.entry()? {
+            AnalysisEntry::Vacant(mut body_data) => {
+                let analyzer = Analyzer::new(
+                    DependencyRecorder::new(self, body.unit_id().in_library(&library.name)),
+                    library.name().clone(),
+                    self.symtab.clone(),
+                );
+                analyzer.analyze_package_body_unit(&mut body_data)?;
+                drop(body_data);
+                Ok(body.data.expect_analyzed())
+            }
+            AnalysisEntry::Occupied(body_data) => Ok(body_data),
+        }
+    }
+
+    fn get_architecture_analysis<'a>(
+        &self,
+        library: &Library,
+        arch: &'a Architecture,
+    ) -> FatalResult<ReadGuard<'a, ArchitectureData>> {
+        match arch.data.entry()? {
+            AnalysisEntry::Vacant(mut arch_data) => {
+                let analyzer = Analyzer::new(
+                    DependencyRecorder::new(self, arch.unit_id().in_library(&library.name)),
+                    library.name().clone(),
+                    self.symtab.clone(),
+                );
+                analyzer.analyze_architecture(&mut arch_data)?;
+                drop(arch_data);
+                Ok(arch.data.expect_analyzed())
+            }
+            AnalysisEntry::Occupied(arch_data) => Ok(arch_data),
+        }
+    }
+
+    fn get_entity_declaration_analysis<'a>(
+        &self,
+        library: &Library,
+        entity: &'a Entity,
+    ) -> FatalResult<ReadGuard<'a, EntityData>> {
+        match entity.data.entry()? {
+            AnalysisEntry::Vacant(mut entity_data) => {
+                let analyzer = Analyzer::new(
+                    DependencyRecorder::new(self, entity.unit_id().in_library(&library.name)),
+                    library.name().clone(),
+                    self.symtab.clone(),
+                );
+                analyzer.analyze_entity_declaration(&mut entity_data)?;
+                drop(entity_data);
+                Ok(entity.data.expect_analyzed())
+            }
+            AnalysisEntry::Occupied(entity_data) => Ok(entity_data),
+        }
+    }
+
+    fn get_context_analysis<'a>(
+        &self,
+        library: &Library,
+        context: &'a Context,
+    ) -> FatalResult<ReadGuard<'a, ContextData>> {
+        match context.data.entry()? {
+            AnalysisEntry::Vacant(mut context_data) => {
+                let analyzer = Analyzer::new(
+                    DependencyRecorder::new(self, context.unit_id().in_library(&library.name)),
+                    library.name().clone(),
+                    self.symtab.clone(),
+                );
+                analyzer.analyze_context(&mut context_data)?;
+                drop(context_data);
+                Ok(context.data.expect_analyzed())
+            }
+            AnalysisEntry::Occupied(context_data) => Ok(context_data),
+        }
+    }
+
+    fn analyze_unit(
+        &self,
+        library: &Library,
+        unit: &AnyLocked,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        match unit {
+            AnyLocked::Primary(unit) => match unit {
+                AnyLockedPrimary::Entity(entity) => {
+                    add_diagnostics(
+                        diagnostics,
+                        self.get_entity_declaration_analysis(library, entity),
+                    );
+                }
+                AnyLockedPrimary::Configuration(config) => {
+                    add_diagnostics(
+                        diagnostics,
+                        self.get_configuration_analysis(library, config),
+                    );
+                }
+                AnyLockedPrimary::Package(package) => {
+                    add_diagnostics(
+                        diagnostics,
+                        self.get_package_declaration_analysis(library, package),
+                    );
+                }
+                AnyLockedPrimary::PackageInstance(instance) => {
+                    add_diagnostics(
+                        diagnostics,
+                        self.get_package_instance_analysis(library, instance),
+                    );
+                }
+                AnyLockedPrimary::Context(context) => {
+                    add_diagnostics(diagnostics, self.get_context_analysis(library, context));
+                }
+            },
+            AnyLocked::Secondary(unit) => match unit {
+                AnyLockedSecondary::Architecture(arch) => {
+                    add_diagnostics(diagnostics, self.get_architecture_analysis(library, arch));
+                }
+                AnyLockedSecondary::PackageBody(body) => {
+                    add_diagnostics(diagnostics, self.get_package_body_analysis(library, body));
+                }
+            },
+        }
+    }
+
+    fn get_all_affected(
+        &self,
+        mut affected: FnvHashSet<LibraryUnitId>,
+    ) -> FnvHashSet<LibraryUnitId> {
+        let mut all_affected = FnvHashSet::default();
+        let users_of = self.users_of.read().unwrap();
+
+        while !affected.is_empty() {
+            let mut next_affected = FnvHashSet::default();
+
+            for user in affected.drain() {
+                all_affected.insert(user.clone());
+
+                if let Some(users) = users_of.get(&user) {
+                    for new_user in users.iter() {
+                        if all_affected.insert(new_user.clone()) {
+                            next_affected.insert(new_user.clone());
+                        }
+                    }
+                }
+            }
+
+            affected = next_affected;
+        }
+        all_affected
+    }
+
+    fn get_unit<'a>(&'a self, unit_id: &LibraryUnitId) -> Option<&'a AnyLocked> {
+        self.libraries
+            .get(unit_id.library_name())
+            .and_then(|library| library.units.get(&unit_id.unit_id.key()))
+    }
+
+    fn reset_affected(&self, mut affected: FnvHashSet<LibraryUnitId>) {
+        // Reset analysis state of all design units
+        for unit_id in affected.drain() {
+            if let Some(unit) = self.get_unit(&unit_id) {
+                delegate_any!(unit, unit, reset_data(&unit.data));
+            }
+        }
+    }
+
+    /// Reset all unit that need to be re-analyzed
+    fn reset(&mut self) {
+        let mut removed = FnvHashSet::default();
+        let mut added = FnvHashSet::default();
+
+        for library in self.libraries.values_mut() {
+            for unit_id in library.added.drain() {
+                added.insert(unit_id.in_library(&library.name));
+            }
+            for unit_id in library.removed.drain() {
+                removed.insert(unit_id.in_library(&library.name));
+            }
+        }
+
+        let mut affected: FnvHashSet<_> = added.union(&removed).cloned().collect();
+        let changed: FnvHashSet<_> = removed.intersection(&added).cloned().collect();
+        removed = removed.difference(&changed).cloned().collect();
+        added = added.difference(&changed).cloned().collect();
+
+        let users_of = self.users_of.read().unwrap();
+        let users_of_library_all = self.users_of_library_all.read().unwrap();
+
+        // Add affected users which do 'use library.all'
+        for unit_id in removed.iter().chain(added.iter()) {
+            if let Some(library_all_affected) = users_of_library_all.get(&unit_id.library) {
+                for user in library_all_affected.into_iter() {
+                    affected.insert(user.clone());
+                }
+            }
+        }
+        let missing_primary = self.missing_primary.read().unwrap();
+        for ((library_name, primary_name), unit_ids) in missing_primary.iter() {
+            let was_added = added.iter().any(|added_id| {
+                added_id.library_name() == library_name && added_id.primary_name() == primary_name
+            });
+
+            if was_added {
+                for unit_id in unit_ids.iter() {
+                    affected.insert(unit_id.clone());
+                }
+            }
+        }
+
+        // Affect packages which have got body removed or added
+        // Since a package without body may not have deferred constants
+        for unit_id in added.iter().chain(removed.iter()) {
+            if let UnitId::Secondary(kind, ..) = unit_id.unit_id {
+                if kind == SecondaryKind::PackageBody {
+                    affected.insert(LibraryUnitId::package(
+                        unit_id.library_name(),
+                        unit_id.primary_name(),
+                    ));
+                }
+            }
+        }
+
+        drop(users_of);
+        drop(users_of_library_all);
+        drop(missing_primary);
+        self.reset_affected(self.get_all_affected(affected));
+
+        let mut users_of = self.users_of.write().unwrap();
+        let mut users_of_library_all = self.users_of_library_all.write().unwrap();
+        let mut missing_primary = self.missing_primary.write().unwrap();
+
+        // Clean-up after removed units
+        for removed_unit in removed.iter() {
+            users_of.remove(removed_unit);
+            if let Some(library_all_affected) = users_of_library_all.get_mut(&removed_unit.library)
+            {
+                library_all_affected.remove(removed_unit);
+            }
+
+            missing_primary.retain(|_, unit_ids| {
+                unit_ids.remove(removed_unit);
+                !unit_ids.is_empty()
+            });
+        }
+    }
+
+    pub fn analyze(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
+        self.reset();
+
+        for library in self.libraries.values_mut() {
+            library.refresh(diagnostics);
+        }
+
+        for library in self.libraries.values() {
+            for unit_id in library.sorted_unit_ids() {
+                self.analyze_unit(
+                    library,
+                    library.units.get(&unit_id.key()).unwrap(),
+                    diagnostics,
+                );
+            }
+        }
+    }
 }
 
 impl<T> Search<T> for DesignRoot {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
-        for library in self.iter_libraries() {
+        for library in self.libraries.values() {
             return_if!(library.search(searcher));
         }
         NotFound
@@ -659,40 +1072,225 @@ impl<T> Search<T> for DesignRoot {
 
 impl<T> Search<T> for Library {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
-        for package in self.packages() {
-            return_if!(package.data.read().ast.search(searcher));
+        for unit_id in self.sorted_unit_ids() {
+            let unit = self.units.get(&unit_id.key()).unwrap();
+            return_if!(delegate_any!(
+                unit,
+                unit,
+                unit.data.read().ast.search(searcher)
+            ));
         }
-        for package in self.uninst_packages() {
-            return_if!(package.data.read().ast.search(searcher));
+
+        NotFound
+    }
+}
+
+/// Record dependencies and sensitivies when
+/// analyzing design units
+///
+/// Dependencies define the order in which design units must be analyzed
+///  - for example when doing 'use library.pkg' the pkg is a dependency
+///
+/// Sensitivity defines conditions that require re-analysis of a design unit
+///  - for example when doing 'use library.missing' the file is sensitive to adding
+///    primary unit missing to library
+///  - for example when doing 'use missing' the file is sensitive to adding
+///    missing library
+///  - for example when doing 'use library.all' the file is sensitive to adding/removing
+///    anything from library
+
+pub struct DependencyRecorder<'a> {
+    root: &'a DesignRoot,
+    user: LibraryUnitId,
+    uses: RefCell<FnvHashSet<LibraryUnitId>>,
+    missing_primary: RefCell<FnvHashSet<(Symbol, Symbol)>>,
+    uses_library_all: RefCell<FnvHashSet<Symbol>>,
+}
+
+impl<'a> DependencyRecorder<'a> {
+    fn new(root: &'a DesignRoot, user: LibraryUnitId) -> DependencyRecorder {
+        DependencyRecorder {
+            root,
+            user,
+            uses: RefCell::new(FnvHashSet::default()),
+            missing_primary: RefCell::new(FnvHashSet::default()),
+            uses_library_all: RefCell::new(FnvHashSet::default()),
         }
-        for body in self.package_bodies.values() {
-            return_if!(body.data.read().ast.search(searcher));
+    }
+
+    pub fn use_all_in_library(&self, library_name: &Symbol, region: &mut DeclarativeRegion<'_>) {
+        let library = self.root.expect_library(library_name);
+        region.make_all_potentially_visible(&library.region);
+
+        self.uses_library_all
+            .borrow_mut()
+            .insert(library_name.clone());
+    }
+
+    pub fn has_library(&self, library_name: &Symbol) -> bool {
+        self.root.get_library(library_name).is_some()
+    }
+
+    fn make_use_of(&self, unit_id: LibraryUnitId) {
+        self.uses.borrow_mut().insert(unit_id);
+    }
+
+    pub fn lookup_in_library(
+        &self,
+        library_name: &Symbol,
+        designator: &Designator,
+    ) -> Option<&VisibleDeclaration> {
+        if let Some(decl) = self
+            .root
+            .expect_library(library_name)
+            .region
+            .lookup(designator, false)
+        {
+            // @TODO libary does not need region, we can build it on the fly
+            let unit_id = match decl.first() {
+                AnyDeclaration::Entity(unit_id) => unit_id,
+                AnyDeclaration::Configuration(unit_id) => unit_id,
+                AnyDeclaration::Package(unit_id) => unit_id,
+                AnyDeclaration::UninstPackage(unit_id) => unit_id,
+                AnyDeclaration::PackageInstance(unit_id) => unit_id,
+                AnyDeclaration::Context(unit_id) => unit_id,
+                _ => panic!("Library may only design units"),
+            };
+
+            self.make_use_of(unit_id.clone());
+            Some(decl)
+        } else {
+            if let Designator::Identifier(sym) = designator {
+                self.missing_primary
+                    .borrow_mut()
+                    .insert((library_name.clone(), sym.clone()));
+            }
+            None
         }
-        for instance in self.package_instances() {
-            return_if!(instance.data.read().ast.search(searcher));
-        }
-        for entity in self.entities() {
-            return_if!(entity.data.read().ast.search(searcher));
-        }
-        for config in self.configurations() {
-            return_if!(config.data.read().ast.search(searcher));
-        }
-        for context in self.contexts() {
-            return_if!(context.data.read().ast.search(searcher));
-        }
-        for archs in self.architectures.values() {
-            for arch in archs.values() {
-                return_if!(arch.data.read().ast.search(searcher));
+    }
+
+    pub fn expect_package_instance_analysis(
+        &self,
+        unit_id: &LibraryUnitId,
+    ) -> FatalResult<ReadGuard<'a, PackageInstanceData>> {
+        let library = self.root.expect_library(&unit_id.library);
+        let instance = library.expect_package_instance(unit_id.primary_name());
+        self.make_use_of(unit_id.clone());
+        self.root.get_package_instance_analysis(library, instance)
+    }
+
+    pub fn expect_package_declaration_analysis(
+        &self,
+        unit_id: &LibraryUnitId,
+    ) -> FatalResult<ReadGuard<'a, PackageData>> {
+        let library = self.root.expect_library(&unit_id.library);
+        let package = library.expect_package(unit_id.primary_name());
+        self.make_use_of(unit_id.clone());
+        self.root.get_package_declaration_analysis(library, package)
+    }
+
+    pub fn get_package_declaration_analysis(
+        &self,
+        unit_id: &LibraryUnitId,
+    ) -> Option<FatalResult<ReadGuard<'a, PackageData>>> {
+        self.make_use_of(unit_id.clone());
+        self.root
+            .libraries
+            .get(unit_id.library_name())
+            .and_then(|library| {
+                library
+                    .package(unit_id.primary_name())
+                    .map(|package| self.root.get_package_declaration_analysis(library, package))
+            })
+    }
+
+    pub fn expect_entity_declaration_analysis(
+        &self,
+        unit_id: &LibraryUnitId,
+    ) -> FatalResult<ReadGuard<'a, EntityData>> {
+        let library = self.root.expect_library(&unit_id.library);
+        let entity = library.entity(unit_id.primary_name()).unwrap();
+        self.make_use_of(unit_id.clone());
+        self.root.get_entity_declaration_analysis(library, entity)
+    }
+
+    pub fn get_entity_declaration_analysis(
+        &self,
+        unit_id: &LibraryUnitId,
+    ) -> Option<FatalResult<ReadGuard<'a, EntityData>>> {
+        self.make_use_of(unit_id.clone());
+        self.root
+            .libraries
+            .get(unit_id.library_name())
+            .and_then(|library| {
+                library
+                    .entity(unit_id.primary_name())
+                    .map(|entity| self.root.get_entity_declaration_analysis(library, entity))
+            })
+    }
+
+    pub fn expect_context_analysis(
+        &self,
+        unit_id: &LibraryUnitId,
+    ) -> FatalResult<ReadGuard<'a, ContextData>> {
+        let library = self.root.expect_library(&unit_id.library);
+        let context = library.context(unit_id.primary_name()).unwrap();
+        self.make_use_of(unit_id.clone());
+        self.root.get_context_analysis(library, context)
+    }
+}
+
+impl<'a> Drop for DependencyRecorder<'a> {
+    fn drop(&mut self) {
+        let mut users_of = self.root.users_of.write().unwrap();
+        let mut users_of_library_all = self.root.users_of_library_all.write().unwrap();
+
+        for source in self.uses.borrow_mut().drain() {
+            match users_of.entry(source.clone()) {
+                Entry::Occupied(mut entry) => {
+                    entry.get_mut().insert(self.user.clone());
+                }
+                Entry::Vacant(entry) => {
+                    let mut set = FnvHashSet::default();
+                    set.insert(self.user.clone());
+                    entry.insert(set);
+                }
             }
         }
-        NotFound
+
+        for library_name in self.uses_library_all.borrow_mut().drain() {
+            match users_of_library_all.entry(library_name.clone()) {
+                Entry::Occupied(mut entry) => {
+                    entry.get_mut().insert(self.user.clone());
+                }
+                Entry::Vacant(entry) => {
+                    let mut set = FnvHashSet::default();
+                    set.insert(self.user.clone());
+                    entry.insert(set);
+                }
+            }
+        }
+
+        let mut missing_primary = self.root.missing_primary.write().unwrap();
+        for key in self.missing_primary.borrow_mut().drain() {
+            match missing_primary.entry(key) {
+                Entry::Occupied(mut entry) => {
+                    entry.get_mut().insert(self.user.clone());
+                }
+                Entry::Vacant(entry) => {
+                    let mut set = FnvHashSet::default();
+                    set.insert(self.user.clone());
+                    entry.insert(set);
+                }
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_util::{check_diagnostics, check_no_diagnostics, Code, CodeBuilder};
+    use crate::test_util::{check_diagnostics, Code};
 
     fn new_library_with_diagnostics<'a>(code: &Code, name: &str) -> (Library, Vec<Diagnostic>) {
         let mut diagnostics = Vec::new();
@@ -700,114 +1298,6 @@ mod tests {
         library.add_design_file(code.design_file());
         library.refresh(&mut diagnostics);
         (library, diagnostics)
-    }
-
-    fn new_library<'a>(code: &Code, name: &str) -> Library {
-        let (library, diagnostics) = new_library_with_diagnostics(code, name);
-        check_no_diagnostics(&diagnostics);
-        library
-    }
-
-    #[test]
-    fn add_entity() {
-        let code = Code::new(
-            "
-entity ent is
-end entity;
-",
-        );
-        let library = new_library(&code, "libname");
-        let primary = library.entity(&code.symbol("ent")).unwrap();
-        assert_eq!(primary.data.expect_read().unit(), &code.entity());
-        assert!(library.architectures(primary.name()).is_empty());
-    }
-
-    #[test]
-    fn error_on_package_body_without_package() {
-        let code = Code::new(
-            "
-package body pkg is
-end package body;
-",
-        );
-        let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
-
-        assert_eq!(library.packages.len(), 0);
-        check_diagnostics(
-            diagnostics,
-            vec![Diagnostic::error(
-                code.s1("pkg"),
-                "No package 'pkg' within library 'libname'",
-            )],
-        );
-    }
-
-    #[test]
-    fn error_on_architecture_without_entity() {
-        let code = Code::new(
-            "
-architecture rtl of ent is
-begin
-end architecture;
-",
-        );
-        let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
-
-        assert_eq!(library.entities.len(), 0);
-        check_diagnostics(
-            diagnostics,
-            vec![Diagnostic::error(
-                code.s1("ent"),
-                "No entity 'ent' within library 'libname'",
-            )],
-        );
-    }
-
-    #[test]
-    fn error_on_architecture_of_package() {
-        let code = Code::new(
-            "
-package pkg is
-end package;
-
-architecture rtl of pkg is
-begin
-end architecture;
-",
-        );
-        let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
-
-        assert!(library.package_body(&code.symbol("pkg")).is_none());
-        check_diagnostics(
-            diagnostics,
-            vec![Diagnostic::error(
-                code.s("pkg", 2),
-                "No entity 'pkg' within library 'libname'",
-            )],
-        );
-    }
-
-    #[test]
-    fn error_on_package_body_of_entity() {
-        let code = Code::new(
-            "
-entity entname is
-end entity;
-
-package body entname is
-end package body;
-",
-        );
-        let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
-
-        assert!(library.architectures(&code.symbol("entname")).is_empty());
-        check_diagnostics(
-            diagnostics,
-            vec![Diagnostic::error(
-                code.s("entname", 2),
-                "No package 'entname' within library 'libname'",
-            )],
-        );
     }
 
     #[test]
@@ -862,8 +1352,8 @@ package pkg is new gpkg generic map (const => foo);
         );
         let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
-        assert_eq!(library.entities.len(), 1);
-        assert_eq!(library.packages.len(), 1);
+        assert_eq!(library.units.len(), 2);
+        assert_eq!(library.duplicates.len(), 4);
         check_diagnostics(
             diagnostics,
             vec![
@@ -888,73 +1378,6 @@ package pkg is new gpkg generic map (const => foo);
     }
 
     #[test]
-    fn error_on_secondary_before_primary_in_same_file() {
-        let code = Code::new(
-            "
-package body pkg is
-end package body;
-
-package pkg is
-end package;
-
-architecture rtl of entname is
-begin
-end architecture;
-
-entity entname is
-end entity;
-",
-        );
-        let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
-
-        // Should still be added as a secondary unit
-        assert!(library.package_body(&code.symbol("pkg")).is_some());
-
-        check_diagnostics(
-            diagnostics,
-            vec![
-                Diagnostic::error(
-                    code.s("pkg", 1),
-                    "Package body declared before package 'pkg'",
-                ),
-                Diagnostic::error(
-                    code.s("rtl", 1),
-                    "Architecture 'rtl' declared before entity 'entname'",
-                ),
-            ],
-        );
-    }
-
-    #[test]
-    fn no_error_on_secondary_before_primary_in_different_files() {
-        let builder = CodeBuilder::new();
-        let file1 = builder.code(
-            "
-package body pkg is
-end package body;
-",
-        );
-
-        let file2 = builder.code(
-            "
-package pkg is
-end package;
-",
-        );
-
-        let mut diagnostics = Vec::new();
-        let mut library = Library::new(builder.symbol("libname"));
-        library.add_design_file(file1.design_file());
-        library.add_design_file(file2.design_file());
-        library.refresh(&mut diagnostics);
-
-        // Should still be added as a secondary unit
-        assert!(library.package_body(&builder.symbol("pkg")).is_some());
-
-        check_no_diagnostics(&diagnostics);
-    }
-
-    #[test]
     fn error_on_duplicate_architecture() {
         let code = Code::new(
             "
@@ -972,7 +1395,8 @@ end architecture;
         );
         let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
-        assert_eq!(library.architectures(&code.symbol("ent")).len(), 1);
+        assert_eq!(library.units.len(), 2);
+        assert_eq!(library.duplicates.len(), 1);
         check_diagnostics(
             diagnostics,
             vec![Diagnostic::error(
@@ -981,133 +1405,6 @@ end architecture;
             )
             .related(code.s("rtl", 1), "Previously defined here")],
         );
-    }
-
-    #[test]
-    fn add_entity_architecture() {
-        let code = Code::new(
-            "
-entity ent is
-end entity;
-
-architecture arch0 of ent is
-begin
-end architecture;
-
-architecture arch1 of ent is
-begin
-end architecture;
-",
-        );
-        let library = new_library(&code, "libname");
-
-        let entity = code.between("entity", "entity;").entity();
-        let architecture0 = code
-            .between("architecture arch0 ", "architecture;")
-            .architecture();
-        let architecture1 = code
-            .between("architecture arch1 ", "architecture;")
-            .architecture();
-
-        let ent = library.entity(&code.symbol("ent")).unwrap();
-        let architectures = library.architectures(entity.name());
-
-        assert_eq!(ent.ident, ent.ident);
-        assert_eq!(ent.data.expect_read().unit(), &entity);
-
-        assert_eq!(architectures.len(), 2);
-        assert_eq!(
-            architectures
-                .get(architecture0.name())
-                .unwrap()
-                .data
-                .expect_read()
-                .unit(),
-            &architecture0
-        );
-        assert_eq!(
-            architectures
-                .get(architecture1.name())
-                .unwrap()
-                .data
-                .expect_read()
-                .unit(),
-            &architecture1
-        );
-    }
-
-    #[test]
-    fn add_package_and_package_body() {
-        let code = Code::new(
-            "
-package pkg is
-end package;
-
-package body pkg is
-end package body;
-",
-        );
-        let library = new_library(&code, "libname");
-
-        let package = code.between("package", "package;").package();
-        let body = code.between("package body", "package body;").package_body();
-
-        let primary = library.package(&code.symbol("pkg")).unwrap();
-        assert_eq!(primary.ident(), package.ident());
-        assert_eq!(primary.data.expect_read().unit(), &package);
-
-        let secondary = library.package_body(&code.symbol("pkg")).unwrap();
-        assert_eq!(secondary.ident(), body.ident());
-        assert_eq!(secondary.primary_ident(), body.primary_ident());
-        assert_eq!(secondary.data.expect_read().unit(), &body);
-    }
-
-    #[test]
-    fn add_context_clause() {
-        let code = Code::new(
-            "
-context ctx is
-end context;
-",
-        );
-        let library = new_library(&code, "libname");
-        let primary = library.context(&code.symbol("ctx")).unwrap();
-        assert_eq!(primary.data.expect_read().unit(), &code.context());
-    }
-
-    #[test]
-    fn add_configuration() {
-        let code = Code::new(
-            "
-entity ent is
-end entity;
-
-architecture rtl of ent is
-begin
-end architecture;
-
-configuration cfg of ent is
-  for rtl
-  end for;
-end configuration;
-",
-        );
-        let library = new_library(&code, "libname");
-
-        let config = code
-            .between("configuration cfg", "end configuration;")
-            .configuration();
-
-        assert_eq!(
-            library
-                .configuration(&code.symbol("cfg"))
-                .unwrap()
-                .data
-                .expect_read()
-                .unit(),
-            &config
-        );
-        assert_eq!(library.configurations.len(), 1);
     }
 
     #[test]
@@ -1130,10 +1427,6 @@ end configuration;
         );
         let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
-        let config = code
-            .between("configuration cfg", "end configuration;")
-            .configuration();
-
         check_diagnostics(
             diagnostics,
             vec![Diagnostic::error(
@@ -1142,28 +1435,7 @@ end configuration;
             )
             .related(code.s1("cfg"), "Previously defined here")],
         );
-
-        let got_cfg = library
-            .configuration(&code.symbol("cfg"))
-            .unwrap()
-            .data
-            .expect_read();
-        assert_eq!(got_cfg.unit(), &config);
-
-        assert_eq!(library.configurations.len(), 1);
-    }
-
-    #[test]
-    fn add_package_instance() {
-        let code = Code::new(
-            "
-package ipkg is new work.lib.gpkg generic map (const => 1);
-",
-        );
-        let library = new_library(&code, "libname");
-        let instance = code.package_instance();
-
-        let got_instance = library.package_instance(&code.symbol("ipkg")).unwrap();
-        assert_eq!(got_instance.data.expect_read().unit(), &instance);
+        assert_eq!(library.units.len(), 2);
+        assert_eq!(library.duplicates.len(), 1);
     }
 }

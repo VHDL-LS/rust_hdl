@@ -330,11 +330,11 @@ end entity;
         vec![
             Diagnostic::error(
                 code.s("missing_pkg", 1),
-                "No primary unit 'missing_pkg' within 'libname'",
+                "No primary unit 'missing_pkg' within library 'libname'",
             ),
             Diagnostic::error(
                 code.s("missing_pkg", 2),
-                "No primary unit 'missing_pkg' within 'libname'",
+                "No primary unit 'missing_pkg' within library 'libname'",
             ),
         ],
     )
@@ -407,9 +407,18 @@ end architecture;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s("pkg1", 1), "No primary unit 'pkg1' within 'libname'"),
-            Diagnostic::error(code.s("pkg1", 2), "No primary unit 'pkg1' within 'libname'"),
-            Diagnostic::error(code.s("pkg1", 3), "No primary unit 'pkg1' within 'libname'"),
+            Diagnostic::error(
+                code.s("pkg1", 1),
+                "No primary unit 'pkg1' within library 'libname'",
+            ),
+            Diagnostic::error(
+                code.s("pkg1", 2),
+                "No primary unit 'pkg1' within library 'libname'",
+            ),
+            Diagnostic::error(
+                code.s("pkg1", 3),
+                "No primary unit 'pkg1' within library 'libname'",
+            ),
         ],
     )
 }
@@ -437,7 +446,7 @@ end entity;
         diagnostics,
         vec![Diagnostic::error(
             code.s1("missing_ctx"),
-            "No primary unit 'missing_ctx' within 'libname'",
+            "No primary unit 'missing_ctx' within library 'libname'",
         )],
     )
 }

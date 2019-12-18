@@ -20,7 +20,6 @@ use crate::declarative_part::{
 };
 use crate::diagnostic::{Diagnostic, DiagnosticHandler, ParseResult};
 use crate::interface_declaration::parse_generic_interface_list;
-use crate::source::WithPos;
 
 /// Parse an entity declaration, token is initial entity token
 /// If a parse error occurs the stream is consumed until and end entity
@@ -51,6 +50,7 @@ pub fn parse_entity_declaration(
     }
     stream.expect_kind(SemiColon)?;
     Ok(EntityDeclaration {
+        context_clause: ContextClause::default(),
         ident,
         generic_clause,
         port_clause,
@@ -83,6 +83,7 @@ pub fn parse_architecture_body(
     stream.expect_kind(SemiColon)?;
 
     Ok(ArchitectureBody {
+        context_clause: ContextClause::default(),
         ident,
         entity_name: entity_name.into_ref(),
         decl,
@@ -117,6 +118,7 @@ pub fn parse_package_declaration(
     stream.pop_if_kind(Identifier)?;
     stream.expect_kind(SemiColon)?;
     Ok(PackageDeclaration {
+        context_clause: ContextClause::default(),
         ident,
         generic_clause,
         decl,
@@ -144,16 +146,14 @@ pub fn parse_package_body(
     stream.expect_kind(SemiColon)?;
 
     Ok(PackageBody {
+        context_clause: ContextClause::default(),
         ident: ident.into_ref(),
         decl,
     })
 }
 
-fn to_design_unit<T>(context_clause: &mut Vec<WithPos<ContextItem>>, unit: T) -> DesignUnit<T> {
-    DesignUnit {
-        context_clause: std::mem::replace(context_clause, Vec::new()),
-        unit,
-    }
+fn take_context_clause(context_clause: &mut ContextClause) -> ContextClause {
+    std::mem::replace(context_clause, ContextClause::default())
 }
 
 fn context_item_message(context_item: &ContextItem, message: impl AsRef<str>) -> String {
@@ -213,42 +213,50 @@ pub fn parse_design_file(
                 Err(diagnostic) => diagnostics.push(diagnostic),
             },
             Entity => match parse_entity_declaration(stream, diagnostics) {
-                Ok(entity) => {
-                    design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::EntityDeclaration(to_design_unit(&mut context_clause, entity))));
+                Ok(mut entity) => {
+                    entity.context_clause = take_context_clause(&mut context_clause);
+                    design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::EntityDeclaration(entity)));
                 }
                 Err(diagnostic) => diagnostics.push(diagnostic),
             },
 
             Architecture => match parse_architecture_body(stream, diagnostics) {
-                Ok(architecture) => {
-                    design_units.push(AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(to_design_unit(&mut context_clause, architecture))));
+                Ok(mut architecture) => {
+                    architecture.context_clause = take_context_clause(&mut context_clause);
+                    design_units.push(AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(architecture)));
                 }
                 Err(diagnostic) => diagnostics.push(diagnostic),
             },
 
             Configuration => match parse_configuration_declaration(stream, diagnostics) {
-                Ok(configuration) => {
-                    design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::Configuration(to_design_unit(&mut context_clause, configuration))));
+                Ok(mut configuration) => {
+                    configuration.context_clause = take_context_clause(&mut context_clause);
+                    design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::Configuration(configuration)));
                 }
                 Err(diagnostic) => diagnostics.push(diagnostic),
             },
             Package => {
                 if stream.next_kinds_are(&[Package, Body])? {
                     match parse_package_body(stream, diagnostics) {
-                        Ok(package_body) => {
-                            design_units.push(AnyDesignUnit::Secondary(AnySecondaryUnit::PackageBody(to_design_unit(&mut context_clause, package_body))));
+                        Ok(mut package_body) => {
+                            package_body.context_clause = take_context_clause(&mut context_clause);
+                            design_units.push(AnyDesignUnit::Secondary(AnySecondaryUnit::PackageBody(package_body)));
                         }
                         Err(diagnostic) => diagnostics.push(diagnostic),
                     };
                 } else if stream.next_kinds_are(&[Package, Identifier, Is, New])? {
                     match parse_package_instantiation(stream) {
-                        Ok(inst) => design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::PackageInstance(to_design_unit(&mut context_clause, inst)))),
+                        Ok(mut inst) => {
+                            inst.context_clause = take_context_clause(&mut context_clause);
+                            design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::PackageInstance(inst)))
+                        },
                         Err(diagnostic) => diagnostics.push(diagnostic),
                     }
                 } else {
                     match parse_package_declaration(stream, diagnostics) {
-                        Ok(package) => {
-                            design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::PackageDeclaration(to_design_unit(&mut context_clause, package))))
+                        Ok(mut package) => {
+                            package.context_clause = take_context_clause(&mut context_clause);
+                            design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::PackageDeclaration(package)))
                         }
                         Err(diagnostic) => diagnostics.push(diagnostic),
                     };
@@ -289,10 +297,9 @@ mod tests {
 
     fn to_single_entity(design_file: DesignFile) -> EntityDeclaration {
         match design_file.design_units.as_slice() {
-            &[AnyDesignUnit::Primary(AnyPrimaryUnit::EntityDeclaration(DesignUnit {
-                unit: ref entity,
-                ..
-            }))] => entity.to_owned(),
+            &[AnyDesignUnit::Primary(AnyPrimaryUnit::EntityDeclaration(ref entity))] => {
+                entity.to_owned()
+            }
             _ => panic!("Expected single entity {:?}", design_file),
         }
     }
@@ -305,15 +312,13 @@ mod tests {
 
     /// An simple entity with only a name
     fn simple_entity(ident: Ident) -> AnyDesignUnit {
-        AnyDesignUnit::Primary(AnyPrimaryUnit::EntityDeclaration(DesignUnit {
-            context_clause: vec![],
-            unit: EntityDeclaration {
-                ident,
-                generic_clause: None,
-                port_clause: None,
-                decl: vec![],
-                statements: vec![],
-            },
+        AnyDesignUnit::Primary(AnyPrimaryUnit::EntityDeclaration(EntityDeclaration {
+            context_clause: ContextClause::default(),
+            ident,
+            generic_clause: None,
+            port_clause: None,
+            decl: vec![],
+            statements: vec![],
         }))
     }
 
@@ -354,6 +359,7 @@ end entity;
         assert_eq!(
             to_single_entity(design_file),
             EntityDeclaration {
+                context_clause: ContextClause::default(),
                 ident: code.s1("myent").ident(),
                 generic_clause: Some(Vec::new()),
                 port_clause: None,
@@ -377,6 +383,7 @@ end entity;
         assert_eq!(
             to_single_entity(design_file),
             EntityDeclaration {
+                context_clause: ContextClause::default(),
                 ident: Ident {
                     item: code.symbol("myent"),
                     pos: code.s1("myent").pos()
@@ -401,6 +408,7 @@ end entity;
         assert_eq!(
             to_single_entity(design_file),
             EntityDeclaration {
+                context_clause: ContextClause::default(),
                 ident: code.s1("myent").ident(),
                 generic_clause: None,
                 port_clause: Some(vec![]),
@@ -422,6 +430,7 @@ end entity;
         assert_eq!(
             to_single_entity(design_file),
             EntityDeclaration {
+                context_clause: ContextClause::default(),
                 ident: code.s1("myent").ident(),
                 generic_clause: None,
                 port_clause: None,
@@ -443,6 +452,7 @@ end entity;
         assert_eq!(
             to_single_entity(design_file),
             EntityDeclaration {
+                context_clause: ContextClause::default(),
                 ident: code.s1("myent").ident(),
                 generic_clause: None,
                 port_clause: None,
@@ -465,6 +475,7 @@ end entity;
         assert_eq!(
             to_single_entity(design_file),
             EntityDeclaration {
+                context_clause: ContextClause::default(),
                 ident: code.s1("myent").ident(),
                 generic_clause: None,
                 port_clause: None,
@@ -504,14 +515,12 @@ end;
 
     // An simple entity with only a name
     fn simple_architecture(ident: Ident, entity_name: Ident) -> AnyDesignUnit {
-        AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(DesignUnit {
-            context_clause: vec![],
-            unit: ArchitectureBody {
-                ident,
-                entity_name: entity_name.into_ref(),
-                decl: Vec::new(),
-                statements: vec![],
-            },
+        AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(ArchitectureBody {
+            context_clause: ContextClause::default(),
+            ident,
+            entity_name: entity_name.into_ref(),
+            decl: Vec::new(),
+            statements: vec![],
         }))
     }
 
@@ -580,6 +589,7 @@ end package;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_package_declaration),
             PackageDeclaration {
+                context_clause: ContextClause::default(),
                 ident: code.s1("pkg_name").ident(),
                 generic_clause: None,
                 decl: vec![],
@@ -600,6 +610,7 @@ end package;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_package_declaration),
             PackageDeclaration {
+                context_clause: ContextClause::default(),
                 ident: code.s1("pkg_name").ident(),
                 generic_clause: None,
                 decl: code
@@ -627,6 +638,7 @@ end package;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_package_declaration),
             PackageDeclaration {
+                context_clause: ContextClause::default(),
                 ident: code.s1("pkg_name").ident(),
                 generic_clause: Some(vec![
                     code.s1("type foo").generic(),
@@ -652,7 +664,7 @@ end entity;
             design_file,
             DesignFile {
                 design_units: vec![AnyDesignUnit::Primary(AnyPrimaryUnit::EntityDeclaration(
-                    DesignUnit {
+                    EntityDeclaration {
                         context_clause: vec![
                             code.s1("library lib;")
                                 .library_clause()
@@ -661,13 +673,11 @@ end entity;
                                 .use_clause()
                                 .map_into(ContextItem::Use),
                         ],
-                        unit: EntityDeclaration {
-                            ident: code.s1("myent").ident(),
-                            generic_clause: None,
-                            port_clause: None,
-                            decl: vec![],
-                            statements: vec![],
-                        }
+                        ident: code.s1("myent").ident(),
+                        generic_clause: None,
+                        port_clause: None,
+                        decl: vec![],
+                        statements: vec![],
                     }
                 ))]
             }

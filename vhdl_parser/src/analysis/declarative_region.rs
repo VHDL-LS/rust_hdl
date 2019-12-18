@@ -3,7 +3,7 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
-use super::library::Library;
+use super::library::LibraryUnitId;
 use crate::ast::*;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::source::{SrcPos, WithPos};
@@ -27,11 +27,12 @@ pub enum AnyDeclaration {
     ProtectedType(Arc<RwLock<DeclarativeRegion<'static>>>),
     ProtectedTypeBody,
     Library(Symbol),
-    Package(Symbol, Symbol),
-    Entity(Symbol, Symbol),
-    UninstPackage(Symbol, Symbol),
-    Context(Symbol, Symbol),
-    PackageInstance(Symbol, Symbol),
+    Entity(LibraryUnitId),
+    Configuration(LibraryUnitId),
+    Package(LibraryUnitId),
+    UninstPackage(LibraryUnitId),
+    PackageInstance(LibraryUnitId),
+    Context(LibraryUnitId),
     LocalPackageInstance(Symbol, Arc<DeclarativeRegion<'static>>),
 }
 
@@ -598,14 +599,14 @@ impl<'a> DeclarativeRegion<'a> {
     pub fn make_library_visible(
         &mut self,
         designator: impl Into<Designator>,
-        library: &Library,
+        library_name: &Symbol,
         decl_pos: Option<SrcPos>,
     ) {
         let decl = VisibleDeclaration {
             designator: designator.into(),
             data: vec![AnyDeclarationData {
                 decl_pos: decl_pos.clone(),
-                decl: AnyDeclaration::Library(library.name.clone()),
+                decl: AnyDeclaration::Library(library_name.clone()),
             }],
         };
         self.visible.insert(decl.designator.clone(), decl);

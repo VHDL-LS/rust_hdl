@@ -937,69 +937,67 @@ impl<T> Search<T> for WithPos<ContextItem> {
     }
 }
 
-impl<T> Search<T> for EntityUnit {
+impl<T> Search<T> for EntityDeclaration {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         searcher.search_source(self.source()).or_else(|| {
             return_if!(self.context_clause.search(searcher));
             return_if!(searcher.search_decl_pos(self.ident().pos()).or_not_found());
-            return_if!(self.unit.generic_clause.search(searcher));
-            return_if!(self.unit.port_clause.search(searcher));
-            return_if!(self.unit.decl.search(searcher));
-            self.unit.statements.search(searcher)
+            return_if!(self.generic_clause.search(searcher));
+            return_if!(self.port_clause.search(searcher));
+            return_if!(self.decl.search(searcher));
+            self.statements.search(searcher)
         })
     }
 }
 
-impl<T> Search<T> for ArchitectureUnit {
+impl<T> Search<T> for ArchitectureBody {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         searcher.search_source(self.source()).or_else(|| {
             return_if!(self.context_clause.search(searcher));
-            return_if!(searcher
-                .search_ident_ref(&self.unit.entity_name)
-                .or_not_found());
-            return_if!(self.unit.decl.search(searcher));
-            self.unit.statements.search(searcher)
+            return_if!(searcher.search_ident_ref(&self.entity_name).or_not_found());
+            return_if!(self.decl.search(searcher));
+            self.statements.search(searcher)
         })
     }
 }
 
-impl<T> Search<T> for PackageUnit {
-    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
-        searcher.search_source(self.source()).or_else(|| {
-            return_if!(self.context_clause.search(searcher));
-            return_if!(searcher.search_decl_pos(self.ident().pos()).or_not_found());
-            return_if!(self.unit.generic_clause.search(searcher));
-            self.unit.decl.search(searcher)
-        })
-    }
-}
-
-impl<T> Search<T> for PackageBodyUnit {
-    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
-        searcher.search_source(self.source()).or_else(|| {
-            return_if!(searcher.search_ident_ref(&self.unit.ident).or_not_found());
-            return_if!(self.context_clause.search(searcher));
-            self.unit.decl.search(searcher)
-        })
-    }
-}
-
-impl<T> Search<T> for PackageInstanceUnit {
+impl<T> Search<T> for PackageDeclaration {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         searcher.search_source(self.source()).or_else(|| {
             return_if!(self.context_clause.search(searcher));
             return_if!(searcher.search_decl_pos(self.ident().pos()).or_not_found());
-            self.unit.package_name.search(searcher)
+            return_if!(self.generic_clause.search(searcher));
+            self.decl.search(searcher)
         })
     }
 }
 
-impl<T> Search<T> for ConfigurationUnit {
+impl<T> Search<T> for PackageBody {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        searcher.search_source(self.source()).or_else(|| {
+            return_if!(searcher.search_ident_ref(&self.ident).or_not_found());
+            return_if!(self.context_clause.search(searcher));
+            self.decl.search(searcher)
+        })
+    }
+}
+
+impl<T> Search<T> for PackageInstantiation {
+    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+        searcher.search_source(self.source()).or_else(|| {
+            return_if!(self.context_clause.search(searcher));
+            return_if!(searcher.search_decl_pos(self.ident().pos()).or_not_found());
+            self.package_name.search(searcher)
+        })
+    }
+}
+
+impl<T> Search<T> for ConfigurationDeclaration {
     fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
         searcher.search_source(self.source()).or_else(|| {
             return_if!(searcher.search_decl_pos(self.ident().pos()).or_not_found());
             return_if!(self.context_clause.search(searcher));
-            self.unit.entity_name.search(searcher)
+            self.entity_name.search(searcher)
         })
     }
 }

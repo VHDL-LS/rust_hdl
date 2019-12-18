@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use self::fnv::FnvHashMap;
-use crate::analysis::{Analyzer, DesignRoot};
+use crate::analysis::DesignRoot;
 use crate::ast::DesignFile;
 use crate::config::Config;
 use crate::diagnostic::Diagnostic;
@@ -27,11 +27,12 @@ pub struct Project {
 
 impl Project {
     pub fn new() -> Project {
+        let parser = VHDLParser::new();
         Project {
-            parser: VHDLParser::new(),
-            root: DesignRoot::new(),
+            root: DesignRoot::new(parser.symtab.clone()),
             files: FnvHashMap::default(),
             empty_libraries: Vec::new(),
+            parser,
         }
     }
 
@@ -110,9 +111,7 @@ impl Project {
         let mut source_file = {
             if let Some(source_file) = self.files.remove(source.file_name()) {
                 for library_name in source_file.library_names.iter() {
-                    self.root
-                        .ensure_library(library_name.clone())
-                        .remove_source(source);
+                    self.root.remove_source(library_name.clone(), source);
                 }
                 source_file
             } else {
@@ -160,9 +159,8 @@ impl Project {
             let mut design_files = multiply(design_file, source_file.library_names.len());
 
             for library_name in source_file.library_names.iter() {
-                let library = self.root.ensure_library(library_name.clone());
                 if let Some(design_file) = design_files.pop().unwrap() {
-                    library.add_design_file(design_file);
+                    self.root.add_design_file(library_name.clone(), design_file);
                 }
             }
 
@@ -175,11 +173,7 @@ impl Project {
             self.root.ensure_library(library_name.clone());
         }
 
-        for library in self.root.iter_libraries_mut() {
-            library.refresh(&mut diagnostics);
-        }
-
-        Analyzer::new(&mut self.root, &self.parser.symtab.clone()).analyze(&mut diagnostics);
+        self.root.analyze(&mut diagnostics);
         diagnostics
     }
 

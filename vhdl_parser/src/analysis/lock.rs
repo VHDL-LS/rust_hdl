@@ -74,7 +74,6 @@ impl<T> AnalysisLock<T> {
     }
 
     /// Expect non-blocking read of data
-    #[cfg(test)]
     pub fn expect_read(&self) -> ReadGuard<T> {
         ReadGuard {
             guard: self.data.try_read().expect("Expect non-blocking read"),

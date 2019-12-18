@@ -131,7 +131,7 @@ impl Eq for Source {}
 
 impl Hash for Source {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
-        Arc::into_raw(self.source.clone()).hash(hasher);
+        hasher.write_u64(self.source.file_id.hash)
     }
 }
 

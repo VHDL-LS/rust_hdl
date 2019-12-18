@@ -7,8 +7,8 @@
 use crate::ast::{
     to_simple_name, BindingIndication, BlockConfiguration, ComponentConfiguration,
     ComponentSpecification, ConfigurationDeclaration, ConfigurationDeclarativeItem,
-    ConfigurationItem, ConfigurationSpecification, EntityAspect, InstantiationList, Name,
-    VUnitBindingIndication,
+    ConfigurationItem, ConfigurationSpecification, ContextClause, EntityAspect, InstantiationList,
+    Name, VUnitBindingIndication,
 };
 use crate::common::error_on_end_identifier_mismatch;
 use crate::concurrent_statement::parse_generic_and_port_map;
@@ -309,6 +309,7 @@ pub fn parse_configuration_declaration(
     }
     stream.expect_kind(SemiColon)?;
     Ok(ConfigurationDeclaration {
+        context_clause: ContextClause::default(),
         ident,
         entity_name,
         decl,
@@ -371,6 +372,7 @@ end;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
+                context_clause: ContextClause::default(),
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
@@ -397,6 +399,7 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
+                context_clause: ContextClause::default(),
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
@@ -424,6 +427,7 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
+                context_clause: ContextClause::default(),
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![
@@ -455,6 +459,7 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
+                context_clause: ContextClause::default(),
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![ConfigurationDeclarativeItem::Use(
@@ -485,6 +490,7 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
+                context_clause: ContextClause::default(),
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
@@ -515,6 +521,7 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
+                context_clause: ContextClause::default(),
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
@@ -556,6 +563,7 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
+                context_clause: ContextClause::default(),
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
@@ -602,6 +610,7 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
+                context_clause: ContextClause::default(),
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
@@ -654,6 +663,7 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
+                context_clause: ContextClause::default(),
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
@@ -705,6 +715,7 @@ end configuration cfg;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
+                context_clause: ContextClause::default(),
                 ident: code.s1("cfg").ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],

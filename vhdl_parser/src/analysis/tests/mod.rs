@@ -9,6 +9,7 @@ mod context_clause;
 mod deferred_constant;
 mod homographs;
 mod incomplete_type;
+mod incremental_analysis;
 mod package_instance;
 mod protected_type;
 mod resolves_design_units;
