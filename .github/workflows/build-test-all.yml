@@ -3,7 +3,7 @@ name: Build & test all configs
 on: [push, pull_request]
 
 jobs:
-  build:
+  build-linux:
 
     runs-on: ubuntu-latest
 
@@ -13,17 +13,50 @@ jobs:
       run: cargo install cross
     - name: Build & test vhdl_parser Linux
       run: |
-        cross build --package vhdl_parser --target x86_64-unknown-linux-gnu
-        cross test --package vhdl_parser --target x86_64-unknown-linux-gnu
-    - name: Build & test vhdl_parser Windows
-      run: |
-        cross build --package vhdl_parser --target x86_64-pc-windows-gnu
-        cross test --package vhdl_parser --target x86_64-pc-windows-gnu
+        cross build --package vhdl_parser --release --target x86_64-unknown-linux-gnu
+        cross test --package vhdl_parser --release --target x86_64-unknown-linux-gnu
+    - name: Display directory tree
+      run: ls -R
+    - name: Upload vhdl_parser Linux
+      uses: actions/upload-artifact@v1
+      with:
+        name: vhdl_parser-x86_64-unknown-linux-gnu
+        path: target/x86_64-unknown-linux-gnu/release/vhdl_parser
     - name: Build & test vhdl_ls Linux
       run: |
-        cross build --package vhdl_ls --target x86_64-unknown-linux-gnu
-        cross test --package vhdl_ls --target x86_64-unknown-linux-gnu
+        cross build --package vhdl_ls --release --target x86_64-unknown-linux-gnu
+        cross test --package vhdl_ls --release --target x86_64-unknown-linux-gnu
+    - name: Upload vhdl_ls Linux
+      uses: actions/upload-artifact@v1
+      with:
+        name: vhdl_ls-x86_64-unknown-linux-gnu
+        path: target/x86_64-unknown-linux-gnu/release/vhdl_ls
+    
+  build-windows:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install cross tool
+      run: cargo install cross
+    - name: Build & test vhdl_parser Windows
+      run: |
+        cross build --package vhdl_parser --release --target x86_64-pc-windows-gnu
+        cross test --package vhdl_parser --release --target x86_64-pc-windows-gnu
+    - name: Display directory tree
+      run: ls -R
+    - name: Upload vhdl_parser Windows
+      uses: actions/upload-artifact@v1
+      with:
+        name: vhdl_parser-x86_64-pc-windows-gnu
+        path: target/x86_64-pc-windows-gnu/release/vhdl_parser.exe
     - name: Build & test vhdl_ls Windows
       run: |
-        cross build --package vhdl_ls --target x86_64-pc-windows-gnu
-        cross test --package vhdl_ls --target x86_64-pc-windows-gnu
+        cross build --package vhdl_ls --release --target x86_64-pc-windows-gnu
+        cross test --package vhdl_ls --release --target x86_64-pc-windows-gnu
+    - name: Upload vhdl_ls Windows
+      uses: actions/upload-artifact@v1
+      with:
+        name: vhdl_ls-x86_64-pc-windows-gnu
+        path: target/x86_64-pc-windows-gnu/release/vhdl_ls.exe
