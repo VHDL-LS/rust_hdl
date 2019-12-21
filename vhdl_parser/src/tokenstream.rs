@@ -186,11 +186,7 @@ mod tests {
     fn new(code: &str) -> (Code, Vec<Token>, TokenStream) {
         let code = Code::new(code);
         let tokens = code.tokenize();
-        let tokenizer = Tokenizer::new(
-            code.symtab.clone(),
-            code.source().clone(),
-            code.source().contents().unwrap(),
-        );
+        let tokenizer = Tokenizer::new(code.symtab.clone(), code.source().clone());
         let stream = TokenStream::new(tokenizer);
         (code, tokens, stream)
     }

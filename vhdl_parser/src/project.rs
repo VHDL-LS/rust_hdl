@@ -322,8 +322,9 @@ use_lib.files = ['use_file.vhd']
         check_no_diagnostics(&project.analyse());
     }
 
-    fn update(project: &mut Project, source: &Source, contents: &str) {
+    fn update(project: &mut Project, source: &mut Source, contents: &str) {
         std::fs::write(&std::path::Path::new(source.file_name()), contents).unwrap();
+        *source = Source::from_file(source.file_name()).unwrap();
         project.update_source(source).unwrap();
     }
 
@@ -332,10 +333,8 @@ use_lib.files = ['use_file.vhd']
     fn test_re_analyze_after_update() {
         let root = tempfile::tempdir().unwrap();
         let path1 = root.path().join("file1.vhd");
-        let source1 = Source::from_file(path1.to_str().unwrap());
 
         let path2 = root.path().join("file2.vhd");
-        let source2 = Source::from_file(path2.to_str().unwrap());
 
         std::fs::write(
             &path1,
@@ -345,6 +344,7 @@ end package;
         ",
         )
         .unwrap();
+        let mut source1 = Source::from_file(path1.to_str().unwrap()).unwrap();
 
         std::fs::write(
             &path2,
@@ -357,6 +357,7 @@ end package;
         ",
         )
         .unwrap();
+        let mut source2 = Source::from_file(path2.to_str().unwrap()).unwrap();
 
         let config_str = "
 [libraries]
@@ -373,7 +374,7 @@ lib2.files = ['file2.vhd']
         // Add syntax error
         update(
             &mut project,
-            &source1,
+            &mut source1,
             "
 package is
         ",
@@ -387,7 +388,7 @@ package is
         // Make it good again
         update(
             &mut project,
-            &source1,
+            &mut source1,
             "
 package pkg is
 end package;
@@ -398,7 +399,7 @@ end package;
         // Add analysis error
         update(
             &mut project,
-            &source2,
+            &mut source2,
             "
 package pkg is
 end package;
@@ -414,7 +415,7 @@ end package;
         // Make it good again
         update(
             &mut project,
-            &source2,
+            &mut source2,
             "
 package pkg is
 end package;

@@ -8,7 +8,6 @@ use crate::ast;
 use crate::ast::*;
 use crate::concurrent_statement::parse_labeled_concurrent_statement;
 use crate::context::{parse_library_clause, parse_use_clause};
-use crate::cursor::BytePos;
 use crate::declarative_part::parse_declarative_part_leave_end_token;
 use crate::design_unit::parse_design_file;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler, ParseResult};
@@ -18,7 +17,7 @@ use crate::latin_1::Latin1String;
 use crate::names::{parse_association_list, parse_designator, parse_name, parse_selected_name};
 use crate::range::{parse_discrete_range, parse_range};
 use crate::sequential_statement::parse_sequential_statement;
-use crate::source::{Range, Source, SrcPos, WithPos};
+use crate::source::{Position, Range, Source, SrcPos, WithPos};
 use crate::subprogram::{parse_signature, parse_subprogram_declaration_no_semi};
 use crate::subtype_indication::parse_subtype_indication;
 use crate::symbol_table::{Symbol, SymbolTable};
@@ -32,29 +31,6 @@ use std::fmt::Debug;
 use std::hash::Hasher;
 use std::sync::Arc;
 
-#[derive(Clone, Copy)]
-struct ByteRange {
-    start: BytePos,
-    end: BytePos,
-}
-
-impl ByteRange {
-    fn new(start: BytePos, end: BytePos) -> ByteRange {
-        ByteRange { start, end }
-    }
-
-    fn to_range(self) -> Range {
-        Range {
-            start: self.start.to_position(),
-            end: self.end.to_position(),
-        }
-    }
-
-    fn length(&self) -> usize {
-        self.end.byte_offset() - self.start.byte_offset()
-    }
-}
-
 pub struct CodeBuilder {
     pub symtab: Arc<SymbolTable>,
 }
@@ -67,18 +43,13 @@ impl CodeBuilder {
     }
 
     pub fn code_from_source(&self, source: Source) -> Code {
-        let contents = source.contents().unwrap();
+        let contents = source.contents();
 
-        let start = BytePos::new();
-        let end = BytePos::end_pos(&contents.bytes);
-        let byte_range = ByteRange::new(start, end);
-
-        let pos = SrcPos::new(source.clone(), byte_range.clone().to_range());
+        let pos = SrcPos::new(source.clone(), contents.range());
 
         let code = Code {
             symtab: self.symtab.clone(),
             pos,
-            byte_range,
         };
 
         // Ensure symbol table is populated
@@ -106,7 +77,6 @@ impl CodeBuilder {
 pub struct Code {
     pub symtab: Arc<SymbolTable>,
     pos: SrcPos,
-    byte_range: ByteRange,
 }
 
 impl Code {
@@ -118,11 +88,10 @@ impl Code {
         CodeBuilder::new().code_with_file_name(file_name, code)
     }
 
-    fn in_range(&self, byte_range: ByteRange) -> Code {
+    fn in_range(&self, range: Range) -> Code {
         Code {
             symtab: self.symtab.clone(),
-            pos: SrcPos::new(self.pos.source.clone(), byte_range.to_range()),
-            byte_range: byte_range,
+            pos: SrcPos::new(self.pos.source.clone(), range),
         }
     }
 
@@ -130,7 +99,7 @@ impl Code {
     pub fn s(&self, substr: &str, occurence: usize) -> Code {
         self.in_range(substr_range(
             &self.pos.source,
-            &self.byte_range,
+            self.pos.range(),
             substr,
             occurence,
         ))
@@ -161,16 +130,8 @@ impl Code {
         self.pos.end()
     }
 
-    pub fn length(&self) -> usize {
-        self.byte_range.length()
-    }
-
     pub fn source(&self) -> &Source {
         &self.pos.source
-    }
-
-    pub fn latin1(&self) -> Arc<Latin1String> {
-        self.source().contents().unwrap()
     }
 
     /// Helper method to test tokenization functions
@@ -178,8 +139,7 @@ impl Code {
         let mut tokens = Vec::new();
         let final_comments: Vec<Comment>;
         {
-            let code = self.pos.source.contents().unwrap();
-            let mut tokenizer = Tokenizer::new(self.symtab.clone(), self.pos.source.clone(), code);
+            let mut tokenizer = Tokenizer::new(self.symtab.clone(), self.pos.source.clone());
             loop {
                 let token = tokenizer.pop();
 
@@ -208,12 +168,13 @@ impl Code {
     where
         F: FnOnce(&mut TokenStream) -> R,
     {
-        let latin1 = self.pos.source.contents().unwrap();
-        let latin1 = Latin1String::new(&latin1.bytes[..self.byte_range.end.byte_offset()]);
+        let contents = self.pos.source.contents();
         let tokenizer = Tokenizer::new(
             self.symtab.clone(),
-            self.pos.source.clone(),
-            Arc::new(latin1),
+            Source::from_contents(
+                self.pos.file_name(),
+                contents.crop(Range::new(Position::new(), self.pos.end())),
+            ),
         );
         let mut stream = TokenStream::new(tokenizer);
         forward(&mut stream, self.pos.start());
@@ -237,11 +198,7 @@ impl Code {
     where
         F: FnOnce(&mut TokenStream) -> R,
     {
-        let tokenizer = Tokenizer::new(
-            self.symtab.clone(),
-            self.pos.source.clone(),
-            self.pos.source.contents().unwrap(),
-        );
+        let tokenizer = Tokenizer::new(self.symtab.clone(), self.pos.source.clone());
         let mut stream = TokenStream::new(tokenizer);
         parse_fun(&mut stream)
     }
@@ -468,37 +425,33 @@ impl Code {
     }
 }
 
-fn substr_range(source: &Source, range: &ByteRange, substr: &str, occurence: usize) -> ByteRange {
+fn substr_range(source: &Source, range: Range, substr: &str, occurence: usize) -> Range {
     let substr = Latin1String::from_utf8_unchecked(substr);
-    let contents = source.contents().unwrap();
+    let mut reader = source.contents().reader();
     let mut count = occurence;
 
-    if range.length() < substr.len() {
-        let code =
-            Latin1String::new(&contents.bytes[range.start.byte_offset()..range.end.byte_offset()]);
-        panic!(
-            "Substring {:?} is longer than code {:?}",
-            substr,
-            &code.to_string()
-        )
-    }
+    reader.set_pos(range.start);
 
-    let start = range.start.byte_offset();
-    let end = range.end.byte_offset() - substr.len() + 1;
-    for i in start..end {
-        if &contents.bytes[i..i + substr.len()] == substr.bytes.as_slice() {
+    while reader.pos() < range.end {
+        if reader.matches(&substr) {
             count -= 1;
             if count == 0 {
-                return ByteRange::new(
-                    BytePos::at_byte_offset(&contents.bytes, i),
-                    BytePos::at_byte_offset(&contents.bytes, i + substr.len()),
-                );
+                let start = reader.pos();
+                for _ in 0..substr.len() {
+                    reader.pop();
+                }
+                if reader.pos() <= range.end {
+                    return Range::new(start, reader.pos());
+                }
             }
         }
+
+        reader.pop();
     }
+
     panic!(
-        "Could not find occurence {} of substring {:?} in {:?}",
-        occurence, substr, contents
+        "Could not find occurence {} of substring {:?}",
+        occurence, substr
     );
 }
 
