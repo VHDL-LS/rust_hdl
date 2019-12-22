@@ -425,7 +425,7 @@ impl Code {
 
 fn substr_range(source: &Source, range: Range, substr: &str, occurence: usize) -> Range {
     let substr = Latin1String::from_utf8_unchecked(substr);
-    let mut reader = source.contents().reader();
+    let mut reader = source.reader();
     let mut count = occurence;
 
     reader.set_pos(range.start);

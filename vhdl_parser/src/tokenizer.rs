@@ -1229,7 +1229,7 @@ impl<'a> Tokenizer<'a> {
 
         let range_sym = symtab.insert(&Latin1String::new(b"range"));
         let reverse_range_sym = symtab.insert(&Latin1String::new(b"reverse_range"));
-        let reader = source.contents().reader();
+        let reader = source.reader();
 
         Tokenizer {
             keywords,

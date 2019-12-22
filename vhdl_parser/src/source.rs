@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::contents::Contents;
+use crate::contents::{ContentReader, Contents};
 use crate::diagnostic::{Diagnostic, ParseResult};
 use crate::latin_1::{Latin1String, Utf8ToLatin1Error};
 use pad;
@@ -15,7 +15,7 @@ use std::fmt;
 use std::fmt::Write;
 use std::hash::{Hash, Hasher};
 use std::io;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock, RwLockReadGuard};
 
 struct FileId {
     name: String,
@@ -49,7 +49,7 @@ fn hash(value: &str) -> u64 {
 
 struct UniqueSource {
     file_id: FileId,
-    contents: Contents,
+    contents: RwLock<Contents>,
 }
 
 impl fmt::Debug for UniqueSource {
@@ -63,7 +63,7 @@ impl UniqueSource {
     fn inline(file_name: impl Into<String>, contents: Latin1String) -> Self {
         Self {
             file_id: FileId::new(file_name),
-            contents: Contents::from_latin1(&contents),
+            contents: RwLock::new(Contents::from_latin1(&contents)),
         }
     }
 
@@ -72,7 +72,7 @@ impl UniqueSource {
         let contents = Contents::from_latin1_file(&file_name)?;
         Ok(Self {
             file_id: FileId::new(file_name),
-            contents: contents,
+            contents: RwLock::new(contents),
         })
     }
 
@@ -81,12 +81,12 @@ impl UniqueSource {
         let file_name = file_name.into();
         Self {
             file_id: FileId::new(file_name),
-            contents,
+            contents: RwLock::new(contents),
         }
     }
 
-    fn contents(&self) -> &Contents {
-        &self.contents
+    fn contents(&self) -> RwLockReadGuard<Contents> {
+        self.contents.read().unwrap()
     }
 
     fn file_name(&self) -> &str {
@@ -141,8 +141,12 @@ impl Source {
         }
     }
 
-    pub fn contents(&self) -> &Contents {
+    pub fn contents(&self) -> RwLockReadGuard<Contents> {
         self.source.contents()
+    }
+
+    pub fn reader(&self) -> ContentReader {
+        ContentReader::new(self.source.contents())
     }
 
     pub fn file_name(&self) -> &str {
