@@ -48,6 +48,10 @@ impl Latin1String {
         self.bytes.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.bytes.is_empty()
+    }
+
     pub fn lowercase(chr: u8) -> u8 {
         match chr {
             215 => chr,

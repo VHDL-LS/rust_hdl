@@ -159,6 +159,11 @@ impl Source {
             range: Range { start, end },
         }
     }
+
+    pub fn change(&mut self, range: &Range, content: &Latin1String) {
+        let mut contents = self.source.contents.write().unwrap();
+        contents.change(range, content);
+    }
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash, Debug)]
@@ -173,6 +178,10 @@ impl Position {
             line: 0,
             character: 0,
         }
+    }
+
+    pub fn new(line: u64, character: u64) -> Position {
+        Position { line, character }
     }
 
     pub fn next_char(&self) -> Position {
