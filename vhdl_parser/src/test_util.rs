@@ -139,7 +139,7 @@ impl Code {
         let mut tokens = Vec::new();
         let final_comments: Vec<Comment>;
         {
-            let mut tokenizer = Tokenizer::new(self.symtab.clone(), self.pos.source.clone());
+            let mut tokenizer = Tokenizer::new(self.symtab.clone(), &self.pos.source);
             loop {
                 let token = tokenizer.pop();
 
@@ -169,13 +169,11 @@ impl Code {
         F: FnOnce(&mut TokenStream) -> R,
     {
         let contents = self.pos.source.contents();
-        let tokenizer = Tokenizer::new(
-            self.symtab.clone(),
-            Source::from_contents(
-                self.pos.file_name(),
-                contents.crop(Range::new(Position::new(), self.pos.end())),
-            ),
+        let source = Source::from_contents(
+            self.pos.file_name(),
+            contents.crop(Range::new(Position::new(), self.pos.end())),
         );
+        let tokenizer = Tokenizer::new(self.symtab.clone(), &source);
         let mut stream = TokenStream::new(tokenizer);
         forward(&mut stream, self.pos.start());
         parse_fun(&mut stream)
@@ -198,7 +196,7 @@ impl Code {
     where
         F: FnOnce(&mut TokenStream) -> R,
     {
-        let tokenizer = Tokenizer::new(self.symtab.clone(), self.pos.source.clone());
+        let tokenizer = Tokenizer::new(self.symtab.clone(), &self.pos.source);
         let mut stream = TokenStream::new(tokenizer);
         parse_fun(&mut stream)
     }

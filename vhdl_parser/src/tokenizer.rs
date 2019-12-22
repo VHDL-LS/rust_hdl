@@ -1109,20 +1109,20 @@ fn get_trailing_comment(buffer: &mut Latin1String, reader: &mut ContentReader) -
     None
 }
 
-pub struct Tokenizer {
+pub struct Tokenizer<'a> {
     keywords: FnvHashMap<&'static [u8], Kind>,
     symtab: Arc<SymbolTable>,
     buffer: Latin1String,
     state: TokenState,
-    source: Source,
-    reader: ContentReader,
+    source: &'a Source,
+    reader: ContentReader<'a>,
     final_comments: Option<Vec<Comment>>,
     pub range_sym: Symbol,
     pub reverse_range_sym: Symbol,
 }
 
-impl Tokenizer {
-    pub fn new(symtab: Arc<SymbolTable>, source: Source) -> Tokenizer {
+impl<'a> Tokenizer<'a> {
+    pub fn new(symtab: Arc<SymbolTable>, source: &'a Source) -> Tokenizer<'a> {
         let keywords = [
             ("architecture", Architecture),
             ("entity", Entity),

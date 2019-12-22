@@ -60,7 +60,7 @@ impl fmt::Debug for UniqueSource {
 }
 
 impl UniqueSource {
-    fn inline(file_name: impl Into<String>, contents: Arc<Latin1String>) -> Self {
+    fn inline(file_name: impl Into<String>, contents: Latin1String) -> Self {
         Self {
             file_id: FileId::new(file_name),
             contents: Contents::from_latin1(&contents),
@@ -114,7 +114,7 @@ impl Hash for Source {
 }
 
 impl Source {
-    pub fn inline(file_name: impl Into<String>, contents: Arc<Latin1String>) -> Source {
+    pub fn inline(file_name: impl Into<String>, contents: Latin1String) -> Source {
         Source {
             source: Arc::new(UniqueSource::inline(file_name, contents)),
         }
@@ -131,7 +131,7 @@ impl Source {
         contents: &str,
     ) -> Result<Self, Utf8ToLatin1Error> {
         let latin1 = Latin1String::from_utf8(contents)?;
-        Ok(Self::inline(file_name, Arc::new(latin1)))
+        Ok(Self::inline(file_name, latin1))
     }
 
     #[cfg(test)]
@@ -141,8 +141,8 @@ impl Source {
         }
     }
 
-    pub fn contents(&self) -> Contents {
-        self.source.contents().clone()
+    pub fn contents(&self) -> &Contents {
+        self.source.contents()
     }
 
     pub fn file_name(&self) -> &str {

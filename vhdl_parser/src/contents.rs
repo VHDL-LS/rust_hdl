@@ -9,11 +9,9 @@ use super::source::{Position, Range};
 use std::fs::File;
 use std::io;
 use std::io::prelude::Read;
-use std::sync::Arc;
 
-#[derive(Clone)]
 pub struct Contents {
-    lines: Arc<Vec<Latin1String>>,
+    lines: Vec<Latin1String>,
 }
 
 impl Contents {
@@ -56,9 +54,7 @@ impl Contents {
             lines.push(Latin1String::new(&code.bytes[start..]));
         }
 
-        Contents {
-            lines: Arc::new(lines),
-        }
+        Contents { lines: lines }
     }
 
     pub fn start(&self) -> Position {
@@ -91,9 +87,7 @@ impl Contents {
         line.bytes = line.bytes[..end.character as usize].to_owned();
         let ref mut line = lines[0];
         line.bytes = line.bytes[start.character as usize..].to_owned();
-        Contents {
-            lines: Arc::new(lines),
-        }
+        Contents { lines: lines }
     }
 
     fn get(&self, pos: &Position) -> Option<u8> {
@@ -112,18 +106,18 @@ impl Contents {
         self.lines.get(lineno)
     }
 
-    pub fn reader(self) -> ContentReader {
+    pub fn reader<'a>(&'a self) -> ContentReader<'a> {
         ContentReader::new(self)
     }
 }
 
-pub struct ContentReader {
-    contents: Contents,
+pub struct ContentReader<'a> {
+    contents: &'a Contents,
     pos: Position,
 }
 
-impl ContentReader {
-    pub fn new(contents: Contents) -> ContentReader {
+impl<'a> ContentReader<'a> {
+    pub fn new(contents: &'a Contents) -> ContentReader<'a> {
         ContentReader {
             contents,
             pos: Position::new(),
@@ -214,15 +208,14 @@ impl ContentReader {
 mod tests {
     use super::*;
 
-    fn new(code: &str) -> ContentReader {
-        ContentReader::new(Contents::from_latin1(
-            &Latin1String::from_utf8(code).unwrap(),
-        ))
+    fn new(code: &str) -> Contents {
+        Contents::from_latin1(&Latin1String::from_utf8(code).unwrap())
     }
 
     #[test]
     fn pop_single_line() {
-        let mut reader = new("hi");
+        let contents = new("hi");
+        let mut reader = contents.reader();
         assert_eq!(reader.pop(), Some(b'h'));
         assert_eq!(reader.pop(), Some(b'i'));
         assert_eq!(reader.pop(), None);
@@ -230,7 +223,8 @@ mod tests {
 
     #[test]
     fn pop_multi_line_no_newline_at_end() {
-        let mut reader = new("h\ni");
+        let contents = new("h\ni");
+        let mut reader = contents.reader();
         assert_eq!(reader.pop(), Some(b'h'));
         assert_eq!(reader.pop(), Some(b'\n'));
         assert_eq!(reader.pop(), Some(b'i'));
@@ -239,7 +233,8 @@ mod tests {
 
     #[test]
     fn pop_multi_line() {
-        let mut reader = new("h\ni\n");
+        let contents = new("h\ni\n");
+        let mut reader = contents.reader();
         assert_eq!(reader.pop(), Some(b'h'));
         assert_eq!(reader.pop(), Some(b'\n'));
         assert_eq!(reader.pop(), Some(b'i'));
@@ -249,7 +244,8 @@ mod tests {
 
     #[test]
     fn empty_lines() {
-        let mut reader = new("\n\n\n");
+        let contents = new("\n\n\n");
+        let mut reader = contents.reader();
         assert_eq!(reader.pop(), Some(b'\n'));
         assert_eq!(reader.pop(), Some(b'\n'));
         assert_eq!(reader.pop(), Some(b'\n'));
@@ -257,7 +253,8 @@ mod tests {
 
     #[test]
     fn peek() {
-        let mut reader = new("hi");
+        let contents = new("hi");
+        let mut reader = contents.reader();
         assert_eq!(reader.peek(0), Some(b'h'));
         assert_eq!(reader.peek(1), Some(b'i'));
         assert_eq!(reader.peek(3), None);
@@ -265,7 +262,8 @@ mod tests {
 
     #[test]
     fn matches() {
-        let mut reader = new("abc");
+        let contents = new("abc");
+        let mut reader = contents.reader();
         assert!(reader.matches(&Latin1String::from_utf8("abc").unwrap()));
         assert!(!reader.matches(&Latin1String::from_utf8("bc").unwrap()));
         reader.pop();

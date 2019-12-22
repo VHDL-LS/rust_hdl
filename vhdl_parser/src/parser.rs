@@ -63,7 +63,7 @@ impl VHDLParser {
         source: &Source,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> ParserResult {
-        let tokenizer = Tokenizer::new(self.symtab.clone(), source.clone());
+        let tokenizer = Tokenizer::new(self.symtab.clone(), &source);
         let mut stream = TokenStream::new(tokenizer);
         Ok(parse_design_file(&mut stream, diagnostics)?)
     }

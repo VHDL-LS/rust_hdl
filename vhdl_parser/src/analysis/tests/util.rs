@@ -87,21 +87,21 @@ pub fn add_standard_library(symtab: Arc<SymbolTable>, root: &mut DesignRoot) {
     };
     let std_standard = builder.code_from_source(Source::inline(
         "standard.vhd",
-        Arc::new(Latin1String::new(include_bytes!(
+        Latin1String::new(include_bytes!(
             "../../../../example_project/vhdl_libraries/2008/std/standard.vhd"
-        ))),
+        )),
     ));
     let std_textio = builder.code_from_source(Source::inline(
         "textio.vhd",
-        Arc::new(Latin1String::new(include_bytes!(
+        Latin1String::new(include_bytes!(
             "../../../../example_project/vhdl_libraries/2008/std/textio.vhd"
-        ))),
+        )),
     ));
     let std_env = builder.code_from_source(Source::inline(
         "env.vhd",
-        Arc::new(Latin1String::new(include_bytes!(
+        Latin1String::new(include_bytes!(
             "../../../../example_project/vhdl_libraries/2008/std/env.vhd"
-        ))),
+        )),
     ));
     let std_sym = symtab.insert_utf8("std");
 
