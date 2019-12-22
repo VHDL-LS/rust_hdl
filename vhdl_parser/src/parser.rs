@@ -26,7 +26,7 @@ pub struct VHDLParser {
     pub symtab: Arc<SymbolTable>,
 }
 
-pub type ParserResult = Result<DesignFile, io::Error>;
+pub type ParserResult = Result<(Source, DesignFile), io::Error>;
 
 impl VHDLParser {
     pub fn new() -> VHDLParser {
@@ -62,7 +62,8 @@ impl VHDLParser {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> ParserResult {
         let source = Source::from_file(file_name)?;
-        Ok(self.parse_design_source(&source, diagnostics))
+        let design_file = self.parse_design_source(&source, diagnostics);
+        Ok((source, design_file))
     }
 
     pub fn parse_design_files<T>(

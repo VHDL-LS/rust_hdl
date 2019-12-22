@@ -10,7 +10,9 @@ use self::fnv::FnvHashMap;
 use fnv;
 use std::collections::hash_map::Entry;
 
-use self::vhdl_parser::{Config, Diagnostic, Project, Severity, Source, SrcPos, Utf8ToLatin1Error};
+use self::vhdl_parser::{
+    Config, Diagnostic, Latin1String, Project, Severity, Source, SrcPos, Utf8ToLatin1Error,
+};
 use crate::rpc_channel::RpcChannel;
 use std::io;
 use std::path::Path;
@@ -225,8 +227,6 @@ struct InitializedVHDLServer<T: RpcChannel> {
     rpc_channel: T,
     init_params: InitializeParams,
     project: Project,
-    // @TODO manage open/close of these to save memory
-    source_map: FnvHashMap<Url, Source>,
     files_with_notifications: FnvHashMap<Url, ()>,
 }
 
@@ -260,7 +260,6 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             rpc_channel,
             init_params,
             project,
-            source_map: FnvHashMap::default(),
             files_with_notifications: FnvHashMap::default(),
         };
 
@@ -335,24 +334,39 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         }
     }
 
-    fn parse_and_publish_diagnostics(&mut self, uri: &Url, code: &str) {
-        // @TODO return error to client
-        let file_name = uri_to_file_name(&uri);
-
-        match Source::inline_utf8(file_name.to_string(), code) {
-            Ok(source) => {
-                self.source_map.insert(uri.clone(), source.clone());
-                self.project.update_source(&source);
-                self.publish_diagnostics();
-            }
+    fn create_latin1(&self, uri: &Url, code: &str) -> Option<Latin1String> {
+        match Latin1String::from_utf8(code) {
+            Ok(value) => Some(value),
             Err(err) => {
-                let publish_diagnostics = PublishDiagnosticsParams {
+                let diagnostics = PublishDiagnosticsParams {
                     uri: uri.clone(),
                     diagnostics: vec![decode_error_to_lsp_diagnostic(&err)],
                     version: None,
                 };
 
-                self.send_notification("textDocument/publishDiagnostics", publish_diagnostics);
+                self.send_notification("textDocument/publishDiagnostics", diagnostics);
+                None
+            }
+        }
+    }
+
+    fn update(&mut self, uri: &Url, code: &str) {
+        let file_name = uri_to_file_name(uri);
+        if let Some(source) = self.project.get_source(&file_name) {
+            if let Some(latin1) = self.create_latin1(uri, code) {
+                source.change(None, &latin1);
+                self.project.update_source(&source);
+                self.publish_diagnostics();
+            }
+        } else {
+            self.window_log_message(
+                MessageType::Info,
+                format!("Opening file {} that is not part of the project", file_name),
+            );
+            if let Some(latin1) = self.create_latin1(uri, code) {
+                self.project
+                    .update_source(&Source::inline(file_name, latin1));
+                self.publish_diagnostics();
             }
         }
     }
@@ -362,25 +376,22 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
     }
 
     pub fn text_document_did_change_notification(&mut self, params: &DidChangeTextDocumentParams) {
-        self.parse_and_publish_diagnostics(
-            &params.text_document.uri,
-            &params.content_changes[0].text,
-        );
+        self.update(&params.text_document.uri, &params.content_changes[0].text);
     }
 
     pub fn text_document_did_open_notification(&mut self, params: &DidOpenTextDocumentParams) {
-        self.parse_and_publish_diagnostics(&params.text_document.uri, &params.text_document.text);
+        self.update(&params.text_document.uri, &params.text_document.text);
     }
 
     pub fn text_document_declaration(
         &mut self,
         params: &TextDocumentPositionParams,
     ) -> Option<Location> {
-        self.source_map
-            .get(&params.text_document.uri)
+        self.project
+            .get_source(&uri_to_file_name(&params.text_document.uri))
             .and_then(|source| {
                 self.project
-                    .search_reference(source, position_to_cursor(&params.position))
+                    .search_reference(&source, position_to_cursor(&params.position))
             })
             .map(|result| srcpos_to_location(&result))
     }
@@ -395,11 +406,13 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
 
     pub fn text_document_references(&mut self, params: &ReferenceParams) -> Vec<Location> {
         let decl_pos = self
-            .source_map
-            .get(&params.text_document_position.text_document.uri)
+            .project
+            .get_source(&uri_to_file_name(
+                &params.text_document_position.text_document.uri,
+            ))
             .and_then(|source| {
                 self.project.search_reference(
-                    source,
+                    &source,
                     position_to_cursor(&params.text_document_position.position),
                 )
             });
@@ -635,6 +648,8 @@ end entity ent;
             },
         };
 
+        mock.expect_notification_contains("window/logMessage", "is not part of the project");
+
         server.text_document_did_open_notification(&did_open);
     }
 
@@ -684,6 +699,8 @@ end entity ent2;
             }],
             version: None,
         };
+
+        mock.expect_notification_contains("window/logMessage", "is not part of the project");
 
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
         server.text_document_did_open_notification(&did_open);
@@ -870,6 +887,8 @@ end entity ent;
             }],
             version: None,
         };
+
+        mock.expect_notification_contains("window/logMessage", "is not part of the project");
 
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
         server.text_document_did_open_notification(&did_open);

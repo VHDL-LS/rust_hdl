@@ -74,12 +74,12 @@ impl Project {
 
         let files_to_parse = files_to_parse.drain().map(|(_, v)| v).collect();
 
-        for (file_to_parse, parser_diagnostics, design_file) in project
+        for (file_to_parse, parser_diagnostics, result) in project
             .parser
             .parse_design_files(files_to_parse, num_threads)
         {
-            let design_file = match design_file {
-                Ok(design_file) => Some(design_file),
+            let (source, design_file) = match result {
+                Ok(result) => result,
                 Err(err) => {
                     messages.push(Message::file_error(
                         err.to_string(),
@@ -90,8 +90,9 @@ impl Project {
             };
 
             project.files.insert(
-                file_to_parse.file_name,
+                source.file_name().to_owned(),
                 SourceFile {
+                    source,
                     library_names: file_to_parse.library_names,
                     parser_diagnostics,
                     design_file,
@@ -102,26 +103,34 @@ impl Project {
         project
     }
 
+    pub fn get_source(&self, file_name: &str) -> Option<Source> {
+        self.files.get(file_name).map(|file| file.source.clone())
+    }
+
     pub fn update_source(&mut self, source: &Source) {
         let mut source_file = {
-            if let Some(source_file) = self.files.remove(source.file_name()) {
+            if let Some(mut source_file) = self.files.remove(source.file_name()) {
+                // File is already part of the project
                 for library_name in source_file.library_names.iter() {
                     self.root.remove_source(library_name.clone(), source);
                 }
+                source_file.source = source.clone();
                 source_file
             } else {
+                // File is not part of the project
+                // @TODO use config wildcards to map to library
                 SourceFile {
+                    source: source.clone(),
                     library_names: vec![],
                     parser_diagnostics: vec![],
-                    design_file: None,
+                    design_file: DesignFile::default(),
                 }
             }
         };
         source_file.parser_diagnostics.clear();
-        source_file.design_file = Some(
-            self.parser
-                .parse_design_source(source, &mut source_file.parser_diagnostics),
-        );
+        source_file.design_file = self
+            .parser
+            .parse_design_source(source, &mut source_file.parser_diagnostics);
         self.files
             .insert(source.file_name().to_owned(), source_file);
     }
@@ -135,9 +144,8 @@ impl Project {
             let mut design_files = multiply(design_file, source_file.library_names.len());
 
             for library_name in source_file.library_names.iter() {
-                if let Some(design_file) = design_files.pop().unwrap() {
-                    self.root.add_design_file(library_name.clone(), design_file);
-                }
+                let design_file = design_files.pop().unwrap();
+                self.root.add_design_file(library_name.clone(), design_file);
             }
 
             for diagnostic in source_file.parser_diagnostics.iter().cloned() {
@@ -205,13 +213,14 @@ impl FileToParse for LibraryFileToParse {
 
 struct SourceFile {
     library_names: Vec<Symbol>,
-    design_file: Option<DesignFile>,
+    source: Source,
+    design_file: DesignFile,
     parser_diagnostics: Vec<Diagnostic>,
 }
 
 impl SourceFile {
-    fn take_design_file(&mut self) -> Option<DesignFile> {
-        std::mem::replace(&mut self.design_file, None)
+    fn take_design_file(&mut self) -> DesignFile {
+        std::mem::replace(&mut self.design_file, DesignFile::default())
     }
 }
 

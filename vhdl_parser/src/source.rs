@@ -160,9 +160,13 @@ impl Source {
         }
     }
 
-    pub fn change(&mut self, range: &Range, content: &Latin1String) {
+    pub fn change(&self, range: Option<&Range>, content: &Latin1String) {
         let mut contents = self.source.contents.write().unwrap();
-        contents.change(range, content);
+        if let Some(range) = range {
+            contents.change(range, content);
+        } else {
+            *contents = Contents::from_latin1(content);
+        }
     }
 }
 
