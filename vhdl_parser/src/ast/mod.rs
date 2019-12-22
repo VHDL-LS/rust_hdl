@@ -1147,7 +1147,7 @@ pub enum AnyDesignUnit {
     Secondary(AnySecondaryUnit),
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Default)]
 pub struct DesignFile {
     pub design_units: Vec<AnyDesignUnit>,
 }

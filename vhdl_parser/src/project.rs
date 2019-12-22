@@ -11,12 +11,11 @@ use crate::config::Config;
 use crate::diagnostic::Diagnostic;
 use crate::latin_1::Latin1String;
 use crate::message::Message;
-use crate::parser::{FileToParse, ParserError, VHDLParser};
+use crate::parser::{FileToParse, VHDLParser};
 use crate::source::{Position, Source, SrcPos};
 use crate::symbol_table::Symbol;
 use fnv;
 use std::collections::hash_map::Entry;
-use std::io;
 
 pub struct Project {
     parser: VHDLParser,
@@ -75,17 +74,13 @@ impl Project {
 
         let files_to_parse = files_to_parse.drain().map(|(_, v)| v).collect();
 
-        for (file_to_parse, mut parser_diagnostics, design_file) in project
+        for (file_to_parse, parser_diagnostics, design_file) in project
             .parser
             .parse_design_files(files_to_parse, num_threads)
         {
             let design_file = match design_file {
                 Ok(design_file) => Some(design_file),
-                Err(ParserError::Diagnostic(diagnostic)) => {
-                    parser_diagnostics.push(diagnostic);
-                    None
-                }
-                Err(ParserError::IOError(err)) => {
+                Err(err) => {
                     messages.push(Message::file_error(
                         err.to_string(),
                         file_to_parse.file_name,
@@ -107,7 +102,7 @@ impl Project {
         project
     }
 
-    pub fn update_source(&mut self, source: &Source) -> io::Result<()> {
+    pub fn update_source(&mut self, source: &Source) {
         let mut source_file = {
             if let Some(source_file) = self.files.remove(source.file_name()) {
                 for library_name in source_file.library_names.iter() {
@@ -122,32 +117,13 @@ impl Project {
                 }
             }
         };
-        source_file.design_file = None;
         source_file.parser_diagnostics.clear();
-
-        let design_file = self
-            .parser
-            .parse_design_source(source, &mut source_file.parser_diagnostics);
-
-        let result = match design_file {
-            Ok(design_file) => {
-                source_file.design_file = Some(design_file);
-                Ok(())
-            }
-            Err(ParserError::Diagnostic(diagnostic)) => {
-                source_file.parser_diagnostics.push(diagnostic);
-                Ok(())
-            }
-            Err(ParserError::IOError(err)) => {
-                // @TODO convert to soft error and push to diagnostics
-                Err(err)
-            }
-        };
-
+        source_file.design_file = Some(
+            self.parser
+                .parse_design_source(source, &mut source_file.parser_diagnostics),
+        );
         self.files
             .insert(source.file_name().to_owned(), source_file);
-
-        result
     }
 
     pub fn analyse(&mut self) -> Vec<Diagnostic> {
@@ -325,7 +301,7 @@ use_lib.files = ['use_file.vhd']
     fn update(project: &mut Project, source: &mut Source, contents: &str) {
         std::fs::write(&std::path::Path::new(source.file_name()), contents).unwrap();
         *source = Source::from_file(source.file_name()).unwrap();
-        project.update_source(source).unwrap();
+        project.update_source(source);
     }
 
     /// Test that the same file can be added to several libraries

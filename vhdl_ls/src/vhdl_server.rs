@@ -341,9 +341,8 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
 
         match Source::inline_utf8(file_name.to_string(), code) {
             Ok(source) => {
-                // @TODO log error to client
                 self.source_map.insert(uri.clone(), source.clone());
-                self.project.update_source(&source).unwrap();
+                self.project.update_source(&source);
                 self.publish_diagnostics();
             }
             Err(err) => {
