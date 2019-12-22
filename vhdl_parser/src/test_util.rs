@@ -171,7 +171,7 @@ impl Code {
         let contents = self.pos.source.contents();
         let source = Source::from_contents(
             self.pos.file_name(),
-            contents.crop(Range::new(Position::new(), self.pos.end())),
+            contents.crop(Range::new(Position::default(), self.pos.end())),
         );
         let tokenizer = Tokenizer::new(self.symtab.clone(), &source);
         let mut stream = TokenStream::new(tokenizer);

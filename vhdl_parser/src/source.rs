@@ -168,7 +168,7 @@ pub struct Position {
 }
 
 impl Position {
-    pub fn new() -> Position {
+    pub fn default() -> Position {
         Position {
             line: 0,
             character: 0,
