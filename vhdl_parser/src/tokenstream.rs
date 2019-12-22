@@ -6,15 +6,24 @@
 
 use crate::ast::Ident;
 use crate::diagnostic::{DiagnosticHandler, ParseResult};
+use crate::symbol_table::Symbol;
 use crate::tokenizer::{kinds_str, Kind, Kind::*, Token, TokenState, Tokenizer};
 
 pub struct TokenStream {
-    pub tokenizer: Tokenizer,
+    tokenizer: Tokenizer,
 }
 
 impl TokenStream {
     pub fn new(tokenizer: Tokenizer) -> TokenStream {
         TokenStream { tokenizer }
+    }
+
+    pub fn range_sym(&self) -> &Symbol {
+        &self.tokenizer.range_sym
+    }
+
+    pub fn reverse_range_sym(&self) -> &Symbol {
+        &self.tokenizer.reverse_range_sym
     }
 
     pub fn state(&self) -> TokenState {
@@ -131,7 +140,7 @@ impl TokenStream {
         match_token_kind!(
             token,
             Identifier => token.expect_ident(),
-            Range => Ok(Ident {item: self.tokenizer.range_ident.clone(),
+            Range => Ok(Ident {item: self.range_sym().clone(),
                                pos: token.pos})
         )
     }

@@ -1117,8 +1117,8 @@ pub struct Tokenizer {
     source: Source,
     reader: ContentReader,
     final_comments: Option<Vec<Comment>>,
-    pub range_ident: Symbol,
-    pub reverse_range_ident: Symbol,
+    pub range_sym: Symbol,
+    pub reverse_range_sym: Symbol,
 }
 
 impl Tokenizer {
@@ -1227,8 +1227,8 @@ impl Tokenizer {
             .map(|(string, kind)| (string.as_bytes(), *kind))
             .collect();
 
-        let range_ident = symtab.insert(&Latin1String::new(b"range"));
-        let reverse_range_ident = symtab.insert(&Latin1String::new(b"reverse_range"));
+        let range_sym = symtab.insert(&Latin1String::new(b"range"));
+        let reverse_range_sym = symtab.insert(&Latin1String::new(b"reverse_range"));
         let reader = source.contents().reader();
 
         Tokenizer {
@@ -1239,8 +1239,8 @@ impl Tokenizer {
             source,
             reader,
             final_comments: None,
-            range_ident,
-            reverse_range_ident,
+            range_sym,
+            reverse_range_sym,
         }
     }
 
