@@ -177,6 +177,7 @@ fn split_lines(code: &Latin1String) -> Vec<Latin1String> {
     lines
 }
 
+#[derive(Clone)]
 pub struct ContentReader<'a> {
     contents: &'a Contents,
     pos: Position,
@@ -206,6 +207,10 @@ impl<'a> ContentReader<'a> {
         let byte = self.get();
         self.advance(1);
         byte
+    }
+
+    pub fn pop_lowercase(&mut self) -> Option<u8> {
+        self.pop().map(Latin1String::lowercase)
     }
 
     #[cfg(test)]

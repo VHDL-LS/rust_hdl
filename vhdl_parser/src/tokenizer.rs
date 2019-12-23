@@ -716,6 +716,7 @@ fn parse_quoted(
     }
 }
 
+// Assumes first quote is already consumed
 fn parse_string(
     buffer: &mut Latin1String,
     reader: &mut ContentReader,
@@ -892,8 +893,13 @@ fn parse_abstract_literal(
         // Bit string literal
         Some(b's') | Some(b'u') | Some(b'b') | Some(b'o') | Some(b'x') | Some(b'd') => {
             let integer = initial?;
-            // @TODO check overflow
-            parse_bit_string(buffer, reader, Some(integer as u32))
+
+            if let Some(base_spec) = parse_base_specifier(reader) {
+                // @TODO check overflow
+                parse_bit_string(buffer, reader, base_spec, Some(integer as u32))
+            } else {
+                Err("Invalid bit string literal".to_string())
+            }
         }
         _ => {
             // Plain integer
@@ -906,102 +912,53 @@ fn parse_abstract_literal(
 }
 
 /// LRM 15.8 Bit string literals
-fn is_bit_string(reader: &mut ContentReader) -> bool {
-    let first_byte = {
-        if let Some(byte) = reader.peek(0) {
-            Latin1String::lowercase(byte)
-        } else {
-            return false;
-        }
-    };
-
-    let second_byte = {
-        if let Some(byte) = reader.peek(1) {
-            Latin1String::lowercase(byte)
-        } else {
-            return false;
-        }
-    };
-
-    let len = match first_byte {
-        b'u' => match second_byte {
-            b'b' => 2,
-            b'o' => 2,
-            b'x' => 2,
-            _ => return false,
+/// Parse the base specifier such as ub, sx, b etc
+/// Also requires and consumes the trailing quoute "
+fn parse_base_specifier(reader: &mut ContentReader) -> Option<BaseSpecifier> {
+    let base_specifier = match reader.pop_lowercase()? {
+        b'u' => match reader.pop_lowercase()? {
+            b'b' => BaseSpecifier::UB,
+            b'o' => BaseSpecifier::UO,
+            b'x' => BaseSpecifier::UX,
+            _ => return None,
         },
-        b's' => match second_byte {
-            b'b' => 2,
-            b'o' => 2,
-            b'x' => 2,
-            _ => return false,
+        b's' => match reader.pop_lowercase()? {
+            b'b' => BaseSpecifier::SB,
+            b'o' => BaseSpecifier::SO,
+            b'x' => BaseSpecifier::SX,
+            _ => return None,
         },
-        b'b' => 1,
-        b'o' => 1,
-        b'x' => 1,
-        b'd' => 1,
-        _ => return false,
+        b'b' => BaseSpecifier::B,
+        b'o' => BaseSpecifier::O,
+        b'x' => BaseSpecifier::X,
+        b'd' => BaseSpecifier::D,
+        _ => return None,
     };
 
-    return Some(b'"') == reader.peek(len);
+    if reader.pop()? == b'"' {
+        Some(base_specifier)
+    } else {
+        None
+    }
+}
+
+// Only consume reader if it is a base specifier
+fn maybe_base_specifier(reader: &mut ContentReader) -> Option<BaseSpecifier> {
+    let mut lookahead = reader.clone();
+    let value = parse_base_specifier(&mut lookahead)?;
+    *reader = lookahead;
+    Some(value)
 }
 
 fn parse_bit_string(
     buffer: &mut Latin1String,
     reader: &mut ContentReader,
+    base_specifier: BaseSpecifier,
     bit_string_length: Option<u32>,
 ) -> Result<(Kind, Value), String> {
-    let err = Err("Invalid bit string literal".to_string());
-
-    let first_byte = {
-        if let Some(byte) = reader.peek(0) {
-            Latin1String::lowercase(byte)
-        } else {
-            reader.pop();
-            return err;
-        }
-    };
-
-    let second_byte = {
-        if let Some(byte) = reader.peek(1) {
-            Latin1String::lowercase(byte)
-        } else {
-            reader.pop();
-            return err;
-        }
-    };
-
-    let (len, base_specifier) = match first_byte {
-        b'u' => match second_byte {
-            b'b' => (2, BaseSpecifier::UB),
-            b'o' => (2, BaseSpecifier::UO),
-            b'x' => (2, BaseSpecifier::UX),
-            _ => return err,
-        },
-        b's' => match second_byte {
-            b'b' => (2, BaseSpecifier::SB),
-            b'o' => (2, BaseSpecifier::SO),
-            b'x' => (2, BaseSpecifier::SX),
-            _ => return err,
-        },
-        b'b' => (1, BaseSpecifier::B),
-        b'o' => (1, BaseSpecifier::O),
-        b'x' => (1, BaseSpecifier::X),
-        b'd' => (1, BaseSpecifier::D),
-        _ => return err,
-    };
-
-    for _ in 0..len {
-        reader.pop();
-    }
-
-    let value = if reader.pop() == Some(b'"') {
-        match parse_string(buffer, reader) {
-            Ok(value) => value,
-            Err(_) => return err,
-        }
-    } else {
-        return err;
+    let value = match parse_string(buffer, reader) {
+        Ok(value) => value,
+        Err(_) => return Err("Invalid bit string literal".to_string()),
     };
 
     Ok((
@@ -1290,8 +1247,8 @@ impl<'a> Tokenizer<'a> {
 
         let (kind, value) = match byte {
             b'a'..=b'z' | b'A'..=b'Z' => {
-                if is_bit_string(&mut self.reader) {
-                    match parse_bit_string(&mut self.buffer, &mut self.reader, None) {
+                if let Some(base_spec) = maybe_base_specifier(&mut self.reader) {
+                    match parse_bit_string(&mut self.buffer, &mut self.reader, base_spec, None) {
                         Ok((kind, bit_string)) => (kind, bit_string),
                         Err(msg) => {
                             error!(msg);
@@ -2010,6 +1967,7 @@ end entity"
                 "Invalid bit string literal"
             ))]
         );
+
         let code = Code::new("10ux");
         let (tokens, _) = code.tokenize_result();
         assert_eq!(
