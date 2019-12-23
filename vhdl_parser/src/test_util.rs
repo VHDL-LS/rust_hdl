@@ -436,7 +436,7 @@ fn substr_range(source: &Source, range: Range, substr: &str, occurence: usize) -
     let mut reader = ContentReader::new(&contents);
     let mut count = occurence;
 
-    reader.set_pos(range.start);
+    reader.seek_pos(range.start);
 
     while reader.pos() < range.end {
         if reader.matches(&substr) {

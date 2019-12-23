@@ -5,9 +5,9 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use self::fnv::FnvHashMap;
-use super::contents::ContentReader;
+use super::contents::{ContentReader, ReaderState};
 use crate::diagnostic::{Diagnostic, ParseResult};
-use crate::source::{Position, Range, Source, SrcPos, WithPos};
+use crate::source::{Range, Source, SrcPos, WithPos};
 use fnv;
 
 use crate::ast;
@@ -408,7 +408,7 @@ pub struct Token {
     pub kind: Kind,
     pub value: Value,
     pub pos: SrcPos,
-    pub next_pos: Position,
+    pub next_state: ReaderState,
     pub comments: Option<Box<TokenComments>>,
 }
 
@@ -654,14 +654,14 @@ fn exponentiate(value: u64, exp: u32) -> Option<u64> {
     Some(value)
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct TokenState {
     last_token_kind: Option<Kind>,
-    start: Position,
+    start: ReaderState,
 }
 
 impl TokenState {
-    pub fn new(start: Position) -> TokenState {
+    pub fn new(start: ReaderState) -> TokenState {
         TokenState {
             last_token_kind: None,
             start,
@@ -671,7 +671,7 @@ impl TokenState {
     /// Set state to after token
     pub fn set_after(&mut self, token: &Token) {
         self.last_token_kind = Some(token.kind);
-        self.start = token.next_pos;
+        self.start = token.next_state;
     }
 }
 
@@ -783,7 +783,7 @@ fn parse_real_literal(
 ) -> Result<f64, String> {
     buffer.bytes.clear();
 
-    while let Some(b) = reader.peek().map(Latin1String::lowercase) {
+    while let Some(b) = reader.peek_lowercase() {
         match b {
             b'e' => {
                 break;
@@ -817,13 +817,13 @@ fn parse_abstract_literal(
     buffer: &mut Latin1String,
     reader: &mut ContentReader,
 ) -> Result<(Kind, Value), String> {
-    let pos = reader.pos();
+    let state = reader.state();
     let initial = parse_integer(reader, 10, true);
 
-    match reader.peek().map(Latin1String::lowercase) {
+    match reader.peek_lowercase() {
         // Real
         Some(b'.') => {
-            reader.set_pos(pos);
+            reader.set_state(state);
             let real = parse_real_literal(buffer, reader)?;
 
             match reader.peek() {
@@ -942,7 +942,7 @@ fn parse_base_specifier(reader: &mut ContentReader) -> Option<BaseSpecifier> {
 fn maybe_base_specifier(reader: &mut ContentReader) -> Option<BaseSpecifier> {
     let mut lookahead = reader.clone();
     let value = parse_base_specifier(&mut lookahead)?;
-    reader.set_pos(lookahead.pos());
+    reader.set_to(&lookahead);
     Some(value)
 }
 
@@ -974,11 +974,13 @@ fn parse_basic_identifier_or_keyword(
     keywords: &FnvHashMap<&'static [u8], Kind>,
     symtab: &SymbolTable,
 ) -> Result<(Kind, Value), String> {
-    let start_pos = reader.pos();
+    let start = reader.state();
+    let mut len = 0;
     while let Some(b) = reader.peek() {
         match b {
             b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_' => {
                 reader.skip();
+                len += 1;
             }
             _ => {
                 break;
@@ -986,19 +988,20 @@ fn parse_basic_identifier_or_keyword(
         }
     }
 
+    reader.set_state(start);
     buffer.bytes.clear();
-    buffer
-        .bytes
-        .extend_from_slice(reader.slice(start_pos, reader.pos()));
-    buffer.make_lowercase();
+    for _ in 0..len {
+        buffer.bytes.push(reader.pop_lowercase().unwrap());
+    }
 
     match keywords.get(buffer.bytes.as_slice()) {
         Some(kind) => Ok((*kind, Value::NoValue)),
         None => {
+            reader.set_state(start);
             buffer.bytes.clear();
-            buffer
-                .bytes
-                .extend_from_slice(reader.slice(start_pos, reader.pos()));
+            for _ in 0..len {
+                buffer.bytes.push(reader.pop().unwrap());
+            }
             Ok((Identifier, Value::Identifier(symtab.insert(&buffer))))
         }
     }
@@ -1011,7 +1014,7 @@ fn parse_character_literal(reader: &mut ContentReader) -> Option<(Kind, Value)> 
 
     let chr = lookahead.pop()?;
     if lookahead.skip_if(b'\'') {
-        reader.set_pos(lookahead.pos());
+        reader.set_to(&lookahead);
         Some((Character, Value::Character(chr)))
     } else {
         None
@@ -1027,7 +1030,7 @@ fn get_leading_comments(
 
     loop {
         skip_whitespace(reader);
-        let start = reader.pos();
+        let state = reader.state();
 
         let byte = if let Some(byte) = reader.pop() {
             byte
@@ -1040,7 +1043,7 @@ fn get_leading_comments(
                 if reader.pop() == Some(b'*') {
                     comments.push(parse_multi_line_comment(source, buffer, reader)?);
                 } else {
-                    reader.set_pos(start);
+                    reader.set_state(state);
                     break;
                 }
             }
@@ -1048,12 +1051,12 @@ fn get_leading_comments(
                 if reader.pop() == Some(b'-') {
                     comments.push(parse_comment(buffer, reader));
                 } else {
-                    reader.set_pos(start);
+                    reader.set_state(state);
                     break;
                 }
             }
             _ => {
-                reader.set_pos(start);
+                reader.set_state(state);
                 break;
             }
         }
@@ -1093,18 +1096,18 @@ fn skip_whitespace(reader: &mut ContentReader) {
 fn get_trailing_comment(buffer: &mut Latin1String, reader: &mut ContentReader) -> Option<Comment> {
     skip_whitespace_in_line(reader);
 
-    let start = reader.pos();
+    let state = reader.state();
     match reader.pop()? {
         b'-' => {
             if reader.pop() == Some(b'-') {
                 Some(parse_comment(buffer, reader))
             } else {
-                reader.set_pos(start);
+                reader.set_state(state);
                 None
             }
         }
         _ => {
-            reader.set_pos(start);
+            reader.set_state(state);
             None
         }
     }
@@ -1238,7 +1241,7 @@ impl<'a> Tokenizer<'a> {
         Tokenizer {
             keywords,
             symtab,
-            state: TokenState::new(reader.pos()),
+            state: TokenState::new(reader.state()),
             buffer: Latin1String::empty(),
             source,
             reader,
@@ -1255,29 +1258,29 @@ impl<'a> Tokenizer<'a> {
     pub fn eof_error(&self) -> Diagnostic {
         Diagnostic::error(
             self.source
-                .pos(self.state.start, self.state.start.next_char()),
+                .pos(self.state.start.pos(), self.state.start.pos().next_char()),
             "Unexpected EOF",
         )
     }
 
     pub fn set_state(&mut self, state: TokenState) {
         self.state = state;
-        self.reader.set_pos(state.start);
+        self.reader.set_state(state.start);
     }
 
     pub fn move_after(&mut self, token: &Token) {
         self.state.set_after(token);
-        self.reader.set_pos(self.state.start);
+        self.reader.set_state(self.state.start);
     }
 
     pub fn parse_token(&mut self) -> Result<Option<(Kind, Value)>, Diagnostic> {
         macro_rules! error {
             ($message:expr) => {
                 let err = Err(Diagnostic::error(
-                    &self.source.pos(self.state.start, self.reader.pos()),
+                    &self.source.pos(self.state.start.pos(), self.reader.pos()),
                     $message,
                 ));
-                self.state.start = self.reader.pos();
+                self.state.start = self.reader.state();
                 return err;
             };
         }
@@ -1521,12 +1524,12 @@ impl<'a> Tokenizer<'a> {
     pub fn pop(&mut self) -> ParseResult<Option<Token>> {
         let leading_comments =
             get_leading_comments(&self.source, &mut self.buffer, &mut self.reader)?;
-        self.state.start = self.reader.pos();
+        self.state.start = self.reader.state();
 
         match self.parse_token() {
             Ok(Some((kind, value))) => {
                 // Parsed a token.
-                let pos_start = self.state.start;
+                let pos_start = self.state.start.pos();
                 let pos_end = self.reader.pos();
                 let trailing_comment = get_trailing_comment(&mut self.buffer, &mut self.reader);
                 let token_comments = if (!leading_comments.is_empty()) | trailing_comment.is_some()
@@ -1542,7 +1545,7 @@ impl<'a> Tokenizer<'a> {
                     kind,
                     value,
                     pos: self.source.pos(pos_start, pos_end),
-                    next_pos: self.reader.pos(),
+                    next_state: self.reader.state(),
                     comments: token_comments,
                 };
                 self.move_after(&token);
@@ -1571,6 +1574,13 @@ mod tests {
     use super::*;
     use crate::test_util::Code;
     use pretty_assertions::assert_eq;
+
+    fn state_at_end(code: &Code) -> ReaderState {
+        let contents = code.source().contents();
+        let mut reader = ContentReader::new(&contents);
+        reader.seek_pos(code.end());
+        reader.state()
+    }
 
     fn kinds(tokens: &[Token]) -> Vec<Kind> {
         tokens.iter().map(|ref tok| tok.kind.clone()).collect()
@@ -1627,7 +1637,7 @@ end entity"
                 kind: Entity,
                 value: Value::NoValue,
                 pos: code.s1("entity").pos(),
-                next_pos: code.s1("entity ").end(),
+                next_state: state_at_end(&code.s1("entity ")),
                 comments: None,
             }
         );
@@ -1638,7 +1648,7 @@ end entity"
                 kind: Identifier,
                 value: Value::Identifier(code.symtab.insert_utf8("foo")),
                 pos: code.s1("foo").pos(),
-                next_pos: code.end(),
+                next_state: state_at_end(&code),
                 comments: None,
             }
         );
@@ -1662,7 +1672,7 @@ end entity"
                 kind: Identifier,
                 value: Value::Identifier(code.symtab.insert_utf8("my_ident")),
                 pos: code.pos(),
-                next_pos: code.end(),
+                next_state: state_at_end(&code),
                 comments: None,
             }]
         );
@@ -1679,7 +1689,7 @@ end entity"
                 kind: Identifier,
                 value: Value::Identifier(code.symtab.insert_utf8("my_ident")),
                 pos: code.pos(),
-                next_pos: code.end(),
+                next_state: state_at_end(&code),
                 comments: None,
             }]
         );
@@ -1696,7 +1706,7 @@ end entity"
                 kind: Identifier,
                 value: Value::Identifier(code.symtab.insert_utf8("\\1$my_ident\\")),
                 pos: code.pos(),
-                next_pos: code.end(),
+                next_state: state_at_end(&code),
                 comments: None,
             }]
         );
@@ -1708,7 +1718,7 @@ end entity"
                 kind: Identifier,
                 value: Value::Identifier(code.symtab.insert_utf8("\\my\\_ident\\")),
                 pos: code.pos(),
-                next_pos: code.end(),
+                next_state: state_at_end(&code),
                 comments: None,
             }]
         );
@@ -1725,14 +1735,14 @@ end entity"
                     kind: Identifier,
                     value: Value::Identifier(code.symtab.insert_utf8("my_ident")),
                     pos: code.s1("my_ident").pos(),
-                    next_pos: code.s1("my_ident ").end(),
+                    next_state: state_at_end(&code.s1("my_ident ")),
                     comments: None,
                 },
                 Token {
                     kind: Identifier,
                     value: Value::Identifier(code.symtab.insert_utf8("my_other_ident")),
                     pos: code.s1("my_other_ident").pos(),
-                    next_pos: code.end(),
+                    next_state: state_at_end(&code),
                     comments: None,
                 },
             ]
@@ -1864,7 +1874,7 @@ end entity"
                 kind: StringLiteral,
                 value: Value::String(Latin1String::from_utf8_unchecked("string")),
                 pos: code.pos(),
-                next_pos: code.end(),
+                next_state: state_at_end(&code),
                 comments: None,
             },]
         );
@@ -1880,7 +1890,7 @@ end entity"
                 kind: StringLiteral,
                 value: Value::String(Latin1String::from_utf8_unchecked("str\"ing")),
                 pos: code.pos(),
-                next_pos: code.end(),
+                next_state: state_at_end(&code),
                 comments: None,
             },]
         );
@@ -1897,14 +1907,14 @@ end entity"
                     kind: StringLiteral,
                     value: Value::String(Latin1String::from_utf8_unchecked("str")),
                     pos: code.s1("\"str\"").pos(),
-                    next_pos: code.s1("\"str\" ").end(),
+                    next_state: state_at_end(&code.s1("\"str\" ")),
                     comments: None,
                 },
                 Token {
                     kind: StringLiteral,
                     value: Value::String(Latin1String::from_utf8_unchecked("ing")),
                     pos: code.s1("\"ing\"").pos(),
-                    next_pos: code.end(),
+                    next_state: state_at_end(&code),
                     comments: None,
                 },
             ]
@@ -1993,7 +2003,7 @@ end entity"
                                 value: Latin1String::from_utf8_unchecked(value.as_str())
                             }),
                             pos: code.pos(),
-                            next_pos: code.end(),
+                            next_state: state_at_end(&code),
                             comments: None,
                         },]
                     );
@@ -2337,7 +2347,7 @@ comment
                 kind: AbstractLiteral,
                 value: Value::AbstractLiteral(ast::AbstractLiteral::Integer(u64::max_value())),
                 pos: code.pos(),
-                next_pos: code.end(),
+                next_state: state_at_end(&code),
                 comments: None,
             })]
         );
@@ -2354,7 +2364,7 @@ comment
                     kind: Begin,
                     value: Value::NoValue,
                     pos: code.s1("begin").pos(),
-                    next_pos: code.s1("begin").end(),
+                    next_state: state_at_end(&code.s1("begin")),
                     comments: None,
                 }),
                 Err(Diagnostic::error(&code.s1("?"), "Illegal token")),
@@ -2362,7 +2372,7 @@ comment
                     kind: End,
                     value: Value::NoValue,
                     pos: code.s1("end").pos(),
-                    next_pos: code.end(),
+                    next_state: state_at_end(&code),
                     comments: None,
                 }),
             ]
@@ -2456,7 +2466,7 @@ comment
                     kind: Plus,
                     value: Value::NoValue,
                     pos: code.s1("+").pos(),
-                    next_pos: code.s1("+--this is still a plus").end(),
+                    next_state: state_at_end(&code.s1("+--this is still a plus")),
                     comments: Some(Box::new(TokenComments {
                         leading: vec![Comment {
                             value: Latin1String::from_utf8_unchecked("this is a plus"),
@@ -2474,7 +2484,7 @@ comment
                     kind: Minus,
                     value: Value::NoValue,
                     pos: minus_pos,
-                    next_pos: code.s1("-- this is a minus").end(),
+                    next_state: state_at_end(&code.s1("-- this is a minus")),
                     comments: Some(Box::new(TokenComments {
                         leading: vec![
                             Comment {
@@ -2535,7 +2545,7 @@ bar*/
                 kind: AbstractLiteral,
                 value: Value::AbstractLiteral(ast::AbstractLiteral::Integer(2)),
                 pos: code.s1("2").pos(),
-                next_pos: code.s1("2").end(),
+                next_state: state_at_end(&code.s1("2")),
                 comments: Some(Box::new(TokenComments {
                     leading: vec![Comment {
                         value: Latin1String::from_utf8_unchecked("foo\ncom*ment\nbar"),

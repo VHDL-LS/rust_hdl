@@ -61,28 +61,6 @@ impl Contents {
         Contents { lines: lines }
     }
 
-    fn next(&self, pos: &mut Position) {
-        let line_len = {
-            if let Some(line) = self.get_line(pos.line as usize) {
-                line.bytes.len() as u64
-            } else {
-                return;
-            }
-        };
-
-        if pos.character + 1 >= line_len {
-            if pos.line + 1 < self.num_lines() as u64 {
-                pos.character = 0;
-                pos.line += 1;
-            } else {
-                // EOF
-                *pos = self.end();
-            }
-        } else {
-            pos.character += 1;
-        }
-    }
-
     fn get(&self, pos: &Position) -> Option<u8> {
         if let Some(line) = self.lines.get(pos.line as usize) {
             if let Some(byte) = line.bytes.get(pos.character as usize) {
@@ -173,26 +151,35 @@ fn split_lines(code: &Latin1String) -> Vec<Latin1String> {
     lines
 }
 
+#[derive(PartialEq, Clone, Copy, Debug)]
+pub struct ReaderState {
+    pos: Position,
+}
+
+impl ReaderState {
+    pub fn pos(&self) -> Position {
+        self.pos
+    }
+}
+
 #[derive(Clone)]
 pub struct ContentReader<'a> {
     contents: &'a Contents,
-    pos: Position,
+    state: ReaderState,
 }
 
 impl<'a> ContentReader<'a> {
     pub fn new(contents: &'a Contents) -> ContentReader<'a> {
         ContentReader {
             contents,
-            pos: Position::default(),
+            state: ReaderState {
+                pos: Position::default(),
+            },
         }
     }
 
-    pub fn slice(&self, start: Position, end: Position) -> &[u8] {
-        self.contents.slice(start, end)
-    }
-
     fn get(&self) -> Option<u8> {
-        self.contents.get(&self.pos)
+        self.contents.get(&self.state.pos)
     }
 
     #[must_use]
@@ -203,11 +190,35 @@ impl<'a> ContentReader<'a> {
     }
 
     pub fn skip(&mut self) {
-        self.contents.next(&mut self.pos);
+        let ref mut pos = self.state.pos;
+
+        let line_len = {
+            if let Some(line) = self.contents.get_line(pos.line as usize) {
+                line.bytes.len() as u64
+            } else {
+                return;
+            }
+        };
+
+        if pos.character + 1 >= line_len {
+            if pos.line + 1 < self.contents.num_lines() as u64 {
+                pos.character = 0;
+                pos.line += 1;
+            } else {
+                // EOF
+                *pos = self.contents.end();
+            }
+        } else {
+            pos.character += 1;
+        }
     }
 
     pub fn pop_lowercase(&mut self) -> Option<u8> {
         self.pop().map(Latin1String::lowercase)
+    }
+
+    pub fn peek_lowercase(&mut self) -> Option<u8> {
+        self.peek().map(Latin1String::lowercase)
     }
 
     #[cfg(test)]
@@ -234,12 +245,25 @@ impl<'a> ContentReader<'a> {
         }
     }
 
-    pub fn set_pos(&mut self, pos: Position) {
-        self.pos = pos;
+    pub fn set_state(&mut self, state: ReaderState) {
+        self.state = state;
+    }
+
+    pub fn set_to(&mut self, reader: &ContentReader) {
+        self.state = reader.state;
     }
 
     pub fn pos(&self) -> Position {
-        self.pos
+        self.state.pos()
+    }
+
+    #[cfg(test)]
+    pub fn seek_pos(&mut self, pos: Position) {
+        self.state = ReaderState { pos };
+    }
+
+    pub fn state(&self) -> ReaderState {
+        self.state
     }
 
     pub fn peek(&self) -> Option<u8> {
