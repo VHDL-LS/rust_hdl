@@ -7,12 +7,12 @@
 use self::fnv::FnvHashMap;
 use super::contents::{ContentReader, ReaderState};
 use crate::diagnostic::{Diagnostic, ParseResult};
-use crate::source::{Range, Source, SrcPos, WithPos};
+use crate::source::{Position, Range, Source, SrcPos, WithPos};
 use fnv;
 
 use crate::ast;
 use crate::ast::{BaseSpecifier, Ident};
-use crate::latin_1::Latin1String;
+use crate::latin_1::{Latin1String, Utf8ToLatin1Error};
 use crate::symbol_table::{Symbol, SymbolTable};
 use std::sync::Arc;
 
@@ -420,7 +420,7 @@ pub struct TokenComments {
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct Comment {
-    pub value: Latin1String,
+    pub value: String,
     pub range: Range,
     pub multi_line: bool,
 }
@@ -530,6 +530,30 @@ impl Token {
     }
 }
 
+struct TokenError {
+    range: Range,
+    message: String,
+}
+
+impl TokenError {
+    fn range(start: Position, end: Position, message: impl Into<String>) -> TokenError {
+        TokenError {
+            range: Range::new(start, end),
+            message: message.into(),
+        }
+    }
+
+    fn pos(pos: Position, message: impl Into<String>) -> TokenError {
+        Self::range(pos, pos.next_char(), message)
+    }
+}
+
+impl From<Utf8ToLatin1Error> for TokenError {
+    fn from(err: Utf8ToLatin1Error) -> TokenError {
+        TokenError::range(err.pos, err.pos.after_char(err.value), err.message())
+    }
+}
+
 /// Resolves ir1045
 /// http://www.eda-stds.org/isac/IRs-VHDL-93/IR1045.txt
 /// char may not come after ], ), all, or identifier
@@ -548,12 +572,13 @@ fn parse_integer(
     reader: &mut ContentReader,
     base: u64,
     stop_on_suffix: bool,
-) -> Result<u64, String> {
+) -> Result<u64, TokenError> {
     let mut result = Some(0 as u64);
     let mut too_large_digit = None;
     let mut invalid_character = None;
 
-    while let Some(b) = reader.peek() {
+    let start = reader.pos();
+    while let Some(b) = reader.peek()? {
         let digit = u64::from(match b {
             // Bit string literal or exponent
             // Lower case
@@ -565,25 +590,16 @@ fn parse_integer(
                 break;
             }
 
-            b'0'..=b'9' => {
-                reader.skip();
-                (b - b'0')
-            }
-            b'a'..=b'f' => {
-                reader.skip();
-                (10 + b - b'a')
-            }
-            b'A'..=b'F' => {
-                reader.skip();
-                (10 + b - b'A')
-            }
+            b'0'..=b'9' => (b - b'0'),
+            b'a'..=b'f' => (10 + b - b'a'),
+            b'A'..=b'F' => (10 + b - b'A'),
             b'_' => {
                 reader.skip();
                 continue;
             }
             b'g'..=b'z' | b'G'..=b'Z' => {
+                invalid_character = Some((b, reader.pos()));
                 reader.skip();
-                invalid_character = Some(b);
                 continue;
             }
             _ => {
@@ -592,37 +608,49 @@ fn parse_integer(
         });
 
         if digit >= base {
-            too_large_digit = Some(b);
+            too_large_digit = Some((b, reader.pos()));
         }
+
+        reader.skip();
 
         result = result
             .and_then(|x| base.checked_mul(x))
             .and_then(|x| x.checked_add(digit));
     }
 
-    if let Some(b) = invalid_character {
-        Err(format!("Invalid integer character '{}'", Latin1String::new(&[b])).to_string())
-    } else if let Some(b) = too_large_digit {
-        Err(format!(
-            "Illegal digit '{}' for base {}",
-            Latin1String::new(&[b]),
-            base
-        )
-        .to_string())
+    if let Some((b, pos)) = invalid_character {
+        Err(TokenError::pos(
+            pos,
+            format!("Invalid integer character '{}'", Latin1String::new(&[b])),
+        ))
+    } else if let Some((b, pos)) = too_large_digit {
+        Err(TokenError::pos(
+            pos,
+            format!(
+                "Illegal digit '{}' for base {}",
+                Latin1String::new(&[b]),
+                base
+            ),
+        ))
     } else if let Some(result) = result {
         Ok(result)
     } else {
-        Err("Integer too large for 64-bit unsigned".to_string())
+        Err(TokenError::range(
+            start,
+            reader.pos(),
+            "Integer too large for 64-bit unsigned",
+        ))
     }
 }
 
-fn parse_exponent(reader: &mut ContentReader) -> Result<i32, String> {
+fn parse_exponent(reader: &mut ContentReader) -> Result<i32, TokenError> {
+    let start = reader.pos();
     let negative = {
-        if reader.peek() == Some(b'-') {
+        if reader.peek()? == Some(b'-') {
             reader.skip();
             true
         } else {
-            reader.skip_if(b'+');
+            reader.skip_if(b'+')?;
             false
         }
     };
@@ -638,20 +666,11 @@ fn parse_exponent(reader: &mut ContentReader) -> Result<i32, String> {
         }
     }
 
-    Err("Exponent too large for 32-bits signed".to_string())
-}
-
-fn exponentiate(value: u64, exp: u32) -> Option<u64> {
-    // @TODO use checked_pow once it is common in recent releases
-    // (10 as u64)
-    //     .checked_pow(exp)
-    //     and_then(|x| x.checked_mul(value))
-
-    let mut value = value;
-    for _ in 0..exp {
-        value = value.checked_mul(10)?;
-    }
-    Some(value)
+    Err(TokenError::range(
+        start,
+        reader.pos(),
+        "Exponent too large for 32-bits signed",
+    ))
 }
 
 #[derive(Clone, Copy)]
@@ -681,7 +700,9 @@ fn parse_quoted(
     reader: &mut ContentReader,
     quote: u8,
     include_quote: bool,
-) -> Result<Latin1String, String> {
+) -> Result<Latin1String, TokenError> {
+    let start = reader.pos();
+
     buffer.bytes.clear();
     let mut is_multiline = false;
     let mut found_end = false;
@@ -690,10 +711,10 @@ fn parse_quoted(
         buffer.bytes.push(quote)
     }
 
-    while let Some(chr) = reader.pop() {
+    while let Some(chr) = reader.pop()? {
         is_multiline |= chr == b'\n';
         if chr == quote {
-            if reader.peek() == Some(quote) {
+            if reader.peek()? == Some(quote) {
                 reader.skip();
             } else {
                 found_end = true;
@@ -708,9 +729,17 @@ fn parse_quoted(
     }
 
     if !found_end {
-        Err("Reached EOF before end quote".to_string())
+        Err(TokenError::range(
+            start.prev_char(),
+            reader.pos(),
+            "Reached EOF before end quote",
+        ))
     } else if is_multiline {
-        Err("Multi line string".to_string())
+        Err(TokenError::range(
+            start.prev_char(),
+            reader.pos(),
+            "Multi line string",
+        ))
     } else {
         Ok(buffer.clone())
     }
@@ -720,59 +749,57 @@ fn parse_quoted(
 fn parse_string(
     buffer: &mut Latin1String,
     reader: &mut ContentReader,
-) -> Result<Latin1String, String> {
+) -> Result<Latin1String, TokenError> {
     parse_quoted(buffer, reader, b'"', false)
 }
 
 /// Assume -- has already been consumed
-fn parse_comment(buffer: &mut Latin1String, reader: &mut ContentReader) -> Comment {
+fn parse_comment(reader: &mut ContentReader) -> Comment {
     let start_pos = reader.pos().prev_char().prev_char();
-    buffer.bytes.clear();
-    while let Some(chr) = reader.peek() {
-        if chr == b'\n' {
+    let mut value = String::new();
+    while let Some(chr) = reader.peek_char() {
+        if chr == '\n' {
             break;
         } else {
             reader.skip();
-            buffer.bytes.push(chr);
+            value.push(chr);
         }
     }
     let end_pos = reader.pos();
     Comment {
-        value: buffer.clone(),
+        value: value,
         range: start_pos.range_to(end_pos),
         multi_line: false,
     }
 }
 
 /// Assume /* has been consumed
-fn parse_multi_line_comment(
-    source: &Source,
-    buffer: &mut Latin1String,
-    reader: &mut ContentReader,
-) -> ParseResult<Comment> {
+fn parse_multi_line_comment(reader: &mut ContentReader) -> Result<Comment, TokenError> {
     let start_pos = reader.pos().prev_char().prev_char();
-    buffer.bytes.clear();
-    while let Some(chr) = reader.pop() {
-        if chr == b'*' {
-            if reader.skip_if(b'/') {
+    let mut value = String::new();
+    while let Some(chr) = reader.pop_char() {
+        if chr == '*' {
+            if reader.peek_char() == Some('/') {
+                reader.skip();
                 // Comment ended
                 let end_pos = reader.pos();
                 return Ok(Comment {
-                    value: buffer.clone(),
+                    value: value,
                     range: start_pos.range_to(end_pos),
                     multi_line: true,
                 });
             } else {
-                buffer.bytes.push(chr);
+                value.push(chr);
             }
         } else {
-            buffer.bytes.push(chr);
+            value.push(chr);
         }
     }
 
     let end_pos = reader.pos();
-    Err(Diagnostic::error(
-        source.pos(start_pos, end_pos),
+    Err(TokenError::range(
+        start_pos,
+        end_pos,
         "Incomplete multi-line comment",
     ))
 }
@@ -780,10 +807,10 @@ fn parse_multi_line_comment(
 fn parse_real_literal(
     buffer: &mut Latin1String,
     reader: &mut ContentReader,
-) -> Result<f64, String> {
+) -> Result<f64, TokenError> {
     buffer.bytes.clear();
-
-    while let Some(b) = reader.peek_lowercase() {
+    let start = reader.pos();
+    while let Some(b) = reader.peek_lowercase()? {
         match b {
             b'e' => {
                 break;
@@ -806,27 +833,36 @@ fn parse_real_literal(
     }
 
     let string = unsafe { std::str::from_utf8_unchecked(&buffer.bytes) };
-    let result: Result<f64, String> = string
-        .parse()
-        .map_err(|err: std::num::ParseFloatError| err.to_string());
+
+    let result: Result<f64, TokenError> =
+        string.parse().map_err(|err: std::num::ParseFloatError| {
+            TokenError::range(start, reader.pos(), err.to_string())
+        });
     result
+}
+
+fn exponentiate(value: u64, exp: u32) -> Option<u64> {
+    (10 as u64)
+        .checked_pow(exp)
+        .and_then(|x| x.checked_mul(value))
 }
 
 /// LRM 15.5 Abstract literals
 fn parse_abstract_literal(
     buffer: &mut Latin1String,
     reader: &mut ContentReader,
-) -> Result<(Kind, Value), String> {
+) -> Result<(Kind, Value), TokenError> {
     let state = reader.state();
     let initial = parse_integer(reader, 10, true);
+    let pos_after_initial = reader.pos();
 
-    match reader.peek_lowercase() {
+    match reader.peek_lowercase()? {
         // Real
         Some(b'.') => {
             reader.set_state(state);
             let real = parse_real_literal(buffer, reader)?;
 
-            match reader.peek() {
+            match reader.peek()? {
                 // Exponent
                 Some(b'e') | Some(b'E') => {
                     reader.skip();
@@ -857,10 +893,18 @@ fn parse_abstract_literal(
                         Value::AbstractLiteral(ast::AbstractLiteral::Integer(value)),
                     ))
                 } else {
-                    Err("Integer too large for 64-bit unsigned".to_string())
+                    Err(TokenError::range(
+                        state.pos(),
+                        reader.pos(),
+                        "Integer too large for 64-bit unsigned",
+                    ))
                 }
             } else {
-                Err("Integer literals may not have negative exponent".to_string())
+                Err(TokenError::range(
+                    state.pos(),
+                    reader.pos(),
+                    "Integer literals may not have negative exponent",
+                ))
             }
         }
 
@@ -870,7 +914,7 @@ fn parse_abstract_literal(
             reader.skip();
             let base_result = parse_integer(reader, base, false);
 
-            if let Some(b'#') = reader.peek() {
+            if let Some(b'#') = reader.peek()? {
                 reader.skip();
                 let integer = base_result?;
                 if base >= 2 && base <= 16 {
@@ -879,10 +923,18 @@ fn parse_abstract_literal(
                         Value::AbstractLiteral(ast::AbstractLiteral::Integer(integer)),
                     ))
                 } else {
-                    Err(format!("Base must be at least 2 and at most 16, got {}", base).to_string())
+                    Err(TokenError::range(
+                        state.pos(),
+                        pos_after_initial,
+                        format!("Base must be at least 2 and at most 16, got {}", base),
+                    ))
                 }
             } else {
-                Err("Based integer did not end with #".to_string())
+                Err(TokenError::range(
+                    state.pos(),
+                    reader.pos(),
+                    "Based integer did not end with #",
+                ))
             }
         }
 
@@ -890,11 +942,15 @@ fn parse_abstract_literal(
         Some(b's') | Some(b'u') | Some(b'b') | Some(b'o') | Some(b'x') | Some(b'd') => {
             let integer = initial?;
 
-            if let Some(base_spec) = parse_base_specifier(reader) {
+            if let Some(base_spec) = parse_base_specifier(reader)? {
                 // @TODO check overflow
                 parse_bit_string(buffer, reader, base_spec, Some(integer as u32))
             } else {
-                Err("Invalid bit string literal".to_string())
+                Err(TokenError::range(
+                    state.pos(),
+                    reader.pos(),
+                    "Invalid bit string literal",
+                ))
             }
         }
         _ => {
@@ -910,40 +966,43 @@ fn parse_abstract_literal(
 /// LRM 15.8 Bit string literals
 /// Parse the base specifier such as ub, sx, b etc
 /// Also requires and consumes the trailing quoute "
-fn parse_base_specifier(reader: &mut ContentReader) -> Option<BaseSpecifier> {
+fn parse_base_specifier(reader: &mut ContentReader) -> Result<Option<BaseSpecifier>, TokenError> {
     let base_specifier = match reader.pop_lowercase()? {
-        b'u' => match reader.pop_lowercase()? {
-            b'b' => BaseSpecifier::UB,
-            b'o' => BaseSpecifier::UO,
-            b'x' => BaseSpecifier::UX,
-            _ => return None,
+        Some(b'u') => match reader.pop_lowercase()? {
+            Some(b'b') => BaseSpecifier::UB,
+            Some(b'o') => BaseSpecifier::UO,
+            Some(b'x') => BaseSpecifier::UX,
+            _ => return Ok(None),
         },
-        b's' => match reader.pop_lowercase()? {
-            b'b' => BaseSpecifier::SB,
-            b'o' => BaseSpecifier::SO,
-            b'x' => BaseSpecifier::SX,
-            _ => return None,
+        Some(b's') => match reader.pop_lowercase()? {
+            Some(b'b') => BaseSpecifier::SB,
+            Some(b'o') => BaseSpecifier::SO,
+            Some(b'x') => BaseSpecifier::SX,
+            _ => return Ok(None),
         },
-        b'b' => BaseSpecifier::B,
-        b'o' => BaseSpecifier::O,
-        b'x' => BaseSpecifier::X,
-        b'd' => BaseSpecifier::D,
-        _ => return None,
+        Some(b'b') => BaseSpecifier::B,
+        Some(b'o') => BaseSpecifier::O,
+        Some(b'x') => BaseSpecifier::X,
+        Some(b'd') => BaseSpecifier::D,
+        _ => return Ok(None),
     };
 
-    if reader.pop()? == b'"' {
+    Ok(if reader.pop()? == Some(b'"') {
         Some(base_specifier)
     } else {
         None
-    }
+    })
 }
 
 // Only consume reader if it is a base specifier
-fn maybe_base_specifier(reader: &mut ContentReader) -> Option<BaseSpecifier> {
+fn maybe_base_specifier(reader: &mut ContentReader) -> Result<Option<BaseSpecifier>, TokenError> {
     let mut lookahead = reader.clone();
-    let value = parse_base_specifier(&mut lookahead)?;
-    reader.set_to(&lookahead);
-    Some(value)
+    if let Some(value) = parse_base_specifier(&mut lookahead)? {
+        reader.set_to(&lookahead);
+        Ok(Some(value))
+    } else {
+        Ok(None)
+    }
 }
 
 fn parse_bit_string(
@@ -951,10 +1010,13 @@ fn parse_bit_string(
     reader: &mut ContentReader,
     base_specifier: BaseSpecifier,
     bit_string_length: Option<u32>,
-) -> Result<(Kind, Value), String> {
+) -> Result<(Kind, Value), TokenError> {
     let value = match parse_string(buffer, reader) {
         Ok(value) => value,
-        Err(_) => return Err("Invalid bit string literal".to_string()),
+        Err(mut err) => {
+            err.message = "Invalid bit string literal".to_string();
+            return Err(err);
+        }
     };
 
     Ok((
@@ -973,10 +1035,10 @@ fn parse_basic_identifier_or_keyword(
     reader: &mut ContentReader,
     keywords: &FnvHashMap<&'static [u8], Kind>,
     symtab: &SymbolTable,
-) -> Result<(Kind, Value), String> {
+) -> Result<(Kind, Value), TokenError> {
     let start = reader.state();
     let mut len = 0;
-    while let Some(b) = reader.peek() {
+    while let Some(b) = reader.peek()? {
         match b {
             b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_' => {
                 reader.skip();
@@ -991,7 +1053,7 @@ fn parse_basic_identifier_or_keyword(
     reader.set_state(start);
     buffer.bytes.clear();
     for _ in 0..len {
-        buffer.bytes.push(reader.pop_lowercase().unwrap());
+        buffer.bytes.push(reader.pop_lowercase().unwrap().unwrap());
     }
 
     match keywords.get(buffer.bytes.as_slice()) {
@@ -1000,7 +1062,7 @@ fn parse_basic_identifier_or_keyword(
             reader.set_state(start);
             buffer.bytes.clear();
             for _ in 0..len {
-                buffer.bytes.push(reader.pop().unwrap());
+                buffer.bytes.push(reader.pop().unwrap().unwrap());
             }
             Ok((Identifier, Value::Identifier(symtab.insert(&buffer))))
         }
@@ -1009,30 +1071,31 @@ fn parse_basic_identifier_or_keyword(
 
 /// Assumes leading ' has already been consumed
 /// Only consumes from reader if Some is returned
-fn parse_character_literal(reader: &mut ContentReader) -> Option<(Kind, Value)> {
+fn parse_character_literal(
+    reader: &mut ContentReader,
+) -> Result<Option<(Kind, Value)>, TokenError> {
     let mut lookahead = reader.clone();
 
-    let chr = lookahead.pop()?;
-    if lookahead.skip_if(b'\'') {
-        reader.set_to(&lookahead);
-        Some((Character, Value::Character(chr)))
+    if let Some(chr) = lookahead.pop()? {
+        if lookahead.skip_if(b'\'')? {
+            reader.set_to(&lookahead);
+            Ok(Some((Character, Value::Character(chr))))
+        } else {
+            Ok(None)
+        }
     } else {
-        None
+        Ok(None)
     }
 }
 
-fn get_leading_comments(
-    source: &Source,
-    buffer: &mut Latin1String,
-    reader: &mut ContentReader,
-) -> ParseResult<Vec<Comment>> {
+fn get_leading_comments(reader: &mut ContentReader) -> Result<Vec<Comment>, TokenError> {
     let mut comments: Vec<Comment> = Vec::new();
 
     loop {
         skip_whitespace(reader);
         let state = reader.state();
 
-        let byte = if let Some(byte) = reader.pop() {
+        let byte = if let Some(byte) = reader.pop()? {
             byte
         } else {
             break;
@@ -1040,16 +1103,16 @@ fn get_leading_comments(
 
         match byte {
             b'/' => {
-                if reader.pop() == Some(b'*') {
-                    comments.push(parse_multi_line_comment(source, buffer, reader)?);
+                if reader.pop()? == Some(b'*') {
+                    comments.push(parse_multi_line_comment(reader)?);
                 } else {
                     reader.set_state(state);
                     break;
                 }
             }
             b'-' => {
-                if reader.pop() == Some(b'-') {
-                    comments.push(parse_comment(buffer, reader));
+                if reader.pop()? == Some(b'-') {
+                    comments.push(parse_comment(reader));
                 } else {
                     reader.set_state(state);
                     break;
@@ -1067,7 +1130,7 @@ fn get_leading_comments(
 
 /// Skip whitespace but not newline
 fn skip_whitespace_in_line(reader: &mut ContentReader) {
-    while let Some(byte) = reader.peek() {
+    while let Ok(Some(byte)) = reader.peek() {
         match byte {
             b' ' | b'\t' => {
                 reader.skip();
@@ -1081,7 +1144,7 @@ fn skip_whitespace_in_line(reader: &mut ContentReader) {
 
 /// Skip all whitespace
 fn skip_whitespace(reader: &mut ContentReader) {
-    while let Some(byte) = reader.peek() {
+    while let Ok(Some(byte)) = reader.peek() {
         match byte {
             b' ' | b'\t' | b'\n' => {
                 reader.skip();
@@ -1093,22 +1156,22 @@ fn skip_whitespace(reader: &mut ContentReader) {
     }
 }
 
-fn get_trailing_comment(buffer: &mut Latin1String, reader: &mut ContentReader) -> Option<Comment> {
+fn get_trailing_comment(reader: &mut ContentReader) -> Result<Option<Comment>, TokenError> {
     skip_whitespace_in_line(reader);
 
     let state = reader.state();
     match reader.pop()? {
-        b'-' => {
-            if reader.pop() == Some(b'-') {
-                Some(parse_comment(buffer, reader))
+        Some(b'-') => {
+            if reader.pop()? == Some(b'-') {
+                Ok(Some(parse_comment(reader)))
             } else {
                 reader.set_state(state);
-                None
+                Ok(None)
             }
         }
         _ => {
             reader.set_state(state);
-            None
+            Ok(None)
         }
     }
 }
@@ -1273,19 +1336,18 @@ impl<'a> Tokenizer<'a> {
         self.reader.set_state(self.state.start);
     }
 
-    pub fn parse_token(&mut self) -> Result<Option<(Kind, Value)>, Diagnostic> {
-        macro_rules! error {
-            ($message:expr) => {
-                let err = Err(Diagnostic::error(
-                    &self.source.pos(self.state.start.pos(), self.reader.pos()),
-                    $message,
+    fn parse_token(&mut self) -> Result<Option<(Kind, Value)>, TokenError> {
+        macro_rules! illegal_token {
+            () => {
+                return Err(TokenError::range(
+                    self.state.start.pos(),
+                    self.reader.pos(),
+                    "Illegal token",
                 ));
-                self.state.start = self.reader.state();
-                return err;
             };
         }
 
-        let byte = if let Some(byte) = self.reader.peek() {
+        let byte = if let Some(byte) = self.reader.peek()? {
             byte
         } else {
             // End of file
@@ -1294,36 +1356,21 @@ impl<'a> Tokenizer<'a> {
 
         let (kind, value) = match byte {
             b'a'..=b'z' | b'A'..=b'Z' => {
-                if let Some(base_spec) = maybe_base_specifier(&mut self.reader) {
-                    match parse_bit_string(&mut self.buffer, &mut self.reader, base_spec, None) {
-                        Ok((kind, bit_string)) => (kind, bit_string),
-                        Err(msg) => {
-                            error!(msg);
-                        }
-                    }
+                if let Some(base_spec) = maybe_base_specifier(&mut self.reader)? {
+                    parse_bit_string(&mut self.buffer, &mut self.reader, base_spec, None)?
                 } else {
-                    match parse_basic_identifier_or_keyword(
+                    parse_basic_identifier_or_keyword(
                         &mut self.buffer,
                         &mut self.reader,
                         &self.keywords,
                         &self.symtab,
-                    ) {
-                        Ok((kind, value)) => (kind, value),
-                        Err(msg) => {
-                            error!(msg);
-                        }
-                    }
+                    )?
                 }
             }
-            b'0'..=b'9' => match parse_abstract_literal(&mut self.buffer, &mut self.reader) {
-                Ok((kind, value)) => (kind, value),
-                Err(msg) => {
-                    error!(msg);
-                }
-            },
+            b'0'..=b'9' => parse_abstract_literal(&mut self.buffer, &mut self.reader)?,
             b':' => {
                 self.reader.skip();
-                if self.reader.skip_if(b'=') {
+                if self.reader.skip_if(b'=')? {
                     (ColonEq, Value::NoValue)
                 } else {
                     (Colon, Value::NoValue)
@@ -1332,7 +1379,7 @@ impl<'a> Tokenizer<'a> {
             b'\'' => {
                 self.reader.skip();
                 if can_be_char(self.state.last_token_kind) {
-                    if let Some(chr_lit) = parse_character_literal(&mut self.reader) {
+                    if let Some(chr_lit) = parse_character_literal(&mut self.reader)? {
                         chr_lit
                     } else {
                         (Tick, Value::NoValue)
@@ -1347,12 +1394,8 @@ impl<'a> Tokenizer<'a> {
             }
             b'"' => {
                 self.reader.skip();
-                match parse_string(&mut self.buffer, &mut self.reader) {
-                    Ok(result) => (StringLiteral, Value::String(result)),
-                    Err(msg) => {
-                        error!(msg);
-                    }
-                }
+                let result = parse_string(&mut self.buffer, &mut self.reader)?;
+                (StringLiteral, Value::String(result))
             }
             b';' => {
                 self.reader.skip();
@@ -1384,7 +1427,7 @@ impl<'a> Tokenizer<'a> {
             }
             b'=' => {
                 self.reader.skip();
-                if self.reader.skip_if(b'>') {
+                if self.reader.skip_if(b'>')? {
                     (RightArrow, Value::NoValue)
                 } else {
                     (EQ, Value::NoValue)
@@ -1392,7 +1435,7 @@ impl<'a> Tokenizer<'a> {
             }
             b'<' => {
                 self.reader.skip();
-                match self.reader.peek() {
+                match self.reader.peek()? {
                     Some(b'=') => {
                         self.reader.skip();
                         (LTE, Value::NoValue)
@@ -1410,7 +1453,7 @@ impl<'a> Tokenizer<'a> {
             }
             b'>' => {
                 self.reader.skip();
-                match self.reader.peek() {
+                match self.reader.peek()? {
                     Some(b'=') => {
                         self.reader.skip();
                         (GTE, Value::NoValue)
@@ -1425,7 +1468,7 @@ impl<'a> Tokenizer<'a> {
             b'/' => {
                 self.reader.skip();
 
-                if self.reader.skip_if(b'=') {
+                if self.reader.skip_if(b'=')? {
                     (NE, Value::NoValue)
                 } else {
                     (Div, Value::NoValue)
@@ -1434,7 +1477,7 @@ impl<'a> Tokenizer<'a> {
             b'*' => {
                 self.reader.skip();
 
-                if self.reader.skip_if(b'*') {
+                if self.reader.skip_if(b'*')? {
                     (Pow, Value::NoValue)
                 } else {
                     (Times, Value::NoValue)
@@ -1442,7 +1485,7 @@ impl<'a> Tokenizer<'a> {
             }
             b'?' => {
                 self.reader.skip();
-                match self.reader.peek() {
+                match self.reader.peek()? {
                     Some(b'?') => {
                         self.reader.skip();
                         (QueQue, Value::NoValue)
@@ -1453,15 +1496,15 @@ impl<'a> Tokenizer<'a> {
                     }
                     Some(b'/') => {
                         self.reader.skip();
-                        if self.reader.skip_if(b'=') {
+                        if self.reader.skip_if(b'=')? {
                             (QueNE, Value::NoValue)
                         } else {
-                            error!("Illegal token");
+                            illegal_token!();
                         }
                     }
                     Some(b'<') => {
                         self.reader.skip();
-                        if self.reader.skip_if(b'=') {
+                        if self.reader.skip_if(b'=')? {
                             (QueLTE, Value::NoValue)
                         } else {
                             (QueLT, Value::NoValue)
@@ -1469,14 +1512,14 @@ impl<'a> Tokenizer<'a> {
                     }
                     Some(b'>') => {
                         self.reader.skip();
-                        if self.reader.skip_if(b'=') {
+                        if self.reader.skip_if(b'=')? {
                             (QueGTE, Value::NoValue)
                         } else {
                             (QueGT, Value::NoValue)
                         }
                     }
                     _ => {
-                        error!("Illegal token");
+                        illegal_token!();
                     }
                 }
             }
@@ -1503,35 +1546,28 @@ impl<'a> Tokenizer<'a> {
             b'\\' => {
                 self.reader.skip();
                 // LRM 15.4.3 Extended identifers
-                match parse_quoted(&mut self.buffer, &mut self.reader, b'\\', true) {
-                    Ok(result) => {
-                        let result = Value::Identifier(self.symtab.insert_extended(&result));
-                        (Identifier, result)
-                    }
-                    Err(msg) => {
-                        error!(msg);
-                    }
-                }
+                let result = parse_quoted(&mut self.buffer, &mut self.reader, b'\\', true)?;
+                let result = Value::Identifier(self.symtab.insert_extended(&result));
+                (Identifier, result)
             }
             _ => {
                 self.reader.skip();
-                error!("Illegal token");
+                illegal_token!();
             }
         };
         Ok(Some((kind, value)))
     }
 
-    pub fn pop(&mut self) -> ParseResult<Option<Token>> {
-        let leading_comments =
-            get_leading_comments(&self.source, &mut self.buffer, &mut self.reader)?;
+    fn pop_raw(&mut self) -> Result<Option<Token>, TokenError> {
+        let leading_comments = get_leading_comments(&mut self.reader)?;
         self.state.start = self.reader.state();
 
-        match self.parse_token() {
-            Ok(Some((kind, value))) => {
+        match self.parse_token()? {
+            Some((kind, value)) => {
                 // Parsed a token.
                 let pos_start = self.state.start.pos();
                 let pos_end = self.reader.pos();
-                let trailing_comment = get_trailing_comment(&mut self.buffer, &mut self.reader);
+                let trailing_comment = get_trailing_comment(&mut self.reader)?;
                 let token_comments = if (!leading_comments.is_empty()) | trailing_comment.is_some()
                 {
                     Some(Box::new(TokenComments {
@@ -1551,14 +1587,23 @@ impl<'a> Tokenizer<'a> {
                 self.move_after(&token);
                 Ok(Some(token))
             }
-            Err(diagnostic) => {
-                // Got a tokenizing error.
-                Err(diagnostic)
-            }
-            Ok(None) => {
+            None => {
                 // End of file.
                 self.final_comments = Some(leading_comments);
                 Ok(None)
+            }
+        }
+    }
+
+    pub fn pop(&mut self) -> ParseResult<Option<Token>> {
+        match self.pop_raw() {
+            Ok(token) => Ok(token),
+            Err(err) => {
+                self.state.start = self.reader.state();
+                Err(Diagnostic::error(
+                    &self.source.pos(err.range.start, err.range.end),
+                    err.message,
+                ))
             }
         }
     }
@@ -1775,6 +1820,27 @@ end entity"
                     AbstractLiteral,
                     Value::AbstractLiteral(ast::AbstractLiteral::Integer(20000))
                 ),
+            ]
+        );
+    }
+
+    #[test]
+    fn tokenize_non_latin1_error() {
+        // Euro takes 1 utf-16 code and Bomb emojii requires 2 utf-16 codes
+        let code = Code::new("€\u{1F4A3}");
+        let (tokens, _) = code.tokenize_result();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Err(Diagnostic::error(
+                    &code.s1("€"),
+                    "Found invalid latin-1 character '€'"
+                )),
+                Err(Diagnostic::error(
+                    &code.s1("\u{1F4A3}"),
+                    "Found invalid latin-1 character '\u{1F4A3}'"
+                ))
             ]
         );
     }
@@ -2068,7 +2134,7 @@ end entity"
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::error(
-                &code.pos(),
+                &code.s1("k"),
                 "Invalid integer character 'k'"
             ))]
         );
@@ -2082,7 +2148,7 @@ end entity"
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::error(
-                &code.pos(),
+                &code.s1("1"),
                 "Base must be at least 2 and at most 16, got 1"
             ))]
         );
@@ -2091,7 +2157,7 @@ end entity"
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::error(
-                &code.pos(),
+                &code.s1("17"),
                 "Base must be at least 2 and at most 16, got 17"
             ))]
         );
@@ -2101,7 +2167,7 @@ end entity"
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::error(
-                &code.pos(),
+                &code.s("3", 2),
                 "Illegal digit '3' for base 3"
             ))]
         );
@@ -2110,7 +2176,7 @@ end entity"
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::error(
-                &code.pos(),
+                &code.s1("f"),
                 "Illegal digit 'f' for base 15"
             ))]
         );
@@ -2305,24 +2371,26 @@ comment
             ))]
         );
 
-        let large_int = format!("1e{}", (i32::max_value() as i64) + 1).to_string();
+        let exponent_str = ((i32::max_value() as i64) + 1).to_string();
+        let large_int = format!("1e{}", exponent_str);
         let code = Code::new(&large_int);
         let (tokens, _) = code.tokenize_result();
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::error(
-                &code.pos(),
+                &code.s1(&exponent_str),
                 "Exponent too large for 32-bits signed"
             ))]
         );
 
-        let large_int = format!("1.0e{}", (i32::min_value() as i64) - 1).to_string();
+        let exponent_str = ((i32::min_value() as i64) - 1).to_string();
+        let large_int = format!("1.0e{}", exponent_str);
         let code = Code::new(&large_int);
         let (tokens, _) = code.tokenize_result();
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::error(
-                &code.pos(),
+                &code.s1(&exponent_str),
                 "Exponent too large for 32-bits signed"
             ))]
         );
@@ -2420,7 +2488,7 @@ comment
         assert_eq!(
             final_comments,
             vec![Comment {
-                value: Latin1String::from_utf8_unchecked("final"),
+                value: "final".to_string(),
                 range: code.s1("--final").pos().range(),
                 multi_line: false
             },]
@@ -2469,13 +2537,13 @@ comment
                     next_state: state_at_end(&code.s1("+--this is still a plus")),
                     comments: Some(Box::new(TokenComments {
                         leading: vec![Comment {
-                            value: Latin1String::from_utf8_unchecked("this is a plus"),
+                            value: "this is a plus".to_string(),
                             range: code.s1("--this is a plus").pos().range(),
                             multi_line: false
                         },],
                         trailing: Some(Comment {
                             range: code.s1("--this is still a plus").pos().range(),
-                            value: Latin1String::from_utf8_unchecked("this is still a plus"),
+                            value: "this is still a plus".to_string(),
                             multi_line: false
                         }),
                     })),
@@ -2488,19 +2556,19 @@ comment
                     comments: Some(Box::new(TokenComments {
                         leading: vec![
                             Comment {
-                                value: Latin1String::from_utf8_unchecked("- this is not a minus"),
+                                value: "- this is not a minus".to_string(),
                                 range: code.s1("--- this is not a minus").pos().range(),
                                 multi_line: false
                             },
                             Comment {
-                                value: Latin1String::from_utf8_unchecked(" Neither is this"),
+                                value: " Neither is this".to_string(),
                                 range: code.s1("-- Neither is this").pos().range(),
                                 multi_line: false
                             },
                         ],
                         trailing: Some(Comment {
                             range: code.s1("-- this is a minus").pos().range(),
-                            value: Latin1String::from_utf8_unchecked(" this is a minus"),
+                            value: " this is a minus".to_string(),
                             multi_line: false
                         }),
                     })),
@@ -2511,12 +2579,12 @@ comment
             final_comments,
             vec![
                 Comment {
-                    value: Latin1String::from_utf8_unchecked(" a comment at the end of the file"),
+                    value: " a comment at the end of the file".to_string(),
                     range: code.s1("-- a comment at the end of the file").pos().range(),
                     multi_line: false
                 },
                 Comment {
-                    value: Latin1String::from_utf8_unchecked(" and another one"),
+                    value: " and another one".to_string(),
                     range: code.s1("-- and another one").pos().range(),
                     multi_line: false
                 },
@@ -2548,7 +2616,7 @@ bar*/
                 next_state: state_at_end(&code.s1("2")),
                 comments: Some(Box::new(TokenComments {
                     leading: vec![Comment {
-                        value: Latin1String::from_utf8_unchecked("foo\ncom*ment\nbar"),
+                        value: "foo\ncom*ment\nbar".to_string(),
                         range: code.s1("/*foo\ncom*ment\nbar*/").pos().range(),
                         multi_line: true
                     },],
@@ -2559,10 +2627,43 @@ bar*/
         assert_eq!(
             final_comments,
             vec![Comment {
-                value: Latin1String::from_utf8_unchecked("final"),
+                value: "final".to_string(),
                 range: code.s1("/*final*/").pos().range(),
                 multi_line: true
             },]
+        );
+    }
+
+    #[test]
+    fn comments_allow_non_latin1() {
+        let code = Code::new(
+            "
+/* € */
+entity -- €
+",
+        );
+        let (tokens, _) = code.tokenize_result();
+
+        assert_eq!(
+            tokens,
+            vec![Ok(Token {
+                kind: Entity,
+                value: Value::NoValue,
+                pos: code.s1("entity").pos(),
+                next_state: state_at_end(&code.s1("entity -- €")),
+                comments: Some(Box::new(TokenComments {
+                    leading: vec![Comment {
+                        value: " € ".to_string(),
+                        range: code.s1("/* € */").pos().range(),
+                        multi_line: true
+                    },],
+                    trailing: Some(Comment {
+                        value: " €".to_string(),
+                        range: code.s1("-- €").pos().range(),
+                        multi_line: false
+                    }),
+                })),
+            })]
         );
     }
 }

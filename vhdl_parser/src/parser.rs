@@ -63,7 +63,7 @@ impl VHDLParser {
         file_name: &str,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> ParserResult {
-        let source = Source::from_file(file_name)?;
+        let source = Source::from_latin1_file(file_name)?;
         let design_file = self.parse_design_source(&source, diagnostics);
         Ok((source, design_file))
     }

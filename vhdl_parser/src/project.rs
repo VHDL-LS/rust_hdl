@@ -309,7 +309,7 @@ use_lib.files = ['use_file.vhd']
 
     fn update(project: &mut Project, source: &mut Source, contents: &str) {
         std::fs::write(&std::path::Path::new(source.file_name()), contents).unwrap();
-        *source = Source::from_file(source.file_name()).unwrap();
+        *source = Source::from_latin1_file(source.file_name()).unwrap();
         project.update_source(source);
     }
 
@@ -329,7 +329,7 @@ end package;
         ",
         )
         .unwrap();
-        let mut source1 = Source::from_file(path1.to_str().unwrap()).unwrap();
+        let mut source1 = Source::from_latin1_file(path1.to_str().unwrap()).unwrap();
 
         std::fs::write(
             &path2,
@@ -342,7 +342,7 @@ end package;
         ",
         )
         .unwrap();
-        let mut source2 = Source::from_file(path2.to_str().unwrap()).unwrap();
+        let mut source2 = Source::from_latin1_file(path2.to_str().unwrap()).unwrap();
 
         let config_str = "
 [libraries]

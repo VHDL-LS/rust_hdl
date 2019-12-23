@@ -10,9 +10,7 @@ use self::fnv::FnvHashMap;
 use fnv;
 use std::collections::hash_map::Entry;
 
-use self::vhdl_parser::{
-    Config, Diagnostic, Latin1String, Project, Severity, Source, SrcPos, Utf8ToLatin1Error,
-};
+use self::vhdl_parser::{Config, Diagnostic, Project, Severity, Source, SrcPos};
 use crate::rpc_channel::RpcChannel;
 use std::io;
 use std::path::Path;
@@ -334,40 +332,19 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         }
     }
 
-    fn create_latin1(&self, uri: &Url, code: &str) -> Option<Latin1String> {
-        match Latin1String::from_utf8(code) {
-            Ok(value) => Some(value),
-            Err(err) => {
-                let diagnostics = PublishDiagnosticsParams {
-                    uri: uri.clone(),
-                    diagnostics: vec![decode_error_to_lsp_diagnostic(&err)],
-                    version: None,
-                };
-
-                self.send_notification("textDocument/publishDiagnostics", diagnostics);
-                None
-            }
-        }
-    }
-
     fn update(&mut self, uri: &Url, code: &str) {
         let file_name = uri_to_file_name(uri);
         if let Some(source) = self.project.get_source(&file_name) {
-            if let Some(latin1) = self.create_latin1(uri, code) {
-                source.change(None, &latin1);
-                self.project.update_source(&source);
-                self.publish_diagnostics();
-            }
+            source.change(None, &code);
+            self.project.update_source(&source);
+            self.publish_diagnostics();
         } else {
             self.window_log_message(
                 MessageType::Info,
                 format!("Opening file {} that is not part of the project", file_name),
             );
-            if let Some(latin1) = self.create_latin1(uri, code) {
-                self.project
-                    .update_source(&Source::inline(file_name, latin1));
-                self.publish_diagnostics();
-            }
+            self.project.update_source(&Source::inline(file_name, code));
+            self.publish_diagnostics();
         }
     }
 
@@ -492,29 +469,6 @@ fn file_name_to_uri(file_name: impl AsRef<str>) -> Url {
 fn uri_to_file_name(uri: &Url) -> String {
     // @TODO return error to client
     uri.to_file_path().unwrap().to_str().unwrap().to_owned()
-}
-
-fn decode_error_to_lsp_diagnostic(err: &Utf8ToLatin1Error) -> lsp_types::Diagnostic {
-    let range = Range {
-        start: lsp_types::Position {
-            line: err.line,
-            character: err.column,
-        },
-        end: lsp_types::Position {
-            line: err.line,
-            character: err.column + 1,
-        },
-    };
-
-    lsp_types::Diagnostic {
-        range,
-        severity: Some(DiagnosticSeverity::Error),
-        code: None,
-        source: Some("vhdl ls".to_owned()),
-        message: err.message(),
-        related_information: None,
-        tags: None,
-    }
 }
 
 fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {
@@ -839,59 +793,6 @@ lib.files = [
         expect_loaded_config_messages(&mock, &config_uri);
         mock.expect_notification_contains("window/showMessage", "missing_file.vhd");
         initialize_server(&mut server, root_uri);
-    }
-
-    #[test]
-    fn utf8_to_latin1_conversion_gives_error_diagnostic() {
-        let (mock, mut server) = setup_server();
-        let (_tempdir, root_uri) = temp_root_uri();
-        expect_missing_config_messages(&mock);
-        initialize_server(&mut server, root_uri.clone());
-
-        let file_url = root_uri.join("ent.vhd").unwrap();
-        let code = "\
-entity ent is
--- €
-end entity ent;
-"
-        .to_owned();
-
-        let did_open = DidOpenTextDocumentParams {
-            text_document: TextDocumentItem {
-                uri: file_url.clone(),
-                language_id: "vhdl".to_owned(),
-                version: 0,
-                text: code.to_owned(),
-            },
-        };
-
-        let publish_diagnostics = PublishDiagnosticsParams {
-            uri: file_url.clone(),
-            diagnostics: vec![lsp_types::Diagnostic {
-                range: Range {
-                    start: lsp_types::Position {
-                        line: 1,
-                        character: 3,
-                    },
-                    end: lsp_types::Position {
-                        line: 1,
-                        character: 4,
-                    },
-                },
-                code: None,
-                severity: Some(DiagnosticSeverity::Error),
-                source: Some("vhdl ls".to_owned()),
-                message: "Found invalid latin-1 character '€' when decoding from utf-8".to_owned(),
-                related_information: None,
-                tags: None,
-            }],
-            version: None,
-        };
-
-        mock.expect_notification_contains("window/logMessage", "is not part of the project");
-
-        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
-        server.text_document_did_open_notification(&did_open);
     }
 
     #[test]

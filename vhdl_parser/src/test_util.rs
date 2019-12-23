@@ -14,7 +14,6 @@ use crate::design_unit::parse_design_file;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler, ParseResult};
 use crate::expression::{parse_aggregate, parse_choices, parse_expression};
 use crate::interface_declaration::{parse_generic, parse_parameter, parse_port};
-use crate::latin_1::Latin1String;
 use crate::names::{parse_association_list, parse_designator, parse_name, parse_selected_name};
 use crate::range::{parse_discrete_range, parse_range};
 use crate::sequential_statement::parse_sequential_statement;
@@ -59,7 +58,7 @@ impl CodeBuilder {
     }
 
     pub fn code_with_file_name(&self, file_name: impl Into<String>, code: &str) -> Code {
-        self.code_from_source(Source::inline_utf8(file_name, code).unwrap())
+        self.code_from_source(Source::inline(file_name, code))
     }
 
     pub fn code(&self, code: &str) -> Code {
@@ -431,7 +430,6 @@ impl Code {
 }
 
 fn substr_range(source: &Source, range: Range, substr: &str, occurence: usize) -> Range {
-    let substr = Latin1String::from_utf8_unchecked(substr);
     let contents = source.contents();
     let mut reader = ContentReader::new(&contents);
     let mut count = occurence;
@@ -443,7 +441,7 @@ fn substr_range(source: &Source, range: Range, substr: &str, occurence: usize) -
             count -= 1;
             if count == 0 {
                 let start = reader.pos();
-                for _ in 0..substr.len() {
+                for _ in substr.chars() {
                     reader.skip();
                 }
                 if reader.pos() <= range.end {

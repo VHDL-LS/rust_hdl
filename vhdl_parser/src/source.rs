@@ -6,7 +6,6 @@
 
 use crate::contents::Contents;
 use crate::diagnostic::{Diagnostic, ParseResult};
-use crate::latin_1::{Latin1String, Utf8ToLatin1Error};
 use pad;
 use std::cmp::{max, min};
 use std::collections::hash_map::DefaultHasher;
@@ -60,14 +59,14 @@ impl fmt::Debug for UniqueSource {
 }
 
 impl UniqueSource {
-    fn inline(file_name: impl Into<String>, contents: Latin1String) -> Self {
+    fn inline(file_name: impl Into<String>, contents: &str) -> Self {
         Self {
             file_id: FileId::new(file_name),
-            contents: RwLock::new(Contents::from_latin1(&contents)),
+            contents: RwLock::new(Contents::from_str(contents)),
         }
     }
 
-    fn from_file(file_name: impl Into<String>) -> io::Result<Self> {
+    fn from_latin1_file(file_name: impl Into<String>) -> io::Result<Self> {
         let file_name = file_name.into();
         let contents = Contents::from_latin1_file(&file_name)?;
         Ok(Self {
@@ -114,24 +113,16 @@ impl Hash for Source {
 }
 
 impl Source {
-    pub fn inline(file_name: impl Into<String>, contents: Latin1String) -> Source {
+    pub fn inline(file_name: impl Into<String>, contents: &str) -> Source {
         Source {
             source: Arc::new(UniqueSource::inline(file_name, contents)),
         }
     }
 
-    pub fn from_file(file_name: impl Into<String>) -> io::Result<Source> {
+    pub fn from_latin1_file(file_name: impl Into<String>) -> io::Result<Source> {
         Ok(Source {
-            source: Arc::new(UniqueSource::from_file(file_name)?),
+            source: Arc::new(UniqueSource::from_latin1_file(file_name)?),
         })
-    }
-
-    pub fn inline_utf8(
-        file_name: impl Into<String>,
-        contents: &str,
-    ) -> Result<Self, Utf8ToLatin1Error> {
-        let latin1 = Latin1String::from_utf8(contents)?;
-        Ok(Self::inline(file_name, latin1))
     }
 
     #[cfg(test)]
@@ -156,12 +147,12 @@ impl Source {
         }
     }
 
-    pub fn change(&self, range: Option<&Range>, content: &Latin1String) {
+    pub fn change(&self, range: Option<&Range>, content: &str) {
         let mut contents = self.source.contents.write().unwrap();
         if let Some(range) = range {
             contents.change(range, content);
         } else {
-            *contents = Contents::from_latin1(content);
+            *contents = Contents::from_str(content);
         }
     }
 }
@@ -189,6 +180,21 @@ impl Position {
             line: self.line,
             character: self.character + 1,
         }
+    }
+
+    pub fn move_after_char(&mut self, chr: char) {
+        if chr == '\n' {
+            self.line += 1;
+            self.character = 0;
+        } else {
+            self.character += chr.len_utf16() as u64;
+        }
+    }
+
+    pub fn after_char(&self, chr: char) -> Position {
+        let mut pos = self.clone();
+        pos.move_after_char(chr);
+        pos
     }
 
     pub fn prev_char(&self) -> Position {
@@ -304,11 +310,7 @@ impl SrcPos {
         SrcPos { source, range }
     }
 
-    fn get_line_context(
-        &self,
-        context_lines: u64,
-        contents: &Contents,
-    ) -> Vec<(u64, Latin1String)> {
+    fn get_line_context(&self, context_lines: u64, contents: &Contents) -> Vec<(u64, String)> {
         let mut lines = Vec::new();
 
         let start = self.range.start.line.saturating_sub(context_lines);
@@ -316,12 +318,12 @@ impl SrcPos {
 
         for lineno in start..=end {
             if let Some(line) = contents.get_line(lineno as usize) {
-                lines.push((lineno, line.clone()));
+                lines.push((lineno, line.to_owned()));
             }
         }
 
         if lines.is_empty() {
-            lines.push((self.range.start.line, Latin1String::empty()));
+            lines.push((self.range.start.line, String::new()));
         }
         lines
     }
@@ -355,7 +357,6 @@ impl SrcPos {
             line: lineno,
             character: 0,
         };
-
         // Padding before underline
         for chr in line.chars() {
             if pos < self.range.start {
@@ -365,7 +366,7 @@ impl SrcPos {
             } else {
                 break;
             }
-            pos.character += 1;
+            pos.character += chr.len_utf16() as u64;
         }
 
         if lineno == self.range.end.line {
@@ -518,6 +519,7 @@ impl<T: HasSrcPos> HasSource for T {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::latin_1::Latin1String;
     use crate::test_util::{Code, CodeBuilder};
     use pretty_assertions::assert_eq;
     use tempfile;
@@ -545,7 +547,7 @@ mod tests {
         let file_name = file.path().to_str().unwrap().to_string();
         file.write(&Latin1String::from_utf8_unchecked(contents).bytes)
             .unwrap();
-        fun(CodeBuilder::new().code_from_source(Source::from_file(file_name).unwrap()))
+        fun(CodeBuilder::new().code_from_source(Source::from_latin1_file(file_name).unwrap()))
     }
 
     #[test]
@@ -645,6 +647,20 @@ mod tests {
 2  |  åäö
 3 --> __å_ä_ö__
    |    ~~~~~
+",
+        );
+    }
+
+    #[test]
+    fn code_context_double_utf16() {
+        // Bomb emojii requires 2 utf-16 codes
+        let code = Code::new("\u{1F4A3}");
+        assert_eq!(code.end().character - code.start().character, 2);
+        assert_eq!(
+            code.pos().code_context(),
+            "\
+1 --> \u{1F4A3}
+   |  ~
 ",
         );
     }
