@@ -10,7 +10,7 @@ use self::fnv::FnvHashMap;
 use fnv;
 use std::collections::hash_map::Entry;
 
-use self::vhdl_parser::{Config, Diagnostic, Project, Severity, Source, SrcPos, Utf8ToLatin1Error};
+use self::vhdl_parser::{Config, Diagnostic, Project, Severity, Source, SrcPos};
 use crate::rpc_channel::RpcChannel;
 use std::io;
 use std::path::Path;
@@ -225,8 +225,6 @@ struct InitializedVHDLServer<T: RpcChannel> {
     rpc_channel: T,
     init_params: InitializeParams,
     project: Project,
-    // @TODO manage open/close of these to save memory
-    source_map: FnvHashMap<Url, Source>,
     files_with_notifications: FnvHashMap<Url, ()>,
 }
 
@@ -260,13 +258,13 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             rpc_channel,
             init_params,
             project,
-            source_map: FnvHashMap::default(),
             files_with_notifications: FnvHashMap::default(),
         };
 
         let mut capabilities = ServerCapabilities::default();
-        capabilities.text_document_sync =
-            Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::Full));
+        capabilities.text_document_sync = Some(TextDocumentSyncCapability::Kind(
+            TextDocumentSyncKind::Incremental,
+        ));
         capabilities.declaration_provider = Some(true);
         capabilities.definition_provider = Some(true);
         capabilities.references_provider = Some(true);
@@ -276,6 +274,10 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         };
 
         (server, result)
+    }
+
+    pub fn initialized_notification(&mut self, _params: &InitializedParams) {
+        self.publish_diagnostics();
     }
 
     fn client_supports_related_information(&self) -> bool {
@@ -335,53 +337,60 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         }
     }
 
-    fn parse_and_publish_diagnostics(&mut self, uri: &Url, code: &str) {
-        // @TODO return error to client
-        let file_name = uri_to_file_name(&uri);
-
-        match Source::inline_utf8(file_name.to_string(), code) {
-            Ok(source) => {
-                // @TODO log error to client
-                self.source_map.insert(uri.clone(), source.clone());
-                self.project.update_source(&source).unwrap();
-                self.publish_diagnostics();
-            }
-            Err(err) => {
-                let publish_diagnostics = PublishDiagnosticsParams {
-                    uri: uri.clone(),
-                    diagnostics: vec![decode_error_to_lsp_diagnostic(&err)],
-                    version: None,
-                };
-
-                self.send_notification("textDocument/publishDiagnostics", publish_diagnostics);
-            }
+    fn open(&mut self, uri: &Url, code: &str) {
+        let file_name = uri_to_file_name(uri);
+        if let Some(source) = self.project.get_source(&file_name) {
+            source.change(None, &code);
+            self.project.update_source(&source);
+            self.publish_diagnostics();
+        } else {
+            self.window_log_message(
+                MessageType::Info,
+                format!(
+                    "Opening file {} that is not part of the project",
+                    &file_name
+                ),
+            );
+            self.project.update_source(&Source::inline(file_name, code));
+            self.publish_diagnostics();
         }
     }
 
-    pub fn initialized_notification(&mut self, _params: &InitializedParams) {
-        self.publish_diagnostics();
-    }
-
     pub fn text_document_did_change_notification(&mut self, params: &DidChangeTextDocumentParams) {
-        self.parse_and_publish_diagnostics(
-            &params.text_document.uri,
-            &params.content_changes[0].text,
-        );
+        let file_name = uri_to_file_name(&params.text_document.uri);
+        if let Some(source) = self.project.get_source(&file_name) {
+            for content_change in params.content_changes.iter() {
+                let range = content_change
+                    .range
+                    .map(|range| from_lsp_range(range.clone()));
+                source.change(range.as_ref(), &content_change.text);
+            }
+            self.project.update_source(&source);
+            self.publish_diagnostics();
+        } else {
+            self.window_log_message(
+                MessageType::Error,
+                format!(
+                    "Changing file {} that is not part of the project",
+                    &file_name
+                ),
+            );
+        }
     }
 
     pub fn text_document_did_open_notification(&mut self, params: &DidOpenTextDocumentParams) {
-        self.parse_and_publish_diagnostics(&params.text_document.uri, &params.text_document.text);
+        self.open(&params.text_document.uri, &params.text_document.text);
     }
 
     pub fn text_document_declaration(
         &mut self,
         params: &TextDocumentPositionParams,
     ) -> Option<Location> {
-        self.source_map
-            .get(&params.text_document.uri)
+        self.project
+            .get_source(&uri_to_file_name(&params.text_document.uri))
             .and_then(|source| {
                 self.project
-                    .search_reference(source, position_to_cursor(&params.position))
+                    .search_reference(&source, from_lsp_pos(params.position))
             })
             .map(|result| srcpos_to_location(&result))
     }
@@ -396,12 +405,14 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
 
     pub fn text_document_references(&mut self, params: &ReferenceParams) -> Vec<Location> {
         let decl_pos = self
-            .source_map
-            .get(&params.text_document_position.text_document.uri)
+            .project
+            .get_source(&uri_to_file_name(
+                &params.text_document_position.text_document.uri,
+            ))
             .and_then(|source| {
                 self.project.search_reference(
-                    source,
-                    position_to_cursor(&params.text_document_position.position),
+                    &source,
+                    from_lsp_pos(params.text_document_position.position),
                 )
             });
 
@@ -425,7 +436,7 @@ fn srcpos_to_location(pos: &SrcPos) -> Location {
     }
 }
 
-fn position_to_cursor(position: &lsp_types::Position) -> vhdl_parser::Position {
+fn from_lsp_pos(position: lsp_types::Position) -> vhdl_parser::Position {
     vhdl_parser::Position {
         line: position.line,
         character: position.character,
@@ -443,6 +454,13 @@ fn to_lsp_range(range: vhdl_parser::Range) -> lsp_types::Range {
     lsp_types::Range {
         start: to_lsp_pos(range.start),
         end: to_lsp_pos(range.end),
+    }
+}
+
+fn from_lsp_range(range: lsp_types::Range) -> vhdl_parser::Range {
+    vhdl_parser::Range {
+        start: from_lsp_pos(range.start),
+        end: from_lsp_pos(range.end),
     }
 }
 
@@ -480,29 +498,6 @@ fn file_name_to_uri(file_name: impl AsRef<str>) -> Url {
 fn uri_to_file_name(uri: &Url) -> String {
     // @TODO return error to client
     uri.to_file_path().unwrap().to_str().unwrap().to_owned()
-}
-
-fn decode_error_to_lsp_diagnostic(err: &Utf8ToLatin1Error) -> lsp_types::Diagnostic {
-    let range = Range {
-        start: lsp_types::Position {
-            line: err.line,
-            character: err.column,
-        },
-        end: lsp_types::Position {
-            line: err.line,
-            character: err.column + 1,
-        },
-    };
-
-    lsp_types::Diagnostic {
-        range,
-        severity: Some(DiagnosticSeverity::Error),
-        code: None,
-        source: Some("vhdl ls".to_owned()),
-        message: err.message(),
-        related_information: None,
-        tags: None,
-    }
 }
 
 fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {
@@ -636,6 +631,8 @@ end entity ent;
             },
         };
 
+        mock.expect_notification_contains("window/logMessage", "is not part of the project");
+
         server.text_document_did_open_notification(&did_open);
     }
 
@@ -685,6 +682,8 @@ end entity ent2;
             }],
             version: None,
         };
+
+        mock.expect_notification_contains("window/logMessage", "is not part of the project");
 
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
         server.text_document_did_open_notification(&did_open);
@@ -823,57 +822,6 @@ lib.files = [
         expect_loaded_config_messages(&mock, &config_uri);
         mock.expect_notification_contains("window/showMessage", "missing_file.vhd");
         initialize_server(&mut server, root_uri);
-    }
-
-    #[test]
-    fn utf8_to_latin1_conversion_gives_error_diagnostic() {
-        let (mock, mut server) = setup_server();
-        let (_tempdir, root_uri) = temp_root_uri();
-        expect_missing_config_messages(&mock);
-        initialize_server(&mut server, root_uri.clone());
-
-        let file_url = root_uri.join("ent.vhd").unwrap();
-        let code = "\
-entity ent is
--- €
-end entity ent;
-"
-        .to_owned();
-
-        let did_open = DidOpenTextDocumentParams {
-            text_document: TextDocumentItem {
-                uri: file_url.clone(),
-                language_id: "vhdl".to_owned(),
-                version: 0,
-                text: code.to_owned(),
-            },
-        };
-
-        let publish_diagnostics = PublishDiagnosticsParams {
-            uri: file_url.clone(),
-            diagnostics: vec![lsp_types::Diagnostic {
-                range: Range {
-                    start: lsp_types::Position {
-                        line: 1,
-                        character: 3,
-                    },
-                    end: lsp_types::Position {
-                        line: 1,
-                        character: 4,
-                    },
-                },
-                code: None,
-                severity: Some(DiagnosticSeverity::Error),
-                source: Some("vhdl ls".to_owned()),
-                message: "Found invalid latin-1 character '€' when decoding from utf-8".to_owned(),
-                related_information: None,
-                tags: None,
-            }],
-            version: None,
-        };
-
-        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
-        server.text_document_did_open_notification(&did_open);
     }
 
     #[test]

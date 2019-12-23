@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
+use crate::source::Position;
 use std::fmt;
 use std::str;
 
@@ -22,6 +23,31 @@ fn iso_8859_1_to_utf8(bytes: &[u8]) -> String {
         }
     }
     unsafe { str::from_utf8_unchecked(utf8_bytes.as_slice()).to_string() }
+}
+
+pub fn char_to_latin1(chr: char) -> Option<u8> {
+    let mut bytes = [0; 4];
+    chr.encode_utf8(&mut bytes);
+    let byte = bytes[0];
+    if byte < 128 {
+        Some(byte)
+    } else if byte == 0xc2 {
+        let next_byte = bytes[1];
+        if 128 <= next_byte && next_byte < 192 {
+            Some(next_byte)
+        } else {
+            None
+        }
+    } else if byte == 0xc3 {
+        let next_byte = bytes[1];
+        if 128 <= next_byte && next_byte < 192 {
+            Some(next_byte + 64)
+        } else {
+            None
+        }
+    } else {
+        None
+    }
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -46,6 +72,10 @@ impl Latin1String {
 
     pub fn len(&self) -> usize {
         self.bytes.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.bytes.is_empty()
     }
 
     pub fn lowercase(chr: u8) -> u8 {
@@ -113,8 +143,7 @@ impl Latin1String {
             if error {
                 let value = string[i..].chars().next().unwrap();
                 return Err(Utf8ToLatin1Error {
-                    line,
-                    column,
+                    pos: Position::new(line, column),
                     value,
                 });
             }
@@ -142,31 +171,15 @@ impl fmt::Display for Latin1String {
     }
 }
 
-#[derive(Debug)]
+#[derive(PartialEq, Debug)]
 pub struct Utf8ToLatin1Error {
-    pub line: u64,
-    pub column: u64,
+    pub pos: Position,
     pub value: char,
 }
 
 impl Utf8ToLatin1Error {
     pub fn message(&self) -> String {
-        format!(
-            "Found invalid latin-1 character '{}' when decoding from utf-8",
-            self.value
-        )
-    }
-}
-
-impl fmt::Display for Utf8ToLatin1Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}: line {} column {}",
-            self.message(),
-            self.line + 1,
-            self.column
-        )
+        format!("Found invalid latin-1 character '{}'", self.value)
     }
 }
 
@@ -208,17 +221,17 @@ mod tests {
     fn utf8_to_latin1_error() {
         let utf8 = "abö€";
         assert_matches!(Latin1String::from_utf8(utf8), Err(err) => {
-            assert_eq!(err.line, 0);
-            assert_eq!(err.column, 3);
+            assert_eq!(err.pos.line, 0);
+            assert_eq!(err.pos.character, 3);
             assert_eq!(err.value, '€');
         });
 
         let utf8 = "a\nbö\n€";
         assert_matches!(Latin1String::from_utf8(utf8), Err(err) => {
-            assert_eq!(err.line, 2);
-            assert_eq!(err.column, 0);
+            assert_eq!(err.pos.line, 2);
+            assert_eq!(err.pos.character, 0);
             assert_eq!(err.value, '€');
-            assert_eq!(err.to_string(), "Found invalid latin-1 character '€' when decoding from utf-8: line 3 column 0");
+            assert_eq!(err.message(), "Found invalid latin-1 character '€'");
         });
     }
 }
