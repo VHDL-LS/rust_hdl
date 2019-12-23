@@ -9,7 +9,6 @@ use super::source::{Position, Range};
 use std::fs::File;
 use std::io;
 use std::io::prelude::Read;
-use std::sync::RwLockReadGuard;
 
 pub struct Contents {
     lines: Vec<Latin1String>,
@@ -179,12 +178,12 @@ fn split_lines(code: &Latin1String) -> Vec<Latin1String> {
 }
 
 pub struct ContentReader<'a> {
-    contents: RwLockReadGuard<'a, Contents>,
+    contents: &'a Contents,
     pos: Position,
 }
 
 impl<'a> ContentReader<'a> {
-    pub fn new(contents: RwLockReadGuard<'a, Contents>) -> ContentReader<'a> {
+    pub fn new(contents: &'a Contents) -> ContentReader<'a> {
         ContentReader {
             contents,
             pos: Position::default(),
@@ -252,23 +251,18 @@ impl<'a> ContentReader<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::RwLock;
 
     fn new(code: &str) -> Contents {
         Contents::from_latin1(&Latin1String::from_utf8(code).unwrap())
     }
 
-    fn new_lock(code: &str) -> RwLock<Contents> {
-        RwLock::new(new(code))
-    }
-
-    fn reader(contents: &RwLock<Contents>) -> ContentReader {
-        ContentReader::new(contents.read().unwrap())
+    fn reader(contents: &Contents) -> ContentReader {
+        ContentReader::new(contents)
     }
 
     #[test]
     fn pop_single_line() {
-        let contents = new_lock("hi");
+        let contents = new("hi");
         let mut reader = reader(&contents);
         assert_eq!(reader.pop(), Some(b'h'));
         assert_eq!(reader.pop(), Some(b'i'));
@@ -277,7 +271,7 @@ mod tests {
 
     #[test]
     fn pop_multi_line_no_newline_at_end() {
-        let contents = new_lock("h\ni");
+        let contents = new("h\ni");
         let mut reader = reader(&contents);
         assert_eq!(reader.pop(), Some(b'h'));
         assert_eq!(reader.pop(), Some(b'\n'));
@@ -287,7 +281,7 @@ mod tests {
 
     #[test]
     fn pop_multi_line() {
-        let contents = new_lock("h\ni\n");
+        let contents = new("h\ni\n");
         let mut reader = reader(&contents);
         assert_eq!(reader.pop(), Some(b'h'));
         assert_eq!(reader.pop(), Some(b'\n'));
@@ -298,7 +292,7 @@ mod tests {
 
     #[test]
     fn empty_lines() {
-        let contents = new_lock("\n\n\n");
+        let contents = new("\n\n\n");
         let mut reader = reader(&contents);
         assert_eq!(reader.pop(), Some(b'\n'));
         assert_eq!(reader.pop(), Some(b'\n'));
@@ -307,7 +301,7 @@ mod tests {
 
     #[test]
     fn peek() {
-        let contents = new_lock("hi");
+        let contents = new("hi");
         let mut reader = reader(&contents);
         assert_eq!(reader.peek(0), Some(b'h'));
         assert_eq!(reader.peek(1), Some(b'i'));
@@ -316,7 +310,7 @@ mod tests {
 
     #[test]
     fn matches() {
-        let contents = new_lock("abc");
+        let contents = new("abc");
         let mut reader = reader(&contents);
         assert!(reader.matches(&Latin1String::from_utf8("abc").unwrap()));
         assert!(!reader.matches(&Latin1String::from_utf8("bc").unwrap()));

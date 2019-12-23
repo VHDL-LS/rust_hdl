@@ -1122,7 +1122,11 @@ pub struct Tokenizer<'a> {
 }
 
 impl<'a> Tokenizer<'a> {
-    pub fn new(symtab: Arc<SymbolTable>, source: &'a Source) -> Tokenizer<'a> {
+    pub fn new(
+        symtab: Arc<SymbolTable>,
+        source: &'a Source,
+        reader: ContentReader<'a>,
+    ) -> Tokenizer<'a> {
         let keywords = [
             ("architecture", Architecture),
             ("entity", Entity),
@@ -1229,7 +1233,6 @@ impl<'a> Tokenizer<'a> {
 
         let range_sym = symtab.insert(&Latin1String::new(b"range"));
         let reverse_range_sym = symtab.insert(&Latin1String::new(b"reverse_range"));
-        let reader = source.reader();
 
         Tokenizer {
             keywords,

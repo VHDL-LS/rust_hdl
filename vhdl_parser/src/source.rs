@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::contents::{ContentReader, Contents};
+use crate::contents::Contents;
 use crate::diagnostic::{Diagnostic, ParseResult};
 use crate::latin_1::{Latin1String, Utf8ToLatin1Error};
 use pad;
@@ -143,10 +143,6 @@ impl Source {
 
     pub fn contents(&self) -> RwLockReadGuard<Contents> {
         self.source.contents()
-    }
-
-    pub fn reader(&self) -> ContentReader {
-        ContentReader::new(self.source.contents())
     }
 
     pub fn file_name(&self) -> &str {

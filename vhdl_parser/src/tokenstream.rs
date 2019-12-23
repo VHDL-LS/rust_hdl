@@ -189,19 +189,25 @@ impl<T: std::fmt::Debug> Recover<T> for ParseResult<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::contents::ContentReader;
     use crate::diagnostic::Diagnostic;
     use crate::test_util::Code;
 
-    fn new_stream<'a>(code: &'a Code) -> TokenStream<'a> {
-        let tokenizer = Tokenizer::new(code.symtab.clone(), code.source());
-        TokenStream::new(tokenizer)
+    macro_rules! new_stream {
+        ($code:ident, $stream:ident) => {
+            let source = $code.source();
+            let contents = source.contents();
+            let tokenizer =
+                Tokenizer::new($code.symtab.clone(), source, ContentReader::new(&contents));
+            let mut $stream = TokenStream::new(tokenizer);
+        };
     }
 
     #[test]
     fn pop_and_peek() {
         let code = Code::new("hello world again");
         let tokens = code.tokenize();
-        let mut stream = new_stream(&code);
+        new_stream!(code, stream);
 
         assert_eq!(stream.pop(), Ok(Some(tokens[0].clone())));
         assert_eq!(stream.peek(), Ok(Some(tokens[1].clone())));
@@ -218,7 +224,7 @@ mod tests {
     #[test]
     fn is_peek_kinds() {
         let code = Code::new("hello 1 +");
-        let mut stream = new_stream(&code);
+        new_stream!(code, stream);
 
         assert_eq!(
             stream.next_kinds_are(&[Identifier, AbstractLiteral, Plus]),
@@ -240,7 +246,7 @@ mod tests {
     fn expect() {
         let code = Code::new("hello");
         let tokens = code.tokenize();
-        let mut stream = new_stream(&code);
+        new_stream!(code, stream);
 
         assert_eq!(stream.peek_expect(), Ok(tokens[0].clone()));
         assert_eq!(stream.expect(), Ok(tokens[0].clone()));
@@ -258,7 +264,7 @@ mod tests {
     fn set_state_taken_before_peek() {
         let code = Code::new("hello world");
         let tokens = code.tokenize();
-        let mut stream = new_stream(&code);
+        new_stream!(code, stream);
 
         let state = stream.state();
         assert_eq!(stream.peek(), Ok(Some(tokens[0].clone())));
@@ -273,7 +279,7 @@ mod tests {
     fn set_state_taken_after_peek() {
         let code = Code::new("hello world");
         let tokens = code.tokenize();
-        let mut stream = new_stream(&code);
+        new_stream!(code, stream);
 
         assert_eq!(stream.peek(), Ok(Some(tokens[0].clone())));
         let state = stream.state();
@@ -284,7 +290,7 @@ mod tests {
     #[test]
     fn expect_when_eof_empty() {
         let code = Code::new("");
-        let mut stream = new_stream(&code);
+        new_stream!(code, stream);
 
         assert_eq!(
             stream.expect(),
@@ -295,7 +301,7 @@ mod tests {
     #[test]
     fn expect_eof_after_whitespace() {
         let code = Code::new("a  ");
-        let mut stream = new_stream(&code);
+        new_stream!(code, stream);
 
         stream.expect().unwrap();
         assert_eq!(
@@ -307,7 +313,7 @@ mod tests {
     #[test]
     fn expect_eof_after_comment() {
         let code = Code::new("a  -- foo");
-        let mut stream = new_stream(&code);
+        new_stream!(code, stream);
 
         stream.expect().unwrap();
         assert_eq!(
@@ -319,7 +325,7 @@ mod tests {
     #[test]
     fn pop_kind() {
         let code = Code::new("hello world again");
-        let mut stream = new_stream(&code);
+        new_stream!(code, stream);
 
         assert_eq!(stream.pop_kind(), Ok(Some(Identifier)));
     }
@@ -327,7 +333,7 @@ mod tests {
     #[test]
     fn skip_until() {
         let code = Code::new("a begin for + ;");
-        let mut stream = new_stream(&code);
+        new_stream!(code, stream);
 
         assert!(stream
             .skip_until(|ref k| match k {

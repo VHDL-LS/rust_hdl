@@ -5,6 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::ast::DesignFile;
+use crate::contents::ContentReader;
 use crate::design_unit::parse_design_file;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::latin_1::Latin1String;
@@ -44,7 +45,8 @@ impl VHDLParser {
         source: &Source,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> DesignFile {
-        let tokenizer = Tokenizer::new(self.symtab.clone(), &source);
+        let contents = source.contents();
+        let tokenizer = Tokenizer::new(self.symtab.clone(), &source, ContentReader::new(&contents));
         let mut stream = TokenStream::new(tokenizer);
 
         match parse_design_file(&mut stream, diagnostics) {

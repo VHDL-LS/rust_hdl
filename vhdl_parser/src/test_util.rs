@@ -7,6 +7,7 @@
 use crate::ast;
 use crate::ast::*;
 use crate::concurrent_statement::parse_labeled_concurrent_statement;
+use crate::contents::ContentReader;
 use crate::context::{parse_library_clause, parse_use_clause};
 use crate::declarative_part::parse_declarative_part_leave_end_token;
 use crate::design_unit::parse_design_file;
@@ -139,7 +140,9 @@ impl Code {
         let mut tokens = Vec::new();
         let final_comments: Vec<Comment>;
         {
-            let mut tokenizer = Tokenizer::new(self.symtab.clone(), &self.pos.source);
+            let contents = self.pos.source.contents();
+            let reader = ContentReader::new(&contents);
+            let mut tokenizer = Tokenizer::new(self.symtab.clone(), &self.pos.source, reader);
             loop {
                 let token = tokenizer.pop();
 
@@ -173,7 +176,9 @@ impl Code {
             self.pos.file_name(),
             contents.crop(Range::new(Position::default(), self.pos.end())),
         );
-        let tokenizer = Tokenizer::new(self.symtab.clone(), &source);
+        let contents = source.contents();
+        let reader = ContentReader::new(&contents);
+        let tokenizer = Tokenizer::new(self.symtab.clone(), &source, reader);
         let mut stream = TokenStream::new(tokenizer);
         forward(&mut stream, self.pos.start());
         parse_fun(&mut stream)
@@ -196,7 +201,9 @@ impl Code {
     where
         F: FnOnce(&mut TokenStream) -> R,
     {
-        let tokenizer = Tokenizer::new(self.symtab.clone(), &self.pos.source);
+        let contents = self.pos.source.contents();
+        let reader = ContentReader::new(&contents);
+        let tokenizer = Tokenizer::new(self.symtab.clone(), &self.pos.source, reader);
         let mut stream = TokenStream::new(tokenizer);
         parse_fun(&mut stream)
     }
@@ -425,7 +432,8 @@ impl Code {
 
 fn substr_range(source: &Source, range: Range, substr: &str, occurence: usize) -> Range {
     let substr = Latin1String::from_utf8_unchecked(substr);
-    let mut reader = source.reader();
+    let contents = source.contents();
+    let mut reader = ContentReader::new(&contents);
     let mut count = occurence;
 
     reader.set_pos(range.start);
