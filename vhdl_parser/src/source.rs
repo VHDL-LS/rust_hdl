@@ -191,6 +191,13 @@ impl Position {
         }
     }
 
+    pub fn prev_char(&self) -> Position {
+        Position {
+            line: self.line,
+            character: self.character.saturating_sub(1),
+        }
+    }
+
     pub fn range_to(&self, end: Position) -> Range {
         Range {
             start: *self,

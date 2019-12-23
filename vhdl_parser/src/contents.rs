@@ -61,9 +61,7 @@ impl Contents {
         Contents { lines: lines }
     }
 
-    fn advance(&self, pos: &mut Position, offset: usize) {
-        let mut offset = offset as u64;
-
+    fn next(&self, pos: &mut Position) {
         let line_len = {
             if let Some(line) = self.get_line(pos.line as usize) {
                 line.bytes.len() as u64
@@ -72,18 +70,16 @@ impl Contents {
             }
         };
 
-        if pos.character + offset >= line_len {
+        if pos.character + 1 >= line_len {
             if pos.line + 1 < self.num_lines() as u64 {
-                offset -= line_len - pos.character;
                 pos.character = 0;
                 pos.line += 1;
-                self.advance(pos, offset as usize);
             } else {
                 // EOF
                 *pos = self.end();
             }
         } else {
-            pos.character += offset;
+            pos.character += 1;
         }
     }
 
@@ -199,14 +195,15 @@ impl<'a> ContentReader<'a> {
         self.contents.get(&self.pos)
     }
 
-    fn advance(&mut self, offset: usize) {
-        self.contents.advance(&mut self.pos, offset);
-    }
-
+    #[must_use]
     pub fn pop(&mut self) -> Option<u8> {
         let byte = self.get();
-        self.advance(1);
+        self.skip();
         byte
+    }
+
+    pub fn skip(&mut self) {
+        self.contents.next(&mut self.pos);
     }
 
     pub fn pop_lowercase(&mut self) -> Option<u8> {
@@ -215,8 +212,9 @@ impl<'a> ContentReader<'a> {
 
     #[cfg(test)]
     pub fn matches(&mut self, substr: &Latin1String) -> bool {
-        for (i, exp) in substr.bytes.iter().enumerate() {
-            if let Some(byte) = self.peek(i) {
+        let mut lookahead = self.clone();
+        for exp in substr.bytes.iter() {
+            if let Some(byte) = lookahead.pop() {
                 if byte != *exp {
                     return false;
                 }
@@ -228,8 +226,8 @@ impl<'a> ContentReader<'a> {
     }
 
     pub fn skip_if(&mut self, value: u8) -> bool {
-        if self.peek(0) == Some(value) {
-            self.pop();
+        if self.peek() == Some(value) {
+            self.skip();
             true
         } else {
             false
@@ -244,12 +242,8 @@ impl<'a> ContentReader<'a> {
         self.pos
     }
 
-    pub fn peek(&mut self, offset: usize) -> Option<u8> {
-        let pos = self.pos;
-        self.advance(offset);
-        let byte = self.get();
-        self.pos = pos;
-        byte
+    pub fn peek(&self) -> Option<u8> {
+        self.get()
     }
 }
 
@@ -308,9 +302,12 @@ mod tests {
     fn peek() {
         let contents = new("hi");
         let mut reader = reader(&contents);
-        assert_eq!(reader.peek(0), Some(b'h'));
-        assert_eq!(reader.peek(1), Some(b'i'));
-        assert_eq!(reader.peek(3), None);
+        assert_eq!(reader.peek(), Some(b'h'));
+        assert_eq!(reader.pop(), Some(b'h'));
+        assert_eq!(reader.peek(), Some(b'i'));
+        assert_eq!(reader.pop(), Some(b'i'));
+        assert_eq!(reader.peek(), None);
+        assert_eq!(reader.pop(), None);
     }
 
     #[test]
@@ -319,7 +316,7 @@ mod tests {
         let mut reader = reader(&contents);
         assert!(reader.matches(&Latin1String::from_utf8("abc").unwrap()));
         assert!(!reader.matches(&Latin1String::from_utf8("bc").unwrap()));
-        reader.pop();
+        reader.skip();
         assert!(reader.matches(&Latin1String::from_utf8("bc").unwrap()));
     }
 

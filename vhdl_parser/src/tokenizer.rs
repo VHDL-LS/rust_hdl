@@ -553,7 +553,7 @@ fn parse_integer(
     let mut too_large_digit = None;
     let mut invalid_character = None;
 
-    while let Some(b) = reader.peek(0) {
+    while let Some(b) = reader.peek() {
         let digit = u64::from(match b {
             // Bit string literal or exponent
             // Lower case
@@ -566,23 +566,23 @@ fn parse_integer(
             }
 
             b'0'..=b'9' => {
-                reader.pop();
+                reader.skip();
                 (b - b'0')
             }
             b'a'..=b'f' => {
-                reader.pop();
+                reader.skip();
                 (10 + b - b'a')
             }
             b'A'..=b'F' => {
-                reader.pop();
+                reader.skip();
                 (10 + b - b'A')
             }
             b'_' => {
-                reader.pop();
+                reader.skip();
                 continue;
             }
             b'g'..=b'z' | b'G'..=b'Z' => {
-                reader.pop();
+                reader.skip();
                 invalid_character = Some(b);
                 continue;
             }
@@ -618,8 +618,8 @@ fn parse_integer(
 
 fn parse_exponent(reader: &mut ContentReader) -> Result<i32, String> {
     let negative = {
-        if reader.peek(0) == Some(b'-') {
-            reader.pop();
+        if reader.peek() == Some(b'-') {
+            reader.skip();
             true
         } else {
             reader.skip_if(b'+');
@@ -693,8 +693,8 @@ fn parse_quoted(
     while let Some(chr) = reader.pop() {
         is_multiline |= chr == b'\n';
         if chr == quote {
-            if reader.peek(0) == Some(quote) {
-                reader.pop();
+            if reader.peek() == Some(quote) {
+                reader.skip();
             } else {
                 found_end = true;
                 break;
@@ -724,17 +724,15 @@ fn parse_string(
     parse_quoted(buffer, reader, b'"', false)
 }
 
-/// Assume -- has already been seen but not consumed
+/// Assume -- has already been consumed
 fn parse_comment(buffer: &mut Latin1String, reader: &mut ContentReader) -> Comment {
-    let start_pos = reader.pos();
-    reader.pop();
-    reader.pop();
+    let start_pos = reader.pos().prev_char().prev_char();
     buffer.bytes.clear();
-    while let Some(chr) = reader.peek(0) {
+    while let Some(chr) = reader.peek() {
         if chr == b'\n' {
             break;
         } else {
-            reader.pop();
+            reader.skip();
             buffer.bytes.push(chr);
         }
     }
@@ -746,15 +744,13 @@ fn parse_comment(buffer: &mut Latin1String, reader: &mut ContentReader) -> Comme
     }
 }
 
-/// Assume /* has been seen but not consumed
+/// Assume /* has been consumed
 fn parse_multi_line_comment(
     source: &Source,
     buffer: &mut Latin1String,
     reader: &mut ContentReader,
 ) -> ParseResult<Comment> {
-    let start_pos = reader.pos();
-    reader.pop();
-    reader.pop();
+    let start_pos = reader.pos().prev_char().prev_char();
     buffer.bytes.clear();
     while let Some(chr) = reader.pop() {
         if chr == b'*' {
@@ -787,7 +783,7 @@ fn parse_real_literal(
 ) -> Result<f64, String> {
     buffer.bytes.clear();
 
-    while let Some(b) = reader.peek(0).map(Latin1String::lowercase) {
+    while let Some(b) = reader.peek().map(Latin1String::lowercase) {
         match b {
             b'e' => {
                 break;
@@ -796,11 +792,11 @@ fn parse_real_literal(
                 break;
             }
             b'0'..=b'9' | b'a'..=b'd' | b'f' | b'A'..=b'F' | b'.' => {
-                reader.pop();
+                reader.skip();
                 buffer.bytes.push(b);
             }
             b'_' => {
-                reader.pop();
+                reader.skip();
                 continue;
             }
             _ => {
@@ -824,16 +820,16 @@ fn parse_abstract_literal(
     let pos = reader.pos();
     let initial = parse_integer(reader, 10, true);
 
-    match reader.peek(0).map(Latin1String::lowercase) {
+    match reader.peek().map(Latin1String::lowercase) {
         // Real
         Some(b'.') => {
             reader.set_pos(pos);
             let real = parse_real_literal(buffer, reader)?;
 
-            match reader.peek(0) {
+            match reader.peek() {
                 // Exponent
                 Some(b'e') | Some(b'E') => {
-                    reader.pop();
+                    reader.skip();
                     let exp = parse_exponent(reader)?;
                     Ok((
                         AbstractLiteral,
@@ -852,7 +848,7 @@ fn parse_abstract_literal(
         // Integer exponent
         Some(b'e') => {
             let integer = initial?;
-            reader.pop();
+            reader.skip();
             let exp = parse_exponent(reader)?;
             if exp >= 0 {
                 if let Some(value) = exponentiate(integer, exp as u32) {
@@ -871,11 +867,11 @@ fn parse_abstract_literal(
         // Based integer
         Some(b'#') => {
             let base = initial?;
-            reader.pop();
+            reader.skip();
             let base_result = parse_integer(reader, base, false);
 
-            if let Some(b'#') = reader.peek(0) {
-                reader.pop();
+            if let Some(b'#') = reader.peek() {
+                reader.skip();
                 let integer = base_result?;
                 if base >= 2 && base <= 16 {
                     Ok((
@@ -946,7 +942,7 @@ fn parse_base_specifier(reader: &mut ContentReader) -> Option<BaseSpecifier> {
 fn maybe_base_specifier(reader: &mut ContentReader) -> Option<BaseSpecifier> {
     let mut lookahead = reader.clone();
     let value = parse_base_specifier(&mut lookahead)?;
-    *reader = lookahead;
+    reader.set_pos(lookahead.pos());
     Some(value)
 }
 
@@ -979,10 +975,10 @@ fn parse_basic_identifier_or_keyword(
     symtab: &SymbolTable,
 ) -> Result<(Kind, Value), String> {
     let start_pos = reader.pos();
-    while let Some(b) = reader.peek(0) {
+    while let Some(b) = reader.peek() {
         match b {
             b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_' => {
-                reader.pop();
+                reader.skip();
             }
             _ => {
                 break;
@@ -1008,62 +1004,110 @@ fn parse_basic_identifier_or_keyword(
     }
 }
 
+/// Assumes leading ' has already been consumed
+/// Only consumes from reader if Some is returned
+fn parse_character_literal(reader: &mut ContentReader) -> Option<(Kind, Value)> {
+    let mut lookahead = reader.clone();
+
+    let chr = lookahead.pop()?;
+    if lookahead.skip_if(b'\'') {
+        reader.set_pos(lookahead.pos());
+        Some((Character, Value::Character(chr)))
+    } else {
+        None
+    }
+}
+
 fn get_leading_comments(
     source: &Source,
     buffer: &mut Latin1String,
     reader: &mut ContentReader,
 ) -> ParseResult<Vec<Comment>> {
     let mut comments: Vec<Comment> = Vec::new();
-    while let Some(byte) = reader.peek(0) {
+
+    loop {
+        skip_whitespace(reader);
+        let start = reader.pos();
+
+        let byte = if let Some(byte) = reader.pop() {
+            byte
+        } else {
+            break;
+        };
+
         match byte {
-            b' ' | b'\t' | b'\n' => {
-                reader.pop();
-                continue;
-            }
             b'/' => {
-                if reader.peek(1) == Some(b'*') {
+                if reader.pop() == Some(b'*') {
                     comments.push(parse_multi_line_comment(source, buffer, reader)?);
                 } else {
+                    reader.set_pos(start);
                     break;
                 }
             }
             b'-' => {
-                if reader.peek(1) == Some(b'-') {
+                if reader.pop() == Some(b'-') {
                     comments.push(parse_comment(buffer, reader));
                 } else {
+                    reader.set_pos(start);
                     break;
                 }
             }
             _ => {
+                reader.set_pos(start);
                 break;
             }
-        };
+        }
     }
+
     Ok(comments)
 }
 
-fn get_trailing_comment(buffer: &mut Latin1String, reader: &mut ContentReader) -> Option<Comment> {
-    while let Some(byte) = reader.peek(0) {
-        let comment = match byte {
+/// Skip whitespace but not newline
+fn skip_whitespace_in_line(reader: &mut ContentReader) {
+    while let Some(byte) = reader.peek() {
+        match byte {
             b' ' | b'\t' => {
-                reader.pop();
-                continue;
+                reader.skip();
             }
-            b'\n' => None,
-            b'-' => {
-                if reader.peek(1) == Some(b'-') {
-                    Some(parse_comment(buffer, reader))
-                } else {
-                    None
-                }
+            _ => {
+                break;
             }
-            _ => None,
-        };
-        return comment;
+        }
     }
-    // This should never happen.
-    // FIXME: There must be a nicer way to write this function.
-    None
+}
+
+/// Skip all whitespace
+fn skip_whitespace(reader: &mut ContentReader) {
+    while let Some(byte) = reader.peek() {
+        match byte {
+            b' ' | b'\t' | b'\n' => {
+                reader.skip();
+            }
+            _ => {
+                break;
+            }
+        }
+    }
+}
+
+fn get_trailing_comment(buffer: &mut Latin1String, reader: &mut ContentReader) -> Option<Comment> {
+    skip_whitespace_in_line(reader);
+
+    let start = reader.pos();
+    match reader.pop()? {
+        b'-' => {
+            if reader.pop() == Some(b'-') {
+                Some(parse_comment(buffer, reader))
+            } else {
+                reader.set_pos(start);
+                None
+            }
+        }
+        _ => {
+            reader.set_pos(start);
+            None
+        }
+    }
 }
 
 pub struct Tokenizer<'a> {
@@ -1238,7 +1282,7 @@ impl<'a> Tokenizer<'a> {
             };
         }
 
-        let byte = if let Some(byte) = self.reader.peek(0) {
+        let byte = if let Some(byte) = self.reader.peek() {
             byte
         } else {
             // End of file
@@ -1275,7 +1319,7 @@ impl<'a> Tokenizer<'a> {
                 }
             },
             b':' => {
-                self.reader.pop();
+                self.reader.skip();
                 if self.reader.skip_if(b'=') {
                     (ColonEq, Value::NoValue)
                 } else {
@@ -1283,21 +1327,23 @@ impl<'a> Tokenizer<'a> {
                 }
             }
             b'\'' => {
-                self.reader.pop();
-                if can_be_char(self.state.last_token_kind) && self.reader.peek(1) == Some(b'\'') {
-                    let chr = self.reader.pop().unwrap();
-                    self.reader.pop();
-                    (Character, Value::Character(chr))
+                self.reader.skip();
+                if can_be_char(self.state.last_token_kind) {
+                    if let Some(chr_lit) = parse_character_literal(&mut self.reader) {
+                        chr_lit
+                    } else {
+                        (Tick, Value::NoValue)
+                    }
                 } else {
                     (Tick, Value::NoValue)
                 }
             }
             b'-' => {
-                self.reader.pop();
+                self.reader.skip();
                 (Minus, Value::NoValue)
             }
             b'"' => {
-                self.reader.pop();
+                self.reader.skip();
                 match parse_string(&mut self.buffer, &mut self.reader) {
                     Ok(result) => (StringLiteral, Value::String(result)),
                     Err(msg) => {
@@ -1306,35 +1352,35 @@ impl<'a> Tokenizer<'a> {
                 }
             }
             b';' => {
-                self.reader.pop();
+                self.reader.skip();
                 (SemiColon, Value::NoValue)
             }
             b'(' => {
-                self.reader.pop();
+                self.reader.skip();
                 (LeftPar, Value::NoValue)
             }
             b')' => {
-                self.reader.pop();
+                self.reader.skip();
                 (RightPar, Value::NoValue)
             }
             b'+' => {
-                self.reader.pop();
+                self.reader.skip();
                 (Plus, Value::NoValue)
             }
             b'.' => {
-                self.reader.pop();
+                self.reader.skip();
                 (Dot, Value::NoValue)
             }
             b'&' => {
-                self.reader.pop();
+                self.reader.skip();
                 (Concat, Value::NoValue)
             }
             b',' => {
-                self.reader.pop();
+                self.reader.skip();
                 (Comma, Value::NoValue)
             }
             b'=' => {
-                self.reader.pop();
+                self.reader.skip();
                 if self.reader.skip_if(b'>') {
                     (RightArrow, Value::NoValue)
                 } else {
@@ -1342,39 +1388,39 @@ impl<'a> Tokenizer<'a> {
                 }
             }
             b'<' => {
-                self.reader.pop();
-                match self.reader.peek(0) {
+                self.reader.skip();
+                match self.reader.peek() {
                     Some(b'=') => {
-                        self.reader.pop();
+                        self.reader.skip();
                         (LTE, Value::NoValue)
                     }
                     Some(b'>') => {
-                        self.reader.pop();
+                        self.reader.skip();
                         (BOX, Value::NoValue)
                     }
                     Some(b'<') => {
-                        self.reader.pop();
+                        self.reader.skip();
                         (LtLt, Value::NoValue)
                     }
                     _ => (LT, Value::NoValue),
                 }
             }
             b'>' => {
-                self.reader.pop();
-                match self.reader.peek(0) {
+                self.reader.skip();
+                match self.reader.peek() {
                     Some(b'=') => {
-                        self.reader.pop();
+                        self.reader.skip();
                         (GTE, Value::NoValue)
                     }
                     Some(b'>') => {
-                        self.reader.pop();
+                        self.reader.skip();
                         (GtGt, Value::NoValue)
                     }
                     _ => (GT, Value::NoValue),
                 }
             }
             b'/' => {
-                self.reader.pop();
+                self.reader.skip();
 
                 if self.reader.skip_if(b'=') {
                     (NE, Value::NoValue)
@@ -1383,7 +1429,7 @@ impl<'a> Tokenizer<'a> {
                 }
             }
             b'*' => {
-                self.reader.pop();
+                self.reader.skip();
 
                 if self.reader.skip_if(b'*') {
                     (Pow, Value::NoValue)
@@ -1392,18 +1438,18 @@ impl<'a> Tokenizer<'a> {
                 }
             }
             b'?' => {
-                self.reader.pop();
-                match self.reader.peek(0) {
+                self.reader.skip();
+                match self.reader.peek() {
                     Some(b'?') => {
-                        self.reader.pop();
+                        self.reader.skip();
                         (QueQue, Value::NoValue)
                     }
                     Some(b'=') => {
-                        self.reader.pop();
+                        self.reader.skip();
                         (QueEQ, Value::NoValue)
                     }
                     Some(b'/') => {
-                        self.reader.pop();
+                        self.reader.skip();
                         if self.reader.skip_if(b'=') {
                             (QueNE, Value::NoValue)
                         } else {
@@ -1411,7 +1457,7 @@ impl<'a> Tokenizer<'a> {
                         }
                     }
                     Some(b'<') => {
-                        self.reader.pop();
+                        self.reader.skip();
                         if self.reader.skip_if(b'=') {
                             (QueLTE, Value::NoValue)
                         } else {
@@ -1419,7 +1465,7 @@ impl<'a> Tokenizer<'a> {
                         }
                     }
                     Some(b'>') => {
-                        self.reader.pop();
+                        self.reader.skip();
                         if self.reader.skip_if(b'=') {
                             (QueGTE, Value::NoValue)
                         } else {
@@ -1432,27 +1478,27 @@ impl<'a> Tokenizer<'a> {
                 }
             }
             b'^' => {
-                self.reader.pop();
+                self.reader.skip();
                 (Circ, Value::NoValue)
             }
             b'@' => {
-                self.reader.pop();
+                self.reader.skip();
                 (CommAt, Value::NoValue)
             }
             b'|' => {
-                self.reader.pop();
+                self.reader.skip();
                 (Bar, Value::NoValue)
             }
             b'[' => {
-                self.reader.pop();
+                self.reader.skip();
                 (LeftSquare, Value::NoValue)
             }
             b']' => {
-                self.reader.pop();
+                self.reader.skip();
                 (RightSquare, Value::NoValue)
             }
             b'\\' => {
-                self.reader.pop();
+                self.reader.skip();
                 // LRM 15.4.3 Extended identifers
                 match parse_quoted(&mut self.buffer, &mut self.reader, b'\\', true) {
                     Ok(result) => {
@@ -1465,7 +1511,7 @@ impl<'a> Tokenizer<'a> {
                 }
             }
             _ => {
-                self.reader.pop();
+                self.reader.skip();
                 error!("Illegal token");
             }
         };

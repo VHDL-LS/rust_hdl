@@ -444,7 +444,7 @@ fn substr_range(source: &Source, range: Range, substr: &str, occurence: usize) -
             if count == 0 {
                 let start = reader.pos();
                 for _ in 0..substr.len() {
-                    reader.pop();
+                    reader.skip();
                 }
                 if reader.pos() <= range.end {
                     return Range::new(start, reader.pos());
@@ -452,7 +452,7 @@ fn substr_range(source: &Source, range: Range, substr: &str, occurence: usize) -
             }
         }
 
-        reader.pop();
+        reader.skip();
     }
 
     panic!(
