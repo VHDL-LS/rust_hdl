@@ -262,8 +262,9 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         };
 
         let mut capabilities = ServerCapabilities::default();
-        capabilities.text_document_sync =
-            Some(TextDocumentSyncCapability::Kind(TextDocumentSyncKind::Full));
+        capabilities.text_document_sync = Some(TextDocumentSyncCapability::Kind(
+            TextDocumentSyncKind::Incremental,
+        ));
         capabilities.declaration_provider = Some(true);
         capabilities.definition_provider = Some(true);
         capabilities.references_provider = Some(true);
@@ -273,6 +274,10 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         };
 
         (server, result)
+    }
+
+    pub fn initialized_notification(&mut self, _params: &InitializedParams) {
+        self.publish_diagnostics();
     }
 
     fn client_supports_related_information(&self) -> bool {
@@ -332,7 +337,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         }
     }
 
-    fn update(&mut self, uri: &Url, code: &str) {
+    fn open(&mut self, uri: &Url, code: &str) {
         let file_name = uri_to_file_name(uri);
         if let Some(source) = self.project.get_source(&file_name) {
             source.change(None, &code);
@@ -341,23 +346,40 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         } else {
             self.window_log_message(
                 MessageType::Info,
-                format!("Opening file {} that is not part of the project", file_name),
+                format!(
+                    "Opening file {} that is not part of the project",
+                    &file_name
+                ),
             );
             self.project.update_source(&Source::inline(file_name, code));
             self.publish_diagnostics();
         }
     }
 
-    pub fn initialized_notification(&mut self, _params: &InitializedParams) {
-        self.publish_diagnostics();
-    }
-
     pub fn text_document_did_change_notification(&mut self, params: &DidChangeTextDocumentParams) {
-        self.update(&params.text_document.uri, &params.content_changes[0].text);
+        let file_name = uri_to_file_name(&params.text_document.uri);
+        if let Some(source) = self.project.get_source(&file_name) {
+            for content_change in params.content_changes.iter() {
+                let range = content_change
+                    .range
+                    .map(|range| from_lsp_range(range.clone()));
+                source.change(range.as_ref(), &content_change.text);
+            }
+            self.project.update_source(&source);
+            self.publish_diagnostics();
+        } else {
+            self.window_log_message(
+                MessageType::Error,
+                format!(
+                    "Changing file {} that is not part of the project",
+                    &file_name
+                ),
+            );
+        }
     }
 
     pub fn text_document_did_open_notification(&mut self, params: &DidOpenTextDocumentParams) {
-        self.update(&params.text_document.uri, &params.text_document.text);
+        self.open(&params.text_document.uri, &params.text_document.text);
     }
 
     pub fn text_document_declaration(
@@ -368,7 +390,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             .get_source(&uri_to_file_name(&params.text_document.uri))
             .and_then(|source| {
                 self.project
-                    .search_reference(&source, position_to_cursor(&params.position))
+                    .search_reference(&source, from_lsp_pos(params.position))
             })
             .map(|result| srcpos_to_location(&result))
     }
@@ -390,7 +412,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             .and_then(|source| {
                 self.project.search_reference(
                     &source,
-                    position_to_cursor(&params.text_document_position.position),
+                    from_lsp_pos(params.text_document_position.position),
                 )
             });
 
@@ -414,7 +436,7 @@ fn srcpos_to_location(pos: &SrcPos) -> Location {
     }
 }
 
-fn position_to_cursor(position: &lsp_types::Position) -> vhdl_parser::Position {
+fn from_lsp_pos(position: lsp_types::Position) -> vhdl_parser::Position {
     vhdl_parser::Position {
         line: position.line,
         character: position.character,
@@ -432,6 +454,13 @@ fn to_lsp_range(range: vhdl_parser::Range) -> lsp_types::Range {
     lsp_types::Range {
         start: to_lsp_pos(range.start),
         end: to_lsp_pos(range.end),
+    }
+}
+
+fn from_lsp_range(range: lsp_types::Range) -> vhdl_parser::Range {
+    vhdl_parser::Range {
+        start: from_lsp_pos(range.start),
+        end: from_lsp_pos(range.end),
     }
 }
 
