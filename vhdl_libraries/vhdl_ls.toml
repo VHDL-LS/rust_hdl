@@ -1,6 +1,6 @@
 [libraries]
 std.files = [
-'std/*.vhdl',
+'std/*.vhd',
 ]
 ieee.files = [
 'ieee2008/*.vhdl'
