@@ -1136,3 +1136,59 @@ end package;
         &vec![code.s("ctx", 1).pos(), code.s("ctx", 2).pos()],
     );
 }
+
+#[test]
+fn adds_enum_variants_implicitly() {
+    check_missing(
+        "
+package pkg is
+  type enum_t is (alpha, beta);
+end package;
+
+use work.pkg.enum_t;
+package pkg2 is
+  constant c : enum_t := alpha;
+  constant c2 : enum_t := missing;
+end package;
+",
+    );
+}
+
+#[test]
+fn adds_alias_enum_variants_implicitly() {
+    check_missing(
+        "
+package pkg is
+  type enum_t is (alpha, beta);
+  alias alias_t is enum_t;
+end package;
+
+use work.pkg.alias_t;
+package pkg2 is
+  constant c : alias_t := alpha;
+  constant c2 : alias_t := missing;
+end package;
+",
+    );
+}
+
+#[test]
+fn adds_alias_enum_variants_implicitly_when_using_all() {
+    check_missing(
+        "
+package pkg is
+  type enum_t is (alpha, beta);
+end package;
+
+package pkg2 is
+  alias alias_t is work.pkg.enum_t;
+end package;
+
+use work.pkg2.all;
+package pkg3 is
+  constant c : alias_t := alpha;
+  constant c2 : alias_t := missing;
+end package;
+",
+    );
+}

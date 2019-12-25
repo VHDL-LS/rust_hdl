@@ -751,23 +751,6 @@ end architecture;
 }
 
 #[test]
-fn adds_enum_variants_implicitly() {
-    check_missing(
-        "
-package pkg is
-  type enum_t is (alpha, beta);
-end package;
-
-use work.pkg.enum_t;
-package pkg2 is
-  constant c : enum_t := alpha;
-  constant c2 : enum_t := missing;
-end package;
-",
-    );
-}
-
-#[test]
 fn adds_file_subprograms_implicitly() {
     check_missing(
         "

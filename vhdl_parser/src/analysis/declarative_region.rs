@@ -16,6 +16,7 @@ use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
 pub enum AnyDeclaration {
+    AliasOf(Box<AnyDeclaration>),
     Other,
     Overloaded,
     // An optional region with implicit declarations
@@ -612,8 +613,26 @@ impl<'a> DeclarativeRegion<'a> {
         self.visible.insert(decl.designator.clone(), decl);
     }
 
+    /// Add implicit declarations when using declaration
+    /// For example all enum literals are made implicititly visible when using an enum type
+    fn add_implicit_declarations(&mut self, decl: &AnyDeclaration) {
+        match decl {
+            AnyDeclaration::TypeDeclaration(ref implicit) => {
+                // Add implicitic declarations when using type
+                if let Some(implicit) = implicit {
+                    self.make_all_potentially_visible(&implicit);
+                }
+            }
+            AnyDeclaration::AliasOf(ref decl) => {
+                self.add_implicit_declarations(decl);
+            }
+            _ => {}
+        }
+    }
+
     pub fn make_potentially_visible(&mut self, decl: impl Into<VisibleDeclaration>) {
         let decl = decl.into();
+        self.add_implicit_declarations(decl.first());
         self.visible.insert(decl.designator.clone(), decl);
     }
 
@@ -626,7 +645,7 @@ impl<'a> DeclarativeRegion<'a> {
     /// Used when useing context clauses
     pub fn copy_visibility_from(&mut self, region: &DeclarativeRegion<'a>) {
         for decl in region.visible.values() {
-            self.make_potentially_visible(decl.clone());
+            self.visible.insert(decl.designator.clone(), decl.clone());
         }
     }
 

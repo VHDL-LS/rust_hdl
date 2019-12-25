@@ -472,11 +472,14 @@ impl<'a> Analyzer<'a> {
         pos: &SrcPos,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
-        if let Err(err) = self.resolve_name_pos(region, pos, name, true, diagnostics) {
-            err.add_to(diagnostics)
-        } else {
-            Ok(())
+    ) -> FatalResult<Option<VisibleDeclaration>> {
+        match self.resolve_name_pos(region, pos, name, true, diagnostics) {
+            Ok(LookupResult::Single(result)) => Ok(Some(result)),
+            Ok(..) => Ok(None),
+            Err(err) => {
+                err.add_to(diagnostics)?;
+                Ok(None)
+            }
         }
     }
 
@@ -488,7 +491,8 @@ impl<'a> Analyzer<'a> {
     ) -> FatalNullResult {
         // @TODO more
         let AttributeName { name, .. } = attr;
-        self.resolve_name(region, &name.pos, &mut name.item, diagnostics)
+        self.resolve_name(region, &name.pos, &mut name.item, diagnostics)?;
+        Ok(())
     }
 
     fn analyze_range(
@@ -777,7 +781,10 @@ impl<'a> Analyzer<'a> {
             Expression::Unary(_, ref mut inner) => {
                 self.analyze_expression(region, inner, diagnostics)
             }
-            Expression::Name(ref mut name) => self.resolve_name(region, pos, name, diagnostics),
+            Expression::Name(ref mut name) => {
+                self.resolve_name(region, pos, name, diagnostics)?;
+                Ok(())
+            }
             Expression::Aggregate(ref mut assocs) => {
                 self.analyze_aggregate(region, assocs, diagnostics)
             }
@@ -840,25 +847,32 @@ impl<'a> Analyzer<'a> {
                     signature,
                 } = alias;
 
-                self.resolve_name(region, &name.pos, &mut name.item, diagnostics)?;
+                let resolved_name =
+                    self.resolve_name(region, &name.pos, &mut name.item, diagnostics)?;
 
                 if let Some(ref mut subtype_indication) = subtype_indication {
+                    // Object alias
                     self.analyze_subtype_indication(region, subtype_indication, diagnostics)?;
                 }
 
                 if let Some(ref mut signature) = signature {
+                    // Subprogram or enum literal alias
                     self.analyze_signature(region, signature, diagnostics)?;
                 }
 
-                region.add(
-                    designator.clone(),
+                let decl = {
                     if signature.is_some() {
                         AnyDeclaration::Overloaded
+                    } else if subtype_indication.is_some() {
+                        AnyDeclaration::Other
+                    } else if let Some(decl) = resolved_name {
+                        AnyDeclaration::AliasOf(Box::new(decl.first().clone()))
                     } else {
                         AnyDeclaration::Other
-                    },
-                    diagnostics,
-                );
+                    }
+                };
+
+                region.add(designator.clone(), decl, diagnostics);
             }
             Declaration::Object(ref mut object_decl) => {
                 self.analyze_subtype_indication(
@@ -1204,12 +1218,6 @@ impl<'a> Analyzer<'a> {
 
             match self.resolve_context_item_name(&region, name, diagnostics) {
                 Ok(LookupResult::Single(visible_decl)) => {
-                    if let AnyDeclaration::TypeDeclaration(ref implicit) = visible_decl.first() {
-                        // Add implicitic declarations when using type
-                        if let Some(implicit) = implicit {
-                            region.make_all_potentially_visible(&implicit);
-                        }
-                    }
                     region.make_potentially_visible(visible_decl);
                 }
                 Ok(LookupResult::AllWithin(visibility_pos, visible_decl)) => {
