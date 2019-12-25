@@ -5,11 +5,10 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::analysis::library::DesignRoot;
-use crate::analysis::semantic::Analyzer;
 use crate::diagnostic::Diagnostic;
 use crate::latin_1::Latin1String;
 use crate::source::Source;
-use crate::symbol_table::Symbol;
+use crate::symbol_table::{Symbol, SymbolTable};
 use crate::test_util::*;
 use pretty_assertions::assert_eq;
 use std::collections::{hash_map::Entry, HashMap};
@@ -21,43 +20,11 @@ pub struct LibraryBuilder {
 }
 
 impl LibraryBuilder {
-    fn new_no_std() -> LibraryBuilder {
+    pub fn new() -> LibraryBuilder {
         LibraryBuilder {
             code_builder: CodeBuilder::new(),
             libraries: HashMap::default(),
         }
-    }
-
-    pub fn new() -> LibraryBuilder {
-        let mut library = LibraryBuilder::new_no_std();
-        library.code_from_source(
-            "std",
-            Source::inline(
-                "standard.vhd",
-                Arc::new(Latin1String::new(include_bytes!(
-                    "../../../../example_project/vhdl_libraries/2008/std/standard.vhd"
-                ))),
-            ),
-        );
-        library.code_from_source(
-            "std",
-            Source::inline(
-                "textio.vhd",
-                Arc::new(Latin1String::new(include_bytes!(
-                    "../../../../example_project/vhdl_libraries/2008/std/textio.vhd"
-                ))),
-            ),
-        );
-        library.code_from_source(
-            "std",
-            Source::inline(
-                "env.vhd",
-                Arc::new(Latin1String::new(include_bytes!(
-                    "../../../../example_project/vhdl_libraries/2008/std/env.vhd"
-                ))),
-            ),
-        );
-        library
     }
 
     fn add_code(&mut self, library_name: &str, code: Code) {
@@ -78,32 +45,72 @@ impl LibraryBuilder {
         code
     }
 
-    fn code_from_source(&mut self, library_name: &str, source: Source) -> Code {
-        let code = self.code_builder.code_from_source(source);
-        self.add_code(library_name, code.clone());
-        code
-    }
-
     pub fn get_analyzed_root(&self) -> (DesignRoot, Vec<Diagnostic>) {
-        let mut root = DesignRoot::new();
+        let mut root = DesignRoot::new(self.code_builder.symtab.clone());
         let mut diagnostics = Vec::new();
 
+        add_standard_library(self.symtab(), &mut root);
+
         for (library_name, codes) in self.libraries.iter() {
-            let library = root.ensure_library(library_name.clone());
             for code in codes {
-                library.add_design_file(code.design_file());
+                root.add_design_file(library_name.clone(), code.design_file());
             }
-            library.refresh(&mut diagnostics);
         }
 
-        Analyzer::new(&root, &self.code_builder.symtab.clone()).analyze(&mut diagnostics);
+        root.analyze(&mut diagnostics);
 
         (root, diagnostics)
+    }
+
+    pub fn take_code(self) -> Vec<(Symbol, Code)> {
+        let mut res = Vec::new();
+        for (library_name, codes) in self.libraries.into_iter() {
+            for code in codes.into_iter() {
+                res.push((library_name.clone(), code));
+            }
+        }
+        res
+    }
+
+    pub fn symtab(&self) -> Arc<SymbolTable> {
+        self.code_builder.symtab.clone()
     }
 
     pub fn analyze(&self) -> Vec<Diagnostic> {
         self.get_analyzed_root().1
     }
+}
+
+pub fn add_standard_library(symtab: Arc<SymbolTable>, root: &mut DesignRoot) {
+    let builder = CodeBuilder {
+        symtab: symtab.clone(),
+    };
+    let std_standard = builder.code_from_source(Source::inline(
+        "standard.vhd",
+        &Latin1String::new(include_bytes!(
+            "../../../../example_project/vhdl_libraries/2008/std/standard.vhd"
+        ))
+        .to_string(),
+    ));
+    let std_textio = builder.code_from_source(Source::inline(
+        "textio.vhd",
+        &Latin1String::new(include_bytes!(
+            "../../../../example_project/vhdl_libraries/2008/std/textio.vhd"
+        ))
+        .to_string(),
+    ));
+    let std_env = builder.code_from_source(Source::inline(
+        "env.vhd",
+        &Latin1String::new(include_bytes!(
+            "../../../../example_project/vhdl_libraries/2008/std/env.vhd"
+        ))
+        .to_string(),
+    ));
+    let std_sym = symtab.insert_utf8("std");
+
+    root.add_design_file(std_sym.clone(), std_standard.design_file());
+    root.add_design_file(std_sym.clone(), std_textio.design_file());
+    root.add_design_file(std_sym.clone(), std_env.design_file());
 }
 
 pub fn missing(code: &Code, name: &str, occ: usize) -> Diagnostic {

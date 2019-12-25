@@ -8,7 +8,7 @@
 
 use lsp_types::*;
 use serde;
-use vhdl_parser::Message;
+use vhdl_parser::{Message, MessageHandler};
 
 pub trait RpcChannel {
     fn send_notification(
@@ -16,13 +16,6 @@ pub trait RpcChannel {
         method: impl Into<String>,
         notification: impl serde::ser::Serialize,
     );
-
-    fn window_show_message_struct(&self, message: &Message) {
-        self.window_show_message(
-            to_lsp_message_type(&message.message_type),
-            message.message.clone(),
-        );
-    }
 
     fn window_show_message(&self, typ: MessageType, message: impl Into<String>) {
         self.send_notification(
@@ -43,7 +36,31 @@ pub trait RpcChannel {
             },
         );
     }
+
+    fn push_msg(&self, msg: Message) {
+        if msg.message_type == vhdl_parser::MessageType::Error {
+            self.window_show_message(to_lsp_message_type(&msg.message_type), msg.message.clone());
+        }
+        self.window_log_message(to_lsp_message_type(&msg.message_type), msg.message);
+    }
 }
+
+pub struct MessageChannel<'a, T: RpcChannel> {
+    channel: &'a T,
+}
+
+impl<'a, T: RpcChannel> MessageChannel<'a, T> {
+    pub fn new(channel: &'a T) -> MessageChannel<'a, T> {
+        MessageChannel { channel }
+    }
+}
+
+impl<'a, T: RpcChannel> MessageHandler for MessageChannel<'a, T> {
+    fn push(&mut self, message: Message) {
+        self.channel.push_msg(message);
+    }
+}
+
 fn to_lsp_message_type(message_type: &vhdl_parser::MessageType) -> MessageType {
     match message_type {
         vhdl_parser::MessageType::Error => MessageType::Error,
@@ -96,7 +113,7 @@ pub mod test_support {
                 });
         }
 
-        pub fn expect_notification_contains(
+        fn expect_notification_contains(
             &self,
             method: impl Into<String>,
             contains: impl Into<String>,
@@ -107,6 +124,17 @@ pub mod test_support {
                     method: method.into(),
                     contains: contains.into(),
                 });
+        }
+
+        pub fn expect_error_contains(&self, contains: impl Into<String>) {
+            let contains = contains.into();
+            self.expect_notification_contains("window/showMessage", contains.clone());
+            self.expect_notification_contains("window/logMessage", contains);
+        }
+
+        pub fn expect_message_contains(&self, contains: impl Into<String>) {
+            let contains = contains.into();
+            self.expect_notification_contains("window/logMessage", contains);
         }
     }
 
@@ -162,14 +190,17 @@ pub mod test_support {
                     method: exp_method,
                     notification: exp_notification,
                 } => {
-                    assert_eq!(method, exp_method);
-                    assert_eq!(notification, exp_notification);
+                    assert_eq!((method, notification), (exp_method, exp_notification));
                 }
                 RpcExpected::NotificationContainsString {
                     method: exp_method,
                     contains,
                 } => {
-                    assert_eq!(method, exp_method);
+                    assert_eq!(
+                        method, exp_method,
+                        "{:?} contains {:?}",
+                        notification, contains
+                    );
                     if !contains_string(&notification, &contains) {
                         panic!(
                             "{:?} does not contain sub-string {:?}",

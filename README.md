@@ -146,10 +146,6 @@ Add the following to your `.emacs.el`:
                   :server-id 'vhdl-lsp))
 (add-to-list 'lsp-language-id-configuration '(vhdl-mode . "vhdl-mode"))
 (add-hook 'vhdl-mode-hook #'lsp)
-
-; Since VHDL LS only does full text document sync we turn of the debounce
-; to make emacs more responsive since it otherwise has a long delay for full sync
-(setq lsp-debounce-full-sync-notifications nil)
 ```
 
 ### Use in Atom

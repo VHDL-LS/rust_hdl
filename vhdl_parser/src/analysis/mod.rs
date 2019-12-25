@@ -12,5 +12,4 @@ mod semantic;
 #[cfg(test)]
 mod tests;
 
-pub use self::library::{DesignRoot, Library};
-pub use self::semantic::Analyzer;
+pub use self::library::DesignRoot;

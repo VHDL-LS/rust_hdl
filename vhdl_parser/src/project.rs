@@ -5,18 +5,17 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use self::fnv::FnvHashMap;
-use crate::analysis::{Analyzer, DesignRoot};
+use crate::analysis::DesignRoot;
 use crate::ast::DesignFile;
 use crate::config::Config;
 use crate::diagnostic::Diagnostic;
 use crate::latin_1::Latin1String;
-use crate::message::Message;
-use crate::parser::{FileToParse, ParserError, VHDLParser};
+use crate::message::{Message, MessageHandler};
+use crate::parser::{FileToParse, VHDLParser};
 use crate::source::{Position, Source, SrcPos};
 use crate::symbol_table::Symbol;
 use fnv;
 use std::collections::hash_map::Entry;
-use std::io;
 
 pub struct Project {
     parser: VHDLParser,
@@ -27,18 +26,19 @@ pub struct Project {
 
 impl Project {
     pub fn new() -> Project {
+        let parser = VHDLParser::new();
         Project {
-            parser: VHDLParser::new(),
-            root: DesignRoot::new(),
+            root: DesignRoot::new(parser.symtab.clone()),
             files: FnvHashMap::default(),
             empty_libraries: Vec::new(),
+            parser,
         }
     }
 
     pub fn from_config(
         config: &Config,
         num_threads: usize,
-        messages: &mut Vec<Message>,
+        messages: &mut dyn MessageHandler,
     ) -> Project {
         let mut project = Project::new();
         let mut files_to_parse: FnvHashMap<String, LibraryFileToParse> = FnvHashMap::default();
@@ -74,17 +74,13 @@ impl Project {
 
         let files_to_parse = files_to_parse.drain().map(|(_, v)| v).collect();
 
-        for (file_to_parse, mut parser_diagnostics, design_file) in project
+        for (file_to_parse, parser_diagnostics, result) in project
             .parser
             .parse_design_files(files_to_parse, num_threads)
         {
-            let design_file = match design_file {
-                Ok(design_file) => Some(design_file),
-                Err(ParserError::Diagnostic(diagnostic)) => {
-                    parser_diagnostics.push(diagnostic);
-                    None
-                }
-                Err(ParserError::IOError(err)) => {
+            let (source, design_file) = match result {
+                Ok(result) => result,
+                Err(err) => {
                     messages.push(Message::file_error(
                         err.to_string(),
                         file_to_parse.file_name,
@@ -94,8 +90,9 @@ impl Project {
             };
 
             project.files.insert(
-                file_to_parse.file_name,
+                source.file_name().to_owned(),
                 SourceFile {
+                    source,
                     library_names: file_to_parse.library_names,
                     parser_diagnostics,
                     design_file,
@@ -106,49 +103,36 @@ impl Project {
         project
     }
 
-    pub fn update_source(&mut self, source: &Source) -> io::Result<()> {
+    pub fn get_source(&self, file_name: &str) -> Option<Source> {
+        self.files.get(file_name).map(|file| file.source.clone())
+    }
+
+    pub fn update_source(&mut self, source: &Source) {
         let mut source_file = {
-            if let Some(source_file) = self.files.remove(source.file_name()) {
+            if let Some(mut source_file) = self.files.remove(source.file_name()) {
+                // File is already part of the project
                 for library_name in source_file.library_names.iter() {
-                    self.root
-                        .ensure_library(library_name.clone())
-                        .remove_source(source);
+                    self.root.remove_source(library_name.clone(), source);
                 }
+                source_file.source = source.clone();
                 source_file
             } else {
+                // File is not part of the project
+                // @TODO use config wildcards to map to library
                 SourceFile {
+                    source: source.clone(),
                     library_names: vec![],
                     parser_diagnostics: vec![],
-                    design_file: None,
+                    design_file: DesignFile::default(),
                 }
             }
         };
-        source_file.design_file = None;
         source_file.parser_diagnostics.clear();
-
-        let design_file = self
+        source_file.design_file = self
             .parser
             .parse_design_source(source, &mut source_file.parser_diagnostics);
-
-        let result = match design_file {
-            Ok(design_file) => {
-                source_file.design_file = Some(design_file);
-                Ok(())
-            }
-            Err(ParserError::Diagnostic(diagnostic)) => {
-                source_file.parser_diagnostics.push(diagnostic);
-                Ok(())
-            }
-            Err(ParserError::IOError(err)) => {
-                // @TODO convert to soft error and push to diagnostics
-                Err(err)
-            }
-        };
-
         self.files
             .insert(source.file_name().to_owned(), source_file);
-
-        result
     }
 
     pub fn analyse(&mut self) -> Vec<Diagnostic> {
@@ -160,10 +144,8 @@ impl Project {
             let mut design_files = multiply(design_file, source_file.library_names.len());
 
             for library_name in source_file.library_names.iter() {
-                let library = self.root.ensure_library(library_name.clone());
-                if let Some(design_file) = design_files.pop().unwrap() {
-                    library.add_design_file(design_file);
-                }
+                let design_file = design_files.pop().unwrap();
+                self.root.add_design_file(library_name.clone(), design_file);
             }
 
             for diagnostic in source_file.parser_diagnostics.iter().cloned() {
@@ -175,11 +157,7 @@ impl Project {
             self.root.ensure_library(library_name.clone());
         }
 
-        for library in self.root.iter_libraries_mut() {
-            library.refresh(&mut diagnostics);
-        }
-
-        Analyzer::new(&mut self.root, &self.parser.symtab.clone()).analyze(&mut diagnostics);
+        self.root.analyze(&mut diagnostics);
         diagnostics
     }
 
@@ -235,13 +213,14 @@ impl FileToParse for LibraryFileToParse {
 
 struct SourceFile {
     library_names: Vec<Symbol>,
-    design_file: Option<DesignFile>,
+    source: Source,
+    design_file: DesignFile,
     parser_diagnostics: Vec<Diagnostic>,
 }
 
 impl SourceFile {
-    fn take_design_file(&mut self) -> Option<DesignFile> {
-        std::mem::replace(&mut self.design_file, None)
+    fn take_design_file(&mut self) -> DesignFile {
+        std::mem::replace(&mut self.design_file, DesignFile::default())
     }
 }
 
@@ -328,9 +307,10 @@ use_lib.files = ['use_file.vhd']
         check_no_diagnostics(&project.analyse());
     }
 
-    fn update(project: &mut Project, source: &Source, contents: &str) {
+    fn update(project: &mut Project, source: &mut Source, contents: &str) {
         std::fs::write(&std::path::Path::new(source.file_name()), contents).unwrap();
-        project.update_source(source).unwrap();
+        *source = Source::from_latin1_file(source.file_name()).unwrap();
+        project.update_source(source);
     }
 
     /// Test that the same file can be added to several libraries
@@ -338,10 +318,8 @@ use_lib.files = ['use_file.vhd']
     fn test_re_analyze_after_update() {
         let root = tempfile::tempdir().unwrap();
         let path1 = root.path().join("file1.vhd");
-        let source1 = Source::from_file(path1.to_str().unwrap());
 
         let path2 = root.path().join("file2.vhd");
-        let source2 = Source::from_file(path2.to_str().unwrap());
 
         std::fs::write(
             &path1,
@@ -351,6 +329,7 @@ end package;
         ",
         )
         .unwrap();
+        let mut source1 = Source::from_latin1_file(path1.to_str().unwrap()).unwrap();
 
         std::fs::write(
             &path2,
@@ -363,6 +342,7 @@ end package;
         ",
         )
         .unwrap();
+        let mut source2 = Source::from_latin1_file(path2.to_str().unwrap()).unwrap();
 
         let config_str = "
 [libraries]
@@ -379,7 +359,7 @@ lib2.files = ['file2.vhd']
         // Add syntax error
         update(
             &mut project,
-            &source1,
+            &mut source1,
             "
 package is
         ",
@@ -393,7 +373,7 @@ package is
         // Make it good again
         update(
             &mut project,
-            &source1,
+            &mut source1,
             "
 package pkg is
 end package;
@@ -404,7 +384,7 @@ end package;
         // Add analysis error
         update(
             &mut project,
-            &source2,
+            &mut source2,
             "
 package pkg is
 end package;
@@ -420,7 +400,7 @@ end package;
         // Make it good again
         update(
             &mut project,
-            &source2,
+            &mut source2,
             "
 package pkg is
 end package;

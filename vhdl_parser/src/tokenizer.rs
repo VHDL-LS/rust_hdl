@@ -5,14 +5,14 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use self::fnv::FnvHashMap;
-use super::cursor::{ByteCursor, BytePos};
+use super::contents::{ContentReader, ReaderState};
 use crate::diagnostic::{Diagnostic, ParseResult};
-use crate::source::{Range, Source, SrcPos, WithPos};
+use crate::source::{Position, Range, Source, SrcPos, WithPos};
 use fnv;
 
 use crate::ast;
 use crate::ast::{BaseSpecifier, Ident};
-use crate::latin_1::Latin1String;
+use crate::latin_1::{Latin1String, Utf8ToLatin1Error};
 use crate::symbol_table::{Symbol, SymbolTable};
 use std::sync::Arc;
 
@@ -408,7 +408,7 @@ pub struct Token {
     pub kind: Kind,
     pub value: Value,
     pub pos: SrcPos,
-    pub next_pos: BytePos,
+    pub next_state: ReaderState,
     pub comments: Option<Box<TokenComments>>,
 }
 
@@ -420,7 +420,7 @@ pub struct TokenComments {
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct Comment {
-    pub value: Latin1String,
+    pub value: String,
     pub range: Range,
     pub multi_line: bool,
 }
@@ -530,6 +530,30 @@ impl Token {
     }
 }
 
+struct TokenError {
+    range: Range,
+    message: String,
+}
+
+impl TokenError {
+    fn range(start: Position, end: Position, message: impl Into<String>) -> TokenError {
+        TokenError {
+            range: Range::new(start, end),
+            message: message.into(),
+        }
+    }
+
+    fn pos(pos: Position, message: impl Into<String>) -> TokenError {
+        Self::range(pos, pos.next_char(), message)
+    }
+}
+
+impl From<Utf8ToLatin1Error> for TokenError {
+    fn from(err: Utf8ToLatin1Error) -> TokenError {
+        TokenError::range(err.pos, err.pos.after_char(err.value), err.message())
+    }
+}
+
 /// Resolves ir1045
 /// http://www.eda-stds.org/isac/IRs-VHDL-93/IR1045.txt
 /// char may not come after ], ), all, or identifier
@@ -544,12 +568,17 @@ fn can_be_char(last_token_kind: Option<Kind>) -> bool {
     }
 }
 
-fn parse_integer(cursor: &mut ByteCursor, base: u64, stop_on_suffix: bool) -> Result<u64, String> {
+fn parse_integer(
+    reader: &mut ContentReader,
+    base: u64,
+    stop_on_suffix: bool,
+) -> Result<u64, TokenError> {
     let mut result = Some(0 as u64);
     let mut too_large_digit = None;
     let mut invalid_character = None;
 
-    while let Some(b) = cursor.peek(0) {
+    let start = reader.pos();
+    while let Some(b) = reader.peek()? {
         let digit = u64::from(match b {
             // Bit string literal or exponent
             // Lower case
@@ -561,25 +590,16 @@ fn parse_integer(cursor: &mut ByteCursor, base: u64, stop_on_suffix: bool) -> Re
                 break;
             }
 
-            b'0'..=b'9' => {
-                cursor.pop();
-                (b - b'0')
-            }
-            b'a'..=b'f' => {
-                cursor.pop();
-                (10 + b - b'a')
-            }
-            b'A'..=b'F' => {
-                cursor.pop();
-                (10 + b - b'A')
-            }
+            b'0'..=b'9' => (b - b'0'),
+            b'a'..=b'f' => (10 + b - b'a'),
+            b'A'..=b'F' => (10 + b - b'A'),
             b'_' => {
-                cursor.pop();
+                reader.skip();
                 continue;
             }
             b'g'..=b'z' | b'G'..=b'Z' => {
-                cursor.pop();
-                invalid_character = Some(b);
+                invalid_character = Some((b, reader.pos()));
+                reader.skip();
                 continue;
             }
             _ => {
@@ -588,42 +608,54 @@ fn parse_integer(cursor: &mut ByteCursor, base: u64, stop_on_suffix: bool) -> Re
         });
 
         if digit >= base {
-            too_large_digit = Some(b);
+            too_large_digit = Some((b, reader.pos()));
         }
+
+        reader.skip();
 
         result = result
             .and_then(|x| base.checked_mul(x))
             .and_then(|x| x.checked_add(digit));
     }
 
-    if let Some(b) = invalid_character {
-        Err(format!("Invalid integer character '{}'", Latin1String::new(&[b])).to_string())
-    } else if let Some(b) = too_large_digit {
-        Err(format!(
-            "Illegal digit '{}' for base {}",
-            Latin1String::new(&[b]),
-            base
-        )
-        .to_string())
+    if let Some((b, pos)) = invalid_character {
+        Err(TokenError::pos(
+            pos,
+            format!("Invalid integer character '{}'", Latin1String::new(&[b])),
+        ))
+    } else if let Some((b, pos)) = too_large_digit {
+        Err(TokenError::pos(
+            pos,
+            format!(
+                "Illegal digit '{}' for base {}",
+                Latin1String::new(&[b]),
+                base
+            ),
+        ))
     } else if let Some(result) = result {
         Ok(result)
     } else {
-        Err("Integer too large for 64-bit unsigned".to_string())
+        Err(TokenError::range(
+            start,
+            reader.pos(),
+            "Integer too large for 64-bit unsigned",
+        ))
     }
 }
 
-fn parse_exponent(cursor: &mut ByteCursor) -> Result<i32, String> {
+fn parse_exponent(reader: &mut ContentReader) -> Result<i32, TokenError> {
+    let start = reader.pos();
     let negative = {
-        if cursor.peek(0) == Some(b'-') {
-            cursor.pop();
+        if reader.peek()? == Some(b'-') {
+            reader.skip();
             true
         } else {
-            cursor.skip_if(b'+');
+            reader.skip_if(b'+')?;
             false
         }
     };
 
-    let exp = parse_integer(cursor, 10, false)?;
+    let exp = parse_integer(reader, 10, false)?;
     if negative {
         if exp <= (-(i32::min_value() as i64)) as u64 {
             return Ok((-(exp as i64)) as i32);
@@ -634,30 +666,21 @@ fn parse_exponent(cursor: &mut ByteCursor) -> Result<i32, String> {
         }
     }
 
-    Err("Exponent too large for 32-bits signed".to_string())
+    Err(TokenError::range(
+        start,
+        reader.pos(),
+        "Exponent too large for 32-bits signed",
+    ))
 }
 
-fn exponentiate(value: u64, exp: u32) -> Option<u64> {
-    // @TODO use checked_pow once it is common in recent releases
-    // (10 as u64)
-    //     .checked_pow(exp)
-    //     and_then(|x| x.checked_mul(value))
-
-    let mut value = value;
-    for _ in 0..exp {
-        value = value.checked_mul(10)?;
-    }
-    Some(value)
-}
-
-#[derive(PartialEq, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct TokenState {
     last_token_kind: Option<Kind>,
-    start: BytePos,
+    start: ReaderState,
 }
 
 impl TokenState {
-    pub fn new(start: BytePos) -> TokenState {
+    pub fn new(start: ReaderState) -> TokenState {
         TokenState {
             last_token_kind: None,
             start,
@@ -667,17 +690,19 @@ impl TokenState {
     /// Set state to after token
     pub fn set_after(&mut self, token: &Token) {
         self.last_token_kind = Some(token.kind);
-        self.start = token.next_pos;
+        self.start = token.next_state;
     }
 }
 
 // Assumes first quoute is already consumed
 fn parse_quoted(
     buffer: &mut Latin1String,
-    cursor: &mut ByteCursor,
+    reader: &mut ContentReader,
     quote: u8,
     include_quote: bool,
-) -> Result<Latin1String, String> {
+) -> Result<Latin1String, TokenError> {
+    let start = reader.pos();
+
     buffer.bytes.clear();
     let mut is_multiline = false;
     let mut found_end = false;
@@ -686,11 +711,11 @@ fn parse_quoted(
         buffer.bytes.push(quote)
     }
 
-    while let Some(chr) = cursor.pop() {
+    while let Some(chr) = reader.pop()? {
         is_multiline |= chr == b'\n';
         if chr == quote {
-            if cursor.peek(0) == Some(quote) {
-                cursor.pop();
+            if reader.peek()? == Some(quote) {
+                reader.skip();
             } else {
                 found_end = true;
                 break;
@@ -704,82 +729,88 @@ fn parse_quoted(
     }
 
     if !found_end {
-        Err("Reached EOF before end quote".to_string())
+        Err(TokenError::range(
+            start.prev_char(),
+            reader.pos(),
+            "Reached EOF before end quote",
+        ))
     } else if is_multiline {
-        Err("Multi line string".to_string())
+        Err(TokenError::range(
+            start.prev_char(),
+            reader.pos(),
+            "Multi line string",
+        ))
     } else {
         Ok(buffer.clone())
     }
 }
 
+// Assumes first quote is already consumed
 fn parse_string(
     buffer: &mut Latin1String,
-    cursor: &mut ByteCursor,
-) -> Result<Latin1String, String> {
-    parse_quoted(buffer, cursor, b'"', false)
+    reader: &mut ContentReader,
+) -> Result<Latin1String, TokenError> {
+    parse_quoted(buffer, reader, b'"', false)
 }
 
-/// Assume -- has already been seen but not consumed
-fn parse_comment(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Comment {
-    let start_pos = cursor.pos();
-    cursor.pop();
-    cursor.pop();
-    buffer.bytes.clear();
-    while let Some(chr) = cursor.peek(0) {
-        if chr == b'\n' {
+/// Assume -- has already been consumed
+fn parse_comment(reader: &mut ContentReader) -> Comment {
+    let start_pos = reader.pos().prev_char().prev_char();
+    let mut value = String::new();
+    while let Some(chr) = reader.peek_char() {
+        if chr == '\n' {
             break;
         } else {
-            cursor.pop();
-            buffer.bytes.push(chr);
+            reader.skip();
+            value.push(chr);
         }
     }
-    let end_pos = cursor.pos();
+    let end_pos = reader.pos();
     Comment {
-        value: buffer.clone(),
+        value: value,
         range: start_pos.range_to(end_pos),
         multi_line: false,
     }
 }
 
-/// Assume /* has been seen but not consumed
-fn parse_multi_line_comment(
-    source: &Source,
-    buffer: &mut Latin1String,
-    cursor: &mut ByteCursor,
-) -> ParseResult<Comment> {
-    let start_pos = cursor.pos();
-    cursor.pop();
-    cursor.pop();
-    buffer.bytes.clear();
-    while let Some(chr) = cursor.pop() {
-        if chr == b'*' {
-            if cursor.skip_if(b'/') {
+/// Assume /* has been consumed
+fn parse_multi_line_comment(reader: &mut ContentReader) -> Result<Comment, TokenError> {
+    let start_pos = reader.pos().prev_char().prev_char();
+    let mut value = String::new();
+    while let Some(chr) = reader.pop_char() {
+        if chr == '*' {
+            if reader.peek_char() == Some('/') {
+                reader.skip();
                 // Comment ended
-                let end_pos = cursor.pos();
+                let end_pos = reader.pos();
                 return Ok(Comment {
-                    value: buffer.clone(),
+                    value: value,
                     range: start_pos.range_to(end_pos),
                     multi_line: true,
                 });
             } else {
-                buffer.bytes.push(chr);
+                value.push(chr);
             }
         } else {
-            buffer.bytes.push(chr);
+            value.push(chr);
         }
     }
 
-    let end_pos = cursor.pos();
-    Err(Diagnostic::error(
-        source.pos(start_pos.to_position(), end_pos.to_position()),
+    let end_pos = reader.pos();
+    Err(TokenError::range(
+        start_pos,
+        end_pos,
         "Incomplete multi-line comment",
     ))
 }
 
-fn parse_real_literal(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Result<f64, String> {
+fn parse_real_literal(
+    buffer: &mut Latin1String,
+    reader: &mut ContentReader,
+) -> Result<f64, TokenError> {
     buffer.bytes.clear();
-
-    while let Some(b) = cursor.peek(0).map(Latin1String::lowercase) {
+    let start = reader.pos();
+    while let Some(b) = reader.peek_lowercase()? {
         match b {
             b'e' => {
                 break;
@@ -788,11 +819,11 @@ fn parse_real_literal(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Res
                 break;
             }
             b'0'..=b'9' | b'a'..=b'd' | b'f' | b'A'..=b'F' | b'.' => {
-                cursor.pop();
+                reader.skip();
                 buffer.bytes.push(b);
             }
             b'_' => {
-                cursor.pop();
+                reader.skip();
                 continue;
             }
             _ => {
@@ -802,31 +833,40 @@ fn parse_real_literal(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Res
     }
 
     let string = unsafe { std::str::from_utf8_unchecked(&buffer.bytes) };
-    let result: Result<f64, String> = string
-        .parse()
-        .map_err(|err: std::num::ParseFloatError| err.to_string());
+
+    let result: Result<f64, TokenError> =
+        string.parse().map_err(|err: std::num::ParseFloatError| {
+            TokenError::range(start, reader.pos(), err.to_string())
+        });
     result
+}
+
+fn exponentiate(value: u64, exp: u32) -> Option<u64> {
+    (10 as u64)
+        .checked_pow(exp)
+        .and_then(|x| x.checked_mul(value))
 }
 
 /// LRM 15.5 Abstract literals
 fn parse_abstract_literal(
     buffer: &mut Latin1String,
-    cursor: &mut ByteCursor,
-) -> Result<(Kind, Value), String> {
-    let pos = cursor.pos();
-    let initial = parse_integer(cursor, 10, true);
+    reader: &mut ContentReader,
+) -> Result<(Kind, Value), TokenError> {
+    let state = reader.state();
+    let initial = parse_integer(reader, 10, true);
+    let pos_after_initial = reader.pos();
 
-    match cursor.peek(0).map(Latin1String::lowercase) {
+    match reader.peek_lowercase()? {
         // Real
         Some(b'.') => {
-            cursor.set_pos(pos);
-            let real = parse_real_literal(buffer, cursor)?;
+            reader.set_state(state);
+            let real = parse_real_literal(buffer, reader)?;
 
-            match cursor.peek(0) {
+            match reader.peek()? {
                 // Exponent
                 Some(b'e') | Some(b'E') => {
-                    cursor.pop();
-                    let exp = parse_exponent(cursor)?;
+                    reader.skip();
+                    let exp = parse_exponent(reader)?;
                     Ok((
                         AbstractLiteral,
                         Value::AbstractLiteral(ast::AbstractLiteral::Real(
@@ -844,8 +884,8 @@ fn parse_abstract_literal(
         // Integer exponent
         Some(b'e') => {
             let integer = initial?;
-            cursor.pop();
-            let exp = parse_exponent(cursor)?;
+            reader.skip();
+            let exp = parse_exponent(reader)?;
             if exp >= 0 {
                 if let Some(value) = exponentiate(integer, exp as u32) {
                     Ok((
@@ -853,21 +893,29 @@ fn parse_abstract_literal(
                         Value::AbstractLiteral(ast::AbstractLiteral::Integer(value)),
                     ))
                 } else {
-                    Err("Integer too large for 64-bit unsigned".to_string())
+                    Err(TokenError::range(
+                        state.pos(),
+                        reader.pos(),
+                        "Integer too large for 64-bit unsigned",
+                    ))
                 }
             } else {
-                Err("Integer literals may not have negative exponent".to_string())
+                Err(TokenError::range(
+                    state.pos(),
+                    reader.pos(),
+                    "Integer literals may not have negative exponent",
+                ))
             }
         }
 
         // Based integer
         Some(b'#') => {
             let base = initial?;
-            cursor.pop();
-            let base_result = parse_integer(cursor, base, false);
+            reader.skip();
+            let base_result = parse_integer(reader, base, false);
 
-            if let Some(b'#') = cursor.peek(0) {
-                cursor.pop();
+            if let Some(b'#') = reader.peek()? {
+                reader.skip();
                 let integer = base_result?;
                 if base >= 2 && base <= 16 {
                     Ok((
@@ -875,18 +923,35 @@ fn parse_abstract_literal(
                         Value::AbstractLiteral(ast::AbstractLiteral::Integer(integer)),
                     ))
                 } else {
-                    Err(format!("Base must be at least 2 and at most 16, got {}", base).to_string())
+                    Err(TokenError::range(
+                        state.pos(),
+                        pos_after_initial,
+                        format!("Base must be at least 2 and at most 16, got {}", base),
+                    ))
                 }
             } else {
-                Err("Based integer did not end with #".to_string())
+                Err(TokenError::range(
+                    state.pos(),
+                    reader.pos(),
+                    "Based integer did not end with #",
+                ))
             }
         }
 
         // Bit string literal
         Some(b's') | Some(b'u') | Some(b'b') | Some(b'o') | Some(b'x') | Some(b'd') => {
             let integer = initial?;
-            // @TODO check overflow
-            parse_bit_string(buffer, cursor, Some(integer as u32))
+
+            if let Some(base_spec) = parse_base_specifier(reader)? {
+                // @TODO check overflow
+                parse_bit_string(buffer, reader, base_spec, Some(integer as u32))
+            } else {
+                Err(TokenError::range(
+                    state.pos(),
+                    reader.pos(),
+                    "Invalid bit string literal",
+                ))
+            }
         }
         _ => {
             // Plain integer
@@ -899,102 +964,59 @@ fn parse_abstract_literal(
 }
 
 /// LRM 15.8 Bit string literals
-fn is_bit_string(cursor: &mut ByteCursor) -> bool {
-    let first_byte = {
-        if let Some(byte) = cursor.peek(0) {
-            Latin1String::lowercase(byte)
-        } else {
-            return false;
-        }
-    };
-
-    let second_byte = {
-        if let Some(byte) = cursor.peek(1) {
-            Latin1String::lowercase(byte)
-        } else {
-            return false;
-        }
-    };
-
-    let len = match first_byte {
-        b'u' => match second_byte {
-            b'b' => 2,
-            b'o' => 2,
-            b'x' => 2,
-            _ => return false,
+/// Parse the base specifier such as ub, sx, b etc
+/// Also requires and consumes the trailing quoute "
+fn parse_base_specifier(reader: &mut ContentReader) -> Result<Option<BaseSpecifier>, TokenError> {
+    let base_specifier = match reader.pop_lowercase()? {
+        Some(b'u') => match reader.pop_lowercase()? {
+            Some(b'b') => BaseSpecifier::UB,
+            Some(b'o') => BaseSpecifier::UO,
+            Some(b'x') => BaseSpecifier::UX,
+            _ => return Ok(None),
         },
-        b's' => match second_byte {
-            b'b' => 2,
-            b'o' => 2,
-            b'x' => 2,
-            _ => return false,
+        Some(b's') => match reader.pop_lowercase()? {
+            Some(b'b') => BaseSpecifier::SB,
+            Some(b'o') => BaseSpecifier::SO,
+            Some(b'x') => BaseSpecifier::SX,
+            _ => return Ok(None),
         },
-        b'b' => 1,
-        b'o' => 1,
-        b'x' => 1,
-        b'd' => 1,
-        _ => return false,
+        Some(b'b') => BaseSpecifier::B,
+        Some(b'o') => BaseSpecifier::O,
+        Some(b'x') => BaseSpecifier::X,
+        Some(b'd') => BaseSpecifier::D,
+        _ => return Ok(None),
     };
 
-    return Some(b'"') == cursor.peek(len);
+    Ok(if reader.pop()? == Some(b'"') {
+        Some(base_specifier)
+    } else {
+        None
+    })
+}
+
+// Only consume reader if it is a base specifier
+fn maybe_base_specifier(reader: &mut ContentReader) -> Result<Option<BaseSpecifier>, TokenError> {
+    let mut lookahead = reader.clone();
+    if let Some(value) = parse_base_specifier(&mut lookahead)? {
+        reader.set_to(&lookahead);
+        Ok(Some(value))
+    } else {
+        Ok(None)
+    }
 }
 
 fn parse_bit_string(
     buffer: &mut Latin1String,
-    cursor: &mut ByteCursor,
+    reader: &mut ContentReader,
+    base_specifier: BaseSpecifier,
     bit_string_length: Option<u32>,
-) -> Result<(Kind, Value), String> {
-    let err = Err("Invalid bit string literal".to_string());
-
-    let first_byte = {
-        if let Some(byte) = cursor.peek(0) {
-            Latin1String::lowercase(byte)
-        } else {
-            cursor.pop();
-            return err;
+) -> Result<(Kind, Value), TokenError> {
+    let value = match parse_string(buffer, reader) {
+        Ok(value) => value,
+        Err(mut err) => {
+            err.message = "Invalid bit string literal".to_string();
+            return Err(err);
         }
-    };
-
-    let second_byte = {
-        if let Some(byte) = cursor.peek(1) {
-            Latin1String::lowercase(byte)
-        } else {
-            cursor.pop();
-            return err;
-        }
-    };
-
-    let (len, base_specifier) = match first_byte {
-        b'u' => match second_byte {
-            b'b' => (2, BaseSpecifier::UB),
-            b'o' => (2, BaseSpecifier::UO),
-            b'x' => (2, BaseSpecifier::UX),
-            _ => return err,
-        },
-        b's' => match second_byte {
-            b'b' => (2, BaseSpecifier::SB),
-            b'o' => (2, BaseSpecifier::SO),
-            b'x' => (2, BaseSpecifier::SX),
-            _ => return err,
-        },
-        b'b' => (1, BaseSpecifier::B),
-        b'o' => (1, BaseSpecifier::O),
-        b'x' => (1, BaseSpecifier::X),
-        b'd' => (1, BaseSpecifier::D),
-        _ => return err,
-    };
-
-    for _ in 0..len {
-        cursor.pop();
-    }
-
-    let value = if cursor.pop() == Some(b'"') {
-        match parse_string(buffer, cursor) {
-            Ok(value) => value,
-            Err(_) => return err,
-        }
-    } else {
-        return err;
     };
 
     Ok((
@@ -1010,15 +1032,17 @@ fn parse_bit_string(
 /// LRM 15.4 Identifiers
 fn parse_basic_identifier_or_keyword(
     buffer: &mut Latin1String,
-    cursor: &mut ByteCursor,
+    reader: &mut ContentReader,
     keywords: &FnvHashMap<&'static [u8], Kind>,
     symtab: &SymbolTable,
-) -> Result<(Kind, Value), String> {
-    let start_pos = cursor.pos();
-    while let Some(b) = cursor.peek(0) {
+) -> Result<(Kind, Value), TokenError> {
+    let start = reader.state();
+    let mut len = 0;
+    while let Some(b) = reader.peek()? {
         match b {
             b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_' => {
-                cursor.pop();
+                reader.skip();
+                len += 1;
             }
             _ => {
                 break;
@@ -1026,97 +1050,150 @@ fn parse_basic_identifier_or_keyword(
         }
     }
 
+    reader.set_state(start);
     buffer.bytes.clear();
-    buffer
-        .bytes
-        .extend_from_slice(cursor.slice(start_pos, cursor.pos()));
-    buffer.make_lowercase();
+    for _ in 0..len {
+        buffer.bytes.push(reader.pop_lowercase().unwrap().unwrap());
+    }
 
     match keywords.get(buffer.bytes.as_slice()) {
         Some(kind) => Ok((*kind, Value::NoValue)),
         None => {
+            reader.set_state(start);
             buffer.bytes.clear();
-            buffer
-                .bytes
-                .extend_from_slice(cursor.slice(start_pos, cursor.pos()));
+            for _ in 0..len {
+                buffer.bytes.push(reader.pop().unwrap().unwrap());
+            }
             Ok((Identifier, Value::Identifier(symtab.insert(&buffer))))
         }
     }
 }
 
-fn get_leading_comments(
-    source: &Source,
-    buffer: &mut Latin1String,
-    cursor: &mut ByteCursor,
-) -> ParseResult<Vec<Comment>> {
+/// Assumes leading ' has already been consumed
+/// Only consumes from reader if Some is returned
+fn parse_character_literal(
+    reader: &mut ContentReader,
+) -> Result<Option<(Kind, Value)>, TokenError> {
+    let mut lookahead = reader.clone();
+
+    if let Some(chr) = lookahead.pop()? {
+        if lookahead.skip_if(b'\'')? {
+            reader.set_to(&lookahead);
+            Ok(Some((Character, Value::Character(chr))))
+        } else {
+            Ok(None)
+        }
+    } else {
+        Ok(None)
+    }
+}
+
+fn get_leading_comments(reader: &mut ContentReader) -> Result<Vec<Comment>, TokenError> {
     let mut comments: Vec<Comment> = Vec::new();
-    while let Some(byte) = cursor.peek(0) {
+
+    loop {
+        skip_whitespace(reader);
+        let state = reader.state();
+
+        let byte = if let Some(byte) = reader.pop()? {
+            byte
+        } else {
+            break;
+        };
+
         match byte {
-            b' ' | b'\t' | b'\n' => {
-                cursor.pop();
-                continue;
-            }
             b'/' => {
-                if cursor.peek(1) == Some(b'*') {
-                    comments.push(parse_multi_line_comment(source, buffer, cursor)?);
+                if reader.pop()? == Some(b'*') {
+                    comments.push(parse_multi_line_comment(reader)?);
                 } else {
+                    reader.set_state(state);
                     break;
                 }
             }
             b'-' => {
-                if cursor.peek(1) == Some(b'-') {
-                    comments.push(parse_comment(buffer, cursor));
+                if reader.pop()? == Some(b'-') {
+                    comments.push(parse_comment(reader));
                 } else {
+                    reader.set_state(state);
                     break;
                 }
             }
             _ => {
+                reader.set_state(state);
                 break;
             }
-        };
+        }
     }
+
     Ok(comments)
 }
 
-fn get_trailing_comment(buffer: &mut Latin1String, cursor: &mut ByteCursor) -> Option<Comment> {
-    while let Some(byte) = cursor.peek(0) {
-        let comment = match byte {
+/// Skip whitespace but not newline
+fn skip_whitespace_in_line(reader: &mut ContentReader) {
+    while let Ok(Some(byte)) = reader.peek() {
+        match byte {
             b' ' | b'\t' => {
-                cursor.pop();
-                continue;
+                reader.skip();
             }
-            b'\n' => None,
-            b'-' => {
-                if cursor.peek(1) == Some(b'-') {
-                    Some(parse_comment(buffer, cursor))
-                } else {
-                    None
-                }
+            _ => {
+                break;
             }
-            _ => None,
-        };
-        return comment;
+        }
     }
-    // This should never happen.
-    // FIXME: There must be a nicer way to write this function.
-    None
 }
 
-#[derive(Clone)]
-pub struct Tokenizer {
+/// Skip all whitespace
+fn skip_whitespace(reader: &mut ContentReader) {
+    while let Ok(Some(byte)) = reader.peek() {
+        match byte {
+            b' ' | b'\t' | b'\n' => {
+                reader.skip();
+            }
+            _ => {
+                break;
+            }
+        }
+    }
+}
+
+fn get_trailing_comment(reader: &mut ContentReader) -> Result<Option<Comment>, TokenError> {
+    skip_whitespace_in_line(reader);
+
+    let state = reader.state();
+    match reader.pop()? {
+        Some(b'-') => {
+            if reader.pop()? == Some(b'-') {
+                Ok(Some(parse_comment(reader)))
+            } else {
+                reader.set_state(state);
+                Ok(None)
+            }
+        }
+        _ => {
+            reader.set_state(state);
+            Ok(None)
+        }
+    }
+}
+
+pub struct Tokenizer<'a> {
     keywords: FnvHashMap<&'static [u8], Kind>,
     symtab: Arc<SymbolTable>,
     buffer: Latin1String,
     state: TokenState,
-    source: Source,
-    cursor: ByteCursor,
+    source: &'a Source,
+    reader: ContentReader<'a>,
     final_comments: Option<Vec<Comment>>,
-    pub range_ident: Symbol,
-    pub reverse_range_ident: Symbol,
+    pub range_sym: Symbol,
+    pub reverse_range_sym: Symbol,
 }
 
-impl Tokenizer {
-    pub fn new(symtab: Arc<SymbolTable>, source: Source, code: Arc<Latin1String>) -> Tokenizer {
+impl<'a> Tokenizer<'a> {
+    pub fn new(
+        symtab: Arc<SymbolTable>,
+        source: &'a Source,
+        reader: ContentReader<'a>,
+    ) -> Tokenizer<'a> {
         let keywords = [
             ("architecture", Architecture),
             ("entity", Entity),
@@ -1221,21 +1298,19 @@ impl Tokenizer {
             .map(|(string, kind)| (string.as_bytes(), *kind))
             .collect();
 
-        let range_ident = symtab.insert(&Latin1String::new(b"range"));
-        let reverse_range_ident = symtab.insert(&Latin1String::new(b"reverse_range"));
-
-        let cursor = ByteCursor::new(code);
+        let range_sym = symtab.insert(&Latin1String::new(b"range"));
+        let reverse_range_sym = symtab.insert(&Latin1String::new(b"reverse_range"));
 
         Tokenizer {
             keywords,
             symtab,
-            state: TokenState::new(cursor.pos()),
+            state: TokenState::new(reader.state()),
             buffer: Latin1String::empty(),
             source,
-            cursor,
+            reader,
             final_comments: None,
-            range_ident,
-            reverse_range_ident,
+            range_sym,
+            reverse_range_sym,
         }
     }
 
@@ -1245,40 +1320,34 @@ impl Tokenizer {
 
     pub fn eof_error(&self) -> Diagnostic {
         Diagnostic::error(
-            self.source.pos(
-                self.state.start.to_position(),
-                self.state.start.to_position().next_char(),
-            ),
+            self.source
+                .pos(self.state.start.pos(), self.state.start.pos().next_char()),
             "Unexpected EOF",
         )
     }
 
     pub fn set_state(&mut self, state: TokenState) {
         self.state = state;
-        self.cursor.set_pos(state.start);
+        self.reader.set_state(state.start);
     }
 
     pub fn move_after(&mut self, token: &Token) {
         self.state.set_after(token);
-        self.cursor.set_pos(self.state.start);
+        self.reader.set_state(self.state.start);
     }
 
-    pub fn parse_token(&mut self) -> Result<Option<(Kind, Value)>, Diagnostic> {
-        macro_rules! error {
-            ($message:expr) => {
-                let err = Err(Diagnostic::error(
-                    &self.source.pos(
-                        self.state.start.to_position(),
-                        self.cursor.pos().to_position(),
-                    ),
-                    $message,
+    fn parse_token(&mut self) -> Result<Option<(Kind, Value)>, TokenError> {
+        macro_rules! illegal_token {
+            () => {
+                return Err(TokenError::range(
+                    self.state.start.pos(),
+                    self.reader.pos(),
+                    "Illegal token",
                 ));
-                self.state.start = self.cursor.pos();
-                return err;
             };
         }
 
-        let byte = if let Some(byte) = self.cursor.peek(0) {
+        let byte = if let Some(byte) = self.reader.peek()? {
             byte
         } else {
             // End of file
@@ -1287,242 +1356,218 @@ impl Tokenizer {
 
         let (kind, value) = match byte {
             b'a'..=b'z' | b'A'..=b'Z' => {
-                if is_bit_string(&mut self.cursor) {
-                    match parse_bit_string(&mut self.buffer, &mut self.cursor, None) {
-                        Ok((kind, bit_string)) => (kind, bit_string),
-                        Err(msg) => {
-                            error!(msg);
-                        }
-                    }
+                if let Some(base_spec) = maybe_base_specifier(&mut self.reader)? {
+                    parse_bit_string(&mut self.buffer, &mut self.reader, base_spec, None)?
                 } else {
-                    match parse_basic_identifier_or_keyword(
+                    parse_basic_identifier_or_keyword(
                         &mut self.buffer,
-                        &mut self.cursor,
+                        &mut self.reader,
                         &self.keywords,
                         &self.symtab,
-                    ) {
-                        Ok((kind, value)) => (kind, value),
-                        Err(msg) => {
-                            error!(msg);
-                        }
-                    }
+                    )?
                 }
             }
-            b'0'..=b'9' => match parse_abstract_literal(&mut self.buffer, &mut self.cursor) {
-                Ok((kind, value)) => (kind, value),
-                Err(msg) => {
-                    error!(msg);
-                }
-            },
+            b'0'..=b'9' => parse_abstract_literal(&mut self.buffer, &mut self.reader)?,
             b':' => {
-                self.cursor.pop();
-                if self.cursor.skip_if(b'=') {
+                self.reader.skip();
+                if self.reader.skip_if(b'=')? {
                     (ColonEq, Value::NoValue)
                 } else {
                     (Colon, Value::NoValue)
                 }
             }
             b'\'' => {
-                self.cursor.pop();
-                if can_be_char(self.state.last_token_kind) && self.cursor.peek(1) == Some(b'\'') {
-                    let chr = self.cursor.pop().unwrap();
-                    self.cursor.pop();
-                    (Character, Value::Character(chr))
+                self.reader.skip();
+                if can_be_char(self.state.last_token_kind) {
+                    if let Some(chr_lit) = parse_character_literal(&mut self.reader)? {
+                        chr_lit
+                    } else {
+                        (Tick, Value::NoValue)
+                    }
                 } else {
                     (Tick, Value::NoValue)
                 }
             }
             b'-' => {
-                self.cursor.pop();
+                self.reader.skip();
                 (Minus, Value::NoValue)
             }
             b'"' => {
-                self.cursor.pop();
-                match parse_string(&mut self.buffer, &mut self.cursor) {
-                    Ok(result) => (StringLiteral, Value::String(result)),
-                    Err(msg) => {
-                        error!(msg);
-                    }
-                }
+                self.reader.skip();
+                let result = parse_string(&mut self.buffer, &mut self.reader)?;
+                (StringLiteral, Value::String(result))
             }
             b';' => {
-                self.cursor.pop();
+                self.reader.skip();
                 (SemiColon, Value::NoValue)
             }
             b'(' => {
-                self.cursor.pop();
+                self.reader.skip();
                 (LeftPar, Value::NoValue)
             }
             b')' => {
-                self.cursor.pop();
+                self.reader.skip();
                 (RightPar, Value::NoValue)
             }
             b'+' => {
-                self.cursor.pop();
+                self.reader.skip();
                 (Plus, Value::NoValue)
             }
             b'.' => {
-                self.cursor.pop();
+                self.reader.skip();
                 (Dot, Value::NoValue)
             }
             b'&' => {
-                self.cursor.pop();
+                self.reader.skip();
                 (Concat, Value::NoValue)
             }
             b',' => {
-                self.cursor.pop();
+                self.reader.skip();
                 (Comma, Value::NoValue)
             }
             b'=' => {
-                self.cursor.pop();
-                if self.cursor.skip_if(b'>') {
+                self.reader.skip();
+                if self.reader.skip_if(b'>')? {
                     (RightArrow, Value::NoValue)
                 } else {
                     (EQ, Value::NoValue)
                 }
             }
             b'<' => {
-                self.cursor.pop();
-                match self.cursor.peek(0) {
+                self.reader.skip();
+                match self.reader.peek()? {
                     Some(b'=') => {
-                        self.cursor.pop();
+                        self.reader.skip();
                         (LTE, Value::NoValue)
                     }
                     Some(b'>') => {
-                        self.cursor.pop();
+                        self.reader.skip();
                         (BOX, Value::NoValue)
                     }
                     Some(b'<') => {
-                        self.cursor.pop();
+                        self.reader.skip();
                         (LtLt, Value::NoValue)
                     }
                     _ => (LT, Value::NoValue),
                 }
             }
             b'>' => {
-                self.cursor.pop();
-                match self.cursor.peek(0) {
+                self.reader.skip();
+                match self.reader.peek()? {
                     Some(b'=') => {
-                        self.cursor.pop();
+                        self.reader.skip();
                         (GTE, Value::NoValue)
                     }
                     Some(b'>') => {
-                        self.cursor.pop();
+                        self.reader.skip();
                         (GtGt, Value::NoValue)
                     }
                     _ => (GT, Value::NoValue),
                 }
             }
             b'/' => {
-                self.cursor.pop();
+                self.reader.skip();
 
-                if self.cursor.skip_if(b'=') {
+                if self.reader.skip_if(b'=')? {
                     (NE, Value::NoValue)
                 } else {
                     (Div, Value::NoValue)
                 }
             }
             b'*' => {
-                self.cursor.pop();
+                self.reader.skip();
 
-                if self.cursor.skip_if(b'*') {
+                if self.reader.skip_if(b'*')? {
                     (Pow, Value::NoValue)
                 } else {
                     (Times, Value::NoValue)
                 }
             }
             b'?' => {
-                self.cursor.pop();
-                match self.cursor.peek(0) {
+                self.reader.skip();
+                match self.reader.peek()? {
                     Some(b'?') => {
-                        self.cursor.pop();
+                        self.reader.skip();
                         (QueQue, Value::NoValue)
                     }
                     Some(b'=') => {
-                        self.cursor.pop();
+                        self.reader.skip();
                         (QueEQ, Value::NoValue)
                     }
                     Some(b'/') => {
-                        self.cursor.pop();
-                        if self.cursor.skip_if(b'=') {
+                        self.reader.skip();
+                        if self.reader.skip_if(b'=')? {
                             (QueNE, Value::NoValue)
                         } else {
-                            error!("Illegal token");
+                            illegal_token!();
                         }
                     }
                     Some(b'<') => {
-                        self.cursor.pop();
-                        if self.cursor.skip_if(b'=') {
+                        self.reader.skip();
+                        if self.reader.skip_if(b'=')? {
                             (QueLTE, Value::NoValue)
                         } else {
                             (QueLT, Value::NoValue)
                         }
                     }
                     Some(b'>') => {
-                        self.cursor.pop();
-                        if self.cursor.skip_if(b'=') {
+                        self.reader.skip();
+                        if self.reader.skip_if(b'=')? {
                             (QueGTE, Value::NoValue)
                         } else {
                             (QueGT, Value::NoValue)
                         }
                     }
                     _ => {
-                        error!("Illegal token");
+                        illegal_token!();
                     }
                 }
             }
             b'^' => {
-                self.cursor.pop();
+                self.reader.skip();
                 (Circ, Value::NoValue)
             }
             b'@' => {
-                self.cursor.pop();
+                self.reader.skip();
                 (CommAt, Value::NoValue)
             }
             b'|' => {
-                self.cursor.pop();
+                self.reader.skip();
                 (Bar, Value::NoValue)
             }
             b'[' => {
-                self.cursor.pop();
+                self.reader.skip();
                 (LeftSquare, Value::NoValue)
             }
             b']' => {
-                self.cursor.pop();
+                self.reader.skip();
                 (RightSquare, Value::NoValue)
             }
             b'\\' => {
-                self.cursor.pop();
+                self.reader.skip();
                 // LRM 15.4.3 Extended identifers
-                match parse_quoted(&mut self.buffer, &mut self.cursor, b'\\', true) {
-                    Ok(result) => {
-                        let result = Value::Identifier(self.symtab.insert_extended(&result));
-                        (Identifier, result)
-                    }
-                    Err(msg) => {
-                        error!(msg);
-                    }
-                }
+                let result = parse_quoted(&mut self.buffer, &mut self.reader, b'\\', true)?;
+                let result = Value::Identifier(self.symtab.insert_extended(&result));
+                (Identifier, result)
             }
             _ => {
-                self.cursor.pop();
-                error!("Illegal token");
+                self.reader.skip();
+                illegal_token!();
             }
         };
         Ok(Some((kind, value)))
     }
 
-    pub fn pop(&mut self) -> ParseResult<Option<Token>> {
-        let leading_comments =
-            get_leading_comments(&self.source, &mut self.buffer, &mut self.cursor)?;
-        self.state.start = self.cursor.pos();
+    fn pop_raw(&mut self) -> Result<Option<Token>, TokenError> {
+        let leading_comments = get_leading_comments(&mut self.reader)?;
+        self.state.start = self.reader.state();
 
-        match self.parse_token() {
-            Ok(Some((kind, value))) => {
+        match self.parse_token()? {
+            Some((kind, value)) => {
                 // Parsed a token.
-                let pos_start = self.state.start;
-                let pos_end = self.cursor.pos();
-                let trailing_comment = get_trailing_comment(&mut self.buffer, &mut self.cursor);
+                let pos_start = self.state.start.pos();
+                let pos_end = self.reader.pos();
+                let trailing_comment = get_trailing_comment(&mut self.reader)?;
                 let token_comments = if (!leading_comments.is_empty()) | trailing_comment.is_some()
                 {
                     Some(Box::new(TokenComments {
@@ -1535,23 +1580,30 @@ impl Tokenizer {
                 let token = Token {
                     kind,
                     value,
-                    pos: self
-                        .source
-                        .pos(pos_start.to_position(), pos_end.to_position()),
-                    next_pos: self.cursor.pos(),
+                    pos: self.source.pos(pos_start, pos_end),
+                    next_state: self.reader.state(),
                     comments: token_comments,
                 };
                 self.move_after(&token);
                 Ok(Some(token))
             }
-            Err(diagnostic) => {
-                // Got a tokenizing error.
-                Err(diagnostic)
-            }
-            Ok(None) => {
+            None => {
                 // End of file.
                 self.final_comments = Some(leading_comments);
                 Ok(None)
+            }
+        }
+    }
+
+    pub fn pop(&mut self) -> ParseResult<Option<Token>> {
+        match self.pop_raw() {
+            Ok(token) => Ok(token),
+            Err(err) => {
+                self.state.start = self.reader.state();
+                Err(Diagnostic::error(
+                    &self.source.pos(err.range.start, err.range.end),
+                    err.message,
+                ))
             }
         }
     }
@@ -1568,16 +1620,15 @@ mod tests {
     use crate::test_util::Code;
     use pretty_assertions::assert_eq;
 
+    fn state_at_end(code: &Code) -> ReaderState {
+        let contents = code.source().contents();
+        let mut reader = ContentReader::new(&contents);
+        reader.seek_pos(code.end());
+        reader.state()
+    }
+
     fn kinds(tokens: &[Token]) -> Vec<Kind> {
         tokens.iter().map(|ref tok| tok.kind.clone()).collect()
-    }
-
-    fn pos_at_end_of(code: &Code, substr: &str) -> BytePos {
-        pos_at_end(&code.s1(substr))
-    }
-
-    fn pos_at_end(code: &Code) -> BytePos {
-        BytePos::from_position(&code.latin1().bytes, code.end())
     }
 
     // Shorthand for testing
@@ -1631,7 +1682,7 @@ end entity"
                 kind: Entity,
                 value: Value::NoValue,
                 pos: code.s1("entity").pos(),
-                next_pos: pos_at_end_of(&code, "entity "),
+                next_state: state_at_end(&code.s1("entity ")),
                 comments: None,
             }
         );
@@ -1642,7 +1693,7 @@ end entity"
                 kind: Identifier,
                 value: Value::Identifier(code.symtab.insert_utf8("foo")),
                 pos: code.s1("foo").pos(),
-                next_pos: pos_at_end(&code),
+                next_state: state_at_end(&code),
                 comments: None,
             }
         );
@@ -1666,7 +1717,7 @@ end entity"
                 kind: Identifier,
                 value: Value::Identifier(code.symtab.insert_utf8("my_ident")),
                 pos: code.pos(),
-                next_pos: pos_at_end(&code),
+                next_state: state_at_end(&code),
                 comments: None,
             }]
         );
@@ -1683,7 +1734,7 @@ end entity"
                 kind: Identifier,
                 value: Value::Identifier(code.symtab.insert_utf8("my_ident")),
                 pos: code.pos(),
-                next_pos: pos_at_end(&code),
+                next_state: state_at_end(&code),
                 comments: None,
             }]
         );
@@ -1700,7 +1751,7 @@ end entity"
                 kind: Identifier,
                 value: Value::Identifier(code.symtab.insert_utf8("\\1$my_ident\\")),
                 pos: code.pos(),
-                next_pos: pos_at_end(&code),
+                next_state: state_at_end(&code),
                 comments: None,
             }]
         );
@@ -1712,7 +1763,7 @@ end entity"
                 kind: Identifier,
                 value: Value::Identifier(code.symtab.insert_utf8("\\my\\_ident\\")),
                 pos: code.pos(),
-                next_pos: pos_at_end(&code),
+                next_state: state_at_end(&code),
                 comments: None,
             }]
         );
@@ -1729,14 +1780,14 @@ end entity"
                     kind: Identifier,
                     value: Value::Identifier(code.symtab.insert_utf8("my_ident")),
                     pos: code.s1("my_ident").pos(),
-                    next_pos: pos_at_end_of(&code, "my_ident "),
+                    next_state: state_at_end(&code.s1("my_ident ")),
                     comments: None,
                 },
                 Token {
                     kind: Identifier,
                     value: Value::Identifier(code.symtab.insert_utf8("my_other_ident")),
                     pos: code.s1("my_other_ident").pos(),
-                    next_pos: pos_at_end(&code),
+                    next_state: state_at_end(&code),
                     comments: None,
                 },
             ]
@@ -1769,6 +1820,27 @@ end entity"
                     AbstractLiteral,
                     Value::AbstractLiteral(ast::AbstractLiteral::Integer(20000))
                 ),
+            ]
+        );
+    }
+
+    #[test]
+    fn tokenize_non_latin1_error() {
+        // Euro takes 1 utf-16 code and Bomb emojii requires 2 utf-16 codes
+        let code = Code::new("€\u{1F4A3}");
+        let (tokens, _) = code.tokenize_result();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Err(Diagnostic::error(
+                    &code.s1("€"),
+                    "Found invalid latin-1 character '€'"
+                )),
+                Err(Diagnostic::error(
+                    &code.s1("\u{1F4A3}"),
+                    "Found invalid latin-1 character '\u{1F4A3}'"
+                ))
             ]
         );
     }
@@ -1868,7 +1940,7 @@ end entity"
                 kind: StringLiteral,
                 value: Value::String(Latin1String::from_utf8_unchecked("string")),
                 pos: code.pos(),
-                next_pos: pos_at_end(&code),
+                next_state: state_at_end(&code),
                 comments: None,
             },]
         );
@@ -1884,7 +1956,7 @@ end entity"
                 kind: StringLiteral,
                 value: Value::String(Latin1String::from_utf8_unchecked("str\"ing")),
                 pos: code.pos(),
-                next_pos: pos_at_end(&code),
+                next_state: state_at_end(&code),
                 comments: None,
             },]
         );
@@ -1901,14 +1973,14 @@ end entity"
                     kind: StringLiteral,
                     value: Value::String(Latin1String::from_utf8_unchecked("str")),
                     pos: code.s1("\"str\"").pos(),
-                    next_pos: pos_at_end_of(&code, "\"str\" "),
+                    next_state: state_at_end(&code.s1("\"str\" ")),
                     comments: None,
                 },
                 Token {
                     kind: StringLiteral,
                     value: Value::String(Latin1String::from_utf8_unchecked("ing")),
                     pos: code.s1("\"ing\"").pos(),
-                    next_pos: pos_at_end(&code),
+                    next_state: state_at_end(&code),
                     comments: None,
                 },
             ]
@@ -1997,7 +2069,7 @@ end entity"
                                 value: Latin1String::from_utf8_unchecked(value.as_str())
                             }),
                             pos: code.pos(),
-                            next_pos: pos_at_end(&code),
+                            next_state: state_at_end(&code),
                             comments: None,
                         },]
                     );
@@ -2017,6 +2089,7 @@ end entity"
                 "Invalid bit string literal"
             ))]
         );
+
         let code = Code::new("10ux");
         let (tokens, _) = code.tokenize_result();
         assert_eq!(
@@ -2061,7 +2134,7 @@ end entity"
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::error(
-                &code.pos(),
+                &code.s1("k"),
                 "Invalid integer character 'k'"
             ))]
         );
@@ -2075,7 +2148,7 @@ end entity"
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::error(
-                &code.pos(),
+                &code.s1("1"),
                 "Base must be at least 2 and at most 16, got 1"
             ))]
         );
@@ -2084,7 +2157,7 @@ end entity"
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::error(
-                &code.pos(),
+                &code.s1("17"),
                 "Base must be at least 2 and at most 16, got 17"
             ))]
         );
@@ -2094,7 +2167,7 @@ end entity"
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::error(
-                &code.pos(),
+                &code.s("3", 2),
                 "Illegal digit '3' for base 3"
             ))]
         );
@@ -2103,7 +2176,7 @@ end entity"
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::error(
-                &code.pos(),
+                &code.s1("f"),
                 "Illegal digit 'f' for base 15"
             ))]
         );
@@ -2298,24 +2371,26 @@ comment
             ))]
         );
 
-        let large_int = format!("1e{}", (i32::max_value() as i64) + 1).to_string();
+        let exponent_str = ((i32::max_value() as i64) + 1).to_string();
+        let large_int = format!("1e{}", exponent_str);
         let code = Code::new(&large_int);
         let (tokens, _) = code.tokenize_result();
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::error(
-                &code.pos(),
+                &code.s1(&exponent_str),
                 "Exponent too large for 32-bits signed"
             ))]
         );
 
-        let large_int = format!("1.0e{}", (i32::min_value() as i64) - 1).to_string();
+        let exponent_str = ((i32::min_value() as i64) - 1).to_string();
+        let large_int = format!("1.0e{}", exponent_str);
         let code = Code::new(&large_int);
         let (tokens, _) = code.tokenize_result();
         assert_eq!(
             tokens,
             vec![Err(Diagnostic::error(
-                &code.pos(),
+                &code.s1(&exponent_str),
                 "Exponent too large for 32-bits signed"
             ))]
         );
@@ -2340,7 +2415,7 @@ comment
                 kind: AbstractLiteral,
                 value: Value::AbstractLiteral(ast::AbstractLiteral::Integer(u64::max_value())),
                 pos: code.pos(),
-                next_pos: pos_at_end(&code),
+                next_state: state_at_end(&code),
                 comments: None,
             })]
         );
@@ -2357,7 +2432,7 @@ comment
                     kind: Begin,
                     value: Value::NoValue,
                     pos: code.s1("begin").pos(),
-                    next_pos: pos_at_end_of(&code, "begin"),
+                    next_state: state_at_end(&code.s1("begin")),
                     comments: None,
                 }),
                 Err(Diagnostic::error(&code.s1("?"), "Illegal token")),
@@ -2365,7 +2440,7 @@ comment
                     kind: End,
                     value: Value::NoValue,
                     pos: code.s1("end").pos(),
-                    next_pos: pos_at_end(&code),
+                    next_state: state_at_end(&code),
                     comments: None,
                 }),
             ]
@@ -2413,7 +2488,7 @@ comment
         assert_eq!(
             final_comments,
             vec![Comment {
-                value: Latin1String::from_utf8_unchecked("final"),
+                value: "final".to_string(),
                 range: code.s1("--final").pos().range(),
                 multi_line: false
             },]
@@ -2459,16 +2534,16 @@ comment
                     kind: Plus,
                     value: Value::NoValue,
                     pos: code.s1("+").pos(),
-                    next_pos: pos_at_end_of(&code, "+--this is still a plus"),
+                    next_state: state_at_end(&code.s1("+--this is still a plus")),
                     comments: Some(Box::new(TokenComments {
                         leading: vec![Comment {
-                            value: Latin1String::from_utf8_unchecked("this is a plus"),
+                            value: "this is a plus".to_string(),
                             range: code.s1("--this is a plus").pos().range(),
                             multi_line: false
                         },],
                         trailing: Some(Comment {
                             range: code.s1("--this is still a plus").pos().range(),
-                            value: Latin1String::from_utf8_unchecked("this is still a plus"),
+                            value: "this is still a plus".to_string(),
                             multi_line: false
                         }),
                     })),
@@ -2477,23 +2552,23 @@ comment
                     kind: Minus,
                     value: Value::NoValue,
                     pos: minus_pos,
-                    next_pos: pos_at_end_of(&code, "-- this is a minus"),
+                    next_state: state_at_end(&code.s1("-- this is a minus")),
                     comments: Some(Box::new(TokenComments {
                         leading: vec![
                             Comment {
-                                value: Latin1String::from_utf8_unchecked("- this is not a minus"),
+                                value: "- this is not a minus".to_string(),
                                 range: code.s1("--- this is not a minus").pos().range(),
                                 multi_line: false
                             },
                             Comment {
-                                value: Latin1String::from_utf8_unchecked(" Neither is this"),
+                                value: " Neither is this".to_string(),
                                 range: code.s1("-- Neither is this").pos().range(),
                                 multi_line: false
                             },
                         ],
                         trailing: Some(Comment {
                             range: code.s1("-- this is a minus").pos().range(),
-                            value: Latin1String::from_utf8_unchecked(" this is a minus"),
+                            value: " this is a minus".to_string(),
                             multi_line: false
                         }),
                     })),
@@ -2504,12 +2579,12 @@ comment
             final_comments,
             vec![
                 Comment {
-                    value: Latin1String::from_utf8_unchecked(" a comment at the end of the file"),
+                    value: " a comment at the end of the file".to_string(),
                     range: code.s1("-- a comment at the end of the file").pos().range(),
                     multi_line: false
                 },
                 Comment {
-                    value: Latin1String::from_utf8_unchecked(" and another one"),
+                    value: " and another one".to_string(),
                     range: code.s1("-- and another one").pos().range(),
                     multi_line: false
                 },
@@ -2538,10 +2613,10 @@ bar*/
                 kind: AbstractLiteral,
                 value: Value::AbstractLiteral(ast::AbstractLiteral::Integer(2)),
                 pos: code.s1("2").pos(),
-                next_pos: pos_at_end_of(&code, "2"),
+                next_state: state_at_end(&code.s1("2")),
                 comments: Some(Box::new(TokenComments {
                     leading: vec![Comment {
-                        value: Latin1String::from_utf8_unchecked("foo\ncom*ment\nbar"),
+                        value: "foo\ncom*ment\nbar".to_string(),
                         range: code.s1("/*foo\ncom*ment\nbar*/").pos().range(),
                         multi_line: true
                     },],
@@ -2552,10 +2627,43 @@ bar*/
         assert_eq!(
             final_comments,
             vec![Comment {
-                value: Latin1String::from_utf8_unchecked("final"),
+                value: "final".to_string(),
                 range: code.s1("/*final*/").pos().range(),
                 multi_line: true
             },]
+        );
+    }
+
+    #[test]
+    fn comments_allow_non_latin1() {
+        let code = Code::new(
+            "
+/* € */
+entity -- €
+",
+        );
+        let (tokens, _) = code.tokenize_result();
+
+        assert_eq!(
+            tokens,
+            vec![Ok(Token {
+                kind: Entity,
+                value: Value::NoValue,
+                pos: code.s1("entity").pos(),
+                next_state: state_at_end(&code.s1("entity -- €")),
+                comments: Some(Box::new(TokenComments {
+                    leading: vec![Comment {
+                        value: " € ".to_string(),
+                        range: code.s1("/* € */").pos().range(),
+                        multi_line: true
+                    },],
+                    trailing: Some(Comment {
+                        value: " €".to_string(),
+                        range: code.s1("-- €").pos().range(),
+                        multi_line: false
+                    }),
+                })),
+            })]
         );
     }
 }

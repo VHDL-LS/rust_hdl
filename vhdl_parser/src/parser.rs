@@ -5,6 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::ast::DesignFile;
+use crate::contents::ContentReader;
 use crate::design_unit::parse_design_file;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::latin_1::Latin1String;
@@ -13,7 +14,6 @@ use crate::symbol_table::Symbol;
 use crate::symbol_table::SymbolTable;
 use crate::tokenizer::Tokenizer;
 use crate::tokenstream::TokenStream;
-use std::convert::From;
 use std::io;
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
 use std::sync::{Arc, Mutex};
@@ -22,30 +22,12 @@ use std::thread::spawn;
 use self::fnv::FnvHashMap;
 use fnv;
 
-#[derive(Debug)]
-pub enum ParserError {
-    Diagnostic(Diagnostic),
-    IOError(io::Error),
-}
-
 #[derive(Clone)]
 pub struct VHDLParser {
     pub symtab: Arc<SymbolTable>,
 }
 
-pub type ParserResult = Result<DesignFile, ParserError>;
-
-impl From<io::Error> for ParserError {
-    fn from(err: io::Error) -> ParserError {
-        ParserError::IOError(err)
-    }
-}
-
-impl From<Diagnostic> for ParserError {
-    fn from(diagnostic: Diagnostic) -> ParserError {
-        ParserError::Diagnostic(diagnostic)
-    }
-}
+pub type ParserResult = Result<(Source, DesignFile), io::Error>;
 
 impl VHDLParser {
     pub fn new() -> VHDLParser {
@@ -62,11 +44,18 @@ impl VHDLParser {
         &self,
         source: &Source,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> ParserResult {
-        let code = source.contents()?;
-        let tokenizer = Tokenizer::new(self.symtab.clone(), source.clone(), code);
+    ) -> DesignFile {
+        let contents = source.contents();
+        let tokenizer = Tokenizer::new(self.symtab.clone(), &source, ContentReader::new(&contents));
         let mut stream = TokenStream::new(tokenizer);
-        Ok(parse_design_file(&mut stream, diagnostics)?)
+
+        match parse_design_file(&mut stream, diagnostics) {
+            Ok(design_file) => design_file,
+            Err(diagnostic) => {
+                diagnostics.push(diagnostic);
+                DesignFile::default()
+            }
+        }
     }
 
     pub fn parse_design_file(
@@ -74,8 +63,9 @@ impl VHDLParser {
         file_name: &str,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> ParserResult {
-        let source = Source::from_file(file_name);
-        Ok(self.parse_design_source(&source, diagnostics)?)
+        let source = Source::from_latin1_file(file_name)?;
+        let design_file = self.parse_design_source(&source, diagnostics);
+        Ok((source, design_file))
     }
 
     pub fn parse_design_files<T>(

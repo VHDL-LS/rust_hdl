@@ -4,48 +4,17 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
+use crate::contents::Contents;
 use crate::diagnostic::{Diagnostic, ParseResult};
-use crate::latin_1::{Latin1String, Utf8ToLatin1Error};
 use pad;
 use std::cmp::{max, min};
 use std::collections::hash_map::DefaultHasher;
-use std::collections::VecDeque;
 use std::convert::AsRef;
 use std::fmt;
 use std::fmt::Write;
-use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::io;
-use std::io::prelude::Read;
-use std::io::BufRead;
-use std::sync::Arc;
-
-trait SourceDataProvider {
-    fn contents(&self) -> io::Result<Arc<Latin1String>>;
-}
-
-struct SourceFile {
-    file_name: String,
-}
-
-struct InlineSource {
-    contents: Arc<Latin1String>,
-}
-
-impl SourceDataProvider for SourceFile {
-    fn contents(&self) -> io::Result<Arc<Latin1String>> {
-        let mut file = File::open(&self.file_name)?;
-        let mut bytes = Vec::new();
-        file.read_to_end(&mut bytes)?;
-        Ok(Arc::new(Latin1String::from_vec(bytes)))
-    }
-}
-
-impl SourceDataProvider for InlineSource {
-    fn contents(&self) -> io::Result<Arc<Latin1String>> {
-        Ok(self.contents.clone())
-    }
-}
+use std::sync::{Arc, RwLock, RwLockReadGuard};
 
 struct FileId {
     name: String,
@@ -79,7 +48,7 @@ fn hash(value: &str) -> u64 {
 
 struct UniqueSource {
     file_id: FileId,
-    data_provider: Box<dyn SourceDataProvider + Sync + Send>,
+    contents: RwLock<Contents>,
 }
 
 impl fmt::Debug for UniqueSource {
@@ -90,25 +59,33 @@ impl fmt::Debug for UniqueSource {
 }
 
 impl UniqueSource {
-    fn inline(file_name: impl Into<String>, contents: Arc<Latin1String>) -> Self {
+    fn inline(file_name: impl Into<String>, contents: &str) -> Self {
         Self {
             file_id: FileId::new(file_name),
-            data_provider: Box::new(InlineSource { contents }),
+            contents: RwLock::new(Contents::from_str(contents)),
         }
     }
 
-    fn from_file(file_name: impl Into<String>) -> Self {
-        let data_provider = Box::new(SourceFile {
-            file_name: file_name.into(),
-        });
+    fn from_latin1_file(file_name: impl Into<String>) -> io::Result<Self> {
+        let file_name = file_name.into();
+        let contents = Contents::from_latin1_file(&file_name)?;
+        Ok(Self {
+            file_id: FileId::new(file_name),
+            contents: RwLock::new(contents),
+        })
+    }
+
+    #[cfg(test)]
+    pub fn from_contents(file_name: impl Into<String>, contents: Contents) -> UniqueSource {
+        let file_name = file_name.into();
         Self {
-            file_id: FileId::new(data_provider.file_name.clone()),
-            data_provider,
+            file_id: FileId::new(file_name),
+            contents: RwLock::new(contents),
         }
     }
 
-    fn contents(&self) -> io::Result<Arc<Latin1String>> {
-        self.data_provider.contents()
+    fn contents(&self) -> RwLockReadGuard<Contents> {
+        self.contents.read().unwrap()
     }
 
     fn file_name(&self) -> &str {
@@ -131,32 +108,31 @@ impl Eq for Source {}
 
 impl Hash for Source {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
-        Arc::into_raw(self.source.clone()).hash(hasher);
+        hasher.write_u64(self.source.file_id.hash)
     }
 }
 
 impl Source {
-    pub fn inline(file_name: impl Into<String>, contents: Arc<Latin1String>) -> Source {
+    pub fn inline(file_name: impl Into<String>, contents: &str) -> Source {
         Source {
             source: Arc::new(UniqueSource::inline(file_name, contents)),
         }
     }
 
-    pub fn from_file(file_name: impl Into<String>) -> Source {
+    pub fn from_latin1_file(file_name: impl Into<String>) -> io::Result<Source> {
+        Ok(Source {
+            source: Arc::new(UniqueSource::from_latin1_file(file_name)?),
+        })
+    }
+
+    #[cfg(test)]
+    pub fn from_contents(file_name: impl Into<String>, contents: Contents) -> Source {
         Source {
-            source: Arc::new(UniqueSource::from_file(file_name)),
+            source: Arc::new(UniqueSource::from_contents(file_name, contents)),
         }
     }
 
-    pub fn inline_utf8(
-        file_name: impl Into<String>,
-        contents: &str,
-    ) -> Result<Self, Utf8ToLatin1Error> {
-        let latin1 = Latin1String::from_utf8(contents)?;
-        Ok(Self::inline(file_name, Arc::new(latin1)))
-    }
-
-    pub fn contents(&self) -> io::Result<Arc<Latin1String>> {
+    pub fn contents(&self) -> RwLockReadGuard<Contents> {
         self.source.contents()
     }
 
@@ -170,6 +146,15 @@ impl Source {
             range: Range { start, end },
         }
     }
+
+    pub fn change(&self, range: Option<&Range>, content: &str) {
+        let mut contents = self.source.contents.write().unwrap();
+        if let Some(range) = range {
+            contents.change(range, content);
+        } else {
+            *contents = Contents::from_str(content);
+        }
+    }
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash, Debug)]
@@ -179,10 +164,50 @@ pub struct Position {
 }
 
 impl Position {
+    pub fn default() -> Position {
+        Position {
+            line: 0,
+            character: 0,
+        }
+    }
+
+    pub fn new(line: u64, character: u64) -> Position {
+        Position { line, character }
+    }
+
     pub fn next_char(&self) -> Position {
         Position {
             line: self.line,
             character: self.character + 1,
+        }
+    }
+
+    pub fn move_after_char(&mut self, chr: char) {
+        if chr == '\n' {
+            self.line += 1;
+            self.character = 0;
+        } else {
+            self.character += chr.len_utf16() as u64;
+        }
+    }
+
+    pub fn after_char(&self, chr: char) -> Position {
+        let mut pos = self.clone();
+        pos.move_after_char(chr);
+        pos
+    }
+
+    pub fn prev_char(&self) -> Position {
+        Position {
+            line: self.line,
+            character: self.character.saturating_sub(1),
+        }
+    }
+
+    pub fn range_to(&self, end: Position) -> Range {
+        Range {
+            start: *self,
+            end: end,
         }
     }
 }
@@ -285,35 +310,20 @@ impl SrcPos {
         SrcPos { source, range }
     }
 
-    fn get_line_context(
-        &self,
-        context_lines: u64,
-        reader: &mut dyn BufRead,
-    ) -> VecDeque<(u64, Latin1String)> {
-        let mut lines = VecDeque::new();
-        let mut buf = String::new();
-        let mut lineno = 0;
+    fn get_line_context(&self, context_lines: u64, contents: &Contents) -> Vec<(u64, String)> {
+        let mut lines = Vec::new();
 
-        while let Ok(bytes_read) = reader.read_line(&mut buf) {
-            if bytes_read == 0 {
-                break;
+        let start = self.range.start.line.saturating_sub(context_lines);
+        let end = self.range.end.line + context_lines;
+
+        for lineno in start..=end {
+            if let Some(line) = contents.get_line(lineno as usize) {
+                lines.push((lineno, line.to_owned()));
             }
-
-            let line = Latin1String::from_utf8(&buf).unwrap();
-
-            if lineno <= (self.range.end.line + context_lines) {
-                if (lineno + context_lines) >= self.range.start.line {
-                    lines.push_back((lineno, line.clone()));
-                }
-            } else {
-                break;
-            }
-
-            lineno += 1;
-            buf.clear();
         }
+
         if lines.is_empty() {
-            lines.push_back((lineno, Latin1String::empty()));
+            lines.push((self.range.start.line, String::new()));
         }
         lines
     }
@@ -347,7 +357,6 @@ impl SrcPos {
             line: lineno,
             character: 0,
         };
-
         // Padding before underline
         for chr in line.chars() {
             if pos < self.range.start {
@@ -357,7 +366,7 @@ impl SrcPos {
             } else {
                 break;
             }
-            pos.character += 1;
+            pos.character += chr.len_utf16() as u64;
         }
 
         if lineno == self.range.end.line {
@@ -371,12 +380,12 @@ impl SrcPos {
         into.push_str("\n");
     }
 
-    fn code_context_from_reader(
+    fn code_context_from_contents(
         &self,
-        reader: &mut dyn BufRead,
+        contents: &Contents,
         context_lines: u64,
     ) -> (usize, String) {
-        let lines = self.get_line_context(context_lines, reader);
+        let lines = self.get_line_context(context_lines, contents);
         use self::pad::{Alignment, PadStr};
         // +1 since lines are shown with 1-index
         let lineno_len = (self.range.start.line + context_lines + 1)
@@ -422,8 +431,8 @@ impl SrcPos {
     }
 
     fn lineno_len_and_code_context(&self) -> (usize, String) {
-        let latin1 = self.source.contents().unwrap();
-        self.code_context_from_reader(&mut latin1.to_string().as_bytes(), Self::LINE_CONTEXT)
+        let contents = self.source.contents();
+        self.code_context_from_contents(&contents, Self::LINE_CONTEXT)
     }
 
     pub fn show(&self, message: &str) -> String {
@@ -472,6 +481,10 @@ impl SrcPos {
         self.range
     }
 
+    pub fn file_name(&self) -> &str {
+        self.source.file_name()
+    }
+
     pub fn combine(&self, other: &dyn AsRef<Self>) -> Self {
         self.clone().combine_into(other)
     }
@@ -506,6 +519,7 @@ impl<T: HasSrcPos> HasSource for T {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::latin_1::Latin1String;
     use crate::test_util::{Code, CodeBuilder};
     use pretty_assertions::assert_eq;
     use tempfile;
@@ -533,7 +547,7 @@ mod tests {
         let file_name = file.path().to_str().unwrap().to_string();
         file.write(&Latin1String::from_utf8_unchecked(contents).bytes)
             .unwrap();
-        fun(CodeBuilder::new().code_from_source(Source::from_file(file_name)))
+        fun(CodeBuilder::new().code_from_source(Source::from_latin1_file(file_name).unwrap()))
     }
 
     #[test]
@@ -625,7 +639,7 @@ mod tests {
     fn code_context_non_ascii() {
         let code = Code::new("åäö\nåäö\n__å_ä_ö__");
         let substr = code.s1("å_ä_ö");
-        assert_eq!(substr.length(), 5);
+        assert_eq!(substr.end().character - substr.start().character, 5);
         assert_eq!(
             substr.pos().code_context(),
             "\
@@ -638,10 +652,24 @@ mod tests {
     }
 
     #[test]
+    fn code_context_double_utf16() {
+        // Bomb emojii requires 2 utf-16 codes
+        let code = Code::new("\u{1F4A3}");
+        assert_eq!(code.end().character - code.start().character, 2);
+        assert_eq!(
+            code.pos().code_context(),
+            "\
+1 --> \u{1F4A3}
+   |  ~
+",
+        );
+    }
+
+    #[test]
     fn code_context_non_ascii_from_file() {
         with_code_from_file("åäö\nåäö\n__å_ä_ö__", |code: Code| {
             let substr = code.s1("å_ä_ö");
-            assert_eq!(substr.length(), 5);
+            assert_eq!(substr.end().character - substr.start().character, 5);
             assert_eq!(
                 substr.pos().code_context(),
                 "\

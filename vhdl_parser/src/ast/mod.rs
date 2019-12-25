@@ -973,12 +973,13 @@ pub enum ContextItem {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ContextDeclaration {
     pub ident: Ident,
-    pub items: Vec<WithPos<ContextItem>>,
+    pub items: ContextClause,
 }
 
 /// LRM 4.9 Package instatiation declaration
 #[derive(PartialEq, Debug, Clone)]
 pub struct PackageInstantiation {
+    pub context_clause: ContextClause,
     pub ident: Ident,
     pub package_name: WithPos<SelectedName>,
     pub generic_map: Option<Vec<AssociationElement>>,
@@ -1063,6 +1064,7 @@ pub struct BlockConfiguration {
 /// LRM 3.4 Configuration declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct ConfigurationDeclaration {
+    pub context_clause: ContextClause,
     pub ident: Ident,
     pub entity_name: WithPos<SelectedName>,
     pub decl: Vec<ConfigurationDeclarativeItem>,
@@ -1073,6 +1075,7 @@ pub struct ConfigurationDeclaration {
 /// LRM 3.2 Entity declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct EntityDeclaration {
+    pub context_clause: ContextClause,
     pub ident: Ident,
     pub generic_clause: Option<Vec<InterfaceDeclaration>>,
     pub port_clause: Option<Vec<InterfaceDeclaration>>,
@@ -1082,6 +1085,7 @@ pub struct EntityDeclaration {
 /// LRM 3.3 Architecture bodies
 #[derive(PartialEq, Debug, Clone)]
 pub struct ArchitectureBody {
+    pub context_clause: ContextClause,
     pub ident: Ident,
     pub entity_name: WithRef<Ident>,
     pub decl: Vec<Declaration>,
@@ -1091,6 +1095,7 @@ pub struct ArchitectureBody {
 /// LRM 4.7 Package declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct PackageDeclaration {
+    pub context_clause: ContextClause,
     pub ident: Ident,
     pub generic_clause: Option<Vec<InterfaceDeclaration>>,
     pub decl: Vec<Declaration>,
@@ -1099,31 +1104,25 @@ pub struct PackageDeclaration {
 /// LRM 4.8 Package bodies
 #[derive(PartialEq, Debug, Clone)]
 pub struct PackageBody {
+    pub context_clause: ContextClause,
     pub ident: WithRef<Ident>,
     pub decl: Vec<Declaration>,
 }
-
-pub type EntityUnit = DesignUnit<EntityDeclaration>;
-pub type ArchitectureUnit = DesignUnit<ArchitectureBody>;
-pub type ConfigurationUnit = DesignUnit<ConfigurationDeclaration>;
-pub type PackageUnit = DesignUnit<PackageDeclaration>;
-pub type PackageBodyUnit = DesignUnit<crate::ast::PackageBody>;
-pub type PackageInstanceUnit = DesignUnit<PackageInstantiation>;
 
 /// LRM 13.1 Design units
 #[derive(PartialEq, Debug, Clone)]
 pub enum AnyPrimaryUnit {
     /// LRM 3.2 Entity declaration
-    EntityDeclaration(EntityUnit),
+    EntityDeclaration(EntityDeclaration),
 
     /// LRM 3.4 Configuration declarations
-    Configuration(ConfigurationUnit),
+    Configuration(ConfigurationDeclaration),
 
     /// LRM 4.7 Package declarations
-    PackageDeclaration(PackageUnit),
+    PackageDeclaration(PackageDeclaration),
 
     /// LRM 4.9 Package instatiation declaration
-    PackageInstance(PackageInstanceUnit),
+    PackageInstance(PackageInstantiation),
 
     /// LRM 13.4 Context clauses
     ContextDeclaration(ContextDeclaration),
@@ -1133,20 +1132,13 @@ pub enum AnyPrimaryUnit {
 #[derive(PartialEq, Debug, Clone)]
 pub enum AnySecondaryUnit {
     /// LRM 3.3 Architecture bodies
-    Architecture(ArchitectureUnit),
+    Architecture(ArchitectureBody),
 
     /// LRM 4.8 Package bodies
-    PackageBody(PackageBodyUnit),
+    PackageBody(PackageBody),
 }
 
 pub type ContextClause = Vec<WithPos<ContextItem>>;
-
-/// LRM 13.1 Design units
-#[derive(PartialEq, Debug, Clone)]
-pub struct DesignUnit<T> {
-    pub context_clause: ContextClause,
-    pub unit: T,
-}
 
 /// LRM 13.1 Design units
 #[derive(PartialEq, Debug, Clone)]
@@ -1155,7 +1147,7 @@ pub enum AnyDesignUnit {
     Secondary(AnySecondaryUnit),
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Default)]
 pub struct DesignFile {
     pub design_units: Vec<AnyDesignUnit>,
 }

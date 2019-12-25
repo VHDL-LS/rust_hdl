@@ -20,6 +20,20 @@ pub struct Message {
 }
 
 impl Message {
+    pub fn log(message: impl Into<String>) -> Message {
+        Message {
+            message_type: MessageType::Log,
+            message: message.into(),
+        }
+    }
+
+    pub fn info(message: impl Into<String>) -> Message {
+        Message {
+            message_type: MessageType::Info,
+            message: message.into(),
+        }
+    }
+
     pub fn warning(message: impl Into<String>) -> Message {
         Message {
             message_type: MessageType::Warning,
@@ -56,5 +70,29 @@ impl AsRef<str> for MessageType {
             Self::Info => "info",
             Self::Log => "log",
         }
+    }
+}
+
+pub trait MessageHandler {
+    fn push(&mut self, message: Message);
+}
+
+impl MessageHandler for Vec<Message> {
+    fn push(&mut self, message: Message) {
+        self.push(message)
+    }
+}
+
+pub struct MessagePrinter {}
+
+impl MessagePrinter {
+    pub fn new() -> MessagePrinter {
+        MessagePrinter {}
+    }
+}
+
+impl MessageHandler for MessagePrinter {
+    fn push(&mut self, message: Message) {
+        println!("{}", message);
     }
 }

@@ -330,11 +330,11 @@ end entity;
         vec![
             Diagnostic::error(
                 code.s("missing_pkg", 1),
-                "No primary unit 'missing_pkg' within 'libname'",
+                "No primary unit 'missing_pkg' within library 'libname'",
             ),
             Diagnostic::error(
                 code.s("missing_pkg", 2),
-                "No primary unit 'missing_pkg' within 'libname'",
+                "No primary unit 'missing_pkg' within library 'libname'",
             ),
         ],
     )
@@ -407,9 +407,18 @@ end architecture;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s("pkg1", 1), "No primary unit 'pkg1' within 'libname'"),
-            Diagnostic::error(code.s("pkg1", 2), "No primary unit 'pkg1' within 'libname'"),
-            Diagnostic::error(code.s("pkg1", 3), "No primary unit 'pkg1' within 'libname'"),
+            Diagnostic::error(
+                code.s("pkg1", 1),
+                "No primary unit 'pkg1' within library 'libname'",
+            ),
+            Diagnostic::error(
+                code.s("pkg1", 2),
+                "No primary unit 'pkg1' within library 'libname'",
+            ),
+            Diagnostic::error(
+                code.s("pkg1", 3),
+                "No primary unit 'pkg1' within library 'libname'",
+            ),
         ],
     )
 }
@@ -437,7 +446,7 @@ end entity;
         diagnostics,
         vec![Diagnostic::error(
             code.s1("missing_ctx"),
-            "No primary unit 'missing_ctx' within 'libname'",
+            "No primary unit 'missing_ctx' within library 'libname'",
         )],
     )
 }
@@ -1125,5 +1134,61 @@ end package;
     assert_eq_unordered(
         &root.find_all_references(&code.s("ctx", 1).pos()),
         &vec![code.s("ctx", 1).pos(), code.s("ctx", 2).pos()],
+    );
+}
+
+#[test]
+fn adds_enum_variants_implicitly() {
+    check_missing(
+        "
+package pkg is
+  type enum_t is (alpha, beta);
+end package;
+
+use work.pkg.enum_t;
+package pkg2 is
+  constant c : enum_t := alpha;
+  constant c2 : enum_t := missing;
+end package;
+",
+    );
+}
+
+#[test]
+fn adds_alias_enum_variants_implicitly() {
+    check_missing(
+        "
+package pkg is
+  type enum_t is (alpha, beta);
+  alias alias_t is enum_t;
+end package;
+
+use work.pkg.alias_t;
+package pkg2 is
+  constant c : alias_t := alpha;
+  constant c2 : alias_t := missing;
+end package;
+",
+    );
+}
+
+#[test]
+fn adds_alias_enum_variants_implicitly_when_using_all() {
+    check_missing(
+        "
+package pkg is
+  type enum_t is (alpha, beta);
+end package;
+
+package pkg2 is
+  alias alias_t is work.pkg.enum_t;
+end package;
+
+use work.pkg2.all;
+package pkg3 is
+  constant c : alias_t := alpha;
+  constant c2 : alias_t := missing;
+end package;
+",
     );
 }

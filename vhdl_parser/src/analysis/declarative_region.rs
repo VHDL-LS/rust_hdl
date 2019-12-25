@@ -3,7 +3,7 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
-use super::library::Library;
+use super::library::LibraryUnitId;
 use crate::ast::*;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::source::{SrcPos, WithPos};
@@ -16,6 +16,7 @@ use std::sync::{Arc, RwLock};
 
 #[derive(Clone)]
 pub enum AnyDeclaration {
+    AliasOf(Box<AnyDeclaration>),
     Other,
     Overloaded,
     // An optional region with implicit declarations
@@ -27,11 +28,12 @@ pub enum AnyDeclaration {
     ProtectedType(Arc<RwLock<DeclarativeRegion<'static>>>),
     ProtectedTypeBody,
     Library(Symbol),
-    Package(Symbol, Symbol),
-    Entity(Symbol, Symbol),
-    UninstPackage(Symbol, Symbol),
-    Context(Symbol, Symbol),
-    PackageInstance(Symbol, Symbol),
+    Entity(LibraryUnitId),
+    Configuration(LibraryUnitId),
+    Package(LibraryUnitId),
+    UninstPackage(LibraryUnitId),
+    PackageInstance(LibraryUnitId),
+    Context(LibraryUnitId),
     LocalPackageInstance(Symbol, Arc<DeclarativeRegion<'static>>),
 }
 
@@ -598,21 +600,39 @@ impl<'a> DeclarativeRegion<'a> {
     pub fn make_library_visible(
         &mut self,
         designator: impl Into<Designator>,
-        library: &Library,
+        library_name: &Symbol,
         decl_pos: Option<SrcPos>,
     ) {
         let decl = VisibleDeclaration {
             designator: designator.into(),
             data: vec![AnyDeclarationData {
                 decl_pos: decl_pos.clone(),
-                decl: AnyDeclaration::Library(library.name.clone()),
+                decl: AnyDeclaration::Library(library_name.clone()),
             }],
         };
         self.visible.insert(decl.designator.clone(), decl);
     }
 
+    /// Add implicit declarations when using declaration
+    /// For example all enum literals are made implicititly visible when using an enum type
+    fn add_implicit_declarations(&mut self, decl: &AnyDeclaration) {
+        match decl {
+            AnyDeclaration::TypeDeclaration(ref implicit) => {
+                // Add implicitic declarations when using type
+                if let Some(implicit) = implicit {
+                    self.make_all_potentially_visible(&implicit);
+                }
+            }
+            AnyDeclaration::AliasOf(ref decl) => {
+                self.add_implicit_declarations(decl);
+            }
+            _ => {}
+        }
+    }
+
     pub fn make_potentially_visible(&mut self, decl: impl Into<VisibleDeclaration>) {
         let decl = decl.into();
+        self.add_implicit_declarations(decl.first());
         self.visible.insert(decl.designator.clone(), decl);
     }
 
@@ -625,7 +645,7 @@ impl<'a> DeclarativeRegion<'a> {
     /// Used when useing context clauses
     pub fn copy_visibility_from(&mut self, region: &DeclarativeRegion<'a>) {
         for decl in region.visible.values() {
-            self.make_potentially_visible(decl.clone());
+            self.visible.insert(decl.designator.clone(), decl.clone());
         }
     }
 

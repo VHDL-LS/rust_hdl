@@ -751,23 +751,6 @@ end architecture;
 }
 
 #[test]
-fn adds_enum_variants_implicitly() {
-    check_missing(
-        "
-package pkg is
-  type enum_t is (alpha, beta);
-end package;
-
-use work.pkg.enum_t;
-package pkg2 is
-  constant c : enum_t := alpha;
-  constant c2 : enum_t := missing;
-end package;
-",
-    );
-}
-
-#[test]
 fn adds_file_subprograms_implicitly() {
     check_missing(
         "
@@ -1022,6 +1005,39 @@ package pkg is
   alias b is proc[decl];
   alias c is decl;
 end package;
+",
+    );
+}
+
+#[test]
+fn search_external_name() {
+    check_search_reference(
+        "
+package pkg is
+  type decl is (alpha, beta);
+end package;
+
+entity ent2 is
+end entity;
+
+use work.pkg.all;
+
+architecture a of ent2 is
+  signal foo : decl;
+begin
+end architecture;
+
+entity ent is
+end entity;
+
+use work.pkg.all;
+
+architecture a of ent is
+  signal foo : decl;
+begin
+  inst : work.ent2;
+  foo <= << signal inst.foo : decl >>;
+end architecture;
 ",
     );
 }
