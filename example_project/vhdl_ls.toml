@@ -106,10 +106,6 @@ osvvm.files = [
 'OSVVM/ScoreboardGenericPkg.vhd',
 ]
 
-ieee.files = [
-'ghdl/libraries/ieee2008/*.vhdl'
-]
-
 uvvm_util.files = [
 'UVVM/uvvm_util/src/*.vhd',
 ]
