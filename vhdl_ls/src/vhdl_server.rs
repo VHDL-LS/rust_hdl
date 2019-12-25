@@ -10,8 +10,8 @@ use self::fnv::FnvHashMap;
 use fnv;
 use std::collections::hash_map::Entry;
 
-use self::vhdl_parser::{Config, Diagnostic, Project, Severity, Source, SrcPos};
-use crate::rpc_channel::RpcChannel;
+use self::vhdl_parser::{Config, Diagnostic, Message, Project, Severity, Source, SrcPos};
+use crate::rpc_channel::{MessageChannel, RpcChannel};
 use std::io;
 use std::path::Path;
 use vhdl_parser;
@@ -36,68 +36,6 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         }
     }
 
-    /// Load configuration file from home folder
-    fn load_home_config(&self, config: &mut Config) {
-        if let Some(home_dir) = dirs::home_dir() {
-            let file_name = home_dir.join(".vhdl_ls.toml");
-
-            if !file_name.exists() {
-                return;
-            }
-
-            match Config::read_file_path(&file_name) {
-                Ok(env_config) => {
-                    self.rpc_channel.window_log_message(
-                        MessageType::Log,
-                        format!(
-                            "Loaded HOME folder configuration file: {}",
-                            file_name.to_string_lossy()
-                        ),
-                    );
-
-                    config.append(&env_config);
-                }
-                Err(ref err) => {
-                    self.rpc_channel.window_show_message(
-                        MessageType::Error,
-                        format!("Error while loading HOME folder variable: {} ", err),
-                    );
-                }
-            }
-        }
-    }
-
-    /// Load configuration file from environment
-    fn load_env_config(&self, config: &mut Config) {
-        let env_name = "VHDL_LS_CONFIG";
-
-        if let Some(file_name) = std::env::var_os(env_name) {
-            match Config::read_file_path(&Path::new(&file_name)) {
-                Ok(env_config) => {
-                    self.rpc_channel.window_log_message(
-                        MessageType::Log,
-                        format!(
-                            "Loaded {} configuration file: {}",
-                            env_name,
-                            file_name.to_string_lossy()
-                        ),
-                    );
-
-                    config.append(&env_config);
-                }
-                Err(ref err) => {
-                    self.rpc_channel.window_show_message(
-                        MessageType::Error,
-                        format!(
-                            "Error while loading {} environment variable: {} ",
-                            env_name, err
-                        ),
-                    );
-                }
-            }
-        };
-    }
-
     /// Load the vhdl_ls.toml config file from initalizeParams.rootUri
     fn load_root_uri_config(&self, init_params: &InitializeParams) -> io::Result<Config> {
         let root_uri = init_params.root_uri.as_ref().ok_or_else(|| {
@@ -118,13 +56,10 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         let config = Config::read_file_path(&config_file)?;
 
         // Log which file was loaded
-        self.rpc_channel.window_log_message(
-            MessageType::Log,
-            format!(
-                "Loaded workspace root configuration file: {}",
-                config_file.to_str().unwrap()
-            ),
-        );
+        self.rpc_channel.push_msg(Message::log(format!(
+            "Loaded workspace root configuration file: {}",
+            config_file.to_str().unwrap()
+        )));
 
         Ok(config)
     }
@@ -135,24 +70,21 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         let mut config = Config::default();
 
         if self.use_external_config {
-            self.load_home_config(&mut config);
-            self.load_env_config(&mut config);
+            let mut message_chan = MessageChannel::new(&self.rpc_channel);
+            config.load_home_config(&mut message_chan);
+            config.load_env_config("VHDL_LS_CONFIG", &mut message_chan);
         }
 
         match self.load_root_uri_config(&init_params) {
             Ok(root_config) => config.append(&root_config),
             Err(ref err) => {
-                self.rpc_channel.window_show_message(
-                    MessageType::Warning,
-                    format!(
-                        "Found no vhdl_ls.toml config file in the workspace root path: {}",
-                        err
-                    ),
-                );
-                self.rpc_channel.window_show_message(
-                    MessageType::Warning,
+                self.rpc_channel.push_msg(Message::error(format!(
+                    "Found no vhdl_ls.toml config file in the workspace root path: {}",
+                    err
+                )));
+                self.rpc_channel.push_msg(Message::warning(
                     "Found no library mapping, semantic analysis disabled, will perform syntax checking only",
-                );
+                ));
             }
         };
 
@@ -247,12 +179,8 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
     ) -> (InitializedVHDLServer<T>, InitializeResult) {
         // @TODO read num_threads from config file
         let num_threads = 4;
-        let mut messages = Vec::new();
-        let project = Project::from_config(&config, num_threads, &mut messages);
-
-        for message in messages {
-            rpc_channel.window_show_message_struct(&message);
-        }
+        let project =
+            Project::from_config(&config, num_threads, &mut MessageChannel::new(&rpc_channel));
 
         let server = InitializedVHDLServer {
             rpc_channel,
@@ -344,13 +272,10 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             self.project.update_source(&source);
             self.publish_diagnostics();
         } else {
-            self.window_log_message(
-                MessageType::Info,
-                format!(
-                    "Opening file {} that is not part of the project",
-                    &file_name
-                ),
-            );
+            self.push_msg(Message::info(format!(
+                "Opening file {} that is not part of the project",
+                &file_name
+            )));
             self.project.update_source(&Source::inline(file_name, code));
             self.publish_diagnostics();
         }
@@ -368,13 +293,10 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             self.project.update_source(&source);
             self.publish_diagnostics();
         } else {
-            self.window_log_message(
-                MessageType::Error,
-                format!(
-                    "Changing file {} that is not part of the project",
-                    &file_name
-                ),
-            );
+            self.push_msg(Message::error(format!(
+                "Changing file {} that is not part of the project",
+                &file_name
+            )));
         }
     }
 
@@ -576,19 +498,15 @@ mod tests {
             .to_str()
             .unwrap()
             .to_owned();
-        mock.expect_notification_contains(
-            "window/logMessage",
-            format!("Loaded workspace root configuration file: {}", file_name),
-        );
+        mock.expect_message_contains(format!(
+            "Loaded workspace root configuration file: {}",
+            file_name
+        ));
     }
 
     fn expect_missing_config_messages(mock: &RpcMock) {
-        mock.expect_notification_contains(
-            "window/showMessage",
-            "Found no vhdl_ls.toml config file in the workspace root path",
-        );
-        mock.expect_notification_contains(
-            "window/showMessage",
+        mock.expect_error_contains("Found no vhdl_ls.toml config file in the workspace root path");
+        mock.expect_message_contains(
             "Found no library mapping, semantic analysis disabled, will perform syntax checking only",
         );
     }
@@ -631,7 +549,7 @@ end entity ent;
             },
         };
 
-        mock.expect_notification_contains("window/logMessage", "is not part of the project");
+        mock.expect_message_contains("is not part of the project");
 
         server.text_document_did_open_notification(&did_open);
     }
@@ -683,7 +601,7 @@ end entity ent2;
             version: None,
         };
 
-        mock.expect_notification_contains("window/logMessage", "is not part of the project");
+        mock.expect_message_contains("is not part of the project");
 
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
         server.text_document_did_open_notification(&did_open);
@@ -793,14 +711,8 @@ lib.files = [
 [libraries
 ",
         );
-        mock.expect_notification_contains(
-            "window/showMessage",
-            "Found no vhdl_ls.toml config file in the workspace root path",
-        );
-        mock.expect_notification_contains(
-            "window/showMessage",
-            "Found no library mapping, semantic analysis disabled, will perform syntax checking only",
-        );
+
+        expect_missing_config_messages(&mock);
         initialize_server(&mut server, root_uri);
     }
 
@@ -820,7 +732,7 @@ lib.files = [
         );
 
         expect_loaded_config_messages(&mock, &config_uri);
-        mock.expect_notification_contains("window/showMessage", "missing_file.vhd");
+        mock.expect_message_contains("missing_file.vhd");
         initialize_server(&mut server, root_uri);
     }
 

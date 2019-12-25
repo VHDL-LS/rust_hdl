@@ -10,7 +10,7 @@ use crate::ast::DesignFile;
 use crate::config::Config;
 use crate::diagnostic::Diagnostic;
 use crate::latin_1::Latin1String;
-use crate::message::Message;
+use crate::message::{Message, MessageHandler};
 use crate::parser::{FileToParse, VHDLParser};
 use crate::source::{Position, Source, SrcPos};
 use crate::symbol_table::Symbol;
@@ -38,7 +38,7 @@ impl Project {
     pub fn from_config(
         config: &Config,
         num_threads: usize,
-        messages: &mut Vec<Message>,
+        messages: &mut dyn MessageHandler,
     ) -> Project {
         let mut project = Project::new();
         let mut files_to_parse: FnvHashMap<String, LibraryFileToParse> = FnvHashMap::default();
