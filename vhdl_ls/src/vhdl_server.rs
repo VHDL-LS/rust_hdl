@@ -71,8 +71,7 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
 
         if self.use_external_config {
             let mut message_chan = MessageChannel::new(&self.rpc_channel);
-            config.load_home_config(&mut message_chan);
-            config.load_env_config("VHDL_LS_CONFIG", &mut message_chan);
+            config.load_external_config(&mut message_chan);
         }
 
         match self.load_root_uri_config(&init_params) {

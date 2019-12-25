@@ -192,7 +192,7 @@ impl Config {
     }
 
     /// Load configuration file from home folder
-    pub fn load_home_config(&mut self, messages: &mut dyn MessageHandler) {
+    fn load_home_config(&mut self, messages: &mut dyn MessageHandler) {
         if let Some(home_dir) = dirs::home_dir() {
             let file_name = home_dir.join(".vhdl_ls.toml");
 
@@ -200,46 +200,42 @@ impl Config {
                 return;
             }
 
-            match Config::read_file_path(&file_name) {
-                Ok(env_config) => {
-                    messages.push(Message::log(format!(
-                        "Loaded HOME folder configuration file: {}",
-                        file_name.to_string_lossy()
-                    )));
-
-                    self.append(&env_config);
-                }
-                Err(ref err) => {
-                    messages.push(Message::error(format!(
-                        "Error while loading HOME folder variable: {} ",
-                        err
-                    )));
-                }
-            }
+            self.load_config(&file_name, "HOME folder", messages);
         }
     }
 
     /// Load configuration file from environment
-    pub fn load_env_config(&mut self, env_name: &str, messages: &mut dyn MessageHandler) {
+    fn load_env_config(&mut self, env_name: &str, messages: &mut dyn MessageHandler) {
         if let Some(file_name) = std::env::var_os(env_name) {
-            match Config::read_file_path(&Path::new(&file_name)) {
-                Ok(env_config) => {
-                    messages.push(Message::log(format!(
-                        "Loaded {} configuration file: {}",
-                        env_name,
-                        file_name.to_string_lossy()
-                    )));
-
-                    self.append(&env_config);
-                }
-                Err(ref err) => {
-                    messages.push(Message::error(format!(
-                        "Error while loading {} environment variable: {} ",
-                        env_name, err
-                    )));
-                }
-            }
+            self.load_config(&Path::new(&file_name), env_name, messages);
         };
+    }
+
+    /// Load and append configuration file
+    fn load_config(&mut self, file_name: &Path, desc: &str, messages: &mut dyn MessageHandler) {
+        match Config::read_file_path(&Path::new(&file_name)) {
+            Ok(env_config) => {
+                messages.push(Message::log(format!(
+                    "Loaded {} configuration file: {}",
+                    desc,
+                    file_name.to_string_lossy()
+                )));
+
+                self.append(&env_config);
+            }
+            Err(ref err) => {
+                messages.push(Message::error(format!(
+                    "Error while loading {} configuration file: {} ",
+                    desc, err
+                )));
+            }
+        }
+    }
+
+    /// Load all external configuration
+    pub fn load_external_config(&mut self, messages: &mut dyn MessageHandler) {
+        self.load_home_config(messages);
+        self.load_env_config("VHDL_LS_CONFIG", messages);
     }
 }
 

@@ -45,7 +45,7 @@ mod test_util;
 pub use crate::config::Config;
 pub use crate::diagnostic::{Diagnostic, Severity};
 pub use crate::latin_1::Latin1String;
-pub use crate::message::{Message, MessageHandler, MessageType};
+pub use crate::message::{Message, MessageHandler, MessagePrinter, MessageType};
 pub use crate::parser::{ParserResult, VHDLParser};
 pub use crate::project::Project;
 pub use crate::source::{Position, Range, Source, SrcPos};

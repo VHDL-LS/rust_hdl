@@ -13,7 +13,7 @@
 extern crate clap;
 
 use std::path::Path;
-use vhdl_parser::{Config, Diagnostic, Project};
+use vhdl_parser::{Config, Diagnostic, MessagePrinter, Project};
 
 fn main() {
     use clap::{App, Arg};
@@ -47,16 +47,13 @@ fn main() {
     let num_threads = value_t_or_exit!(matches.value_of("num-threads"), usize);
 
     if let Some(file_name) = matches.value_of("config") {
-        let config =
-            Config::read_file_path(Path::new(file_name)).expect("Failed to read config file");
-
-        let mut messages = Vec::new();
-        let mut project = Project::from_config(&config, num_threads, &mut messages);
-        if !messages.is_empty() {
-            for message in messages {
-                println!("{}", message);
-            }
-        }
+        let mut config = Config::default();
+        let mut msg_printer = MessagePrinter::new();
+        config.load_external_config(&mut msg_printer);
+        config.append(
+            &Config::read_file_path(Path::new(file_name)).expect("Failed to read config file"),
+        );
+        let mut project = Project::from_config(&config, num_threads, &mut msg_printer);
         show_diagnostics(&project.analyse());
     }
 }

@@ -82,3 +82,17 @@ impl MessageHandler for Vec<Message> {
         self.push(message)
     }
 }
+
+pub struct MessagePrinter {}
+
+impl MessagePrinter {
+    pub fn new() -> MessagePrinter {
+        MessagePrinter {}
+    }
+}
+
+impl MessageHandler for MessagePrinter {
+    fn push(&mut self, message: Message) {
+        println!("{}", message);
+    }
+}
