@@ -6,6 +6,10 @@
 
 use super::*;
 use crate::analysis::library::DesignRoot;
+use crate::ast::search::*;
+use crate::ast::WithRef;
+use crate::source::SrcPos;
+use fnv::FnvHashSet;
 
 #[test]
 fn incremental_analysis_of_use_within_package() {
@@ -247,7 +251,12 @@ fn check_incremental_analysis(builder: LibraryBuilder) {
         let mut fresh_root = DesignRoot::new(symtab.clone());
         add_standard_library(symtab.clone(), &mut fresh_root);
 
+        let mut root = DesignRoot::new(symtab.clone());
+        add_standard_library(symtab.clone(), &mut root);
+
         for (j, (library_name, code)) in codes.iter().enumerate() {
+            root.add_design_file(library_name.clone(), code.design_file());
+
             if i != j {
                 fresh_root.add_design_file(library_name.clone(), code.design_file());
             } else {
@@ -255,41 +264,73 @@ fn check_incremental_analysis(builder: LibraryBuilder) {
             }
         }
 
-        let mut root = DesignRoot::new(symtab.clone());
-        add_standard_library(symtab.clone(), &mut root);
-        for (library_name, code) in codes.iter() {
-            root.add_design_file(library_name.clone(), code.design_file());
-        }
-        let mut unnused = Vec::new();
-        root.analyze(&mut unnused);
+        let mut diagnostics = Vec::new();
+        root.analyze(&mut diagnostics);
+        check_no_diagnostics(&diagnostics);
 
         let (library_name, code) = &codes[i];
 
+        // Remove a files
         root.remove_source(library_name.clone(), code.source());
-
-        let mut diagnostics = Vec::new();
-        root.analyze(&mut diagnostics);
-
-        let mut fresh_diagnostics = Vec::new();
-        fresh_root.analyze(&mut fresh_diagnostics);
-
-        // Check that diagnostics are equal to doing analysis from scratch
-        check_diagnostics(diagnostics.clone(), fresh_diagnostics.clone());
+        check_analysis_equal(&mut root, &mut fresh_root);
 
         // Add back files again
         root.add_design_file(library_name.clone(), code.design_file());
         fresh_root.add_design_file(library_name.clone(), code.design_file());
 
-        let mut diagnostics = Vec::new();
-        root.analyze(&mut diagnostics);
-
-        let mut fresh_diagnostics = Vec::new();
-        fresh_root.analyze(&mut fresh_diagnostics);
-
-        // Check that diagnostics are equal to doing analysis from scratch
-        check_diagnostics(diagnostics.clone(), fresh_diagnostics.clone());
+        let diagnostics = check_analysis_equal(&mut root, &mut fresh_root);
 
         // Ensure no problems when all files are added
         check_no_diagnostics(&diagnostics);
+    }
+}
+
+fn check_analysis_equal(got: &mut DesignRoot, expected: &mut DesignRoot) -> Vec<Diagnostic> {
+    let mut got_diagnostics = Vec::new();
+    got.analyze(&mut got_diagnostics);
+
+    let mut expected_diagnostics = Vec::new();
+    expected.analyze(&mut expected_diagnostics);
+
+    // Check that diagnostics are equal to doing analysis from scratch
+    check_diagnostics(got_diagnostics.clone(), expected_diagnostics.clone());
+
+    // Check that all references are equal, ensures the incremental
+    // analysis has cleared refereces
+    use std::iter::FromIterator;
+    let got_refs = FnvHashSet::from_iter(FindAnyReferences::new().search(got).into_iter());
+    let expected_refs =
+        FnvHashSet::from_iter(FindAnyReferences::new().search(expected).into_iter());
+    let diff: FnvHashSet<_> = got_refs.symmetric_difference(&expected_refs).collect();
+    assert_eq!(diff, FnvHashSet::default());
+
+    got_diagnostics
+}
+
+/// Find any reference
+/// Added to help ensure that there are no references to removed sources
+struct FindAnyReferences {
+    references: Vec<SrcPos>,
+}
+
+impl FindAnyReferences {
+    pub fn new() -> FindAnyReferences {
+        FindAnyReferences {
+            references: Vec::new(),
+        }
+    }
+
+    pub fn search(mut self, searchable: &impl Search<()>) -> Vec<SrcPos> {
+        let _unnused = searchable.search(&mut self);
+        self.references
+    }
+}
+
+impl Searcher<()> for FindAnyReferences {
+    fn search_pos_with_ref<U>(&mut self, _: &SrcPos, with_ref: &WithRef<U>) -> SearchState<()> {
+        if let Some(ref reference) = with_ref.reference {
+            self.references.push(reference.clone());
+        };
+        NotFinished
     }
 }

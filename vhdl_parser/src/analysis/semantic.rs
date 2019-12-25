@@ -214,6 +214,7 @@ impl<'a> Analyzer<'a> {
     ) -> AnalysisResult<VisibleDeclaration> {
         match name.item {
             SelectedName::Selected(ref mut prefix, ref mut suffix) => {
+                suffix.clear_reference();
                 let prefix_decl = self.resolve_selected_name(region, prefix)?;
                 match self.lookup_within(&prefix.pos, &prefix_decl, suffix) {
                     Ok(Some(decl)) => {
@@ -232,6 +233,7 @@ impl<'a> Analyzer<'a> {
                     designator.set_reference(decl);
                     Ok(decl.clone())
                 } else {
+                    designator.clear_reference();
                     Err(Diagnostic::error(
                         &name.pos,
                         format!("No declaration of '{}'", designator),
@@ -278,6 +280,8 @@ impl<'a> Analyzer<'a> {
     ) -> AnalysisResult<LookupResult> {
         match name {
             Name::Selected(prefix, suffix) => {
+                suffix.clear_reference();
+
                 match self.resolve_prefix(
                     region,
                     &prefix.pos,
@@ -323,6 +327,7 @@ impl<'a> Analyzer<'a> {
                     designator.set_reference(decl);
                     Ok(LookupResult::Single(decl.clone()))
                 } else {
+                    designator.clear_reference();
                     Err(Diagnostic::error(
                         name_pos,
                         format!("No declaration of '{}'", designator),
@@ -1865,6 +1870,8 @@ impl<'a> Analyzer<'a> {
     pub fn analyze_package_body_unit(&self, body: &mut PackageBodyData) -> FatalNullResult {
         let mut diagnostics = Vec::new();
 
+        body.ast.ident.clear_reference();
+
         let package_data = {
             if let Some(package_data) =
                 self.root
@@ -1888,7 +1895,6 @@ impl<'a> Analyzer<'a> {
                 return Ok(());
             }
         };
-        body.ast.ident.set_reference_pos(package_data.ast.pos());
 
         let primary_pos = &package_data.pos();
         let secondary_pos = &body.pos();
@@ -1903,7 +1909,7 @@ impl<'a> Analyzer<'a> {
             ));
         }
 
-        body.ast.ident.set_reference_pos(package_data.pos());
+        body.ast.ident.set_reference_pos(Some(package_data.pos()));
         // @TODO make pattern of primary/secondary extension
         let mut root_region = package_data.region.get_parent().unwrap().extend(None);
         self.analyze_context_clause(
@@ -1928,6 +1934,7 @@ impl<'a> Analyzer<'a> {
 
     pub fn analyze_architecture(&self, arch_data: &mut ArchitectureData) -> FatalNullResult {
         let mut diagnostics = Vec::new();
+        arch_data.ast.entity_name.clear_reference();
 
         let entity = {
             if let Some(entity_data) =
@@ -1970,7 +1977,7 @@ impl<'a> Analyzer<'a> {
         arch_data
             .ast
             .entity_name
-            .set_reference_pos(entity.ast.pos());
+            .set_reference_pos(Some(entity.ast.pos()));
 
         let mut root_region = entity.region.get_parent().unwrap().extend(None);
         self.analyze_context_clause(
@@ -2113,7 +2120,10 @@ impl<'a> Analyzer<'a> {
                             designator.set_reference(&decl);
                             Ok(decl)
                         }
-                        Err(err) => Err(err),
+                        Err(err) => {
+                            designator.clear_reference();
+                            Err(err)
+                        }
                     }
                 }
 
@@ -2185,22 +2195,27 @@ trait SetReference {
         if !decl.is_overloaded() {
             // We do not set references to overloaded names to avoid
             // To much incorrect behavior which will appear as low quality
-            if let Some(pos) = decl.first_pos() {
-                self.set_reference_pos(pos)
-            }
+            self.set_reference_pos(decl.first_pos());
+        } else {
+            self.clear_reference();
         }
     }
-    fn set_reference_pos(&mut self, pos: &SrcPos);
+
+    fn clear_reference(&mut self) {
+        self.set_reference_pos(None);
+    }
+
+    fn set_reference_pos(&mut self, pos: Option<&SrcPos>);
 }
 
 impl<T> SetReference for WithRef<T> {
-    fn set_reference_pos(&mut self, pos: &SrcPos) {
-        self.reference = Some(pos.clone());
+    fn set_reference_pos(&mut self, pos: Option<&SrcPos>) {
+        self.reference = pos.cloned();
     }
 }
 
 impl<T: SetReference> SetReference for WithPos<T> {
-    fn set_reference_pos(&mut self, pos: &SrcPos) {
+    fn set_reference_pos(&mut self, pos: Option<&SrcPos>) {
         self.item.set_reference_pos(pos);
     }
 }

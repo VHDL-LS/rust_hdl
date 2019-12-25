@@ -1111,13 +1111,4 @@ impl Searcher<()> for FindAllReferences {
         };
         NotFinished
     }
-
-    fn search_ident_ref(&mut self, ident: &WithRef<Ident>) -> SearchState<()> {
-        if let Some(ref reference) = ident.reference {
-            if reference == &self.decl_pos {
-                self.references.push(ident.item.pos().clone());
-            }
-        };
-        NotFinished
-    }
 }
