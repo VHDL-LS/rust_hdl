@@ -1,8 +1,4 @@
 [libraries]
-std.files = [
-'vhdl_libraries/2008/std/*.vhd',
-]
-
 vunit_lib.files = [
 'vunit/vunit/vhdl/*.vhd',
 
