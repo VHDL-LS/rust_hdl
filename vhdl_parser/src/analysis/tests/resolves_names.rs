@@ -1025,3 +1025,36 @@ end package;
 ",
     );
 }
+
+#[test]
+fn search_external_name() {
+    check_search_reference(
+        "
+package pkg is
+  type decl is (alpha, beta);
+end package;
+
+entity ent2 is
+end entity;
+
+use work.pkg.all;
+
+architecture a of ent2 is
+  signal foo : decl;
+begin
+end architecture;
+
+entity ent is
+end entity;
+
+use work.pkg.all;
+
+architecture a of ent is
+  signal foo : decl;
+begin
+  inst : work.ent2;
+  foo <= << signal inst.foo : decl >>;
+end architecture;
+",
+    );
+}

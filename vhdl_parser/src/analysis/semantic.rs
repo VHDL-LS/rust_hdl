@@ -376,8 +376,9 @@ impl<'a> Analyzer<'a> {
                 self.analyze_function_call(region, fcall, diagnostics)?;
                 Ok(LookupResult::NotSelected)
             }
-            Name::External(..) => {
-                // @TODO more
+            Name::External(ref mut ename) => {
+                let ExternalName { subtype, .. } = ename.as_mut();
+                self.analyze_subtype_indication(region, subtype, diagnostics)?;
                 Ok(LookupResult::NotSelected)
             }
         }

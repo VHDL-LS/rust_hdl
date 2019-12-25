@@ -509,9 +509,11 @@ fn search_pos_name<T>(
             }
             NotFound
         }
-
-        // @TODO more
-        _ => NotFound,
+        Name::External(ref ename) => {
+            let ExternalName { subtype, .. } = ename.as_ref();
+            return_if!(subtype.search(searcher));
+            NotFound
+        }
     }
 }
 
