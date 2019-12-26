@@ -44,8 +44,8 @@ fn error_on_missing_protected_type_for_body() {
         "libname",
         "
 package pkg_no_body is
-type a1 is protected body
-end protected body;
+  type a1 is protected body
+  end protected body;
 end package;
 
 package pkg is
@@ -169,34 +169,34 @@ fn forbid_incompatible_deferred_items() {
         "
 package pkg is
 
--- Protected type vs constant
-type a1 is protected
-end protected;
-constant a1 : natural := 0;
+  -- Protected type vs constant
+  type a1 is protected
+  end protected;
+  constant a1 : natural := 0;
 
--- Just to avoid missing body error
-type a1 is protected body
-end protected body;
+  -- Just to avoid missing body error
+  type a1 is protected body
+  end protected body;
 
--- Deferred constant vs protected body
-constant b1 : natural;
-type b1 is protected body
-end protected body;
+  -- Deferred constant vs protected body
+  constant b1 : natural;
+
+  type b1 is protected body
+  end protected body;
 
 end package;
 
 package body pkg is
-constant b1 : natural := 0;
+  constant b1 : natural := 0;
 end package body;
 ",
     );
 
     let diagnostics = builder.analyze();
-    let mut expected = vec![Diagnostic::error(
-        &code.s("b1", 2),
-        "No declaration of protected type 'b1'",
-    )];
-    expected.append(&mut duplicates(&code, &["a1", "b1"]));
+    let expected = vec![
+        duplicate(&code, "a1", 1, 2),
+        Diagnostic::error(&code.s("b1", 2), "'b1' is not a protected type"),
+    ];
     check_diagnostics(diagnostics, expected);
 }
 

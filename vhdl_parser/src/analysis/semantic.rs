@@ -1017,32 +1017,45 @@ impl<'a> Analyzer<'a> {
                 );
             }
             TypeDefinition::ProtectedBody(ref mut body) => {
-                match parent.lookup(&type_decl.ident.item.clone().into(), true) {
-                    Some(decl) => {
-                        match decl.first() {
-                            AnyDeclaration::ProtectedType(extended_region) => {
-                                let extended_lock = extended_region.read().unwrap();
-                                let mut region = extended_lock.extend(Some(parent));
-                                self.analyze_declarative_part(
-                                    &mut region,
-                                    &mut body.decl,
-                                    diagnostics,
-                                )?;
-                            }
-                            _ => {
-                                // @TODO detect incorrect type here instead
-                            }
+                let is_ok = match parent.lookup(&type_decl.ident.item.clone().into(), true) {
+                    Some(decl) => match decl.first() {
+                        AnyDeclaration::ProtectedType(extended_region) => {
+                            let extended_lock = extended_region.read().unwrap();
+                            let mut region = extended_lock.extend(Some(parent));
+                            self.analyze_declarative_part(
+                                &mut region,
+                                &mut body.decl,
+                                diagnostics,
+                            )?;
+                            true
                         }
-                    }
+                        _ => {
+                            diagnostics.push(Diagnostic::error(
+                                type_decl.ident.pos(),
+                                format!("'{}' is not a protected type", &type_decl.ident.item),
+                            ));
+                            false
+                        }
+                    },
                     None => {
-                        // @TODO detect missing protected type here insted
+                        diagnostics.push(Diagnostic::error(
+                            type_decl.ident.pos(),
+                            format!(
+                                "No declaration of protected type '{}'",
+                                &type_decl.ident.item
+                            ),
+                        ));
+                        false
                     }
-                }
-                parent.add(
-                    &type_decl.ident,
-                    AnyDeclaration::ProtectedTypeBody,
-                    diagnostics,
-                );
+                };
+
+                if is_ok {
+                    parent.add(
+                        &type_decl.ident,
+                        AnyDeclaration::ProtectedTypeBody,
+                        diagnostics,
+                    );
+                };
             }
             TypeDefinition::Protected(ref mut prot_decl) => {
                 let empty_region = Arc::new(RwLock::new(DeclarativeRegion::default()));

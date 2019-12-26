@@ -504,29 +504,6 @@ impl<'a> DeclarativeRegion<'a> {
             }
         }
 
-        if decl.first().is_protected_type_body() {
-            let mut is_orphan = true;
-
-            if let Some(prev_decl) = prev_decl {
-                if prev_decl.first().is_protected_type() {
-                    is_orphan = false;
-                }
-            }
-
-            if let Some(ext_decl) = ext_decl {
-                if ext_decl.first().is_protected_type() {
-                    is_orphan = false;
-                }
-            }
-            if is_orphan {
-                decl.first_data().error(
-                    diagnostics,
-                    format!("No declaration of protected type '{}'", &decl.designator),
-                );
-                check_ok = false;
-            }
-        }
-
         check_ok
     }
 
