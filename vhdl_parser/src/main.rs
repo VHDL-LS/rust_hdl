@@ -23,11 +23,6 @@ fn main() {
         .author(env!("CARGO_PKG_AUTHORS"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .arg(
-            Arg::with_name("show")
-                .long("show")
-                .help("Show information about design units"),
-        )
-        .arg(
             Arg::with_name("num-threads")
                 .short("-p")
                 .long("--num-threads")
