@@ -244,9 +244,9 @@ impl<'a> DeclarativeRegion<'a> {
         }
     }
 
-    pub fn new_borrowed_parent(parent: &'a DeclarativeRegion<'a>) -> DeclarativeRegion<'a> {
+    pub fn nested(&'a self) -> DeclarativeRegion<'a> {
         DeclarativeRegion {
-            parent: Some(ParentRegion::Borrowed(parent)),
+            parent: Some(ParentRegion::Borrowed(self)),
             extends: None,
             visible: FnvHashMap::default(),
             decls: FnvHashMap::default(),

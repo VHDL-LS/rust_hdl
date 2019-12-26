@@ -621,7 +621,7 @@ impl<'a> Analyzer<'a> {
         subprogram: &mut SubprogramDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<DeclarativeRegion<'r>> {
-        let mut region = DeclarativeRegion::new_borrowed_parent(parent);
+        let mut region = parent.nested();
 
         match subprogram {
             SubprogramDeclaration::Function(fun) => {
@@ -907,8 +907,7 @@ impl<'a> Analyzer<'a> {
             }
             Declaration::Component(ref mut component) => {
                 region.add(&component.ident, AnyDeclaration::Other, diagnostics);
-                let mut region = DeclarativeRegion::new_borrowed_parent(region);
-
+                let mut region = region.nested();
                 self.analyze_interface_list(&mut region, &mut component.generic_list, diagnostics)?;
                 self.analyze_interface_list(&mut region, &mut component.port_list, diagnostics)?;
                 region.close_both(diagnostics);
@@ -1055,7 +1054,7 @@ impl<'a> Analyzer<'a> {
                     diagnostics,
                 );
 
-                let mut region = DeclarativeRegion::new_borrowed_parent(parent);
+                let mut region = parent.nested();
                 for item in prot_decl.items.iter_mut() {
                     match item {
                         ProtectedTypeDeclarativeItem::Subprogram(ref mut subprogram) => {
@@ -1522,7 +1521,7 @@ impl<'a> Analyzer<'a> {
 
         match statement.statement {
             ConcurrentStatement::Block(ref mut block) => {
-                let mut region = DeclarativeRegion::new_borrowed_parent(parent);
+                let mut region = parent.nested();
                 self.analyze_declarative_part(&mut region, &mut block.decl, diagnostics)?;
                 self.analyze_concurrent_part(&mut region, &mut block.statements, diagnostics)?;
             }
@@ -1543,7 +1542,7 @@ impl<'a> Analyzer<'a> {
                         SensitivityList::All => {}
                     }
                 }
-                let mut region = DeclarativeRegion::new_borrowed_parent(parent);
+                let mut region = parent.nested();
                 self.analyze_declarative_part(&mut region, decl, diagnostics)?;
                 self.analyze_sequential_part(&mut region, statements, diagnostics)?;
             }
@@ -1554,7 +1553,7 @@ impl<'a> Analyzer<'a> {
                     body,
                 } = gen;
                 self.analyze_discrete_range(parent, discrete_range, diagnostics)?;
-                let mut region = DeclarativeRegion::new_borrowed_parent(parent);
+                let mut region = parent.nested();
                 region.add(index_name.clone(), AnyDeclaration::Constant, diagnostics);
                 self.analyze_generate_body(&mut region, body, diagnostics)?;
             }
@@ -1566,17 +1565,17 @@ impl<'a> Analyzer<'a> {
                 for conditional in conditionals.iter_mut() {
                     let Conditional { condition, item } = conditional;
                     self.analyze_expression(parent, condition, diagnostics)?;
-                    let mut region = DeclarativeRegion::new_borrowed_parent(parent);
+                    let mut region = parent.nested();
                     self.analyze_generate_body(&mut region, item, diagnostics)?;
                 }
                 if let Some(ref mut else_item) = else_item {
-                    let mut region = DeclarativeRegion::new_borrowed_parent(parent);
+                    let mut region = parent.nested();
                     self.analyze_generate_body(&mut region, else_item, diagnostics)?;
                 }
             }
             ConcurrentStatement::CaseGenerate(ref mut gen) => {
                 for alternative in gen.alternatives.iter_mut() {
-                    let mut region = DeclarativeRegion::new_borrowed_parent(parent);
+                    let mut region = parent.nested();
                     self.analyze_generate_body(&mut region, &mut alternative.item, diagnostics)?;
                 }
             }
@@ -1759,7 +1758,7 @@ impl<'a> Analyzer<'a> {
                 match iteration_scheme {
                     Some(IterationScheme::For(ref mut index, ref mut drange)) => {
                         self.analyze_discrete_range(parent, drange, diagnostics)?;
-                        let mut region = DeclarativeRegion::new_borrowed_parent(parent);
+                        let mut region = parent.nested();
                         let designator: WithPos<Designator> = index.clone().into();
                         region.add(designator, AnyDeclaration::Constant, diagnostics);
                         self.analyze_sequential_part(&mut region, statements, diagnostics)?;
