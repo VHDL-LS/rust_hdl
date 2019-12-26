@@ -298,9 +298,8 @@ fn check_analysis_equal(got: &mut DesignRoot, expected: &mut DesignRoot) -> Vec<
     // Check that all references are equal, ensures the incremental
     // analysis has cleared refereces
     use std::iter::FromIterator;
-    let got_refs = FnvHashSet::from_iter(FindAnyReferences::new().search(got).into_iter());
-    let expected_refs =
-        FnvHashSet::from_iter(FindAnyReferences::new().search(expected).into_iter());
+    let got_refs = FnvHashSet::from_iter(FindAnyReferences::search(got).into_iter());
+    let expected_refs = FnvHashSet::from_iter(FindAnyReferences::search(expected).into_iter());
     let diff: FnvHashSet<_> = got_refs.symmetric_difference(&expected_refs).collect();
     assert_eq!(diff, FnvHashSet::default());
 
@@ -314,20 +313,21 @@ struct FindAnyReferences {
 }
 
 impl FindAnyReferences {
-    pub fn new() -> FindAnyReferences {
+    fn new() -> FindAnyReferences {
         FindAnyReferences {
             references: Vec::new(),
         }
     }
 
-    pub fn search(mut self, searchable: &impl Search<()>) -> Vec<SrcPos> {
-        let _unnused = searchable.search(&mut self);
-        self.references
+    fn search(searchable: &impl Search) -> Vec<SrcPos> {
+        let mut searcher = Self::new();
+        let _ = searchable.search(&mut searcher);
+        searcher.references
     }
 }
 
-impl Searcher<()> for FindAnyReferences {
-    fn search_pos_with_ref<U>(&mut self, _: &SrcPos, with_ref: &WithRef<U>) -> SearchState<()> {
+impl Searcher for FindAnyReferences {
+    fn search_pos_with_ref<U>(&mut self, _: &SrcPos, with_ref: &WithRef<U>) -> SearchState {
         if let Some(ref reference) = with_ref.reference {
             self.references.push(reference.clone());
         };

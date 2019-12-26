@@ -723,11 +723,11 @@ impl DesignRoot {
     /// If the character value is greater than the line length it defaults back to the
     /// line length.
     pub fn search_reference(&self, source: &Source, cursor: Position) -> Option<SrcPos> {
-        self.search(&mut ItemAtCursor::new(source, cursor)).into()
+        ItemAtCursor::search(self, source, cursor)
     }
 
     pub fn find_all_references(&self, decl_pos: &SrcPos) -> Vec<SrcPos> {
-        FindAllReferences::new(decl_pos).search(self)
+        FindAllReferences::search(self, decl_pos)
     }
 
     fn get_package_instance_analysis<'a>(
@@ -1061,20 +1061,20 @@ impl DesignRoot {
     }
 }
 
-impl<T> Search<T> for DesignRoot {
-    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+impl Search for DesignRoot {
+    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
         for library in self.libraries.values() {
-            return_if!(library.search(searcher));
+            return_if_found!(library.search(searcher));
         }
         NotFound
     }
 }
 
-impl<T> Search<T> for Library {
-    fn search(&self, searcher: &mut impl Searcher<T>) -> SearchResult<T> {
+impl Search for Library {
+    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
         for unit_id in self.sorted_unit_ids() {
             let unit = self.units.get(&unit_id.key()).unwrap();
-            return_if!(delegate_any!(
+            return_if_found!(delegate_any!(
                 unit,
                 unit,
                 unit.data.read().ast.search(searcher)
