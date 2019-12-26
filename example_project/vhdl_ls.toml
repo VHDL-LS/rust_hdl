@@ -1,8 +1,4 @@
 [libraries]
-std.files = [
-'vhdl_libraries/2008/std/*.vhd',
-]
-
 vunit_lib.files = [
 'vunit/vunit/vhdl/*.vhd',
 
@@ -108,10 +104,6 @@ osvvm.files = [
 'OSVVM/ResolutionPkg.vhd',
 'OSVVM/TextUtilPkg.vhd',
 'OSVVM/ScoreboardGenericPkg.vhd',
-]
-
-ieee.files = [
-'ghdl/libraries/ieee2008/*.vhdl'
 ]
 
 uvvm_util.files = [

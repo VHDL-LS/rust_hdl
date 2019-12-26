@@ -3,7 +3,7 @@ name: Build & test all configs
 on: [push, pull_request]
 
 jobs:
-  build:
+  build-linux:
 
     runs-on: ubuntu-latest
 
@@ -11,19 +11,60 @@ jobs:
     - uses: actions/checkout@v1
     - name: Install cross tool
       run: cargo install cross
-    - name: Build & test vhdl_parser Linux
+    - name: Build & test vhdl_parser
       run: |
-        cross build --package vhdl_parser --target x86_64-unknown-linux-gnu
-        cross test --package vhdl_parser --target x86_64-unknown-linux-gnu
-    - name: Build & test vhdl_parser Windows
+        cross build --package vhdl_parser --release --target x86_64-unknown-linux-gnu
+        cross test --package vhdl_parser --release --target x86_64-unknown-linux-gnu
+    - name: Upload vhdl_parser
+      uses: actions/upload-artifact@v1
+      with:
+        name: vhdl_parser-x86_64-unknown-linux-gnu
+        path: target/x86_64-unknown-linux-gnu/release/vhdl_parser
+    - name: Build & test vhdl_ls
       run: |
-        cross build --package vhdl_parser --target x86_64-pc-windows-gnu
-        cross test --package vhdl_parser --target x86_64-pc-windows-gnu
-    - name: Build & test vhdl_ls Linux
+        cross build --package vhdl_ls --release --target x86_64-unknown-linux-gnu
+        cross test --package vhdl_ls --release --target x86_64-unknown-linux-gnu
+    - name: Assemble artifacts
       run: |
-        cross build --package vhdl_ls --target x86_64-unknown-linux-gnu
-        cross test --package vhdl_ls --target x86_64-unknown-linux-gnu
-    - name: Build & test vhdl_ls Windows
+        mkdir vhdl_ls-x86_64-unknown-linux-gnu
+        mkdir vhdl_ls-x86_64-unknown-linux-gnu/bin
+        cp -R vhdl_libraries vhdl_ls-x86_64-unknown-linux-gnu
+        cp target/x86_64-unknown-linux-gnu/release/vhdl_ls vhdl_ls-x86_64-unknown-linux-gnu/bin
+    - name: Upload vhdl_ls
+      uses: actions/upload-artifact@v1
+      with:
+        name: vhdl_ls-x86_64-unknown-linux-gnu
+        path: vhdl_ls-x86_64-unknown-linux-gnu
+    
+  build-windows:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install cross tool
+      run: cargo install cross
+    - name: Build & test vhdl_parser
       run: |
-        cross build --package vhdl_ls --target x86_64-pc-windows-gnu
-        cross test --package vhdl_ls --target x86_64-pc-windows-gnu
+        cross build --package vhdl_parser --release --target x86_64-pc-windows-gnu
+        cross test --package vhdl_parser --release --target x86_64-pc-windows-gnu
+    - name: Upload vhdl_parser
+      uses: actions/upload-artifact@v1
+      with:
+        name: vhdl_parser-x86_64-pc-windows-gnu
+        path: target/x86_64-pc-windows-gnu/release/vhdl_parser.exe
+    - name: Build & test vhdl_ls
+      run: |
+        cross build --package vhdl_ls --release --target x86_64-pc-windows-gnu
+        cross test --package vhdl_ls --release --target x86_64-pc-windows-gnu
+    - name: Assemble artifacts
+      run: |
+        mkdir vhdl_ls-x86_64-pc-windows-gnu
+        mkdir vhdl_ls-x86_64-pc-windows-gnu/bin
+        cp -R vhdl_libraries vhdl_ls-x86_64-pc-windows-gnu
+        cp target/x86_64-pc-windows-gnu/release/vhdl_ls.exe vhdl_ls-x86_64-pc-windows-gnu/bin
+    - name: Upload vhdl_ls
+      uses: actions/upload-artifact@v1
+      with:
+        name: vhdl_ls-x86_64-pc-windows-gnu
+        path: vhdl_ls-x86_64-pc-windows-gnu
