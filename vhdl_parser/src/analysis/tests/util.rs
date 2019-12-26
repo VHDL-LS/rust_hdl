@@ -94,17 +94,11 @@ pub fn add_standard_library(symtab: Arc<SymbolTable>, root: &mut DesignRoot) {
     ));
     let std_textio = builder.code_from_source(Source::inline(
         "textio.vhd",
-        &Latin1String::new(include_bytes!(
-            "../../../../vhdl_libraries/std/textio.vhd"
-        ))
-        .to_string(),
+        &Latin1String::new(include_bytes!("../../../../vhdl_libraries/std/textio.vhd")).to_string(),
     ));
     let std_env = builder.code_from_source(Source::inline(
         "env.vhd",
-        &Latin1String::new(include_bytes!(
-            "../../../../vhdl_libraries/std/env.vhd"
-        ))
-        .to_string(),
+        &Latin1String::new(include_bytes!("../../../../vhdl_libraries/std/env.vhd")).to_string(),
     ));
     let std_sym = symtab.insert_utf8("std");
 
