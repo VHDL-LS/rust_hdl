@@ -738,8 +738,14 @@ end package;
 package pkg2 is
 constant const2 : natural := 0;
 end package;
+        ",
+    );
 
-use work.all;
+    builder.code(
+        "libname2",
+        "
+library libname;
+use libname.all;
 use pkg1.const1;
 use pkg2.const2;
 

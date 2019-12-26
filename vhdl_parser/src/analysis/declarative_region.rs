@@ -28,12 +28,12 @@ pub enum AnyDeclaration {
     ProtectedType(Arc<RwLock<DeclarativeRegion<'static>>>),
     ProtectedTypeBody,
     Library(Symbol),
-    Entity(LibraryUnitId),
-    Configuration(LibraryUnitId),
-    Package(LibraryUnitId),
-    UninstPackage(LibraryUnitId),
-    PackageInstance(LibraryUnitId),
-    Context(LibraryUnitId),
+    Entity(LibraryUnitId, Arc<DeclarativeRegion<'static>>),
+    Configuration(LibraryUnitId, Arc<DeclarativeRegion<'static>>),
+    Package(LibraryUnitId, Arc<DeclarativeRegion<'static>>),
+    UninstPackage(LibraryUnitId, Arc<DeclarativeRegion<'static>>),
+    PackageInstance(LibraryUnitId, Arc<DeclarativeRegion<'static>>),
+    Context(LibraryUnitId, Arc<DeclarativeRegion<'static>>),
     LocalPackageInstance(Symbol, Arc<DeclarativeRegion<'static>>),
 }
 

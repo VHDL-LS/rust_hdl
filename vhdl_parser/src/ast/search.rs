@@ -817,8 +817,8 @@ impl Search for Declaration {
                 return_if_found!(signature.search(searcher));
             }
             Declaration::Use(use_clause) => return_if_found!(searcher
-                                                             .search_with_pos(&use_clause.pos)
-                                                             .or_else(|| use_clause.item.name_list.search(searcher))),
+                .search_with_pos(&use_clause.pos)
+                .or_else(|| use_clause.item.name_list.search(searcher))),
             Declaration::Component(component) => {
                 let ComponentDeclaration {
                     ident,

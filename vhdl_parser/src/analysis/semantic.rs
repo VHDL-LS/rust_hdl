@@ -6,7 +6,6 @@
 
 use super::declarative_region::{AnyDeclaration, DeclarativeRegion, VisibleDeclaration};
 use super::library::*;
-use super::lock::{CircularDependencyError, ReadGuard};
 use crate::ast::*;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::latin_1::Latin1String;
@@ -44,15 +43,6 @@ impl AnalysisError {
                 diagnostics.push(diag);
                 Ok(())
             }
-        }
-    }
-
-    /// Return self to enforce #[must_use]
-    fn add_circular_reference(self, location: &SrcPos) -> AnalysisError {
-        if let AnalysisError::Fatal(err) = self {
-            AnalysisError::Fatal(err.add_reference(location))
-        } else {
-            self
         }
     }
 }
@@ -123,19 +113,24 @@ impl<'a> Analyzer<'a> {
         &self,
         library_name: &Symbol,
         pos: &SrcPos,
-        designator: &Designator,
+        primary_name: &Designator,
     ) -> AnalysisResult<VisibleDeclaration> {
-        if let Some(decl) = self.root.lookup_in_library(library_name, designator) {
-            Ok(decl.clone())
-        } else {
-            Err(Diagnostic::error(
-                pos,
-                format!(
-                    "No primary unit '{}' within library '{}'",
-                    designator, library_name
-                ),
-            ))?
+        if let Designator::Identifier(ref primary_name) = primary_name {
+            if let Some(decl) =
+                self.root
+                    .lookup_in_library(Some(pos), library_name, primary_name)?
+            {
+                return Ok(decl);
+            }
         }
+
+        Err(AnalysisError::NotFatal(Diagnostic::error(
+            pos,
+            format!(
+                "No primary unit '{}' within library '{}'",
+                primary_name, library_name
+            ),
+        )))
     }
 
     fn lookup_within(
@@ -151,14 +146,12 @@ impl<'a> Analyzer<'a> {
                 suffix.designator(),
             )?)),
 
-            AnyDeclaration::UninstPackage(ref unit_id) => {
+            AnyDeclaration::UninstPackage(ref unit_id, ..) => {
                 Err(uninstantiated_package_prefix_error(prefix_pos, unit_id))?
             }
 
-            AnyDeclaration::Package(ref unit_id) => {
-                let package_data = self.root.expect_package_declaration_analysis(unit_id)?;
-
-                if let Some(decl) = package_data.region.lookup(suffix.designator(), false) {
+            AnyDeclaration::Package(ref unit_id, ref package_region) => {
+                if let Some(decl) = package_region.lookup(suffix.designator(), false) {
                     Ok(Some(decl.clone()))
                 } else {
                     Err(Diagnostic::error(
@@ -173,9 +166,8 @@ impl<'a> Analyzer<'a> {
                 }
             }
 
-            AnyDeclaration::PackageInstance(ref unit_id) => {
-                let instance_data = self.root.expect_package_instance_analysis(unit_id)?;
-                if let Some(decl) = instance_data.region.lookup(suffix.designator(), false) {
+            AnyDeclaration::PackageInstance(ref unit_id, ref instance_region) => {
+                if let Some(decl) = instance_region.lookup(suffix.designator(), false) {
                     Ok(Some(decl.clone()))
                 } else {
                     Err(Diagnostic::error(
@@ -216,16 +208,15 @@ impl<'a> Analyzer<'a> {
             SelectedName::Selected(ref mut prefix, ref mut suffix) => {
                 suffix.clear_reference();
                 let prefix_decl = self.resolve_selected_name(region, prefix)?;
-                match self.lookup_within(&prefix.pos, &prefix_decl, suffix) {
-                    Ok(Some(decl)) => {
+                match self.lookup_within(&prefix.pos, &prefix_decl, suffix)? {
+                    Some(decl) => {
                         suffix.set_reference(&decl);
                         Ok(decl)
                     }
-                    Ok(None) => Err(Diagnostic::error(
+                    None => Err(AnalysisError::NotFatal(Diagnostic::error(
                         &prefix.pos,
                         "Invalid prefix for selected name",
-                    ))?,
-                    Err(err) => Err(err.add_circular_reference(&name.pos)),
+                    ))),
                 }
             }
             SelectedName::Designator(ref mut designator) => {
@@ -289,12 +280,12 @@ impl<'a> Analyzer<'a> {
                     allow_incomplete,
                     diagnostics,
                 )? {
-                    Some(decl) => match self.lookup_within(&prefix.pos, &decl, suffix) {
-                        Ok(Some(decl)) => {
+                    Some(decl) => match self.lookup_within(&prefix.pos, &decl, suffix)? {
+                        Some(decl) => {
                             suffix.set_reference(&decl);
                             Ok(LookupResult::Single(decl))
                         }
-                        Ok(None) => {
+                        None => {
                             if allow_incomplete {
                                 Ok(LookupResult::NotSelected)
                             } else {
@@ -304,7 +295,6 @@ impl<'a> Analyzer<'a> {
                                 ))?
                             }
                         }
-                        Err(err) => Err(err.add_circular_reference(name_pos)),
                     },
                     None => Ok(LookupResult::NotSelected),
                 }
@@ -428,16 +418,15 @@ impl<'a> Analyzer<'a> {
             }
             InterfaceDeclaration::Package(ref mut instance) => {
                 match self.analyze_package_instance_name(region, &mut instance.package_name) {
-                    Ok(package) => region.add(
+                    Ok(package_region) => region.add(
                         &instance.ident,
                         AnyDeclaration::LocalPackageInstance(
                             instance.ident.item.clone(),
-                            Arc::new(package.region.clone()),
+                            package_region.clone(),
                         ),
                         diagnostics,
                     ),
                     Err(err) => {
-                        let err = err.add_circular_reference(&instance.package_name.pos);
                         err.add_to(diagnostics)?;
                     }
                 }
@@ -960,18 +949,15 @@ impl<'a> Analyzer<'a> {
 
             Declaration::Package(ref mut instance) => {
                 match self.analyze_package_instance_name(region, &mut instance.package_name) {
-                    Ok(data) => region.add(
+                    Ok(package_region) => region.add(
                         &instance.ident,
                         AnyDeclaration::LocalPackageInstance(
                             instance.ident.item.clone(),
-                            Arc::new(data.region.clone()),
+                            package_region,
                         ),
                         diagnostics,
                     ),
-                    Err(err) => {
-                        let err = err.add_circular_reference(&instance.package_name.pos);
-                        err.add_to(diagnostics)?
-                    }
+                    Err(err) => err.add_to(diagnostics)?,
                 }
             }
             Declaration::Configuration(..) => {}
@@ -1235,33 +1221,20 @@ impl<'a> Analyzer<'a> {
                 Ok(LookupResult::AllWithin(visibility_pos, visible_decl)) => {
                     match visible_decl.first() {
                         AnyDeclaration::Library(ref library_name) => {
-                            self.root.use_all_in_library(library_name, region);
+                            self.root
+                                .use_all_in_library(&name.pos, library_name, region)?;
                         }
-                        AnyDeclaration::UninstPackage(ref unit_id) => {
+                        AnyDeclaration::UninstPackage(ref unit_id, ..) => {
                             diagnostics.push(uninstantiated_package_prefix_error(
                                 &visibility_pos,
                                 unit_id,
                             ));
                         }
-                        AnyDeclaration::Package(ref unit_id) => {
-                            match self.root.expect_package_declaration_analysis(unit_id) {
-                                Ok(data) => {
-                                    region.make_all_potentially_visible(&data.region);
-                                }
-                                Err(err) => {
-                                    return Err(err.add_reference(&name.pos));
-                                }
-                            }
+                        AnyDeclaration::Package(_, ref package_region) => {
+                            region.make_all_potentially_visible(package_region);
                         }
-                        AnyDeclaration::PackageInstance(ref unit_id) => {
-                            match self.root.expect_package_instance_analysis(unit_id) {
-                                Ok(data) => {
-                                    region.make_all_potentially_visible(&data.region);
-                                }
-                                Err(err) => {
-                                    return Err(err.add_reference(&name.pos));
-                                }
-                            }
+                        AnyDeclaration::PackageInstance(_, ref package_region) => {
+                            region.make_all_potentially_visible(package_region);
                         }
                         AnyDeclaration::LocalPackageInstance(_, ref instance_region) => {
                             region.make_all_potentially_visible(&instance_region);
@@ -1334,15 +1307,8 @@ impl<'a> Analyzer<'a> {
                             Ok(LookupResult::Single(visible_decl)) => {
                                 match visible_decl.first() {
                                     // OK
-                                    AnyDeclaration::Context(ref unit_id) => {
-                                        match self.root.expect_context_analysis(unit_id) {
-                                            Ok(context) => {
-                                                region.copy_visibility_from(&context.region);
-                                            }
-                                            Err(fatal_err) => {
-                                                return Err(fatal_err.add_reference(&name.pos));
-                                            }
-                                        }
+                                    AnyDeclaration::Context(_, ref context_region) => {
+                                        region.copy_visibility_from(context_region);
                                     }
                                     _ => {
                                         // @TODO maybe lookup should return the source position of the suffix
@@ -1842,10 +1808,10 @@ impl<'a> Analyzer<'a> {
 
             let standard_pkg_region = &self
                 .root
-                .expect_package_declaration_analysis(&LibraryUnitId::package(
-                    &self.std_sym,
-                    &self.standard_sym,
-                ))?
+                .expect_package_declaration_analysis(
+                    None,
+                    &LibraryUnitId::package(&self.std_sym, &self.standard_sym),
+                )?
                 .region;
             region.make_all_potentially_visible(standard_pkg_region);
         }
@@ -1855,64 +1821,60 @@ impl<'a> Analyzer<'a> {
 
     pub fn analyze_package_declaration(
         &self,
-        has_body: bool,
-        package_data: &mut PackageData,
+        region: &mut DeclarativeRegion<'_>,
+        package: &mut PackageDeclaration,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        let mut diagnostics = Vec::new();
         let mut root_region = Box::new(DeclarativeRegion::default());
-        if !(self.work_library_name == self.std_sym && *package_data.name() == self.standard_sym) {
+        if !(self.work_library_name == self.std_sym && *package.name() == self.standard_sym) {
             self.add_implicit_context_clause(&mut root_region)?;
         }
 
-        self.analyze_context_clause(
-            &mut root_region,
-            &mut package_data.ast.context_clause,
-            &mut diagnostics,
-        )?;
+        self.analyze_context_clause(&mut root_region, &mut package.context_clause, diagnostics)?;
 
-        let mut region = DeclarativeRegion::new_owned_parent(root_region).in_package_declaration();
+        *region = DeclarativeRegion::new_owned_parent(root_region).in_package_declaration();
 
-        if let Some(ref mut list) = package_data.ast.generic_clause {
-            self.analyze_interface_list(&mut region, list, &mut diagnostics)?;
+        if let Some(ref mut list) = package.generic_clause {
+            self.analyze_interface_list(region, list, diagnostics)?;
         }
-        self.analyze_declarative_part(&mut region, &mut package_data.ast.decl, &mut diagnostics)?;
+        self.analyze_declarative_part(region, &mut package.decl, diagnostics)?;
 
-        if has_body {
-            region.close_immediate(&mut diagnostics);
+        if self
+            .root
+            .has_package_body(&self.work_library_name, package.name())
+        {
+            region.close_immediate(diagnostics);
         } else {
-            region.close_both(&mut diagnostics);
+            region.close_both(diagnostics);
         }
 
-        package_data.diagnostics = diagnostics;
-        package_data.region = region;
         Ok(())
     }
 
-    pub fn analyze_package_body_unit(&self, body: &mut PackageBodyData) -> FatalNullResult {
-        let mut diagnostics = Vec::new();
-
-        body.ast.ident.clear_reference();
+    pub fn analyze_package_body_unit(
+        &self,
+        // Body does not need region
+        _region: &mut DeclarativeRegion<'_>,
+        body: &mut PackageBody,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        body.ident.clear_reference();
 
         let package_data = {
-            if let Some(package_data) =
-                self.root
-                    .get_package_declaration_analysis(&LibraryUnitId::package(
-                        &self.work_library_name,
-                        body.ast.primary_name(),
-                    ))
-            {
+            if let Some(package_data) = self.root.get_package_declaration_analysis(
+                Some(body.pos()),
+                &LibraryUnitId::package(&self.work_library_name, body.primary_name()),
+            ) {
                 package_data?
             } else {
                 diagnostics.push(Diagnostic::error(
-                    body.ast.pos(),
+                    body.pos(),
                     format!(
                         "No package '{}' within library '{}'",
-                        body.ast.primary_name(),
+                        body.primary_name(),
                         &self.work_library_name
                     ),
                 ));
-                // Body does not need region
-                body.diagnostics = diagnostics;
                 return Ok(());
             }
         };
@@ -1930,14 +1892,11 @@ impl<'a> Analyzer<'a> {
             ));
         }
 
-        body.ast.ident.set_reference_pos(Some(package_data.pos()));
+        body.ident.set_reference_pos(Some(package_data.pos()));
         // @TODO make pattern of primary/secondary extension
         let mut root_region = package_data.region.get_parent().unwrap().extend(None);
-        self.analyze_context_clause(
-            &mut root_region,
-            &mut body.ast.context_clause,
-            &mut diagnostics,
-        )?;
+        self.analyze_context_clause(&mut root_region, &mut body.context_clause, diagnostics)?;
+
         let mut region = package_data.region.extend(Some(&root_region));
 
         // Package name is visible in body
@@ -1946,66 +1905,57 @@ impl<'a> Analyzer<'a> {
             AnyDeclaration::Constant,
         ));
 
-        self.analyze_declarative_part(&mut region, &mut body.ast.decl, &mut diagnostics)?;
-        region.close_both(&mut diagnostics);
-        // Body does not need region
-        body.diagnostics = diagnostics;
+        self.analyze_declarative_part(&mut region, &mut body.decl, diagnostics)?;
+        region.close_both(diagnostics);
         Ok(())
     }
 
-    pub fn analyze_architecture(&self, arch_data: &mut ArchitectureData) -> FatalNullResult {
-        let mut diagnostics = Vec::new();
-        arch_data.ast.entity_name.clear_reference();
+    pub fn analyze_architecture(
+        &self,
+        // Architecture does not need region
+        _region: &mut DeclarativeRegion<'_>,
+        arch: &mut ArchitectureBody,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        arch.entity_name.clear_reference();
 
         let entity = {
-            if let Some(entity_data) =
-                self.root
-                    .get_entity_declaration_analysis(&LibraryUnitId::entity(
-                        &self.work_library_name,
-                        arch_data.ast.primary_name(),
-                    ))
-            {
+            if let Some(entity_data) = self.root.get_entity_declaration_analysis(
+                Some(arch.primary_pos()),
+                &LibraryUnitId::entity(&self.work_library_name, arch.primary_name()),
+            ) {
                 entity_data?
             } else {
                 diagnostics.push(Diagnostic::error(
-                    arch_data.ast.primary_pos(),
+                    arch.primary_pos(),
                     format!(
                         "No entity '{}' within library '{}'",
-                        arch_data.ast.primary_name(),
+                        arch.primary_name(),
                         &self.work_library_name
                     ),
                 ));
-                // @TODO architecture does not need a region
-                arch_data.diagnostics = diagnostics;
                 return Ok(());
             }
         };
 
         let primary_pos = entity.pos();
-        let secondary_pos = &arch_data.pos();
+        let secondary_pos = arch.pos();
         if primary_pos.source == secondary_pos.source && primary_pos.start() > secondary_pos.start()
         {
             diagnostics.push(Diagnostic::error(
                 secondary_pos,
                 format!(
                     "Architecture '{}' declared before entity '{}'",
-                    &arch_data.name(),
+                    &arch.name(),
                     entity.name()
                 ),
             ));
         }
 
-        arch_data
-            .ast
-            .entity_name
-            .set_reference_pos(Some(entity.ast.pos()));
+        arch.entity_name.set_reference_pos(Some(entity.ast.pos()));
 
         let mut root_region = entity.region.get_parent().unwrap().extend(None);
-        self.analyze_context_clause(
-            &mut root_region,
-            &mut arch_data.ast.context_clause,
-            &mut diagnostics,
-        )?;
+        self.analyze_context_clause(&mut root_region, &mut arch.context_clause, diagnostics)?;
         let mut region = entity.region.extend(Some(&root_region));
 
         // entity name is visible
@@ -2014,43 +1964,35 @@ impl<'a> Analyzer<'a> {
             AnyDeclaration::Constant,
         ));
 
-        self.analyze_declarative_part(&mut region, &mut arch_data.ast.decl, &mut diagnostics)?;
-        self.analyze_concurrent_part(&mut region, &mut arch_data.ast.statements, &mut diagnostics)?;
-        region.close_both(&mut diagnostics);
-        // @TODO architecture does not need a region
-        arch_data.diagnostics = diagnostics;
+        self.analyze_declarative_part(&mut region, &mut arch.decl, diagnostics)?;
+        self.analyze_concurrent_part(&mut region, &mut arch.statements, diagnostics)?;
+        region.close_both(diagnostics);
         Ok(())
     }
 
-    pub fn analyze_entity_declaration(&self, entity_data: &mut EntityData) -> FatalNullResult {
-        let mut diagnostics = Vec::new();
+    pub fn analyze_entity_declaration(
+        &self,
+        region: &mut DeclarativeRegion<'_>,
+        entity: &mut EntityDeclaration,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
         let mut root_region = DeclarativeRegion::default();
         self.add_implicit_context_clause(&mut root_region)?;
-        self.analyze_context_clause(
-            &mut root_region,
-            &mut entity_data.ast.context_clause,
-            &mut diagnostics,
-        )?;
+        self.analyze_context_clause(&mut root_region, &mut entity.context_clause, diagnostics)?;
 
-        let mut region = DeclarativeRegion::new_owned_parent(Box::new(root_region));
+        *region = DeclarativeRegion::new_owned_parent(Box::new(root_region));
 
-        if let Some(ref mut list) = entity_data.ast.generic_clause {
-            self.analyze_interface_list(&mut region, list, &mut diagnostics)?;
+        if let Some(ref mut list) = entity.generic_clause {
+            self.analyze_interface_list(region, list, diagnostics)?;
         }
-        if let Some(ref mut list) = entity_data.ast.port_clause {
-            self.analyze_interface_list(&mut region, list, &mut diagnostics)?;
+        if let Some(ref mut list) = entity.port_clause {
+            self.analyze_interface_list(region, list, diagnostics)?;
         }
-        self.analyze_declarative_part(&mut region, &mut entity_data.ast.decl, &mut diagnostics)?;
-        self.analyze_concurrent_part(
-            &mut region,
-            &mut entity_data.ast.statements,
-            &mut diagnostics,
-        )?;
+        self.analyze_declarative_part(region, &mut entity.decl, diagnostics)?;
+        self.analyze_concurrent_part(region, &mut entity.statements, diagnostics)?;
 
-        region.close_immediate(&mut diagnostics);
+        region.close_immediate(diagnostics);
 
-        entity_data.region = region;
-        entity_data.diagnostics = diagnostics;
         Ok(())
     }
 
@@ -2059,14 +2001,11 @@ impl<'a> Analyzer<'a> {
         &self,
         region: &DeclarativeRegion<'_>,
         package_name: &mut WithPos<SelectedName>,
-    ) -> AnalysisResult<ReadGuard<PackageData>> {
+    ) -> AnalysisResult<Arc<DeclarativeRegion<'static>>> {
         let decl = self.resolve_selected_name(region, package_name)?;
 
-        if let AnyDeclaration::UninstPackage(ref unit_id) = decl.first() {
-            match self.root.expect_package_declaration_analysis(unit_id) {
-                Ok(package) => Ok(package),
-                Err(err) => Err(AnalysisError::Fatal(err)),
-            }
+        if let AnyDeclaration::UninstPackage(_, ref package_region) = decl.first() {
+            Ok(package_region.clone())
         } else {
             Err(Diagnostic::error(
                 &package_name.pos,
@@ -2080,43 +2019,37 @@ impl<'a> Analyzer<'a> {
 
     pub fn analyze_package_instance(
         &self,
-        instance_data: &mut PackageInstanceData,
+        region: &mut DeclarativeRegion<'_>,
+        instance: &mut PackageInstantiation,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        let mut diagnostics = Vec::new();
-        let mut region = DeclarativeRegion::default();
-        self.add_implicit_context_clause(&mut region)?;
-        self.analyze_context_clause(
-            &mut region,
-            &mut instance_data.ast.context_clause,
-            &mut diagnostics,
-        )?;
+        let mut root_region = DeclarativeRegion::default();
+        self.add_implicit_context_clause(&mut root_region)?;
+        self.analyze_context_clause(&mut root_region, &mut instance.context_clause, diagnostics)?;
 
-        match self.analyze_package_instance_name(&region, &mut instance_data.ast.package_name) {
-            Ok(package) => {
-                instance_data.diagnostics = diagnostics;
-                instance_data.region = package.region.clone();
+        match self.analyze_package_instance_name(&root_region, &mut instance.package_name) {
+            Ok(package_region) => {
+                *region = (*package_region).clone();
                 Ok(())
             }
             Err(AnalysisError::NotFatal(diagnostic)) => {
                 diagnostics.push(diagnostic);
-                // Failed to analyze, add empty region with diagnostics
-                instance_data.diagnostics = diagnostics;
                 Ok(())
             }
-            Err(AnalysisError::Fatal(err)) => {
-                Err(err.add_reference(&instance_data.ast.package_name.pos))
-            }
+            Err(AnalysisError::Fatal(err)) => Err(err),
         }
     }
 
-    pub fn analyze_context(&self, context_data: &mut ContextData) -> FatalNullResult {
+    pub fn analyze_context(
+        &self,
+        region: &mut DeclarativeRegion<'_>,
+        context: &mut ContextDeclaration,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
         let mut root_region = DeclarativeRegion::default();
         self.add_implicit_context_clause(&mut root_region)?;
-        let mut diagnostics = Vec::new();
-        let mut region = DeclarativeRegion::new_owned_parent(Box::new(root_region));
-        self.analyze_context_clause(&mut region, &mut context_data.ast.items, &mut diagnostics)?;
-        context_data.region = region;
-        context_data.diagnostics = diagnostics;
+        *region = DeclarativeRegion::new_owned_parent(Box::new(root_region));
+        self.analyze_context_clause(region, &mut context.items, diagnostics)?;
         Ok(())
     }
 
@@ -2124,7 +2057,7 @@ impl<'a> Analyzer<'a> {
         &self,
         region: &DeclarativeRegion<'_>,
         config: &mut ConfigurationDeclaration,
-    ) -> AnalysisResult<ReadGuard<EntityData>> {
+    ) -> AnalysisResult<(VisibleDeclaration, Arc<DeclarativeRegion<'static>>)> {
         let ref mut ent_name = config.entity_name;
 
         let decl = {
@@ -2154,57 +2087,52 @@ impl<'a> Analyzer<'a> {
         }?;
 
         match decl.first() {
-            AnyDeclaration::Entity(ref unit_id) => {
+            AnyDeclaration::Entity(ref unit_id, ref entity_region) => {
                 if unit_id.library_name() != &self.work_library_name {
                     Err(Diagnostic::error(
                                     &ent_name,
                                     format!("Configuration must be within the same library '{}' as the corresponding entity", &self.work_library_name),
                                 ))?
                 } else {
-                    match self.root.expect_entity_declaration_analysis(unit_id) {
-                        Ok(data) => Ok(data),
-                        Err(err) => Err(AnalysisError::Fatal(err)),
-                    }
+                    Ok((decl.clone(), entity_region.clone()))
                 }
             }
             _ => Err(Diagnostic::error(&ent_name, "does not denote an entity"))?,
         }
     }
 
-    pub fn analyze_configuration(&self, config: &mut ConfigurationData) -> FatalNullResult {
-        let mut diagnostics = Vec::new();
-        let mut region = DeclarativeRegion::default();
-        self.add_implicit_context_clause(&mut region)?;
-        self.analyze_context_clause(
-            &mut region,
-            &mut config.ast.context_clause,
-            &mut diagnostics,
-        )?;
+    pub fn analyze_configuration(
+        &self,
+        _region: &mut DeclarativeRegion<'_>,
+        config: &mut ConfigurationDeclaration,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        let mut root_region = DeclarativeRegion::default();
+        self.add_implicit_context_clause(&mut root_region)?;
+        self.analyze_context_clause(&mut root_region, &mut config.context_clause, diagnostics)?;
 
-        match self.lookup_entity_for_configuration(&region, &mut config.ast) {
-            Ok(entity_unit) => {
-                let primary_pos = entity_unit.pos();
-                let secondary_pos = config.pos();
-                if primary_pos.source == secondary_pos.source
-                    && primary_pos.start() > secondary_pos.start()
-                {
-                    diagnostics.push(Diagnostic::error(
-                        secondary_pos,
-                        format!(
-                            "Configuration '{}' declared before entity '{}'",
-                            &config.name(),
-                            entity_unit.name()
-                        ),
-                    ));
+        match self.lookup_entity_for_configuration(&root_region, config) {
+            Ok((entity_decl, _)) => {
+                if let Some(primary_pos) = entity_decl.first_pos() {
+                    let secondary_pos = config.pos();
+                    if primary_pos.source == secondary_pos.source
+                        && primary_pos.start() > secondary_pos.start()
+                    {
+                        diagnostics.push(Diagnostic::error(
+                            secondary_pos,
+                            format!(
+                                "Configuration '{}' declared before entity '{}'",
+                                &config.name(),
+                                &entity_decl.designator
+                            ),
+                        ));
+                    }
                 }
             }
             Err(err) => {
-                err.add_to(&mut diagnostics)?;
+                err.add_to(diagnostics)?;
             }
         };
-
-        config.region = region;
-        config.diagnostics = diagnostics;
         Ok(())
     }
 }
@@ -2250,4 +2178,90 @@ fn uninstantiated_package_prefix_error(prefix: &SrcPos, unit_id: &LibraryUnitId)
             unit_id.primary_name()
         ),
     )
+}
+
+pub trait Analysis {
+    fn analyze(
+        &mut self,
+        analyzer: &Analyzer,
+        region: &mut DeclarativeRegion<'_>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult;
+}
+
+impl Analysis for PackageInstantiation {
+    fn analyze(
+        &mut self,
+        analyzer: &Analyzer,
+        region: &mut DeclarativeRegion<'_>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        analyzer.analyze_package_instance(region, self, diagnostics)
+    }
+}
+
+impl Analysis for PackageDeclaration {
+    fn analyze(
+        &mut self,
+        analyzer: &Analyzer,
+        region: &mut DeclarativeRegion<'_>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        analyzer.analyze_package_declaration(region, self, diagnostics)
+    }
+}
+
+impl Analysis for PackageBody {
+    fn analyze(
+        &mut self,
+        analyzer: &Analyzer,
+        region: &mut DeclarativeRegion<'_>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        analyzer.analyze_package_body_unit(region, self, diagnostics)
+    }
+}
+
+impl Analysis for ContextDeclaration {
+    fn analyze(
+        &mut self,
+        analyzer: &Analyzer,
+        region: &mut DeclarativeRegion<'_>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        analyzer.analyze_context(region, self, diagnostics)
+    }
+}
+
+impl Analysis for ConfigurationDeclaration {
+    fn analyze(
+        &mut self,
+        analyzer: &Analyzer,
+        region: &mut DeclarativeRegion<'_>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        analyzer.analyze_configuration(region, self, diagnostics)
+    }
+}
+
+impl Analysis for EntityDeclaration {
+    fn analyze(
+        &mut self,
+        analyzer: &Analyzer,
+        region: &mut DeclarativeRegion<'_>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        analyzer.analyze_entity_declaration(region, self, diagnostics)
+    }
+}
+
+impl Analysis for ArchitectureBody {
+    fn analyze(
+        &mut self,
+        analyzer: &Analyzer,
+        region: &mut DeclarativeRegion<'_>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        analyzer.analyze_architecture(region, self, diagnostics)
+    }
 }

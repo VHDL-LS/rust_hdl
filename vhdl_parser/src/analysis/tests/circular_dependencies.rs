@@ -7,7 +7,7 @@
 use super::*;
 
 #[test]
-fn detects_context_circular_dependencies() {
+fn context() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(
         "libname",
@@ -26,14 +26,14 @@ end context;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s1("work.ctx1"), "Found circular dependency"),
-            Diagnostic::error(code.s1("work.ctx2"), "Found circular dependency"),
+            Diagnostic::error(code.s("ctx1", 2), "Found circular dependency"),
+            Diagnostic::error(code.s("ctx2", 1), "Found circular dependency"),
         ],
     );
 }
 
 #[test]
-fn detects_package_circular_dependencies() {
+fn use_package() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(
         "libname",
@@ -54,14 +54,14 @@ end package;",
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s1("work.pkg1.const"), "Found circular dependency"),
-            Diagnostic::error(code.s1("work.pkg2.const"), "Found circular dependency"),
+            Diagnostic::error(code.s("pkg1", 2), "Found circular dependency"),
+            Diagnostic::error(code.s("pkg2", 1), "Found circular dependency"),
         ],
     );
 }
 
 #[test]
-fn detects_package_instance_circular_dependencies() {
+fn use_package_instance() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(
         "libname",
@@ -82,14 +82,14 @@ package pkg2 is new work.gpkg generic map(c => true);
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s1("work.pkg1.const"), "Found circular dependency"),
-            Diagnostic::error(code.s1("work.pkg2.const"), "Found circular dependency"),
+            Diagnostic::error(code.s("pkg1", 2), "Found circular dependency"),
+            Diagnostic::error(code.s1("pkg2"), "Found circular dependency"),
         ],
     );
 }
 
 #[test]
-fn detects_package_instance_circular_dependencies_in_declarative_region() {
+fn package_instance_in_declarative_region() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(
         "libname",
@@ -111,14 +111,14 @@ end package;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s1("work.pkg2.const"), "Found circular dependency"),
-            Diagnostic::error(code.s1("work.gpkg"), "Found circular dependency"),
+            Diagnostic::error(code.s1("pkg2"), "Found circular dependency"),
+            Diagnostic::error(code.s("gpkg", 2), "Found circular dependency"),
         ],
     );
 }
 
 #[test]
-fn detects_package_instance_circular_dependencies_in_interface() {
+fn package_instance_in_interface() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(
         "libname",
@@ -143,15 +143,15 @@ package pkg3 is new work.pkg2;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s1("work.pkg3.const"), "Found circular dependency"),
-            Diagnostic::error(code.s1("work.gpkg"), "Found circular dependency"),
-            Diagnostic::error(code.s1("work.pkg2"), "Found circular dependency"),
+            Diagnostic::error(code.s1("pkg3"), "Found circular dependency"),
+            Diagnostic::error(code.s("gpkg", 2), "Found circular dependency"),
+            Diagnostic::error(code.s("pkg2", 2), "Found circular dependency"),
         ],
     );
 }
 
 #[test]
-fn detects_package_circular_dependencies_all() {
+fn use_package_all() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(
         "libname",
@@ -172,14 +172,14 @@ end package;",
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s1("work.pkg1.all"), "Found circular dependency"),
-            Diagnostic::error(code.s1("work.pkg2.all"), "Found circular dependency"),
+            Diagnostic::error(code.s("pkg1", 2), "Found circular dependency"),
+            Diagnostic::error(code.s1("pkg2"), "Found circular dependency"),
         ],
     );
 }
 
 #[test]
-fn detects_package_instance_circular_dependencies_all() {
+fn use_package_instance_all() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(
         "libname",
@@ -203,16 +203,16 @@ package pkg2 is new work.gpkg generic map (g => true);
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s1("work.pkg1.all"), "Found circular dependency"),
-            Diagnostic::error(code.s1("work.pkg2.all"), "Found circular dependency"),
+            Diagnostic::error(code.s("pkg1", 2), "Found circular dependency"),
+            Diagnostic::error(code.s1("pkg2"), "Found circular dependency"),
         ],
     );
 }
 
 #[test]
-fn detects_circular_dependencies_only_when_used() {
+fn use_library_all() {
     let mut builder = LibraryBuilder::new();
-    builder.code(
+    let code = builder.code(
         "libname",
         "
 use work.all;
@@ -228,5 +228,11 @@ package pkg2 is
 end package;",
     );
     let diagnostics = builder.analyze();
-    check_no_diagnostics(&diagnostics);
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(code.s("pkg1", 2), "Found circular dependency"),
+            Diagnostic::error(code.s("work.all", 1), "Found circular dependency"),
+        ],
+    );
 }

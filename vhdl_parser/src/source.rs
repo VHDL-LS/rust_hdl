@@ -239,8 +239,6 @@ pub struct WithPos<T> {
 }
 
 impl<T> WithPos<T> {
-    // Avoid clone in production code
-    #[cfg(test)]
     pub fn new(item: T, pos: impl AsRef<SrcPos>) -> WithPos<T> {
         WithPos {
             item,

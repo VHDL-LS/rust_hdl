@@ -8,34 +8,6 @@
 ///! during analysis of packages where the dependency tree is not known
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-use crate::diagnostic::{Diagnostic, DiagnosticHandler};
-use crate::source::SrcPos;
-
-#[derive(Clone, Debug, Default)]
-#[cfg_attr(test, derive(PartialEq))]
-#[must_use]
-pub struct CircularDependencyError {
-    references: Vec<SrcPos>,
-}
-
-impl CircularDependencyError {
-    /// Return self to enforce #[must_use]
-    pub fn add_reference(mut self, location: &SrcPos) -> CircularDependencyError {
-        self.references.push(location.clone());
-        self
-    }
-
-    pub fn push_into(self, diagnostics: &mut dyn DiagnosticHandler) {
-        assert!(!self.references.is_empty());
-        for pos in self.references {
-            diagnostics.push(Diagnostic::error(
-                pos,
-                format!("Found circular dependency",),
-            ));
-        }
-    }
-}
-
 struct AnalysisState<T> {
     done: bool,
     data: T,
@@ -60,23 +32,11 @@ impl<T> AnalysisLock<T> {
 
     /// Get an immutable reference to the data if it is already been analyzed
     fn get(&self) -> Option<ReadGuard<T>> {
-        match self.data.try_read() {
-            Ok(guard) => {
-                if guard.done {
-                    Some(ReadGuard { guard })
-                } else {
-                    None
-                }
-            }
-            Err(std::sync::TryLockError::WouldBlock) => None,
-            Err(err) => panic!("{:?}", err),
-        }
-    }
-
-    /// Expect non-blocking read of data
-    pub fn expect_read(&self) -> ReadGuard<T> {
-        ReadGuard {
-            guard: self.data.try_read().expect("Expect non-blocking read"),
+        let guard = self.data.read().unwrap();
+        if guard.done {
+            Some(ReadGuard { guard })
+        } else {
+            None
         }
     }
 
@@ -91,21 +51,6 @@ impl<T> AnalysisLock<T> {
         let mut guard = self.data.try_write().unwrap();
         guard.done = false;
         reset_fun(&mut guard.data);
-    }
-
-    /// Get a mutable reference to the data if it has not already been analyzed
-    fn get_mut(&self) -> Result<Option<WriteGuard<T>>, CircularDependencyError> {
-        match self.data.try_write() {
-            Ok(guard) => {
-                if guard.done {
-                    Ok(None)
-                } else {
-                    Ok(Some(WriteGuard { guard }))
-                }
-            }
-            Err(std::sync::TryLockError::WouldBlock) => Err(CircularDependencyError::default()),
-            Err(err) => panic!("{:?}", err),
-        }
     }
 
     /// Get an immmutable reference to the data, assuming it has already been analyzed
@@ -123,22 +68,24 @@ impl<T> AnalysisLock<T> {
     /// - A mutable reference to the data if not analyzed
     /// - An immmutable reference to the data if already analyzed
     /// - A Circular dependency error if such is detected
-    pub fn entry(&self) -> Result<AnalysisEntry<T>, CircularDependencyError> {
+    pub fn entry(&self) -> AnalysisEntry<T> {
         if let Some(guard) = self.get() {
-            Ok(AnalysisEntry::Occupied(guard))
+            AnalysisEntry::Occupied(guard)
         } else {
-            match self.get_mut() {
-                // Not yet analyzed and not locked
-                Ok(Some(guard)) => Ok(AnalysisEntry::Vacant(guard)),
-                // Just became analyzed, get a read lock
-                Ok(None) => {
-                    let guard = ReadGuard {
-                        guard: self.data.read().unwrap(),
-                    };
-                    Ok(AnalysisEntry::Occupied(guard))
-                }
-                // Circular dependency
-                Err(err) => Err(err),
+            let guard = self.data.write().unwrap();
+
+            if guard.done {
+                // Already analyzed, convert to read lock
+                // @TODO investigate parking_lot which supports atomic downgrade
+                drop(guard); // Drop before taking read lock to avoid deadlock
+                let guard = ReadGuard {
+                    guard: self.data.read().unwrap(),
+                };
+
+                AnalysisEntry::Occupied(guard)
+            } else {
+                let guard = WriteGuard { guard };
+                AnalysisEntry::Vacant(guard)
             }
         }
     }
@@ -194,47 +141,18 @@ mod tests {
         let lock = AnalysisLock::new(1);
 
         match lock.entry() {
-            Ok(AnalysisEntry::Vacant(mut entry)) => {
+            AnalysisEntry::Vacant(mut entry) => {
                 *entry = 2;
             }
             _ => panic!("Expected Vacant entry"),
         };
 
         match lock.entry() {
-            Ok(AnalysisEntry::Occupied(entry)) => {
+            AnalysisEntry::Occupied(entry) => {
                 assert_eq!(*entry, 2);
             }
             _ => panic!("Expected Occupied entry"),
         };
-
-        assert_eq!(*lock.get().unwrap(), 2);
-    }
-
-    #[test]
-    fn circular_dependencies_are_detected() {
-        let data = 1;
-        let lock = AnalysisLock::new(data);
-
-        let entry1 = lock.entry();
-        let entry2 = lock.entry();
-
-        match entry1 {
-            Ok(AnalysisEntry::Vacant(mut entry)) => {
-                *entry = 2;
-            }
-            _ => {
-                panic!("Expected Vacant entry");
-            }
-        }
-
-        match entry2 {
-            Err(err) => {
-                assert_eq!(err, CircularDependencyError::default());
-            }
-            _ => {
-                panic!("Expected Circular dependency error");
-            }
-        }
 
         assert_eq!(*lock.get().unwrap(), 2);
     }

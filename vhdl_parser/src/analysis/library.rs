@@ -10,7 +10,7 @@ use std::collections::hash_map::Entry;
 use super::declarative_region::{AnyDeclaration, DeclarativeRegion, VisibleDeclaration};
 use super::lock::AnalysisLock;
 use super::lock::{AnalysisEntry, ReadGuard};
-use super::semantic::{Analyzer, FatalResult};
+use super::semantic::{Analysis, Analyzer, FatalNullResult, FatalResult};
 use crate::ast::search::*;
 use crate::ast::*;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
@@ -23,17 +23,13 @@ use std::sync::{Arc, RwLock};
 #[cfg_attr(test, derive(Clone))]
 pub struct AnalysisData<T> {
     pub diagnostics: Vec<Diagnostic>,
-    pub region: DeclarativeRegion<'static>,
+    pub region: Arc<DeclarativeRegion<'static>>,
+    pub has_circular_dependency: bool,
     pub ast: T,
 }
 
 pub type EntityData = AnalysisData<EntityDeclaration>;
-pub type ArchitectureData = AnalysisData<ArchitectureBody>;
-pub type ConfigurationData = AnalysisData<ConfigurationDeclaration>;
-pub type ContextData = AnalysisData<ContextDeclaration>;
 pub type PackageData = AnalysisData<PackageDeclaration>;
-pub type PackageBodyData = AnalysisData<crate::ast::PackageBody>;
-pub type PackageInstanceData = AnalysisData<PackageInstantiation>;
 
 type Entity = PrimaryUnit<EntityDeclaration>;
 type Architecture = SecondaryUnit<ArchitectureBody>;
@@ -47,6 +43,16 @@ type PackageInstance = PrimaryUnit<PackageInstantiation>;
 enum UnitId {
     Primary(PrimaryKind, Symbol),
     Secondary(SecondaryKind, Symbol, Symbol),
+}
+
+trait HasUnitId {
+    fn unit_id(&self) -> UnitId;
+}
+
+impl<T: HasUnitId> HasUnitId for AnalysisData<T> {
+    fn unit_id(&self) -> UnitId {
+        self.ast.unit_id()
+    }
 }
 
 /// Without Kind to get name conflict between different primary units
@@ -255,7 +261,8 @@ impl<T> AnalysisData<T> {
     fn new(ast: T) -> AnalysisData<T> {
         AnalysisData {
             diagnostics: Vec::new(),
-            region: DeclarativeRegion::default(),
+            region: Arc::new(DeclarativeRegion::default()),
+            has_circular_dependency: false,
             ast,
         }
     }
@@ -263,8 +270,9 @@ impl<T> AnalysisData<T> {
     /// Clear data for new analysis, keeping ast
     fn reset(&mut self) {
         // Clear region and diagnostics
-        self.region = DeclarativeRegion::default();
+        self.region = Arc::new(DeclarativeRegion::default());
         self.diagnostics = Vec::new();
+        self.has_circular_dependency = false;
         // Keep ast
     }
 }
@@ -288,7 +296,7 @@ struct PrimaryUnit<T> {
     pub data: LockedData<T>,
 }
 
-impl<T> PrimaryUnit<T> {
+impl<T> HasUnitId for PrimaryUnit<T> {
     fn unit_id(&self) -> UnitId {
         UnitId::Primary(self.kind, self.name().clone())
     }
@@ -317,7 +325,7 @@ struct SecondaryUnit<T> {
     pub data: LockedData<T>,
 }
 
-impl<T> SecondaryUnit<T> {
+impl<T> HasUnitId for SecondaryUnit<T> {
     fn unit_id(&self) -> UnitId {
         UnitId::Secondary(self.kind, self.primary_name().clone(), self.name().clone())
     }
@@ -346,27 +354,49 @@ impl<T> HasPrimaryIdent for SecondaryUnit<T> {
     }
 }
 
-impl AnyLocked {
+impl HasUnitId for AnyLocked {
     fn unit_id(&self) -> UnitId {
         delegate_any_shallow!(self, unit, unit.unit_id())
     }
 }
 
-impl AnyLockedPrimary {
+impl HasUnitId for AnyLockedPrimary {
     fn unit_id(&self) -> UnitId {
         delegate_primary!(self, unit, unit.unit_id())
     }
 }
 
-impl AnyLockedSecondary {
+impl HasUnitId for AnyLockedSecondary {
     fn unit_id(&self) -> UnitId {
         delegate_secondary!(self, unit, unit.unit_id())
     }
 }
 
+#[derive(Clone, Debug)]
+#[must_use]
+pub struct CircularDependencyError {
+    reference: Option<SrcPos>,
+}
+
+impl CircularDependencyError {
+    pub fn new(reference: Option<&SrcPos>) -> CircularDependencyError {
+        CircularDependencyError {
+            reference: reference.cloned(),
+        }
+    }
+
+    pub fn push_into(self, diagnostics: &mut dyn DiagnosticHandler) {
+        if let Some(pos) = self.reference {
+            diagnostics.push(Diagnostic::error(
+                pos,
+                format!("Found circular dependency",),
+            ));
+        }
+    }
+}
+
 struct Library {
     name: Symbol,
-    region: DeclarativeRegion<'static>,
     units: FnvHashMap<UnitKey, AnyLocked>,
     units_by_source: FnvHashMap<Source, FnvHashSet<UnitId>>,
 
@@ -384,7 +414,6 @@ impl<'a> Library {
     fn new(name: Symbol) -> Library {
         Library {
             name,
-            region: DeclarativeRegion::default(),
             units: FnvHashMap::default(),
             units_by_source: FnvHashMap::default(),
             added: FnvHashSet::default(),
@@ -430,7 +459,6 @@ impl<'a> Library {
     /// Refresh library after removing or adding new design units
     fn refresh(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
         self.append_duplicate_diagnostics(diagnostics);
-        self.rebuild_region();
     }
 
     fn append_duplicate_diagnostics(&self, diagnostics: &mut dyn DiagnosticHandler) {
@@ -463,70 +491,6 @@ impl<'a> Library {
             let diagnostic = diagnostic.related(prev_pos, "Previously defined here");
             diagnostics.push(diagnostic);
         }
-    }
-
-    fn rebuild_region(&mut self) {
-        let mut diagnostics = Vec::new();
-        self.region = DeclarativeRegion::default();
-
-        for unit in self.units.values() {
-            let unit_id = unit.unit_id().in_library(&self.name);
-
-            match unit {
-                AnyLocked::Primary(unit) => match unit {
-                    AnyLockedPrimary::Entity(ent) => {
-                        self.region.add(
-                            ent.ident(),
-                            AnyDeclaration::Entity(unit_id),
-                            &mut diagnostics,
-                        );
-                    }
-                    AnyLockedPrimary::Configuration(config) => {
-                        self.region.add(
-                            config.ident(),
-                            AnyDeclaration::Configuration(unit_id),
-                            &mut diagnostics,
-                        );
-                    }
-                    AnyLockedPrimary::Package(pkg) => {
-                        if pkg.data.expect_read().ast.generic_clause.is_some() {
-                            self.region.add(
-                                pkg.ident(),
-                                AnyDeclaration::UninstPackage(unit_id),
-                                &mut diagnostics,
-                            );
-                        } else {
-                            self.region.add(
-                                pkg.ident(),
-                                AnyDeclaration::Package(unit_id),
-                                &mut diagnostics,
-                            );
-                        }
-                    }
-                    AnyLockedPrimary::Context(ctx) => {
-                        self.region.add(
-                            ctx.ident(),
-                            AnyDeclaration::Context(unit_id),
-                            &mut diagnostics,
-                        );
-                    }
-                    AnyLockedPrimary::PackageInstance(pkg) => {
-                        self.region.add(
-                            pkg.ident(),
-                            AnyDeclaration::PackageInstance(unit_id),
-                            &mut diagnostics,
-                        );
-                    }
-                },
-                AnyLocked::Secondary(_) => {}
-            }
-        }
-
-        assert_eq!(
-            diagnostics,
-            vec![],
-            "Expect no diagnostics when building library region"
-        );
     }
 
     /// Remove all design units defined in source
@@ -582,35 +546,10 @@ impl<'a> Library {
         self.package(name).expect("Package must exist")
     }
 
-    fn package_instance(&'a self, name: &Symbol) -> Option<&'a PackageInstance> {
-        if let Some(AnyLocked::Primary(AnyLockedPrimary::PackageInstance(ref unit))) =
-            self.units.get(&UnitKey::Primary(name.clone()))
-        {
-            Some(unit)
-        } else {
-            None
-        }
-    }
-
-    fn expect_package_instance(&'a self, name: &Symbol) -> &'a PackageInstance {
-        self.package_instance(name)
-            .expect("Package instance must exist")
-    }
-
     fn package_body(&'a self, name: &Symbol) -> Option<&'a PackageBody> {
         if let Some(AnyLocked::Secondary(AnyLockedSecondary::PackageBody(ref unit))) = self
             .units
             .get(&UnitKey::Secondary(name.clone(), name.clone()))
-        {
-            Some(unit)
-        } else {
-            None
-        }
-    }
-
-    fn context(&'a self, name: &Symbol) -> Option<&'a Context> {
-        if let Some(AnyLocked::Primary(AnyLockedPrimary::Context(ref unit))) =
-            self.units.get(&UnitKey::Primary(name.clone()))
         {
             Some(unit)
         } else {
@@ -638,20 +577,6 @@ impl<'a> Library {
             result.append(&mut unit_ids);
         }
         result
-    }
-}
-
-fn add_diagnostics<T>(
-    diagnostics: &mut dyn DiagnosticHandler,
-    data: FatalResult<ReadGuard<AnalysisData<T>>>,
-) {
-    match data {
-        Ok(data) => {
-            diagnostics.append(data.diagnostics.clone());
-        }
-        Err(fatal_err) => {
-            fatal_err.push_into(diagnostics);
-        }
     }
 }
 
@@ -730,146 +655,37 @@ impl DesignRoot {
         FindAllReferences::search(self, decl_pos)
     }
 
-    fn get_package_instance_analysis<'a>(
+    fn get_analysis<'a, T: Analysis>(
         &self,
         library: &Library,
-        instance: &'a PackageInstance,
-    ) -> FatalResult<ReadGuard<'a, PackageInstanceData>> {
-        match instance.data.entry()? {
-            AnalysisEntry::Vacant(mut instance_data) => {
+        unit_id: &UnitId,
+        lock: &'a AnalysisLock<AnalysisData<T>>,
+    ) -> ReadGuard<'a, AnalysisData<T>> {
+        match lock.entry() {
+            AnalysisEntry::Vacant(mut data) => {
                 let analyzer = Analyzer::new(
-                    DependencyRecorder::new(self, instance.unit_id().in_library(&library.name)),
+                    DependencyRecorder::new(self, unit_id.in_library(&library.name)),
                     library.name().clone(),
                     self.symtab.clone(),
                 );
-                analyzer.analyze_package_instance(&mut instance_data)?;
-                drop(instance_data);
-                Ok(instance.data.expect_analyzed())
-            }
-            AnalysisEntry::Occupied(instance_data) => Ok(instance_data),
-        }
-    }
 
-    fn get_configuration_analysis<'a>(
-        &self,
-        library: &Library,
-        config: &'a Configuration,
-    ) -> FatalResult<ReadGuard<'a, ConfigurationData>> {
-        match config.data.entry()? {
-            AnalysisEntry::Vacant(mut config_data) => {
-                let analyzer = Analyzer::new(
-                    DependencyRecorder::new(self, config.unit_id().in_library(&library.name)),
-                    library.name().clone(),
-                    self.symtab.clone(),
-                );
-                analyzer.analyze_configuration(&mut config_data)?;
-                drop(config_data);
-                Ok(config.data.expect_analyzed())
-            }
-            AnalysisEntry::Occupied(config_data) => Ok(config_data),
-        }
-    }
+                let AnalysisData {
+                    ref mut ast,
+                    ref mut has_circular_dependency,
+                    ref mut diagnostics,
+                    ..
+                } = *data;
 
-    fn get_package_declaration_analysis<'a>(
-        &self,
-        library: &Library,
-        package: &'a Package,
-    ) -> FatalResult<ReadGuard<'a, PackageData>> {
-        match package.data.entry()? {
-            AnalysisEntry::Vacant(mut package_data) => {
-                let analyzer = Analyzer::new(
-                    DependencyRecorder::new(self, package.unit_id().in_library(&library.name)),
-                    library.name().clone(),
-                    self.symtab.clone(),
-                );
-                analyzer.analyze_package_declaration(
-                    library.package_body(package_data.ast.name()).is_some(),
-                    &mut package_data,
-                )?;
-                drop(package_data);
-                Ok(package.data.expect_analyzed())
+                let mut region = DeclarativeRegion::default();
+                if let Err(err) = ast.analyze(&analyzer, &mut region, diagnostics) {
+                    *has_circular_dependency = true;
+                    err.push_into(diagnostics);
+                }
+                data.region = Arc::new(region);
+                drop(data);
+                lock.expect_analyzed()
             }
-            AnalysisEntry::Occupied(package) => Ok(package),
-        }
-    }
-
-    fn get_package_body_analysis<'a>(
-        &self,
-        library: &Library,
-        body: &'a PackageBody,
-    ) -> FatalResult<ReadGuard<'a, PackageBodyData>> {
-        match body.data.entry()? {
-            AnalysisEntry::Vacant(mut body_data) => {
-                let analyzer = Analyzer::new(
-                    DependencyRecorder::new(self, body.unit_id().in_library(&library.name)),
-                    library.name().clone(),
-                    self.symtab.clone(),
-                );
-                analyzer.analyze_package_body_unit(&mut body_data)?;
-                drop(body_data);
-                Ok(body.data.expect_analyzed())
-            }
-            AnalysisEntry::Occupied(body_data) => Ok(body_data),
-        }
-    }
-
-    fn get_architecture_analysis<'a>(
-        &self,
-        library: &Library,
-        arch: &'a Architecture,
-    ) -> FatalResult<ReadGuard<'a, ArchitectureData>> {
-        match arch.data.entry()? {
-            AnalysisEntry::Vacant(mut arch_data) => {
-                let analyzer = Analyzer::new(
-                    DependencyRecorder::new(self, arch.unit_id().in_library(&library.name)),
-                    library.name().clone(),
-                    self.symtab.clone(),
-                );
-                analyzer.analyze_architecture(&mut arch_data)?;
-                drop(arch_data);
-                Ok(arch.data.expect_analyzed())
-            }
-            AnalysisEntry::Occupied(arch_data) => Ok(arch_data),
-        }
-    }
-
-    fn get_entity_declaration_analysis<'a>(
-        &self,
-        library: &Library,
-        entity: &'a Entity,
-    ) -> FatalResult<ReadGuard<'a, EntityData>> {
-        match entity.data.entry()? {
-            AnalysisEntry::Vacant(mut entity_data) => {
-                let analyzer = Analyzer::new(
-                    DependencyRecorder::new(self, entity.unit_id().in_library(&library.name)),
-                    library.name().clone(),
-                    self.symtab.clone(),
-                );
-                analyzer.analyze_entity_declaration(&mut entity_data)?;
-                drop(entity_data);
-                Ok(entity.data.expect_analyzed())
-            }
-            AnalysisEntry::Occupied(entity_data) => Ok(entity_data),
-        }
-    }
-
-    fn get_context_analysis<'a>(
-        &self,
-        library: &Library,
-        context: &'a Context,
-    ) -> FatalResult<ReadGuard<'a, ContextData>> {
-        match context.data.entry()? {
-            AnalysisEntry::Vacant(mut context_data) => {
-                let analyzer = Analyzer::new(
-                    DependencyRecorder::new(self, context.unit_id().in_library(&library.name)),
-                    library.name().clone(),
-                    self.symtab.clone(),
-                );
-                analyzer.analyze_context(&mut context_data)?;
-                drop(context_data);
-                Ok(context.data.expect_analyzed())
-            }
-            AnalysisEntry::Occupied(context_data) => Ok(context_data),
+            AnalysisEntry::Occupied(data) => data,
         }
     }
 
@@ -879,72 +695,10 @@ impl DesignRoot {
         unit: &AnyLocked,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
-        match unit {
-            AnyLocked::Primary(unit) => match unit {
-                AnyLockedPrimary::Entity(entity) => {
-                    add_diagnostics(
-                        diagnostics,
-                        self.get_entity_declaration_analysis(library, entity),
-                    );
-                }
-                AnyLockedPrimary::Configuration(config) => {
-                    add_diagnostics(
-                        diagnostics,
-                        self.get_configuration_analysis(library, config),
-                    );
-                }
-                AnyLockedPrimary::Package(package) => {
-                    add_diagnostics(
-                        diagnostics,
-                        self.get_package_declaration_analysis(library, package),
-                    );
-                }
-                AnyLockedPrimary::PackageInstance(instance) => {
-                    add_diagnostics(
-                        diagnostics,
-                        self.get_package_instance_analysis(library, instance),
-                    );
-                }
-                AnyLockedPrimary::Context(context) => {
-                    add_diagnostics(diagnostics, self.get_context_analysis(library, context));
-                }
-            },
-            AnyLocked::Secondary(unit) => match unit {
-                AnyLockedSecondary::Architecture(arch) => {
-                    add_diagnostics(diagnostics, self.get_architecture_analysis(library, arch));
-                }
-                AnyLockedSecondary::PackageBody(body) => {
-                    add_diagnostics(diagnostics, self.get_package_body_analysis(library, body));
-                }
-            },
-        }
-    }
-
-    fn get_all_affected(
-        &self,
-        mut affected: FnvHashSet<LibraryUnitId>,
-    ) -> FnvHashSet<LibraryUnitId> {
-        let mut all_affected = FnvHashSet::default();
-        let users_of = self.users_of.read().unwrap();
-
-        while !affected.is_empty() {
-            let mut next_affected = FnvHashSet::default();
-
-            for user in affected.drain() {
-                all_affected.insert(user.clone());
-
-                if let Some(users) = users_of.get(&user) {
-                    for new_user in users.iter() {
-                        if all_affected.insert(new_user.clone()) {
-                            next_affected.insert(new_user.clone());
-                        }
-                    }
-                }
-            }
-
-            affected = next_affected;
-        }
-        all_affected
+        delegate_any!(unit, unit, {
+            let data = self.get_analysis(library, &unit.unit_id(), &unit.data);
+            diagnostics.append(data.diagnostics.clone());
+        });
     }
 
     fn get_unit<'a>(&'a self, unit_id: &LibraryUnitId) -> Option<&'a AnyLocked> {
@@ -1018,10 +772,10 @@ impl DesignRoot {
             }
         }
 
+        self.reset_affected(get_all_affected(&users_of, affected));
         drop(users_of);
         drop(users_of_library_all);
         drop(missing_primary);
-        self.reset_affected(self.get_all_affected(affected));
 
         let mut users_of = self.users_of.write().unwrap();
         let mut users_of_library_all = self.users_of_library_all.write().unwrap();
@@ -1059,6 +813,31 @@ impl DesignRoot {
             }
         }
     }
+}
+
+fn get_all_affected(
+    users_of: &FnvHashMap<LibraryUnitId, FnvHashSet<LibraryUnitId>>,
+    mut affected: FnvHashSet<LibraryUnitId>,
+) -> FnvHashSet<LibraryUnitId> {
+    let mut all_affected = FnvHashSet::default();
+    let mut next_affected = FnvHashSet::default();
+
+    while !affected.is_empty() {
+        for user in affected.drain() {
+            all_affected.insert(user.clone());
+
+            if let Some(users) = users_of.get(&user) {
+                for new_user in users.iter() {
+                    if all_affected.insert(new_user.clone()) {
+                        next_affected.insert(new_user.clone());
+                    }
+                }
+            }
+        }
+
+        affected = std::mem::replace(&mut next_affected, affected);
+    }
+    all_affected
 }
 
 impl Search for DesignRoot {
@@ -1118,135 +897,11 @@ impl<'a> DependencyRecorder<'a> {
         }
     }
 
-    pub fn use_all_in_library(&self, library_name: &Symbol, region: &mut DeclarativeRegion<'_>) {
-        let library = self.root.expect_library(library_name);
-        region.make_all_potentially_visible(&library.region);
-
-        self.uses_library_all
-            .borrow_mut()
-            .insert(library_name.clone());
-    }
-
-    pub fn has_library(&self, library_name: &Symbol) -> bool {
-        self.root.get_library(library_name).is_some()
-    }
-
-    fn make_use_of(&self, unit_id: LibraryUnitId) {
-        self.uses.borrow_mut().insert(unit_id);
-    }
-
-    pub fn lookup_in_library(
-        &self,
-        library_name: &Symbol,
-        designator: &Designator,
-    ) -> Option<&VisibleDeclaration> {
-        if let Some(decl) = self
-            .root
-            .expect_library(library_name)
-            .region
-            .lookup(designator, false)
-        {
-            // @TODO libary does not need region, we can build it on the fly
-            let unit_id = match decl.first() {
-                AnyDeclaration::Entity(unit_id) => unit_id,
-                AnyDeclaration::Configuration(unit_id) => unit_id,
-                AnyDeclaration::Package(unit_id) => unit_id,
-                AnyDeclaration::UninstPackage(unit_id) => unit_id,
-                AnyDeclaration::PackageInstance(unit_id) => unit_id,
-                AnyDeclaration::Context(unit_id) => unit_id,
-                _ => panic!("Library may only design units"),
-            };
-
-            self.make_use_of(unit_id.clone());
-            Some(decl)
-        } else {
-            if let Designator::Identifier(sym) = designator {
-                self.missing_primary
-                    .borrow_mut()
-                    .insert((library_name.clone(), sym.clone()));
-            }
-            None
-        }
-    }
-
-    pub fn expect_package_instance_analysis(
-        &self,
-        unit_id: &LibraryUnitId,
-    ) -> FatalResult<ReadGuard<'a, PackageInstanceData>> {
-        let library = self.root.expect_library(&unit_id.library);
-        let instance = library.expect_package_instance(unit_id.primary_name());
-        self.make_use_of(unit_id.clone());
-        self.root.get_package_instance_analysis(library, instance)
-    }
-
-    pub fn expect_package_declaration_analysis(
-        &self,
-        unit_id: &LibraryUnitId,
-    ) -> FatalResult<ReadGuard<'a, PackageData>> {
-        let library = self.root.expect_library(&unit_id.library);
-        let package = library.expect_package(unit_id.primary_name());
-        self.make_use_of(unit_id.clone());
-        self.root.get_package_declaration_analysis(library, package)
-    }
-
-    pub fn get_package_declaration_analysis(
-        &self,
-        unit_id: &LibraryUnitId,
-    ) -> Option<FatalResult<ReadGuard<'a, PackageData>>> {
-        self.make_use_of(unit_id.clone());
-        self.root
-            .libraries
-            .get(unit_id.library_name())
-            .and_then(|library| {
-                library
-                    .package(unit_id.primary_name())
-                    .map(|package| self.root.get_package_declaration_analysis(library, package))
-            })
-    }
-
-    pub fn expect_entity_declaration_analysis(
-        &self,
-        unit_id: &LibraryUnitId,
-    ) -> FatalResult<ReadGuard<'a, EntityData>> {
-        let library = self.root.expect_library(&unit_id.library);
-        let entity = library.entity(unit_id.primary_name()).unwrap();
-        self.make_use_of(unit_id.clone());
-        self.root.get_entity_declaration_analysis(library, entity)
-    }
-
-    pub fn get_entity_declaration_analysis(
-        &self,
-        unit_id: &LibraryUnitId,
-    ) -> Option<FatalResult<ReadGuard<'a, EntityData>>> {
-        self.make_use_of(unit_id.clone());
-        self.root
-            .libraries
-            .get(unit_id.library_name())
-            .and_then(|library| {
-                library
-                    .entity(unit_id.primary_name())
-                    .map(|entity| self.root.get_entity_declaration_analysis(library, entity))
-            })
-    }
-
-    pub fn expect_context_analysis(
-        &self,
-        unit_id: &LibraryUnitId,
-    ) -> FatalResult<ReadGuard<'a, ContextData>> {
-        let library = self.root.expect_library(&unit_id.library);
-        let context = library.context(unit_id.primary_name()).unwrap();
-        self.make_use_of(unit_id.clone());
-        self.root.get_context_analysis(library, context)
-    }
-}
-
-impl<'a> Drop for DependencyRecorder<'a> {
-    fn drop(&mut self) {
-        let mut users_of = self.root.users_of.write().unwrap();
-        let mut users_of_library_all = self.root.users_of_library_all.write().unwrap();
-
-        for source in self.uses.borrow_mut().drain() {
-            match users_of.entry(source.clone()) {
+    fn make_use_of(&self, use_pos: Option<&SrcPos>, unit_id: &LibraryUnitId) -> FatalNullResult {
+        // Check local cache before taking lock
+        if self.uses.borrow_mut().insert(unit_id.clone()) {
+            let mut users_of = self.root.users_of.write().unwrap();
+            match users_of.entry(unit_id.clone()) {
                 Entry::Occupied(mut entry) => {
                     entry.get_mut().insert(self.user.clone());
                 }
@@ -1256,9 +911,27 @@ impl<'a> Drop for DependencyRecorder<'a> {
                     entry.insert(set);
                 }
             }
+
+            let mut affected = FnvHashSet::default();
+            affected.insert(self.user.clone());
+            let all_affected = get_all_affected(&users_of, affected);
+            if all_affected.contains(unit_id) {
+                return Err(CircularDependencyError::new(use_pos));
+            }
         }
 
-        for library_name in self.uses_library_all.borrow_mut().drain() {
+        Ok(())
+    }
+
+    fn make_use_of_library_all(&self, library_name: &Symbol) {
+        let mut users_of_library_all = self.root.users_of_library_all.write().unwrap();
+
+        // Check local cache before taking lock
+        if self
+            .uses_library_all
+            .borrow_mut()
+            .insert(library_name.clone())
+        {
             match users_of_library_all.entry(library_name.clone()) {
                 Entry::Occupied(mut entry) => {
                     entry.get_mut().insert(self.user.clone());
@@ -1270,9 +943,14 @@ impl<'a> Drop for DependencyRecorder<'a> {
                 }
             }
         }
+    }
 
-        let mut missing_primary = self.root.missing_primary.write().unwrap();
-        for key in self.missing_primary.borrow_mut().drain() {
+    fn make_use_of_missing_primary(&self, library_name: &Symbol, primary_name: &Symbol) {
+        let key = (library_name.clone(), primary_name.clone());
+
+        // Check local cache before taking lock
+        if self.missing_primary.borrow_mut().insert(key.clone()) {
+            let mut missing_primary = self.root.missing_primary.write().unwrap();
             match missing_primary.entry(key) {
                 Entry::Occupied(mut entry) => {
                     entry.get_mut().insert(self.user.clone());
@@ -1284,6 +962,208 @@ impl<'a> Drop for DependencyRecorder<'a> {
                 }
             }
         }
+    }
+
+    pub fn use_all_in_library(
+        &self,
+        use_pos: &SrcPos,
+        library_name: &Symbol,
+        region: &mut DeclarativeRegion<'_>,
+    ) -> FatalNullResult {
+        let library = self.root.expect_library(library_name);
+
+        for unit in library.units.values() {
+            match unit {
+                AnyLocked::Primary(unit) => {
+                    region.make_potentially_visible(self.create_primary_unit_decl(
+                        Some(use_pos),
+                        library,
+                        unit,
+                    )?);
+                }
+                AnyLocked::Secondary(..) => {}
+            }
+        }
+
+        self.make_use_of_library_all(library_name);
+        Ok(())
+    }
+
+    pub fn has_library(&self, library_name: &Symbol) -> bool {
+        self.root.get_library(library_name).is_some()
+    }
+
+    pub fn has_package_body(&self, library_name: &Symbol, package_name: &Symbol) -> bool {
+        self.root
+            .get_library(library_name)
+            .and_then(|library| library.package_body(package_name))
+            .is_some()
+    }
+
+    fn create_primary_unit_decl(
+        &self,
+        use_pos: Option<&SrcPos>,
+        library: &Library,
+        unit: &AnyLockedPrimary,
+    ) -> FatalResult<VisibleDeclaration> {
+        // @TODO add PrimaryUnit Declaration struct
+
+        let unit_id = unit.unit_id().in_library(library.name());
+        self.make_use_of(use_pos, &unit_id)?;
+
+        let decl_data = match unit {
+            AnyLockedPrimary::Entity(unit) => {
+                let data = change_circular_reference(
+                    use_pos,
+                    self.root.get_analysis(library, &unit.unit_id(), &unit.data),
+                )?;
+
+                AnyDeclaration::Entity(unit_id, data.region.clone())
+            }
+            AnyLockedPrimary::Configuration(unit) => {
+                let data = change_circular_reference(
+                    use_pos,
+                    self.root.get_analysis(library, &unit.unit_id(), &unit.data),
+                )?;
+
+                AnyDeclaration::Configuration(unit_id, data.region.clone())
+            }
+            AnyLockedPrimary::Package(unit) => {
+                let data = change_circular_reference(
+                    use_pos,
+                    self.root.get_analysis(library, &unit.unit_id(), &unit.data),
+                )?;
+
+                if data.ast.generic_clause.is_some() {
+                    AnyDeclaration::UninstPackage(unit_id, data.region.clone())
+                } else {
+                    AnyDeclaration::Package(unit_id, data.region.clone())
+                }
+            }
+            AnyLockedPrimary::PackageInstance(unit) => {
+                let data = change_circular_reference(
+                    use_pos,
+                    self.root.get_analysis(library, &unit.unit_id(), &unit.data),
+                )?;
+
+                AnyDeclaration::PackageInstance(unit_id, data.region.clone())
+            }
+            AnyLockedPrimary::Context(unit) => {
+                let data = change_circular_reference(
+                    use_pos,
+                    self.root.get_analysis(library, &unit.unit_id(), &unit.data),
+                )?;
+
+                AnyDeclaration::Context(unit_id, data.region.clone())
+            }
+        };
+
+        let designator = WithPos::new(Designator::Identifier(unit.name().clone()), unit.pos());
+        Ok(VisibleDeclaration::new(designator, decl_data))
+    }
+
+    pub fn lookup_in_library(
+        &self,
+        use_pos: Option<&SrcPos>,
+        library_name: &Symbol,
+        primary_name: &Symbol,
+    ) -> FatalResult<Option<VisibleDeclaration>> {
+        let library = self.root.expect_library(library_name);
+
+        if let Some(unit) = library.units.get(&UnitKey::Primary(primary_name.clone())) {
+            match unit {
+                AnyLocked::Primary(unit) => {
+                    Ok(Some(self.create_primary_unit_decl(use_pos, library, unit)?))
+                }
+                AnyLocked::Secondary(..) => {
+                    unreachable!();
+                }
+            }
+        } else {
+            self.make_use_of_missing_primary(library_name, primary_name);
+            Ok(None)
+        }
+    }
+
+    pub fn expect_package_declaration_analysis(
+        &self,
+        use_pos: Option<&SrcPos>,
+        unit_id: &LibraryUnitId,
+    ) -> FatalResult<ReadGuard<'a, PackageData>> {
+        let library = self.root.expect_library(&unit_id.library);
+        let package = library.expect_package(unit_id.primary_name());
+        self.make_use_of(use_pos, unit_id)?;
+        change_circular_reference(
+            use_pos,
+            self.root
+                .get_analysis(library, &package.unit_id(), &package.data),
+        )
+    }
+
+    pub fn get_package_declaration_analysis(
+        &self,
+        use_pos: Option<&SrcPos>,
+        unit_id: &LibraryUnitId,
+    ) -> Option<FatalResult<ReadGuard<'a, PackageData>>> {
+        let result = self
+            .root
+            .libraries
+            .get(unit_id.library_name())
+            .and_then(|library| {
+                library.package(unit_id.primary_name()).map(|package| {
+                    self.make_use_of(use_pos, unit_id)?;
+                    change_circular_reference(
+                        use_pos,
+                        self.root
+                            .get_analysis(library, &package.unit_id(), &package.data),
+                    )
+                })
+            });
+
+        if result.is_none() {
+            self.make_use_of_missing_primary(unit_id.library_name(), unit_id.primary_name());
+        }
+
+        result
+    }
+
+    pub fn get_entity_declaration_analysis(
+        &self,
+        use_pos: Option<&SrcPos>,
+        unit_id: &LibraryUnitId,
+    ) -> Option<FatalResult<ReadGuard<'a, EntityData>>> {
+        let result = self
+            .root
+            .libraries
+            .get(unit_id.library_name())
+            .and_then(|library| {
+                library.entity(unit_id.primary_name()).map(|entity| {
+                    self.make_use_of(use_pos, unit_id)?;
+                    change_circular_reference(
+                        use_pos,
+                        self.root
+                            .get_analysis(library, &entity.unit_id(), &entity.data),
+                    )
+                })
+            });
+
+        if result.is_none() {
+            self.make_use_of_missing_primary(unit_id.library_name(), unit_id.primary_name());
+        }
+        result
+    }
+}
+
+/// Change circular dependency reference when used by another unit during analysis
+/// The error is changed from within the used unit into the position of the use of the unit
+fn change_circular_reference<'a, T>(
+    use_pos: Option<&SrcPos>,
+    data: ReadGuard<'a, AnalysisData<T>>,
+) -> FatalResult<ReadGuard<'a, AnalysisData<T>>> {
+    if data.has_circular_dependency {
+        Err(CircularDependencyError::new(use_pos))
+    } else {
+        Ok(data)
     }
 }
 
