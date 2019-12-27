@@ -12,6 +12,7 @@ use self::fnv::FnvHashMap;
 use self::toml::Value;
 use crate::data::*;
 use fnv;
+use std::env;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
@@ -191,6 +192,32 @@ impl Config {
         }
     }
 
+    /// Load configuration file from installation folder
+    fn load_installed_config(&mut self, messages: &mut dyn MessageHandler) {
+        let config_relative_path = if cfg!(feature = "packaged") {
+            // relative to packaged bin folder
+            "../vhdl_libraries"
+        } else {
+            // relative to target/debug or target/release
+            "../../vhdl_libraries"
+        };
+
+        let exe_path = env::current_exe().expect("Executable path needed");
+        let exe_folder = exe_path.parent().expect("Executable folder must exist");
+
+        let mut file_name = exe_folder.join(config_relative_path);
+        file_name.push("vhdl_ls.toml");
+
+        if !file_name.exists() {
+            panic!(
+                "Couldn't find installed libraries at {}.",
+                file_name.to_string_lossy()
+            );
+        }
+
+        self.load_config(&file_name, "Installation", messages);
+    }
+
     /// Load configuration file from home folder
     fn load_home_config(&mut self, messages: &mut dyn MessageHandler) {
         if let Some(home_dir) = dirs::home_dir() {
@@ -234,6 +261,7 @@ impl Config {
 
     /// Load all external configuration
     pub fn load_external_config(&mut self, messages: &mut dyn MessageHandler) {
+        self.load_installed_config(messages);
         self.load_home_config(messages);
         self.load_env_config("VHDL_LS_CONFIG", messages);
     }

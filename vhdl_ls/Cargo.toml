@@ -26,3 +26,7 @@ env_logger = "0.6.0"
 [dev-dependencies]
 tempfile = "^3"
 pretty_assertions = "^0"
+
+[features]
+default = []
+packaged = ["vhdl_parser/packaged"]
