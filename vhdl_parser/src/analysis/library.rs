@@ -689,18 +689,6 @@ impl DesignRoot {
         }
     }
 
-    fn analyze_unit(
-        &self,
-        library: &Library,
-        unit: &AnyLocked,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) {
-        delegate_any!(unit, unit, {
-            let data = self.get_analysis(library, &unit.unit_id(), &unit.data);
-            diagnostics.append(data.diagnostics.clone());
-        });
-    }
-
     fn get_unit<'a>(&'a self, unit_id: &LibraryUnitId) -> Option<&'a AnyLocked> {
         self.libraries
             .get(unit_id.library_name())
@@ -803,12 +791,29 @@ impl DesignRoot {
             library.refresh(diagnostics);
         }
 
+        use rayon::prelude::*;
+        // @TODO run in parallel
+        let mut units: Vec<_> = Vec::new();
+        for library in self.libraries.values() {
+            for unit in library.units.values() {
+                units.push((library, unit));
+            }
+        }
+
+        // @TODO compute the best order to process the units in parallel
+        units.par_iter().for_each(|(library, unit)| {
+            delegate_any!(unit, unit, {
+                self.get_analysis(library, &unit.unit_id(), &unit.data);
+            });
+        });
+
+        // Emit diagnostics sorted within a file
         for library in self.libraries.values() {
             for unit_id in library.sorted_unit_ids() {
-                self.analyze_unit(
-                    library,
+                delegate_any!(
                     library.units.get(&unit_id.key()).unwrap(),
-                    diagnostics,
+                    unit,
+                    diagnostics.append(unit.data.expect_analyzed().diagnostics.clone())
                 );
             }
         }
