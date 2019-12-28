@@ -4,24 +4,23 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use self::fnv::FnvHashMap;
 use crate::analysis::DesignRoot;
 use crate::ast::DesignFile;
 use crate::config::Config;
 use crate::diagnostic::Diagnostic;
 use crate::latin_1::Latin1String;
 use crate::message::{Message, MessageHandler};
-use crate::parser::{FileToParse, VHDLParser};
+use crate::parser::VHDLParser;
 use crate::source::{Position, Source, SrcPos};
 use crate::symbol_table::Symbol;
-use fnv;
+use fnv::{FnvHashMap, FnvHashSet};
 use std::collections::hash_map::Entry;
 
 pub struct Project {
     parser: VHDLParser,
     root: DesignRoot,
     files: FnvHashMap<String, SourceFile>,
-    empty_libraries: Vec<Symbol>,
+    empty_libraries: FnvHashSet<Symbol>,
 }
 
 impl Project {
@@ -30,18 +29,14 @@ impl Project {
         Project {
             root: DesignRoot::new(parser.symtab.clone()),
             files: FnvHashMap::default(),
-            empty_libraries: Vec::new(),
+            empty_libraries: FnvHashSet::default(),
             parser,
         }
     }
 
-    pub fn from_config(
-        config: &Config,
-        num_threads: usize,
-        messages: &mut dyn MessageHandler,
-    ) -> Project {
+    pub fn from_config(config: &Config, messages: &mut dyn MessageHandler) -> Project {
         let mut project = Project::new();
-        let mut files_to_parse: FnvHashMap<String, LibraryFileToParse> = FnvHashMap::default();
+        let mut files_to_parse: FnvHashMap<String, FnvHashSet<Symbol>> = FnvHashMap::default();
 
         for library in config.iter_libraries() {
             let library_name =
@@ -54,37 +49,40 @@ impl Project {
 
                 match files_to_parse.entry(file_name.clone()) {
                     Entry::Occupied(mut entry) => {
-                        entry.get_mut().library_names.push(library_name.clone());
+                        entry.get_mut().insert(library_name.clone());
                     }
                     Entry::Vacant(entry) => {
-                        let file_to_parse = LibraryFileToParse {
-                            library_names: vec![library_name.clone()],
-                            file_name: file_name.clone(),
-                        };
-
-                        entry.insert(file_to_parse);
+                        let mut set = FnvHashSet::default();
+                        set.insert(library_name.clone());
+                        entry.insert(set);
                     }
                 }
             }
 
             if empty_library {
-                project.empty_libraries.push(library_name)
+                project.empty_libraries.insert(library_name);
             }
         }
 
-        let files_to_parse = files_to_parse.drain().map(|(_, v)| v).collect();
+        use rayon::prelude::*;
 
-        for (file_to_parse, parser_diagnostics, result) in project
-            .parser
-            .parse_design_files(files_to_parse, num_threads)
-        {
+        let parsed: Vec<_> = files_to_parse
+            .into_par_iter()
+            .map_init(
+                || project.parser.clone(),
+                |parser, (file_name, library_names)| {
+                    let mut diagnostics = Vec::new();
+                    let result = parser.parse_design_file(&file_name, &mut diagnostics);
+                    (file_name, library_names, diagnostics, result)
+                },
+            )
+            .collect();
+
+        for (file_name, library_names, parser_diagnostics, result) in parsed.into_iter() {
             let (source, design_file) = match result {
                 Ok(result) => result,
                 Err(err) => {
-                    messages.push(Message::file_error(
-                        err.to_string(),
-                        file_to_parse.file_name,
-                    ));
+                    messages.push(Message::file_error(err.to_string(), file_name));
                     continue;
                 }
             };
@@ -93,7 +91,7 @@ impl Project {
                 source.file_name().to_owned(),
                 SourceFile {
                     source,
-                    library_names: file_to_parse.library_names,
+                    library_names,
                     parser_diagnostics,
                     design_file,
                 },
@@ -121,7 +119,7 @@ impl Project {
                 // @TODO use config wildcards to map to library
                 SourceFile {
                     source: source.clone(),
-                    library_names: vec![],
+                    library_names: FnvHashSet::default(),
                     parser_diagnostics: vec![],
                     design_file: DesignFile::default(),
                 }
@@ -200,19 +198,8 @@ impl Default for Project {
     }
 }
 
-struct LibraryFileToParse {
-    library_names: Vec<Symbol>,
-    file_name: String,
-}
-
-impl FileToParse for LibraryFileToParse {
-    fn file_name(&self) -> &str {
-        &self.file_name
-    }
-}
-
 struct SourceFile {
-    library_names: Vec<Symbol>,
+    library_names: FnvHashSet<Symbol>,
     source: Source,
     design_file: DesignFile,
     parser_diagnostics: Vec<Diagnostic>,
@@ -255,7 +242,7 @@ lib.files = ['file.vhd']
 
         let config = Config::from_str(config_str, root.path()).unwrap();
         let mut messages = Vec::new();
-        let mut project = Project::from_config(&config, 1, &mut messages);
+        let mut project = Project::from_config(&config, &mut messages);
         assert_eq!(messages, vec![]);
         check_no_diagnostics(&project.analyse());
     }
@@ -302,7 +289,7 @@ use_lib.files = ['use_file.vhd']
 
         let config = Config::from_str(config_str, root.path()).unwrap();
         let mut messages = Vec::new();
-        let mut project = Project::from_config(&config, 1, &mut messages);
+        let mut project = Project::from_config(&config, &mut messages);
         assert_eq!(messages, vec![]);
         check_no_diagnostics(&project.analyse());
     }
@@ -352,7 +339,7 @@ lib2.files = ['file2.vhd']
 
         let config = Config::from_str(config_str, root.path()).unwrap();
         let mut messages = Vec::new();
-        let mut project = Project::from_config(&config, 1, &mut messages);
+        let mut project = Project::from_config(&config, &mut messages);
         assert_eq!(messages, vec![]);
         check_no_diagnostics(&project.analyse());
 
