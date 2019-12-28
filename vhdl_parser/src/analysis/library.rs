@@ -15,7 +15,7 @@ use crate::ast::search::*;
 use crate::ast::*;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::source::HasSource;
-use crate::symbol_table::SymbolTable;
+use crate::tokenizer::Symbols;
 use std::cell::RefCell;
 use std::sync::{Arc, RwLock};
 
@@ -581,7 +581,7 @@ impl<'a> Library {
 }
 
 pub struct DesignRoot {
-    symtab: Arc<SymbolTable>,
+    symbols: Arc<Symbols>,
     libraries: FnvHashMap<Symbol, Library>,
 
     // Dependency tracking for incremental analysis
@@ -596,9 +596,9 @@ pub struct DesignRoot {
 }
 
 impl DesignRoot {
-    pub fn new(symtab: Arc<SymbolTable>) -> DesignRoot {
+    pub fn new(symbols: Arc<Symbols>) -> DesignRoot {
         DesignRoot {
-            symtab,
+            symbols,
             libraries: FnvHashMap::default(),
             users_of: RwLock::new(FnvHashMap::default()),
             missing_primary: RwLock::new(FnvHashMap::default()),
@@ -666,7 +666,7 @@ impl DesignRoot {
                 let analyzer = Analyzer::new(
                     DependencyRecorder::new(self, unit_id.in_library(&library.name)),
                     library.name().clone(),
-                    self.symtab.clone(),
+                    self.symbols.symtab(),
                 );
 
                 let AnalysisData {

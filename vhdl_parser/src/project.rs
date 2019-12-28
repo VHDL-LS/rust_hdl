@@ -27,7 +27,7 @@ impl Project {
     pub fn new() -> Project {
         let parser = VHDLParser::new();
         Project {
-            root: DesignRoot::new(parser.symtab.clone()),
+            root: DesignRoot::new(parser.symbols.clone()),
             files: FnvHashMap::default(),
             empty_libraries: FnvHashSet::default(),
             parser,
@@ -69,7 +69,7 @@ impl Project {
         let parsed: Vec<_> = files_to_parse
             .into_par_iter()
             .map_init(
-                || project.parser.clone(),
+                || &project.parser,
                 |parser, (file_name, library_names)| {
                     let mut diagnostics = Vec::new();
                     let result = parser.parse_design_file(&file_name, &mut diagnostics);

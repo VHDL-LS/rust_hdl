@@ -16,7 +16,7 @@ use fnv;
 #[derive(Clone, Debug, Eq)]
 pub struct Symbol {
     /// The unique id of the symbol
-    id: usize,
+    pub(super) id: usize,
 
     /// The name of the symbol
     name: Arc<Latin1String>,
@@ -163,12 +163,6 @@ impl SymbolTable {
                 sym
             }
         }
-    }
-}
-
-impl Default for SymbolTable {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

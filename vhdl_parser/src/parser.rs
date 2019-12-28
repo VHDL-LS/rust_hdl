@@ -11,28 +11,25 @@ use crate::diagnostic::DiagnosticHandler;
 use crate::latin_1::Latin1String;
 use crate::source::Source;
 use crate::symbol_table::Symbol;
-use crate::symbol_table::SymbolTable;
-use crate::tokenizer::Tokenizer;
+use crate::tokenizer::{Symbols, Tokenizer};
 use crate::tokenstream::TokenStream;
 use std::io;
 use std::sync::Arc;
 
-#[derive(Clone)]
 pub struct VHDLParser {
-    pub symtab: Arc<SymbolTable>,
+    pub symbols: Arc<Symbols>,
 }
 
 pub type ParserResult = Result<(Source, DesignFile), io::Error>;
 
 impl VHDLParser {
     pub fn new() -> VHDLParser {
-        VHDLParser {
-            symtab: Arc::new(SymbolTable::new()),
-        }
+        let symbols = Arc::new(Symbols::new());
+        VHDLParser { symbols }
     }
 
     pub fn symbol(&self, name: &Latin1String) -> Symbol {
-        self.symtab.insert(name)
+        self.symbols.symtab().insert(name)
     }
 
     pub fn parse_design_source(
@@ -41,7 +38,7 @@ impl VHDLParser {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> DesignFile {
         let contents = source.contents();
-        let tokenizer = Tokenizer::new(self.symtab.clone(), &source, ContentReader::new(&contents));
+        let tokenizer = Tokenizer::new(&self.symbols, &source, ContentReader::new(&contents));
         let mut stream = TokenStream::new(tokenizer);
 
         match parse_design_file(&mut stream, diagnostics) {

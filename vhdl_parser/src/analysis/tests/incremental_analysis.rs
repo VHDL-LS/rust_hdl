@@ -243,16 +243,16 @@ end package body;
 }
 
 fn check_incremental_analysis(builder: LibraryBuilder) {
-    let symtab = builder.symtab();
+    let symbols = builder.symbols();
     let codes = builder.take_code();
 
     // Generate all combinations of removing and adding source
     for i in 0..codes.len() {
-        let mut fresh_root = DesignRoot::new(symtab.clone());
-        add_standard_library(symtab.clone(), &mut fresh_root);
+        let mut fresh_root = DesignRoot::new(symbols.clone());
+        add_standard_library(symbols.clone(), &mut fresh_root);
 
-        let mut root = DesignRoot::new(symtab.clone());
-        add_standard_library(symtab.clone(), &mut root);
+        let mut root = DesignRoot::new(symbols.clone());
+        add_standard_library(symbols.clone(), &mut root);
 
         for (j, (library_name, code)) in codes.iter().enumerate() {
             root.add_design_file(library_name.clone(), code.design_file());

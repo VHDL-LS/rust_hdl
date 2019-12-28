@@ -7,7 +7,8 @@
 use crate::ast::Ident;
 use crate::diagnostic::{DiagnosticHandler, ParseResult};
 use crate::symbol_table::Symbol;
-use crate::tokenizer::{kinds_str, Kind, Kind::*, Token, TokenState, Tokenizer};
+use crate::tokenizer::Kind::*;
+use crate::tokenizer::*;
 
 pub struct TokenStream<'a> {
     tokenizer: Tokenizer<'a>,
@@ -19,11 +20,11 @@ impl<'a> TokenStream<'a> {
     }
 
     pub fn range_sym(&self) -> &Symbol {
-        &self.tokenizer.range_sym
+        &self.tokenizer.range_sym()
     }
 
     pub fn reverse_range_sym(&self) -> &Symbol {
-        &self.tokenizer.reverse_range_sym
+        &self.tokenizer.reverse_range_sym()
     }
 
     pub fn state(&self) -> TokenState {
@@ -197,8 +198,7 @@ mod tests {
         ($code:ident, $stream:ident) => {
             let source = $code.source();
             let contents = source.contents();
-            let tokenizer =
-                Tokenizer::new($code.symtab.clone(), source, ContentReader::new(&contents));
+            let tokenizer = Tokenizer::new(&$code.symbols, source, ContentReader::new(&contents));
             let mut $stream = TokenStream::new(tokenizer);
         };
     }

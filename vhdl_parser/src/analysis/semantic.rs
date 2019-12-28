@@ -85,7 +85,7 @@ impl LookupResult {
     }
 }
 pub struct Analyzer<'a> {
-    symtab: Arc<SymbolTable>,
+    symtab: &'a SymbolTable,
     work_sym: Symbol,
     work_library_name: Symbol,
     std_sym: Symbol,
@@ -97,7 +97,7 @@ impl<'a> Analyzer<'a> {
     pub fn new(
         root: DependencyRecorder<'a>,
         work_library_name: Symbol,
-        symtab: Arc<SymbolTable>,
+        symtab: &'a SymbolTable,
     ) -> Analyzer<'a> {
         Analyzer {
             work_sym: symtab.insert(&Latin1String::new(b"work")),

@@ -20,8 +20,8 @@ use crate::sequential_statement::parse_sequential_statement;
 use crate::source::{Position, Range, Source, SrcPos, WithPos};
 use crate::subprogram::{parse_signature, parse_subprogram_declaration_no_semi};
 use crate::subtype_indication::parse_subtype_indication;
-use crate::symbol_table::{Symbol, SymbolTable};
-use crate::tokenizer::{Comment, Token, Tokenizer};
+use crate::symbol_table::Symbol;
+use crate::tokenizer::{Comment, Symbols, Token, Tokenizer};
 use crate::tokenstream::TokenStream;
 use crate::waveform::parse_waveform;
 use std::collections::hash_map::DefaultHasher;
@@ -32,13 +32,13 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 pub struct CodeBuilder {
-    pub symtab: Arc<SymbolTable>,
+    pub symbols: Arc<Symbols>,
 }
 
 impl CodeBuilder {
     pub fn new() -> CodeBuilder {
         CodeBuilder {
-            symtab: Arc::new(SymbolTable::new()),
+            symbols: Arc::new(Symbols::new()),
         }
     }
 
@@ -48,7 +48,7 @@ impl CodeBuilder {
         let pos = SrcPos::new(source.clone(), contents.range());
 
         let code = Code {
-            symtab: self.symtab.clone(),
+            symbols: self.symbols.clone(),
             pos,
         };
 
@@ -69,13 +69,13 @@ impl CodeBuilder {
     }
 
     pub fn symbol(&self, name: &str) -> Symbol {
-        self.symtab.insert_utf8(name)
+        self.symbols.symtab().insert_utf8(name)
     }
 }
 
 #[derive(Clone)]
 pub struct Code {
-    pub symtab: Arc<SymbolTable>,
+    pub symbols: Arc<Symbols>,
     pos: SrcPos,
 }
 
@@ -90,7 +90,7 @@ impl Code {
 
     fn in_range(&self, range: Range) -> Code {
         Code {
-            symtab: self.symtab.clone(),
+            symbols: self.symbols.clone(),
             pos: SrcPos::new(self.pos.source.clone(), range),
         }
     }
@@ -141,7 +141,7 @@ impl Code {
         {
             let contents = self.pos.source.contents();
             let reader = ContentReader::new(&contents);
-            let mut tokenizer = Tokenizer::new(self.symtab.clone(), &self.pos.source, reader);
+            let mut tokenizer = Tokenizer::new(&self.symbols, &self.pos.source, reader);
             loop {
                 let token = tokenizer.pop();
 
@@ -177,7 +177,7 @@ impl Code {
         );
         let contents = source.contents();
         let reader = ContentReader::new(&contents);
-        let tokenizer = Tokenizer::new(self.symtab.clone(), &source, reader);
+        let tokenizer = Tokenizer::new(&self.symbols, &source, reader);
         let mut stream = TokenStream::new(tokenizer);
         forward(&mut stream, self.pos.start());
         parse_fun(&mut stream)
@@ -202,7 +202,7 @@ impl Code {
     {
         let contents = self.pos.source.contents();
         let reader = ContentReader::new(&contents);
-        let tokenizer = Tokenizer::new(self.symtab.clone(), &self.pos.source, reader);
+        let tokenizer = Tokenizer::new(&self.symbols, &self.pos.source, reader);
         let mut stream = TokenStream::new(tokenizer);
         parse_fun(&mut stream)
     }
@@ -333,7 +333,7 @@ impl Code {
 
     /// Return symbol from symbol table
     pub fn symbol(&self, name: &str) -> Symbol {
-        self.symtab.insert_utf8(name)
+        self.symbols.symtab().insert_utf8(name)
     }
 
     pub fn subtype_indication(&self) -> SubtypeIndication {

@@ -4,17 +4,14 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use self::fnv::FnvHashMap;
 use super::contents::{ContentReader, ReaderState};
 use crate::diagnostic::{Diagnostic, ParseResult};
 use crate::source::{Position, Range, Source, SrcPos, WithPos};
-use fnv;
 
 use crate::ast;
 use crate::ast::{BaseSpecifier, Ident};
 use crate::latin_1::{Latin1String, Utf8ToLatin1Error};
 use crate::symbol_table::{Symbol, SymbolTable};
-use std::sync::Arc;
 
 /// The kind of a Token
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -1033,16 +1030,14 @@ fn parse_bit_string(
 fn parse_basic_identifier_or_keyword(
     buffer: &mut Latin1String,
     reader: &mut ContentReader,
-    keywords: &FnvHashMap<&'static [u8], Kind>,
-    symtab: &SymbolTable,
+    symbols: &Symbols,
 ) -> Result<(Kind, Value), TokenError> {
-    let start = reader.state();
-    let mut len = 0;
+    buffer.bytes.clear();
     while let Some(b) = reader.peek()? {
         match b {
             b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_' => {
+                buffer.bytes.push(b);
                 reader.skip();
-                len += 1;
             }
             _ => {
                 break;
@@ -1050,23 +1045,7 @@ fn parse_basic_identifier_or_keyword(
         }
     }
 
-    reader.set_state(start);
-    buffer.bytes.clear();
-    for _ in 0..len {
-        buffer.bytes.push(reader.pop_lowercase().unwrap().unwrap());
-    }
-
-    match keywords.get(buffer.bytes.as_slice()) {
-        Some(kind) => Ok((*kind, Value::NoValue)),
-        None => {
-            reader.set_state(start);
-            buffer.bytes.clear();
-            for _ in 0..len {
-                buffer.bytes.push(reader.pop().unwrap().unwrap());
-            }
-            Ok((Identifier, Value::Identifier(symtab.insert(&buffer))))
-        }
-    }
+    Ok(symbols.insert_or_keyword(&buffer))
 }
 
 /// Assumes leading ' has already been consumed
@@ -1176,25 +1155,15 @@ fn get_trailing_comment(reader: &mut ContentReader) -> Result<Option<Comment>, T
     }
 }
 
-pub struct Tokenizer<'a> {
-    keywords: FnvHashMap<&'static [u8], Kind>,
-    symtab: Arc<SymbolTable>,
-    buffer: Latin1String,
-    state: TokenState,
-    source: &'a Source,
-    reader: ContentReader<'a>,
-    final_comments: Option<Vec<Comment>>,
-    pub range_sym: Symbol,
-    pub reverse_range_sym: Symbol,
+/// Static tokenizer data
+pub struct Symbols {
+    symtab: SymbolTable,
+    keywords: Vec<Kind>,
 }
 
-impl<'a> Tokenizer<'a> {
-    pub fn new(
-        symtab: Arc<SymbolTable>,
-        source: &'a Source,
-        reader: ContentReader<'a>,
-    ) -> Tokenizer<'a> {
-        let keywords = [
+impl Symbols {
+    pub fn new() -> Symbols {
+        let keywords_init = [
             ("architecture", Architecture),
             ("entity", Entity),
             ("configuration", Configuration),
@@ -1293,17 +1262,59 @@ impl<'a> Tokenizer<'a> {
             ("vunit", Vunit),
         ];
 
-        let keywords: FnvHashMap<&[u8], Kind> = keywords
-            .into_iter()
-            .map(|(string, kind)| (string.as_bytes(), *kind))
-            .collect();
+        let symtab = SymbolTable::new();
+        let mut keywords = Vec::with_capacity(keywords_init.len());
 
-        let range_sym = symtab.insert(&Latin1String::new(b"range"));
-        let reverse_range_sym = symtab.insert(&Latin1String::new(b"reverse_range"));
+        let mut latin1 = Latin1String::empty();
+        for (keyword, kind) in keywords_init.into_iter() {
+            latin1.bytes.clear();
+            latin1.bytes.extend_from_slice(keyword.as_bytes());
+            let symbol = symtab.insert(&latin1);
+            assert_eq!(symbol.id, keywords.len());
+            keywords.push(*kind);
+        }
+
+        Symbols { symtab, keywords }
+    }
+
+    pub fn symtab(&self) -> &SymbolTable {
+        &self.symtab
+    }
+
+    fn insert_or_keyword(&self, name: &Latin1String) -> (Kind, Value) {
+        let symbol = self.symtab.insert(name);
+        if let Some(kind) = self.keywords.get(symbol.id) {
+            (*kind, Value::NoValue)
+        } else {
+            (Identifier, Value::Identifier(symbol))
+        }
+    }
+}
+
+pub struct Tokenizer<'a> {
+    symbols: &'a Symbols,
+    buffer: Latin1String,
+    state: TokenState,
+    source: &'a Source,
+    reader: ContentReader<'a>,
+    final_comments: Option<Vec<Comment>>,
+    range_sym: Symbol,
+    reverse_range_sym: Symbol,
+}
+
+impl<'a> Tokenizer<'a> {
+    pub fn new(
+        symbols: &'a Symbols,
+        source: &'a Source,
+        reader: ContentReader<'a>,
+    ) -> Tokenizer<'a> {
+        let range_sym = symbols.symtab().insert(&Latin1String::new(b"range"));
+        let reverse_range_sym = symbols
+            .symtab()
+            .insert(&Latin1String::new(b"reverse_range"));
 
         Tokenizer {
-            keywords,
-            symtab,
+            symbols,
             state: TokenState::new(reader.state()),
             buffer: Latin1String::empty(),
             source,
@@ -1336,6 +1347,14 @@ impl<'a> Tokenizer<'a> {
         self.reader.set_state(self.state.start);
     }
 
+    pub fn range_sym(&self) -> &Symbol {
+        &self.range_sym
+    }
+
+    pub fn reverse_range_sym(&self) -> &Symbol {
+        &self.reverse_range_sym
+    }
+
     fn parse_token(&mut self) -> Result<Option<(Kind, Value)>, TokenError> {
         macro_rules! illegal_token {
             () => {
@@ -1362,8 +1381,7 @@ impl<'a> Tokenizer<'a> {
                     parse_basic_identifier_or_keyword(
                         &mut self.buffer,
                         &mut self.reader,
-                        &self.keywords,
-                        &self.symtab,
+                        self.symbols,
                     )?
                 }
             }
@@ -1547,7 +1565,7 @@ impl<'a> Tokenizer<'a> {
                 self.reader.skip();
                 // LRM 15.4.3 Extended identifers
                 let result = parse_quoted(&mut self.buffer, &mut self.reader, b'\\', true)?;
-                let result = Value::Identifier(self.symtab.insert_extended(&result));
+                let result = Value::Identifier(self.symbols.symtab().insert_extended(&result));
                 (Identifier, result)
             }
             _ => {
@@ -1691,7 +1709,7 @@ end entity"
             tokens[1],
             Token {
                 kind: Identifier,
-                value: Value::Identifier(code.symtab.insert_utf8("foo")),
+                value: Value::Identifier(code.symbol("foo")),
                 pos: code.s1("foo").pos(),
                 next_state: state_at_end(&code),
                 comments: None,
@@ -1715,7 +1733,7 @@ end entity"
             tokens,
             vec![Token {
                 kind: Identifier,
-                value: Value::Identifier(code.symtab.insert_utf8("my_ident")),
+                value: Value::Identifier(code.symbol("my_ident")),
                 pos: code.pos(),
                 next_state: state_at_end(&code),
                 comments: None,
@@ -1732,7 +1750,7 @@ end entity"
             tokens,
             vec![Token {
                 kind: Identifier,
-                value: Value::Identifier(code.symtab.insert_utf8("my_ident")),
+                value: Value::Identifier(code.symbol("my_ident")),
                 pos: code.pos(),
                 next_state: state_at_end(&code),
                 comments: None,
@@ -1749,7 +1767,7 @@ end entity"
             tokens,
             vec![Token {
                 kind: Identifier,
-                value: Value::Identifier(code.symtab.insert_utf8("\\1$my_ident\\")),
+                value: Value::Identifier(code.symbol("\\1$my_ident\\")),
                 pos: code.pos(),
                 next_state: state_at_end(&code),
                 comments: None,
@@ -1761,7 +1779,7 @@ end entity"
             tokens,
             vec![Token {
                 kind: Identifier,
-                value: Value::Identifier(code.symtab.insert_utf8("\\my\\_ident\\")),
+                value: Value::Identifier(code.symbol("\\my\\_ident\\")),
                 pos: code.pos(),
                 next_state: state_at_end(&code),
                 comments: None,
@@ -1778,14 +1796,14 @@ end entity"
             vec![
                 Token {
                     kind: Identifier,
-                    value: Value::Identifier(code.symtab.insert_utf8("my_ident")),
+                    value: Value::Identifier(code.symbol("my_ident")),
                     pos: code.s1("my_ident").pos(),
                     next_state: state_at_end(&code.s1("my_ident ")),
                     comments: None,
                 },
                 Token {
                     kind: Identifier,
-                    value: Value::Identifier(code.symtab.insert_utf8("my_other_ident")),
+                    value: Value::Identifier(code.symbol("my_other_ident")),
                     pos: code.s1("my_other_ident").pos(),
                     next_state: state_at_end(&code),
                     comments: None,

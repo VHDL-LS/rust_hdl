@@ -8,8 +8,9 @@ use crate::analysis::library::DesignRoot;
 use crate::diagnostic::Diagnostic;
 use crate::latin_1::Latin1String;
 use crate::source::Source;
-use crate::symbol_table::{Symbol, SymbolTable};
+use crate::symbol_table::Symbol;
 use crate::test_util::*;
+use crate::tokenizer::Symbols;
 use pretty_assertions::assert_eq;
 use std::collections::{hash_map::Entry, HashMap};
 use std::sync::Arc;
@@ -46,10 +47,10 @@ impl LibraryBuilder {
     }
 
     pub fn get_analyzed_root(&self) -> (DesignRoot, Vec<Diagnostic>) {
-        let mut root = DesignRoot::new(self.code_builder.symtab.clone());
+        let mut root = DesignRoot::new(self.code_builder.symbols.clone());
         let mut diagnostics = Vec::new();
 
-        add_standard_library(self.symtab(), &mut root);
+        add_standard_library(self.symbols(), &mut root);
 
         for (library_name, codes) in self.libraries.iter() {
             for code in codes {
@@ -72,8 +73,8 @@ impl LibraryBuilder {
         res
     }
 
-    pub fn symtab(&self) -> Arc<SymbolTable> {
-        self.code_builder.symtab.clone()
+    pub fn symbols(&self) -> Arc<Symbols> {
+        self.code_builder.symbols.clone()
     }
 
     pub fn analyze(&self) -> Vec<Diagnostic> {
@@ -81,9 +82,9 @@ impl LibraryBuilder {
     }
 }
 
-pub fn add_standard_library(symtab: Arc<SymbolTable>, root: &mut DesignRoot) {
+pub fn add_standard_library(symbols: Arc<Symbols>, root: &mut DesignRoot) {
     let builder = CodeBuilder {
-        symtab: symtab.clone(),
+        symbols: symbols.clone(),
     };
     let std_standard = builder.code_from_source(Source::inline(
         "standard.vhd",
@@ -100,7 +101,7 @@ pub fn add_standard_library(symtab: Arc<SymbolTable>, root: &mut DesignRoot) {
         "env.vhd",
         &Latin1String::new(include_bytes!("../../../../vhdl_libraries/std/env.vhd")).to_string(),
     ));
-    let std_sym = symtab.insert_utf8("std");
+    let std_sym = symbols.symtab().insert_utf8("std");
 
     root.add_design_file(std_sym.clone(), std_standard.design_file());
     root.add_design_file(std_sym.clone(), std_textio.design_file());
