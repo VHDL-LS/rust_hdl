@@ -159,8 +159,8 @@ impl Source {
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash, Debug)]
 pub struct Position {
-    pub line: u64,
-    pub character: u64,
+    pub line: u32,
+    pub character: u32,
 }
 
 impl Position {
@@ -171,7 +171,7 @@ impl Position {
         }
     }
 
-    pub fn new(line: u64, character: u64) -> Position {
+    pub fn new(line: u32, character: u32) -> Position {
         Position { line, character }
     }
 
@@ -187,7 +187,7 @@ impl Position {
             self.line += 1;
             self.character = 0;
         } else {
-            self.character += chr.len_utf16() as u64;
+            self.character += chr.len_utf16() as u32;
         }
     }
 
@@ -302,13 +302,13 @@ impl<T> Into<SrcPos> for WithPos<T> {
 }
 
 impl SrcPos {
-    const LINE_CONTEXT: u64 = 2;
+    const LINE_CONTEXT: u32 = 2;
 
     pub fn new(source: Source, range: Range) -> SrcPos {
         SrcPos { source, range }
     }
 
-    fn get_line_context(&self, context_lines: u64, contents: &Contents) -> Vec<(u64, String)> {
+    fn get_line_context(&self, context_lines: u32, contents: &Contents) -> Vec<(u32, String)> {
         let mut lines = Vec::new();
 
         let start = self.range.start.line.saturating_sub(context_lines);
@@ -341,7 +341,7 @@ impl SrcPos {
     }
 
     /// Write ~~~ to underline symbol
-    fn underline(&self, lineno_len: usize, lineno: u64, line: &str, into: &mut String) {
+    fn underline(&self, lineno_len: usize, lineno: u32, line: &str, into: &mut String) {
         const NEWLINE_SIZE: usize = 1;
         into.reserve("  |  ".len() + lineno_len + line.len() + NEWLINE_SIZE);
 
@@ -364,7 +364,7 @@ impl SrcPos {
             } else {
                 break;
             }
-            pos.character += chr.len_utf16() as u64;
+            pos.character += chr.len_utf16() as u32;
         }
 
         if lineno == self.range.end.line {
@@ -381,7 +381,7 @@ impl SrcPos {
     fn code_context_from_contents(
         &self,
         contents: &Contents,
-        context_lines: u64,
+        context_lines: u32,
     ) -> (usize, String) {
         let lines = self.get_line_context(context_lines, contents);
         use self::pad::{Alignment, PadStr};

@@ -356,15 +356,15 @@ fn srcpos_to_location(pos: &SrcPos) -> Location {
 
 fn from_lsp_pos(position: lsp_types::Position) -> vhdl_parser::Position {
     vhdl_parser::Position {
-        line: position.line,
-        character: position.character,
+        line: position.line as u32,
+        character: position.character as u32,
     }
 }
 
 fn to_lsp_pos(position: vhdl_parser::Position) -> lsp_types::Position {
     lsp_types::Position {
-        line: position.line,
-        character: position.character,
+        line: position.line as u64,
+        character: position.character as u64,
     }
 }
 
