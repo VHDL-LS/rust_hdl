@@ -45,16 +45,18 @@ fn main() {
         .build_global()
         .unwrap();
 
-    if let Some(file_name) = matches.value_of("config") {
-        let mut config = Config::default();
-        let mut msg_printer = MessagePrinter::new();
-        config.load_external_config(&mut msg_printer);
-        config.append(
-            &Config::read_file_path(Path::new(file_name)).expect("Failed to read config file"),
-        );
-        let mut project = Project::from_config(&config, &mut msg_printer);
-        show_diagnostics(&project.analyse());
-    }
+    let file_name = value_t_or_exit!(matches.value_of("config"), String);
+    let mut config = Config::default();
+    let mut msg_printer = MessagePrinter::new();
+    config.load_external_config(&mut msg_printer);
+    config.append(
+        &Config::read_file_path(Path::new(&file_name)).expect("Failed to read config file"),
+    );
+    let mut project = Project::from_config(&config, &mut msg_printer);
+    show_diagnostics(&project.analyse());
+
+    // Exit without running Drop on entire allocated AST
+    std::process::exit(0);
 }
 
 fn show_diagnostics(diagnostics: &[Diagnostic]) {
