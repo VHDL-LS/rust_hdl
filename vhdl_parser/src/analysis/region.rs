@@ -3,7 +3,7 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
-use super::library::LibraryUnitId;
+use super::root::LibraryUnitId;
 use crate::ast::*;
 use crate::data::*;
 
@@ -19,21 +19,21 @@ pub enum AnyDeclaration {
     Other,
     Overloaded,
     // An optional region with implicit declarations
-    TypeDeclaration(Option<Arc<DeclarativeRegion<'static>>>),
+    TypeDeclaration(Option<Arc<Region<'static>>>),
     IncompleteType,
     Constant,
     DeferredConstant,
     // The region of the protected type which needs to be extendend by the body
-    ProtectedType(Arc<RwLock<DeclarativeRegion<'static>>>),
+    ProtectedType(Arc<RwLock<Region<'static>>>),
     ProtectedTypeBody,
     Library(Symbol),
-    Entity(LibraryUnitId, Arc<DeclarativeRegion<'static>>),
-    Configuration(LibraryUnitId, Arc<DeclarativeRegion<'static>>),
-    Package(LibraryUnitId, Arc<DeclarativeRegion<'static>>),
-    UninstPackage(LibraryUnitId, Arc<DeclarativeRegion<'static>>),
-    PackageInstance(LibraryUnitId, Arc<DeclarativeRegion<'static>>),
-    Context(LibraryUnitId, Arc<DeclarativeRegion<'static>>),
-    LocalPackageInstance(Symbol, Arc<DeclarativeRegion<'static>>),
+    Entity(LibraryUnitId, Arc<Region<'static>>),
+    Configuration(LibraryUnitId, Arc<Region<'static>>),
+    Package(LibraryUnitId, Arc<Region<'static>>),
+    UninstPackage(LibraryUnitId, Arc<Region<'static>>),
+    PackageInstance(LibraryUnitId, Arc<Region<'static>>),
+    Context(LibraryUnitId, Arc<Region<'static>>),
+    LocalPackageInstance(Symbol, Arc<Region<'static>>),
 }
 
 impl AnyDeclaration {
@@ -208,14 +208,14 @@ enum RegionKind {
 /// For public regions of design units the parent must be owned such that these regions can be stored in a map
 #[derive(Clone)]
 enum ParentRegion<'a> {
-    Borrowed(&'a DeclarativeRegion<'a>),
-    Owned(Box<DeclarativeRegion<'static>>),
+    Borrowed(&'a Region<'a>),
+    Owned(Box<Region<'static>>),
 }
 
 impl<'a> Deref for ParentRegion<'a> {
-    type Target = DeclarativeRegion<'a>;
+    type Target = Region<'a>;
 
-    fn deref(&self) -> &DeclarativeRegion<'a> {
+    fn deref(&self) -> &Region<'a> {
         match self {
             ParentRegion::Borrowed(region) => region,
             ParentRegion::Owned(ref region) => region.as_ref(),
@@ -224,7 +224,7 @@ impl<'a> Deref for ParentRegion<'a> {
 }
 
 #[derive(Clone)]
-pub struct DeclarativeRegion<'a> {
+pub struct Region<'a> {
     parent: Option<ParentRegion<'a>>,
     extends: Option<ParentRegion<'a>>,
     visible: FnvHashMap<Designator, VisibleDeclaration>,
@@ -232,9 +232,9 @@ pub struct DeclarativeRegion<'a> {
     kind: RegionKind,
 }
 
-impl<'a> DeclarativeRegion<'a> {
-    pub fn default() -> DeclarativeRegion<'static> {
-        DeclarativeRegion {
+impl<'a> Region<'a> {
+    pub fn default() -> Region<'static> {
+        Region {
             parent: None,
             extends: None,
             visible: FnvHashMap::default(),
@@ -243,8 +243,8 @@ impl<'a> DeclarativeRegion<'a> {
         }
     }
 
-    pub fn nested(&'a self) -> DeclarativeRegion<'a> {
-        DeclarativeRegion {
+    pub fn nested(&'a self) -> Region<'a> {
+        Region {
             parent: Some(ParentRegion::Borrowed(self)),
             extends: None,
             visible: FnvHashMap::default(),
@@ -253,8 +253,8 @@ impl<'a> DeclarativeRegion<'a> {
         }
     }
 
-    pub fn new_owned_parent(parent: Box<DeclarativeRegion<'static>>) -> DeclarativeRegion<'static> {
-        DeclarativeRegion {
+    pub fn new_owned_parent(parent: Box<Region<'static>>) -> Region<'static> {
+        Region {
             parent: Some(ParentRegion::Owned(parent)),
             extends: None,
             visible: FnvHashMap::default(),
@@ -263,8 +263,8 @@ impl<'a> DeclarativeRegion<'a> {
         }
     }
 
-    pub fn without_parent(self) -> DeclarativeRegion<'static> {
-        DeclarativeRegion {
+    pub fn without_parent(self) -> Region<'static> {
+        Region {
             parent: None,
             extends: None,
             visible: FnvHashMap::default(),
@@ -273,22 +273,22 @@ impl<'a> DeclarativeRegion<'a> {
         }
     }
 
-    pub fn get_parent(&'a self) -> Option<&'a DeclarativeRegion<'a>> {
+    pub fn get_parent(&'a self) -> Option<&'a Region<'a>> {
         self.parent.as_ref().map(|parent| parent.deref())
     }
 
-    pub fn in_package_declaration(mut self) -> DeclarativeRegion<'a> {
+    pub fn in_package_declaration(mut self) -> Region<'a> {
         self.kind = RegionKind::PackageDeclaration;
         self
     }
 
-    pub fn extend(&'a self, parent: Option<&'a DeclarativeRegion<'a>>) -> DeclarativeRegion<'a> {
+    pub fn extend(&'a self, parent: Option<&'a Region<'a>>) -> Region<'a> {
         let kind = match self.kind {
             RegionKind::PackageDeclaration => RegionKind::PackageBody,
             _ => RegionKind::Other,
         };
 
-        DeclarativeRegion {
+        Region {
             parent: parent.map(|parent| ParentRegion::Borrowed(parent)),
             extends: Some(ParentRegion::Borrowed(self)),
             visible: FnvHashMap::default(),
@@ -612,14 +612,14 @@ impl<'a> DeclarativeRegion<'a> {
         self.visible.insert(decl.designator.clone(), decl);
     }
 
-    pub fn make_all_potentially_visible(&mut self, region: &DeclarativeRegion<'a>) {
+    pub fn make_all_potentially_visible(&mut self, region: &Region<'a>) {
         for decl in region.decls.values() {
             self.make_potentially_visible(decl.clone());
         }
     }
 
     /// Used when useing context clauses
-    pub fn copy_visibility_from(&mut self, region: &DeclarativeRegion<'a>) {
+    pub fn copy_visibility_from(&mut self, region: &Region<'a>) {
         for decl in region.visible.values() {
             self.visible.insert(decl.designator.clone(), decl.clone());
         }
@@ -648,5 +648,37 @@ impl<'a> DeclarativeRegion<'a> {
                     .as_ref()
                     .and_then(|parent| parent.lookup(designator, inside))
             })
+    }
+}
+
+pub trait SetReference {
+    fn set_reference(&mut self, decl: &VisibleDeclaration) {
+        // @TODO handle built-ins without position
+        // @TODO handle mutliple overloaded declarations
+        if !decl.is_overloaded() {
+            // We do not set references to overloaded names to avoid
+            // To much incorrect behavior which will appear as low quality
+            self.set_reference_pos(decl.first_pos());
+        } else {
+            self.clear_reference();
+        }
+    }
+
+    fn clear_reference(&mut self) {
+        self.set_reference_pos(None);
+    }
+
+    fn set_reference_pos(&mut self, pos: Option<&SrcPos>);
+}
+
+impl<T> SetReference for WithRef<T> {
+    fn set_reference_pos(&mut self, pos: Option<&SrcPos>) {
+        self.reference = pos.cloned();
+    }
+}
+
+impl<T: SetReference> SetReference for WithPos<T> {
+    fn set_reference_pos(&mut self, pos: Option<&SrcPos>) {
+        self.item.set_reference_pos(pos);
     }
 }

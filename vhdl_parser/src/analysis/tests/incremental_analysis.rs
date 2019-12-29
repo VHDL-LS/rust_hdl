@@ -5,7 +5,7 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use super::*;
-use crate::analysis::library::DesignRoot;
+use crate::analysis::DesignRoot;
 use crate::ast::search::*;
 use crate::ast::WithRef;
 use crate::data::SrcPos;

@@ -7,10 +7,10 @@
 use fnv::{FnvHashMap, FnvHashSet};
 use std::collections::hash_map::Entry;
 
-use super::declarative_region::{AnyDeclaration, DeclarativeRegion, VisibleDeclaration};
+use super::analyze::*;
 use super::lock::AnalysisLock;
 use super::lock::{AnalysisEntry, ReadGuard};
-use super::semantic::{Analysis, Analyzer, FatalNullResult, FatalResult};
+use super::region::{AnyDeclaration, Region, VisibleDeclaration};
 use crate::ast::search::*;
 use crate::ast::*;
 use crate::data::*;
@@ -23,7 +23,7 @@ use std::sync::Arc;
 #[cfg_attr(test, derive(Clone))]
 pub struct AnalysisData<T> {
     pub diagnostics: Vec<Diagnostic>,
-    pub region: Arc<DeclarativeRegion<'static>>,
+    pub region: Arc<Region<'static>>,
     pub has_circular_dependency: bool,
     pub ast: T,
 }
@@ -261,7 +261,7 @@ impl<T> AnalysisData<T> {
     fn new(ast: T) -> AnalysisData<T> {
         AnalysisData {
             diagnostics: Vec::new(),
-            region: Arc::new(DeclarativeRegion::default()),
+            region: Arc::new(Region::default()),
             has_circular_dependency: false,
             ast,
         }
@@ -270,7 +270,7 @@ impl<T> AnalysisData<T> {
     /// Clear data for new analysis, keeping ast
     fn reset(&mut self) {
         // Clear region and diagnostics
-        self.region = Arc::new(DeclarativeRegion::default());
+        self.region = Arc::new(Region::default());
         self.diagnostics = Vec::new();
         self.has_circular_dependency = false;
         // Keep ast
@@ -369,29 +369,6 @@ impl HasUnitId for AnyLockedPrimary {
 impl HasUnitId for AnyLockedSecondary {
     fn unit_id(&self) -> UnitId {
         delegate_secondary!(self, unit, unit.unit_id())
-    }
-}
-
-#[derive(Clone, Debug)]
-#[must_use]
-pub struct CircularDependencyError {
-    reference: Option<SrcPos>,
-}
-
-impl CircularDependencyError {
-    pub fn new(reference: Option<&SrcPos>) -> CircularDependencyError {
-        CircularDependencyError {
-            reference: reference.cloned(),
-        }
-    }
-
-    pub fn push_into(self, diagnostics: &mut dyn DiagnosticHandler) {
-        if let Some(pos) = self.reference {
-            diagnostics.push(Diagnostic::error(
-                pos,
-                format!("Found circular dependency",),
-            ));
-        }
     }
 }
 
@@ -655,7 +632,7 @@ impl DesignRoot {
         FindAllReferences::search(self, decl_pos)
     }
 
-    fn get_analysis<'a, T: Analysis>(
+    fn get_analysis<'a, T: Analyze>(
         &self,
         library: &Library,
         unit_id: &UnitId,
@@ -663,7 +640,7 @@ impl DesignRoot {
     ) -> ReadGuard<'a, AnalysisData<T>> {
         match lock.entry() {
             AnalysisEntry::Vacant(mut data) => {
-                let analyzer = Analyzer::new(
+                let context = AnalyzeContext::new(
                     DependencyRecorder::new(self, unit_id.in_library(&library.name)),
                     library.name().clone(),
                     self.symbols.symtab(),
@@ -676,8 +653,8 @@ impl DesignRoot {
                     ..
                 } = *data;
 
-                let mut region = DeclarativeRegion::default();
-                if let Err(err) = ast.analyze(&analyzer, &mut region, diagnostics) {
+                let mut region = Region::default();
+                if let Err(err) = ast.analyze(&context, &mut region, diagnostics) {
                     *has_circular_dependency = true;
                     err.push_into(diagnostics);
                 }
@@ -972,7 +949,7 @@ impl<'a> DependencyRecorder<'a> {
         &self,
         use_pos: &SrcPos,
         library_name: &Symbol,
-        region: &mut DeclarativeRegion<'_>,
+        region: &mut Region<'_>,
     ) -> FatalNullResult {
         let library = self.root.expect_library(library_name);
 

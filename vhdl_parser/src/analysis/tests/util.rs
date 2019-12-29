@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::analysis::library::DesignRoot;
+use crate::analysis::DesignRoot;
 use crate::data::*;
 use crate::syntax::test::*;
 use crate::syntax::Symbols;

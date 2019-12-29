@@ -4,12 +4,17 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
-mod declarative_region;
-mod library;
+mod analyze;
+mod concurrent;
+mod declarative;
+mod design_unit;
 mod lock;
+mod region;
+mod root;
 mod semantic;
+mod sequential;
 
 #[cfg(test)]
 mod tests;
 
-pub use self::library::DesignRoot;
+pub use self::root::DesignRoot;
