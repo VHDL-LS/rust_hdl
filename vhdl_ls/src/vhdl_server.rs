@@ -176,10 +176,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         config: Config,
         init_params: InitializeParams,
     ) -> (InitializedVHDLServer<T>, InitializeResult) {
-        // @TODO read num_threads from config file
-        let num_threads = 4;
-        let project =
-            Project::from_config(&config, num_threads, &mut MessageChannel::new(&rpc_channel));
+        let project = Project::from_config(&config, &mut MessageChannel::new(&rpc_channel));
 
         let server = InitializedVHDLServer {
             rpc_channel,
