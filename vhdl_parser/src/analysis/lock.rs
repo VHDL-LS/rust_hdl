@@ -6,7 +6,7 @@
 
 ///! This module contains structs to handle detecting circular dependencies
 ///! during analysis of packages where the dependency tree is not known
-use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 struct AnalysisState<T> {
     done: bool,
@@ -32,7 +32,7 @@ impl<T> AnalysisLock<T> {
 
     /// Get an immutable reference to the data if it is already been analyzed
     fn get(&self) -> Option<ReadGuard<T>> {
-        let guard = self.data.read().unwrap();
+        let guard = self.data.read();
         if guard.done {
             Some(ReadGuard { guard })
         } else {
@@ -42,20 +42,20 @@ impl<T> AnalysisLock<T> {
 
     pub fn read(&self) -> ReadGuard<T> {
         ReadGuard {
-            guard: self.data.read().unwrap(),
+            guard: self.data.read(),
         }
     }
 
     /// Reset analysis state, analysis needs to be redone
     pub fn reset(&self, reset_fun: &impl Fn(&mut T)) {
-        let mut guard = self.data.try_write().unwrap();
+        let mut guard = self.data.write();
         guard.done = false;
         reset_fun(&mut guard.data);
     }
 
     /// Get an immmutable reference to the data, assuming it has already been analyzed
     pub fn expect_analyzed(&self) -> ReadGuard<T> {
-        let guard = self.data.read().unwrap();
+        let guard = self.data.read();
 
         if !guard.done {
             panic!("Expected analysis to have already been done");
@@ -72,14 +72,11 @@ impl<T> AnalysisLock<T> {
         if let Some(guard) = self.get() {
             AnalysisEntry::Occupied(guard)
         } else {
-            let guard = self.data.write().unwrap();
+            let guard = self.data.write();
 
             if guard.done {
-                // Already analyzed, convert to read lock
-                // @TODO investigate parking_lot which supports atomic downgrade
-                drop(guard); // Drop before taking read lock to avoid deadlock
                 let guard = ReadGuard {
-                    guard: self.data.read().unwrap(),
+                    guard: RwLockWriteGuard::downgrade(guard),
                 };
 
                 AnalysisEntry::Occupied(guard)
@@ -112,6 +109,15 @@ pub struct WriteGuard<'a, T> {
     guard: RwLockWriteGuard<'a, AnalysisState<T>>,
 }
 
+impl<'a, T> WriteGuard<'a, T> {
+    pub fn downgrade(mut self) -> ReadGuard<'a, T> {
+        self.guard.done = true;
+        ReadGuard {
+            guard: RwLockWriteGuard::downgrade(self.guard),
+        }
+    }
+}
+
 impl<'a, T> std::ops::Deref for WriteGuard<'a, T> {
     type Target = T;
 
@@ -126,12 +132,6 @@ impl<'a, T> std::ops::DerefMut for WriteGuard<'a, T> {
     }
 }
 
-impl<'a, T> Drop for WriteGuard<'a, T> {
-    fn drop(&mut self) {
-        self.guard.done = true;
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -143,6 +143,7 @@ mod tests {
         match lock.entry() {
             AnalysisEntry::Vacant(mut entry) => {
                 *entry = 2;
+                entry.downgrade();
             }
             _ => panic!("Expected Vacant entry"),
         };

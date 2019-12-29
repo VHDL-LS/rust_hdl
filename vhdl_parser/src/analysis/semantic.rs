@@ -11,7 +11,8 @@ use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::latin_1::Latin1String;
 use crate::source::{SrcPos, WithPos};
 use crate::symbol_table::{Symbol, SymbolTable};
-use std::sync::{Arc, RwLock};
+use parking_lot::RwLock;
+use std::sync::Arc;
 
 enum AnalysisError {
     Fatal(CircularDependencyError),
@@ -1006,7 +1007,7 @@ impl<'a> Analyzer<'a> {
                 let is_ok = match parent.lookup(&type_decl.ident.item.clone().into(), true) {
                     Some(decl) => match decl.first() {
                         AnyDeclaration::ProtectedType(extended_region) => {
-                            let extended_lock = extended_region.read().unwrap();
+                            let extended_lock = extended_region.read();
                             let mut region = extended_lock.extend(Some(parent));
                             self.analyze_declarative_part(
                                 &mut region,
@@ -1072,7 +1073,7 @@ impl<'a> Analyzer<'a> {
                 }
 
                 // Save region for later since body extends region of declaration
-                *empty_region.write().unwrap() = region.without_parent();
+                *empty_region.write() = region.without_parent();
             }
             TypeDefinition::Record(ref mut element_decls) => {
                 let mut region = DeclarativeRegion::default();

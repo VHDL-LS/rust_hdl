@@ -16,8 +16,9 @@ use crate::ast::*;
 use crate::diagnostic::{Diagnostic, DiagnosticHandler};
 use crate::source::HasSource;
 use crate::tokenizer::Symbols;
+use parking_lot::RwLock;
 use std::cell::RefCell;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 /// A design unit with design unit data
 #[cfg_attr(test, derive(Clone))]
@@ -682,8 +683,7 @@ impl DesignRoot {
                     err.push_into(diagnostics);
                 }
                 data.region = Arc::new(region);
-                drop(data);
-                lock.expect_analyzed()
+                data.downgrade()
             }
             AnalysisEntry::Occupied(data) => data,
         }
@@ -723,8 +723,8 @@ impl DesignRoot {
         removed = removed.difference(&changed).cloned().collect();
         added = added.difference(&changed).cloned().collect();
 
-        let users_of = self.users_of.read().unwrap();
-        let users_of_library_all = self.users_of_library_all.read().unwrap();
+        let users_of = self.users_of.read();
+        let users_of_library_all = self.users_of_library_all.read();
 
         // Add affected users which do 'use library.all'
         for unit_id in removed.iter().chain(added.iter()) {
@@ -734,7 +734,7 @@ impl DesignRoot {
                 }
             }
         }
-        let missing_primary = self.missing_primary.read().unwrap();
+        let missing_primary = self.missing_primary.read();
         for ((library_name, primary_name), unit_ids) in missing_primary.iter() {
             let was_added = added.iter().any(|added_id| {
                 added_id.library_name() == library_name && added_id.primary_name() == primary_name
@@ -765,9 +765,9 @@ impl DesignRoot {
         drop(users_of_library_all);
         drop(missing_primary);
 
-        let mut users_of = self.users_of.write().unwrap();
-        let mut users_of_library_all = self.users_of_library_all.write().unwrap();
-        let mut missing_primary = self.missing_primary.write().unwrap();
+        let mut users_of = self.users_of.write();
+        let mut users_of_library_all = self.users_of_library_all.write();
+        let mut missing_primary = self.missing_primary.write();
 
         // Clean-up after removed units
         for removed_unit in removed.iter() {
@@ -905,7 +905,7 @@ impl<'a> DependencyRecorder<'a> {
     fn make_use_of(&self, use_pos: Option<&SrcPos>, unit_id: &LibraryUnitId) -> FatalNullResult {
         // Check local cache before taking lock
         if self.uses.borrow_mut().insert(unit_id.clone()) {
-            let mut users_of = self.root.users_of.write().unwrap();
+            let mut users_of = self.root.users_of.write();
             match users_of.entry(unit_id.clone()) {
                 Entry::Occupied(mut entry) => {
                     entry.get_mut().insert(self.user.clone());
@@ -929,7 +929,7 @@ impl<'a> DependencyRecorder<'a> {
     }
 
     fn make_use_of_library_all(&self, library_name: &Symbol) {
-        let mut users_of_library_all = self.root.users_of_library_all.write().unwrap();
+        let mut users_of_library_all = self.root.users_of_library_all.write();
 
         // Check local cache before taking lock
         if self
@@ -955,7 +955,7 @@ impl<'a> DependencyRecorder<'a> {
 
         // Check local cache before taking lock
         if self.missing_primary.borrow_mut().insert(key.clone()) {
-            let mut missing_primary = self.root.missing_primary.write().unwrap();
+            let mut missing_primary = self.root.missing_primary.write();
             match missing_primary.entry(key) {
                 Entry::Occupied(mut entry) => {
                     entry.get_mut().insert(self.user.clone());

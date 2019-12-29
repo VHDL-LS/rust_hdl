@@ -10,9 +10,10 @@ use crate::source::{SrcPos, WithPos};
 use crate::symbol_table::Symbol;
 
 use fnv::FnvHashMap;
+use parking_lot::RwLock;
 use std::collections::hash_map::Entry;
 use std::ops::Deref;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub enum AnyDeclaration {

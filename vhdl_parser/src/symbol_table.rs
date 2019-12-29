@@ -5,8 +5,8 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::latin_1::Latin1String;
+use parking_lot::RwLock;
 use std::sync::Arc;
-use std::sync::RwLock;
 
 use self::fnv::FnvHashMap;
 use fnv;
@@ -88,7 +88,7 @@ impl SymbolTable {
     }
 
     pub fn lookup(&self, name: &Latin1String) -> Option<Symbol> {
-        let name_to_symbol = self.name_to_symbol.read().unwrap();
+        let name_to_symbol = self.name_to_symbol.read();
         if let Some(sym) = name_to_symbol.get(name) {
             // Symbol already exists with identical case
             return Some(sym.clone());
@@ -116,7 +116,7 @@ impl SymbolTable {
     }
 
     fn insert_new(&self, name: &Latin1String, is_extended: bool) -> Symbol {
-        let mut name_to_symbol = self.name_to_symbol.write().unwrap();
+        let mut name_to_symbol = self.name_to_symbol.write();
 
         // Lookup again after taking lock to avoid race-condition where new symbols are created in parallel
         if let Some(sym) = name_to_symbol.get(name) {

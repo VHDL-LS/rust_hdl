@@ -7,6 +7,7 @@
 use crate::contents::Contents;
 use crate::diagnostic::{Diagnostic, ParseResult};
 use pad;
+use parking_lot::{RwLock, RwLockReadGuard};
 use std::cmp::{max, min};
 use std::collections::hash_map::DefaultHasher;
 use std::convert::AsRef;
@@ -14,7 +15,7 @@ use std::fmt;
 use std::fmt::Write;
 use std::hash::{Hash, Hasher};
 use std::io;
-use std::sync::{Arc, RwLock, RwLockReadGuard};
+use std::sync::Arc;
 
 struct FileId {
     name: String,
@@ -85,7 +86,7 @@ impl UniqueSource {
     }
 
     fn contents(&self) -> RwLockReadGuard<Contents> {
-        self.contents.read().unwrap()
+        self.contents.read()
     }
 
     fn file_name(&self) -> &str {
@@ -148,7 +149,7 @@ impl Source {
     }
 
     pub fn change(&self, range: Option<&Range>, content: &str) {
-        let mut contents = self.source.contents.write().unwrap();
+        let mut contents = self.source.contents.write();
         if let Some(range) = range {
             contents.change(range, content);
         } else {
