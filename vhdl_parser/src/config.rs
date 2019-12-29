@@ -10,7 +10,7 @@ use toml;
 
 use self::fnv::FnvHashMap;
 use self::toml::Value;
-use crate::message::{Message, MessageHandler};
+use crate::data::*;
 use fnv;
 use std::fs::File;
 use std::io;

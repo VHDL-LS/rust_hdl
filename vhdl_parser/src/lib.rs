@@ -7,45 +7,16 @@
 #[macro_use]
 pub mod ast;
 #[macro_use]
-mod tokenizer;
-mod alias_declaration;
 mod analysis;
-mod attributes;
-mod common;
-mod component_declaration;
-mod concurrent_statement;
 mod config;
-mod configuration;
-mod contents;
-mod context;
-mod declarative_part;
-mod design_unit;
-mod diagnostic;
-mod expression;
-mod interface_declaration;
-mod latin_1;
-mod message;
-mod names;
-mod object_declaration;
-mod parser;
+mod data;
 mod project;
-mod range;
-mod sequential_statement;
-mod source;
-mod subprogram;
-mod subtype_indication;
-mod symbol_table;
-mod tokenstream;
-mod type_declaration;
-mod waveform;
-
-#[cfg(test)]
-mod test_util;
+mod syntax;
 
 pub use crate::config::Config;
-pub use crate::diagnostic::{Diagnostic, Severity};
-pub use crate::latin_1::Latin1String;
-pub use crate::message::{Message, MessageHandler, MessagePrinter, MessageType};
-pub use crate::parser::{ParserResult, VHDLParser};
+pub use crate::data::{
+    Diagnostic, Latin1String, Message, MessageHandler, MessagePrinter, MessageType, Position,
+    Range, Severity, Source, SrcPos,
+};
 pub use crate::project::Project;
-pub use crate::source::{Position, Range, Source, SrcPos};
+pub use crate::syntax::{ParserResult, VHDLParser};

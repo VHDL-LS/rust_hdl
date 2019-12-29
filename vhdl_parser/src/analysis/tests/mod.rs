@@ -18,5 +18,5 @@ mod resolves_type_mark;
 mod util;
 
 pub use self::util::*;
-pub use crate::diagnostic::Diagnostic;
-pub use crate::test_util::*;
+pub use crate::data::Diagnostic;
+pub use crate::syntax::test::*;

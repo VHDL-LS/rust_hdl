@@ -13,9 +13,8 @@ use super::lock::{AnalysisEntry, ReadGuard};
 use super::semantic::{Analysis, Analyzer, FatalNullResult, FatalResult};
 use crate::ast::search::*;
 use crate::ast::*;
-use crate::diagnostic::{Diagnostic, DiagnosticHandler};
-use crate::source::HasSource;
-use crate::tokenizer::Symbols;
+use crate::data::*;
+use crate::syntax::Symbols;
 use parking_lot::RwLock;
 use std::cell::RefCell;
 use std::sync::Arc;
@@ -1175,7 +1174,7 @@ fn change_circular_reference<'a, T>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_util::{check_diagnostics, Code};
+    use crate::syntax::test::{check_diagnostics, Code};
 
     fn new_library_with_diagnostics<'a>(code: &Code, name: &str) -> (Library, Vec<Diagnostic>) {
         let mut diagnostics = Vec::new();

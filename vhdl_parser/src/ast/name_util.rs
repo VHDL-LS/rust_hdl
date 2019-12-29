@@ -6,9 +6,7 @@
 
 //! Name conversions
 use super::*;
-use crate::diagnostic::{Diagnostic, ParseResult};
-use crate::source::{HasSrcPos, SrcPos, WithPos};
-use crate::symbol_table::Symbol;
+use crate::data::*;
 
 impl From<WithPos<SelectedName>> for WithPos<Name> {
     fn from(selected_name: WithPos<SelectedName>) -> WithPos<Name> {
@@ -28,7 +26,7 @@ impl From<WithPos<SelectedName>> for WithPos<Name> {
     }
 }
 
-pub fn to_simple_name(name: WithPos<Name>) -> ParseResult<Ident> {
+pub fn to_simple_name(name: WithPos<Name>) -> DiagnosticResult<Ident> {
     match name.item {
         Name::Designator(WithRef {
             item: Designator::Identifier(ident),

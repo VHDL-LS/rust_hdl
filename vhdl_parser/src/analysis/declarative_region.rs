@@ -5,9 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 use super::library::LibraryUnitId;
 use crate::ast::*;
-use crate::diagnostic::{Diagnostic, DiagnosticHandler};
-use crate::source::{SrcPos, WithPos};
-use crate::symbol_table::Symbol;
+use crate::data::*;
 
 use fnv::FnvHashMap;
 use parking_lot::RwLock;

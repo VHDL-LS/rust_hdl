@@ -5,12 +5,9 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::analysis::library::DesignRoot;
-use crate::diagnostic::Diagnostic;
-use crate::latin_1::Latin1String;
-use crate::source::Source;
-use crate::symbol_table::Symbol;
-use crate::test_util::*;
-use crate::tokenizer::Symbols;
+use crate::data::*;
+use crate::syntax::test::*;
+use crate::syntax::Symbols;
 use pretty_assertions::assert_eq;
 use std::collections::{hash_map::Entry, HashMap};
 use std::sync::Arc;

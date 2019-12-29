@@ -7,12 +7,8 @@
 use crate::analysis::DesignRoot;
 use crate::ast::DesignFile;
 use crate::config::Config;
-use crate::diagnostic::Diagnostic;
-use crate::latin_1::Latin1String;
-use crate::message::{Message, MessageHandler};
-use crate::parser::VHDLParser;
-use crate::source::{Position, Source, SrcPos};
-use crate::symbol_table::Symbol;
+use crate::data::*;
+use crate::syntax::VHDLParser;
 use fnv::{FnvHashMap, FnvHashSet};
 use std::collections::hash_map::Entry;
 
@@ -214,7 +210,7 @@ impl SourceFile {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_util::check_no_diagnostics;
+    use crate::syntax::test::check_no_diagnostics;
 
     /// Test that an empty library is created
     /// Thus test case was added when fixing a bug

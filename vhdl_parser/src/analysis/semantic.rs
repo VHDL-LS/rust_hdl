@@ -6,11 +6,9 @@
 
 use super::declarative_region::{AnyDeclaration, DeclarativeRegion, VisibleDeclaration};
 use super::library::*;
+use crate::ast::Range;
 use crate::ast::*;
-use crate::diagnostic::{Diagnostic, DiagnosticHandler};
-use crate::latin_1::Latin1String;
-use crate::source::{SrcPos, WithPos};
-use crate::symbol_table::{Symbol, SymbolTable};
+use crate::data::*;
 use parking_lot::RwLock;
 use std::sync::Arc;
 

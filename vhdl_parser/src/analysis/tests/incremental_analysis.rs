@@ -8,7 +8,7 @@ use super::*;
 use crate::analysis::library::DesignRoot;
 use crate::ast::search::*;
 use crate::ast::WithRef;
-use crate::source::SrcPos;
+use crate::data::SrcPos;
 use fnv::FnvHashSet;
 
 #[test]
