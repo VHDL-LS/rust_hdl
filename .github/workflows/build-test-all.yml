@@ -3,68 +3,85 @@ name: Build & test all configs
 on: [push, pull_request]
 
 jobs:
-  build-linux:
+  
+  build:
+    strategy:
+      matrix:
+        crate:
+          - vhdl_parser
+          - vhdl_ls
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-pc-windows-msvc
+        rust:
+          - stable
+          - 1.40.0 # MSRV
 
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v1
-    - name: Install cross tool
-      run: cargo install cross
-    - name: Build & test vhdl_parser
-      run: |
-        cross build --package vhdl_parser --release --target x86_64-unknown-linux-gnu
-        cross test --package vhdl_parser --release --target x86_64-unknown-linux-gnu
-    - name: Upload vhdl_parser
-      uses: actions/upload-artifact@v1
-      with:
-        name: vhdl_parser-x86_64-unknown-linux-gnu
-        path: target/x86_64-unknown-linux-gnu/release/vhdl_parser
-    - name: Build & test vhdl_ls
-      run: |
-        cross build --package vhdl_ls --release --target x86_64-unknown-linux-gnu
-        cross test --package vhdl_ls --release --target x86_64-unknown-linux-gnu
-    - name: Assemble artifacts
-      run: |
-        mkdir vhdl_ls-x86_64-unknown-linux-gnu
-        mkdir vhdl_ls-x86_64-unknown-linux-gnu/bin
-        cp -R vhdl_libraries vhdl_ls-x86_64-unknown-linux-gnu
-        cp target/x86_64-unknown-linux-gnu/release/vhdl_ls vhdl_ls-x86_64-unknown-linux-gnu/bin
-    - name: Upload vhdl_ls
-      uses: actions/upload-artifact@v1
-      with:
-        name: vhdl_ls-x86_64-unknown-linux-gnu
-        path: vhdl_ls-x86_64-unknown-linux-gnu
-    
-  build-windows:
-
-    runs-on: ubuntu-latest
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            ext: ''
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            ext: .exe
+            
+    runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v1
-    - name: Install cross tool
-      run: cargo install cross
-    - name: Build & test vhdl_parser
-      run: |
-        cross build --package vhdl_parser --release --target x86_64-pc-windows-gnu
-        cross test --package vhdl_parser --release --target x86_64-pc-windows-gnu
-    - name: Upload vhdl_parser
-      uses: actions/upload-artifact@v1
-      with:
-        name: vhdl_parser-x86_64-pc-windows-gnu
-        path: target/x86_64-pc-windows-gnu/release/vhdl_parser.exe
-    - name: Build & test vhdl_ls
-      run: |
-        cross build --package vhdl_ls --release --target x86_64-pc-windows-gnu
-        cross test --package vhdl_ls --release --target x86_64-pc-windows-gnu
-    - name: Assemble artifacts
-      run: |
-        mkdir vhdl_ls-x86_64-pc-windows-gnu
-        mkdir vhdl_ls-x86_64-pc-windows-gnu/bin
-        cp -R vhdl_libraries vhdl_ls-x86_64-pc-windows-gnu
-        cp target/x86_64-pc-windows-gnu/release/vhdl_ls.exe vhdl_ls-x86_64-pc-windows-gnu/bin
-    - name: Upload vhdl_ls
-      uses: actions/upload-artifact@v1
-      with:
-        name: vhdl_ls-x86_64-pc-windows-gnu
-        path: vhdl_ls-x86_64-pc-windows-gnu
+      - uses: actions/checkout@v1
+
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+          components: rustfmt, clippy
+
+      - name: Build ${{ matrix.crate }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --package ${{ matrix.crate }} --release --target ${{ matrix.target }}
+
+      - name: Test ${{ matrix.crate }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --package ${{ matrix.crate }} --release --target ${{ matrix.target }}
+
+      - name: rustfmt
+        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --package ${{ matrix.crate }} -- --check
+
+      - name: clippy
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --package ${{ matrix.crate }}
+      
+      - name: Upload vhdl_parser
+        if: matrix.crate == 'vhdl_parser' && matrix.rust == 'stable'
+        uses: actions/upload-artifact@v1
+        with:
+          name: vhdl_parser-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/vhdl_parser${{ matrix.ext }}
+      
+      - name: Assemble vhdl_ls
+        if: matrix.crate == 'vhdl_ls' && matrix.rust == 'stable'
+        run: |
+          mkdir vhdl_ls-${{ matrix.target }}
+          mkdir vhdl_ls-${{ matrix.target }}/bin
+          cp -R vhdl_libraries vhdl_ls-${{ matrix.target }}
+          cp target/${{ matrix.target }}/release/vhdl_ls${{ matrix.ext }} vhdl_ls-${{ matrix.target }}/bin
+      
+      - name: Upload vhdl_ls
+        if: matrix.crate == 'vhdl_ls' && matrix.rust == 'stable'
+        uses: actions/upload-artifact@v1
+        with:
+          name: vhdl_ls-${{ matrix.target }}
+          path: vhdl_ls-${{ matrix.target }}
