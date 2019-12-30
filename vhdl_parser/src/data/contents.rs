@@ -9,13 +9,14 @@ use super::source::{Position, Range};
 use std::fs::File;
 use std::io;
 use std::io::prelude::Read;
+use std::path::Path;
 
 pub struct Contents {
     lines: Vec<String>,
 }
 
 impl Contents {
-    pub fn from_latin1_file(file_name: &str) -> io::Result<Contents> {
+    pub fn from_latin1_file(file_name: &Path) -> io::Result<Contents> {
         let mut file = File::open(file_name)?;
         let mut bytes = Vec::new();
         file.read_to_end(&mut bytes)?;

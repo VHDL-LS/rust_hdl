@@ -15,18 +15,21 @@ use std::fmt;
 use std::fmt::Write;
 use std::hash::{Hash, Hasher};
 use std::io;
+pub use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 struct FileId {
-    name: String,
+    name: PathBuf,
     hash: u64, // Hash of name
 }
 
 impl FileId {
-    fn new(name: impl Into<String>) -> FileId {
-        let name = name.into();
-        let hash = hash(&name);
-        Self { name, hash }
+    fn new(name: &Path) -> FileId {
+        let hash = hash(name);
+        Self {
+            name: name.to_owned(),
+            hash,
+        }
     }
 }
 
@@ -41,9 +44,9 @@ impl PartialEq for FileId {
     }
 }
 
-fn hash(value: &str) -> u64 {
+fn hash(value: &Path) -> u64 {
     let mut hasher = DefaultHasher::new();
-    hasher.write(value.as_bytes());
+    value.hash(&mut hasher);
     hasher.finish()
 }
 
@@ -60,16 +63,15 @@ impl fmt::Debug for UniqueSource {
 }
 
 impl UniqueSource {
-    fn inline(file_name: impl Into<String>, contents: &str) -> Self {
+    fn inline(file_name: &Path, contents: &str) -> Self {
         Self {
             file_id: FileId::new(file_name),
             contents: RwLock::new(Contents::from_str(contents)),
         }
     }
 
-    fn from_latin1_file(file_name: impl Into<String>) -> io::Result<Self> {
-        let file_name = file_name.into();
-        let contents = Contents::from_latin1_file(&file_name)?;
+    fn from_latin1_file(file_name: &Path) -> io::Result<Self> {
+        let contents = Contents::from_latin1_file(file_name)?;
         Ok(Self {
             file_id: FileId::new(file_name),
             contents: RwLock::new(contents),
@@ -77,7 +79,7 @@ impl UniqueSource {
     }
 
     #[cfg(test)]
-    pub fn from_contents(file_name: impl Into<String>, contents: Contents) -> UniqueSource {
+    pub fn from_contents(file_name: &Path, contents: Contents) -> UniqueSource {
         let file_name = file_name.into();
         Self {
             file_id: FileId::new(file_name),
@@ -89,7 +91,7 @@ impl UniqueSource {
         self.contents.read()
     }
 
-    fn file_name(&self) -> &str {
+    fn file_name(&self) -> &Path {
         self.file_id.name.as_ref()
     }
 }
@@ -114,20 +116,20 @@ impl Hash for Source {
 }
 
 impl Source {
-    pub fn inline(file_name: impl Into<String>, contents: &str) -> Source {
+    pub fn inline(file_name: &Path, contents: &str) -> Source {
         Source {
             source: Arc::new(UniqueSource::inline(file_name, contents)),
         }
     }
 
-    pub fn from_latin1_file(file_name: impl Into<String>) -> io::Result<Source> {
+    pub fn from_latin1_file(file_name: &Path) -> io::Result<Source> {
         Ok(Source {
             source: Arc::new(UniqueSource::from_latin1_file(file_name)?),
         })
     }
 
     #[cfg(test)]
-    pub fn from_contents(file_name: impl Into<String>, contents: Contents) -> Source {
+    pub fn from_contents(file_name: &Path, contents: Contents) -> Source {
         Source {
             source: Arc::new(UniqueSource::from_contents(file_name, contents)),
         }
@@ -137,7 +139,7 @@ impl Source {
         self.source.contents()
     }
 
-    pub fn file_name(&self) -> &str {
+    pub fn file_name(&self) -> &Path {
         self.source.file_name()
     }
 
@@ -444,7 +446,13 @@ impl SrcPos {
         for _ in 0..lineno_len {
             result.push(' ');
         }
-        writeln!(result, " --> {}:{}", file_name, lineno + 1).unwrap();
+        writeln!(
+            result,
+            " --> {}:{}",
+            file_name.to_string_lossy(),
+            lineno + 1
+        )
+        .unwrap();
         for _ in 0..lineno_len {
             result.push(' ');
         }
@@ -480,7 +488,7 @@ impl SrcPos {
         self.range
     }
 
-    pub fn file_name(&self) -> &str {
+    pub fn file_name(&self) -> &Path {
         self.source.file_name()
     }
 
@@ -543,10 +551,10 @@ mod tests {
     {
         use std::io::Write;
         let mut file = tempfile::NamedTempFile::new().unwrap();
-        let file_name = file.path().to_str().unwrap().to_string();
+        let file_name = file.path().to_owned();
         file.write(&Latin1String::from_utf8_unchecked(contents).bytes)
             .unwrap();
-        fun(CodeBuilder::new().code_from_source(Source::from_latin1_file(file_name).unwrap()))
+        fun(CodeBuilder::new().code_from_source(Source::from_latin1_file(&file_name).unwrap()))
     }
 
     #[test]
@@ -728,7 +736,7 @@ Greetings
    |  ~~~~~
 3  |  line
 ",
-                    code.source().file_name()
+                    code.source().file_name().to_string_lossy()
                 )
             )
         });
@@ -749,7 +757,7 @@ Greetings
    |  ~~~~~
 3  |  line
 ",
-                code.source().file_name()
+                code.source().file_name().to_string_lossy()
             )
         );
     }

@@ -13,7 +13,7 @@ use std::collections::hash_map::Entry;
 use self::vhdl_parser::{Config, Diagnostic, Message, Project, Severity, Source, SrcPos};
 use crate::rpc_channel::{MessageChannel, RpcChannel};
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use vhdl_parser;
 
 pub struct VHDLServer<T: RpcChannel + Clone> {
@@ -270,9 +270,10 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         } else {
             self.push_msg(Message::info(format!(
                 "Opening file {} that is not part of the project",
-                &file_name
+                file_name.to_string_lossy()
             )));
-            self.project.update_source(&Source::inline(file_name, code));
+            self.project
+                .update_source(&Source::inline(&file_name, code));
             self.publish_diagnostics();
         }
     }
@@ -291,7 +292,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         } else {
             self.push_msg(Message::error(format!(
                 "Changing file {} that is not part of the project",
-                &file_name
+                file_name.to_string_lossy()
             )));
         }
     }
@@ -408,14 +409,14 @@ fn flatten_related(diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
     flat_diagnostics
 }
 
-fn file_name_to_uri(file_name: impl AsRef<str>) -> Url {
+fn file_name_to_uri(file_name: &Path) -> Url {
     // @TODO return error to client
-    Url::from_file_path(Path::new(file_name.as_ref())).unwrap()
+    Url::from_file_path(file_name).unwrap()
 }
 
-fn uri_to_file_name(uri: &Url) -> String {
+fn uri_to_file_name(uri: &Url) -> PathBuf {
     // @TODO return error to client
-    uri.to_file_path().unwrap().to_str().unwrap().to_owned()
+    uri.to_file_path().unwrap()
 }
 
 fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {

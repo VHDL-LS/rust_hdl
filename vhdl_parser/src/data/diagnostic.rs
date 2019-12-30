@@ -133,10 +133,11 @@ impl DiagnosticHandler for Vec<Diagnostic> {
 mod tests {
     use super::*;
     use crate::syntax::test::Code;
+    use std::path::Path;
 
     #[test]
     fn show_warning() {
-        let code = Code::new_with_file_name("{unknown file}", "hello\nworld\nline\n");
+        let code = Code::new_with_file_name(Path::new("{unknown file}"), "hello\nworld\nline\n");
         assert_eq!(
             Diagnostic::warning(code.s1("world"), "Greetings").show(),
             "\
@@ -153,7 +154,7 @@ warning: Greetings
 
     #[test]
     fn show_error() {
-        let code = Code::new_with_file_name("{unknown file}", "hello\nworld\nline\n");
+        let code = Code::new_with_file_name(Path::new("{unknown file}"), "hello\nworld\nline\n");
         assert_eq!(
             Diagnostic::error(code.s1("world"), "Greetings").show(),
             "\
@@ -170,7 +171,7 @@ error: Greetings
 
     #[test]
     fn show_related() {
-        let code = Code::new_with_file_name("{unknown file}", "hello\nworld\nline\n");
+        let code = Code::new_with_file_name(Path::new("{unknown file}"), "hello\nworld\nline\n");
 
         let err =
             Diagnostic::error(code.s1("line"), "Greetings").related(code.s1("hello"), "From here");

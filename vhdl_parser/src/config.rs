@@ -27,22 +27,13 @@ pub struct Config {
 #[derive(Clone, PartialEq, Default, Debug)]
 pub struct LibraryConfig {
     name: String,
-    files: Vec<String>,
+    patterns: Vec<String>,
 }
 
 impl LibraryConfig {
-    fn to_canon_path(file_path: &Path) -> Result<String, Message> {
+    fn to_canon_path(file_path: &Path) -> Result<PathBuf, Message> {
         match file_path.canonicalize() {
-            Ok(file_path) => {
-                // @TODO use Path to store file names
-                match file_path.to_str() {
-                    Some(file_name) => Ok(file_name.to_owned()),
-                    None => Err(Message::error(format!(
-                        "File name not valid utf-8 {}",
-                        file_path.to_string_lossy()
-                    ))),
-                }
-            }
+            Ok(file_path) => Ok(file_path),
             Err(err) => Err(Message::error(format!(
                 "Could not create absolute path {}: {:?}",
                 file_path.to_string_lossy(),
@@ -54,9 +45,9 @@ impl LibraryConfig {
     /// Return a vector of file names
     /// Only include files that exists
     /// Files that do not exist produce a warning message
-    pub fn file_names(&self, messages: &mut dyn MessageHandler) -> Vec<String> {
+    pub fn file_names(&self, messages: &mut dyn MessageHandler) -> Vec<PathBuf> {
         let mut result = Vec::new();
-        for pattern in self.files.iter() {
+        for pattern in self.patterns.iter() {
             if is_literal(&pattern, cfg!(windows)) {
                 let file_path = Path::new(pattern);
 
@@ -118,14 +109,12 @@ impl LibraryConfig {
     }
 
     /// Remove duplicate file names from the result
-    fn remove_duplicates(file_names: Vec<String>) -> Vec<String> {
+    fn remove_duplicates(file_names: Vec<PathBuf>) -> Vec<PathBuf> {
         let mut result = Vec::with_capacity(file_names.len());
         let mut fileset = std::collections::HashSet::new();
 
         for file_name in file_names.into_iter() {
-            let path = Path::new(&file_name).to_owned();
-
-            if fileset.insert(path) {
+            if fileset.insert(file_name.clone()) {
                 result.push(file_name);
             }
         }
@@ -156,7 +145,7 @@ impl Config {
                 .as_array()
                 .ok_or_else(|| format!("files for library {} is not array", name))?;
 
-            let mut files = Vec::new();
+            let mut patterns = Vec::new();
             for file in file_arr.iter() {
                 let file = file
                     .as_str()
@@ -167,14 +156,14 @@ impl Config {
                     .to_str()
                     .ok_or_else(|| format!("Could not convert {:?} to string", path))?
                     .to_owned();
-                files.push(path);
+                patterns.push(path);
             }
 
             libraries.insert(
                 name.to_owned(),
                 LibraryConfig {
                     name: name.to_owned(),
-                    files,
+                    patterns,
                 },
             );
         }
@@ -217,7 +206,7 @@ impl Config {
                     library.name.clone(),
                     LibraryConfig {
                         name: library.name.clone(),
-                        files: library.files.clone(),
+                        patterns: library.patterns.clone(),
                     },
                 );
             }
@@ -328,10 +317,10 @@ mod tests {
     use tempfile;
 
     /// Utility function to create an empty file in parent folder
-    fn touch(parent: &Path, file_name: &str) -> String {
+    fn touch(parent: &Path, file_name: &str) -> PathBuf {
         let path = parent.join(file_name);
         File::create(&path).expect("Assume file can be created");
-        path.to_str().expect("Assume valid string").to_owned()
+        path
     }
 
     #[test]
@@ -372,7 +361,7 @@ lib1.files = [
   'tb_ent.vhd'
 ]
 ",
-                absolute_vhd
+                absolute_vhd.to_str().unwrap()
             ),
             &parent,
         )
@@ -470,7 +459,7 @@ lib.files = [
 
         let mut messages = vec![];
         let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
-        let expected: Vec<String> = Vec::new();
+        let expected: Vec<PathBuf> = Vec::new();
         assert_eq!(file_names, expected);
         assert_eq!(
             messages,
@@ -501,7 +490,7 @@ lib.files = [
 
         let mut messages = vec![];
         let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
-        let expected: Vec<String> = vec![file1, file2];
+        let expected = vec![file1, file2];
         assert_eq!(file_names, expected);
         assert_eq!(messages, vec![]);
     }
@@ -527,7 +516,7 @@ lib.files = [
 
         let mut messages = vec![];
         let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
-        let expected: Vec<String> = vec![file1, file2];
+        let expected: Vec<PathBuf> = vec![file1, file2];
         assert_eq!(file_names, expected);
         assert_eq!(messages, vec![]);
     }
@@ -547,7 +536,7 @@ lib.files = [
 
         let mut messages = vec![];
         let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
-        let expected: Vec<String> = Vec::new();
+        let expected: Vec<PathBuf> = Vec::new();
         assert_eq!(file_names, expected);
         assert_eq!(
             messages,

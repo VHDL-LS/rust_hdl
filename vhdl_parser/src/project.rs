@@ -11,11 +11,12 @@ use crate::data::*;
 use crate::syntax::VHDLParser;
 use fnv::{FnvHashMap, FnvHashSet};
 use std::collections::hash_map::Entry;
+use std::path::{Path, PathBuf};
 
 pub struct Project {
     parser: VHDLParser,
     root: DesignRoot,
-    files: FnvHashMap<String, SourceFile>,
+    files: FnvHashMap<PathBuf, SourceFile>,
     empty_libraries: FnvHashSet<Symbol>,
 }
 
@@ -32,7 +33,7 @@ impl Project {
 
     pub fn from_config(config: &Config, messages: &mut dyn MessageHandler) -> Project {
         let mut project = Project::new();
-        let mut files_to_parse: FnvHashMap<String, FnvHashSet<Symbol>> = FnvHashMap::default();
+        let mut files_to_parse: FnvHashMap<PathBuf, FnvHashSet<Symbol>> = FnvHashMap::default();
 
         for library in config.iter_libraries() {
             let library_name =
@@ -78,7 +79,7 @@ impl Project {
             let (source, design_file) = match result {
                 Ok(result) => result,
                 Err(err) => {
-                    messages.push(Message::file_error(err.to_string(), file_name));
+                    messages.push(Message::file_error(err.to_string(), &file_name));
                     continue;
                 }
             };
@@ -97,7 +98,7 @@ impl Project {
         project
     }
 
-    pub fn get_source(&self, file_name: &str) -> Option<Source> {
+    pub fn get_source(&self, file_name: &Path) -> Option<Source> {
         self.files.get(file_name).map(|file| file.source.clone())
     }
 
@@ -312,7 +313,7 @@ end package;
         ",
         )
         .unwrap();
-        let mut source1 = Source::from_latin1_file(path1.to_str().unwrap()).unwrap();
+        let mut source1 = Source::from_latin1_file(&path1).unwrap();
 
         std::fs::write(
             &path2,
@@ -325,7 +326,7 @@ end package;
         ",
         )
         .unwrap();
-        let mut source2 = Source::from_latin1_file(path2.to_str().unwrap()).unwrap();
+        let mut source2 = Source::from_latin1_file(&path2).unwrap();
 
         let config_str = "
 [libraries]

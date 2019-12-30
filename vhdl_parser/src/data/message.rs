@@ -4,6 +4,8 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
+use std::path::Path;
+
 #[derive(Debug, PartialEq)]
 pub enum MessageType {
     Error,
@@ -48,10 +50,14 @@ impl Message {
         }
     }
 
-    pub fn file_error(message: impl Into<String>, file_name: impl Into<String>) -> Message {
+    pub fn file_error(message: impl Into<String>, file_name: &Path) -> Message {
         Message {
             message_type: MessageType::Error,
-            message: format!("{} (In file {})", message.into(), file_name.into()),
+            message: format!(
+                "{} (In file {})",
+                message.into(),
+                file_name.to_string_lossy()
+            ),
         }
     }
 }
