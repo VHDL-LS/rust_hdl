@@ -115,6 +115,7 @@ impl Contents {
             }
         }
 
+        let end_line = std::cmp::min(self.lines.len().saturating_sub(1), end_line);
         self.lines
             .splice(
                 start_line..=end_line,
@@ -581,5 +582,16 @@ mod tests {
         assert_eq!(flatten(&contents), "H");
         contents.change(&Range::new(Position::new(0, 0), Position::new(0, 1)), "");
         assert_eq!(flatten(&contents), "");
+    }
+
+    #[test]
+    fn change_add_missing_newline() {
+        // LSP client will use end line outside of text
+        let mut contents = new("a");
+        assert_eq!(flatten(&contents), "a");
+        contents.change(&Range::new(Position::new(0, 1), Position::new(1, 0)), "\n");
+        assert_eq!(flatten(&contents), "a\n");
+        assert_eq!(contents.num_lines(), 1);
+        assert_eq!(contents.get_line(0).unwrap().to_string(), "a\n");
     }
 }
