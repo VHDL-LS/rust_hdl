@@ -31,8 +31,8 @@ pub struct LibraryConfig {
 }
 
 impl LibraryConfig {
-    fn to_canon_path(file_path: &Path) -> Result<PathBuf, Message> {
-        match file_path.canonicalize() {
+    fn to_abspath(file_path: &Path) -> Result<PathBuf, Message> {
+        match dunce::canonicalize(file_path) {
             Ok(file_path) => Ok(file_path),
             Err(err) => Err(Message::error(format!(
                 "Could not create absolute path {}: {:?}",
@@ -52,9 +52,9 @@ impl LibraryConfig {
                 let file_path = Path::new(pattern);
 
                 if file_path.exists() {
-                    match Self::to_canon_path(&file_path) {
-                        Ok(file_path) => {
-                            result.push(file_path);
+                    match Self::to_abspath(&file_path) {
+                        Ok(abs_path) => {
+                            result.push(abs_path);
                         }
                         Err(msg) => {
                             messages.push(msg);
@@ -74,9 +74,9 @@ impl LibraryConfig {
                             empty_pattern = false;
                             match file_path_or_error {
                                 Ok(file_path) => {
-                                    match Self::to_canon_path(&file_path) {
-                                        Ok(file_path) => {
-                                            result.push(file_path);
+                                    match Self::to_abspath(&file_path) {
+                                        Ok(abs_path) => {
+                                            result.push(abs_path);
                                         }
                                         Err(msg) => {
                                             messages.push(msg);
@@ -323,16 +323,16 @@ mod tests {
         path
     }
 
-    fn canon(path: &Path) -> PathBuf {
-        path.canonicalize().unwrap()
+    fn abspath(path: &Path) -> PathBuf {
+        dunce::canonicalize(path).unwrap()
     }
 
-    fn canon_vec(paths: &[PathBuf]) -> Vec<PathBuf> {
-        paths.iter().map(|path| canon(path)).collect()
+    fn abspaths(paths: &[PathBuf]) -> Vec<PathBuf> {
+        paths.iter().map(|path| abspath(path)).collect()
     }
 
     fn assert_files_eq(got: &[PathBuf], expected: &[PathBuf]) {
-        assert_eq!(got, canon_vec(expected).as_slice());
+        assert_eq!(got, abspaths(expected).as_slice());
     }
 
     #[test]
@@ -354,10 +354,7 @@ mod tests {
         let parent = tempdir.path();
 
         let tempdir2 = tempfile::tempdir().unwrap();
-        let absolute_path = tempdir2
-            .path()
-            .canonicalize()
-            .expect("Assume valid abspath");
+        let absolute_path = abspath(tempdir2.path());
         let absolute_vhd = touch(&absolute_path, "absolute.vhd");
 
         let config = Config::from_str(

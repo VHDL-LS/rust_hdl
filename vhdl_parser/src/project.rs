@@ -300,10 +300,11 @@ use_lib.files = ['use_file.vhd']
     /// Test that the same file can be added to several libraries
     #[test]
     fn test_re_analyze_after_update() {
-        let root = tempfile::tempdir().unwrap();
-        let path1 = root.path().join("file1.vhd");
-        let path2 = root.path().join("file2.vhd");
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(tempdir.path()).unwrap();
 
+        let path1 = root.join("file1.vhd");
+        let path2 = root.join("file2.vhd");
         std::fs::write(
             &path1,
             "
@@ -312,7 +313,6 @@ end package;
         ",
         )
         .unwrap();
-        let path1 = path1.canonicalize().unwrap();
         let mut source1 = Source::from_latin1_file(&path1).unwrap();
 
         std::fs::write(
@@ -326,7 +326,6 @@ end package;
         ",
         )
         .unwrap();
-        let path2 = path2.canonicalize().unwrap();
         let mut source2 = Source::from_latin1_file(&path2).unwrap();
 
         let config_str = "
@@ -335,7 +334,7 @@ lib1.files = ['file1.vhd']
 lib2.files = ['file2.vhd']
         ";
 
-        let config = Config::from_str(config_str, root.path()).unwrap();
+        let config = Config::from_str(config_str, &root).unwrap();
         let mut messages = Vec::new();
         let mut project = Project::from_config(&config, &mut messages);
         assert_eq!(messages, vec![]);
