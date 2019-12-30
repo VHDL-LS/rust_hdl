@@ -31,6 +31,26 @@ pub struct LibraryConfig {
 }
 
 impl LibraryConfig {
+    fn to_canon_path(file_path: &Path) -> Result<String, Message> {
+        match file_path.canonicalize() {
+            Ok(file_path) => {
+                // @TODO use Path to store file names
+                match file_path.to_str() {
+                    Some(file_name) => Ok(file_name.to_owned()),
+                    None => Err(Message::error(format!(
+                        "File name not valid utf-8 {}",
+                        file_path.to_string_lossy()
+                    ))),
+                }
+            }
+            Err(err) => Err(Message::error(format!(
+                "Could not create absolute path {}: {:?}",
+                file_path.to_string_lossy(),
+                err
+            ))),
+        }
+    }
+
     /// Return a vector of file names
     /// Only include files that exists
     /// Files that do not exist produce a warning message
@@ -38,12 +58,21 @@ impl LibraryConfig {
         let mut result = Vec::new();
         for pattern in self.files.iter() {
             if is_literal(&pattern, cfg!(windows)) {
-                if !Path::new(pattern).exists() {
+                let file_path = Path::new(pattern);
+
+                if file_path.exists() {
+                    match Self::to_canon_path(&file_path) {
+                        Ok(file_path) => {
+                            result.push(file_path);
+                        }
+                        Err(msg) => {
+                            messages.push(msg);
+                        }
+                    };
+                } else {
                     messages.push(Message::warning(
                         format! {"File {} does not exist", pattern},
                     ));
-                } else {
-                    result.push(pattern.clone());
                 }
             } else {
                 match glob::glob(pattern) {
@@ -53,17 +82,16 @@ impl LibraryConfig {
                         for file_path_or_error in paths {
                             empty_pattern = false;
                             match file_path_or_error {
-                                Ok(file_path) => match file_path.to_str() {
-                                    Some(file_name) => {
-                                        result.push(file_name.to_owned());
-                                    }
-                                    None => {
-                                        messages.push(Message::error(format!(
-                                            "File name not valid utf-8 {}",
-                                            file_path.to_string_lossy()
-                                        )));
-                                    }
-                                },
+                                Ok(file_path) => {
+                                    match Self::to_canon_path(&file_path) {
+                                        Ok(file_path) => {
+                                            result.push(file_path);
+                                        }
+                                        Err(msg) => {
+                                            messages.push(msg);
+                                        }
+                                    };
+                                }
                                 Err(err) => {
                                     messages.push(Message::error(err.to_string()));
                                 }
@@ -96,9 +124,8 @@ impl LibraryConfig {
 
         for file_name in file_names.into_iter() {
             let path = Path::new(&file_name).to_owned();
-            let canon_path = path.canonicalize().unwrap_or(path);
 
-            if fileset.insert(canon_path) {
+            if fileset.insert(path) {
                 result.push(file_name);
             }
         }
