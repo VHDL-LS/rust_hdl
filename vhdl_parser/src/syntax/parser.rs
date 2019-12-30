@@ -47,7 +47,7 @@ impl VHDLParser {
 
     pub fn parse_design_file(
         &self,
-        file_name: &str,
+        file_name: &Path,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> ParserResult {
         let source = Source::from_latin1_file(file_name)?;

@@ -55,15 +55,15 @@ impl CodeBuilder {
         code
     }
 
-    pub fn code_with_file_name(&self, file_name: impl Into<String>, code: &str) -> Code {
+    pub fn code_with_file_name(&self, file_name: &Path, code: &str) -> Code {
         self.code_from_source(Source::inline(file_name, code))
     }
 
     pub fn code(&self, code: &str) -> Code {
         let mut hasher = DefaultHasher::new();
         hasher.write(code.as_bytes());
-        let file_name = format!("<unknown file with hash {}>", hasher.finish());
-        self.code_with_file_name(file_name, code)
+        let file_name: PathBuf = format!("<unknown file with hash {}>", hasher.finish()).into();
+        self.code_with_file_name(&file_name, code)
     }
 
     pub fn symbol(&self, name: &str) -> Symbol {
@@ -82,7 +82,7 @@ impl Code {
         CodeBuilder::new().code(code)
     }
 
-    pub fn new_with_file_name(file_name: &str, code: &str) -> Code {
+    pub fn new_with_file_name(file_name: &Path, code: &str) -> Code {
         CodeBuilder::new().code_with_file_name(file_name, code)
     }
 

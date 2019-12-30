@@ -84,18 +84,18 @@ pub fn add_standard_library(symbols: Arc<Symbols>, root: &mut DesignRoot) {
         symbols: symbols.clone(),
     };
     let std_standard = builder.code_from_source(Source::inline(
-        "standard.vhd",
+        Path::new("standard.vhd"),
         &Latin1String::new(include_bytes!(
             "../../../../vhdl_libraries/std/standard.vhd"
         ))
         .to_string(),
     ));
     let std_textio = builder.code_from_source(Source::inline(
-        "textio.vhd",
+        Path::new("textio.vhd"),
         &Latin1String::new(include_bytes!("../../../../vhdl_libraries/std/textio.vhd")).to_string(),
     ));
     let std_env = builder.code_from_source(Source::inline(
-        "env.vhd",
+        Path::new("env.vhd"),
         &Latin1String::new(include_bytes!("../../../../vhdl_libraries/std/env.vhd")).to_string(),
     ));
     let std_sym = symbols.symtab().insert_utf8("std");

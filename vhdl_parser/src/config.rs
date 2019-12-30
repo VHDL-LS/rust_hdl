@@ -27,23 +27,43 @@ pub struct Config {
 #[derive(Clone, PartialEq, Default, Debug)]
 pub struct LibraryConfig {
     name: String,
-    files: Vec<String>,
+    patterns: Vec<String>,
 }
 
 impl LibraryConfig {
+    fn to_abspath(file_path: &Path) -> Result<PathBuf, Message> {
+        match dunce::canonicalize(file_path) {
+            Ok(file_path) => Ok(file_path),
+            Err(err) => Err(Message::error(format!(
+                "Could not create absolute path {}: {:?}",
+                file_path.to_string_lossy(),
+                err
+            ))),
+        }
+    }
+
     /// Return a vector of file names
     /// Only include files that exists
     /// Files that do not exist produce a warning message
-    pub fn file_names(&self, messages: &mut dyn MessageHandler) -> Vec<String> {
+    pub fn file_names(&self, messages: &mut dyn MessageHandler) -> Vec<PathBuf> {
         let mut result = Vec::new();
-        for pattern in self.files.iter() {
+        for pattern in self.patterns.iter() {
             if is_literal(&pattern, cfg!(windows)) {
-                if !Path::new(pattern).exists() {
+                let file_path = Path::new(pattern);
+
+                if file_path.exists() {
+                    match Self::to_abspath(&file_path) {
+                        Ok(abs_path) => {
+                            result.push(abs_path);
+                        }
+                        Err(msg) => {
+                            messages.push(msg);
+                        }
+                    };
+                } else {
                     messages.push(Message::warning(
                         format! {"File {} does not exist", pattern},
                     ));
-                } else {
-                    result.push(pattern.clone());
                 }
             } else {
                 match glob::glob(pattern) {
@@ -53,17 +73,16 @@ impl LibraryConfig {
                         for file_path_or_error in paths {
                             empty_pattern = false;
                             match file_path_or_error {
-                                Ok(file_path) => match file_path.to_str() {
-                                    Some(file_name) => {
-                                        result.push(file_name.to_owned());
-                                    }
-                                    None => {
-                                        messages.push(Message::error(format!(
-                                            "File name not valid utf-8 {}",
-                                            file_path.to_string_lossy()
-                                        )));
-                                    }
-                                },
+                                Ok(file_path) => {
+                                    match Self::to_abspath(&file_path) {
+                                        Ok(abs_path) => {
+                                            result.push(abs_path);
+                                        }
+                                        Err(msg) => {
+                                            messages.push(msg);
+                                        }
+                                    };
+                                }
                                 Err(err) => {
                                     messages.push(Message::error(err.to_string()));
                                 }
@@ -90,15 +109,12 @@ impl LibraryConfig {
     }
 
     /// Remove duplicate file names from the result
-    fn remove_duplicates(file_names: Vec<String>) -> Vec<String> {
+    fn remove_duplicates(file_names: Vec<PathBuf>) -> Vec<PathBuf> {
         let mut result = Vec::with_capacity(file_names.len());
         let mut fileset = std::collections::HashSet::new();
 
         for file_name in file_names.into_iter() {
-            let path = Path::new(&file_name).to_owned();
-            let canon_path = path.canonicalize().unwrap_or(path);
-
-            if fileset.insert(canon_path) {
+            if fileset.insert(file_name.clone()) {
                 result.push(file_name);
             }
         }
@@ -129,7 +145,7 @@ impl Config {
                 .as_array()
                 .ok_or_else(|| format!("files for library {} is not array", name))?;
 
-            let mut files = Vec::new();
+            let mut patterns = Vec::new();
             for file in file_arr.iter() {
                 let file = file
                     .as_str()
@@ -140,14 +156,14 @@ impl Config {
                     .to_str()
                     .ok_or_else(|| format!("Could not convert {:?} to string", path))?
                     .to_owned();
-                files.push(path);
+                patterns.push(path);
             }
 
             libraries.insert(
                 name.to_owned(),
                 LibraryConfig {
                     name: name.to_owned(),
-                    files,
+                    patterns,
                 },
             );
         }
@@ -190,7 +206,7 @@ impl Config {
                     library.name.clone(),
                     LibraryConfig {
                         name: library.name.clone(),
-                        files: library.files.clone(),
+                        patterns: library.patterns.clone(),
                     },
                 );
             }
@@ -301,10 +317,22 @@ mod tests {
     use tempfile;
 
     /// Utility function to create an empty file in parent folder
-    fn touch(parent: &Path, file_name: &str) -> String {
+    fn touch(parent: &Path, file_name: &str) -> PathBuf {
         let path = parent.join(file_name);
         File::create(&path).expect("Assume file can be created");
-        path.to_str().expect("Assume valid string").to_owned()
+        path
+    }
+
+    fn abspath(path: &Path) -> PathBuf {
+        dunce::canonicalize(path).unwrap()
+    }
+
+    fn abspaths(paths: &[PathBuf]) -> Vec<PathBuf> {
+        paths.iter().map(|path| abspath(path)).collect()
+    }
+
+    fn assert_files_eq(got: &[PathBuf], expected: &[PathBuf]) {
+        assert_eq!(got, abspaths(expected).as_slice());
     }
 
     #[test]
@@ -326,10 +354,7 @@ mod tests {
         let parent = tempdir.path();
 
         let tempdir2 = tempfile::tempdir().unwrap();
-        let absolute_path = tempdir2
-            .path()
-            .canonicalize()
-            .expect("Assume valid abspath");
+        let absolute_path = abspath(tempdir2.path());
         let absolute_vhd = touch(&absolute_path, "absolute.vhd");
 
         let config = Config::from_str(
@@ -345,7 +370,7 @@ lib1.files = [
   'tb_ent.vhd'
 ]
 ",
-                absolute_vhd
+                absolute_vhd.to_str().unwrap()
             ),
             &parent,
         )
@@ -362,8 +387,8 @@ lib1.files = [
         let tb_ent_path = touch(&parent, "tb_ent.vhd");
 
         let mut messages = vec![];
-        assert_eq!(lib1.file_names(&mut messages), &[pkg1_path, tb_ent_path]);
-        assert_eq!(lib2.file_names(&mut messages), &[pkg2_path, absolute_vhd]);
+        assert_files_eq(&lib1.file_names(&mut messages), &[pkg1_path, tb_ent_path]);
+        assert_files_eq(&lib2.file_names(&mut messages), &[pkg2_path, absolute_vhd]);
         assert_eq!(messages, vec![]);
     }
 
@@ -443,8 +468,7 @@ lib.files = [
 
         let mut messages = vec![];
         let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
-        let expected: Vec<String> = Vec::new();
-        assert_eq!(file_names, expected);
+        assert_files_eq(&file_names, &[]);
         assert_eq!(
             messages,
             vec![Message::warning(format!(
@@ -474,8 +498,7 @@ lib.files = [
 
         let mut messages = vec![];
         let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
-        let expected: Vec<String> = vec![file1, file2];
-        assert_eq!(file_names, expected);
+        assert_files_eq(&file_names, &[file1, file2]);
         assert_eq!(messages, vec![]);
     }
 
@@ -500,8 +523,7 @@ lib.files = [
 
         let mut messages = vec![];
         let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
-        let expected: Vec<String> = vec![file1, file2];
-        assert_eq!(file_names, expected);
+        assert_files_eq(&file_names, &[file1, file2]);
         assert_eq!(messages, vec![]);
     }
     #[test]
@@ -520,8 +542,7 @@ lib.files = [
 
         let mut messages = vec![];
         let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
-        let expected: Vec<String> = Vec::new();
-        assert_eq!(file_names, expected);
+        assert_files_eq(&file_names, &[]);
         assert_eq!(
             messages,
             vec![Message::warning(format!(
