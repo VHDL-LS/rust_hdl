@@ -9,25 +9,16 @@ cache: cargo
 
 rust:
   - stable
-  - nightly
 
 env:
   matrix:
     - CRATE=vhdl_parser
     - CRATE=vhdl_ls
 
-matrix:
-  allow_failures:
-    - rust: nightly
-  fast_finish: true
-
 install:
-  - rustup component add clippy
   - rustup component add rustfmt
 
 script:
-  - cargo fmt --package $CRATE -- --check || [ "$TRAVIS_RUST_VERSION" = "nightly" ]
-  - cargo clippy --package $CRATE || [ "$TRAVIS_RUST_VERSION" = "nightly" ]
   - cargo build --package $CRATE
   - cargo test --package $CRATE
 
