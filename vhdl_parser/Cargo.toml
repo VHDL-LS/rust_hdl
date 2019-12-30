@@ -27,3 +27,7 @@ parking_lot = "^0"
 tempfile = "^3"
 pretty_assertions = "^0"
 assert_matches = "^1"
+
+[features]
+default = []
+packaged = []
