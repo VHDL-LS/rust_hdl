@@ -68,14 +68,14 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
     /// Log info/error messages to the client
     fn load_config(&self, init_params: &InitializeParams) -> Config {
         let mut config = Config::default();
+        let mut message_chan = MessageChannel::new(&self.rpc_channel);
 
         if self.use_external_config {
-            let mut message_chan = MessageChannel::new(&self.rpc_channel);
             config.load_external_config(&mut message_chan);
         }
 
         match self.load_root_uri_config(&init_params) {
-            Ok(root_config) => config.append(&root_config),
+            Ok(root_config) => config.append(&root_config, &mut message_chan),
             Err(ref err) => {
                 self.rpc_channel.push_msg(Message::error(format!(
                     "Found no vhdl_ls.toml config file in the workspace root path: {}",

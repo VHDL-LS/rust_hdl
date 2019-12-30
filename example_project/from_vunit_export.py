@@ -31,14 +31,6 @@ def main():
 
         libraries[library_name].add(file_name)
 
-    std_path = join(dirname(__file__), "vhdl_libraries", "2008", "std", "*.vhd")
-    libraries["std"] = glob(std_path)
-    assert libraries["std"], "Could not find STD library: %s" % std_path
-
-    ieee_path = join(dirname(__file__), "ghdl", "libraries", "ieee2008", "*.vhdl")
-    libraries["ieee"] = glob(ieee_path)
-    assert libraries["ieee"], "Could not find IEEE library %s, have you run setup.sh?" % ieee_path
-
     with open(args.output, "w") as fptr:
         for key in libraries:
             libraries[key] = dict(files=[relpath(file_name, dirname(args.output))

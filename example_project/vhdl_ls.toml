@@ -1,11 +1,4 @@
 [libraries]
-ieee.files = [
-'../vhdl_libraries/ieee2008/*.vhdl'
-]
-
-std.files = [
-'../vhdl_libraries/std/*.vhd'
-]
 
 vunit_lib.files = [
 'vunit/vunit/vhdl/*.vhd',

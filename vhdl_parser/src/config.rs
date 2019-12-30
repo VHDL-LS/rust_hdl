@@ -176,10 +176,15 @@ impl Config {
     /// Append another config to self
     ///
     /// In case of conflict the appended config takes precedence
-    pub fn append(&mut self, config: &Config) {
+    pub fn append(&mut self, config: &Config, messages: &mut dyn MessageHandler) {
         for library in config.iter_libraries() {
             if let Some(parent_library) = self.libraries.get_mut(&library.name) {
                 *parent_library = library.clone();
+
+                messages.push(Message::warning(format!(
+                    "Re-defined library {}",
+                    &library.name
+                )));
             } else {
                 self.libraries.insert(
                     library.name.clone(),
@@ -248,7 +253,7 @@ impl Config {
                     file_name.to_string_lossy()
                 )));
 
-                self.append(&env_config);
+                self.append(&env_config, messages);
             }
             Err(ref err) => {
                 messages.push(Message::error(format!(
@@ -418,7 +423,7 @@ lib3.files = [
         .unwrap();
 
         let mut merged_config = config0.clone();
-        merged_config.append(&config1);
+        merged_config.append(&config1, &mut Vec::new());
         assert_eq!(merged_config, expected_config);
     }
 

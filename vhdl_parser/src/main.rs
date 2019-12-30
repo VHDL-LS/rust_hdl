@@ -51,6 +51,7 @@ fn main() {
     config.load_external_config(&mut msg_printer);
     config.append(
         &Config::read_file_path(Path::new(&file_name)).expect("Failed to read config file"),
+        &mut msg_printer,
     );
     let mut project = Project::from_config(&config, &mut msg_printer);
     show_diagnostics(&project.analyse());
