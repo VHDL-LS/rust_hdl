@@ -302,7 +302,6 @@ use_lib.files = ['use_file.vhd']
     fn test_re_analyze_after_update() {
         let root = tempfile::tempdir().unwrap();
         let path1 = root.path().join("file1.vhd");
-
         let path2 = root.path().join("file2.vhd");
 
         std::fs::write(
@@ -313,6 +312,7 @@ end package;
         ",
         )
         .unwrap();
+        let path1 = path1.canonicalize().unwrap();
         let mut source1 = Source::from_latin1_file(&path1).unwrap();
 
         std::fs::write(
@@ -326,6 +326,7 @@ end package;
         ",
         )
         .unwrap();
+        let path2 = path2.canonicalize().unwrap();
         let mut source2 = Source::from_latin1_file(&path2).unwrap();
 
         let config_str = "

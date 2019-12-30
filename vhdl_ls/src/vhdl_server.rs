@@ -484,7 +484,7 @@ mod tests {
 
     fn temp_root_uri() -> (tempfile::TempDir, Url) {
         let tempdir = tempfile::tempdir().unwrap();
-        let root_uri = Url::from_file_path(tempdir.path()).unwrap();
+        let root_uri = Url::from_file_path(tempdir.path().canonicalize().unwrap()).unwrap();
         (tempdir, root_uri)
     }
 

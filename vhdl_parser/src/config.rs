@@ -323,6 +323,18 @@ mod tests {
         path
     }
 
+    fn canon(path: &Path) -> PathBuf {
+        path.canonicalize().unwrap()
+    }
+
+    fn canon_vec(paths: &[PathBuf]) -> Vec<PathBuf> {
+        paths.iter().map(|path| canon(path)).collect()
+    }
+
+    fn assert_files_eq(got: &[PathBuf], expected: &[PathBuf]) {
+        assert_eq!(got, canon_vec(expected).as_slice());
+    }
+
     #[test]
     fn test_is_literal() {
         for is_windows in &[false, true] {
@@ -378,8 +390,8 @@ lib1.files = [
         let tb_ent_path = touch(&parent, "tb_ent.vhd");
 
         let mut messages = vec![];
-        assert_eq!(lib1.file_names(&mut messages), &[pkg1_path, tb_ent_path]);
-        assert_eq!(lib2.file_names(&mut messages), &[pkg2_path, absolute_vhd]);
+        assert_files_eq(&lib1.file_names(&mut messages), &[pkg1_path, tb_ent_path]);
+        assert_files_eq(&lib2.file_names(&mut messages), &[pkg2_path, absolute_vhd]);
         assert_eq!(messages, vec![]);
     }
 
@@ -459,8 +471,7 @@ lib.files = [
 
         let mut messages = vec![];
         let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
-        let expected: Vec<PathBuf> = Vec::new();
-        assert_eq!(file_names, expected);
+        assert_files_eq(&file_names, &[]);
         assert_eq!(
             messages,
             vec![Message::warning(format!(
@@ -490,8 +501,7 @@ lib.files = [
 
         let mut messages = vec![];
         let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
-        let expected = vec![file1, file2];
-        assert_eq!(file_names, expected);
+        assert_files_eq(&file_names, &[file1, file2]);
         assert_eq!(messages, vec![]);
     }
 
@@ -516,8 +526,7 @@ lib.files = [
 
         let mut messages = vec![];
         let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
-        let expected: Vec<PathBuf> = vec![file1, file2];
-        assert_eq!(file_names, expected);
+        assert_files_eq(&file_names, &[file1, file2]);
         assert_eq!(messages, vec![]);
     }
     #[test]
@@ -536,8 +545,7 @@ lib.files = [
 
         let mut messages = vec![];
         let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
-        let expected: Vec<PathBuf> = Vec::new();
-        assert_eq!(file_names, expected);
+        assert_files_eq(&file_names, &[]);
         assert_eq!(
             messages,
             vec![Message::warning(format!(
