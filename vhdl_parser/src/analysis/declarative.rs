@@ -8,7 +8,6 @@ use super::*;
 use crate::ast::*;
 use crate::data::*;
 use analyze::*;
-use parking_lot::RwLock;
 use region::*;
 use std::sync::Arc;
 
@@ -207,11 +206,10 @@ impl<'a> AnalyzeContext<'a> {
                 );
             }
             TypeDefinition::ProtectedBody(ref mut body) => {
-                let is_ok = match parent.lookup(&type_decl.ident.item.clone().into(), true) {
+                let is_ok = match parent.lookup_within(&type_decl.ident.item.clone().into()) {
                     Some(decl) => match decl.first() {
-                        AnyDeclaration::ProtectedType(extended_region) => {
-                            let extended_lock = extended_region.read();
-                            let mut region = extended_lock.extend(Some(parent));
+                        AnyDeclaration::ProtectedType(ptype_region) => {
+                            let mut region = Region::extend(&ptype_region, Some(parent));
                             self.analyze_declarative_part(
                                 &mut region,
                                 &mut body.decl,
@@ -248,12 +246,11 @@ impl<'a> AnalyzeContext<'a> {
                 };
             }
             TypeDefinition::Protected(ref mut prot_decl) => {
-                let empty_region = Arc::new(RwLock::new(Region::default()));
-
                 // Protected type name is visible inside its declarative region
+                // This will be overwritten later when the protected type region is finished
                 parent.add(
                     &type_decl.ident,
-                    AnyDeclaration::ProtectedType(empty_region.clone()),
+                    AnyDeclaration::TypeDeclaration(None),
                     diagnostics,
                 );
 
@@ -274,9 +271,12 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     }
                 }
+                let region = region.without_parent();
 
-                // Save region for later since body extends region of declaration
-                *empty_region.write() = region.without_parent();
+                parent.overwrite(
+                    &type_decl.ident,
+                    AnyDeclaration::ProtectedType(Arc::new(region)),
+                );
             }
             TypeDefinition::Record(ref mut element_decls) => {
                 let mut region = Region::default();

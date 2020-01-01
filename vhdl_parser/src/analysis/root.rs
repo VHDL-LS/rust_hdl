@@ -23,6 +23,7 @@ use std::sync::Arc;
 #[cfg_attr(test, derive(Clone))]
 pub struct AnalysisData<T> {
     pub diagnostics: Vec<Diagnostic>,
+    pub root_region: Arc<Region<'static>>,
     pub region: Arc<Region<'static>>,
     pub has_circular_dependency: bool,
     pub ast: T,
@@ -261,6 +262,7 @@ impl<T> AnalysisData<T> {
     fn new(ast: T) -> AnalysisData<T> {
         AnalysisData {
             diagnostics: Vec::new(),
+            root_region: Arc::new(Region::default()),
             region: Arc::new(Region::default()),
             has_circular_dependency: false,
             ast,
@@ -653,11 +655,14 @@ impl DesignRoot {
                     ..
                 } = *data;
 
+                let mut root_region = Region::default();
                 let mut region = Region::default();
-                if let Err(err) = ast.analyze(&context, &mut region, diagnostics) {
+                if let Err(err) = ast.analyze(&context, &mut root_region, &mut region, diagnostics)
+                {
                     *has_circular_dependency = true;
                     err.push_into(diagnostics);
                 }
+                data.root_region = Arc::new(root_region);
                 data.region = Arc::new(region);
                 data.downgrade()
             }

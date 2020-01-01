@@ -8,9 +8,7 @@ use crate::ast::*;
 use crate::data::*;
 
 use fnv::FnvHashMap;
-use parking_lot::RwLock;
 use std::collections::hash_map::Entry;
-use std::ops::Deref;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -24,7 +22,7 @@ pub enum AnyDeclaration {
     Constant,
     DeferredConstant,
     // The region of the protected type which needs to be extendend by the body
-    ProtectedType(Arc<RwLock<Region<'static>>>),
+    ProtectedType(Arc<Region<'static>>),
     ProtectedTypeBody,
     Library(Symbol),
     Entity(LibraryUnitId, Arc<Region<'static>>),
@@ -204,29 +202,10 @@ enum RegionKind {
     Other,
 }
 
-/// Most parent regions can just be temporarily borrowed
-/// For public regions of design units the parent must be owned such that these regions can be stored in a map
-#[derive(Clone)]
-enum ParentRegion<'a> {
-    Borrowed(&'a Region<'a>),
-    Owned(Box<Region<'static>>),
-}
-
-impl<'a> Deref for ParentRegion<'a> {
-    type Target = Region<'a>;
-
-    fn deref(&self) -> &Region<'a> {
-        match self {
-            ParentRegion::Borrowed(region) => region,
-            ParentRegion::Owned(ref region) => region.as_ref(),
-        }
-    }
-}
-
 #[derive(Clone)]
 pub struct Region<'a> {
-    parent: Option<ParentRegion<'a>>,
-    extends: Option<ParentRegion<'a>>,
+    parent: Option<&'a Region<'a>>,
+    extends: Option<&'a Region<'a>>,
     visible: FnvHashMap<Designator, VisibleDeclaration>,
     decls: FnvHashMap<Designator, VisibleDeclaration>,
     kind: RegionKind,
@@ -245,17 +224,7 @@ impl<'a> Region<'a> {
 
     pub fn nested(&'a self) -> Region<'a> {
         Region {
-            parent: Some(ParentRegion::Borrowed(self)),
-            extends: None,
-            visible: FnvHashMap::default(),
-            decls: FnvHashMap::default(),
-            kind: RegionKind::Other,
-        }
-    }
-
-    pub fn new_owned_parent(parent: Box<Region<'static>>) -> Region<'static> {
-        Region {
-            parent: Some(ParentRegion::Owned(parent)),
+            parent: Some(self),
             extends: None,
             visible: FnvHashMap::default(),
             decls: FnvHashMap::default(),
@@ -267,14 +236,10 @@ impl<'a> Region<'a> {
         Region {
             parent: None,
             extends: None,
-            visible: FnvHashMap::default(),
+            visible: self.visible,
             decls: self.decls,
-            kind: RegionKind::Other,
+            kind: self.kind,
         }
-    }
-
-    pub fn get_parent(&'a self) -> Option<&'a Region<'a>> {
-        self.parent.as_ref().map(|parent| parent.deref())
     }
 
     pub fn in_package_declaration(mut self) -> Region<'a> {
@@ -282,15 +247,15 @@ impl<'a> Region<'a> {
         self
     }
 
-    pub fn extend(&'a self, parent: Option<&'a Region<'a>>) -> Region<'a> {
-        let kind = match self.kind {
+    pub fn extend(region: &'a Region<'a>, parent: Option<&'a Region<'a>>) -> Region<'a> {
+        let kind = match region.kind {
             RegionKind::PackageDeclaration => RegionKind::PackageBody,
             _ => RegionKind::Other,
         };
 
         Region {
-            parent: parent.map(|parent| ParentRegion::Borrowed(parent)),
-            extends: Some(ParentRegion::Borrowed(self)),
+            parent: parent,
+            extends: Some(region),
             visible: FnvHashMap::default(),
             decls: FnvHashMap::default(),
             kind,
@@ -556,6 +521,11 @@ impl<'a> Region<'a> {
         self.add_decl(decl, diagnostics);
     }
 
+    pub fn overwrite(&mut self, designator: impl Into<WithPos<Designator>>, decl: AnyDeclaration) {
+        let decl = VisibleDeclaration::new(designator.into(), decl);
+        self.decls.insert(decl.designator.clone(), decl);
+    }
+
     pub fn add_implicit(
         &mut self,
         designator: impl Into<Designator>,
@@ -625,29 +595,43 @@ impl<'a> Region<'a> {
         }
     }
 
-    /// Lookup a designator in the region
-    /// inside: true if looking from inside the region
-    ///         false if looking from the outside such as through a selected name
-    pub fn lookup(&self, designator: &Designator, inside: bool) -> Option<&VisibleDeclaration> {
+    /// Helper function lookup a visible declaration within the region
+    fn lookup(&self, designator: &Designator, is_selected: bool) -> Option<&VisibleDeclaration> {
         self.decls
             .get(designator)
             .or_else(|| {
-                if inside {
-                    self.visible.get(designator)
-                } else {
+                if is_selected {
                     None
+                } else {
+                    self.visible.get(designator)
                 }
             })
             .or_else(|| {
                 self.extends
                     .as_ref()
-                    .and_then(|parent| parent.lookup(designator, inside))
+                    .and_then(|region| region.lookup(designator, is_selected))
             })
             .or_else(|| {
-                self.parent
-                    .as_ref()
-                    .and_then(|parent| parent.lookup(designator, inside))
+                if is_selected {
+                    None
+                } else {
+                    self.parent
+                        .as_ref()
+                        .and_then(|region| region.lookup_within(designator))
+                }
             })
+    }
+
+    /// Lookup where this region is the prefix of a selected name
+    /// Thus any visibility inside the region is irrelevant
+    pub fn lookup_selected(&self, designator: &Designator) -> Option<&VisibleDeclaration> {
+        self.lookup(designator, true)
+    }
+
+    /// Lookup a designator from within the region itself
+    /// Thus all parent regions and visibility is relevant
+    pub fn lookup_within(&self, designator: &Designator) -> Option<&VisibleDeclaration> {
+        self.lookup(designator, false)
     }
 }
 

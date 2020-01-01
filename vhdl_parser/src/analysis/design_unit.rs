@@ -17,14 +17,15 @@ impl Analyze for PackageInstantiation {
     fn analyze(
         &mut self,
         context: &AnalyzeContext,
+        root_region: &mut Region<'_>,
         region: &mut Region<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        let mut root_region = Region::default();
-        context.add_implicit_context_clause(&mut root_region)?;
-        context.analyze_context_clause(&mut root_region, &mut self.context_clause, diagnostics)?;
+        *root_region = Region::default();
+        context.add_implicit_context_clause(root_region)?;
+        context.analyze_context_clause(root_region, &mut self.context_clause, diagnostics)?;
 
-        match context.analyze_package_instance_name(&root_region, &mut self.package_name) {
+        match context.analyze_package_instance_name(root_region, &mut self.package_name) {
             Ok(package_region) => {
                 *region = (*package_region).clone();
                 Ok(())
@@ -42,31 +43,34 @@ impl Analyze for PackageDeclaration {
     fn analyze(
         &mut self,
         context: &AnalyzeContext,
+        root_region: &mut Region<'_>,
         region: &mut Region<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        let mut root_region = Box::new(Region::default());
+        *root_region = Region::default();
         if !(context.work_library_name == context.std_sym && *self.name() == context.standard_sym) {
-            context.add_implicit_context_clause(&mut root_region)?;
+            context.add_implicit_context_clause(root_region)?;
         }
 
-        context.analyze_context_clause(&mut root_region, &mut self.context_clause, diagnostics)?;
+        context.analyze_context_clause(root_region, &mut self.context_clause, diagnostics)?;
 
-        *region = Region::new_owned_parent(root_region).in_package_declaration();
+        let mut primary_region = root_region.nested().in_package_declaration();
 
         if let Some(ref mut list) = self.generic_clause {
-            context.analyze_interface_list(region, list, diagnostics)?;
+            context.analyze_interface_list(&mut primary_region, list, diagnostics)?;
         }
-        context.analyze_declarative_part(region, &mut self.decl, diagnostics)?;
+        context.analyze_declarative_part(&mut primary_region, &mut self.decl, diagnostics)?;
 
         if context
             .root
             .has_package_body(&context.work_library_name, self.name())
         {
-            region.close_immediate(diagnostics);
+            primary_region.close_immediate(diagnostics);
         } else {
-            region.close_both(diagnostics);
+            primary_region.close_both(diagnostics);
         }
+
+        *region = primary_region.without_parent();
 
         Ok(())
     }
@@ -76,6 +80,7 @@ impl Analyze for PackageBody {
     fn analyze(
         &mut self,
         context: &AnalyzeContext,
+        _root_region: &mut Region<'_>,
         _region: &mut Region<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -115,10 +120,10 @@ impl Analyze for PackageBody {
 
         self.ident.set_reference_pos(Some(package_data.pos()));
         // @TODO make pattern of primary/secondary extension
-        let mut root_region = package_data.region.get_parent().unwrap().extend(None);
+        let mut root_region = Region::extend(&package_data.root_region, None);
         context.analyze_context_clause(&mut root_region, &mut self.context_clause, diagnostics)?;
 
-        let mut region = package_data.region.extend(Some(&root_region));
+        let mut region = Region::extend(&package_data.region, Some(&root_region));
 
         // Package name is visible in body
         region.make_potentially_visible(VisibleDeclaration::new(
@@ -136,13 +141,15 @@ impl Analyze for ContextDeclaration {
     fn analyze(
         &mut self,
         context: &AnalyzeContext,
+        root_region: &mut Region<'_>,
         region: &mut Region<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        let mut root_region = Region::default();
-        context.add_implicit_context_clause(&mut root_region)?;
-        *region = Region::new_owned_parent(Box::new(root_region));
-        context.analyze_context_clause(region, &mut self.items, diagnostics)?;
+        *root_region = Region::default();
+        context.add_implicit_context_clause(root_region)?;
+        let mut primary_region = root_region.nested();
+        context.analyze_context_clause(&mut primary_region, &mut self.items, diagnostics)?;
+        *region = primary_region.without_parent();
         Ok(())
     }
 }
@@ -151,6 +158,7 @@ impl Analyze for ConfigurationDeclaration {
     fn analyze(
         &mut self,
         context: &AnalyzeContext,
+        _root_region: &mut Region<'_>,
         _region: &mut Region<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -188,25 +196,27 @@ impl Analyze for EntityDeclaration {
     fn analyze(
         &mut self,
         context: &AnalyzeContext,
+        root_region: &mut Region<'_>,
         region: &mut Region<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        let mut root_region = Region::default();
-        context.add_implicit_context_clause(&mut root_region)?;
-        context.analyze_context_clause(&mut root_region, &mut self.context_clause, diagnostics)?;
+        *root_region = Region::default();
+        context.add_implicit_context_clause(root_region)?;
+        context.analyze_context_clause(root_region, &mut self.context_clause, diagnostics)?;
 
-        *region = Region::new_owned_parent(Box::new(root_region));
+        let mut primary_region = root_region.nested();
 
         if let Some(ref mut list) = self.generic_clause {
-            context.analyze_interface_list(region, list, diagnostics)?;
+            context.analyze_interface_list(&mut primary_region, list, diagnostics)?;
         }
         if let Some(ref mut list) = self.port_clause {
-            context.analyze_interface_list(region, list, diagnostics)?;
+            context.analyze_interface_list(&mut primary_region, list, diagnostics)?;
         }
-        context.analyze_declarative_part(region, &mut self.decl, diagnostics)?;
-        context.analyze_concurrent_part(region, &mut self.statements, diagnostics)?;
+        context.analyze_declarative_part(&mut primary_region, &mut self.decl, diagnostics)?;
+        context.analyze_concurrent_part(&mut primary_region, &mut self.statements, diagnostics)?;
 
-        region.close_immediate(diagnostics);
+        primary_region.close_immediate(diagnostics);
+        *region = primary_region.without_parent();
 
         Ok(())
     }
@@ -216,6 +226,7 @@ impl Analyze for ArchitectureBody {
     fn analyze(
         &mut self,
         context: &AnalyzeContext,
+        _root_region: &mut Region<'_>,
         _region: &mut Region<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -256,9 +267,9 @@ impl Analyze for ArchitectureBody {
 
         self.entity_name.set_reference_pos(Some(entity.ast.pos()));
 
-        let mut root_region = entity.region.get_parent().unwrap().extend(None);
+        let mut root_region = Region::extend(&entity.root_region, None);
         context.analyze_context_clause(&mut root_region, &mut self.context_clause, diagnostics)?;
-        let mut region = entity.region.extend(Some(&root_region));
+        let mut region = Region::extend(&entity.region, Some(&root_region));
 
         // entity name is visible
         region.make_potentially_visible(VisibleDeclaration::new(

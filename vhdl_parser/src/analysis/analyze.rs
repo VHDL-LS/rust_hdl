@@ -38,6 +38,7 @@ pub trait Analyze {
     fn analyze(
         &mut self,
         context: &AnalyzeContext,
+        root_region: &mut Region<'_>,
         region: &mut Region<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult;

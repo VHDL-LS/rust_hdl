@@ -62,7 +62,7 @@ impl<'a> AnalyzeContext<'a> {
         )))
     }
 
-    fn lookup_within(
+    fn lookup_selected(
         &self,
         prefix_pos: &SrcPos,
         prefix: &VisibleDeclaration,
@@ -80,7 +80,7 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             AnyDeclaration::Package(ref unit_id, ref package_region) => {
-                if let Some(decl) = package_region.lookup(suffix.designator(), false) {
+                if let Some(decl) = package_region.lookup_selected(suffix.designator()) {
                     Ok(Some(decl.clone()))
                 } else {
                     Err(Diagnostic::error(
@@ -96,7 +96,7 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             AnyDeclaration::PackageInstance(ref unit_id, ref instance_region) => {
-                if let Some(decl) = instance_region.lookup(suffix.designator(), false) {
+                if let Some(decl) = instance_region.lookup_selected(suffix.designator()) {
                     Ok(Some(decl.clone()))
                 } else {
                     Err(Diagnostic::error(
@@ -112,7 +112,7 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             AnyDeclaration::LocalPackageInstance(ref instance_name, ref instance_region) => {
-                if let Some(decl) = instance_region.lookup(suffix.designator(), false) {
+                if let Some(decl) = instance_region.lookup_selected(suffix.designator()) {
                     Ok(Some(decl.clone()))
                 } else {
                     Err(Diagnostic::error(
@@ -137,7 +137,7 @@ impl<'a> AnalyzeContext<'a> {
             SelectedName::Selected(ref mut prefix, ref mut suffix) => {
                 suffix.clear_reference();
                 let prefix_decl = self.resolve_selected_name(region, prefix)?;
-                match self.lookup_within(&prefix.pos, &prefix_decl, suffix)? {
+                match self.lookup_selected(&prefix.pos, &prefix_decl, suffix)? {
                     Some(decl) => {
                         suffix.set_reference(&decl);
                         Ok(decl)
@@ -149,7 +149,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             SelectedName::Designator(ref mut designator) => {
-                if let Some(decl) = region.lookup(designator.designator(), true) {
+                if let Some(decl) = region.lookup_within(designator.designator()) {
                     designator.set_reference(decl);
                     Ok(decl.clone())
                 } else {
@@ -209,7 +209,7 @@ impl<'a> AnalyzeContext<'a> {
                     allow_incomplete,
                     diagnostics,
                 )? {
-                    Some(decl) => match self.lookup_within(&prefix.pos, &decl, suffix)? {
+                    Some(decl) => match self.lookup_selected(&prefix.pos, &decl, suffix)? {
                         Some(decl) => {
                             suffix.set_reference(&decl);
                             Ok(LookupResult::Single(decl))
@@ -242,7 +242,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             Name::Designator(designator) => {
-                if let Some(decl) = region.lookup(designator.designator(), true) {
+                if let Some(decl) = region.lookup_within(designator.designator()) {
                     designator.set_reference(decl);
                     Ok(LookupResult::Single(decl.clone()))
                 } else {
