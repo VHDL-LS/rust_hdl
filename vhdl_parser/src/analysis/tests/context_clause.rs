@@ -110,7 +110,7 @@ end package body;
 }
 
 #[test]
-fn secondary_units_share_only_root_region() {
+fn secondary_units_share_root_region_and_visibility_in_extended_region() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(
         "libname",
@@ -120,15 +120,15 @@ constant const : natural := 0;
 end package;
 
 package pkg is
-use work.pkg2;
+  use work.pkg2;
 end package;
 
 -- Does not work
 use pkg2.const;
 
 package body pkg is
--- Does work
-use pkg2.const;
+  -- Does work, share visibility of extended region
+  use pkg2.const;
 end package body;
 ",
     );
