@@ -143,6 +143,39 @@ end package body;
 }
 
 #[test]
+fn extended_region_takes_precedence_over_local_visibility() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package false_pkg is
+  constant decl : natural := 0;
+end package;
+
+package pkg is
+  constant decl : natural := 1;
+end package pkg;
+
+use work.false_pkg.decl;
+package body pkg is
+  use work.false_pkg.decl;
+
+  -- Should refer to constant in pkg
+  constant ref : natural := decl;
+end package body pkg;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    assert_eq!(
+        root.search_reference(code.source(), code.s("decl", 5).start()),
+        Some(code.s("decl", 2).pos())
+    );
+}
+
+#[test]
 fn check_library_clause_library_exists_in_context_declarations() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(

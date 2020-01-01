@@ -600,16 +600,16 @@ impl<'a> Region<'a> {
         self.decls
             .get(designator)
             .or_else(|| {
+                self.extends
+                    .as_ref()
+                    .and_then(|region| region.lookup(designator, is_selected))
+            })
+            .or_else(|| {
                 if is_selected {
                     None
                 } else {
                     self.visible.get(designator)
                 }
-            })
-            .or_else(|| {
-                self.extends
-                    .as_ref()
-                    .and_then(|region| region.lookup(designator, is_selected))
             })
             .or_else(|| {
                 if is_selected {
