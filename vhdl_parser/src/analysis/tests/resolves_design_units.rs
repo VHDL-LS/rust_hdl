@@ -170,7 +170,7 @@ end entity;
         builder.analyze(),
         vec![Diagnostic::error(
             code.s("aname", 1),
-            "Architecture 'aname' declared before entity 'ent'",
+            "Architecture 'aname' of 'ent' declared before entity 'ent'",
         )],
     );
 }
@@ -214,7 +214,7 @@ end package;
         builder.analyze(),
         vec![Diagnostic::error(
             code.s("pkg", 1),
-            "Package body declared before package 'pkg'",
+            "Package body 'pkg' declared before package 'pkg'",
         )],
     );
 }

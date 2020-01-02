@@ -75,9 +75,8 @@ impl SymbolTable {
         }
     }
 
-    #[cfg(test)]
     pub fn insert_utf8(&self, name: &str) -> Symbol {
-        let name = Latin1String::from_utf8_unchecked(name);
+        let name = Latin1String::from_utf8(name).unwrap();
         self.insert(&name)
     }
 

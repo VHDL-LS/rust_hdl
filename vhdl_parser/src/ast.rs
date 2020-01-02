@@ -13,10 +13,14 @@ mod display;
 mod name_util;
 
 #[macro_use]
+mod any_design_unit;
+
+#[macro_use]
 pub mod search;
 
 pub use self::display::*;
 pub use self::name_util::*;
+pub use any_design_unit::*;
 
 use crate::data::*;
 
@@ -1111,19 +1115,19 @@ pub struct PackageBody {
 #[derive(PartialEq, Debug, Clone)]
 pub enum AnyPrimaryUnit {
     /// LRM 3.2 Entity declaration
-    EntityDeclaration(EntityDeclaration),
+    Entity(EntityDeclaration),
 
     /// LRM 3.4 Configuration declarations
     Configuration(ConfigurationDeclaration),
 
     /// LRM 4.7 Package declarations
-    PackageDeclaration(PackageDeclaration),
+    Package(PackageDeclaration),
 
     /// LRM 4.9 Package instatiation declaration
     PackageInstance(PackageInstantiation),
 
     /// LRM 13.4 Context clauses
-    ContextDeclaration(ContextDeclaration),
+    Context(ContextDeclaration),
 }
 
 /// LRM 13.1 Design units

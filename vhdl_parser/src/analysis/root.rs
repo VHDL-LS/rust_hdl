@@ -8,6 +8,7 @@ use fnv::{FnvHashMap, FnvHashSet};
 use std::collections::hash_map::Entry;
 
 use super::analyze::*;
+use super::design_unit::AnalyzeDesignUnit;
 use super::lock::AnalysisLock;
 use super::lock::{AnalysisEntry, ReadGuard};
 use super::region::{AnyDeclaration, Region, VisibleDeclaration};
@@ -20,363 +21,57 @@ use std::cell::RefCell;
 use std::sync::Arc;
 
 /// A design unit with design unit data
-#[cfg_attr(test, derive(Clone))]
-pub struct AnalysisData<T> {
+pub struct AnalysisData {
     pub diagnostics: Vec<Diagnostic>,
     pub root_region: Arc<Region<'static>>,
     pub region: Arc<Region<'static>>,
     pub has_circular_dependency: bool,
-    pub ast: T,
 }
 
-pub type EntityData = AnalysisData<EntityDeclaration>;
-pub type PackageData = AnalysisData<PackageDeclaration>;
-
-type Entity = PrimaryUnit<EntityDeclaration>;
-type Architecture = SecondaryUnit<ArchitectureBody>;
-type Configuration = PrimaryUnit<ConfigurationDeclaration>;
-type Context = PrimaryUnit<ContextDeclaration>;
-type Package = PrimaryUnit<PackageDeclaration>;
-type PackageBody = SecondaryUnit<crate::ast::PackageBody>;
-type PackageInstance = PrimaryUnit<PackageInstantiation>;
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-enum UnitId {
-    Primary(PrimaryKind, Symbol),
-    Secondary(SecondaryKind, Symbol, Symbol),
-}
-
-trait HasUnitId {
-    fn unit_id(&self) -> UnitId;
-}
-
-impl<T: HasUnitId> HasUnitId for AnalysisData<T> {
-    fn unit_id(&self) -> UnitId {
-        self.ast.unit_id()
-    }
-}
-
-/// Without Kind to get name conflict between different primary units
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-enum UnitKey {
-    Primary(Symbol),
-    Secondary(Symbol, Symbol),
-}
-
-#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
-enum PrimaryKind {
-    Entity,
-    Configuration,
-    Package,
-    PackageInstance,
-    Context,
-}
-
-#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
-enum SecondaryKind {
-    Architecture,
-    PackageBody,
-}
-
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct LibraryUnitId {
-    library: Symbol,
+pub type UnitReadGuard<'a> = ReadGuard<'a, AnyDesignUnit, AnalysisData>;
+struct LockedUnit {
+    ident: Ident,
     unit_id: UnitId,
+    pub unit: AnalysisLock<AnyDesignUnit, AnalysisData>,
 }
 
-impl UnitId {
-    fn primary_name(&self) -> &Symbol {
-        match self {
-            UnitId::Primary(_, ref name) => name,
-            UnitId::Secondary(_, ref name, _) => name,
-        }
+impl HasUnitId for LockedUnit {
+    fn unit_id(&self) -> &UnitId {
+        &self.unit_id
     }
+}
 
-    fn key(&self) -> UnitKey {
-        match self {
-            UnitId::Primary(_, ref name) => UnitKey::Primary(name.clone()),
-            UnitId::Secondary(_, ref primary_name, ref name) => {
-                UnitKey::Secondary(primary_name.clone(), name.clone())
+impl LockedUnit {
+    fn new(library_name: &Symbol, unit: AnyDesignUnit) -> LockedUnit {
+        let unit_id = match unit {
+            AnyDesignUnit::Primary(ref unit) => {
+                UnitId::primary(library_name, PrimaryKind::kind_of(unit), unit.name())
             }
-        }
-    }
-
-    fn in_library(&self, library_name: &Symbol) -> LibraryUnitId {
-        LibraryUnitId {
-            library: library_name.clone(),
-            unit_id: self.clone(),
-        }
-    }
-}
-
-impl LibraryUnitId {
-    pub fn package(library_name: &Symbol, primary_name: &Symbol) -> LibraryUnitId {
-        LibraryUnitId {
-            library: library_name.clone(),
-            unit_id: UnitId::Primary(PrimaryKind::Package, primary_name.clone()),
-        }
-    }
-
-    pub fn entity(library_name: &Symbol, primary_name: &Symbol) -> LibraryUnitId {
-        LibraryUnitId {
-            library: library_name.clone(),
-            unit_id: UnitId::Primary(PrimaryKind::Entity, primary_name.clone()),
-        }
-    }
-
-    pub fn library_name(&self) -> &Symbol {
-        &self.library
-    }
-
-    pub fn primary_name(&self) -> &Symbol {
-        self.unit_id.primary_name()
-    }
-}
-
-enum AnyLockedPrimary {
-    Entity(Entity),
-    Configuration(Configuration),
-    Package(Package),
-    PackageInstance(PackageInstance),
-    Context(Context),
-}
-
-enum AnyLockedSecondary {
-    Architecture(Architecture),
-    PackageBody(PackageBody),
-}
-
-enum AnyLocked {
-    Primary(AnyLockedPrimary),
-    Secondary(AnyLockedSecondary),
-}
-
-impl Into<AnyLockedPrimary> for AnyPrimaryUnit {
-    fn into(self) -> AnyLockedPrimary {
-        match self {
-            AnyPrimaryUnit::EntityDeclaration(entity) => {
-                AnyLockedPrimary::Entity(PrimaryUnit::new(PrimaryKind::Entity, entity))
-            }
-            AnyPrimaryUnit::PackageDeclaration(package) => {
-                AnyLockedPrimary::Package(PrimaryUnit::new(PrimaryKind::Package, package))
-            }
-            AnyPrimaryUnit::PackageInstance(inst) => AnyLockedPrimary::PackageInstance(
-                PrimaryUnit::new(PrimaryKind::PackageInstance, inst),
+            AnyDesignUnit::Secondary(ref unit) => UnitId::secondary(
+                library_name,
+                SecondaryKind::kind_of(unit),
+                unit.primary_name(),
+                unit.name(),
             ),
-            AnyPrimaryUnit::ContextDeclaration(ctx) => {
-                AnyLockedPrimary::Context(PrimaryUnit::new(PrimaryKind::Context, ctx))
-            }
-            AnyPrimaryUnit::Configuration(config) => AnyLockedPrimary::Configuration(
-                PrimaryUnit::new(PrimaryKind::Configuration, config),
-            ),
-        }
-    }
-}
+        };
 
-impl Into<AnyLockedSecondary> for AnySecondaryUnit {
-    fn into(self) -> AnyLockedSecondary {
-        match self {
-            AnySecondaryUnit::Architecture(arch) => AnyLockedSecondary::Architecture(
-                SecondaryUnit::new(SecondaryKind::Architecture, arch),
-            ),
-            AnySecondaryUnit::PackageBody(body) => AnyLockedSecondary::PackageBody(
-                SecondaryUnit::new(SecondaryKind::PackageBody, body),
-            ),
-        }
-    }
-}
-
-impl Into<AnyLocked> for AnyDesignUnit {
-    fn into(self) -> AnyLocked {
-        match self {
-            AnyDesignUnit::Primary(unit) => AnyLocked::Primary(unit.into()),
-            AnyDesignUnit::Secondary(unit) => AnyLocked::Secondary(unit.into()),
-        }
-    }
-}
-
-macro_rules! delegate_primary {
-    ($primary:expr, $unit:ident, $block:expr) => {
-        match $primary {
-            AnyLockedPrimary::Entity($unit) => $block,
-            AnyLockedPrimary::Package($unit) => $block,
-            AnyLockedPrimary::PackageInstance($unit) => $block,
-            AnyLockedPrimary::Context($unit) => $block,
-            AnyLockedPrimary::Configuration($unit) => $block,
-        }
-    };
-}
-
-macro_rules! delegate_secondary {
-    ($primary:expr, $unit:ident, $block:expr) => {
-        match $primary {
-            AnyLockedSecondary::Architecture($unit) => $block,
-            AnyLockedSecondary::PackageBody($unit) => $block,
-        }
-    };
-}
-
-macro_rules! delegate_any_shallow {
-    ($primary:expr, $unit:ident, $block:expr) => {
-        match $primary {
-            AnyLocked::Primary($unit) => $block,
-            AnyLocked::Secondary($unit) => $block,
-        }
-    };
-}
-
-macro_rules! delegate_any {
-    ($primary:expr, $unit:ident, $block:expr) => {
-        match $primary {
-            AnyLocked::Primary($unit) => delegate_primary!($unit, $unit, $block),
-            AnyLocked::Secondary($unit) => delegate_secondary!($unit, $unit, $block),
-        }
-    };
-}
-
-impl HasIdent for AnyLockedPrimary {
-    fn ident(&self) -> &Ident {
-        delegate_primary!(self, unit, unit.ident())
-    }
-}
-
-impl HasIdent for AnyLockedSecondary {
-    fn ident(&self) -> &Ident {
-        delegate_secondary!(self, unit, unit.ident())
-    }
-}
-
-impl HasIdent for AnyLocked {
-    fn ident(&self) -> &Ident {
-        delegate_any_shallow!(self, unit, unit.ident())
-    }
-}
-
-impl HasPrimaryIdent for AnyLockedSecondary {
-    fn primary_ident(&self) -> &Ident {
-        delegate_secondary!(self, unit, unit.primary_ident())
-    }
-}
-
-impl<T> AnalysisData<T> {
-    fn new(ast: T) -> AnalysisData<T> {
-        AnalysisData {
-            diagnostics: Vec::new(),
-            root_region: Arc::new(Region::default()),
-            region: Arc::new(Region::default()),
-            has_circular_dependency: false,
-            ast,
-        }
-    }
-
-    /// Clear data for new analysis, keeping ast
-    fn reset(&mut self) {
-        // Clear region and diagnostics
-        self.region = Arc::new(Region::default());
-        self.diagnostics = Vec::new();
-        self.has_circular_dependency = false;
-        // Keep ast
-    }
-}
-
-type LockedData<T> = AnalysisLock<AnalysisData<T>>;
-
-/// Reset analysis state of unit
-fn reset_data<T>(lock: &AnalysisLock<AnalysisData<T>>) {
-    lock.reset(&|data| data.reset());
-}
-
-impl<T: HasIdent> HasIdent for AnalysisData<T> {
-    fn ident(&self) -> &Ident {
-        self.ast.ident()
-    }
-}
-
-struct PrimaryUnit<T> {
-    ident: Ident,
-    kind: PrimaryKind,
-    pub data: LockedData<T>,
-}
-
-impl<T> HasUnitId for PrimaryUnit<T> {
-    fn unit_id(&self) -> UnitId {
-        UnitId::Primary(self.kind, self.name().clone())
-    }
-}
-
-impl<T: HasIdent> PrimaryUnit<T> {
-    fn new(kind: PrimaryKind, unit: T) -> PrimaryUnit<T> {
-        PrimaryUnit {
-            kind,
+        LockedUnit {
             ident: unit.ident().clone(),
-            data: AnalysisLock::new(AnalysisData::new(unit)),
+            unit_id,
+            unit: AnalysisLock::new(unit),
         }
     }
 }
 
-impl<T> HasIdent for PrimaryUnit<T> {
+impl HasIdent for LockedUnit {
     fn ident(&self) -> &Ident {
         &self.ident
-    }
-}
-
-struct SecondaryUnit<T> {
-    ident: Ident,
-    primary_ident: Ident,
-    kind: SecondaryKind,
-    pub data: LockedData<T>,
-}
-
-impl<T> HasUnitId for SecondaryUnit<T> {
-    fn unit_id(&self) -> UnitId {
-        UnitId::Secondary(self.kind, self.primary_name().clone(), self.name().clone())
-    }
-}
-
-impl<T: HasIdent + HasPrimaryIdent> SecondaryUnit<T> {
-    fn new(kind: SecondaryKind, unit: T) -> SecondaryUnit<T> {
-        SecondaryUnit {
-            ident: unit.ident().clone(),
-            primary_ident: unit.primary_ident().clone(),
-            kind,
-            data: AnalysisLock::new(AnalysisData::new(unit)),
-        }
-    }
-}
-
-impl<T> HasIdent for SecondaryUnit<T> {
-    fn ident(&self) -> &Ident {
-        &self.ident
-    }
-}
-
-impl<T> HasPrimaryIdent for SecondaryUnit<T> {
-    fn primary_ident(&self) -> &Ident {
-        &self.primary_ident
-    }
-}
-
-impl HasUnitId for AnyLocked {
-    fn unit_id(&self) -> UnitId {
-        delegate_any_shallow!(self, unit, unit.unit_id())
-    }
-}
-
-impl HasUnitId for AnyLockedPrimary {
-    fn unit_id(&self) -> UnitId {
-        delegate_primary!(self, unit, unit.unit_id())
-    }
-}
-
-impl HasUnitId for AnyLockedSecondary {
-    fn unit_id(&self) -> UnitId {
-        delegate_secondary!(self, unit, unit.unit_id())
     }
 }
 
 struct Library {
     name: Symbol,
-    units: FnvHashMap<UnitKey, AnyLocked>,
+    units: FnvHashMap<UnitKey, LockedUnit>,
     units_by_source: FnvHashMap<Source, FnvHashSet<UnitId>>,
 
     /// Units removed since last analysis
@@ -386,7 +81,7 @@ struct Library {
 
     /// Design units which were not added since they were duplicates
     /// They need to be kept for later refresh which might make them not duplicates
-    duplicates: Vec<(SrcPos, AnyLocked)>,
+    duplicates: Vec<(SrcPos, LockedUnit)>,
 }
 
 impl<'a> Library {
@@ -405,9 +100,9 @@ impl<'a> Library {
         &self.name
     }
 
-    fn add_design_unit(&mut self, unit: AnyLocked) {
-        let unit_id = unit.unit_id();
-        match self.units.entry(unit_id.key()) {
+    fn add_design_unit(&mut self, unit: LockedUnit) {
+        let unit_id = unit.unit_id().clone();
+        match self.units.entry(unit.key().clone()) {
             Entry::Occupied(entry) => {
                 self.duplicates
                     .push((entry.get().ident().pos.clone(), unit));
@@ -416,11 +111,11 @@ impl<'a> Library {
                 self.added.insert(unit_id);
                 match self.units_by_source.entry(unit.source().clone()) {
                     Entry::Occupied(mut entry) => {
-                        entry.get_mut().insert(unit.unit_id());
+                        entry.get_mut().insert(unit.unit_id().clone());
                     }
                     Entry::Vacant(entry) => {
                         let mut set = FnvHashSet::default();
-                        set.insert(unit.unit_id());
+                        set.insert(unit.unit_id().clone());
                         entry.insert(set);
                     }
                 }
@@ -431,7 +126,7 @@ impl<'a> Library {
 
     fn add_design_file(&mut self, design_file: DesignFile) {
         for design_unit in design_file.design_units {
-            self.add_design_unit(design_unit.into());
+            self.add_design_unit(LockedUnit::new(self.name(), design_unit));
         }
     }
 
@@ -441,29 +136,30 @@ impl<'a> Library {
     }
 
     fn append_duplicate_diagnostics(&self, diagnostics: &mut dyn DiagnosticHandler) {
-        for (prev_pos, design_unit) in self.duplicates.iter() {
-            let diagnostic = match design_unit {
-                AnyLocked::Primary(primary_unit) => Diagnostic::error(
-                    primary_unit.pos(),
+        for (prev_pos, unit) in self.duplicates.iter() {
+            let diagnostic = match unit.key() {
+                UnitKey::Primary(ref primary_name) => Diagnostic::error(
+                    unit.pos(),
                     format!(
                         "A primary unit has already been declared with name '{}' in library '{}'",
-                        primary_unit.name(),
-                        &self.name
+                        primary_name, &self.name
                     ),
                 ),
-                AnyLocked::Secondary(secondary_unit) => match secondary_unit {
-                    AnyLockedSecondary::Architecture(arch) => Diagnostic::error(
-                        &arch.ident(),
+                UnitKey::Secondary(ref primary_name, ref name) => match unit.kind() {
+                    AnyKind::Secondary(SecondaryKind::Architecture) => Diagnostic::error(
+                        &unit.ident(),
                         format!(
                             "Duplicate architecture '{}' of entity '{}'",
-                            arch.name(),
-                            arch.primary_name(),
+                            name, primary_name,
                         ),
                     ),
-                    AnyLockedSecondary::PackageBody(body) => Diagnostic::error(
-                        body.pos(),
-                        format!("Duplicate package body of package '{}'", body.name()),
+                    AnyKind::Secondary(SecondaryKind::PackageBody) => Diagnostic::error(
+                        unit.pos(),
+                        format!("Duplicate package body of package '{}'", primary_name),
                     ),
+                    AnyKind::Primary(_) => {
+                        unreachable!();
+                    }
                 },
             };
 
@@ -480,7 +176,7 @@ impl<'a> Library {
             if value.source() != source {
                 true
             } else {
-                removed.insert(value.unit_id());
+                removed.insert(value.unit_id().clone());
                 false
             }
         });
@@ -501,36 +197,16 @@ impl<'a> Library {
         }
     }
 
-    fn entity(&'a self, name: &Symbol) -> Option<&'a Entity> {
-        if let Some(AnyLocked::Primary(AnyLockedPrimary::Entity(ref unit))) =
-            self.units.get(&UnitKey::Primary(name.clone()))
-        {
-            Some(unit)
-        } else {
-            None
-        }
-    }
-
-    fn package(&'a self, name: &Symbol) -> Option<&'a Package> {
-        if let Some(AnyLocked::Primary(AnyLockedPrimary::Package(ref unit))) =
-            self.units.get(&UnitKey::Primary(name.clone()))
-        {
-            Some(unit)
-        } else {
-            None
-        }
-    }
-
-    fn expect_package(&'a self, name: &Symbol) -> &'a Package {
-        self.package(name).expect("Package must exist")
-    }
-
-    fn package_body(&'a self, name: &Symbol) -> Option<&'a PackageBody> {
-        if let Some(AnyLocked::Secondary(AnyLockedSecondary::PackageBody(ref unit))) = self
+    fn package_body(&'a self, name: &Symbol) -> Option<&'a LockedUnit> {
+        if let Some(ref unit) = self
             .units
             .get(&UnitKey::Secondary(name.clone(), name.clone()))
         {
-            Some(unit)
+            if unit.kind() == AnyKind::Secondary(SecondaryKind::PackageBody) {
+                Some(unit)
+            } else {
+                None
+            }
         } else {
             None
         }
@@ -546,7 +222,7 @@ impl<'a> Library {
             let mut unit_ids: Vec<UnitId> = unit_ids.clone().into_iter().collect();
             unit_ids.sort_by_key(|unit_id| {
                 self.units
-                    .get(&unit_id.key())
+                    .get(unit_id.key())
                     .unwrap()
                     .ident()
                     .pos
@@ -565,13 +241,13 @@ pub struct DesignRoot {
 
     // Dependency tracking for incremental analysis
     // user => set(users)
-    users_of: RwLock<FnvHashMap<LibraryUnitId, FnvHashSet<LibraryUnitId>>>,
+    users_of: RwLock<FnvHashMap<UnitId, FnvHashSet<UnitId>>>,
 
     // missing primary name  => set(affected)
-    missing_primary: RwLock<FnvHashMap<(Symbol, Symbol), FnvHashSet<LibraryUnitId>>>,
+    missing_primary: RwLock<FnvHashMap<(Symbol, Symbol), FnvHashSet<UnitId>>>,
 
     // library name  => set(affected)
-    users_of_library_all: RwLock<FnvHashMap<Symbol, FnvHashSet<LibraryUnitId>>>,
+    users_of_library_all: RwLock<FnvHashMap<Symbol, FnvHashSet<UnitId>>>,
 }
 
 impl DesignRoot {
@@ -634,53 +310,120 @@ impl DesignRoot {
         FindAllReferences::search(self, decl_pos)
     }
 
-    fn get_analysis<'a, T: Analyze>(
-        &self,
-        library: &Library,
-        unit_id: &UnitId,
-        lock: &'a AnalysisLock<AnalysisData<T>>,
-    ) -> ReadGuard<'a, AnalysisData<T>> {
-        match lock.entry() {
-            AnalysisEntry::Vacant(mut data) => {
-                let context = AnalyzeContext::new(
-                    DependencyRecorder::new(self, unit_id.in_library(&library.name)),
-                    library.name().clone(),
-                    self.symbols.symtab(),
-                );
+    fn get_analysis<'a>(&self, locked_unit: &'a LockedUnit) -> UnitReadGuard<'a> {
+        match locked_unit.unit.entry() {
+            AnalysisEntry::Vacant(mut unit) => {
+                let context = AnalyzeContext::new(self, locked_unit.unit_id());
 
-                let AnalysisData {
-                    ref mut ast,
-                    ref mut has_circular_dependency,
-                    ref mut diagnostics,
-                    ..
-                } = *data;
-
+                let mut diagnostics = Vec::new();
                 let mut root_region = Region::default();
                 let mut region = Region::default();
-                if let Err(err) = ast.analyze(&context, &mut root_region, &mut region, diagnostics)
-                {
-                    *has_circular_dependency = true;
-                    err.push_into(diagnostics);
-                }
-                data.root_region = Arc::new(root_region);
-                data.region = Arc::new(region);
-                data.downgrade()
+
+                let has_circular_dependency = if let Err(err) = unit.analyze_design_unit(
+                    &context,
+                    &mut root_region,
+                    &mut region,
+                    &mut diagnostics,
+                ) {
+                    err.push_into(&mut diagnostics);
+                    true
+                } else {
+                    false
+                };
+
+                let result = AnalysisData {
+                    diagnostics,
+                    root_region: Arc::new(root_region),
+                    region: Arc::new(region),
+                    has_circular_dependency,
+                };
+
+                unit.finish(result)
             }
-            AnalysisEntry::Occupied(data) => data,
+            AnalysisEntry::Occupied(unit) => unit,
         }
     }
 
-    fn get_unit<'a>(&'a self, unit_id: &LibraryUnitId) -> Option<&'a AnyLocked> {
+    fn get_unit<'a>(&'a self, unit_id: &UnitId) -> Option<&'a LockedUnit> {
         self.libraries
             .get(unit_id.library_name())
-            .and_then(|library| library.units.get(&unit_id.unit_id.key()))
+            .and_then(|library| library.units.get(&unit_id.key()))
     }
 
-    fn reset_affected(&self, mut affected: FnvHashSet<LibraryUnitId>) {
+    fn reset_affected(&self, mut affected: FnvHashSet<UnitId>) {
         // Reset analysis state of all design units
         for unit_id in affected.drain() {
             if let Some(unit) = self.get_unit(&unit_id) {
-                delegate_any!(unit, unit, reset_data(&unit.data));
+                unit.unit.reset();
+            }
+        }
+    }
+
+    /// Register a direct dependency between two library units
+    pub(super) fn make_use_of(
+        &self,
+        use_pos: Option<&SrcPos>,
+        user: &UnitId,
+        unit_id: &UnitId,
+    ) -> FatalNullResult {
+        let mut users_of = self.users_of.write();
+        match users_of.entry(unit_id.clone()) {
+            Entry::Occupied(mut entry) => {
+                entry.get_mut().insert(user.clone());
+            }
+            Entry::Vacant(entry) => {
+                let mut set = FnvHashSet::default();
+                set.insert(user.clone());
+                entry.insert(set);
+            }
+        }
+
+        let mut affected = FnvHashSet::default();
+        affected.insert(user.clone());
+        let all_affected = get_all_affected(&users_of, affected);
+
+        if all_affected.contains(unit_id) {
+            Err(CircularDependencyError::new(use_pos))
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Register a dependency of library unit for everything within library since .all was used
+    pub(super) fn make_use_of_library_all(&self, user: &UnitId, library_name: &Symbol) {
+        match self
+            .users_of_library_all
+            .write()
+            .entry(library_name.clone())
+        {
+            Entry::Occupied(mut entry) => {
+                entry.get_mut().insert(user.clone());
+            }
+            Entry::Vacant(entry) => {
+                let mut set = FnvHashSet::default();
+                set.insert(user.clone());
+                entry.insert(set);
+            }
+        }
+    }
+
+    /// Make use of a missing primary name. The library unit will be sensitive to adding such a primary unit in the future.
+    pub(super) fn make_use_of_missing_primary(
+        &self,
+        user: &UnitId,
+        library_name: &Symbol,
+        primary_name: &Symbol,
+    ) {
+        let mut missing_primary = self.missing_primary.write();
+        let key = (library_name.clone(), primary_name.clone());
+        match missing_primary.entry(key) {
+            Entry::Occupied(mut entry) => {
+                entry.get_mut().insert(user.clone());
+            }
+            Entry::Vacant(entry) => {
+                let mut set = FnvHashSet::default();
+                set.insert(user.clone());
+                entry.insert(set);
             }
         }
     }
@@ -692,10 +435,10 @@ impl DesignRoot {
 
         for library in self.libraries.values_mut() {
             for unit_id in library.added.drain() {
-                added.insert(unit_id.in_library(&library.name));
+                added.insert(unit_id);
             }
             for unit_id in library.removed.drain() {
-                removed.insert(unit_id.in_library(&library.name));
+                removed.insert(unit_id);
             }
         }
 
@@ -709,7 +452,7 @@ impl DesignRoot {
 
         // Add affected users which do 'use library.all'
         for unit_id in removed.iter().chain(added.iter()) {
-            if let Some(library_all_affected) = users_of_library_all.get(&unit_id.library) {
+            if let Some(library_all_affected) = users_of_library_all.get(unit_id.library_name()) {
                 for user in library_all_affected.into_iter() {
                     affected.insert(user.clone());
                 }
@@ -731,13 +474,11 @@ impl DesignRoot {
         // Affect packages which have got body removed or added
         // Since a package without body may not have deferred constants
         for unit_id in added.iter().chain(removed.iter()) {
-            if let UnitId::Secondary(kind, ..) = unit_id.unit_id {
-                if kind == SecondaryKind::PackageBody {
-                    affected.insert(LibraryUnitId::package(
-                        unit_id.library_name(),
-                        unit_id.primary_name(),
-                    ));
-                }
+            if let AnyKind::Secondary(SecondaryKind::PackageBody) = unit_id.kind() {
+                affected.insert(UnitId::package(
+                    unit_id.library_name(),
+                    unit_id.primary_name(),
+                ));
             }
         }
 
@@ -753,7 +494,8 @@ impl DesignRoot {
         // Clean-up after removed units
         for removed_unit in removed.iter() {
             users_of.remove(removed_unit);
-            if let Some(library_all_affected) = users_of_library_all.get_mut(&removed_unit.library)
+            if let Some(library_all_affected) =
+                users_of_library_all.get_mut(&removed_unit.library_name())
             {
                 library_all_affected.remove(removed_unit);
             }
@@ -777,34 +519,29 @@ impl DesignRoot {
         let mut units: Vec<_> = Vec::new();
         for library in self.libraries.values() {
             for unit in library.units.values() {
-                units.push((library, unit));
+                units.push(unit);
             }
         }
 
         // @TODO compute the best order to process the units in parallel
-        units.par_iter().for_each(|(library, unit)| {
-            delegate_any!(unit, unit, {
-                self.get_analysis(library, &unit.unit_id(), &unit.data);
-            });
+        units.par_iter().for_each(|unit| {
+            self.get_analysis(*unit);
         });
 
         // Emit diagnostics sorted within a file
         for library in self.libraries.values() {
             for unit_id in library.sorted_unit_ids() {
-                delegate_any!(
-                    library.units.get(&unit_id.key()).unwrap(),
-                    unit,
-                    diagnostics.append(unit.data.expect_analyzed().diagnostics.clone())
-                );
+                let unit = library.units.get(&unit_id.key()).unwrap();
+                diagnostics.append(unit.unit.expect_analyzed().result().diagnostics.clone());
             }
         }
     }
 }
 
 fn get_all_affected(
-    users_of: &FnvHashMap<LibraryUnitId, FnvHashSet<LibraryUnitId>>,
-    mut affected: FnvHashSet<LibraryUnitId>,
-) -> FnvHashSet<LibraryUnitId> {
+    users_of: &FnvHashMap<UnitId, FnvHashSet<UnitId>>,
+    mut affected: FnvHashSet<UnitId>,
+) -> FnvHashSet<UnitId> {
     let mut all_affected = FnvHashSet::default();
     let mut next_affected = FnvHashSet::default();
 
@@ -839,95 +576,82 @@ impl Search for Library {
     fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
         for unit_id in self.sorted_unit_ids() {
             let unit = self.units.get(&unit_id.key()).unwrap();
-            return_if_found!(delegate_any!(
-                unit,
-                unit,
-                unit.data.read().ast.search(searcher)
-            ));
+            return_if_found!(unit.unit.read().search(searcher));
         }
-
         NotFound
     }
 }
 
-/// Record dependencies and sensitivies when
-/// analyzing design units
-///
-/// Dependencies define the order in which design units must be analyzed
-///  - for example when doing 'use library.pkg' the pkg is a dependency
-///
-/// Sensitivity defines conditions that require re-analysis of a design unit
-///  - for example when doing 'use library.missing' the file is sensitive to adding
-///    primary unit missing to library
-///  - for example when doing 'use missing' the file is sensitive to adding
-///    missing library
-///  - for example when doing 'use library.all' the file is sensitive to adding/removing
-///    anything from library
-
-pub struct DependencyRecorder<'a> {
+pub(super) struct AnalyzeContext<'a> {
     root: &'a DesignRoot,
-    user: LibraryUnitId,
-    uses: RefCell<FnvHashSet<LibraryUnitId>>,
+
+    pub work_sym: Symbol,
+    std_sym: Symbol,
+    standard_sym: Symbol,
+
+    // Record dependencies and sensitivies when
+    // analyzing design units
+    //
+    // Dependencies define the order in which design units must be analyzed
+    //  - for example when doing 'use library.pkg' the pkg is a dependency
+    //
+    // Sensitivity defines conditions that require re-analysis of a design unit
+    //  - for example when doing 'use library.missing' the file is sensitive to adding
+    //    primary unit missing to library
+    //  - for example when doing 'use missing' the file is sensitive to adding
+    //    missing library
+    //  - for example when doing 'use library.all' the file is sensitive to adding/removing
+    //    anything from library
+    current_unit: UnitId,
+    uses: RefCell<FnvHashSet<UnitId>>,
     missing_primary: RefCell<FnvHashSet<(Symbol, Symbol)>>,
     uses_library_all: RefCell<FnvHashSet<Symbol>>,
 }
 
-impl<'a> DependencyRecorder<'a> {
-    fn new(root: &'a DesignRoot, user: LibraryUnitId) -> DependencyRecorder {
-        DependencyRecorder {
+impl<'a> AnalyzeContext<'a> {
+    fn new(root: &'a DesignRoot, current_unit: &UnitId) -> AnalyzeContext<'a> {
+        AnalyzeContext {
+            work_sym: root.symbols.symtab().insert_utf8("work"),
+            std_sym: root.symbols.symtab().insert_utf8("std"),
+            standard_sym: root.symbols.symtab().insert_utf8("standard"),
             root,
-            user,
+            current_unit: current_unit.clone(),
             uses: RefCell::new(FnvHashSet::default()),
             missing_primary: RefCell::new(FnvHashSet::default()),
             uses_library_all: RefCell::new(FnvHashSet::default()),
         }
     }
 
-    fn make_use_of(&self, use_pos: Option<&SrcPos>, unit_id: &LibraryUnitId) -> FatalNullResult {
+    pub fn work_library_name(&self) -> &Symbol {
+        self.current_unit.library_name()
+    }
+
+    pub fn current_unit_id(&self) -> &UnitId {
+        &self.current_unit
+    }
+
+    pub fn symbol_utf8(&self, name: &str) -> Symbol {
+        self.root.symbols.symtab().insert_utf8(name)
+    }
+
+    fn make_use_of(&self, use_pos: Option<&SrcPos>, unit_id: &UnitId) -> FatalNullResult {
         // Check local cache before taking lock
         if self.uses.borrow_mut().insert(unit_id.clone()) {
-            let mut users_of = self.root.users_of.write();
-            match users_of.entry(unit_id.clone()) {
-                Entry::Occupied(mut entry) => {
-                    entry.get_mut().insert(self.user.clone());
-                }
-                Entry::Vacant(entry) => {
-                    let mut set = FnvHashSet::default();
-                    set.insert(self.user.clone());
-                    entry.insert(set);
-                }
-            }
-
-            let mut affected = FnvHashSet::default();
-            affected.insert(self.user.clone());
-            let all_affected = get_all_affected(&users_of, affected);
-            if all_affected.contains(unit_id) {
-                return Err(CircularDependencyError::new(use_pos));
-            }
+            self.root.make_use_of(use_pos, &self.current_unit, unit_id)
+        } else {
+            Ok(())
         }
-
-        Ok(())
     }
 
     fn make_use_of_library_all(&self, library_name: &Symbol) {
-        let mut users_of_library_all = self.root.users_of_library_all.write();
-
         // Check local cache before taking lock
         if self
             .uses_library_all
             .borrow_mut()
             .insert(library_name.clone())
         {
-            match users_of_library_all.entry(library_name.clone()) {
-                Entry::Occupied(mut entry) => {
-                    entry.get_mut().insert(self.user.clone());
-                }
-                Entry::Vacant(entry) => {
-                    let mut set = FnvHashSet::default();
-                    set.insert(self.user.clone());
-                    entry.insert(set);
-                }
-            }
+            self.root
+                .make_use_of_library_all(&self.current_unit, library_name);
         }
     }
 
@@ -935,18 +659,9 @@ impl<'a> DependencyRecorder<'a> {
         let key = (library_name.clone(), primary_name.clone());
 
         // Check local cache before taking lock
-        if self.missing_primary.borrow_mut().insert(key.clone()) {
-            let mut missing_primary = self.root.missing_primary.write();
-            match missing_primary.entry(key) {
-                Entry::Occupied(mut entry) => {
-                    entry.get_mut().insert(self.user.clone());
-                }
-                Entry::Vacant(entry) => {
-                    let mut set = FnvHashSet::default();
-                    set.insert(self.user.clone());
-                    entry.insert(set);
-                }
-            }
+        if self.missing_primary.borrow_mut().insert(key) {
+            self.root
+                .make_use_of_missing_primary(&self.current_unit, library_name, primary_name);
         }
     }
 
@@ -959,15 +674,15 @@ impl<'a> DependencyRecorder<'a> {
         let library = self.root.expect_library(library_name);
 
         for unit in library.units.values() {
-            match unit {
-                AnyLocked::Primary(unit) => {
-                    region.make_potentially_visible(self.create_primary_unit_decl(
-                        Some(use_pos),
-                        library,
-                        unit,
-                    )?);
+            match unit.kind() {
+                AnyKind::Primary(..) => {
+                    let data = self.get_analysis(Some(use_pos), unit)?;
+                    region.make_potentially_visible(Self::create_primary_unit_decl(
+                        unit.unit_id(),
+                        &data,
+                    ));
                 }
-                AnyLocked::Secondary(..) => {}
+                AnyKind::Secondary(..) => {}
             }
         }
 
@@ -975,181 +690,160 @@ impl<'a> DependencyRecorder<'a> {
         Ok(())
     }
 
+    fn is_standard_package(&self) -> bool {
+        *self.work_library_name() == self.std_sym
+            && *self.current_unit.primary_name() == self.standard_sym
+    }
+
+    /// Add implicit context clause for all packages except STD.STANDARD
+    /// library STD, WORK;
+    /// use STD.STANDARD.all;
+    pub fn add_implicit_context_clause(&self, region: &mut Region<'_>) -> FatalNullResult {
+        region.make_library_visible(&self.work_sym, self.work_library_name(), None);
+
+        if self.is_standard_package() || !self.has_library(&self.std_sym) {
+            // @TODO add warning for missing standard package
+            return Ok(());
+        };
+
+        region.make_library_visible(&self.std_sym, &self.std_sym, None);
+
+        let standard_pkg_data = self.expect_standard_package_analysis()?;
+        region.make_all_potentially_visible(&standard_pkg_data.result().region);
+
+        Ok(())
+    }
+
     pub fn has_library(&self, library_name: &Symbol) -> bool {
         self.root.get_library(library_name).is_some()
     }
 
-    pub fn has_package_body(&self, library_name: &Symbol, package_name: &Symbol) -> bool {
+    pub fn has_package_body(&self) -> bool {
         self.root
-            .get_library(library_name)
-            .and_then(|library| library.package_body(package_name))
+            .get_library(self.work_library_name())
+            .and_then(|library| library.package_body(self.current_unit.primary_name()))
             .is_some()
     }
 
-    fn create_primary_unit_decl(
+    fn get_analysis(
         &self,
         use_pos: Option<&SrcPos>,
-        library: &Library,
-        unit: &AnyLockedPrimary,
-    ) -> FatalResult<VisibleDeclaration> {
+        unit: &'a LockedUnit,
+    ) -> FatalResult<UnitReadGuard<'a>> {
+        self.make_use_of(use_pos, &unit.unit_id())?;
+        let data = self.root.get_analysis(unit);
+
+        // Change circular dependency reference when used by another unit during analysis
+        // The error is changed from within the used unit into the position of the use of the unit
+        if data.result().has_circular_dependency {
+            Err(CircularDependencyError::new(use_pos))
+        } else {
+            Ok(data)
+        }
+    }
+
+    fn create_primary_unit_decl(unit_id: &UnitId, unit: &UnitReadGuard) -> VisibleDeclaration {
         // @TODO add PrimaryUnit Declaration struct
 
-        let unit_id = unit.unit_id().in_library(library.name());
-        self.make_use_of(use_pos, &unit_id)?;
+        let unit_id = unit_id.clone();
+        let region = unit.result().region.clone();
 
-        let decl_data = match unit {
-            AnyLockedPrimary::Entity(unit) => {
-                let data = change_circular_reference(
-                    use_pos,
-                    self.root.get_analysis(library, &unit.unit_id(), &unit.data),
-                )?;
+        let primary_unit = if let Some(primary_unit) = unit.as_primary() {
+            primary_unit
+        } else {
+            unreachable!("Expect primary unit");
+        };
 
-                AnyDeclaration::Entity(unit_id, data.region.clone())
-            }
-            AnyLockedPrimary::Configuration(unit) => {
-                let data = change_circular_reference(
-                    use_pos,
-                    self.root.get_analysis(library, &unit.unit_id(), &unit.data),
-                )?;
-
-                AnyDeclaration::Configuration(unit_id, data.region.clone())
-            }
-            AnyLockedPrimary::Package(unit) => {
-                let data = change_circular_reference(
-                    use_pos,
-                    self.root.get_analysis(library, &unit.unit_id(), &unit.data),
-                )?;
-
-                if data.ast.generic_clause.is_some() {
-                    AnyDeclaration::UninstPackage(unit_id, data.region.clone())
+        let decl_data = match primary_unit {
+            AnyPrimaryUnit::Entity(..) => AnyDeclaration::Entity(unit_id, region),
+            AnyPrimaryUnit::Configuration(..) => AnyDeclaration::Configuration(unit_id, region),
+            AnyPrimaryUnit::Package(ref package) => {
+                if package.generic_clause.is_some() {
+                    AnyDeclaration::UninstPackage(unit_id, region)
                 } else {
-                    AnyDeclaration::Package(unit_id, data.region.clone())
+                    AnyDeclaration::Package(unit_id, region)
                 }
             }
-            AnyLockedPrimary::PackageInstance(unit) => {
-                let data = change_circular_reference(
-                    use_pos,
-                    self.root.get_analysis(library, &unit.unit_id(), &unit.data),
-                )?;
-
-                AnyDeclaration::PackageInstance(unit_id, data.region.clone())
-            }
-            AnyLockedPrimary::Context(unit) => {
-                let data = change_circular_reference(
-                    use_pos,
-                    self.root.get_analysis(library, &unit.unit_id(), &unit.data),
-                )?;
-
-                AnyDeclaration::Context(unit_id, data.region.clone())
-            }
+            AnyPrimaryUnit::PackageInstance(..) => AnyDeclaration::PackageInstance(unit_id, region),
+            AnyPrimaryUnit::Context(..) => AnyDeclaration::Context(unit_id, region),
         };
 
         let designator = WithPos::new(Designator::Identifier(unit.name().clone()), unit.pos());
-        Ok(VisibleDeclaration::new(designator, decl_data))
+        VisibleDeclaration::new(designator, decl_data)
+    }
+
+    fn get_primary_unit(&self, library_name: &Symbol, name: &Symbol) -> Option<&'a LockedUnit> {
+        let library = self.root.get_library(library_name)?;
+        // @TODO missing library
+
+        if let Some(ref unit) = library.units.get(&UnitKey::Primary(name.clone())) {
+            return Some(unit);
+        }
+
+        self.make_use_of_missing_primary(library_name, name);
+        None
+    }
+
+    fn get_primary_unit_kind(
+        &self,
+        library_name: &Symbol,
+        name: &Symbol,
+        kind: PrimaryKind,
+    ) -> Option<&'a LockedUnit> {
+        let unit = self.get_primary_unit(library_name, name)?;
+        if unit.kind() == AnyKind::Primary(kind) {
+            Some(unit)
+        } else {
+            // @TODO no test case for incremental analysis going from wrong primary kind to right
+            self.make_use_of_missing_primary(library_name, name);
+            None
+        }
     }
 
     pub fn lookup_in_library(
         &self,
-        use_pos: Option<&SrcPos>,
         library_name: &Symbol,
-        primary_name: &Symbol,
-    ) -> FatalResult<Option<VisibleDeclaration>> {
-        let library = self.root.expect_library(library_name);
-
-        if let Some(unit) = library.units.get(&UnitKey::Primary(primary_name.clone())) {
-            match unit {
-                AnyLocked::Primary(unit) => {
-                    Ok(Some(self.create_primary_unit_decl(use_pos, library, unit)?))
-                }
-                AnyLocked::Secondary(..) => {
-                    unreachable!();
-                }
+        pos: &SrcPos,
+        primary_name: &Designator,
+    ) -> AnalysisResult<VisibleDeclaration> {
+        if let Designator::Identifier(ref primary_name) = primary_name {
+            if let Some(unit) = self.get_primary_unit(library_name, primary_name) {
+                let data = self.get_analysis(Some(pos), unit)?;
+                return Ok(Self::create_primary_unit_decl(unit.unit_id(), &data));
             }
+        }
+
+        Err(AnalysisError::NotFatal(Diagnostic::error(
+            pos,
+            format!(
+                "No primary unit '{}' within library '{}'",
+                primary_name, library_name
+            ),
+        )))
+    }
+
+    pub fn expect_standard_package_analysis(&self) -> FatalResult<UnitReadGuard<'a>> {
+        if let Some(unit) =
+            self.get_primary_unit_kind(&self.std_sym, &self.standard_sym, PrimaryKind::Package)
+        {
+            self.get_analysis(None, unit)
         } else {
-            self.make_use_of_missing_primary(library_name, primary_name);
-            Ok(None)
+            unreachable!(
+                "Could not find package {}.{}",
+                self.std_sym, self.standard_sym
+            );
         }
     }
 
-    pub fn expect_package_declaration_analysis(
+    pub fn get_primary_analysis(
         &self,
-        use_pos: Option<&SrcPos>,
-        unit_id: &LibraryUnitId,
-    ) -> FatalResult<ReadGuard<'a, PackageData>> {
-        let library = self.root.expect_library(&unit_id.library);
-        let package = library.expect_package(unit_id.primary_name());
-        self.make_use_of(use_pos, unit_id)?;
-        change_circular_reference(
-            use_pos,
-            self.root
-                .get_analysis(library, &package.unit_id(), &package.data),
-        )
-    }
-
-    pub fn get_package_declaration_analysis(
-        &self,
-        use_pos: Option<&SrcPos>,
-        unit_id: &LibraryUnitId,
-    ) -> Option<FatalResult<ReadGuard<'a, PackageData>>> {
-        let result = self
-            .root
-            .libraries
-            .get(unit_id.library_name())
-            .and_then(|library| {
-                library.package(unit_id.primary_name()).map(|package| {
-                    self.make_use_of(use_pos, unit_id)?;
-                    change_circular_reference(
-                        use_pos,
-                        self.root
-                            .get_analysis(library, &package.unit_id(), &package.data),
-                    )
-                })
-            });
-
-        if result.is_none() {
-            self.make_use_of_missing_primary(unit_id.library_name(), unit_id.primary_name());
-        }
-
-        result
-    }
-
-    pub fn get_entity_declaration_analysis(
-        &self,
-        use_pos: Option<&SrcPos>,
-        unit_id: &LibraryUnitId,
-    ) -> Option<FatalResult<ReadGuard<'a, EntityData>>> {
-        let result = self
-            .root
-            .libraries
-            .get(unit_id.library_name())
-            .and_then(|library| {
-                library.entity(unit_id.primary_name()).map(|entity| {
-                    self.make_use_of(use_pos, unit_id)?;
-                    change_circular_reference(
-                        use_pos,
-                        self.root
-                            .get_analysis(library, &entity.unit_id(), &entity.data),
-                    )
-                })
-            });
-
-        if result.is_none() {
-            self.make_use_of_missing_primary(unit_id.library_name(), unit_id.primary_name());
-        }
-        result
-    }
-}
-
-/// Change circular dependency reference when used by another unit during analysis
-/// The error is changed from within the used unit into the position of the use of the unit
-fn change_circular_reference<'a, T>(
-    use_pos: Option<&SrcPos>,
-    data: ReadGuard<'a, AnalysisData<T>>,
-) -> FatalResult<ReadGuard<'a, AnalysisData<T>>> {
-    if data.has_circular_dependency {
-        Err(CircularDependencyError::new(use_pos))
-    } else {
-        Ok(data)
+        use_pos: &SrcPos,
+        library_name: &Symbol,
+        name: &Symbol,
+        kind: PrimaryKind,
+    ) -> Option<FatalResult<UnitReadGuard<'a>>> {
+        let unit = self.get_primary_unit_kind(library_name, name, kind)?;
+        Some(self.get_analysis(Some(use_pos), unit))
     }
 }
 

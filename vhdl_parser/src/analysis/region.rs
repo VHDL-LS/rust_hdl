@@ -3,7 +3,6 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
-use super::root::LibraryUnitId;
 use crate::ast::*;
 use crate::data::*;
 
@@ -25,12 +24,12 @@ pub enum AnyDeclaration {
     ProtectedType(Arc<Region<'static>>),
     ProtectedTypeBody,
     Library(Symbol),
-    Entity(LibraryUnitId, Arc<Region<'static>>),
-    Configuration(LibraryUnitId, Arc<Region<'static>>),
-    Package(LibraryUnitId, Arc<Region<'static>>),
-    UninstPackage(LibraryUnitId, Arc<Region<'static>>),
-    PackageInstance(LibraryUnitId, Arc<Region<'static>>),
-    Context(LibraryUnitId, Arc<Region<'static>>),
+    Entity(UnitId, Arc<Region<'static>>),
+    Configuration(UnitId, Arc<Region<'static>>),
+    Package(UnitId, Arc<Region<'static>>),
+    UninstPackage(UnitId, Arc<Region<'static>>),
+    PackageInstance(UnitId, Arc<Region<'static>>),
+    Context(UnitId, Arc<Region<'static>>),
     LocalPackageInstance(Symbol, Arc<Region<'static>>),
 }
 
@@ -202,7 +201,13 @@ enum RegionKind {
     Other,
 }
 
-#[derive(Clone)]
+impl Default for RegionKind {
+    fn default() -> RegionKind {
+        RegionKind::Other
+    }
+}
+
+#[derive(Clone, Default)]
 pub struct Region<'a> {
     parent: Option<&'a Region<'a>>,
     extends: Option<&'a Region<'a>>,

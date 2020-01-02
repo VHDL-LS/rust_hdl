@@ -9,6 +9,7 @@ use crate::ast::*;
 use crate::data::*;
 use analyze::*;
 use region::*;
+use root::AnalyzeContext;
 
 impl<'a> AnalyzeContext<'a> {
     pub fn analyze_concurrent_part(

@@ -205,7 +205,7 @@ pub fn parse_design_file(
                         context_clause.clear();
                     }
 
-                    design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::ContextDeclaration(context_decl)));
+                    design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::Context(context_decl)));
                 }
                 Ok(DeclarationOrReference::Reference(context_ref)) => {
                     context_clause.push(context_ref.map_into(ContextItem::Context));
@@ -215,7 +215,7 @@ pub fn parse_design_file(
             Entity => match parse_entity_declaration(stream, diagnostics) {
                 Ok(mut entity) => {
                     entity.context_clause = take_context_clause(&mut context_clause);
-                    design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::EntityDeclaration(entity)));
+                    design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(entity)));
                 }
                 Err(diagnostic) => diagnostics.push(diagnostic),
             },
@@ -256,7 +256,7 @@ pub fn parse_design_file(
                     match parse_package_declaration(stream, diagnostics) {
                         Ok(mut package) => {
                             package.context_clause = take_context_clause(&mut context_clause);
-                            design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::PackageDeclaration(package)))
+                            design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::Package(package)))
                         }
                         Err(diagnostic) => diagnostics.push(diagnostic),
                     };
@@ -297,9 +297,7 @@ mod tests {
 
     fn to_single_entity(design_file: DesignFile) -> EntityDeclaration {
         match design_file.design_units.as_slice() {
-            &[AnyDesignUnit::Primary(AnyPrimaryUnit::EntityDeclaration(ref entity))] => {
-                entity.to_owned()
-            }
+            &[AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(ref entity))] => entity.to_owned(),
             _ => panic!("Expected single entity {:?}", design_file),
         }
     }
@@ -312,7 +310,7 @@ mod tests {
 
     /// An simple entity with only a name
     fn simple_entity(ident: Ident) -> AnyDesignUnit {
-        AnyDesignUnit::Primary(AnyPrimaryUnit::EntityDeclaration(EntityDeclaration {
+        AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(EntityDeclaration {
             context_clause: ContextClause::default(),
             ident,
             generic_clause: None,
@@ -663,7 +661,7 @@ end entity;
         assert_eq!(
             design_file,
             DesignFile {
-                design_units: vec![AnyDesignUnit::Primary(AnyPrimaryUnit::EntityDeclaration(
+                design_units: vec![AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(
                     EntityDeclaration {
                         context_clause: vec![
                             code.s1("library lib;")
@@ -756,7 +754,7 @@ end entity;
         );
 
         match design_file.design_units.get(1).unwrap() {
-            AnyDesignUnit::Primary(AnyPrimaryUnit::EntityDeclaration(entity)) => {
+            AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(entity)) => {
                 assert_eq!(entity.context_clause.len(), 0);
             }
             _ => panic!("Expected entity"),

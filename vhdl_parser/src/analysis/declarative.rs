@@ -9,6 +9,7 @@ use crate::ast::*;
 use crate::data::*;
 use analyze::*;
 use region::*;
+use root::AnalyzeContext;
 use std::sync::Arc;
 
 impl<'a> AnalyzeContext<'a> {
@@ -367,9 +368,7 @@ impl<'a> AnalyzeContext<'a> {
                 let mut implicit = Region::default();
                 for name in ["file_open", "file_close", "endfile"].iter() {
                     implicit.add_implicit(
-                        Designator::Identifier(
-                            self.symtab.insert(&Latin1String::from_utf8(name).unwrap()),
-                        ),
+                        Designator::Identifier(self.symbol_utf8(name)),
                         None,
                         AnyDeclaration::Overloaded,
                         diagnostics,

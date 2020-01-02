@@ -38,30 +38,6 @@ impl LookupResult {
 }
 
 impl<'a> AnalyzeContext<'a> {
-    pub fn lookup_in_library(
-        &self,
-        library_name: &Symbol,
-        pos: &SrcPos,
-        primary_name: &Designator,
-    ) -> AnalysisResult<VisibleDeclaration> {
-        if let Designator::Identifier(ref primary_name) = primary_name {
-            if let Some(decl) =
-                self.root
-                    .lookup_in_library(Some(pos), library_name, primary_name)?
-            {
-                return Ok(decl);
-            }
-        }
-
-        Err(AnalysisError::NotFatal(Diagnostic::error(
-            pos,
-            format!(
-                "No primary unit '{}' within library '{}'",
-                primary_name, library_name
-            ),
-        )))
-    }
-
     fn lookup_selected(
         &self,
         prefix_pos: &SrcPos,
@@ -650,7 +626,7 @@ impl<'a> AnalyzeContext<'a> {
     }
 }
 
-pub fn uninstantiated_package_prefix_error(prefix: &SrcPos, unit_id: &LibraryUnitId) -> Diagnostic {
+pub fn uninstantiated_package_prefix_error(prefix: &SrcPos, unit_id: &UnitId) -> Diagnostic {
     Diagnostic::error(
         prefix,
         format!(

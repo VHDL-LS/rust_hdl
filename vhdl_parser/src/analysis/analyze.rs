@@ -4,45 +4,7 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
-use super::region::Region;
-use super::root::DependencyRecorder;
 use crate::data::*;
-
-pub struct AnalyzeContext<'a> {
-    pub symtab: &'a SymbolTable,
-    pub work_sym: Symbol,
-    pub work_library_name: Symbol,
-    pub std_sym: Symbol,
-    pub standard_sym: Symbol,
-    pub root: DependencyRecorder<'a>,
-}
-
-impl<'a> AnalyzeContext<'a> {
-    pub fn new(
-        root: DependencyRecorder<'a>,
-        work_library_name: Symbol,
-        symtab: &'a SymbolTable,
-    ) -> AnalyzeContext<'a> {
-        AnalyzeContext {
-            work_sym: symtab.insert(&Latin1String::new(b"work")),
-            work_library_name,
-            std_sym: symtab.insert(&Latin1String::new(b"std")),
-            standard_sym: symtab.insert(&Latin1String::new(b"standard")),
-            symtab,
-            root,
-        }
-    }
-}
-
-pub trait Analyze {
-    fn analyze(
-        &mut self,
-        context: &AnalyzeContext,
-        root_region: &mut Region<'_>,
-        region: &mut Region<'_>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult;
-}
 
 pub enum AnalysisError {
     Fatal(CircularDependencyError),

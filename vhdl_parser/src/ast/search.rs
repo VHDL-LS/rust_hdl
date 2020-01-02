@@ -924,6 +924,24 @@ impl Search for WithPos<ContextItem> {
     }
 }
 
+impl Search for AnyDesignUnit {
+    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+        delegate_any!(self, unit, unit.search(searcher))
+    }
+}
+
+impl Search for AnyPrimaryUnit {
+    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+        delegate_primary!(self, unit, unit.search(searcher))
+    }
+}
+
+impl Search for AnySecondaryUnit {
+    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+        delegate_secondary!(self, unit, unit.search(searcher))
+    }
+}
+
 impl Search for EntityDeclaration {
     fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
         return_if_finished!(searcher.search_source(self.source()));
