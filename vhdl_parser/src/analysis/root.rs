@@ -68,9 +68,9 @@ impl HasIdent for LockedUnit {
     }
 }
 
-pub(super) struct Library {
+struct Library {
     name: Symbol,
-    pub(super) units: FnvHashMap<UnitKey, LockedUnit>,
+    units: FnvHashMap<UnitKey, LockedUnit>,
     units_by_source: FnvHashMap<Source, FnvHashSet<UnitId>>,
 
     /// Units removed since last analysis
@@ -196,21 +196,6 @@ impl<'a> Library {
         }
     }
 
-    pub(super) fn package_body(&'a self, name: &Symbol) -> Option<&'a LockedUnit> {
-        if let Some(ref unit) = self
-            .units
-            .get(&UnitKey::Secondary(name.clone(), name.clone()))
-        {
-            if unit.kind() == AnyKind::Secondary(SecondaryKind::PackageBody) {
-                Some(unit)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-
     /// Iterate over units in the order they appear in the file
     /// Ensures diagnostics does not have to be sorted later
     fn sorted_unit_ids(&self) -> Vec<UnitId> {
@@ -275,8 +260,13 @@ impl DesignRoot {
         self.get_or_create_library(name);
     }
 
-    pub(super) fn get_library(&self, library_name: &Symbol) -> Option<&Library> {
-        self.libraries.get(library_name)
+    pub(super) fn get_library_units(
+        &self,
+        library_name: &Symbol,
+    ) -> Option<&FnvHashMap<UnitKey, LockedUnit>> {
+        self.libraries
+            .get(library_name)
+            .map(|library| &library.units)
     }
 
     pub fn add_design_file(&mut self, library_name: Symbol, design_file: DesignFile) {
@@ -609,7 +599,9 @@ end package body;
         );
         let (library, diagnostics) = new_library_with_diagnostics(&code, "libname");
 
-        assert!(library.package_body(&code.symbol("pkg")).is_some());
+        assert_eq!(library.units.len(), 2);
+        assert_eq!(library.duplicates.len(), 1);
+
         check_diagnostics(
             diagnostics,
             vec![

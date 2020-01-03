@@ -157,9 +157,9 @@ impl<'a> AnalyzeContext<'a> {
         library_name: &Symbol,
         region: &mut Region<'_>,
     ) -> FatalNullResult {
-        let library = self.root.get_library(library_name).unwrap();
+        let units = self.root.get_library_units(library_name).unwrap();
 
-        for unit in library.units.values() {
+        for unit in units.values() {
             match unit.kind() {
                 AnyKind::Primary(..) => {
                     let data = self.get_analysis(Some(use_pos), unit)?;
@@ -201,14 +201,27 @@ impl<'a> AnalyzeContext<'a> {
     }
 
     pub fn has_library(&self, library_name: &Symbol) -> bool {
-        self.root.get_library(library_name).is_some()
+        self.root.get_library_units(library_name).is_some()
+    }
+
+    fn get_package_body(&self) -> Option<&'a LockedUnit> {
+        let units = self.root.get_library_units(self.work_library_name())?;
+
+        let name = self.current_unit.primary_name();
+
+        if let Some(ref unit) = units.get(&UnitKey::Secondary(name.clone(), name.clone())) {
+            if unit.kind() == AnyKind::Secondary(SecondaryKind::PackageBody) {
+                Some(unit)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 
     pub fn has_package_body(&self) -> bool {
-        self.root
-            .get_library(self.work_library_name())
-            .and_then(|library| library.package_body(self.current_unit.primary_name()))
-            .is_some()
+        self.get_package_body().is_some()
     }
 
     fn get_analysis(
@@ -259,10 +272,10 @@ impl<'a> AnalyzeContext<'a> {
     }
 
     fn get_primary_unit(&self, library_name: &Symbol, name: &Symbol) -> Option<&'a LockedUnit> {
-        let library = self.root.get_library(library_name)?;
+        let units = self.root.get_library_units(library_name)?;
         // @TODO missing library
 
-        if let Some(ref unit) = library.units.get(&UnitKey::Primary(name.clone())) {
+        if let Some(ref unit) = units.get(&UnitKey::Primary(name.clone())) {
             return Some(unit);
         }
 
