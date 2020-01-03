@@ -268,6 +268,25 @@ end package;
 }
 
 #[test]
+fn work_is_not_visible_in_context_clause() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+end package;
+
+context ctx is
+  use work.pkg1;
+end context;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(diagnostics, vec![missing(&code, "work", 1)]);
+}
+
+#[test]
 fn library_std_is_pre_defined() {
     let mut builder = LibraryBuilder::new();
     builder.code(

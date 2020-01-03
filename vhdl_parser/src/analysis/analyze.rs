@@ -185,7 +185,10 @@ impl<'a> AnalyzeContext<'a> {
     /// library STD, WORK;
     /// use STD.STANDARD.all;
     pub fn add_implicit_context_clause(&self, region: &mut Region<'_>) -> FatalNullResult {
-        region.make_library_visible(&self.work_sym, self.work_library_name(), None);
+        // work is not visible in context declarations
+        if self.current_unit.kind() != AnyKind::Primary(PrimaryKind::Context) {
+            region.make_library_visible(&self.work_sym, self.work_library_name(), None);
+        }
 
         if self.is_standard_package() || !self.has_library(&self.std_sym) {
             // @TODO add warning for missing standard package

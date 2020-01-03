@@ -14,11 +14,13 @@ fn context() {
         "
 
 context ctx1 is
-  context work.ctx2;
+  library libname;
+  context libname.ctx2;
 end context;
 
 context ctx2 is
-  context work.ctx1;
+  library libname;
+  context libname.ctx1;
 end context;
 ",
     );

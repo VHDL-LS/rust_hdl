@@ -561,7 +561,7 @@ impl<'a> Region<'a> {
                 decl: AnyDeclaration::Library(library_name.clone()),
             }],
         };
-        self.visible.insert(decl.designator.clone(), decl);
+        self.make_potentially_visible(decl);
     }
 
     /// Add implicit declarations when using declaration
@@ -593,10 +593,10 @@ impl<'a> Region<'a> {
         }
     }
 
-    /// Used when useing context clauses
+    /// Used when using context clauses
     pub fn copy_visibility_from(&mut self, region: &Region<'a>) {
         for decl in region.visible.values() {
-            self.visible.insert(decl.designator.clone(), decl.clone());
+            self.make_potentially_visible(decl.clone());
         }
     }
 
