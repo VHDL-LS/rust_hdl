@@ -256,7 +256,7 @@ pub fn parse_type_declaration(
                 // @TODO check name
                 stream.pop_if_kind(Identifier)?;
                 stream.expect_kind(SemiColon)?;
-                TypeDefinition::ProtectedBody(ProtectedTypeBody {decl})
+                TypeDefinition::ProtectedBody(ProtectedTypeBody {name: WithRef::new(ident.clone()), decl})
             } else {
                 let (protected_type_decl, end_ident) = parse_protected_type_declaration(stream, diagnostics)?;
                 push_some(diagnostics, error_on_end_identifier_mismatch(&ident, &end_ident));
@@ -683,11 +683,16 @@ end protected body;
   begin
   end;")
             .declarative_part();
+
+        let ident = code.s1("foo").ident();
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
-                ident: code.s1("foo").ident(),
-                def: TypeDefinition::ProtectedBody(ProtectedTypeBody { decl }),
+                ident: ident.clone(),
+                def: TypeDefinition::ProtectedBody(ProtectedTypeBody {
+                    name: WithRef::new(ident),
+                    decl
+                }),
             }
         )
     }

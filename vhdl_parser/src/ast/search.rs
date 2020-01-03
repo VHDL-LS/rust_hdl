@@ -617,13 +617,14 @@ impl Search for DiscreteRange {
 
 impl Search for TypeDeclaration {
     fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_found!(searcher.search_decl_pos(self.ident.pos()).or_not_found());
-
         match self.def {
             TypeDefinition::ProtectedBody(ref body) => {
+                // Protected type body is not considered a declaration
+                return_if_found!(searcher.search_ident_ref(&body.name).or_not_found());
                 return_if_found!(body.decl.search(searcher));
             }
             TypeDefinition::Protected(ref prot_decl) => {
+                return_if_found!(searcher.search_decl_pos(self.ident.pos()).or_not_found());
                 for item in prot_decl.items.iter() {
                     match item {
                         ProtectedTypeDeclarativeItem::Subprogram(ref subprogram) => {
@@ -633,14 +634,17 @@ impl Search for TypeDeclaration {
                 }
             }
             TypeDefinition::Record(ref element_decls) => {
+                return_if_found!(searcher.search_decl_pos(self.ident.pos()).or_not_found());
                 for elem in element_decls {
                     return_if_found!(elem.subtype.search(searcher));
                 }
             }
             TypeDefinition::Access(ref subtype_indication) => {
+                return_if_found!(searcher.search_decl_pos(self.ident.pos()).or_not_found());
                 return_if_found!(subtype_indication.search(searcher));
             }
             TypeDefinition::Array(ref indexes, ref subtype_indication) => {
+                return_if_found!(searcher.search_decl_pos(self.ident.pos()).or_not_found());
                 for index in indexes.iter() {
                     match index {
                         ArrayIndex::IndexSubtypeDefintion(ref type_mark) => {
@@ -654,16 +658,21 @@ impl Search for TypeDeclaration {
                 return_if_found!(subtype_indication.search(searcher));
             }
             TypeDefinition::Subtype(ref subtype_indication) => {
+                return_if_found!(searcher.search_decl_pos(self.ident.pos()).or_not_found());
                 return_if_found!(subtype_indication.search(searcher));
             }
             TypeDefinition::Integer(ref range) => {
+                return_if_found!(searcher.search_decl_pos(self.ident.pos()).or_not_found());
                 return_if_found!(range.search(searcher));
             }
             TypeDefinition::File(ref type_mark) => {
+                return_if_found!(searcher.search_decl_pos(self.ident.pos()).or_not_found());
                 return_if_found!(type_mark.search(searcher));
             }
             // @TODO others
-            _ => {}
+            _ => {
+                return_if_found!(searcher.search_decl_pos(self.ident.pos()).or_not_found());
+            }
         }
         NotFound
     }

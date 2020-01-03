@@ -22,7 +22,6 @@ pub enum NamedEntityKind {
     DeferredConstant,
     // The region of the protected type which needs to be extendend by the body
     ProtectedType(Arc<Region<'static>>),
-    ProtectedTypeBody,
     Library(Symbol),
     Entity(UnitId, Arc<Region<'static>>),
     Configuration(UnitId, Arc<Region<'static>>),
@@ -69,14 +68,6 @@ impl NamedEntityKind {
 
     fn is_protected_type(&self) -> bool {
         if let NamedEntityKind::ProtectedType(..) = self {
-            true
-        } else {
-            false
-        }
-    }
-
-    fn is_protected_type_body(&self) -> bool {
-        if let NamedEntityKind::ProtectedTypeBody = self {
             true
         } else {
             false
@@ -153,7 +144,6 @@ impl NamedEntity {
         match prev.kind {
             // Everything expect deferred combinations are forbidden
             NamedEntityKind::DeferredConstant if self.kind.is_non_deferred_constant() => {}
-            NamedEntityKind::ProtectedType(..) if self.kind.is_protected_type_body() => {}
             NamedEntityKind::IncompleteType if self.kind.is_type_declaration() => {}
             _ => {
                 return true;
@@ -252,6 +242,7 @@ pub struct Region<'a> {
     hidden: FnvHashSet<Designator>,
     visible: FnvHashMap<Designator, VisibleDeclaration>,
     decls: FnvHashMap<Designator, VisibleDeclaration>,
+    protected_bodies: FnvHashMap<Symbol, SrcPos>,
     kind: RegionKind,
 }
 
@@ -263,6 +254,7 @@ impl<'a> Region<'a> {
             hidden: FnvHashSet::default(),
             visible: FnvHashMap::default(),
             decls: FnvHashMap::default(),
+            protected_bodies: FnvHashMap::default(),
             kind: RegionKind::Other,
         }
     }
@@ -271,10 +263,7 @@ impl<'a> Region<'a> {
         Region {
             parent: Some(self),
             extends: None,
-            hidden: FnvHashSet::default(),
-            visible: FnvHashMap::default(),
-            decls: FnvHashMap::default(),
-            kind: RegionKind::Other,
+            ..Region::default()
         }
     }
 
@@ -285,6 +274,7 @@ impl<'a> Region<'a> {
             hidden: self.hidden,
             visible: self.visible,
             decls: self.decls,
+            protected_bodies: self.protected_bodies,
             kind: self.kind,
         }
     }
@@ -382,39 +372,38 @@ impl<'a> Region<'a> {
         }
     }
 
+    fn get_protected_body(&self, name: &Symbol) -> Option<&SrcPos> {
+        self.protected_bodies.get(name).or_else(|| {
+            self.extends
+                .and_then(|extends| extends.get_protected_body(name))
+        })
+    }
+
+    fn has_protected_body(&self, name: &Symbol) -> bool {
+        self.get_protected_body(name).is_some()
+    }
+
     fn check_protected_types_have_body(&self, diagnostics: &mut dyn DiagnosticHandler) {
         for decl in self.decls.values() {
             if decl.first_kind().is_protected_type() {
-                if let Some(second_decl) = decl.second() {
-                    if second_decl.is_protected_type_body() {
-                        continue;
-                    }
+                if !self.has_protected_body(&decl.designator.expect_identifier()) {
+                    decl.first().error(
+                        diagnostics,
+                        format!("Missing body for protected type '{}'", &decl.designator),
+                    );
                 }
-                decl.first().error(
-                    diagnostics,
-                    format!("Missing body for protected type '{}'", &decl.designator),
-                );
             }
         }
 
         if let Some(ref extends) = self.extends {
             for ext_decl in extends.decls.values() {
                 if ext_decl.first_kind().is_protected_type() {
-                    if let Some(second_decl) = ext_decl.second() {
-                        if second_decl.is_protected_type_body() {
-                            continue;
-                        }
+                    if !self.has_protected_body(&ext_decl.designator.expect_identifier()) {
+                        ext_decl.first().error(
+                            diagnostics,
+                            format!("Missing body for protected type '{}'", &ext_decl.designator),
+                        );
                     }
-
-                    if let Some(decl) = self.decls.get(&ext_decl.designator) {
-                        if decl.first_kind().is_protected_type_body() {
-                            continue;
-                        }
-                    }
-                    ext_decl.first().error(
-                        diagnostics,
-                        format!("Missing body for protected type '{}'", &ext_decl.designator),
-                    );
                 }
             }
         }
@@ -474,16 +463,11 @@ impl<'a> Region<'a> {
         for prev_ent in prev_decl.named_entities() {
             if ent.is_duplicate_of(&prev_ent) {
                 if let Some(ref pos) = ent.decl_pos {
-                    let mut diagnostic = Diagnostic::error(
+                    diagnostics.push(duplicate_error(
+                        &prev_decl.designator,
                         pos,
-                        format!("Duplicate declaration of '{}'", prev_decl.designator),
-                    );
-
-                    if let Some(ref prev_pos) = prev_ent.decl_pos {
-                        diagnostic.add_related(prev_pos, "Previously defined here");
-                    }
-
-                    diagnostics.push(diagnostic)
+                        prev_ent.decl_pos.as_ref(),
+                    ));
                 }
                 return false;
             }
@@ -517,6 +501,14 @@ impl<'a> Region<'a> {
         }
 
         check_ok
+    }
+
+    pub fn add_protected_body(&mut self, ident: Ident, diagnostics: &mut dyn DiagnosticHandler) {
+        if let Some(prev_pos) = self.get_protected_body(&ident.item) {
+            diagnostics.push(duplicate_error(&ident.item, &ident.pos, Some(prev_pos)));
+        } else {
+            self.protected_bodies.insert(ident.item, ident.pos);
+        }
     }
 
     fn add_named_entity(
@@ -772,4 +764,18 @@ impl<T: SetReference> SetReference for WithPos<T> {
     fn set_reference_pos(&mut self, pos: Option<&SrcPos>) {
         self.item.set_reference_pos(pos);
     }
+}
+
+fn duplicate_error(
+    name: &impl std::fmt::Display,
+    pos: &SrcPos,
+    prev_pos: Option<&SrcPos>,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::error(pos, format!("Duplicate declaration of '{}'", name));
+
+    if let Some(prev_pos) = prev_pos {
+        diagnostic.add_related(prev_pos, "Previously defined here");
+    }
+
+    diagnostic
 }

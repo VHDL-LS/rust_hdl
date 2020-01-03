@@ -445,6 +445,7 @@ pub struct ProtectedTypeDeclaration {
 /// LRM 5.6.3 Protected type bodies
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProtectedTypeBody {
+    pub name: WithRef<Ident>,
     pub decl: Vec<Declaration>,
 }
 

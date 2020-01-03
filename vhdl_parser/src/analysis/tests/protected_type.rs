@@ -235,3 +235,36 @@ end package;",
     let diagnostics = builder.analyze();
     check_diagnostics(diagnostics, vec![missing(&code, "missing", 1)]);
 }
+
+#[test]
+fn protected_type_body_is_not_visible() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg1 is
+  type prot_t is protected
+  end protected;
+
+  type prot_t is protected body
+  end protected body;
+
+  shared variable var : prot_t;
+end package;",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    // Reference should go to protected type and not body of it
+    assert_eq!(
+        root.search_reference(code.source(), code.s("prot_t", 2).start()),
+        Some(code.s1("prot_t").pos())
+    );
+
+    // Reference should go to protected type and not body of it
+    assert_eq!(
+        root.search_reference(code.source(), code.s("prot_t", 3).start()),
+        Some(code.s1("prot_t").pos())
+    );
+}

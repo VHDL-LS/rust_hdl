@@ -274,3 +274,17 @@ impl EnumerationLiteral {
         }
     }
 }
+
+impl Designator {
+    pub fn as_identifier(&self) -> Option<&Symbol> {
+        if let Designator::Identifier(sym) = self {
+            Some(sym)
+        } else {
+            None
+        }
+    }
+
+    pub fn expect_identifier(&self) -> &Symbol {
+        self.as_identifier().unwrap()
+    }
+}

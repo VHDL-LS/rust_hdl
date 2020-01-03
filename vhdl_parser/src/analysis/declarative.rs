@@ -206,9 +206,11 @@ impl<'a> AnalyzeContext<'a> {
                 );
             }
             TypeDefinition::ProtectedBody(ref mut body) => {
+                body.name.clear_reference();
                 let is_ok = match parent.lookup_within(&type_decl.ident.item.clone().into()) {
                     Some(decl) => match decl.first_kind() {
                         NamedEntityKind::ProtectedType(ptype_region) => {
+                            body.name.set_reference(decl);
                             let mut region = Region::extend(&ptype_region, Some(parent));
                             self.analyze_declarative_part(
                                 &mut region,
@@ -238,11 +240,7 @@ impl<'a> AnalyzeContext<'a> {
                 };
 
                 if is_ok {
-                    parent.add(
-                        &type_decl.ident,
-                        NamedEntityKind::ProtectedTypeBody,
-                        diagnostics,
-                    );
+                    parent.add_protected_body(type_decl.ident.clone(), diagnostics);
                 };
             }
             TypeDefinition::Protected(ref mut prot_decl) => {
