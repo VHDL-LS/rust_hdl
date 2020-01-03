@@ -9,7 +9,6 @@ use crate::ast::*;
 use crate::data::*;
 use analyze::*;
 use region::*;
-use root::AnalyzeContext;
 use std::sync::Arc;
 
 impl<'a> AnalyzeContext<'a> {

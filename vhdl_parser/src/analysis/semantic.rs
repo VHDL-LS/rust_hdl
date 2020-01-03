@@ -6,7 +6,6 @@
 
 use super::analyze::*;
 use super::region::*;
-use super::root::*;
 use crate::ast::Range;
 use crate::ast::*;
 use crate::data::*;
