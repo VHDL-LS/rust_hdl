@@ -33,7 +33,7 @@ end package;
 ",
     );
 
-    check_incremental_analysis(builder);
+    check_incremental_analysis(builder, vec![]);
 }
 
 #[test]
@@ -58,7 +58,7 @@ end package;
 ",
     );
 
-    check_incremental_analysis(builder);
+    check_incremental_analysis(builder, vec![]);
 }
 
 #[test]
@@ -81,7 +81,7 @@ end architecture;
 ",
     );
 
-    check_incremental_analysis(builder);
+    check_incremental_analysis(builder, vec![]);
 }
 
 #[test]
@@ -103,7 +103,7 @@ end package body;
 ",
     );
 
-    check_incremental_analysis(builder);
+    check_incremental_analysis(builder, vec![]);
 }
 
 #[test]
@@ -134,7 +134,7 @@ end architecture;
 ",
     );
 
-    check_incremental_analysis(builder);
+    check_incremental_analysis(builder, vec![]);
 }
 
 #[test]
@@ -175,7 +175,7 @@ end architecture;
 ",
     );
 
-    check_incremental_analysis(builder);
+    check_incremental_analysis(builder, vec![]);
 }
 
 #[test]
@@ -198,7 +198,7 @@ end package;
 ",
     );
 
-    builder.code(
+    let code = builder.code(
         "libname3",
         "
 
@@ -215,7 +215,7 @@ end package;
 ",
     );
 
-    check_incremental_analysis(builder);
+    check_incremental_analysis(builder, vec![missing(&code, "pkg", 1)]);
 }
 
 #[test]
@@ -239,10 +239,10 @@ end package body;
 ",
     );
 
-    check_incremental_analysis(builder);
+    check_incremental_analysis(builder, vec![]);
 }
 
-fn check_incremental_analysis(builder: LibraryBuilder) {
+fn check_incremental_analysis(builder: LibraryBuilder, expected_diagnostics: Vec<Diagnostic>) {
     let symbols = builder.symbols();
     let codes = builder.take_code();
 
@@ -266,7 +266,7 @@ fn check_incremental_analysis(builder: LibraryBuilder) {
 
         let mut diagnostics = Vec::new();
         root.analyze(&mut diagnostics);
-        check_no_diagnostics(&diagnostics);
+        check_diagnostics(diagnostics, expected_diagnostics.clone());
 
         let (library_name, code) = &codes[i];
 
@@ -280,8 +280,8 @@ fn check_incremental_analysis(builder: LibraryBuilder) {
 
         let diagnostics = check_analysis_equal(&mut root, &mut fresh_root);
 
-        // Ensure no problems when all files are added
-        check_no_diagnostics(&diagnostics);
+        // Ensure expected diagnostics when all files are added
+        check_diagnostics(diagnostics, expected_diagnostics.clone());
     }
 }
 

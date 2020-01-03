@@ -6,13 +6,13 @@
 use crate::ast::*;
 use crate::data::*;
 
-use fnv::FnvHashMap;
+use fnv::{FnvHashMap, FnvHashSet};
 use std::collections::hash_map::Entry;
 use std::sync::Arc;
 
 #[derive(Clone)]
-pub enum AnyDeclaration {
-    AliasOf(Box<AnyDeclaration>),
+pub enum NamedEntityKind {
+    AliasOf(Box<NamedEntityKind>),
     Other,
     Overloaded,
     // An optional region with implicit declarations
@@ -33,8 +33,8 @@ pub enum AnyDeclaration {
     LocalPackageInstance(Symbol, Arc<Region<'static>>),
 }
 
-impl AnyDeclaration {
-    pub fn from_object_declaration(decl: &ObjectDeclaration) -> AnyDeclaration {
+impl NamedEntityKind {
+    pub fn from_object_declaration(decl: &ObjectDeclaration) -> NamedEntityKind {
         match decl {
             ObjectDeclaration {
                 class: ObjectClass::Constant,
@@ -42,17 +42,17 @@ impl AnyDeclaration {
                 ..
             } => {
                 if expression.is_none() {
-                    AnyDeclaration::DeferredConstant
+                    NamedEntityKind::DeferredConstant
                 } else {
-                    AnyDeclaration::Constant
+                    NamedEntityKind::Constant
                 }
             }
-            _ => AnyDeclaration::Other,
+            _ => NamedEntityKind::Other,
         }
     }
 
     fn is_deferred_constant(&self) -> bool {
-        if let AnyDeclaration::DeferredConstant = self {
+        if let NamedEntityKind::DeferredConstant = self {
             true
         } else {
             false
@@ -60,7 +60,7 @@ impl AnyDeclaration {
     }
 
     fn is_non_deferred_constant(&self) -> bool {
-        if let AnyDeclaration::Constant = self {
+        if let NamedEntityKind::Constant = self {
             true
         } else {
             false
@@ -68,7 +68,7 @@ impl AnyDeclaration {
     }
 
     fn is_protected_type(&self) -> bool {
-        if let AnyDeclaration::ProtectedType(..) = self {
+        if let NamedEntityKind::ProtectedType(..) = self {
             true
         } else {
             false
@@ -76,7 +76,7 @@ impl AnyDeclaration {
     }
 
     fn is_protected_type_body(&self) -> bool {
-        if let AnyDeclaration::ProtectedTypeBody = self {
+        if let NamedEntityKind::ProtectedTypeBody = self {
             true
         } else {
             false
@@ -84,7 +84,7 @@ impl AnyDeclaration {
     }
 
     fn is_incomplete_type(&self) -> bool {
-        if let AnyDeclaration::IncompleteType = self {
+        if let NamedEntityKind::IncompleteType = self {
             true
         } else {
             false
@@ -92,7 +92,7 @@ impl AnyDeclaration {
     }
 
     fn is_type_declaration(&self) -> bool {
-        if let AnyDeclaration::TypeDeclaration(..) = self {
+        if let NamedEntityKind::TypeDeclaration(..) = self {
             true
         } else {
             false
@@ -101,14 +101,29 @@ impl AnyDeclaration {
 }
 
 #[derive(Clone)]
-struct AnyDeclarationData {
+pub struct NamedEntity {
     /// The location where the declaration was made
     /// Builtin and implicit declaration will not have a source position
     decl_pos: Option<SrcPos>,
-    decl: AnyDeclaration,
+    kind: NamedEntityKind,
 }
 
-impl AnyDeclarationData {
+impl NamedEntity {
+    pub fn new(kind: NamedEntityKind, decl_pos: Option<&SrcPos>) -> NamedEntity {
+        NamedEntity {
+            kind,
+            decl_pos: decl_pos.cloned(),
+        }
+    }
+
+    pub fn decl_pos(&self) -> Option<&SrcPos> {
+        self.decl_pos.as_ref()
+    }
+
+    pub fn kind(&self) -> &NamedEntityKind {
+        &self.kind
+    }
+
     fn error(&self, diagnostics: &mut dyn DiagnosticHandler, message: impl Into<String>) {
         if let Some(ref pos) = self.decl_pos {
             diagnostics.push(Diagnostic::error(pos, message));
@@ -120,77 +135,100 @@ impl AnyDeclarationData {
             diagnostics.push(Diagnostic::hint(pos, message));
         }
     }
-}
 
-#[derive(Clone)]
-pub struct VisibleDeclaration {
-    pub designator: Designator,
-    data: Vec<AnyDeclarationData>,
-}
-
-impl VisibleDeclaration {
-    pub fn new(
-        designator: impl Into<WithPos<Designator>>,
-        decl: AnyDeclaration,
-    ) -> VisibleDeclaration {
-        let designator = designator.into();
-
-        VisibleDeclaration {
-            designator: designator.item,
-            data: vec![AnyDeclarationData {
-                decl_pos: Some(designator.pos),
-                decl,
-            }],
-        }
-    }
-
-    fn first_data(&self) -> &AnyDeclarationData {
-        self.data
-            .first()
-            .expect("Declaration always contains one entry")
-    }
-
-    pub fn first(&self) -> &AnyDeclaration {
-        &self.first_data().decl
-    }
-
-    pub fn first_pos(&self) -> Option<&SrcPos> {
-        self.first_data().decl_pos.as_ref()
-    }
-
-    pub fn second(&self) -> Option<&AnyDeclaration> {
-        self.data.get(1).map(|data| &data.decl)
-    }
-
-    pub fn is_overloaded(&self) -> bool {
-        if let AnyDeclaration::Overloaded = self.first_data().decl {
+    fn is_overloaded(&self) -> bool {
+        if let NamedEntityKind::Overloaded = self.kind {
             true
         } else {
             false
         }
     }
 
-    /// Return a duplicate declaration of the previous declaration if it exists
-    fn find_duplicate_of<'a>(&self, prev_decl: &'a Self) -> Option<&'a AnyDeclarationData> {
-        if self.is_overloaded() && prev_decl.is_overloaded() {
-            return None;
+    /// Return a duplicate declaration of the previously declared named entity
+    fn is_duplicate_of<'a>(&self, prev: &'a Self) -> bool {
+        if self.is_overloaded() && prev.is_overloaded() {
+            return false;
         }
 
-        let ref later_decl = self.first();
-        for prev_decl_data in prev_decl.data.iter() {
-            let ref prev_decl = prev_decl_data.decl;
-
-            match prev_decl {
-                // Everything expect deferred combinations are forbidden
-                AnyDeclaration::DeferredConstant if later_decl.is_non_deferred_constant() => {}
-                AnyDeclaration::ProtectedType(..) if later_decl.is_protected_type_body() => {}
-                AnyDeclaration::IncompleteType if later_decl.is_type_declaration() => {}
-                _ => {
-                    return Some(prev_decl_data);
-                }
+        match prev.kind {
+            // Everything expect deferred combinations are forbidden
+            NamedEntityKind::DeferredConstant if self.kind.is_non_deferred_constant() => {}
+            NamedEntityKind::ProtectedType(..) if self.kind.is_protected_type_body() => {}
+            NamedEntityKind::IncompleteType if self.kind.is_type_declaration() => {}
+            _ => {
+                return true;
             }
         }
-        None
+
+        false
+    }
+}
+
+#[derive(Clone)]
+pub struct VisibleDeclaration {
+    designator: Designator,
+    named_entities: Vec<NamedEntity>,
+}
+
+impl VisibleDeclaration {
+    pub fn new(designator: Designator, named_entity: NamedEntity) -> VisibleDeclaration {
+        VisibleDeclaration {
+            designator,
+            named_entities: vec![named_entity],
+        }
+    }
+
+    /// Return single named entity if unique name is visible
+    pub fn as_unique(&self) -> Option<&NamedEntity> {
+        if self.named_entities.len() == 1 {
+            self.named_entities.first()
+        } else {
+            None
+        }
+    }
+
+    pub fn to_unique(mut self) -> Option<NamedEntity> {
+        if self.named_entities.len() == 1 {
+            self.named_entities.pop()
+        } else {
+            None
+        }
+    }
+
+    fn first(&self) -> &NamedEntity {
+        self.named_entities
+            .first()
+            .expect("Declaration always contains one entry")
+    }
+
+    pub fn first_kind(&self) -> &NamedEntityKind {
+        &self.first().kind
+    }
+
+    pub fn first_pos(&self) -> Option<&SrcPos> {
+        self.first().decl_pos.as_ref()
+    }
+
+    fn second(&self) -> Option<&NamedEntityKind> {
+        self.named_entities.get(1).map(|ent| &ent.kind)
+    }
+
+    fn named_entities(&self) -> impl Iterator<Item = &NamedEntity> {
+        self.named_entities.iter()
+    }
+
+    fn is_overloaded(&self) -> bool {
+        self.first().is_overloaded()
+    }
+
+    fn push(&mut self, ent: NamedEntity) {
+        self.named_entities.push(ent);
+    }
+
+    pub fn make_potentially_visible_in(&self, region: &mut Region<'_>) {
+        for ent in self.named_entities.iter() {
+            region.make_potentially_visible(self.designator.clone(), ent.clone());
+        }
     }
 }
 #[derive(Copy, Clone, PartialEq)]
@@ -211,6 +249,7 @@ impl Default for RegionKind {
 pub struct Region<'a> {
     parent: Option<&'a Region<'a>>,
     extends: Option<&'a Region<'a>>,
+    hidden: FnvHashSet<Designator>,
     visible: FnvHashMap<Designator, VisibleDeclaration>,
     decls: FnvHashMap<Designator, VisibleDeclaration>,
     kind: RegionKind,
@@ -221,6 +260,7 @@ impl<'a> Region<'a> {
         Region {
             parent: None,
             extends: None,
+            hidden: FnvHashSet::default(),
             visible: FnvHashMap::default(),
             decls: FnvHashMap::default(),
             kind: RegionKind::Other,
@@ -231,6 +271,7 @@ impl<'a> Region<'a> {
         Region {
             parent: Some(self),
             extends: None,
+            hidden: FnvHashSet::default(),
             visible: FnvHashMap::default(),
             decls: FnvHashMap::default(),
             kind: RegionKind::Other,
@@ -241,6 +282,7 @@ impl<'a> Region<'a> {
         Region {
             parent: None,
             extends: None,
+            hidden: self.hidden,
             visible: self.visible,
             decls: self.decls,
             kind: self.kind,
@@ -261,9 +303,8 @@ impl<'a> Region<'a> {
         Region {
             parent: parent,
             extends: Some(region),
-            visible: FnvHashMap::default(),
-            decls: FnvHashMap::default(),
             kind,
+            ..Region::default()
         }
     }
 
@@ -275,7 +316,7 @@ impl<'a> Region<'a> {
     /// Incomplete types must be defined in the same immediate region as they are declared
     fn check_incomplete_types_are_defined(&self, diagnostics: &mut dyn DiagnosticHandler) {
         for decl in self.decls.values() {
-            if decl.first().is_incomplete_type() {
+            if decl.first_kind().is_incomplete_type() {
                 let mut check_ok = false;
                 if let Some(second) = decl.second() {
                     if second.is_type_declaration() {
@@ -284,14 +325,14 @@ impl<'a> Region<'a> {
                 }
 
                 if !check_ok {
-                    decl.first_data().error(
+                    decl.first().error(
                         diagnostics,
                         format!(
                             "Missing full type declaration of incomplete type '{}'",
                             &decl.designator
                         ),
                     );
-                    decl.first_data().hint(diagnostics, "The full type declaration shall occur immediately within the same declarative part");
+                    decl.first().hint(diagnostics, "The full type declaration shall occur immediately within the same declarative part");
                 }
             }
         }
@@ -302,9 +343,9 @@ impl<'a> Region<'a> {
             // Package without body may not have deferred constants
             RegionKind::PackageDeclaration => {
                 for decl in self.decls.values() {
-                    match decl.first() {
-                        AnyDeclaration::DeferredConstant => {
-                            decl.first_data().error(diagnostics, format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", &decl.designator));
+                    match decl.first_kind() {
+                        NamedEntityKind::DeferredConstant => {
+                            decl.first().error(diagnostics, format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", &decl.designator));
                         }
                         _ => {}
                     }
@@ -316,21 +357,21 @@ impl<'a> Region<'a> {
                     .as_ref()
                     .expect("Package body must extend package");
                 for ext_decl in extends.decls.values() {
-                    match ext_decl.first() {
-                        AnyDeclaration::DeferredConstant => {
+                    match ext_decl.first_kind() {
+                        NamedEntityKind::DeferredConstant => {
                             // Deferred constants may only be located in a package
                             // And only matched with a constant in the body
                             let mut found = false;
                             let decl = self.decls.get(&ext_decl.designator);
 
                             if let Some(decl) = decl {
-                                if let AnyDeclaration::Constant = decl.first() {
+                                if let NamedEntityKind::Constant = decl.first_kind() {
                                     found = true;
                                 }
                             }
 
                             if !found {
-                                ext_decl.first_data().error(diagnostics, format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", &ext_decl.designator));
+                                ext_decl.first().error(diagnostics, format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", &ext_decl.designator));
                             }
                         }
                         _ => {}
@@ -343,13 +384,13 @@ impl<'a> Region<'a> {
 
     fn check_protected_types_have_body(&self, diagnostics: &mut dyn DiagnosticHandler) {
         for decl in self.decls.values() {
-            if decl.first().is_protected_type() {
+            if decl.first_kind().is_protected_type() {
                 if let Some(second_decl) = decl.second() {
                     if second_decl.is_protected_type_body() {
                         continue;
                     }
                 }
-                decl.first_data().error(
+                decl.first().error(
                     diagnostics,
                     format!("Missing body for protected type '{}'", &decl.designator),
                 );
@@ -358,7 +399,7 @@ impl<'a> Region<'a> {
 
         if let Some(ref extends) = self.extends {
             for ext_decl in extends.decls.values() {
-                if ext_decl.first().is_protected_type() {
+                if ext_decl.first_kind().is_protected_type() {
                     if let Some(second_decl) = ext_decl.second() {
                         if second_decl.is_protected_type_body() {
                             continue;
@@ -366,11 +407,11 @@ impl<'a> Region<'a> {
                     }
 
                     if let Some(decl) = self.decls.get(&ext_decl.designator) {
-                        if decl.first().is_protected_type_body() {
+                        if decl.first_kind().is_protected_type_body() {
                             continue;
                         }
                     }
-                    ext_decl.first_data().error(
+                    ext_decl.first().error(
                         diagnostics,
                         format!("Missing body for protected type '{}'", &ext_decl.designator),
                     );
@@ -382,11 +423,11 @@ impl<'a> Region<'a> {
     #[must_use]
     fn check_deferred_constant_only_in_package(
         &self,
-        decl: &VisibleDeclaration,
+        ent: &NamedEntity,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> bool {
-        if self.kind != RegionKind::PackageDeclaration && decl.first().is_deferred_constant() {
-            decl.first_data().error(
+        if self.kind != RegionKind::PackageDeclaration && ent.kind.is_deferred_constant() {
+            ent.error(
                 diagnostics,
                 "Deferred constants are only allowed in package declarations (not body)",
             );
@@ -399,13 +440,13 @@ impl<'a> Region<'a> {
     #[must_use]
     fn check_full_constand_of_deferred_only_in_body(
         &self,
-        decl: &VisibleDeclaration,
+        ent: &NamedEntity,
         prev_decl: &VisibleDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> bool {
-        if self.kind != RegionKind::PackageBody && decl.first().is_non_deferred_constant() {
-            if prev_decl.first().is_deferred_constant() {
-                decl.first_data().error(
+        if self.kind != RegionKind::PackageBody && ent.kind.is_non_deferred_constant() {
+            if prev_decl.first_kind().is_deferred_constant() {
+                ent.error(
                     diagnostics,
                     "Full declaration of deferred constant is only allowed in a package body",
                 );
@@ -426,33 +467,35 @@ impl<'a> Region<'a> {
     /// Returns true if the declaration does not duplicates an existing declaration
     #[must_use]
     fn check_duplicate(
-        decl: &VisibleDeclaration,
+        ent: &NamedEntity,
         prev_decl: &VisibleDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> bool {
-        if let Some(duplicate_decl) = decl.find_duplicate_of(&prev_decl) {
-            if let Some(ref pos) = decl.first_data().decl_pos {
-                let mut diagnostic = Diagnostic::error(
-                    pos,
-                    format!("Duplicate declaration of '{}'", decl.designator),
-                );
+        for prev_ent in prev_decl.named_entities() {
+            if ent.is_duplicate_of(&prev_ent) {
+                if let Some(ref pos) = ent.decl_pos {
+                    let mut diagnostic = Diagnostic::error(
+                        pos,
+                        format!("Duplicate declaration of '{}'", prev_decl.designator),
+                    );
 
-                if let Some(ref prev_pos) = duplicate_decl.decl_pos {
-                    diagnostic.add_related(prev_pos, "Previously defined here");
+                    if let Some(ref prev_pos) = prev_ent.decl_pos {
+                        diagnostic.add_related(prev_pos, "Previously defined here");
+                    }
+
+                    diagnostics.push(diagnostic)
                 }
-
-                diagnostics.push(diagnostic)
+                return false;
             }
-            false
-        } else {
-            true
         }
+
+        true
     }
 
     /// true if the declaration can be added
     fn check_add(
-        // The declaration to add
-        decl: &VisibleDeclaration,
+        // The named entity to add
+        ent: &NamedEntity,
         // Previous declaration in the same region
         prev_decl: Option<&VisibleDeclaration>,
         // Previous declaration in the region extended by this region
@@ -462,13 +505,13 @@ impl<'a> Region<'a> {
         let mut check_ok = true;
 
         if let Some(prev_decl) = prev_decl {
-            if !Self::check_duplicate(&decl, &prev_decl, diagnostics) {
+            if !Self::check_duplicate(&ent, &prev_decl, diagnostics) {
                 check_ok = false;
             }
         }
 
         if let Some(ext_decl) = ext_decl {
-            if !Self::check_duplicate(&decl, &ext_decl, diagnostics) {
+            if !Self::check_duplicate(&ent, &ext_decl, diagnostics) {
                 check_ok = false;
             }
         }
@@ -476,41 +519,45 @@ impl<'a> Region<'a> {
         check_ok
     }
 
-    fn add_decl(&mut self, decl: VisibleDeclaration, diagnostics: &mut dyn DiagnosticHandler) {
+    fn add_named_entity(
+        &mut self,
+        designator: Designator,
+        ent: NamedEntity,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
         let ext_decl = self
             .extends
             .as_ref()
-            .and_then(|extends| extends.decls.get(&decl.designator));
+            .and_then(|extends| extends.decls.get(&designator));
 
-        if !self.check_deferred_constant_only_in_package(&decl, diagnostics) {
+        if !self.check_deferred_constant_only_in_package(&ent, diagnostics) {
             return;
         }
 
         if let Some(ext_decl) = ext_decl {
-            if !self.check_full_constand_of_deferred_only_in_body(&decl, ext_decl, diagnostics) {
+            if !self.check_full_constand_of_deferred_only_in_body(&ent, ext_decl, diagnostics) {
                 return;
             }
         }
 
         // @TODO merge with .entry below
-        if let Some(prev_decl) = self.decls.get(&decl.designator) {
-            if !self.check_full_constand_of_deferred_only_in_body(&decl, prev_decl, diagnostics) {
+        if let Some(prev_decl) = self.decls.get(&designator) {
+            if !self.check_full_constand_of_deferred_only_in_body(&ent, prev_decl, diagnostics) {
                 return;
             }
         }
 
-        match self.decls.entry(decl.designator.clone()) {
+        match self.decls.entry(designator.clone()) {
             Entry::Occupied(ref mut entry) => {
                 let prev_decl = entry.get_mut();
 
-                if Self::check_add(&decl, Some(&prev_decl), ext_decl, diagnostics) {
-                    let mut decl = decl;
-                    prev_decl.data.append(&mut decl.data);
+                if Self::check_add(&ent, Some(&prev_decl), ext_decl, diagnostics) {
+                    prev_decl.push(ent);
                 }
             }
             Entry::Vacant(entry) => {
-                if Self::check_add(&decl, None, ext_decl, diagnostics) {
-                    entry.insert(decl);
+                if Self::check_add(&ent, None, ext_decl, diagnostics) {
+                    entry.insert(VisibleDeclaration::new(designator, ent));
                 }
             }
         }
@@ -519,15 +566,23 @@ impl<'a> Region<'a> {
     pub fn add(
         &mut self,
         designator: impl Into<WithPos<Designator>>,
-        decl: AnyDeclaration,
+        kind: NamedEntityKind,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
-        let decl = VisibleDeclaration::new(designator, decl);
-        self.add_decl(decl, diagnostics);
+        let designator = designator.into();
+        self.add_named_entity(
+            designator.item,
+            NamedEntity::new(kind, Some(&designator.pos)),
+            diagnostics,
+        );
     }
 
-    pub fn overwrite(&mut self, designator: impl Into<WithPos<Designator>>, decl: AnyDeclaration) {
-        let decl = VisibleDeclaration::new(designator.into(), decl);
+    pub fn overwrite(&mut self, designator: impl Into<WithPos<Designator>>, kind: NamedEntityKind) {
+        let designator = designator.into();
+        let decl = VisibleDeclaration::new(
+            designator.item,
+            NamedEntity::new(kind, Some(&designator.pos)),
+        );
         self.decls.insert(decl.designator.clone(), decl);
     }
 
@@ -535,17 +590,17 @@ impl<'a> Region<'a> {
         &mut self,
         designator: impl Into<Designator>,
         decl_pos: Option<&SrcPos>,
-        decl: AnyDeclaration,
+        kind: NamedEntityKind,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
-        let decl = VisibleDeclaration {
-            designator: designator.into(),
-            data: vec![AnyDeclarationData {
+        self.add_named_entity(
+            designator.into(),
+            NamedEntity {
                 decl_pos: decl_pos.cloned(),
-                decl,
-            }],
-        };
-        self.add_decl(decl, diagnostics);
+                kind,
+            },
+            diagnostics,
+        );
     }
 
     pub fn make_library_visible(
@@ -554,49 +609,86 @@ impl<'a> Region<'a> {
         library_name: &Symbol,
         decl_pos: Option<SrcPos>,
     ) {
-        let decl = VisibleDeclaration {
-            designator: designator.into(),
-            data: vec![AnyDeclarationData {
-                decl_pos: decl_pos.clone(),
-                decl: AnyDeclaration::Library(library_name.clone()),
-            }],
+        let ent = NamedEntity {
+            decl_pos: decl_pos.clone(),
+            kind: NamedEntityKind::Library(library_name.clone()),
         };
-        self.make_potentially_visible(decl);
+        self.make_potentially_visible(designator.into(), ent);
     }
 
     /// Add implicit declarations when using declaration
     /// For example all enum literals are made implicititly visible when using an enum type
-    fn add_implicit_declarations(&mut self, decl: &AnyDeclaration) {
-        match decl {
-            AnyDeclaration::TypeDeclaration(ref implicit) => {
+    fn add_implicit_declarations(&mut self, kind: &NamedEntityKind) {
+        match kind {
+            NamedEntityKind::TypeDeclaration(ref implicit) => {
                 // Add implicitic declarations when using type
                 if let Some(implicit) = implicit {
                     self.make_all_potentially_visible(&implicit);
                 }
             }
-            AnyDeclaration::AliasOf(ref decl) => {
-                self.add_implicit_declarations(decl);
+            NamedEntityKind::AliasOf(ref kind) => {
+                self.add_implicit_declarations(kind);
             }
             _ => {}
         }
     }
 
-    pub fn make_potentially_visible(&mut self, decl: impl Into<VisibleDeclaration>) {
-        let decl = decl.into();
-        self.add_implicit_declarations(decl.first());
-        self.visible.insert(decl.designator.clone(), decl);
+    fn has_duplicate(&self, designator: &Designator, ent: &NamedEntity) -> bool {
+        if let Some(prev) = self.visible.get(&designator) {
+            if !ent.is_overloaded() && !prev.is_overloaded() {
+                // @TODO check that they actually correspond to the same object
+                // The decl_pos serves as a good proxy for this except for libraries
+                if ent.decl_pos() != prev.first_pos() {
+                    if let NamedEntityKind::Library(..) = ent.kind() {
+                    } else if let NamedEntityKind::Library(..) = prev.first_kind() {
+                        // Until we have unique id:s we disable hidden check for alias
+                    } else if let NamedEntityKind::AliasOf(..) = ent.kind() {
+                    } else if let NamedEntityKind::AliasOf(..) = prev.first_kind() {
+                    } else {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        if let Some(parent) = self.parent {
+            parent.has_duplicate(designator, ent)
+        } else {
+            false
+        }
+    }
+
+    pub fn make_potentially_visible(&mut self, designator: Designator, ent: NamedEntity) {
+        if self.has_duplicate(&designator, &ent) {
+            // @TODO add error message when hiding
+            self.hidden.insert(designator);
+        } else {
+            self.add_implicit_declarations(&ent.kind);
+            match self.visible.entry(designator.clone()) {
+                Entry::Vacant(entry) => {
+                    entry.insert(VisibleDeclaration::new(designator, ent));
+                }
+                Entry::Occupied(mut entry) => {
+                    entry.get_mut().push(ent);
+                }
+            }
+        }
     }
 
     pub fn make_all_potentially_visible(&mut self, region: &Region<'a>) {
-        for decl in region.decls.values() {
-            self.make_potentially_visible(decl.clone());
+        for visible in region.decls.values() {
+            for ent in visible.named_entities() {
+                self.make_potentially_visible(visible.designator.clone(), ent.clone());
+            }
         }
     }
 
     /// Used when using context clauses
     pub fn copy_visibility_from(&mut self, region: &Region<'a>) {
-        for decl in region.visible.values() {
-            self.make_potentially_visible(decl.clone());
+        for visible in region.visible.values() {
+            for ent in visible.named_entities() {
+                self.make_potentially_visible(visible.designator.clone(), ent.clone());
+            }
         }
     }
 
@@ -610,14 +702,14 @@ impl<'a> Region<'a> {
                     .and_then(|region| region.lookup(designator, is_selected))
             })
             .or_else(|| {
-                if is_selected {
+                if is_selected || self.hidden.contains(designator) {
                     None
                 } else {
                     self.visible.get(designator)
                 }
             })
             .or_else(|| {
-                if is_selected {
+                if is_selected || self.hidden.contains(designator) {
                     None
                 } else {
                     self.parent
@@ -641,13 +733,23 @@ impl<'a> Region<'a> {
 }
 
 pub trait SetReference {
-    fn set_reference(&mut self, decl: &VisibleDeclaration) {
+    fn set_unique_reference(&mut self, ent: &NamedEntity) {
         // @TODO handle built-ins without position
         // @TODO handle mutliple overloaded declarations
-        if !decl.is_overloaded() {
+        if !ent.is_overloaded() {
             // We do not set references to overloaded names to avoid
-            // To much incorrect behavior which will appear as low quality
-            self.set_reference_pos(decl.first_pos());
+            // incorrect behavior which will appear as low quality
+            self.set_reference_pos(ent.decl_pos.as_ref());
+        } else {
+            self.clear_reference();
+        }
+    }
+
+    fn set_reference(&mut self, visible: &VisibleDeclaration) {
+        if let Some(ent) = visible.as_unique() {
+            // We do not set references to non-unqiue names
+            //  incorrect behavior which will appear as low quality
+            self.set_unique_reference(ent);
         } else {
             self.clear_reference();
         }

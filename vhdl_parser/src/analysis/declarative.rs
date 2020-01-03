@@ -39,7 +39,7 @@ impl<'a> AnalyzeContext<'a> {
                     signature,
                 } = alias;
 
-                let resolved_name =
+                let named_entity =
                     self.resolve_name(region, &name.pos, &mut name.item, diagnostics)?;
 
                 if let Some(ref mut subtype_indication) = subtype_indication {
@@ -52,19 +52,19 @@ impl<'a> AnalyzeContext<'a> {
                     self.analyze_signature(region, signature, diagnostics)?;
                 }
 
-                let decl = {
+                let kind = {
                     if signature.is_some() {
-                        AnyDeclaration::Overloaded
+                        NamedEntityKind::Overloaded
                     } else if subtype_indication.is_some() {
-                        AnyDeclaration::Other
-                    } else if let Some(decl) = resolved_name {
-                        AnyDeclaration::AliasOf(Box::new(decl.first().clone()))
+                        NamedEntityKind::Other
+                    } else if let Some(named_entity) = named_entity {
+                        NamedEntityKind::AliasOf(Box::new(named_entity.kind().clone()))
                     } else {
-                        AnyDeclaration::Other
+                        NamedEntityKind::Other
                     }
                 };
 
-                region.add(designator.clone(), decl, diagnostics);
+                region.add(designator.clone(), kind, diagnostics);
             }
             Declaration::Object(ref mut object_decl) => {
                 self.analyze_subtype_indication(
@@ -77,7 +77,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 region.add(
                     &object_decl.ident,
-                    AnyDeclaration::from_object_declaration(object_decl),
+                    NamedEntityKind::from_object_declaration(object_decl),
                     diagnostics,
                 );
             }
@@ -95,10 +95,10 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(ref mut expr) = file_name {
                     self.analyze_expression(region, expr, diagnostics)?;
                 }
-                region.add(ident.clone(), AnyDeclaration::Other, diagnostics);
+                region.add(ident.clone(), NamedEntityKind::Other, diagnostics);
             }
             Declaration::Component(ref mut component) => {
-                region.add(&component.ident, AnyDeclaration::Other, diagnostics);
+                region.add(&component.ident, NamedEntityKind::Other, diagnostics);
                 let mut region = region.nested();
                 self.analyze_interface_list(&mut region, &mut component.generic_list, diagnostics)?;
                 self.analyze_interface_list(&mut region, &mut component.port_list, diagnostics)?;
@@ -109,7 +109,7 @@ impl<'a> AnalyzeContext<'a> {
                     if let Err(err) = self.resolve_type_mark(region, &mut attr_decl.type_mark) {
                         err.add_to(diagnostics)?;
                     }
-                    region.add(&attr_decl.ident, AnyDeclaration::Other, diagnostics);
+                    region.add(&attr_decl.ident, NamedEntityKind::Other, diagnostics);
                 }
                 // @TODO Ignored for now
                 Attribute::Specification(..) => {}
@@ -117,7 +117,7 @@ impl<'a> AnalyzeContext<'a> {
             Declaration::SubprogramBody(ref mut body) => {
                 region.add(
                     body.specification.designator(),
-                    AnyDeclaration::Overloaded,
+                    NamedEntityKind::Overloaded,
                     diagnostics,
                 );
                 let mut spec_region = self.analyze_subprogram_declaration(
@@ -135,7 +135,7 @@ impl<'a> AnalyzeContext<'a> {
             Declaration::SubprogramDeclaration(ref mut subdecl) => {
                 region.add(
                     subdecl.designator(),
-                    AnyDeclaration::Overloaded,
+                    NamedEntityKind::Overloaded,
                     diagnostics,
                 );
                 self.analyze_subprogram_declaration(region, subdecl, diagnostics)?;
@@ -154,7 +154,7 @@ impl<'a> AnalyzeContext<'a> {
                 match self.analyze_package_instance_name(region, &mut instance.package_name) {
                     Ok(package_region) => region.add(
                         &instance.ident,
-                        AnyDeclaration::LocalPackageInstance(
+                        NamedEntityKind::LocalPackageInstance(
                             instance.ident.item.clone(),
                             package_region,
                         ),
@@ -183,7 +183,7 @@ impl<'a> AnalyzeContext<'a> {
                 for literal in enumeration.iter() {
                     parent.add(
                         literal.clone().map_into(|lit| lit.into_designator()),
-                        AnyDeclaration::Overloaded,
+                        NamedEntityKind::Overloaded,
                         diagnostics,
                     )
                 }
@@ -193,7 +193,7 @@ impl<'a> AnalyzeContext<'a> {
                 for literal in enumeration.iter() {
                     enum_region.add(
                         literal.clone().map_into(|lit| lit.into_designator()),
-                        AnyDeclaration::Overloaded,
+                        NamedEntityKind::Overloaded,
                         // Ignore diagnostics as they will be given above
                         &mut ignored,
                     )
@@ -201,14 +201,14 @@ impl<'a> AnalyzeContext<'a> {
 
                 parent.add(
                     &type_decl.ident,
-                    AnyDeclaration::TypeDeclaration(Some(Arc::new(enum_region))),
+                    NamedEntityKind::TypeDeclaration(Some(Arc::new(enum_region))),
                     diagnostics,
                 );
             }
             TypeDefinition::ProtectedBody(ref mut body) => {
                 let is_ok = match parent.lookup_within(&type_decl.ident.item.clone().into()) {
-                    Some(decl) => match decl.first() {
-                        AnyDeclaration::ProtectedType(ptype_region) => {
+                    Some(decl) => match decl.first_kind() {
+                        NamedEntityKind::ProtectedType(ptype_region) => {
                             let mut region = Region::extend(&ptype_region, Some(parent));
                             self.analyze_declarative_part(
                                 &mut region,
@@ -240,7 +240,7 @@ impl<'a> AnalyzeContext<'a> {
                 if is_ok {
                     parent.add(
                         &type_decl.ident,
-                        AnyDeclaration::ProtectedTypeBody,
+                        NamedEntityKind::ProtectedTypeBody,
                         diagnostics,
                     );
                 };
@@ -250,7 +250,7 @@ impl<'a> AnalyzeContext<'a> {
                 // This will be overwritten later when the protected type region is finished
                 parent.add(
                     &type_decl.ident,
-                    AnyDeclaration::TypeDeclaration(None),
+                    NamedEntityKind::TypeDeclaration(None),
                     diagnostics,
                 );
 
@@ -260,7 +260,7 @@ impl<'a> AnalyzeContext<'a> {
                         ProtectedTypeDeclarativeItem::Subprogram(ref mut subprogram) => {
                             region.add(
                                 subprogram.designator(),
-                                AnyDeclaration::Overloaded,
+                                NamedEntityKind::Overloaded,
                                 diagnostics,
                             );
                             self.analyze_subprogram_declaration(
@@ -275,20 +275,20 @@ impl<'a> AnalyzeContext<'a> {
 
                 parent.overwrite(
                     &type_decl.ident,
-                    AnyDeclaration::ProtectedType(Arc::new(region)),
+                    NamedEntityKind::ProtectedType(Arc::new(region)),
                 );
             }
             TypeDefinition::Record(ref mut element_decls) => {
                 let mut region = Region::default();
                 for elem_decl in element_decls.iter_mut() {
                     self.analyze_subtype_indication(parent, &mut elem_decl.subtype, diagnostics)?;
-                    region.add(&elem_decl.ident, AnyDeclaration::Other, diagnostics);
+                    region.add(&elem_decl.ident, NamedEntityKind::Other, diagnostics);
                 }
                 region.close_both(diagnostics);
 
                 parent.add(
                     &type_decl.ident,
-                    AnyDeclaration::TypeDeclaration(None),
+                    NamedEntityKind::TypeDeclaration(None),
                     diagnostics,
                 );
             }
@@ -297,7 +297,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 parent.add(
                     &type_decl.ident,
-                    AnyDeclaration::TypeDeclaration(None),
+                    NamedEntityKind::TypeDeclaration(None),
                     diagnostics,
                 );
             }
@@ -309,7 +309,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 parent.add(
                     &type_decl.ident,
-                    AnyDeclaration::TypeDeclaration(None),
+                    NamedEntityKind::TypeDeclaration(None),
                     diagnostics,
                 );
             }
@@ -318,34 +318,34 @@ impl<'a> AnalyzeContext<'a> {
 
                 parent.add(
                     &type_decl.ident,
-                    AnyDeclaration::TypeDeclaration(None),
+                    NamedEntityKind::TypeDeclaration(None),
                     diagnostics,
                 );
             }
             TypeDefinition::Physical(ref mut physical) => {
                 parent.add(
                     physical.primary_unit.clone(),
-                    AnyDeclaration::Constant,
+                    NamedEntityKind::Constant,
                     diagnostics,
                 );
                 for (secondary_unit_name, _) in physical.secondary_units.iter_mut() {
                     parent.add(
                         secondary_unit_name.clone(),
-                        AnyDeclaration::Constant,
+                        NamedEntityKind::Constant,
                         diagnostics,
                     )
                 }
 
                 parent.add(
                     &type_decl.ident,
-                    AnyDeclaration::TypeDeclaration(None),
+                    NamedEntityKind::TypeDeclaration(None),
                     diagnostics,
                 );
             }
             TypeDefinition::Incomplete => {
                 parent.add(
                     &type_decl.ident,
-                    AnyDeclaration::IncompleteType,
+                    NamedEntityKind::IncompleteType,
                     diagnostics,
                 );
             }
@@ -354,7 +354,7 @@ impl<'a> AnalyzeContext<'a> {
                 self.analyze_range(parent, range, diagnostics)?;
                 parent.add(
                     &type_decl.ident,
-                    AnyDeclaration::TypeDeclaration(None),
+                    NamedEntityKind::TypeDeclaration(None),
                     diagnostics,
                 );
             }
@@ -369,13 +369,13 @@ impl<'a> AnalyzeContext<'a> {
                     implicit.add_implicit(
                         Designator::Identifier(self.symbol_utf8(name)),
                         None,
-                        AnyDeclaration::Overloaded,
+                        NamedEntityKind::Overloaded,
                         diagnostics,
                     );
                 }
                 parent.add(
                     &type_decl.ident,
-                    AnyDeclaration::TypeDeclaration(Some(Arc::new(implicit))),
+                    NamedEntityKind::TypeDeclaration(Some(Arc::new(implicit))),
                     diagnostics,
                 );
             }
@@ -425,7 +425,7 @@ impl<'a> AnalyzeContext<'a> {
                     &mut file_decl.subtype_indication,
                     diagnostics,
                 )?;
-                region.add(&file_decl.ident, AnyDeclaration::Other, diagnostics);
+                region.add(&file_decl.ident, NamedEntityKind::Other, diagnostics);
             }
             InterfaceDeclaration::Object(ref mut object_decl) => {
                 self.analyze_subtype_indication(
@@ -436,20 +436,24 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(ref mut expression) = object_decl.expression {
                     self.analyze_expression(region, expression, diagnostics)?
                 }
-                region.add(&object_decl.ident, AnyDeclaration::Other, diagnostics);
+                region.add(&object_decl.ident, NamedEntityKind::Other, diagnostics);
             }
             InterfaceDeclaration::Type(ref ident) => {
-                region.add(ident, AnyDeclaration::Other, diagnostics);
+                region.add(ident, NamedEntityKind::Other, diagnostics);
             }
             InterfaceDeclaration::Subprogram(ref mut subpgm, ..) => {
                 self.analyze_subprogram_declaration(region, subpgm, diagnostics)?;
-                region.add(subpgm.designator(), AnyDeclaration::Overloaded, diagnostics);
+                region.add(
+                    subpgm.designator(),
+                    NamedEntityKind::Overloaded,
+                    diagnostics,
+                );
             }
             InterfaceDeclaration::Package(ref mut instance) => {
                 match self.analyze_package_instance_name(region, &mut instance.package_name) {
                     Ok(package_region) => region.add(
                         &instance.ident,
-                        AnyDeclaration::LocalPackageInstance(
+                        NamedEntityKind::LocalPackageInstance(
                             instance.ident.item.clone(),
                             package_region.clone(),
                         ),

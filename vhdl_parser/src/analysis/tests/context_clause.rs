@@ -1250,3 +1250,114 @@ end package;
 ",
     );
 }
+
+#[test]
+fn duplicate_identifer_is_not_directly_visible() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg1 is
+  constant name : natural := 0;
+end package;
+
+package pkg2 is
+  constant name : natural := 1;
+end package;
+
+use work.pkg1.name;
+use work.pkg2.name;
+
+package user is
+  constant b : natural := name;
+end package;
+
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(diagnostics, vec![missing(&code, "name", 5)]);
+}
+
+#[test]
+fn duplicate_identifer_is_directly_visible_when_it_is_the_same_named_entitty() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+package pkg1 is
+  constant name : natural := 0;
+end package;
+
+use work.pkg1.name;
+use work.pkg1.name;
+
+package user is
+  constant b : natural := name;
+end package;
+
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn duplicate_identifer_of_parent_visibility_is_not_directly_visible() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg1 is
+  constant name : natural := 0;
+end package;
+
+package pkg2 is
+  constant name : natural := 1;
+end package;
+
+use work.pkg1.name;
+
+package user is
+  use work.pkg2.name;
+  constant b : natural := name;
+end package;
+
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(diagnostics, vec![missing(&code, "name", 5)]);
+}
+
+#[test]
+fn local_is_still_visible_under_duplicate_identifer() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+package pkg1 is
+  constant name : natural := 0;
+end package;
+
+package pkg2 is
+  constant name : natural := 1;
+end package;
+
+
+package user is
+  use work.pkg1.name;
+  use work.pkg2.name;
+
+  constant name : natural := 0;
+  constant b : natural := name;
+  procedure foo(constant b : natural := name);
+end package;
+
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}

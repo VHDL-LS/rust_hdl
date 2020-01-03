@@ -43,18 +43,21 @@ impl<'a> AnalyzeContext<'a> {
         prefix: &VisibleDeclaration,
         suffix: &WithPos<WithRef<Designator>>,
     ) -> AnalysisResult<Option<VisibleDeclaration>> {
-        match prefix.first() {
-            AnyDeclaration::Library(ref library_name) => Ok(Some(self.lookup_in_library(
-                library_name,
-                &suffix.pos,
-                suffix.designator(),
-            )?)),
+        match prefix.first_kind() {
+            NamedEntityKind::Library(ref library_name) => {
+                let named_entity =
+                    self.lookup_in_library(library_name, &suffix.pos, suffix.designator())?;
 
-            AnyDeclaration::UninstPackage(ref unit_id, ..) => {
+                Ok(Some(VisibleDeclaration::new(
+                    suffix.designator().clone(),
+                    named_entity,
+                )))
+            }
+            NamedEntityKind::UninstPackage(ref unit_id, ..) => {
                 Err(uninstantiated_package_prefix_error(prefix_pos, unit_id))?
             }
 
-            AnyDeclaration::Package(ref unit_id, ref package_region) => {
+            NamedEntityKind::Package(ref unit_id, ref package_region) => {
                 if let Some(decl) = package_region.lookup_selected(suffix.designator()) {
                     Ok(Some(decl.clone()))
                 } else {
@@ -70,7 +73,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
 
-            AnyDeclaration::PackageInstance(ref unit_id, ref instance_region) => {
+            NamedEntityKind::PackageInstance(ref unit_id, ref instance_region) => {
                 if let Some(decl) = instance_region.lookup_selected(suffix.designator()) {
                     Ok(Some(decl.clone()))
                 } else {
@@ -86,7 +89,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
 
-            AnyDeclaration::LocalPackageInstance(ref instance_name, ref instance_region) => {
+            NamedEntityKind::LocalPackageInstance(ref instance_name, ref instance_region) => {
                 if let Some(decl) = instance_region.lookup_selected(suffix.designator()) {
                     Ok(Some(decl.clone()))
                 } else {
@@ -125,7 +128,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             SelectedName::Designator(ref mut designator) => {
                 if let Some(decl) = region.lookup_within(designator.designator()) {
-                    designator.set_reference(decl);
+                    designator.set_reference(&decl);
                     Ok(decl.clone())
                 } else {
                     designator.clear_reference();
@@ -218,7 +221,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             Name::Designator(designator) => {
                 if let Some(decl) = region.lookup_within(designator.designator()) {
-                    designator.set_reference(decl);
+                    designator.set_reference(&decl);
                     Ok(LookupResult::Single(decl.clone()))
                 } else {
                     designator.clear_reference();
@@ -292,9 +295,9 @@ impl<'a> AnalyzeContext<'a> {
         pos: &SrcPos,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<VisibleDeclaration>> {
+    ) -> FatalResult<Option<NamedEntity>> {
         match self.resolve_name_pos(region, pos, name, true, diagnostics) {
-            Ok(LookupResult::Single(result)) => Ok(Some(result)),
+            Ok(LookupResult::Single(visible)) => Ok(visible.to_unique()),
             Ok(..) => Ok(None),
             Err(err) => {
                 err.add_to(diagnostics)?;

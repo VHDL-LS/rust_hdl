@@ -18,7 +18,7 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         if let Some(ref label) = statement.label {
-            parent.add(label.clone(), AnyDeclaration::Constant, diagnostics);
+            parent.add(label.clone(), NamedEntityKind::Constant, diagnostics);
         }
 
         match statement.statement {
@@ -125,7 +125,7 @@ impl<'a> AnalyzeContext<'a> {
                         self.analyze_discrete_range(parent, drange, diagnostics)?;
                         let mut region = parent.nested();
                         let designator: WithPos<Designator> = index.clone().into();
-                        region.add(designator, AnyDeclaration::Constant, diagnostics);
+                        region.add(designator, NamedEntityKind::Constant, diagnostics);
                         self.analyze_sequential_part(&mut region, statements, diagnostics)?;
                     }
                     Some(IterationScheme::While(ref mut expr)) => {

@@ -58,11 +58,11 @@ end package;
         vec![
             Diagnostic::error(
                 code.s1("work.pkg"),
-                "'pkg' is not an uninstantiated generic package",
+                "'work.pkg' is not an uninstantiated generic package",
             ),
             Diagnostic::error(
                 code.s1("work.pkg.const"),
-                "'const' is not an uninstantiated generic package",
+                "'work.pkg.const' is not an uninstantiated generic package",
             ),
         ],
     );

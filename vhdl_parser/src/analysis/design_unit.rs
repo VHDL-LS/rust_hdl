@@ -86,8 +86,8 @@ impl<'a> AnalyzeContext<'a> {
         self.analyze_context_clause(&mut root_region, &mut unit.context_clause, diagnostics)?;
 
         match self.lookup_entity_for_configuration(&root_region, unit) {
-            Ok((entity_decl, _)) => {
-                if let Some(primary_pos) = entity_decl.first_pos() {
+            Ok((named_entity, entity_name, _)) => {
+                if let Some(primary_pos) = named_entity.decl_pos() {
                     let secondary_pos = unit.pos();
                     if primary_pos.source == secondary_pos.source
                         && primary_pos.start() > secondary_pos.start()
@@ -97,7 +97,7 @@ impl<'a> AnalyzeContext<'a> {
                             format!(
                                 "Configuration '{}' declared before entity '{}'",
                                 &unit.name(),
-                                &entity_decl.designator
+                                entity_name
                             ),
                         ));
                     }
@@ -205,10 +205,10 @@ impl<'a> AnalyzeContext<'a> {
         let mut region = Region::extend(&entity.result().region, Some(&root_region));
 
         // entity name is visible
-        region.make_potentially_visible(VisibleDeclaration::new(
-            entity.ident(),
-            AnyDeclaration::Constant,
-        ));
+        region.make_potentially_visible(
+            entity.name().into(),
+            NamedEntity::new(NamedEntityKind::Constant, Some(entity.pos())),
+        );
 
         self.analyze_declarative_part(&mut region, &mut unit.decl, diagnostics)?;
         self.analyze_concurrent_part(&mut region, &mut unit.statements, diagnostics)?;
@@ -223,31 +223,31 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalNullResult {
         unit.ident.clear_reference();
 
-        let package_data = self.lookup_primary_unit(
+        let package = self.lookup_primary_unit(
             unit.primary_ident(),
             PrimaryKind::Package,
             unit.pos(),
             diagnostics,
         )?;
         // @TODO maybe add more fatal results
-        let package_data = if let Some(package_data) = package_data {
-            package_data
+        let package = if let Some(package) = package {
+            package
         } else {
             return Ok(());
         };
 
-        unit.ident.set_reference_pos(Some(package_data.pos()));
+        unit.ident.set_reference_pos(Some(package.pos()));
         // @TODO make pattern of primary/secondary extension
-        let mut root_region = Region::extend(&package_data.result().root_region, None);
+        let mut root_region = Region::extend(&package.result().root_region, None);
         self.analyze_context_clause(&mut root_region, &mut unit.context_clause, diagnostics)?;
 
-        let mut region = Region::extend(&package_data.result().region, Some(&root_region));
+        let mut region = Region::extend(&package.result().region, Some(&root_region));
 
         // Package name is visible in body
-        region.make_potentially_visible(VisibleDeclaration::new(
-            package_data.ident(),
-            AnyDeclaration::Constant,
-        ));
+        region.make_potentially_visible(
+            package.name().into(),
+            NamedEntity::new(NamedEntityKind::Constant, Some(package.pos())),
+        );
 
         self.analyze_declarative_part(&mut region, &mut unit.decl, diagnostics)?;
         region.close_both(diagnostics);
@@ -304,10 +304,10 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         region: &Region<'_>,
         config: &mut ConfigurationDeclaration,
-    ) -> AnalysisResult<(VisibleDeclaration, Arc<Region<'static>>)> {
+    ) -> AnalysisResult<(NamedEntity, Symbol, Arc<Region<'static>>)> {
         let ref mut ent_name = config.entity_name;
 
-        let decl = {
+        let named_entity = {
             match ent_name.item {
                 // Entitities are implicitly defined for configurations
                 // configuration cfg of ent
@@ -318,30 +318,43 @@ impl<'a> AnalyzeContext<'a> {
                         &designator.item,
                     ) {
                         Ok(decl) => {
-                            designator.set_reference(&decl);
-                            Ok(decl)
+                            designator.set_unique_reference(&decl);
+                            decl
                         }
                         Err(err) => {
                             designator.clear_reference();
-                            Err(err)
+                            return Err(err);
                         }
                     }
                 }
 
                 // configuration cfg of lib.ent
-                _ => self.resolve_selected_name(&region, ent_name),
+                _ => {
+                    if let Some(ent) = self.resolve_selected_name(&region, ent_name)?.as_unique() {
+                        ent.clone()
+                    } else {
+                        return Err(AnalysisError::NotFatal(Diagnostic::error(
+                            &ent_name,
+                            format!("Does not denote an entity"),
+                        )));
+                    }
+                }
             }
-        }?;
+        };
 
-        match decl.first() {
-            AnyDeclaration::Entity(ref unit_id, ref entity_region) => {
+        match named_entity.kind() {
+            NamedEntityKind::Entity(ref unit_id, ref entity_region) => {
                 if unit_id.library_name() != self.work_library_name() {
                     Err(Diagnostic::error(
                         &ent_name,
                         format!("Configuration must be within the same library '{}' as the corresponding entity", self.work_library_name()),
                     ))?
                 } else {
-                    Ok((decl.clone(), entity_region.clone()))
+                    Ok((
+                        named_entity.clone(),
+                        unit_id.primary_name().clone(),
+                        entity_region.clone(),
+                    ))
                 }
             }
             _ => Err(Diagnostic::error(&ent_name, "does not denote an entity"))?,
@@ -404,9 +417,9 @@ impl<'a> AnalyzeContext<'a> {
 
                         match self.resolve_context_item_name(&region, name, diagnostics) {
                             Ok(LookupResult::Single(visible_decl)) => {
-                                match visible_decl.first() {
+                                match visible_decl.first_kind() {
                                     // OK
-                                    AnyDeclaration::Context(_, ref context_region) => {
+                                    NamedEntityKind::Context(_, ref context_region) => {
                                         region.copy_visibility_from(context_region);
                                     }
                                     _ => {
@@ -465,27 +478,27 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             match self.resolve_context_item_name(&region, name, diagnostics) {
-                Ok(LookupResult::Single(visible_decl)) => {
-                    region.make_potentially_visible(visible_decl);
+                Ok(LookupResult::Single(visible)) => {
+                    visible.make_potentially_visible_in(region);
                 }
                 Ok(LookupResult::AllWithin(visibility_pos, visible_decl)) => {
-                    match visible_decl.first() {
-                        AnyDeclaration::Library(ref library_name) => {
+                    match visible_decl.first_kind() {
+                        NamedEntityKind::Library(ref library_name) => {
                             self.use_all_in_library(&name.pos, library_name, region)?;
                         }
-                        AnyDeclaration::UninstPackage(ref unit_id, ..) => {
+                        NamedEntityKind::UninstPackage(ref unit_id, ..) => {
                             diagnostics.push(uninstantiated_package_prefix_error(
                                 &visibility_pos,
                                 unit_id,
                             ));
                         }
-                        AnyDeclaration::Package(_, ref package_region) => {
+                        NamedEntityKind::Package(_, ref package_region) => {
                             region.make_all_potentially_visible(package_region);
                         }
-                        AnyDeclaration::PackageInstance(_, ref package_region) => {
+                        NamedEntityKind::PackageInstance(_, ref package_region) => {
                             region.make_all_potentially_visible(package_region);
                         }
-                        AnyDeclaration::LocalPackageInstance(_, ref instance_region) => {
+                        NamedEntityKind::LocalPackageInstance(_, ref instance_region) => {
                             region.make_all_potentially_visible(&instance_region);
                         }
                         // @TODO handle others
@@ -515,14 +528,14 @@ impl<'a> AnalyzeContext<'a> {
     ) -> AnalysisResult<Arc<Region<'static>>> {
         let decl = self.resolve_selected_name(region, package_name)?;
 
-        if let AnyDeclaration::UninstPackage(_, ref package_region) = decl.first() {
+        if let NamedEntityKind::UninstPackage(_, ref package_region) = decl.first_kind() {
             Ok(package_region.clone())
         } else {
             Err(Diagnostic::error(
                 &package_name.pos,
                 format!(
                     "'{}' is not an uninstantiated generic package",
-                    &decl.designator
+                    package_name
                 ),
             ))?
         }

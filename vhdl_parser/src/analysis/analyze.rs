@@ -163,10 +163,10 @@ impl<'a> AnalyzeContext<'a> {
             match unit.kind() {
                 AnyKind::Primary(..) => {
                     let data = self.get_analysis(Some(use_pos), unit)?;
-                    region.make_potentially_visible(Self::create_primary_unit_decl(
-                        unit.unit_id(),
-                        &data,
-                    ));
+                    region.make_potentially_visible(
+                        unit.name().into(),
+                        Self::create_primary_unit_decl(unit.unit_id(), &data),
+                    );
                 }
                 AnyKind::Secondary(..) => {}
             }
@@ -244,7 +244,7 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    fn create_primary_unit_decl(unit_id: &UnitId, unit: &UnitReadGuard) -> VisibleDeclaration {
+    fn create_primary_unit_decl(unit_id: &UnitId, unit: &UnitReadGuard) -> NamedEntity {
         // @TODO add PrimaryUnit Declaration struct
 
         let unit_id = unit_id.clone();
@@ -256,22 +256,23 @@ impl<'a> AnalyzeContext<'a> {
             unreachable!("Expect primary unit");
         };
 
-        let decl_data = match primary_unit {
-            AnyPrimaryUnit::Entity(..) => AnyDeclaration::Entity(unit_id, region),
-            AnyPrimaryUnit::Configuration(..) => AnyDeclaration::Configuration(unit_id, region),
+        let kind = match primary_unit {
+            AnyPrimaryUnit::Entity(..) => NamedEntityKind::Entity(unit_id, region),
+            AnyPrimaryUnit::Configuration(..) => NamedEntityKind::Configuration(unit_id, region),
             AnyPrimaryUnit::Package(ref package) => {
                 if package.generic_clause.is_some() {
-                    AnyDeclaration::UninstPackage(unit_id, region)
+                    NamedEntityKind::UninstPackage(unit_id, region)
                 } else {
-                    AnyDeclaration::Package(unit_id, region)
+                    NamedEntityKind::Package(unit_id, region)
                 }
             }
-            AnyPrimaryUnit::PackageInstance(..) => AnyDeclaration::PackageInstance(unit_id, region),
-            AnyPrimaryUnit::Context(..) => AnyDeclaration::Context(unit_id, region),
+            AnyPrimaryUnit::PackageInstance(..) => {
+                NamedEntityKind::PackageInstance(unit_id, region)
+            }
+            AnyPrimaryUnit::Context(..) => NamedEntityKind::Context(unit_id, region),
         };
 
-        let designator = WithPos::new(Designator::Identifier(unit.name().clone()), unit.pos());
-        VisibleDeclaration::new(designator, decl_data)
+        NamedEntity::new(kind, Some(unit.pos()))
     }
 
     fn get_primary_unit(&self, library_name: &Symbol, name: &Symbol) -> Option<&'a LockedUnit> {
@@ -307,7 +308,7 @@ impl<'a> AnalyzeContext<'a> {
         library_name: &Symbol,
         pos: &SrcPos,
         primary_name: &Designator,
-    ) -> AnalysisResult<VisibleDeclaration> {
+    ) -> AnalysisResult<NamedEntity> {
         if let Designator::Identifier(ref primary_name) = primary_name {
             if let Some(unit) = self.get_primary_unit(library_name, primary_name) {
                 let data = self.get_analysis(Some(pos), unit)?;
