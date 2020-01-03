@@ -1,1 +1,6 @@
+.git
+.github
 Dockerfile
+example_project
+target
+vhdl_libraries
