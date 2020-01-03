@@ -8,7 +8,6 @@ use fnv::{FnvHashMap, FnvHashSet};
 use std::collections::hash_map::Entry;
 
 use super::analyze::*;
-use super::design_unit::AnalyzeDesignUnit;
 use super::lock::AnalysisLock;
 use super::lock::{AnalysisEntry, ReadGuard};
 use super::region::Region;
@@ -307,8 +306,8 @@ impl DesignRoot {
                 let mut root_region = Region::default();
                 let mut region = Region::default();
 
-                let has_circular_dependency = if let Err(err) = unit.analyze_design_unit(
-                    &context,
+                let has_circular_dependency = if let Err(err) = context.analyze_design_unit(
+                    &mut *unit,
                     &mut root_region,
                     &mut region,
                     &mut diagnostics,

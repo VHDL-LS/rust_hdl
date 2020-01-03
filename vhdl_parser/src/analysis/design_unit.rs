@@ -13,196 +13,82 @@ use root::*;
 use semantic::{uninstantiated_package_prefix_error, LookupResult};
 use std::sync::Arc;
 
-pub(super) trait AnalyzeDesignUnit {
-    fn analyze_design_unit(
-        &mut self,
-        context: &AnalyzeContext,
-        root_region: &mut Region<'_>,
-        region: &mut Region<'_>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult;
-}
-
-impl AnalyzeDesignUnit for AnyPrimaryUnit {
-    fn analyze_design_unit(
-        &mut self,
-        context: &AnalyzeContext,
+impl<'a> AnalyzeContext<'a> {
+    pub fn analyze_design_unit(
+        &self,
+        unit: &mut AnyDesignUnit,
         root_region: &mut Region<'_>,
         region: &mut Region<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        delegate_primary!(
-            self,
-            unit,
-            unit.analyze_design_unit(context, root_region, region, diagnostics)
-        )
+        match unit {
+            AnyDesignUnit::Primary(unit) => match unit {
+                AnyPrimaryUnit::Entity(unit) => {
+                    self.analyze_entity(unit, root_region, region, diagnostics)
+                }
+                AnyPrimaryUnit::Configuration(unit) => {
+                    self.analyze_configuration(unit, diagnostics)
+                }
+                AnyPrimaryUnit::Package(unit) => {
+                    self.analyze_package(unit, root_region, region, diagnostics)
+                }
+                AnyPrimaryUnit::PackageInstance(unit) => {
+                    self.analyze_package_instance(unit, root_region, region, diagnostics)
+                }
+                AnyPrimaryUnit::Context(unit) => {
+                    self.analyze_context(unit, root_region, region, diagnostics)
+                }
+            },
+            AnyDesignUnit::Secondary(unit) => match unit {
+                AnySecondaryUnit::Architecture(unit) => {
+                    self.analyze_architecture(unit, diagnostics)
+                }
+                AnySecondaryUnit::PackageBody(unit) => self.analyze_package_body(unit, diagnostics),
+            },
+        }
     }
-}
 
-impl AnalyzeDesignUnit for AnySecondaryUnit {
-    fn analyze_design_unit(
-        &mut self,
-        context: &AnalyzeContext,
-        root_region: &mut Region<'_>,
-        region: &mut Region<'_>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
-        delegate_secondary!(
-            self,
-            unit,
-            unit.analyze_design_unit(context, root_region, region, diagnostics)
-        )
-    }
-}
-
-impl AnalyzeDesignUnit for AnyDesignUnit {
-    fn analyze_design_unit(
-        &mut self,
-        context: &AnalyzeContext,
-        root_region: &mut Region<'_>,
-        region: &mut Region<'_>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
-        delegate_any!(
-            self,
-            unit,
-            unit.analyze_design_unit(context, root_region, region, diagnostics)
-        )
-    }
-}
-
-impl AnalyzeDesignUnit for PackageInstantiation {
-    fn analyze_design_unit(
-        &mut self,
-        context: &AnalyzeContext,
+    fn analyze_entity(
+        &self,
+        unit: &mut EntityDeclaration,
         root_region: &mut Region<'_>,
         region: &mut Region<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         *root_region = Region::default();
-        context.add_implicit_context_clause(root_region)?;
-        context.analyze_context_clause(root_region, &mut self.context_clause, diagnostics)?;
+        self.add_implicit_context_clause(root_region)?;
+        self.analyze_context_clause(root_region, &mut unit.context_clause, diagnostics)?;
 
-        match context.analyze_package_instance_name(root_region, &mut self.package_name) {
-            Ok(package_region) => {
-                *region = (*package_region).clone();
-                Ok(())
-            }
-            Err(AnalysisError::NotFatal(diagnostic)) => {
-                diagnostics.push(diagnostic);
-                Ok(())
-            }
-            Err(AnalysisError::Fatal(err)) => Err(err),
-        }
-    }
-}
-
-impl AnalyzeDesignUnit for PackageDeclaration {
-    fn analyze_design_unit(
-        &mut self,
-        context: &AnalyzeContext,
-        root_region: &mut Region<'_>,
-        region: &mut Region<'_>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
-        *root_region = Region::default();
-        context.add_implicit_context_clause(root_region)?;
-        context.analyze_context_clause(root_region, &mut self.context_clause, diagnostics)?;
-
-        let mut primary_region = root_region.nested().in_package_declaration();
-
-        if let Some(ref mut list) = self.generic_clause {
-            context.analyze_interface_list(&mut primary_region, list, diagnostics)?;
-        }
-        context.analyze_declarative_part(&mut primary_region, &mut self.decl, diagnostics)?;
-
-        if context.has_package_body() {
-            primary_region.close_immediate(diagnostics);
-        } else {
-            primary_region.close_both(diagnostics);
-        }
-
-        *region = primary_region.without_parent();
-
-        Ok(())
-    }
-}
-
-impl AnalyzeDesignUnit for PackageBody {
-    fn analyze_design_unit(
-        &mut self,
-        context: &AnalyzeContext,
-        _root_region: &mut Region<'_>,
-        _region: &mut Region<'_>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
-        self.ident.clear_reference();
-
-        let package_data = context.lookup_primary_unit(
-            self.primary_ident(),
-            PrimaryKind::Package,
-            self.pos(),
-            diagnostics,
-        )?;
-        // @TODO maybe add more fatal results
-        let package_data = if let Some(package_data) = package_data {
-            package_data
-        } else {
-            return Ok(());
-        };
-
-        self.ident.set_reference_pos(Some(package_data.pos()));
-        // @TODO make pattern of primary/secondary extension
-        let mut root_region = Region::extend(&package_data.result().root_region, None);
-        context.analyze_context_clause(&mut root_region, &mut self.context_clause, diagnostics)?;
-
-        let mut region = Region::extend(&package_data.result().region, Some(&root_region));
-
-        // Package name is visible in body
-        region.make_potentially_visible(VisibleDeclaration::new(
-            package_data.ident(),
-            AnyDeclaration::Constant,
-        ));
-
-        context.analyze_declarative_part(&mut region, &mut self.decl, diagnostics)?;
-        region.close_both(diagnostics);
-        Ok(())
-    }
-}
-
-impl AnalyzeDesignUnit for ContextDeclaration {
-    fn analyze_design_unit(
-        &mut self,
-        context: &AnalyzeContext,
-        root_region: &mut Region<'_>,
-        region: &mut Region<'_>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
-        *root_region = Region::default();
-        context.add_implicit_context_clause(root_region)?;
         let mut primary_region = root_region.nested();
-        context.analyze_context_clause(&mut primary_region, &mut self.items, diagnostics)?;
+
+        if let Some(ref mut list) = unit.generic_clause {
+            self.analyze_interface_list(&mut primary_region, list, diagnostics)?;
+        }
+        if let Some(ref mut list) = unit.port_clause {
+            self.analyze_interface_list(&mut primary_region, list, diagnostics)?;
+        }
+        self.analyze_declarative_part(&mut primary_region, &mut unit.decl, diagnostics)?;
+        self.analyze_concurrent_part(&mut primary_region, &mut unit.statements, diagnostics)?;
+
+        primary_region.close_immediate(diagnostics);
         *region = primary_region.without_parent();
+
         Ok(())
     }
-}
 
-impl AnalyzeDesignUnit for ConfigurationDeclaration {
-    fn analyze_design_unit(
-        &mut self,
-        context: &AnalyzeContext,
-        _root_region: &mut Region<'_>,
-        _region: &mut Region<'_>,
+    fn analyze_configuration(
+        &self,
+        unit: &mut ConfigurationDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         let mut root_region = Region::default();
-        context.add_implicit_context_clause(&mut root_region)?;
-        context.analyze_context_clause(&mut root_region, &mut self.context_clause, diagnostics)?;
+        self.add_implicit_context_clause(&mut root_region)?;
+        self.analyze_context_clause(&mut root_region, &mut unit.context_clause, diagnostics)?;
 
-        match context.lookup_entity_for_configuration(&root_region, self) {
+        match self.lookup_entity_for_configuration(&root_region, unit) {
             Ok((entity_decl, _)) => {
                 if let Some(primary_pos) = entity_decl.first_pos() {
-                    let secondary_pos = self.pos();
+                    let secondary_pos = unit.pos();
                     if primary_pos.source == secondary_pos.source
                         && primary_pos.start() > secondary_pos.start()
                     {
@@ -210,7 +96,7 @@ impl AnalyzeDesignUnit for ConfigurationDeclaration {
                             secondary_pos,
                             format!(
                                 "Configuration '{}' declared before entity '{}'",
-                                &self.name(),
+                                &unit.name(),
                                 &entity_decl.designator
                             ),
                         ));
@@ -223,52 +109,86 @@ impl AnalyzeDesignUnit for ConfigurationDeclaration {
         };
         Ok(())
     }
-}
 
-impl AnalyzeDesignUnit for EntityDeclaration {
-    fn analyze_design_unit(
-        &mut self,
-        context: &AnalyzeContext,
+    fn analyze_package(
+        &self,
+        unit: &mut PackageDeclaration,
         root_region: &mut Region<'_>,
         region: &mut Region<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         *root_region = Region::default();
-        context.add_implicit_context_clause(root_region)?;
-        context.analyze_context_clause(root_region, &mut self.context_clause, diagnostics)?;
+        self.add_implicit_context_clause(root_region)?;
+        self.analyze_context_clause(root_region, &mut unit.context_clause, diagnostics)?;
 
-        let mut primary_region = root_region.nested();
+        let mut primary_region = root_region.nested().in_package_declaration();
 
-        if let Some(ref mut list) = self.generic_clause {
-            context.analyze_interface_list(&mut primary_region, list, diagnostics)?;
+        if let Some(ref mut list) = unit.generic_clause {
+            self.analyze_interface_list(&mut primary_region, list, diagnostics)?;
         }
-        if let Some(ref mut list) = self.port_clause {
-            context.analyze_interface_list(&mut primary_region, list, diagnostics)?;
-        }
-        context.analyze_declarative_part(&mut primary_region, &mut self.decl, diagnostics)?;
-        context.analyze_concurrent_part(&mut primary_region, &mut self.statements, diagnostics)?;
+        self.analyze_declarative_part(&mut primary_region, &mut unit.decl, diagnostics)?;
 
-        primary_region.close_immediate(diagnostics);
+        if self.has_package_body() {
+            primary_region.close_immediate(diagnostics);
+        } else {
+            primary_region.close_both(diagnostics);
+        }
+
         *region = primary_region.without_parent();
 
         Ok(())
     }
-}
 
-impl AnalyzeDesignUnit for ArchitectureBody {
-    fn analyze_design_unit(
-        &mut self,
-        context: &AnalyzeContext,
-        _root_region: &mut Region<'_>,
-        _region: &mut Region<'_>,
+    fn analyze_package_instance(
+        &self,
+        unit: &mut PackageInstantiation,
+        root_region: &mut Region<'_>,
+        region: &mut Region<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        self.entity_name.clear_reference();
+        *root_region = Region::default();
+        self.add_implicit_context_clause(root_region)?;
+        self.analyze_context_clause(root_region, &mut unit.context_clause, diagnostics)?;
 
-        let entity = context.lookup_primary_unit(
-            self.primary_ident(),
+        match self.analyze_package_instance_name(root_region, &mut unit.package_name) {
+            Ok(package_region) => {
+                *region = (*package_region).clone();
+                Ok(())
+            }
+            Err(AnalysisError::NotFatal(diagnostic)) => {
+                diagnostics.push(diagnostic);
+                Ok(())
+            }
+            Err(AnalysisError::Fatal(err)) => Err(err),
+        }
+    }
+
+    fn analyze_context(
+        &self,
+        unit: &mut ContextDeclaration,
+        root_region: &mut Region<'_>,
+        region: &mut Region<'_>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        *root_region = Region::default();
+        self.add_implicit_context_clause(root_region)?;
+        let mut primary_region = root_region.nested();
+        self.analyze_context_clause(&mut primary_region, &mut unit.items, diagnostics)?;
+        *region = primary_region.without_parent();
+        Ok(())
+    }
+
+    fn analyze_architecture(
+        &self,
+        unit: &mut ArchitectureBody,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        unit.entity_name.clear_reference();
+
+        let entity = self.lookup_primary_unit(
+            unit.primary_ident(),
             PrimaryKind::Entity,
-            self.pos(),
+            unit.pos(),
             diagnostics,
         )?;
         // @TODO maybe add more fatal results
@@ -278,10 +198,10 @@ impl AnalyzeDesignUnit for ArchitectureBody {
             return Ok(());
         };
 
-        self.entity_name.set_reference_pos(Some(entity.pos()));
+        unit.entity_name.set_reference_pos(Some(entity.pos()));
 
         let mut root_region = Region::extend(&entity.result().root_region, None);
-        context.analyze_context_clause(&mut root_region, &mut self.context_clause, diagnostics)?;
+        self.analyze_context_clause(&mut root_region, &mut unit.context_clause, diagnostics)?;
         let mut region = Region::extend(&entity.result().region, Some(&root_region));
 
         // entity name is visible
@@ -290,14 +210,50 @@ impl AnalyzeDesignUnit for ArchitectureBody {
             AnyDeclaration::Constant,
         ));
 
-        context.analyze_declarative_part(&mut region, &mut self.decl, diagnostics)?;
-        context.analyze_concurrent_part(&mut region, &mut self.statements, diagnostics)?;
+        self.analyze_declarative_part(&mut region, &mut unit.decl, diagnostics)?;
+        self.analyze_concurrent_part(&mut region, &mut unit.statements, diagnostics)?;
         region.close_both(diagnostics);
         Ok(())
     }
-}
 
-impl<'a> AnalyzeContext<'a> {
+    fn analyze_package_body(
+        &self,
+        unit: &mut PackageBody,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        unit.ident.clear_reference();
+
+        let package_data = self.lookup_primary_unit(
+            unit.primary_ident(),
+            PrimaryKind::Package,
+            unit.pos(),
+            diagnostics,
+        )?;
+        // @TODO maybe add more fatal results
+        let package_data = if let Some(package_data) = package_data {
+            package_data
+        } else {
+            return Ok(());
+        };
+
+        unit.ident.set_reference_pos(Some(package_data.pos()));
+        // @TODO make pattern of primary/secondary extension
+        let mut root_region = Region::extend(&package_data.result().root_region, None);
+        self.analyze_context_clause(&mut root_region, &mut unit.context_clause, diagnostics)?;
+
+        let mut region = Region::extend(&package_data.result().region, Some(&root_region));
+
+        // Package name is visible in body
+        region.make_potentially_visible(VisibleDeclaration::new(
+            package_data.ident(),
+            AnyDeclaration::Constant,
+        ));
+
+        self.analyze_declarative_part(&mut region, &mut unit.decl, diagnostics)?;
+        region.close_both(diagnostics);
+        Ok(())
+    }
+
     fn lookup_primary_unit(
         &self,
         primary_ident: &Ident,
