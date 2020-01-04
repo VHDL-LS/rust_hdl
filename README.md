@@ -9,7 +9,7 @@ I am interested in [collaboration](#Collaboration) with other people especially 
 [![Build Status](https://github.com/kraigher/rust_hdl/workflows/Build%20%26%20test%20all%20configs/badge.svg)](https://github.com/kraigher/rust_hdl/actions?query=workflow%3A%22Build+%26+test+all+configs%22)
 
 # Projects
-# VHDL Language Frontend
+## VHDL Language Frontend
 [![vhdl language frontend crate](https://img.shields.io/crates/v/vhdl_lang.svg)](https://crates.io/crates/vhdl_lang)
 ### Goals
 - This project aims to provide a fully featured open source VHDL frontend that is easy to integrate into other tools.
