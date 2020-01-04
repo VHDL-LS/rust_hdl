@@ -8,7 +8,7 @@
 
 use lsp_types::*;
 use serde;
-use vhdl_parser::{Message, MessageHandler};
+use vhdl_lang::{Message, MessageHandler};
 
 pub trait RpcChannel {
     fn send_notification(
@@ -38,7 +38,7 @@ pub trait RpcChannel {
     }
 
     fn push_msg(&self, msg: Message) {
-        if msg.message_type == vhdl_parser::MessageType::Error {
+        if msg.message_type == vhdl_lang::MessageType::Error {
             self.window_show_message(to_lsp_message_type(&msg.message_type), msg.message.clone());
         }
         self.window_log_message(to_lsp_message_type(&msg.message_type), msg.message);
@@ -61,12 +61,12 @@ impl<'a, T: RpcChannel> MessageHandler for MessageChannel<'a, T> {
     }
 }
 
-fn to_lsp_message_type(message_type: &vhdl_parser::MessageType) -> MessageType {
+fn to_lsp_message_type(message_type: &vhdl_lang::MessageType) -> MessageType {
     match message_type {
-        vhdl_parser::MessageType::Error => MessageType::Error,
-        vhdl_parser::MessageType::Warning => MessageType::Warning,
-        vhdl_parser::MessageType::Info => MessageType::Info,
-        vhdl_parser::MessageType::Log => MessageType::Log,
+        vhdl_lang::MessageType::Error => MessageType::Error,
+        vhdl_lang::MessageType::Warning => MessageType::Warning,
+        vhdl_lang::MessageType::Info => MessageType::Info,
+        vhdl_lang::MessageType::Log => MessageType::Log,
     }
 }
 

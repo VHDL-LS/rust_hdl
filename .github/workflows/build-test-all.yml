@@ -3,12 +3,12 @@ name: Build & test all configs
 on: [push, pull_request]
 
 jobs:
-  
+
   build:
     strategy:
       matrix:
         crate:
-          - vhdl_parser
+          - vhdl_lang
           - vhdl_ls
         target:
           - x86_64-unknown-linux-gnu
@@ -24,7 +24,7 @@ jobs:
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             ext: .exe
-            
+
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -63,14 +63,14 @@ jobs:
         with:
           command: clippy
           args: --package ${{ matrix.crate }}
-      
-      - name: Upload vhdl_parser
-        if: matrix.crate == 'vhdl_parser' && matrix.rust == 'stable'
+
+      - name: Upload vhdl_lang
+        if: matrix.crate == 'vhdl_lang' && matrix.rust == 'stable'
         uses: actions/upload-artifact@v1
         with:
-          name: vhdl_parser-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/vhdl_parser${{ matrix.ext }}
-      
+          name: vhdl_lang-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/vhdl_lang${{ matrix.ext }}
+
       - name: Assemble vhdl_ls
         if: matrix.crate == 'vhdl_ls' && matrix.rust == 'stable'
         run: |
@@ -78,7 +78,7 @@ jobs:
           mkdir vhdl_ls-${{ matrix.target }}/bin
           cp -R vhdl_libraries vhdl_ls-${{ matrix.target }}
           cp target/${{ matrix.target }}/release/vhdl_ls${{ matrix.ext }} vhdl_ls-${{ matrix.target }}/bin
-      
+
       - name: Upload vhdl_ls
         if: matrix.crate == 'vhdl_ls' && matrix.rust == 'stable'
         uses: actions/upload-artifact@v1

@@ -10,11 +10,11 @@ use self::fnv::FnvHashMap;
 use fnv;
 use std::collections::hash_map::Entry;
 
-use self::vhdl_parser::{Config, Diagnostic, Message, Project, Severity, Source, SrcPos};
+use self::vhdl_lang::{Config, Diagnostic, Message, Project, Severity, Source, SrcPos};
 use crate::rpc_channel::{MessageChannel, RpcChannel};
 use std::io;
 use std::path::{Path, PathBuf};
-use vhdl_parser;
+use vhdl_lang;
 
 pub struct VHDLServer<T: RpcChannel + Clone> {
     rpc_channel: T,
@@ -355,29 +355,29 @@ fn srcpos_to_location(pos: &SrcPos) -> Location {
     }
 }
 
-fn from_lsp_pos(position: lsp_types::Position) -> vhdl_parser::Position {
-    vhdl_parser::Position {
+fn from_lsp_pos(position: lsp_types::Position) -> vhdl_lang::Position {
+    vhdl_lang::Position {
         line: position.line as u32,
         character: position.character as u32,
     }
 }
 
-fn to_lsp_pos(position: vhdl_parser::Position) -> lsp_types::Position {
+fn to_lsp_pos(position: vhdl_lang::Position) -> lsp_types::Position {
     lsp_types::Position {
         line: position.line as u64,
         character: position.character as u64,
     }
 }
 
-fn to_lsp_range(range: vhdl_parser::Range) -> lsp_types::Range {
+fn to_lsp_range(range: vhdl_lang::Range) -> lsp_types::Range {
     lsp_types::Range {
         start: to_lsp_pos(range.start),
         end: to_lsp_pos(range.end),
     }
 }
 
-fn from_lsp_range(range: lsp_types::Range) -> vhdl_parser::Range {
-    vhdl_parser::Range {
+fn from_lsp_range(range: lsp_types::Range) -> vhdl_lang::Range {
+    vhdl_lang::Range {
         start: from_lsp_pos(range.start),
         end: from_lsp_pos(range.end),
     }

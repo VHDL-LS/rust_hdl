@@ -5,11 +5,11 @@
 # Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 [package]
-name = "vhdl_parser"
-version = "0.13.0"
+name = "vhdl_lang"
+version = "0.14.0"
 authors = ["Olof Kraigher <olof.kraigher@gmail.com>"]
 license = "MPL-2.0"
-description = "VHDL Parser"
+description = "VHDL Language Frontend"
 repository = "https://github.com/kraigher/rust_hdl"
 edition = "2018"
 

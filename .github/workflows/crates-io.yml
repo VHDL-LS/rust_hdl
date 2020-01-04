@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         crate:
-        - vhdl_parser
+        - vhdl_lang
         - vhdl_ls
     runs-on: ubuntu-latest
     steps:

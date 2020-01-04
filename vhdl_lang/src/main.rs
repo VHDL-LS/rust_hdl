@@ -13,7 +13,7 @@
 extern crate clap;
 
 use std::path::Path;
-use vhdl_parser::{Config, Diagnostic, MessagePrinter, Project};
+use vhdl_lang::{Config, Diagnostic, MessagePrinter, Project};
 
 fn main() {
     use clap::{App, Arg};

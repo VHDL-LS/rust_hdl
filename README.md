@@ -9,11 +9,11 @@ I am interested in [collaboration](#Collaboration) with other people especially 
 [![Build Status](https://github.com/kraigher/rust_hdl/workflows/Build%20%26%20test%20all%20configs/badge.svg)](https://github.com/kraigher/rust_hdl/actions?query=workflow%3A%22Build+%26+test+all+configs%22)
 
 # Projects
-# VHDL Parser
-[![vhdl parser crate](https://img.shields.io/crates/v/vhdl_parser.svg)](https://crates.io/crates/vhdl_parser)
+# VHDL Language Frontend
+[![vhdl language frontend crate](https://img.shields.io/crates/v/vhdl_lang.svg)](https://crates.io/crates/vhdl_lang)
 ### Goals
-- This project aims to provide a fully featured open source VHDL parser that is easy to integrate into other tools.
-- A design goal of the parser is to be able to recover from errors such that it is useful for building a language server.
+- This project aims to provide a fully featured open source VHDL frontend that is easy to integrate into other tools.
+- A design goal of the frontend is to be able to recover from syntax errors such that it is useful for building a language server.
 - Analysis order must be automatically computed such that the user does not have to maintain a compile order.
 - Comments will be part of the AST to support document generation.
 - Separate parsing from semantic analysis to allow code formatting on non-semantically correct code.
@@ -61,31 +61,7 @@ error: Expected 'use', 'type', 'subtype', 'shared', 'constant', 'signal', 'varia
 - Comments not part of AST yet.
 
 ## Trying it out
-The VHDL parser has a command line demonstrator which will parse a list of files and print information about the parse results. The command line tool currently only serves as a demonstrator and has no intended usability at this point.
-
-### Example output
-```console
-> cd rust_hdl/
-> cargo build --release
-> cargo run --bin vhdl_parser uart_rx.vhd uart_tx.vhd
-Showing design units from uart_rx.vhd
-entity uart_rx
-  with 1 generics
-  with 6 ports
-  with 6 concurrent statements
-architecture a of uart_rx
-  with 1 declarations
-  with 2 concurrent statements
-
-Showing design units from uart_tx.vhd
-entity uart_tx
-  with 1 generics
-  with 5 ports
-  with 6 concurrent statements
-architecture a of uart_tx
-  with 1 declarations
-  with 2 concurrent statements
-```
+The VHDL language frontend has a command line demonstrator which will parse a list of files and print syntax and analysis errors. The command line tool currently only serves as a demonstrator and has no intended usability at this point.
 
 ## VHDL Language Server
 [![vhdl ls crate](https://img.shields.io/crates/v/vhdl_ls.svg)](https://crates.io/crates/vhdl_ls)
