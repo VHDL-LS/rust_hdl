@@ -112,15 +112,22 @@ lib1.files = [
 
 ### Use in emacs
 #### lsp-mode
-Add the following to your `.emacs.el`:
+VHDL LS has built-in support by emacs `lsp-mode` since 2020-01-04.
+The only thing required is to configure the path to the `vhdl_ls` binary unless it is added to the `$PATH`.
+Just add the following to your `.emacs.el`:
 ```elisp
-(require 'lsp-mode)
-(lsp-register-client
- (make-lsp-client :new-connection (lsp-stdio-connection "${PATH_TO_RUST_HDL}/target/release/vhdl_ls")
-                  :major-modes '(vhdl-mode)
-                  :server-id 'vhdl-lsp))
-(add-to-list 'lsp-language-id-configuration '(vhdl-mode . "vhdl-mode"))
-(add-hook 'vhdl-mode-hook #'lsp)
+(require 'use-package)
+
+; Required unless vhdl_ls is on the $PATH
+(setq lsp-vhdl-server-path "${PATH_TO_RUST_HDL}/target/release/vhdl_ls")
+
+; Prefer vhdl_ls over other VHDL language servers
+(custom-set-variables
+  '(lsp-vhdl-server 'vhdl-ls))
+
+(use-package lsp-mode
+         :config
+         (add-hook 'vhdl-mode-hook 'lsp))
 ```
 
 ### Use in Atom
