@@ -4,7 +4,14 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
+// @TODO
+// 5.4.2 Incomplete type declarations
+// Prior to the end of the corresponding full type declaration, the only allowed use of a name that denotes a type
+// declared by an incomplete type declaration is as the type mark in the subtype indication of an access type
+// definition; no constraints are allowed in this subtype indication.
+
 use super::*;
+use crate::data::SrcPos;
 
 #[test]
 fn allows_incomplete_type_definition() {
@@ -97,17 +104,79 @@ end package body;
     );
 
     let mut expected_diagnostics = Vec::new();
-    for code in [code_pkg, code_ent, code_pkg2].iter() {
-        expected_diagnostics.push(Diagnostic::error(
-            code.s1("rec_t"),
-            "Missing full type declaration of incomplete type 'rec_t'",
-        ));
-        expected_diagnostics.push(Diagnostic::hint(
-            code.s1("rec_t"),
-            "The full type declaration shall occur immediately within the same declarative part",
-        ));
+    for code in [&code_pkg, &code_ent, &code_pkg2].iter() {
+        expected_diagnostics.push(missing_full_error(&code.s1("rec_t")));
     }
+
+    expected_diagnostics.push(duplicate(&code_pkg, "rec_t", 1, 2));
 
     let diagnostics = builder.analyze();
     check_diagnostics(diagnostics, expected_diagnostics);
+}
+
+#[test]
+fn incomplete_type_references_point_to_full_definition() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+  type rec_t;
+  type access_t is access rec_t;
+  type rec_t is record
+     node: access_t;
+  end record;
+
+  procedure proc(val : rec_t);
+end package;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    // Reference from incomplete goes to full
+    for i in 1..=4 {
+        assert_eq!(
+            root.search_reference(code.source(), code.s("rec_t", i).start()),
+            Some(code.s("rec_t", 3).pos()),
+            "{}",
+            i
+        );
+    }
+
+    let references: Vec<_> = (1..=4).map(|idx| code.s("rec_t", idx).pos()).collect();
+    assert_eq!(
+        root.find_all_references(&code.s("rec_t", 3).pos()),
+        references
+    );
+}
+
+#[test]
+fn error_on_missing_full_type_definition_for_incomplete_still_defines_the_type() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+  type rec_t;
+  type acces_t is access rec_t;
+end package;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(diagnostics, vec![missing_full_error(&code.s1("rec_t"))]);
+}
+
+fn missing_full_error(pos: &impl AsRef<SrcPos>) -> Diagnostic {
+    let mut error = Diagnostic::error(
+        pos,
+        "Missing full type declaration of incomplete type 'rec_t'",
+    );
+    error.add_related(
+        pos,
+        "The full type declaration shall occur immediately within the same declarative part",
+    );
+    error
 }

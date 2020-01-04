@@ -37,7 +37,7 @@ impl SearchState {
 
 pub trait Searcher {
     /// Search an position that has a reference to a declaration
-    fn search_pos_with_ref<U>(&mut self, _pos: &SrcPos, _ref: &WithRef<U>) -> SearchState {
+    fn search_pos_with_ref(&mut self, _pos: &SrcPos, _ref: &Reference) -> SearchState {
         NotFinished
     }
 
@@ -47,12 +47,12 @@ pub trait Searcher {
         pos: &SrcPos,
         designator: &WithRef<Designator>,
     ) -> SearchState {
-        self.search_pos_with_ref(pos, designator)
+        self.search_pos_with_ref(pos, &designator.reference)
     }
 
     /// Search an identifier that has a reference to a declaration
     fn search_ident_ref(&mut self, ident: &WithRef<Ident>) -> SearchState {
-        self.search_pos_with_ref(&ident.item.pos, ident)
+        self.search_pos_with_ref(&ident.item.pos, &ident.reference)
     }
 
     /// Search the position of a declaration of a named entity
@@ -620,7 +620,9 @@ impl Search for TypeDeclaration {
         match self.def {
             TypeDefinition::ProtectedBody(ref body) => {
                 // Protected type body is not considered a declaration
-                return_if_found!(searcher.search_ident_ref(&body.name).or_not_found());
+                return_if_found!(searcher
+                    .search_pos_with_ref(self.ident.pos(), &body.type_reference)
+                    .or_not_found());
                 return_if_found!(body.decl.search(searcher));
             }
             TypeDefinition::Protected(ref prot_decl) => {
@@ -668,6 +670,12 @@ impl Search for TypeDeclaration {
             TypeDefinition::File(ref type_mark) => {
                 return_if_found!(searcher.search_decl_pos(self.ident.pos()).or_not_found());
                 return_if_found!(type_mark.search(searcher));
+            }
+            TypeDefinition::Incomplete(ref reference) => {
+                // Incomplete type should reference full declaration
+                return_if_found!(searcher
+                    .search_pos_with_ref(self.ident.pos(), reference)
+                    .or_not_found());
             }
             // @TODO others
             _ => {
@@ -1067,10 +1075,10 @@ impl Searcher for ItemAtCursor {
         }
     }
 
-    fn search_pos_with_ref<U>(&mut self, pos: &SrcPos, with_ref: &WithRef<U>) -> SearchState {
+    fn search_pos_with_ref(&mut self, pos: &SrcPos, reference: &Reference) -> SearchState {
         if !self.is_inside(pos) {
             Finished(NotFound)
-        } else if let Some(ref reference) = with_ref.reference {
+        } else if let Some(ref reference) = reference {
             self.result = Some(reference.clone());
             Finished(Found)
         } else {
@@ -1117,8 +1125,8 @@ impl Searcher for FindAllReferences {
         NotFinished
     }
 
-    fn search_pos_with_ref<U>(&mut self, pos: &SrcPos, with_ref: &WithRef<U>) -> SearchState {
-        if let Some(ref reference) = with_ref.reference {
+    fn search_pos_with_ref(&mut self, pos: &SrcPos, reference: &Reference) -> SearchState {
+        if let Some(ref reference) = reference {
             if reference == &self.decl_pos {
                 self.references.push(pos.clone());
             }

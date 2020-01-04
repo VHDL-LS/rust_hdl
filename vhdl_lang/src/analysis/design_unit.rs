@@ -70,7 +70,6 @@ impl<'a> AnalyzeContext<'a> {
         self.analyze_declarative_part(&mut primary_region, &mut unit.decl, diagnostics)?;
         self.analyze_concurrent_part(&mut primary_region, &mut unit.statements, diagnostics)?;
 
-        primary_region.close_immediate(diagnostics);
         *region = primary_region.without_parent();
 
         Ok(())
@@ -128,10 +127,8 @@ impl<'a> AnalyzeContext<'a> {
         }
         self.analyze_declarative_part(&mut primary_region, &mut unit.decl, diagnostics)?;
 
-        if self.has_package_body() {
-            primary_region.close_immediate(diagnostics);
-        } else {
-            primary_region.close_both(diagnostics);
+        if !self.has_package_body() {
+            primary_region.close(diagnostics);
         }
 
         *region = primary_region.without_parent();
@@ -212,7 +209,7 @@ impl<'a> AnalyzeContext<'a> {
 
         self.analyze_declarative_part(&mut region, &mut unit.decl, diagnostics)?;
         self.analyze_concurrent_part(&mut region, &mut unit.statements, diagnostics)?;
-        region.close_both(diagnostics);
+        region.close(diagnostics);
         Ok(())
     }
 
@@ -250,7 +247,7 @@ impl<'a> AnalyzeContext<'a> {
         );
 
         self.analyze_declarative_part(&mut region, &mut unit.decl, diagnostics)?;
-        region.close_both(diagnostics);
+        region.close(diagnostics);
         Ok(())
     }
 

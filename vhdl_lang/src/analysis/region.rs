@@ -73,22 +73,6 @@ impl NamedEntityKind {
             false
         }
     }
-
-    fn is_incomplete_type(&self) -> bool {
-        if let NamedEntityKind::IncompleteType = self {
-            true
-        } else {
-            false
-        }
-    }
-
-    fn is_type_declaration(&self) -> bool {
-        if let NamedEntityKind::TypeDeclaration(..) = self {
-            true
-        } else {
-            false
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -121,12 +105,6 @@ impl NamedEntity {
         }
     }
 
-    fn hint(&self, diagnostics: &mut dyn DiagnosticHandler, message: impl Into<String>) {
-        if let Some(ref pos) = self.decl_pos {
-            diagnostics.push(Diagnostic::hint(pos, message));
-        }
-    }
-
     fn is_overloaded(&self) -> bool {
         if let NamedEntityKind::Overloaded = self.kind {
             true
@@ -144,7 +122,6 @@ impl NamedEntity {
         match prev.kind {
             // Everything expect deferred combinations are forbidden
             NamedEntityKind::DeferredConstant if self.kind.is_non_deferred_constant() => {}
-            NamedEntityKind::IncompleteType if self.kind.is_type_declaration() => {}
             _ => {
                 return true;
             }
@@ -197,10 +174,6 @@ impl VisibleDeclaration {
 
     pub fn first_pos(&self) -> Option<&SrcPos> {
         self.first().decl_pos.as_ref()
-    }
-
-    fn second(&self) -> Option<&NamedEntityKind> {
-        self.named_entities.get(1).map(|ent| &ent.kind)
     }
 
     fn named_entities(&self) -> impl Iterator<Item = &NamedEntity> {
@@ -295,36 +268,6 @@ impl<'a> Region<'a> {
             extends: Some(region),
             kind,
             ..Region::default()
-        }
-    }
-
-    pub fn close_immediate(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
-        assert!(self.extends.is_none());
-        self.check_incomplete_types_are_defined(diagnostics);
-    }
-
-    /// Incomplete types must be defined in the same immediate region as they are declared
-    fn check_incomplete_types_are_defined(&self, diagnostics: &mut dyn DiagnosticHandler) {
-        for decl in self.decls.values() {
-            if decl.first_kind().is_incomplete_type() {
-                let mut check_ok = false;
-                if let Some(second) = decl.second() {
-                    if second.is_type_declaration() {
-                        check_ok = true;
-                    }
-                }
-
-                if !check_ok {
-                    decl.first().error(
-                        diagnostics,
-                        format!(
-                            "Missing full type declaration of incomplete type '{}'",
-                            &decl.designator
-                        ),
-                    );
-                    decl.first().hint(diagnostics, "The full type declaration shall occur immediately within the same declarative part");
-                }
-            }
         }
     }
 
@@ -445,8 +388,7 @@ impl<'a> Region<'a> {
         true
     }
 
-    pub fn close_both(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
-        self.check_incomplete_types_are_defined(diagnostics);
+    pub fn close(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
         self.check_deferred_constant_pairs(diagnostics);
         self.check_protected_types_have_body(diagnostics);
     }
@@ -756,7 +698,7 @@ pub trait SetReference {
 
 impl<T> SetReference for WithRef<T> {
     fn set_reference_pos(&mut self, pos: Option<&SrcPos>) {
-        self.reference = pos.cloned();
+        self.reference.set_reference_pos(pos);
     }
 }
 
@@ -766,7 +708,13 @@ impl<T: SetReference> SetReference for WithPos<T> {
     }
 }
 
-fn duplicate_error(
+impl SetReference for Reference {
+    fn set_reference_pos(&mut self, pos: Option<&SrcPos>) {
+        *self = pos.cloned();
+    }
+}
+
+pub(super) fn duplicate_error(
     name: &impl std::fmt::Display,
     pos: &SrcPos,
     prev_pos: Option<&SrcPos>,

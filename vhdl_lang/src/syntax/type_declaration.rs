@@ -221,7 +221,7 @@ pub fn parse_type_declaration(
         SemiColon => {
             return Ok(TypeDeclaration {
                 ident,
-                def: TypeDefinition::Incomplete,
+                def: TypeDefinition::Incomplete(Reference::default()),
             });
         }
     );
@@ -256,7 +256,7 @@ pub fn parse_type_declaration(
                 // @TODO check name
                 stream.pop_if_kind(Identifier)?;
                 stream.expect_kind(SemiColon)?;
-                TypeDefinition::ProtectedBody(ProtectedTypeBody {name: WithRef::new(ident.clone()), decl})
+                TypeDefinition::ProtectedBody(ProtectedTypeBody {type_reference: Reference::default(), decl})
             } else {
                 let (protected_type_decl, end_ident) = parse_protected_type_declaration(stream, diagnostics)?;
                 push_some(diagnostics, error_on_end_identifier_mismatch(&ident, &end_ident));
@@ -587,7 +587,7 @@ end foo;",
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
                 ident: code.s1("incomplete").ident(),
-                def: TypeDefinition::Incomplete
+                def: TypeDefinition::Incomplete(Reference::default())
             }
         );
     }
@@ -690,7 +690,7 @@ end protected body;
             TypeDeclaration {
                 ident: ident.clone(),
                 def: TypeDefinition::ProtectedBody(ProtectedTypeBody {
-                    name: WithRef::new(ident),
+                    type_reference: Reference::default(),
                     decl
                 }),
             }

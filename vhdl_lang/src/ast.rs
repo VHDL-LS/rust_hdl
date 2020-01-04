@@ -350,12 +350,14 @@ pub enum Designator {
     Character(u8),
 }
 
+pub type Reference = Option<SrcPos>;
+
 /// An item which has a reference to a declaration
 #[derive(PartialEq, Debug, Clone)]
 pub struct WithRef<T> {
     pub item: T,
     // @TODO just store the positions of the reference for now
-    pub reference: Option<SrcPos>,
+    pub reference: Reference,
 }
 
 impl<T> WithRef<T> {
@@ -445,7 +447,7 @@ pub struct ProtectedTypeDeclaration {
 /// LRM 5.6.3 Protected type bodies
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProtectedTypeBody {
-    pub name: WithRef<Ident>,
+    pub type_reference: Reference,
     pub decl: Vec<Declaration>,
 }
 
@@ -483,7 +485,7 @@ pub enum TypeDefinition {
     /// LRM 5.4 Access types
     Access(SubtypeIndication),
     /// LRM 5.4.2 Incomplete type declarations
-    Incomplete,
+    Incomplete(Reference),
     /// LRM 5.5 File types
     File(WithPos<SelectedName>),
     /// LRM 5.6 Protected types

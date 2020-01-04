@@ -7,7 +7,7 @@
 use super::*;
 use crate::analysis::DesignRoot;
 use crate::ast::search::*;
-use crate::ast::WithRef;
+use crate::ast::Reference;
 use crate::data::SrcPos;
 use fnv::FnvHashSet;
 
@@ -327,8 +327,8 @@ impl FindAnyReferences {
 }
 
 impl Searcher for FindAnyReferences {
-    fn search_pos_with_ref<U>(&mut self, _: &SrcPos, with_ref: &WithRef<U>) -> SearchState {
-        if let Some(ref reference) = with_ref.reference {
+    fn search_pos_with_ref(&mut self, _: &SrcPos, reference: &Reference) -> SearchState {
+        if let Some(ref reference) = reference {
             self.references.push(reference.clone());
         };
         NotFinished

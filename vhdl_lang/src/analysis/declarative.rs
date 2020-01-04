@@ -8,7 +8,9 @@ use super::*;
 use crate::ast::*;
 use crate::data::*;
 use analyze::*;
+use fnv::FnvHashMap;
 use region::*;
+use std::collections::hash_map::Entry;
 use std::sync::Arc;
 
 impl<'a> AnalyzeContext<'a> {
@@ -18,8 +20,69 @@ impl<'a> AnalyzeContext<'a> {
         declarations: &mut [Declaration],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        for decl in declarations.iter_mut() {
-            self.analyze_declaration(region, decl, diagnostics)?;
+        let mut incomplete_types: FnvHashMap<Symbol, SrcPos> = FnvHashMap::default();
+
+        for i in 0..declarations.len() {
+            // Handle incomplete types
+
+            let (decl, remaining) = declarations[i..].split_first_mut().unwrap();
+
+            match decl {
+                Declaration::Type(type_decl) => match type_decl.def {
+                    TypeDefinition::Incomplete(ref mut reference) => {
+                        reference.clear_reference();
+                        match incomplete_types.entry(type_decl.ident.name().clone()) {
+                            Entry::Vacant(entry) => {
+                                entry.insert(type_decl.ident.pos().clone());
+                            }
+                            Entry::Occupied(entry) => {
+                                diagnostics.push(duplicate_error(
+                                    &type_decl.ident,
+                                    type_decl.ident.pos(),
+                                    Some(entry.get()),
+                                ));
+                                continue;
+                            }
+                        }
+
+                        let full_definiton =
+                            find_full_type_definition(type_decl.ident.name(), remaining);
+
+                        let decl_pos = match full_definiton {
+                            Some(full_decl) => {
+                                reference.set_reference_pos(Some(full_decl.ident.pos()));
+                                full_decl.ident.pos()
+                            }
+                            None => {
+                                let mut error = Diagnostic::error(
+                                    type_decl.ident.pos(),
+                                    format!(
+                                        "Missing full type declaration of incomplete type '{}'",
+                                        type_decl.ident.name()
+                                    ),
+                                );
+                                error.add_related(type_decl.ident.pos(), "The full type declaration shall occur immediately within the same declarative part");
+                                diagnostics.push(error);
+                                type_decl.ident.pos()
+                            }
+                        };
+
+                        region.add(
+                            // Set incomplete type defintion to position of full declaration
+                            WithPos::new(type_decl.ident.name().clone(), decl_pos),
+                            NamedEntityKind::IncompleteType,
+                            diagnostics,
+                        );
+                    }
+                    _ => {
+                        let is_full = incomplete_types.contains_key(type_decl.ident.name());
+                        self.analyze_type_declaration(region, type_decl, is_full, diagnostics)?;
+                    }
+                },
+                _ => {
+                    self.analyze_declaration(region, &mut declarations[i], diagnostics)?;
+                }
+            }
         }
         Ok(())
     }
@@ -102,7 +165,7 @@ impl<'a> AnalyzeContext<'a> {
                 let mut region = region.nested();
                 self.analyze_interface_list(&mut region, &mut component.generic_list, diagnostics)?;
                 self.analyze_interface_list(&mut region, &mut component.port_list, diagnostics)?;
-                region.close_both(diagnostics);
+                region.close(diagnostics);
             }
             Declaration::Attribute(ref mut attr) => match attr {
                 Attribute::Declaration(ref mut attr_decl) => {
@@ -164,9 +227,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             Declaration::Configuration(..) => {}
-            Declaration::Type(ref mut type_decl) => {
-                self.analyze_type_declaration(region, type_decl, diagnostics)?;
-            }
+            Declaration::Type(..) => unreachable!("Handled elsewhere"),
         };
 
         Ok(())
@@ -176,6 +237,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         parent: &mut Region<'_>,
         type_decl: &mut TypeDeclaration,
+        is_full: bool, // Is the full type declaration of an incomplete type
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         match type_decl.def {
@@ -199,18 +261,20 @@ impl<'a> AnalyzeContext<'a> {
                     )
                 }
 
-                parent.add(
+                add_or_overwrite(
+                    parent,
                     &type_decl.ident,
                     NamedEntityKind::TypeDeclaration(Some(Arc::new(enum_region))),
+                    is_full,
                     diagnostics,
                 );
             }
             TypeDefinition::ProtectedBody(ref mut body) => {
-                body.name.clear_reference();
+                body.type_reference.clear_reference();
                 let is_ok = match parent.lookup_within(&type_decl.ident.item.clone().into()) {
                     Some(decl) => match decl.first_kind() {
                         NamedEntityKind::ProtectedType(ptype_region) => {
-                            body.name.set_reference(decl);
+                            body.type_reference.set_reference(decl);
                             let mut region = Region::extend(&ptype_region, Some(parent));
                             self.analyze_declarative_part(
                                 &mut region,
@@ -246,9 +310,11 @@ impl<'a> AnalyzeContext<'a> {
             TypeDefinition::Protected(ref mut prot_decl) => {
                 // Protected type name is visible inside its declarative region
                 // This will be overwritten later when the protected type region is finished
-                parent.add(
+                add_or_overwrite(
+                    parent,
                     &type_decl.ident,
                     NamedEntityKind::TypeDeclaration(None),
+                    is_full,
                     diagnostics,
                 );
 
@@ -282,20 +348,24 @@ impl<'a> AnalyzeContext<'a> {
                     self.analyze_subtype_indication(parent, &mut elem_decl.subtype, diagnostics)?;
                     region.add(&elem_decl.ident, NamedEntityKind::Other, diagnostics);
                 }
-                region.close_both(diagnostics);
+                region.close(diagnostics);
 
-                parent.add(
+                add_or_overwrite(
+                    parent,
                     &type_decl.ident,
                     NamedEntityKind::TypeDeclaration(None),
+                    is_full,
                     diagnostics,
                 );
             }
             TypeDefinition::Access(ref mut subtype_indication) => {
                 self.analyze_subtype_indication(parent, subtype_indication, diagnostics)?;
 
-                parent.add(
+                add_or_overwrite(
+                    parent,
                     &type_decl.ident,
                     NamedEntityKind::TypeDeclaration(None),
+                    is_full,
                     diagnostics,
                 );
             }
@@ -305,18 +375,22 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 self.analyze_subtype_indication(parent, subtype_indication, diagnostics)?;
 
-                parent.add(
+                add_or_overwrite(
+                    parent,
                     &type_decl.ident,
                     NamedEntityKind::TypeDeclaration(None),
+                    is_full,
                     diagnostics,
                 );
             }
             TypeDefinition::Subtype(ref mut subtype_indication) => {
                 self.analyze_subtype_indication(parent, subtype_indication, diagnostics)?;
 
-                parent.add(
+                add_or_overwrite(
+                    parent,
                     &type_decl.ident,
                     NamedEntityKind::TypeDeclaration(None),
+                    is_full,
                     diagnostics,
                 );
             }
@@ -334,25 +408,25 @@ impl<'a> AnalyzeContext<'a> {
                     )
                 }
 
-                parent.add(
+                add_or_overwrite(
+                    parent,
                     &type_decl.ident,
                     NamedEntityKind::TypeDeclaration(None),
+                    is_full,
                     diagnostics,
                 );
             }
-            TypeDefinition::Incomplete => {
-                parent.add(
-                    &type_decl.ident,
-                    NamedEntityKind::IncompleteType,
-                    diagnostics,
-                );
+            TypeDefinition::Incomplete(..) => {
+                unreachable!("Handled elsewhere");
             }
 
             TypeDefinition::Integer(ref mut range) => {
                 self.analyze_range(parent, range, diagnostics)?;
-                parent.add(
+                add_or_overwrite(
+                    parent,
                     &type_decl.ident,
                     NamedEntityKind::TypeDeclaration(None),
+                    is_full,
                     diagnostics,
                 );
             }
@@ -371,9 +445,11 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics,
                     );
                 }
-                parent.add(
+                add_or_overwrite(
+                    parent,
                     &type_decl.ident,
                     NamedEntityKind::TypeDeclaration(Some(Arc::new(implicit))),
+                    is_full,
                     diagnostics,
                 );
             }
@@ -581,7 +657,45 @@ impl<'a> AnalyzeContext<'a> {
                 )?;
             }
         }
-        region.close_both(diagnostics);
+        region.close(diagnostics);
         Ok(region)
+    }
+}
+
+fn find_full_type_definition<'a>(
+    name: &Symbol,
+    decls: &'a [Declaration],
+) -> Option<&'a TypeDeclaration> {
+    for decl in decls.iter() {
+        match decl {
+            Declaration::Type(type_decl) => {
+                match type_decl.def {
+                    TypeDefinition::Incomplete(..) => {
+                        // ignored
+                    }
+                    _ => {
+                        if type_decl.ident.name() == name {
+                            return Some(type_decl);
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn add_or_overwrite(
+    region: &mut Region,
+    name: &Ident,
+    kind: NamedEntityKind,
+    overwrite: bool,
+    diagnostics: &mut dyn DiagnosticHandler,
+) {
+    if overwrite {
+        region.overwrite(name.clone(), kind);
+    } else {
+        region.add(name.clone(), kind, diagnostics);
     }
 }
