@@ -16,6 +16,7 @@ mod resolves_design_units;
 mod resolves_names;
 mod resolves_type_mark;
 mod util;
+mod visibility;
 
 pub use self::util::*;
 pub use crate::data::Diagnostic;

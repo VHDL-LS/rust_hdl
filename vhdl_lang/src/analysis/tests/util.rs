@@ -154,9 +154,15 @@ pub fn check_missing(contents: &str) {
 }
 
 pub fn check_search_reference(contents: &str) {
+    check_search_reference_with_name("decl", contents);
+}
+
+/// Check that all occurences of decl_name references the first occurence of if
+/// Also check that find all references returns all occurences of decl_name
+pub fn check_search_reference_with_name(decl_name: &str, contents: &str) {
     let mut builder = LibraryBuilder::new();
     let code = builder.code("libname", contents);
-    let occurences = contents.matches("decl").count();
+    let occurences = contents.matches(decl_name).count();
     assert!(occurences > 0);
 
     let (root, diagnostics) = builder.get_analyzed_root();
@@ -165,15 +171,15 @@ pub fn check_search_reference(contents: &str) {
     let mut references = Vec::new();
     for idx in 1..=occurences {
         assert_eq!(
-            root.search_reference(code.source(), code.s("decl", idx).end()),
-            Some(code.s("decl", 1).pos()),
+            root.search_reference(code.source(), code.s(decl_name, idx).end()),
+            Some(code.s(decl_name, 1).pos()),
             "{}",
             idx
         );
-        references.push(code.s("decl", idx).pos());
+        references.push(code.s(decl_name, idx).pos());
     }
     assert_eq!(
-        root.find_all_references(&code.s("decl", 1).pos()),
+        root.find_all_references(&code.s(decl_name, 1).pos()),
         references,
     );
 }

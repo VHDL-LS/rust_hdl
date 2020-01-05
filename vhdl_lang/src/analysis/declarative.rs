@@ -120,8 +120,13 @@ impl<'a> AnalyzeContext<'a> {
                         NamedEntityKind::Overloaded
                     } else if subtype_indication.is_some() {
                         NamedEntityKind::Other
-                    } else if let Some(named_entity) = named_entity {
-                        NamedEntityKind::AliasOf(Box::new(named_entity.kind().clone()))
+                    } else if let Some(ref named_entity) = named_entity {
+                        region.add_implicit_declarations(
+                            Some(&designator.pos),
+                            named_entity,
+                            diagnostics,
+                        );
+                        NamedEntityKind::AliasOf(Box::new(named_entity.clone()))
                     } else {
                         NamedEntityKind::Other
                     }
@@ -274,7 +279,7 @@ impl<'a> AnalyzeContext<'a> {
                 let is_ok = match parent.lookup_within(&type_decl.ident.item.clone().into()) {
                     Some(decl) => match decl.first_kind() {
                         NamedEntityKind::ProtectedType(ptype_region) => {
-                            body.type_reference.set_reference(decl);
+                            body.type_reference.set_reference(&decl);
                             let mut region = Region::extend(&ptype_region, Some(parent));
                             self.analyze_declarative_part(
                                 &mut region,

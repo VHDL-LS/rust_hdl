@@ -383,11 +383,7 @@ impl<'a> AnalyzeContext<'a> {
                                 "Library clause not necessary for current working library",
                             ))
                         } else if self.has_library(&library_name.item) {
-                            region.make_library_visible(
-                                &library_name.item,
-                                &library_name.item,
-                                Some(library_name.pos().clone()),
-                            );
+                            region.make_library_visible(&library_name.item, &library_name.item);
                         } else {
                             diagnostics.push(Diagnostic::error(
                                 &library_name,
@@ -417,7 +413,7 @@ impl<'a> AnalyzeContext<'a> {
                                 match visible_decl.first_kind() {
                                     // OK
                                     NamedEntityKind::Context(_, ref context_region) => {
-                                        region.copy_visibility_from(context_region);
+                                        region.add_context_visibility(context_region);
                                     }
                                     _ => {
                                         // @TODO maybe lookup should return the source position of the suffix
@@ -478,8 +474,8 @@ impl<'a> AnalyzeContext<'a> {
                 Ok(LookupResult::Single(visible)) => {
                     visible.make_potentially_visible_in(region);
                 }
-                Ok(LookupResult::AllWithin(visibility_pos, visible_decl)) => {
-                    match visible_decl.first_kind() {
+                Ok(LookupResult::AllWithin(visibility_pos, named_entity)) => {
+                    match named_entity.kind() {
                         NamedEntityKind::Library(ref library_name) => {
                             self.use_all_in_library(&name.pos, library_name, region)?;
                         }

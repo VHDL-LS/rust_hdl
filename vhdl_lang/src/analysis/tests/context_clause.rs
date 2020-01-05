@@ -38,7 +38,7 @@ fn library_clause_extends_into_secondary_units() {
         "
 -- Package will be used for testing
 package usepkg is
-constant const : natural := 0;
+  constant const : natural := 0;
 end package;
 
 -- This should be visible also in architectures
@@ -80,7 +80,7 @@ fn context_clause_in_secondary_units() {
         "libname",
         "
 package usepkg is
-constant const : natural := 0;
+  constant const : natural := 0;
 end package;
 
 entity ent is
@@ -89,7 +89,7 @@ end entity;
 library libname;
 
 architecture rtl of ent is
-use libname.usepkg;
+  use libname.usepkg;
 begin
 end architecture;
 
@@ -99,7 +99,7 @@ end package;
 library libname;
 
 package body pkg is
-use libname.usepkg;
+  use libname.usepkg;
 end package body;
         ",
     );
@@ -110,79 +110,13 @@ end package body;
 }
 
 #[test]
-fn secondary_units_share_root_region_and_visibility_in_extended_region() {
-    let mut builder = LibraryBuilder::new();
-    let code = builder.code(
-        "libname",
-        "
-package pkg2 is
-constant const : natural := 0;
-end package;
-
-package pkg is
-  use work.pkg2;
-end package;
-
--- Does not work
-use pkg2.const;
-
-package body pkg is
-  -- Does work, share visibility of extended region
-  use pkg2.const;
-end package body;
-",
-    );
-    let diagnostics = builder.analyze();
-    check_diagnostics(
-        diagnostics,
-        vec![Diagnostic::error(
-            code.s("pkg2", 3),
-            "No declaration of 'pkg2'",
-        )],
-    )
-}
-
-#[test]
-fn extended_region_takes_precedence_over_local_visibility() {
-    let mut builder = LibraryBuilder::new();
-    let code = builder.code(
-        "libname",
-        "
-package false_pkg is
-  constant decl : natural := 0;
-end package;
-
-package pkg is
-  constant decl : natural := 1;
-end package pkg;
-
-use work.false_pkg.decl;
-package body pkg is
-  use work.false_pkg.decl;
-
-  -- Should refer to constant in pkg
-  constant ref : natural := decl;
-end package body pkg;
-",
-    );
-
-    let (root, diagnostics) = builder.get_analyzed_root();
-    check_no_diagnostics(&diagnostics);
-
-    assert_eq!(
-        root.search_reference(code.source(), code.s("decl", 5).start()),
-        Some(code.s("decl", 2).pos())
-    );
-}
-
-#[test]
 fn check_library_clause_library_exists_in_context_declarations() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(
         "libname",
         "
 context ctx is
-library missing_lib;
+  library missing_lib;
 end context;
         ",
     );
@@ -198,36 +132,6 @@ end context;
     )
 }
 
-#[test]
-fn context_clause_makes_names_visible() {
-    let mut builder = LibraryBuilder::new();
-    builder.code(
-        "libname",
-        "
--- Package will be used for testing
-package usepkg is
-constant const : natural := 0;
-end package;
-
-context ctx is
-library libname;
-use libname.usepkg;
-end context;
-
-
-context work.ctx;
-use usepkg.const;
-
-package pkg is
-end package;
-        ",
-    );
-
-    let diagnostics = builder.analyze();
-
-    check_no_diagnostics(&diagnostics);
-}
-
 // This test was added to fix an accidental mistake when refactoring
 #[test]
 fn context_clause_does_change_work_symbol_meaning() {
@@ -237,12 +141,12 @@ fn context_clause_does_change_work_symbol_meaning() {
         "
 -- Package will be used for testing
 package pkg1 is
-constant const : natural := 0;
+  constant const : natural := 0;
 end package;
 
 context ctx is
-library libname;
-use libname.pkg1;
+  library libname;
+  use libname.pkg1;
 end context;
         ",
     );
@@ -257,7 +161,7 @@ library libname;
 context libname.ctx;
 
 use work.pkg2;
-package pkg3 is
+  package pkg3 is
 end package;
         ",
     );
@@ -337,7 +241,7 @@ package pkg is
 end package;
 
 package gpkg is
-generic (const : natural);
+  generic (const : natural);
 end package;
 
 entity ent is
@@ -348,14 +252,14 @@ begin
 end architecture;
 
 configuration cfg of ent is
-for rtl
-end for;
+  for rtl
+  end for;
 end configuration;
 
 package ipkg is new work.gpkg
-generic map (
-const => 1
-);
+  generic map (
+    const => 1
+  );
 
 library libname;
 
@@ -426,7 +330,7 @@ fn nested_use_clause_missing() {
         "libname",
         "
 package pkg is
-constant const : natural := 0;
+  constant const : natural := 0;
 end package;
 
 library libname;
@@ -435,20 +339,20 @@ entity ent is
 end entity;
 
 architecture rtl of ent is
-use libname.pkg; -- Works
-use libname.pkg1; -- Error
+  use libname.pkg; -- Works
+  use libname.pkg1; -- Error
 begin
-process
-use pkg.const; -- Works
-use libname.pkg1; -- Error
-begin
-end process;
+  process
+    use pkg.const; -- Works
+    use libname.pkg1; -- Error
+   begin
+   end process;
 
-blk : block
-use pkg.const; -- Works
-use libname.pkg1; -- Error
-begin
-end block;
+  blk : block
+    use pkg.const; -- Works
+    use libname.pkg1; -- Error
+  begin
+  end block;
 
 end architecture;
         ",
@@ -583,8 +487,8 @@ fn check_two_stage_use_clause_for_missing_name() {
         "libname",
         "
 package pkg is
-type enum_t is (alpha, beta);
-constant const : enum_t := alpha;
+  type enum_t is (alpha, beta);
+  constant const : enum_t := alpha;
 end package;
 
 use work.pkg;
@@ -611,8 +515,8 @@ fn check_use_clause_for_missing_name_in_package() {
         "libname",
         "
 package pkg is
-type enum_t is (alpha, beta);
-constant const : enum_t := alpha;
+  type enum_t is (alpha, beta);
+  constant const : enum_t := alpha;
 end package;
 
 use work.pkg.const;
@@ -639,8 +543,8 @@ fn check_use_clause_for_missing_name_in_package_instance() {
         "libname",
         "
 package gpkg is
-generic (constant gconst : natural);
-constant const : natural := 0;
+  generic (constant gconst : natural);
+  constant const : natural := 0;
 end package;
 
 package ipkg is new work.gpkg generic map (gconst => 0);
@@ -669,56 +573,13 @@ end package;
 }
 
 #[test]
-fn use_clause_cannot_reference_potentially_visible_name() {
-    let mut builder = LibraryBuilder::new();
-    let code = builder.code(
-        "libname",
-        "
-package pkg2 is
-constant const1 : natural := 0;
-constant const2 : natural := 0;
-end package;
-
-
-use work.pkg2.const1;
-
-package pkg is
-use work.pkg2.const2;
-constant const3 : natural := 0;
-end package;
-
-use work.pkg.const1;
-use work.pkg.const2;
-use work.pkg.const3;
-
-entity ent is
-end entity;
-        ",
-    );
-    let diagnostics = builder.analyze();
-    check_diagnostics(
-        diagnostics,
-        vec![
-            Diagnostic::error(
-                code.s("const1", 3),
-                "No declaration of 'const1' within package 'libname.pkg'",
-            ),
-            Diagnostic::error(
-                code.s("const2", 3),
-                "No declaration of 'const2' within package 'libname.pkg'",
-            ),
-        ],
-    );
-}
-
-#[test]
 fn error_on_use_clause_with_double_all() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(
         "libname",
         "
 package pkg1 is
-constant const1 : natural := 0;
+  constant const1 : natural := 0;
 end package;
 
 use work.all.all;
@@ -751,13 +612,13 @@ fn an_uninstantiated_package_may_not_be_prefix_of_selected_name() {
         "libname",
         "
 package gpkg is
-generic (const : natural);
+  generic (const : natural);
 end package;
 
 use work.gpkg.all;
 
 package pkg is
-use work.gpkg.const;
+  use work.gpkg.const;
 end package;
         ",
     );
@@ -784,11 +645,11 @@ fn use_clause_with_selected_all_design_units() {
         "libname",
         "
 package pkg1 is
-constant const1 : natural := 0;
+  constant const1 : natural := 0;
 end package;
 
 package pkg2 is
-constant const2 : natural := 0;
+  constant const2 : natural := 0;
 end package;
         ",
     );
@@ -816,7 +677,7 @@ fn use_clause_with_selected_all_names() {
         "libname",
         "
 package pkg1 is
-type enum_t is (alpha, beta);
+  type enum_t is (alpha, beta);
 end package;
 
 use work.pkg1.all;
@@ -825,7 +686,7 @@ entity ent is
 end entity;
 
 architecture rtl of ent is
-signal foo : enum_t;
+  signal foo : enum_t;
 begin
 end architecture;
         ",
@@ -841,14 +702,14 @@ fn use_all_in_package() {
         "libname",
         "
 package pkg1 is
-subtype typ is natural range 0 to 1;
+  subtype typ is natural range 0 to 1;
 end package;
 
 use work.pkg1.all;
 
 package pkg2 is
-constant const : typ := 0;
-constant const2 : missing := 0;
+  constant const : typ := 0;
+  constant const2 : missing := 0;
 end package;
 
 ",
@@ -870,8 +731,8 @@ fn use_all_in_primary_package_instance() {
         "libname",
         "
 package gpkg is
-generic (const : natural);
-subtype typ is natural range 0 to 1;
+  generic (const : natural);
+  subtype typ is natural range 0 to 1;
 end package;
 
 package ipkg is new work.gpkg generic map (const => 0);
@@ -879,8 +740,8 @@ package ipkg is new work.gpkg generic map (const => 0);
 use work.ipkg.all;
 
 package pkg is
-constant const : typ := 0;
-constant const2 : missing := 0;
+  constant const : typ := 0;
+  constant const2 : missing := 0;
 end package;
 
 ",
@@ -902,14 +763,14 @@ fn use_of_interface_package_declaration() {
         "libname",
         "
 package gpkg1 is
-generic (const : natural);
-subtype typ is natural range 0 to 1;
+  generic (const : natural);
+  subtype typ is natural range 0 to 1;
 end package;
 
 package gpkg2 is
-generic (package ipkg is new work.gpkg1 generic map (const => 1));
-use ipkg.typ;
-use ipkg.missing;
+  generic (package ipkg is new work.gpkg1 generic map (const => 1));
+  use ipkg.typ;
+  use ipkg.missing;
 end package;
 ",
     );
@@ -930,17 +791,17 @@ fn use_in_local_package_instance() {
         "libname",
         "
 package gpkg is
-generic (const : natural);
-subtype typ is natural range 0 to 1;
+  generic (const : natural);
+  subtype typ is natural range 0 to 1;
 end package;
 
 
 package pkg is
-package ipkg is new work.gpkg generic map (const => 0);
-use ipkg.typ;
+  package ipkg is new work.gpkg generic map (const => 0);
+  use ipkg.typ;
 
-constant const : typ := 0;
-constant const2 : missing := 0;
+  constant const : typ := 0;
+  constant const2 : missing := 0;
 end package;
 
 ",
@@ -962,17 +823,17 @@ fn use_all_in_local_package_instance() {
         "libname",
         "
 package gpkg is
-generic (const : natural);
-subtype typ is natural range 0 to 1;
+  generic (const : natural);
+  subtype typ is natural range 0 to 1;
 end package;
 
 
 package pkg is
-package ipkg is new work.gpkg generic map (const => 0);
-use ipkg.all;
+  package ipkg is new work.gpkg generic map (const => 0);
+  use ipkg.all;
 
-constant const : typ := 0;
-constant const2 : missing := 0;
+  constant const : typ := 0;
+  constant const2 : missing := 0;
 end package;
 
 ",
@@ -1016,9 +877,8 @@ end package;
 
 #[test]
 fn resolves_reference_to_use_of_package() {
-    let mut builder = LibraryBuilder::new();
-    let code = builder.code(
-        "libname",
+    check_search_reference_with_name(
+        "pkg",
         "
 package pkg is
 end package;
@@ -1072,126 +932,25 @@ end package;
 
 ",
     );
-
-    let (root, diagnostics) = builder.get_analyzed_root();
-    check_no_diagnostics(&diagnostics);
-
-    // From declaration position
-    assert_eq!(
-        root.search_reference(code.source(), code.s("pkg", 1).start()),
-        Some(code.s("pkg", 1).pos())
-    );
-
-    // From reference position
-    assert_eq!(
-        root.search_reference(code.source(), code.s("pkg", 2).start()),
-        Some(code.s("pkg", 1).pos())
-    );
-
-    // Find all references
-    assert_eq_unordered(
-        &root.find_all_references(&code.s1("pkg").pos()),
-        &vec![
-            code.s("pkg", 1).pos(),
-            code.s("pkg", 2).pos(),
-            code.s("pkg", 3).pos(),
-            code.s("pkg", 4).pos(),
-            code.s("pkg", 5).pos(),
-            code.s("pkg", 6).pos(),
-            code.s("pkg", 7).pos(),
-            code.s("pkg", 8).pos(),
-            code.s("pkg", 9).pos(),
-            code.s("pkg", 10).pos(),
-        ],
-    );
-}
-
-#[test]
-fn resolves_library_reference() {
-    let mut builder = LibraryBuilder::new();
-    let code = builder.code(
-        "libname",
-        "
-package pkg is
-end package;
-
-library libname;
-use libname.pkg;
-use work.pkg;
-
-package pkg2 is
-end package;
-",
-    );
-
-    let (root, diagnostics) = builder.get_analyzed_root();
-    check_no_diagnostics(&diagnostics);
-
-    // From declaration position
-    assert_eq!(
-        root.search_reference(code.source(), code.s("libname", 1).start()),
-        Some(code.s("libname", 1).pos())
-    );
-
-    // From reference position
-    assert_eq!(
-        root.search_reference(code.source(), code.s("libname", 2).start()),
-        Some(code.s("libname", 1).pos())
-    );
-
-    // Work has no declaration
-    assert_eq!(
-        root.search_reference(code.source(), code.s("work", 1).start()),
-        None
-    );
-
-    // Find all references
-    assert_eq_unordered(
-        &root.find_all_references(&code.s("libname", 1).pos()),
-        &vec![code.s("libname", 1).pos(), code.s("libname", 2).pos()],
-    );
 }
 
 #[test]
 fn resolves_context_reference() {
-    let mut builder = LibraryBuilder::new();
-    let code = builder.code(
-        "libname",
+    check_search_reference(
         "
 package pkg is
 end package;
 
-context ctx is
+context decl is
   library libname;
   use libname.pkg;
 end context;
 
-context work.ctx;
+context work.decl;
 
 package pkg2 is
 end package;
 ",
-    );
-
-    let (root, diagnostics) = builder.get_analyzed_root();
-    check_no_diagnostics(&diagnostics);
-
-    // From declaration position
-    assert_eq!(
-        root.search_reference(code.source(), code.s("ctx", 1).start()),
-        Some(code.s("ctx", 1).pos())
-    );
-
-    // From reference position
-    assert_eq!(
-        root.search_reference(code.source(), code.s("ctx", 2).start()),
-        Some(code.s("ctx", 1).pos())
-    );
-
-    // Find all references
-    assert_eq_unordered(
-        &root.find_all_references(&code.s("ctx", 1).pos()),
-        &vec![code.s("ctx", 1).pos(), code.s("ctx", 2).pos()],
     );
 }
 
@@ -1240,6 +999,7 @@ end package;
 
 package pkg2 is
   alias alias_t is work.pkg.enum_t;
+  constant c : alias_t := alpha;
 end package;
 
 use work.pkg2.all;
@@ -1249,115 +1009,4 @@ package pkg3 is
 end package;
 ",
     );
-}
-
-#[test]
-fn duplicate_identifer_is_not_directly_visible() {
-    let mut builder = LibraryBuilder::new();
-    let code = builder.code(
-        "libname",
-        "
-package pkg1 is
-  constant name : natural := 0;
-end package;
-
-package pkg2 is
-  constant name : natural := 1;
-end package;
-
-use work.pkg1.name;
-use work.pkg2.name;
-
-package user is
-  constant b : natural := name;
-end package;
-
-        ",
-    );
-
-    let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, vec![missing(&code, "name", 5)]);
-}
-
-#[test]
-fn duplicate_identifer_is_directly_visible_when_it_is_the_same_named_entitty() {
-    let mut builder = LibraryBuilder::new();
-    builder.code(
-        "libname",
-        "
-package pkg1 is
-  constant name : natural := 0;
-end package;
-
-use work.pkg1.name;
-use work.pkg1.name;
-
-package user is
-  constant b : natural := name;
-end package;
-
-        ",
-    );
-
-    let diagnostics = builder.analyze();
-    check_no_diagnostics(&diagnostics);
-}
-
-#[test]
-fn duplicate_identifer_of_parent_visibility_is_not_directly_visible() {
-    let mut builder = LibraryBuilder::new();
-    let code = builder.code(
-        "libname",
-        "
-package pkg1 is
-  constant name : natural := 0;
-end package;
-
-package pkg2 is
-  constant name : natural := 1;
-end package;
-
-use work.pkg1.name;
-
-package user is
-  use work.pkg2.name;
-  constant b : natural := name;
-end package;
-
-        ",
-    );
-
-    let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, vec![missing(&code, "name", 5)]);
-}
-
-#[test]
-fn local_is_still_visible_under_duplicate_identifer() {
-    let mut builder = LibraryBuilder::new();
-    builder.code(
-        "libname",
-        "
-package pkg1 is
-  constant name : natural := 0;
-end package;
-
-package pkg2 is
-  constant name : natural := 1;
-end package;
-
-
-package user is
-  use work.pkg1.name;
-  use work.pkg2.name;
-
-  constant name : natural := 0;
-  constant b : natural := name;
-  procedure foo(constant b : natural := name);
-end package;
-
-        ",
-    );
-
-    let diagnostics = builder.analyze();
-    check_no_diagnostics(&diagnostics);
 }

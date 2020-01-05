@@ -187,7 +187,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn add_implicit_context_clause(&self, region: &mut Region<'_>) -> FatalNullResult {
         // work is not visible in context declarations
         if self.current_unit.kind() != AnyKind::Primary(PrimaryKind::Context) {
-            region.make_library_visible(&self.work_sym, self.work_library_name(), None);
+            region.make_library_visible(&self.work_sym, self.work_library_name());
         }
 
         if self.is_standard_package() || !self.has_library(&self.std_sym) {
@@ -195,7 +195,7 @@ impl<'a> AnalyzeContext<'a> {
             return Ok(());
         };
 
-        region.make_library_visible(&self.std_sym, &self.std_sym, None);
+        region.make_library_visible(&self.std_sym, &self.std_sym);
 
         let standard_pkg_data = self.expect_standard_package_analysis()?;
         region.make_all_potentially_visible(&standard_pkg_data.result().region);

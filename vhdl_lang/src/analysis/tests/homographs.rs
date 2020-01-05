@@ -609,6 +609,29 @@ end package pkg;
 }
 
 #[test]
+fn homograph_of_enum_literal_declared_by_alias() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+  type enum_t is (alpha, beta);
+end package;
+
+package pkg2 is
+  alias alias_t is work.pkg.enum_t;
+  constant alpha : natural := 0;
+end package;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    let error = Diagnostic::error(code.s("alpha", 2), "Duplicate declaration of 'alpha'")
+        .related(code.s("alias_t", 1), "Previously defined here");
+    check_diagnostics(diagnostics, vec![error]);
+}
+
+#[test]
 fn forbid_homographs_in_interface_file_declarations() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(

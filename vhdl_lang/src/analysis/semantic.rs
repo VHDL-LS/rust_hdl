@@ -15,23 +15,25 @@ pub enum LookupResult {
     Single(VisibleDeclaration),
     /// All names within was selected
     /// @TODO add pos for where declaration was made visible into VisibleDeclaration
-    AllWithin(SrcPos, VisibleDeclaration),
+    AllWithin(SrcPos, NamedEntity),
     /// The name to lookup (or some part thereof was not a selected name)
     NotSelected,
 }
 
 impl LookupResult {
-    fn to_single_prefix(self, prefix_pos: &SrcPos) -> Result<VisibleDeclaration, Diagnostic> {
+    fn to_single_prefix(self, prefix_pos: &SrcPos) -> Result<NamedEntity, Diagnostic> {
         match self {
-            LookupResult::Single(decl) => Ok(decl),
+            LookupResult::Single(decl) => decl.as_unique().cloned().ok_or_else(|| {
+                Diagnostic::error(prefix_pos, "may not be the prefix of a selected name")
+            }),
             LookupResult::AllWithin(..) => Err(Diagnostic::error(
                 prefix_pos,
                 "'.all' may not be the prefix of a selected name",
-            ))?,
+            )),
             LookupResult::NotSelected => Err(Diagnostic::error(
                 prefix_pos,
                 "may not be the prefix of a selected name",
-            ))?,
+            )),
         }
     }
 }
@@ -40,10 +42,10 @@ impl<'a> AnalyzeContext<'a> {
     fn lookup_selected(
         &self,
         prefix_pos: &SrcPos,
-        prefix: &VisibleDeclaration,
+        prefix: &NamedEntity,
         suffix: &WithPos<WithRef<Designator>>,
     ) -> AnalysisResult<Option<VisibleDeclaration>> {
-        match prefix.first_kind() {
+        match prefix.kind() {
             NamedEntityKind::Library(ref library_name) => {
                 let named_entity =
                     self.lookup_in_library(library_name, &suffix.pos, suffix.designator())?;
@@ -59,7 +61,7 @@ impl<'a> AnalyzeContext<'a> {
 
             NamedEntityKind::Package(ref unit_id, ref package_region) => {
                 if let Some(decl) = package_region.lookup_selected(suffix.designator()) {
-                    Ok(Some(decl.clone()))
+                    Ok(Some(decl))
                 } else {
                     Err(Diagnostic::error(
                         suffix.as_ref(),
@@ -75,7 +77,7 @@ impl<'a> AnalyzeContext<'a> {
 
             NamedEntityKind::PackageInstance(ref unit_id, ref instance_region) => {
                 if let Some(decl) = instance_region.lookup_selected(suffix.designator()) {
-                    Ok(Some(decl.clone()))
+                    Ok(Some(decl))
                 } else {
                     Err(Diagnostic::error(
                         suffix.as_ref(),
@@ -91,7 +93,7 @@ impl<'a> AnalyzeContext<'a> {
 
             NamedEntityKind::LocalPackageInstance(ref instance_name, ref instance_region) => {
                 if let Some(decl) = instance_region.lookup_selected(suffix.designator()) {
-                    Ok(Some(decl.clone()))
+                    Ok(Some(decl))
                 } else {
                     Err(Diagnostic::error(
                         suffix.as_ref(),
@@ -115,7 +117,7 @@ impl<'a> AnalyzeContext<'a> {
             SelectedName::Selected(ref mut prefix, ref mut suffix) => {
                 suffix.clear_reference();
                 let prefix_decl = self.resolve_selected_name(region, prefix)?;
-                match self.lookup_selected(&prefix.pos, &prefix_decl, suffix)? {
+                match self.lookup_selected(&prefix.pos, prefix_decl.first(), suffix)? {
                     Some(decl) => {
                         suffix.set_reference(&decl);
                         Ok(decl)
@@ -129,7 +131,7 @@ impl<'a> AnalyzeContext<'a> {
             SelectedName::Designator(ref mut designator) => {
                 if let Some(decl) = region.lookup_within(designator.designator()) {
                     designator.set_reference(&decl);
-                    Ok(decl.clone())
+                    Ok(decl)
                 } else {
                     designator.clear_reference();
                     Err(Diagnostic::error(
@@ -150,7 +152,7 @@ impl<'a> AnalyzeContext<'a> {
         // which cannot be analyzed further without type information
         allow_incomplete: bool,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<Option<VisibleDeclaration>> {
+    ) -> AnalysisResult<Option<NamedEntity>> {
         let resolved =
             self.resolve_name_pos(region, prefix_pos, prefix, allow_incomplete, diagnostics)?;
 
@@ -187,22 +189,24 @@ impl<'a> AnalyzeContext<'a> {
                     allow_incomplete,
                     diagnostics,
                 )? {
-                    Some(decl) => match self.lookup_selected(&prefix.pos, &decl, suffix)? {
-                        Some(decl) => {
-                            suffix.set_reference(&decl);
-                            Ok(LookupResult::Single(decl))
-                        }
-                        None => {
-                            if allow_incomplete {
-                                Ok(LookupResult::NotSelected)
-                            } else {
-                                Err(Diagnostic::error(
-                                    &prefix.pos,
-                                    "Invalid prefix for selected name",
-                                ))?
+                    Some(ref named_entity) => {
+                        match self.lookup_selected(&prefix.pos, named_entity, suffix)? {
+                            Some(decl) => {
+                                suffix.set_reference(&decl);
+                                Ok(LookupResult::Single(decl))
+                            }
+                            None => {
+                                if allow_incomplete {
+                                    Ok(LookupResult::NotSelected)
+                                } else {
+                                    Err(Diagnostic::error(
+                                        &prefix.pos,
+                                        "Invalid prefix for selected name",
+                                    ))?
+                                }
                             }
                         }
-                    },
+                    }
                     None => Ok(LookupResult::NotSelected),
                 }
             }
@@ -215,14 +219,16 @@ impl<'a> AnalyzeContext<'a> {
                     allow_incomplete,
                     diagnostics,
                 )? {
-                    Some(decl) => Ok(LookupResult::AllWithin(prefix.pos.clone(), decl)),
+                    Some(named_entity) => {
+                        Ok(LookupResult::AllWithin(prefix.pos.clone(), named_entity))
+                    }
                     None => Ok(LookupResult::NotSelected),
                 }
             }
             Name::Designator(designator) => {
                 if let Some(decl) = region.lookup_within(designator.designator()) {
                     designator.set_reference(&decl);
-                    Ok(LookupResult::Single(decl.clone()))
+                    Ok(LookupResult::Single(decl))
                 } else {
                     designator.clear_reference();
                     Err(Diagnostic::error(
@@ -297,7 +303,7 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<Option<NamedEntity>> {
         match self.resolve_name_pos(region, pos, name, true, diagnostics) {
-            Ok(LookupResult::Single(visible)) => Ok(visible.to_unique()),
+            Ok(LookupResult::Single(visible)) => Ok(visible.as_unique().cloned()),
             Ok(..) => Ok(None),
             Err(err) => {
                 err.add_to(diagnostics)?;
