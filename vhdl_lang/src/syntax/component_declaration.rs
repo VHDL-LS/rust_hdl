@@ -9,7 +9,7 @@ use super::common::ParseResult;
 use super::interface_declaration::{parse_generic_interface_list, parse_port_interface_list};
 use super::tokens::{Kind::*, TokenStream};
 use crate::ast::{ComponentDeclaration, InterfaceDeclaration};
-use crate::data::{push_some, Diagnostic, DiagnosticHandler};
+use crate::data::{Diagnostic, DiagnosticHandler};
 
 pub fn parse_optional_generic_list(
     stream: &mut TokenStream,
@@ -83,10 +83,10 @@ pub fn parse_component_declaration(
     stream.expect_kind(End)?;
     stream.expect_kind(Component)?;
     if let Some(token) = stream.pop_if_kind(Identifier)? {
-        push_some(
-            diagnostics,
-            error_on_end_identifier_mismatch(&ident, &Some(token.expect_ident()?)),
-        );
+        diagnostics.push_some(error_on_end_identifier_mismatch(
+            &ident,
+            &Some(token.expect_ident()?),
+        ));
     }
     stream.expect_kind(SemiColon)?;
 

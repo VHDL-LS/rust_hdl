@@ -112,10 +112,7 @@ pub fn parse_context(
 
         let ident = to_simple_name(name)?;
 
-        push_some(
-            diagnostics,
-            error_on_end_identifier_mismatch(&ident, &end_ident),
-        );
+        diagnostics.push_some(error_on_end_identifier_mismatch(&ident, &end_ident));
 
         Ok(DeclarationOrReference::Declaration(ContextDeclaration {
             ident,

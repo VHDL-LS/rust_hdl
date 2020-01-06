@@ -333,7 +333,7 @@ fn parse_interface_list(
                 if let Err(err) = parse_semicolon_separator(stream) {
                     diagnostics.push(err);
                     // Ignore comma when recovering from errors
-                    push_result(diagnostics, stream.pop_if_kind(Comma));
+                    diagnostics.push_result(stream.pop_if_kind(Comma));
                 }
             }
         }

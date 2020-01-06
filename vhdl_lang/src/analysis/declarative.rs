@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
+use super::semantic::ResolvedName;
 use super::*;
 use crate::ast::*;
 use crate::data::*;
@@ -103,7 +104,11 @@ impl<'a> AnalyzeContext<'a> {
                 } = alias;
 
                 let named_entity =
-                    self.resolve_name(region, &name.pos, &mut name.item, diagnostics)?;
+                    match self.resolve_name(region, &name.pos, &mut name.item, diagnostics)? {
+                        Some(ResolvedName::Known(visible)) => visible.as_unique().cloned(),
+                        Some(ResolvedName::Unknown) => None,
+                        None => None,
+                    };
 
                 if let Some(ref mut subtype_indication) = subtype_indication {
                     // Object alias
@@ -463,9 +468,9 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
-    fn analyze_signature(
+    pub fn analyze_signature(
         &self,
-        region: &mut Region<'_>,
+        region: &Region<'_>,
         signature: &mut Signature,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {

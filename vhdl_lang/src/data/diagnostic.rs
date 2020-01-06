@@ -111,15 +111,33 @@ pub trait DiagnosticHandler {
     }
 }
 
-pub fn push_result<T>(diagnostics: &mut dyn DiagnosticHandler, diagnostic: Result<T, Diagnostic>) {
-    if let Err(diagnostic) = diagnostic {
-        diagnostics.push(diagnostic);
+impl<'a> dyn DiagnosticHandler + 'a {
+    pub fn error(&mut self, item: impl AsRef<SrcPos>, msg: impl Into<String>) {
+        self.push(Diagnostic::error(item, msg));
     }
-}
 
-pub fn push_some(diagnostics: &mut dyn DiagnosticHandler, diagnostic: Option<Diagnostic>) {
-    if let Some(diagnostic) = diagnostic {
-        diagnostics.push(diagnostic);
+    pub fn warning(&mut self, item: impl AsRef<SrcPos>, msg: impl Into<String>) {
+        self.push(Diagnostic::warning(item, msg));
+    }
+
+    pub fn hint(&mut self, item: impl AsRef<SrcPos>, msg: impl Into<String>) {
+        self.push(Diagnostic::hint(item, msg));
+    }
+
+    pub fn info(&mut self, item: impl AsRef<SrcPos>, msg: impl Into<String>) {
+        self.push(Diagnostic::info(item, msg));
+    }
+
+    pub fn push_result<T>(&mut self, diagnostic: Result<T, Diagnostic>) {
+        if let Err(diagnostic) = diagnostic {
+            self.push(diagnostic);
+        }
+    }
+
+    pub fn push_some(&mut self, diagnostic: Option<Diagnostic>) {
+        if let Some(diagnostic) = diagnostic {
+            self.push(diagnostic);
+        }
     }
 }
 

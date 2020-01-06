@@ -10,7 +10,7 @@ use crate::data::*;
 use analyze::*;
 use region::*;
 use root::*;
-use semantic::{uninstantiated_package_prefix_error, LookupResult};
+use semantic::{uninstantiated_package_prefix_error, ResolvedName};
 use std::sync::Arc;
 
 impl<'a> AnalyzeContext<'a> {
@@ -358,16 +358,79 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
+    fn resolve_context_item_prefix(
+        &self,
+        region: &Region<'_>,
+        prefix: &mut WithPos<Name>,
+    ) -> AnalysisResult<NamedEntity> {
+        match self.resolve_context_item_name(region, prefix)? {
+            UsedNames::Single(visible) => visible.as_unique().cloned().ok_or_else(|| {
+                AnalysisError::NotFatal(Diagnostic::error(
+                    &prefix,
+                    "ambiguous name prefix of a selected name",
+                ))
+            }),
+            UsedNames::AllWithin(..) => Err(AnalysisError::NotFatal(Diagnostic::error(
+                &prefix,
+                "'.all' may not be the prefix of a selected name",
+            ))),
+        }
+    }
+
     fn resolve_context_item_name(
         &self,
         region: &Region<'_>,
         name: &mut WithPos<Name>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<LookupResult> {
-        self.resolve_name_pos(region, &name.pos, &mut name.item, false, diagnostics)
+    ) -> AnalysisResult<UsedNames> {
+        match &mut name.item {
+            Name::Selected(ref mut prefix, ref mut suffix) => {
+                suffix.clear_reference();
+                let prefix_ent = self.resolve_context_item_prefix(region, prefix)?;
+
+                match self.lookup_selected(&prefix.pos, &prefix_ent, suffix)? {
+                    ResolvedName::Known(visible) => {
+                        suffix.set_reference(&visible);
+                        Ok(UsedNames::Single(visible))
+                    }
+                    ResolvedName::Unknown => Err(Diagnostic::error(
+                        &prefix.pos,
+                        "Invalid prefix for selected name",
+                    ))?,
+                }
+            }
+
+            Name::SelectedAll(prefix) => {
+                let prefix_ent = self.resolve_context_item_prefix(region, prefix)?;
+                Ok(UsedNames::AllWithin(prefix.pos.clone(), prefix_ent))
+            }
+            Name::Designator(designator) => {
+                if let Some(visible) = region.lookup_within(designator.designator()) {
+                    designator.set_reference(&visible);
+                    Ok(UsedNames::Single(visible))
+                } else {
+                    designator.clear_reference();
+                    Err(Diagnostic::error(
+                        &name.pos,
+                        format!("No declaration of '{}'", designator),
+                    ))?
+                }
+            }
+            // @TODO more
+            Name::Indexed(..)
+            | Name::Slice(..)
+            | Name::Attribute(..)
+            | Name::FunctionCall(..)
+            | Name::External(..) => {
+                // @TODO error
+                Err(AnalysisError::NotFatal(Diagnostic::error(
+                    &name.pos,
+                    "Invalid selected name",
+                )))
+            }
+        }
     }
 
-    pub fn analyze_context_clause(
+    fn analyze_context_clause(
         &self,
         region: &mut Region<'_>,
         context_clause: &mut [WithPos<ContextItem>],
@@ -408,8 +471,8 @@ impl<'a> AnalyzeContext<'a> {
                             }
                         }
 
-                        match self.resolve_context_item_name(&region, name, diagnostics) {
-                            Ok(LookupResult::Single(visible_decl)) => {
+                        match self.resolve_context_item_name(&region, name) {
+                            Ok(UsedNames::Single(visible_decl)) => {
                                 match visible_decl.first_kind() {
                                     // OK
                                     NamedEntityKind::Context(_, ref context_region) => {
@@ -429,14 +492,8 @@ impl<'a> AnalyzeContext<'a> {
                                     }
                                 }
                             }
-                            Ok(LookupResult::AllWithin(..)) => {
-                                // @TODO
-                            }
-                            Ok(LookupResult::NotSelected) => {
-                                diagnostics.push(Diagnostic::error(
-                                    &context_item.pos,
-                                    "Context reference must be a selected name",
-                                ));
+                            Ok(UsedNames::AllWithin(..)) => {
+                                // Handled above
                             }
                             Err(err) => {
                                 err.add_to(diagnostics)?;
@@ -470,11 +527,11 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
 
-            match self.resolve_context_item_name(&region, name, diagnostics) {
-                Ok(LookupResult::Single(visible)) => {
+            match self.resolve_context_item_name(&region, name) {
+                Ok(UsedNames::Single(visible)) => {
                     visible.make_potentially_visible_in(region);
                 }
-                Ok(LookupResult::AllWithin(visibility_pos, named_entity)) => {
+                Ok(UsedNames::AllWithin(visibility_pos, named_entity)) => {
                     match named_entity.kind() {
                         NamedEntityKind::Library(ref library_name) => {
                             self.use_all_in_library(&name.pos, library_name, region)?;
@@ -497,12 +554,6 @@ impl<'a> AnalyzeContext<'a> {
                         // @TODO handle others
                         _ => {}
                     }
-                }
-                Ok(LookupResult::NotSelected) => {
-                    diagnostics.push(Diagnostic::error(
-                        &use_pos,
-                        "Use clause must be a selected name",
-                    ));
                 }
                 Err(err) => {
                     err.add_to(diagnostics)?;
@@ -533,4 +584,12 @@ impl<'a> AnalyzeContext<'a> {
             ))?
         }
     }
+}
+
+pub enum UsedNames {
+    /// A single name was used selected
+    Single(VisibleDeclaration),
+    /// All names within was selected
+    /// @TODO add pos for where declaration was made visible into VisibleDeclaration
+    AllWithin(SrcPos, NamedEntity),
 }

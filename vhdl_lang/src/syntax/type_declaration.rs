@@ -14,7 +14,7 @@ use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, TokenStream};
 use crate::ast::*;
 use crate::ast::{AbstractLiteral, Range};
-use crate::data::{push_some, DiagnosticHandler};
+use crate::data::DiagnosticHandler;
 
 /// LRM 5.2.2 Enumeration types
 fn parse_enumeration_type_definition(stream: &mut TokenStream) -> ParseResult<TypeDefinition> {
@@ -236,7 +236,7 @@ pub fn parse_type_declaration(
                 SemiColon => TypeDefinition::Integer(constraint),
                 Units => {
                     let (def, end_ident) = parse_physical_type_definition(stream, constraint)?;
-                    push_some(diagnostics, error_on_end_identifier_mismatch(&ident, &end_ident));
+                    diagnostics.push_some(error_on_end_identifier_mismatch(&ident, &end_ident));
                     def
                 }
             )
@@ -259,7 +259,7 @@ pub fn parse_type_declaration(
                 TypeDefinition::ProtectedBody(ProtectedTypeBody {type_reference: Reference::default(), decl})
             } else {
                 let (protected_type_decl, end_ident) = parse_protected_type_declaration(stream, diagnostics)?;
-                push_some(diagnostics, error_on_end_identifier_mismatch(&ident, &end_ident));
+                diagnostics.push_some(error_on_end_identifier_mismatch(&ident, &end_ident));
                 stream.expect_kind(SemiColon)?;
                 TypeDefinition::Protected(protected_type_decl)
             }
@@ -273,7 +273,7 @@ pub fn parse_type_declaration(
         Array => parse_array_type_definition(stream)?,
         Record =>  {
             let (def, end_ident) = parse_record_type_definition(stream)?;
-            push_some(diagnostics, error_on_end_identifier_mismatch(&ident, &end_ident));
+            diagnostics.push_some(error_on_end_identifier_mismatch(&ident, &end_ident));
             def
         },
         // Enumeration

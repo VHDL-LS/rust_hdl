@@ -285,7 +285,7 @@ fn parse_generate_body_end_token(
             // Inner with identifier
             let end_ident = token.expect_ident()?;
             if let Some(ref ident) = alternative_label {
-                push_some(diagnostics, error_on_end_identifier_mismatch(ident, &Some(end_ident)));
+                diagnostics.push_some(error_on_end_identifier_mismatch(ident, &Some(end_ident)));
             };
             stream.expect_kind(SemiColon)?;
             end_token = stream.expect()?;
