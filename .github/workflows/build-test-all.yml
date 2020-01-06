@@ -62,7 +62,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --package ${{ matrix.crate }}
+          args: --package ${{ matrix.crate }} -- -D warnings
 
       - name: Upload vhdl_lang
         if: matrix.crate == 'vhdl_lang' && matrix.rust == 'stable'
