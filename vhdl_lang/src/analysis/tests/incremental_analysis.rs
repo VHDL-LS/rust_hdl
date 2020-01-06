@@ -215,7 +215,8 @@ end package;
 ",
     );
 
-    check_incremental_analysis(builder, vec![missing(&code, "pkg", 1)]);
+    use super::visibility::hidden_error;
+    check_incremental_analysis(builder, vec![hidden_error(&code, "pkg", 1)]);
 }
 
 #[test]

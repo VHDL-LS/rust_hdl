@@ -147,6 +147,9 @@ impl NamedEntity {
     }
 }
 
+#[derive(Default)]
+struct Hidden {}
+
 #[derive(Clone, Default)]
 pub struct Visible<'a> {
     named_entities: FnvHashMap<Option<&'a SrcPos>, &'a NamedEntity>,
@@ -159,7 +162,10 @@ impl<'a> Visible<'a> {
         self.named_entities.insert(ent.decl_pos.as_ref(), ent);
     }
 
-    fn into_unambiguous(self, designator: &Designator) -> Option<VisibleDeclaration> {
+    fn into_unambiguous(
+        self,
+        designator: &Designator,
+    ) -> Result<Option<VisibleDeclaration>, Hidden> {
         let named_entities: Vec<_> = self
             .named_entities
             .into_iter()
@@ -172,17 +178,17 @@ impl<'a> Visible<'a> {
         };
 
         if visible.named_entities.is_empty() {
-            None
+            Ok(None)
         } else if visible.named_entities.len() == 1 {
-            Some(visible)
+            Ok(Some(visible))
         } else if visible.named_entities().all(|ent| ent.is_overloaded()) {
-            Some(visible)
+            Ok(Some(visible))
         } else if visible.named_entities().any(|ent| ent.kind().is_alias()) {
             // Until we have unique id:s we disable hidden check for any alias
-            Some(visible)
+            Ok(Some(visible))
         } else {
             // Duplicate visible items hide each other
-            None
+            Err(Hidden::default())
         }
     }
 }
@@ -201,16 +207,21 @@ impl VisibleDeclaration {
         }
     }
 
-    /// Return single named entity if unique name is visible
-    pub fn as_unique(&self) -> Option<&NamedEntity> {
+    pub fn into_non_overloaded(mut self) -> Option<NamedEntity> {
         if self.named_entities.len() == 1 {
-            self.named_entities.first()
+            let ent = self.named_entities.pop().unwrap();
+            if !ent.is_overloaded() {
+                Some(ent)
+            } else {
+                None
+            }
         } else {
+            debug_assert!(self.named_entities.iter().all(|ent| ent.is_overloaded()));
             None
         }
     }
 
-    pub fn first(&self) -> &NamedEntity {
+    fn first(&self) -> &NamedEntity {
         self.named_entities
             .first()
             .expect("Declaration always contains one entry")
@@ -706,7 +717,7 @@ impl<'a> Region<'a> {
     }
 
     /// Lookup a named entity declared in this region or an enclosing region
-    fn lookup_immediate(&self, designator: &Designator) -> Option<VisibleDeclaration> {
+    pub fn lookup_immediate(&self, designator: &Designator) -> Option<VisibleDeclaration> {
         self.decls
             .get(designator)
             .or_else(|| {
@@ -743,7 +754,10 @@ impl<'a> Region<'a> {
     }
 
     /// Lookup a named entity that was made potentially visible via a use clause
-    fn lookup_visible(&self, designator: &Designator) -> Option<VisibleDeclaration> {
+    fn lookup_visible(
+        &self,
+        designator: &Designator,
+    ) -> Result<Option<VisibleDeclaration>, Hidden> {
         let mut visible = Visible::default();
         self.lookup_visiblity_into(designator, &mut visible);
         visible.into_unambiguous(designator)
@@ -757,9 +771,29 @@ impl<'a> Region<'a> {
 
     /// Lookup a designator from within the region itself
     /// Thus all parent regions and visibility is relevant
-    pub fn lookup_within(&self, designator: &Designator) -> Option<VisibleDeclaration> {
-        self.lookup_enclosing(designator)
-            .or_else(|| self.lookup_visible(designator))
+    pub fn lookup_within(
+        &self,
+        pos: &SrcPos,
+        designator: &Designator,
+    ) -> Result<VisibleDeclaration, Diagnostic> {
+        let result = if let Some(visible) = self.lookup_enclosing(designator) {
+            Ok(Some(visible))
+        } else {
+            self.lookup_visible(designator)
+        };
+
+        match result {
+            Ok(Some(visible)) => Ok(visible),
+            Ok(None) => Err(Diagnostic::error(
+                pos,
+                format!("No declaration of '{}'", designator),
+            ))?,
+            // @TODO improve error message with visibility pos as well as decl pos
+            Err(_) => Err(Diagnostic::error(
+                pos,
+                format!("Name '{}' is hidden by conflicting use clause", designator),
+            ))?,
+        }
     }
 }
 
@@ -777,13 +811,7 @@ pub trait SetReference {
     }
 
     fn set_reference(&mut self, visible: &VisibleDeclaration) {
-        if let Some(ent) = visible.as_unique() {
-            // We do not set references to non-unqiue names
-            //  incorrect behavior which will appear as low quality
-            self.set_unique_reference(ent);
-        } else {
-            self.clear_reference();
-        }
+        self.set_unique_reference(visible.first());
     }
 
     fn clear_reference(&mut self) {

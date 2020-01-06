@@ -238,7 +238,7 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, vec![missing(&code, "name", 5)]);
+    check_diagnostics(diagnostics, vec![hidden_error(&code, "name", 5)]);
 }
 
 #[test]
@@ -290,7 +290,7 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, vec![missing(&code, "name", 5)]);
+    check_diagnostics(diagnostics, vec![hidden_error(&code, "name", 5)]);
 }
 
 #[test]
@@ -353,7 +353,10 @@ end package;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![missing(&code, "fun1", 3), missing(&code, "fun2", 3)],
+        vec![
+            hidden_error(&code, "fun1", 3),
+            hidden_error(&code, "fun2", 3),
+        ],
     );
 }
 
@@ -404,4 +407,11 @@ end package;
 
     let diagnostics = builder.analyze();
     check_no_diagnostics(&diagnostics);
+}
+
+pub fn hidden_error(code: &Code, name: &str, occ: usize) -> Diagnostic {
+    Diagnostic::error(
+        code.s(name, occ),
+        format!("Name '{}' is hidden by conflicting use clause", name),
+    )
 }

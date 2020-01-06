@@ -18,6 +18,20 @@ pub enum ResolvedName {
     Unknown,
 }
 
+impl ResolvedName {
+    fn into_known(self) -> Option<VisibleDeclaration> {
+        if let Self::Known(visible) = self {
+            Some(visible)
+        } else {
+            None
+        }
+    }
+    pub fn into_non_overloaded(self) -> Option<NamedEntity> {
+        self.into_known()
+            .and_then(|visible| visible.into_non_overloaded())
+    }
+}
+
 impl<'a> AnalyzeContext<'a> {
     pub fn lookup_selected(
         &self,
@@ -96,29 +110,30 @@ impl<'a> AnalyzeContext<'a> {
         match name.item {
             SelectedName::Selected(ref mut prefix, ref mut suffix) => {
                 suffix.clear_reference();
-                let prefix_decl = self.resolve_selected_name(region, prefix)?;
-                match self.lookup_selected(&prefix.pos, prefix_decl.first(), suffix)? {
-                    ResolvedName::Known(visible) => {
-                        suffix.set_reference(&visible);
-                        Ok(visible)
-                    }
-                    ResolvedName::Unknown => Err(AnalysisError::NotFatal(Diagnostic::error(
-                        &prefix.pos,
-                        "Invalid prefix for selected name",
-                    ))),
-                }
+
+                let prefix_ent = self
+                    .resolve_selected_name(region, prefix)?
+                    .into_non_overloaded();
+                if let Some(prefix_ent) = prefix_ent {
+                    match self.lookup_selected(&prefix.pos, &prefix_ent, suffix)? {
+                        ResolvedName::Known(visible) => {
+                            suffix.set_reference(&visible);
+                            return Ok(visible);
+                        }
+                        ResolvedName::Unknown => {}
+                    };
+                };
+
+                Err(AnalysisError::NotFatal(Diagnostic::error(
+                    &prefix.pos,
+                    "Invalid prefix for selected name",
+                )))
             }
             SelectedName::Designator(ref mut designator) => {
-                if let Some(decl) = region.lookup_within(designator.designator()) {
-                    designator.set_reference(&decl);
-                    Ok(decl)
-                } else {
-                    designator.clear_reference();
-                    Err(Diagnostic::error(
-                        &name.pos,
-                        format!("No declaration of '{}'", designator),
-                    ))?
-                }
+                designator.clear_reference();
+                let visible = region.lookup_within(&name.pos, designator.designator())?;
+                designator.set_reference(&visible);
+                Ok(visible)
             }
         }
     }
@@ -130,13 +145,9 @@ impl<'a> AnalyzeContext<'a> {
         prefix: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<Option<NamedEntity>> {
-        let resolved = self.resolve_name(region, prefix_pos, prefix, diagnostics)?;
-
-        match resolved {
-            Some(ResolvedName::Known(visible)) => Ok(visible.as_unique().cloned()),
-            Some(ResolvedName::Unknown) => Ok(None),
-            None => Ok(None),
-        }
+        Ok(self
+            .resolve_name(region, prefix_pos, prefix, diagnostics)?
+            .and_then(|resolved| resolved.into_non_overloaded()))
     }
 
     pub fn resolve_name(
@@ -174,13 +185,16 @@ impl<'a> AnalyzeContext<'a> {
                 Ok(Some(ResolvedName::Unknown))
             }
             Name::Designator(designator) => {
-                if let Some(decl) = region.lookup_within(designator.designator()) {
-                    designator.set_reference(&decl);
-                    Ok(Some(ResolvedName::Known(decl)))
-                } else {
-                    designator.clear_reference();
-                    diagnostics.error(name_pos, format!("No declaration of '{}'", designator));
-                    Ok(None)
+                designator.clear_reference();
+                match region.lookup_within(name_pos, designator.designator()) {
+                    Ok(visible) => {
+                        designator.set_reference(&visible);
+                        Ok(Some(ResolvedName::Known(visible)))
+                    }
+                    Err(diagnostic) => {
+                        diagnostics.push(diagnostic);
+                        Ok(None)
+                    }
                 }
             }
             Name::Indexed(ref mut prefix, ref mut exprs) => {

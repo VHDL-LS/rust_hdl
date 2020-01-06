@@ -4,7 +4,6 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
-use super::semantic::ResolvedName;
 use super::*;
 use crate::ast::*;
 use crate::data::*;
@@ -103,12 +102,8 @@ impl<'a> AnalyzeContext<'a> {
                     signature,
                 } = alias;
 
-                let named_entity =
-                    match self.resolve_name(region, &name.pos, &mut name.item, diagnostics)? {
-                        Some(ResolvedName::Known(visible)) => visible.as_unique().cloned(),
-                        Some(ResolvedName::Unknown) => None,
-                        None => None,
-                    };
+                let resolved_name =
+                    self.resolve_name(region, &name.pos, &mut name.item, diagnostics)?;
 
                 if let Some(ref mut subtype_indication) = subtype_indication {
                     // Object alias
@@ -125,15 +120,20 @@ impl<'a> AnalyzeContext<'a> {
                         NamedEntityKind::Overloaded
                     } else if subtype_indication.is_some() {
                         NamedEntityKind::Other
-                    } else if let Some(ref named_entity) = named_entity {
-                        region.add_implicit_declarations(
-                            Some(&designator.pos),
-                            named_entity,
-                            diagnostics,
-                        );
-                        NamedEntityKind::AliasOf(Box::new(named_entity.clone()))
                     } else {
-                        NamedEntityKind::Other
+                        let named_entity =
+                            resolved_name.and_then(|resolved| resolved.into_non_overloaded());
+
+                        if let Some(named_entity) = named_entity {
+                            region.add_implicit_declarations(
+                                Some(&designator.pos),
+                                &named_entity,
+                                diagnostics,
+                            );
+                            NamedEntityKind::AliasOf(Box::new(named_entity))
+                        } else {
+                            NamedEntityKind::Other
+                        }
                     }
                 };
 
@@ -281,26 +281,35 @@ impl<'a> AnalyzeContext<'a> {
             }
             TypeDefinition::ProtectedBody(ref mut body) => {
                 body.type_reference.clear_reference();
-                let is_ok = match parent.lookup_within(&type_decl.ident.item.clone().into()) {
-                    Some(decl) => match decl.first_kind() {
-                        NamedEntityKind::ProtectedType(ptype_region) => {
-                            body.type_reference.set_reference(&decl);
-                            let mut region = Region::extend(&ptype_region, Some(parent));
-                            self.analyze_declarative_part(
-                                &mut region,
-                                &mut body.decl,
-                                diagnostics,
-                            )?;
-                            true
-                        }
-                        _ => {
+
+                match parent.lookup_immediate(&type_decl.ident.item.clone().into()) {
+                    Some(visible) => {
+                        let is_ok = match visible.into_non_overloaded() {
+                            Some(ent) => {
+                                if let NamedEntityKind::ProtectedType(ptype_region) = ent.kind() {
+                                    body.type_reference.set_unique_reference(&ent);
+                                    let mut region = Region::extend(&ptype_region, Some(parent));
+                                    self.analyze_declarative_part(
+                                        &mut region,
+                                        &mut body.decl,
+                                        diagnostics,
+                                    )?;
+                                    parent.add_protected_body(type_decl.ident.clone(), diagnostics);
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                            _ => false,
+                        };
+
+                        if !is_ok {
                             diagnostics.push(Diagnostic::error(
                                 type_decl.ident.pos(),
                                 format!("'{}' is not a protected type", &type_decl.ident.item),
                             ));
-                            false
                         }
-                    },
+                    }
                     None => {
                         diagnostics.push(Diagnostic::error(
                             type_decl.ident.pos(),
@@ -309,12 +318,7 @@ impl<'a> AnalyzeContext<'a> {
                                 &type_decl.ident.item
                             ),
                         ));
-                        false
                     }
-                };
-
-                if is_ok {
-                    parent.add_protected_body(type_decl.ident.clone(), diagnostics);
                 };
             }
             TypeDefinition::Protected(ref mut prot_decl) => {

@@ -327,8 +327,11 @@ impl<'a> AnalyzeContext<'a> {
 
                 // configuration cfg of lib.ent
                 _ => {
-                    if let Some(ent) = self.resolve_selected_name(&region, ent_name)?.as_unique() {
-                        ent.clone()
+                    if let Some(ent) = self
+                        .resolve_selected_name(&region, ent_name)?
+                        .into_non_overloaded()
+                    {
+                        ent
                     } else {
                         return Err(AnalysisError::NotFatal(Diagnostic::error(
                             &ent_name,
@@ -364,10 +367,10 @@ impl<'a> AnalyzeContext<'a> {
         prefix: &mut WithPos<Name>,
     ) -> AnalysisResult<NamedEntity> {
         match self.resolve_context_item_name(region, prefix)? {
-            UsedNames::Single(visible) => visible.as_unique().cloned().ok_or_else(|| {
+            UsedNames::Single(visible) => visible.into_non_overloaded().ok_or_else(|| {
                 AnalysisError::NotFatal(Diagnostic::error(
                     &prefix,
-                    "ambiguous name prefix of a selected name",
+                    "Invalid prefix of a selected name",
                 ))
             }),
             UsedNames::AllWithin(..) => Err(AnalysisError::NotFatal(Diagnostic::error(
@@ -404,16 +407,10 @@ impl<'a> AnalyzeContext<'a> {
                 Ok(UsedNames::AllWithin(prefix.pos.clone(), prefix_ent))
             }
             Name::Designator(designator) => {
-                if let Some(visible) = region.lookup_within(designator.designator()) {
-                    designator.set_reference(&visible);
-                    Ok(UsedNames::Single(visible))
-                } else {
-                    designator.clear_reference();
-                    Err(Diagnostic::error(
-                        &name.pos,
-                        format!("No declaration of '{}'", designator),
-                    ))?
-                }
+                designator.clear_reference();
+                let visible = region.lookup_within(&name.pos, designator.designator())?;
+                designator.set_reference(&visible);
+                Ok(UsedNames::Single(visible))
             }
             // @TODO more
             Name::Indexed(..)
