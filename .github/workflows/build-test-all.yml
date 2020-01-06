@@ -38,13 +38,13 @@ jobs:
           override: true
           components: rustfmt, clippy
 
-      - name: Build ${{ matrix.crate }}
+      - name: Build
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --manifest-path ${{ matrix.crate }}/Cargo.toml --release --target ${{ matrix.target }} --features "packaged"
 
-      - name: Test ${{ matrix.crate }}
+      - name: Test
         uses: actions-rs/cargo@v1
         with:
           command: test
@@ -64,24 +64,17 @@ jobs:
           command: clippy
           args: --package ${{ matrix.crate }} -- -D warnings
 
-      - name: Upload vhdl_lang
-        if: matrix.crate == 'vhdl_lang' && matrix.rust == 'stable'
-        uses: actions/upload-artifact@v1
-        with:
-          name: vhdl_lang-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/vhdl_lang${{ matrix.ext }}
-
-      - name: Assemble vhdl_ls
-        if: matrix.crate == 'vhdl_ls' && matrix.rust == 'stable'
+      - name: Assemble
+        if: matrix.rust == 'stable'
         run: |
-          mkdir vhdl_ls-${{ matrix.target }}
-          mkdir vhdl_ls-${{ matrix.target }}/bin
-          cp -R vhdl_libraries vhdl_ls-${{ matrix.target }}
-          cp target/${{ matrix.target }}/release/vhdl_ls${{ matrix.ext }} vhdl_ls-${{ matrix.target }}/bin
+          mkdir ${{ matrix.crate }}-${{ matrix.target }}
+          mkdir ${{ matrix.crate }}-${{ matrix.target }}/bin
+          cp -R vhdl_libraries ${{ matrix.crate }}-${{ matrix.target }}
+          cp target/${{ matrix.target }}/release/${{ matrix.crate }}${{ matrix.ext }} ${{ matrix.crate }}-${{ matrix.target }}/bin
 
-      - name: Upload vhdl_ls
-        if: matrix.crate == 'vhdl_ls' && matrix.rust == 'stable'
+      - name: Upload
+        if: matrix.rust == 'stable'
         uses: actions/upload-artifact@v1
         with:
-          name: vhdl_ls-${{ matrix.target }}
-          path: vhdl_ls-${{ matrix.target }}
+          name: ${{ matrix.crate }}-${{ matrix.target }}
+          path: ${{ matrix.crate }}-${{ matrix.target }}
