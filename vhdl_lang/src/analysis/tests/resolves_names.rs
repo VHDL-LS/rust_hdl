@@ -752,7 +752,7 @@ end architecture;
 
 #[test]
 fn adds_file_subprograms_implicitly() {
-    check_missing(
+    check_code_with_no_diagnostics(
         "
 use std.textio.text;
 
@@ -766,7 +766,6 @@ package body pkg is
     file_open(f, \"foo.txt\");
     assert not endfile(f);
     file_close(f);
-    missing;
   end procedure;
 end package body;
 ",
@@ -774,47 +773,53 @@ end package body;
 }
 
 #[test]
-fn package_name_visible_in_body() {
-    check_missing(
+fn package_name_visible_in_header_and_body() {
+    check_code_with_no_diagnostics(
         "
 package pkg is
+  constant name1 : string := pkg'instance_name;
 end package;
 
 package body pkg is
-  constant name : string := pkg'instance_name;
-  constant name2 : string := missing'instance_name;
+  constant name2 : string := pkg'instance_name;
 end package body;
 ",
     );
 }
 
 #[test]
-fn search_package_name_in_body() {
+fn search_package_name_in_header_and_body() {
     check_search_reference(
         "
 package decl is
+  constant name1 : string := decl'instance_name;
 end package;
 
 package body decl is
-  constant name : string := decl'instance_name;
+  constant name2 : string := decl'instance_name;
 end package body;
 ",
     );
 }
 
 #[test]
-fn entity_name_visible_in_architecture() {
-    check_missing(
+fn unit_name_visible_in_entity_architecture() {
+    check_code_with_no_diagnostics(
         "
 entity ent is
+begin
+  p1 : process is
+  begin
+    report ent'instance_name;
+  end process;
 end entity;
 
 architecture a of ent is
 begin
-  main : process is
+  p2 : process is
   begin
-    report missing'instance_name;
     report ent'instance_name;
+    report a'instance_name;
   end process;
 end;
 ",

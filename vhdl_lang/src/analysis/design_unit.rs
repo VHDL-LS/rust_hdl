@@ -61,6 +61,12 @@ impl<'a> AnalyzeContext<'a> {
 
         let mut primary_region = root_region.nested();
 
+        // Entity name is visible
+        primary_region.make_potentially_visible(
+            unit.name().into(),
+            NamedEntity::new(NamedEntityKind::Constant, Some(unit.pos())),
+        );
+
         if let Some(ref mut list) = unit.generic_clause {
             self.analyze_interface_list(&mut primary_region, list, diagnostics)?;
         }
@@ -121,6 +127,12 @@ impl<'a> AnalyzeContext<'a> {
         self.analyze_context_clause(root_region, &mut unit.context_clause, diagnostics)?;
 
         let mut primary_region = root_region.nested().in_package_declaration();
+
+        // Package name is visible
+        primary_region.make_potentially_visible(
+            unit.name().into(),
+            NamedEntity::new(NamedEntityKind::Constant, Some(unit.pos())),
+        );
 
         if let Some(ref mut list) = unit.generic_clause {
             self.analyze_interface_list(&mut primary_region, list, diagnostics)?;
@@ -201,10 +213,10 @@ impl<'a> AnalyzeContext<'a> {
         self.analyze_context_clause(&mut root_region, &mut unit.context_clause, diagnostics)?;
         let mut region = Region::extend(&entity.result().region, Some(&root_region));
 
-        // entity name is visible
+        // Package name is visible
         region.make_potentially_visible(
-            entity.name().into(),
-            NamedEntity::new(NamedEntityKind::Constant, Some(entity.pos())),
+            unit.name().into(),
+            NamedEntity::new(NamedEntityKind::Constant, Some(unit.pos())),
         );
 
         self.analyze_declarative_part(&mut region, &mut unit.decl, diagnostics)?;
@@ -239,12 +251,6 @@ impl<'a> AnalyzeContext<'a> {
         self.analyze_context_clause(&mut root_region, &mut unit.context_clause, diagnostics)?;
 
         let mut region = Region::extend(&package.result().region, Some(&root_region));
-
-        // Package name is visible in body
-        region.make_potentially_visible(
-            package.name().into(),
-            NamedEntity::new(NamedEntityKind::Constant, Some(package.pos())),
-        );
 
         self.analyze_declarative_part(&mut region, &mut unit.decl, diagnostics)?;
         region.close(diagnostics);

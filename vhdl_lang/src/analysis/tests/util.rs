@@ -153,6 +153,13 @@ pub fn check_missing(contents: &str) {
     );
 }
 
+pub fn check_code_with_no_diagnostics(contents: &str) {
+    let mut builder = LibraryBuilder::new();
+    builder.code("libname", contents);
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
 pub fn check_search_reference(contents: &str) {
     check_search_reference_with_name("decl", contents);
 }
