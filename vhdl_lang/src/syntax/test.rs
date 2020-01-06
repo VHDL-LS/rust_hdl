@@ -36,7 +36,7 @@ pub struct CodeBuilder {
 impl CodeBuilder {
     pub fn new() -> CodeBuilder {
         CodeBuilder {
-            symbols: Arc::new(Symbols::new()),
+            symbols: Arc::new(Symbols::default()),
         }
     }
 

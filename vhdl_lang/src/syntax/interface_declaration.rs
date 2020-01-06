@@ -86,7 +86,7 @@ fn parse_interface_object_declaration(
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     let explicit_object_class = parse_optional_object_class(stream, list_type)?;
     let object_class_pos = match explicit_object_class {
-        Some(_) => stream.pop()?.map(|tok| tok.pos.clone()),
+        Some(_) => stream.pop()?.map(|tok| tok.pos),
         None => None,
     };
     let idents = parse_identifier_list(stream)?;
@@ -96,7 +96,7 @@ fn parse_interface_object_declaration(
     let mode = parse_optional_mode(stream)?;
 
     let mode_pos = match mode {
-        Some(_) => stream.pop()?.map(|tok| tok.pos.clone()),
+        Some(_) => stream.pop()?.map(|tok| tok.pos),
         None => None,
     };
 

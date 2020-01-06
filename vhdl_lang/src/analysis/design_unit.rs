@@ -302,7 +302,7 @@ impl<'a> AnalyzeContext<'a> {
         region: &Region<'_>,
         config: &mut ConfigurationDeclaration,
     ) -> AnalysisResult<(NamedEntity, Symbol, Arc<Region<'static>>)> {
-        let ref mut ent_name = config.entity_name;
+        let ent_name = &mut config.entity_name;
 
         let named_entity = {
             match ent_name.item {
@@ -333,10 +333,10 @@ impl<'a> AnalyzeContext<'a> {
                     {
                         ent
                     } else {
-                        return Err(AnalysisError::NotFatal(Diagnostic::error(
+                        return Err(AnalysisError::not_fatal_error(
                             &ent_name,
-                            format!("Does not denote an entity"),
-                        )));
+                            "Does not denote an entity",
+                        ));
                     }
                 }
             }
@@ -345,10 +345,10 @@ impl<'a> AnalyzeContext<'a> {
         match named_entity.kind() {
             NamedEntityKind::Entity(ref unit_id, ref entity_region) => {
                 if unit_id.library_name() != self.work_library_name() {
-                    Err(Diagnostic::error(
+                    Err(AnalysisError::not_fatal_error(
                         &ent_name,
                         format!("Configuration must be within the same library '{}' as the corresponding entity", self.work_library_name()),
-                    ))?
+                    ))
                 } else {
                     Ok((
                         named_entity.clone(),
@@ -357,7 +357,10 @@ impl<'a> AnalyzeContext<'a> {
                     ))
                 }
             }
-            _ => Err(Diagnostic::error(&ent_name, "does not denote an entity"))?,
+            _ => Err(AnalysisError::not_fatal_error(
+                &ent_name,
+                "does not denote an entity",
+            )),
         }
     }
 
@@ -368,15 +371,12 @@ impl<'a> AnalyzeContext<'a> {
     ) -> AnalysisResult<NamedEntity> {
         match self.resolve_context_item_name(region, prefix)? {
             UsedNames::Single(visible) => visible.into_non_overloaded().ok_or_else(|| {
-                AnalysisError::NotFatal(Diagnostic::error(
-                    &prefix,
-                    "Invalid prefix of a selected name",
-                ))
+                AnalysisError::not_fatal_error(&prefix, "Invalid prefix of a selected name")
             }),
-            UsedNames::AllWithin(..) => Err(AnalysisError::NotFatal(Diagnostic::error(
+            UsedNames::AllWithin(..) => Err(AnalysisError::not_fatal_error(
                 &prefix,
                 "'.all' may not be the prefix of a selected name",
-            ))),
+            )),
         }
     }
 
@@ -395,10 +395,10 @@ impl<'a> AnalyzeContext<'a> {
                         suffix.set_reference(&visible);
                         Ok(UsedNames::Single(visible))
                     }
-                    ResolvedName::Unknown => Err(Diagnostic::error(
+                    ResolvedName::Unknown => Err(AnalysisError::not_fatal_error(
                         &prefix.pos,
                         "Invalid prefix for selected name",
-                    ))?,
+                    )),
                 }
             }
 
@@ -419,10 +419,10 @@ impl<'a> AnalyzeContext<'a> {
             | Name::FunctionCall(..)
             | Name::External(..) => {
                 // @TODO error
-                Err(AnalysisError::NotFatal(Diagnostic::error(
+                Err(AnalysisError::not_fatal_error(
                     &name.pos,
                     "Invalid selected name",
-                )))
+                ))
             }
         }
     }
@@ -572,13 +572,13 @@ impl<'a> AnalyzeContext<'a> {
         if let NamedEntityKind::UninstPackage(_, ref package_region) = decl.first_kind() {
             Ok(package_region.clone())
         } else {
-            Err(Diagnostic::error(
+            Err(AnalysisError::not_fatal_error(
                 &package_name.pos,
                 format!(
                     "'{}' is not an uninstantiated generic package",
                     package_name
                 ),
-            ))?
+            ))
         }
     }
 }

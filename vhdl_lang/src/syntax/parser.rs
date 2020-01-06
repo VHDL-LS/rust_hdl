@@ -11,6 +11,7 @@ use crate::data::*;
 use std::io;
 use std::sync::Arc;
 
+#[derive(Default)]
 pub struct VHDLParser {
     pub symbols: Arc<Symbols>,
 }
@@ -18,11 +19,6 @@ pub struct VHDLParser {
 pub type ParserResult = Result<(Source, DesignFile), io::Error>;
 
 impl VHDLParser {
-    pub fn new() -> VHDLParser {
-        let symbols = Arc::new(Symbols::new());
-        VHDLParser { symbols }
-    }
-
     pub fn symbol(&self, name: &Latin1String) -> Symbol {
         self.symbols.symtab().insert(name)
     }

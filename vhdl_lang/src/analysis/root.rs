@@ -169,7 +169,7 @@ impl<'a> Library {
     /// Remove all design units defined in source
     /// This is used for incremental analysis where only a single source file is updated
     fn remove_source(&mut self, source: &Source) {
-        let ref mut removed = self.removed;
+        let removed = &mut self.removed;
         self.units.retain(|_, value| {
             if value.source() != source {
                 true
@@ -269,12 +269,12 @@ impl DesignRoot {
     }
 
     pub fn add_design_file(&mut self, library_name: Symbol, design_file: DesignFile) {
-        self.get_or_create_library(library_name.clone())
+        self.get_or_create_library(library_name)
             .add_design_file(design_file);
     }
 
     pub fn remove_source(&mut self, library_name: Symbol, source: &Source) {
-        self.get_or_create_library(library_name.clone())
+        self.get_or_create_library(library_name)
             .remove_source(source);
     }
 
@@ -440,7 +440,7 @@ impl DesignRoot {
         // Add affected users which do 'use library.all'
         for unit_id in removed.iter().chain(added.iter()) {
             if let Some(library_all_affected) = users_of_library_all.get(unit_id.library_name()) {
-                for user in library_all_affected.into_iter() {
+                for user in library_all_affected.iter() {
                     affected.insert(user.clone());
                 }
             }

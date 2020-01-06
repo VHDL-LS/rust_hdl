@@ -5,6 +5,9 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
+// These fields are better explicit than .. since we are forced to consider if new fields should be searched
+#![allow(clippy::unneeded_field_pattern)]
+
 use super::*;
 
 #[must_use]
@@ -75,11 +78,8 @@ pub trait Search {
 #[macro_export]
 macro_rules! return_if_found {
     ($result:expr) => {
-        match $result {
-            Found => {
-                return Found;
-            }
-            _ => {}
+        if let Found = $result {
+            return Found;
         };
     };
 }
@@ -87,11 +87,8 @@ macro_rules! return_if_found {
 #[macro_export]
 macro_rules! return_if_finished {
     ($result:expr) => {
-        match $result {
-            Finished(result) => {
-                return result;
-            }
-            _ => {}
+        if let Finished(result) = $result {
+            return result;
         };
     };
 }
@@ -142,7 +139,7 @@ fn search_conditionals<T: Search>(
 }
 
 fn search_alternatives<T: Search>(
-    alternatives: &Vec<Alternative<T>>,
+    alternatives: &[Alternative<T>],
     item_before_choice: bool,
     searcher: &mut impl Searcher,
 ) -> SearchResult {

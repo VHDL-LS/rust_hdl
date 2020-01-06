@@ -112,7 +112,7 @@ pub fn parse_attribute(stream: &mut TokenStream) -> ParseResult<Vec<Attribute>> 
                 .map(|entity_name| {
                     Attribute::Specification(AttributeSpecification {
                         ident: ident.clone(),
-                        entity_name: entity_name.clone(),
+                        entity_name: entity_name,
                         entity_class: entity_class,
                         expr: expr.clone(),
                     })

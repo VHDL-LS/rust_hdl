@@ -35,7 +35,7 @@ impl<T, R> AnalysisLock<T, R> {
         }
     }
 
-    pub fn read<'a>(&'a self) -> MappedRwLockReadGuard<'a, T> {
+    pub fn read(&self) -> MappedRwLockReadGuard<'_, T> {
         RwLockReadGuard::map(self.state.read(), |data| &data.data)
     }
 
@@ -49,7 +49,7 @@ impl<T, R> AnalysisLock<T, R> {
     pub fn expect_analyzed(&self) -> ReadGuard<T, R> {
         let guard = self.state.read();
 
-        if !guard.result.is_some() {
+        if guard.result.is_none() {
             panic!("Expected analysis to have already been done");
         }
 

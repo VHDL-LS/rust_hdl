@@ -31,28 +31,28 @@ pub struct LibraryConfig {
 }
 
 impl LibraryConfig {
-    fn to_abspath(file_path: &Path) -> Result<PathBuf, Message> {
-        match dunce::canonicalize(file_path) {
-            Ok(file_path) => Ok(file_path),
-            Err(err) => Err(Message::error(format!(
-                "Could not create absolute path {}: {:?}",
-                file_path.to_string_lossy(),
-                err
-            ))),
-        }
-    }
-
     /// Return a vector of file names
     /// Only include files that exists
     /// Files that do not exist produce a warning message
     pub fn file_names(&self, messages: &mut dyn MessageHandler) -> Vec<PathBuf> {
+        fn as_abspath(file_path: &Path) -> Result<PathBuf, Message> {
+            match dunce::canonicalize(file_path) {
+                Ok(file_path) => Ok(file_path),
+                Err(err) => Err(Message::error(format!(
+                    "Could not create absolute path {}: {:?}",
+                    file_path.to_string_lossy(),
+                    err
+                ))),
+            }
+        }
+
         let mut result = Vec::new();
         for pattern in self.patterns.iter() {
             if is_literal(&pattern, cfg!(windows)) {
                 let file_path = Path::new(pattern);
 
                 if file_path.exists() {
-                    match Self::to_abspath(&file_path) {
+                    match as_abspath(&file_path) {
                         Ok(abs_path) => {
                             result.push(abs_path);
                         }
@@ -74,7 +74,7 @@ impl LibraryConfig {
                             empty_pattern = false;
                             match file_path_or_error {
                                 Ok(file_path) => {
-                                    match Self::to_abspath(&file_path) {
+                                    match as_abspath(&file_path) {
                                         Ok(abs_path) => {
                                             result.push(abs_path);
                                         }
@@ -307,7 +307,7 @@ fn is_literal(pattern: &str, is_windows: bool) -> bool {
             _ => {}
         }
     }
-    return true;
+    true
 }
 
 #[cfg(test)]

@@ -37,16 +37,13 @@ pub fn start() {
 
     let server = lang_server.clone();
     io.add_method("shutdown", move |params: Params| {
-        let value = server.lock().unwrap().shutdown_server(params.parse()?)?;
-        serde_json::to_value(value).map_err(|_| jsonrpc_core::Error::internal_error())
+        server.lock().unwrap().shutdown_server(params.parse()?)?;
+        Ok(serde_json::Value::Null)
     });
 
     let server = lang_server.clone();
-    io.add_notification("initialized", move |params: Params| {
-        server
-            .lock()
-            .unwrap()
-            .initialized_notification(&params.parse().unwrap())
+    io.add_notification("initialized", move |_params: Params| {
+        server.lock().unwrap().initialized_notification()
     });
 
     let server = lang_server.clone();
@@ -88,7 +85,7 @@ pub fn start() {
         serde_json::to_value(value).map_err(|_| jsonrpc_core::Error::internal_error())
     });
 
-    let server = lang_server.clone();
+    let server = lang_server;
     io.add_method("textDocument/references", move |params: Params| {
         let value = server
             .lock()

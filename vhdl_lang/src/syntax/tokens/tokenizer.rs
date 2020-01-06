@@ -652,10 +652,8 @@ fn parse_exponent(reader: &mut ContentReader) -> Result<i32, TokenError> {
         if exp <= (-(i32::min_value() as i64)) as u64 {
             return Ok((-(exp as i64)) as i32);
         }
-    } else {
-        if exp <= i32::max_value() as u64 {
-            return Ok(exp as i32);
-        }
+    } else if exp <= i32::max_value() as u64 {
+        return Ok(exp as i32);
     }
 
     Err(TokenError::range(
@@ -759,7 +757,7 @@ fn parse_comment(reader: &mut ContentReader) -> Comment {
     }
     let end_pos = reader.pos();
     Comment {
-        value: value,
+        value,
         range: start_pos.range_to(end_pos),
         multi_line: false,
     }
@@ -776,7 +774,7 @@ fn parse_multi_line_comment(reader: &mut ContentReader) -> Result<Comment, Token
                 // Comment ended
                 let end_pos = reader.pos();
                 return Ok(Comment {
-                    value: value,
+                    value,
                     range: start_pos.range_to(end_pos),
                     multi_line: true,
                 });
@@ -1157,7 +1155,22 @@ pub struct Symbols {
 }
 
 impl Symbols {
-    pub fn new() -> Symbols {
+    pub fn symtab(&self) -> &SymbolTable {
+        &self.symtab
+    }
+
+    fn insert_or_keyword(&self, name: &Latin1String) -> (Kind, Value) {
+        let symbol = self.symtab.insert(name);
+        if let Some(kind) = self.keywords.get(symbol.id) {
+            (*kind, Value::NoValue)
+        } else {
+            (Identifier, Value::Identifier(symbol))
+        }
+    }
+}
+
+impl std::default::Default for Symbols {
+    fn default() -> Symbols {
         let keywords_init = [
             ("architecture", Architecture),
             ("entity", Entity),
@@ -1257,11 +1270,11 @@ impl Symbols {
             ("vunit", Vunit),
         ];
 
-        let symtab = SymbolTable::new();
+        let symtab = SymbolTable::default();
         let mut keywords = Vec::with_capacity(keywords_init.len());
 
         let mut latin1 = Latin1String::empty();
-        for (keyword, kind) in keywords_init.into_iter() {
+        for (keyword, kind) in keywords_init.iter() {
             latin1.bytes.clear();
             latin1.bytes.extend_from_slice(keyword.as_bytes());
             let symbol = symtab.insert(&latin1);
@@ -1270,19 +1283,6 @@ impl Symbols {
         }
 
         Symbols { symtab, keywords }
-    }
-
-    pub fn symtab(&self) -> &SymbolTable {
-        &self.symtab
-    }
-
-    fn insert_or_keyword(&self, name: &Latin1String) -> (Kind, Value) {
-        let symbol = self.symtab.insert(name);
-        if let Some(kind) = self.keywords.get(symbol.id) {
-            (*kind, Value::NoValue)
-        } else {
-            (Identifier, Value::Identifier(symbol))
-        }
     }
 }
 

@@ -273,14 +273,11 @@ impl Visibility {
     /// Add implicit declarations when using declaration
     /// For example all enum literals are made implicititly visible when using an enum type
     pub fn make_implicit_declarations_visible(&mut self, ent: &NamedEntity) {
-        match ent.as_actual().kind() {
-            NamedEntityKind::TypeDeclaration(ref implicit) => {
-                // Add implicitic declarations when using type
-                if let Some(implicit) = implicit {
-                    self.make_all_potentially_visible(implicit);
-                }
+        if let NamedEntityKind::TypeDeclaration(ref implicit) = ent.as_actual().kind() {
+            // Add implicitic declarations when using type
+            if let Some(implicit) = implicit {
+                self.make_all_potentially_visible(implicit);
             }
-            _ => {}
         }
     }
 
@@ -403,38 +400,32 @@ impl<'a> Region<'a> {
             // Package without body may not have deferred constants
             RegionKind::PackageDeclaration => {
                 for decl in self.decls.values() {
-                    match decl.first_kind() {
-                        NamedEntityKind::DeferredConstant => {
-                            decl.first().error(diagnostics, format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", &decl.designator));
-                        }
-                        _ => {}
+                    if let NamedEntityKind::DeferredConstant = decl.first_kind() {
+                        decl.first().error(diagnostics, format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", &decl.designator));
                     }
                 }
             }
             RegionKind::PackageBody => {
-                let ref extends = self
+                let extends = self
                     .extends
                     .as_ref()
                     .expect("Package body must extend package");
                 for ext_decl in extends.decls.values() {
-                    match ext_decl.first_kind() {
-                        NamedEntityKind::DeferredConstant => {
-                            // Deferred constants may only be located in a package
-                            // And only matched with a constant in the body
-                            let mut found = false;
-                            let decl = self.decls.get(&ext_decl.designator);
+                    if let NamedEntityKind::DeferredConstant = ext_decl.first_kind() {
+                        // Deferred constants may only be located in a package
+                        // And only matched with a constant in the body
+                        let mut found = false;
+                        let decl = self.decls.get(&ext_decl.designator);
 
-                            if let Some(decl) = decl {
-                                if let NamedEntityKind::Constant = decl.first_kind() {
-                                    found = true;
-                                }
-                            }
-
-                            if !found {
-                                ext_decl.first().error(diagnostics, format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", &ext_decl.designator));
+                        if let Some(decl) = decl {
+                            if let NamedEntityKind::Constant = decl.first_kind() {
+                                found = true;
                             }
                         }
-                        _ => {}
+
+                        if !found {
+                            ext_decl.first().error(diagnostics, format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", &ext_decl.designator));
+                        }
                     }
                 }
             }
@@ -455,25 +446,25 @@ impl<'a> Region<'a> {
 
     fn check_protected_types_have_body(&self, diagnostics: &mut dyn DiagnosticHandler) {
         for decl in self.decls.values() {
-            if decl.first_kind().is_protected_type() {
-                if !self.has_protected_body(&decl.designator.expect_identifier()) {
-                    decl.first().error(
-                        diagnostics,
-                        format!("Missing body for protected type '{}'", &decl.designator),
-                    );
-                }
+            if decl.first_kind().is_protected_type()
+                && !self.has_protected_body(&decl.designator.expect_identifier())
+            {
+                decl.first().error(
+                    diagnostics,
+                    format!("Missing body for protected type '{}'", &decl.designator),
+                );
             }
         }
 
         if let Some(ref extends) = self.extends {
             for ext_decl in extends.decls.values() {
-                if ext_decl.first_kind().is_protected_type() {
-                    if !self.has_protected_body(&ext_decl.designator.expect_identifier()) {
-                        ext_decl.first().error(
-                            diagnostics,
-                            format!("Missing body for protected type '{}'", &ext_decl.designator),
-                        );
-                    }
+                if ext_decl.first_kind().is_protected_type()
+                    && !self.has_protected_body(&ext_decl.designator.expect_identifier())
+                {
+                    ext_decl.first().error(
+                        diagnostics,
+                        format!("Missing body for protected type '{}'", &ext_decl.designator),
+                    );
                 }
             }
         }
@@ -503,16 +494,18 @@ impl<'a> Region<'a> {
         prev_decl: &VisibleDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> bool {
-        if self.kind != RegionKind::PackageBody && ent.kind.is_non_deferred_constant() {
-            if prev_decl.first_kind().is_deferred_constant() {
-                ent.error(
-                    diagnostics,
-                    "Full declaration of deferred constant is only allowed in a package body",
-                );
-                return false;
-            }
+        if self.kind != RegionKind::PackageBody
+            && ent.kind.is_non_deferred_constant()
+            && prev_decl.first_kind().is_deferred_constant()
+        {
+            ent.error(
+                diagnostics,
+                "Full declaration of deferred constant is only allowed in a package body",
+            );
+            false
+        } else {
+            true
         }
-        true
     }
 
     pub fn close(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
@@ -682,22 +675,19 @@ impl<'a> Region<'a> {
         ent: &NamedEntity,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
-        match ent.as_actual().kind() {
-            NamedEntityKind::TypeDeclaration(ref implicit) => {
-                if let Some(implicit) = implicit {
-                    for visible in implicit.decls.values() {
-                        for named_ent in visible.named_entities() {
-                            self.add_implicit(
-                                visible.designator.clone(),
-                                decl_pos,
-                                named_ent.kind().clone(),
-                                diagnostics,
-                            );
-                        }
+        if let NamedEntityKind::TypeDeclaration(ref implicit) = ent.as_actual().kind() {
+            if let Some(implicit) = implicit {
+                for visible in implicit.decls.values() {
+                    for named_ent in visible.named_entities() {
+                        self.add_implicit(
+                            visible.designator.clone(),
+                            decl_pos,
+                            named_ent.kind().clone(),
+                            diagnostics,
+                        );
                     }
                 }
             }
-            _ => {}
         }
     }
 
@@ -786,12 +776,12 @@ impl<'a> Region<'a> {
             Ok(None) => Err(Diagnostic::error(
                 pos,
                 format!("No declaration of '{}'", designator),
-            ))?,
+            )),
             // @TODO improve error message with visibility pos as well as decl pos
             Err(_) => Err(Diagnostic::error(
                 pos,
                 format!("Name '{}' is hidden by conflicting use clause", designator),
-            ))?,
+            )),
         }
     }
 }

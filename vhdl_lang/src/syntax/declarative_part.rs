@@ -81,7 +81,7 @@ pub fn parse_declarative_part_leave_end_token(
 ) -> ParseResult<Vec<Declaration>> {
     let mut declarations: Vec<Declaration> = Vec::new();
 
-    fn is_recover_token(kind: &Kind) -> bool {
+    fn is_recover_token(kind: Kind) -> bool {
         match kind {
             Type | Subtype | Component | Impure | Function | Procedure | Package | For | File
             | Shared | Constant | Signal | Variable | Attribute | Use | Alias => true,
@@ -95,16 +95,15 @@ pub fn parse_declarative_part_leave_end_token(
             Type | Subtype | Component | Impure | Function | Procedure | Package | For => {
                 let decl = match token.kind {
                     Type | Subtype => {
-                        parse_type_declaration(stream, diagnostics).map(|d| Declaration::Type(d))?
+                        parse_type_declaration(stream, diagnostics).map(Declaration::Type)?
                     }
                     Component => parse_component_declaration(stream, diagnostics)
-                        .map(|d| Declaration::Component(d))?,
+                        .map(Declaration::Component)?,
                     Impure | Function | Procedure => parse_subprogram(stream, diagnostics)?,
-                    Package => {
-                        parse_package_instantiation(stream).map(|d| Declaration::Package(d))?
+                    Package => parse_package_instantiation(stream).map(Declaration::Package)?,
+                    For => {
+                        parse_configuration_specification(stream).map(Declaration::Configuration)?
                     }
-                    For => parse_configuration_specification(stream)
-                        .map(|d| Declaration::Configuration(d))?,
                     _ => unreachable!(),
                 };
                 declarations.push(decl);
@@ -113,15 +112,11 @@ pub fn parse_declarative_part_leave_end_token(
             File | Shared | Constant | Signal | Variable | Attribute => {
                 let decls: ParseResult<Vec<Declaration>> = match token.kind {
                     File => parse_file_declaration(stream)
-                        .map(|decls| decls.into_iter().map(|d| Declaration::File(d)).collect()),
+                        .map(|decls| decls.into_iter().map(Declaration::File).collect()),
                     Shared | Constant | Signal | Variable => parse_object_declaration(stream)
-                        .map(|decls| decls.into_iter().map(|d| Declaration::Object(d)).collect()),
-                    Attribute => parse_attribute(stream).map(|decls| {
-                        decls
-                            .into_iter()
-                            .map(|d| Declaration::Attribute(d))
-                            .collect()
-                    }),
+                        .map(|decls| decls.into_iter().map(Declaration::Object).collect()),
+                    Attribute => parse_attribute(stream)
+                        .map(|decls| decls.into_iter().map(Declaration::Attribute).collect()),
                     _ => unreachable!(),
                 };
                 match decls.or_recover_until(stream, diagnostics, is_recover_token) {
@@ -135,8 +130,8 @@ pub fn parse_declarative_part_leave_end_token(
 
             Use | Alias => {
                 let decl: ParseResult<Declaration> = match token.kind {
-                    Use => parse_use_clause(stream).map(|d| Declaration::Use(d)),
-                    Alias => parse_alias_declaration(stream).map(|d| Declaration::Alias(d)),
+                    Use => parse_use_clause(stream).map(Declaration::Use),
+                    Alias => parse_alias_declaration(stream).map(Declaration::Alias),
                     _ => unreachable!(),
                 };
                 match decl.or_recover_until(stream, diagnostics, is_recover_token) {

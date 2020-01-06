@@ -22,7 +22,7 @@ pub struct Project {
 
 impl Project {
     pub fn new() -> Project {
-        let parser = VHDLParser::new();
+        let parser = VHDLParser::default();
         Project {
             root: DesignRoot::new(parser.symbols.clone()),
             files: FnvHashMap::default(),

@@ -111,10 +111,10 @@ impl<'a> TokenStream<'a> {
         Ok(self.pop_if_kind(kind)?.is_some())
     }
 
-    pub fn skip_until(&mut self, cond: fn(&Kind) -> bool) -> DiagnosticResult<()> {
+    pub fn skip_until(&mut self, cond: fn(Kind) -> bool) -> DiagnosticResult<()> {
         loop {
             let token = self.peek_expect()?;
-            if cond(&token.kind) {
+            if cond(token.kind) {
                 return Ok(());
             }
             self.pop()?;
@@ -151,7 +151,7 @@ pub trait Recover<T> {
         self,
         stream: &mut TokenStream,
         msgs: &mut dyn DiagnosticHandler,
-        cond: fn(&Kind) -> bool,
+        cond: fn(Kind) -> bool,
     ) -> DiagnosticResult<T>;
 
     fn log(self, msgs: &mut dyn DiagnosticHandler);
@@ -162,7 +162,7 @@ impl<T: std::fmt::Debug> Recover<T> for DiagnosticResult<T> {
         self,
         stream: &mut TokenStream,
         msgs: &mut dyn DiagnosticHandler,
-        cond: fn(&Kind) -> bool,
+        cond: fn(Kind) -> bool,
     ) -> DiagnosticResult<T> {
         if self.is_ok() {
             return self;
@@ -179,9 +179,8 @@ impl<T: std::fmt::Debug> Recover<T> for DiagnosticResult<T> {
     }
 
     fn log(self, msgs: &mut dyn DiagnosticHandler) {
-        match self {
-            Err(err) => msgs.push(err),
-            Ok(_) => (),
+        if let Err(err) = self {
+            msgs.push(err)
         }
     }
 }

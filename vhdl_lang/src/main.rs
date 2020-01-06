@@ -47,7 +47,7 @@ fn main() {
 
     let file_name = value_t_or_exit!(matches.value_of("config"), String);
     let mut config = Config::default();
-    let mut msg_printer = MessagePrinter::new();
+    let mut msg_printer = MessagePrinter::default();
     config.load_external_config(&mut msg_printer);
     config.append(
         &Config::read_file_path(Path::new(&file_name)).expect("Failed to read config file"),

@@ -64,7 +64,7 @@ fn parse_composite_constraint(stream: &mut TokenStream) -> ParseResult<WithPos<S
             // Array constraint open
             Ok(None)
         } else {
-            parse_discrete_range(stream).map(|value| Some(value))
+            parse_discrete_range(stream).map(Some)
         }
     };
 

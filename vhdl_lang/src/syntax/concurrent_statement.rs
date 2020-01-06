@@ -205,6 +205,7 @@ pub fn parse_concurrent_assert_statement(
     })
 }
 
+#[allow(clippy::type_complexity)]
 pub fn parse_generic_and_port_map(
     stream: &mut TokenStream,
 ) -> ParseResult<(
@@ -239,8 +240,8 @@ pub fn parse_instantiation_statement(
 
     let inst = InstantiationStatement {
         unit,
-        generic_map: generic_map.unwrap_or_else(|| Vec::new()),
-        port_map: port_map.unwrap_or_else(|| Vec::new()),
+        generic_map: generic_map.unwrap_or_else(Vec::new),
+        port_map: port_map.unwrap_or_else(Vec::new),
     };
     stream.expect_kind(SemiColon)?;
     Ok(inst)

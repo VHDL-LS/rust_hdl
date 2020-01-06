@@ -341,11 +341,7 @@ impl<'a> AnalyzeContext<'a> {
                                 NamedEntityKind::Overloaded,
                                 diagnostics,
                             );
-                            self.analyze_subprogram_declaration(
-                                &mut region,
-                                subprogram,
-                                diagnostics,
-                            )?;
+                            self.analyze_subprogram_declaration(&region, subprogram, diagnostics)?;
                         }
                     }
                 }
@@ -681,20 +677,17 @@ fn find_full_type_definition<'a>(
     decls: &'a [Declaration],
 ) -> Option<&'a TypeDeclaration> {
     for decl in decls.iter() {
-        match decl {
-            Declaration::Type(type_decl) => {
-                match type_decl.def {
-                    TypeDefinition::Incomplete(..) => {
-                        // ignored
-                    }
-                    _ => {
-                        if type_decl.ident.name() == name {
-                            return Some(type_decl);
-                        }
+        if let Declaration::Type(type_decl) = decl {
+            match type_decl.def {
+                TypeDefinition::Incomplete(..) => {
+                    // ignored
+                }
+                _ => {
+                    if type_decl.ident.name() == name {
+                        return Some(type_decl);
                     }
                 }
             }
-            _ => {}
         }
     }
     None

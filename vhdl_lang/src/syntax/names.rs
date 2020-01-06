@@ -44,7 +44,7 @@ pub fn into_selected_name(name: WithPos<Name>) -> ParseResult<WithPos<SelectedNa
         Name::Selected(prefix, suffix) => {
             let pos = suffix.pos.combine(&prefix.pos);
             Ok(WithPos::from(
-                SelectedName::Selected(Box::new(into_selected_name(*prefix.clone())?), suffix),
+                SelectedName::Selected(Box::new(into_selected_name(*prefix)?), suffix),
                 pos,
             ))
         }

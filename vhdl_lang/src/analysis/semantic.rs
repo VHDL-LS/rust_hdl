@@ -49,15 +49,15 @@ impl<'a> AnalyzeContext<'a> {
                     named_entity,
                 )))
             }
-            NamedEntityKind::UninstPackage(ref unit_id, ..) => {
-                Err(uninstantiated_package_prefix_error(prefix_pos, unit_id))?
-            }
+            NamedEntityKind::UninstPackage(ref unit_id, ..) => Err(AnalysisError::NotFatal(
+                uninstantiated_package_prefix_error(prefix_pos, unit_id),
+            )),
 
             NamedEntityKind::Package(ref unit_id, ref package_region) => {
                 if let Some(decl) = package_region.lookup_selected(suffix.designator()) {
                     Ok(ResolvedName::Known(decl))
                 } else {
-                    Err(Diagnostic::error(
+                    Err(AnalysisError::not_fatal_error(
                         suffix.as_ref(),
                         format!(
                             "No declaration of '{}' within package '{}.{}'",
@@ -65,7 +65,7 @@ impl<'a> AnalyzeContext<'a> {
                             unit_id.library_name(),
                             unit_id.primary_name()
                         ),
-                    ))?
+                    ))
                 }
             }
 
@@ -73,7 +73,7 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(decl) = instance_region.lookup_selected(suffix.designator()) {
                     Ok(ResolvedName::Known(decl))
                 } else {
-                    Err(Diagnostic::error(
+                    Err(AnalysisError::not_fatal_error(
                         suffix.as_ref(),
                         format!(
                             "No declaration of '{}' within package instance '{}.{}'",
@@ -81,7 +81,7 @@ impl<'a> AnalyzeContext<'a> {
                             unit_id.library_name(),
                             unit_id.primary_name()
                         ),
-                    ))?
+                    ))
                 }
             }
 
@@ -89,13 +89,13 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(decl) = instance_region.lookup_selected(suffix.designator()) {
                     Ok(ResolvedName::Known(decl))
                 } else {
-                    Err(Diagnostic::error(
+                    Err(AnalysisError::not_fatal_error(
                         suffix.as_ref(),
                         format!(
                             "No declaration of '{}' within package instance '{}'",
                             suffix.item, &instance_name
                         ),
-                    ))?
+                    ))
                 }
             }
             _ => Ok(ResolvedName::Unknown),

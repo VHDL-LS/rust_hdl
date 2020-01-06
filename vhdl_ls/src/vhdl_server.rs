@@ -116,8 +116,8 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         }
     }
 
-    pub fn initialized_notification(&mut self, params: &InitializedParams) {
-        self.mut_server().initialized_notification(params);
+    pub fn initialized_notification(&mut self) {
+        self.mut_server().initialized_notification();
     }
 
     pub fn text_document_did_change_notification(&mut self, params: &DidChangeTextDocumentParams) {
@@ -200,7 +200,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         (server, result)
     }
 
-    pub fn initialized_notification(&mut self, _params: &InitializedParams) {
+    pub fn initialized_notification(&mut self) {
         self.publish_diagnostics();
     }
 
@@ -282,9 +282,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         let file_name = uri_to_file_name(&params.text_document.uri);
         if let Some(source) = self.project.get_source(&file_name) {
             for content_change in params.content_changes.iter() {
-                let range = content_change
-                    .range
-                    .map(|range| from_lsp_range(range.clone()));
+                let range = content_change.range.map(from_lsp_range);
                 source.change(range.as_ref(), &content_change.text);
             }
             self.project.update_source(&source);
@@ -350,7 +348,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
 fn srcpos_to_location(pos: &SrcPos) -> Location {
     let uri = file_name_to_uri(pos.source.file_name());
     Location {
-        uri: uri.to_owned(),
+        uri,
         range: to_lsp_range(pos.range()),
     }
 }

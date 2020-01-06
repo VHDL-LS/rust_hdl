@@ -63,18 +63,12 @@ impl std::hash::Hash for Symbol {
 
 /// A case insensitive symbol table to allocate unique id:s to symbols
 /// which are equal during case insensitive comparison
+#[derive(Default)]
 pub struct SymbolTable {
     name_to_symbol: RwLock<FnvHashMap<Arc<Latin1String>, Symbol>>,
 }
 
 impl SymbolTable {
-    /// Create a new symbol table
-    pub fn new() -> SymbolTable {
-        SymbolTable {
-            name_to_symbol: RwLock::new(FnvHashMap::default()),
-        }
-    }
-
     pub fn insert_utf8(&self, name: &str) -> Symbol {
         let name = Latin1String::from_utf8(name).unwrap();
         self.insert(&name)
@@ -90,9 +84,9 @@ impl SymbolTable {
         let name_to_symbol = self.name_to_symbol.read();
         if let Some(sym) = name_to_symbol.get(name) {
             // Symbol already exists with identical case
-            return Some(sym.clone());
+            Some(sym.clone())
         } else {
-            return None;
+            None
         }
     }
 
@@ -171,14 +165,14 @@ mod tests {
 
     #[test]
     fn symbol_table_insert() {
-        let symtab = SymbolTable::new();
+        let symtab = SymbolTable::default();
         let sym = symtab.insert_utf8("hello");
         assert_eq!(sym.name_utf8(), "hello");
     }
 
     #[test]
     fn symbols_are_equal() {
-        let symtab = SymbolTable::new();
+        let symtab = SymbolTable::default();
         let sym0 = symtab.insert_utf8("hello");
         let sym1 = symtab.insert_utf8("hello");
         assert_eq!(sym0, sym1);
@@ -194,7 +188,7 @@ mod tests {
 
     #[test]
     fn symbols_are_case_insensitive() {
-        let symtab = SymbolTable::new();
+        let symtab = SymbolTable::default();
         let sym0 = symtab.insert_utf8("Hello");
         let sym1 = symtab.insert_utf8("hello");
         let sym2 = symtab.insert_utf8("heLLo");
@@ -208,7 +202,7 @@ mod tests {
 
     #[test]
     fn extended_identifiers_symbols_are_case_sensitive() {
-        let symtab = SymbolTable::new();
+        let symtab = SymbolTable::default();
         let sym0 = symtab.insert_extended_utf8("\\hello\\");
         let sym1 = symtab.insert_extended_utf8("\\HELLO\\");
         let sym2 = symtab.insert_extended_utf8("\\hello\\");
@@ -222,7 +216,7 @@ mod tests {
 
     #[test]
     fn symbols_are_not_equal() {
-        let symtab = SymbolTable::new();
+        let symtab = SymbolTable::default();
         let sym0 = symtab.insert_utf8("hello");
         let sym1 = symtab.insert_utf8("abc");
         assert_ne!(sym0, sym1);

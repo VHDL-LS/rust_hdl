@@ -80,7 +80,7 @@ impl Contents {
     }
 
     pub fn change(&mut self, range: &Range, content: &str) {
-        if self.lines.len() == 0 {
+        if self.lines.is_empty() {
             self.lines = split_lines(content);
             return;
         }
@@ -213,7 +213,6 @@ impl<'a> ContentReader<'a> {
         }
     }
 
-    #[must_use]
     pub fn pop(&mut self) -> Result<Option<u8>, Utf8ToLatin1Error> {
         if let Some(chr) = self.get_char() {
             if let Some(latin1) = char_to_latin1(chr) {
@@ -229,7 +228,6 @@ impl<'a> ContentReader<'a> {
         }
     }
 
-    #[must_use]
     pub fn get(&self) -> Result<Option<u8>, Utf8ToLatin1Error> {
         if let Some(chr) = self.get_char() {
             if let Some(latin1) = char_to_latin1(chr) {

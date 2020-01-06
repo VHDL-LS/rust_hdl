@@ -178,7 +178,7 @@ impl Position {
         Position { line, character }
     }
 
-    pub fn next_char(&self) -> Position {
+    pub fn next_char(self) -> Position {
         Position {
             line: self.line,
             character: self.character + 1,
@@ -194,24 +194,20 @@ impl Position {
         }
     }
 
-    pub fn after_char(&self, chr: char) -> Position {
-        let mut pos = self.clone();
-        pos.move_after_char(chr);
-        pos
+    pub fn after_char(mut self, chr: char) -> Position {
+        self.move_after_char(chr);
+        self
     }
 
-    pub fn prev_char(&self) -> Position {
+    pub fn prev_char(self) -> Position {
         Position {
             line: self.line,
             character: self.character.saturating_sub(1),
         }
     }
 
-    pub fn range_to(&self, end: Position) -> Range {
-        Range {
-            start: *self,
-            end: end,
-        }
+    pub fn range_to(self, end: Position) -> Range {
+        Range { start: self, end }
     }
 }
 

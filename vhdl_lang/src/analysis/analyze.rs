@@ -16,6 +16,12 @@ pub enum AnalysisError {
     NotFatal(Diagnostic),
 }
 
+impl AnalysisError {
+    pub fn not_fatal_error(pos: impl AsRef<SrcPos>, msg: impl Into<String>) -> AnalysisError {
+        AnalysisError::NotFatal(Diagnostic::error(pos, msg))
+    }
+}
+
 #[derive(Clone, Debug)]
 #[must_use]
 pub struct CircularDependencyError {
@@ -31,10 +37,7 @@ impl CircularDependencyError {
 
     pub fn push_into(self, diagnostics: &mut dyn DiagnosticHandler) {
         if let Some(pos) = self.reference {
-            diagnostics.push(Diagnostic::error(
-                pos,
-                format!("Found circular dependency",),
-            ));
+            diagnostics.push(Diagnostic::error(pos, "Found circular dependency"));
         }
     }
 }
