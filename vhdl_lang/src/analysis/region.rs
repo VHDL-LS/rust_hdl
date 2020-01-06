@@ -179,11 +179,10 @@ impl<'a> Visible<'a> {
 
         if visible.named_entities.is_empty() {
             Ok(None)
-        } else if visible.named_entities.len() == 1 {
-            Ok(Some(visible))
-        } else if visible.named_entities().all(|ent| ent.is_overloaded()) {
-            Ok(Some(visible))
-        } else if visible.named_entities().any(|ent| ent.kind().is_alias()) {
+        } else if visible.named_entities.len() == 1
+            || visible.named_entities().all(|ent| ent.is_overloaded())
+            || visible.named_entities().any(|ent| ent.kind().is_alias())
+        {
             // Until we have unique id:s we disable hidden check for any alias
             Ok(Some(visible))
         } else {
