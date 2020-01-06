@@ -3,6 +3,7 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
+use super::visibility::*;
 use crate::ast::*;
 use crate::data::*;
 
@@ -74,7 +75,7 @@ impl NamedEntityKind {
         }
     }
 
-    fn is_alias(&self) -> bool {
+    pub fn is_alias(&self) -> bool {
         if let NamedEntityKind::AliasOf(..) = self {
             true
         } else {
@@ -113,7 +114,7 @@ impl NamedEntity {
         }
     }
 
-    fn is_overloaded(&self) -> bool {
+    pub fn is_overloaded(&self) -> bool {
         if let NamedEntityKind::Overloaded = self.kind {
             true
         } else {
@@ -139,55 +140,10 @@ impl NamedEntity {
     }
 
     /// Strip aliases and return reference to actual named entity
-    fn as_actual(&self) -> &NamedEntity {
+    pub fn as_actual(&self) -> &NamedEntity {
         match self.kind() {
             NamedEntityKind::AliasOf(ref ent) => ent.as_actual(),
             _ => self,
-        }
-    }
-}
-
-#[derive(Default)]
-struct Hidden {}
-
-#[derive(Clone, Default)]
-pub struct Visible<'a> {
-    named_entities: FnvHashMap<Option<&'a SrcPos>, &'a NamedEntity>,
-}
-
-impl<'a> Visible<'a> {
-    fn push(&mut self, ent: &'a NamedEntity) {
-        // @TODO check that they actually correspond to the same object
-        // The decl_pos serves as a good proxy for this except for libraries
-        self.named_entities.insert(ent.decl_pos.as_ref(), ent);
-    }
-
-    fn into_unambiguous(
-        self,
-        designator: &Designator,
-    ) -> Result<Option<VisibleDeclaration>, Hidden> {
-        let named_entities: Vec<_> = self
-            .named_entities
-            .into_iter()
-            .map(|(_, ent)| ent.clone())
-            .collect();
-
-        let visible = VisibleDeclaration {
-            designator: designator.clone(),
-            named_entities,
-        };
-
-        if visible.named_entities.is_empty() {
-            Ok(None)
-        } else if visible.named_entities.len() == 1
-            || visible.named_entities().all(|ent| ent.is_overloaded())
-            || visible.named_entities().any(|ent| ent.kind().is_alias())
-        {
-            // Until we have unique id:s we disable hidden check for any alias
-            Ok(Some(visible))
-        } else {
-            // Duplicate visible items hide each other
-            Err(Hidden::default())
         }
     }
 }
@@ -203,6 +159,13 @@ impl VisibleDeclaration {
         VisibleDeclaration {
             designator,
             named_entities: vec![named_entity],
+        }
+    }
+
+    pub fn new_vec(designator: Designator, named_entities: Vec<NamedEntity>) -> VisibleDeclaration {
+        VisibleDeclaration {
+            designator,
+            named_entities,
         }
     }
 
@@ -230,7 +193,7 @@ impl VisibleDeclaration {
         &self.first().kind
     }
 
-    fn named_entities(&self) -> impl Iterator<Item = &NamedEntity> {
+    pub fn named_entities(&self) -> impl Iterator<Item = &NamedEntity> {
         self.named_entities.iter()
     }
 
@@ -238,83 +201,13 @@ impl VisibleDeclaration {
         self.named_entities.push(ent);
     }
 
-    pub fn make_potentially_visible_in(&self, region: &mut Region<'_>) {
-        for ent in self.named_entities.iter() {
-            region.make_potentially_visible(self.designator.clone(), ent.clone());
-        }
-    }
-}
-
-#[derive(Clone, Default)]
-struct Visibility {
-    // TODO store unique regions
-    all_in_regions: Vec<Arc<Region<'static>>>,
-    visible: FnvHashMap<Designator, VisibleDeclaration>,
-}
-
-impl Visibility {
-    pub fn make_all_potentially_visible(&mut self, region: &Arc<Region<'static>>) {
-        self.all_in_regions.push(region.clone());
-    }
-
-    pub fn add_context_visibility(&mut self, visibility: &Visibility) {
-        for region in visibility.all_in_regions.iter() {
-            self.all_in_regions.push(region.clone());
-        }
-
-        for (designator, visibile) in visibility.visible.iter() {
-            for named_ent in visibile.named_entities() {
-                // Implicit declarations will already have been added when used in the context
-                self.make_potentially_visible_no_implicit(designator.clone(), named_ent.clone());
-            }
-        }
-    }
-
-    /// Add implicit declarations when using declaration
-    /// For example all enum literals are made implicititly visible when using an enum type
-    pub fn make_implicit_declarations_visible(&mut self, ent: &NamedEntity) {
-        if let NamedEntityKind::TypeDeclaration(ref implicit) = ent.as_actual().kind() {
-            // Add implicitic declarations when using type
-            if let Some(implicit) = implicit {
-                self.make_all_potentially_visible(implicit);
-            }
-        }
-    }
-
-    pub fn make_potentially_visible(&mut self, designator: Designator, ent: NamedEntity) {
-        self.make_implicit_declarations_visible(&ent);
-        self.make_potentially_visible_no_implicit(designator, ent);
-    }
-
-    pub fn make_potentially_visible_no_implicit(
-        &mut self,
-        designator: Designator,
-        ent: NamedEntity,
+    pub fn make_potentially_visible_in(
+        &self,
+        visible_pos: Option<&SrcPos>,
+        region: &mut Region<'_>,
     ) {
-        match self.visible.entry(designator.clone()) {
-            Entry::Vacant(entry) => {
-                entry.insert(VisibleDeclaration::new(designator, ent));
-            }
-            Entry::Occupied(mut entry) => {
-                entry.get_mut().push(ent);
-            }
-        }
-    }
-
-    /// Helper function lookup a visible declaration within the region
-    fn lookup_into<'a>(&'a self, designator: &Designator, visible: &mut Visible<'a>) {
-        for region in self.all_in_regions.iter() {
-            if let Some(named_entities) = region.decls.get(designator) {
-                for named_entity in named_entities.named_entities() {
-                    visible.push(named_entity);
-                }
-            }
-        }
-
-        if let Some(named_entities) = self.visible.get(designator) {
-            for named_entity in named_entities.named_entities() {
-                visible.push(named_entity);
-            }
+        for ent in self.named_entities.iter() {
+            region.make_potentially_visible(self.designator.clone(), visible_pos, ent.clone());
         }
     }
 }
@@ -660,13 +553,14 @@ impl<'a> Region<'a> {
     pub fn make_library_visible(
         &mut self,
         designator: impl Into<Designator>,
+        visible_pos: Option<&SrcPos>,
         library_name: &Symbol,
     ) {
         let ent = NamedEntity {
             decl_pos: None,
             kind: NamedEntityKind::Library(library_name.clone()),
         };
-        self.make_potentially_visible(designator.into(), ent);
+        self.make_potentially_visible(designator.into(), visible_pos, ent);
     }
 
     pub fn add_implicit_declarations(
@@ -691,41 +585,55 @@ impl<'a> Region<'a> {
         }
     }
 
-    pub fn make_potentially_visible(&mut self, designator: Designator, ent: NamedEntity) {
-        self.visibility.make_potentially_visible(designator, ent);
+    pub fn make_potentially_visible(
+        &mut self,
+        designator: Designator,
+        visible_pos: Option<&SrcPos>,
+        ent: NamedEntity,
+    ) {
+        self.visibility
+            .make_potentially_visible(designator, visible_pos, ent);
     }
 
-    pub fn make_all_potentially_visible(&mut self, region: &Arc<Region<'static>>) {
-        self.visibility.make_all_potentially_visible(region);
+    pub fn make_all_potentially_visible(
+        &mut self,
+        visible_pos: Option<&SrcPos>,
+        region: &Arc<Region<'static>>,
+    ) {
+        self.visibility
+            .make_all_potentially_visible(visible_pos, region);
     }
 
     /// Used when using context clauses
-    pub fn add_context_visibility(&mut self, region: &Region<'a>) {
+    pub fn add_context_visibility(&mut self, visible_pos: Option<&SrcPos>, region: &Region<'a>) {
         // @TODO ignores parent, used only for contexts currently where this is true
-        self.visibility.add_context_visibility(&region.visibility);
+        self.visibility
+            .add_context_visibility(visible_pos, &region.visibility);
+    }
+
+    /// Lookup a named entity declared in this region
+    pub fn lookup_immediate(&self, designator: &Designator) -> Option<&VisibleDeclaration> {
+        self.decls.get(designator)
+    }
+
+    /// Lookup a named entity declared in this region or extended region
+    pub fn lookup_extended(&self, designator: &Designator) -> Option<&VisibleDeclaration> {
+        self.lookup_immediate(designator).or_else(|| {
+            // Regions can only be extended once
+            self.extends
+                .as_ref()
+                .and_then(|region| region.decls.get(designator))
+        })
     }
 
     /// Lookup a named entity declared in this region or an enclosing region
-    pub fn lookup_immediate(&self, designator: &Designator) -> Option<VisibleDeclaration> {
-        self.decls
-            .get(designator)
-            .or_else(|| {
-                // Regions can only be extended once
-                self.extends
-                    .as_ref()
-                    .and_then(|region| region.decls.get(designator))
-            })
-            .cloned()
-    }
-
-    /// Lookup a named entity declared in this region or an enclosing region
-    fn lookup_enclosing(&self, designator: &Designator) -> Option<VisibleDeclaration> {
+    fn lookup_enclosing(&self, designator: &Designator) -> Option<&VisibleDeclaration> {
         // We do not need to look in the enclosing region of the extended region
         // since extended region always has the same parent except for protected types
         // split into package / package body.
         // In that case the package / package body parent of the protected type / body
         // is the same extended region anyway
-        self.lookup_immediate(designator).or_else(|| {
+        self.lookup_extended(designator).or_else(|| {
             self.parent
                 .as_ref()
                 .and_then(|region| region.lookup_enclosing(designator))
@@ -745,16 +653,17 @@ impl<'a> Region<'a> {
     /// Lookup a named entity that was made potentially visible via a use clause
     fn lookup_visible(
         &self,
+        pos: &SrcPos,
         designator: &Designator,
-    ) -> Result<Option<VisibleDeclaration>, Hidden> {
+    ) -> Result<Option<VisibleDeclaration>, Diagnostic> {
         let mut visible = Visible::default();
         self.lookup_visiblity_into(designator, &mut visible);
-        visible.into_unambiguous(designator)
+        visible.into_unambiguous(pos, designator)
     }
 
     /// Lookup where this region is the prefix of a selected name
     /// Thus any visibility inside the region is irrelevant
-    pub fn lookup_selected(&self, designator: &Designator) -> Option<VisibleDeclaration> {
+    pub fn lookup_selected(&self, designator: &Designator) -> Option<&VisibleDeclaration> {
         self.lookup_immediate(designator)
     }
 
@@ -766,21 +675,16 @@ impl<'a> Region<'a> {
         designator: &Designator,
     ) -> Result<VisibleDeclaration, Diagnostic> {
         let result = if let Some(visible) = self.lookup_enclosing(designator) {
-            Ok(Some(visible))
+            Some(visible.clone())
         } else {
-            self.lookup_visible(designator)
+            self.lookup_visible(pos, designator)?
         };
 
         match result {
-            Ok(Some(visible)) => Ok(visible),
-            Ok(None) => Err(Diagnostic::error(
+            Some(visible) => Ok(visible),
+            None => Err(Diagnostic::error(
                 pos,
                 format!("No declaration of '{}'", designator),
-            )),
-            // @TODO improve error message with visibility pos as well as decl pos
-            Err(_) => Err(Diagnostic::error(
-                pos,
-                format!("Name '{}' is hidden by conflicting use clause", designator),
             )),
         }
     }

@@ -55,7 +55,7 @@ impl<'a> AnalyzeContext<'a> {
 
             NamedEntityKind::Package(ref unit_id, ref package_region) => {
                 if let Some(decl) = package_region.lookup_selected(suffix.designator()) {
-                    Ok(ResolvedName::Known(decl))
+                    Ok(ResolvedName::Known(decl.clone()))
                 } else {
                     Err(AnalysisError::not_fatal_error(
                         suffix.as_ref(),
@@ -71,7 +71,7 @@ impl<'a> AnalyzeContext<'a> {
 
             NamedEntityKind::PackageInstance(ref unit_id, ref instance_region) => {
                 if let Some(decl) = instance_region.lookup_selected(suffix.designator()) {
-                    Ok(ResolvedName::Known(decl))
+                    Ok(ResolvedName::Known(decl.clone()))
                 } else {
                     Err(AnalysisError::not_fatal_error(
                         suffix.as_ref(),
@@ -87,7 +87,7 @@ impl<'a> AnalyzeContext<'a> {
 
             NamedEntityKind::LocalPackageInstance(ref instance_name, ref instance_region) => {
                 if let Some(decl) = instance_region.lookup_selected(suffix.designator()) {
-                    Ok(ResolvedName::Known(decl))
+                    Ok(ResolvedName::Known(decl.clone()))
                 } else {
                     Err(AnalysisError::not_fatal_error(
                         suffix.as_ref(),

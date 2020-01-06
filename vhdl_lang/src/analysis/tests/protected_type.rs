@@ -74,22 +74,34 @@ end package body;
 
 #[test]
 fn allows_protected_type_and_body_with_same_name() {
-    let mut builder = LibraryBuilder::new();
-    builder.code(
-        "libname",
+    check_code_with_no_diagnostics(
         "
 package pkg is
-type prot_t is protected
-end protected;
+  type prot_t is protected
+  end protected;
 
-type prot_t is protected body
-end protected body;
+  type prot_t is protected body
+  end protected body;
 end package;
 ",
     );
+}
 
-    let diagnostics = builder.analyze();
-    check_no_diagnostics(&diagnostics);
+#[test]
+fn allows_protected_type_and_body_in_package_header_and_body() {
+    check_code_with_no_diagnostics(
+        "
+package pkg is
+  type prot_t is protected
+  end protected;
+end package;
+
+package body pkg is
+  type prot_t is protected body
+  end protected body;
+end package body;
+",
+    );
 }
 
 #[test]
@@ -99,14 +111,14 @@ fn forbid_duplicate_protected_type() {
         "libname",
         "
 package pkg is
-type prot_t is protected
-end protected;
+  type prot_t is protected
+  end protected;
 
-type prot_t is protected
-end protected;
+  type prot_t is protected
+  end protected;
 
-type prot_t is protected body
-end protected body;
+  type prot_t is protected body
+  end protected body;
 end package;
 ",
     );
@@ -122,14 +134,14 @@ fn forbid_duplicate_protected_type_body() {
         "libname",
         "
 package pkg is
-type prot_t is protected
-end protected;
+  type prot_t is protected
+  end protected;
 
-type prot_t is protected body
-end protected body;
+  type prot_t is protected body
+  end protected body;
 
-type prot_t is protected body
-end protected body;
+  type prot_t is protected body
+  end protected body;
 end package;
 ",
     );
@@ -140,25 +152,20 @@ end package;
 
 #[test]
 fn protected_type_is_visible_in_declaration() {
-    let mut builder = LibraryBuilder::new();
-    builder.code(
-        "libname",
+    check_code_with_no_diagnostics(
         "
 package pkg1 is
-type prot_t is protected
- procedure proc(val : inout prot_t);
-end protected;
+  type prot_t is protected
+   procedure proc(val : inout prot_t);
+  end protected;
 
-type prot_t is protected body
- procedure proc(val : inout prot_t) is
- begin
- end;
-end protected body;
+  type prot_t is protected body
+   procedure proc(val : inout prot_t) is
+   begin
+   end;
+  end protected body;
 end package;",
     );
-
-    let diagnostics = builder.analyze();
-    check_no_diagnostics(&diagnostics);
 }
 
 #[test]

@@ -13,6 +13,7 @@ mod region;
 mod root;
 mod semantic;
 mod sequential;
+mod visibility;
 
 #[cfg(test)]
 mod tests;

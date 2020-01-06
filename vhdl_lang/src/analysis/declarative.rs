@@ -282,9 +282,9 @@ impl<'a> AnalyzeContext<'a> {
             TypeDefinition::ProtectedBody(ref mut body) => {
                 body.type_reference.clear_reference();
 
-                match parent.lookup_immediate(&type_decl.ident.item.clone().into()) {
+                match parent.lookup_extended(&type_decl.ident.item.clone().into()) {
                     Some(visible) => {
-                        let is_ok = match visible.into_non_overloaded() {
+                        let is_ok = match visible.clone().into_non_overloaded() {
                             Some(ent) => {
                                 if let NamedEntityKind::ProtectedType(ptype_region) = ent.kind() {
                                     body.type_reference.set_unique_reference(&ent);

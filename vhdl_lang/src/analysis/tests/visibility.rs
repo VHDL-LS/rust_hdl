@@ -238,7 +238,67 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, vec![hidden_error(&code, "name", 5)]);
+    check_diagnostics(
+        diagnostics,
+        vec![hidden_error(
+            &code,
+            "name",
+            5,
+            &[
+                (&code, "work.pkg1.name", 1, false),
+                (&code, "name", 1, true),
+                (&code, "work.pkg2.name", 1, false),
+                (&code, "name", 2, true),
+            ],
+        )],
+    );
+}
+
+#[test]
+fn duplicate_identifer_visiblity_is_traced_through_context() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "lib",
+        "
+package pkg1 is
+  constant name : natural := 0;
+end package;
+
+package pkg2 is
+  constant name : natural := 1;
+end package;
+
+context ctx is
+  library lib;
+  use lib.pkg1.name;
+end context;
+
+context work.ctx;
+use work.pkg2.name;
+
+package user is
+  constant b : natural := name;
+end package;
+
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![hidden_error(
+            &code,
+            "name",
+            5,
+            &[
+                (&code, "work.ctx", 1, false),
+                (&code, "lib.pkg1.name", 1, false),
+                (&code, "name", 1, true),
+                (&code, "work.pkg2.name", 1, false),
+                (&code, "name", 2, true),
+            ],
+        )],
+    );
 }
 
 #[test]
@@ -290,7 +350,20 @@ end package;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, vec![hidden_error(&code, "name", 5)]);
+    check_diagnostics(
+        diagnostics,
+        vec![hidden_error(
+            &code,
+            "name",
+            5,
+            &[
+                (&code, "work.pkg1.name", 1, false),
+                (&code, "name", 1, true),
+                (&code, "work.pkg2.name", 1, false),
+                (&code, "name", 2, true),
+            ],
+        )],
+    );
 }
 
 #[test]
@@ -354,8 +427,28 @@ end package;
     check_diagnostics(
         diagnostics,
         vec![
-            hidden_error(&code, "fun1", 3),
-            hidden_error(&code, "fun2", 3),
+            hidden_error(
+                &code,
+                "fun1",
+                3,
+                &[
+                    (&code, "work.pkg.all", 1, false),
+                    (&code, "fun1", 1, true),
+                    (&code, "work.pkg2.all", 1, false),
+                    (&code, "fun1", 2, true),
+                ],
+            ),
+            hidden_error(
+                &code,
+                "fun2",
+                3,
+                &[
+                    (&code, "work.pkg.all", 1, false),
+                    (&code, "fun2", 1, true),
+                    (&code, "work.pkg2.all", 1, false),
+                    (&code, "fun2", 2, true),
+                ],
+            ),
         ],
     );
 }
@@ -409,9 +502,30 @@ end package;
     check_no_diagnostics(&diagnostics);
 }
 
-pub fn hidden_error(code: &Code, name: &str, occ: usize) -> Diagnostic {
-    Diagnostic::error(
+pub fn hidden_error(
+    code: &Code,
+    name: &str,
+    occ: usize,
+    related: &[(&Code, &str, usize, bool)],
+) -> Diagnostic {
+    let mut error = Diagnostic::error(
         code.s(name, occ),
         format!("Name '{}' is hidden by conflicting use clause", name),
-    )
+    );
+
+    for (code, substr, occ, declared) in related.iter() {
+        if *declared {
+            error.add_related(
+                code.s(substr, *occ),
+                format!("Conflicting name '{}' declared here", name),
+            )
+        } else {
+            error.add_related(
+                code.s(substr, *occ),
+                format!("Conflicting name '{}' made visible here", name),
+            )
+        }
+    }
+
+    error
 }

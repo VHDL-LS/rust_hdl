@@ -181,7 +181,7 @@ end architecture;
 #[test]
 fn incremental_analysis_library_all_collision() {
     let mut builder = LibraryBuilder::new();
-    builder.code(
+    let lib1 = builder.code(
         "libname1",
         "
 package pkg is
@@ -189,7 +189,7 @@ end package;
 ",
     );
 
-    builder.code(
+    let lib2 = builder.code(
         "libname2",
         "
 package pkg is
@@ -216,7 +216,20 @@ end package;
     );
 
     use super::visibility::hidden_error;
-    check_incremental_analysis(builder, vec![hidden_error(&code, "pkg", 1)]);
+    check_incremental_analysis(
+        builder,
+        vec![hidden_error(
+            &code,
+            "pkg",
+            1,
+            &[
+                (&code, "libname1.all", 1, false),
+                (&lib1, "pkg", 1, true),
+                (&code, "libname2.all", 1, false),
+                (&lib2, "pkg", 1, true),
+            ],
+        )],
+    );
 }
 
 #[test]

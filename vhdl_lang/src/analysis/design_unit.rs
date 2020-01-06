@@ -64,6 +64,7 @@ impl<'a> AnalyzeContext<'a> {
         // Entity name is visible
         primary_region.make_potentially_visible(
             unit.name().into(),
+            Some(unit.pos()),
             NamedEntity::new(NamedEntityKind::Constant, Some(unit.pos())),
         );
 
@@ -131,6 +132,7 @@ impl<'a> AnalyzeContext<'a> {
         // Package name is visible
         primary_region.make_potentially_visible(
             unit.name().into(),
+            Some(unit.pos()),
             NamedEntity::new(NamedEntityKind::Constant, Some(unit.pos())),
         );
 
@@ -216,6 +218,7 @@ impl<'a> AnalyzeContext<'a> {
         // Package name is visible
         region.make_potentially_visible(
             unit.name().into(),
+            Some(unit.pos()),
             NamedEntity::new(NamedEntityKind::Constant, Some(unit.pos())),
         );
 
@@ -449,7 +452,11 @@ impl<'a> AnalyzeContext<'a> {
                                 "Library clause not necessary for current working library",
                             ))
                         } else if self.has_library(&library_name.item) {
-                            region.make_library_visible(&library_name.item, &library_name.item);
+                            region.make_library_visible(
+                                &library_name.item,
+                                Some(&library_name.pos),
+                                &library_name.item,
+                            );
                         } else {
                             diagnostics.push(Diagnostic::error(
                                 &library_name,
@@ -479,7 +486,10 @@ impl<'a> AnalyzeContext<'a> {
                                 match visible_decl.first_kind() {
                                     // OK
                                     NamedEntityKind::Context(_, ref context_region) => {
-                                        region.add_context_visibility(context_region);
+                                        region.add_context_visibility(
+                                            Some(&name.pos),
+                                            context_region,
+                                        );
                                     }
                                     _ => {
                                         // @TODO maybe lookup should return the source position of the suffix
@@ -532,7 +542,7 @@ impl<'a> AnalyzeContext<'a> {
 
             match self.resolve_context_item_name(&region, name) {
                 Ok(UsedNames::Single(visible)) => {
-                    visible.make_potentially_visible_in(region);
+                    visible.make_potentially_visible_in(Some(&name.pos), region);
                 }
                 Ok(UsedNames::AllWithin(visibility_pos, named_entity)) => {
                     match named_entity.kind() {
@@ -546,13 +556,13 @@ impl<'a> AnalyzeContext<'a> {
                             ));
                         }
                         NamedEntityKind::Package(_, ref package_region) => {
-                            region.make_all_potentially_visible(package_region);
+                            region.make_all_potentially_visible(Some(&name.pos), package_region);
                         }
                         NamedEntityKind::PackageInstance(_, ref package_region) => {
-                            region.make_all_potentially_visible(package_region);
+                            region.make_all_potentially_visible(Some(&name.pos), package_region);
                         }
                         NamedEntityKind::LocalPackageInstance(_, ref instance_region) => {
-                            region.make_all_potentially_visible(&instance_region);
+                            region.make_all_potentially_visible(Some(&name.pos), &instance_region);
                         }
                         // @TODO handle others
                         _ => {}
