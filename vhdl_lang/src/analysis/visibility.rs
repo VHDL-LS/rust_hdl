@@ -107,7 +107,7 @@ impl Visibility {
     }
 
     fn insert(&mut self, designator: Designator, visible_ent: VisibleEntity) {
-        match self.visible.entry(designator.clone()) {
+        match self.visible.entry(designator) {
             Entry::Vacant(entry) => {
                 let mut map = FnvHashMap::default();
                 map.insert(visible_ent.entity.decl_pos().cloned(), visible_ent);
@@ -190,18 +190,18 @@ impl<'a> Visible<'a> {
                 format!("Name '{}' is hidden by conflicting use clause", designator),
             );
 
-            fn last_visible_pos(visible_entity: &&VisibleEntityRef) -> u32 {
+            fn last_visible_pos(visible_entity: &VisibleEntityRef) -> u32 {
                 for pos in visible_entity.visible_pos.iter().rev() {
                     if let Some(pos) = pos {
                         return pos.range().start.line;
                     }
                 }
-                return 0;
+                0
             }
 
             // Sort by last visible pos to make error messages and testing deterministic
             let mut visible_entities: Vec<_> = self.visible_entities.values().collect();
-            visible_entities.sort_by_key(last_visible_pos);
+            visible_entities.sort_by_key(|ent| last_visible_pos(*ent));
 
             for visible_entity in visible_entities {
                 for visible_pos in visible_entity.visible_pos.iter().rev() {
