@@ -477,7 +477,7 @@ mod tests {
         server
             .initialize_request(initialize_params)
             .expect("Should not fail");
-        server.initialized_notification(&InitializedParams {});
+        server.initialized_notification();
     }
 
     fn temp_root_uri() -> (tempfile::TempDir, Url) {
