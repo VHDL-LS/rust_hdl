@@ -318,3 +318,33 @@ end package;
 ",
     );
 }
+
+#[test]
+fn error_on_type_mark_with_non_type() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+end package;
+
+package body pkg is
+  function bad return natural is
+  begin
+  end function;
+
+  constant err : bad := 0;
+
+end package body;
+
+",
+    );
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(code.s("bad", 2), "Expected type, got overloaded name")
+                .related(code.s1("bad"), "Defined here"),
+        ],
+    );
+}

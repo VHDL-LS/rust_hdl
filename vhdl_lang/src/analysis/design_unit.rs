@@ -336,7 +336,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 // configuration cfg of lib.ent
                 _ => {
-                    if let Some(ent) = self
+                    if let Ok(ent) = self
                         .resolve_selected_name(&region, ent_name)?
                         .into_non_overloaded()
                     {
@@ -379,7 +379,7 @@ impl<'a> AnalyzeContext<'a> {
         prefix: &mut WithPos<Name>,
     ) -> AnalysisResult<NamedEntity> {
         match self.resolve_context_item_name(region, prefix)? {
-            UsedNames::Single(visible) => visible.into_non_overloaded().ok_or_else(|| {
+            UsedNames::Single(visible) => visible.into_non_overloaded().map_err(|_| {
                 AnalysisError::not_fatal_error(&prefix, "Invalid prefix of a selected name")
             }),
             UsedNames::AllWithin(..) => Err(AnalysisError::not_fatal_error(

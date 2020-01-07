@@ -169,17 +169,12 @@ impl VisibleDeclaration {
         }
     }
 
-    pub fn into_non_overloaded(mut self) -> Option<NamedEntity> {
-        if self.named_entities.len() == 1 {
+    pub fn into_non_overloaded(mut self) -> Result<NamedEntity, VisibleDeclaration> {
+        if !self.first().is_overloaded() {
             let ent = self.named_entities.pop().unwrap();
-            if !ent.is_overloaded() {
-                Some(ent)
-            } else {
-                None
-            }
+            Ok(ent)
         } else {
-            debug_assert!(self.named_entities.iter().all(|ent| ent.is_overloaded()));
-            None
+            Err(self)
         }
     }
 

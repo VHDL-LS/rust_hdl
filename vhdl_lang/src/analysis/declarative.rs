@@ -285,7 +285,7 @@ impl<'a> AnalyzeContext<'a> {
                 match parent.lookup_extended(&type_decl.ident.item.clone().into()) {
                     Some(visible) => {
                         let is_ok = match visible.clone().into_non_overloaded() {
-                            Some(ent) => {
+                            Ok(ent) => {
                                 if let NamedEntityKind::ProtectedType(ptype_region) = ent.kind() {
                                     body.type_reference.set_unique_reference(&ent);
                                     let mut region = Region::extend(&ptype_region, Some(parent));

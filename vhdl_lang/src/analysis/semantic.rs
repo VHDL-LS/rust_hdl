@@ -28,7 +28,7 @@ impl ResolvedName {
     }
     pub fn into_non_overloaded(self) -> Option<NamedEntity> {
         self.into_known()
-            .and_then(|visible| visible.into_non_overloaded())
+            .and_then(|visible| visible.into_non_overloaded().ok())
     }
 }
 
@@ -114,7 +114,7 @@ impl<'a> AnalyzeContext<'a> {
                 let prefix_ent = self
                     .resolve_selected_name(region, prefix)?
                     .into_non_overloaded();
-                if let Some(prefix_ent) = prefix_ent {
+                if let Ok(prefix_ent) = prefix_ent {
                     match self.lookup_selected(&prefix.pos, &prefix_ent, suffix)? {
                         ResolvedName::Known(visible) => {
                             suffix.set_reference(&visible);
@@ -230,8 +230,22 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         region: &Region<'_>,
         type_mark: &mut WithPos<SelectedName>,
-    ) -> AnalysisResult<VisibleDeclaration> {
-        self.resolve_selected_name(region, type_mark)
+    ) -> AnalysisResult<NamedEntity> {
+        match self
+            .resolve_selected_name(region, type_mark)?
+            .into_non_overloaded()
+        {
+            Ok(ent) => Ok(ent),
+            Err(visible) => {
+                let mut error = Diagnostic::error(type_mark, "Expected type, got overloaded name");
+                for ent in visible.named_entities() {
+                    if let Some(pos) = ent.decl_pos() {
+                        error.add_related(pos, "Defined here");
+                    }
+                }
+                Err(AnalysisError::NotFatal(error))
+            }
+        }
     }
 
     fn analyze_attribute_name(
