@@ -203,11 +203,11 @@ end entity;
         vec![
             Diagnostic::error(
                 code.s("const1", 3),
-                "No declaration of 'const1' within package 'libname.pkg'",
+                "No declaration of 'const1' within package 'pkg'",
             ),
             Diagnostic::error(
                 code.s("const2", 3),
-                "No declaration of 'const2' within package 'libname.pkg'",
+                "No declaration of 'const2' within package 'pkg'",
             ),
         ],
     );

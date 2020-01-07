@@ -63,9 +63,8 @@ impl<'a> AnalyzeContext<'a> {
 
         // Entity name is visible
         primary_region.make_potentially_visible(
-            unit.name().into(),
             Some(unit.pos()),
-            NamedEntity::new(NamedEntityKind::Constant, Some(unit.pos())),
+            NamedEntity::new(unit.name().into(), NamedEntityKind::Label, Some(unit.pos())),
         );
 
         if let Some(ref mut list) = unit.generic_clause {
@@ -92,7 +91,7 @@ impl<'a> AnalyzeContext<'a> {
         self.analyze_context_clause(&mut root_region, &mut unit.context_clause, diagnostics)?;
 
         match self.lookup_entity_for_configuration(&root_region, unit) {
-            Ok((named_entity, entity_name, _)) => {
+            Ok(named_entity) => {
                 if let Some(primary_pos) = named_entity.decl_pos() {
                     let secondary_pos = unit.pos();
                     if primary_pos.source == secondary_pos.source
@@ -100,11 +99,11 @@ impl<'a> AnalyzeContext<'a> {
                     {
                         diagnostics.push(Diagnostic::error(
                             secondary_pos,
-                            format!(
-                                "Configuration '{}' declared before entity '{}'",
-                                &unit.name(),
-                                entity_name
-                            ),
+                            capitalize(&format!(
+                                "{} declared before {}",
+                                self.current_unit_id().describe(),
+                                named_entity.describe()
+                            )),
                         ));
                     }
                 }
@@ -131,9 +130,8 @@ impl<'a> AnalyzeContext<'a> {
 
         // Package name is visible
         primary_region.make_potentially_visible(
-            unit.name().into(),
             Some(unit.pos()),
-            NamedEntity::new(NamedEntityKind::Constant, Some(unit.pos())),
+            NamedEntity::new(unit.name().into(), NamedEntityKind::Label, Some(unit.pos())),
         );
 
         if let Some(ref mut list) = unit.generic_clause {
@@ -217,9 +215,8 @@ impl<'a> AnalyzeContext<'a> {
 
         // Package name is visible
         region.make_potentially_visible(
-            unit.name().into(),
             Some(unit.pos()),
-            NamedEntity::new(NamedEntityKind::Constant, Some(unit.pos())),
+            NamedEntity::new(unit.name().into(), NamedEntityKind::Label, Some(unit.pos())),
         );
 
         self.analyze_declarative_part(&mut region, &mut unit.decl, diagnostics)?;
@@ -310,66 +307,77 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         region: &Region<'_>,
         config: &mut ConfigurationDeclaration,
-    ) -> AnalysisResult<(NamedEntity, Symbol, Arc<Region<'static>>)> {
+    ) -> AnalysisResult<NamedEntity> {
         let ent_name = &mut config.entity_name;
 
-        let named_entity = {
-            match ent_name.item {
-                // Entitities are implicitly defined for configurations
-                // configuration cfg of ent
-                SelectedName::Designator(ref mut designator) => {
-                    match self.lookup_in_library(
-                        self.work_library_name(),
-                        &ent_name.pos,
-                        &designator.item,
-                    ) {
-                        Ok(decl) => {
-                            designator.set_unique_reference(&decl);
-                            decl
-                        }
-                        Err(err) => {
-                            designator.clear_reference();
-                            return Err(err);
-                        }
+        match ent_name.item {
+            // Entitities are implicitly defined for configurations
+            // configuration cfg of ent
+            SelectedName::Designator(ref mut designator) => {
+                match self.lookup_in_library(
+                    self.work_library_name(),
+                    &ent_name.pos,
+                    &designator.item,
+                ) {
+                    Ok(ent) => {
+                        designator.set_unique_reference(&ent);
+                        Ok(ent)
                     }
-                }
-
-                // configuration cfg of lib.ent
-                _ => {
-                    if let Ok(ent) = self
-                        .resolve_selected_name(&region, ent_name)?
-                        .into_non_overloaded()
-                    {
-                        ent
-                    } else {
-                        return Err(AnalysisError::not_fatal_error(
-                            &ent_name,
-                            "Does not denote an entity",
-                        ));
+                    Err(err) => {
+                        designator.clear_reference();
+                        Err(err)
                     }
                 }
             }
-        };
 
-        match named_entity.kind() {
-            NamedEntityKind::Entity(ref unit_id, ref entity_region) => {
-                if unit_id.library_name() != self.work_library_name() {
-                    Err(AnalysisError::not_fatal_error(
-                        &ent_name,
-                        format!("Configuration must be within the same library '{}' as the corresponding entity", self.work_library_name()),
-                    ))
-                } else {
-                    Ok((
-                        named_entity.clone(),
-                        unit_id.primary_name().clone(),
-                        entity_region.clone(),
-                    ))
-                }
+            // configuration cfg of lib.ent
+            SelectedName::Selected(ref mut prefix, ref mut designator) => {
+                designator.clear_reference();
+
+                self.resolve_selected_name(&region, prefix)?
+                    .into_non_overloaded()
+                    .map_err(|ent|
+                             AnalysisError::not_fatal_error(
+                                 &prefix.pos,
+                                 format!("{} does not denote a library", ent.first().describe()),
+                             )
+                    )
+                    .and_then(|library_ent| match library_ent.kind() {
+                        NamedEntityKind::Library => {
+                            let library_name = library_ent.designator().expect_identifier();
+                            if library_name != self.work_library_name() {
+                                Err(AnalysisError::not_fatal_error(
+                                    &prefix.pos,
+                                    format!("Configuration must be within the same library '{}' as the corresponding entity", self.work_library_name()),
+                                ))
+                            } else {
+                                let primary_ent = self.lookup_in_library(library_name, &designator.pos, designator.designator())?;
+                                match primary_ent.kind() {
+                                    NamedEntityKind::Entity(..) => {
+                                        designator.set_unique_reference(&primary_ent);
+                                        Ok(
+                                            primary_ent,
+                                        )
+
+                                    }
+                                    _ => {
+                                        Err(AnalysisError::not_fatal_error(
+                                            designator,
+                                            format!("{} does not denote an entity", primary_ent.describe()),
+                                        ))
+                                    }
+                                }
+                            }
+
+                        }
+                        _ => {
+                            Err(AnalysisError::not_fatal_error(
+                                &prefix.pos,
+                                format!("{} does not denote a library", library_ent.describe())
+                            ))
+                        }
+                    })
             }
-            _ => Err(AnalysisError::not_fatal_error(
-                &ent_name,
-                "does not denote an entity",
-            )),
         }
     }
 
@@ -421,18 +429,14 @@ impl<'a> AnalyzeContext<'a> {
                 designator.set_reference(&visible);
                 Ok(UsedNames::Single(visible))
             }
-            // @TODO more
             Name::Indexed(..)
             | Name::Slice(..)
             | Name::Attribute(..)
             | Name::FunctionCall(..)
-            | Name::External(..) => {
-                // @TODO error
-                Err(AnalysisError::not_fatal_error(
-                    &name.pos,
-                    "Invalid selected name",
-                ))
-            }
+            | Name::External(..) => Err(AnalysisError::not_fatal_error(
+                &name.pos,
+                "Invalid selected name",
+            )),
         }
     }
 
@@ -452,11 +456,8 @@ impl<'a> AnalyzeContext<'a> {
                                 "Library clause not necessary for current working library",
                             ))
                         } else if self.has_library(&library_name.item) {
-                            region.make_library_visible(
-                                &library_name.item,
-                                Some(&library_name.pos),
-                                &library_name.item,
-                            );
+                            region
+                                .make_library_visible(&library_name.item, Some(&library_name.pos));
                         } else {
                             diagnostics.push(Diagnostic::error(
                                 &library_name,
@@ -466,7 +467,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
                 ContextItem::Use(ref mut use_clause) => {
-                    self.analyze_use_clause(region, use_clause, &context_item.pos, diagnostics)?;
+                    self.analyze_use_clause(region, use_clause, diagnostics)?;
                 }
                 ContextItem::Context(ContextReference { ref mut name_list }) => {
                     for name in name_list.iter_mut() {
@@ -474,7 +475,7 @@ impl<'a> AnalyzeContext<'a> {
                             Name::Selected(..) => {}
                             _ => {
                                 diagnostics.push(Diagnostic::error(
-                                    &context_item.pos,
+                                    &name.pos,
                                     "Context reference must be a selected name",
                                 ));
                                 continue;
@@ -482,23 +483,23 @@ impl<'a> AnalyzeContext<'a> {
                         }
 
                         match self.resolve_context_item_name(&region, name) {
-                            Ok(UsedNames::Single(visible_decl)) => {
-                                match visible_decl.first_kind() {
+                            Ok(UsedNames::Single(visible)) => {
+                                let ent = visible.first();
+                                match ent.kind() {
                                     // OK
-                                    NamedEntityKind::Context(_, ref context_region) => {
+                                    NamedEntityKind::Context(ref context_region) => {
                                         region.add_context_visibility(
                                             Some(&name.pos),
                                             context_region,
                                         );
                                     }
                                     _ => {
-                                        // @TODO maybe lookup should return the source position of the suffix
                                         if let Name::Selected(_, ref suffix) = name.item {
                                             diagnostics.push(Diagnostic::error(
                                                 &suffix,
                                                 format!(
-                                                    "'{}' does not denote a context declaration",
-                                                    suffix.designator()
+                                                    "{} does not denote a context declaration",
+                                                    ent.describe()
                                                 ),
                                             ));
                                         }
@@ -524,7 +525,6 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         region: &mut Region<'_>,
         use_clause: &mut UseClause,
-        use_pos: &SrcPos,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         for name in use_clause.name_list.iter_mut() {
@@ -533,7 +533,7 @@ impl<'a> AnalyzeContext<'a> {
                 Name::SelectedAll(..) => {}
                 _ => {
                     diagnostics.push(Diagnostic::error(
-                        &use_pos,
+                        &name.pos,
                         "Use clause must be a selected name",
                     ));
                     continue;
@@ -546,26 +546,24 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 Ok(UsedNames::AllWithin(visibility_pos, named_entity)) => {
                     match named_entity.kind() {
-                        NamedEntityKind::Library(ref library_name) => {
+                        NamedEntityKind::Library => {
+                            let library_name = named_entity.designator().expect_identifier();
                             self.use_all_in_library(&name.pos, library_name, region)?;
                         }
-                        NamedEntityKind::UninstPackage(ref unit_id, ..) => {
+                        NamedEntityKind::UninstPackage(..) => {
                             diagnostics.push(uninstantiated_package_prefix_error(
+                                &named_entity,
                                 &visibility_pos,
-                                unit_id,
                             ));
                         }
-                        NamedEntityKind::Package(_, ref package_region) => {
-                            region.make_all_potentially_visible(Some(&name.pos), package_region);
+                        NamedEntityKind::Package(ref primary_region)
+                        | NamedEntityKind::PackageInstance(ref primary_region)
+                        | NamedEntityKind::LocalPackageInstance(ref primary_region) => {
+                            region.make_all_potentially_visible(Some(&name.pos), primary_region);
                         }
-                        NamedEntityKind::PackageInstance(_, ref package_region) => {
-                            region.make_all_potentially_visible(Some(&name.pos), package_region);
+                        _ => {
+                            diagnostics.error(visibility_pos, "Invalid prefix for selected name");
                         }
-                        NamedEntityKind::LocalPackageInstance(_, ref instance_region) => {
-                            region.make_all_potentially_visible(Some(&name.pos), &instance_region);
-                        }
-                        // @TODO handle others
-                        _ => {}
                     }
                 }
                 Err(err) => {
@@ -585,7 +583,7 @@ impl<'a> AnalyzeContext<'a> {
     ) -> AnalysisResult<Arc<Region<'static>>> {
         let decl = self.resolve_selected_name(region, package_name)?;
 
-        if let NamedEntityKind::UninstPackage(_, ref package_region) = decl.first_kind() {
+        if let NamedEntityKind::UninstPackage(ref package_region) = decl.first_kind() {
             Ok(package_region.clone())
         } else {
             Err(AnalysisError::not_fatal_error(

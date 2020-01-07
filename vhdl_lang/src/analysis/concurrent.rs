@@ -34,7 +34,7 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         if let Some(ref label) = statement.label {
-            parent.add(label.clone(), NamedEntityKind::Constant, diagnostics);
+            parent.add(label.clone(), NamedEntityKind::Label, diagnostics);
         }
 
         match statement.statement {
@@ -72,7 +72,11 @@ impl<'a> AnalyzeContext<'a> {
                 } = gen;
                 self.analyze_discrete_range(parent, discrete_range, diagnostics)?;
                 let mut region = parent.nested();
-                region.add(index_name.clone(), NamedEntityKind::Constant, diagnostics);
+                region.add(
+                    index_name.clone(),
+                    NamedEntityKind::Object(ObjectClass::Constant),
+                    diagnostics,
+                );
                 self.analyze_generate_body(&mut region, body, diagnostics)?;
             }
             ConcurrentStatement::IfGenerate(ref mut gen) => {
@@ -146,7 +150,7 @@ impl<'a> AnalyzeContext<'a> {
             statements,
         } = body;
         if let Some(label) = alternative_label {
-            region.add(label.clone(), NamedEntityKind::Constant, diagnostics);
+            region.add(label.clone(), NamedEntityKind::Label, diagnostics);
         }
         if let Some(ref mut decl) = decl {
             self.analyze_declarative_part(region, decl, diagnostics)?;

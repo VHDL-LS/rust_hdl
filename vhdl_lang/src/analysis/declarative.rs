@@ -119,7 +119,7 @@ impl<'a> AnalyzeContext<'a> {
                     if signature.is_some() {
                         NamedEntityKind::Overloaded
                     } else if subtype_indication.is_some() {
-                        NamedEntityKind::Other
+                        NamedEntityKind::OtherAlias
                     } else {
                         let named_entity =
                             resolved_name.and_then(|resolved| resolved.into_non_overloaded());
@@ -132,7 +132,7 @@ impl<'a> AnalyzeContext<'a> {
                             );
                             NamedEntityKind::AliasOf(Box::new(named_entity))
                         } else {
-                            NamedEntityKind::Other
+                            NamedEntityKind::OtherAlias
                         }
                     }
                 };
@@ -168,10 +168,10 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(ref mut expr) = file_name {
                     self.analyze_expression(region, expr, diagnostics)?;
                 }
-                region.add(ident.clone(), NamedEntityKind::Other, diagnostics);
+                region.add(ident.clone(), NamedEntityKind::File, diagnostics);
             }
             Declaration::Component(ref mut component) => {
-                region.add(&component.ident, NamedEntityKind::Other, diagnostics);
+                region.add(&component.ident, NamedEntityKind::Component, diagnostics);
                 let mut region = region.nested();
                 self.analyze_interface_list(&mut region, &mut component.generic_list, diagnostics)?;
                 self.analyze_interface_list(&mut region, &mut component.port_list, diagnostics)?;
@@ -182,7 +182,7 @@ impl<'a> AnalyzeContext<'a> {
                     if let Err(err) = self.resolve_type_mark(region, &mut attr_decl.type_mark) {
                         err.add_to(diagnostics)?;
                     }
-                    region.add(&attr_decl.ident, NamedEntityKind::Other, diagnostics);
+                    region.add(&attr_decl.ident, NamedEntityKind::Attribute, diagnostics);
                 }
                 // @TODO Ignored for now
                 Attribute::Specification(..) => {}
@@ -215,22 +215,14 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             Declaration::Use(ref mut use_clause) => {
-                self.analyze_use_clause(
-                    region,
-                    &mut use_clause.item,
-                    &use_clause.pos,
-                    diagnostics,
-                )?;
+                self.analyze_use_clause(region, &mut use_clause.item, diagnostics)?;
             }
 
             Declaration::Package(ref mut instance) => {
                 match self.analyze_package_instance_name(region, &mut instance.package_name) {
                     Ok(package_region) => region.add(
                         &instance.ident,
-                        NamedEntityKind::LocalPackageInstance(
-                            instance.ident.item.clone(),
-                            package_region,
-                        ),
+                        NamedEntityKind::LocalPackageInstance(package_region),
                         diagnostics,
                     ),
                     Err(err) => err.add_to(diagnostics)?,
@@ -356,7 +348,7 @@ impl<'a> AnalyzeContext<'a> {
                 let mut region = Region::default();
                 for elem_decl in element_decls.iter_mut() {
                     self.analyze_subtype_indication(parent, &mut elem_decl.subtype, diagnostics)?;
-                    region.add(&elem_decl.ident, NamedEntityKind::Other, diagnostics);
+                    region.add(&elem_decl.ident, NamedEntityKind::RecordField, diagnostics);
                 }
                 region.close(diagnostics);
 
@@ -407,13 +399,13 @@ impl<'a> AnalyzeContext<'a> {
             TypeDefinition::Physical(ref mut physical) => {
                 parent.add(
                     physical.primary_unit.clone(),
-                    NamedEntityKind::Constant,
+                    NamedEntityKind::PhysicalLiteral,
                     diagnostics,
                 );
                 for (secondary_unit_name, _) in physical.secondary_units.iter_mut() {
                     parent.add(
                         secondary_unit_name.clone(),
-                        NamedEntityKind::Constant,
+                        NamedEntityKind::PhysicalLiteral,
                         diagnostics,
                     )
                 }
@@ -509,7 +501,11 @@ impl<'a> AnalyzeContext<'a> {
                     &mut file_decl.subtype_indication,
                     diagnostics,
                 )?;
-                region.add(&file_decl.ident, NamedEntityKind::Other, diagnostics);
+                region.add(
+                    &file_decl.ident,
+                    NamedEntityKind::InterfaceFile,
+                    diagnostics,
+                );
             }
             InterfaceDeclaration::Object(ref mut object_decl) => {
                 self.analyze_subtype_indication(
@@ -520,10 +516,14 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(ref mut expression) = object_decl.expression {
                     self.analyze_expression(region, expression, diagnostics)?
                 }
-                region.add(&object_decl.ident, NamedEntityKind::Other, diagnostics);
+                region.add(
+                    &object_decl.ident,
+                    NamedEntityKind::InterfaceObject(object_decl.class),
+                    diagnostics,
+                );
             }
             InterfaceDeclaration::Type(ref ident) => {
-                region.add(ident, NamedEntityKind::Other, diagnostics);
+                region.add(ident, NamedEntityKind::InterfaceType, diagnostics);
             }
             InterfaceDeclaration::Subprogram(ref mut subpgm, ..) => {
                 self.analyze_subprogram_declaration(region, subpgm, diagnostics)?;
@@ -537,10 +537,7 @@ impl<'a> AnalyzeContext<'a> {
                 match self.analyze_package_instance_name(region, &mut instance.package_name) {
                     Ok(package_region) => region.add(
                         &instance.ident,
-                        NamedEntityKind::LocalPackageInstance(
-                            instance.ident.item.clone(),
-                            package_region.clone(),
-                        ),
+                        NamedEntityKind::LocalPackageInstance(package_region.clone()),
                         diagnostics,
                     ),
                     Err(err) => {

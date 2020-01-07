@@ -83,10 +83,10 @@ impl Visibility {
         }
     }
 
-    pub fn make_potentially_visible(
+    pub fn make_potentially_visible_with_name(
         &mut self,
-        designator: Designator,
         visible_pos: Option<&SrcPos>,
+        designator: Designator,
         ent: NamedEntity,
     ) {
         // Add implicit declarations when using declaration

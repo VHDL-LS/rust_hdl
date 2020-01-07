@@ -40,7 +40,8 @@ impl<'a> AnalyzeContext<'a> {
         suffix: &WithPos<WithRef<Designator>>,
     ) -> AnalysisResult<ResolvedName> {
         match prefix.kind() {
-            NamedEntityKind::Library(ref library_name) => {
+            NamedEntityKind::Library => {
+                let library_name = prefix.designator().expect_identifier();
                 let named_entity =
                     self.lookup_in_library(library_name, &suffix.pos, suffix.designator())?;
 
@@ -49,51 +50,22 @@ impl<'a> AnalyzeContext<'a> {
                     named_entity,
                 )))
             }
-            NamedEntityKind::UninstPackage(ref unit_id, ..) => Err(AnalysisError::NotFatal(
-                uninstantiated_package_prefix_error(prefix_pos, unit_id),
+            NamedEntityKind::UninstPackage(..) => Err(AnalysisError::NotFatal(
+                uninstantiated_package_prefix_error(prefix, prefix_pos),
             )),
 
-            NamedEntityKind::Package(ref unit_id, ref package_region) => {
-                if let Some(decl) = package_region.lookup_selected(suffix.designator()) {
+            NamedEntityKind::Package(ref region)
+            | NamedEntityKind::PackageInstance(ref region)
+            | NamedEntityKind::LocalPackageInstance(ref region) => {
+                if let Some(decl) = region.lookup_selected(suffix.designator()) {
                     Ok(ResolvedName::Known(decl.clone()))
                 } else {
                     Err(AnalysisError::not_fatal_error(
                         suffix.as_ref(),
                         format!(
-                            "No declaration of '{}' within package '{}.{}'",
+                            "No declaration of '{}' within {}",
                             suffix.item,
-                            unit_id.library_name(),
-                            unit_id.primary_name()
-                        ),
-                    ))
-                }
-            }
-
-            NamedEntityKind::PackageInstance(ref unit_id, ref instance_region) => {
-                if let Some(decl) = instance_region.lookup_selected(suffix.designator()) {
-                    Ok(ResolvedName::Known(decl.clone()))
-                } else {
-                    Err(AnalysisError::not_fatal_error(
-                        suffix.as_ref(),
-                        format!(
-                            "No declaration of '{}' within package instance '{}.{}'",
-                            suffix.item,
-                            unit_id.library_name(),
-                            unit_id.primary_name()
-                        ),
-                    ))
-                }
-            }
-
-            NamedEntityKind::LocalPackageInstance(ref instance_name, ref instance_region) => {
-                if let Some(decl) = instance_region.lookup_selected(suffix.designator()) {
-                    Ok(ResolvedName::Known(decl.clone()))
-                } else {
-                    Err(AnalysisError::not_fatal_error(
-                        suffix.as_ref(),
-                        format!(
-                            "No declaration of '{}' within package instance '{}'",
-                            suffix.item, &instance_name
+                            prefix.describe(),
                         ),
                     ))
                 }
@@ -579,13 +551,16 @@ impl<'a> AnalyzeContext<'a> {
     }
 }
 
-pub fn uninstantiated_package_prefix_error(prefix: &SrcPos, unit_id: &UnitId) -> Diagnostic {
+// @TODO make method
+pub fn uninstantiated_package_prefix_error(
+    named_entity: &NamedEntity,
+    prefix: &SrcPos,
+) -> Diagnostic {
     Diagnostic::error(
         prefix,
-        format!(
-            "Uninstantiated generic package '{}.{}' may not be the prefix of a selected name",
-            unit_id.library_name(),
-            unit_id.primary_name()
-        ),
+        capitalize(&format!(
+            "{} may not be the prefix of a selected name",
+            named_entity.describe(),
+        )),
     )
 }

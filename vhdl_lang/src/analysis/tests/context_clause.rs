@@ -429,7 +429,7 @@ end entity;
         diagnostics,
         vec![Diagnostic::error(
             code.s("pkg", 2),
-            "'pkg' does not denote a context declaration",
+            "package 'pkg' does not denote a context declaration",
         )],
     )
 }
@@ -460,20 +460,14 @@ end entity;
         diagnostics,
         vec![
             Diagnostic::error(
-                code.s1("context libname;"),
+                code.s("libname", 2),
                 "Context reference must be a selected name",
             ),
-            Diagnostic::error(code.s1("use work;"), "Use clause must be a selected name"),
+            Diagnostic::error(code.s1("work"), "Use clause must be a selected name"),
+            Diagnostic::error(code.s("libname", 3), "Use clause must be a selected name"),
+            Diagnostic::error(code.s1("work.pkg(0)"), "Use clause must be a selected name"),
             Diagnostic::error(
-                code.s1("use libname;"),
-                "Use clause must be a selected name",
-            ),
-            Diagnostic::error(
-                code.s1("use work.pkg(0);"),
-                "Use clause must be a selected name",
-            ),
-            Diagnostic::error(
-                code.s1("context work.ctx'range;"),
+                code.s1("work.ctx'range"),
                 "Context reference must be a selected name",
             ),
         ],
@@ -504,7 +498,7 @@ end package;
         diagnostics,
         vec![Diagnostic::error(
             code.s1("const2"),
-            "No declaration of 'const2' within package 'libname.pkg'",
+            "No declaration of 'const2' within package 'pkg'",
         )],
     );
 }
@@ -531,7 +525,7 @@ end package;
         diagnostics,
         vec![Diagnostic::error(
             code.s1("const2"),
-            "No declaration of 'const2' within package 'libname.pkg'",
+            "No declaration of 'const2' within package 'pkg'",
         )],
     );
 }
@@ -566,7 +560,7 @@ end package;
             // @TODO add use instance path in error diagnostic
             Diagnostic::error(
                 code.s1("const2"),
-                "No declaration of 'const2' within package instance 'libname.ipkg'",
+                "No declaration of 'const2' within package instance 'ipkg'",
             ),
         ],
     );
@@ -628,11 +622,45 @@ end package;
         vec![
             Diagnostic::error(
                 code.s("work.gpkg", 1),
-                "Uninstantiated generic package 'libname.gpkg' may not be the prefix of a selected name",
+                "Uninstantiated package 'gpkg' may not be the prefix of a selected name",
             ),
             Diagnostic::error(
                 code.s("work.gpkg", 2),
-                "Uninstantiated generic package 'libname.gpkg' may not be the prefix of a selected name",
+                "Uninstantiated package 'gpkg' may not be the prefix of a selected name",
+            ),
+        ],
+    );
+}
+
+#[test]
+fn invalid_prefix_of_use_clause_selected_name() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+  type enum_t is (alpha, beta);
+  constant const : natural := 0;
+end package;
+
+use work.pkg.enum_t.foo;
+use work.pkg.const.all;
+
+package user is
+end package;
+        ",
+    );
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s("work.pkg.enum_t", 1),
+                "Invalid prefix for selected name",
+            ),
+            Diagnostic::error(
+                code.s("work.pkg.const", 1),
+                "Invalid prefix for selected name",
             ),
         ],
     );

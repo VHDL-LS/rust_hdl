@@ -14,40 +14,40 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub enum NamedEntityKind {
     AliasOf(Box<NamedEntity>),
-    Other,
+    OtherAlias,
+    File,
+    InterfaceFile,
+    RecordField,
+    Component,
+    Attribute,
     Overloaded,
     // An optional region with implicit declarations
     TypeDeclaration(Option<Arc<Region<'static>>>),
     IncompleteType,
-    Constant,
+    InterfaceType,
+    Label,
+    Object(ObjectClass),
+    InterfaceObject(ObjectClass),
+    PhysicalLiteral,
     DeferredConstant,
     // The region of the protected type which needs to be extendend by the body
     ProtectedType(Arc<Region<'static>>),
-    Library(Symbol),
-    Entity(UnitId, Arc<Region<'static>>),
-    Configuration(UnitId, Arc<Region<'static>>),
-    Package(UnitId, Arc<Region<'static>>),
-    UninstPackage(UnitId, Arc<Region<'static>>),
-    PackageInstance(UnitId, Arc<Region<'static>>),
-    Context(UnitId, Arc<Region<'static>>),
-    LocalPackageInstance(Symbol, Arc<Region<'static>>),
+    Library,
+    Entity(Arc<Region<'static>>),
+    Configuration(Arc<Region<'static>>),
+    Package(Arc<Region<'static>>),
+    UninstPackage(Arc<Region<'static>>),
+    PackageInstance(Arc<Region<'static>>),
+    Context(Arc<Region<'static>>),
+    LocalPackageInstance(Arc<Region<'static>>),
 }
 
 impl NamedEntityKind {
     pub fn from_object_declaration(decl: &ObjectDeclaration) -> NamedEntityKind {
-        match decl {
-            ObjectDeclaration {
-                class: ObjectClass::Constant,
-                ref expression,
-                ..
-            } => {
-                if expression.is_none() {
-                    NamedEntityKind::DeferredConstant
-                } else {
-                    NamedEntityKind::Constant
-                }
-            }
-            _ => NamedEntityKind::Other,
+        if decl.class == ObjectClass::Constant && decl.expression.is_none() {
+            NamedEntityKind::DeferredConstant
+        } else {
+            NamedEntityKind::Object(decl.class)
         }
     }
 
@@ -60,7 +60,7 @@ impl NamedEntityKind {
     }
 
     fn is_non_deferred_constant(&self) -> bool {
-        if let NamedEntityKind::Constant = self {
+        if let NamedEntityKind::Object(ObjectClass::Constant) = self {
             true
         } else {
             false
@@ -82,6 +82,49 @@ impl NamedEntityKind {
             false
         }
     }
+
+    fn describe(&self) -> &str {
+        use NamedEntityKind::*;
+        match self {
+            AliasOf(..) => "alias",
+            OtherAlias => "alias",
+            File => "file",
+            InterfaceFile => "file",
+            RecordField => "file",
+            Component => "file",
+            Attribute => "file",
+            Overloaded => "file",
+            TypeDeclaration(..) => "type",
+            IncompleteType => "type",
+            InterfaceType => "type",
+            Label => "label",
+            Object(class) => class.describe(),
+            InterfaceObject(class) => class.describe(),
+            PhysicalLiteral => "physical literal",
+            DeferredConstant => "deferred constant",
+            ProtectedType(..) => "protected type",
+            Library => "library",
+            Entity(..) => "entity",
+            Configuration(..) => "configuration",
+            Package(..) => "package",
+            UninstPackage(..) => "uninstantiated package",
+            PackageInstance(..) => "package instance",
+            Context(..) => "context",
+            LocalPackageInstance(..) => "package instance",
+        }
+    }
+}
+
+impl ObjectClass {
+    fn describe(&self) -> &str {
+        use ObjectClass::*;
+        match self {
+            Constant => "constant",
+            Variable => "variable",
+            Signal => "signal",
+            SharedVariable => "shared variable",
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -89,19 +132,29 @@ pub struct NamedEntity {
     /// The location where the declaration was made
     /// Builtin and implicit declaration will not have a source position
     decl_pos: Option<SrcPos>,
+    designator: Designator,
     kind: NamedEntityKind,
 }
 
 impl NamedEntity {
-    pub fn new(kind: NamedEntityKind, decl_pos: Option<&SrcPos>) -> NamedEntity {
+    pub fn new(
+        designator: Designator,
+        kind: NamedEntityKind,
+        decl_pos: Option<&SrcPos>,
+    ) -> NamedEntity {
         NamedEntity {
-            kind,
             decl_pos: decl_pos.cloned(),
+            designator,
+            kind,
         }
     }
 
     pub fn decl_pos(&self) -> Option<&SrcPos> {
         self.decl_pos.as_ref()
+    }
+
+    pub fn designator(&self) -> &Designator {
+        &self.designator
     }
 
     pub fn kind(&self) -> &NamedEntityKind {
@@ -146,6 +199,10 @@ impl NamedEntity {
             _ => self,
         }
     }
+
+    pub fn describe(&self) -> String {
+        format!("{} '{}'", self.kind.describe(), self.designator)
+    }
 }
 
 #[derive(Clone)]
@@ -178,7 +235,7 @@ impl VisibleDeclaration {
         }
     }
 
-    fn first(&self) -> &NamedEntity {
+    pub fn first(&self) -> &NamedEntity {
         self.named_entities
             .first()
             .expect("Declaration always contains one entry")
@@ -202,7 +259,7 @@ impl VisibleDeclaration {
         region: &mut Region<'_>,
     ) {
         for ent in self.named_entities.iter() {
-            region.make_potentially_visible(self.designator.clone(), visible_pos, ent.clone());
+            region.make_potentially_visible(visible_pos, ent.clone());
         }
     }
 }
@@ -306,7 +363,7 @@ impl<'a> Region<'a> {
                         let decl = self.decls.get(&ext_decl.designator);
 
                         if let Some(decl) = decl {
-                            if let NamedEntityKind::Constant = decl.first_kind() {
+                            if decl.first_kind().is_non_deferred_constant() {
                                 found = true;
                             }
                         }
@@ -461,16 +518,11 @@ impl<'a> Region<'a> {
         }
     }
 
-    fn add_named_entity(
-        &mut self,
-        designator: Designator,
-        ent: NamedEntity,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) {
+    fn add_named_entity(&mut self, ent: NamedEntity, diagnostics: &mut dyn DiagnosticHandler) {
         let ext_decl = self
             .extends
             .as_ref()
-            .and_then(|extends| extends.decls.get(&designator));
+            .and_then(|extends| extends.decls.get(&ent.designator));
 
         if !self.check_deferred_constant_only_in_package(&ent, diagnostics) {
             return;
@@ -483,13 +535,13 @@ impl<'a> Region<'a> {
         }
 
         // @TODO merge with .entry below
-        if let Some(prev_decl) = self.decls.get(&designator) {
+        if let Some(prev_decl) = self.decls.get(&ent.designator) {
             if !self.check_full_constand_of_deferred_only_in_body(&ent, prev_decl, diagnostics) {
                 return;
             }
         }
 
-        match self.decls.entry(designator.clone()) {
+        match self.decls.entry(ent.designator.clone()) {
             Entry::Occupied(ref mut entry) => {
                 let prev_decl = entry.get_mut();
 
@@ -499,7 +551,7 @@ impl<'a> Region<'a> {
             }
             Entry::Vacant(entry) => {
                 if Self::check_add(&ent, None, ext_decl, diagnostics) {
-                    entry.insert(VisibleDeclaration::new(designator, ent));
+                    entry.insert(VisibleDeclaration::new(ent.designator.clone(), ent));
                 }
             }
         }
@@ -513,8 +565,7 @@ impl<'a> Region<'a> {
     ) {
         let designator = designator.into();
         self.add_named_entity(
-            designator.item,
-            NamedEntity::new(kind, Some(&designator.pos)),
+            NamedEntity::new(designator.item, kind, Some(&designator.pos)),
             diagnostics,
         );
     }
@@ -522,8 +573,8 @@ impl<'a> Region<'a> {
     pub fn overwrite(&mut self, designator: impl Into<WithPos<Designator>>, kind: NamedEntityKind) {
         let designator = designator.into();
         let decl = VisibleDeclaration::new(
-            designator.item,
-            NamedEntity::new(kind, Some(&designator.pos)),
+            designator.item.clone(),
+            NamedEntity::new(designator.item, kind, Some(&designator.pos)),
         );
         self.decls.insert(decl.designator.clone(), decl);
     }
@@ -536,11 +587,7 @@ impl<'a> Region<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
         self.add_named_entity(
-            designator.into(),
-            NamedEntity {
-                decl_pos: decl_pos.cloned(),
-                kind,
-            },
+            NamedEntity::new(designator.into(), kind, decl_pos),
             diagnostics,
         );
     }
@@ -549,13 +596,13 @@ impl<'a> Region<'a> {
         &mut self,
         designator: impl Into<Designator>,
         visible_pos: Option<&SrcPos>,
-        library_name: &Symbol,
     ) {
         let ent = NamedEntity {
+            designator: designator.into(),
             decl_pos: None,
-            kind: NamedEntityKind::Library(library_name.clone()),
+            kind: NamedEntityKind::Library,
         };
-        self.make_potentially_visible(designator.into(), visible_pos, ent);
+        self.make_potentially_visible(visible_pos, ent);
     }
 
     pub fn add_implicit_declarations(
@@ -580,14 +627,22 @@ impl<'a> Region<'a> {
         }
     }
 
-    pub fn make_potentially_visible(
+    pub fn make_potentially_visible(&mut self, visible_pos: Option<&SrcPos>, ent: NamedEntity) {
+        self.visibility.make_potentially_visible_with_name(
+            visible_pos,
+            ent.designator.clone(),
+            ent,
+        );
+    }
+
+    pub fn make_potentially_visible_with_name(
         &mut self,
-        designator: Designator,
         visible_pos: Option<&SrcPos>,
+        designator: Designator,
         ent: NamedEntity,
     ) {
         self.visibility
-            .make_potentially_visible(designator, visible_pos, ent);
+            .make_potentially_visible_with_name(visible_pos, designator, ent);
     }
 
     pub fn make_all_potentially_visible(

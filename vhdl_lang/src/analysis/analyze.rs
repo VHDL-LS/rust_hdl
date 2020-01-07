@@ -167,9 +167,8 @@ impl<'a> AnalyzeContext<'a> {
                 AnyKind::Primary(..) => {
                     let data = self.get_analysis(Some(use_pos), unit)?;
                     region.make_potentially_visible(
-                        unit.name().into(),
                         Some(use_pos),
-                        Self::create_primary_unit_decl(unit.unit_id(), &data),
+                        Self::create_primary_unit_decl(&data),
                     );
                 }
                 AnyKind::Secondary(..) => {}
@@ -191,7 +190,17 @@ impl<'a> AnalyzeContext<'a> {
     pub fn add_implicit_context_clause(&self, region: &mut Region<'_>) -> FatalNullResult {
         // work is not visible in context declarations
         if self.current_unit.kind() != AnyKind::Primary(PrimaryKind::Context) {
-            region.make_library_visible(&self.work_sym, None, self.work_library_name());
+            let work_library = NamedEntity::new(
+                self.work_library_name().clone().into(),
+                NamedEntityKind::Library,
+                None,
+            );
+
+            region.make_potentially_visible_with_name(
+                None,
+                self.work_sym.clone().into(),
+                work_library,
+            );
         }
 
         if self.is_standard_package() || !self.has_library(&self.std_sym) {
@@ -199,7 +208,7 @@ impl<'a> AnalyzeContext<'a> {
             return Ok(());
         };
 
-        region.make_library_visible(&self.std_sym, None, &self.std_sym);
+        region.make_library_visible(&self.std_sym, None);
 
         let standard_pkg_data = self.expect_standard_package_analysis()?;
         region.make_all_potentially_visible(None, &standard_pkg_data.result().region);
@@ -248,10 +257,7 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    fn create_primary_unit_decl(unit_id: &UnitId, unit: &UnitReadGuard) -> NamedEntity {
-        // @TODO add PrimaryUnit Declaration struct
-
-        let unit_id = unit_id.clone();
+    fn create_primary_unit_decl(unit: &UnitReadGuard) -> NamedEntity {
         let region = unit.result().region.clone();
 
         let primary_unit = if let Some(primary_unit) = unit.as_primary() {
@@ -261,22 +267,20 @@ impl<'a> AnalyzeContext<'a> {
         };
 
         let kind = match primary_unit {
-            AnyPrimaryUnit::Entity(..) => NamedEntityKind::Entity(unit_id, region),
-            AnyPrimaryUnit::Configuration(..) => NamedEntityKind::Configuration(unit_id, region),
+            AnyPrimaryUnit::Entity(..) => NamedEntityKind::Entity(region),
+            AnyPrimaryUnit::Configuration(..) => NamedEntityKind::Configuration(region),
             AnyPrimaryUnit::Package(ref package) => {
                 if package.generic_clause.is_some() {
-                    NamedEntityKind::UninstPackage(unit_id, region)
+                    NamedEntityKind::UninstPackage(region)
                 } else {
-                    NamedEntityKind::Package(unit_id, region)
+                    NamedEntityKind::Package(region)
                 }
             }
-            AnyPrimaryUnit::PackageInstance(..) => {
-                NamedEntityKind::PackageInstance(unit_id, region)
-            }
-            AnyPrimaryUnit::Context(..) => NamedEntityKind::Context(unit_id, region),
+            AnyPrimaryUnit::PackageInstance(..) => NamedEntityKind::PackageInstance(region),
+            AnyPrimaryUnit::Context(..) => NamedEntityKind::Context(region),
         };
 
-        NamedEntity::new(kind, Some(unit.pos()))
+        NamedEntity::new(unit.name().into(), kind, Some(unit.pos()))
     }
 
     fn get_primary_unit(&self, library_name: &Symbol, name: &Symbol) -> Option<&'a LockedUnit> {
@@ -316,7 +320,7 @@ impl<'a> AnalyzeContext<'a> {
         if let Designator::Identifier(ref primary_name) = primary_name {
             if let Some(unit) = self.get_primary_unit(library_name, primary_name) {
                 let data = self.get_analysis(Some(pos), unit)?;
-                return Ok(Self::create_primary_unit_decl(unit.unit_id(), &data));
+                return Ok(Self::create_primary_unit_decl(&data));
             }
         }
 

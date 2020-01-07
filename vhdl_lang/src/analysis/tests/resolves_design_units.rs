@@ -108,7 +108,7 @@ end configuration;
     check_diagnostics(
         builder.analyze(),
         vec![Diagnostic::error(
-            code.s("lib2.ent", 1),
+            code.s("lib2", 2),
             "Configuration must be within the same library 'libname' as the corresponding entity",
         )],
     );
@@ -122,6 +122,11 @@ entity decl is
 end entity;
 
 configuration cfg_good1 of decl is
+for rtl
+end for;
+end configuration;
+
+configuration cfg_good2 of work.decl is
 for rtl
 end for;
 end configuration;
