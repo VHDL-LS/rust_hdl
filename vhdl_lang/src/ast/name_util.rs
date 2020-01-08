@@ -26,6 +26,15 @@ impl From<WithPos<SelectedName>> for WithPos<Name> {
     }
 }
 
+impl WithPos<SelectedName> {
+    pub fn suffix_pos(&self) -> &SrcPos {
+        match self.item {
+            SelectedName::Designator(..) => &self.pos,
+            SelectedName::Selected(_, ref suffix) => &suffix.pos,
+        }
+    }
+}
+
 pub fn to_simple_name(name: WithPos<Name>) -> DiagnosticResult<Ident> {
     match name.item {
         Name::Designator(WithRef {

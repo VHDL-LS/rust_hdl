@@ -342,10 +342,7 @@ end package body;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![
-            Diagnostic::error(code.s("bad", 2), "Expected type, got overloaded name")
-                .related(code.s1("bad"), "Defined here"),
-        ],
+        vec![kind_error(&code, "bad", 2, 1, "type", "overloaded name")],
     );
 }
 
@@ -368,10 +365,7 @@ end package body;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![
-            Diagnostic::error(code.s("bad", 2), "Expected type, got constant 'bad'")
-                .related(code.s1("bad"), "Defined here"),
-        ],
+        vec![kind_error(&code, "bad", 2, 1, "type", "constant 'bad'")],
     );
 }
 
@@ -391,11 +385,14 @@ end package;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
-            code.s("bad", 2),
-            "Expected type, got alias 'bad' of constant 'const'",
-        )
-        .related(code.s1("bad"), "Defined here")],
+        vec![kind_error(
+            &code,
+            "bad",
+            2,
+            1,
+            "type",
+            "alias 'bad' of constant 'const'",
+        )],
     );
 }
 
@@ -443,4 +440,19 @@ end package body;
 
 ",
     );
+}
+
+pub fn kind_error(
+    code: &Code,
+    name: &str,
+    occ: usize,
+    occ_decl: usize,
+    expected: &str,
+    got: &str,
+) -> Diagnostic {
+    Diagnostic::error(
+        code.s(name, occ),
+        format!("Expected {}, got {}", expected, got),
+    )
+    .related(code.s(name, occ_decl), "Defined here")
 }

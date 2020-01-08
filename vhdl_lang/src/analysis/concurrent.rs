@@ -169,17 +169,50 @@ impl<'a> AnalyzeContext<'a> {
         match instance.unit {
             // @TODO architecture
             InstantiatedUnit::Entity(ref mut entity_name, ..) => {
-                if let Err(err) = self.resolve_selected_name(parent, entity_name) {
+                fn is_entity(kind: &NamedEntityKind) -> bool {
+                    if let NamedEntityKind::Entity(..) = kind {
+                        true
+                    } else {
+                        false
+                    }
+                }
+
+                if let Err(err) =
+                    self.resolve_non_overloaded(parent, entity_name, &is_entity, "entity")
+                {
                     err.add_to(diagnostics)?;
                 }
             }
             InstantiatedUnit::Component(ref mut component_name) => {
-                if let Err(err) = self.resolve_selected_name(parent, component_name) {
+                fn is_component(kind: &NamedEntityKind) -> bool {
+                    if let NamedEntityKind::Component = kind {
+                        true
+                    } else {
+                        false
+                    }
+                }
+
+                if let Err(err) =
+                    self.resolve_non_overloaded(parent, component_name, &is_component, "component")
+                {
                     err.add_to(diagnostics)?;
                 }
             }
             InstantiatedUnit::Configuration(ref mut config_name) => {
-                if let Err(err) = self.resolve_selected_name(parent, config_name) {
+                fn is_configuration(kind: &NamedEntityKind) -> bool {
+                    if let NamedEntityKind::Configuration(..) = kind {
+                        true
+                    } else {
+                        false
+                    }
+                }
+
+                if let Err(err) = self.resolve_non_overloaded(
+                    parent,
+                    config_name,
+                    &is_configuration,
+                    "configuration",
+                ) {
                     err.add_to(diagnostics)?;
                 }
             }
