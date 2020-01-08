@@ -179,6 +179,7 @@ fn parse_case_statement_known_keyword(
 
     stream.expect_kind(SemiColon)?;
     Ok(CaseStatement {
+        is_matching,
         expression,
         alternatives,
     })
@@ -1317,6 +1318,7 @@ end case;
             with_label(
                 None,
                 SequentialStatement::Case(CaseStatement {
+                    is_matching: false,
                     expression: code.s1("foo(1)").expr(),
                     alternatives: vec![
                         Alternative {
@@ -1353,6 +1355,7 @@ end case?;
             with_label(
                 None,
                 SequentialStatement::Case(CaseStatement {
+                    is_matching: true,
                     expression: code.s1("foo(1)").expr(),
                     alternatives: vec![Alternative {
                         choices: code.s1("others").choices(),
