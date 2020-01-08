@@ -26,8 +26,7 @@ fn main() {
             Arg::with_name("num-threads")
                 .short("-p")
                 .long("--num-threads")
-                .default_value("4")
-                .help("The number of threads to use"),
+                .help("The number of threads to use. By default the maximum is selected based on process cores"),
         )
         .arg(
             Arg::with_name("config")
@@ -39,11 +38,13 @@ fn main() {
         )
         .get_matches();
 
-    let num_threads = value_t_or_exit!(matches.value_of("num-threads"), usize);
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(num_threads)
-        .build_global()
-        .unwrap();
+    if matches.is_present("num-threads") {
+        let num_threads = value_t_or_exit!(matches.value_of("num-threads"), usize);
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(num_threads)
+            .build_global()
+            .unwrap();
+    }
 
     let file_name = value_t_or_exit!(matches.value_of("config"), String);
     let mut config = Config::default();
