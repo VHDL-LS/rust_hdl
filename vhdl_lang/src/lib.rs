@@ -18,5 +18,6 @@ pub use crate::data::{
     Diagnostic, Latin1String, Message, MessageHandler, MessagePrinter, MessageType, Position,
     Range, Severity, Source, SrcPos,
 };
-pub use crate::project::Project;
+
+pub use crate::project::{Project, SourceFile};
 pub use crate::syntax::{ParserResult, VHDLParser};
