@@ -1354,14 +1354,10 @@ end case?;
                 None,
                 SequentialStatement::Case(CaseStatement {
                     expression: code.s1("foo(1)").expr(),
-                    alternatives: vec![
-                        Alternative {
-                            choices: code.s1("others").choices(),
-                            item: vec![
-                                code.s1("null;").sequential_statement(),
-                            ]
-                        }
-                    ],
+                    alternatives: vec![Alternative {
+                        choices: code.s1("others").choices(),
+                        item: vec![code.s1("null;").sequential_statement(),]
+                    }],
                 })
             )
         );

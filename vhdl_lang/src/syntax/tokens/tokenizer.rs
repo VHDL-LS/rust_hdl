@@ -1533,9 +1533,7 @@ impl<'a> Tokenizer<'a> {
                             (QueGT, Value::NoValue)
                         }
                     }
-                    _ => {
-                        (Que, Value::NoValue)
-                    }
+                    _ => (Que, Value::NoValue),
                 }
             }
             b'^' => {
