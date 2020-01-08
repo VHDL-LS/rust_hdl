@@ -201,7 +201,15 @@ impl NamedEntity {
     }
 
     pub fn describe(&self) -> String {
-        format!("{} '{}'", self.kind.describe(), self.designator)
+        if let NamedEntityKind::AliasOf(..) = self.kind {
+            format!(
+                "alias '{}' of {}",
+                self.designator,
+                self.as_actual().describe()
+            )
+        } else {
+            format!("{} '{}'", self.kind.describe(), self.designator)
+        }
     }
 }
 

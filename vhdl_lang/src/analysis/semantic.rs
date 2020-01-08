@@ -207,7 +207,22 @@ impl<'a> AnalyzeContext<'a> {
             .resolve_selected_name(region, type_mark)?
             .into_non_overloaded()
         {
-            Ok(ent) => Ok(ent),
+            Ok(ent) => match ent.as_actual().kind() {
+                NamedEntityKind::IncompleteType
+                | NamedEntityKind::ProtectedType(..)
+                | NamedEntityKind::InterfaceType
+                | NamedEntityKind::TypeDeclaration(..) => Ok(ent),
+                _ => {
+                    let mut error = Diagnostic::error(
+                        type_mark,
+                        format!("Expected type, got {}", ent.describe()),
+                    );
+                    if let Some(pos) = ent.decl_pos() {
+                        error.add_related(pos, "Defined here");
+                    }
+                    Err(AnalysisError::NotFatal(error))
+                }
+            },
             Err(visible) => {
                 let mut error = Diagnostic::error(type_mark, "Expected type, got overloaded name");
                 for ent in visible.named_entities() {

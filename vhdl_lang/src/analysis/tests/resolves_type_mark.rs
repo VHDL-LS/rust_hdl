@@ -320,7 +320,7 @@ end package;
 }
 
 #[test]
-fn error_on_type_mark_with_non_type() {
+fn error_on_type_mark_with_overloaded() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(
         "libname",
@@ -346,5 +346,101 @@ end package body;
             Diagnostic::error(code.s("bad", 2), "Expected type, got overloaded name")
                 .related(code.s1("bad"), "Defined here"),
         ],
+    );
+}
+
+#[test]
+fn error_on_type_mark_with_non_type() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+end package;
+
+package body pkg is
+  constant bad : natural := 0;
+  constant err : bad := 0;
+end package body;
+
+",
+    );
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(code.s("bad", 2), "Expected type, got constant 'bad'")
+                .related(code.s1("bad"), "Defined here"),
+        ],
+    );
+}
+
+#[test]
+fn error_on_type_mark_with_alias_of_non_type() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+  constant const : natural := 0;
+  alias bad is const;
+  constant name : bad := 0;
+end package;
+",
+    );
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("bad", 2),
+            "Expected type, got alias 'bad' of constant 'const'",
+        )
+        .related(code.s1("bad"), "Defined here")],
+    );
+}
+
+#[test]
+fn error_on_type_mark_ok() {
+    check_code_with_no_diagnostics(
+        "
+package gpkg is
+  -- Interface type
+  generic (type type_t);
+
+  type record_t is record
+    field : type_t;
+  end record;
+end package;
+
+package pkg is
+  type incomplete;
+  -- Incomplete type
+  type access_t is access incomplete;
+  type incomplete is record
+    field : access_t;
+  end record;
+
+  type ptype_t is protected
+  end protected;
+
+  type ptype_t is protected body
+  end protected body;
+
+  -- Protected type
+  shared variable ptype : ptype_t;
+
+  -- Other type
+  type enum_t is (alpha, beta);
+  constant const : enum_t := alpha;
+
+  -- Alias of type
+  alias alias_t is enum_t;
+  constant const2 : alias_t := alpha;
+end package;
+
+package body pkg is
+end package body;
+
+",
     );
 }
