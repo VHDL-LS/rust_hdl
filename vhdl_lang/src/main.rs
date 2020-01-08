@@ -66,8 +66,9 @@ fn main() {
 
     let start = SystemTime::now();
     let mut project = Project::from_config(&config, &mut msg_printer);
+    let diagnostics = project.analyse();
     let duration = start.elapsed().unwrap();
-    show_diagnostics(&project.analyse());
+    show_diagnostics(&diagnostics);
 
     if show_perf {
         let mut num_files = 0;
