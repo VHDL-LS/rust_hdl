@@ -13,6 +13,7 @@
 extern crate clap;
 
 use std::path::Path;
+use std::time::SystemTime;
 use vhdl_lang::{Config, Diagnostic, MessagePrinter, Project};
 
 fn main() {
@@ -26,8 +27,13 @@ fn main() {
             Arg::with_name("num-threads")
                 .short("-p")
                 .long("--num-threads")
-                .default_value("4")
-                .help("The number of threads to use"),
+                .help("The number of threads to use. By default the maximum is selected based on process cores"),
+        )
+        .arg(
+            Arg::with_name("perf")
+                .long("--perf")
+                .help("Prints the number of files processed and the execution time")
+                .takes_value(false),
         )
         .arg(
             Arg::with_name("config")
@@ -39,11 +45,15 @@ fn main() {
         )
         .get_matches();
 
-    let num_threads = value_t_or_exit!(matches.value_of("num-threads"), usize);
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(num_threads)
-        .build_global()
-        .unwrap();
+    if matches.is_present("num-threads") {
+        let num_threads = value_t_or_exit!(matches.value_of("num-threads"), usize);
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(num_threads)
+            .build_global()
+            .unwrap();
+    }
+
+    let show_perf = matches.is_present("perf");
 
     let file_name = value_t_or_exit!(matches.value_of("config"), String);
     let mut config = Config::default();
@@ -53,8 +63,32 @@ fn main() {
         &Config::read_file_path(Path::new(&file_name)).expect("Failed to read config file"),
         &mut msg_printer,
     );
+
+    let start = SystemTime::now();
     let mut project = Project::from_config(&config, &mut msg_printer);
-    show_diagnostics(&project.analyse());
+    let diagnostics = project.analyse();
+    let duration = start.elapsed().unwrap();
+    show_diagnostics(&diagnostics);
+
+    if show_perf {
+        let mut num_files = 0;
+        let mut num_lines = 0;
+        for source_file in project.files() {
+            num_files += 1;
+            num_lines += source_file.num_lines();
+        }
+        let duration_per_line = duration.checked_div(num_lines as u32).unwrap();
+
+        println!(
+            "Analyzed {} files with {} lines of code",
+            num_files, num_lines
+        );
+        println!(
+            "Total time to run was {} ms with an average of {} ns per line",
+            duration.as_millis(),
+            duration_per_line.as_nanos()
+        );
+    }
 
     // Exit without running Drop on entire allocated AST
     std::process::exit(0);

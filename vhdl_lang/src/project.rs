@@ -170,6 +170,10 @@ impl Project {
     pub fn find_all_references(&self, decl_pos: &SrcPos) -> Vec<SrcPos> {
         self.root.find_all_references(decl_pos)
     }
+
+    pub fn files(&self) -> impl Iterator<Item = &SourceFile> {
+        self.files.values()
+    }
 }
 
 /// Multiply clonable value by cloning
@@ -195,7 +199,7 @@ impl Default for Project {
     }
 }
 
-struct SourceFile {
+pub struct SourceFile {
     library_names: FnvHashSet<Symbol>,
     source: Source,
     design_file: DesignFile,
@@ -205,6 +209,10 @@ struct SourceFile {
 impl SourceFile {
     fn take_design_file(&mut self) -> DesignFile {
         std::mem::replace(&mut self.design_file, DesignFile::default())
+    }
+
+    pub fn num_lines(&self) -> usize {
+        self.source.contents().num_lines()
     }
 }
 
