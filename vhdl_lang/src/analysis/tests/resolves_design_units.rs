@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
+use super::resolves_type_mark::kind_error;
 use super::*;
 
 #[test]
@@ -403,5 +404,101 @@ end package body;
     assert_eq_unordered(
         &root.find_all_references(&code.s1("pkg").pos()),
         &vec![code.s("pkg", 1).pos(), code.s("pkg", 2).pos()],
+    );
+}
+
+#[test]
+fn component_instantiation_is_correct() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+  type enum_t is (alpha, beta);
+begin
+  inst : component enum_t;
+end architecture;
+
+
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![kind_error(
+            &code,
+            "enum_t",
+            2,
+            1,
+            "component",
+            "type 'enum_t'",
+        )],
+    );
+}
+
+#[test]
+fn entity_instantiation_is_correct() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package bad is
+end package;
+
+entity ent is
+end entity;
+
+architecture a of ent is
+begin
+  inst : entity work.bad;
+end architecture;
+
+
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![kind_error(&code, "bad", 2, 1, "entity", "package 'bad'")],
+    );
+}
+
+#[test]
+fn configuration_instantiation_is_correct() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity bad is
+end entity;
+
+entity ent is
+end entity;
+
+architecture a of ent is
+begin
+  inst : configuration work.bad;
+end architecture;
+
+
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![kind_error(
+            &code,
+            "bad",
+            2,
+            1,
+            "configuration",
+            "entity 'bad'",
+        )],
     );
 }

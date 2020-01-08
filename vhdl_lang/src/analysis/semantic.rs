@@ -198,33 +198,36 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    pub fn resolve_type_mark(
+    pub fn resolve_non_overloaded(
         &self,
         region: &Region<'_>,
-        type_mark: &mut WithPos<SelectedName>,
+        name: &mut WithPos<SelectedName>,
+        kind_ok: &impl Fn(&NamedEntityKind) -> bool,
+        expected: &str,
     ) -> AnalysisResult<NamedEntity> {
         match self
-            .resolve_selected_name(region, type_mark)?
+            .resolve_selected_name(region, name)?
             .into_non_overloaded()
         {
-            Ok(ent) => match ent.as_actual().kind() {
-                NamedEntityKind::IncompleteType
-                | NamedEntityKind::ProtectedType(..)
-                | NamedEntityKind::InterfaceType
-                | NamedEntityKind::TypeDeclaration(..) => Ok(ent),
-                _ => {
+            Ok(ent) => {
+                if kind_ok(ent.as_actual().kind()) {
+                    Ok(ent)
+                } else {
                     let mut error = Diagnostic::error(
-                        type_mark,
-                        format!("Expected type, got {}", ent.describe()),
+                        name.suffix_pos(),
+                        format!("Expected {}, got {}", expected, ent.describe()),
                     );
                     if let Some(pos) = ent.decl_pos() {
                         error.add_related(pos, "Defined here");
                     }
                     Err(AnalysisError::NotFatal(error))
                 }
-            },
+            }
             Err(visible) => {
-                let mut error = Diagnostic::error(type_mark, "Expected type, got overloaded name");
+                let mut error = Diagnostic::error(
+                    name.suffix_pos(),
+                    format!("Expected {}, got overloaded name", expected),
+                );
                 for ent in visible.named_entities() {
                     if let Some(pos) = ent.decl_pos() {
                         error.add_related(pos, "Defined here");
@@ -233,6 +236,24 @@ impl<'a> AnalyzeContext<'a> {
                 Err(AnalysisError::NotFatal(error))
             }
         }
+    }
+
+    pub fn resolve_type_mark(
+        &self,
+        region: &Region<'_>,
+        type_mark: &mut WithPos<SelectedName>,
+    ) -> AnalysisResult<NamedEntity> {
+        fn is_type(kind: &NamedEntityKind) -> bool {
+            match kind {
+                NamedEntityKind::IncompleteType
+                | NamedEntityKind::ProtectedType(..)
+                | NamedEntityKind::InterfaceType
+                | NamedEntityKind::TypeDeclaration(..) => true,
+                _ => false,
+            }
+        }
+
+        self.resolve_non_overloaded(region, type_mark, &is_type, "type")
     }
 
     fn analyze_attribute_name(
