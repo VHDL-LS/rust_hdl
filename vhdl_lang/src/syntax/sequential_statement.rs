@@ -144,6 +144,7 @@ fn parse_case_statement_known_keyword(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<CaseStatement> {
+    let is_matching = stream.pop_if_kind(Que)?.is_some();
     let expression = parse_expression(stream)?;
     stream.expect_kind(Is)?;
     stream.expect_kind(When)?;
@@ -165,6 +166,9 @@ fn parse_case_statement_known_keyword(
             },
             End => {
                 stream.expect_kind(Case)?;
+                if is_matching {
+                    stream.expect_kind(Que)?;
+                }
                 // @TODO check end label
                 stream.pop_if_kind(Identifier)?;
                 alternatives.push(alternative);
@@ -1327,6 +1331,34 @@ end case;
                             item: vec![
                                 code.s1("stmt3;").sequential_statement(),
                                 code.s1("stmt4;").sequential_statement(),
+                            ]
+                        }
+                    ],
+                })
+            )
+        );
+    }
+
+    #[test]
+    fn parse_matching_case_statement() {
+        let (code, statement) = parse(
+            "\
+case? foo(1) is
+  when others => null;
+end case?;
+",
+        );
+        assert_eq!(
+            statement,
+            with_label(
+                None,
+                SequentialStatement::Case(CaseStatement {
+                    expression: code.s1("foo(1)").expr(),
+                    alternatives: vec![
+                        Alternative {
+                            choices: code.s1("others").choices(),
+                            item: vec![
+                                code.s1("null;").sequential_statement(),
                             ]
                         }
                     ],
