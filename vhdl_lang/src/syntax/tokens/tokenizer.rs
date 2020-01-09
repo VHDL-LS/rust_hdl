@@ -132,6 +132,7 @@ pub enum Kind {
     QueLTE,
     QueGT,
     QueGTE,
+    Que,
 
     Times,
     Pow,
@@ -334,6 +335,7 @@ pub fn kind_str(kind: Kind) -> &'static str {
         QueLTE => &"?<=",
         QueGT => &"?>",
         QueGTE => &"?>=",
+        Que => &"?",
 
         Times => &"*",
         Pow => &"**",
@@ -1531,9 +1533,7 @@ impl<'a> Tokenizer<'a> {
                             (QueGT, Value::NoValue)
                         }
                     }
-                    _ => {
-                        illegal_token!();
-                    }
+                    _ => (Que, Value::NoValue),
                 }
             }
             b'^' => {
@@ -2276,8 +2276,8 @@ end entity"
     #[test]
     fn tokenize_questionmark_cmp() {
         assert_eq!(
-            kinds_tokenize("?< ?<= ?> ?>= ??"),
-            vec![QueLT, QueLTE, QueGT, QueGTE, QueQue]
+            kinds_tokenize("? ?< ?<= ?> ?>= ??"),
+            vec![Que, QueLT, QueLTE, QueGT, QueGTE, QueQue]
         );
     }
 
@@ -2436,7 +2436,7 @@ comment
 
     #[test]
     fn tokenize_illegal() {
-        let code = Code::new("begin?end");
+        let code = Code::new("begin!end");
         let (tokens, _) = code.tokenize_result();
         assert_eq!(
             tokens,
@@ -2448,7 +2448,7 @@ comment
                     next_state: state_at_end(&code.s1("begin")),
                     comments: None,
                 }),
-                Err(Diagnostic::error(&code.s1("?"), "Illegal token")),
+                Err(Diagnostic::error(&code.s1("!"), "Illegal token")),
                 Ok(Token {
                     kind: End,
                     value: Value::NoValue,

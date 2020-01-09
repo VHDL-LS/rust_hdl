@@ -276,7 +276,7 @@ impl Search for LabeledSequentialStatement {
                 return_if_found!(condition.search(searcher));
             }
             SequentialStatement::Case(ref case_stmt) => {
-                return_if_found!(search_selection(case_stmt, false, searcher));
+                return_if_found!(case_stmt.search(searcher));
             }
             SequentialStatement::Loop(ref loop_stmt) => {
                 let LoopStatement {
@@ -1020,6 +1020,19 @@ impl Search for ContextDeclaration {
         return_if_finished!(searcher.search_source(self.source()));
         return_if_found!(searcher.search_decl_pos(self.ident().pos()).or_not_found());
         self.items.search(searcher)
+    }
+}
+
+impl Search for CaseStatement {
+    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+        let CaseStatement {
+            is_matching: _,
+            expression,
+            alternatives,
+        } = self;
+        return_if_found!(expression.search(searcher));
+        return_if_found!(search_alternatives(alternatives, false, searcher));
+        NotFound
     }
 }
 

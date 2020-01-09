@@ -781,7 +781,12 @@ pub struct Selection<T> {
 }
 
 /// LRM 10.9 Case statement
-pub type CaseStatement = Selection<Vec<LabeledSequentialStatement>>;
+#[derive(PartialEq, Debug, Clone)]
+pub struct CaseStatement {
+    pub is_matching: bool,
+    pub expression: WithPos<Expression>,
+    pub alternatives: Vec<Alternative<Vec<LabeledSequentialStatement>>>,
+}
 
 /// LRM 10.10 Loop statement
 #[derive(PartialEq, Debug, Clone)]

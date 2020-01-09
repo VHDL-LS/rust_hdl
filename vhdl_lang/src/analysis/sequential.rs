@@ -107,7 +107,8 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             SequentialStatement::Case(ref mut case_stmt) => {
-                let Selection {
+                let CaseStatement {
+                    is_matching: _,
                     expression,
                     alternatives,
                 } = case_stmt;
