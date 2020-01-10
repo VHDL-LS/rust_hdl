@@ -9,6 +9,7 @@ mod concurrent;
 mod declarative;
 mod design_unit;
 mod lock;
+mod named_entity;
 mod region;
 mod root;
 mod semantic;

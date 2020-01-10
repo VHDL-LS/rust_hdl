@@ -529,3 +529,89 @@ pub fn hidden_error(
 
     error
 }
+
+#[test]
+fn duplicate_alias_is_not_directly_visible() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg1 is
+  type enum_t is (alpha, beta);
+  alias alias_t is enum_t;
+end package;
+
+package pkg2 is
+  type enum_t is (alpha, beta);
+  alias alias_t is enum_t;
+end package;
+
+use work.pkg1.alias_t;
+use work.pkg2.alias_t;
+
+package user is
+  constant b : alias_t := alpha;
+end package;
+
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![hidden_error(
+            &code,
+            "alias_t",
+            5,
+            &[
+                (&code, "work.pkg1.alias_t", 1, false),
+                (&code, "alias_t", 1, true),
+                (&code, "work.pkg2.alias_t", 1, false),
+                (&code, "alias_t", 2, true),
+            ],
+        )],
+    );
+}
+
+/// It is more convenient for a language server user to goto-declaration for
+/// the alias rather than going directly to the declaration without knowing about the visible alias
+/// The user can always navigate from the alias to the original declaration if she desires
+#[test]
+fn deepest_alias_is_visible() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+  type enum_t is (alpha, beta);
+end package;
+
+package pkg2 is
+  alias enum_t is work.pkg.enum_t;
+end package;
+
+package pkg3 is
+  alias enum_t is work.pkg2.enum_t;
+end package;
+
+use work.pkg2.enum_t;
+use work.pkg3.enum_t;
+use work.pkg.enum_t;
+
+package pkg4 is
+  constant c : enum_t := alpha;
+end package;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    let ref_pos = code.s1("constant c : enum_t := alpha").s1("enum_t");
+    let deepest_pos = code.s1("alias enum_t is work.pkg2.enum_t").s1("enum_t");
+
+    assert_eq!(
+        root.search_reference(code.source(), ref_pos.start()),
+        Some(deepest_pos.pos())
+    );
+}

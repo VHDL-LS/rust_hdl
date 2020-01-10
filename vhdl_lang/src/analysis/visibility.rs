@@ -15,7 +15,7 @@ use std::sync::Arc;
 struct VisibleEntity {
     // The position where the entity was made visible
     visible_pos: Vec<Option<SrcPos>>,
-    entity: NamedEntity,
+    entity: Arc<NamedEntity>,
 }
 
 impl VisibleEntity {
@@ -46,8 +46,7 @@ impl VisibleRegion {
 pub struct Visibility {
     // TODO store unique regions
     all_in_regions: Vec<VisibleRegion>,
-    // Use decl_pos as key until named entities have unique id:s
-    visible: FnvHashMap<Designator, FnvHashMap<Option<SrcPos>, VisibleEntity>>,
+    visible: FnvHashMap<Designator, FnvHashMap<EntityId, VisibleEntity>>,
 }
 
 impl Visibility {
@@ -87,7 +86,7 @@ impl Visibility {
         &mut self,
         visible_pos: Option<&SrcPos>,
         designator: Designator,
-        ent: NamedEntity,
+        ent: Arc<NamedEntity>,
     ) {
         // Add implicit declarations when using declaration
         // For example all enum literals are made implicititly visible when using an enum type
@@ -110,13 +109,11 @@ impl Visibility {
         match self.visible.entry(designator) {
             Entry::Vacant(entry) => {
                 let mut map = FnvHashMap::default();
-                map.insert(visible_ent.entity.decl_pos().cloned(), visible_ent);
+                map.insert(visible_ent.entity.id(), visible_ent);
                 entry.insert(map);
             }
             Entry::Occupied(mut entry) => {
-                entry
-                    .get_mut()
-                    .insert(visible_ent.entity.decl_pos().cloned(), visible_ent);
+                entry.get_mut().insert(visible_ent.entity.id(), visible_ent);
             }
         }
     }
@@ -141,25 +138,36 @@ impl Visibility {
 
 struct VisibleEntityRef<'a> {
     visible_pos: &'a [Option<SrcPos>],
-    entity: &'a NamedEntity,
+    entity: &'a Arc<NamedEntity>,
 }
 
 #[derive(Default)]
 pub struct Visible<'a> {
-    visible_entities: FnvHashMap<Option<&'a SrcPos>, VisibleEntityRef<'a>>,
+    visible_entities: FnvHashMap<EntityId, VisibleEntityRef<'a>>,
 }
 
 impl<'a> Visible<'a> {
-    fn insert(&mut self, visible_pos: &'a [Option<SrcPos>], entity: &'a NamedEntity) {
-        // @TODO check that they actually correspond to the same object
-        // The decl_pos serves as a good proxy for this except for libraries
-        self.visible_entities.insert(
-            entity.decl_pos(),
-            VisibleEntityRef {
-                visible_pos,
-                entity,
-            },
-        );
+    fn insert(&mut self, visible_pos: &'a [Option<SrcPos>], entity: &'a Arc<NamedEntity>) {
+        let actual_entity = entity.as_actual();
+
+        match self.visible_entities.entry(actual_entity.id()) {
+            Entry::Vacant(entry) => {
+                entry.insert(VisibleEntityRef {
+                    visible_pos,
+                    entity,
+                });
+            }
+            Entry::Occupied(mut entry) => {
+                let old_entity = &entry.get().entity;
+                if entity.is_alias_of(old_entity) {
+                    // Ensure deepest alias is made visible
+                    entry.insert(VisibleEntityRef {
+                        visible_pos,
+                        entity,
+                    });
+                }
+            }
+        };
     }
 
     pub fn into_unambiguous(
@@ -175,16 +183,12 @@ impl<'a> Visible<'a> {
 
         if named_entities.is_empty() {
             Ok(None)
-        } else if named_entities.len() == 1
-            || named_entities.iter().all(|ent| ent.is_overloaded())
-            || named_entities.iter().any(|ent| ent.kind().is_alias())
+        } else if named_entities.len() == 1 || named_entities.iter().all(|ent| ent.is_overloaded())
         {
             let visible = VisibleDeclaration::new_vec(designator.clone(), named_entities);
-            // Until we have unique id:s we disable hidden check for any alias
             Ok(Some(visible))
         } else {
             // Duplicate visible items hide each other
-            // @TODO improve error message with visibility pos as well as decl pos
             let mut error = Diagnostic::error(
                 pos,
                 format!("Name '{}' is hidden by conflicting use clause", designator),

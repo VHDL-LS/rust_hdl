@@ -20,7 +20,7 @@ impl<'a> AnalyzeContext<'a> {
         declarations: &mut [Declaration],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        let mut incomplete_types: FnvHashMap<Symbol, SrcPos> = FnvHashMap::default();
+        let mut incomplete_types: FnvHashMap<Symbol, (EntityId, SrcPos)> = FnvHashMap::default();
 
         for i in 0..declarations.len() {
             // Handle incomplete types
@@ -31,19 +31,6 @@ impl<'a> AnalyzeContext<'a> {
                 Declaration::Type(type_decl) => match type_decl.def {
                     TypeDefinition::Incomplete(ref mut reference) => {
                         reference.clear_reference();
-                        match incomplete_types.entry(type_decl.ident.name().clone()) {
-                            Entry::Vacant(entry) => {
-                                entry.insert(type_decl.ident.pos().clone());
-                            }
-                            Entry::Occupied(entry) => {
-                                diagnostics.push(duplicate_error(
-                                    &type_decl.ident,
-                                    type_decl.ident.pos(),
-                                    Some(entry.get()),
-                                ));
-                                continue;
-                            }
-                        }
 
                         let full_definiton =
                             find_full_type_definition(type_decl.ident.name(), remaining);
@@ -67,16 +54,34 @@ impl<'a> AnalyzeContext<'a> {
                             }
                         };
 
-                        region.add(
-                            // Set incomplete type defintion to position of full declaration
-                            WithPos::new(type_decl.ident.name().clone(), decl_pos),
-                            NamedEntityKind::IncompleteType,
-                            diagnostics,
-                        );
+                        match incomplete_types.entry(type_decl.ident.name().clone()) {
+                            Entry::Vacant(entry) => {
+                                let designator =
+                                    Designator::Identifier(type_decl.ident.name().clone());
+                                // Set incomplete type defintion to position of full declaration
+                                let ent = NamedEntity::new(
+                                    designator,
+                                    NamedEntityKind::IncompleteType,
+                                    Some(decl_pos),
+                                );
+                                entry.insert((ent.id(), type_decl.ident.pos().clone()));
+                                region.add_named_entity(ent, diagnostics);
+                            }
+                            Entry::Occupied(entry) => {
+                                let (_, decl_pos) = entry.get();
+
+                                diagnostics.push(duplicate_error(
+                                    &type_decl.ident,
+                                    type_decl.ident.pos(),
+                                    Some(decl_pos),
+                                ));
+                            }
+                        }
                     }
                     _ => {
-                        let is_full = incomplete_types.contains_key(type_decl.ident.name());
-                        self.analyze_type_declaration(region, type_decl, is_full, diagnostics)?;
+                        let incomplete_type = incomplete_types.get(type_decl.ident.name());
+                        let id = incomplete_type.map(|(id, _)| *id);
+                        self.analyze_type_declaration(region, type_decl, id, diagnostics)?;
                     }
                 },
                 _ => {
@@ -130,7 +135,7 @@ impl<'a> AnalyzeContext<'a> {
                                 &named_entity,
                                 diagnostics,
                             );
-                            NamedEntityKind::AliasOf(Box::new(named_entity))
+                            NamedEntityKind::AliasOf(named_entity)
                         } else {
                             NamedEntityKind::OtherAlias
                         }
@@ -239,7 +244,9 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         parent: &mut Region<'_>,
         type_decl: &mut TypeDeclaration,
-        is_full: bool, // Is the full type declaration of an incomplete type
+        // Is the full type declaration of an incomplete type
+        // Overwrite id when defining full type
+        overwrite_id: Option<EntityId>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         match type_decl.def {
@@ -267,7 +274,7 @@ impl<'a> AnalyzeContext<'a> {
                     parent,
                     &type_decl.ident,
                     NamedEntityKind::TypeDeclaration(Some(Arc::new(enum_region))),
-                    is_full,
+                    overwrite_id,
                     diagnostics,
                 );
             }
@@ -316,11 +323,11 @@ impl<'a> AnalyzeContext<'a> {
             TypeDefinition::Protected(ref mut prot_decl) => {
                 // Protected type name is visible inside its declarative region
                 // This will be overwritten later when the protected type region is finished
-                add_or_overwrite(
+                let id = add_or_overwrite(
                     parent,
                     &type_decl.ident,
                     NamedEntityKind::TypeDeclaration(None),
-                    is_full,
+                    overwrite_id,
                     diagnostics,
                 );
 
@@ -340,8 +347,13 @@ impl<'a> AnalyzeContext<'a> {
                 let region = region.without_parent();
 
                 parent.overwrite(
-                    &type_decl.ident,
-                    NamedEntityKind::ProtectedType(Arc::new(region)),
+                    type_decl.ident.name().clone(),
+                    NamedEntity::new_with_id(
+                        id,
+                        type_decl.ident.name().clone(),
+                        NamedEntityKind::ProtectedType(Arc::new(region)),
+                        Some(type_decl.ident.pos()),
+                    ),
                 );
             }
             TypeDefinition::Record(ref mut element_decls) => {
@@ -356,7 +368,7 @@ impl<'a> AnalyzeContext<'a> {
                     parent,
                     &type_decl.ident,
                     NamedEntityKind::TypeDeclaration(None),
-                    is_full,
+                    overwrite_id,
                     diagnostics,
                 );
             }
@@ -367,7 +379,7 @@ impl<'a> AnalyzeContext<'a> {
                     parent,
                     &type_decl.ident,
                     NamedEntityKind::TypeDeclaration(None),
-                    is_full,
+                    overwrite_id,
                     diagnostics,
                 );
             }
@@ -381,7 +393,7 @@ impl<'a> AnalyzeContext<'a> {
                     parent,
                     &type_decl.ident,
                     NamedEntityKind::TypeDeclaration(None),
-                    is_full,
+                    overwrite_id,
                     diagnostics,
                 );
             }
@@ -392,7 +404,7 @@ impl<'a> AnalyzeContext<'a> {
                     parent,
                     &type_decl.ident,
                     NamedEntityKind::TypeDeclaration(None),
-                    is_full,
+                    overwrite_id,
                     diagnostics,
                 );
             }
@@ -414,7 +426,7 @@ impl<'a> AnalyzeContext<'a> {
                     parent,
                     &type_decl.ident,
                     NamedEntityKind::TypeDeclaration(None),
-                    is_full,
+                    overwrite_id,
                     diagnostics,
                 );
             }
@@ -428,7 +440,7 @@ impl<'a> AnalyzeContext<'a> {
                     parent,
                     &type_decl.ident,
                     NamedEntityKind::TypeDeclaration(None),
-                    is_full,
+                    overwrite_id,
                     diagnostics,
                 );
             }
@@ -451,7 +463,7 @@ impl<'a> AnalyzeContext<'a> {
                     parent,
                     &type_decl.ident,
                     NamedEntityKind::TypeDeclaration(Some(Arc::new(implicit))),
-                    is_full,
+                    overwrite_id,
                     diagnostics,
                 );
             }
@@ -694,12 +706,17 @@ fn add_or_overwrite(
     region: &mut Region,
     name: &Ident,
     kind: NamedEntityKind,
-    overwrite: bool,
+    old_id: Option<EntityId>,
     diagnostics: &mut dyn DiagnosticHandler,
-) {
-    if overwrite {
-        region.overwrite(name.clone(), kind);
+) -> EntityId {
+    if let Some(id) = old_id {
+        let ent = NamedEntity::new_with_id(id, name.name().clone(), kind, Some(name.pos()));
+        region.overwrite(name.name().clone(), ent);
+        id
     } else {
-        region.add(name.clone(), kind, diagnostics);
+        let ent = NamedEntity::new(name.name().clone(), kind, Some(&name.pos));
+        let id = ent.id();
+        region.add_named_entity(ent, diagnostics);
+        id
     }
 }

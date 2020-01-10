@@ -8,9 +8,8 @@ use fnv::{FnvHashMap, FnvHashSet};
 use std::collections::hash_map::Entry;
 
 use super::analyze::*;
-use super::lock::AnalysisLock;
-use super::lock::{AnalysisEntry, ReadGuard};
-use super::region::Region;
+use super::lock::*;
+use super::region::*;
 use crate::ast::search::*;
 use crate::ast::*;
 use crate::data::*;
@@ -21,9 +20,12 @@ use std::sync::Arc;
 /// A design unit with design unit data
 pub(super) struct AnalysisData {
     pub diagnostics: Vec<Diagnostic>,
+    pub has_circular_dependency: bool,
+
+    // Only for primary units
     pub root_region: Arc<Region<'static>>,
     pub region: Arc<Region<'static>>,
-    pub has_circular_dependency: bool,
+    pub ent: Option<Arc<NamedEntity>>,
 }
 
 pub(super) type UnitReadGuard<'a> = ReadGuard<'a, AnyDesignUnit, AnalysisData>;
@@ -69,6 +71,10 @@ impl HasIdent for LockedUnit {
 
 struct Library {
     name: Symbol,
+
+    /// Named entity corresponding to the library
+    ent: Arc<NamedEntity>,
+
     units: FnvHashMap<UnitKey, LockedUnit>,
     units_by_source: FnvHashMap<Source, FnvHashSet<UnitId>>,
 
@@ -84,8 +90,14 @@ struct Library {
 
 impl<'a> Library {
     fn new(name: Symbol) -> Library {
+        let ent = Arc::new(NamedEntity::new(
+            Designator::Identifier(name.clone()),
+            NamedEntityKind::Library,
+            None,
+        ));
         Library {
             name,
+            ent,
             units: FnvHashMap::default(),
             units_by_source: FnvHashMap::default(),
             added: FnvHashSet::default(),
@@ -268,6 +280,11 @@ impl DesignRoot {
             .map(|library| &library.units)
     }
 
+    /// Get a named entity corresponding to the library
+    pub(super) fn get_library_ent(&self, library_name: &Symbol) -> Option<&Arc<NamedEntity>> {
+        self.libraries.get(library_name).map(|library| &library.ent)
+    }
+
     pub fn add_design_file(&mut self, library_name: Symbol, design_file: DesignFile) {
         self.get_or_create_library(library_name)
             .add_design_file(design_file);
@@ -302,11 +319,13 @@ impl DesignRoot {
             AnalysisEntry::Vacant(mut unit) => {
                 let context = AnalyzeContext::new(self, locked_unit.unit_id());
 
+                let entity_id = super::named_entity::new_id();
                 let mut diagnostics = Vec::new();
                 let mut root_region = Region::default();
                 let mut region = Region::default();
 
                 let has_circular_dependency = if let Err(err) = context.analyze_design_unit(
+                    entity_id,
                     &mut *unit,
                     &mut root_region,
                     &mut region,
@@ -318,10 +337,42 @@ impl DesignRoot {
                     false
                 };
 
+                let root_region = Arc::new(root_region);
+                let region = Arc::new(region);
+
+                let ent = if let Some(primary_unit) = unit.as_primary() {
+                    let region = region.clone();
+                    let kind = match primary_unit {
+                        AnyPrimaryUnit::Entity(..) => NamedEntityKind::Entity(region),
+                        AnyPrimaryUnit::Configuration(..) => NamedEntityKind::Configuration(region),
+                        AnyPrimaryUnit::Package(ref package) => {
+                            if package.generic_clause.is_some() {
+                                NamedEntityKind::UninstPackage(region)
+                            } else {
+                                NamedEntityKind::Package(region)
+                            }
+                        }
+                        AnyPrimaryUnit::PackageInstance(..) => {
+                            NamedEntityKind::PackageInstance(region)
+                        }
+                        AnyPrimaryUnit::Context(..) => NamedEntityKind::Context(region),
+                    };
+
+                    Some(Arc::new(NamedEntity::new_with_id(
+                        entity_id,
+                        unit.name(),
+                        kind,
+                        Some(unit.pos()),
+                    )))
+                } else {
+                    None
+                };
+
                 let result = AnalysisData {
                     diagnostics,
-                    root_region: Arc::new(root_region),
-                    region: Arc::new(region),
+                    root_region,
+                    region,
+                    ent,
                     has_circular_dependency,
                 };
 

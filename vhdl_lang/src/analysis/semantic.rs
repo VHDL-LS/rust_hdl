@@ -9,6 +9,7 @@ use super::region::*;
 use crate::ast::Range;
 use crate::ast::*;
 use crate::data::*;
+use std::sync::Arc;
 
 pub enum ResolvedName {
     /// A single name was selected
@@ -26,7 +27,7 @@ impl ResolvedName {
             None
         }
     }
-    pub fn into_non_overloaded(self) -> Option<NamedEntity> {
+    pub fn into_non_overloaded(self) -> Option<Arc<NamedEntity>> {
         self.into_known()
             .and_then(|visible| visible.into_non_overloaded().ok())
     }
@@ -116,7 +117,7 @@ impl<'a> AnalyzeContext<'a> {
         prefix_pos: &SrcPos,
         prefix: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<NamedEntity>> {
+    ) -> FatalResult<Option<Arc<NamedEntity>>> {
         Ok(self
             .resolve_name(region, prefix_pos, prefix, diagnostics)?
             .and_then(|resolved| resolved.into_non_overloaded()))
@@ -204,7 +205,7 @@ impl<'a> AnalyzeContext<'a> {
         name: &mut WithPos<SelectedName>,
         kind_ok: &impl Fn(&NamedEntityKind) -> bool,
         expected: &str,
-    ) -> AnalysisResult<NamedEntity> {
+    ) -> AnalysisResult<Arc<NamedEntity>> {
         match self
             .resolve_selected_name(region, name)?
             .into_non_overloaded()
@@ -242,7 +243,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         region: &Region<'_>,
         type_mark: &mut WithPos<SelectedName>,
-    ) -> AnalysisResult<NamedEntity> {
+    ) -> AnalysisResult<Arc<NamedEntity>> {
         fn is_type(kind: &NamedEntityKind) -> bool {
             match kind {
                 NamedEntityKind::IncompleteType

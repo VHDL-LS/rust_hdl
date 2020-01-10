@@ -16,6 +16,7 @@ use std::sync::Arc;
 impl<'a> AnalyzeContext<'a> {
     pub fn analyze_design_unit(
         &self,
+        id: EntityId,
         unit: &mut AnyDesignUnit,
         root_region: &mut Region<'_>,
         region: &mut Region<'_>,
@@ -24,13 +25,13 @@ impl<'a> AnalyzeContext<'a> {
         match unit {
             AnyDesignUnit::Primary(unit) => match unit {
                 AnyPrimaryUnit::Entity(unit) => {
-                    self.analyze_entity(unit, root_region, region, diagnostics)
+                    self.analyze_entity(id, unit, root_region, region, diagnostics)
                 }
                 AnyPrimaryUnit::Configuration(unit) => {
                     self.analyze_configuration(unit, diagnostics)
                 }
                 AnyPrimaryUnit::Package(unit) => {
-                    self.analyze_package(unit, root_region, region, diagnostics)
+                    self.analyze_package(id, unit, root_region, region, diagnostics)
                 }
                 AnyPrimaryUnit::PackageInstance(unit) => {
                     self.analyze_package_instance(unit, root_region, region, diagnostics)
@@ -41,7 +42,7 @@ impl<'a> AnalyzeContext<'a> {
             },
             AnyDesignUnit::Secondary(unit) => match unit {
                 AnySecondaryUnit::Architecture(unit) => {
-                    self.analyze_architecture(unit, diagnostics)
+                    self.analyze_architecture(id, unit, diagnostics)
                 }
                 AnySecondaryUnit::PackageBody(unit) => self.analyze_package_body(unit, diagnostics),
             },
@@ -50,6 +51,7 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_entity(
         &self,
+        id: EntityId,
         unit: &mut EntityDeclaration,
         root_region: &mut Region<'_>,
         region: &mut Region<'_>,
@@ -64,7 +66,12 @@ impl<'a> AnalyzeContext<'a> {
         // Entity name is visible
         primary_region.make_potentially_visible(
             Some(unit.pos()),
-            NamedEntity::new(unit.name().into(), NamedEntityKind::Label, Some(unit.pos())),
+            Arc::new(NamedEntity::new_with_id(
+                id,
+                unit.name(),
+                NamedEntityKind::Label,
+                Some(unit.pos()),
+            )),
         );
 
         if let Some(ref mut list) = unit.generic_clause {
@@ -117,6 +124,7 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_package(
         &self,
+        id: EntityId,
         unit: &mut PackageDeclaration,
         root_region: &mut Region<'_>,
         region: &mut Region<'_>,
@@ -131,7 +139,12 @@ impl<'a> AnalyzeContext<'a> {
         // Package name is visible
         primary_region.make_potentially_visible(
             Some(unit.pos()),
-            NamedEntity::new(unit.name().into(), NamedEntityKind::Label, Some(unit.pos())),
+            Arc::new(NamedEntity::new_with_id(
+                id,
+                unit.name(),
+                NamedEntityKind::Label,
+                Some(unit.pos()),
+            )),
         );
 
         if let Some(ref mut list) = unit.generic_clause {
@@ -189,6 +202,7 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_architecture(
         &self,
+        id: EntityId,
         unit: &mut ArchitectureBody,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -213,10 +227,15 @@ impl<'a> AnalyzeContext<'a> {
         self.analyze_context_clause(&mut root_region, &mut unit.context_clause, diagnostics)?;
         let mut region = Region::extend(&entity.result().region, Some(&root_region));
 
-        // Package name is visible
+        // Architecture name is visible
         region.make_potentially_visible(
             Some(unit.pos()),
-            NamedEntity::new(unit.name().into(), NamedEntityKind::Label, Some(unit.pos())),
+            Arc::new(NamedEntity::new_with_id(
+                id,
+                unit.name(),
+                NamedEntityKind::Label,
+                Some(unit.pos()),
+            )),
         );
 
         self.analyze_declarative_part(&mut region, &mut unit.decl, diagnostics)?;
@@ -307,7 +326,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         region: &Region<'_>,
         config: &mut ConfigurationDeclaration,
-    ) -> AnalysisResult<NamedEntity> {
+    ) -> AnalysisResult<Arc<NamedEntity>> {
         let ent_name = &mut config.entity_name;
 
         match ent_name.item {
@@ -385,7 +404,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         region: &Region<'_>,
         prefix: &mut WithPos<Name>,
-    ) -> AnalysisResult<NamedEntity> {
+    ) -> AnalysisResult<Arc<NamedEntity>> {
         match self.resolve_context_item_name(region, prefix)? {
             UsedNames::Single(visible) => visible.into_non_overloaded().map_err(|_| {
                 AnalysisError::not_fatal_error(&prefix, "Invalid prefix of a selected name")
@@ -455,9 +474,8 @@ impl<'a> AnalyzeContext<'a> {
                                 &library_name,
                                 "Library clause not necessary for current working library",
                             ))
-                        } else if self.has_library(&library_name.item) {
-                            region
-                                .make_library_visible(&library_name.item, Some(&library_name.pos));
+                        } else if let Some(library) = self.get_library(&library_name.item) {
+                            region.make_potentially_visible(Some(&library_name.pos), library);
                         } else {
                             diagnostics.push(Diagnostic::error(
                                 &library_name,
@@ -602,5 +620,5 @@ pub enum UsedNames {
     Single(VisibleDeclaration),
     /// All names within was selected
     /// @TODO add pos for where declaration was made visible into VisibleDeclaration
-    AllWithin(SrcPos, NamedEntity),
+    AllWithin(SrcPos, Arc<NamedEntity>),
 }
