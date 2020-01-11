@@ -8,7 +8,6 @@ on:
 jobs:
   publish:
     name: Publish
-    if: $GITHUB_REPOSITORY == kraigher/rust_hdl
     strategy:
       matrix:
         crate:
