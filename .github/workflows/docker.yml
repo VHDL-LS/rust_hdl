@@ -10,6 +10,7 @@ on:
 jobs:
   publish:
     name: Publish
+    if: github.repository == 'kraigher/rust_hdl'
     strategy:
       matrix:
         crate:
@@ -27,3 +28,12 @@ jobs:
         repository: kraigher/${{ matrix.crate }}
         auto_tag: true
         build_args: CRATE
+  
+  # A job is required when the publish job is skipped
+  skip-publish:
+    name: Skip publish
+    if: github.repository != 'kraigher/rust_hdl'
+    runs-on: ubuntu-latest
+    steps:
+    - name: Report
+      run: echo Skipped action from repository ${{ github.repository }}
