@@ -130,7 +130,10 @@ impl ObjectClass {
     }
 }
 
-pub type EntityId = usize;
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+pub struct EntityId {
+    id: usize,
+}
 
 pub struct NamedEntity {
     /// An unique id of the entity
@@ -166,7 +169,7 @@ impl NamedEntity {
         }
     }
 
-    pub fn id(&self) -> usize {
+    pub fn id(&self) -> EntityId {
         self.id
     }
 
@@ -251,6 +254,8 @@ impl NamedEntity {
 static COUNTER: AtomicUsize = AtomicUsize::new(1);
 
 // Using 64-bits we can create 5 * 10**9 ids per second for 100 years before wrapping
-pub fn new_id() -> usize {
-    COUNTER.fetch_add(1, Ordering::Relaxed)
+pub fn new_id() -> EntityId {
+    EntityId {
+        id: COUNTER.fetch_add(1, Ordering::Relaxed),
+    }
 }
