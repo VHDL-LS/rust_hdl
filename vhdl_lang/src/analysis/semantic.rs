@@ -249,6 +249,7 @@ impl<'a> AnalyzeContext<'a> {
                 NamedEntityKind::IncompleteType
                 | NamedEntityKind::ProtectedType(..)
                 | NamedEntityKind::InterfaceType
+                | NamedEntityKind::Subtype(..)
                 | NamedEntityKind::TypeDeclaration(..) => true,
                 _ => false,
             }

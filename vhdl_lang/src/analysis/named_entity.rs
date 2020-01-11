@@ -21,6 +21,7 @@ pub enum NamedEntityKind {
     Overloaded,
     // An optional region with implicit declarations
     TypeDeclaration(Option<Arc<Region<'static>>>),
+    Subtype(Subtype),
     IncompleteType,
     InterfaceType,
     Label,
@@ -85,6 +86,7 @@ impl NamedEntityKind {
             Attribute => "file",
             Overloaded => "file",
             TypeDeclaration(..) => "type",
+            Subtype(..) => "subtype",
             IncompleteType => "type",
             InterfaceType => "type",
             Label => "label",
@@ -102,6 +104,17 @@ impl NamedEntityKind {
             Context(..) => "context",
             LocalPackageInstance(..) => "package instance",
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct Subtype {
+    base: Arc<NamedEntity>,
+}
+
+impl Subtype {
+    pub fn new(base: Arc<NamedEntity>) -> Subtype {
+        Subtype { base }
     }
 }
 

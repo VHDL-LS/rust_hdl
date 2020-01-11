@@ -398,15 +398,20 @@ impl<'a> AnalyzeContext<'a> {
                 );
             }
             TypeDefinition::Subtype(ref mut subtype_indication) => {
-                self.analyze_subtype_indication(parent, subtype_indication, diagnostics)?;
-
-                add_or_overwrite(
-                    parent,
-                    &type_decl.ident,
-                    NamedEntityKind::TypeDeclaration(None),
-                    overwrite_id,
-                    diagnostics,
-                );
+                match self.resolve_subtype_indication(parent, subtype_indication, diagnostics) {
+                    Ok(subtype) => {
+                        add_or_overwrite(
+                            parent,
+                            &type_decl.ident,
+                            NamedEntityKind::Subtype(subtype),
+                            overwrite_id,
+                            diagnostics,
+                        );
+                    }
+                    Err(err) => {
+                        err.add_to(diagnostics)?;
+                    }
+                }
             }
             TypeDefinition::Physical(ref mut physical) => {
                 parent.add(
@@ -629,12 +634,12 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
-    pub fn analyze_subtype_indication(
+    pub fn resolve_subtype_indication(
         &self,
         region: &Region<'_>,
         subtype_indication: &mut SubtypeIndication,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> AnalysisResult<Subtype> {
         // @TODO more
         let SubtypeIndication {
             type_mark,
@@ -642,14 +647,24 @@ impl<'a> AnalyzeContext<'a> {
             ..
         } = subtype_indication;
 
-        if let Err(err) = self.resolve_type_mark(region, type_mark) {
-            err.add_to(diagnostics)?
-        }
+        let base_type = self.resolve_type_mark(region, type_mark)?;
 
         if let Some(constraint) = constraint {
             self.analyze_subtype_constraint(region, &mut constraint.item, diagnostics)?;
         }
 
+        Ok(Subtype::new(base_type))
+    }
+
+    pub fn analyze_subtype_indication(
+        &self,
+        region: &Region<'_>,
+        subtype_indication: &mut SubtypeIndication,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        if let Err(err) = self.resolve_subtype_indication(region, subtype_indication, diagnostics) {
+            err.add_to(diagnostics)?;
+        }
         Ok(())
     }
 
