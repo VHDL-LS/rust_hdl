@@ -19,8 +19,8 @@ pub enum NamedEntityKind {
     Component,
     Attribute,
     Overloaded,
-    // An optional region with implicit declarations
-    TypeDeclaration(Option<Arc<Region<'static>>>),
+    // An optional list of implicit declarations
+    TypeDeclaration(Vec<Arc<NamedEntity>>),
     Subtype(Subtype),
     IncompleteType,
     InterfaceType,
@@ -192,7 +192,7 @@ impl NamedEntity {
     }
 
     pub fn is_overloaded(&self) -> bool {
-        if let NamedEntityKind::Overloaded = self.kind {
+        if let NamedEntityKind::Overloaded = self.as_actual().kind {
             true
         } else {
             false

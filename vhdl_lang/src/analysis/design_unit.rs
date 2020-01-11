@@ -617,7 +617,7 @@ impl<'a> AnalyzeContext<'a> {
 
 pub enum UsedNames {
     /// A single name was used selected
-    Single(VisibleDeclaration),
+    Single(NamedEntities),
     /// All names within was selected
     /// @TODO add pos for where declaration was made visible into VisibleDeclaration
     AllWithin(SrcPos, Arc<NamedEntity>),

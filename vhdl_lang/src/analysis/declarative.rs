@@ -65,7 +65,7 @@ impl<'a> AnalyzeContext<'a> {
                                     Some(decl_pos),
                                 );
                                 entry.insert((ent.id(), type_decl.ident.pos().clone()));
-                                region.add_named_entity(ent, diagnostics);
+                                region.add_named_entity(Arc::new(ent), diagnostics);
                             }
                             Entry::Occupied(entry) => {
                                 let (_, decl_pos) = entry.get();
@@ -130,7 +130,7 @@ impl<'a> AnalyzeContext<'a> {
                             resolved_name.and_then(|resolved| resolved.into_non_overloaded());
 
                         if let Some(named_entity) = named_entity {
-                            region.add_implicit_declarations(
+                            region.add_implicit_declaration_aliases(
                                 Some(&designator.pos),
                                 &named_entity,
                                 diagnostics,
@@ -251,29 +251,23 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalNullResult {
         match type_decl.def {
             TypeDefinition::Enumeration(ref enumeration) => {
-                for literal in enumeration.iter() {
-                    parent.add(
-                        literal.clone().map_into(|lit| lit.into_designator()),
-                        NamedEntityKind::Overloaded,
-                        diagnostics,
-                    )
-                }
+                let mut implicit = Vec::with_capacity(enumeration.len());
 
-                let mut enum_region = Region::default();
-                let mut ignored = Vec::new();
                 for literal in enumeration.iter() {
-                    enum_region.add(
-                        literal.clone().map_into(|lit| lit.into_designator()),
+                    let literal_ent = NamedEntity::new(
+                        literal.item.clone().into_designator(),
                         NamedEntityKind::Overloaded,
-                        // Ignore diagnostics as they will be given above
-                        &mut ignored,
-                    )
+                        Some(&literal.pos),
+                    );
+                    let literal_ent = Arc::new(literal_ent);
+                    implicit.push(literal_ent.clone());
+                    parent.add_named_entity(literal_ent, diagnostics);
                 }
 
                 add_or_overwrite(
                     parent,
                     &type_decl.ident,
-                    NamedEntityKind::TypeDeclaration(Some(Arc::new(enum_region))),
+                    NamedEntityKind::TypeDeclaration(implicit),
                     overwrite_id,
                     diagnostics,
                 );
@@ -326,7 +320,7 @@ impl<'a> AnalyzeContext<'a> {
                 let id = add_or_overwrite(
                     parent,
                     &type_decl.ident,
-                    NamedEntityKind::TypeDeclaration(None),
+                    NamedEntityKind::TypeDeclaration(Vec::new()),
                     overwrite_id,
                     diagnostics,
                 );
@@ -346,15 +340,12 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 let region = region.without_parent();
 
-                parent.overwrite(
+                parent.overwrite(NamedEntity::new_with_id(
+                    id,
                     type_decl.ident.name().clone(),
-                    NamedEntity::new_with_id(
-                        id,
-                        type_decl.ident.name().clone(),
-                        NamedEntityKind::ProtectedType(Arc::new(region)),
-                        Some(type_decl.ident.pos()),
-                    ),
-                );
+                    NamedEntityKind::ProtectedType(Arc::new(region)),
+                    Some(type_decl.ident.pos()),
+                ));
             }
             TypeDefinition::Record(ref mut element_decls) => {
                 let mut region = Region::default();
@@ -367,7 +358,7 @@ impl<'a> AnalyzeContext<'a> {
                 add_or_overwrite(
                     parent,
                     &type_decl.ident,
-                    NamedEntityKind::TypeDeclaration(None),
+                    NamedEntityKind::TypeDeclaration(Vec::new()),
                     overwrite_id,
                     diagnostics,
                 );
@@ -378,7 +369,7 @@ impl<'a> AnalyzeContext<'a> {
                 add_or_overwrite(
                     parent,
                     &type_decl.ident,
-                    NamedEntityKind::TypeDeclaration(None),
+                    NamedEntityKind::TypeDeclaration(Vec::new()),
                     overwrite_id,
                     diagnostics,
                 );
@@ -392,7 +383,7 @@ impl<'a> AnalyzeContext<'a> {
                 add_or_overwrite(
                     parent,
                     &type_decl.ident,
-                    NamedEntityKind::TypeDeclaration(None),
+                    NamedEntityKind::TypeDeclaration(Vec::new()),
                     overwrite_id,
                     diagnostics,
                 );
@@ -430,7 +421,7 @@ impl<'a> AnalyzeContext<'a> {
                 add_or_overwrite(
                     parent,
                     &type_decl.ident,
-                    NamedEntityKind::TypeDeclaration(None),
+                    NamedEntityKind::TypeDeclaration(Vec::new()),
                     overwrite_id,
                     diagnostics,
                 );
@@ -444,7 +435,7 @@ impl<'a> AnalyzeContext<'a> {
                 add_or_overwrite(
                     parent,
                     &type_decl.ident,
-                    NamedEntityKind::TypeDeclaration(None),
+                    NamedEntityKind::TypeDeclaration(Vec::new()),
                     overwrite_id,
                     diagnostics,
                 );
@@ -455,19 +446,20 @@ impl<'a> AnalyzeContext<'a> {
                     err.add_to(diagnostics)?;
                 }
 
-                let mut implicit = Region::default();
-                for name in ["file_open", "file_close", "endfile"].iter() {
-                    implicit.add_implicit(
+                let names = ["file_open", "file_close", "endfile"];
+                let mut implicit = Vec::with_capacity(names.len());
+                for name in names.iter() {
+                    let ent = NamedEntity::new(
                         Designator::Identifier(self.symbol_utf8(name)),
-                        None,
                         NamedEntityKind::Overloaded,
-                        diagnostics,
+                        None,
                     );
+                    implicit.push(Arc::new(ent));
                 }
                 add_or_overwrite(
                     parent,
                     &type_decl.ident,
-                    NamedEntityKind::TypeDeclaration(Some(Arc::new(implicit))),
+                    NamedEntityKind::TypeDeclaration(implicit),
                     overwrite_id,
                     diagnostics,
                 );
@@ -726,12 +718,12 @@ fn add_or_overwrite(
 ) -> EntityId {
     if let Some(id) = old_id {
         let ent = NamedEntity::new_with_id(id, name.name().clone(), kind, Some(name.pos()));
-        region.overwrite(name.name().clone(), ent);
+        region.overwrite(ent);
         id
     } else {
         let ent = NamedEntity::new(name.name().clone(), kind, Some(&name.pos));
         let id = ent.id();
-        region.add_named_entity(ent, diagnostics);
+        region.add_named_entity(Arc::new(ent), diagnostics);
         id
     }
 }
