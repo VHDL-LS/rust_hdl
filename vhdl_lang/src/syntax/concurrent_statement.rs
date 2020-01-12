@@ -9,6 +9,7 @@ use super::common::ParseResult;
 use super::declarative_part::{is_declarative_part, parse_declarative_part};
 use super::expression::parse_aggregate_leftpar_known;
 use super::expression::{parse_choices, parse_expression};
+use super::interface_declaration::{parse_generic_interface_list, parse_port_interface_list};
 use super::names::{
     expression_to_ident, into_selected_name, parse_association_list, parse_name_initial_token,
     parse_selected_name,
@@ -31,10 +32,6 @@ pub fn parse_block_statement(
     let token = stream.peek_expect()?;
     let guard_condition = {
         match token.kind {
-            Is => {
-                stream.move_after(&token);
-                None
-            }
             LeftPar => {
                 stream.move_after(&token);
                 let expr = parse_expression(stream)?;
@@ -44,6 +41,8 @@ pub fn parse_block_statement(
             _ => None,
         }
     };
+    stream.pop_if_kind(Is)?;
+    let header = parse_block_header(stream, diagnostics)?;
     let decl = parse_declarative_part(stream, diagnostics, true)?;
     let statements = parse_labeled_concurrent_statements(stream, diagnostics)?;
     stream.expect_kind(Block)?;
@@ -52,8 +51,102 @@ pub fn parse_block_statement(
     stream.expect_kind(SemiColon)?;
     Ok(BlockStatement {
         guard_condition,
+        header,
         decl,
         statements,
+    })
+}
+
+fn parse_block_header(
+    stream: &mut TokenStream,
+    diagnostics: &mut dyn DiagnosticHandler,
+) -> ParseResult<BlockHeader> {
+    let mut generic_clause = None;
+    let mut generic_map = None;
+    let mut port_clause = None;
+    let mut port_map = None;
+
+    loop {
+        let token = stream.peek_expect()?;
+        match token.kind {
+            Generic => {
+                stream.move_after(&token);
+                if let Some(map_token) = stream.pop_if_kind(Map)? {
+                    if port_clause.is_some() || port_map.is_some() {
+                        diagnostics.push(Diagnostic::error(
+                            map_token,
+                            "Generic map must come before port clause and port map",
+                        ));
+                    } else if generic_clause.is_none() {
+                        diagnostics.push(Diagnostic::error(
+                            map_token,
+                            "Generic map declared without preceeding generic clause",
+                        ));
+                    } else if generic_map.is_some() {
+                        diagnostics.push(Diagnostic::error(map_token, "Duplicate generic map"));
+                    }
+                    let parsed_generic_map = Some(parse_association_list(stream)?);
+                    stream.expect_kind(SemiColon)?;
+                    if generic_map.is_none() {
+                        generic_map = parsed_generic_map;
+                    }
+                } else {
+                    if generic_map.is_some() {
+                        diagnostics.push(Diagnostic::error(
+                            token,
+                            "Generic clause must come before generic map",
+                        ));
+                    } else if generic_clause.is_some() {
+                        diagnostics.push(Diagnostic::error(token, "Duplicate generic clause"));
+                    }
+                    let parsed_generic_list = parse_generic_interface_list(stream, diagnostics)?;
+                    stream.expect_kind(SemiColon)?;
+                    if generic_clause.is_none() {
+                        generic_clause = Some(parsed_generic_list);
+                    }
+                }
+            }
+            Port => {
+                stream.move_after(&token);
+                if let Some(map_token) = stream.pop_if_kind(Map)? {
+                    if port_clause.is_none() {
+                        diagnostics.push(Diagnostic::error(
+                            map_token,
+                            "Port map declared without preceeding port clause",
+                        ));
+                    } else if port_map.is_some() {
+                        diagnostics.push(Diagnostic::error(map_token, "Duplicate port map"));
+                    }
+                    let parsed_port_map = Some(parse_association_list(stream)?);
+                    stream.expect_kind(SemiColon)?;
+                    if port_map.is_none() {
+                        port_map = parsed_port_map;
+                    }
+                } else {
+                    if port_map.is_some() {
+                        diagnostics.push(Diagnostic::error(
+                            token,
+                            "Port clause declared after port map",
+                        ));
+                    } else if port_clause.is_some() {
+                        diagnostics.push(Diagnostic::error(token, "Duplicate port clause"));
+                    }
+                    let parsed_port_list = parse_port_interface_list(stream, diagnostics)?;
+                    stream.expect_kind(SemiColon)?;
+                    if port_clause.is_none() {
+                        port_clause = Some(parsed_port_list);
+                    }
+                }
+            }
+            _ => break,
+        }
+    }
+
+    Ok(BlockHeader {
+        generic_clause,
+        generic_map,
+        port_clause,
+        port_map,
     })
 }
 
@@ -687,6 +780,12 @@ end block;
 
         let block = BlockStatement {
             guard_condition: None,
+            header: BlockHeader {
+                generic_clause: None,
+                generic_map: None,
+                port_clause: None,
+                port_map: None,
+            },
             decl: code.s1("constant const : natural := 0;").declarative_part(),
             statements: vec![LabeledConcurrentStatement {
                 label: Some(code.s1("name2").ident()),
@@ -709,6 +808,12 @@ end block name;
         );
         let block = BlockStatement {
             guard_condition: None,
+            header: BlockHeader {
+                generic_clause: None,
+                generic_map: None,
+                port_clause: None,
+                port_map: None,
+            },
             decl: vec![],
             statements: vec![],
         };
@@ -728,6 +833,66 @@ end block;
         );
         let block = BlockStatement {
             guard_condition: Some(code.s1("cond = true").expr()),
+            header: BlockHeader {
+                generic_clause: None,
+                generic_map: None,
+                port_clause: None,
+                port_map: None,
+            },
+            decl: vec![],
+            statements: vec![],
+        };
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("name").ident()));
+        assert_eq!(stmt.statement, ConcurrentStatement::Block(block));
+    }
+
+    #[test]
+    fn test_guarded_block_variant() {
+        let code = Code::new(
+            "\
+name : block (cond = true) is
+begin
+end block;
+",
+        );
+        let block = BlockStatement {
+            guard_condition: Some(code.s1("cond = true").expr()),
+            header: BlockHeader {
+                generic_clause: None,
+                generic_map: None,
+                port_clause: None,
+                port_map: None,
+            },
+            decl: vec![],
+            statements: vec![],
+        };
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, Some(code.s1("name").ident()));
+        assert_eq!(stmt.statement, ConcurrentStatement::Block(block));
+    }
+
+    #[test]
+    fn test_block_header() {
+        let code = Code::new(
+            "\
+name: block is
+  generic(gen: integer := 1);
+  generic map(gen => 1);
+  port(prt: integer := 1);
+  port map(prt => 2);
+begin
+end block;
+",
+        );
+        let block = BlockStatement {
+            guard_condition: None,
+            header: BlockHeader {
+                generic_clause: Some(vec![code.s1("gen: integer := 1").generic()]),
+                generic_map: Some(code.s1("(gen => 1)").association_list()),
+                port_clause: Some(vec![code.s1("prt: integer := 1").port()]),
+                port_map: Some(code.s1("(prt => 2)").association_list()),
+            },
             decl: vec![],
             statements: vec![],
         };

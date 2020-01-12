@@ -39,7 +39,22 @@ impl<'a> AnalyzeContext<'a> {
 
         match statement.statement {
             ConcurrentStatement::Block(ref mut block) => {
+                if let Some(ref mut guard_condition) = block.guard_condition {
+                    self.analyze_expression(parent, guard_condition, diagnostics)?;
+                }
                 let mut region = parent.nested();
+                if let Some(ref mut list) = block.header.generic_clause {
+                    self.analyze_interface_list(&mut region, list, diagnostics)?;
+                }
+                if let Some(ref mut list) = block.header.generic_map {
+                    self.analyze_assoc_elems(parent, list, diagnostics)?;
+                }
+                if let Some(ref mut list) = block.header.port_clause {
+                    self.analyze_interface_list(&mut region, list, diagnostics)?;
+                }
+                if let Some(ref mut list) = block.header.port_map {
+                    self.analyze_assoc_elems(parent, list, diagnostics)?;
+                }
                 self.analyze_declarative_part(&mut region, &mut block.decl, diagnostics)?;
                 self.analyze_concurrent_part(&mut region, &mut block.statements, diagnostics)?;
             }
