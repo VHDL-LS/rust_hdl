@@ -260,14 +260,19 @@ fn parse_inner_external_name(stream: &mut TokenStream) -> ParseResult<ExternalNa
         },
         Circ => {
             stream.expect_kind(Dot)?;
+            let mut up_levels = 1;
+            while stream.skip_if_kind(Circ)? {
+                stream.expect_kind(Dot)?;
+                up_levels += 1;
+            }
             let path_name = parse_name(stream)?;
             let path_pos = path_name.pos.clone().combine_into(&token);
-            WithPos::from(ExternalPath::Relative(path_name), path_pos)
+            WithPos::from(ExternalPath::Relative(path_name, up_levels), path_pos)
         },
         Identifier => {
             let path_name = parse_name_initial_token(stream, token)?;
             let path_pos = path_name.pos.clone();
-            WithPos::from(ExternalPath::Relative(path_name), path_pos)
+            WithPos::from(ExternalPath::Relative(path_name, 0), path_pos)
         }
     );
 
@@ -827,7 +832,7 @@ mod tests {
         let external_name = ExternalName {
             class: ExternalObjectClass::Signal,
             path: WithPos::new(
-                ExternalPath::Relative(code.s1("dut.foo").name()),
+                ExternalPath::Relative(code.s1("dut.foo").name(), 0),
                 code.s1("dut.foo").pos(),
             ),
             subtype: code.s1("std_logic").subtype_indication(),
@@ -844,8 +849,25 @@ mod tests {
         let external_name = ExternalName {
             class: ExternalObjectClass::Signal,
             path: WithPos::new(
-                ExternalPath::Relative(code.s1("dut.gen(0)").name()),
+                ExternalPath::Relative(code.s1("dut.gen(0)").name(), 1),
                 code.s1("^.dut.gen(0)").pos(),
+            ),
+            subtype: code.s1("std_logic").subtype_indication(),
+        };
+        assert_eq!(
+            code.with_stream(parse_name),
+            WithPos::new(Name::External(Box::new(external_name)), code)
+        );
+    }
+
+    #[test]
+    fn test_external_name_explicit_relative_multiple_levels() {
+        let code = Code::new("<< signal ^.^.^.dut.gen(0) : std_logic >>");
+        let external_name = ExternalName {
+            class: ExternalObjectClass::Signal,
+            path: WithPos::new(
+                ExternalPath::Relative(code.s1("dut.gen(0)").name(), 3),
+                code.s1("^.^.^.dut.gen(0)").pos(),
             ),
             subtype: code.s1("std_logic").subtype_indication(),
         };
@@ -901,7 +923,7 @@ mod tests {
             let external_name = ExternalName {
                 class,
                 path: WithPos::new(
-                    ExternalPath::Relative(code.s1("dut.foo").name()),
+                    ExternalPath::Relative(code.s1("dut.foo").name(), 0),
                     code.s1("dut.foo").pos(),
                 ),
                 subtype: code.s1("std_logic").subtype_indication(),
