@@ -275,7 +275,7 @@ impl<'a> AnalyzeContext<'a> {
             TypeDefinition::ProtectedBody(ref mut body) => {
                 body.type_reference.clear_reference();
 
-                match parent.lookup_extended(&type_decl.ident.item.clone().into()) {
+                match parent.lookup_immediate(&type_decl.ident.item.clone().into()) {
                     Some(visible) => {
                         let is_ok = match visible.clone().into_non_overloaded() {
                             Ok(ent) => {

@@ -223,7 +223,7 @@ impl<'a> AnalyzeContext<'a> {
 
         unit.entity_name.set_reference_pos(Some(entity.pos()));
 
-        let mut root_region = Region::extend(&entity.result().root_region, None);
+        let mut root_region = Region::with_parent(&entity.result().root_region);
         self.analyze_context_clause(&mut root_region, &mut unit.context_clause, diagnostics)?;
         let mut region = Region::extend(&entity.result().region, Some(&root_region));
 
@@ -266,7 +266,7 @@ impl<'a> AnalyzeContext<'a> {
 
         unit.ident.set_reference_pos(Some(package.pos()));
         // @TODO make pattern of primary/secondary extension
-        let mut root_region = Region::extend(&package.result().root_region, None);
+        let mut root_region = Region::with_parent(&package.result().root_region);
         self.analyze_context_clause(&mut root_region, &mut unit.context_clause, diagnostics)?;
 
         let mut region = Region::extend(&package.result().region, Some(&root_region));

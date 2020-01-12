@@ -199,23 +199,6 @@ impl NamedEntity {
         }
     }
 
-    /// Return a duplicate declaration of the previously declared named entity
-    pub fn is_duplicate_of<'a>(&self, prev: &'a Self) -> bool {
-        if self.is_overloaded() && prev.is_overloaded() {
-            return false;
-        }
-
-        match prev.kind {
-            // Everything expect deferred combinations are forbidden
-            NamedEntityKind::DeferredConstant if self.kind.is_non_deferred_constant() => {}
-            _ => {
-                return true;
-            }
-        }
-
-        false
-    }
-
     /// Strip aliases and return reference to actual named entity
     pub fn as_actual(&self) -> &NamedEntity {
         match self.kind() {
