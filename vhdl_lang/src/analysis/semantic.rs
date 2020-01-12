@@ -13,14 +13,14 @@ use std::sync::Arc;
 
 pub enum ResolvedName {
     /// A single name was selected
-    Known(VisibleDeclaration),
+    Known(NamedEntities),
 
     /// Until type checking is performed we keep unknown state
     Unknown,
 }
 
 impl ResolvedName {
-    fn into_known(self) -> Option<VisibleDeclaration> {
+    fn into_known(self) -> Option<NamedEntities> {
         if let Self::Known(visible) = self {
             Some(visible)
         } else {
@@ -46,10 +46,7 @@ impl<'a> AnalyzeContext<'a> {
                 let named_entity =
                     self.lookup_in_library(library_name, &suffix.pos, suffix.designator())?;
 
-                Ok(ResolvedName::Known(VisibleDeclaration::new(
-                    suffix.designator().clone(),
-                    named_entity,
-                )))
+                Ok(ResolvedName::Known(NamedEntities::new(named_entity)))
             }
             NamedEntityKind::UninstPackage(..) => Err(AnalysisError::NotFatal(
                 uninstantiated_package_prefix_error(prefix, prefix_pos),
@@ -79,7 +76,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         region: &Region<'_>,
         name: &mut WithPos<SelectedName>,
-    ) -> AnalysisResult<VisibleDeclaration> {
+    ) -> AnalysisResult<NamedEntities> {
         match name.item {
             SelectedName::Selected(ref mut prefix, ref mut suffix) => {
                 suffix.clear_reference();
@@ -224,12 +221,12 @@ impl<'a> AnalyzeContext<'a> {
                     Err(AnalysisError::NotFatal(error))
                 }
             }
-            Err(visible) => {
+            Err(overloaded) => {
                 let mut error = Diagnostic::error(
                     name.suffix_pos(),
                     format!("Expected {}, got overloaded name", expected),
                 );
-                for ent in visible.named_entities() {
+                for ent in overloaded.entities() {
                     if let Some(pos) = ent.decl_pos() {
                         error.add_related(pos, "Defined here");
                     }

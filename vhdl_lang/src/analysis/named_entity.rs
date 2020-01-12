@@ -19,8 +19,8 @@ pub enum NamedEntityKind {
     Component,
     Attribute,
     Overloaded,
-    // An optional region with implicit declarations
-    TypeDeclaration(Option<Arc<Region<'static>>>),
+    // An optional list of implicit declarations
+    TypeDeclaration(Vec<Arc<NamedEntity>>),
     Subtype(Subtype),
     IncompleteType,
     InterfaceType,
@@ -130,7 +130,10 @@ impl ObjectClass {
     }
 }
 
-pub type EntityId = usize;
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+pub struct EntityId {
+    id: usize,
+}
 
 pub struct NamedEntity {
     /// An unique id of the entity
@@ -166,7 +169,7 @@ impl NamedEntity {
         }
     }
 
-    pub fn id(&self) -> usize {
+    pub fn id(&self) -> EntityId {
         self.id
     }
 
@@ -189,28 +192,11 @@ impl NamedEntity {
     }
 
     pub fn is_overloaded(&self) -> bool {
-        if let NamedEntityKind::Overloaded = self.kind {
+        if let NamedEntityKind::Overloaded = self.as_actual().kind {
             true
         } else {
             false
         }
-    }
-
-    /// Return a duplicate declaration of the previously declared named entity
-    pub fn is_duplicate_of<'a>(&self, prev: &'a Self) -> bool {
-        if self.is_overloaded() && prev.is_overloaded() {
-            return false;
-        }
-
-        match prev.kind {
-            // Everything expect deferred combinations are forbidden
-            NamedEntityKind::DeferredConstant if self.kind.is_non_deferred_constant() => {}
-            _ => {
-                return true;
-            }
-        }
-
-        false
     }
 
     /// Strip aliases and return reference to actual named entity
@@ -251,6 +237,8 @@ impl NamedEntity {
 static COUNTER: AtomicUsize = AtomicUsize::new(1);
 
 // Using 64-bits we can create 5 * 10**9 ids per second for 100 years before wrapping
-pub fn new_id() -> usize {
-    COUNTER.fetch_add(1, Ordering::Relaxed)
+pub fn new_id() -> EntityId {
+    EntityId {
+        id: COUNTER.fetch_add(1, Ordering::Relaxed),
+    }
 }

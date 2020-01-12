@@ -92,8 +92,12 @@ impl Visibility {
         // For example all enum literals are made implicititly visible when using an enum type
         if let NamedEntityKind::TypeDeclaration(ref implicit) = ent.as_actual().kind() {
             // Add implicitic declarations when using type
-            if let Some(implicit) = implicit {
-                self.make_all_potentially_visible(visible_pos, implicit);
+            for entity in implicit.iter() {
+                self.make_potentially_visible_with_name(
+                    visible_pos,
+                    entity.designator().clone(),
+                    entity.clone(),
+                );
             }
         }
 
@@ -122,8 +126,15 @@ impl Visibility {
     pub fn lookup_into<'a>(&'a self, designator: &Designator, visible: &mut Visible<'a>) {
         for visible_region in self.all_in_regions.iter() {
             if let Some(named_entities) = visible_region.region.lookup_selected(designator) {
-                for named_entity in named_entities.named_entities() {
-                    visible.insert(&visible_region.visible_pos, named_entity);
+                match named_entities {
+                    NamedEntities::Single(entity) => {
+                        visible.insert(&visible_region.visible_pos, entity);
+                    }
+                    NamedEntities::Overloaded(overloaded) => {
+                        for entity in overloaded.entities() {
+                            visible.insert(&visible_region.visible_pos, entity);
+                        }
+                    }
                 }
             }
         }
@@ -174,8 +185,8 @@ impl<'a> Visible<'a> {
         self,
         pos: &SrcPos,
         designator: &Designator,
-    ) -> Result<Option<VisibleDeclaration>, Diagnostic> {
-        let named_entities: Vec<_> = self
+    ) -> Result<Option<NamedEntities>, Diagnostic> {
+        let mut named_entities: Vec<_> = self
             .visible_entities
             .iter()
             .map(|(_, ent)| ent.entity.clone())
@@ -183,10 +194,10 @@ impl<'a> Visible<'a> {
 
         if named_entities.is_empty() {
             Ok(None)
-        } else if named_entities.len() == 1 || named_entities.iter().all(|ent| ent.is_overloaded())
-        {
-            let visible = VisibleDeclaration::new_vec(designator.clone(), named_entities);
-            Ok(Some(visible))
+        } else if named_entities.iter().all(|ent| ent.is_overloaded()) {
+            Ok(Some(NamedEntities::new_overloaded(named_entities)))
+        } else if named_entities.len() == 1 {
+            Ok(Some(NamedEntities::new(named_entities.pop().unwrap())))
         } else {
             // Duplicate visible items hide each other
             let mut error = Diagnostic::error(
