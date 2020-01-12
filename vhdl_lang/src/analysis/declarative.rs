@@ -198,17 +198,24 @@ impl<'a> AnalyzeContext<'a> {
                     NamedEntityKind::Overloaded,
                     diagnostics,
                 );
-                let mut spec_region = self.analyze_subprogram_declaration(
-                    region,
+                let mut subpgm_region = region.nested();
+
+                self.analyze_subprogram_declaration(
+                    &mut subpgm_region,
                     &mut body.specification,
                     diagnostics,
                 )?;
                 self.analyze_declarative_part(
-                    &mut spec_region,
+                    &mut subpgm_region,
                     &mut body.declarations,
                     diagnostics,
                 )?;
-                self.analyze_sequential_part(&mut spec_region, &mut body.statements, diagnostics)?;
+                subpgm_region.close(diagnostics);
+                self.analyze_sequential_part(
+                    &mut subpgm_region,
+                    &mut body.statements,
+                    diagnostics,
+                )?;
             }
             Declaration::SubprogramDeclaration(ref mut subdecl) => {
                 region.add(
@@ -216,7 +223,10 @@ impl<'a> AnalyzeContext<'a> {
                     NamedEntityKind::Overloaded,
                     diagnostics,
                 );
-                self.analyze_subprogram_declaration(region, subdecl, diagnostics)?;
+
+                let mut subpgm_region = region.nested();
+                self.analyze_subprogram_declaration(&mut subpgm_region, subdecl, diagnostics)?;
+                subpgm_region.close(diagnostics);
             }
 
             Declaration::Use(ref mut use_clause) => {
@@ -334,7 +344,13 @@ impl<'a> AnalyzeContext<'a> {
                                 NamedEntityKind::Overloaded,
                                 diagnostics,
                             );
-                            self.analyze_subprogram_declaration(&region, subprogram, diagnostics)?;
+                            let mut subpgm_region = region.nested();
+                            self.analyze_subprogram_declaration(
+                                &mut subpgm_region,
+                                subprogram,
+                                diagnostics,
+                            )?;
+                            subpgm_region.close(diagnostics);
                         }
                     }
                 }
@@ -535,7 +551,9 @@ impl<'a> AnalyzeContext<'a> {
                 region.add(ident, NamedEntityKind::InterfaceType, diagnostics);
             }
             InterfaceDeclaration::Subprogram(ref mut subpgm, ..) => {
-                self.analyze_subprogram_declaration(region, subpgm, diagnostics)?;
+                let mut subpgm_region = region.nested();
+                self.analyze_subprogram_declaration(&mut subpgm_region, subpgm, diagnostics)?;
+                subpgm_region.close(diagnostics);
                 region.add(
                     subpgm.designator(),
                     NamedEntityKind::Overloaded,
@@ -660,31 +678,24 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
-    fn analyze_subprogram_declaration<'r>(
+    fn analyze_subprogram_declaration(
         &self,
-        parent: &'r Region<'_>,
+        region: &mut Region<'_>,
         subprogram: &mut SubprogramDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Region<'r>> {
-        let mut region = parent.nested();
-
+    ) -> FatalNullResult {
         match subprogram {
             SubprogramDeclaration::Function(fun) => {
-                self.analyze_interface_list(&mut region, &mut fun.parameter_list, diagnostics)?;
-                if let Err(err) = self.resolve_type_mark(&parent, &mut fun.return_type) {
+                self.analyze_interface_list(region, &mut fun.parameter_list, diagnostics)?;
+                if let Err(err) = self.resolve_type_mark(region, &mut fun.return_type) {
                     err.add_to(diagnostics)?
                 }
             }
             SubprogramDeclaration::Procedure(procedure) => {
-                self.analyze_interface_list(
-                    &mut region,
-                    &mut procedure.parameter_list,
-                    diagnostics,
-                )?;
+                self.analyze_interface_list(region, &mut procedure.parameter_list, diagnostics)?;
             }
         }
-        region.close(diagnostics);
-        Ok(region)
+        Ok(())
     }
 }
 
