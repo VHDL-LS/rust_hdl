@@ -61,10 +61,6 @@ fn parse_block_header(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<BlockHeader> {
-    let mut has_port_clause = false;
-    let mut has_port_map = false;
-    let mut has_generic_clause = false;
-    let mut has_generic_map = false;
 
     let mut generic_clause = None;
     let mut generic_map = None;
@@ -77,13 +73,12 @@ fn parse_block_header(
             Generic => {
                 stream.move_after(&token);
                 if let Some(map_token) = stream.pop_if_kind(Map)? {
-                    has_generic_map = true;
-                    if has_port_clause || has_port_map {
+                    if port_clause.is_some() || port_map.is_some() {
                         diagnostics.push(Diagnostic::error(
                             map_token,
                             "Generic map must come before port clause and port map",
                         ));
-                    } else if !has_generic_clause {
+                    } else if generic_clause.is_none() {
                         diagnostics.push(Diagnostic::error(
                             map_token,
                             "Generic map declared without preceeding generic clause",
@@ -97,8 +92,7 @@ fn parse_block_header(
                         generic_map = parsed_generic_map;
                     }
                 } else {
-                    has_generic_clause = true;
-                    if has_generic_map {
+                    if generic_map.is_some() {
                         diagnostics.push(Diagnostic::error(
                             token,
                             "Generic clause must come before generic map",
@@ -116,8 +110,7 @@ fn parse_block_header(
             Port => {
                 stream.move_after(&token);
                 if let Some(map_token) = stream.pop_if_kind(Map)? {
-                    has_port_map = true;
-                    if !has_port_clause {
+                    if port_clause.is_none() {
                         diagnostics.push(Diagnostic::error(
                             map_token,
                             "Port map declared without preceeding port clause",
@@ -131,8 +124,7 @@ fn parse_block_header(
                         port_map = parsed_port_map;
                     }
                 } else {
-                    has_port_clause = true;
-                    if has_port_map {
+                    if port_map.is_some() {
                         diagnostics.push(Diagnostic::error(
                             token,
                             "Port clause declared after port map",
