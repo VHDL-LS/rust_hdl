@@ -123,35 +123,33 @@ impl<'a> AnalyzeContext<'a> {
                 let kind = {
                     if subtype_indication.is_some() {
                         NamedEntityKind::OtherAlias
-                    } else {
-                        if let Some(named_entities) =
-                            resolved_name.and_then(|name| name.into_known())
-                        {
-                            let ent = match named_entities {
-                                NamedEntities::Single(ent) => {
-                                    if let Some(signature) = signature {
-                                        diagnostics.error(signature, "Alias should only have a signature for subprograms and enum literals");
-                                    }
-                                    ent
+                    } else if let Some(named_entities) =
+                        resolved_name.and_then(|name| name.into_known())
+                    {
+                        let ent = match named_entities {
+                            NamedEntities::Single(ent) => {
+                                if let Some(signature) = signature {
+                                    diagnostics.error(signature, "Alias should only have a signature for subprograms and enum literals");
                                 }
-                                NamedEntities::Overloaded(overloaded) => {
-                                    if signature.is_none() {
-                                        diagnostics.error(name, "Signature required for alias of subprogram and enum literals");
-                                    }
-                                    // @TODO use signature to determine variant
-                                    overloaded.first().clone()
+                                ent
+                            }
+                            NamedEntities::Overloaded(overloaded) => {
+                                if signature.is_none() {
+                                    diagnostics.error(name, "Signature required for alias of subprogram and enum literals");
                                 }
-                            };
+                                // @TODO use signature to determine variant
+                                overloaded.first().clone()
+                            }
+                        };
 
-                            region.add_implicit_declaration_aliases(
-                                Some(&designator.pos),
-                                &ent,
-                                diagnostics,
-                            );
-                            NamedEntityKind::AliasOf(ent)
-                        } else {
-                            NamedEntityKind::OtherAlias
-                        }
+                        region.add_implicit_declaration_aliases(
+                            Some(&designator.pos),
+                            &ent,
+                            diagnostics,
+                        );
+                        NamedEntityKind::AliasOf(ent)
+                    } else {
+                        NamedEntityKind::OtherAlias
                     }
                 };
 
