@@ -117,7 +117,9 @@ pub enum ExternalObjectClass {
 pub enum ExternalPath {
     Package(WithPos<Name>),
     Absolute(WithPos<Name>),
-    Relative(WithPos<Name>),
+
+    // usize field indicates the number of up-levels ('^')
+    Relative(WithPos<Name>, usize),
 }
 
 /// LRM 8.7 External names
