@@ -51,7 +51,7 @@ pub fn parse_block_statement(
     stream.expect_kind(SemiColon)?;
     Ok(BlockStatement {
         guard_condition,
-        header: header,
+        header,
         decl,
         statements,
     })
