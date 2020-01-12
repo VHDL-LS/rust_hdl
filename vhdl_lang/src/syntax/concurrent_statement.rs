@@ -61,7 +61,6 @@ fn parse_block_header(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<BlockHeader> {
-
     let mut generic_clause = None;
     let mut generic_map = None;
     let mut port_clause = None;
