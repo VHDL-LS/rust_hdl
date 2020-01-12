@@ -853,8 +853,18 @@ pub struct LabeledSequentialStatement {
 #[derive(PartialEq, Debug, Clone)]
 pub struct BlockStatement {
     pub guard_condition: Option<WithPos<Expression>>,
+    pub header: BlockHeader,
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledConcurrentStatement>,
+}
+
+/// LRM 11.2 Block statement
+#[derive(PartialEq, Debug, Clone)]
+pub struct BlockHeader {
+    pub generic_clause: Option<Vec<InterfaceDeclaration>>,
+    pub generic_map: Option<Vec<AssociationElement>>,
+    pub port_clause: Option<Vec<InterfaceDeclaration>>,
+    pub port_map: Option<Vec<AssociationElement>>,
 }
 
 #[derive(PartialEq, Debug, Clone)]

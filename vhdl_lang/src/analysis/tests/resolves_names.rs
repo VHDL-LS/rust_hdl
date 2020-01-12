@@ -1046,3 +1046,33 @@ end architecture;
 ",
     );
 }
+
+#[test]
+fn block_names_are_visible() {
+    check_code_with_no_diagnostics(
+        "
+entity ent is
+  port (ent_in : integer);
+end entity;
+
+architecture a of ent is
+  signal sig : integer;
+begin
+  blk: block (ent_in = 1) is
+    generic( gen : integer := 0 );
+    generic map ( gen => 1);
+    port( 
+      prt_in : in integer := 0;
+      prt_out : out integer := 0
+    );
+    port map (
+      prt_in => ent_in + sig,
+      prt_out => open
+    );
+  begin
+    prt_out <= gen + prt_in + sig;
+  end block;
+end architecture;
+",
+    );
+}
