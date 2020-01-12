@@ -1061,7 +1061,7 @@ begin
   blk: block (ent_in = 1) is
     generic( gen : integer := 0 );
     generic map ( gen => 1);
-    port( 
+    port(
       prt_in : in integer := 0;
       prt_out : out integer := 0
     );
@@ -1074,5 +1074,57 @@ begin
   end block;
 end architecture;
 ",
+    );
+}
+
+#[test]
+fn error_on_signature_for_non_overloaded_alias() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+  type enum_t is (alpha, beta);
+  alias alias_t is enum_t[return integer];
+end package;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("[return integer]"),
+            "Alias should only have a signature for subprograms and enum literals",
+        )],
+    );
+}
+
+#[test]
+fn error_on_non_signature_for_overloaded_alias() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+end package;
+
+package body pkg is
+  procedure subpgm(arg: natural) is
+  begin
+  end;
+
+  alias alias_t is subpgm;
+end package body;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("subpgm", 2),
+            "Signature required for alias of subprogram and enum literals",
+        )],
     );
 }

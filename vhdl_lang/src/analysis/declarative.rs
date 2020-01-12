@@ -124,22 +124,31 @@ impl<'a> AnalyzeContext<'a> {
                     if subtype_indication.is_some() {
                         NamedEntityKind::OtherAlias
                     } else {
-                        let named_entity = if signature.is_some() {
-                            // @TODO use signature to select named entity
-                            resolved_name
-                                .and_then(|resolved| resolved.into_known())
-                                .map(|entities| entities.first().clone())
-                        } else {
-                            resolved_name.and_then(|resolved| resolved.into_non_overloaded())
-                        };
+                        if let Some(named_entities) =
+                            resolved_name.and_then(|name| name.into_known())
+                        {
+                            let ent = match named_entities {
+                                NamedEntities::Single(ent) => {
+                                    if let Some(signature) = signature {
+                                        diagnostics.error(signature, "Alias should only have a signature for subprograms and enum literals");
+                                    }
+                                    ent
+                                }
+                                NamedEntities::Overloaded(overloaded) => {
+                                    if signature.is_none() {
+                                        diagnostics.error(name, "Signature required for alias of subprogram and enum literals");
+                                    }
+                                    // @TODO use signature to determine variant
+                                    overloaded.first().clone()
+                                }
+                            };
 
-                        if let Some(named_entity) = named_entity {
                             region.add_implicit_declaration_aliases(
                                 Some(&designator.pos),
-                                &named_entity,
+                                &ent,
                                 diagnostics,
                             );
-                            NamedEntityKind::AliasOf(named_entity)
+                            NamedEntityKind::AliasOf(ent)
                         } else {
                             NamedEntityKind::OtherAlias
                         }
@@ -505,10 +514,10 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_signature(
         &self,
         region: &Region<'_>,
-        signature: &mut Signature,
+        signature: &mut WithPos<Signature>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        match signature {
+        match &mut signature.item {
             Signature::Function(ref mut args, ref mut ret) => {
                 for arg in args.iter_mut() {
                     if let Err(err) = self.resolve_selected_name(region, arg) {

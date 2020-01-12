@@ -13,12 +13,14 @@ use super::tokens::{Kind::*, TokenStream};
 use crate::ast::*;
 use crate::data::*;
 
-pub fn parse_signature(stream: &mut TokenStream) -> ParseResult<Signature> {
-    stream.expect_kind(LeftSquare)?;
+pub fn parse_signature(stream: &mut TokenStream) -> ParseResult<WithPos<Signature>> {
+    let left_square = stream.expect_kind(LeftSquare)?;
+    let start_pos = left_square.pos;
     let mut type_marks = Vec::new();
     let mut return_mark = None;
     let mut errmsg = None;
-    loop {
+
+    let pos = loop {
         let token = stream.peek_expect()?;
 
         try_token_kind!(
@@ -32,7 +34,7 @@ pub fn parse_signature(stream: &mut TokenStream) -> ParseResult<Signature> {
                     sep_token,
                     Comma => {},
                     RightSquare => {
-                        break;
+                        break start_pos.combine(&sep_token.pos);
                     },
                     Return => {
                         let new_return_mark = Some(parse_selected_name(stream)?);
@@ -55,19 +57,22 @@ pub fn parse_signature(stream: &mut TokenStream) -> ParseResult<Signature> {
             },
             RightSquare => {
                 stream.move_after(&token);
-                break;
+                break start_pos.combine(&token.pos);
             }
         )
-    }
+    };
+
     if let Some(diagnostic) = errmsg {
         // @TODO recoverable error should not return Err
         return Err(diagnostic);
     }
 
-    Ok(match return_mark {
+    let signature = match return_mark {
         Some(return_mark) => Signature::Function(type_marks, return_mark),
         None => Signature::Procedure(type_marks),
-    })
+    };
+
+    Ok(WithPos::new(signature, pos))
 }
 
 fn parse_designator(stream: &mut TokenStream) -> ParseResult<WithPos<SubprogramDesignator>> {
@@ -316,7 +321,10 @@ function foo(foo : natural) return lib.foo.natural;
         let code = Code::new("[return bar.type_mark]");
         assert_eq!(
             code.with_stream(parse_signature),
-            Signature::Function(vec![], code.s1("bar.type_mark").selected_name())
+            WithPos::new(
+                Signature::Function(vec![], code.s1("bar.type_mark").selected_name()),
+                code.pos()
+            )
         );
     }
 
@@ -325,9 +333,12 @@ function foo(foo : natural) return lib.foo.natural;
         let code = Code::new("[foo.type_mark return bar.type_mark]");
         assert_eq!(
             code.with_stream(parse_signature),
-            Signature::Function(
-                vec![code.s1("foo.type_mark").selected_name()],
-                code.s1("bar.type_mark").selected_name()
+            WithPos::new(
+                Signature::Function(
+                    vec![code.s1("foo.type_mark").selected_name()],
+                    code.s1("bar.type_mark").selected_name()
+                ),
+                code.pos()
             )
         );
     }
@@ -337,7 +348,10 @@ function foo(foo : natural) return lib.foo.natural;
         let code = Code::new("[foo.type_mark]");
         assert_eq!(
             code.with_stream(parse_signature),
-            Signature::Procedure(vec![code.s1("foo.type_mark").selected_name()])
+            WithPos::new(
+                Signature::Procedure(vec![code.s1("foo.type_mark").selected_name()]),
+                code.pos()
+            )
         );
     }
 
@@ -346,12 +360,15 @@ function foo(foo : natural) return lib.foo.natural;
         let code = Code::new("[foo.type_mark, foo2.type_mark return bar.type_mark]");
         assert_eq!(
             code.with_stream(parse_signature),
-            Signature::Function(
-                vec![
-                    code.s1("foo.type_mark").selected_name(),
-                    code.s1("foo2.type_mark").selected_name()
-                ],
-                code.s1("bar.type_mark").selected_name()
+            WithPos::new(
+                Signature::Function(
+                    vec![
+                        code.s1("foo.type_mark").selected_name(),
+                        code.s1("foo2.type_mark").selected_name()
+                    ],
+                    code.s1("bar.type_mark").selected_name()
+                ),
+                code.pos()
             )
         );
     }

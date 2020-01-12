@@ -191,7 +191,7 @@ fn parse_function_call(
 fn parse_attribute_name(
     stream: &mut TokenStream,
     name: WithPos<Name>,
-    signature: Option<Signature>,
+    signature: Option<WithPos<Signature>>,
 ) -> ParseResult<WithPos<Name>> {
     let attr = stream.expect_ident_or_range()?;
 

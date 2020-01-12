@@ -325,7 +325,7 @@ impl Code {
         self.parse_ok(parse_selected_name)
     }
 
-    pub fn signature(&self) -> Signature {
+    pub fn signature(&self) -> WithPos<Signature> {
         self.parse_ok(parse_signature)
     }
 

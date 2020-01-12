@@ -828,7 +828,9 @@ impl Search for Declaration {
                 return_if_found!(searcher.search_decl_pos(&designator.pos).or_not_found());
                 return_if_found!(subtype_indication.search(searcher));
                 return_if_found!(name.search(searcher));
-                return_if_found!(signature.search(searcher));
+                if let Some(signature) = signature {
+                    return_if_found!(signature.item.search(searcher));
+                }
             }
             Declaration::Use(use_clause) => return_if_found!(searcher
                 .search_with_pos(&use_clause.pos)

@@ -99,7 +99,7 @@ pub enum Binary {
 #[derive(PartialEq, Debug, Clone)]
 pub struct AttributeName {
     pub name: WithPos<Name>,
-    pub signature: Option<Signature>,
+    pub signature: Option<WithPos<Signature>>,
     pub attr: Ident,
     pub expr: Option<Box<WithPos<Expression>>>,
 }
@@ -381,7 +381,7 @@ pub struct AliasDeclaration {
     pub designator: WithPos<Designator>,
     pub subtype_indication: Option<SubtypeIndication>,
     pub name: WithPos<Name>,
-    pub signature: Option<Signature>,
+    pub signature: Option<WithPos<Signature>>,
 }
 
 /// LRM 6.7 Attribute declarations
@@ -395,7 +395,7 @@ pub struct AttributeDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct EntityTag {
     pub designator: WithPos<Designator>,
-    pub signature: Option<Signature>,
+    pub signature: Option<WithPos<Signature>>,
 }
 
 /// LRM 7.2 Attribute specification
