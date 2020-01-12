@@ -259,7 +259,11 @@ fn parse_inner_external_name(stream: &mut TokenStream) -> ParseResult<ExternalNa
             WithPos::from(ExternalPath::Absolute(path_name), path_pos)
         },
         Circ => {
+            // @TODO Store number of '^' ("up-levels")
             stream.expect_kind(Dot)?;
+            while stream.skip_if_kind(Circ)? {
+                stream.expect_kind(Dot)?;
+            }
             let path_name = parse_name(stream)?;
             let path_pos = path_name.pos.clone().combine_into(&token);
             WithPos::from(ExternalPath::Relative(path_name), path_pos)
@@ -846,6 +850,23 @@ mod tests {
             path: WithPos::new(
                 ExternalPath::Relative(code.s1("dut.gen(0)").name()),
                 code.s1("^.dut.gen(0)").pos(),
+            ),
+            subtype: code.s1("std_logic").subtype_indication(),
+        };
+        assert_eq!(
+            code.with_stream(parse_name),
+            WithPos::new(Name::External(Box::new(external_name)), code)
+        );
+    }
+
+    #[test]
+    fn test_external_name_explicit_relative_multiple_levels() {
+        let code = Code::new("<< signal ^.^.^.dut.gen(0) : std_logic >>");
+        let external_name = ExternalName {
+            class: ExternalObjectClass::Signal,
+            path: WithPos::new(
+                ExternalPath::Relative(code.s1("dut.gen(0)").name()),
+                code.s1("^.^.^.dut.gen(0)").pos(),
             ),
             subtype: code.s1("std_logic").subtype_indication(),
         };
