@@ -72,6 +72,19 @@ impl AnalysisError {
     }
 }
 
+/// Converts an AnalysisResult to FatalNullResult
+macro_rules! ok_or_return {
+    ($result:ident, $diagnostics:ident) => {
+        match $result {
+            Ok(value) => value,
+            Err(err) => {
+                err.add_to($diagnostics)?;
+                return Ok(());
+            }
+        }
+    };
+}
+
 pub(super) struct AnalyzeContext<'a> {
     root: &'a DesignRoot,
 

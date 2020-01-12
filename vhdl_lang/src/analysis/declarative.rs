@@ -533,17 +533,26 @@ impl<'a> AnalyzeContext<'a> {
                 );
             }
             InterfaceDeclaration::Object(ref mut object_decl) => {
-                self.analyze_subtype_indication(
+                let subtype = self.resolve_subtype_indication(
                     region,
                     &mut object_decl.subtype_indication,
                     diagnostics,
-                )?;
+                );
+
                 if let Some(ref mut expression) = object_decl.expression {
                     self.analyze_expression(region, expression, diagnostics)?
                 }
+
+                let subtype = ok_or_return!(subtype, diagnostics);
+
                 region.add(
                     &object_decl.ident,
-                    NamedEntityKind::InterfaceObject(object_decl.class),
+                    NamedEntityKind::InterfaceObject(InterfaceObject {
+                        class: object_decl.class,
+                        mode: object_decl.mode,
+                        subtype,
+                        has_default: object_decl.expression.is_some(),
+                    }),
                     diagnostics,
                 );
             }

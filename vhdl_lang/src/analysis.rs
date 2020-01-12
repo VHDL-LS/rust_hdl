@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
+#[macro_use]
 mod analyze;
 mod concurrent;
 mod declarative;

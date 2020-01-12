@@ -26,7 +26,7 @@ pub enum NamedEntityKind {
     InterfaceType,
     Label,
     Object(ObjectClass),
-    InterfaceObject(ObjectClass),
+    InterfaceObject(InterfaceObject),
     PhysicalLiteral,
     DeferredConstant,
     // The region of the protected type which needs to be extendend by the body
@@ -91,7 +91,7 @@ impl NamedEntityKind {
             InterfaceType => "type",
             Label => "label",
             Object(class) => class.describe(),
-            InterfaceObject(class) => class.describe(),
+            InterfaceObject(object) => object.class.describe(),
             PhysicalLiteral => "physical literal",
             DeferredConstant => "deferred constant",
             ProtectedType(..) => "protected type",
@@ -105,6 +105,15 @@ impl NamedEntityKind {
             LocalPackageInstance(..) => "package instance",
         }
     }
+}
+
+/// Signals, (shared) variables and constants
+#[derive(Clone)]
+pub struct InterfaceObject {
+    pub class: ObjectClass,
+    pub mode: Mode,
+    pub subtype: Subtype,
+    pub has_default: bool,
 }
 
 #[derive(Clone)]
