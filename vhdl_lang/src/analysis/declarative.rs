@@ -121,13 +121,17 @@ impl<'a> AnalyzeContext<'a> {
                 }
 
                 let kind = {
-                    if signature.is_some() {
-                        NamedEntityKind::Overloaded
-                    } else if subtype_indication.is_some() {
+                    if subtype_indication.is_some() {
                         NamedEntityKind::OtherAlias
                     } else {
-                        let named_entity =
-                            resolved_name.and_then(|resolved| resolved.into_non_overloaded());
+                        let named_entity = if signature.is_some() {
+                            // @TODO use signature to select named entity
+                            resolved_name
+                                .and_then(|resolved| resolved.into_known())
+                                .map(|entities| entities.first().clone())
+                        } else {
+                            resolved_name.and_then(|resolved| resolved.into_non_overloaded())
+                        };
 
                         if let Some(named_entity) = named_entity {
                             region.add_implicit_declaration_aliases(
@@ -195,7 +199,10 @@ impl<'a> AnalyzeContext<'a> {
             Declaration::SubprogramBody(ref mut body) => {
                 region.add(
                     body.specification.designator(),
-                    NamedEntityKind::Overloaded,
+                    match body.specification {
+                        SubprogramDeclaration::Procedure(..) => NamedEntityKind::Procedure,
+                        SubprogramDeclaration::Function(..) => NamedEntityKind::Function,
+                    },
                     diagnostics,
                 );
                 let mut subpgm_region = region.nested();
@@ -220,7 +227,10 @@ impl<'a> AnalyzeContext<'a> {
             Declaration::SubprogramDeclaration(ref mut subdecl) => {
                 region.add(
                     subdecl.designator(),
-                    NamedEntityKind::Overloaded,
+                    match subdecl {
+                        SubprogramDeclaration::Procedure(..) => NamedEntityKind::Procedure,
+                        SubprogramDeclaration::Function(..) => NamedEntityKind::Function,
+                    },
                     diagnostics,
                 );
 
@@ -266,7 +276,7 @@ impl<'a> AnalyzeContext<'a> {
                 for literal in enumeration.iter() {
                     let literal_ent = NamedEntity::new(
                         literal.item.clone().into_designator(),
-                        NamedEntityKind::Overloaded,
+                        NamedEntityKind::EnumLiteral,
                         Some(&literal.pos),
                     );
                     let literal_ent = Arc::new(literal_ent);
@@ -341,7 +351,14 @@ impl<'a> AnalyzeContext<'a> {
                         ProtectedTypeDeclarativeItem::Subprogram(ref mut subprogram) => {
                             region.add(
                                 subprogram.designator(),
-                                NamedEntityKind::Overloaded,
+                                match subprogram {
+                                    SubprogramDeclaration::Procedure(..) => {
+                                        NamedEntityKind::Procedure
+                                    }
+                                    SubprogramDeclaration::Function(..) => {
+                                        NamedEntityKind::Function
+                                    }
+                                },
                                 diagnostics,
                             );
                             let mut subpgm_region = region.nested();
@@ -467,7 +484,7 @@ impl<'a> AnalyzeContext<'a> {
                 for name in names.iter() {
                     let ent = NamedEntity::new(
                         Designator::Identifier(self.symbol_utf8(name)),
-                        NamedEntityKind::Overloaded,
+                        NamedEntityKind::Procedure,
                         None,
                     );
                     implicit.push(Arc::new(ent));
@@ -565,7 +582,10 @@ impl<'a> AnalyzeContext<'a> {
                 subpgm_region.close(diagnostics);
                 region.add(
                     subpgm.designator(),
-                    NamedEntityKind::Overloaded,
+                    match subpgm {
+                        SubprogramDeclaration::Procedure(..) => NamedEntityKind::Procedure,
+                        SubprogramDeclaration::Function(..) => NamedEntityKind::Function,
+                    },
                     diagnostics,
                 );
             }

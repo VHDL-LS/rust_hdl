@@ -18,7 +18,9 @@ pub enum NamedEntityKind {
     RecordField,
     Component,
     Attribute,
-    Overloaded,
+    Function,
+    Procedure,
+    EnumLiteral,
     // An optional list of implicit declarations
     TypeDeclaration(Vec<Arc<NamedEntity>>),
     Subtype(Subtype),
@@ -74,6 +76,17 @@ impl NamedEntityKind {
         }
     }
 
+    pub fn is_type(&self) -> bool {
+        match self {
+            NamedEntityKind::IncompleteType
+            | NamedEntityKind::ProtectedType(..)
+            | NamedEntityKind::InterfaceType
+            | NamedEntityKind::Subtype(..)
+            | NamedEntityKind::TypeDeclaration(..) => true,
+            _ => false,
+        }
+    }
+
     pub fn describe(&self) -> &str {
         use NamedEntityKind::*;
         match self {
@@ -84,7 +97,9 @@ impl NamedEntityKind {
             RecordField => "file",
             Component => "file",
             Attribute => "file",
-            Overloaded => "file",
+            Procedure => "procedure",
+            Function => "function",
+            EnumLiteral => "enum literal",
             TypeDeclaration(..) => "type",
             Subtype(..) => "subtype",
             IncompleteType => "type",
@@ -123,6 +138,7 @@ pub struct Subtype {
 
 impl Subtype {
     pub fn new(base: Arc<NamedEntity>) -> Subtype {
+        debug_assert!(base.actual_kind().is_type());
         Subtype { base }
     }
 }
@@ -201,10 +217,11 @@ impl NamedEntity {
     }
 
     pub fn is_overloaded(&self) -> bool {
-        if let NamedEntityKind::Overloaded = self.as_actual().kind {
-            true
-        } else {
-            false
+        match self.actual_kind() {
+            NamedEntityKind::Procedure
+            | NamedEntityKind::Function
+            | NamedEntityKind::EnumLiteral => true,
+            _ => false,
         }
     }
 
@@ -214,6 +231,11 @@ impl NamedEntity {
             NamedEntityKind::AliasOf(ref ent) => ent.as_actual(),
             _ => self,
         }
+    }
+
+    /// Strip aliases and return reference to actual entity kind
+    pub fn actual_kind(&self) -> &NamedEntityKind {
+        self.as_actual().kind()
     }
 
     /// Returns true if self is alias of other

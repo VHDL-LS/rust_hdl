@@ -315,7 +315,7 @@ impl<'a> Region<'a> {
         ent: &NamedEntity,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
-        if let NamedEntityKind::TypeDeclaration(ref implicit) = ent.as_actual().kind() {
+        if let NamedEntityKind::TypeDeclaration(ref implicit) = ent.actual_kind() {
             for entity in implicit.iter() {
                 let entity = NamedEntity::new(
                     entity.designator().clone(),

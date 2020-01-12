@@ -20,7 +20,7 @@ pub enum ResolvedName {
 }
 
 impl ResolvedName {
-    fn into_known(self) -> Option<NamedEntities> {
+    pub fn into_known(self) -> Option<NamedEntities> {
         if let Self::Known(visible) = self {
             Some(visible)
         } else {
@@ -208,7 +208,7 @@ impl<'a> AnalyzeContext<'a> {
             .into_non_overloaded()
         {
             Ok(ent) => {
-                if kind_ok(ent.as_actual().kind()) {
+                if kind_ok(ent.actual_kind()) {
                     Ok(ent)
                 } else {
                     let mut error = Diagnostic::error(
@@ -241,18 +241,7 @@ impl<'a> AnalyzeContext<'a> {
         region: &Region<'_>,
         type_mark: &mut WithPos<SelectedName>,
     ) -> AnalysisResult<Arc<NamedEntity>> {
-        fn is_type(kind: &NamedEntityKind) -> bool {
-            match kind {
-                NamedEntityKind::IncompleteType
-                | NamedEntityKind::ProtectedType(..)
-                | NamedEntityKind::InterfaceType
-                | NamedEntityKind::Subtype(..)
-                | NamedEntityKind::TypeDeclaration(..) => true,
-                _ => false,
-            }
-        }
-
-        self.resolve_non_overloaded(region, type_mark, &is_type, "type")
+        self.resolve_non_overloaded(region, type_mark, &NamedEntityKind::is_type, "type")
     }
 
     fn analyze_attribute_name(
