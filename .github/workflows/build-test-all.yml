@@ -4,6 +4,15 @@ on: [push, pull_request]
 
 jobs:
 
+  release-notice:
+    name: This is a release build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Show version
+        run: echo "This is a release build for v${GITHUB_REF/refs\/tags\/v/}"
+
   build:
     strategy:
       matrix:
@@ -78,3 +87,77 @@ jobs:
         with:
           name: ${{ matrix.crate }}-${{ matrix.target }}
           path: ${{ matrix.crate }}-${{ matrix.target }}
+  
+  release:
+    name: Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Get version
+        id: v
+        run: |
+          echo ::set-output name=v::${GITHUB_REF/refs\/tags\/v/}
+          echo "Version is v${GITHUB_REF/refs\/tags\/v/}"
+      - uses: actions/checkout@v1
+      - name: Check release notes exist
+        run: |
+          if [ -f release_notes/v${{ steps.v.outputs.v }}.md ]
+          then
+            echo "Release notes found at release_notes/v${{ steps.v.outputs.v }}.md"
+          else
+            echo "Release notes not found at release_notes/v${{ steps.v.outputs.v }}.md"
+            exit 1
+          fi
+      - name: Get vhdl_lang linux
+        uses: actions/download-artifact@v1
+        with:
+          name: vhdl_lang-x86_64-unknown-linux-gnu
+      - name: Check vhdl_lang version
+        run: |
+          chmod u+x vhdl_lang-x86_64-unknown-linux-gnu/bin/vhdl_lang
+          version_string=$(vhdl_lang-x86_64-unknown-linux-gnu/bin/vhdl_lang --version)
+          if [ "$version_string" != "vhdl_lang ${{ steps.v.outputs.v }}" ]
+          then
+            echo "Version string mismatch (\"$version_string\" != \"vhdl_lang ${{ steps.v.outputs.v }}\""
+            exit 1
+          else
+            echo "Version string matched"
+          fi
+      - name: Get vhdl_ls linux
+        uses: actions/download-artifact@v1
+        with:
+          name: vhdl_ls-x86_64-unknown-linux-gnu
+      - name: Check vhdl_ls version
+        run: |
+          chmod u+x vhdl_ls-x86_64-unknown-linux-gnu/bin/vhdl_ls
+          version_string=$(vhdl_ls-x86_64-unknown-linux-gnu/bin/vhdl_ls --version)
+          if [ "$version_string" != "vhdl_ls ${{ steps.v.outputs.v }}" ]
+          then
+            echo "Version string mismatch (\"$version_string\" != \"vhdl_lang ${{ steps.v.outputs.v }}\""
+            exit 1
+          else
+            echo "Version string matched"
+          fi
+      - name: Get vhdl_lang windows
+        uses: actions/download-artifact@v1
+        with:
+          name: vhdl_lang-x86_64-pc-windows-msvc
+      - name: Get vhdl_ls windows
+        uses: actions/download-artifact@v1
+        with:
+          name: vhdl_ls-x86_64-pc-windows-msvc
+      - name: Zip artifacts
+        run: |
+          zip -r vhdl_lang-x86_64-unknown-linux-gnu.zip vhdl_lang-x86_64-unknown-linux-gnu
+          zip -r vhdl_ls-x86_64-unknown-linux-gnu.zip vhdl_ls-x86_64-unknown-linux-gnu
+          zip -r vhdl_lang-x86_64-pc-windows-msvc.zip vhdl_lang-x86_64-pc-windows-msvc
+          zip -r vhdl_ls-x86_64-pc-windows-msvc.zip vhdl_ls-x86_64-pc-windows-msvc
+      - name: Do release
+        uses: ncipollo/release-action@v1
+        with:
+          draft: false
+          artifacts: "vhdl_lang-x86_64-unknown-linux-gnu.zip,vhdl_ls-x86_64-unknown-linux-gnu.zip,vhdl_lang-x86_64-pc-windows-msvc.zip,vhdl_ls-x86_64-pc-windows-msvc.zip"
+          bodyFile: "release_notes/v${{ steps.v.outputs.v }}.md"
+          token: ${{ secrets.GITHUB_TOKEN }}
