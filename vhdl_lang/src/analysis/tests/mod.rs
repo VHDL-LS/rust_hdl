@@ -8,6 +8,7 @@ mod circular_dependencies;
 mod context_clause;
 mod deferred_constant;
 mod homographs;
+mod implicit;
 mod incomplete_type;
 mod incremental_analysis;
 mod package_instance;

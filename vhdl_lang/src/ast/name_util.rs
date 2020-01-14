@@ -297,3 +297,13 @@ impl Designator {
         self.as_identifier().unwrap()
     }
 }
+
+impl Name {
+    pub fn suffix_reference_mut(&mut self) -> Option<&mut Reference> {
+        match self {
+            Name::Designator(suffix) => Some(&mut suffix.reference),
+            Name::Selected(_, suffix) => Some(&mut suffix.item.reference),
+            _ => None,
+        }
+    }
+}

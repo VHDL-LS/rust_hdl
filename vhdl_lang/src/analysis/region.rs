@@ -12,36 +12,84 @@ use fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
 use std::sync::Arc;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 /// A non-emtpy collection of overloaded entites
 pub struct OverloadedName {
-    entities: Vec<Arc<NamedEntity>>,
+    entities: FnvHashMap<SignatureKey, Arc<NamedEntity>>,
 }
 
 impl OverloadedName {
     pub fn new(entities: Vec<Arc<NamedEntity>>) -> OverloadedName {
         debug_assert!(!entities.is_empty());
-        debug_assert!(
-            entities.iter().all(|ent| ent.is_overloaded()),
-            "All must be overloaded"
-        );
-        OverloadedName { entities }
+
+        let mut map = FnvHashMap::default();
+        for ent in entities.into_iter() {
+            debug_assert!(ent.signature().is_some(), "All must be overloaded");
+            map.insert(ent.signature().unwrap().key(), ent);
+        }
+        OverloadedName { entities: map }
     }
 
     pub fn first(&self) -> &Arc<NamedEntity> {
-        self.entities.first().unwrap()
+        let first_key = self.entities.keys().next().unwrap();
+        self.entities.get(first_key).unwrap()
     }
 
     pub fn entities(&self) -> impl Iterator<Item = &Arc<NamedEntity>> {
-        self.entities.iter()
+        self.entities.values()
     }
 
-    fn push(&mut self, ent: Arc<NamedEntity>) {
-        self.entities.push(ent);
+    pub fn get(&self, key: &SignatureKey) -> Option<Arc<NamedEntity>> {
+        self.entities.get(key).cloned()
+    }
+
+    #[allow(clippy::if_same_then_else)]
+    fn insert(&mut self, ent: Arc<NamedEntity>) -> Result<(), Diagnostic> {
+        debug_assert!(ent.signature().is_some(), "Must be overloaded");
+        match self.entities.entry(ent.signature().unwrap().key()) {
+            Entry::Occupied(mut entry) => {
+                let old_ent = entry.get();
+
+                if (old_ent.is_implicit() && ent.is_explicit())
+                    || (old_ent.is_subprogram_decl() && ent.is_subprogram())
+                {
+                    entry.insert(ent);
+                    return Ok(());
+                } else if old_ent.is_implicit()
+                    && ent.is_implicit()
+                    && (old_ent.as_actual().id() == ent.as_actual().id())
+                {
+                    return Ok(());
+                } else if old_ent.is_explicit() && ent.is_implicit() {
+                    return Ok(());
+                }
+
+                // @TODO only libraries have decl_pos=None
+                let pos = ent.decl_pos().unwrap();
+
+                let mut diagnostic = Diagnostic::error(
+                    pos,
+                    format!(
+                        "Duplicate declaration of '{}' with signature {}",
+                        ent.designator(),
+                        ent.signature().unwrap().describe()
+                    ),
+                );
+                if let Some(old_pos) = old_ent.decl_pos() {
+                    diagnostic.add_related(old_pos, "Previously defined here");
+                }
+
+                Err(diagnostic)
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(ent);
+                Ok(())
+            }
+        }
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 /// Identically named entities
 pub enum NamedEntities {
     Single(Arc<NamedEntity>),
@@ -65,6 +113,13 @@ impl NamedEntities {
         match self {
             Self::Single(ent) => Ok(ent),
             Self::Overloaded(ent_vec) => Err(ent_vec),
+        }
+    }
+
+    pub fn as_non_overloaded(&self) -> Option<&Arc<NamedEntity>> {
+        match self {
+            Self::Single(ent) => Some(ent),
+            Self::Overloaded(..) => None,
         }
     }
 
@@ -93,7 +148,7 @@ impl NamedEntities {
                 region.make_potentially_visible(visible_pos, ent.clone());
             }
             Self::Overloaded(overloaded) => {
-                for ent in overloaded.entities.iter() {
+                for ent in overloaded.entities() {
                     region.make_potentially_visible(visible_pos, ent.clone());
                 }
             }
@@ -135,13 +190,13 @@ impl<'a> Region<'a> {
     }
 
     pub fn nested(&'a self) -> Region<'a> {
-        Self::with_parent(self)
+        Region::default().with_parent(self)
     }
 
-    pub fn with_parent(parent: &'a Region<'a>) -> Region<'a> {
+    pub fn with_parent(self, parent: &'a Region<'a>) -> Region<'a> {
         Region {
             parent: Some(parent),
-            ..Region::default()
+            ..self
         }
     }
 
@@ -246,7 +301,10 @@ impl<'a> Region<'a> {
 
                 match prev_ents {
                     NamedEntities::Single(ref mut prev_ent) => {
-                        if prev_ent.kind().is_deferred_constant()
+                        if prev_ent.id() == ent.id() {
+                            // Updated definition of previous entity
+                            *prev_ent = ent;
+                        } else if prev_ent.kind().is_deferred_constant()
                             && ent.kind().is_non_deferred_constant()
                         {
                             if self.kind == RegionKind::PackageBody {
@@ -268,8 +326,9 @@ impl<'a> Region<'a> {
                     }
                     NamedEntities::Overloaded(ref mut overloaded) => {
                         if ent.is_overloaded() {
-                            // @TODO check signature
-                            overloaded.push(ent);
+                            if let Err(err) = overloaded.insert(ent) {
+                                diagnostics.push(err);
+                            }
                         } else if let Some(pos) = ent.decl_pos() {
                             diagnostics.push(duplicate_error(
                                 overloaded.first().designator(),
@@ -304,26 +363,18 @@ impl<'a> Region<'a> {
         );
     }
 
-    pub fn overwrite(&mut self, ent: NamedEntity) {
-        let ent = NamedEntities::new(Arc::new(ent));
-        self.entities.insert(ent.designator().clone(), ent);
-    }
-
     pub fn add_implicit_declaration_aliases(
         &mut self,
-        decl_pos: Option<&SrcPos>,
         ent: &NamedEntity,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
-        if let NamedEntityKind::TypeDeclaration(ref implicit) = ent.actual_kind() {
-            for entity in implicit.iter() {
-                let entity = NamedEntity::new(
-                    entity.designator().clone(),
-                    NamedEntityKind::AliasOf(entity.clone()),
-                    decl_pos,
-                );
-                self.add_named_entity(Arc::new(entity), diagnostics);
-            }
+        for entity in ent.actual_kind().implicit_declarations() {
+            let entity = NamedEntity::implicit(
+                entity.designator().clone(),
+                NamedEntityKind::AliasOf(entity.clone()),
+                ent.decl_pos(),
+            );
+            self.add_named_entity(Arc::new(entity), diagnostics);
         }
     }
 
@@ -433,19 +484,15 @@ impl<'a> Region<'a> {
 
 pub trait SetReference {
     fn set_unique_reference(&mut self, ent: &NamedEntity) {
-        // @TODO handle built-ins without position
-        // @TODO handle mutliple overloaded declarations
-        if !ent.is_overloaded() {
-            // We do not set references to overloaded names to avoid
-            // incorrect behavior which will appear as low quality
-            self.set_reference_pos(ent.decl_pos());
-        } else {
-            self.clear_reference();
-        }
+        self.set_reference_pos(ent.decl_pos());
     }
 
     fn set_reference(&mut self, visible: &NamedEntities) {
-        self.set_unique_reference(visible.first());
+        if let Some(ent) = visible.as_non_overloaded() {
+            self.set_unique_reference(ent);
+        } else {
+            self.clear_reference();
+        }
     }
 
     fn clear_reference(&mut self) {

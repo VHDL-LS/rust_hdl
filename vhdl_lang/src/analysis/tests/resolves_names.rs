@@ -751,28 +751,6 @@ end architecture;
 }
 
 #[test]
-fn adds_file_subprograms_implicitly() {
-    check_code_with_no_diagnostics(
-        "
-use std.textio.text;
-
-package pkg is
-end package;
-
-package body pkg is
-  procedure proc is
-    file f : text;
-  begin
-    file_open(f, \"foo.txt\");
-    assert not endfile(f);
-    file_close(f);
-  end procedure;
-end package body;
-",
-    );
-}
-
-#[test]
 fn package_name_visible_in_header_and_body() {
     check_code_with_no_diagnostics(
         "
@@ -991,8 +969,8 @@ fn resolves_missing_name_in_alias() {
     check_missing(
         "
 package pkg is
-  alias a is missing[missing return missing];
-  alias b is missing[missing];
+  alias a is missing[natural];
+  alias b is maximum[missing];
 end package;
 ",
     );
@@ -1126,5 +1104,69 @@ end package body;
             code.s("subpgm", 2),
             "Signature required for alias of subprogram and enum literals",
         )],
+    );
+}
+
+#[test]
+fn signatures_are_compared_with_base_type() {
+    check_code_with_no_diagnostics(
+        "
+package pkg is
+end package;
+
+package body pkg is
+  subtype sub_type is natural range 0 to 5;
+  alias type_alias is sub_type;
+  subtype sub_type2 is type_alias range 0 to 2;
+
+  function subpgm(arg: sub_type2) return sub_type2 is
+  begin
+  end;
+
+  alias alias1 is subpgm[integer, return integer];
+  alias alias2 is subpgm[type_alias, return type_alias];
+  alias alias3 is subpgm[sub_type, return sub_type];
+  alias alias4 is subpgm[sub_type2, return sub_type2];
+end package body;
+",
+    );
+}
+
+#[test]
+fn can_goto_declaration_of_alias_with_signature() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+end package;
+
+package body pkg is
+  function subpgm(arg: natural) return natural is
+  begin
+  end;
+
+  function subpgm(arg: boolean) return boolean is
+  begin
+  end;
+
+  alias alias1 is subpgm[boolean, return boolean];
+  alias alias2 is subpgm[integer, return integer];
+end package body;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    // Goto declaration from declaration
+    assert_eq!(
+        root.search_reference(code.source(), code.s("subpgm", 3).end()),
+        Some(code.s("subpgm", 2).pos())
+    );
+
+    assert_eq!(
+        root.search_reference(code.source(), code.s("subpgm", 4).end()),
+        Some(code.s("subpgm", 1).pos())
     );
 }

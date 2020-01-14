@@ -5,10 +5,12 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use super::*;
+use crate::ast;
 use crate::ast::*;
 use crate::data::*;
 use analyze::*;
 use fnv::FnvHashMap;
+use named_entity::Signature;
 use region::*;
 use std::collections::hash_map::Entry;
 use std::sync::Arc;
@@ -92,6 +94,98 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
+    fn analyze_alias_declaration(
+        &self,
+        region: &Region<'_>,
+        alias: &mut AliasDeclaration,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult<Option<Arc<NamedEntity>>> {
+        let AliasDeclaration {
+            designator,
+            name,
+            subtype_indication,
+            signature,
+        } = alias;
+
+        let resolved_name = self.resolve_name(region, &name.pos, &mut name.item, diagnostics)?;
+
+        if let Some(ref mut subtype_indication) = subtype_indication {
+            // Object alias
+            self.analyze_subtype_indication(region, subtype_indication, diagnostics)?;
+        }
+
+        let kind = {
+            if subtype_indication.is_some() {
+                NamedEntityKind::OtherAlias
+            } else if let Some(resolved_name) = resolved_name {
+                if let Some(named_entities) = resolved_name.into_known() {
+                    let ent = match named_entities {
+                        NamedEntities::Single(ent) => {
+                            if let Some(ref signature) = signature {
+                                diagnostics.error(signature, "Alias should only have a signature for subprograms and enum literals");
+                            }
+                            ent
+                        }
+                        NamedEntities::Overloaded(overloaded) => {
+                            if let Some(ref mut signature) = signature {
+                                match self.resolve_signature(region, signature) {
+                                    Ok(signature_key) => {
+                                        if let Some(ent) = overloaded.get(&signature_key) {
+                                            if let Some(reference) =
+                                                name.item.suffix_reference_mut()
+                                            {
+                                                reference.set_unique_reference(&ent);
+                                            }
+                                            ent
+                                        } else {
+                                            let mut diagnostic = Diagnostic::error(
+                                                name,
+                                                "Could not find declaration with given signature",
+                                            );
+                                            for ent in overloaded.entities() {
+                                                if let Some(pos) = ent.decl_pos() {
+                                                    diagnostic.add_related(
+                                                        pos,
+                                                        format!("Found {}", ent.describe()),
+                                                    );
+                                                }
+                                            }
+                                            diagnostics.push(diagnostic);
+                                            return Ok(None);
+                                        }
+                                    }
+                                    Err(err) => {
+                                        err.add_to(diagnostics)?;
+                                        return Ok(None);
+                                    }
+                                }
+                            } else {
+                                diagnostics.error(
+                                    name,
+                                    "Signature required for alias of subprogram and enum literals",
+                                );
+                                return Ok(None);
+                            }
+                        }
+                    };
+                    NamedEntityKind::AliasOf(ent)
+                } else {
+                    // Found but not known, likely some kind of sliced or indexed name
+                    NamedEntityKind::OtherAlias
+                }
+            } else {
+                // Known but not found
+                return Ok(None);
+            }
+        };
+
+        Ok(Some(Arc::new(NamedEntity::new(
+            designator.item.clone(),
+            kind,
+            Some(&designator.pos),
+        ))))
+    }
+
     fn analyze_declaration(
         &self,
         region: &mut Region<'_>,
@@ -100,60 +194,10 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalNullResult {
         match decl {
             Declaration::Alias(alias) => {
-                let AliasDeclaration {
-                    designator,
-                    name,
-                    subtype_indication,
-                    signature,
-                } = alias;
-
-                let resolved_name =
-                    self.resolve_name(region, &name.pos, &mut name.item, diagnostics)?;
-
-                if let Some(ref mut subtype_indication) = subtype_indication {
-                    // Object alias
-                    self.analyze_subtype_indication(region, subtype_indication, diagnostics)?;
+                if let Some(ent) = self.analyze_alias_declaration(region, alias, diagnostics)? {
+                    region.add_named_entity(ent.clone(), diagnostics);
+                    region.add_implicit_declaration_aliases(&ent, diagnostics);
                 }
-
-                if let Some(ref mut signature) = signature {
-                    // Subprogram or enum literal alias
-                    self.analyze_signature(region, signature, diagnostics)?;
-                }
-
-                let kind = {
-                    if subtype_indication.is_some() {
-                        NamedEntityKind::OtherAlias
-                    } else if let Some(named_entities) =
-                        resolved_name.and_then(|name| name.into_known())
-                    {
-                        let ent = match named_entities {
-                            NamedEntities::Single(ent) => {
-                                if let Some(signature) = signature {
-                                    diagnostics.error(signature, "Alias should only have a signature for subprograms and enum literals");
-                                }
-                                ent
-                            }
-                            NamedEntities::Overloaded(overloaded) => {
-                                if signature.is_none() {
-                                    diagnostics.error(name, "Signature required for alias of subprogram and enum literals");
-                                }
-                                // @TODO use signature to determine variant
-                                overloaded.first().clone()
-                            }
-                        };
-
-                        region.add_implicit_declaration_aliases(
-                            Some(&designator.pos),
-                            &ent,
-                            diagnostics,
-                        );
-                        NamedEntityKind::AliasOf(ent)
-                    } else {
-                        NamedEntityKind::OtherAlias
-                    }
-                };
-
-                region.add(designator.clone(), kind, diagnostics);
             }
             Declaration::Object(ref mut object_decl) => {
                 self.analyze_subtype_indication(
@@ -204,27 +248,37 @@ impl<'a> AnalyzeContext<'a> {
                 Attribute::Specification(..) => {}
             },
             Declaration::SubprogramBody(ref mut body) => {
-                region.add(
-                    body.specification.designator(),
-                    match body.specification {
-                        SubprogramDeclaration::Procedure(..) => NamedEntityKind::Procedure,
-                        SubprogramDeclaration::Function(..) => NamedEntityKind::Function,
-                    },
-                    diagnostics,
-                );
                 let mut subpgm_region = region.nested();
 
-                self.analyze_subprogram_declaration(
+                let signature = self.analyze_subprogram_declaration(
                     &mut subpgm_region,
                     &mut body.specification,
                     diagnostics,
-                )?;
+                );
+
+                // End mutable borrow of parent
+                let subpgm_region = subpgm_region.without_parent();
+
+                // Overwrite subprogram definition with full signature
+                match signature {
+                    Ok(signature) => {
+                        let kind = NamedEntityKind::Subprogram(signature);
+                        let designator = body.specification.designator();
+                        let subpgm_ent =
+                            NamedEntity::new(designator.item, kind, Some(&designator.pos));
+                        region.add_named_entity(Arc::new(subpgm_ent), diagnostics);
+                    }
+                    Err(err) => err.add_to(diagnostics)?,
+                }
+                let mut subpgm_region = subpgm_region.with_parent(region);
+
                 self.analyze_declarative_part(
                     &mut subpgm_region,
                     &mut body.declarations,
                     diagnostics,
                 )?;
                 subpgm_region.close(diagnostics);
+
                 self.analyze_sequential_part(
                     &mut subpgm_region,
                     &mut body.statements,
@@ -232,18 +286,22 @@ impl<'a> AnalyzeContext<'a> {
                 )?;
             }
             Declaration::SubprogramDeclaration(ref mut subdecl) => {
-                region.add(
-                    subdecl.designator(),
-                    match subdecl {
-                        SubprogramDeclaration::Procedure(..) => NamedEntityKind::Procedure,
-                        SubprogramDeclaration::Function(..) => NamedEntityKind::Function,
-                    },
-                    diagnostics,
-                );
-
                 let mut subpgm_region = region.nested();
-                self.analyze_subprogram_declaration(&mut subpgm_region, subdecl, diagnostics)?;
+                let signature =
+                    self.analyze_subprogram_declaration(&mut subpgm_region, subdecl, diagnostics);
                 subpgm_region.close(diagnostics);
+                drop(subpgm_region);
+
+                match signature {
+                    Ok(signature) => {
+                        region.add(
+                            subdecl.designator(),
+                            NamedEntityKind::SubprogramDecl(signature),
+                            diagnostics,
+                        );
+                    }
+                    Err(err) => err.add_to(diagnostics)?,
+                }
             }
 
             Declaration::Use(ref mut use_clause) => {
@@ -278,24 +336,35 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalNullResult {
         match type_decl.def {
             TypeDefinition::Enumeration(ref enumeration) => {
+                let enum_type = Arc::new(NamedEntity::new_with_opt_id(
+                    overwrite_id,
+                    type_decl.ident.name().clone(),
+                    NamedEntityKind::TypeDeclaration(Vec::new()),
+                    Some(&type_decl.ident.pos),
+                ));
+
+                let signature = Signature::new(ParameterList::default(), Some(enum_type.clone()));
+
                 let mut implicit = Vec::with_capacity(enumeration.len());
 
                 for literal in enumeration.iter() {
                     let literal_ent = NamedEntity::new(
                         literal.item.clone().into_designator(),
-                        NamedEntityKind::EnumLiteral,
+                        NamedEntityKind::EnumLiteral(signature.clone()),
                         Some(&literal.pos),
                     );
                     let literal_ent = Arc::new(literal_ent);
-                    implicit.push(literal_ent.clone());
+                    implicit.push(Arc::downgrade(&literal_ent));
                     parent.add_named_entity(literal_ent, diagnostics);
                 }
 
-                add_or_overwrite(
-                    parent,
-                    &type_decl.ident,
-                    NamedEntityKind::TypeDeclaration(implicit),
-                    overwrite_id,
+                // Overwrite enum type with one that contains the implicit declarations
+                // @TODO investigate get_mut_unchecked to change the original enum_type
+                //       this will create a new struct instance and thus the signature of
+                //       the enum literals will not contain the full type declaration of the
+                //       enum type
+                parent.add_named_entity(
+                    Arc::new(enum_type.clone_with_kind(NamedEntityKind::TypeDeclaration(implicit))),
                     diagnostics,
                 );
             }
@@ -344,48 +413,50 @@ impl<'a> AnalyzeContext<'a> {
             TypeDefinition::Protected(ref mut prot_decl) => {
                 // Protected type name is visible inside its declarative region
                 // This will be overwritten later when the protected type region is finished
-                let id = add_or_overwrite(
-                    parent,
-                    &type_decl.ident,
-                    NamedEntityKind::TypeDeclaration(Vec::new()),
+                let ptype = Arc::new(NamedEntity::new_with_opt_id(
                     overwrite_id,
-                    diagnostics,
-                );
+                    type_decl.ident.name().clone(),
+                    NamedEntityKind::TypeDeclaration(Vec::new()),
+                    Some(&type_decl.ident.pos),
+                ));
+                parent.add_named_entity(ptype.clone(), diagnostics);
 
                 let mut region = parent.nested();
                 for item in prot_decl.items.iter_mut() {
                     match item {
                         ProtectedTypeDeclarativeItem::Subprogram(ref mut subprogram) => {
-                            region.add(
-                                subprogram.designator(),
-                                match subprogram {
-                                    SubprogramDeclaration::Procedure(..) => {
-                                        NamedEntityKind::Procedure
-                                    }
-                                    SubprogramDeclaration::Function(..) => {
-                                        NamedEntityKind::Function
-                                    }
-                                },
-                                diagnostics,
-                            );
                             let mut subpgm_region = region.nested();
-                            self.analyze_subprogram_declaration(
+                            let signature = self.analyze_subprogram_declaration(
                                 &mut subpgm_region,
                                 subprogram,
                                 diagnostics,
-                            )?;
+                            );
                             subpgm_region.close(diagnostics);
+                            drop(subpgm_region);
+
+                            match signature {
+                                Ok(signature) => {
+                                    region.add(
+                                        subprogram.designator(),
+                                        NamedEntityKind::SubprogramDecl(signature),
+                                        diagnostics,
+                                    );
+                                }
+                                Err(err) => {
+                                    err.add_to(diagnostics)?;
+                                }
+                            }
                         }
                     }
                 }
                 let region = region.without_parent();
 
-                parent.overwrite(NamedEntity::new_with_id(
-                    id,
-                    type_decl.ident.name().clone(),
-                    NamedEntityKind::ProtectedType(Arc::new(region)),
-                    Some(type_decl.ident.pos()),
-                ));
+                parent.add_named_entity(
+                    Arc::new(
+                        ptype.clone_with_kind(NamedEntityKind::ProtectedType(Arc::new(region))),
+                    ),
+                    &mut Vec::new(),
+                );
             }
             TypeDefinition::Record(ref mut element_decls) => {
                 let mut region = Region::default();
@@ -395,24 +466,24 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 region.close(diagnostics);
 
-                add_or_overwrite(
-                    parent,
-                    &type_decl.ident,
-                    NamedEntityKind::TypeDeclaration(Vec::new()),
+                let type_ent = Arc::new(NamedEntity::new_with_opt_id(
                     overwrite_id,
-                    diagnostics,
-                );
+                    type_decl.ident.name().clone(),
+                    NamedEntityKind::TypeDeclaration(Vec::new()),
+                    Some(&type_decl.ident.pos),
+                ));
+                parent.add_named_entity(type_ent, diagnostics);
             }
             TypeDefinition::Access(ref mut subtype_indication) => {
                 self.analyze_subtype_indication(parent, subtype_indication, diagnostics)?;
 
-                add_or_overwrite(
-                    parent,
-                    &type_decl.ident,
-                    NamedEntityKind::TypeDeclaration(Vec::new()),
+                let type_ent = Arc::new(NamedEntity::new_with_opt_id(
                     overwrite_id,
-                    diagnostics,
-                );
+                    type_decl.ident.name().clone(),
+                    NamedEntityKind::TypeDeclaration(Vec::new()),
+                    Some(&type_decl.ident.pos),
+                ));
+                parent.add_named_entity(type_ent, diagnostics);
             }
             TypeDefinition::Array(ref mut array_indexes, ref mut subtype_indication) => {
                 for index in array_indexes.iter_mut() {
@@ -420,24 +491,35 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 self.analyze_subtype_indication(parent, subtype_indication, diagnostics)?;
 
-                add_or_overwrite(
-                    parent,
-                    &type_decl.ident,
-                    NamedEntityKind::TypeDeclaration(Vec::new()),
+                let type_ent = Arc::new(NamedEntity::new_with_opt_id(
                     overwrite_id,
+                    type_decl.ident.name().clone(),
+                    NamedEntityKind::TypeDeclaration(Vec::new()),
+                    Some(&type_decl.ident.pos),
+                ));
+
+                let mut implicit = Vec::new();
+                if !self.is_standard_package() {
+                    // @TODO analyze standard package separately
+                    let to_string = Arc::new(self.create_to_string(type_ent.clone()));
+                    parent.add_named_entity(to_string.clone(), diagnostics);
+                    implicit.push(Arc::downgrade(&to_string));
+                }
+                parent.add_named_entity(
+                    Arc::new(type_ent.clone_with_kind(NamedEntityKind::TypeDeclaration(implicit))),
                     diagnostics,
                 );
             }
             TypeDefinition::Subtype(ref mut subtype_indication) => {
                 match self.resolve_subtype_indication(parent, subtype_indication, diagnostics) {
                     Ok(subtype) => {
-                        add_or_overwrite(
-                            parent,
-                            &type_decl.ident,
-                            NamedEntityKind::Subtype(subtype),
+                        let type_ent = Arc::new(NamedEntity::new_with_opt_id(
                             overwrite_id,
-                            diagnostics,
-                        );
+                            type_decl.ident.name().clone(),
+                            NamedEntityKind::Subtype(subtype),
+                            Some(&type_decl.ident.pos),
+                        ));
+                        parent.add_named_entity(type_ent, diagnostics);
                     }
                     Err(err) => {
                         err.add_to(diagnostics)?;
@@ -472,11 +554,22 @@ impl<'a> AnalyzeContext<'a> {
 
             TypeDefinition::Integer(ref mut range) => {
                 self.analyze_range(parent, range, diagnostics)?;
-                add_or_overwrite(
-                    parent,
-                    &type_decl.ident,
-                    NamedEntityKind::TypeDeclaration(Vec::new()),
+                let type_ent = Arc::new(NamedEntity::new_with_opt_id(
                     overwrite_id,
+                    type_decl.ident.name().clone(),
+                    NamedEntityKind::TypeDeclaration(Vec::new()),
+                    Some(&type_decl.ident.pos),
+                ));
+
+                let mut implicit = Vec::new();
+                if !self.is_standard_package() {
+                    // @TODO analyze standard package separately
+                    let to_string = Arc::new(self.create_to_string(type_ent.clone()));
+                    parent.add_named_entity(to_string.clone(), diagnostics);
+                    implicit.push(Arc::downgrade(&to_string));
+                }
+                parent.add_named_entity(
+                    Arc::new(type_ent.clone_with_kind(NamedEntityKind::TypeDeclaration(implicit))),
                     diagnostics,
                 );
             }
@@ -486,75 +579,203 @@ impl<'a> AnalyzeContext<'a> {
                     err.add_to(diagnostics)?;
                 }
 
-                let names = ["file_open", "file_close", "endfile"];
-                let mut implicit = Vec::with_capacity(names.len());
-                for name in names.iter() {
-                    let ent = NamedEntity::new(
-                        Designator::Identifier(self.symbol_utf8(name)),
-                        NamedEntityKind::Procedure,
-                        None,
-                    );
-                    implicit.push(Arc::new(ent));
-                }
-                add_or_overwrite(
-                    parent,
-                    &type_decl.ident,
-                    NamedEntityKind::TypeDeclaration(implicit),
+                let file_type = Arc::new(NamedEntity::new_with_opt_id(
                     overwrite_id,
-                    diagnostics,
-                );
+                    type_decl.ident.name().clone(),
+                    NamedEntityKind::TypeDeclaration(Vec::new()),
+                    Some(&type_decl.ident.pos),
+                ));
+
+                let implicit = self.create_implicit_file_type_subprograms(file_type.clone());
+
+                for ent in implicit.iter() {
+                    parent.add_named_entity(ent.clone(), diagnostics);
+                }
+
+                // We need to overwrite the type due to circular pointer relations between implicit subprograms
+                // and type declarations
+                let implicit = implicit.iter().map(|ent| Arc::downgrade(ent)).collect();
+                let file_type =
+                    file_type.clone_with_kind(NamedEntityKind::TypeDeclaration(implicit));
+                parent.add_named_entity(Arc::new(file_type), diagnostics);
             }
         }
 
         Ok(())
     }
 
-    pub fn analyze_signature(
+    pub fn create_implicit_file_type_subprograms(
+        &self,
+        file_type: Arc<NamedEntity>,
+    ) -> Vec<Arc<NamedEntity>> {
+        let mut implicit = Vec::new();
+
+        let standard = self.expect_standard_package_analysis().unwrap();
+        let standard_region = &standard.result().region;
+
+        let string = standard_region
+            .lookup_immediate(&self.symbol_utf8("STRING").into())
+            .unwrap()
+            .clone()
+            .into_non_overloaded()
+            .unwrap();
+
+        let boolean = standard_region
+            .lookup_immediate(&self.symbol_utf8("BOOLEAN").into())
+            .unwrap()
+            .clone()
+            .into_non_overloaded()
+            .unwrap();
+
+        // procedure FILE_OPEN (file F: FT; External_Name: in STRING);
+        {
+            let mut params = ParameterList::default();
+            params.add_param(Arc::new(NamedEntity::new(
+                self.symbol_utf8("F"),
+                NamedEntityKind::InterfaceFile(file_type.clone()),
+                file_type.decl_pos(),
+            )));
+            params.add_param(Arc::new(NamedEntity::new(
+                self.symbol_utf8("External_Name"),
+                NamedEntityKind::InterfaceObject(InterfaceObject {
+                    class: ObjectClass::Constant,
+                    mode: Mode::In,
+                    subtype: Subtype::new(string),
+                    has_default: false,
+                }),
+                file_type.decl_pos(),
+            )));
+
+            implicit.push(Arc::new(NamedEntity::implicit(
+                self.symbol_utf8("FILE_OPEN"),
+                NamedEntityKind::Subprogram(Signature::new(params, None)),
+                file_type.decl_pos(),
+            )));
+        }
+
+        // procedure FILE_CLOSE (file F: FT);
+        {
+            let mut params = ParameterList::default();
+            params.add_param(Arc::new(NamedEntity::new(
+                self.symbol_utf8("F"),
+                NamedEntityKind::InterfaceFile(file_type.clone()),
+                file_type.decl_pos(),
+            )));
+
+            implicit.push(Arc::new(NamedEntity::implicit(
+                self.symbol_utf8("FILE_CLOSE"),
+                NamedEntityKind::Subprogram(Signature::new(params, None)),
+                file_type.decl_pos(),
+            )));
+        }
+
+        // function ENDFILE (file F: FT) return BOOLEAN;
+        {
+            let mut params = ParameterList::default();
+            params.add_param(Arc::new(NamedEntity::new(
+                self.symbol_utf8("F"),
+                NamedEntityKind::InterfaceFile(file_type.clone()),
+                file_type.decl_pos(),
+            )));
+
+            implicit.push(Arc::new(NamedEntity::implicit(
+                self.symbol_utf8("ENDFILE"),
+                NamedEntityKind::Subprogram(Signature::new(params, Some(boolean))),
+                file_type.decl_pos(),
+            )));
+        }
+
+        implicit
+    }
+
+    /// Create implicit TO_STRING
+    /// function TO_STRING (VALUE: T) return STRING;
+    pub fn create_to_string(&self, type_ent: Arc<NamedEntity>) -> NamedEntity {
+        let standard = self.expect_standard_package_analysis().unwrap();
+        let region = &standard.result().region;
+
+        let string = region
+            .lookup_immediate(&self.symbol_utf8("STRING").into())
+            .unwrap()
+            .clone()
+            .into_non_overloaded()
+            .unwrap();
+
+        let mut params = ParameterList::default();
+        params.add_param(Arc::new(NamedEntity::new(
+            self.symbol_utf8("VALUE"),
+            NamedEntityKind::InterfaceObject(InterfaceObject {
+                class: ObjectClass::Constant,
+                mode: Mode::In,
+                subtype: Subtype::new(type_ent.clone()),
+                has_default: false,
+            }),
+            type_ent.decl_pos(),
+        )));
+
+        NamedEntity::implicit(
+            self.symbol_utf8("TO_STRING"),
+            NamedEntityKind::Subprogram(Signature::new(params, Some(string))),
+            type_ent.decl_pos(),
+        )
+    }
+
+    pub fn resolve_signature(
         &self,
         region: &Region<'_>,
-        signature: &mut WithPos<Signature>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
-        match &mut signature.item {
-            Signature::Function(ref mut args, ref mut ret) => {
-                for arg in args.iter_mut() {
-                    if let Err(err) = self.resolve_selected_name(region, arg) {
-                        err.add_to(diagnostics)?;
-                    }
-                }
-                if let Err(err) = self.resolve_selected_name(region, ret) {
-                    err.add_to(diagnostics)?;
-                }
+        signature: &mut WithPos<ast::Signature>,
+    ) -> AnalysisResult<SignatureKey> {
+        let (args, return_type) = match &mut signature.item {
+            ast::Signature::Function(ref mut args, ref mut ret) => {
+                let args: Vec<_> = args
+                    .iter_mut()
+                    .map(|arg| self.resolve_type_mark(region, arg))
+                    .collect();
+                let return_type = self.resolve_type_mark(region, ret);
+                (args, Some(return_type))
             }
-            Signature::Procedure(args) => {
-                for arg in args.iter_mut() {
-                    if let Err(err) = self.resolve_selected_name(region, arg) {
-                        err.add_to(diagnostics)?;
-                    }
-                }
+            ast::Signature::Procedure(args) => {
+                let args: Vec<_> = args
+                    .iter_mut()
+                    .map(|arg| self.resolve_type_mark(region, arg))
+                    .collect();
+                (args, None)
             }
+        };
+
+        let mut params = Vec::with_capacity(args.len());
+        for arg in args {
+            params.push(arg?.base_type().id());
         }
-        Ok(())
+
+        if let Some(return_type) = return_type {
+            Ok(SignatureKey::new(
+                params,
+                Some(return_type?.base_type().id()),
+            ))
+        } else {
+            Ok(SignatureKey::new(params, None))
+        }
     }
 
     fn analyze_interface_declaration(
         &self,
-        region: &mut Region<'_>,
+        region: &Region<'_>,
         decl: &mut InterfaceDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
-        match decl {
+    ) -> AnalysisResult<NamedEntity> {
+        let ent = match decl {
             InterfaceDeclaration::File(ref mut file_decl) => {
-                self.analyze_subtype_indication(
+                let file_type = self.resolve_subtype_indication(
                     region,
                     &mut file_decl.subtype_indication,
                     diagnostics,
                 )?;
-                region.add(
-                    &file_decl.ident,
-                    NamedEntityKind::InterfaceFile,
-                    diagnostics,
-                );
+                NamedEntity::new(
+                    file_decl.ident.name().clone(),
+                    NamedEntityKind::InterfaceFile(file_type.base().clone()),
+                    Some(&file_decl.ident.pos),
+                )
             }
             InterfaceDeclaration::Object(ref mut object_decl) => {
                 let subtype = self.resolve_subtype_indication(
@@ -567,49 +788,48 @@ impl<'a> AnalyzeContext<'a> {
                     self.analyze_expression(region, expression, diagnostics)?
                 }
 
-                let subtype = ok_or_return!(subtype, diagnostics);
+                let subtype = subtype?;
 
-                region.add(
-                    &object_decl.ident,
+                NamedEntity::new(
+                    object_decl.ident.name().clone(),
                     NamedEntityKind::InterfaceObject(InterfaceObject {
                         class: object_decl.class,
                         mode: object_decl.mode,
                         subtype,
                         has_default: object_decl.expression.is_some(),
                     }),
-                    diagnostics,
-                );
+                    Some(&object_decl.ident.pos),
+                )
             }
-            InterfaceDeclaration::Type(ref ident) => {
-                region.add(ident, NamedEntityKind::InterfaceType, diagnostics);
-            }
+            InterfaceDeclaration::Type(ref ident) => NamedEntity::new(
+                ident.name().clone(),
+                NamedEntityKind::InterfaceType,
+                Some(&ident.pos),
+            ),
             InterfaceDeclaration::Subprogram(ref mut subpgm, ..) => {
                 let mut subpgm_region = region.nested();
-                self.analyze_subprogram_declaration(&mut subpgm_region, subpgm, diagnostics)?;
+                let signature =
+                    self.analyze_subprogram_declaration(&mut subpgm_region, subpgm, diagnostics);
                 subpgm_region.close(diagnostics);
-                region.add(
-                    subpgm.designator(),
-                    match subpgm {
-                        SubprogramDeclaration::Procedure(..) => NamedEntityKind::Procedure,
-                        SubprogramDeclaration::Function(..) => NamedEntityKind::Function,
-                    },
-                    diagnostics,
-                );
+                drop(subpgm_region);
+
+                let kind = NamedEntityKind::Subprogram(signature?);
+
+                let designator = subpgm.designator();
+                NamedEntity::new(designator.item, kind, Some(&designator.pos))
             }
             InterfaceDeclaration::Package(ref mut instance) => {
-                match self.analyze_package_instance_name(region, &mut instance.package_name) {
-                    Ok(package_region) => region.add(
-                        &instance.ident,
-                        NamedEntityKind::LocalPackageInstance(package_region.clone()),
-                        diagnostics,
-                    ),
-                    Err(err) => {
-                        err.add_to(diagnostics)?;
-                    }
-                }
+                let package_region =
+                    self.analyze_package_instance_name(region, &mut instance.package_name)?;
+
+                NamedEntity::new(
+                    instance.ident.name().clone(),
+                    NamedEntityKind::LocalPackageInstance(package_region.clone()),
+                    Some(&instance.ident.pos),
+                )
             }
         };
-        Ok(())
+        Ok(ent)
     }
 
     pub fn analyze_interface_list(
@@ -619,9 +839,40 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         for decl in declarations.iter_mut() {
-            self.analyze_interface_declaration(region, decl, diagnostics)?;
+            match self.analyze_interface_declaration(region, decl, diagnostics) {
+                Ok(ent) => {
+                    let ent = Arc::new(ent);
+                    region.add_named_entity(ent.clone(), diagnostics);
+                }
+                Err(err) => {
+                    err.add_to(diagnostics)?;
+                }
+            }
         }
         Ok(())
+    }
+
+    pub fn analyze_parameter_list(
+        &self,
+        region: &mut Region<'_>,
+        declarations: &mut [InterfaceDeclaration],
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult<ParameterList> {
+        let mut params = ParameterList::default();
+
+        for decl in declarations.iter_mut() {
+            match self.analyze_interface_declaration(region, decl, diagnostics) {
+                Ok(ent) => {
+                    let ent = Arc::new(ent);
+                    region.add_named_entity(ent.clone(), diagnostics);
+                    params.add_param(ent);
+                }
+                Err(err) => {
+                    err.add_to(diagnostics)?;
+                }
+            }
+        }
+        Ok(params)
     }
 
     fn analyze_array_index(
@@ -719,19 +970,20 @@ impl<'a> AnalyzeContext<'a> {
         region: &mut Region<'_>,
         subprogram: &mut SubprogramDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> AnalysisResult<Signature> {
         match subprogram {
             SubprogramDeclaration::Function(fun) => {
-                self.analyze_interface_list(region, &mut fun.parameter_list, diagnostics)?;
-                if let Err(err) = self.resolve_type_mark(region, &mut fun.return_type) {
-                    err.add_to(diagnostics)?
-                }
+                let params =
+                    self.analyze_parameter_list(region, &mut fun.parameter_list, diagnostics);
+                let return_type = self.resolve_type_mark(region, &mut fun.return_type);
+                Ok(Signature::new(params?, Some(return_type?)))
             }
             SubprogramDeclaration::Procedure(procedure) => {
-                self.analyze_interface_list(region, &mut procedure.parameter_list, diagnostics)?;
+                let params =
+                    self.analyze_parameter_list(region, &mut procedure.parameter_list, diagnostics);
+                Ok(Signature::new(params?, None))
             }
         }
-        Ok(())
     }
 }
 
@@ -762,15 +1014,13 @@ fn add_or_overwrite(
     kind: NamedEntityKind,
     old_id: Option<EntityId>,
     diagnostics: &mut dyn DiagnosticHandler,
-) -> EntityId {
-    if let Some(id) = old_id {
-        let ent = NamedEntity::new_with_id(id, name.name().clone(), kind, Some(name.pos()));
-        region.overwrite(ent);
-        id
-    } else {
-        let ent = NamedEntity::new(name.name().clone(), kind, Some(&name.pos));
-        let id = ent.id();
-        region.add_named_entity(Arc::new(ent), diagnostics);
-        id
-    }
+) -> Arc<NamedEntity> {
+    let ent = Arc::new(NamedEntity::new_with_opt_id(
+        old_id,
+        name.name().clone(),
+        kind,
+        Some(&name.pos),
+    ));
+    region.add_named_entity(ent.clone(), diagnostics);
+    ent
 }

@@ -10,11 +10,11 @@ package textio is
   procedure FILE_REWIND (file F: TEXT);
   function  FILE_MODE (file F: TEXT) return FILE_OPEN_KIND;
   function  FILE_SIZE (file F: TEXT) return INTEGER;
-  procedure FILE_CLOSE (file F: TEXT);
+--  procedure FILE_CLOSE (file F: TEXT);
   procedure READ (file F: TEXT; VALUE: out STRING);
   procedure WRITE (file F: TEXT; VALUE: in STRING);
   procedure FLUSH (file F: TEXT);
-  function  ENDFILE (file F: TEXT) return BOOLEAN;
+--  function  ENDFILE (file F: TEXT) return BOOLEAN;
 
   type SIDE is (RIGHT, LEFT);
   subtype WIDTH is NATURAL; -- For specifying widths of output fields.

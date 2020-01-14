@@ -261,7 +261,9 @@ impl<'a> AnalyzeContext<'a> {
         self.resolve_name(region, &name.pos, &mut name.item, diagnostics)?;
 
         if let Some(ref mut signature) = signature {
-            self.analyze_signature(region, signature, diagnostics)?;
+            if let Err(err) = self.resolve_signature(region, signature) {
+                err.add_to(diagnostics)?;
+            }
         }
         if let Some(ref mut expr) = expr {
             self.analyze_expression(region, expr, diagnostics)?;

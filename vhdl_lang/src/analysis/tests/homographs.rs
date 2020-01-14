@@ -535,7 +535,7 @@ alias a1 is c0;
 alias a1 is c1;
 
 function f1 return natural;
-function f2 return natural;
+function f2 return boolean;
 
 -- Legal since subprograms are overloaded
 alias b1 is f1[return natural];
@@ -888,5 +888,105 @@ end architecture;
             duplicate(&code, "alt2", 2, 3),
             duplicate(&code, "alt3", 3, 4),
         ],
+    );
+}
+
+#[test]
+fn overloaded_with_identical_signatures_are_homographs() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+  function name1 return natural;
+  function name1 return natural;
+end package;
+
+package body pkg is
+  function name2(arg: string) return boolean is
+  begin
+    return false;
+  end;
+
+  function name2(arg: string) return boolean is
+  begin
+    return false;
+  end;
+
+end package body;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s("name1", 2),
+                "Duplicate declaration of 'name1' with signature [return NATURAL]",
+            )
+            .related(code.s("name1", 1), "Previously defined here"),
+            Diagnostic::error(
+                code.s("name2", 2),
+                "Duplicate declaration of 'name2' with signature [STRING, return BOOLEAN]",
+            )
+            .related(code.s("name2", 1), "Previously defined here"),
+        ],
+    );
+}
+
+#[test]
+fn overloaded_declaration_is_not_homograph_with_definition() {
+    check_code_with_no_diagnostics(
+        "
+package pkg is
+  function name1 return natural;
+end package;
+
+package body pkg is
+  function name1 return natural is
+  begin
+  end;
+end package body;
+",
+    );
+}
+
+#[test]
+fn overloaded_alias_with_identical_signatures_are_homographs() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+  function f1 return natural is
+  begin
+    return 0;
+  end function;
+
+  function f2 return natural is
+  begin
+    return 0;
+  end function;
+
+  -- Not ok since f1 and f2 are different functions with the same signature
+  alias homo1 is f1[return natural];
+  alias homo1 is f2[return natural];
+begin
+end architecture;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("homo1", 2),
+            "Duplicate declaration of 'homo1' with signature [return NATURAL]",
+        )
+        .related(code.s("homo1", 1), "Previously defined here")],
     );
 }

@@ -7,22 +7,23 @@ use super::region::Region;
 use crate::ast::*;
 use crate::data::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 
 #[derive(Clone)]
 pub enum NamedEntityKind {
     AliasOf(Arc<NamedEntity>),
     OtherAlias,
     File,
-    InterfaceFile,
+    InterfaceFile(Arc<NamedEntity>),
     RecordField,
     Component,
     Attribute,
-    Function,
-    Procedure,
-    EnumLiteral,
+    SubprogramDecl(Signature),
+    Subprogram(Signature),
+    EnumLiteral(Signature),
     // An optional list of implicit declarations
-    TypeDeclaration(Vec<Arc<NamedEntity>>),
+    // Use Weak reference since implicit declaration typically reference the type itself
+    TypeDeclaration(Vec<Weak<NamedEntity>>),
     Subtype(Subtype),
     IncompleteType,
     InterfaceType,
@@ -87,19 +88,37 @@ impl NamedEntityKind {
         }
     }
 
+    pub fn implicit_declarations(&self) -> Vec<Arc<NamedEntity>> {
+        if let NamedEntityKind::TypeDeclaration(ref implicit) = self {
+            implicit
+                .iter()
+                .map(|ent|
+                                // We expect the implicit declarations to live as long as the type
+                                ent.upgrade().unwrap())
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
+
     pub fn describe(&self) -> &str {
         use NamedEntityKind::*;
         match self {
             AliasOf(..) => "alias",
             OtherAlias => "alias",
             File => "file",
-            InterfaceFile => "file",
+            InterfaceFile(..) => "file",
             RecordField => "file",
             Component => "file",
             Attribute => "file",
-            Procedure => "procedure",
-            Function => "function",
-            EnumLiteral => "enum literal",
+            SubprogramDecl(signature) | Subprogram(signature) => {
+                if signature.return_type.is_some() {
+                    "function"
+                } else {
+                    "procedure"
+                }
+            }
+            EnumLiteral(..) => "enum literal",
             TypeDeclaration(..) => "type",
             Subtype(..) => "subtype",
             IncompleteType => "type",
@@ -122,6 +141,12 @@ impl NamedEntityKind {
     }
 }
 
+impl std::fmt::Debug for NamedEntityKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.describe())
+    }
+}
+
 /// Signals, (shared) variables and constants
 #[derive(Clone)]
 pub struct InterfaceObject {
@@ -141,6 +166,107 @@ impl Subtype {
         debug_assert!(base.actual_kind().is_type());
         Subtype { base }
     }
+
+    pub fn base(&self) -> &Arc<NamedEntity> {
+        &self.base
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct ParameterList {
+    /// Vector of InterfaceObject or InterfaceFile
+    params: Vec<Arc<NamedEntity>>,
+}
+
+impl ParameterList {
+    pub fn add_param(&mut self, param: Arc<NamedEntity>) {
+        debug_assert!(match param.kind() {
+            NamedEntityKind::InterfaceObject(..) | NamedEntityKind::InterfaceFile(..) => true,
+            _ => false,
+        });
+
+        self.params.push(param);
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct Signature {
+    /// Vector of InterfaceObject or InterfaceFile
+    params: ParameterList,
+    return_type: Option<Arc<NamedEntity>>,
+}
+
+impl Signature {
+    pub fn new(params: ParameterList, return_type: Option<Arc<NamedEntity>>) -> Signature {
+        if let Some(ref return_type) = return_type {
+            debug_assert!(return_type.actual_kind().is_type());
+        }
+        Signature {
+            params,
+            return_type,
+        }
+    }
+
+    pub fn key(&self) -> SignatureKey {
+        let params = self
+            .params
+            .params
+            .iter()
+            .map(|ent| match ent.kind() {
+                NamedEntityKind::InterfaceObject(obj) => obj.subtype.base().base_type().id(),
+                NamedEntityKind::InterfaceFile(file_type) => file_type.base_type().id(),
+                _ => {
+                    unreachable!();
+                }
+            })
+            .collect();
+        let return_type = self.return_type.as_ref().map(|ent| ent.base_type().id());
+
+        SignatureKey {
+            params,
+            return_type,
+        }
+    }
+
+    pub fn describe(&self) -> String {
+        let mut result = String::new();
+        result.push('[');
+        for (i, param) in self.params.params.iter().enumerate() {
+            let type_ent = match param.kind() {
+                NamedEntityKind::InterfaceObject(obj) => obj.subtype.base().base_type(),
+                NamedEntityKind::InterfaceFile(file_type) => file_type.base_type(),
+                _ => unreachable!(),
+            };
+            result.push_str(&type_ent.designator().to_string());
+
+            if i + 1 < self.params.params.len() || self.return_type.is_some() {
+                result.push_str(", ");
+            }
+        }
+
+        if let Some(ref return_type) = self.return_type {
+            result.push_str("return ");
+            result.push_str(&return_type.designator().to_string());
+        }
+
+        result.push(']');
+        result
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct SignatureKey {
+    params: Vec<EntityId>,
+    return_type: Option<EntityId>,
+}
+
+impl SignatureKey {
+    pub fn new(params: Vec<EntityId>, return_type: Option<EntityId>) -> SignatureKey {
+        SignatureKey {
+            params,
+            return_type,
+        }
+    }
 }
 
 impl ObjectClass {
@@ -155,15 +281,17 @@ impl ObjectClass {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct EntityId {
     id: usize,
 }
 
+#[derive(Debug)]
 pub struct NamedEntity {
     /// An unique id of the entity
     /// Entities with the same id will be the same
     id: EntityId,
+    implicit: bool,
     /// The location where the declaration was made
     /// Builtin and implicit declaration will not have a source position
     designator: Designator,
@@ -188,6 +316,36 @@ impl NamedEntity {
     ) -> NamedEntity {
         NamedEntity {
             id,
+            implicit: false,
+            decl_pos: decl_pos.cloned(),
+            designator: designator.into(),
+            kind,
+        }
+    }
+
+    pub fn new_with_opt_id(
+        id: Option<EntityId>,
+        designator: impl Into<Designator>,
+        kind: NamedEntityKind,
+        decl_pos: Option<&SrcPos>,
+    ) -> NamedEntity {
+        NamedEntity {
+            id: id.unwrap_or_else(new_id),
+            implicit: false,
+            decl_pos: decl_pos.cloned(),
+            designator: designator.into(),
+            kind,
+        }
+    }
+
+    pub fn implicit(
+        designator: impl Into<Designator>,
+        kind: NamedEntityKind,
+        decl_pos: Option<&SrcPos>,
+    ) -> NamedEntity {
+        NamedEntity {
+            id: new_id(),
+            implicit: true,
             decl_pos: decl_pos.cloned(),
             designator: designator.into(),
             kind,
@@ -196,6 +354,30 @@ impl NamedEntity {
 
     pub fn id(&self) -> EntityId {
         self.id
+    }
+
+    pub fn is_implicit(&self) -> bool {
+        self.implicit
+    }
+
+    pub fn is_subprogram(&self) -> bool {
+        if let NamedEntityKind::Subprogram(..) = self.kind {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_subprogram_decl(&self) -> bool {
+        if let NamedEntityKind::SubprogramDecl(..) = self.kind {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_explicit(&self) -> bool {
+        !self.implicit
     }
 
     pub fn decl_pos(&self) -> Option<&SrcPos> {
@@ -210,6 +392,20 @@ impl NamedEntity {
         &self.kind
     }
 
+    /// Create a copy of this named entity with the same ID but with an updated kind
+    /// The use case is to overwrite an entity with a new kind when the full kind cannot
+    /// Be created initially due to cyclic dependencies such as when defining an enum literal
+    /// With a reference to the enum type where the enum type also needs to know about the literals
+    /// @TODO investigate get_mut_unchecked instead
+    pub fn clone_with_kind(&self, kind: NamedEntityKind) -> NamedEntity {
+        NamedEntity::new_with_id(
+            self.id(),
+            self.designator.clone(),
+            kind,
+            self.decl_pos.as_ref(),
+        )
+    }
+
     pub fn error(&self, diagnostics: &mut dyn DiagnosticHandler, message: impl Into<String>) {
         if let Some(ref pos) = self.decl_pos {
             diagnostics.push(Diagnostic::error(pos, message));
@@ -217,11 +413,15 @@ impl NamedEntity {
     }
 
     pub fn is_overloaded(&self) -> bool {
+        self.signature().is_some()
+    }
+
+    pub fn signature(&self) -> Option<&Signature> {
         match self.actual_kind() {
-            NamedEntityKind::Procedure
-            | NamedEntityKind::Function
-            | NamedEntityKind::EnumLiteral => true,
-            _ => false,
+            NamedEntityKind::Subprogram(ref signature)
+            | NamedEntityKind::SubprogramDecl(ref signature)
+            | NamedEntityKind::EnumLiteral(ref signature) => Some(signature),
+            _ => None,
         }
     }
 
@@ -229,6 +429,15 @@ impl NamedEntity {
     pub fn as_actual(&self) -> &NamedEntity {
         match self.kind() {
             NamedEntityKind::AliasOf(ref ent) => ent.as_actual(),
+            _ => self,
+        }
+    }
+
+    /// Strip aliases and subtypes down to base type
+    pub fn base_type(&self) -> &NamedEntity {
+        match self.kind() {
+            NamedEntityKind::AliasOf(ref ent) => ent.base_type(),
+            NamedEntityKind::Subtype(ref ent) => ent.base().base_type(),
             _ => self,
         }
     }
@@ -253,14 +462,21 @@ impl NamedEntity {
     }
 
     pub fn describe(&self) -> String {
-        if let NamedEntityKind::AliasOf(..) = self.kind {
-            format!(
+        match self.kind {
+            NamedEntityKind::AliasOf(..) => format!(
                 "alias '{}' of {}",
                 self.designator,
                 self.as_actual().describe()
-            )
-        } else {
-            format!("{} '{}'", self.kind.describe(), self.designator)
+            ),
+            NamedEntityKind::EnumLiteral(ref signature)
+            | NamedEntityKind::SubprogramDecl(ref signature)
+            | NamedEntityKind::Subprogram(ref signature) => format!(
+                "{} '{}' with signature {}",
+                self.kind.describe(),
+                self.designator,
+                signature.describe()
+            ),
+            _ => format!("{} '{}'", self.kind.describe(), self.designator),
         }
     }
 }

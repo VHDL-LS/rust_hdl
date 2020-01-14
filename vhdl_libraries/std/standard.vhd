@@ -87,11 +87,15 @@ package standard is
   attribute FOREIGN: STRING;
 
   -- @TODO add implicitly
-  function to_string return string;
-  function maximum return natural;
-  function minimum return natural;
-  procedure deallocate;
-  function rising_edge return boolean;
-  function falling_edge return boolean;
+  function TO_STRING(VALUE : INTEGER) return STRING;
+
+  function RISING_EDGE(signal S: BOOLEAN) return BOOLEAN;
+  function RISING_EDGE(signal B: BIT) return BOOLEAN;
+  function FALLING_EDGE(signal S: BOOLEAN) return BOOLEAN;
+  function FALLING_EDGE(signal B: BIT) return BOOLEAN;
+
+  function MAXIMUM return NATURAL;
+  function MINIMUM return NATURAL;
+  procedure DEALLOCATE;
 
 end package;
