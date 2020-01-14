@@ -22,6 +22,7 @@ lsp-types = "^0.63"
 fnv = "^1"
 log = "0.4.6"
 env_logger = "0.6.0"
+clap = "^2"
 
 [dev-dependencies]
 tempfile = "^3"
