@@ -686,7 +686,7 @@ impl TokenState {
     }
 }
 
-// Assumes first quoute is already consumed
+// Assumes first quote is already consumed
 fn parse_quoted(
     buffer: &mut Latin1String,
     reader: &mut ContentReader,

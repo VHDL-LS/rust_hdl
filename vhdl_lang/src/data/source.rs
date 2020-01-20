@@ -20,7 +20,8 @@ use std::sync::Arc;
 
 struct FileId {
     name: PathBuf,
-    hash: u64, // Hash of name
+    /// Hash value of `self.name`.
+    hash: u64,
 }
 
 impl FileId {
@@ -50,13 +51,14 @@ fn hash(value: &Path) -> u64 {
     hasher.finish()
 }
 
+/// Represents a single source file and its contents.
 struct UniqueSource {
     file_id: FileId,
     contents: RwLock<Contents>,
 }
 
 impl fmt::Debug for UniqueSource {
-    /// Custom implementation to avoid large contents strings
+    /// Custom implementation to avoid large contents strings.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Source {{file_name: {:?}}}", self.file_name())
     }
@@ -96,6 +98,8 @@ impl UniqueSource {
     }
 }
 
+/// A thread-safe reference to a source file.
+/// Multiple objects of this type can refer to the same source.
 #[derive(Debug, Clone)]
 pub struct Source {
     source: Arc<UniqueSource>,
@@ -116,6 +120,10 @@ impl Hash for Source {
 }
 
 impl Source {
+    /// Creates a source from a (virtual) name and in-memory contents.
+    ///
+    /// Note: For differing values of `contents`, the value of `file_name`
+    /// *must* differ as well.
     pub fn inline(file_name: &Path, contents: &str) -> Source {
         Source {
             source: Arc::new(UniqueSource::inline(file_name, contents)),
@@ -160,9 +168,12 @@ impl Source {
     }
 }
 
+/// A lexical position (line, column) in a source.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash, Debug)]
 pub struct Position {
+    /// Line (zero-based).
     pub line: u32,
+    /// Column (zero-based).
     pub character: u32,
 }
 
@@ -211,9 +222,12 @@ impl Position {
     }
 }
 
+/// A lexical range in a source.
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]
 pub struct Range {
+    /// Start of the range (inclusive).
     pub start: Position,
+    /// End of the range (exclusive).
     pub end: Position,
 }
 
@@ -223,14 +237,15 @@ impl Range {
     }
 }
 
-/// Lexical position in a file.
+/// A lexical range within a specific source file.
 #[derive(PartialEq, Clone, Debug, Eq, Hash)]
 pub struct SrcPos {
-    /// The source
+    /// The referenced source file.
     pub source: Source,
     range: Range,
 }
 
+/// A generic object with an associated source file and lexical range.
 #[derive(PartialEq, Clone, Debug)]
 pub struct WithPos<T> {
     pub item: T,
@@ -261,6 +276,7 @@ impl<T> WithPos<T> {
             pos: self.pos,
         }
     }
+
     pub fn try_map_into<F, U>(self, f: F) -> DiagnosticResult<WithPos<U>>
     where
         F: FnOnce(T) -> Result<U, String>,
@@ -422,7 +438,7 @@ impl SrcPos {
         (lineno_len, result)
     }
 
-    /// Create a string for pretty printing
+    /// Create a string for pretty printing.
     pub fn code_context(&self) -> String {
         self.lineno_len_and_code_context().1
     }
@@ -457,8 +473,8 @@ impl SrcPos {
         result
     }
 
-    /// Combines two lexical positions into a larger legical position overlapping both
-    /// The file name is assumed to be the same
+    /// Combines two lexical positions into a larger lexical position overlapping both.
+    /// The file name is assumed to be the same.
     pub fn combine_into(self, other: &dyn AsRef<Self>) -> Self {
         let other = other.as_ref();
         debug_assert!(self.source == other.source, "Assumes sources are equal");
@@ -493,6 +509,10 @@ impl SrcPos {
     }
 }
 
+/// Denotes an item with an associated source file.
+///
+/// Most types that implement this trait do so through the blanket implementation
+/// on [`HasSrcPos`](trait.HasSrcPos.html).
 pub trait HasSource {
     fn source(&self) -> &Source;
 }
@@ -503,6 +523,7 @@ impl HasSource for Source {
     }
 }
 
+/// Denotes an item with an associated lexical range in a source file.
 pub trait HasSrcPos {
     fn pos(&self) -> &SrcPos;
 }

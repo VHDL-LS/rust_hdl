@@ -4,20 +4,28 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
-///! This module contains structs to handle detecting circular dependencies
-///! during analysis of packages where the dependency tree is not known
+//! This module contains types to handle the analysis data in a thread-safe way,
+//! in particular when the dependencies between design units are not known.
+
 use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
+/// Combines an item to be analyzed (typically, a design unit) with the optional results
+/// of that analysis.
 struct AnalysisState<T, R> {
+    /// Data gathered during analysis; `None` while not yet analyzed.
     result: Option<R>,
+
+    /// The subject of analysis; typically, this is a design unit.
     data: T,
 }
 
+/// A thread-safe r/w-lock on an item to be analyzed (`T`) and the analysis results (`R`).
+///
+/// Ensures mutable access during analysis and immutable access after analysis.
 pub struct AnalysisLock<T, R> {
     state: RwLock<AnalysisState<T, R>>,
 }
 
-/// Ensure mutable access during analysis and immutable access after analysis
 impl<T, R> AnalysisLock<T, R> {
     pub fn new(data: T) -> AnalysisLock<T, R> {
         AnalysisLock {
@@ -25,7 +33,7 @@ impl<T, R> AnalysisLock<T, R> {
         }
     }
 
-    /// Get an immutable reference to the data if it is already been analyzed
+    /// Returns an immutable reference to the data and result if it has already been analyzed.
     fn get(&self) -> Option<ReadGuard<T, R>> {
         let guard = self.state.read();
         if guard.result.is_some() {
@@ -35,17 +43,20 @@ impl<T, R> AnalysisLock<T, R> {
         }
     }
 
+    /// Returns an immutable reference to the data.
     pub fn read(&self) -> MappedRwLockReadGuard<'_, T> {
         RwLockReadGuard::map(self.state.read(), |data| &data.data)
     }
 
-    /// Reset analysis state, analysis needs to be redone
+    /// Reset analysis state, analysis needs to be redone.
     pub fn reset(&self) {
         let mut guard = self.state.write();
         guard.result = None;
     }
 
-    /// Get an immmutable reference to the data, assuming it has already been analyzed
+    /// Returns an immmutable reference to the data and result.
+    ///
+    /// Panics if the analysis result is not available.
     pub fn expect_analyzed(&self) -> ReadGuard<T, R> {
         let guard = self.state.read();
 
@@ -56,10 +67,11 @@ impl<T, R> AnalysisLock<T, R> {
         ReadGuard { guard }
     }
 
-    /// Get either:
-    /// - A mutable reference to the data if not analyzed
-    /// - An immmutable reference to the data if already analyzed
-    /// - A Circular dependency error if such is detected
+    /// Creates a view into this lock.
+    ///
+    /// This view provides:
+    /// - a mutable reference to the data if not analyzed
+    /// - an immmutable reference to the data if already analyzed
     pub fn entry(&self) -> AnalysisEntry<T, R> {
         if let Some(guard) = self.get() {
             AnalysisEntry::Occupied(guard)
@@ -80,6 +92,12 @@ impl<T, R> AnalysisLock<T, R> {
     }
 }
 
+/// A view into a thread-safe r/w-lock on an [`AnalysisState`](struct.AnalysisState.html).
+///
+/// Instances of this type are created by
+/// [`AnalysisLock::entry()`](struct.AnalysisLock.html#method.entry)
+/// and allow read-access to a completed analysis data and
+/// read/write-access to incomplete analysis data.
 pub enum AnalysisEntry<'a, T, R> {
     Occupied(ReadGuard<'a, T, R>),
     Vacant(WriteGuard<'a, T, R>),

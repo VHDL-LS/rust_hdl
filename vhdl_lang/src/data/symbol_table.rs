@@ -11,11 +11,17 @@ use std::sync::Arc;
 use self::fnv::FnvHashMap;
 use fnv;
 
-/// Represents an unique string symbol
-/// The id can be used as a fast comparison key for symbols
+/// Represents a unique string symbol.
+///
+/// The `id` field can be used as a fast comparison key for symbols.
+/// Two symbols are compared for equality based on VHDL's rules for identifiers:
+/// * basic identifiers are compared case-insensitive (LRM 15.4.2)
+/// * extended identifiers are compared case-sensitive (LRM 15.4.3)
 #[derive(Clone, Debug, Eq)]
 pub struct Symbol {
-    /// The unique id of the symbol
+    /// The unique ID of the symbol.
+    ///
+    /// Note: IDs are not necessarily contiguous.
     pub(crate) id: usize,
 
     /// The name of the symbol
@@ -23,7 +29,8 @@ pub struct Symbol {
 }
 
 impl Symbol {
-    /// Create a new symbol
+    /// Creates a new symbol. The `id` parameter is assumed to be a valid
+    /// [`SymbolTable`](struct.SymbolTable.html) ID.
     fn new(id: usize, name: &Arc<Latin1String>) -> Symbol {
         Symbol {
             id,
@@ -31,19 +38,19 @@ impl Symbol {
         }
     }
 
-    /// Return the name of the symbol
+    /// Returns the name of the symbol.
     pub fn name(self: &Self) -> &Latin1String {
         self.name.as_ref()
     }
 
-    /// Return the name of the symbol
+    /// Returns the name of the symbol as a UTF-8 string.
     pub fn name_utf8(self: &Self) -> String {
         self.name.to_string()
     }
 }
 
 impl PartialEq for Symbol {
-    /// Symbols are compared just based on the id
+    /// Symbols are compared just based on the `id` field.
     fn eq(self: &Self, other: &Self) -> bool {
         self.id == other.id
     }
@@ -61,10 +68,18 @@ impl std::hash::Hash for Symbol {
     }
 }
 
-/// A case insensitive symbol table to allocate unique id:s to symbols
-/// which are equal during case insensitive comparison
+/// A thread-safe symbol table to keep track of identifiers.
+///
+/// This table maintains a mapping from symbol strings to
+/// [`Symbol`](struct.Symbol.html) objects.
+/// Equivalent identifiers get identical IDs.
 #[derive(Default)]
 pub struct SymbolTable {
+    /// Symbol mapping.
+    ///
+    /// Basic identifiers containing upper-case letters are stored in verbatim
+    /// and normalized forms, with distinct [`Symbol`](struct.Symbol.html) objects,
+    /// but these objects contain the same ID.
     name_to_symbol: RwLock<FnvHashMap<Arc<Latin1String>, Symbol>>,
 }
 
@@ -80,6 +95,10 @@ impl SymbolTable {
         self.insert_extended(&name)
     }
 
+    /// Looks up an identifier (basic or extended).
+    ///
+    /// Returns the corresponding `Symbol` instance if the identifier already exists,
+    /// and `None` otherwise.
     pub fn lookup(&self, name: &Latin1String) -> Option<Symbol> {
         let name_to_symbol = self.name_to_symbol.read();
         if let Some(sym) = name_to_symbol.get(name) {
@@ -90,8 +109,7 @@ impl SymbolTable {
         }
     }
 
-    /// Insert a new symbol and return it. If a symbol already exists
-    /// that matches the case insensitive name it is returned
+    /// Inserts a basic identifier and returns a corresponding `Symbol` instance.
     pub fn insert(&self, name: &Latin1String) -> Symbol {
         if let Some(symbol) = self.lookup(name) {
             symbol
@@ -100,6 +118,7 @@ impl SymbolTable {
         }
     }
 
+    /// Inserts an extended identifier and returns a corresponding `Symbol` instance.
     pub fn insert_extended(&self, name: &Latin1String) -> Symbol {
         if let Some(symbol) = self.lookup(name) {
             symbol

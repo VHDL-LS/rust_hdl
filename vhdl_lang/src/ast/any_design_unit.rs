@@ -27,13 +27,18 @@ pub enum AnyKind {
     Secondary(SecondaryKind),
 }
 
-/// Without Kind to get name conflict between different primary units
+/// Stores a design unit's name and, for secondary units,
+/// the name of its associated primary unit.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum UnitKey {
     Primary(Symbol),
     Secondary(Symbol, Symbol),
 }
 
+/// Identifies a design unit.
+///
+/// Additionally, a `UnitId` specifies a unit's name, kind, library,
+/// and, for secondary units, its associated primary unit.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct UnitId {
     library_name: Symbol,
@@ -71,6 +76,8 @@ impl UnitId {
         &self.library_name
     }
 
+    /// For a secondary unit, returns the name of the associated primary unit;
+    /// for a primary unit, returns its own name.
     pub fn primary_name(&self) -> &Symbol {
         match self.key {
             UnitKey::Primary(ref name) => name,
