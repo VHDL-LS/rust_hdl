@@ -249,6 +249,7 @@ pub enum Expression {
     New(Box<WithPos<Allocator>>),
 }
 
+/// An identifier together with the lexical source location it occurs in.
 pub type Ident = WithPos<Symbol>;
 
 #[derive(PartialEq, Debug, Clone, Copy)]

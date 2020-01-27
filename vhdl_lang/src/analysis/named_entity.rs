@@ -286,14 +286,17 @@ pub struct EntityId {
     id: usize,
 }
 
+/// A named entity as defined in LRM 6.1.
+///
+/// Every declaration creates one or more named entities.
 #[derive(Debug)]
 pub struct NamedEntity {
-    /// An unique id of the entity
-    /// Entities with the same id will be the same
+    /// A unique id of the entity.
+    /// Entities with the same id will be the same.
     id: EntityId,
     implicit: bool,
-    /// The location where the declaration was made
-    /// Builtin and implicit declaration will not have a source position
+    /// The location where the declaration was made.
+    /// Builtin and implicit declaration will not have a source position.
     designator: Designator,
     kind: NamedEntityKind,
     decl_pos: Option<SrcPos>,

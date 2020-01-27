@@ -29,6 +29,9 @@ pub(super) struct AnalysisData {
 }
 
 pub(super) type UnitReadGuard<'a> = ReadGuard<'a, AnyDesignUnit, AnalysisData>;
+
+/// Wraps the AST of a [design unit](../../ast/enum.AnyDesignUnit.html) in a thread-safe
+/// r/w-lock for analysis.
 pub(super) struct LockedUnit {
     ident: Ident,
     unit_id: UnitId,
@@ -69,22 +72,25 @@ impl HasIdent for LockedUnit {
     }
 }
 
+/// Represents a VHDL library containing zero or more design units.
+///
+/// This struct also keeps track of which source file contained which design units.
 struct Library {
     name: Symbol,
 
-    /// Named entity corresponding to the library
+    /// Named entity corresponding to the library.
     ent: Arc<NamedEntity>,
 
     units: FnvHashMap<UnitKey, LockedUnit>,
     units_by_source: FnvHashMap<Source, FnvHashSet<UnitId>>,
 
-    /// Units removed since last analysis
+    /// Units removed since last analysis.
     removed: FnvHashSet<UnitId>,
-    /// Units added since last analysis
+    /// Units added since last analysis.
     added: FnvHashSet<UnitId>,
 
-    /// Design units which were not added since they were duplicates
-    /// They need to be kept for later refresh which might make them not duplicates
+    /// Design units which were not added since they were duplicates.
+    /// They need to be kept for later refresh which might make them not duplicates.
     duplicates: Vec<(SrcPos, LockedUnit)>,
 }
 
@@ -140,7 +146,7 @@ impl<'a> Library {
         }
     }
 
-    /// Refresh library after removing or adding new design units
+    /// Refresh library after removing or adding new design units.
     fn refresh(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
         self.append_duplicate_diagnostics(diagnostics);
     }
@@ -178,8 +184,8 @@ impl<'a> Library {
         }
     }
 
-    /// Remove all design units defined in source
-    /// This is used for incremental analysis where only a single source file is updated
+    /// Remove all design units defined in source.
+    /// This is used for incremental analysis where only a single source file is updated.
     fn remove_source(&mut self, source: &Source) {
         let removed = &mut self.removed;
         self.units.retain(|_, value| {
@@ -207,8 +213,8 @@ impl<'a> Library {
         }
     }
 
-    /// Iterate over units in the order they appear in the file
-    /// Ensures diagnostics does not have to be sorted later
+    /// Iterate over units in the order they appear in the file.
+    /// Ensures diagnostics do not have to be sorted later.
     fn sorted_unit_ids(&self) -> Vec<UnitId> {
         // @TODO insert sort when adding instead
         let mut result = Vec::new();
@@ -230,18 +236,23 @@ impl<'a> Library {
     }
 }
 
+/// Contains the entire design state.
+///
+/// Besides all loaded libraries and design units, `DesignRoot` also keeps track of
+/// dependencies between design units.
 pub struct DesignRoot {
     symbols: Arc<Symbols>,
     libraries: FnvHashMap<Symbol, Library>,
 
-    // Dependency tracking for incremental analysis
-    // user => set(users)
+    // Dependency tracking for incremental analysis.
+    // user  =>  set(users)
     users_of: RwLock<FnvHashMap<UnitId, FnvHashSet<UnitId>>>,
 
-    // missing primary name  => set(affected)
+    // missing primary name  =>  set(affected)
     missing_primary: RwLock<FnvHashMap<(Symbol, Symbol), FnvHashSet<UnitId>>>,
 
-    // library name  => set(affected)
+    // Tracks which units have a "use library.all;" clause.
+    // library name  =>  set(affected)
     users_of_library_all: RwLock<FnvHashMap<Symbol, FnvHashSet<UnitId>>>,
 }
 
@@ -466,7 +477,8 @@ impl DesignRoot {
         }
     }
 
-    /// Reset all unit that need to be re-analyzed
+    /// Resets the analysis state of all design units which need to be re-analyzed
+    /// because another design unit has been added or removed.
     fn reset(&mut self) {
         let mut removed = FnvHashSet::default();
         let mut added = FnvHashSet::default();
