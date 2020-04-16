@@ -208,7 +208,7 @@ pub struct SourceFile {
 
 impl SourceFile {
     fn take_design_file(&mut self) -> DesignFile {
-        std::mem::replace(&mut self.design_file, DesignFile::default())
+        std::mem::take(&mut self.design_file)
     }
 
     pub fn num_lines(&self) -> usize {
