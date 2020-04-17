@@ -228,8 +228,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             }
         };
 
-        let mut files_with_notifications =
-            std::mem::replace(&mut self.files_with_notifications, FnvHashMap::default());
+        let mut files_with_notifications = std::mem::take(&mut self.files_with_notifications);
         for (file_uri, diagnostics) in diagnostics_by_uri(diagnostics).into_iter() {
             let mut lsp_diagnostics = Vec::new();
             for diagnostic in diagnostics {

@@ -196,6 +196,14 @@ pub fn parse_process_statement(
     let decl = parse_declarative_part(stream, diagnostics, true)?;
     let (statements, end_token) = parse_labeled_sequential_statements(stream, diagnostics)?;
     try_token_kind!(end_token, End => {});
+    if let Some(token) = stream.pop_if_kind(Postponed)? {
+        if !postponed {
+            diagnostics.push(Diagnostic::error(
+                token,
+                "'postponed' at the end of non-postponed process.",
+            ));
+        }
+    }
     stream.expect_kind(Process)?;
     // @TODO check name
     stream.pop_if_kind(Identifier)?;
@@ -958,6 +966,52 @@ end process;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
+        assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
+    }
+
+    #[test]
+    fn test_postponed_process_statement_end_postponed() {
+        let code = Code::new(
+            "\
+postponed process
+begin
+end postponed process;
+",
+        );
+        let process = ProcessStatement {
+            postponed: true,
+            sensitivity_list: None,
+            decl: vec![],
+            statements: vec![],
+        };
+        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
+        assert_eq!(stmt.label, None);
+        assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
+    }
+
+    #[test]
+    fn test_process_statement_end_postponed() {
+        let code = Code::new(
+            "\
+process is
+begin
+end postponed process;
+",
+        );
+        let (stmt, diagnostics) = code.with_stream_diagnostics(parse_labeled_concurrent_statement);
+        let process = ProcessStatement {
+            postponed: false,
+            sensitivity_list: None,
+            decl: Vec::new(),
+            statements: Vec::new(),
+        };
+        assert_eq!(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("postponed"),
+                "'postponed' at the end of non-postponed process."
+            )]
+        );
         assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
     }
 

@@ -153,7 +153,7 @@ pub fn parse_package_body(
 }
 
 fn take_context_clause(context_clause: &mut ContextClause) -> ContextClause {
-    std::mem::replace(context_clause, ContextClause::default())
+    std::mem::take(context_clause)
 }
 
 fn context_item_message(context_item: &ContextItem, message: impl AsRef<str>) -> String {
