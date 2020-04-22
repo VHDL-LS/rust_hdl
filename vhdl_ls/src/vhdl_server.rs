@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
+// Copyright (c) 2020, Olof Kraigher olof.kraigher@gmail.com
 
 use lsp_types::*;
 
@@ -11,6 +11,7 @@ use fnv;
 use std::collections::hash_map::Entry;
 
 use self::vhdl_lang::{Config, Diagnostic, Message, Project, Severity, Source, SrcPos};
+use crate::document_symbol::HasDocumentSymbol;
 use crate::rpc_channel::{MessageChannel, RpcChannel};
 use std::io;
 use std::path::{Path, PathBuf};
@@ -150,6 +151,14 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
     pub fn text_document_references(&mut self, params: &ReferenceParams) -> Vec<Location> {
         self.mut_server().text_document_references(&params)
     }
+
+    // textDocument/documentSymbol
+    pub fn text_document_document_symbol(
+        &mut self,
+        params: &DocumentSymbolParams,
+    ) -> Option<DocumentSymbolResponse> {
+        self.mut_server().text_document_document_symbol(&params)
+    }
 }
 
 struct InitializedVHDLServer<T: RpcChannel> {
@@ -192,6 +201,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         capabilities.declaration_provider = Some(true);
         capabilities.definition_provider = Some(true);
         capabilities.references_provider = Some(true);
+        capabilities.document_symbol_provider = Some(true);
         let result = InitializeResult {
             capabilities,
             server_info: None,
@@ -341,6 +351,21 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         } else {
             Vec::new()
         }
+    }
+
+    pub fn text_document_document_symbol(
+        &mut self,
+        params: &DocumentSymbolParams,
+    ) -> Option<DocumentSymbolResponse> {
+        self.project
+            .parse_design_file(&uri_to_file_name(&params.text_document.uri))
+            .and_then(|design_file| {
+                let mut document_symbols = Vec::new();
+                for design_unit in design_file.design_units.iter() {
+                    document_symbols.push(design_unit.document_symbol());
+                }
+                Some(DocumentSymbolResponse::Nested(document_symbols))
+            })
     }
 }
 

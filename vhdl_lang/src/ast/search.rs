@@ -940,6 +940,12 @@ impl Search for WithPos<ContextItem> {
     }
 }
 
+impl Search for ContextClause {
+    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+        self.items.search(searcher)
+    }
+}
+
 impl Search for AnyDesignUnit {
     fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
         delegate_any!(self, unit, unit.search(searcher))

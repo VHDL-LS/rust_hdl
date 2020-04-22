@@ -1104,6 +1104,8 @@ pub struct EntityDeclaration {
     pub port_clause: Option<Vec<InterfaceDeclaration>>,
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledConcurrentStatement>,
+    // Non-LRM
+    pub pos: Option<SrcPos>, //@TODO: Probably not option Full range of the design unit
 }
 /// LRM 3.3 Architecture bodies
 #[derive(PartialEq, Debug, Clone)]
@@ -1161,7 +1163,21 @@ pub enum AnySecondaryUnit {
     PackageBody(PackageBody),
 }
 
-pub type ContextClause = Vec<WithPos<ContextItem>>;
+#[derive(PartialEq, Debug, Clone)]
+pub struct ContextClause {
+    pub items: Vec<WithPos<ContextItem>>,
+    // Non-LRM
+    pub pos: Option<SrcPos>,
+}
+
+impl std::default::Default for ContextClause {
+    fn default() -> ContextClause {
+        ContextClause {
+            items: vec![],
+            pos: None,
+        }
+    }
+}
 
 /// LRM 13.1 Design units
 #[derive(PartialEq, Debug, Clone)]

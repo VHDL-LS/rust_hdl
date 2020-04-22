@@ -98,6 +98,20 @@ impl Project {
         project
     }
 
+    pub fn parse_design_file(&self, file_name: &Path) -> Option<DesignFile> {
+        let mut diagnostics = vec![];
+        match self.parser.parse_design_file(file_name, &mut diagnostics) {
+            Ok((_, design_file)) => Some(design_file),
+            Err(_) => None,
+        }
+    }
+
+    pub fn get_design_file(&self, file_name: &Path) -> Option<DesignFile> {
+        self.files
+            .get(file_name)
+            .map(|file| file.design_file.clone())
+    }
+
     pub fn get_source(&self, file_name: &Path) -> Option<Source> {
         self.files.get(file_name).map(|file| file.source.clone())
     }

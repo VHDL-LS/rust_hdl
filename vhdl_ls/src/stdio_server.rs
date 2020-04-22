@@ -85,12 +85,21 @@ pub fn start() {
         serde_json::to_value(value).map_err(|_| jsonrpc_core::Error::internal_error())
     });
 
-    let server = lang_server;
+    let server = lang_server.clone();
     io.add_method("textDocument/references", move |params: Params| {
         let value = server
             .lock()
             .unwrap()
             .text_document_references(&params.parse().unwrap());
+        serde_json::to_value(value).map_err(|_| jsonrpc_core::Error::internal_error())
+    });
+
+    let server = lang_server;
+    io.add_method("textDocument/documentSymbol", move |params: Params| {
+        let value = server
+            .lock()
+            .unwrap()
+            .text_document_document_symbol(&params.parse().unwrap());
         serde_json::to_value(value).map_err(|_| jsonrpc_core::Error::internal_error())
     });
 

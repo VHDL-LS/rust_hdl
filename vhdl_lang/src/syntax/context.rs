@@ -116,7 +116,7 @@ pub fn parse_context(
 
         Ok(DeclarationOrReference::Declaration(ContextDeclaration {
             ident,
-            items,
+            items: ContextClause { items, pos: None },
         }))
     } else {
         // Context reference
@@ -252,7 +252,7 @@ end context ident;
                 code.with_stream_no_diagnostics(parse_context),
                 DeclarationOrReference::Declaration(ContextDeclaration {
                     ident: code.s1("ident").ident(),
-                    items: vec![]
+                    items: ContextClause::default()
                 })
             );
         }
@@ -278,7 +278,7 @@ end context ident2;
             context,
             DeclarationOrReference::Declaration(ContextDeclaration {
                 ident: code.s1("ident").ident(),
-                items: vec![]
+                items: ContextClause::default()
             })
         );
     }
@@ -298,26 +298,29 @@ end context;
             code.with_stream_no_diagnostics(parse_context),
             DeclarationOrReference::Declaration(ContextDeclaration {
                 ident: code.s1("ident").ident(),
-                items: vec![
-                    WithPos::new(
-                        ContextItem::Library(LibraryClause {
-                            name_list: vec![code.s1("foo").ident()]
-                        }),
-                        code.s1("library foo;")
-                    ),
-                    WithPos::new(
-                        ContextItem::Use(UseClause {
-                            name_list: vec![code.s1("foo.bar").name()]
-                        }),
-                        code.s1("use foo.bar;")
-                    ),
-                    WithPos::new(
-                        ContextItem::Context(ContextReference {
-                            name_list: vec![code.s1("foo.ctx").name()]
-                        }),
-                        code.s1("context foo.ctx;")
-                    ),
-                ]
+                items: ContextClause {
+                    items: vec![
+                        WithPos::new(
+                            ContextItem::Library(LibraryClause {
+                                name_list: vec![code.s1("foo").ident()]
+                            }),
+                            code.s1("library foo;")
+                        ),
+                        WithPos::new(
+                            ContextItem::Use(UseClause {
+                                name_list: vec![code.s1("foo.bar").name()]
+                            }),
+                            code.s1("use foo.bar;")
+                        ),
+                        WithPos::new(
+                            ContextItem::Context(ContextReference {
+                                name_list: vec![code.s1("foo.ctx").name()]
+                            }),
+                            code.s1("context foo.ctx;")
+                        ),
+                    ],
+                    pos: None
+                }
             })
         )
     }

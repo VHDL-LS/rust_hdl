@@ -462,10 +462,10 @@ impl<'a> AnalyzeContext<'a> {
     fn analyze_context_clause(
         &self,
         region: &mut Region<'_>,
-        context_clause: &mut [WithPos<ContextItem>],
+        context_clause: &mut ContextClause,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        for context_item in context_clause.iter_mut() {
+        for context_item in context_clause.items.iter_mut() {
             match context_item.item {
                 ContextItem::Library(LibraryClause { ref name_list }) => {
                     for library_name in name_list.iter() {

@@ -27,7 +27,7 @@ pub fn parse_entity_declaration(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<EntityDeclaration> {
-    stream.expect_kind(Entity)?;
+    let entity_token = stream.expect_kind(Entity)?;
 
     let ident = stream.expect_ident()?;
     stream.expect_kind(Is)?;
@@ -48,7 +48,7 @@ pub fn parse_entity_declaration(
     if let Some(diagnostic) = error_on_end_identifier_mismatch(&ident, &end_ident) {
         diagnostics.push(diagnostic);
     }
-    stream.expect_kind(SemiColon)?;
+    let semi_token = stream.expect_kind(SemiColon)?;
     Ok(EntityDeclaration {
         context_clause: ContextClause::default(),
         ident,
@@ -56,6 +56,7 @@ pub fn parse_entity_declaration(
         port_clause,
         decl,
         statements,
+        pos: Some(entity_token.pos.combine_into(&semi_token)),
     })
 }
 
@@ -153,6 +154,11 @@ pub fn parse_package_body(
 }
 
 fn take_context_clause(context_clause: &mut ContextClause) -> ContextClause {
+    if !context_clause.items.is_empty() {
+        let start = context_clause.items.first().unwrap().pos.clone();
+        let end = context_clause.items.last().unwrap().pos.clone();
+        context_clause.pos = Some(start.combine_into(&end));
+    }
     std::mem::take(context_clause)
 }
 
@@ -170,16 +176,15 @@ pub fn parse_design_file(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<DesignFile> {
-    let mut context_clause = vec![];
+    let mut context_clause = ContextClause::default();
     let mut design_units = vec![];
-
     while let Some(token) = stream.peek()? {
         try_token_kind!(
             token,
             Library => {
                 match parse_library_clause(stream) {
                     Ok(library) => {
-                        context_clause.push(library.map_into(ContextItem::Library));
+                        context_clause.items.push(library.map_into(ContextItem::Library));
                     },
                     Err(diagnostic) => diagnostics.push(diagnostic),
                 }
@@ -187,37 +192,48 @@ pub fn parse_design_file(
             Use => {
                 match parse_use_clause(stream) {
                     Ok(use_clause) => {
-                        context_clause.push(use_clause.map_into(ContextItem::Use));
+                        context_clause.items.push(use_clause.map_into(ContextItem::Use));
                     },
                     Err(diagnostic) => diagnostics.push(diagnostic),
                 }
             },
             Context => match parse_context(stream, diagnostics) {
                 Ok(DeclarationOrReference::Declaration(context_decl)) => {
-                    if !context_clause.is_empty() {
+                    take_context_clause(&mut context_clause);
+                    if !context_clause.items.is_empty() {
                         let mut diagnostic = Diagnostic::error(&context_decl.ident, "Context declaration may not be preceeded by a context clause");
 
-                        for context_item in context_clause.iter() {
+                        for context_item in context_clause.items.iter() {
                             diagnostic.add_related(&context_item, context_item_message(&context_item.item, "may not come before context declaration"));
                         }
 
                         diagnostics.push(diagnostic);
-                        context_clause.clear();
+                        context_clause.items.clear();
+                        context_clause.pos = None;
                     }
 
                     design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::Context(context_decl)));
                 }
                 Ok(DeclarationOrReference::Reference(context_ref)) => {
-                    context_clause.push(context_ref.map_into(ContextItem::Context));
+                    context_clause.items.push(context_ref.map_into(ContextItem::Context));
                 }
-                Err(diagnostic) => diagnostics.push(diagnostic),
+                Err(diagnostic) => {
+                    take_context_clause(&mut context_clause);
+                    diagnostics.push(diagnostic)
+                },
             },
             Entity => match parse_entity_declaration(stream, diagnostics) {
                 Ok(mut entity) => {
                     entity.context_clause = take_context_clause(&mut context_clause);
+                    if entity.context_clause.pos.is_some() && entity.pos.is_some() {
+                        entity.pos = Some(entity.context_clause.pos.as_ref().unwrap().clone().combine_into(entity.pos.as_ref().unwrap()));
+                    }
                     design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(entity)));
                 }
-                Err(diagnostic) => diagnostics.push(diagnostic),
+                Err(diagnostic) => {
+                    take_context_clause(&mut context_clause);
+                    diagnostics.push(diagnostic)
+                },
             },
 
             Architecture => match parse_architecture_body(stream, diagnostics) {
@@ -265,7 +281,7 @@ pub fn parse_design_file(
         );
     }
 
-    for context_item in context_clause {
+    for context_item in context_clause.items {
         diagnostics.push(Diagnostic::warning(
             &context_item,
             context_item_message(&context_item.item, "not associated with any design unit"),
@@ -317,6 +333,7 @@ mod tests {
             port_clause: None,
             decl: vec![],
             statements: vec![],
+            pos: None,
         }))
     }
 
@@ -363,6 +380,7 @@ end entity;
                 port_clause: None,
                 decl: vec![],
                 statements: vec![],
+                pos: None,
             }
         );
     }
@@ -390,6 +408,7 @@ end entity;
                 port_clause: None,
                 decl: vec![],
                 statements: vec![],
+                pos: None,
             }
         );
     }
@@ -412,6 +431,7 @@ end entity;
                 port_clause: Some(vec![]),
                 decl: vec![],
                 statements: vec![],
+                pos: None,
             }
         );
     }
@@ -434,6 +454,7 @@ end entity;
                 port_clause: None,
                 decl: vec![],
                 statements: vec![],
+                pos: None,
             }
         );
     }
@@ -456,6 +477,7 @@ end entity;
                 port_clause: None,
                 decl: code.s1("constant foo : natural := 0;").declarative_part(),
                 statements: vec![],
+                pos: None,
             }
         );
     }
@@ -479,6 +501,7 @@ end entity;
                 port_clause: None,
                 decl: vec![],
                 statements: vec![code.s1("check(clk, valid);").concurrent_statement()],
+                pos: None,
             }
         );
     }
@@ -663,19 +686,23 @@ end entity;
             DesignFile {
                 design_units: vec![AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(
                     EntityDeclaration {
-                        context_clause: vec![
-                            code.s1("library lib;")
-                                .library_clause()
-                                .map_into(ContextItem::Library),
-                            code.s1("use lib.foo;")
-                                .use_clause()
-                                .map_into(ContextItem::Use),
-                        ],
+                        context_clause: ContextClause {
+                            items: vec![
+                                code.s1("library lib;")
+                                    .library_clause()
+                                    .map_into(ContextItem::Library),
+                                code.s1("use lib.foo;")
+                                    .use_clause()
+                                    .map_into(ContextItem::Use),
+                            ],
+                            pos: None
+                        },
                         ident: code.s1("myent").ident(),
                         generic_clause: None,
                         port_clause: None,
                         decl: vec![],
                         statements: vec![],
+                        pos: None,
                     }
                 ))]
             }
@@ -755,7 +782,7 @@ end entity;
 
         match design_file.design_units.get(1).unwrap() {
             AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(entity)) => {
-                assert_eq!(entity.context_clause.len(), 0);
+                assert_eq!(entity.context_clause.items.len(), 0);
             }
             _ => panic!("Expected entity"),
         }
