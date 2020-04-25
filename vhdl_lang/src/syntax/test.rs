@@ -569,6 +569,18 @@ impl AsRef<SrcPos> for Code {
     }
 }
 
+pub fn source_range(code: &Code, start: (u32, u32), end: (u32, u32)) -> SrcPos {
+    let (start_line, start_column) = start;
+    let (end_line, end_column) = end;
+    SrcPos::new(
+        code.source().clone(),
+        crate::data::Range::new(
+            Position::new(start_line, start_column),
+            Position::new(end_line, end_column),
+        ),
+    )
+}
+
 mod tests {
     use super::*;
 

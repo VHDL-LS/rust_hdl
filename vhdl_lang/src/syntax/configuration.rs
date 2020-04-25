@@ -268,7 +268,7 @@ pub fn parse_configuration_declaration(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ConfigurationDeclaration> {
-    stream.expect_kind(Configuration)?;
+    let configuration_token = stream.expect_kind(Configuration)?;
     let ident = stream.expect_ident()?;
     stream.expect_kind(Of)?;
     let entity_name = parse_selected_name(stream)?;
@@ -301,7 +301,7 @@ pub fn parse_configuration_declaration(
     if let Some(diagnostic) = error_on_end_identifier_mismatch(&ident, &end_ident) {
         diagnostics.push(diagnostic)
     }
-    stream.expect_kind(SemiColon)?;
+    let semi_token = stream.expect_kind(SemiColon)?;
     Ok(ConfigurationDeclaration {
         context_clause: ContextClause::default(),
         ident,
@@ -309,6 +309,7 @@ pub fn parse_configuration_declaration(
         decl,
         vunit_bind_inds,
         block_config,
+        source_range: configuration_token.pos.combine_into(&semi_token),
     })
 }
 
@@ -351,7 +352,8 @@ pub fn parse_configuration_specification(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::syntax::test::Code;
+    use crate::syntax::test::{source_range, Code};
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn empty_configuration() {
@@ -375,7 +377,8 @@ end;
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![],
-                }
+                },
+                source_range: source_range(&code, (0, 0), (3, 4))
             }
         );
     }
@@ -402,7 +405,8 @@ end configuration cfg;
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![],
-                }
+                },
+                source_range: source_range(&code, (0, 0), (3, 22)),
             }
         );
     }
@@ -433,7 +437,8 @@ end configuration cfg;
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![],
-                }
+                },
+                source_range: source_range(&code, (0, 0), (5, 22)),
             }
         );
     }
@@ -466,7 +471,8 @@ end configuration cfg;
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![],
-                }
+                },
+                source_range: source_range(&code, (0, 0), (5, 22)),
             }
         );
     }
@@ -493,7 +499,8 @@ end configuration cfg;
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![],
-                }
+                },
+                source_range: source_range(&code, (0, 0), (3, 22)),
             }
         );
     }
@@ -535,7 +542,8 @@ end configuration cfg;
                             items: vec![],
                         })
                     ],
-                }
+                },
+                source_range: source_range(&code, (0, 0), (7, 22)),
             }
         );
     }
@@ -580,7 +588,8 @@ end configuration cfg;
                             items: vec![],
                         }),
                     }),],
-                }
+                },
+                source_range: source_range(&code, (0, 0), (7, 22)),
             }
         );
     }
@@ -636,7 +645,8 @@ end configuration cfg;
                             items: vec![],
                         }),
                     }),],
-                }
+                },
+                source_range: source_range(&code, (0, 0), (9, 22)),
             }
         );
     }
@@ -683,7 +693,8 @@ end configuration cfg;
                         vunit_bind_inds: Vec::new(),
                         block_config: None,
                     }),],
-                }
+                },
+                source_range: source_range(&code, (0, 0), (6, 22)),
             }
         );
     }
@@ -761,7 +772,8 @@ end configuration cfg;
                             block_config: None,
                         })
                     ],
-                }
+                },
+                source_range: source_range(&code, (0, 0), (11, 22)),
             }
         );
     }

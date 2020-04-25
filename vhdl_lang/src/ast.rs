@@ -1006,6 +1006,9 @@ pub struct PackageInstantiation {
     pub ident: Ident,
     pub package_name: WithPos<SelectedName>,
     pub generic_map: Option<Vec<AssociationElement>>,
+
+    // Non-LRM fields
+    pub source_range: SrcPos,
 }
 
 /// LRM 7.3 Configuration specification
@@ -1093,6 +1096,9 @@ pub struct ConfigurationDeclaration {
     pub decl: Vec<ConfigurationDeclarativeItem>,
     pub vunit_bind_inds: Vec<VUnitBindingIndication>,
     pub block_config: BlockConfiguration,
+
+    // Non-LRM fields
+    pub source_range: SrcPos,
 }
 
 /// LRM 3.2 Entity declarations
@@ -1104,6 +1110,9 @@ pub struct EntityDeclaration {
     pub port_clause: Option<Vec<InterfaceDeclaration>>,
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledConcurrentStatement>,
+
+    // Non-LRM fields
+    pub source_range: SrcPos,
 }
 /// LRM 3.3 Architecture bodies
 #[derive(PartialEq, Debug, Clone)]
@@ -1113,6 +1122,9 @@ pub struct ArchitectureBody {
     pub entity_name: WithRef<Ident>,
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledConcurrentStatement>,
+
+    // Non-LRM fields
+    pub source_range: SrcPos,
 }
 
 /// LRM 4.7 Package declarations
@@ -1122,6 +1134,9 @@ pub struct PackageDeclaration {
     pub ident: Ident,
     pub generic_clause: Option<Vec<InterfaceDeclaration>>,
     pub decl: Vec<Declaration>,
+
+    // Non-LRM fields
+    pub source_range: SrcPos,
 }
 
 /// LRM 4.8 Package bodies
@@ -1130,6 +1145,9 @@ pub struct PackageBody {
     pub context_clause: ContextClause,
     pub ident: WithRef<Ident>,
     pub decl: Vec<Declaration>,
+
+    // Non-LRM fields
+    pub source_range: SrcPos,
 }
 
 /// LRM 13.1 Design units

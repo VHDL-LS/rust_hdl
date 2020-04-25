@@ -19,27 +19,31 @@ use crate::ast::{ContextClause, Declaration, PackageInstantiation};
 use crate::data::DiagnosticHandler;
 
 pub fn parse_package_instantiation(stream: &mut TokenStream) -> ParseResult<PackageInstantiation> {
-    stream.expect_kind(Package)?;
+    let package_token = stream.expect_kind(Package)?;
     let ident = stream.expect_ident()?;
     stream.expect_kind(Is)?;
     stream.expect_kind(New)?;
     let package_name = parse_selected_name(stream)?;
 
     let token = stream.expect()?;
-    let generic_map = try_token_kind!(
+    let (generic_map, semi_token) = try_token_kind!(
         token,
         Generic => {
             stream.expect_kind(Map)?;
             let association_list = parse_association_list(stream)?;
-            stream.expect_kind(SemiColon)?;
-            Some(association_list)
+            let semi_token = stream.expect_kind(SemiColon)?;
+            (Some(association_list), semi_token)
         },
-        SemiColon => None);
+        SemiColon => {
+            (None, token)
+        }
+    );
     Ok(PackageInstantiation {
         context_clause: ContextClause::default(),
         ident,
         package_name,
         generic_map,
+        source_range: package_token.pos.combine_into(&semi_token),
     })
 }
 
@@ -162,7 +166,7 @@ mod tests {
     use super::*;
     use crate::ast::{ObjectClass, ObjectDeclaration};
     use crate::data::Diagnostic;
-    use crate::syntax::test::Code;
+    use crate::syntax::test::{source_range, Code};
 
     #[test]
     fn package_instantiation() {
@@ -177,7 +181,8 @@ package ident is new lib.foo.bar;
                 context_clause: ContextClause::default(),
                 ident: code.s1("ident").ident(),
                 package_name: code.s1("lib.foo.bar").selected_name(),
-                generic_map: None
+                generic_map: None,
+                source_range: source_range(&code, (0, 0), (0, 33)),
             }
         );
     }
@@ -203,7 +208,8 @@ package ident is new lib.foo.bar
     foo => bar
   )")
                         .association_list()
-                )
+                ),
+                source_range: source_range(&code, (0, 0), (3, 4)),
             }
         );
     }

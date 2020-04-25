@@ -27,7 +27,7 @@ pub fn parse_entity_declaration(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<EntityDeclaration> {
-    stream.expect_kind(Entity)?;
+    let entity_token = stream.expect_kind(Entity)?;
 
     let ident = stream.expect_ident()?;
     stream.expect_kind(Is)?;
@@ -48,7 +48,7 @@ pub fn parse_entity_declaration(
     if let Some(diagnostic) = error_on_end_identifier_mismatch(&ident, &end_ident) {
         diagnostics.push(diagnostic);
     }
-    stream.expect_kind(SemiColon)?;
+    let semi_token = stream.expect_kind(SemiColon)?;
     Ok(EntityDeclaration {
         context_clause: ContextClause::default(),
         ident,
@@ -56,6 +56,7 @@ pub fn parse_entity_declaration(
         port_clause,
         decl,
         statements,
+        source_range: entity_token.pos.combine_into(&semi_token),
     })
 }
 
@@ -64,7 +65,7 @@ pub fn parse_architecture_body(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ArchitectureBody> {
-    stream.expect_kind(Architecture)?;
+    let architecture_token = stream.expect_kind(Architecture)?;
     let ident = stream.expect_ident()?;
     stream.expect_kind(Of)?;
     let entity_name = stream.expect_ident()?;
@@ -80,7 +81,7 @@ pub fn parse_architecture_body(
         diagnostics.push(diagnostic);
     }
 
-    stream.expect_kind(SemiColon)?;
+    let semi_token = stream.expect_kind(SemiColon)?;
 
     Ok(ArchitectureBody {
         context_clause: ContextClause::default(),
@@ -88,6 +89,7 @@ pub fn parse_architecture_body(
         entity_name: entity_name.into_ref(),
         decl,
         statements,
+        source_range: architecture_token.pos.combine_into(&semi_token),
     })
 }
 
@@ -96,7 +98,7 @@ pub fn parse_package_declaration(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<PackageDeclaration> {
-    stream.expect_kind(Package)?;
+    let package_token = stream.expect_kind(Package)?;
     let ident = stream.expect_ident()?;
 
     stream.expect_kind(Is)?;
@@ -116,12 +118,13 @@ pub fn parse_package_declaration(
         diagnostics.push(diagnostic);
     }
     stream.pop_if_kind(Identifier)?;
-    stream.expect_kind(SemiColon)?;
+    let semi_token = stream.expect_kind(SemiColon)?;
     Ok(PackageDeclaration {
         context_clause: ContextClause::default(),
         ident,
         generic_clause,
         decl,
+        source_range: package_token.pos.combine_into(&semi_token),
     })
 }
 
@@ -130,7 +133,7 @@ pub fn parse_package_body(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<PackageBody> {
-    stream.expect_kind(Package)?;
+    let package_token = stream.expect_kind(Package)?;
     stream.expect_kind(Body)?;
     let ident = stream.expect_ident()?;
 
@@ -143,12 +146,13 @@ pub fn parse_package_body(
     if let Some(diagnostic) = error_on_end_identifier_mismatch(&ident, &end_ident) {
         diagnostics.push(diagnostic);
     }
-    stream.expect_kind(SemiColon)?;
+    let semi_token = stream.expect_kind(SemiColon)?;
 
     Ok(PackageBody {
         context_clause: ContextClause::default(),
         ident: ident.into_ref(),
         decl,
+        source_range: package_token.pos.combine_into(&semi_token),
     })
 }
 
@@ -214,6 +218,9 @@ pub fn parse_design_file(
             },
             Entity => match parse_entity_declaration(stream, diagnostics) {
                 Ok(mut entity) => {
+                    if let Some(ref context_item) = context_clause.first() {
+                        entity.source_range = entity.source_range.combine_into(context_item)
+                    }
                     entity.context_clause = take_context_clause(&mut context_clause);
                     design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(entity)));
                 }
@@ -222,6 +229,9 @@ pub fn parse_design_file(
 
             Architecture => match parse_architecture_body(stream, diagnostics) {
                 Ok(mut architecture) => {
+                    if let Some(ref context_item) = context_clause.first() {
+                        architecture.source_range = architecture.source_range.combine_into(context_item)
+                    }
                     architecture.context_clause = take_context_clause(&mut context_clause);
                     design_units.push(AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(architecture)));
                 }
@@ -230,6 +240,9 @@ pub fn parse_design_file(
 
             Configuration => match parse_configuration_declaration(stream, diagnostics) {
                 Ok(mut configuration) => {
+                    if let Some(ref context_item) = context_clause.first() {
+                        configuration.source_range = configuration.source_range.combine_into(context_item)
+                    }
                     configuration.context_clause = take_context_clause(&mut context_clause);
                     design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::Configuration(configuration)));
                 }
@@ -239,6 +252,9 @@ pub fn parse_design_file(
                 if stream.next_kinds_are(&[Package, Body])? {
                     match parse_package_body(stream, diagnostics) {
                         Ok(mut package_body) => {
+                            if let Some(ref context_item) = context_clause.first() {
+                                package_body.source_range = package_body.source_range.combine_into(context_item)
+                            }
                             package_body.context_clause = take_context_clause(&mut context_clause);
                             design_units.push(AnyDesignUnit::Secondary(AnySecondaryUnit::PackageBody(package_body)));
                         }
@@ -247,6 +263,9 @@ pub fn parse_design_file(
                 } else if stream.next_kinds_are(&[Package, Identifier, Is, New])? {
                     match parse_package_instantiation(stream) {
                         Ok(mut inst) => {
+                            if let Some(ref context_item) = context_clause.first() {
+                                inst.source_range = inst.source_range.combine_into(context_item)
+                            }
                             inst.context_clause = take_context_clause(&mut context_clause);
                             design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::PackageInstance(inst)))
                         },
@@ -255,6 +274,9 @@ pub fn parse_design_file(
                 } else {
                     match parse_package_declaration(stream, diagnostics) {
                         Ok(mut package) => {
+                            if let Some(ref context_item) = context_clause.first() {
+                                package.source_range = package.source_range.combine_into(context_item)
+                            }
                             package.context_clause = take_context_clause(&mut context_clause);
                             design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::Package(package)))
                         }
@@ -280,7 +302,8 @@ mod tests {
     use super::*;
 
     use crate::data::Diagnostic;
-    use crate::syntax::test::{check_diagnostics, check_no_diagnostics, Code};
+    use crate::syntax::test::{check_diagnostics, check_no_diagnostics, source_range, Code};
+    use pretty_assertions::assert_eq;
 
     fn parse_str(code: &str) -> (Code, DesignFile, Vec<Diagnostic>) {
         let code = Code::new(code);
@@ -309,7 +332,7 @@ mod tests {
     }
 
     /// An simple entity with only a name
-    fn simple_entity(ident: Ident) -> AnyDesignUnit {
+    fn simple_entity(ident: Ident, source_range: SrcPos) -> AnyDesignUnit {
         AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(EntityDeclaration {
             context_clause: ContextClause::default(),
             ident,
@@ -317,6 +340,7 @@ mod tests {
             port_clause: None,
             decl: vec![],
             statements: vec![],
+            source_range: source_range,
         }))
     }
 
@@ -330,7 +354,10 @@ end entity;
         );
         assert_eq!(
             design_file.design_units,
-            [simple_entity(code.s1("myent").ident())]
+            [simple_entity(
+                code.s1("myent").ident(),
+                source_range(&code, (1, 0), (2, 11))
+            )]
         );
 
         let (code, design_file) = parse_ok(
@@ -341,7 +368,10 @@ end entity myent;
         );
         assert_eq!(
             design_file.design_units,
-            [simple_entity(code.s1("myent").ident())]
+            [simple_entity(
+                code.s1("myent").ident(),
+                source_range(&code, (1, 0), (2, 17))
+            )]
         );
     }
 
@@ -363,6 +393,7 @@ end entity;
                 port_clause: None,
                 decl: vec![],
                 statements: vec![],
+                source_range: source_range(&code, (1, 0), (3, 11)),
             }
         );
     }
@@ -390,6 +421,7 @@ end entity;
                 port_clause: None,
                 decl: vec![],
                 statements: vec![],
+                source_range: source_range(&code, (1, 0), (4, 11)),
             }
         );
     }
@@ -412,6 +444,7 @@ end entity;
                 port_clause: Some(vec![]),
                 decl: vec![],
                 statements: vec![],
+                source_range: source_range(&code, (1, 0), (3, 11)),
             }
         );
     }
@@ -434,6 +467,7 @@ end entity;
                 port_clause: None,
                 decl: vec![],
                 statements: vec![],
+                source_range: source_range(&code, (1, 0), (3, 11)),
             }
         );
     }
@@ -456,6 +490,7 @@ end entity;
                 port_clause: None,
                 decl: code.s1("constant foo : natural := 0;").declarative_part(),
                 statements: vec![],
+                source_range: source_range(&code, (1, 0), (3, 11)),
             }
         );
     }
@@ -479,6 +514,7 @@ end entity;
                 port_clause: None,
                 decl: vec![],
                 statements: vec![code.s1("check(clk, valid);").concurrent_statement()],
+                source_range: source_range(&code, (1, 0), (4, 11)),
             }
         );
     }
@@ -503,22 +539,39 @@ end;
         assert_eq!(
             design_file.design_units,
             [
-                simple_entity(code.s1("myent").ident()),
-                simple_entity(code.s1("myent2").ident()),
-                simple_entity(code.s1("myent3").ident()),
-                simple_entity(code.s1("myent4").ident())
+                simple_entity(
+                    code.s1("myent").ident(),
+                    source_range(&code, (1, 0), (2, 11))
+                ),
+                simple_entity(
+                    code.s1("myent2").ident(),
+                    source_range(&code, (4, 0), (5, 18))
+                ),
+                simple_entity(
+                    code.s1("myent3").ident(),
+                    source_range(&code, (7, 0), (8, 11))
+                ),
+                simple_entity(
+                    code.s1("myent4").ident(),
+                    source_range(&code, (10, 0), (11, 4))
+                )
             ]
         );
     }
 
     // An simple entity with only a name
-    fn simple_architecture(ident: Ident, entity_name: Ident) -> AnyDesignUnit {
+    fn simple_architecture(
+        ident: Ident,
+        entity_name: Ident,
+        source_range: SrcPos,
+    ) -> AnyDesignUnit {
         AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(ArchitectureBody {
             context_clause: ContextClause::default(),
             ident,
             entity_name: entity_name.into_ref(),
             decl: Vec::new(),
             statements: vec![],
+            source_range: source_range,
         }))
     }
 
@@ -535,7 +588,8 @@ end architecture;
             design_file.design_units,
             [simple_architecture(
                 code.s1("arch_name").ident(),
-                code.s1("myent").ident()
+                code.s1("myent").ident(),
+                source_range(&code, (1, 0), (3, 17))
             )]
         );
     }
@@ -553,7 +607,8 @@ end architecture arch_name;
             design_file.design_units,
             [simple_architecture(
                 code.s1("arch_name").ident(),
-                code.s1("myent").ident()
+                code.s1("myent").ident(),
+                source_range(&code, (1, 0), (3, 27))
             )]
         );
     }
@@ -571,7 +626,8 @@ end;
             design_file.design_units,
             [simple_architecture(
                 code.s1("arch_name").ident(),
-                code.s1("myent").ident()
+                code.s1("myent").ident(),
+                source_range(&code, (1, 0), (3, 4))
             )]
         );
     }
@@ -591,6 +647,7 @@ end package;
                 ident: code.s1("pkg_name").ident(),
                 generic_clause: None,
                 decl: vec![],
+                source_range: source_range(&code, (1, 0), (2, 12)),
             }
         );
     }
@@ -617,6 +674,7 @@ end package;
   constant bar : natural := 0;
 ")
                     .declarative_part(),
+                source_range: source_range(&code, (1, 0), (4, 12)),
             }
         );
     }
@@ -642,13 +700,14 @@ end package;
                     code.s1("type foo").generic(),
                     code.s1("type bar").generic()
                 ]),
-                decl: vec![]
+                decl: vec![],
+                source_range: source_range(&code, (1, 0), (6, 12)),
             }
         );
     }
 
     #[test]
-    fn context_clause_associated_with_design_units() {
+    fn context_clause_associated_with_entity_declaration() {
         let (code, design_file) = parse_ok(
             "
 library lib;
@@ -676,8 +735,190 @@ end entity;
                         port_clause: None,
                         decl: vec![],
                         statements: vec![],
+                        source_range: source_range(&code, (1, 0), (5, 11)),
                     }
                 ))]
+            }
+        );
+    }
+
+    #[test]
+    fn context_clause_associated_with_architecture_body() {
+        let (code, design_file) = parse_ok(
+            "
+library lib;
+use lib.foo;
+
+architecture rtl of myent is
+begin
+end;
+
+",
+        );
+        assert_eq!(
+            design_file,
+            DesignFile {
+                design_units: vec![AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(
+                    ArchitectureBody {
+                        context_clause: vec![
+                            code.s1("library lib;")
+                                .library_clause()
+                                .map_into(ContextItem::Library),
+                            code.s1("use lib.foo;")
+                                .use_clause()
+                                .map_into(ContextItem::Use),
+                        ],
+                        ident: code.s1("rtl").ident(),
+                        entity_name: code.s1("myent").ident().into_ref(),
+                        decl: Vec::new(),
+                        statements: vec![],
+                        source_range: source_range(&code, (1, 0), (6, 4)),
+                    }
+                ))],
+            }
+        );
+    }
+
+    #[test]
+    fn context_clause_associated_with_package_declaration() {
+        let (code, design_file) = parse_ok(
+            "
+library lib;
+use lib.foo;
+
+package pkg_name is
+end;
+
+",
+        );
+        assert_eq!(
+            design_file,
+            DesignFile {
+                design_units: vec![AnyDesignUnit::Primary(AnyPrimaryUnit::Package(
+                    PackageDeclaration {
+                        context_clause: vec![
+                            code.s1("library lib;")
+                                .library_clause()
+                                .map_into(ContextItem::Library),
+                            code.s1("use lib.foo;")
+                                .use_clause()
+                                .map_into(ContextItem::Use),
+                        ],
+                        ident: code.s1("pkg_name").ident(),
+                        generic_clause: None,
+                        decl: vec![],
+                        source_range: source_range(&code, (1, 0), (5, 4)),
+                    }
+                ))],
+            }
+        );
+    }
+
+    #[test]
+    fn context_clause_associated_with_package_body() {
+        let (code, design_file) = parse_ok(
+            "
+library lib;
+use lib.foo;
+
+package body pkg_name is
+end;
+
+",
+        );
+        assert_eq!(
+            design_file,
+            DesignFile {
+                design_units: vec![AnyDesignUnit::Secondary(AnySecondaryUnit::PackageBody(
+                    PackageBody {
+                        context_clause: vec![
+                            code.s1("library lib;")
+                                .library_clause()
+                                .map_into(ContextItem::Library),
+                            code.s1("use lib.foo;")
+                                .use_clause()
+                                .map_into(ContextItem::Use),
+                        ],
+                        ident: code.s1("pkg_name").ident().into_ref(),
+                        decl: vec![],
+                        source_range: source_range(&code, (1, 0), (5, 4)),
+                    }
+                ))],
+            }
+        );
+    }
+
+    #[test]
+    fn context_clause_associated_with_configuration_declaration() {
+        let (code, design_file) = parse_ok(
+            "
+library lib;
+use lib.foo;
+
+configuration cfg of entity_name is
+  for rtl(0)
+  end for;
+end;
+",
+        );
+        assert_eq!(
+            design_file,
+            DesignFile {
+                design_units: vec![AnyDesignUnit::Primary(AnyPrimaryUnit::Configuration(
+                    ConfigurationDeclaration {
+                        context_clause: vec![
+                            code.s1("library lib;")
+                                .library_clause()
+                                .map_into(ContextItem::Library),
+                            code.s1("use lib.foo;")
+                                .use_clause()
+                                .map_into(ContextItem::Use),
+                        ],
+                        ident: code.s1("cfg").ident(),
+                        entity_name: code.s1("entity_name").selected_name(),
+                        decl: vec![],
+                        vunit_bind_inds: Vec::new(),
+                        block_config: BlockConfiguration {
+                            block_spec: code.s1("rtl(0)").name(),
+                            use_clauses: vec![],
+                            items: vec![],
+                        },
+                        source_range: source_range(&code, (1, 0), (7, 4))
+                    }
+                ))],
+            }
+        );
+    }
+
+    #[test]
+    fn context_clause_associated_with_package_instantiation() {
+        let (code, design_file) = parse_ok(
+            "
+library lib;
+use lib.foo;
+
+package ident is new lib.foo.bar;
+",
+        );
+        assert_eq!(
+            design_file,
+            DesignFile {
+                design_units: vec![AnyDesignUnit::Primary(AnyPrimaryUnit::PackageInstance(
+                    PackageInstantiation {
+                        context_clause: vec![
+                            code.s1("library lib;")
+                                .library_clause()
+                                .map_into(ContextItem::Library),
+                            code.s1("use lib.foo;")
+                                .use_clause()
+                                .map_into(ContextItem::Use),
+                        ],
+                        ident: code.s1("ident").ident(),
+                        package_name: code.s1("lib.foo.bar").selected_name(),
+                        generic_map: None,
+                        source_range: source_range(&code, (1, 0), (4, 33)),
+                    }
+                ))],
             }
         );
     }
