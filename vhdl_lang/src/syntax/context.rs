@@ -104,12 +104,11 @@ pub fn parse_context(
                 End => {
                     stream.pop_if_kind(Context)?;
                     end_ident = stream.pop_optional_ident()?;
-                    stream.expect_kind(SemiColon)?;
                     break;
                 }
             )
         }
-
+        let semi_token = stream.expect_kind(SemiColon)?;
         let ident = to_simple_name(name)?;
 
         diagnostics.push_some(error_on_end_identifier_mismatch(&ident, &end_ident));
@@ -117,6 +116,7 @@ pub fn parse_context(
         Ok(DeclarationOrReference::Declaration(ContextDeclaration {
             ident,
             items,
+            source_range: context_token.pos.combine_into(&semi_token),
         }))
     } else {
         // Context reference
@@ -139,8 +139,9 @@ pub fn parse_context(
 mod tests {
     use super::*;
 
+    use pretty_assertions::assert_eq;
     use crate::data::Diagnostic;
-    use crate::syntax::test::Code;
+    use crate::syntax::test::{source_range, Code};
 
     #[test]
     fn test_library_clause_single_name() {
@@ -246,13 +247,21 @@ context ident is
 end context ident;
 ",
         ];
-        for variant in variants {
+        let source_ranges = vec![
+            ((0, 0), (1, 4)),
+            ((0, 0), (1, 12)),
+            ((0, 0), (1, 10)),
+            ((0, 0), (1, 18)),
+        ];
+        for variant in variants.iter().zip(source_ranges.iter()) {
+            let (variant, (start, end)) = variant;
             let code = Code::new(variant);
             assert_eq!(
                 code.with_stream_no_diagnostics(parse_context),
                 DeclarationOrReference::Declaration(ContextDeclaration {
                     ident: code.s1("ident").ident(),
-                    items: vec![]
+                    items: vec![],
+                    source_range: source_range(&code, *start, *end),
                 })
             );
         }
@@ -278,7 +287,8 @@ end context ident2;
             context,
             DeclarationOrReference::Declaration(ContextDeclaration {
                 ident: code.s1("ident").ident(),
-                items: vec![]
+                items: vec![],
+                source_range: source_range(&code, (0, 0), (1, 19)),
             })
         );
     }
@@ -317,7 +327,8 @@ end context;
                         }),
                         code.s1("context foo.ctx;")
                     ),
-                ]
+                ],
+                source_range: source_range(&code, (0, 0), (4, 12)),
             })
         )
     }
