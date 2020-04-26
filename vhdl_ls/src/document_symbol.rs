@@ -236,7 +236,10 @@ mod tests {
     fn write_source_file(code: &str) -> (Url, NamedTempFile) {
         let mut file = NamedTempFile::new().unwrap();
         file.write_all(code.as_bytes()).unwrap();
-        (Url::from_file_path(file.path().canonicalize().unwrap()).unwrap(), file)
+        (
+            Url::from_file_path(file.path().canonicalize().unwrap()).unwrap(),
+            file,
+        )
     }
 
     #[test]
@@ -503,17 +506,15 @@ end;
         let response = nested_document_symbol_response_from_file(&source_url).unwrap();
         assert_eq!(
             response,
-            DocumentSymbolResponse::from(vec![
-                DocumentSymbol {
-                    name: String::from("ent1"),
-                    detail: Some(String::from("entity")),
-                    kind: SymbolKind::Interface,
-                    deprecated: None,
-                    range: range((1, 0), (6, 4)),
-                    selection_range: range((5, 7), (5, 11)),
-                    children: None,
-                }
-            ])
+            DocumentSymbolResponse::from(vec![DocumentSymbol {
+                name: String::from("ent1"),
+                detail: Some(String::from("entity")),
+                kind: SymbolKind::Interface,
+                deprecated: None,
+                range: range((1, 0), (6, 4)),
+                selection_range: range((5, 7), (5, 11)),
+                children: None,
+            }])
         );
     }
 }
