@@ -331,17 +331,8 @@ configuration cfg of entity_name is
 end;
 ",
         );
-        assert_eq!(design_file.design_units.len(), 1);
-        let configuration = match design_file.design_units.first().unwrap() {
-            AnyDesignUnit::Primary(primary) => match primary {
-                AnyPrimaryUnit::Configuration(configuration) => configuration,
-                _ => panic!("expected configuration declaration"),
-            },
-            _ => panic!("expected configuration declaration"),
-        };
-
         assert_eq!(
-            configuration.document_symbol(),
+            design_file.design_units.first().unwrap().document_symbol(),
             DocumentSymbol {
                 name: String::from("cfg"),
                 detail: Some(String::from("configuration")),
@@ -366,17 +357,8 @@ package pkg is
 end;
 ",
         );
-        assert_eq!(design_file.design_units.len(), 1);
-        let package = match design_file.design_units.first().unwrap() {
-            AnyDesignUnit::Primary(primary) => match primary {
-                AnyPrimaryUnit::Package(package) => package,
-                _ => panic!("expected package declaration"),
-            },
-            _ => panic!("expected package declaration"),
-        };
-
         assert_eq!(
-            package.document_symbol(),
+            design_file.design_units.first().unwrap().document_symbol(),
             DocumentSymbol {
                 name: String::from("pkg"),
                 detail: Some(String::from("package")),
@@ -403,17 +385,8 @@ package pkg_inst is new work.pkg
     );
 ",
         );
-        assert_eq!(design_file.design_units.len(), 1);
-        let package_instance = match design_file.design_units.first().unwrap() {
-            AnyDesignUnit::Primary(primary) => match primary {
-                AnyPrimaryUnit::PackageInstance(package_instance) => package_instance,
-                _ => panic!("expected package declaration"),
-            },
-            _ => panic!("expected package declaration"),
-        };
-
         assert_eq!(
-            package_instance.document_symbol(),
+            design_file.design_units.first().unwrap().document_symbol(),
             DocumentSymbol {
                 name: String::from("pkg_inst"),
                 detail: Some(String::from("package instance")),
@@ -437,17 +410,8 @@ context ctx is
 end;
 ",
         );
-        assert_eq!(design_file.design_units.len(), 1);
-        let context = match design_file.design_units.first().unwrap() {
-            AnyDesignUnit::Primary(primary) => match primary {
-                AnyPrimaryUnit::Context(context) => context,
-                _ => panic!("expected package declaration"),
-            },
-            _ => panic!("expected package declaration"),
-        };
-
         assert_eq!(
-            context.document_symbol(),
+            design_file.design_units.first().unwrap().document_symbol(),
             DocumentSymbol {
                 name: String::from("ctx"),
                 detail: Some(String::from("context")),
@@ -472,17 +436,8 @@ package body pkg is
 end;
 ",
         );
-        assert_eq!(design_file.design_units.len(), 1);
-        let package_body = match design_file.design_units.first().unwrap() {
-            AnyDesignUnit::Secondary(secondary) => match secondary {
-                AnySecondaryUnit::PackageBody(package_body) => package_body,
-                _ => panic!("expected package declaration"),
-            },
-            _ => panic!("expected package declaration"),
-        };
-
         assert_eq!(
-            package_body.document_symbol(),
+            design_file.design_units.first().unwrap().document_symbol(),
             DocumentSymbol {
                 name: String::from("pkg"),
                 detail: Some(String::from("package body")),
@@ -508,17 +463,8 @@ begin
 end;
 ",
         );
-        assert_eq!(design_file.design_units.len(), 1);
-        let architecture = match design_file.design_units.first().unwrap() {
-            AnyDesignUnit::Secondary(secondary) => match secondary {
-                AnySecondaryUnit::Architecture(architecture) => architecture,
-                _ => panic!("expected package declaration"),
-            },
-            _ => panic!("expected package declaration"),
-        };
-
         assert_eq!(
-            architecture.document_symbol(),
+            design_file.design_units.first().unwrap().document_symbol(),
             DocumentSymbol {
                 name: String::from("rtl"),
                 detail: Some(String::from("architecture of ent")),
@@ -543,9 +489,8 @@ entity ent1 is
 end;
 ",
         );
-        let response = nested_document_symbol_response_from_file(&source_url).unwrap();
         assert_eq!(
-            response,
+            nested_document_symbol_response_from_file(&source_url).unwrap(),
             DocumentSymbolResponse::from(vec![DocumentSymbol {
                 name: String::from("ent1"),
                 detail: Some(String::from("entity")),
