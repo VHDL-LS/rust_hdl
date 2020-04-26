@@ -6,14 +6,25 @@
 
 use lsp_types::{DocumentSymbol, DocumentSymbolResponse, SymbolKind, Url};
 use vhdl_lang::ast::*;
-use vhdl_lang::VHDLParser;
+use vhdl_lang::{Source, VHDLParser};
 
 pub fn nested_document_symbol_response_from_file(uri: &Url) -> Option<DocumentSymbolResponse> {
-    if let Some(design_file) = parse_file(uri) {
-        Some(nested_document_symbol_response(&design_file))
-    } else {
-        None
+    match uri.to_file_path() {
+        Ok(path) => {
+            let mut diagnostics = vec![];
+            match VHDLParser::default().parse_design_file(&path, &mut diagnostics) {
+                Ok((_, design_file)) => Some(nested_document_symbol_response(&design_file)),
+                Err(_) => None,
+            }
+        }
+        _ => None,
     }
+}
+
+pub fn nested_document_symbol_response_from_source(source: &Source) -> DocumentSymbolResponse {
+    let mut diagnostics = vec![];
+    let design_file = VHDLParser::default().parse_design_source(&source, &mut diagnostics);
+    nested_document_symbol_response(&design_file)
 }
 
 pub fn nested_document_symbol_response(design_file: &DesignFile) -> DocumentSymbolResponse {
@@ -24,7 +35,7 @@ pub fn nested_document_symbol_response(design_file: &DesignFile) -> DocumentSymb
     DocumentSymbolResponse::from(response)
 }
 
-fn symbol_kind(entity_class: EntityClass) -> SymbolKind {
+fn symbol_kind_from_entity_class(entity_class: EntityClass) -> SymbolKind {
     match entity_class {
         EntityClass::Entity => SymbolKind::Interface,
         EntityClass::Architecture => SymbolKind::Class,
@@ -34,8 +45,8 @@ fn symbol_kind(entity_class: EntityClass) -> SymbolKind {
     }
 }
 
-fn symbol_kind_for_context() -> SymbolKind {
-    SymbolKind::Namespace
+pub trait HasSymbolKind {
+    fn symbol_kind(&self) -> SymbolKind;
 }
 
 trait HasDocumentSymbol {
@@ -63,17 +74,29 @@ impl HasDocumentSymbol for AnyPrimaryUnit {
     }
 }
 
+impl HasSymbolKind for EntityDeclaration {
+    fn symbol_kind(&self) -> SymbolKind {
+        symbol_kind_from_entity_class(EntityClass::Entity)
+    }
+}
+
 impl HasDocumentSymbol for EntityDeclaration {
     fn document_symbol(&self) -> DocumentSymbol {
         DocumentSymbol {
             name: self.ident.item.name_utf8(),
             detail: Some(String::from("entity")),
-            kind: symbol_kind(EntityClass::Entity),
+            kind: self.symbol_kind(),
             deprecated: None,
             range: to_lsp_range(self.source_range.range()),
             selection_range: to_lsp_range(self.ident.pos.range()),
             children: None,
         }
+    }
+}
+
+impl HasSymbolKind for ConfigurationDeclaration {
+    fn symbol_kind(&self) -> SymbolKind {
+        symbol_kind_from_entity_class(EntityClass::Configuration)
     }
 }
 
@@ -82,12 +105,18 @@ impl HasDocumentSymbol for ConfigurationDeclaration {
         DocumentSymbol {
             name: self.ident.item.name_utf8(),
             detail: Some(String::from("configuration")),
-            kind: symbol_kind(EntityClass::Configuration),
+            kind: self.symbol_kind(),
             deprecated: None,
             range: to_lsp_range(self.source_range.range()),
             selection_range: to_lsp_range(self.ident.pos.range()),
             children: None,
         }
+    }
+}
+
+impl HasSymbolKind for PackageDeclaration {
+    fn symbol_kind(&self) -> SymbolKind {
+        symbol_kind_from_entity_class(EntityClass::Package)
     }
 }
 
@@ -96,12 +125,18 @@ impl HasDocumentSymbol for PackageDeclaration {
         DocumentSymbol {
             name: self.ident.item.name_utf8(),
             detail: Some(String::from("package")),
-            kind: symbol_kind(EntityClass::Package),
+            kind: self.symbol_kind(),
             deprecated: None,
             range: to_lsp_range(self.source_range.range()),
             selection_range: to_lsp_range(self.ident.pos.range()),
             children: None,
         }
+    }
+}
+
+impl HasSymbolKind for PackageInstantiation {
+    fn symbol_kind(&self) -> SymbolKind {
+        symbol_kind_from_entity_class(EntityClass::Package)
     }
 }
 
@@ -110,7 +145,7 @@ impl HasDocumentSymbol for PackageInstantiation {
         DocumentSymbol {
             name: self.ident.item.name_utf8(),
             detail: Some(String::from("package instance")),
-            kind: symbol_kind(EntityClass::Package),
+            kind: self.symbol_kind(),
             deprecated: None,
             range: to_lsp_range(self.source_range.range()),
             selection_range: to_lsp_range(self.ident.pos.range()),
@@ -119,12 +154,18 @@ impl HasDocumentSymbol for PackageInstantiation {
     }
 }
 
+impl HasSymbolKind for ContextDeclaration {
+    fn symbol_kind(&self) -> SymbolKind {
+        SymbolKind::Namespace
+    }
+}
+
 impl HasDocumentSymbol for ContextDeclaration {
     fn document_symbol(&self) -> DocumentSymbol {
         DocumentSymbol {
             name: self.ident.item.name_utf8(),
             detail: Some(String::from("context")),
-            kind: symbol_kind_for_context(),
+            kind: self.symbol_kind(),
             deprecated: None,
             range: to_lsp_range(self.source_range.range()),
             selection_range: to_lsp_range(self.ident.pos.range()),
@@ -142,17 +183,29 @@ impl HasDocumentSymbol for AnySecondaryUnit {
     }
 }
 
+impl HasSymbolKind for PackageBody {
+    fn symbol_kind(&self) -> SymbolKind {
+        symbol_kind_from_entity_class(EntityClass::Package)
+    }
+}
+
 impl HasDocumentSymbol for PackageBody {
     fn document_symbol(&self) -> DocumentSymbol {
         DocumentSymbol {
             name: self.ident.item.item.name_utf8(),
             detail: Some(String::from("package body")),
-            kind: symbol_kind(EntityClass::Package),
+            kind: self.symbol_kind(),
             deprecated: None,
             range: to_lsp_range(self.source_range.range()),
             selection_range: to_lsp_range(self.ident.item.pos.range()),
             children: None,
         }
+    }
+}
+
+impl HasSymbolKind for ArchitectureBody {
+    fn symbol_kind(&self) -> SymbolKind {
+        symbol_kind_from_entity_class(EntityClass::Architecture)
     }
 }
 
@@ -164,25 +217,12 @@ impl HasDocumentSymbol for ArchitectureBody {
                 "architecture of {}",
                 self.entity_name.item.item.name().to_string()
             )),
-            kind: symbol_kind(EntityClass::Architecture),
+            kind: self.symbol_kind(),
             deprecated: None,
             range: to_lsp_range(self.source_range.range()),
             selection_range: to_lsp_range(self.ident.pos.range()),
             children: None,
         }
-    }
-}
-
-fn parse_file(uri: &Url) -> Option<DesignFile> {
-    match uri.to_file_path() {
-        Ok(url) => {
-            let mut diagnostics = vec![];
-            match VHDLParser::default().parse_design_file(&url, &mut diagnostics) {
-                Ok((_, design_file)) => Some(design_file),
-                Err(_) => None,
-            }
-        }
-        _ => None,
     }
 }
 
