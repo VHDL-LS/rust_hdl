@@ -997,6 +997,9 @@ pub enum ContextItem {
 pub struct ContextDeclaration {
     pub ident: Ident,
     pub items: ContextClause,
+
+    // Non-LRM fields
+    pub source_range: SrcPos,
 }
 
 /// LRM 4.9 Package instatiation declaration

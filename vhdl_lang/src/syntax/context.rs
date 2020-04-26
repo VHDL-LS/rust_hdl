@@ -139,9 +139,9 @@ pub fn parse_context(
 mod tests {
     use super::*;
 
-    use pretty_assertions::assert_eq;
     use crate::data::Diagnostic;
     use crate::syntax::test::{source_range, Code};
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_library_clause_single_name() {
