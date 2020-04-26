@@ -11,6 +11,9 @@ use fnv;
 use std::collections::hash_map::Entry;
 
 use self::vhdl_lang::{Config, Diagnostic, Message, Project, Severity, Source, SrcPos};
+use crate::document_symbol::{
+    nested_document_symbol_response_from_file, nested_document_symbol_response_from_source,
+};
 use crate::rpc_channel::{MessageChannel, RpcChannel};
 use std::io;
 use std::path::{Path, PathBuf};
@@ -150,6 +153,14 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
     pub fn text_document_references(&mut self, params: &ReferenceParams) -> Vec<Location> {
         self.mut_server().text_document_references(&params)
     }
+
+    // textDocument/documentSymbol
+    pub fn text_document_document_symbol(
+        &mut self,
+        params: &DocumentSymbolParams,
+    ) -> Option<DocumentSymbolResponse> {
+        self.mut_server().text_document_document_symbol(&params)
+    }
 }
 
 struct InitializedVHDLServer<T: RpcChannel> {
@@ -192,6 +203,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         capabilities.declaration_provider = Some(true);
         capabilities.definition_provider = Some(true);
         capabilities.references_provider = Some(true);
+        capabilities.document_symbol_provider = Some(true);
         let result = InitializeResult {
             capabilities,
             server_info: None,
@@ -341,6 +353,16 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         } else {
             Vec::new()
         }
+    }
+
+    pub fn text_document_document_symbol(
+        &mut self,
+        params: &DocumentSymbolParams,
+    ) -> Option<DocumentSymbolResponse> {
+        self.project
+            .get_source(&uri_to_file_name(&params.text_document.uri))
+            .map(|source| nested_document_symbol_response_from_source(&source))
+            .or_else(|| nested_document_symbol_response_from_file(&params.text_document.uri))
     }
 }
 
