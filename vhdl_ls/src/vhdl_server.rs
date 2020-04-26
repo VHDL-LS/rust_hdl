@@ -6,18 +6,16 @@
 
 use lsp_types::*;
 
-use self::fnv::FnvHashMap;
-use fnv;
+use fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
 
-use self::vhdl_lang::{Config, Diagnostic, Message, Project, Severity, Source, SrcPos};
 use crate::document_symbol::{
     nested_document_symbol_response_from_file, nested_document_symbol_response_from_source,
 };
 use crate::rpc_channel::{MessageChannel, RpcChannel};
 use std::io;
 use std::path::{Path, PathBuf};
-use vhdl_lang;
+use vhdl_lang::{Config, Diagnostic, Message, Project, Severity, Source, SrcPos};
 
 pub struct VHDLServer<T: RpcChannel + Clone> {
     rpc_channel: T,

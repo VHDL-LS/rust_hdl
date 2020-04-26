@@ -4,13 +4,8 @@
 //
 // Copyright (c) 2020, Olof Kraigher olof.kraigher@gmail.com
 
-use jsonrpc_core;
-
-use serde;
-use serde_json;
-
-use self::jsonrpc_core::request::Notification;
-use self::jsonrpc_core::{IoHandler, Params};
+use jsonrpc_core::request::Notification;
+use jsonrpc_core::{IoHandler, Params};
 use std::io::prelude::*;
 use std::io::{self, BufRead};
 
