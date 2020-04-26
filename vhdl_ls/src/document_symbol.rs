@@ -160,10 +160,10 @@ impl HasDocumentSymbol for ArchitectureBody {
     fn document_symbol(&self) -> DocumentSymbol {
         DocumentSymbol {
             name: self.ident.item.name_utf8(),
-            detail: Some(String::from(format!(
+            detail: Some(format!(
                 "architecture of {}",
                 self.entity_name.item.item.name().to_string()
-            ))),
+            )),
             kind: symbol_kind(EntityClass::Architecture),
             deprecated: None,
             range: to_lsp_range(self.source_range.range()),

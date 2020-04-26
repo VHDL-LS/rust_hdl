@@ -340,7 +340,7 @@ mod tests {
             port_clause: None,
             decl: vec![],
             statements: vec![],
-            source_range: source_range,
+            source_range,
         }))
     }
 
@@ -571,7 +571,7 @@ end;
             entity_name: entity_name.into_ref(),
             decl: Vec::new(),
             statements: vec![],
-            source_range: source_range,
+            source_range,
         }))
     }
 
