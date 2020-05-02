@@ -182,7 +182,7 @@ package ident is new lib.foo.bar;
                 ident: code.s1("ident").ident(),
                 package_name: code.s1("lib.foo.bar").selected_name(),
                 generic_map: None,
-                source_range: source_range(&code, (0, 0), (0, 33)),
+                source_range: source_range(&code, "package", ";"),
             }
         );
     }
@@ -209,7 +209,7 @@ package ident is new lib.foo.bar
   )")
                         .association_list()
                 ),
-                source_range: source_range(&code, (0, 0), (3, 4)),
+                source_range: source_range(&code, "package", ");"),
             }
         );
     }

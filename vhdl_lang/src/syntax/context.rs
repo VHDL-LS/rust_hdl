@@ -247,21 +247,14 @@ context ident is
 end context ident;
 ",
         ];
-        let source_ranges = vec![
-            ((0, 0), (1, 4)),
-            ((0, 0), (1, 12)),
-            ((0, 0), (1, 10)),
-            ((0, 0), (1, 18)),
-        ];
-        for variant in variants.iter().zip(source_ranges.iter()) {
-            let (variant, (start, end)) = variant;
+        for variant in variants.iter() {
             let code = Code::new(variant);
             assert_eq!(
                 code.with_stream_no_diagnostics(parse_context),
                 DeclarationOrReference::Declaration(ContextDeclaration {
                     ident: code.s1("ident").ident(),
                     items: vec![],
-                    source_range: source_range(&code, *start, *end),
+                    source_range: source_range(&code, "context", ";"),
                 })
             );
         }
@@ -288,7 +281,7 @@ end context ident2;
             DeclarationOrReference::Declaration(ContextDeclaration {
                 ident: code.s1("ident").ident(),
                 items: vec![],
-                source_range: source_range(&code, (0, 0), (1, 19)),
+                source_range: source_range(&code, "context ident", "end context ident2;"),
             })
         );
     }
@@ -328,7 +321,7 @@ end context;
                         code.s1("context foo.ctx;")
                     ),
                 ],
-                source_range: source_range(&code, (0, 0), (4, 12)),
+                source_range: source_range(&code, "context ident", "end context;"),
             })
         )
     }

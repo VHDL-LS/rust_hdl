@@ -356,7 +356,7 @@ end entity;
             design_file.design_units,
             [simple_entity(
                 code.s1("myent").ident(),
-                source_range(&code, (1, 0), (2, 11))
+                source_range(&code, "entity", ";")
             )]
         );
 
@@ -370,7 +370,7 @@ end entity myent;
             design_file.design_units,
             [simple_entity(
                 code.s1("myent").ident(),
-                source_range(&code, (1, 0), (2, 17))
+                source_range(&code, "entity", ";")
             )]
         );
     }
@@ -393,7 +393,7 @@ end entity;
                 port_clause: None,
                 decl: vec![],
                 statements: vec![],
-                source_range: source_range(&code, (1, 0), (3, 11)),
+                source_range: source_range(&code, "entity", "end entity;"),
             }
         );
     }
@@ -421,7 +421,7 @@ end entity;
                 port_clause: None,
                 decl: vec![],
                 statements: vec![],
-                source_range: source_range(&code, (1, 0), (4, 11)),
+                source_range: source_range(&code, "entity", "end entity;"),
             }
         );
     }
@@ -444,7 +444,7 @@ end entity;
                 port_clause: Some(vec![]),
                 decl: vec![],
                 statements: vec![],
-                source_range: source_range(&code, (1, 0), (3, 11)),
+                source_range: source_range(&code, "entity", "end entity;"),
             }
         );
     }
@@ -467,7 +467,7 @@ end entity;
                 port_clause: None,
                 decl: vec![],
                 statements: vec![],
-                source_range: source_range(&code, (1, 0), (3, 11)),
+                source_range: source_range(&code, "entity", "end entity;"),
             }
         );
     }
@@ -490,7 +490,7 @@ end entity;
                 port_clause: None,
                 decl: code.s1("constant foo : natural := 0;").declarative_part(),
                 statements: vec![],
-                source_range: source_range(&code, (1, 0), (3, 11)),
+                source_range: source_range(&code, "entity", "end entity;"),
             }
         );
     }
@@ -514,7 +514,7 @@ end entity;
                 port_clause: None,
                 decl: vec![],
                 statements: vec![code.s1("check(clk, valid);").concurrent_statement()],
-                source_range: source_range(&code, (1, 0), (4, 11)),
+                source_range: source_range(&code, "entity", "end entity;"),
             }
         );
     }
@@ -541,19 +541,19 @@ end;
             [
                 simple_entity(
                     code.s1("myent").ident(),
-                    source_range(&code, (1, 0), (2, 11))
+                    source_range(&code, "entity myent", "end entity;")
                 ),
                 simple_entity(
                     code.s1("myent2").ident(),
-                    source_range(&code, (4, 0), (5, 18))
+                    source_range(&code, "entity myent2", "end entity myent2;")
                 ),
                 simple_entity(
                     code.s1("myent3").ident(),
-                    source_range(&code, (7, 0), (8, 11))
+                    source_range(&code, "entity myent3", "end myent3;")
                 ),
                 simple_entity(
                     code.s1("myent4").ident(),
-                    source_range(&code, (10, 0), (11, 4))
+                    source_range(&code, "entity myent4", "end;")
                 )
             ]
         );
@@ -589,7 +589,7 @@ end architecture;
             [simple_architecture(
                 code.s1("arch_name").ident(),
                 code.s1("myent").ident(),
-                source_range(&code, (1, 0), (3, 17))
+                source_range(&code, "architecture", ";")
             )]
         );
     }
@@ -608,7 +608,7 @@ end architecture arch_name;
             [simple_architecture(
                 code.s1("arch_name").ident(),
                 code.s1("myent").ident(),
-                source_range(&code, (1, 0), (3, 27))
+                source_range(&code, "architecture", ";")
             )]
         );
     }
@@ -627,7 +627,7 @@ end;
             [simple_architecture(
                 code.s1("arch_name").ident(),
                 code.s1("myent").ident(),
-                source_range(&code, (1, 0), (3, 4))
+                source_range(&code, "architecture", ";")
             )]
         );
     }
@@ -647,7 +647,7 @@ end package;
                 ident: code.s1("pkg_name").ident(),
                 generic_clause: None,
                 decl: vec![],
-                source_range: source_range(&code, (1, 0), (2, 12)),
+                source_range: source_range(&code, "package", ";"),
             }
         );
     }
@@ -674,7 +674,7 @@ end package;
   constant bar : natural := 0;
 ")
                     .declarative_part(),
-                source_range: source_range(&code, (1, 0), (4, 12)),
+                source_range: source_range(&code, "package", "end package;"),
             }
         );
     }
@@ -701,7 +701,7 @@ end package;
                     code.s1("type bar").generic()
                 ]),
                 decl: vec![],
-                source_range: source_range(&code, (1, 0), (6, 12)),
+                source_range: source_range(&code, "package", "end package;"),
             }
         );
     }
@@ -735,7 +735,7 @@ end entity;
                         port_clause: None,
                         decl: vec![],
                         statements: vec![],
-                        source_range: source_range(&code, (1, 0), (5, 11)),
+                        source_range: source_range(&code, "library", "end entity;"),
                     }
                 ))]
             }
@@ -772,7 +772,7 @@ end;
                         entity_name: code.s1("myent").ident().into_ref(),
                         decl: Vec::new(),
                         statements: vec![],
-                        source_range: source_range(&code, (1, 0), (6, 4)),
+                        source_range: source_range(&code, "library", "end;"),
                     }
                 ))],
             }
@@ -807,7 +807,7 @@ end;
                         ident: code.s1("pkg_name").ident(),
                         generic_clause: None,
                         decl: vec![],
-                        source_range: source_range(&code, (1, 0), (5, 4)),
+                        source_range: source_range(&code, "library", "end;"),
                     }
                 ))],
             }
@@ -841,7 +841,7 @@ end;
                         ],
                         ident: code.s1("pkg_name").ident().into_ref(),
                         decl: vec![],
-                        source_range: source_range(&code, (1, 0), (5, 4)),
+                        source_range: source_range(&code, "library", "end;"),
                     }
                 ))],
             }
@@ -883,7 +883,7 @@ end;
                             use_clauses: vec![],
                             items: vec![],
                         },
-                        source_range: source_range(&code, (1, 0), (7, 4))
+                        source_range: source_range(&code, "library", "end;")
                     }
                 ))],
             }
@@ -916,7 +916,7 @@ package ident is new lib.foo.bar;
                         ident: code.s1("ident").ident(),
                         package_name: code.s1("lib.foo.bar").selected_name(),
                         generic_map: None,
-                        source_range: source_range(&code, (1, 0), (4, 33)),
+                        source_range: source_range(&code, "library", "bar;"),
                     }
                 ))],
             }

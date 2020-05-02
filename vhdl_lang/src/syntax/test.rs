@@ -569,16 +569,23 @@ impl AsRef<SrcPos> for Code {
     }
 }
 
-pub fn source_range(code: &Code, start: (u32, u32), end: (u32, u32)) -> SrcPos {
-    let (start_line, start_column) = start;
-    let (end_line, end_column) = end;
-    SrcPos::new(
-        code.source().clone(),
-        crate::data::Range::new(
-            Position::new(start_line, start_column),
-            Position::new(end_line, end_column),
-        ),
-    )
+// Create a Range spanning from the first substring occurance of start to
+// to the first occurance of end after start (may overlap)
+pub fn source_range(code: &Code, start: &str, end: &str) -> SrcPos {
+    let start = code.s1(start).pos;
+    let mut end_occurance = 1;
+    loop {
+        let end = code.s(end, end_occurance).pos;
+        if end.range().start.line >= start.range().start.line
+            && end.range().end.line >= start.range().end.line
+        {
+            break start.combine_into(&end)
+        }
+        end_occurance += 1;
+        if end_occurance > 1000 {
+            panic!("Unable to find range");
+        }
+    }
 }
 
 mod tests {

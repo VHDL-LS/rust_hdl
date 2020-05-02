@@ -378,7 +378,7 @@ end;
                     use_clauses: vec![],
                     items: vec![],
                 },
-                source_range: source_range(&code, (0, 0), (3, 4))
+                source_range: source_range(&code, "configuration", "end;")
             }
         );
     }
@@ -406,7 +406,7 @@ end configuration cfg;
                     use_clauses: vec![],
                     items: vec![],
                 },
-                source_range: source_range(&code, (0, 0), (3, 22)),
+                source_range: source_range(&code, "configuration cfg", "end configuration cfg;"),
             }
         );
     }
@@ -438,7 +438,7 @@ end configuration cfg;
                     use_clauses: vec![],
                     items: vec![],
                 },
-                source_range: source_range(&code, (0, 0), (5, 22)),
+                source_range: source_range(&code, "configuration cfg", "end configuration cfg;"),
             }
         );
     }
@@ -472,7 +472,7 @@ end configuration cfg;
                     use_clauses: vec![],
                     items: vec![],
                 },
-                source_range: source_range(&code, (0, 0), (5, 22)),
+                source_range: source_range(&code, "configuration cfg", "end configuration cfg;"),
             }
         );
     }
@@ -500,7 +500,7 @@ end configuration cfg;
                     use_clauses: vec![],
                     items: vec![],
                 },
-                source_range: source_range(&code, (0, 0), (3, 22)),
+                source_range: source_range(&code, "configuration cfg", "end configuration cfg;"),
             }
         );
     }
@@ -543,7 +543,7 @@ end configuration cfg;
                         })
                     ],
                 },
-                source_range: source_range(&code, (0, 0), (7, 22)),
+                source_range: source_range(&code, "configuration cfg", "end configuration cfg;"),
             }
         );
     }
@@ -589,7 +589,7 @@ end configuration cfg;
                         }),
                     }),],
                 },
-                source_range: source_range(&code, (0, 0), (7, 22)),
+                source_range: source_range(&code, "configuration cfg", "end configuration cfg;"),
             }
         );
     }
@@ -646,7 +646,7 @@ end configuration cfg;
                         }),
                     }),],
                 },
-                source_range: source_range(&code, (0, 0), (9, 22)),
+                source_range: source_range(&code, "configuration cfg", "end configuration cfg;"),
             }
         );
     }
@@ -694,7 +694,7 @@ end configuration cfg;
                         block_config: None,
                     }),],
                 },
-                source_range: source_range(&code, (0, 0), (6, 22)),
+                source_range: source_range(&code, "configuration cfg", "end configuration cfg;"),
             }
         );
     }
@@ -773,7 +773,7 @@ end configuration cfg;
                         })
                     ],
                 },
-                source_range: source_range(&code, (0, 0), (11, 22)),
+                source_range: source_range(&code, "configuration cfg", "end configuration cfg;"),
             }
         );
     }
