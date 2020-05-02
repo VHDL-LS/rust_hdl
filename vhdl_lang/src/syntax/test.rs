@@ -579,7 +579,7 @@ pub fn source_range(code: &Code, start: &str, end: &str) -> SrcPos {
         if end.range().start.line >= start.range().start.line
             && end.range().end.line >= start.range().end.line
         {
-            break start.combine_into(&end)
+            break start.combine_into(&end);
         }
         end_occurance += 1;
         if end_occurance > 1000 {
