@@ -8,8 +8,7 @@ use super::latin_1::Latin1String;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
-use self::fnv::FnvHashMap;
-use fnv;
+use fnv::FnvHashMap;
 
 /// Represents a unique string symbol.
 ///

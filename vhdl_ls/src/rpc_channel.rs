@@ -7,7 +7,6 @@
 //! Contains the RpcChannel Traid and associated convenience functions
 
 use lsp_types::*;
-use serde;
 use vhdl_lang::{Message, MessageHandler};
 
 pub trait RpcChannel {
