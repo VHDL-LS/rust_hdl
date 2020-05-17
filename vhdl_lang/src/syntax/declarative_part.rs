@@ -19,7 +19,7 @@ use crate::ast::{ContextClause, Declaration, PackageInstantiation};
 use crate::data::DiagnosticHandler;
 
 pub fn parse_package_instantiation(stream: &mut TokenStream) -> ParseResult<PackageInstantiation> {
-    let package_token = stream.expect_kind(Package)?;
+    let package_token = stream.expect_kind(Package)?.into();
     let ident = stream.expect_ident()?;
     stream.expect_kind(Is)?;
     stream.expect_kind(New)?;
@@ -32,10 +32,10 @@ pub fn parse_package_instantiation(stream: &mut TokenStream) -> ParseResult<Pack
             stream.expect_kind(Map)?;
             let association_list = parse_association_list(stream)?;
             let semi_token = stream.expect_kind(SemiColon)?;
-            (Some(association_list), semi_token)
+            (Some(association_list), semi_token.into())
         },
         SemiColon => {
-            (None, token)
+            (None, token.into())
         }
     );
     Ok(PackageInstantiation {
@@ -43,7 +43,8 @@ pub fn parse_package_instantiation(stream: &mut TokenStream) -> ParseResult<Pack
         ident,
         package_name,
         generic_map,
-        source_range: package_token.pos.combine_into(&semi_token),
+        package_token,
+        semi_token,
     })
 }
 
@@ -67,6 +68,7 @@ fn check_declarative_part(token: &Token, may_end: bool, may_begin: bool) -> Pars
         }
     }
 }
+
 pub fn parse_declarative_part(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
@@ -77,6 +79,18 @@ pub fn parse_declarative_part(
 
     stream.expect_kind(end_token).log(diagnostics);
     Ok(decl)
+}
+
+pub fn parse_declarative_part_end_token(
+    stream: &mut TokenStream,
+    diagnostics: &mut dyn DiagnosticHandler,
+    begin_is_end: bool,
+) -> ParseResult<(Vec<Declaration>, Token)> {
+    let expected_end_token = if begin_is_end { Begin } else { End };
+    let decl = parse_declarative_part_leave_end_token(stream, diagnostics)?;
+    let end_token = stream.peek_expect()?;
+    stream.expect_kind(expected_end_token).log(diagnostics);
+    Ok((decl, end_token))
 }
 
 pub fn parse_declarative_part_leave_end_token(
@@ -166,7 +180,7 @@ mod tests {
     use super::*;
     use crate::ast::{ObjectClass, ObjectDeclaration};
     use crate::data::Diagnostic;
-    use crate::syntax::test::{source_range, Code};
+    use crate::syntax::test::Code;
 
     #[test]
     fn package_instantiation() {
@@ -182,7 +196,8 @@ package ident is new lib.foo.bar;
                 ident: code.s1("ident").ident(),
                 package_name: code.s1("lib.foo.bar").selected_name(),
                 generic_map: None,
-                source_range: source_range(&code, "package", ";"),
+                package_token: code.keyword_token(Package, 1),
+                semi_token: code.keyword_token(SemiColon, -1),
             }
         );
     }
@@ -209,7 +224,8 @@ package ident is new lib.foo.bar
   )")
                         .association_list()
                 ),
-                source_range: source_range(&code, "package", ");"),
+                package_token: code.keyword_token(Package, 1),
+                semi_token: code.keyword_token(SemiColon, -1),
             }
         );
     }

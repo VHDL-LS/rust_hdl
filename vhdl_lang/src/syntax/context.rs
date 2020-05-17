@@ -89,10 +89,11 @@ pub fn parse_context(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<DeclarationOrReference> {
-    let context_token = stream.expect_kind(Context)?;
+    let context_token = stream.expect_kind(Context)?.into();
     let name = parse_name(stream)?;
-    if stream.skip_if_kind(Is)? {
+    if let Some(is_token) = stream.pop_if_kind(Is)? {
         let mut items = Vec::with_capacity(16);
+        let end_token;
         let end_ident;
         loop {
             let token = stream.expect()?;
@@ -102,13 +103,14 @@ pub fn parse_context(
                 Use => items.push(parse_use_clause_no_keyword(token, stream)?.map_into(ContextItem::Use)),
                 Context => items.push(parse_context_reference_no_keyword(token, stream)?.map_into(ContextItem::Context)),
                 End => {
+                    end_token = token.into();
                     stream.pop_if_kind(Context)?;
                     end_ident = stream.pop_optional_ident()?;
                     break;
                 }
             )
         }
-        let semi_token = stream.expect_kind(SemiColon)?;
+        let semi_token = stream.expect_kind(SemiColon)?.into();
         let ident = to_simple_name(name)?;
 
         diagnostics.push_some(error_on_end_identifier_mismatch(&ident, &end_ident));
@@ -116,7 +118,10 @@ pub fn parse_context(
         Ok(DeclarationOrReference::Declaration(ContextDeclaration {
             ident,
             items,
-            source_range: context_token.pos.combine_into(&semi_token),
+            context_token,
+            is_token: is_token.into(),
+            end_token,
+            semi_token,
         }))
     } else {
         // Context reference
@@ -140,7 +145,7 @@ mod tests {
     use super::*;
 
     use crate::data::Diagnostic;
-    use crate::syntax::test::{source_range, Code};
+    use crate::syntax::test::Code;
     use pretty_assertions::assert_eq;
 
     #[test]
@@ -254,7 +259,10 @@ end context ident;
                 DeclarationOrReference::Declaration(ContextDeclaration {
                     ident: code.s1("ident").ident(),
                     items: vec![],
-                    source_range: source_range(&code, "context", ";"),
+                    context_token: code.keyword_token(Context, 1),
+                    is_token: code.keyword_token(Is, 1),
+                    end_token: code.keyword_token(End, -1),
+                    semi_token: code.keyword_token(SemiColon, -1),
                 })
             );
         }
@@ -281,7 +289,10 @@ end context ident2;
             DeclarationOrReference::Declaration(ContextDeclaration {
                 ident: code.s1("ident").ident(),
                 items: vec![],
-                source_range: source_range(&code, "context ident", "end context ident2;"),
+                context_token: code.keyword_token(Context, 1),
+                is_token: code.keyword_token(Is, 1),
+                end_token: code.keyword_token(End, -1),
+                semi_token: code.keyword_token(SemiColon, -1),
             })
         );
     }
@@ -321,7 +332,10 @@ end context;
                         code.s1("context foo.ctx;")
                     ),
                 ],
-                source_range: source_range(&code, "context ident", "end context;"),
+                context_token: code.keyword_token(Context, 1),
+                is_token: code.keyword_token(Is, 1),
+                end_token: code.keyword_token(End, -1),
+                semi_token: code.keyword_token(SemiColon, -1),
             })
         )
     }
