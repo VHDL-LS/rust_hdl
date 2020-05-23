@@ -4,11 +4,8 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use vhdl_ls;
-
 #[macro_use]
 extern crate log;
-use env_logger;
 
 fn main() {
     use clap::App;

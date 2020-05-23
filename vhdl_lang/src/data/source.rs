@@ -6,7 +6,6 @@
 
 use super::contents::Contents;
 use super::diagnostic::{Diagnostic, DiagnosticResult};
-use pad;
 use parking_lot::{RwLock, RwLockReadGuard};
 use std::cmp::{max, min};
 use std::collections::hash_map::DefaultHasher;
@@ -399,7 +398,7 @@ impl SrcPos {
         context_lines: u32,
     ) -> (usize, String) {
         let lines = self.get_line_context(context_lines, contents);
-        use self::pad::{Alignment, PadStr};
+        use pad::{Alignment, PadStr};
         // +1 since lines are shown with 1-index
         let lineno_len = (self.range.start.line + context_lines + 1)
             .to_string()
