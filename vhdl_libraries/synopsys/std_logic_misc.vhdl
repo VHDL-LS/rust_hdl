@@ -54,7 +54,7 @@ package std_logic_misc is
 --synopsys synthesis_on
     function Drive (V: STD_ULOGIC_VECTOR) return STD_LOGIC_VECTOR;
 
-    function Drive (V: STD_LOGIC_VECTOR) return STD_ULOGIC_VECTOR;
+    -- function Drive (V: STD_LOGIC_VECTOR) return STD_ULOGIC_VECTOR;
 --synopsys synthesis_off
 
     -- attribute CLOSELY_RELATED_TCF of Drive: function is TRUE;
@@ -69,15 +69,15 @@ package std_logic_misc is
 
     function Sense (V: STD_ULOGIC; vZ, vU, vDC: STD_ULOGIC) return STD_LOGIC;
 
-    function Sense (V: STD_ULOGIC_VECTOR; vZ, vU, vDC: STD_ULOGIC) 
-    					   return STD_LOGIC_VECTOR;
+    -- function Sense (V: STD_ULOGIC_VECTOR; vZ, vU, vDC: STD_ULOGIC) 
+    -- 					   return STD_LOGIC_VECTOR;
     function Sense (V: STD_ULOGIC_VECTOR; vZ, vU, vDC: STD_ULOGIC) 
     					   return STD_ULOGIC_VECTOR;
 
-    function Sense (V: STD_LOGIC_VECTOR; vZ, vU, vDC: STD_ULOGIC) 
-    					   return STD_LOGIC_VECTOR;
-    function Sense (V: STD_LOGIC_VECTOR; vZ, vU, vDC: STD_ULOGIC) 
-    					   return STD_ULOGIC_VECTOR;
+    -- function Sense (V: STD_LOGIC_VECTOR; vZ, vU, vDC: STD_ULOGIC) 
+    -- 					   return STD_LOGIC_VECTOR;
+    -- function Sense (V: STD_LOGIC_VECTOR; vZ, vU, vDC: STD_ULOGIC) 
+    -- 					   return STD_ULOGIC_VECTOR;
 
 --synopsys synthesis_on
 
@@ -143,12 +143,12 @@ package std_logic_misc is
     	) return BIT;
 
         --------------------------------------------------------------------
-        function AND_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01;
-        function NAND_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01;
-        function OR_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01;
-        function NOR_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01;
-        function XOR_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01;
-        function XNOR_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01;
+        -- function AND_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01;
+        -- function NAND_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01;
+        -- function OR_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01;
+        -- function NOR_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01;
+        -- function XOR_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01;
+        -- function XNOR_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01;
     
         function AND_REDUCE(ARG: STD_ULOGIC_VECTOR) return UX01;
         function NAND_REDUCE(ARG: STD_ULOGIC_VECTOR) return UX01;
@@ -263,18 +263,18 @@ package body std_logic_misc is
     end Drive;
 
 
-    function Drive (V: STD_ULOGIC_VECTOR) return STD_LOGIC_VECTOR is
-      -- pragma built_in SYN_FEED_THRU
-      -- pragma subpgm_id 390
---synopsys synthesis_off
-        alias Value: STD_ULOGIC_VECTOR (V'length-1 downto 0) is V;
---synopsys synthesis_on
-    begin
---synopsys synthesis_off
-    	return STD_LOGIC_VECTOR(Value);
---synopsys synthesis_on
-    end Drive;
---synopsys synthesis_off
+--     function Drive (V: STD_ULOGIC_VECTOR) return STD_LOGIC_VECTOR is
+--       -- pragma built_in SYN_FEED_THRU
+--       -- pragma subpgm_id 390
+-- --synopsys synthesis_off
+--         alias Value: STD_ULOGIC_VECTOR (V'length-1 downto 0) is V;
+-- --synopsys synthesis_on
+--     begin
+-- --synopsys synthesis_off
+--     	return STD_LOGIC_VECTOR(Value);
+-- --synopsys synthesis_on
+--     end Drive;
+-- --synopsys synthesis_off
 
 
     ---------------------------------------------------------------------
@@ -302,25 +302,25 @@ package body std_logic_misc is
     end Sense;
 
 
-    function Sense (V: STD_ULOGIC_VECTOR; vZ, vU, vDC: STD_ULOGIC) 
-    					return STD_LOGIC_VECTOR is
-	-- pragma subpgm_id 392
-    	alias Value: STD_ULOGIC_VECTOR (V'length-1 downto 0) is V;
-    	variable Result: STD_LOGIC_VECTOR (V'length-1 downto 0);
-    begin
-    	for i in Value'range loop
-    		if ( Value(i) = 'Z' ) then
-    			Result(i) := vZ;
-		elsif Value(i) = 'U' then
-			Result(i) :=  vU;
-		elsif Value(i) = '-' then
-			Result(i) := vDC;
-    		else
-    			Result(i) := Value(i);
-    		end if;
-    	end loop;
-    	return Result;
-    end Sense;
+    -- function Sense (V: STD_ULOGIC_VECTOR; vZ, vU, vDC: STD_ULOGIC) 
+    -- 					return STD_LOGIC_VECTOR is
+	-- -- pragma subpgm_id 392
+    -- 	alias Value: STD_ULOGIC_VECTOR (V'length-1 downto 0) is V;
+    -- 	variable Result: STD_LOGIC_VECTOR (V'length-1 downto 0);
+    -- begin
+    -- 	for i in Value'range loop
+    -- 		if ( Value(i) = 'Z' ) then
+    -- 			Result(i) := vZ;
+	-- 	elsif Value(i) = 'U' then
+	-- 		Result(i) :=  vU;
+	-- 	elsif Value(i) = '-' then
+	-- 		Result(i) := vDC;
+    -- 		else
+    -- 			Result(i) := Value(i);
+    -- 		end if;
+    -- 	end loop;
+    -- 	return Result;
+    -- end Sense;
 
 
     function Sense (V: STD_ULOGIC_VECTOR; vZ, vU, vDC: STD_ULOGIC) 
@@ -344,46 +344,46 @@ package body std_logic_misc is
     end Sense;
 
 
-    function Sense (V: STD_LOGIC_VECTOR; vZ, vU, vDC: STD_ULOGIC) 
-    					return STD_LOGIC_VECTOR is
-	-- pragma subpgm_id 394
-    	alias Value: STD_LOGIC_VECTOR (V'length-1 downto 0) is V;
-    	variable Result: STD_LOGIC_VECTOR (V'length-1 downto 0);
-    begin
-    	for i in Value'range loop
-    		if ( Value(i) = 'Z' ) then
-    			Result(i) := vZ;
-		elsif Value(i) = 'U' then
-			Result(i) :=  vU;
-		elsif Value(i) = '-' then
-			Result(i) := vDC;
-    		else
-    			Result(i) := Value(i);
-    		end if;
-    	end loop;
-    	return Result;
-    end Sense;
+    -- function Sense (V: STD_LOGIC_VECTOR; vZ, vU, vDC: STD_ULOGIC) 
+    -- 					return STD_LOGIC_VECTOR is
+	-- -- pragma subpgm_id 394
+    -- 	alias Value: STD_LOGIC_VECTOR (V'length-1 downto 0) is V;
+    -- 	variable Result: STD_LOGIC_VECTOR (V'length-1 downto 0);
+    -- begin
+    -- 	for i in Value'range loop
+    -- 		if ( Value(i) = 'Z' ) then
+    -- 			Result(i) := vZ;
+	-- 	elsif Value(i) = 'U' then
+	-- 		Result(i) :=  vU;
+	-- 	elsif Value(i) = '-' then
+	-- 		Result(i) := vDC;
+    -- 		else
+    -- 			Result(i) := Value(i);
+    -- 		end if;
+    -- 	end loop;
+    -- 	return Result;
+    -- end Sense;
 
 
-    function Sense (V: STD_LOGIC_VECTOR; vZ, vU, vDC: STD_ULOGIC) 
-    					return STD_ULOGIC_VECTOR is
-	-- pragma subpgm_id 395
-    	alias Value: STD_LOGIC_VECTOR (V'length-1 downto 0) is V;
-    	variable Result: STD_ULOGIC_VECTOR (V'length-1 downto 0);
-    begin
-    	for i in Value'range loop
-    		if ( Value(i) = 'Z' ) then
-    			Result(i) := vZ;
-		elsif Value(i) = 'U' then
-			Result(i) :=  vU;
-		elsif Value(i) = '-' then
-			Result(i) := vDC;
-    		else
-    			Result(i) := Value(i);
-    		end if;
-    	end loop;
-    	return Result;
-    end Sense;
+    -- function Sense (V: STD_LOGIC_VECTOR; vZ, vU, vDC: STD_ULOGIC) 
+    -- 					return STD_ULOGIC_VECTOR is
+	-- -- pragma subpgm_id 395
+    -- 	alias Value: STD_LOGIC_VECTOR (V'length-1 downto 0) is V;
+    -- 	variable Result: STD_ULOGIC_VECTOR (V'length-1 downto 0);
+    -- begin
+    -- 	for i in Value'range loop
+    -- 		if ( Value(i) = 'Z' ) then
+    -- 			Result(i) := vZ;
+	-- 	elsif Value(i) = 'U' then
+	-- 		Result(i) :=  vU;
+	-- 	elsif Value(i) = '-' then
+	-- 		Result(i) := vDC;
+    -- 		else
+    -- 			Result(i) := Value(i);
+    -- 		end if;
+    -- 	end loop;
+    -- 	return Result;
+    -- end Sense;
 
     ---------------------------------------------------------------------
     --
@@ -660,56 +660,56 @@ package body std_logic_misc is
 
     --------------------------------------------------------------------------
 
-    function AND_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01 is
-	-- pragma subpgm_id 399
-	variable result: STD_LOGIC;
-    begin
-	result := '1';
-	for i in ARG'range loop
-	    result := result and ARG(i);
-	end loop;
-        return result;
-    end;
+    -- function AND_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01 is
+	-- -- pragma subpgm_id 399
+	-- variable result: STD_LOGIC;
+    -- begin
+	-- result := '1';
+	-- for i in ARG'range loop
+	--     result := result and ARG(i);
+	-- end loop;
+    --     return result;
+    -- end;
 
-    function NAND_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01 is
-	-- pragma subpgm_id 400
-    begin
-        return not AND_REDUCE(ARG);
-    end;
+    -- function NAND_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01 is
+	-- -- pragma subpgm_id 400
+    -- begin
+    --     return not AND_REDUCE(ARG);
+    -- end;
 
-    function OR_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01 is
-	-- pragma subpgm_id 401
-	variable result: STD_LOGIC;
-    begin
-	result := '0';
-	for i in ARG'range loop
-	    result := result or ARG(i);
-	end loop;
-        return result;
-    end;
+    -- function OR_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01 is
+	-- -- pragma subpgm_id 401
+	-- variable result: STD_LOGIC;
+    -- begin
+	-- result := '0';
+	-- for i in ARG'range loop
+	--     result := result or ARG(i);
+	-- end loop;
+    --     return result;
+    -- end;
 
-    function NOR_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01 is
-	-- pragma subpgm_id 402
-    begin
-        return not OR_REDUCE(ARG);
-    end;
+    -- function NOR_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01 is
+	-- -- pragma subpgm_id 402
+    -- begin
+    --     return not OR_REDUCE(ARG);
+    -- end;
 
-    function XOR_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01 is
-	-- pragma subpgm_id 403
-	variable result: STD_LOGIC;
-    begin
-	result := '0';
-	for i in ARG'range loop
-	    result := result xor ARG(i);
-	end loop;
-        return result;
-    end;
+    -- function XOR_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01 is
+	-- -- pragma subpgm_id 403
+	-- variable result: STD_LOGIC;
+    -- begin
+	-- result := '0';
+	-- for i in ARG'range loop
+	--     result := result xor ARG(i);
+	-- end loop;
+    --     return result;
+    -- end;
 
-    function XNOR_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01 is
-	-- pragma subpgm_id 404
-    begin
-        return not XOR_REDUCE(ARG);
-    end;
+    -- function XNOR_REDUCE(ARG: STD_LOGIC_VECTOR) return UX01 is
+	-- -- pragma subpgm_id 404
+    -- begin
+    --     return not XOR_REDUCE(ARG);
+    -- end;
 
     function AND_REDUCE(ARG: STD_ULOGIC_VECTOR) return UX01 is
 	-- pragma subpgm_id 405
