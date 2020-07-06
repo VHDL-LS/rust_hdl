@@ -20,7 +20,7 @@ serde_json = "^1"
 serde = "^1"
 lsp-types = "^0.63"
 fnv = "^1"
-log = "0.4.6"
+log = "0.4.8"
 env_logger = "0.6.0"
 clap = "^2"
 
