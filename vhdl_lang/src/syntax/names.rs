@@ -181,7 +181,7 @@ fn parse_function_call(
                     item: Name::FunctionCall(Box::new(FunctionCall {
                         name: prefix,
                         parameters: association_elements})),
-                    pos: pos,
+                    pos,
                 });
             }
         )
@@ -386,7 +386,7 @@ pub fn parse_name_initial_token(
 
                         name = WithPos {
                             item: Name::Slice(Box::new(name), Box::new(discrete_range)),
-                            pos: pos,
+                            pos,
                         };
                     },
                     RightPar => {
@@ -394,10 +394,10 @@ pub fn parse_name_initial_token(
                         name = WithPos {
                             item: Name::FunctionCall(Box::new(
                                 FunctionCall {
-                                    name: name,
+                                    name,
                                     parameters: vec![assoc]
                                 })),
-                            pos: pos,
+                            pos,
                         };
                     }
                 )
@@ -434,6 +434,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::blacklisted_name)]
     fn test_parse_selected_name_multiple() {
         let code = Code::new("foo.bar.baz");
         let baz = code
@@ -516,6 +517,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::blacklisted_name)]
     fn test_selected_name() {
         let code = Code::new("foo.bar.baz");
 
@@ -548,6 +550,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::blacklisted_name)]
     fn test_selected_name_all() {
         let code = Code::new("foo.all");
 
@@ -710,6 +713,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::blacklisted_name)]
     fn test_function_call_no_formal() {
         let code = Code::new("foo(0)");
 
@@ -783,6 +787,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::blacklisted_name)]
     fn test_function_call() {
         let code = Code::new("foo(arg => 0)");
 

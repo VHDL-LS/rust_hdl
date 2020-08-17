@@ -294,7 +294,7 @@ end architecture;
     // Find all references
     assert_eq_unordered(
         &root.find_all_references(&code.s1("ename1").pos()),
-        &vec![
+        &[
             code.s("ename1", 1).pos(),
             code.s("ename1", 2).pos(),
             code.s("ename1", 3).pos(),
@@ -403,7 +403,7 @@ end package body;
     // Find all references
     assert_eq_unordered(
         &root.find_all_references(&code.s1("pkg").pos()),
-        &vec![code.s("pkg", 1).pos(), code.s("pkg", 2).pos()],
+        &[code.s("pkg", 1).pos(), code.s("pkg", 2).pos()],
     );
 }
 

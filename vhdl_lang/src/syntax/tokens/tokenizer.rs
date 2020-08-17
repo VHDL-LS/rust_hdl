@@ -1641,7 +1641,7 @@ mod tests {
     }
 
     fn kinds(tokens: &[Token]) -> Vec<Kind> {
-        tokens.iter().map(|ref tok| tok.kind.clone()).collect()
+        tokens.iter().map(|ref tok| tok.kind).collect()
     }
 
     // Shorthand for testing
@@ -1654,7 +1654,7 @@ mod tests {
         Code::new(code)
             .tokenize()
             .iter()
-            .map(|tok| (tok.kind.clone(), tok.value.clone()))
+            .map(|tok| (tok.kind, tok.value.clone()))
             .collect()
     }
 
@@ -1933,12 +1933,13 @@ end entity"
     }
 
     #[test]
+    #[allow(clippy::approx_constant)]
     fn tokenize_real_truncates_precision() {
         assert_eq!(
             kind_value_tokenize("2.71828182845904523536"),
             vec![(
                 AbstractLiteral,
-                Value::AbstractLiteral(ast::AbstractLiteral::Real(2.7182818284590452))
+                Value::AbstractLiteral(ast::AbstractLiteral::Real(2.718_281_828_459_045))
             )]
         );
     }
@@ -2078,7 +2079,7 @@ end entity"
                             kind: BitString,
                             value: Value::BitString(ast::BitString {
                                 length: length_opt,
-                                base: base,
+                                base,
                                 value: Latin1String::from_utf8_unchecked(value.as_str())
                             }),
                             pos: code.pos(),
@@ -2134,7 +2135,7 @@ end entity"
             kind_value_tokenize("16#eEFfa#"),
             vec![(
                 AbstractLiteral,
-                Value::AbstractLiteral(ast::AbstractLiteral::Integer(0xeEffa))
+                Value::AbstractLiteral(ast::AbstractLiteral::Integer(0xeeffa))
             ),]
         );
     }

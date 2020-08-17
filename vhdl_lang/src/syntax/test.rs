@@ -469,11 +469,11 @@ fn forward(stream: &mut TokenStream, start: Position) {
 }
 
 /// Check that no errors where found
-pub fn check_no_diagnostics(diagnostics: &Vec<Diagnostic>) {
+pub fn check_no_diagnostics(diagnostics: &[Diagnostic]) {
     for err in diagnostics.iter() {
         println!("{}", err.show());
     }
-    if diagnostics.len() > 0 {
+    if !diagnostics.is_empty() {
         panic!("Found errors");
     }
 }
