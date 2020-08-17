@@ -307,7 +307,7 @@ fn check_analysis_equal(got: &mut DesignRoot, expected: &mut DesignRoot) -> Vec<
     expected.analyze(&mut expected_diagnostics);
 
     // Check that diagnostics are equal to doing analysis from scratch
-    check_diagnostics(got_diagnostics.clone(), expected_diagnostics.clone());
+    check_diagnostics(got_diagnostics.clone(), expected_diagnostics);
 
     // Check that all references are equal, ensures the incremental
     // analysis has cleared refereces

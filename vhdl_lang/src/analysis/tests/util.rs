@@ -29,10 +29,10 @@ impl LibraryBuilder {
         let library_name = self.code_builder.symbol(library_name);
         match self.libraries.entry(library_name) {
             Entry::Occupied(mut entry) => {
-                entry.get_mut().push(code.clone());
+                entry.get_mut().push(code);
             }
             Entry::Vacant(entry) => {
-                entry.insert(vec![code.clone()]);
+                entry.insert(vec![code]);
             }
         }
     }
@@ -102,7 +102,7 @@ pub fn add_standard_library(symbols: Arc<Symbols>, root: &mut DesignRoot) {
 
     root.add_design_file(std_sym.clone(), std_standard.design_file());
     root.add_design_file(std_sym.clone(), std_textio.design_file());
-    root.add_design_file(std_sym.clone(), std_env.design_file());
+    root.add_design_file(std_sym, std_env.design_file());
 }
 
 pub fn missing(code: &Code, name: &str, occ: usize) -> Diagnostic {

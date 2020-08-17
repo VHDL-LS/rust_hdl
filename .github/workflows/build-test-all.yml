@@ -3,7 +3,6 @@ name: Build & test all configs
 on: [push, pull_request]
 
 jobs:
-
   release-notice:
     name: This is a release build
     if: startsWith(github.ref, 'refs/tags/v')
@@ -29,7 +28,7 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            ext: ''
+            ext: ""
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             ext: .exe
@@ -71,7 +70,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --package ${{ matrix.crate }} -- -D warnings
+          args: --package ${{ matrix.crate }} --all-targets --all-features -- -D warnings
 
       - name: Assemble
         if: matrix.rust == 'stable'
@@ -87,7 +86,7 @@ jobs:
         with:
           name: ${{ matrix.crate }}-${{ matrix.target }}
           path: ${{ matrix.crate }}-${{ matrix.target }}
-  
+
   release:
     name: Release
     if: startsWith(github.ref, 'refs/tags/v')

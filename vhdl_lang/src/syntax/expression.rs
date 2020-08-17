@@ -278,7 +278,7 @@ fn parse_primary_initial_token(
         }
         Null => Ok(WithPos {
             item: Expression::Literal(Literal::Null),
-            pos: token.pos.clone(),
+            pos: token.pos,
         }),
         New => {
             let alloc = parse_allocator(stream)?;

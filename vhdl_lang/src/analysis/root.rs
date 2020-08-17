@@ -637,7 +637,7 @@ mod tests {
     use super::*;
     use crate::syntax::test::{check_diagnostics, Code};
 
-    fn new_library_with_diagnostics<'a>(code: &Code, name: &str) -> (Library, Vec<Diagnostic>) {
+    fn new_library_with_diagnostics(code: &Code, name: &str) -> (Library, Vec<Diagnostic>) {
         let mut diagnostics = Vec::new();
         let mut library = Library::new(code.symbol(name));
         library.add_design_file(code.design_file());

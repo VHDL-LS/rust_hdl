@@ -147,7 +147,7 @@ end package;",
     // Cursor at end of symbol
     assert_eq!(
         root.search_reference(code2.source(), code2.s1("typ_t").end()),
-        Some(decl_pos.clone())
+        Some(decl_pos)
     );
 
     // Cursor after end of symbol
@@ -206,10 +206,10 @@ end package;",
     check_no_diagnostics(&diagnostics);
 
     let references = vec![
-        code1.s("typ_t", 1).pos().clone(),
-        code1.s("typ_t", 2).pos().clone(),
-        code2.s("typ_t", 1).pos().clone(),
-        code2.s("typ_t", 2).pos().clone(),
+        code1.s("typ_t", 1).pos(),
+        code1.s("typ_t", 2).pos(),
+        code2.s("typ_t", 1).pos(),
+        code2.s("typ_t", 2).pos(),
     ];
 
     assert_eq_unordered(
@@ -249,10 +249,7 @@ end package;",
 
     assert_eq_unordered(
         &root.find_all_references(&code.s("typ_t", 1).pos()),
-        &vec![
-            code.s("typ_t", 1).pos().clone(),
-            code.s("typ_t", 2).pos().clone(),
-        ],
+        &[code.s("typ_t", 1).pos(), code.s("typ_t", 2).pos()],
     );
 }
 

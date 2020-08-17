@@ -163,7 +163,7 @@ pub fn parse_element_resolution_indication(
                 };
 
                 element_resolutions.push(RecordElementResolution {
-                    ident: ident,
+                    ident,
                     resolution: Box::new(resolution),
                 });
 

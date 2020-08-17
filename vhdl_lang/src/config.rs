@@ -311,7 +311,6 @@ fn is_literal(pattern: &str, is_windows: bool) -> bool {
 mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
-    use tempfile;
 
     /// Utility function to create an empty file in parent folder
     fn touch(parent: &Path, file_name: &str) -> PathBuf {
@@ -444,7 +443,7 @@ lib3.files = [
         )
         .unwrap();
 
-        let mut merged_config = config0.clone();
+        let mut merged_config = config0;
         merged_config.append(&config1, &mut Vec::new());
         assert_eq!(merged_config, expected_config);
     }

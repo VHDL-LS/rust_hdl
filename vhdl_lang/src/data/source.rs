@@ -81,7 +81,6 @@ impl UniqueSource {
 
     #[cfg(test)]
     pub fn from_contents(file_name: &Path, contents: Contents) -> UniqueSource {
-        let file_name = file_name.into();
         Self {
             file_id: FileId::new(file_name),
             contents: RwLock::new(contents),
@@ -545,7 +544,6 @@ mod tests {
     use crate::data::Latin1String;
     use crate::syntax::test::{Code, CodeBuilder};
     use pretty_assertions::assert_eq;
-    use tempfile;
 
     #[test]
     fn srcpos_combine() {
@@ -568,7 +566,7 @@ mod tests {
         use std::io::Write;
         let mut file = tempfile::NamedTempFile::new().unwrap();
         let file_name = file.path().to_owned();
-        file.write(&Latin1String::from_utf8_unchecked(contents).bytes)
+        file.write_all(&Latin1String::from_utf8_unchecked(contents).bytes)
             .unwrap();
         fun(CodeBuilder::new().code_from_source(Source::from_latin1_file(&file_name).unwrap()))
     }

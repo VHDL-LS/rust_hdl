@@ -454,7 +454,6 @@ fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {
 mod tests {
     use super::*;
     use crate::rpc_channel::test_support::*;
-    use tempfile;
 
     fn initialize_server(server: &mut VHDLServer<RpcMock>, root_uri: Url) {
         let capabilities = ClientCapabilities::default();
@@ -534,10 +533,10 @@ end entity ent;
 
         let did_open = DidOpenTextDocumentParams {
             text_document: TextDocumentItem {
-                uri: file_url.clone(),
+                uri: file_url,
                 language_id: "vhdl".to_owned(),
                 version: 0,
-                text: code.to_owned(),
+                text: code,
             },
         };
 
@@ -566,7 +565,7 @@ end entity ent2;
                 uri: file_url.clone(),
                 language_id: "vhdl".to_owned(),
                 version: 0,
-                text: code.to_owned(),
+                text: code,
             },
         };
 
@@ -612,12 +611,12 @@ end entity ent;
             content_changes: vec![TextDocumentContentChangeEvent {
                 range: None,
                 range_length: None,
-                text: code.clone(),
+                text: code,
             }],
         };
 
         let publish_diagnostics = PublishDiagnosticsParams {
-            uri: file_url.clone(),
+            uri: file_url,
             diagnostics: vec![],
             version: None,
         };
@@ -664,7 +663,7 @@ lib.files = [
         );
 
         let publish_diagnostics = PublishDiagnosticsParams {
-            uri: file_uri.clone(),
+            uri: file_uri,
             diagnostics: vec![lsp_types::Diagnostic {
                 range: Range {
                     start: lsp_types::Position {
@@ -763,23 +762,21 @@ lib.files = [
         );
 
         expect_loaded_config_messages(&mock, &config_uri);
-        initialize_server(&mut server, root_uri.clone());
+        initialize_server(&mut server, root_uri);
 
         let did_open = DidOpenTextDocumentParams {
             text_document: TextDocumentItem {
                 uri: file_url2.clone(),
                 language_id: "vhdl".to_owned(),
                 version: 0,
-                text: code2.to_owned(),
+                text: code2,
             },
         };
 
         server.text_document_did_open_notification(&did_open);
 
         let response = server.text_document_declaration(&TextDocumentPositionParams {
-            text_document: TextDocumentIdentifier {
-                uri: file_url2.clone(),
-            },
+            text_document: TextDocumentIdentifier { uri: file_url2 },
             position: lsp_types::Position {
                 line: 2,
                 character: "  constant c : t".len() as u64,
@@ -787,7 +784,7 @@ lib.files = [
         });
 
         let expected = Location {
-            uri: file_url1.clone(),
+            uri: file_url1,
             range: Range {
                 start: lsp_types::Position {
                     line: 1,

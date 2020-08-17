@@ -688,7 +688,7 @@ end protected body;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
-                ident: ident.clone(),
+                ident,
                 def: TypeDefinition::ProtectedBody(ProtectedTypeBody {
                     type_reference: Reference::default(),
                     decl

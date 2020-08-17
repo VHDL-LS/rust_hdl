@@ -141,7 +141,7 @@ pub mod test_support {
         fn drop(&mut self) {
             if !std::thread::panicking() {
                 let expected = self.expected.replace(VecDeque::new());
-                if expected.len() > 0 {
+                if !expected.is_empty() {
                     panic!("Not all expected data was consumed\n{:#?}", expected);
                 }
             }
