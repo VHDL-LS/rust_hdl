@@ -88,26 +88,22 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         config
     }
 
-    pub fn initialize_request(
-        &mut self,
-        params: InitializeParams,
-    ) -> jsonrpc_core::Result<InitializeResult> {
+    pub fn initialize_request(&mut self, params: InitializeParams) -> InitializeResult {
         let config = self.load_config(&params);
         let (server, result) = InitializedVHDLServer::new(self.rpc_channel.clone(), config, params);
         self.server = Some(server);
-        Ok(result)
+        result
     }
 
-    pub fn shutdown_server(&mut self, _params: ()) -> jsonrpc_core::Result<()> {
+    pub fn shutdown_server(&mut self) {
         self.server = None;
-        Ok(())
     }
 
     fn mut_server(&mut self) -> &mut InitializedVHDLServer<T> {
         self.server.as_mut().expect("Expected initialized server")
     }
 
-    pub fn exit_notification(&mut self, _params: ()) {
+    pub fn exit_notification(&mut self) {
         match self.server {
             Some(_) => ::std::process::exit(1),
             None => ::std::process::exit(0),
@@ -470,9 +466,7 @@ mod tests {
             client_info: None,
         };
 
-        server
-            .initialize_request(initialize_params)
-            .expect("Should not fail");
+        server.initialize_request(initialize_params);
         server.initialized_notification();
     }
 
