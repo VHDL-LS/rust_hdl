@@ -98,6 +98,10 @@ pub fn parse_subprogram_declaration_no_semi(
             Impure => {
                 stream.expect_kind(Function)?;
                 (true, false)
+            },
+            Pure => {
+                stream.expect_kind(Function)?;
+                (true, true)
             }
         )
     };
@@ -275,7 +279,26 @@ impure function foo return lib.foo.natural;
             })
         );
     }
-
+    #[test]
+    pub fn parses_pure_function_specification() {
+        let code = Code::new(
+            "\
+pure function foo return lib.foo.natural;
+",
+        );
+        assert_eq!(
+            code.with_stream_no_diagnostics(parse_subprogram_declaration),
+            SubprogramDeclaration::Function(FunctionSpecification {
+                pure: true,
+                designator: code
+                    .s1("foo")
+                    .ident()
+                    .map_into(SubprogramDesignator::Identifier),
+                parameter_list: Vec::new(),
+                return_type: code.s1("lib.foo.natural").selected_name()
+            })
+        );
+    }
     #[test]
     pub fn parses_procedure_specification_with_parameters() {
         let code = Code::new(
