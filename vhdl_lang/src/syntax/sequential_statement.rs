@@ -126,6 +126,7 @@ fn parse_if_statement_known_keyword(
             },
             End => {
                 stream.expect_kind(If)?;
+                stream.pop_if_kind(Identifier)?;
                 conditionals.push(conditional);
                 break;
             }
@@ -1238,6 +1239,33 @@ end if;
             )
         );
     }
+    #[test]
+    fn parse_labeled_if_statement() {
+        let (code, statement) = parse(
+            "\
+mylabel: if cond = true then
+   foo(1,2);
+   x := 1;
+end if mylabel;
+",
+        );
+        assert_eq!(
+            statement,
+            with_label(
+                Some(code.s1("mylabel").ident()),
+                SequentialStatement::If(IfStatement {
+                    conditionals: vec![Conditional {
+                        condition: code.s1("cond = true").expr(),
+                        item: vec![
+                            code.s1("foo(1,2);").sequential_statement(),
+                            code.s1("x := 1;").sequential_statement()
+                        ]
+                    }],
+                    else_item: None
+                })
+            )
+        );
+    }
 
     #[test]
     fn parse_if_else_statement() {
@@ -1265,6 +1293,31 @@ end if;
         );
     }
 
+    #[test]
+    fn parse_labeled_if_else_statement() {
+        let (code, statement) = parse(
+            "\
+mylabel: if cond = true then
+   foo(1,2);
+else
+   x := 1;
+end if mylabel;
+",
+        );
+        assert_eq!(
+            statement,
+            with_label(
+                Some(code.s1("mylabel").ident()),
+                SequentialStatement::If(IfStatement {
+                    conditionals: vec![Conditional {
+                        condition: code.s1("cond = true").expr(),
+                        item: vec![code.s1("foo(1,2);").sequential_statement()]
+                    }],
+                    else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                })
+            )
+        );
+    }
     #[test]
     fn parse_if_elsif_else_statement() {
         let (code, statement) = parse(
@@ -1298,7 +1351,39 @@ end if;
             )
         );
     }
-
+    #[test]
+    fn parse_labeled_if_elsif_else_statement() {
+        let (code, statement) = parse(
+            "\
+mylabel: if cond = true then
+   foo(1,2);
+elsif cond2 = false then
+   y := 2;
+else
+   x := 1;
+end if mylabel;
+",
+        );
+        assert_eq!(
+            statement,
+            with_label(
+                Some(code.s1("mylabel").ident()),
+                SequentialStatement::If(IfStatement {
+                    conditionals: vec![
+                        Conditional {
+                            condition: code.s1("cond = true").expr(),
+                            item: vec![code.s1("foo(1,2);").sequential_statement()]
+                        },
+                        Conditional {
+                            condition: code.s1("cond2 = false").expr(),
+                            item: vec![code.s1("y := 2;").sequential_statement()]
+                        }
+                    ],
+                    else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                })
+            )
+        );
+    }
     #[test]
     fn parse_case_statement() {
         let (code, statement) = parse(
