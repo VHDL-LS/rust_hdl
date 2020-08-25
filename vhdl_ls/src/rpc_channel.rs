@@ -10,11 +10,15 @@ use lsp_types::*;
 use vhdl_lang::{Message, MessageHandler};
 
 pub trait RpcChannel {
+    /// Send notification to the client.
     fn send_notification(
         &self,
         method: impl Into<String>,
         notification: impl serde::ser::Serialize,
     );
+
+    /// Send request to the client.
+    fn send_request(&self, method: impl Into<String>, params: impl serde::ser::Serialize);
 
     fn window_show_message(&self, typ: MessageType, message: impl Into<String>) {
         self.send_notification(
@@ -85,6 +89,10 @@ pub mod test_support {
         },
         /// Check that the string representation of the notification contains a string
         NotificationContainsString { method: String, contains: String },
+        Request {
+            method: String,
+            params: serde_json::Value,
+        },
     }
 
     #[derive(Clone)]
@@ -123,6 +131,17 @@ pub mod test_support {
                     method: method.into(),
                     contains: contains.into(),
                 });
+        }
+
+        pub fn expect_request(
+            &self,
+            method: impl Into<String>,
+            params: impl serde::ser::Serialize,
+        ) {
+            self.expected.borrow_mut().push_back(RpcExpected::Request {
+                method: method.into(),
+                params: serde_json::to_value(params).unwrap(),
+            });
         }
 
         pub fn expect_error_contains(&self, contains: impl Into<String>) {
@@ -178,7 +197,7 @@ pub mod test_support {
                 .pop_front()
                 .ok_or_else(|| {
                     panic!(
-                        "No expected value, got method={} {:?}",
+                        "No expected value, got notification method={} {:?}",
                         method, notification
                     )
                 })
@@ -207,6 +226,39 @@ pub mod test_support {
                         );
                     }
                 }
+                _ => panic!(
+                    "Expected {:?}, got notification {} {:?}",
+                    expected, method, notification
+                ),
+            }
+        }
+
+        fn send_request(&self, method: impl Into<String>, params: impl serde::ser::Serialize) {
+            let method = method.into();
+            let params = serde_json::to_value(params).unwrap();
+            let expected = self
+                .expected
+                .borrow_mut()
+                .pop_front()
+                .ok_or_else(|| {
+                    panic!(
+                        "No expected value, got request method={} {:?}",
+                        method, params
+                    )
+                })
+                .unwrap();
+
+            match expected {
+                RpcExpected::Request {
+                    method: exp_method,
+                    params: exp_params,
+                } => {
+                    assert_eq!((method, params), (exp_method, exp_params));
+                }
+                _ => panic!(
+                    "Expected {:?}, got request {} {:?}",
+                    expected, method, params
+                ),
             }
         }
     }

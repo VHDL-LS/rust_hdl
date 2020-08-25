@@ -31,20 +31,68 @@ impl Project {
         }
     }
 
+    /// Create instance from given configuration.
+    /// Files referred by configuration are parsed into corresponding libraries.
     pub fn from_config(config: &Config, messages: &mut dyn MessageHandler) -> Project {
         let mut project = Project::new();
-        let mut files_to_parse: FnvHashMap<PathBuf, FnvHashSet<Symbol>> = FnvHashMap::default();
+
+        let files = project.load_files_from_config(config, messages);
+        project.parse_and_add_files(files, messages);
+
+        project
+    }
+
+    /// Replace active project configuration.
+    /// The design state is reset, new files are added and parsed. Existing source files will be
+    /// kept and parsed from in-memory source (required for incremental document updates).
+    pub fn update_config(&mut self, config: &Config, messages: &mut dyn MessageHandler) {
+        self.parser = VHDLParser::default();
+        self.root = DesignRoot::new(self.parser.symbols.clone());
+
+        // Reset library associations for known files,
+        // all project files are added to the corresponding libraries later on.
+        self.files
+            .values_mut()
+            .for_each(|source_file| source_file.library_names.clear());
+
+        // Files might already be part of self.files, these have to be parsed
+        // from in-memory source. New files can be parsed as usual.
+        let (known_files, new_files) = self
+            .load_files_from_config(config, messages)
+            .into_iter()
+            .partition(|(file_name, _library_names)| self.files.contains_key(file_name));
+
+        for (file_name, library_names) in known_files {
+            if let Some(source_file) = self.files.get_mut(&file_name) {
+                source_file.parser_diagnostics.clear();
+                source_file.library_names = library_names;
+                source_file.design_file = self
+                    .parser
+                    .parse_design_source(&source_file.source, &mut source_file.parser_diagnostics);
+            }
+        }
+
+        self.parse_and_add_files(new_files, messages);
+    }
+
+    fn load_files_from_config(
+        &mut self,
+        config: &Config,
+        messages: &mut dyn MessageHandler,
+    ) -> FnvHashMap<PathBuf, FnvHashSet<Symbol>> {
+        let mut files: FnvHashMap<PathBuf, FnvHashSet<Symbol>> = FnvHashMap::default();
+        self.empty_libraries.clear();
 
         for library in config.iter_libraries() {
             let library_name =
                 Latin1String::from_utf8(library.name()).expect("Library name not latin-1 encoded");
-            let library_name = project.parser.symbol(&library_name);
+            let library_name = self.parser.symbol(&library_name);
 
             let mut empty_library = true;
             for file_name in library.file_names(messages) {
                 empty_library = false;
 
-                match files_to_parse.entry(file_name.clone()) {
+                match files.entry(file_name.clone()) {
                     Entry::Occupied(mut entry) => {
                         entry.get_mut().insert(library_name.clone());
                     }
@@ -57,16 +105,23 @@ impl Project {
             }
 
             if empty_library {
-                project.empty_libraries.insert(library_name);
+                self.empty_libraries.insert(library_name);
             }
         }
+        files
+    }
 
+    fn parse_and_add_files(
+        &mut self,
+        files_to_parse: FnvHashMap<PathBuf, FnvHashSet<Symbol>>,
+        messages: &mut dyn MessageHandler,
+    ) {
         use rayon::prelude::*;
 
         let parsed: Vec<_> = files_to_parse
             .into_par_iter()
             .map_init(
-                || &project.parser,
+                || &self.parser,
                 |parser, (file_name, library_names)| {
                     let mut diagnostics = Vec::new();
                     let result = parser.parse_design_file(&file_name, &mut diagnostics);
@@ -84,7 +139,7 @@ impl Project {
                 }
             };
 
-            project.files.insert(
+            self.files.insert(
                 source.file_name().to_owned(),
                 SourceFile {
                     source,
@@ -94,8 +149,6 @@ impl Project {
                 },
             );
         }
-
-        project
     }
 
     pub fn get_source(&self, file_name: &Path) -> Option<Source> {
@@ -399,5 +452,72 @@ end package;
         ",
         );
         check_no_diagnostics(&project.analyse());
+    }
+
+    /// Test that the configuration can be updated
+    #[test]
+    fn test_config_update() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(tempdir.path()).unwrap();
+
+        let path1 = root.join("file1.vhd");
+        let path2 = root.join("file2.vhd");
+        std::fs::write(
+            &path1,
+            "
+library unkown;
+use unkown.pkg.all;
+
+package pkg is
+end package;
+        ",
+        )
+        .unwrap();
+        let source1 = Source::from_latin1_file(&path1).unwrap();
+
+        std::fs::write(
+            &path2,
+            "
+library unkown;
+use unkown.pkg.all;
+
+package pkg is
+end package;
+        ",
+        )
+        .unwrap();
+        let source2 = Source::from_latin1_file(&path2).unwrap();
+
+        let config_str1 = "
+[libraries]
+lib.files = ['file1.vhd']
+        ";
+        let config1 = Config::from_str(config_str1, &root).unwrap();
+
+        let config_str2 = "
+[libraries]
+lib.files = ['file2.vhd']
+        ";
+        let config2 = Config::from_str(config_str2, &root).unwrap();
+
+        let mut messages = Vec::new();
+        let mut project = Project::from_config(&config1, &mut messages);
+        assert_eq!(messages, vec![]);
+
+        // Invalid library should only be reported in source1
+        let diagnostics = project.analyse();
+        assert_eq!(diagnostics.len(), 2);
+        assert_eq!(diagnostics[0].pos.source, source1); // No such library
+        assert_eq!(diagnostics[1].pos.source, source1); // No declaration
+
+        // Change configuration file
+        project.update_config(&config2, &mut messages);
+        assert_eq!(messages, vec![]);
+
+        // Invalid library should only be reported in source2
+        let diagnostics = project.analyse();
+        assert_eq!(diagnostics.len(), 2);
+        assert_eq!(diagnostics[0].pos.source, source2); // No such library
+        assert_eq!(diagnostics[1].pos.source, source2); // No declaration
     }
 }

@@ -19,6 +19,7 @@ pub struct VHDLServer<T: RpcChannel + Clone> {
     // To have well defined unit tests that are not affected by environment
     use_external_config: bool,
     server: Option<InitializedVHDLServer<T>>,
+    config_file: Option<PathBuf>,
 }
 
 impl<T: RpcChannel + Clone> VHDLServer<T> {
@@ -31,26 +32,18 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
             rpc_channel,
             use_external_config,
             server: None,
+            config_file: None,
         }
     }
 
-    /// Load the vhdl_ls.toml config file from initalizeParams.rootUri
-    fn load_root_uri_config(&self, init_params: &InitializeParams) -> io::Result<Config> {
-        let root_uri = init_params.root_uri.as_ref().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::Other, "initializeParams.rootUri not set")
-        })?;
-
-        let root_path = root_uri.to_file_path().map_err(|_| {
+    /// Load the workspace root configuration file
+    fn load_root_uri_config(&self) -> io::Result<Config> {
+        let config_file = self.config_file.as_ref().ok_or_else(|| {
             io::Error::new(
                 io::ErrorKind::Other,
-                format!(
-                    "initializeParams.rootUri {:?} not a valid file path",
-                    root_uri
-                ),
+                "Workspace root configuration file not set",
             )
         })?;
-
-        let config_file = root_path.join("vhdl_ls.toml");
         let config = Config::read_file_path(&config_file)?;
 
         // Log which file was loaded
@@ -64,7 +57,7 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
 
     /// Load the configuration or use a default configuration if unsuccessful
     /// Log info/error messages to the client
-    fn load_config(&self, init_params: &InitializeParams) -> Config {
+    fn load_config(&self) -> Config {
         let mut config = Config::default();
         let mut message_chan = MessageChannel::new(&self.rpc_channel);
 
@@ -72,8 +65,10 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
             config.load_external_config(&mut message_chan);
         }
 
-        match self.load_root_uri_config(&init_params) {
-            Ok(root_config) => config.append(&root_config, &mut message_chan),
+        match self.load_root_uri_config() {
+            Ok(root_config) => {
+                config.append(&root_config, &mut message_chan);
+            }
             Err(ref err) => {
                 self.rpc_channel.push_msg(Message::error(format!(
                     "Found no vhdl_ls.toml config file in the workspace root path: {}",
@@ -89,10 +84,35 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
     }
 
     pub fn initialize_request(&mut self, params: InitializeParams) -> InitializeResult {
-        let config = self.load_config(&params);
+        self.config_file = self.root_uri_config_file(&params);
+        let config = self.load_config();
         let (server, result) = InitializedVHDLServer::new(self.rpc_channel.clone(), config, params);
         self.server = Some(server);
         result
+    }
+
+    /// Extract path of workspace root configuration file from InitializeParams
+    fn root_uri_config_file(&self, params: &InitializeParams) -> Option<PathBuf> {
+        match params.root_uri.clone() {
+            Some(root_uri) => root_uri
+                .to_file_path()
+                .map(|root_path| root_path.join("vhdl_ls.toml"))
+                .map_err(|_| {
+                    self.rpc_channel.push_msg(Message::error(format!(
+                        "{} {} {:?} ",
+                        "Cannot load workspace:",
+                        "initializeParams.rootUri is not a valid file path:",
+                        root_uri,
+                    )))
+                })
+                .ok(),
+            None => {
+                self.rpc_channel.push_msg(Message::error(
+                    "Cannot load workspace: Initialize request is missing rootUri parameter.",
+                ));
+                None
+            }
+        }
     }
 
     pub fn shutdown_server(&mut self) {
@@ -110,7 +130,30 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         }
     }
 
+    /// Register capabilities on the client side:
+    /// - watch workspace config file for changes
+    fn register_capabilities(&mut self) {
+        if self.mut_server().client_supports_did_change_watched_files() {
+            let register_options = DidChangeWatchedFilesRegistrationOptions {
+                watchers: vec![FileSystemWatcher {
+                    glob_pattern: "**/vhdl_ls.toml".to_owned(),
+                    kind: None,
+                }],
+            };
+            let params = RegistrationParams {
+                registrations: vec![Registration {
+                    id: "workspace/didChangeWatchedFiles".to_owned(),
+                    method: "workspace/didChangeWatchedFiles".to_owned(),
+                    register_options: serde_json::to_value(register_options).ok(),
+                }],
+            };
+            self.mut_server()
+                .send_request("client/registerCapability", params);
+        }
+    }
+
     pub fn initialized_notification(&mut self) {
+        self.register_capabilities();
         self.mut_server().initialized_notification();
     }
 
@@ -122,6 +165,22 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
     pub fn text_document_did_open_notification(&mut self, params: &DidOpenTextDocumentParams) {
         self.mut_server()
             .text_document_did_open_notification(&params)
+    }
+
+    pub fn workspace_did_change_watched_files(&mut self, params: &DidChangeWatchedFilesParams) {
+        if let Some(config_file) = &self.config_file {
+            let config_file_has_changed = params
+                .changes
+                .iter()
+                .any(|change| uri_to_file_name(&change.uri).as_path() == config_file);
+            if config_file_has_changed {
+                self.rpc_channel.push_msg(Message::log(
+                    "Configuration file has changed, reloading project...",
+                ));
+                let config = self.load_config();
+                self.mut_server().change_configuration(config);
+            }
+        }
     }
 
     // textDocument/declaration
@@ -162,6 +221,10 @@ impl<T: RpcChannel> RpcChannel for InitializedVHDLServer<T> {
     ) {
         self.rpc_channel.send_notification(method, notification);
     }
+
+    fn send_request(&self, method: impl Into<String>, params: impl serde::ser::Serialize) {
+        self.rpc_channel.send_request(method, params);
+    }
 }
 
 impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
@@ -194,6 +257,12 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         (server, result)
     }
 
+    pub fn change_configuration(&mut self, config: Config) {
+        self.project
+            .update_config(&config, &mut MessageChannel::new(&self.rpc_channel));
+        self.publish_diagnostics();
+    }
+
     pub fn initialized_notification(&mut self) {
         self.publish_diagnostics();
     }
@@ -207,6 +276,19 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
                 .publish_diagnostics
                 .as_ref()?
                 .related_information
+        };
+        try_fun().unwrap_or(false)
+    }
+
+    fn client_supports_did_change_watched_files(&self) -> bool {
+        let try_fun = || {
+            self.init_params
+                .capabilities
+                .workspace
+                .as_ref()?
+                .did_change_watched_files
+                .as_ref()?
+                .dynamic_registration
         };
         try_fun().unwrap_or(false)
     }
@@ -792,5 +874,151 @@ lib.files = [
         };
 
         assert_eq!(response, Some(expected));
+    }
+
+    #[test]
+    fn client_register_capability() {
+        let (mock, mut server) = setup_server();
+        let (_tempdir, root_uri) = temp_root_uri();
+
+        let config_uri = write_config(
+            &root_uri,
+            "
+[libraries]
+        ",
+        );
+
+        let register_options = DidChangeWatchedFilesRegistrationOptions {
+            watchers: vec![FileSystemWatcher {
+                glob_pattern: "**/vhdl_ls.toml".to_owned(),
+                kind: None,
+            }],
+        };
+        let register_capability = RegistrationParams {
+            registrations: vec![Registration {
+                id: "workspace/didChangeWatchedFiles".to_owned(),
+                method: "workspace/didChangeWatchedFiles".to_owned(),
+                register_options: serde_json::to_value(register_options).ok(),
+            }],
+        };
+
+        expect_loaded_config_messages(&mock, &config_uri);
+        mock.expect_request("client/registerCapability", register_capability);
+
+        let capabilities = ClientCapabilities {
+            workspace: Some(WorkspaceClientCapabilities {
+                did_change_watched_files: Some(GenericCapability {
+                    dynamic_registration: Some(true),
+                }),
+                ..WorkspaceClientCapabilities::default()
+            }),
+            ..ClientCapabilities::default()
+        };
+        #[allow(deprecated)]
+        let initialize_params = InitializeParams {
+            process_id: None,
+            root_path: None,
+            root_uri: Some(root_uri),
+            initialization_options: None,
+            capabilities,
+            trace: None,
+            workspace_folders: None,
+            client_info: None,
+        };
+
+        server.initialize_request(initialize_params);
+        server.initialized_notification();
+    }
+
+    #[test]
+    fn update_config_file() {
+        let (mock, mut server) = setup_server();
+        let (_tempdir, root_uri) = temp_root_uri();
+        let file1_uri = write_file(
+            &root_uri,
+            "file1.vhd",
+            "\
+architecture rtl of ent is
+begin
+end;
+",
+        );
+        let file2_uri = write_file(
+            &root_uri,
+            "file2.vhd",
+            "\
+architecture rtl of ent is
+begin
+end;
+",
+        );
+        let config_uri = write_config(
+            &root_uri,
+            "
+[libraries]
+lib.files = [
+  'file1.vhd'
+]
+",
+        );
+
+        let publish_diagnostics1 = PublishDiagnosticsParams {
+            uri: file1_uri.clone(),
+            diagnostics: vec![lsp_types::Diagnostic {
+                range: Range {
+                    start: lsp_types::Position {
+                        line: 0,
+                        character: "architecture rtl of ".len() as u64,
+                    },
+                    end: lsp_types::Position {
+                        line: 0,
+                        character: "architecture rtl of ent".len() as u64,
+                    },
+                },
+                code: None,
+                severity: Some(DiagnosticSeverity::Error),
+                source: Some("vhdl ls".to_owned()),
+                message: "No entity \'ent\' within library \'lib\'".to_owned(),
+                related_information: None,
+                tags: None,
+            }],
+            version: None,
+        };
+
+        // after config change
+        let publish_diagnostics2a = PublishDiagnosticsParams {
+            uri: file2_uri,
+            ..publish_diagnostics1.clone()
+        };
+        let publish_diagnostics2b = PublishDiagnosticsParams {
+            uri: file1_uri,
+            diagnostics: vec![],
+            version: None,
+        };
+
+        expect_loaded_config_messages(&mock, &config_uri);
+        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics1);
+        mock.expect_message_contains("Configuration file has changed, reloading project...");
+        expect_loaded_config_messages(&mock, &config_uri);
+        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics2a);
+        mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics2b);
+
+        initialize_server(&mut server, root_uri.clone());
+
+        let config_uri = write_config(
+            &root_uri,
+            "
+[libraries]
+lib.files = [
+  'file2.vhd'
+]
+",
+        );
+        server.workspace_did_change_watched_files(&DidChangeWatchedFilesParams {
+            changes: vec![FileEvent {
+                typ: FileChangeType::Changed,
+                uri: config_uri,
+            }],
+        });
     }
 }

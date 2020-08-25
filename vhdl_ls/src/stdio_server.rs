@@ -8,12 +8,12 @@
 //! It also contains the main event loop for handling incoming messages from the LSP client and
 //! dispatching them to the appropriate server methods.
 
-use lsp_server::Connection;
+use lsp_server::{Connection, Request, RequestId};
 use lsp_types::{
     notification::{self, Notification},
     request, InitializeParams,
 };
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use crate::rpc_channel::RpcChannel;
 use crate::vhdl_server::VHDLServer;
@@ -21,62 +21,25 @@ use crate::vhdl_server::VHDLServer;
 /// Set up the IO channel for `stdio` and start the VHDL language server.
 pub fn start() {
     let (connection, io_threads) = Connection::stdio();
-    let connection = Rc::new(connection);
-    let mut server = VHDLServer::new(connection.clone());
+    let connection_rpc = ConnectionRpcChannel::new(connection);
+    let mut server = VHDLServer::new(connection_rpc.clone());
 
-    handle_initialization(&connection, &mut server);
-    main_event_loop(connection, server);
+    connection_rpc.handle_initialization(&mut server);
+    connection_rpc.main_event_loop(server);
+
     io_threads.join().unwrap();
 }
 
-/// Wait for initialize request from the client and let the server respond to it.
-fn handle_initialization<T: RpcChannel + Clone>(
-    connection: &Connection,
-    server: &mut VHDLServer<T>,
-) {
-    let (initialize_id, initialize_params) = connection.initialize_start().unwrap();
-    let initialize_params = serde_json::from_value::<InitializeParams>(initialize_params).unwrap();
-    let initialize_result = server.initialize_request(initialize_params);
-    connection
-        .initialize_finish(
-            initialize_id,
-            serde_json::to_value(initialize_result).unwrap(),
-        )
-        .unwrap();
-
-    server.initialized_notification();
+/// Wrapper for Connection implementing RpcChannel + Clone
+/// and keeping track of outgoing request IDs.
+#[derive(Clone)]
+struct ConnectionRpcChannel {
+    connection: Rc<Connection>,
+    next_outgoing_request_id: Rc<RefCell<u64>>,
 }
 
-/// Main event loop handling incoming messages from the client.
-fn main_event_loop<T: RpcChannel + Clone>(connection: Rc<Connection>, mut server: VHDLServer<T>) {
-    info!("Language server initialized, waiting for messages ...");
-    while let Ok(message) = connection.receiver.recv() {
-        trace!("Received message: {:?}", message);
-        if let lsp_server::Message::Notification(notification) = &message {
-            if notification.method == notification::Exit::METHOD {
-                return;
-            }
-        }
-        match message {
-            lsp_server::Message::Request(request) => {
-                handle_request(&mut server, connection.as_ref(), request)
-            }
-            lsp_server::Message::Notification(notification) => {
-                handle_notification(&mut server, notification);
-            }
-            lsp_server::Message::Response(response) => handle_response(&mut server, response),
-        };
-    }
-}
-
-/// Send responses (to requests sent by the client) back to the client.
-fn send_response(connection: &Connection, response: lsp_server::Response) {
-    trace!("Sending response: {:?}", response);
-    connection.sender.send(response.into()).unwrap();
-}
-
-impl RpcChannel for Rc<Connection> {
-    /// Send notifications to the client.
+impl RpcChannel for ConnectionRpcChannel {
+    /// Send notification to the client.
     fn send_notification(
         &self,
         method: impl Into<String>,
@@ -88,110 +51,183 @@ impl RpcChannel for Rc<Connection> {
         };
 
         trace!("Sending notification: {:?}", notification);
-        self.sender.send(notification.into()).unwrap();
+        self.connection.sender.send(notification.into()).unwrap();
+    }
+
+    /// Send request to the client.
+    fn send_request(&self, method: impl Into<String>, params: impl serde::ser::Serialize) {
+        let request_id = self.next_outgoing_request_id.replace_with(|&mut id| id + 1);
+
+        let request = Request::new(
+            RequestId::from(request_id),
+            method.into(),
+            serde_json::to_value(params).unwrap(),
+        );
+        self.connection.sender.send(request.into()).unwrap();
     }
 }
 
-/// Handle incoming requests from the client.
-fn handle_request<T: RpcChannel + Clone>(
-    server: &mut VHDLServer<T>,
-    connection: &Connection,
-    request: lsp_server::Request,
-) {
-    fn extract<R>(
-        request: lsp_server::Request,
-    ) -> Result<(lsp_server::RequestId, R::Params), lsp_server::Request>
-    where
-        R: request::Request,
-        R::Params: serde::de::DeserializeOwned,
-    {
-        request.extract(R::METHOD)
+impl ConnectionRpcChannel {
+    fn new(connection: Connection) -> Self {
+        Self {
+            connection: Rc::new(connection),
+            next_outgoing_request_id: Rc::new(RefCell::new(0)),
+        }
     }
 
-    trace!("Handling request: {:?}", request);
-    let request = match extract::<request::GotoDeclaration>(request) {
-        Ok((id, params)) => {
-            let result = server.text_document_declaration(&params);
-            send_response(connection, lsp_server::Response::new_ok(id, result));
-            return;
-        }
-        Err(request) => request,
-    };
-    let request = match extract::<request::GotoDefinition>(request) {
-        Ok((id, params)) => {
-            let result = server.text_document_definition(&params);
-            send_response(connection, lsp_server::Response::new_ok(id, result));
-            return;
-        }
-        Err(request) => request,
-    };
-    let request = match extract::<request::References>(request) {
-        Ok((id, params)) => {
-            let result = server.text_document_references(&params);
-            send_response(connection, lsp_server::Response::new_ok(id, result));
-            return;
-        }
-        Err(request) => request,
-    };
-    let request = match extract::<request::Shutdown>(request) {
-        Ok((id, _params)) => {
-            server.shutdown_server();
-            send_response(connection, lsp_server::Response::new_ok(id, ()));
-            return;
-        }
-        Err(request) => request,
-    };
+    /// Wait for initialize request from the client and let the server respond to it.
+    fn handle_initialization<T: RpcChannel + Clone>(&self, server: &mut VHDLServer<T>) {
+        let (initialize_id, initialize_params) = self.connection.initialize_start().unwrap();
+        let initialize_params =
+            serde_json::from_value::<InitializeParams>(initialize_params).unwrap();
+        let initialize_result = server.initialize_request(initialize_params);
+        self.connection
+            .initialize_finish(
+                initialize_id,
+                serde_json::to_value(initialize_result).unwrap(),
+            )
+            .unwrap();
 
-    debug!("Unhandled request: {:?}", request);
-    send_response(
-        connection,
-        lsp_server::Response::new_err(
+        server.initialized_notification();
+    }
+
+    /// Main event loop handling incoming messages from the client.
+    fn main_event_loop<T: RpcChannel + Clone>(&self, mut server: VHDLServer<T>) {
+        info!("Language server initialized, waiting for messages ...");
+        while let Ok(message) = self.connection.receiver.recv() {
+            trace!("Received message: {:?}", message);
+            if let lsp_server::Message::Notification(notification) = &message {
+                if notification.method == notification::Exit::METHOD {
+                    return;
+                }
+            }
+            match message {
+                lsp_server::Message::Request(request) => self.handle_request(&mut server, request),
+                lsp_server::Message::Notification(notification) => {
+                    self.handle_notification(&mut server, notification);
+                }
+                lsp_server::Message::Response(response) => {
+                    self.handle_response(&mut server, response)
+                }
+            };
+        }
+    }
+
+    /// Send responses (to requests sent by the client) back to the client.
+    fn send_response(&self, response: lsp_server::Response) {
+        trace!("Sending response: {:?}", response);
+        self.connection.sender.send(response.into()).unwrap();
+    }
+
+    /// Handle incoming requests from the client.
+    fn handle_request<T: RpcChannel + Clone>(
+        &self,
+        server: &mut VHDLServer<T>,
+        request: lsp_server::Request,
+    ) {
+        fn extract<R>(
+            request: lsp_server::Request,
+        ) -> Result<(lsp_server::RequestId, R::Params), lsp_server::Request>
+        where
+            R: request::Request,
+            R::Params: serde::de::DeserializeOwned,
+        {
+            request.extract(R::METHOD)
+        }
+
+        trace!("Handling request: {:?}", request);
+        let request = match extract::<request::GotoDeclaration>(request) {
+            Ok((id, params)) => {
+                let result = server.text_document_declaration(&params);
+                self.send_response(lsp_server::Response::new_ok(id, result));
+                return;
+            }
+            Err(request) => request,
+        };
+        let request = match extract::<request::GotoDefinition>(request) {
+            Ok((id, params)) => {
+                let result = server.text_document_definition(&params);
+                self.send_response(lsp_server::Response::new_ok(id, result));
+                return;
+            }
+            Err(request) => request,
+        };
+        let request = match extract::<request::References>(request) {
+            Ok((id, params)) => {
+                let result = server.text_document_references(&params);
+                self.send_response(lsp_server::Response::new_ok(id, result));
+                return;
+            }
+            Err(request) => request,
+        };
+        let request = match extract::<request::Shutdown>(request) {
+            Ok((id, _params)) => {
+                server.shutdown_server();
+                self.send_response(lsp_server::Response::new_ok(id, ()));
+                return;
+            }
+            Err(request) => request,
+        };
+
+        debug!("Unhandled request: {:?}", request);
+        self.send_response(lsp_server::Response::new_err(
             request.id,
             lsp_server::ErrorCode::MethodNotFound as i32,
             "Unknown request".to_string(),
-        ),
-    );
-}
+        ));
+    }
 
-/// Handle incoming notifications from the client.
-fn handle_notification<T: RpcChannel + Clone>(
-    server: &mut VHDLServer<T>,
-    notification: lsp_server::Notification,
-) {
-    fn extract<N>(
+    /// Handle incoming notifications from the client.
+    fn handle_notification<T: RpcChannel + Clone>(
+        &self,
+        server: &mut VHDLServer<T>,
         notification: lsp_server::Notification,
-    ) -> Result<N::Params, lsp_server::Notification>
-    where
-        N: notification::Notification,
-        N::Params: serde::de::DeserializeOwned,
-    {
-        notification.extract(N::METHOD)
+    ) {
+        fn extract<N>(
+            notification: lsp_server::Notification,
+        ) -> Result<N::Params, lsp_server::Notification>
+        where
+            N: notification::Notification,
+            N::Params: serde::de::DeserializeOwned,
+        {
+            notification.extract(N::METHOD)
+        }
+
+        trace!("Handling notification: {:?}", notification);
+        // textDocument/didChange
+        let notification = match extract::<notification::DidChangeTextDocument>(notification) {
+            Ok(params) => return server.text_document_did_change_notification(&params),
+            Err(notification) => notification,
+        };
+        // textDocument/didOpen
+        let notification = match extract::<notification::DidOpenTextDocument>(notification) {
+            Ok(params) => return server.text_document_did_open_notification(&params),
+            Err(notification) => notification,
+        };
+        // workspace.didChangeWatchedFiles
+        let notification = match extract::<notification::DidChangeWatchedFiles>(notification) {
+            Ok(params) => return server.workspace_did_change_watched_files(&params),
+            Err(notification) => notification,
+        };
+        // exit
+        let notification = match extract::<notification::Exit>(notification) {
+            Ok(_params) => return server.exit_notification(),
+            Err(notification) => notification,
+        };
+
+        if !notification.method.starts_with("$/") {
+            debug!("Unhandled notification: {:?}", notification);
+        }
     }
 
-    trace!("Handling notification: {:?}", notification);
-    let notification = match extract::<notification::DidChangeTextDocument>(notification) {
-        Ok(params) => return server.text_document_did_change_notification(&params),
-        Err(notification) => notification,
-    };
-    let notification = match extract::<notification::DidOpenTextDocument>(notification) {
-        Ok(params) => return server.text_document_did_open_notification(&params),
-        Err(notification) => notification,
-    };
-    let notification = match extract::<notification::Exit>(notification) {
-        Ok(_params) => return server.exit_notification(),
-        Err(notification) => notification,
-    };
-
-    if !notification.method.starts_with("$/") {
-        debug!("Unhandled notification: {:?}", notification);
+    /// Handle incoming responses (to requests sent by us) from the client.
+    fn handle_response<T: RpcChannel + Clone>(
+        &self,
+        _server: &mut VHDLServer<T>,
+        response: lsp_server::Response,
+    ) {
+        trace!("Handling response: {:?}", response);
+        // We currently can ignore incoming responses as the implemented
+        // outgoing requests do not require confirmation by the client.
     }
-}
-
-/// Handle incoming responses (to requests sent by us) from the client.
-fn handle_response<T: RpcChannel + Clone>(
-    _server: &mut VHDLServer<T>,
-    response: lsp_server::Response,
-) {
-    trace!("Handling response: {:?}", response);
-    debug!("Unhandled response: {:?}", response);
 }
