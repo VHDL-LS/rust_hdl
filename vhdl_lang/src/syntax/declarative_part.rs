@@ -50,13 +50,13 @@ pub fn is_declarative_part(stream: &mut TokenStream, begin_is_end: bool) -> Pars
 fn check_declarative_part(token: &Token, may_end: bool, may_begin: bool) -> ParseResult<()> {
     match token.kind {
         Use | Type | Subtype | Shared | Constant | Signal | Variable | File | Component
-        | Attribute | Alias | Impure | Function | Procedure | Package | For => Ok(()),
+        | Attribute | Alias | Impure | Pure | Function | Procedure | Package | For => Ok(()),
         Begin if may_begin => Ok(()),
         End if may_end => Ok(()),
         _ => {
             let decl_kinds = [
                 Use, Type, Subtype, Shared, Constant, Signal, Variable, File, Component, Attribute,
-                Alias, Impure, Function, Procedure, Package, For,
+                Alias, Impure, Pure, Function, Procedure, Package, For,
             ];
 
             Err(token.kinds_error(&decl_kinds))
@@ -83,8 +83,8 @@ pub fn parse_declarative_part_leave_end_token(
 
     fn is_recover_token(kind: Kind) -> bool {
         match kind {
-            Type | Subtype | Component | Impure | Function | Procedure | Package | For | File
-            | Shared | Constant | Signal | Variable | Attribute | Use | Alias => true,
+            Type | Subtype | Component | Impure | Pure | Function | Procedure | Package | For
+            | File | Shared | Constant | Signal | Variable | Attribute | Use | Alias => true,
             _ => false,
         }
     };
@@ -92,14 +92,14 @@ pub fn parse_declarative_part_leave_end_token(
     while let Some(token) = stream.peek()? {
         match token.kind {
             Begin | End => break,
-            Type | Subtype | Component | Impure | Function | Procedure | Package | For => {
+            Type | Subtype | Component | Impure | Pure | Function | Procedure | Package | For => {
                 let decl = match token.kind {
                     Type | Subtype => {
                         parse_type_declaration(stream, diagnostics).map(Declaration::Type)?
                     }
                     Component => parse_component_declaration(stream, diagnostics)
                         .map(Declaration::Component)?,
-                    Impure | Function | Procedure => parse_subprogram(stream, diagnostics)?,
+                    Impure | Pure | Function | Procedure => parse_subprogram(stream, diagnostics)?,
                     Package => parse_package_instantiation(stream).map(Declaration::Package)?,
                     For => {
                         parse_configuration_specification(stream).map(Declaration::Configuration)?
@@ -145,8 +145,8 @@ pub fn parse_declarative_part_leave_end_token(
 
             _ => {
                 diagnostics.push(token.kinds_error(&[
-                    Type, Subtype, Component, Impure, Function, Procedure, Package, For, File,
-                    Shared, Constant, Signal, Variable, Attribute, Use, Alias,
+                    Type, Subtype, Component, Impure, Pure, Function, Procedure, Package, For,
+                    File, Shared, Constant, Signal, Variable, Attribute, Use, Alias,
                 ]));
                 stream.skip_until(is_recover_token)?;
                 continue;
@@ -232,7 +232,7 @@ constant x: natural := 5;
             msgs,
             vec![Diagnostic::error(
                 code.s1("var").pos(),
-                "Expected 'type', 'subtype', 'component', 'impure', \
+                "Expected 'type', 'subtype', 'component', 'impure', 'pure', \
                  'function', 'procedure', 'package', 'for', 'file', \
                  'shared', 'constant', 'signal', 'variable', 'attribute', \
                  'use' or 'alias'"
