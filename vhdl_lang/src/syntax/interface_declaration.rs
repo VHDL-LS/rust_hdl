@@ -227,7 +227,7 @@ fn parse_interface_declaration(
             let ident = stream.expect_ident()?;
             Ok(vec![InterfaceDeclaration::Type(ident)])
         },
-        Function | Procedure | Impure => {
+        Function | Procedure | Impure | Pure => {
             let decl = parse_subprogram_declaration_no_semi(stream, diagnostics)?;
             let default = parse_subprogram_default(stream)?;
 
