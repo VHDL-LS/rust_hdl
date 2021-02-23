@@ -1113,6 +1113,7 @@ pub struct EntityDeclaration {
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledConcurrentStatement>,
 }
+
 /// LRM 3.3 Architecture bodies
 #[derive(PartialEq, Debug, Clone)]
 pub struct ArchitectureBody {
