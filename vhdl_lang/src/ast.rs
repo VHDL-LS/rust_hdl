@@ -515,6 +515,13 @@ pub enum ObjectClass {
     SharedVariable,
 }
 
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum InterfaceListType {
+    Port,
+    Generic,
+    Parameter,
+}
+
 #[derive(PartialEq, Debug, Clone)]
 pub struct ObjectDeclaration {
     pub class: ObjectClass,
@@ -583,6 +590,7 @@ pub struct InterfaceFileDeclaration {
 /// LRM 6.5.2 Interface object declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfaceObjectDeclaration {
+    pub list_type: InterfaceListType,
     pub class: ObjectClass,
     pub ident: Ident,
     pub mode: Mode,
