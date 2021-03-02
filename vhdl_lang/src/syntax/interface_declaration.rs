@@ -266,14 +266,14 @@ enum InterfaceListType {
 }
 
 fn is_sync_kind(list_type: InterfaceListType, kind: Kind) -> bool {
-    match (list_type, kind) {
+    matches!(
+        (list_type, kind),
         (InterfaceListType::Generic, Constant)
-        | (InterfaceListType::Port, Signal)
-        | (InterfaceListType::Parameter, Constant)
-        | (InterfaceListType::Parameter, Variable)
-        | (InterfaceListType::Parameter, Signal) => true,
-        _ => false,
-    }
+            | (InterfaceListType::Port, Signal)
+            | (InterfaceListType::Parameter, Constant)
+            | (InterfaceListType::Parameter, Variable)
+            | (InterfaceListType::Parameter, Signal)
+    )
 }
 
 fn parse_interface_list(

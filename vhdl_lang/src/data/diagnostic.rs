@@ -103,8 +103,8 @@ impl Diagnostic {
 pub type DiagnosticResult<T> = Result<T, Diagnostic>;
 
 pub trait DiagnosticHandler {
-    fn push(self: &mut Self, diagnostic: Diagnostic);
-    fn append(self: &mut Self, diagnostics: Vec<Diagnostic>) {
+    fn push(&mut self, diagnostic: Diagnostic);
+    fn append(&mut self, diagnostics: Vec<Diagnostic>) {
         for diagnostic in diagnostics.into_iter() {
             self.push(diagnostic);
         }
@@ -142,7 +142,7 @@ impl<'a> dyn DiagnosticHandler + 'a {
 }
 
 impl DiagnosticHandler for Vec<Diagnostic> {
-    fn push(self: &mut Self, diagnostic: Diagnostic) {
+    fn push(&mut self, diagnostic: Diagnostic) {
         self.push(diagnostic)
     }
 }

@@ -555,10 +555,7 @@ impl From<Utf8ToLatin1Error> for TokenError {
 /// char may not come after ], ), all, or identifier
 fn can_be_char(last_token_kind: Option<Kind>) -> bool {
     if let Some(kind) = last_token_kind {
-        match kind {
-            RightSquare | RightPar | All | Identifier => false,
-            _ => true,
-        }
+        !matches!(kind, RightSquare | RightPar | All | Identifier)
     } else {
         true
     }
@@ -569,7 +566,7 @@ fn parse_integer(
     base: u64,
     stop_on_suffix: bool,
 ) -> Result<u64, TokenError> {
-    let mut result = Some(0 as u64);
+    let mut result = Some(0_u64);
     let mut too_large_digit = None;
     let mut invalid_character = None;
 
@@ -836,9 +833,7 @@ fn parse_real_literal(
 }
 
 fn exponentiate(value: u64, exp: u32) -> Option<u64> {
-    (10 as u64)
-        .checked_pow(exp)
-        .and_then(|x| x.checked_mul(value))
+    (10_u64).checked_pow(exp).and_then(|x| x.checked_mul(value))
 }
 
 /// LRM 15.5 Abstract literals
@@ -864,7 +859,7 @@ fn parse_abstract_literal(
                     Ok((
                         AbstractLiteral,
                         Value::AbstractLiteral(ast::AbstractLiteral::Real(
-                            real * (10.0 as f64).powi(exp),
+                            real * (10.0_f64).powi(exp),
                         )),
                     ))
                 }
@@ -911,7 +906,7 @@ fn parse_abstract_literal(
             if let Some(b'#') = reader.peek()? {
                 reader.skip();
                 let integer = base_result?;
-                if base >= 2 && base <= 16 {
+                if (2..=16).contains(&base) {
                     Ok((
                         AbstractLiteral,
                         Value::AbstractLiteral(ast::AbstractLiteral::Integer(integer)),

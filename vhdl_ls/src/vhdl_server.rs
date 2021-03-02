@@ -242,13 +242,16 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             files_with_notifications: FnvHashMap::default(),
         };
 
-        let mut capabilities = ServerCapabilities::default();
-        capabilities.text_document_sync = Some(TextDocumentSyncCapability::Kind(
-            TextDocumentSyncKind::Incremental,
-        ));
-        capabilities.declaration_provider = Some(true);
-        capabilities.definition_provider = Some(true);
-        capabilities.references_provider = Some(true);
+        let capabilities = ServerCapabilities {
+            text_document_sync: Some(TextDocumentSyncCapability::Kind(
+                TextDocumentSyncKind::Incremental,
+            )),
+            declaration_provider: Some(true),
+            definition_provider: Some(true),
+            references_provider: Some(true),
+            ..Default::default()
+        };
+
         let result = InitializeResult {
             capabilities,
             server_info: None,

@@ -185,11 +185,7 @@ impl<'a> AnalyzeContext<'a> {
             // @TODO architecture
             InstantiatedUnit::Entity(ref mut entity_name, ..) => {
                 fn is_entity(kind: &NamedEntityKind) -> bool {
-                    if let NamedEntityKind::Entity(..) = kind {
-                        true
-                    } else {
-                        false
-                    }
+                    matches!(kind, NamedEntityKind::Entity(..))
                 }
 
                 if let Err(err) =
@@ -200,11 +196,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             InstantiatedUnit::Component(ref mut component_name) => {
                 fn is_component(kind: &NamedEntityKind) -> bool {
-                    if let NamedEntityKind::Component = kind {
-                        true
-                    } else {
-                        false
-                    }
+                    matches!(kind, NamedEntityKind::Component)
                 }
 
                 if let Err(err) =
@@ -215,11 +207,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             InstantiatedUnit::Configuration(ref mut config_name) => {
                 fn is_configuration(kind: &NamedEntityKind) -> bool {
-                    if let NamedEntityKind::Configuration(..) = kind {
-                        true
-                    } else {
-                        false
-                    }
+                    matches!(kind, NamedEntityKind::Configuration(..))
                 }
 
                 if let Err(err) = self.resolve_non_overloaded(

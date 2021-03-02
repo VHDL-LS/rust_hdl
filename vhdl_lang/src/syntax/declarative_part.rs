@@ -82,11 +82,25 @@ pub fn parse_declarative_part_leave_end_token(
     let mut declarations: Vec<Declaration> = Vec::new();
 
     fn is_recover_token(kind: Kind) -> bool {
-        match kind {
-            Type | Subtype | Component | Impure | Pure | Function | Procedure | Package | For
-            | File | Shared | Constant | Signal | Variable | Attribute | Use | Alias => true,
-            _ => false,
-        }
+        matches!(
+            kind,
+            Type | Subtype
+                | Component
+                | Impure
+                | Pure
+                | Function
+                | Procedure
+                | Package
+                | For
+                | File
+                | Shared
+                | Constant
+                | Signal
+                | Variable
+                | Attribute
+                | Use
+                | Alias
+        )
     };
 
     while let Some(token) = stream.peek()? {

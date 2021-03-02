@@ -54,38 +54,26 @@ impl NamedEntityKind {
     }
 
     pub fn is_deferred_constant(&self) -> bool {
-        if let NamedEntityKind::DeferredConstant = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, NamedEntityKind::DeferredConstant)
     }
 
     pub fn is_non_deferred_constant(&self) -> bool {
-        if let NamedEntityKind::Object(ObjectClass::Constant) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, NamedEntityKind::Object(ObjectClass::Constant))
     }
 
     pub fn is_protected_type(&self) -> bool {
-        if let NamedEntityKind::ProtectedType(..) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, NamedEntityKind::ProtectedType(..))
     }
 
     pub fn is_type(&self) -> bool {
-        match self {
+        matches!(
+            self,
             NamedEntityKind::IncompleteType
-            | NamedEntityKind::ProtectedType(..)
-            | NamedEntityKind::InterfaceType
-            | NamedEntityKind::Subtype(..)
-            | NamedEntityKind::TypeDeclaration(..) => true,
-            _ => false,
-        }
+                | NamedEntityKind::ProtectedType(..)
+                | NamedEntityKind::InterfaceType
+                | NamedEntityKind::Subtype(..)
+                | NamedEntityKind::TypeDeclaration(..)
+        )
     }
 
     pub fn implicit_declarations(&self) -> Vec<Arc<NamedEntity>> {
@@ -180,10 +168,10 @@ pub struct ParameterList {
 
 impl ParameterList {
     pub fn add_param(&mut self, param: Arc<NamedEntity>) {
-        debug_assert!(match param.kind() {
-            NamedEntityKind::InterfaceObject(..) | NamedEntityKind::InterfaceFile(..) => true,
-            _ => false,
-        });
+        debug_assert!(matches!(
+            param.kind(),
+            NamedEntityKind::InterfaceObject(..) | NamedEntityKind::InterfaceFile(..)
+        ));
 
         self.params.push(param);
     }
@@ -364,19 +352,11 @@ impl NamedEntity {
     }
 
     pub fn is_subprogram(&self) -> bool {
-        if let NamedEntityKind::Subprogram(..) = self.kind {
-            true
-        } else {
-            false
-        }
+        matches!(self.kind, NamedEntityKind::Subprogram(..))
     }
 
     pub fn is_subprogram_decl(&self) -> bool {
-        if let NamedEntityKind::SubprogramDecl(..) = self.kind {
-            true
-        } else {
-            false
-        }
+        matches!(self.kind, NamedEntityKind::SubprogramDecl(..))
     }
 
     pub fn is_explicit(&self) -> bool {

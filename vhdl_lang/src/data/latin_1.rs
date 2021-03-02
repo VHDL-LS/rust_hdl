@@ -33,14 +33,14 @@ pub fn char_to_latin1(chr: char) -> Option<u8> {
         Some(byte)
     } else if byte == 0xc2 {
         let next_byte = bytes[1];
-        if 128 <= next_byte && next_byte < 192 {
+        if (128..192).contains(&next_byte) {
             Some(next_byte)
         } else {
             None
         }
     } else if byte == 0xc3 {
         let next_byte = bytes[1];
-        if 128 <= next_byte && next_byte < 192 {
+        if (128..192).contains(&next_byte) {
             Some(next_byte + 64)
         } else {
             None
@@ -122,7 +122,7 @@ impl Latin1String {
                 i += 1;
             } else if byte == 0xc2 {
                 let next_byte = bytes[i + 1];
-                if 128 <= next_byte && next_byte < 192 {
+                if (128..192).contains(&next_byte) {
                     latin1_bytes.push(next_byte);
                     i += 2;
                 } else {
@@ -130,7 +130,7 @@ impl Latin1String {
                 }
             } else if byte == 0xc3 {
                 let next_byte = bytes[i + 1];
-                if 128 <= next_byte && next_byte < 192 {
+                if (128..192).contains(&next_byte) {
                     latin1_bytes.push(next_byte + 64);
                     i += 2;
                 } else {

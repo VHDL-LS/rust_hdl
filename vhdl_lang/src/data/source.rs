@@ -388,7 +388,7 @@ impl SrcPos {
         }
 
         // Newline
-        into.push_str("\n");
+        into.push('\n');
     }
 
     fn code_context_from_contents(

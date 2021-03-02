@@ -38,19 +38,19 @@ impl Symbol {
     }
 
     /// Returns the name of the symbol.
-    pub fn name(self: &Self) -> &Latin1String {
+    pub fn name(&self) -> &Latin1String {
         self.name.as_ref()
     }
 
     /// Returns the name of the symbol as a UTF-8 string.
-    pub fn name_utf8(self: &Self) -> String {
+    pub fn name_utf8(&self) -> String {
         self.name.to_string()
     }
 }
 
 impl PartialEq for Symbol {
     /// Symbols are compared just based on the `id` field.
-    fn eq(self: &Self, other: &Self) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
