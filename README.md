@@ -4,6 +4,7 @@ This repository is a collection of HDL related tools.
 **NOTE**: These tools are at a usable state however they are still intensively developed and thus they are currently only recommended to be used by early adopters and people interested in contributing to the development.
 
 I am interested in [collaboration](#Collaboration) with other people especially regarding semantic analysis of VHDL.
+You can start contributing by reading the [Contributors Guide](https://github.com/kraigher/rust_hdl/wiki/Contributor-Guide)
 
 [![Join the chat at https://gitter.im/rust_hdl/Lobby](https://badges.gitter.im/rust_hdl/Lobby.svg)](https://gitter.im/rust_hdl/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Build Status](https://github.com/kraigher/rust_hdl/workflows/Build%20%26%20test%20all%20configs/badge.svg)](https://github.com/kraigher/rust_hdl/actions?query=workflow%3A%22Build+%26+test+all+configs%22)
