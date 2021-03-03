@@ -372,7 +372,7 @@ lib1.files = [
         )
         .unwrap();
         let mut libraries: Vec<&str> = config.iter_libraries().map(|lib| lib.name()).collect();
-        libraries.sort();
+        libraries.sort_unstable();
         assert_eq!(libraries, &["lib1", "lib2"]);
 
         let lib1 = config.get_library("lib1").unwrap();

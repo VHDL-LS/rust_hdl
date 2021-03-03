@@ -332,12 +332,7 @@ mod tests {
         let code = Code::new("a begin for + ;");
         new_stream!(code, stream);
 
-        assert!(stream
-            .skip_until(|ref k| match k {
-                Plus => true,
-                _ => false,
-            })
-            .is_ok());
+        assert!(stream.skip_until(|ref k| matches!(k, Plus)).is_ok());
         assert_eq!(stream.peek().map(|t| t.map(|t| t.kind)), Ok(Some(Plus)));
     }
 }

@@ -311,9 +311,8 @@ fn check_analysis_equal(got: &mut DesignRoot, expected: &mut DesignRoot) -> Vec<
 
     // Check that all references are equal, ensures the incremental
     // analysis has cleared refereces
-    use std::iter::FromIterator;
-    let got_refs = FnvHashSet::from_iter(FindAnyReferences::search(got).into_iter());
-    let expected_refs = FnvHashSet::from_iter(FindAnyReferences::search(expected).into_iter());
+    let got_refs: FnvHashSet<_> = FindAnyReferences::search(got).into_iter().collect();
+    let expected_refs: FnvHashSet<_> = FindAnyReferences::search(expected).into_iter().collect();
     let diff: FnvHashSet<_> = got_refs.symmetric_difference(&expected_refs).collect();
     assert_eq!(diff, FnvHashSet::default());
 
