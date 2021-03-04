@@ -897,8 +897,27 @@ impl Display for SubprogramDefault {
 
 impl Display for InterfacePackageDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        // Not used: generic_map
-        write!(f, "package {} is new {}", self.ident, self.package_name)
+        write!(
+            f,
+            "package {} is new {}\n  generic map (",
+            self.ident, self.package_name
+        )?;
+        match &self.generic_map {
+            InterfacePackageGenericMapAspect::Map(assoc_list) => {
+                let mut first = true;
+                for assoc in assoc_list {
+                    if first {
+                        write!(f, "\n    {}", assoc)?;
+                    } else {
+                        write!(f, ",\n    {}", assoc)?;
+                    }
+                    first = false;
+                }
+                write!(f, "\n  )")
+            }
+            InterfacePackageGenericMapAspect::Box => write!(f, "<>)"),
+            InterfacePackageGenericMapAspect::Default => write!(f, "default)"),
+        }
     }
 }
 
@@ -986,8 +1005,23 @@ impl Display for ContextDeclaration {
 
 impl Display for PackageInstantiation {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        // Not used: context_clause, generic_map
-        write!(f, "package {} is new {};", self.ident, self.package_name)
+        // Not used: context_clause
+        write!(f, "package {} is new {}", self.ident, self.package_name)?;
+        if let Some(assoc_list) = &self.generic_map {
+            let mut first = true;
+            for assoc in assoc_list {
+                if first {
+                    write!(f, "\n  generic map (\n    {}", assoc)?;
+                } else {
+                    write!(f, ",\n    {}", assoc)?;
+                }
+                first = false;
+            }
+            if !first {
+                write!(f, "\n  )")?;
+            }
+        }
+        write!(f, ";")
     }
 }
 
@@ -1840,11 +1874,30 @@ end units;",
     }
 
     #[test]
-    fn test_interface_declaration_package() {
-        assert_format_eq(
+    fn test_interface_declaration_package_map() {
+        assert_format(
             "package foo is new lib.pkg
-  generic map (foo => bar)",
-            "package foo is new lib.pkg",
+  generic map (
+    foo => bar
+  )",
+            Code::parameter,
+        );
+    }
+
+    #[test]
+    fn test_interface_declaration_package_box() {
+        assert_format(
+            "package foo is new lib.pkg
+  generic map (<>)",
+            Code::parameter,
+        );
+    }
+
+    #[test]
+    fn test_interface_declaration_package_default() {
+        assert_format(
+            "package foo is new lib.pkg
+  generic map (default)",
             Code::parameter,
         );
     }
@@ -2010,6 +2063,23 @@ end context;",
                 AnyDesignUnit::Primary(AnyPrimaryUnit::PackageInstance(instance)) => instance
             )
         });
+    }
+
+    #[test]
+    fn test_package_instantiation_generic_map() {
+        assert_format(
+            "package ident is new lib.foo.bar
+  generic map (
+    foo => bar,
+    baz => qux
+  );",
+            |code| {
+                assert_matches!(
+                    code.design_file().design_units.remove(0),
+                    AnyDesignUnit::Primary(AnyPrimaryUnit::PackageInstance(instance)) => instance
+                )
+            },
+        );
     }
 
     #[test]
