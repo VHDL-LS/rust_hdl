@@ -451,6 +451,22 @@ impl NamedEntity {
                 self.designator,
                 self.as_actual().describe()
             ),
+            NamedEntityKind::InterfaceObject(ref object) => {
+                if object.class == ObjectClass::Constant {
+                    format!(
+                        "interface {} '{}'",
+                        object.class.describe(),
+                        self.designator,
+                    )
+                } else {
+                    format!(
+                        "interface {} '{}' : {}",
+                        object.class.describe(),
+                        self.designator,
+                        object.mode
+                    )
+                }
+            }
             NamedEntityKind::EnumLiteral(ref signature)
             | NamedEntityKind::SubprogramDecl(ref signature)
             | NamedEntityKind::Subprogram(ref signature) => format!(

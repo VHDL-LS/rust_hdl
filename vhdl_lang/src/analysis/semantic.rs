@@ -567,7 +567,20 @@ impl<'a> AnalyzeContext<'a> {
                                 .push(Diagnostic::error(target, "not a valid assignment target"));
                             Ok(None)
                         }
-                        NamedEntities::Single(ent) => Ok(Some(ent)),
+                        NamedEntities::Single(ent) => {
+                            if is_valid_assignment_target(&ent) {
+                                Ok(Some(ent))
+                            } else {
+                                diagnostics.push(Diagnostic::error(
+                                    target,
+                                    format!(
+                                        "{} may not be the target of an assignment",
+                                        ent.describe()
+                                    ),
+                                ));
+                                Ok(None)
+                            }
+                        }
                     }
                 } else {
                     Ok(None)
@@ -578,6 +591,17 @@ impl<'a> AnalyzeContext<'a> {
                 Ok(None)
             }
         }
+    }
+}
+
+fn is_valid_assignment_target(ent: &NamedEntity) -> bool {
+    match ent.as_actual().kind() {
+        NamedEntityKind::Object(class) => *class != ObjectClass::Constant,
+        NamedEntityKind::InterfaceObject(object) => {
+            object.class != ObjectClass::Constant && !matches!(object.mode, Mode::In)
+        }
+        NamedEntityKind::OtherAlias => true,
+        _ => false,
     }
 }
 

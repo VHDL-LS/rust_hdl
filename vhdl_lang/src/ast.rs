@@ -509,7 +509,6 @@ pub struct TypeDeclaration {
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ObjectClass {
     Signal,
-    // @TODO signal_kind
     Constant,
     Variable,
     SharedVariable,
