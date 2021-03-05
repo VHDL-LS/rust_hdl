@@ -27,10 +27,6 @@ impl ResolvedName {
             None
         }
     }
-    pub fn into_non_overloaded(self) -> Option<Arc<NamedEntity>> {
-        self.into_known()
-            .and_then(|visible| visible.into_non_overloaded().ok())
-    }
 }
 
 impl<'a> AnalyzeContext<'a> {
@@ -115,9 +111,25 @@ impl<'a> AnalyzeContext<'a> {
         prefix: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<Option<Arc<NamedEntity>>> {
-        Ok(self
-            .resolve_name(region, prefix_pos, prefix, diagnostics)?
-            .into_non_overloaded())
+        let resolved_name = self.resolve_name(region, prefix_pos, prefix, diagnostics)?;
+
+        if let ResolvedName::Known(named_entities) = resolved_name {
+            match named_entities {
+                NamedEntities::Single(ent) => Ok(Some(ent)),
+                NamedEntities::Overloaded(overloaded) => {
+                    diagnostics.push(Diagnostic::error(
+                        prefix_pos,
+                        format!(
+                            "Overloaded name '{}' may not be the prefix of selected name",
+                            overloaded.designator()
+                        ),
+                    ));
+                    Ok(None)
+                }
+            }
+        } else {
+            Ok(None)
+        }
     }
 
     pub fn resolve_name(

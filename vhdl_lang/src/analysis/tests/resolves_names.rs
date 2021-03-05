@@ -1170,3 +1170,32 @@ end package body;
         Some(code.s("subpgm", 1).pos())
     );
 }
+
+#[test]
+fn overloaded_name_cannot_be_selected() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+end package;
+
+package body pkg is
+  function subpgm(arg: natural) return natural is
+  begin
+  end;
+
+  constant foo : natural := subpgm.incorrect;
+end package body;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("subpgm", 2),
+            "Overloaded name 'subpgm' may not be the prefix of selected name",
+        )],
+    );
+}

@@ -35,6 +35,10 @@ impl OverloadedName {
         self.entities.get(first_key).unwrap()
     }
 
+    pub fn designator(&self) -> &Designator {
+        self.first().designator()
+    }
+
     pub fn entities(&self) -> impl Iterator<Item = &Arc<NamedEntity>> {
         self.entities.values()
     }
