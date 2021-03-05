@@ -117,7 +117,7 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalResult<Option<Arc<NamedEntity>>> {
         Ok(self
             .resolve_name(region, prefix_pos, prefix, diagnostics)?
-            .and_then(|resolved| resolved.into_non_overloaded()))
+            .into_non_overloaded())
     }
 
     pub fn resolve_name(
@@ -126,7 +126,7 @@ impl<'a> AnalyzeContext<'a> {
         name_pos: &SrcPos,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<ResolvedName>> {
+    ) -> FatalResult<ResolvedName> {
         match name {
             Name::Selected(prefix, suffix) => {
                 suffix.clear_reference();
@@ -136,34 +136,34 @@ impl<'a> AnalyzeContext<'a> {
                         match self.lookup_selected(&prefix.pos, named_entity, suffix) {
                             Ok(ResolvedName::Known(visible)) => {
                                 suffix.set_reference(&visible);
-                                Ok(Some(ResolvedName::Known(visible)))
+                                Ok(ResolvedName::Known(visible))
                             }
-                            Ok(ResolvedName::Unknown) => Ok(Some(ResolvedName::Unknown)),
+                            Ok(ResolvedName::Unknown) => Ok(ResolvedName::Unknown),
                             Err(err) => {
                                 err.add_to(diagnostics)?;
-                                Ok(None)
+                                Ok(ResolvedName::Unknown)
                             }
                         }
                     }
-                    None => Ok(Some(ResolvedName::Unknown)),
+                    None => Ok(ResolvedName::Unknown),
                 }
             }
 
             Name::SelectedAll(prefix) => {
                 self.resolve_prefix(region, &prefix.pos, &mut prefix.item, diagnostics)?;
 
-                Ok(Some(ResolvedName::Unknown))
+                Ok(ResolvedName::Unknown)
             }
             Name::Designator(designator) => {
                 designator.clear_reference();
                 match region.lookup_within(name_pos, designator.designator()) {
                     Ok(visible) => {
                         designator.set_reference(&visible);
-                        Ok(Some(ResolvedName::Known(visible)))
+                        Ok(ResolvedName::Known(visible))
                     }
                     Err(diagnostic) => {
                         diagnostics.push(diagnostic);
-                        Ok(None)
+                        Ok(ResolvedName::Unknown)
                     }
                 }
             }
@@ -172,26 +172,26 @@ impl<'a> AnalyzeContext<'a> {
                 for expr in exprs.iter_mut() {
                     self.analyze_expression(region, expr, diagnostics)?;
                 }
-                Ok(Some(ResolvedName::Unknown))
+                Ok(ResolvedName::Unknown)
             }
 
             Name::Slice(ref mut prefix, ref mut drange) => {
                 self.resolve_name(region, &prefix.pos, &mut prefix.item, diagnostics)?;
                 self.analyze_discrete_range(region, drange.as_mut(), diagnostics)?;
-                Ok(Some(ResolvedName::Unknown))
+                Ok(ResolvedName::Unknown)
             }
             Name::Attribute(ref mut attr) => {
                 self.analyze_attribute_name(region, attr, diagnostics)?;
-                Ok(Some(ResolvedName::Unknown))
+                Ok(ResolvedName::Unknown)
             }
             Name::FunctionCall(ref mut fcall) => {
                 self.analyze_function_call(region, fcall, diagnostics)?;
-                Ok(Some(ResolvedName::Unknown))
+                Ok(ResolvedName::Unknown)
             }
             Name::External(ref mut ename) => {
                 let ExternalName { subtype, .. } = ename.as_mut();
                 self.analyze_subtype_indication(region, subtype, diagnostics)?;
-                Ok(Some(ResolvedName::Unknown))
+                Ok(ResolvedName::Unknown)
             }
         }
     }
