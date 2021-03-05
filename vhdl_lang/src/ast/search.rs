@@ -546,8 +546,9 @@ fn search_pos_name(pos: &SrcPos, name: &Name, searcher: &mut impl Searcher) -> S
 
 impl Search for WithPos<Name> {
     fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_found!(searcher.search_with_pos(&self.pos).or_not_found());
-        search_pos_name(&self.pos, &self.item, searcher)
+        searcher
+            .search_with_pos(&self.pos)
+            .or_else(|| search_pos_name(&self.pos, &self.item, searcher))
     }
 }
 
@@ -561,30 +562,31 @@ impl Search for ElementConstraint {
 
 impl Search for WithPos<ElementConstraint> {
     fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_found!(searcher.search_with_pos(&self.pos).or_not_found());
-        self.item.search(searcher)
+        searcher
+            .search_with_pos(&self.pos)
+            .or_else(|| self.item.search(searcher))
     }
 }
 
 impl Search for WithPos<SubtypeConstraint> {
     fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_found!(searcher.search_with_pos(&self.pos).or_not_found());
-
-        match self.item {
-            SubtypeConstraint::Array(ref dranges, ref constraint) => {
-                return_if_found!(dranges.search(searcher));
-                if let Some(ref constraint) = constraint {
-                    return_if_found!(constraint.search(searcher));
+        searcher.search_with_pos(&self.pos).or_else(|| {
+            match self.item {
+                SubtypeConstraint::Array(ref dranges, ref constraint) => {
+                    return_if_found!(dranges.search(searcher));
+                    if let Some(ref constraint) = constraint {
+                        return_if_found!(constraint.search(searcher));
+                    }
+                }
+                SubtypeConstraint::Range(ref range) => {
+                    return_if_found!(range.search(searcher));
+                }
+                SubtypeConstraint::Record(ref constraints) => {
+                    return_if_found!(constraints.search(searcher));
                 }
             }
-            SubtypeConstraint::Range(ref range) => {
-                return_if_found!(range.search(searcher));
-            }
-            SubtypeConstraint::Record(ref constraints) => {
-                return_if_found!(constraints.search(searcher));
-            }
-        }
-        NotFound
+            NotFound
+        })
     }
 }
 
@@ -737,8 +739,7 @@ impl Search for TypeDeclaration {
 }
 
 fn search_pos_expr(pos: &SrcPos, expr: &Expression, searcher: &mut impl Searcher) -> SearchResult {
-    return_if_found!(searcher.search_with_pos(pos).or_not_found());
-    match expr {
+    searcher.search_with_pos(pos).or_else(|| match expr {
         Expression::Binary(_, ref left, ref right) => {
             return_if_found!(left.search(searcher));
             right.search(searcher)
@@ -747,15 +748,14 @@ fn search_pos_expr(pos: &SrcPos, expr: &Expression, searcher: &mut impl Searcher
         Expression::Name(ref name) => search_pos_name(pos, &name, searcher),
         Expression::Aggregate(ref assocs) => assocs.search(searcher),
         Expression::Qualified(ref qexpr) => qexpr.search(searcher),
-        Expression::New(ref alloc) => {
-            return_if_found!(searcher.search_with_pos(&alloc.pos).or_not_found());
-            match alloc.item {
-                Allocator::Qualified(ref qexpr) => qexpr.search(searcher),
-                Allocator::Subtype(ref subtype) => subtype.search(searcher),
-            }
-        }
+        Expression::New(ref alloc) => searcher.search_with_pos(&alloc.pos).or_else(|| match alloc
+            .item
+        {
+            Allocator::Qualified(ref qexpr) => qexpr.search(searcher),
+            Allocator::Subtype(ref subtype) => subtype.search(searcher),
+        }),
         Expression::Literal(_) => NotFound,
-    }
+    })
 }
 
 impl Search for ElementAssociation {
