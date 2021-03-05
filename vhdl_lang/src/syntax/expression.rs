@@ -53,8 +53,8 @@ fn kind_to_binary_op(kind: Kind) -> Option<(Binary, usize)> {
         Plus => Some((Binary::Plus, 5)),
         Minus => Some((Binary::Minus, 5)),
         Concat => Some((Binary::Concat, 5)),
-        Times => Some((Binary::Times, 5)),
 
+        Times => Some((Binary::Times, 7)),
         Div => Some((Binary::Div, 7)),
         Mod => Some((Binary::Mod, 7)),
         Rem => Some((Binary::Rem, 7)),
@@ -1139,6 +1139,13 @@ mod tests {
         assert_expression_is("1+2+3", "((Integer(1) Plus Integer(2)) Plus Integer(3))");
 
         assert_expression_is("1-2-3", "((Integer(1) Minus Integer(2)) Minus Integer(3))");
+
+        assert_expression_is("1+2*3", "(Integer(1) Plus (Integer(2) Times Integer(3)))");
+
+        assert_expression_is("(1+2)*3", "((Integer(1) Plus Integer(2)) Times Integer(3))");
+
+        // Multiplication has precedence over negation.
+        assert_expression_is("-1 * 2", "(Minus (Integer(1) Times Integer(2)))");
 
         assert_expression_is("not 1 + 2", "((Not Integer(1)) Plus Integer(2))");
 

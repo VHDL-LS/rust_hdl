@@ -144,6 +144,7 @@ fn parse_interface_object_declaration(
         .into_iter()
         .map(|ident| {
             InterfaceDeclaration::Object(InterfaceObjectDeclaration {
+                list_type,
                 mode,
                 class: object_class,
                 ident,
@@ -256,13 +257,6 @@ fn parse_semicolon_separator(stream: &mut TokenStream) -> ParseResult<()> {
                       RightPar => {}
     );
     Ok(())
-}
-
-#[derive(PartialEq, Clone, Copy)]
-enum InterfaceListType {
-    Port,
-    Generic,
-    Parameter,
 }
 
 fn is_sync_kind(list_type: InterfaceListType, kind: Kind) -> bool {
@@ -405,6 +399,7 @@ mod tests {
             code.with_stream_no_diagnostics(parse_generic_interface_list),
             vec![
                 InterfaceDeclaration::Object(InterfaceObjectDeclaration {
+                    list_type: InterfaceListType::Generic,
                     mode: Mode::In,
                     class: ObjectClass::Constant,
                     ident: code.s1("foo").ident(),
@@ -412,6 +407,7 @@ mod tests {
                     expression: None
                 }),
                 InterfaceDeclaration::Object(InterfaceObjectDeclaration {
+                    list_type: InterfaceListType::Generic,
                     mode: Mode::In,
                     class: ObjectClass::Constant,
                     ident: code.s1("bar").ident(),
@@ -428,6 +424,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_generic),
             InterfaceDeclaration::Object(InterfaceObjectDeclaration {
+                list_type: InterfaceListType::Generic,
                 mode: Mode::In,
                 class: ObjectClass::Constant,
                 ident: code.s1("foo").ident(),
@@ -479,6 +476,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_port),
             InterfaceDeclaration::Object(InterfaceObjectDeclaration {
+                list_type: InterfaceListType::Port,
                 mode: Mode::In,
                 class: ObjectClass::Signal,
                 ident: code.s1("foo").ident(),
@@ -546,8 +544,8 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_generic),
             InterfaceDeclaration::Object(InterfaceObjectDeclaration {
+                list_type: InterfaceListType::Generic,
                 mode: Mode::In,
-
                 class: ObjectClass::Constant,
                 ident: code.s1("foo").ident(),
                 subtype_indication: code.s1("std_logic").subtype_indication(),
@@ -562,8 +560,8 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_port),
             InterfaceDeclaration::Object(InterfaceObjectDeclaration {
+                list_type: InterfaceListType::Port,
                 mode: Mode::In,
-
                 class: ObjectClass::Signal,
                 ident: code.s1("foo").ident(),
                 subtype_indication: code.s1("std_logic").subtype_indication(),

@@ -199,6 +199,11 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         self.mut_server().text_document_definition(&params)
     }
 
+    // textDocument/hover
+    pub fn text_document_hover(&mut self, params: &TextDocumentPositionParams) -> Option<Hover> {
+        self.mut_server().text_document_hover(&params)
+    }
+
     // textDocument/references
     pub fn text_document_references(&mut self, params: &ReferenceParams) -> Vec<Location> {
         self.mut_server().text_document_references(&params)
@@ -248,6 +253,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             )),
             declaration_provider: Some(true),
             definition_provider: Some(true),
+            hover_provider: Some(true),
             references_provider: Some(true),
             ..Default::default()
         };
@@ -396,6 +402,23 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         params: &TextDocumentPositionParams,
     ) -> Option<Location> {
         self.text_document_declaration(params)
+    }
+
+    pub fn text_document_hover(&mut self, params: &TextDocumentPositionParams) -> Option<Hover> {
+        self.project
+            .get_source(&uri_to_file_name(&params.text_document.uri))
+            .and_then(|source| {
+                self.project
+                    .search_reference(&source, from_lsp_pos(params.position))
+            })
+            .and_then(|decl_pos| self.project.format_declaration(&decl_pos))
+            .map(|result| Hover {
+                contents: HoverContents::Markup(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value: result,
+                }),
+                range: None,
+            })
     }
 
     pub fn text_document_references(&mut self, params: &ReferenceParams) -> Vec<Location> {

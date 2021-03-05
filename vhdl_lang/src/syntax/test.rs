@@ -4,19 +4,23 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
+use super::alias_declaration::parse_alias_declaration;
 use super::common::ParseResult;
+use super::component_declaration::parse_component_declaration;
 use super::concurrent_statement::parse_labeled_concurrent_statement;
 use super::context::{parse_library_clause, parse_use_clause};
 use super::declarative_part::parse_declarative_part_leave_end_token;
-use super::design_unit::parse_design_file;
+use super::design_unit::{parse_design_file, parse_entity_declaration};
 use super::expression::{parse_aggregate, parse_choices, parse_expression};
 use super::interface_declaration::{parse_generic, parse_parameter, parse_port};
 use super::names::{parse_association_list, parse_designator, parse_name, parse_selected_name};
+use super::object_declaration::{parse_file_declaration, parse_object_declaration};
 use super::range::{parse_discrete_range, parse_range};
 use super::sequential_statement::parse_sequential_statement;
 use super::subprogram::{parse_signature, parse_subprogram_declaration_no_semi};
 use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Comment, Symbols, Token, TokenStream, Tokenizer};
+use super::type_declaration::parse_type_declaration;
 use super::waveform::parse_waveform;
 use crate::ast;
 use crate::ast::*;
@@ -332,6 +336,30 @@ impl Code {
     /// Return symbol from symbol table
     pub fn symbol(&self, name: &str) -> Symbol {
         self.symbols.symtab().insert_utf8(name)
+    }
+
+    pub fn type_decl(&self) -> TypeDeclaration {
+        self.with_stream_no_diagnostics(parse_type_declaration)
+    }
+
+    pub fn object_decl(&self) -> ObjectDeclaration {
+        self.parse_ok(parse_object_declaration).remove(0)
+    }
+
+    pub fn file_decl(&self) -> FileDeclaration {
+        self.parse_ok(parse_file_declaration).remove(0)
+    }
+
+    pub fn alias_decl(&self) -> AliasDeclaration {
+        self.parse_ok(parse_alias_declaration)
+    }
+
+    pub fn component_decl(&self) -> ComponentDeclaration {
+        self.with_stream_no_diagnostics(parse_component_declaration)
+    }
+
+    pub fn entity_decl(&self) -> EntityDeclaration {
+        self.with_stream_no_diagnostics(parse_entity_declaration)
     }
 
     pub fn subtype_indication(&self) -> SubtypeIndication {

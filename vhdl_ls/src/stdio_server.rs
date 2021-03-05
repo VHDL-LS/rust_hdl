@@ -152,6 +152,14 @@ impl ConnectionRpcChannel {
             }
             Err(request) => request,
         };
+        let request = match extract::<request::HoverRequest>(request) {
+            Ok((id, params)) => {
+                let result = server.text_document_hover(&params);
+                self.send_response(lsp_server::Response::new_ok(id, result));
+                return;
+            }
+            Err(request) => request,
+        };
         let request = match extract::<request::References>(request) {
             Ok((id, params)) => {
                 let result = server.text_document_references(&params);

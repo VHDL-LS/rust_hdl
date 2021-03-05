@@ -317,6 +317,12 @@ impl DesignRoot {
         ItemAtCursor::search(self, source, cursor)
     }
 
+    /// Search for the declaration at decl_pos and format it
+    pub fn format_declaration(&self, decl_pos: &SrcPos) -> Option<String> {
+        FormatDeclaration::search(self, decl_pos)
+    }
+
+    /// Search for all references to the declaration at decl_pos
     pub fn find_all_references(&self, decl_pos: &SrcPos) -> Vec<SrcPos> {
         FindAllReferences::search(self, decl_pos)
     }
