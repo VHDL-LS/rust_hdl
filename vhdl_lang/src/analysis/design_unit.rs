@@ -10,7 +10,7 @@ use crate::data::*;
 use analyze::*;
 use region::*;
 use root::*;
-use semantic::{uninstantiated_package_prefix_error, ResolvedName};
+use semantic::uninstantiated_package_prefix_error;
 use std::sync::Arc;
 
 impl<'a> AnalyzeContext<'a> {
@@ -427,11 +427,11 @@ impl<'a> AnalyzeContext<'a> {
                 let prefix_ent = self.resolve_context_item_prefix(region, prefix)?;
 
                 match self.lookup_selected(&prefix.pos, &prefix_ent, suffix)? {
-                    ResolvedName::Known(visible) => {
+                    Some(visible) => {
                         suffix.set_reference(&visible);
                         Ok(UsedNames::Single(visible))
                     }
-                    ResolvedName::Unknown => Err(AnalysisError::not_fatal_error(
+                    None => Err(AnalysisError::not_fatal_error(
                         &prefix.pos,
                         "Invalid prefix for selected name",
                     )),

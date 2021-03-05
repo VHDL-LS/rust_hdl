@@ -117,62 +117,58 @@ impl<'a> AnalyzeContext<'a> {
         let kind = {
             if subtype_indication.is_some() {
                 NamedEntityKind::OtherAlias
-            } else {
-                if let Some(named_entities) = resolved_name.into_known() {
-                    let ent = match named_entities {
-                        NamedEntities::Single(ent) => {
-                            if let Some(ref signature) = signature {
-                                diagnostics.error(signature, "Alias should only have a signature for subprograms and enum literals");
-                            }
-                            ent
+            } else if let Some(named_entities) = resolved_name {
+                let ent = match named_entities {
+                    NamedEntities::Single(ent) => {
+                        if let Some(ref signature) = signature {
+                            diagnostics.error(signature, "Alias should only have a signature for subprograms and enum literals");
                         }
-                        NamedEntities::Overloaded(overloaded) => {
-                            if let Some(ref mut signature) = signature {
-                                match self.resolve_signature(region, signature) {
-                                    Ok(signature_key) => {
-                                        if let Some(ent) = overloaded.get(&signature_key) {
-                                            if let Some(reference) =
-                                                name.item.suffix_reference_mut()
-                                            {
-                                                reference.set_unique_reference(&ent);
-                                            }
-                                            ent
-                                        } else {
-                                            let mut diagnostic = Diagnostic::error(
-                                                name,
-                                                "Could not find declaration with given signature",
-                                            );
-                                            for ent in overloaded.entities() {
-                                                if let Some(pos) = ent.decl_pos() {
-                                                    diagnostic.add_related(
-                                                        pos,
-                                                        format!("Found {}", ent.describe()),
-                                                    );
-                                                }
-                                            }
-                                            diagnostics.push(diagnostic);
-                                            return Ok(None);
+                        ent
+                    }
+                    NamedEntities::Overloaded(overloaded) => {
+                        if let Some(ref mut signature) = signature {
+                            match self.resolve_signature(region, signature) {
+                                Ok(signature_key) => {
+                                    if let Some(ent) = overloaded.get(&signature_key) {
+                                        if let Some(reference) = name.item.suffix_reference_mut() {
+                                            reference.set_unique_reference(&ent);
                                         }
-                                    }
-                                    Err(err) => {
-                                        err.add_to(diagnostics)?;
+                                        ent
+                                    } else {
+                                        let mut diagnostic = Diagnostic::error(
+                                            name,
+                                            "Could not find declaration with given signature",
+                                        );
+                                        for ent in overloaded.entities() {
+                                            if let Some(pos) = ent.decl_pos() {
+                                                diagnostic.add_related(
+                                                    pos,
+                                                    format!("Found {}", ent.describe()),
+                                                );
+                                            }
+                                        }
+                                        diagnostics.push(diagnostic);
                                         return Ok(None);
                                     }
                                 }
-                            } else {
-                                diagnostics.error(
-                                    name,
-                                    "Signature required for alias of subprogram and enum literals",
-                                );
-                                return Ok(None);
+                                Err(err) => {
+                                    err.add_to(diagnostics)?;
+                                    return Ok(None);
+                                }
                             }
+                        } else {
+                            diagnostics.error(
+                                name,
+                                "Signature required for alias of subprogram and enum literals",
+                            );
+                            return Ok(None);
                         }
-                    };
-                    NamedEntityKind::AliasOf(ent)
-                } else {
-                    // Found but not known, likely some kind of sliced or indexed name
-                    NamedEntityKind::OtherAlias
-                }
+                    }
+                };
+                NamedEntityKind::AliasOf(ent)
+            } else {
+                // Found but not known, likely some kind of sliced or indexed name
+                NamedEntityKind::OtherAlias
             }
         };
 
