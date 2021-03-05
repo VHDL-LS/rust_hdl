@@ -567,7 +567,14 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalNullResult {
         match target.item {
             Target::Name(ref mut name) => {
-                self.resolve_name(parent, &target.pos, name, diagnostics)?;
+                let resolved_name = self.resolve_name(parent, &target.pos, name, diagnostics)?;
+                if let ResolvedName::Known(named_entity) = resolved_name {
+                    // Only non-overloaded names may be the target of an assignment
+                    if let NamedEntities::Overloaded(_) = named_entity {
+                        diagnostics
+                            .push(Diagnostic::error(target, "not a valid assignment target"));
+                    }
+                }
             }
             Target::Aggregate(ref mut assocs) => {
                 self.analyze_aggregate(parent, assocs, diagnostics)?;
