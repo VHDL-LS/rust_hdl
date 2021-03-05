@@ -555,20 +555,29 @@ impl<'a> AnalyzeContext<'a> {
         parent: &Region<'_>,
         target: &mut WithPos<Target>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult<Option<Arc<NamedEntity>>> {
         match target.item {
             Target::Name(ref mut name) => {
                 let resolved_name = self.resolve_name(parent, &target.pos, name, diagnostics)?;
-                if let Some(NamedEntities::Overloaded(_)) = resolved_name {
-                    // Only non-overloaded names may be the target of an assignment
-                    diagnostics.push(Diagnostic::error(target, "not a valid assignment target"));
+                if let Some(resolved_name) = resolved_name {
+                    match resolved_name {
+                        NamedEntities::Overloaded(..) => {
+                            // Only non-overloaded names may be the target of an assignment
+                            diagnostics
+                                .push(Diagnostic::error(target, "not a valid assignment target"));
+                            Ok(None)
+                        }
+                        NamedEntities::Single(ent) => Ok(Some(ent)),
+                    }
+                } else {
+                    Ok(None)
                 }
             }
             Target::Aggregate(ref mut assocs) => {
                 self.analyze_aggregate(parent, assocs, diagnostics)?;
+                Ok(None)
             }
         }
-        Ok(())
     }
 }
 
