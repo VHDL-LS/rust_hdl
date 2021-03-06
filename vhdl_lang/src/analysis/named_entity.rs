@@ -15,7 +15,6 @@ pub enum NamedEntityKind {
     OtherAlias,
     File,
     InterfaceFile(Arc<NamedEntity>),
-    RecordField,
     Component,
     Attribute,
     SubprogramDecl(Signature),
@@ -24,6 +23,8 @@ pub enum NamedEntityKind {
     // An optional list of implicit declarations
     // Use Weak reference since implicit declaration typically reference the type itself
     TypeDeclaration(Vec<Weak<NamedEntity>>),
+    RecordType(Arc<Region<'static>>),
+    RecordField,
     Subtype(Subtype),
     IncompleteType,
     InterfaceType,
@@ -73,6 +74,7 @@ impl NamedEntityKind {
                 | NamedEntityKind::InterfaceType
                 | NamedEntityKind::Subtype(..)
                 | NamedEntityKind::TypeDeclaration(..)
+                | NamedEntityKind::RecordType(..)
         )
     }
 
@@ -97,6 +99,7 @@ impl NamedEntityKind {
             File => "file",
             InterfaceFile(..) => "file",
             RecordField => "field",
+            RecordType(..) => "record",
             Component => "component",
             Attribute => "attribute",
             SubprogramDecl(signature) | Subprogram(signature) => {

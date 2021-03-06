@@ -462,7 +462,7 @@ impl<'a> AnalyzeContext<'a> {
                 let type_ent = Arc::new(NamedEntity::new_with_opt_id(
                     overwrite_id,
                     type_decl.ident.name().clone(),
-                    NamedEntityKind::TypeDeclaration(Vec::new()),
+                    NamedEntityKind::RecordType(Arc::new(region)),
                     Some(&type_decl.ident.pos),
                 ));
                 parent.add_named_entity(type_ent, diagnostics);
