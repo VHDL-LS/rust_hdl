@@ -96,9 +96,9 @@ impl NamedEntityKind {
             OtherAlias => "alias",
             File => "file",
             InterfaceFile(..) => "file",
-            RecordField => "file",
-            Component => "file",
-            Attribute => "file",
+            RecordField => "field",
+            Component => "component",
+            Attribute => "attribute",
             SubprogramDecl(signature) | Subprogram(signature) => {
                 if signature.return_type.is_some() {
                     "function"
