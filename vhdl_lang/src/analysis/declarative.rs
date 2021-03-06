@@ -469,8 +469,23 @@ impl<'a> AnalyzeContext<'a> {
             TypeDefinition::Record(ref mut element_decls) => {
                 let mut region = Region::default();
                 for elem_decl in element_decls.iter_mut() {
-                    self.analyze_subtype_indication(parent, &mut elem_decl.subtype, diagnostics)?;
-                    region.add(&elem_decl.ident, NamedEntityKind::RecordField, diagnostics);
+                    let subtype = self.resolve_subtype_indication(
+                        parent,
+                        &mut elem_decl.subtype,
+                        diagnostics,
+                    );
+                    match subtype {
+                        Ok(subtype) => {
+                            region.add(
+                                &elem_decl.ident,
+                                NamedEntityKind::ElementDeclaration(subtype),
+                                diagnostics,
+                            );
+                        }
+                        Err(err) => {
+                            err.add_to(diagnostics)?;
+                        }
+                    }
                 }
                 region.close(diagnostics);
 

@@ -41,6 +41,7 @@ impl SearchState {
 #[derive(PartialEq, Debug, Clone)]
 pub enum FoundDeclaration<'a> {
     Object(&'a ObjectDeclaration),
+    ElementDeclaration(&'a ElementDeclaration),
     InterfaceObject(&'a InterfaceObjectDeclaration),
     File(&'a FileDeclaration),
     Type(&'a TypeDeclaration),
@@ -678,6 +679,9 @@ impl Search for TypeDeclaration {
                     .search_decl(self.ident.pos(), FoundDeclaration::Type(&self))
                     .or_not_found());
                 for elem in element_decls {
+                    return_if_found!(searcher
+                        .search_decl(elem.ident.pos(), FoundDeclaration::ElementDeclaration(elem))
+                        .or_not_found());
                     return_if_found!(elem.subtype.search(searcher));
                 }
             }
@@ -1231,6 +1235,9 @@ impl Searcher for FormatDeclaration {
                 }
                 FoundDeclaration::Object(ref value) => {
                     format!("```vhdl\n{}\n```", value)
+                }
+                FoundDeclaration::ElementDeclaration(elem) => {
+                    format!("```vhdl\n{}\n```", elem)
                 }
                 FoundDeclaration::File(ref value) => {
                     format!("```vhdl\n{}\n```", value)

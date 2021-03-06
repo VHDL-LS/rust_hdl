@@ -24,7 +24,7 @@ pub enum NamedEntityKind {
     // Use Weak reference since implicit declaration typically reference the type itself
     TypeDeclaration(Vec<Weak<NamedEntity>>),
     RecordType(Arc<Region<'static>>),
-    RecordField,
+    ElementDeclaration(Subtype),
     Subtype(Subtype),
     IncompleteType,
     InterfaceType,
@@ -97,7 +97,7 @@ impl NamedEntityKind {
             OtherAlias => "alias",
             File => "file",
             InterfaceFile(..) => "file",
-            RecordField => "field",
+            ElementDeclaration(..) => "element declaration",
             RecordType(..) => "record",
             Component => "component",
             Attribute => "attribute",

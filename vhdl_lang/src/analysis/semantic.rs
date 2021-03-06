@@ -18,7 +18,7 @@ impl<'a> AnalyzeContext<'a> {
         prefix: &NamedEntity,
         suffix: &WithPos<WithRef<Designator>>,
     ) -> AnalysisResult<Option<NamedEntities>> {
-        match prefix.kind() {
+        match prefix.actual_kind() {
             NamedEntityKind::Library => {
                 let library_name = prefix.designator().expect_identifier();
                 let named_entity =
@@ -26,10 +26,16 @@ impl<'a> AnalyzeContext<'a> {
 
                 Ok(Some(NamedEntities::new(named_entity)))
             }
+
             NamedEntityKind::UninstPackage(..) => Err(AnalysisError::NotFatal(
                 uninstantiated_package_prefix_error(prefix, prefix_pos),
             )),
-
+            NamedEntityKind::Object(ref object) => {
+                self.lookup_subtype_selected(&object.subtype, suffix)
+            }
+            NamedEntityKind::ElementDeclaration(ref subtype) => {
+                self.lookup_subtype_selected(subtype, suffix)
+            }
             NamedEntityKind::Package(ref region)
             | NamedEntityKind::PackageInstance(ref region)
             | NamedEntityKind::LocalPackageInstance(ref region) => {
@@ -47,6 +53,34 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             _ => Ok(None),
+        }
+    }
+
+    /// Lookup a selected name when the prefix is a subtype
+    pub fn lookup_subtype_selected(
+        &self,
+        subtype: &Subtype,
+        suffix: &WithPos<WithRef<Designator>>,
+    ) -> AnalysisResult<Option<NamedEntities>> {
+        match subtype.base().actual_kind() {
+            NamedEntityKind::RecordType(ref region) => {
+                if let Some(decl) = region.lookup_selected(suffix.designator()) {
+                    Ok(Some(decl.clone()))
+                } else {
+                    Err(AnalysisError::not_fatal_error(
+                        suffix.as_ref(),
+                        format!(
+                            "No declaration of '{}' within {}",
+                            suffix.item,
+                            subtype.base().describe(),
+                        ),
+                    ))
+                }
+            }
+            _ => {
+                // @TODO forbid prefix
+                Ok(None)
+            }
         }
     }
 
@@ -630,6 +664,9 @@ fn is_valid_assignment_target(ent: &NamedEntity) -> bool {
         NamedEntityKind::Object(object) => {
             object.class != ObjectClass::Constant && !matches!(object.mode, Some(Mode::In))
         }
+        // @TODO allow record element declarations for now,
+        //       should check their parent object in the future instead
+        NamedEntityKind::ElementDeclaration(..) => true,
         NamedEntityKind::OtherAlias => true,
         _ => false,
     }

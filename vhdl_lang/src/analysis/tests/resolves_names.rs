@@ -100,7 +100,7 @@ package pkg is
   constant c6 : natural := c5(0)'length;
   constant c7 : natural := missing(0)'length;
 
-  -- This was also a but at one point
+  -- This was also a bug at one point
   type rec_t is record
       field : natural;
   end record;
@@ -1197,5 +1197,94 @@ end package body;
             code.s("subpgm", 2),
             "Overloaded name 'subpgm' may not be the prefix of selected name",
         )],
+    );
+}
+
+#[test]
+fn record_fields_are_resolved() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+
+  type rec2_t is record
+    field2 : natural;
+  end record;
+
+  type rec1_t is record
+    field1 : rec2_t;
+  end record;
+
+  constant rec_val : rec1_t := (field1 => (field2 => 0));
+  alias rec_alias is rec_val;
+  
+  -- Good
+  constant a : rec2_t := rec_val.field1;
+  constant b : natural := rec_val.field1.field2;
+  constant c : rec2_t := rec_alias.field1;
+  constant d : rec2_t := rec_alias.field1.field2;
+  
+  -- Bad
+  constant e : natural := rec_val.missing;
+  constant f : natural := rec_val.field1.missing;
+  constant g : natural := rec_alias.missing;
+  constant h : natural := rec_alias.field1.missing;
+end package;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s("missing", 1),
+                "No declaration of 'missing' within record 'rec1_t'",
+            ),
+            Diagnostic::error(
+                code.s("missing", 2),
+                "No declaration of 'missing' within record 'rec2_t'",
+            ),
+            Diagnostic::error(
+                code.s("missing", 3),
+                "No declaration of 'missing' within record 'rec1_t'",
+            ),
+            Diagnostic::error(
+                code.s("missing", 4),
+                "No declaration of 'missing' within record 'rec2_t'",
+            ),
+        ],
+    );
+}
+
+#[test]
+fn find_all_references_of_record_field() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+  type rec_t is record
+    field : natural;
+  end record;
+
+  signal sig : rec_t;
+begin
+  sig.field <= 1;
+end architecture;",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    let references = vec![code.s("field", 1).pos(), code.s("field", 2).pos()];
+
+    assert_eq_unordered(
+        &root.find_all_references(&code.s1("field").pos()),
+        &references,
     );
 }
