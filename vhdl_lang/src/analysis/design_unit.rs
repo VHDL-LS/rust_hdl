@@ -267,7 +267,11 @@ impl<'a> AnalyzeContext<'a> {
             return Ok(());
         };
 
-        unit.ident.set_reference_pos(Some(package.pos()));
+        // Set package body package name reference to package named entity
+        if let Some(ref named_entity) = package.result().ent {
+            unit.ident.set_unique_reference(named_entity);
+        }
+
         // @TODO make pattern of primary/secondary extension
         let mut root_region = Region::default().with_parent(&package.result().root_region);
         self.analyze_context_clause(&mut root_region, &mut unit.context_clause, diagnostics)?;
