@@ -90,7 +90,7 @@ impl<'a> AnalyzeContext<'a> {
                 let mut region = parent.nested();
                 region.add(
                     index_name.clone(),
-                    NamedEntityKind::Object(ObjectClass::Constant),
+                    NamedEntityKind::LoopParameter,
                     diagnostics,
                 );
                 self.analyze_generate_body(&mut region, body, diagnostics)?;

@@ -130,11 +130,7 @@ impl<'a> AnalyzeContext<'a> {
                         self.analyze_discrete_range(parent, drange, diagnostics)?;
                         let mut region = parent.nested();
                         let designator: WithPos<Designator> = index.clone().into();
-                        region.add(
-                            designator,
-                            NamedEntityKind::Object(ObjectClass::Constant),
-                            diagnostics,
-                        );
+                        region.add(designator, NamedEntityKind::LoopParameter, diagnostics);
                         self.analyze_sequential_part(&mut region, statements, diagnostics)?;
                     }
                     Some(IterationScheme::While(ref mut expr)) => {

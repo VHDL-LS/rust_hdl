@@ -193,19 +193,34 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             Declaration::Object(ref mut object_decl) => {
-                self.analyze_subtype_indication(
+                let subtype = self.resolve_subtype_indication(
                     region,
                     &mut object_decl.subtype_indication,
                     diagnostics,
-                )?;
+                );
+
                 if let Some(ref mut expr) = object_decl.expression {
                     self.analyze_expression(region, expr, diagnostics)?;
                 }
-                region.add(
-                    &object_decl.ident,
-                    NamedEntityKind::from_object_declaration(object_decl),
-                    diagnostics,
-                );
+
+                match subtype {
+                    Ok(subtype) => {
+                        let ent = if object_decl.class == ObjectClass::Constant
+                            && object_decl.expression.is_none()
+                        {
+                            NamedEntityKind::DeferredConstant
+                        } else {
+                            NamedEntityKind::Object(Object {
+                                class: object_decl.class,
+                                mode: None,
+                                has_default: object_decl.expression.is_some(),
+                                subtype,
+                            })
+                        };
+                        region.add(&object_decl.ident, ent, diagnostics);
+                    }
+                    Err(err) => err.add_to(diagnostics)?,
+                }
             }
             Declaration::File(ref mut file) => {
                 let FileDeclaration {
@@ -630,9 +645,9 @@ impl<'a> AnalyzeContext<'a> {
             )));
             params.add_param(Arc::new(NamedEntity::new(
                 self.symbol_utf8("External_Name"),
-                NamedEntityKind::InterfaceObject(InterfaceObject {
+                NamedEntityKind::Object(Object {
                     class: ObjectClass::Constant,
-                    mode: Mode::In,
+                    mode: Some(Mode::In),
                     subtype: Subtype::new(string),
                     has_default: false,
                 }),
@@ -697,9 +712,9 @@ impl<'a> AnalyzeContext<'a> {
         let mut params = ParameterList::default();
         params.add_param(Arc::new(NamedEntity::new(
             self.symbol_utf8("VALUE"),
-            NamedEntityKind::InterfaceObject(InterfaceObject {
+            NamedEntityKind::Object(Object {
                 class: ObjectClass::Constant,
-                mode: Mode::In,
+                mode: Some(Mode::In),
                 subtype: Subtype::new(type_ent.clone()),
                 has_default: false,
             }),
@@ -785,9 +800,9 @@ impl<'a> AnalyzeContext<'a> {
 
                 NamedEntity::new(
                     object_decl.ident.name().clone(),
-                    NamedEntityKind::InterfaceObject(InterfaceObject {
+                    NamedEntityKind::Object(Object {
                         class: object_decl.class,
-                        mode: object_decl.mode,
+                        mode: Some(object_decl.mode),
                         subtype,
                         has_default: object_decl.expression.is_some(),
                     }),

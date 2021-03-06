@@ -29,8 +29,8 @@ pub enum NamedEntityKind {
     IncompleteType,
     InterfaceType,
     Label,
-    Object(ObjectClass),
-    InterfaceObject(InterfaceObject),
+    Object(Object),
+    LoopParameter,
     PhysicalLiteral,
     DeferredConstant,
     // The region of the protected type which needs to be extendend by the body
@@ -46,20 +46,19 @@ pub enum NamedEntityKind {
 }
 
 impl NamedEntityKind {
-    pub fn from_object_declaration(decl: &ObjectDeclaration) -> NamedEntityKind {
-        if decl.class == ObjectClass::Constant && decl.expression.is_none() {
-            NamedEntityKind::DeferredConstant
-        } else {
-            NamedEntityKind::Object(decl.class)
-        }
-    }
-
     pub fn is_deferred_constant(&self) -> bool {
         matches!(self, NamedEntityKind::DeferredConstant)
     }
 
     pub fn is_non_deferred_constant(&self) -> bool {
-        matches!(self, NamedEntityKind::Object(ObjectClass::Constant))
+        matches!(
+            self,
+            NamedEntityKind::Object(Object {
+                class: ObjectClass::Constant,
+                mode: None,
+                ..
+            })
+        )
     }
 
     pub fn is_protected_type(&self) -> bool {
@@ -115,8 +114,8 @@ impl NamedEntityKind {
             IncompleteType => "type",
             InterfaceType => "type",
             Label => "label",
-            Object(class) => class.describe(),
-            InterfaceObject(object) => object.class.describe(),
+            LoopParameter => "loop parameter",
+            Object(object) => object.class.describe(),
             PhysicalLiteral => "physical literal",
             DeferredConstant => "deferred constant",
             ProtectedType(..) => "protected type",
@@ -138,11 +137,13 @@ impl std::fmt::Debug for NamedEntityKind {
     }
 }
 
-/// Signals, (shared) variables and constants
+/// An object or an interface object,
+/// example signal, variable, constant
+/// Is either an object (mode = None) or an interface object (mode = Some)
 #[derive(Clone)]
-pub struct InterfaceObject {
+pub struct Object {
     pub class: ObjectClass,
-    pub mode: Mode,
+    pub mode: Option<Mode>,
     pub subtype: Subtype,
     pub has_default: bool,
 }
@@ -173,7 +174,8 @@ impl ParameterList {
     pub fn add_param(&mut self, param: Arc<NamedEntity>) {
         debug_assert!(matches!(
             param.kind(),
-            NamedEntityKind::InterfaceObject(..) | NamedEntityKind::InterfaceFile(..)
+            NamedEntityKind::Object(Object { mode: Some(_), .. })
+                | NamedEntityKind::InterfaceFile(..)
         ));
 
         self.params.push(param);
@@ -204,7 +206,7 @@ impl Signature {
             .params
             .iter()
             .map(|ent| match ent.kind() {
-                NamedEntityKind::InterfaceObject(obj) => obj.subtype.base().base_type().id(),
+                NamedEntityKind::Object(obj) => obj.subtype.base().base_type().id(),
                 NamedEntityKind::InterfaceFile(file_type) => file_type.base_type().id(),
                 _ => {
                     unreachable!();
@@ -224,7 +226,7 @@ impl Signature {
         result.push('[');
         for (i, param) in self.params.params.iter().enumerate() {
             let type_ent = match param.kind() {
-                NamedEntityKind::InterfaceObject(obj) => obj.subtype.base().base_type(),
+                NamedEntityKind::Object(obj) => obj.subtype.base().base_type(),
                 NamedEntityKind::InterfaceFile(file_type) => file_type.base_type(),
                 _ => unreachable!(),
             };
@@ -454,19 +456,19 @@ impl NamedEntity {
                 self.designator,
                 self.as_actual().describe()
             ),
-            NamedEntityKind::InterfaceObject(ref object) => {
-                if object.class == ObjectClass::Constant {
-                    format!(
-                        "interface {} '{}'",
-                        object.class.describe(),
-                        self.designator,
-                    )
+            NamedEntityKind::Object(Object {
+                ref class,
+                mode: Some(ref mode),
+                ..
+            }) => {
+                if *class == ObjectClass::Constant {
+                    format!("interface {} '{}'", class.describe(), self.designator,)
                 } else {
                     format!(
                         "interface {} '{}' : {}",
-                        object.class.describe(),
+                        class.describe(),
                         self.designator,
-                        object.mode
+                        mode
                     )
                 }
             }

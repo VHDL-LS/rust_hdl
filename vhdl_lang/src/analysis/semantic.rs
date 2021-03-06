@@ -627,9 +627,8 @@ impl AssignmentType {
 /// Check that the assignment target is a writable object and not constant or input only
 fn is_valid_assignment_target(ent: &NamedEntity) -> bool {
     match ent.as_actual().kind() {
-        NamedEntityKind::Object(class) => *class != ObjectClass::Constant,
-        NamedEntityKind::InterfaceObject(object) => {
-            object.class != ObjectClass::Constant && !matches!(object.mode, Mode::In)
+        NamedEntityKind::Object(object) => {
+            object.class != ObjectClass::Constant && !matches!(object.mode, Some(Mode::In))
         }
         NamedEntityKind::OtherAlias => true,
         _ => false,
@@ -639,8 +638,7 @@ fn is_valid_assignment_target(ent: &NamedEntity) -> bool {
 // Check that a signal is not the target of a variable assignment and vice-versa
 fn is_valid_assignment_type(ent: &NamedEntity, assignment_type: AssignmentType) -> bool {
     let class = match ent.as_actual().kind() {
-        NamedEntityKind::Object(class) => *class,
-        NamedEntityKind::InterfaceObject(object) => object.class,
+        NamedEntityKind::Object(object) => object.class,
         _ => {
             // Other entity kinds are not relevant for this check
             return true;
