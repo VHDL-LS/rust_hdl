@@ -97,8 +97,8 @@ begin
   begin
     foo1 <= 1;
     foo2 <= 1;
-    foo3 <= 1;
-    foo4 <= 1;
+    foo3 := 1;
+    foo4 := 1;
   end process;
 end architecture;
 ",
@@ -172,6 +172,60 @@ end architecture;
         Diagnostic::error(
             code.s("foo2", 2),
             "interface variable 'foo2' : in may not be the target of an assignment",
+        ),
+    ];
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(diagnostics, expected);
+}
+
+#[test]
+fn checks_signal_vs_variable_assignment_target() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    signal foo3 : natural;
+begin
+    main : process
+        variable foo4 : natural;
+    
+        procedure proc1(signal foo1 : out natural) is
+        begin
+            foo1 := 1;
+        end;
+        procedure proc2(variable foo2 : out natural) is
+        begin
+            foo2 <= 1;
+        end;        
+    begin
+        foo3 := 1;
+        foo4 <= 1;
+    end process;
+end architecture;
+",
+    );
+
+    let expected = vec![
+        Diagnostic::error(
+            code.s("foo1", 2),
+            "interface signal 'foo1' : out may not be the target of a variable assignment",
+        ),
+        Diagnostic::error(
+            code.s("foo2", 2),
+            "interface variable 'foo2' : out may not be the target of a signal assignment",
+        ),
+        Diagnostic::error(
+            code.s("foo3", 2),
+            "signal 'foo3' may not be the target of a variable assignment",
+        ),
+        Diagnostic::error(
+            code.s("foo4", 2),
+            "variable 'foo4' may not be the target of a signal assignment",
         ),
     ];
 

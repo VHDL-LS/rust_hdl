@@ -466,12 +466,13 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         region: &Region<'_>,
         target: &mut WithPos<Target>,
+        assignment_type: AssignmentType,
         rhs: &mut AssignmentRightHand<WithPos<Expression>>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         match rhs {
             AssignmentRightHand::Simple(expr) => {
-                self.analyze_target(region, target, diagnostics)?;
+                self.analyze_target(region, target, assignment_type, diagnostics)?;
                 self.analyze_expression(region, expr, diagnostics)?;
             }
             AssignmentRightHand::Conditional(conditionals) => {
@@ -479,7 +480,7 @@ impl<'a> AnalyzeContext<'a> {
                     conditionals,
                     else_item,
                 } = conditionals;
-                self.analyze_target(region, target, diagnostics)?;
+                self.analyze_target(region, target, assignment_type, diagnostics)?;
                 for conditional in conditionals {
                     let Conditional { condition, item } = conditional;
                     self.analyze_expression(region, item, diagnostics)?;
@@ -496,7 +497,7 @@ impl<'a> AnalyzeContext<'a> {
                 } = selection;
                 self.analyze_expression(region, expression, diagnostics)?;
                 // target is located after expression
-                self.analyze_target(region, target, diagnostics)?;
+                self.analyze_target(region, target, assignment_type, diagnostics)?;
                 for Alternative { choices, item } in alternatives.iter_mut() {
                     self.analyze_expression(region, item, diagnostics)?;
                     self.analyze_choices(region, choices, diagnostics)?;
@@ -510,12 +511,13 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         region: &Region<'_>,
         target: &mut WithPos<Target>,
+        assignment_type: AssignmentType,
         rhs: &mut AssignmentRightHand<Waveform>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         match rhs {
             AssignmentRightHand::Simple(wavf) => {
-                self.analyze_target(region, target, diagnostics)?;
+                self.analyze_target(region, target, assignment_type, diagnostics)?;
                 self.analyze_waveform(region, wavf, diagnostics)?;
             }
             AssignmentRightHand::Conditional(conditionals) => {
@@ -523,7 +525,7 @@ impl<'a> AnalyzeContext<'a> {
                     conditionals,
                     else_item,
                 } = conditionals;
-                self.analyze_target(region, target, diagnostics)?;
+                self.analyze_target(region, target, assignment_type, diagnostics)?;
                 for conditional in conditionals {
                     let Conditional { condition, item } = conditional;
                     self.analyze_waveform(region, item, diagnostics)?;
@@ -540,7 +542,7 @@ impl<'a> AnalyzeContext<'a> {
                 } = selection;
                 self.analyze_expression(region, expression, diagnostics)?;
                 // target is located after expression
-                self.analyze_target(region, target, diagnostics)?;
+                self.analyze_target(region, target, assignment_type, diagnostics)?;
                 for Alternative { choices, item } in alternatives.iter_mut() {
                     self.analyze_waveform(region, item, diagnostics)?;
                     self.analyze_choices(region, choices, diagnostics)?;
@@ -554,6 +556,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         parent: &Region<'_>,
         target: &mut WithPos<Target>,
+        assignment_type: AssignmentType,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<Option<Arc<NamedEntity>>> {
         match target.item {
@@ -568,9 +571,7 @@ impl<'a> AnalyzeContext<'a> {
                             Ok(None)
                         }
                         NamedEntities::Single(ent) => {
-                            if is_valid_assignment_target(&ent) {
-                                Ok(Some(ent))
-                            } else {
+                            if !is_valid_assignment_target(&ent) {
                                 diagnostics.push(Diagnostic::error(
                                     target,
                                     format!(
@@ -579,6 +580,18 @@ impl<'a> AnalyzeContext<'a> {
                                     ),
                                 ));
                                 Ok(None)
+                            } else if !is_valid_assignment_type(&ent, assignment_type) {
+                                diagnostics.push(Diagnostic::error(
+                                    target,
+                                    format!(
+                                        "{} may not be the target of a {} assignment",
+                                        ent.describe(),
+                                        assignment_type.to_str()
+                                    ),
+                                ));
+                                Ok(None)
+                            } else {
+                                Ok(Some(ent))
                             }
                         }
                     }
@@ -594,6 +607,24 @@ impl<'a> AnalyzeContext<'a> {
     }
 }
 
+#[derive(Copy, Clone)]
+pub enum AssignmentType {
+    // Assignement with <=
+    Signal,
+    // Assignment with :=
+    Variable,
+}
+
+impl AssignmentType {
+    fn to_str(&self) -> &str {
+        match self {
+            AssignmentType::Signal => "signal",
+            AssignmentType::Variable => "variable",
+        }
+    }
+}
+
+/// Check that the assignment target is a writable object and not constant or input only
 fn is_valid_assignment_target(ent: &NamedEntity) -> bool {
     match ent.as_actual().kind() {
         NamedEntityKind::Object(class) => *class != ObjectClass::Constant,
@@ -602,6 +633,25 @@ fn is_valid_assignment_target(ent: &NamedEntity) -> bool {
         }
         NamedEntityKind::OtherAlias => true,
         _ => false,
+    }
+}
+
+// Check that a signal is not the target of a variable assignment and vice-versa
+fn is_valid_assignment_type(ent: &NamedEntity, assignment_type: AssignmentType) -> bool {
+    let class = match ent.as_actual().kind() {
+        NamedEntityKind::Object(class) => *class,
+        NamedEntityKind::InterfaceObject(object) => object.class,
+        _ => {
+            // Other entity kinds are not relevant for this check
+            return true;
+        }
+    };
+
+    match assignment_type {
+        AssignmentType::Signal => matches!(class, ObjectClass::Signal),
+        AssignmentType::Variable => {
+            matches!(class, ObjectClass::Variable | ObjectClass::SharedVariable)
+        }
     }
 }
 

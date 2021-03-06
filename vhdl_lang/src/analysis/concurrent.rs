@@ -12,6 +12,7 @@ use crate::ast::*;
 use crate::data::*;
 use analyze::*;
 use region::*;
+use semantic::*;
 
 impl<'a> AnalyzeContext<'a> {
     pub fn analyze_concurrent_part(
@@ -122,7 +123,13 @@ impl<'a> AnalyzeContext<'a> {
             ConcurrentStatement::Assignment(ref mut assign) => {
                 // @TODO more delaymechanism
                 let ConcurrentSignalAssignment { target, rhs, .. } = assign;
-                self.analyze_waveform_assignment(parent, target, rhs, diagnostics)?;
+                self.analyze_waveform_assignment(
+                    parent,
+                    target,
+                    AssignmentType::Signal,
+                    rhs,
+                    diagnostics,
+                )?;
             }
             ConcurrentStatement::ProcedureCall(ref mut pcall) => {
                 let ConcurrentProcedureCall {

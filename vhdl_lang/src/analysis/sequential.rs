@@ -12,6 +12,7 @@ use crate::ast::*;
 use crate::data::*;
 use analyze::*;
 use region::*;
+use semantic::*;
 
 impl<'a> AnalyzeContext<'a> {
     fn analyze_sequential_statement(
@@ -151,11 +152,23 @@ impl<'a> AnalyzeContext<'a> {
             SequentialStatement::SignalAssignment(ref mut assign) => {
                 // @TODO more
                 let SignalAssignment { target, rhs, .. } = assign;
-                self.analyze_waveform_assignment(parent, target, rhs, diagnostics)?;
+                self.analyze_waveform_assignment(
+                    parent,
+                    target,
+                    AssignmentType::Signal,
+                    rhs,
+                    diagnostics,
+                )?;
             }
             SequentialStatement::VariableAssignment(ref mut assign) => {
                 let VariableAssignment { target, rhs } = assign;
-                self.analyze_expr_assignment(parent, target, rhs, diagnostics)?;
+                self.analyze_expr_assignment(
+                    parent,
+                    target,
+                    AssignmentType::Variable,
+                    rhs,
+                    diagnostics,
+                )?;
             }
             SequentialStatement::SignalForceAssignment(ref mut assign) => {
                 let SignalForceAssignment {
@@ -163,14 +176,20 @@ impl<'a> AnalyzeContext<'a> {
                     force_mode: _,
                     rhs,
                 } = assign;
-                self.analyze_expr_assignment(parent, target, rhs, diagnostics)?;
+                self.analyze_expr_assignment(
+                    parent,
+                    target,
+                    AssignmentType::Signal,
+                    rhs,
+                    diagnostics,
+                )?;
             }
             SequentialStatement::SignalReleaseAssignment(ref mut assign) => {
                 let SignalReleaseAssignment {
                     target,
                     force_mode: _,
                 } = assign;
-                self.analyze_target(parent, target, diagnostics)?;
+                self.analyze_target(parent, target, AssignmentType::Signal, diagnostics)?;
             }
             SequentialStatement::Null => {}
         }
