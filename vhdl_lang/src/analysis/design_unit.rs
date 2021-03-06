@@ -221,7 +221,10 @@ impl<'a> AnalyzeContext<'a> {
             return Ok(());
         };
 
-        unit.entity_name.set_reference_pos(Some(entity.pos()));
+        // Set architecture entity name reference to named entity
+        if let Some(ref named_entity) = entity.result().ent {
+            unit.entity_name.set_unique_reference(named_entity);
+        }
 
         let mut root_region = Region::default().with_parent(&entity.result().root_region);
         self.analyze_context_clause(&mut root_region, &mut unit.context_clause, diagnostics)?;
