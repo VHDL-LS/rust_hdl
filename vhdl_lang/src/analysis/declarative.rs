@@ -34,40 +34,39 @@ impl<'a> AnalyzeContext<'a> {
                     TypeDefinition::Incomplete(ref mut reference) => {
                         reference.clear_reference();
 
-                        let full_definiton =
-                            find_full_type_definition(type_decl.ident.name(), remaining);
-
-                        let decl_pos = match full_definiton {
-                            Some(full_decl) => {
-                                reference.set_reference_pos(Some(full_decl.ident.pos()));
-                                full_decl.ident.pos()
-                            }
-                            None => {
-                                let mut error = Diagnostic::error(
-                                    type_decl.ident.pos(),
-                                    format!(
-                                        "Missing full type declaration of incomplete type '{}'",
-                                        type_decl.ident.name()
-                                    ),
-                                );
-                                error.add_related(type_decl.ident.pos(), "The full type declaration shall occur immediately within the same declarative part");
-                                diagnostics.push(error);
-                                type_decl.ident.pos()
-                            }
-                        };
-
                         match incomplete_types.entry(type_decl.ident.name().clone()) {
                             Entry::Vacant(entry) => {
+                                let full_definiton =
+                                    find_full_type_definition(type_decl.ident.name(), remaining);
+
+                                let decl_pos = match full_definiton {
+                                    Some(full_decl) => full_decl.ident.pos(),
+                                    None => {
+                                        let mut error = Diagnostic::error(
+                                            type_decl.ident.pos(),
+                                            format!(
+                                            "Missing full type declaration of incomplete type '{}'",
+                                            type_decl.ident.name()
+                                        ),
+                                        );
+                                        error.add_related(type_decl.ident.pos(), "The full type declaration shall occur immediately within the same declarative part");
+                                        diagnostics.push(error);
+                                        type_decl.ident.pos()
+                                    }
+                                };
+
                                 let designator =
                                     Designator::Identifier(type_decl.ident.name().clone());
                                 // Set incomplete type defintion to position of full declaration
-                                let ent = NamedEntity::new(
+                                let ent = Arc::new(NamedEntity::new(
                                     designator,
                                     NamedEntityKind::IncompleteType,
                                     Some(decl_pos),
-                                );
+                                ));
+                                reference.set_unique_reference(&ent);
+
                                 entry.insert((ent.id(), type_decl.ident.pos().clone()));
-                                region.add_named_entity(Arc::new(ent), diagnostics);
+                                region.add_named_entity(ent, diagnostics);
                             }
                             Entry::Occupied(entry) => {
                                 let (_, decl_pos) = entry.get();

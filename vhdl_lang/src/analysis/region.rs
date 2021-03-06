@@ -487,9 +487,8 @@ impl<'a> Region<'a> {
 }
 
 pub trait SetReference {
-    fn set_unique_reference(&mut self, ent: &NamedEntity) {
-        self.set_reference_pos(ent.decl_pos());
-    }
+    fn set_unique_reference(&mut self, ent: &Arc<NamedEntity>);
+    fn clear_reference(&mut self);
 
     fn set_reference(&mut self, visible: &NamedEntities) {
         if let Some(ent) = visible.as_non_overloaded() {
@@ -498,29 +497,34 @@ pub trait SetReference {
             self.clear_reference();
         }
     }
-
-    fn clear_reference(&mut self) {
-        self.set_reference_pos(None);
-    }
-
-    fn set_reference_pos(&mut self, pos: Option<&SrcPos>);
 }
 
 impl<T> SetReference for WithRef<T> {
-    fn set_reference_pos(&mut self, pos: Option<&SrcPos>) {
-        self.reference.set_reference_pos(pos);
+    fn set_unique_reference(&mut self, ent: &Arc<NamedEntity>) {
+        self.reference.set_unique_reference(ent);
+    }
+
+    fn clear_reference(&mut self) {
+        self.reference.clear_reference();
     }
 }
 
 impl<T: SetReference> SetReference for WithPos<T> {
-    fn set_reference_pos(&mut self, pos: Option<&SrcPos>) {
-        self.item.set_reference_pos(pos);
+    fn set_unique_reference(&mut self, ent: &Arc<NamedEntity>) {
+        self.item.set_unique_reference(ent);
+    }
+
+    fn clear_reference(&mut self) {
+        self.item.clear_reference();
     }
 }
 
 impl SetReference for Reference {
-    fn set_reference_pos(&mut self, pos: Option<&SrcPos>) {
-        *self = pos.cloned();
+    fn set_unique_reference(&mut self, ent: &Arc<NamedEntity>) {
+        *self = Some(ent.clone());
+    }
+    fn clear_reference(&mut self) {
+        *self = None;
     }
 }
 

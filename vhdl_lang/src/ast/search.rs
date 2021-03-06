@@ -1169,8 +1169,11 @@ impl Searcher for ItemAtCursor {
     fn search_pos_with_ref(&mut self, pos: &SrcPos, reference: &Reference) -> SearchState {
         if !self.is_inside(pos) {
             Finished(NotFound)
-        } else if let Some(ref reference) = reference {
-            self.result = Some(reference.clone());
+        } else if let Some(pos) = reference
+            .as_ref()
+            .and_then(|reference| reference.decl_pos())
+        {
+            self.result = Some(pos.clone());
             Finished(Found)
         } else {
             Finished(NotFound)
@@ -1304,8 +1307,11 @@ impl Searcher for FindAllReferences {
     }
 
     fn search_pos_with_ref(&mut self, pos: &SrcPos, reference: &Reference) -> SearchState {
-        if let Some(ref reference) = reference {
-            if reference == &self.decl_pos {
+        if let Some(ref_pos) = reference
+            .as_ref()
+            .and_then(|reference| reference.decl_pos())
+        {
+            if ref_pos == &self.decl_pos {
                 self.references.push(pos.clone());
             }
         };

@@ -341,8 +341,11 @@ impl FindAnyReferences {
 
 impl Searcher for FindAnyReferences {
     fn search_pos_with_ref(&mut self, _: &SrcPos, reference: &Reference) -> SearchState {
-        if let Some(ref reference) = reference {
-            self.references.push(reference.clone());
+        if let Some(pos) = reference
+            .as_ref()
+            .and_then(|reference| reference.decl_pos())
+        {
+            self.references.push(pos.clone());
         };
         NotFinished
     }

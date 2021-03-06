@@ -9,6 +9,7 @@
 // Track here: https://github.com/rust-lang/rust/issues/29641
 #![allow(clippy::large_enum_variant)]
 
+use std::sync::Arc;
 mod display;
 mod name_util;
 
@@ -22,6 +23,7 @@ pub use self::display::*;
 pub use self::name_util::*;
 pub use any_design_unit::*;
 
+pub use crate::analysis::NamedEntity;
 use crate::data::*;
 
 /// LRM 15.8 Bit string literals
@@ -353,13 +355,12 @@ pub enum Designator {
     Character(u8),
 }
 
-pub type Reference = Option<SrcPos>;
+pub type Reference = Option<Arc<NamedEntity>>;
 
 /// An item which has a reference to a declaration
 #[derive(PartialEq, Debug, Clone)]
 pub struct WithRef<T> {
     pub item: T,
-    // @TODO just store the positions of the reference for now
     pub reference: Reference,
 }
 
@@ -369,10 +370,6 @@ impl<T> WithRef<T> {
             item,
             reference: None,
         }
-    }
-
-    pub fn reference_positions(&self) -> impl Iterator<Item = &SrcPos> {
-        self.reference.iter()
     }
 }
 

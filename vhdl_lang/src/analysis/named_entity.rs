@@ -493,3 +493,9 @@ pub fn new_id() -> EntityId {
         id: COUNTER.fetch_add(1, Ordering::Relaxed),
     }
 }
+
+impl std::cmp::PartialEq for NamedEntity {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
