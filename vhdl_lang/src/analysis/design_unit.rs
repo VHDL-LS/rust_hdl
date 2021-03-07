@@ -10,7 +10,7 @@ use crate::data::*;
 use analyze::*;
 use region::*;
 use root::*;
-use semantic::uninstantiated_package_prefix_error;
+use semantic::invalid_selected_name_prefix;
 use std::sync::Arc;
 
 impl<'a> AnalyzeContext<'a> {
@@ -576,10 +576,8 @@ impl<'a> AnalyzeContext<'a> {
                             self.use_all_in_library(&name.pos, library_name, region)?;
                         }
                         NamedEntityKind::UninstPackage(..) => {
-                            diagnostics.push(uninstantiated_package_prefix_error(
-                                &named_entity,
-                                &visibility_pos,
-                            ));
+                            diagnostics
+                                .push(invalid_selected_name_prefix(&named_entity, &visibility_pos));
                         }
                         NamedEntityKind::Package(ref primary_region)
                         | NamedEntityKind::PackageInstance(ref primary_region)

@@ -656,7 +656,7 @@ end package;
         vec![
             Diagnostic::error(
                 code.s("work.pkg.enum_t", 1),
-                "Invalid prefix for selected name",
+                "Type 'enum_t' may not be the prefix of a selected name",
             ),
             Diagnostic::error(
                 code.s("work.pkg.const", 1),
@@ -883,10 +883,10 @@ fn use_with_invalid_selected_name_prefix() {
         "libname",
         "
 package pkg1 is
-  subtype typ is natural range 0 to 1;
+  subtype typ_t is natural range 0 to 1;
 end package;
 
-use work.pkg1.typ.foo;
+use work.pkg1.typ_t.foo;
 
 package pkg2 is
 end package;
@@ -897,8 +897,8 @@ end package;
     check_diagnostics(
         diagnostics,
         vec![Diagnostic::error(
-            code.s1("work.pkg1.typ"),
-            "Invalid prefix for selected name",
+            code.s("work.pkg1.typ_t", 1),
+            "Subtype 'typ_t' may not be the prefix of a selected name",
         )],
     );
 }

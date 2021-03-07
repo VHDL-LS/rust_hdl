@@ -6,10 +6,10 @@
 use super::region::Region;
 use crate::ast::*;
 use crate::data::*;
+use arc_swap::ArcSwapWeak;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Weak};
 
-#[derive(Clone)]
 pub enum NamedEntityKind {
     AliasOf(Arc<NamedEntity>),
     OtherAlias,
@@ -23,10 +23,13 @@ pub enum NamedEntityKind {
     // An optional list of implicit declarations
     // Use Weak reference since implicit declaration typically reference the type itself
     TypeDeclaration(Vec<Weak<NamedEntity>>),
+    AccessType(Subtype),
     RecordType(Arc<Region<'static>>),
     ElementDeclaration(Subtype),
     Subtype(Subtype),
-    IncompleteType,
+    // Weak references since incomplete access types can create cycles
+    // The reference is for the full type which is filled in after creation
+    IncompleteType(ArcSwapWeak<NamedEntity>),
     InterfaceType,
     Label,
     Object(Object),
@@ -68,11 +71,12 @@ impl NamedEntityKind {
     pub fn is_type(&self) -> bool {
         matches!(
             self,
-            NamedEntityKind::IncompleteType
+            NamedEntityKind::IncompleteType(..)
                 | NamedEntityKind::ProtectedType(..)
                 | NamedEntityKind::InterfaceType
                 | NamedEntityKind::Subtype(..)
                 | NamedEntityKind::TypeDeclaration(..)
+                | NamedEntityKind::AccessType(..)
                 | NamedEntityKind::RecordType(..)
         )
     }
@@ -98,7 +102,7 @@ impl NamedEntityKind {
             File => "file",
             InterfaceFile(..) => "file",
             ElementDeclaration(..) => "element declaration",
-            RecordType(..) => "record",
+            RecordType(..) => "record type",
             Component => "component",
             Attribute => "attribute",
             SubprogramDecl(signature) | Subprogram(signature) => {
@@ -110,8 +114,9 @@ impl NamedEntityKind {
             }
             EnumLiteral(..) => "enum literal",
             TypeDeclaration(..) => "type",
+            AccessType(..) => "access type",
             Subtype(..) => "subtype",
-            IncompleteType => "type",
+            IncompleteType(..) => "type",
             InterfaceType => "type",
             Label => "label",
             LoopParameter => "loop parameter",

@@ -6,6 +6,7 @@
 
 use super::analyze::*;
 use super::region::*;
+use super::target::AssignmentType;
 use crate::ast::Range;
 use crate::ast::*;
 use crate::data::*;
@@ -28,13 +29,13 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             NamedEntityKind::UninstPackage(..) => Err(AnalysisError::NotFatal(
-                uninstantiated_package_prefix_error(prefix, prefix_pos),
+                invalid_selected_name_prefix(prefix, prefix_pos),
             )),
             NamedEntityKind::Object(ref object) => {
-                self.lookup_subtype_selected(&object.subtype, suffix)
+                self.lookup_type_selected(prefix_pos, &object.subtype.base(), suffix)
             }
             NamedEntityKind::ElementDeclaration(ref subtype) => {
-                self.lookup_subtype_selected(subtype, suffix)
+                self.lookup_type_selected(prefix_pos, subtype.base(), suffix)
             }
             NamedEntityKind::Package(ref region)
             | NamedEntityKind::PackageInstance(ref region)
@@ -42,45 +43,55 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(decl) = region.lookup_selected(suffix.designator()) {
                     Ok(Some(decl.clone()))
                 } else {
-                    Err(AnalysisError::not_fatal_error(
-                        suffix.as_ref(),
-                        format!(
-                            "No declaration of '{}' within {}",
-                            suffix.item,
-                            prefix.describe(),
-                        ),
-                    ))
+                    Err(no_declaration_within(prefix, suffix).into())
                 }
             }
-            _ => Ok(None),
+            NamedEntityKind::OtherAlias => Ok(None),
+            _ => Err(invalid_selected_name_prefix(prefix, prefix_pos).into()),
         }
     }
 
-    /// Lookup a selected name when the prefix is a subtype
-    pub fn lookup_subtype_selected(
+    /// Lookup a selected name when the prefix has type
+    pub fn lookup_type_selected(
         &self,
-        subtype: &Subtype,
+        prefix_pos: &SrcPos,
+        prefix_type: &NamedEntity,
         suffix: &WithPos<WithRef<Designator>>,
     ) -> AnalysisResult<Option<NamedEntities>> {
-        match subtype.base().actual_kind() {
+        match prefix_type.actual_kind() {
             NamedEntityKind::RecordType(ref region) => {
                 if let Some(decl) = region.lookup_selected(suffix.designator()) {
                     Ok(Some(decl.clone()))
                 } else {
-                    Err(AnalysisError::not_fatal_error(
-                        suffix.as_ref(),
-                        format!(
-                            "No declaration of '{}' within {}",
-                            suffix.item,
-                            subtype.base().describe(),
-                        ),
-                    ))
+                    Err(no_declaration_within(prefix_type, suffix).into())
                 }
             }
-            _ => {
+            NamedEntityKind::OtherAlias => {
                 // @TODO forbid prefix
                 Ok(None)
             }
+            NamedEntityKind::ProtectedType(region) => {
+                if let Some(decl) = region.lookup_selected(suffix.designator()) {
+                    Ok(Some(decl.clone()))
+                } else {
+                    Err(no_declaration_within(prefix_type, suffix).into())
+                }
+            }
+            NamedEntityKind::IncompleteType(full_type_ref) => {
+                let full_type = full_type_ref.load();
+                if let Some(full_type) = full_type.upgrade() {
+                    self.lookup_type_selected(prefix_pos, &full_type, suffix)
+                } else {
+                    Ok(None)
+                }
+            }
+            NamedEntityKind::Subtype(subtype) => {
+                self.lookup_type_selected(prefix_pos, subtype.base(), suffix)
+            }
+            NamedEntityKind::AccessType(subtype) => {
+                self.lookup_type_selected(prefix_pos, subtype.base(), suffix)
+            }
+            _ => Err(invalid_selected_name_prefix(prefix_type, prefix_pos).into()),
         }
     }
 
@@ -414,7 +425,7 @@ impl<'a> AnalyzeContext<'a> {
         self.analyze_assoc_elems(region, parameters, diagnostics)
     }
 
-    fn analyze_aggregate(
+    pub fn analyze_aggregate(
         &self,
         region: &Region<'_>,
         assocs: &mut Vec<ElementAssociation>,
@@ -585,121 +596,28 @@ impl<'a> AnalyzeContext<'a> {
         }
         Ok(())
     }
-
-    pub fn analyze_target(
-        &self,
-        parent: &Region<'_>,
-        target: &mut WithPos<Target>,
-        assignment_type: AssignmentType,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<Arc<NamedEntity>>> {
-        match target.item {
-            Target::Name(ref mut name) => {
-                let resolved_name = self.resolve_name(parent, &target.pos, name, diagnostics)?;
-                if let Some(resolved_name) = resolved_name {
-                    match resolved_name {
-                        NamedEntities::Overloaded(..) => {
-                            // Only non-overloaded names may be the target of an assignment
-                            diagnostics
-                                .push(Diagnostic::error(target, "not a valid assignment target"));
-                            Ok(None)
-                        }
-                        NamedEntities::Single(ent) => {
-                            if !is_valid_assignment_target(&ent) {
-                                diagnostics.push(Diagnostic::error(
-                                    target,
-                                    format!(
-                                        "{} may not be the target of an assignment",
-                                        ent.describe()
-                                    ),
-                                ));
-                                Ok(None)
-                            } else if !is_valid_assignment_type(&ent, assignment_type) {
-                                diagnostics.push(Diagnostic::error(
-                                    target,
-                                    format!(
-                                        "{} may not be the target of a {} assignment",
-                                        ent.describe(),
-                                        assignment_type.to_str()
-                                    ),
-                                ));
-                                Ok(None)
-                            } else {
-                                Ok(Some(ent))
-                            }
-                        }
-                    }
-                } else {
-                    Ok(None)
-                }
-            }
-            Target::Aggregate(ref mut assocs) => {
-                self.analyze_aggregate(parent, assocs, diagnostics)?;
-                Ok(None)
-            }
-        }
-    }
 }
 
-#[derive(Copy, Clone)]
-pub enum AssignmentType {
-    // Assignement with <=
-    Signal,
-    // Assignment with :=
-    Variable,
-}
-
-impl AssignmentType {
-    fn to_str(&self) -> &str {
-        match self {
-            AssignmentType::Signal => "signal",
-            AssignmentType::Variable => "variable",
-        }
-    }
-}
-
-/// Check that the assignment target is a writable object and not constant or input only
-fn is_valid_assignment_target(ent: &NamedEntity) -> bool {
-    match ent.as_actual().kind() {
-        NamedEntityKind::Object(object) => {
-            object.class != ObjectClass::Constant && !matches!(object.mode, Some(Mode::In))
-        }
-        // @TODO allow record element declarations for now,
-        //       should check their parent object in the future instead
-        NamedEntityKind::ElementDeclaration(..) => true,
-        NamedEntityKind::OtherAlias => true,
-        _ => false,
-    }
-}
-
-// Check that a signal is not the target of a variable assignment and vice-versa
-fn is_valid_assignment_type(ent: &NamedEntity, assignment_type: AssignmentType) -> bool {
-    let class = match ent.as_actual().kind() {
-        NamedEntityKind::Object(object) => object.class,
-        _ => {
-            // Other entity kinds are not relevant for this check
-            return true;
-        }
-    };
-
-    match assignment_type {
-        AssignmentType::Signal => matches!(class, ObjectClass::Signal),
-        AssignmentType::Variable => {
-            matches!(class, ObjectClass::Variable | ObjectClass::SharedVariable)
-        }
-    }
-}
-
-// @TODO make method
-pub fn uninstantiated_package_prefix_error(
-    named_entity: &NamedEntity,
-    prefix: &SrcPos,
-) -> Diagnostic {
+pub fn invalid_selected_name_prefix(named_entity: &NamedEntity, prefix: &SrcPos) -> Diagnostic {
     Diagnostic::error(
         prefix,
         capitalize(&format!(
             "{} may not be the prefix of a selected name",
             named_entity.describe(),
         )),
+    )
+}
+
+pub fn no_declaration_within(
+    named_entity: &NamedEntity,
+    suffix: &WithPos<WithRef<Designator>>,
+) -> Diagnostic {
+    Diagnostic::error(
+        suffix.as_ref(),
+        format!(
+            "No declaration of '{}' within {}",
+            suffix.item,
+            named_entity.describe(),
+        ),
     )
 }

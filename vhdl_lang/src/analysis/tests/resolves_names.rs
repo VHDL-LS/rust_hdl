@@ -1240,19 +1240,19 @@ end package;
         vec![
             Diagnostic::error(
                 code.s("missing", 1),
-                "No declaration of 'missing' within record 'rec1_t'",
+                "No declaration of 'missing' within record type 'rec1_t'",
             ),
             Diagnostic::error(
                 code.s("missing", 2),
-                "No declaration of 'missing' within record 'rec2_t'",
+                "No declaration of 'missing' within record type 'rec2_t'",
             ),
             Diagnostic::error(
                 code.s("missing", 3),
-                "No declaration of 'missing' within record 'rec1_t'",
+                "No declaration of 'missing' within record type 'rec1_t'",
             ),
             Diagnostic::error(
                 code.s("missing", 4),
-                "No declaration of 'missing' within record 'rec2_t'",
+                "No declaration of 'missing' within record type 'rec2_t'",
             ),
         ],
     );
@@ -1286,5 +1286,184 @@ end architecture;",
     assert_eq_unordered(
         &root.find_all_references(&code.s1("field").pos()),
         &references,
+    );
+}
+
+#[test]
+fn record_subtype_can_be_selected() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+end package;
+
+package body pkg is
+  type rec_t is record
+    elem : integer_vector;
+  end record;
+  
+  subtype sub_t is rec_t(elem(0 to 1));
+
+  constant const1 : sub_t := (elem => (0, 1));
+  
+  -- Ok
+  constant const2 : integer := const1.elem;
+
+  -- Not ok
+  constant const3 : integer := const1.missing;
+
+end package body;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("missing", 1),
+            "No declaration of 'missing' within record type 'rec_t'",
+        )],
+    );
+}
+
+#[test]
+fn acccess_type_of_record_can_be_selected() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end;
+
+architecture a of ent is
+  type rec_t is record
+    elem : integer_vector;
+  end record;
+
+  type rec_access_t is access rec_t;
+begin
+
+  main : process
+      variable avar : rec_access_t := new rec_access_t'(elem => 0);
+      variable v : natural;
+  begin
+     -- Ok
+     v := avar.elem;
+     -- Not ok
+     v := avar.missing;
+  end process;
+
+end architecture;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("missing", 1),
+            "No declaration of 'missing' within record type 'rec_t'",
+        )],
+    );
+}
+
+#[test]
+fn protected_type_can_be_selected() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end;
+
+architecture a of ent is
+  type prot_t is protected
+    function foo return natural;
+  end protected;
+
+  type prot_t is protected body
+    function foo return natural is
+    begin
+      return 0;
+    end;
+  end protected body;
+
+  shared variable pvar : prot_t;
+begin
+
+  main : process
+      variable v : natural;
+  begin
+     -- Ok
+     v := pvar.foo;
+
+     -- Not ok
+     v := pvar.missing;
+  end process;
+
+end architecture;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("missing", 1),
+            "No declaration of 'missing' within protected type 'prot_t'",
+        )],
+    );
+}
+
+#[test]
+fn incomplete_acccess_type_of_record_can_be_selected() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end;
+
+architecture a of ent is
+
+  type rec_t;
+  type rec_access_t is access rec_t;
+
+  type rec_t is record
+    elem : natural;
+    child : rec_access_t;
+  end record;
+
+begin
+
+  main : process
+      variable rvar : rec_t := (elem => 0, child => null);
+      variable v : natural;
+  begin
+     -- Ok
+     v := rvar.elem;
+     v := rvar.child.elem;
+     -- Not ok
+     v := rvar.missing;
+     v := rvar.child.missing;
+  end process;
+
+end architecture;
+",
+    );
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s("missing", 1),
+                "No declaration of 'missing' within record type 'rec_t'",
+            ),
+            Diagnostic::error(
+                code.s("missing", 2),
+                "No declaration of 'missing' within record type 'rec_t'",
+            ),
+        ],
     );
 }

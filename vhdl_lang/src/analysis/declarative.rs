@@ -9,11 +9,12 @@ use crate::ast;
 use crate::ast::*;
 use crate::data::*;
 use analyze::*;
+use arc_swap::ArcSwapWeak;
 use fnv::FnvHashMap;
 use named_entity::Signature;
 use region::*;
-use std::collections::hash_map::Entry;
 use std::sync::Arc;
+use std::{collections::hash_map::Entry, sync::Weak};
 
 impl<'a> AnalyzeContext<'a> {
     pub fn analyze_declarative_part(
@@ -22,7 +23,8 @@ impl<'a> AnalyzeContext<'a> {
         declarations: &mut [Declaration],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        let mut incomplete_types: FnvHashMap<Symbol, (EntityId, SrcPos)> = FnvHashMap::default();
+        let mut incomplete_types: FnvHashMap<Symbol, (Arc<NamedEntity>, SrcPos)> =
+            FnvHashMap::default();
 
         for i in 0..declarations.len() {
             // Handle incomplete types
@@ -57,15 +59,16 @@ impl<'a> AnalyzeContext<'a> {
 
                                 let designator =
                                     Designator::Identifier(type_decl.ident.name().clone());
+
                                 // Set incomplete type defintion to position of full declaration
                                 let ent = Arc::new(NamedEntity::new(
                                     designator,
-                                    NamedEntityKind::IncompleteType,
+                                    NamedEntityKind::IncompleteType(ArcSwapWeak::new(Weak::new())),
                                     Some(decl_pos),
                                 ));
                                 reference.set_unique_reference(&ent);
 
-                                entry.insert((ent.id(), type_decl.ident.pos().clone()));
+                                entry.insert((ent.clone(), type_decl.ident.pos().clone()));
                                 region.add_named_entity(ent, diagnostics);
                             }
                             Entry::Occupied(entry) => {
@@ -81,8 +84,28 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     _ => {
                         let incomplete_type = incomplete_types.get(type_decl.ident.name());
-                        let id = incomplete_type.map(|(id, _)| *id);
-                        self.analyze_type_declaration(region, type_decl, id, diagnostics)?;
+                        if let Some((incomplete_type, _)) = incomplete_type {
+                            self.analyze_type_declaration(
+                                region,
+                                type_decl,
+                                Some(incomplete_type.id()),
+                                diagnostics,
+                            )?;
+
+                            // Lookup the newly analyzed type and set it as the full definition of
+                            // the incomplete type
+                            if let Some(NamedEntities::Single(full_type)) =
+                                region.lookup_immediate(incomplete_type.designator())
+                            {
+                                if let NamedEntityKind::IncompleteType(full_ref) =
+                                    incomplete_type.kind()
+                                {
+                                    full_ref.store(Arc::downgrade(full_type));
+                                }
+                            }
+                        } else {
+                            self.analyze_type_declaration(region, type_decl, None, diagnostics)?;
+                        }
                     }
                 },
                 _ => {
@@ -497,15 +520,20 @@ impl<'a> AnalyzeContext<'a> {
                 parent.add_named_entity(type_ent, diagnostics);
             }
             TypeDefinition::Access(ref mut subtype_indication) => {
-                self.analyze_subtype_indication(parent, subtype_indication, diagnostics)?;
-
-                let type_ent = Arc::new(NamedEntity::new_with_opt_id(
-                    overwrite_id,
-                    type_decl.ident.name().clone(),
-                    NamedEntityKind::TypeDeclaration(Vec::new()),
-                    Some(&type_decl.ident.pos),
-                ));
-                parent.add_named_entity(type_ent, diagnostics);
+                let subtype =
+                    self.resolve_subtype_indication(parent, subtype_indication, diagnostics);
+                match subtype {
+                    Ok(subtype) => {
+                        let type_ent = Arc::new(NamedEntity::new_with_opt_id(
+                            overwrite_id,
+                            type_decl.ident.name().clone(),
+                            NamedEntityKind::AccessType(subtype),
+                            Some(&type_decl.ident.pos),
+                        ));
+                        parent.add_named_entity(type_ent, diagnostics);
+                    }
+                    Err(err) => err.add_to(diagnostics)?,
+                }
             }
             TypeDefinition::Array(ref mut array_indexes, ref mut subtype_indication) => {
                 for index in array_indexes.iter_mut() {

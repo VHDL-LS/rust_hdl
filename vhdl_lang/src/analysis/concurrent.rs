@@ -12,7 +12,7 @@ use crate::ast::*;
 use crate::data::*;
 use analyze::*;
 use region::*;
-use semantic::*;
+use target::AssignmentType;
 
 impl<'a> AnalyzeContext<'a> {
     pub fn analyze_concurrent_part(
