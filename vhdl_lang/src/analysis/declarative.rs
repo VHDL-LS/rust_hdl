@@ -137,9 +137,7 @@ impl<'a> AnalyzeContext<'a> {
         }
 
         let kind = {
-            if subtype_indication.is_some() {
-                NamedEntityKind::OtherAlias
-            } else if let Some(named_entities) = resolved_name {
+            if let Some(named_entities) = resolved_name {
                 let ent = match named_entities {
                     NamedEntities::Single(ent) => {
                         if let Some(ref signature) = signature {
@@ -190,7 +188,7 @@ impl<'a> AnalyzeContext<'a> {
                 NamedEntityKind::AliasOf(ent)
             } else {
                 // Found but not known, likely some kind of sliced or indexed name
-                NamedEntityKind::OtherAlias
+                NamedEntityKind::UnknownAlias
             }
         };
 

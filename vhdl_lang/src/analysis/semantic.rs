@@ -46,7 +46,7 @@ impl<'a> AnalyzeContext<'a> {
                     Err(no_declaration_within(prefix, suffix).into())
                 }
             }
-            NamedEntityKind::OtherAlias => Ok(None),
+            NamedEntityKind::UnknownAlias => Ok(None),
             _ => Err(invalid_selected_name_prefix(prefix, prefix_pos).into()),
         }
     }
@@ -66,7 +66,7 @@ impl<'a> AnalyzeContext<'a> {
                     Err(no_declaration_within(prefix_type, suffix).into())
                 }
             }
-            NamedEntityKind::OtherAlias => {
+            NamedEntityKind::UnknownAlias => {
                 // @TODO forbid prefix
                 Ok(None)
             }

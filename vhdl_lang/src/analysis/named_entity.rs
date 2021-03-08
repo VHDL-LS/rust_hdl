@@ -12,7 +12,7 @@ use std::sync::{Arc, Weak};
 
 pub enum NamedEntityKind {
     AliasOf(Arc<NamedEntity>),
-    OtherAlias,
+    UnknownAlias,
     File,
     InterfaceFile(Arc<NamedEntity>),
     Component,
@@ -98,7 +98,7 @@ impl NamedEntityKind {
         use NamedEntityKind::*;
         match self {
             AliasOf(..) => "alias",
-            OtherAlias => "alias",
+            UnknownAlias => "alias",
             File => "file",
             InterfaceFile(..) => "file",
             ElementDeclaration(..) => "element declaration",

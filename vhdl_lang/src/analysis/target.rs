@@ -104,7 +104,7 @@ fn is_valid_assignment_target(ent: &NamedEntity) -> bool {
         // @TODO allow record element declarations for now,
         //       should check their parent object in the future instead
         NamedEntityKind::ElementDeclaration(..) => true,
-        NamedEntityKind::OtherAlias => true,
+        NamedEntityKind::UnknownAlias => true,
         _ => false,
     }
 }
