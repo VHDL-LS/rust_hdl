@@ -479,28 +479,26 @@ impl Search for LabeledConcurrentStatement {
 
 impl Search for WithPos<WithRef<Designator>> {
     fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
-        searcher.search_with_pos(&self.pos).or_else(|| {
-            searcher
-                .search_designator_ref(&self.pos, &self.item)
-                .or_not_found()
-        })
+        return_if_finished!(searcher.search_with_pos(&self.pos));
+        searcher
+            .search_designator_ref(&self.pos, &self.item)
+            .or_not_found()
     }
 }
 
 impl Search for WithPos<SelectedName> {
     fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
-        searcher
-            .search_with_pos(&self.pos)
-            .or_else(|| match self.item {
-                SelectedName::Selected(ref prefix, ref designator) => {
-                    return_if_found!(prefix.search(searcher));
-                    return_if_found!(designator.search(searcher));
-                    NotFound
-                }
-                SelectedName::Designator(ref designator) => searcher
-                    .search_designator_ref(&self.pos, designator)
-                    .or_not_found(),
-            })
+        return_if_finished!(searcher.search_with_pos(&self.pos));
+        match self.item {
+            SelectedName::Selected(ref prefix, ref designator) => {
+                return_if_found!(prefix.search(searcher));
+                return_if_found!(designator.search(searcher));
+                NotFound
+            }
+            SelectedName::Designator(ref designator) => searcher
+                .search_designator_ref(&self.pos, designator)
+                .or_not_found(),
+        }
     }
 }
 
@@ -547,9 +545,8 @@ fn search_pos_name(pos: &SrcPos, name: &Name, searcher: &mut impl Searcher) -> S
 
 impl Search for WithPos<Name> {
     fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
-        searcher
-            .search_with_pos(&self.pos)
-            .or_else(|| search_pos_name(&self.pos, &self.item, searcher))
+        return_if_finished!(searcher.search_with_pos(&self.pos));
+        search_pos_name(&self.pos, &self.item, searcher)
     }
 }
 
@@ -563,31 +560,29 @@ impl Search for ElementConstraint {
 
 impl Search for WithPos<ElementConstraint> {
     fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
-        searcher
-            .search_with_pos(&self.pos)
-            .or_else(|| self.item.search(searcher))
+        return_if_finished!(searcher.search_with_pos(&self.pos));
+        self.item.search(searcher)
     }
 }
 
 impl Search for WithPos<SubtypeConstraint> {
     fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
-        searcher.search_with_pos(&self.pos).or_else(|| {
-            match self.item {
-                SubtypeConstraint::Array(ref dranges, ref constraint) => {
-                    return_if_found!(dranges.search(searcher));
-                    if let Some(ref constraint) = constraint {
-                        return_if_found!(constraint.search(searcher));
-                    }
-                }
-                SubtypeConstraint::Range(ref range) => {
-                    return_if_found!(range.search(searcher));
-                }
-                SubtypeConstraint::Record(ref constraints) => {
-                    return_if_found!(constraints.search(searcher));
+        return_if_finished!(searcher.search_with_pos(&self.pos));
+        match self.item {
+            SubtypeConstraint::Array(ref dranges, ref constraint) => {
+                return_if_found!(dranges.search(searcher));
+                if let Some(ref constraint) = constraint {
+                    return_if_found!(constraint.search(searcher));
                 }
             }
-            NotFound
-        })
+            SubtypeConstraint::Range(ref range) => {
+                return_if_found!(range.search(searcher));
+            }
+            SubtypeConstraint::Record(ref constraints) => {
+                return_if_found!(constraints.search(searcher));
+            }
+        }
+        NotFound
     }
 }
 
@@ -743,7 +738,8 @@ impl Search for TypeDeclaration {
 }
 
 fn search_pos_expr(pos: &SrcPos, expr: &Expression, searcher: &mut impl Searcher) -> SearchResult {
-    searcher.search_with_pos(pos).or_else(|| match expr {
+    return_if_finished!(searcher.search_with_pos(pos));
+    match expr {
         Expression::Binary(_, ref left, ref right) => {
             return_if_found!(left.search(searcher));
             right.search(searcher)
@@ -752,14 +748,15 @@ fn search_pos_expr(pos: &SrcPos, expr: &Expression, searcher: &mut impl Searcher
         Expression::Name(ref name) => search_pos_name(pos, &name, searcher),
         Expression::Aggregate(ref assocs) => assocs.search(searcher),
         Expression::Qualified(ref qexpr) => qexpr.search(searcher),
-        Expression::New(ref alloc) => searcher.search_with_pos(&alloc.pos).or_else(|| match alloc
-            .item
-        {
-            Allocator::Qualified(ref qexpr) => qexpr.search(searcher),
-            Allocator::Subtype(ref subtype) => subtype.search(searcher),
-        }),
+        Expression::New(ref alloc) => {
+            return_if_finished!(searcher.search_with_pos(&alloc.pos));
+            match alloc.item {
+                Allocator::Qualified(ref qexpr) => qexpr.search(searcher),
+                Allocator::Subtype(ref subtype) => subtype.search(searcher),
+            }
+        }
         Expression::Literal(_) => NotFound,
-    })
+    }
 }
 
 impl Search for ElementAssociation {
@@ -992,20 +989,19 @@ impl Search for LibraryClause {
 
 impl Search for WithPos<ContextItem> {
     fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
-        searcher.search_with_pos(&self.pos).or_else(|| {
-            match self.item {
-                ContextItem::Use(ref use_clause) => {
-                    return_if_found!(use_clause.name_list.search(searcher))
-                }
-                ContextItem::Library(ref library_clause) => {
-                    return_if_found!(library_clause.search(searcher))
-                }
-                ContextItem::Context(ref context_clause) => {
-                    return_if_found!(context_clause.name_list.search(searcher))
-                }
+        return_if_finished!(searcher.search_with_pos(&self.pos));
+        match self.item {
+            ContextItem::Use(ref use_clause) => {
+                return_if_found!(use_clause.name_list.search(searcher))
             }
-            NotFound
-        })
+            ContextItem::Library(ref library_clause) => {
+                return_if_found!(library_clause.search(searcher))
+            }
+            ContextItem::Context(ref context_clause) => {
+                return_if_found!(context_clause.name_list.search(searcher))
+            }
+        }
+        NotFound
     }
 }
 
