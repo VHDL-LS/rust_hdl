@@ -1172,32 +1172,36 @@ end package body;
 }
 
 #[test]
-fn overloaded_name_cannot_be_selected() {
+fn overloaded_name_can_be_selected() {
     let mut builder = LibraryBuilder::new();
-    let code = builder.code(
+    builder.code(
         "libname",
         "
 package pkg is
 end package;
 
 package body pkg is
-  function subpgm(arg: natural) return natural is
-  begin
-  end;
+  type rec_t is record
+    f : natural;
+  end record;
 
-  constant foo : natural := subpgm.incorrect;
+  function foo return rec_t is
+    variable t : rec_t;
+  begin
+    return t;
+  end function;
+
+  procedure bar is
+    variable s : natural;
+  begin
+    s := foo.f;
+  end; 
 end package body;
 ",
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(
-        diagnostics,
-        vec![Diagnostic::error(
-            code.s("subpgm", 2),
-            "Overloaded name 'subpgm' may not be the prefix of selected name",
-        )],
-    );
+    check_no_diagnostics(&diagnostics);
 }
 
 #[test]

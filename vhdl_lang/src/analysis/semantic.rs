@@ -128,34 +128,6 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    fn resolve_prefix(
-        &self,
-        region: &Region<'_>,
-        prefix_pos: &SrcPos,
-        prefix: &mut Name,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<Arc<NamedEntity>>> {
-        let resolved_name = self.resolve_name(region, prefix_pos, prefix, diagnostics)?;
-
-        if let Some(named_entities) = resolved_name {
-            match named_entities {
-                NamedEntities::Single(ent) => Ok(Some(ent)),
-                NamedEntities::Overloaded(overloaded) => {
-                    diagnostics.push(Diagnostic::error(
-                        prefix_pos,
-                        format!(
-                            "Overloaded name '{}' may not be the prefix of selected name",
-                            overloaded.designator()
-                        ),
-                    ));
-                    Ok(None)
-                }
-            }
-        } else {
-            Ok(None)
-        }
-    }
-
     pub fn resolve_name(
         &self,
         region: &Region<'_>,
@@ -167,8 +139,8 @@ impl<'a> AnalyzeContext<'a> {
             Name::Selected(prefix, suffix) => {
                 suffix.clear_reference();
 
-                match self.resolve_prefix(region, &prefix.pos, &mut prefix.item, diagnostics)? {
-                    Some(ref named_entity) => {
+                match self.resolve_name(region, &prefix.pos, &mut prefix.item, diagnostics)? {
+                    Some(NamedEntities::Single(ref named_entity)) => {
                         match self.lookup_selected(&prefix.pos, named_entity, suffix) {
                             Ok(Some(visible)) => {
                                 suffix.set_reference(&visible);
@@ -181,12 +153,13 @@ impl<'a> AnalyzeContext<'a> {
                             }
                         }
                     }
+                    Some(NamedEntities::Overloaded(..)) => Ok(None),
                     None => Ok(None),
                 }
             }
 
             Name::SelectedAll(prefix) => {
-                self.resolve_prefix(region, &prefix.pos, &mut prefix.item, diagnostics)?;
+                self.resolve_name(region, &prefix.pos, &mut prefix.item, diagnostics)?;
 
                 Ok(None)
             }
