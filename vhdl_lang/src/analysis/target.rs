@@ -30,6 +30,88 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
+    pub fn resolve_target_name(
+        &self,
+        region: &Region<'_>,
+        name_pos: &SrcPos,
+        name: &mut Name,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult<Option<NamedEntities>> {
+        match name {
+            Name::Selected(prefix, suffix) => {
+                suffix.clear_reference();
+
+                match self.resolve_target_name(
+                    region,
+                    &prefix.pos,
+                    &mut prefix.item,
+                    diagnostics,
+                )? {
+                    Some(NamedEntities::Single(ref named_entity)) => {
+                        match self.lookup_selected(&prefix.pos, named_entity, suffix) {
+                            Ok(Some(visible)) => {
+                                suffix.set_reference(&visible);
+                                Ok(Some(visible))
+                            }
+                            Ok(None) => Ok(None),
+                            Err(err) => {
+                                err.add_to(diagnostics)?;
+                                Ok(None)
+                            }
+                        }
+                    }
+                    Some(NamedEntities::Overloaded(..)) => Ok(None),
+                    None => Ok(None),
+                }
+            }
+
+            Name::SelectedAll(prefix) => {
+                self.resolve_target_name(region, &prefix.pos, &mut prefix.item, diagnostics)?;
+
+                Ok(None)
+            }
+            Name::Designator(designator) => {
+                designator.clear_reference();
+                match region.lookup_within(name_pos, designator.designator()) {
+                    Ok(visible) => {
+                        designator.set_reference(&visible);
+                        Ok(Some(visible))
+                    }
+                    Err(diagnostic) => {
+                        diagnostics.push(diagnostic);
+                        Ok(None)
+                    }
+                }
+            }
+            Name::Indexed(ref mut prefix, ref mut exprs) => {
+                self.resolve_target_name(region, &prefix.pos, &mut prefix.item, diagnostics)?;
+                for expr in exprs.iter_mut() {
+                    self.analyze_expression(region, expr, diagnostics)?;
+                }
+                Ok(None)
+            }
+
+            Name::Slice(ref mut prefix, ref mut drange) => {
+                self.resolve_target_name(region, &prefix.pos, &mut prefix.item, diagnostics)?;
+                self.analyze_discrete_range(region, drange.as_mut(), diagnostics)?;
+                Ok(None)
+            }
+            Name::Attribute(..) => {
+                // @TODO forbid attribute name in targets
+                Ok(None)
+            }
+            Name::FunctionCall(ref mut fcall) => {
+                self.analyze_function_call(region, fcall, diagnostics)?;
+                Ok(None)
+            }
+            Name::External(ref mut ename) => {
+                let ExternalName { subtype, .. } = ename.as_mut();
+                self.analyze_subtype_indication(region, subtype, diagnostics)?;
+                Ok(None)
+            }
+        }
+    }
+
     pub fn analyze_target_name(
         &self,
         region: &Region<'_>,
@@ -38,7 +120,7 @@ impl<'a> AnalyzeContext<'a> {
         assignment_type: AssignmentType,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<Option<Arc<NamedEntity>>> {
-        let resolved_name = self.resolve_name(region, target_pos, target, diagnostics)?;
+        let resolved_name = self.resolve_target_name(region, target_pos, target, diagnostics)?;
 
         if let Some(resolved_name) = resolved_name {
             match resolved_name {
