@@ -97,7 +97,7 @@ impl<'a> AnalyzeContext<'a> {
                 Ok(None)
             }
             Name::Attribute(..) => {
-                // @TODO forbid attribute name in targets
+                diagnostics.push(Diagnostic::error(name_pos, "Invalid assignment target"));
                 Ok(None)
             }
             Name::FunctionCall(ref mut fcall) => {

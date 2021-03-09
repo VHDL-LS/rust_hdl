@@ -42,6 +42,35 @@ end architecture;
 }
 
 #[test]
+fn attribute_name_may_not_be_assignment_target() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+  signal foo : boolean;
+begin
+  main : process
+  begin
+    foo'stable := 1;
+  end process;
+end architecture;
+",
+    );
+
+    let expected = vec![Diagnostic::error(
+        code.s("foo'stable", 1),
+        "Invalid assignment target",
+    )];
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(diagnostics, expected);
+}
+
+#[test]
 fn constant_may_not_be_assignment_target() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(
