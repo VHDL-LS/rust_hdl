@@ -30,13 +30,13 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    pub fn resolve_target_name(
+    fn resolve_target_name(
         &self,
         region: &Region<'_>,
         name_pos: &SrcPos,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<Arc<NamedEntity>>> {
+    ) -> FatalResult<Option<ResolvedTargetName>> {
         match name {
             Name::Selected(prefix, suffix) => {
                 suffix.clear_reference();
@@ -47,11 +47,11 @@ impl<'a> AnalyzeContext<'a> {
                     &mut prefix.item,
                     diagnostics,
                 )? {
-                    Some(ref named_entity) => {
-                        match self.lookup_selected(&prefix.pos, named_entity, suffix) {
+                    Some(resolved) => {
+                        match self.lookup_selected(&prefix.pos, resolved.leaf(), suffix) {
                             Ok(Some(NamedEntities::Single(named_entity))) => {
                                 suffix.set_unique_reference(&named_entity);
-                                Ok(Some(named_entity))
+                                Ok(Some(resolved.with_leaf(named_entity)))
                             }
                             Ok(Some(NamedEntities::Overloaded(..))) => {
                                 diagnostics.push(invalid_assignment_target(name_pos));
@@ -78,7 +78,7 @@ impl<'a> AnalyzeContext<'a> {
                 match region.lookup_within(name_pos, designator.designator()) {
                     Ok(NamedEntities::Single(named_entity)) => {
                         designator.set_unique_reference(&named_entity);
-                        Ok(Some(named_entity))
+                        Ok(Some(ResolvedTargetName::new(named_entity)))
                     }
                     Ok(NamedEntities::Overloaded(..)) => {
                         diagnostics.push(invalid_assignment_target(name_pos));
@@ -140,31 +140,92 @@ impl<'a> AnalyzeContext<'a> {
         target_pos: &SrcPos,
         assignment_type: AssignmentType,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<Arc<NamedEntity>>> {
+    ) -> FatalNullResult {
         let resolved_name = self.resolve_target_name(region, target_pos, target, diagnostics)?;
 
-        if let Some(ent) = resolved_name {
-            if !is_valid_assignment_target(&ent) {
-                diagnostics.push(Diagnostic::error(
-                    target_pos,
-                    format!("{} may not be the target of an assignment", ent.describe()),
-                ));
-                Ok(None)
-            } else if !is_valid_assignment_type(&ent, assignment_type) {
-                diagnostics.push(Diagnostic::error(
-                    target_pos,
-                    format!(
-                        "{} may not be the target of a {} assignment",
-                        ent.describe(),
-                        assignment_type.to_str()
-                    ),
-                ));
-                Ok(None)
-            } else {
-                Ok(Some(ent))
+        if let Some(resolved_name) = resolved_name {
+            if let Some(object) = resolved_name.object() {
+                if !is_valid_assignment_target(object) {
+                    diagnostics.push(Diagnostic::error(
+                        target_pos,
+                        format!(
+                            "{} may not be the target of an assignment",
+                            object.describe()
+                        ),
+                    ));
+                } else if !is_valid_assignment_type(object, assignment_type) {
+                    diagnostics.push(Diagnostic::error(
+                        target_pos,
+                        format!(
+                            "{} may not be the target of a {} assignment",
+                            object.describe(),
+                            assignment_type.to_str()
+                        ),
+                    ));
+                }
             }
+            // @TODO alias of record element is a false positive since we only store record element declaration
+            // example:
+            // alias foo is rec.field;
+            // foo := 1;
+        }
+
+        Ok(())
+    }
+}
+
+enum ResolvedTargetName {
+    // The object which is the true target of the assignment
+    // Example:
+
+    // This shared_var shared variable record is the true assignment target
+    // lib.pkg.shared_var.field := 1
+
+    // lib, lib.pkg
+    BeforeObject(Arc<NamedEntity>),
+
+    // lib.pkg.shared_var
+    Object(Arc<NamedEntity>),
+
+    // lib.pkg.shared_var.field
+    AfterObject(Arc<NamedEntity>, Arc<NamedEntity>),
+}
+
+impl ResolvedTargetName {
+    fn new(ent: Arc<NamedEntity>) -> Self {
+        if ent.actual_kind().is_object() {
+            Self::Object(ent)
         } else {
-            Ok(None)
+            Self::BeforeObject(ent)
+        }
+    }
+
+    fn with_leaf(self, ent: Arc<NamedEntity>) -> Self {
+        if ent.actual_kind().is_object() {
+            debug_assert!(matches!(self, Self::BeforeObject(_)));
+            Self::Object(ent)
+        } else {
+            match self {
+                Self::BeforeObject(_) => Self::BeforeObject(ent),
+                Self::Object(object) => Self::AfterObject(object, ent),
+                Self::AfterObject(object, _) => Self::AfterObject(object, ent),
+            }
+        }
+    }
+
+    fn leaf(&self) -> &NamedEntity {
+        match self {
+            Self::BeforeObject(ref ent) => ent,
+            Self::Object(object) => object,
+            Self::AfterObject(_, ent) => ent,
+        }
+    }
+
+    fn object(&self) -> Option<&NamedEntity> {
+        match self {
+            Self::BeforeObject(_) => None,
+            Self::Object(object) => Some(object),
+            Self::AfterObject(object, _) => Some(object),
         }
     }
 }
@@ -188,7 +249,7 @@ impl AssignmentType {
 
 /// Check that the assignment target is a writable object and not constant or input only
 fn is_valid_assignment_target(ent: &NamedEntity) -> bool {
-    match ent.as_actual().kind() {
+    match ent.actual_kind() {
         NamedEntityKind::Object(object) => {
             object.class != ObjectClass::Constant && !matches!(object.mode, Some(Mode::In))
         }
@@ -202,7 +263,7 @@ fn is_valid_assignment_target(ent: &NamedEntity) -> bool {
 
 // Check that a signal is not the target of a variable assignment and vice-versa
 fn is_valid_assignment_type(ent: &NamedEntity, assignment_type: AssignmentType) -> bool {
-    let class = match ent.as_actual().kind() {
+    let class = match ent.actual_kind() {
         NamedEntityKind::Object(object) => object.class,
         _ => {
             // Other entity kinds are not relevant for this check

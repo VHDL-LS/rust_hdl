@@ -81,6 +81,11 @@ impl NamedEntityKind {
         )
     }
 
+    // Is object or interface object
+    pub fn is_object(&self) -> bool {
+        matches!(self, NamedEntityKind::Object(..))
+    }
+
     pub fn implicit_declarations(&self) -> Vec<Arc<NamedEntity>> {
         if let NamedEntityKind::TypeDeclaration(ref implicit) = self {
             implicit
