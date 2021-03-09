@@ -516,8 +516,9 @@ fn search_pos_name(pos: &SrcPos, name: &Name, searcher: &mut impl Searcher) -> S
         Name::Designator(ref designator) => searcher
             .search_designator_ref(&pos, designator)
             .or_not_found(),
-        Name::Indexed(ref prefix, ..) => {
+        Name::Indexed(ref prefix, ref indexes) => {
             return_if_found!(prefix.search(searcher));
+            return_if_found!(indexes.search(searcher));
             NotFound
         }
         Name::Slice(ref prefix, ref dranges) => {

@@ -33,8 +33,8 @@ end architecture;
     );
 
     let expected = vec![
-        Diagnostic::error(code.s("foo1", 2), "not a valid assignment target"),
-        Diagnostic::error(code.s("foo2", 2), "not a valid assignment target"),
+        Diagnostic::error(code.s("foo1", 2), "Invalid assignment target"),
+        Diagnostic::error(code.s("foo2", 2), "Invalid assignment target"),
     ];
 
     let diagnostics = builder.analyze();
@@ -65,6 +65,57 @@ end architecture;
         code.s("foo'stable", 1),
         "Invalid assignment target",
     )];
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(diagnostics, expected);
+}
+
+#[test]
+fn subprogram_call_may_not_be_assignment_target() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+  function foo1(arg : natural) return natural;
+end package;
+      
+package body pkg is
+  function foo1(arg : natural) return natural is
+  begin
+    return 0;
+  end function;
+end package body;
+
+entity ent is
+end entity;
+
+architecture a of ent is
+    function foo2(arg : natural) return natural is
+    begin
+      return 0;
+    end function;
+begin
+  main : process
+  begin
+    work.pkg.foo1(2) := 1;
+    foo2(2) := 1;
+    work.pkg.foo1(arg => 2) := 1;
+    foo2(arg => 2) := 1;    
+  end process;
+end architecture;
+",
+    );
+
+    let expected = vec![
+        Diagnostic::error(code.s("work.pkg.foo1", 1), "Invalid assignment target"),
+        Diagnostic::error(code.s("foo2", 2), "Invalid assignment target"),
+        Diagnostic::error(
+            code.s("work.pkg.foo1(arg => 2)", 1),
+            "Invalid assignment target",
+        ),
+        Diagnostic::error(code.s("foo2(arg => 2)", 1), "Invalid assignment target"),
+    ];
 
     let diagnostics = builder.analyze();
     check_diagnostics(diagnostics, expected);
@@ -129,6 +180,36 @@ begin
     foo3 := 1;
     foo4 := 1;
   end process;
+end architecture;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn indexed_names_may_be_assignment_target() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+
+  type arr1_t is array (natural range 0 to 1) of natural;
+  type arr2_t is array (natural range 0 to 1, natural range 0 to 1) of natural;
+  type arr3_t is array (natural range 0 to 1) of arr1_t;
+
+  signal foo1 : arr1_t;
+  signal foo2 : arr2_t;
+  signal foo3 : arr3_t;
+begin
+  foo1(0) <= 0;
+  foo2(0, 0) <= 0;
+  foo3(0, 0)(0) <= 0;
 end architecture;
 ",
     );
