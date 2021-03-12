@@ -501,22 +501,18 @@ impl<'a> AnalyzeContext<'a> {
             Expression::Name(ref mut name) => {
                 let resolved_name = self.resolve_name(region, &expr.pos, name, diagnostics)?;
 
-                if let Some(resolved_name) = resolved_name {
-                    if let NamedEntities::Single(ent) = resolved_name {
-                        if let NamedEntityKind::LoopParameter = ent.actual_kind() {
-                            // Ignore now to avoid false positives
-                        } else {
-                            if ent.base_type() != target_type.base_type() {
-                                diagnostics.push(Diagnostic::error(
-                                    expr,
-                                    format!(
-                                        "{} does not match {}",
-                                        ent.describe(),
-                                        target_type.describe()
-                                    ),
-                                ));
-                            }
-                        }
+                if let Some(NamedEntities::Single(ent)) = resolved_name {
+                    if let NamedEntityKind::LoopParameter = ent.actual_kind() {
+                        // Ignore now to avoid false positives
+                    } else if ent.base_type() != target_type.base_type() {
+                        diagnostics.push(Diagnostic::error(
+                            expr,
+                            format!(
+                                "{} does not match {}",
+                                ent.describe(),
+                                target_type.describe()
+                            ),
+                        ));
                     }
                 }
 
