@@ -160,17 +160,30 @@ pub struct Object {
 
 #[derive(Clone)]
 pub struct Subtype {
-    base: Arc<NamedEntity>,
+    type_mark: Arc<NamedEntity>,
 }
 
 impl Subtype {
-    pub fn new(base: Arc<NamedEntity>) -> Subtype {
-        debug_assert!(base.actual_kind().is_type());
-        Subtype { base }
+    pub fn new(type_mark: Arc<NamedEntity>) -> Subtype {
+        debug_assert!(type_mark.actual_kind().is_type());
+        Subtype { type_mark }
     }
 
-    pub fn base(&self) -> &Arc<NamedEntity> {
-        &self.base
+    pub fn type_mark(&self) -> &Arc<NamedEntity> {
+        &self.type_mark
+    }
+
+    pub fn base_type(&self) -> &Arc<NamedEntity> {
+        base_type(&self.type_mark)
+    }
+}
+
+// Strip aliases and subtypes down to base type
+pub fn base_type(ent: &Arc<NamedEntity>) -> &Arc<NamedEntity> {
+    match ent.kind() {
+        NamedEntityKind::AliasOf(ref ent) => base_type(ent),
+        NamedEntityKind::Subtype(ref ent) => ent.base_type(),
+        _ => ent,
     }
 }
 
@@ -216,7 +229,7 @@ impl Signature {
             .params
             .iter()
             .map(|ent| match ent.kind() {
-                NamedEntityKind::Object(obj) => obj.subtype.base().base_type().id(),
+                NamedEntityKind::Object(obj) => obj.subtype.base_type().id(),
                 NamedEntityKind::InterfaceFile(file_type) => file_type.base_type().id(),
                 _ => {
                     unreachable!();
@@ -236,7 +249,7 @@ impl Signature {
         result.push('[');
         for (i, param) in self.params.params.iter().enumerate() {
             let type_ent = match param.kind() {
-                NamedEntityKind::Object(obj) => obj.subtype.base().base_type(),
+                NamedEntityKind::Object(obj) => obj.subtype.base_type(),
                 NamedEntityKind::InterfaceFile(file_type) => file_type.base_type(),
                 _ => unreachable!(),
             };
@@ -435,7 +448,7 @@ impl NamedEntity {
     pub fn base_type(&self) -> &NamedEntity {
         match self.kind() {
             NamedEntityKind::AliasOf(ref ent) => ent.base_type(),
-            NamedEntityKind::Subtype(ref ent) => ent.base().base_type(),
+            NamedEntityKind::Subtype(ref ent) => ent.base_type(),
             _ => self,
         }
     }

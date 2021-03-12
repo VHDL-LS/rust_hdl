@@ -821,7 +821,7 @@ impl<'a> AnalyzeContext<'a> {
                 )?;
                 NamedEntity::new(
                     file_decl.ident.name().clone(),
-                    NamedEntityKind::InterfaceFile(file_type.base().clone()),
+                    NamedEntityKind::InterfaceFile(file_type.type_mark().clone()),
                     Some(&file_decl.ident.pos),
                 )
             }

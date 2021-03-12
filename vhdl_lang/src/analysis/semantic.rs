@@ -32,10 +32,10 @@ impl<'a> AnalyzeContext<'a> {
                 invalid_selected_name_prefix(prefix, prefix_pos),
             )),
             NamedEntityKind::Object(ref object) => {
-                self.lookup_type_selected(prefix_pos, &object.subtype.base(), suffix)
+                self.lookup_type_selected(prefix_pos, &object.subtype.type_mark(), suffix)
             }
             NamedEntityKind::ElementDeclaration(ref subtype) => {
-                self.lookup_type_selected(prefix_pos, subtype.base(), suffix)
+                self.lookup_type_selected(prefix_pos, subtype.type_mark(), suffix)
             }
             NamedEntityKind::Package(ref region)
             | NamedEntityKind::PackageInstance(ref region)
@@ -86,10 +86,10 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             NamedEntityKind::Subtype(subtype) => {
-                self.lookup_type_selected(prefix_pos, subtype.base(), suffix)
+                self.lookup_type_selected(prefix_pos, subtype.type_mark(), suffix)
             }
             NamedEntityKind::AccessType(subtype) => {
-                self.lookup_type_selected(prefix_pos, subtype.base(), suffix)
+                self.lookup_type_selected(prefix_pos, subtype.type_mark(), suffix)
             }
             _ => Err(invalid_selected_name_prefix(prefix_type, prefix_pos).into()),
         }
