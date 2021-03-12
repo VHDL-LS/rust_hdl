@@ -43,6 +43,23 @@ impl LibraryBuilder {
         code
     }
 
+    pub fn in_declarative_region(&mut self, code: &str) -> Code {
+        self.code(
+            "libname",
+            &format!(
+                "
+entity ent is
+end entity;
+
+architecture a of ent is
+{}
+begin
+end architecture;",
+                code
+            ),
+        )
+    }
+
     pub fn get_analyzed_root(&self) -> (DesignRoot, Vec<Diagnostic>) {
         let mut root = DesignRoot::new(self.code_builder.symbols.clone());
         let mut diagnostics = Vec::new();

@@ -478,6 +478,30 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
+    pub fn analyze_expression_with_target_type(
+        &self,
+        region: &Region<'_>,
+        target_type: &NamedEntity,
+        expr: &mut WithPos<Expression>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        match expr.item {
+            Expression::Literal(Literal::AbstractLiteral(AbstractLiteral::Integer(_))) => {
+                if !matches!(
+                    target_type.base_type().kind(),
+                    NamedEntityKind::IntegerType(..)
+                ) {
+                    diagnostics.push(Diagnostic::error(
+                        expr,
+                        format!("integer literal does not match {}", target_type.describe()),
+                    ));
+                }
+                Ok(())
+            }
+            _ => self.analyze_expression(region, expr, diagnostics),
+        }
+    }
+
     // @TODO maybe make generic function for expression/waveform.
     // wait until type checking to see if it makes sense
     pub fn analyze_expr_assignment(

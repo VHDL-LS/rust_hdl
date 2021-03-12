@@ -17,6 +17,7 @@ mod protected_type;
 mod resolves_design_units;
 mod resolves_names;
 mod resolves_type_mark;
+mod typecheck_expression;
 mod util;
 mod visibility;
 

@@ -220,7 +220,16 @@ impl<'a> AnalyzeContext<'a> {
                 );
 
                 if let Some(ref mut expr) = object_decl.expression {
-                    self.analyze_expression(region, expr, diagnostics)?;
+                    if let Ok(ref subtype) = subtype {
+                        self.analyze_expression_with_target_type(
+                            region,
+                            subtype.type_mark(),
+                            expr,
+                            diagnostics,
+                        )?;
+                    } else {
+                        self.analyze_expression(region, expr, diagnostics)?;
+                    }
                 }
 
                 match subtype {
