@@ -478,6 +478,124 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
+    pub fn analyze_name_with_target_type(
+        &self,
+        region: &Region<'_>,
+        target_type: &NamedEntity,
+        name_pos: &SrcPos,
+        name: &mut Name,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        match name {
+            Name::Designator(designator) => {
+                designator.clear_reference();
+
+                match region.lookup_within(name_pos, designator.designator()) {
+                    Ok(entities) => {
+                        // If the name is unique it is more helpful to get a reference
+                        // Even if the type has a mismatch
+                        designator.set_reference(&entities);
+
+                        match entities {
+                            NamedEntities::Single(ent) => {
+                                designator.set_unique_reference(&ent);
+                                if !match_non_overloaded_types(&ent, target_type) {
+                                    diagnostics.push(type_mismatch(name_pos, &ent, target_type));
+                                }
+                            }
+                            NamedEntities::Overloaded(overloaded) => {
+                                match match_overloaded_types(&overloaded, target_type).as_ref() {
+                                    Ok(ent) => {
+                                        designator.set_unique_reference(ent);
+                                    }
+                                    Err(candidates) => {
+                                        if candidates.is_empty() {
+                                            diagnostics.push(overloaded_type_mismatch(
+                                                name_pos,
+                                                name,
+                                                target_type,
+                                            ));
+                                        } else {
+                                            diagnostics.push(ambiguous_overloaded_type(
+                                                name_pos,
+                                                name,
+                                                candidates.as_ref(),
+                                            ));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Err(diagnostic) => {
+                        diagnostics.push(diagnostic);
+                    }
+                }
+            }
+            Name::Selected(prefix, designator) => {
+                designator.clear_reference();
+
+                if let Some(NamedEntities::Single(ref named_entity)) =
+                    self.resolve_name(region, &prefix.pos, &mut prefix.item, diagnostics)?
+                {
+                    match self.lookup_selected(&prefix.pos, named_entity, designator) {
+                        Ok(Some(entities)) => {
+                            // If the name is unique it is more helpful to get a reference
+                            // Even if the type has a mismatch
+                            designator.set_reference(&entities);
+
+                            match entities {
+                                NamedEntities::Single(ent) => {
+                                    designator.set_unique_reference(&ent);
+                                    if !match_non_overloaded_types(&ent, target_type) {
+                                        diagnostics.push(type_mismatch(
+                                            name_pos,
+                                            &ent,
+                                            target_type,
+                                        ));
+                                    }
+                                }
+                                NamedEntities::Overloaded(overloaded) => {
+                                    match match_overloaded_types(&overloaded, target_type).as_ref()
+                                    {
+                                        Ok(ent) => {
+                                            designator.set_unique_reference(ent);
+                                        }
+                                        Err(candidates) => {
+                                            if candidates.is_empty() {
+                                                diagnostics.push(overloaded_type_mismatch(
+                                                    name_pos,
+                                                    name,
+                                                    target_type,
+                                                ));
+                                            } else {
+                                                diagnostics.push(ambiguous_overloaded_type(
+                                                    name_pos,
+                                                    name,
+                                                    candidates.as_ref(),
+                                                ));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Ok(None) => {}
+                        Err(err) => {
+                            err.add_to(diagnostics)?;
+                        }
+                    }
+                }
+            }
+            _ => {
+                self.resolve_name(region, name_pos, name, diagnostics)?;
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn analyze_expression_with_target_type(
         &self,
         region: &Region<'_>,
@@ -485,12 +603,11 @@ impl<'a> AnalyzeContext<'a> {
         expr: &mut WithPos<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
+        let target_base = target_type.base_type();
+
         match expr.item {
             Expression::Literal(Literal::AbstractLiteral(AbstractLiteral::Integer(_))) => {
-                if !matches!(
-                    target_type.base_type().kind(),
-                    NamedEntityKind::IntegerType(..)
-                ) {
+                if !matches!(target_base.kind(), NamedEntityKind::IntegerType(..)) {
                     diagnostics.push(Diagnostic::error(
                         expr,
                         format!("integer literal does not match {}", target_type.describe()),
@@ -498,26 +615,13 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 Ok(())
             }
-            Expression::Name(ref mut name) => {
-                let resolved_name = self.resolve_name(region, &expr.pos, name, diagnostics)?;
-
-                if let Some(NamedEntities::Single(ent)) = resolved_name {
-                    if let NamedEntityKind::LoopParameter = ent.actual_kind() {
-                        // Ignore now to avoid false positives
-                    } else if ent.base_type() != target_type.base_type() {
-                        diagnostics.push(Diagnostic::error(
-                            expr,
-                            format!(
-                                "{} does not match {}",
-                                ent.describe(),
-                                target_type.describe()
-                            ),
-                        ));
-                    }
-                }
-
-                Ok(())
-            }
+            Expression::Name(ref mut name) => self.analyze_name_with_target_type(
+                region,
+                target_type,
+                &expr.pos,
+                name,
+                diagnostics,
+            ),
             _ => self.analyze_expression(region, expr, diagnostics),
         }
     }
@@ -613,6 +717,87 @@ impl<'a> AnalyzeContext<'a> {
         }
         Ok(())
     }
+}
+
+/// Match a named entity with a target type
+/// Returns a diagnostic in case of mismatch
+fn match_non_overloaded_types(ent: &NamedEntity, target_type: &NamedEntity) -> bool {
+    if let NamedEntityKind::LoopParameter = ent.actual_kind() {
+        // Ignore now to avoid false positives
+        true
+    } else {
+        ent.base_type() == target_type.base_type()
+    }
+}
+
+/// Match the type of overloaded name with the target type
+/// Returns an unique match if found
+///  ... or return a vector of ambiguous candidates
+//   ... or an empty array if no match
+/// An overloaded name is a simple or selected name without any arguments
+/// such as an enumeration literal or function call without any arguments
+fn match_overloaded_types<'e>(
+    overloaded: &'e OverloadedName,
+    target_type: &NamedEntity,
+) -> Result<&'e Arc<NamedEntity>, Vec<&'e Arc<NamedEntity>>> {
+    let target_base = target_type.base_type();
+    let mut candidates = Vec::new();
+
+    for ent in overloaded.entities() {
+        if let Some(signature) = ent.signature() {
+            if signature.match_return_type(target_base)
+                && signature.can_be_called_without_parameters()
+            {
+                candidates.push(ent);
+            }
+        }
+    }
+
+    if candidates.len() == 1 {
+        Ok(candidates[0])
+    } else {
+        candidates.sort_by_key(|ent| ent.decl_pos());
+        Err(candidates)
+    }
+}
+
+fn ambiguous_overloaded_type(
+    pos: &SrcPos,
+    name: &Name,
+    candidates: &[&Arc<NamedEntity>],
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::error(pos, format!("ambiguous use of '{}'", name));
+
+    for ent in candidates {
+        if let Some(signature) = ent.signature() {
+            if let Some(decl_pos) = ent.decl_pos() {
+                diagnostic.add_related(
+                    decl_pos,
+                    format!("migth be {}{}", ent.designator(), signature.describe()),
+                )
+            }
+        }
+    }
+
+    diagnostic
+}
+
+fn overloaded_type_mismatch(pos: &SrcPos, name: &Name, expected_type: &NamedEntity) -> Diagnostic {
+    Diagnostic::error(
+        pos,
+        format!("'{}' does not match {}", name, expected_type.describe()),
+    )
+}
+
+fn type_mismatch(pos: &SrcPos, ent: &NamedEntity, expected_type: &NamedEntity) -> Diagnostic {
+    Diagnostic::error(
+        pos,
+        format!(
+            "{} does not match {}",
+            ent.describe(),
+            expected_type.describe()
+        ),
+    )
 }
 
 pub fn invalid_selected_name_prefix(named_entity: &NamedEntity, prefix: &SrcPos) -> Diagnostic {

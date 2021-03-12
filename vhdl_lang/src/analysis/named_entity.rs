@@ -192,21 +192,59 @@ pub fn base_type(ent: &Arc<NamedEntity>) -> &Arc<NamedEntity> {
     }
 }
 
-#[derive(Clone, Default)]
-pub struct ParameterList {
-    /// Vector of InterfaceObject or InterfaceFile
-    params: Vec<Arc<NamedEntity>>,
+#[derive(Clone)]
+pub struct Parameter {
+    /// InterfaceObject or InterfaceFile
+    param: Arc<NamedEntity>,
 }
 
-impl ParameterList {
-    pub fn add_param(&mut self, param: Arc<NamedEntity>) {
+#[derive(Clone, Default)]
+pub struct ParameterList {
+    params: Vec<Parameter>,
+}
+
+impl Parameter {
+    pub fn new(param: Arc<NamedEntity>) -> Self {
         debug_assert!(matches!(
             param.kind(),
             NamedEntityKind::Object(Object { mode: Some(_), .. })
                 | NamedEntityKind::InterfaceFile(..)
         ));
+        Self { param }
+    }
 
-        self.params.push(param);
+    pub fn has_default(&self) -> bool {
+        if let NamedEntityKind::Object(Object { has_default, .. }) = self.param.kind() {
+            *has_default
+        } else {
+            false
+        }
+    }
+
+    pub fn base_type(&self) -> &NamedEntity {
+        match self.param.kind() {
+            NamedEntityKind::Object(obj) => obj.subtype.base_type(),
+            NamedEntityKind::InterfaceFile(file_type) => file_type.base_type(),
+            _ => {
+                unreachable!();
+            }
+        }
+    }
+
+    pub fn type_mark(&self) -> &NamedEntity {
+        match self.param.kind() {
+            NamedEntityKind::Object(obj) => obj.subtype.type_mark(),
+            NamedEntityKind::InterfaceFile(file_type) => file_type,
+            _ => {
+                unreachable!();
+            }
+        }
+    }
+}
+
+impl ParameterList {
+    pub fn add_param(&mut self, param: Arc<NamedEntity>) {
+        self.params.push(Parameter::new(param));
     }
 }
 
@@ -233,13 +271,7 @@ impl Signature {
             .params
             .params
             .iter()
-            .map(|ent| match ent.kind() {
-                NamedEntityKind::Object(obj) => obj.subtype.base_type().id(),
-                NamedEntityKind::InterfaceFile(file_type) => file_type.base_type().id(),
-                _ => {
-                    unreachable!();
-                }
-            })
+            .map(|param| param.base_type().id())
             .collect();
         let return_type = self.return_type.as_ref().map(|ent| ent.base_type().id());
 
@@ -253,16 +285,15 @@ impl Signature {
         let mut result = String::new();
         result.push('[');
         for (i, param) in self.params.params.iter().enumerate() {
-            let type_ent = match param.kind() {
-                NamedEntityKind::Object(obj) => obj.subtype.base_type(),
-                NamedEntityKind::InterfaceFile(file_type) => file_type.base_type(),
-                _ => unreachable!(),
-            };
-            result.push_str(&type_ent.designator().to_string());
+            result.push_str(&param.type_mark().designator().to_string());
 
-            if i + 1 < self.params.params.len() || self.return_type.is_some() {
+            if i + 1 < self.params.params.len() {
                 result.push_str(", ");
             }
+        }
+
+        if !self.params.params.is_empty() && self.return_type.is_some() {
+            result.push(' ');
         }
 
         if let Some(ref return_type) = self.return_type {
@@ -272,6 +303,28 @@ impl Signature {
 
         result.push(']');
         result
+    }
+
+    /// Returns true if the function has no arguments
+    /// or all arguments have defaults
+    pub fn can_be_called_without_parameters(&self) -> bool {
+        self.params.params.iter().all(|param| param.has_default())
+    }
+
+    pub fn return_type(&self) -> Option<&NamedEntity> {
+        self.return_type.as_ref().map(|ent| ent.as_ref())
+    }
+
+    pub fn return_base_type(&self) -> Option<&NamedEntity> {
+        self.return_type().map(|ent| ent.base_type())
+    }
+
+    pub fn match_return_type(&self, typ: &NamedEntity) -> bool {
+        if let Some(return_type) = self.return_base_type() {
+            return_type == typ
+        } else {
+            false
+        }
     }
 }
 

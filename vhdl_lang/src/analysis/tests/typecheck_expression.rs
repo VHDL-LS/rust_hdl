@@ -91,3 +91,124 @@ constant bad_b : my_bool := rval.elem;
         ],
     );
 }
+
+#[test]
+fn test_enum_literal_expression_typecheck() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+subtype my_bool is boolean;
+constant good_a : boolean := true;
+constant good_b : my_bool := false;
+
+constant bad_a : integer := true;
+constant bad_b : character := false;
+
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s("true", 2),
+                "'true' does not match integer type 'INTEGER'",
+            ),
+            Diagnostic::error(
+                code.s("false", 2),
+                "'false' does not match type 'CHARACTER'",
+            ),
+        ],
+    );
+}
+
+#[test]
+fn test_unique_function_typecheck() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+function fun1 return natural is
+begin
+    return 0;
+end function;
+
+function fun1 return boolean is
+begin
+    return 0;
+end function;
+
+constant good : integer := fun1;
+constant bad : character := fun1;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("fun1", 4),
+            "'fun1' does not match type 'CHARACTER'",
+        )],
+    );
+}
+
+#[test]
+fn test_unique_function_default_arg_typecheck() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+function fun1(arg : natural := 0) return natural is
+begin
+    return 0;
+end function;
+
+function fun1 return boolean is
+begin
+    return 0;
+end function;
+
+constant good : integer := fun1;
+constant bad : character := fun1;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("fun1", 4),
+            "'fun1' does not match type 'CHARACTER'",
+        )],
+    );
+}
+
+#[test]
+fn test_ambiguous_function_default_arg_typecheck() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+function fun1(arg : natural := 0) return natural is
+begin
+    return 0;
+end function;
+
+function fun1(arg : boolean := 0) return natural is
+begin
+    return 0;
+end function;
+
+constant bad: integer := fun1;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(code.s("fun1", 3), "ambiguous use of 'fun1'")
+                .related(code.s("fun1", 1), "migth be fun1[NATURAL return NATURAL]")
+                .related(code.s("fun1", 2), "migth be fun1[BOOLEAN return NATURAL]"),
+        ],
+    );
+}

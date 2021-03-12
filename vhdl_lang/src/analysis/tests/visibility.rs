@@ -621,10 +621,9 @@ end package;
 #[test]
 fn non_conflicting_used_names_are_still_visible_in_prescence_of_immediate() {
     let mut builder = LibraryBuilder::new();
-    builder.code(
+    let code = builder.code(
         "libname",
         "
-
 package pkg1 is
   type enum1_t is (alpha, beta);
 end package;
@@ -639,6 +638,29 @@ end package;
 ",
     );
 
-    let diagnostics = builder.analyze();
+    let (root, diagnostics) = builder.get_analyzed_root();
     check_no_diagnostics(&diagnostics);
+
+    let alpha1_pos = code.s("alpha", 1).pos();
+    let alpha1_ref = code.s("alpha", 3).pos();
+    assert_eq!(
+        root.search_reference(code.source(), alpha1_ref.start()),
+        Some(alpha1_pos.clone())
+    );
+
+    let alpha2_pos = code.s("alpha", 2).pos();
+    let alpha2_ref = code.s("alpha", 4).pos();
+    assert_eq!(
+        root.search_reference(code.source(), alpha2_ref.start()),
+        Some(alpha2_pos.clone())
+    );
+
+    assert_eq_unordered(
+        &root.find_all_references(&alpha1_pos),
+        &[alpha1_pos, alpha1_ref],
+    );
+    assert_eq_unordered(
+        &root.find_all_references(&alpha2_pos),
+        &[alpha2_pos, alpha2_ref],
+    );
 }

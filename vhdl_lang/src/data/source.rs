@@ -109,6 +109,18 @@ impl PartialEq for Source {
     }
 }
 
+impl PartialOrd for Source {
+    fn partial_cmp(&self, other: &Source) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Source {
+    fn cmp(&self, other: &Source) -> std::cmp::Ordering {
+        self.source.file_name().cmp(other.file_name())
+    }
+}
+
 impl Eq for Source {}
 
 impl Hash for Source {
@@ -241,6 +253,23 @@ pub struct SrcPos {
     /// The referenced source file.
     pub source: Source,
     range: Range,
+}
+
+impl Ord for SrcPos {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let ordering = self.source.cmp(&other.source);
+        if std::cmp::Ordering::Equal == ordering {
+            self.range.start.cmp(&other.range.start)
+        } else {
+            ordering
+        }
+    }
+}
+
+impl PartialOrd for SrcPos {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
 /// A generic object with an associated source file and lexical range.

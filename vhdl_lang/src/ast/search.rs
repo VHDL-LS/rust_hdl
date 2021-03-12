@@ -727,6 +727,15 @@ impl Search for TypeDeclaration {
                     .search_pos_with_ref(self.ident.pos(), reference)
                     .or_not_found());
             }
+            TypeDefinition::Enumeration(ref literals) => {
+                return_if_found!(searcher
+                    .search_decl(self.ident.pos(), FoundDeclaration::Type(&self))
+                    .or_not_found());
+
+                for literal in literals {
+                    return_if_found!(searcher.search_decl_pos(&literal.pos).or_not_found());
+                }
+            }
             // @TODO others
             _ => {
                 return_if_found!(searcher

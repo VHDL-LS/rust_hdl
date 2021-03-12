@@ -928,7 +928,7 @@ end package body;
             .related(code.s("name1", 1), "Previously defined here"),
             Diagnostic::error(
                 code.s("name2", 2),
-                "Duplicate declaration of 'name2' with signature [STRING, return BOOLEAN]",
+                "Duplicate declaration of 'name2' with signature [STRING return BOOLEAN]",
             )
             .related(code.s("name2", 1), "Previously defined here"),
         ],

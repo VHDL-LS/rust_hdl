@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 pub use super::named_entity::*;
-use super::visibility::*;
+use super::{named_entity, visibility::*};
 use crate::ast::*;
 use crate::data::*;
 
@@ -21,6 +21,7 @@ pub struct OverloadedName {
 impl OverloadedName {
     pub fn new(entities: Vec<Arc<NamedEntity>>) -> OverloadedName {
         debug_assert!(!entities.is_empty());
+        debug_assert!(entities.iter().all(|ent| ent.signature().is_some()));
 
         let mut map = FnvHashMap::default();
         for ent in entities.into_iter() {
@@ -41,6 +42,10 @@ impl OverloadedName {
 
     pub fn entities(&self) -> impl Iterator<Item = &Arc<NamedEntity>> {
         self.entities.values()
+    }
+
+    pub fn signatures(&self) -> impl Iterator<Item = &named_entity::Signature> {
+        self.entities().map(|ent| ent.signature().unwrap())
     }
 
     pub fn get(&self, key: &SignatureKey) -> Option<Arc<NamedEntity>> {
