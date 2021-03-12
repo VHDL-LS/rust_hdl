@@ -47,6 +47,15 @@ impl OverloadedName {
         self.entities.get(key).cloned()
     }
 
+    // Returns only if the overloaded name is unique
+    pub fn as_unique(&self) -> Option<&Arc<NamedEntity>> {
+        if self.entities.len() == 1 {
+            self.entities.values().next()
+        } else {
+            None
+        }
+    }
+
     #[allow(clippy::if_same_then_else)]
     fn insert(&mut self, ent: Arc<NamedEntity>) -> Result<(), Diagnostic> {
         debug_assert!(ent.signature().is_some(), "Must be overloaded");
@@ -491,10 +500,17 @@ pub trait SetReference {
     fn clear_reference(&mut self);
 
     fn set_reference(&mut self, visible: &NamedEntities) {
-        if let Some(ent) = visible.as_non_overloaded() {
-            self.set_unique_reference(ent);
-        } else {
-            self.clear_reference();
+        match visible {
+            NamedEntities::Single(ent) => {
+                self.set_unique_reference(ent);
+            }
+            NamedEntities::Overloaded(overloaded) => {
+                if let Some(ent) = overloaded.as_unique() {
+                    self.set_unique_reference(ent);
+                } else {
+                    self.clear_reference();
+                }
+            }
         }
     }
 }
