@@ -23,6 +23,7 @@ pub enum NamedEntityKind {
     // An optional list of implicit declarations
     // Use Weak reference since implicit declaration typically reference the type itself
     TypeDeclaration(Vec<Weak<NamedEntity>>),
+    IntegerType(Vec<Weak<NamedEntity>>),
     AccessType(Subtype),
     RecordType(Arc<Region<'static>>),
     ElementDeclaration(Subtype),
@@ -76,6 +77,7 @@ impl NamedEntityKind {
                 | NamedEntityKind::InterfaceType
                 | NamedEntityKind::Subtype(..)
                 | NamedEntityKind::TypeDeclaration(..)
+                | NamedEntityKind::IntegerType(..)
                 | NamedEntityKind::AccessType(..)
                 | NamedEntityKind::RecordType(..)
         )
@@ -87,16 +89,18 @@ impl NamedEntityKind {
     }
 
     pub fn implicit_declarations(&self) -> Vec<Arc<NamedEntity>> {
-        if let NamedEntityKind::TypeDeclaration(ref implicit) = self {
-            implicit
-                .iter()
-                .map(|ent|
-                                // We expect the implicit declarations to live as long as the type
-                                ent.upgrade().unwrap())
-                .collect()
-        } else {
-            Vec::new()
-        }
+        let weak = match self {
+            NamedEntityKind::TypeDeclaration(ref implicit) => implicit,
+            NamedEntityKind::IntegerType(ref implicit) => implicit,
+            _ => {
+                return Vec::new();
+            }
+        };
+
+        weak.iter()
+            // We expect the implicit declarations to live as long as the type so unwrap
+            .map(|ent| ent.upgrade().unwrap())
+            .collect()
     }
 
     pub fn describe(&self) -> &str {
@@ -119,6 +123,7 @@ impl NamedEntityKind {
             }
             EnumLiteral(..) => "enum literal",
             TypeDeclaration(..) => "type",
+            IntegerType(..) => "integer type",
             AccessType(..) => "access type",
             Subtype(..) => "subtype",
             IncompleteType(..) => "type",

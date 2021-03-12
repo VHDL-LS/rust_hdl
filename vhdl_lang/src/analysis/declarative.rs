@@ -605,7 +605,7 @@ impl<'a> AnalyzeContext<'a> {
                 let type_ent = Arc::new(NamedEntity::new_with_opt_id(
                     overwrite_id,
                     type_decl.ident.name().clone(),
-                    NamedEntityKind::TypeDeclaration(Vec::new()),
+                    NamedEntityKind::IntegerType(Vec::new()),
                     Some(&type_decl.ident.pos),
                 ));
 
@@ -617,7 +617,7 @@ impl<'a> AnalyzeContext<'a> {
                     implicit.push(Arc::downgrade(&to_string));
                 }
                 parent.add_named_entity(
-                    Arc::new(type_ent.clone_with_kind(NamedEntityKind::TypeDeclaration(implicit))),
+                    Arc::new(type_ent.clone_with_kind(NamedEntityKind::IntegerType(implicit))),
                     diagnostics,
                 );
             }
