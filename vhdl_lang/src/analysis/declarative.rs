@@ -584,26 +584,27 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             TypeDefinition::Physical(ref mut physical) => {
+                let phys_type = Arc::new(NamedEntity::new_with_opt_id(
+                    overwrite_id,
+                    type_decl.ident.name().clone(),
+                    NamedEntityKind::TypeDeclaration(Vec::new()),
+                    Some(&type_decl.ident.pos),
+                ));
+
                 parent.add(
                     physical.primary_unit.clone(),
-                    NamedEntityKind::PhysicalLiteral,
+                    NamedEntityKind::PhysicalLiteral(phys_type.clone()),
                     diagnostics,
                 );
                 for (secondary_unit_name, _) in physical.secondary_units.iter_mut() {
                     parent.add(
                         secondary_unit_name.clone(),
-                        NamedEntityKind::PhysicalLiteral,
+                        NamedEntityKind::PhysicalLiteral(phys_type.clone()),
                         diagnostics,
                     )
                 }
 
-                add_or_overwrite(
-                    parent,
-                    &type_decl.ident,
-                    NamedEntityKind::TypeDeclaration(Vec::new()),
-                    overwrite_id,
-                    diagnostics,
-                );
+                parent.add_named_entity(phys_type, diagnostics);
             }
             TypeDefinition::Incomplete(..) => {
                 unreachable!("Handled elsewhere");
@@ -1063,21 +1064,4 @@ fn find_full_type_definition<'a>(
         }
     }
     None
-}
-
-fn add_or_overwrite(
-    region: &mut Region,
-    name: &Ident,
-    kind: NamedEntityKind,
-    old_id: Option<EntityId>,
-    diagnostics: &mut dyn DiagnosticHandler,
-) -> Arc<NamedEntity> {
-    let ent = Arc::new(NamedEntity::new_with_opt_id(
-        old_id,
-        name.name().clone(),
-        kind,
-        Some(&name.pos),
-    ));
-    region.add_named_entity(ent.clone(), diagnostics);
-    ent
 }

@@ -1227,7 +1227,7 @@ package pkg is
   constant a : rec2_t := rec_val.field1;
   constant b : natural := rec_val.field1.field2;
   constant c : rec2_t := rec_alias.field1;
-  constant d : rec2_t := rec_alias.field1.field2;
+  constant d : natural := rec_alias.field1.field2;
   
   -- Bad
   constant e : natural := rec_val.missing;
@@ -1312,7 +1312,7 @@ package body pkg is
   constant const1 : sub_t := (elem => (0, 1));
   
   -- Ok
-  constant const2 : integer := const1.elem;
+  constant const2 : integer := const1.elem(0);
 
   -- Not ok
   constant const3 : integer := const1.missing;

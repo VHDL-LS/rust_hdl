@@ -35,7 +35,7 @@ pub enum NamedEntityKind {
     Label,
     Object(Object),
     LoopParameter,
-    PhysicalLiteral,
+    PhysicalLiteral(Arc<NamedEntity>),
     DeferredConstant,
     // The region of the protected type which needs to be extendend by the body
     ProtectedType(Arc<Region<'static>>),
@@ -131,7 +131,7 @@ impl NamedEntityKind {
             Label => "label",
             LoopParameter => "loop parameter",
             Object(object) => object.class.describe(),
-            PhysicalLiteral => "physical literal",
+            PhysicalLiteral(..) => "physical literal",
             DeferredConstant => "deferred constant",
             ProtectedType(..) => "protected type",
             Library => "library",
@@ -454,6 +454,9 @@ impl NamedEntity {
         match self.kind() {
             NamedEntityKind::AliasOf(ref ent) => ent.base_type(),
             NamedEntityKind::Subtype(ref ent) => ent.base_type(),
+            NamedEntityKind::Object(ref ent) => ent.subtype.base_type(),
+            NamedEntityKind::ElementDeclaration(ref subtype) => subtype.base_type(),
+            NamedEntityKind::PhysicalLiteral(ref base_type) => base_type,
             _ => self,
         }
     }
