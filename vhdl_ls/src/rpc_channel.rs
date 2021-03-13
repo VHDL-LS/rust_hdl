@@ -41,7 +41,10 @@ pub trait RpcChannel {
     }
 
     fn push_msg(&self, msg: Message) {
-        if msg.message_type == vhdl_lang::MessageType::Error {
+        if matches!(
+            msg.message_type,
+            vhdl_lang::MessageType::Warning | vhdl_lang::MessageType::Error
+        ) {
             self.window_show_message(to_lsp_message_type(&msg.message_type), msg.message.clone());
         }
         self.window_log_message(to_lsp_message_type(&msg.message_type), msg.message);
@@ -148,6 +151,10 @@ pub mod test_support {
             let contains = contains.into();
             self.expect_notification_contains("window/showMessage", contains.clone());
             self.expect_notification_contains("window/logMessage", contains);
+        }
+
+        pub fn expect_warning_contains(&self, contains: impl Into<String>) {
+            self.expect_error_contains(contains)
         }
 
         pub fn expect_message_contains(&self, contains: impl Into<String>) {

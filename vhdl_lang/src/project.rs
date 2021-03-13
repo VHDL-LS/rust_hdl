@@ -167,9 +167,15 @@ impl Project {
             } else {
                 // File is not part of the project
                 // @TODO use config wildcards to map to library
+
+                // Add unmapped files to an anonymous library work
+                // To still get some semantic analysis for unmapped files
+                let mut library_names = FnvHashSet::default();
+                library_names.insert(self.root.symbol_utf8("work"));
+
                 SourceFile {
                     source: source.clone(),
-                    library_names: FnvHashSet::default(),
+                    library_names,
                     parser_diagnostics: vec![],
                     design_file: DesignFile::default(),
                 }
@@ -309,6 +315,41 @@ lib.files = ['file.vhd']
         let mut project = Project::from_config(&config, &mut messages);
         assert_eq!(messages, vec![]);
         check_no_diagnostics(&project.analyse());
+    }
+
+    #[test]
+    fn unmapped_libraries_are_analyzed() {
+        let mut messages = Vec::new();
+        let mut project = Project::from_config(&Config::default(), &mut messages);
+        assert_eq!(messages, vec![]);
+        let diagnostics = project.analyse();
+        check_no_diagnostics(&diagnostics);
+
+        let root = tempfile::tempdir().unwrap();
+        let vhdl_file_path = root.path().join("file.vhd");
+        std::fs::write(
+            &vhdl_file_path,
+            "
+entity ent is
+end ent;
+
+architecture rtl of ent is
+begin
+end architecture;
+
+architecture rtl of ent is
+begin
+end architecture;
+",
+        )
+        .unwrap();
+        let source = Source::from_latin1_file(&vhdl_file_path).unwrap();
+
+        project.update_source(&source);
+        let diagnostics = project.analyse();
+        assert_eq!(diagnostics.len(), 1);
+        let diag = diagnostics.first().unwrap();
+        assert_eq!(diag.message, "Duplicate architecture 'rtl' of entity 'ent'")
     }
 
     /// Test that the same file can be added to several libraries

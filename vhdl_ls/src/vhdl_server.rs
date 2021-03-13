@@ -71,11 +71,11 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
             }
             Err(ref err) => {
                 self.rpc_channel.push_msg(Message::error(format!(
-                    "Found no vhdl_ls.toml config file in the workspace root path: {}",
+                    "Library mapping is unknown due to missing vhdl_ls.toml config file in the workspace root path: {}",
                     err
                 )));
                 self.rpc_channel.push_msg(Message::warning(
-                    "Found no library mapping, semantic analysis disabled, will perform syntax checking only",
+                    "Without library mapping semantic analysis might be incorrect",
                 ));
             }
         };
@@ -352,7 +352,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             self.project.update_source(&source);
             self.publish_diagnostics();
         } else {
-            self.push_msg(Message::info(format!(
+            self.push_msg(Message::warning(format!(
                 "Opening file {} that is not part of the project",
                 file_name.to_string_lossy()
             )));
@@ -598,9 +598,9 @@ mod tests {
     }
 
     fn expect_missing_config_messages(mock: &RpcMock) {
-        mock.expect_error_contains("Found no vhdl_ls.toml config file in the workspace root path");
-        mock.expect_message_contains(
-            "Found no library mapping, semantic analysis disabled, will perform syntax checking only",
+        mock.expect_error_contains("Library mapping is unknown due to missing vhdl_ls.toml config file in the workspace root path");
+        mock.expect_warning_contains(
+            "Without library mapping semantic analysis might be incorrect",
         );
     }
 
@@ -642,7 +642,7 @@ end entity ent;
             },
         };
 
-        mock.expect_message_contains("is not part of the project");
+        mock.expect_warning_contains("is not part of the project");
 
         server.text_document_did_open_notification(&did_open);
     }
@@ -694,7 +694,7 @@ end entity ent2;
             version: None,
         };
 
-        mock.expect_message_contains("is not part of the project");
+        mock.expect_warning_contains("is not part of the project");
 
         mock.expect_notification("textDocument/publishDiagnostics", publish_diagnostics);
         server.text_document_did_open_notification(&did_open);
@@ -825,7 +825,7 @@ lib.files = [
         );
 
         expect_loaded_config_messages(&mock, &config_uri);
-        mock.expect_message_contains("missing_file.vhd");
+        mock.expect_warning_contains("missing_file.vhd");
         initialize_server(&mut server, root_uri);
     }
 

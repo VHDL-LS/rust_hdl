@@ -327,7 +327,7 @@ impl DesignRoot {
         FindAllReferences::search(self, decl_pos)
     }
 
-    pub(super) fn symbol_utf8(&self, name: &str) -> Symbol {
+    pub fn symbol_utf8(&self, name: &str) -> Symbol {
         self.symbols.symtab().insert_utf8(name)
     }
 
