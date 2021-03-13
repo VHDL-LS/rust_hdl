@@ -615,3 +615,30 @@ end package;
         Some(deepest_pos.pos())
     );
 }
+
+/// Using an overloaded name should not conflict with an immediate declaration if they
+/// have different signatures
+#[test]
+fn non_conflicting_used_names_are_still_visible_in_prescence_of_immediate() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+
+package pkg1 is
+  type enum1_t is (alpha, beta);
+end package;
+
+use work.pkg1.enum1_t;
+
+package user is
+  type enum2_t is (alpha, beta);
+  constant a : enum1_t := alpha;
+  constant b : enum2_t := alpha;
+end package;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}

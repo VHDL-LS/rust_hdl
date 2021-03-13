@@ -100,6 +100,18 @@ impl OverloadedName {
             }
         }
     }
+
+    // Merge overloaded names where self is overloaded names from an
+    // immediate/enclosing region and visible are overloaded names that have been made visible
+    fn with_visible(mut self, visible: Self) -> Self {
+        for (signature, visible_entity) in visible.entities.into_iter() {
+            // Ignore visible entites that conflict with those in the enclosing region
+            if let Entry::Vacant(entry) = self.entities.entry(signature) {
+                entry.insert(visible_entity);
+            }
+        }
+        self
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -479,8 +491,25 @@ impl<'a> Region<'a> {
         pos: &SrcPos,
         designator: &Designator,
     ) -> Result<NamedEntities, Diagnostic> {
-        let result = if let Some(visible) = self.lookup_enclosing(designator) {
-            Some(visible.clone())
+        let result = if let Some(enclosing) = self.lookup_enclosing(designator) {
+            let enclosing = enclosing.clone();
+
+            match enclosing {
+                // non overloaded in enclosing region ignores any visible overloaded names
+                NamedEntities::Single(..) => Some(enclosing),
+                // In case of overloaded local, non-conflicting visible names are still relevant
+                NamedEntities::Overloaded(enclosing_overloaded) => {
+                    if let Ok(Some(NamedEntities::Overloaded(overloaded))) =
+                        self.lookup_visible(pos, designator)
+                    {
+                        Some(NamedEntities::Overloaded(
+                            enclosing_overloaded.with_visible(overloaded),
+                        ))
+                    } else {
+                        Some(NamedEntities::Overloaded(enclosing_overloaded))
+                    }
+                }
+            }
         } else {
             self.lookup_visible(pos, designator)?
         };
