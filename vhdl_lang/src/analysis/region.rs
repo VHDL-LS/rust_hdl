@@ -269,7 +269,7 @@ impl<'a> Region<'a> {
             // Package without body may not have deferred constants
             RegionKind::PackageDeclaration | RegionKind::PackageBody => {
                 for ent in self.entities.values() {
-                    if let NamedEntityKind::DeferredConstant = ent.first_kind() {
+                    if let NamedEntityKind::DeferredConstant(..) = ent.first_kind() {
                         ent.first().error(diagnostics, format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", ent.designator()));
                     }
                 }

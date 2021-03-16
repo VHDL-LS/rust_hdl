@@ -193,7 +193,7 @@ begin
     return 0;
 end function;
 
-function fun1(arg : boolean := 0) return natural is
+function fun1(arg : boolean := false) return natural is
 begin
     return 0;
 end function;

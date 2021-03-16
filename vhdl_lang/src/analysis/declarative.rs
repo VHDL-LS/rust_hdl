@@ -237,7 +237,7 @@ impl<'a> AnalyzeContext<'a> {
                         let ent = if object_decl.class == ObjectClass::Constant
                             && object_decl.expression.is_none()
                         {
-                            NamedEntityKind::DeferredConstant
+                            NamedEntityKind::DeferredConstant(subtype)
                         } else {
                             NamedEntityKind::Object(Object {
                                 class: object_decl.class,
@@ -843,7 +843,16 @@ impl<'a> AnalyzeContext<'a> {
                 );
 
                 if let Some(ref mut expression) = object_decl.expression {
-                    self.analyze_expression(region, expression, diagnostics)?
+                    if let Ok(ref subtype) = subtype {
+                        self.analyze_expression_with_target_type(
+                            region,
+                            subtype.type_mark(),
+                            expression,
+                            diagnostics,
+                        )?;
+                    } else {
+                        self.analyze_expression(region, expression, diagnostics)?
+                    }
                 }
 
                 let subtype = subtype?;
