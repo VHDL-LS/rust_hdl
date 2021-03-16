@@ -42,6 +42,7 @@ impl SearchState {
 pub enum FoundDeclaration<'a> {
     Object(&'a ObjectDeclaration),
     ElementDeclaration(&'a ElementDeclaration),
+    EnumerationLiteral(&'a Ident, &'a EnumerationLiteral),
     InterfaceObject(&'a InterfaceObjectDeclaration),
     File(&'a FileDeclaration),
     Type(&'a TypeDeclaration),
@@ -733,7 +734,12 @@ impl Search for TypeDeclaration {
                     .or_not_found());
 
                 for literal in literals {
-                    return_if_found!(searcher.search_decl_pos(&literal.pos).or_not_found());
+                    return_if_found!(searcher
+                        .search_decl(
+                            &literal.pos,
+                            FoundDeclaration::EnumerationLiteral(&self.ident, &literal.item)
+                        )
+                        .or_not_found());
                 }
             }
             // @TODO others
@@ -1247,6 +1253,9 @@ impl Searcher for FormatDeclaration {
                 }
                 FoundDeclaration::ElementDeclaration(elem) => {
                     format!("```vhdl\n{}\n```", elem)
+                }
+                FoundDeclaration::EnumerationLiteral(ident, elem) => {
+                    format!("```vhdl\n{} : {}\n```", elem, ident)
                 }
                 FoundDeclaration::File(ref value) => {
                     format!("```vhdl\n{}\n```", value)
