@@ -207,37 +207,32 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn resolve_non_overloaded(
         &self,
-        region: &Region<'_>,
-        name: &mut WithPos<SelectedName>,
+        named_entities: NamedEntities,
+        pos: &SrcPos,
         kind_ok: &impl Fn(&NamedEntityKind) -> bool,
         expected: &str,
     ) -> AnalysisResult<Arc<NamedEntity>> {
-        match self
-            .resolve_selected_name(region, name)?
-            .into_non_overloaded()
-        {
+        match named_entities.into_non_overloaded() {
             Ok(ent) => {
                 if kind_ok(ent.actual_kind()) {
                     Ok(ent)
                 } else {
                     let mut error = Diagnostic::error(
-                        name.suffix_pos(),
+                        pos,
                         format!("Expected {}, got {}", expected, ent.describe()),
                     );
-                    if let Some(pos) = ent.decl_pos() {
-                        error.add_related(pos, "Defined here");
+                    if let Some(decl_pos) = ent.decl_pos() {
+                        error.add_related(decl_pos, "Defined here");
                     }
                     Err(AnalysisError::NotFatal(error))
                 }
             }
             Err(overloaded) => {
-                let mut error = Diagnostic::error(
-                    name.suffix_pos(),
-                    format!("Expected {}, got overloaded name", expected),
-                );
+                let mut error =
+                    Diagnostic::error(pos, format!("Expected {}, got overloaded name", expected));
                 for ent in overloaded.entities() {
-                    if let Some(pos) = ent.decl_pos() {
-                        error.add_related(pos, "Defined here");
+                    if let Some(decl_pos) = ent.decl_pos() {
+                        error.add_related(decl_pos, "Defined here");
                     }
                 }
                 Err(AnalysisError::NotFatal(error))
@@ -250,7 +245,13 @@ impl<'a> AnalyzeContext<'a> {
         region: &Region<'_>,
         type_mark: &mut WithPos<SelectedName>,
     ) -> AnalysisResult<Arc<NamedEntity>> {
-        self.resolve_non_overloaded(region, type_mark, &NamedEntityKind::is_type, "type")
+        let entities = self.resolve_selected_name(region, type_mark)?;
+        self.resolve_non_overloaded(
+            entities,
+            type_mark.suffix_pos(),
+            &NamedEntityKind::is_type,
+            "type",
+        )
     }
 
     fn analyze_attribute_name(

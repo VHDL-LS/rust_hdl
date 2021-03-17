@@ -196,7 +196,15 @@ impl<'a> AnalyzeContext<'a> {
                 }
 
                 if let Err(err) =
-                    self.resolve_non_overloaded(parent, entity_name, &is_entity, "entity")
+                    self.resolve_selected_name(parent, entity_name)
+                        .and_then(|entities| {
+                            self.resolve_non_overloaded(
+                                entities,
+                                entity_name.suffix_pos(),
+                                &is_entity,
+                                "entity",
+                            )
+                        })
                 {
                     err.add_to(diagnostics)?;
                 }
@@ -207,7 +215,15 @@ impl<'a> AnalyzeContext<'a> {
                 }
 
                 if let Err(err) =
-                    self.resolve_non_overloaded(parent, component_name, &is_component, "component")
+                    self.resolve_selected_name(parent, component_name)
+                        .and_then(|entities| {
+                            self.resolve_non_overloaded(
+                                entities,
+                                component_name.suffix_pos(),
+                                &is_component,
+                                "component",
+                            )
+                        })
                 {
                     err.add_to(diagnostics)?;
                 }
@@ -217,12 +233,17 @@ impl<'a> AnalyzeContext<'a> {
                     matches!(kind, NamedEntityKind::Configuration(..))
                 }
 
-                if let Err(err) = self.resolve_non_overloaded(
-                    parent,
-                    config_name,
-                    &is_configuration,
-                    "configuration",
-                ) {
+                if let Err(err) =
+                    self.resolve_selected_name(parent, config_name)
+                        .and_then(|entities| {
+                            self.resolve_non_overloaded(
+                                entities,
+                                config_name.suffix_pos(),
+                                &is_configuration,
+                                "configuration",
+                            )
+                        })
+                {
                     err.add_to(diagnostics)?;
                 }
             }
