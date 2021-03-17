@@ -35,6 +35,22 @@ impl WithPos<SelectedName> {
     }
 }
 
+impl WithPos<Name> {
+    pub fn suffix_pos(&self) -> &SrcPos {
+        match self.item {
+            Name::Designator(..) => &self.pos,
+            Name::Selected(_, ref suffix) => &suffix.pos,
+            // @TODO add pos of .all?
+            Name::SelectedAll(ref prefix) => &prefix.pos,
+            Name::FunctionCall(ref fcall) => fcall.name.suffix_pos(),
+            Name::Indexed(ref prefix, ..) => prefix.suffix_pos(),
+            Name::Slice(ref prefix, ..) => prefix.suffix_pos(),
+            Name::Attribute(ref attr, ..) => attr.name.suffix_pos(),
+            Name::External(..) => &self.pos,
+        }
+    }
+}
+
 pub fn to_simple_name(name: WithPos<Name>) -> DiagnosticResult<Ident> {
     match name.item {
         Name::Designator(WithRef {
@@ -306,4 +322,48 @@ impl Name {
             _ => None,
         }
     }
+}
+
+impl FunctionCall {
+    // During parsing function calls and indexed names are ambiguous
+    // Thus we convert function calls to indexed names during the analysis stage
+    pub fn to_indexed(&self) -> Option<Name> {
+        let FunctionCall {
+            ref name,
+            ref parameters,
+        } = self;
+
+        if let Some(indexes) = assoc_elems_to_indexes(parameters) {
+            Some(Name::Indexed(Box::new(name.clone()), indexes))
+        } else {
+            None
+        }
+    }
+}
+
+fn assoc_elem_to_index(assoc_elem: &AssociationElement) -> Option<WithPos<Expression>> {
+    if assoc_elem.formal.is_some() {
+        return None;
+    }
+
+    match assoc_elem.actual.item {
+        ActualPart::Open => None,
+        ActualPart::Expression(ref expr) => {
+            Some(WithPos::new(expr.clone(), assoc_elem.actual.pos.clone()))
+        }
+    }
+}
+
+fn assoc_elems_to_indexes(assoc_elems: &[AssociationElement]) -> Option<Vec<WithPos<Expression>>> {
+    let mut result: Vec<WithPos<Expression>> = Vec::with_capacity(assoc_elems.len());
+
+    for elem in assoc_elems.iter() {
+        if let Some(expr) = assoc_elem_to_index(elem) {
+            result.push(expr);
+        } else {
+            return None;
+        }
+    }
+
+    Some(result)
 }

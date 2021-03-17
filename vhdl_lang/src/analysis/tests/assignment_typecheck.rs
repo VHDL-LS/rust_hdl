@@ -209,7 +209,7 @@ architecture a of ent is
 begin
   foo1(0) <= 0;
   foo2(0, 0) <= 0;
-  foo3(0, 0)(0) <= 0;
+  foo3(0)(0) <= 0;
 end architecture;
 ",
     );
@@ -338,6 +338,32 @@ end architecture;
             "variable 'foo4' may not be the target of a signal assignment",
         ),
     ];
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(diagnostics, expected);
+}
+
+#[test]
+fn indexed_assignment_target() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    signal foo : natural;
+begin
+    foo(0) <= 0;
+end architecture;
+",
+    );
+
+    let expected = vec![Diagnostic::error(
+        code.s("foo", 2),
+        "signal 'foo' of subtype 'NATURAL' cannot be indexed",
+    )];
 
     let diagnostics = builder.analyze();
     check_diagnostics(diagnostics, expected);

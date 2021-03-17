@@ -543,15 +543,21 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             TypeDefinition::Array(ref mut array_indexes, ref mut subtype_indication) => {
+                let mut indexes: Vec<Option<Arc<NamedEntity>>> =
+                    Vec::with_capacity(array_indexes.len());
                 for index in array_indexes.iter_mut() {
                     self.analyze_array_index(parent, index, diagnostics)?;
+                    indexes.push(None);
                 }
                 self.analyze_subtype_indication(parent, subtype_indication, diagnostics)?;
 
                 let type_ent = Arc::new(NamedEntity::new_with_opt_id(
                     overwrite_id,
                     type_decl.ident.name().clone(),
-                    NamedEntityKind::TypeDeclaration(Vec::new()),
+                    NamedEntityKind::ArrayType {
+                        implicit: Vec::new(),
+                        indexes: vec![],
+                    },
                     Some(&type_decl.ident.pos),
                 ));
 
@@ -563,7 +569,10 @@ impl<'a> AnalyzeContext<'a> {
                     implicit.push(Arc::downgrade(&to_string));
                 }
                 parent.add_named_entity(
-                    Arc::new(type_ent.clone_with_kind(NamedEntityKind::TypeDeclaration(implicit))),
+                    Arc::new(type_ent.clone_with_kind(NamedEntityKind::ArrayType {
+                        implicit: Vec::new(),
+                        indexes,
+                    })),
                     diagnostics,
                 );
             }

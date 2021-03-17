@@ -193,8 +193,8 @@ impl<'a> AnalyzeContext<'a> {
                 self.analyze_attribute_name(region, attr, diagnostics)?;
                 Ok(None)
             }
-            Name::FunctionCall(ref mut fcall) => {
-                self.analyze_function_call(region, fcall, diagnostics)?;
+            Name::FunctionCall(..) => {
+                self.analyze_ambiguous_function_call(region, name_pos, name, diagnostics)?;
                 Ok(None)
             }
             Name::External(ref mut ename) => {
@@ -502,6 +502,116 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
+    /// Analyze an indexed name where the prefix entity is already known
+    pub fn analyze_indexed_name(
+        &self,
+        region: &Region<'_>,
+        name_pos: &SrcPos,
+        suffix_pos: &SrcPos,
+        ent: &NamedEntity,
+        indexes: &mut [WithPos<Expression>],
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        if let NamedEntityKind::Object(object) = ent.actual_kind() {
+            let base_type = ent.base_type();
+
+            let base_type = if let NamedEntityKind::AccessType(ref subtype) = base_type.kind() {
+                subtype.base_type()
+            } else {
+                base_type
+            };
+
+            if let NamedEntityKind::ArrayType {
+                indexes: ref index_types,
+                ..
+            } = base_type.kind()
+            {
+                if indexes.len() != index_types.len() {
+                    diagnostics.push(dimension_mismatch(
+                        name_pos,
+                        base_type,
+                        indexes.len(),
+                        index_types.len(),
+                    ))
+                }
+            } else {
+                diagnostics.push(Diagnostic::error(
+                    suffix_pos,
+                    format!(
+                        "{} of {} cannot be indexed",
+                        ent.describe(),
+                        object.subtype.type_mark().describe()
+                    ),
+                ))
+            }
+        }
+
+        for index in indexes.iter_mut() {
+            self.analyze_expression(region, index, diagnostics)?;
+        }
+
+        Ok(())
+    }
+
+    /// Function call cannot be distinguished from indexed names when parsing
+    /// Use the named entity kind to disambiguate
+    pub fn analyze_ambiguous_function_call(
+        &self,
+        region: &Region<'_>,
+        name_pos: &SrcPos,
+        name: &mut Name,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        match name {
+            Name::FunctionCall(ref mut fcall) => {
+                match self.resolve_name(
+                    region,
+                    &fcall.name.pos,
+                    &mut fcall.name.item,
+                    diagnostics,
+                )? {
+                    Some(NamedEntities::Single(ent)) => {
+                        if let Some(indexed_name) = fcall.to_indexed() {
+                            *name = indexed_name;
+
+                            if let Name::Indexed(ref mut prefix, ref mut indexes) = name {
+                                self.analyze_indexed_name(
+                                    region,
+                                    name_pos,
+                                    prefix.suffix_pos(),
+                                    &ent,
+                                    indexes,
+                                    diagnostics,
+                                )?;
+                            }
+                        } else {
+                            diagnostics.push(Diagnostic::error(
+                                &fcall.name.pos,
+                                format!(
+                                    "{} cannot be the prefix of a function call",
+                                    ent.describe()
+                                ),
+                            ));
+
+                            self.analyze_assoc_elems(region, &mut fcall.parameters, diagnostics)?;
+                        }
+                    }
+                    Some(NamedEntities::Overloaded(..)) => {
+                        // @TODO check function arguments
+                        self.analyze_assoc_elems(region, &mut fcall.parameters, diagnostics)?;
+                    }
+                    None => {
+                        self.analyze_assoc_elems(region, &mut fcall.parameters, diagnostics)?;
+                    }
+                };
+            }
+            _ => {
+                debug_assert!(false);
+            }
+        }
+        Ok(())
+    }
+
     pub fn analyze_name_with_target_type(
         &self,
         region: &Region<'_>,
@@ -611,6 +721,9 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     }
                 }
+            }
+            Name::FunctionCall(..) => {
+                self.analyze_ambiguous_function_call(region, name_pos, name, diagnostics)?;
             }
             _ => {
                 self.resolve_name(region, name_pos, name, diagnostics)?;
@@ -846,4 +959,37 @@ pub fn no_declaration_within(
             named_entity.describe(),
         ),
     )
+}
+
+fn plural(singular: &'static str, plural: &'static str, count: usize) -> &'static str {
+    if count == 1 {
+        singular
+    } else {
+        plural
+    }
+}
+
+fn dimension_mismatch(
+    pos: &SrcPos,
+    base_type: &NamedEntity,
+    got: usize,
+    expected: usize,
+) -> Diagnostic {
+    let mut diag = Diagnostic::error(pos, "Number of indexes does not match array dimension");
+
+    if let Some(decl_pos) = base_type.decl_pos() {
+        diag.add_related(
+            decl_pos,
+            capitalize(&format!(
+                "{} has {} {}, got {} {}",
+                base_type.describe(),
+                expected,
+                plural("dimension", "dimensions", expected),
+                got,
+                plural("index", "indexes", got),
+            )),
+        );
+    }
+
+    diag
 }

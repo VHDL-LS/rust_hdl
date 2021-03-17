@@ -212,3 +212,105 @@ constant bad: integer := fun1;
         ],
     );
 }
+
+#[test]
+fn test_name_can_be_indexed() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+constant foo : natural := 0;
+constant bar : natural := foo(0);
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("foo", 2),
+            "constant 'foo' of subtype 'NATURAL' cannot be indexed",
+        )],
+    );
+}
+
+#[test]
+fn test_access_type_can_be_indexed() {
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "
+type arr_t is array (0 to 1) of natural;
+type access_t is access arr_t;
+
+procedure proc is
+   variable myvar : access_t;
+   variable foo : natural;
+begin
+    foo := myvar(0);
+end procedure;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn test_indexed_array_dimension_check() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type arr1_t is array (0 to 1) of natural;
+type arr2_t is array (0 to 1, 0 to 1) of natural;
+constant foo1 : arr1_t := (0, 1);
+constant foo2 : arr2_t := ((0, 1), (2, 3));
+
+constant bar1 : natural := foo1(0);
+constant bar2 : natural := foo1(0, 1);
+constant bar3 : natural := foo2(0);
+constant bar4 : natural := foo2(0, 1);
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s("foo1(0, 1)", 1),
+                "Number of indexes does not match array dimension",
+            )
+            .related(
+                code.s("arr1_t", 1),
+                "Array type 'arr1_t' has 1 dimension, got 2 indexes",
+            ),
+            Diagnostic::error(
+                code.s("foo2(0)", 1),
+                "Number of indexes does not match array dimension",
+            )
+            .related(
+                code.s("arr2_t", 1),
+                "Array type 'arr2_t' has 2 dimensions, got 1 index",
+            ),
+        ],
+    );
+}
+
+#[test]
+fn test_disambiguates_indexed_name_and_function_call() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+constant foo : natural := 0;
+constant bar : natural := foo(arg => 0);
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("foo", 2),
+            "constant 'foo' cannot be the prefix of a function call",
+        )],
+    );
+}

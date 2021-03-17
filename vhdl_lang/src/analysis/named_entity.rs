@@ -23,6 +23,11 @@ pub enum NamedEntityKind {
     // An optional list of implicit declarations
     // Use Weak reference since implicit declaration typically reference the type itself
     TypeDeclaration(Vec<Weak<NamedEntity>>),
+    // Indexes are Option<> to handle unknown types
+    ArrayType {
+        implicit: Vec<Weak<NamedEntity>>,
+        indexes: Vec<Option<Arc<NamedEntity>>>,
+    },
     IntegerType(Vec<Weak<NamedEntity>>),
     AccessType(Subtype),
     RecordType(Arc<Region<'static>>),
@@ -77,6 +82,7 @@ impl NamedEntityKind {
                 | NamedEntityKind::InterfaceType
                 | NamedEntityKind::Subtype(..)
                 | NamedEntityKind::TypeDeclaration(..)
+                | NamedEntityKind::ArrayType { .. }
                 | NamedEntityKind::IntegerType(..)
                 | NamedEntityKind::AccessType(..)
                 | NamedEntityKind::RecordType(..)
@@ -91,6 +97,7 @@ impl NamedEntityKind {
     pub fn implicit_declarations(&self) -> Vec<Arc<NamedEntity>> {
         let weak = match self {
             NamedEntityKind::TypeDeclaration(ref implicit) => implicit,
+            NamedEntityKind::ArrayType { ref implicit, .. } => implicit,
             NamedEntityKind::IntegerType(ref implicit) => implicit,
             _ => {
                 return Vec::new();
@@ -123,6 +130,7 @@ impl NamedEntityKind {
             }
             EnumLiteral(..) => "enum literal",
             TypeDeclaration(..) => "type",
+            ArrayType { .. } => "array type",
             IntegerType(..) => "integer type",
             AccessType(..) => "access type",
             Subtype(..) => "subtype",

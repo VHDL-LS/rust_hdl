@@ -90,11 +90,24 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
             }
-            Name::Indexed(ref mut prefix, ref mut exprs) => {
-                self.resolve_target_name(region, &prefix.pos, &mut prefix.item, diagnostics)?;
-                for expr in exprs.iter_mut() {
-                    self.analyze_expression(region, expr, diagnostics)?;
+            Name::Indexed(ref mut prefix, ref mut indexes) => {
+                let resolved =
+                    self.resolve_target_name(region, &prefix.pos, &mut prefix.item, diagnostics)?;
+                if let Some(resolved) = resolved {
+                    self.analyze_indexed_name(
+                        region,
+                        name_pos,
+                        prefix.suffix_pos(),
+                        resolved.leaf(),
+                        indexes,
+                        diagnostics,
+                    )?;
+                } else {
+                    for expr in indexes.iter_mut() {
+                        self.analyze_expression(region, expr, diagnostics)?;
+                    }
                 }
+
                 Ok(None)
             }
 
@@ -108,17 +121,9 @@ impl<'a> AnalyzeContext<'a> {
                 Ok(None)
             }
 
-            // Convert an association list to a list of indexed
-            // During parsing function calls and indexed names are ambiguous
-            // Thus we convert function calls to indexd names during the analysis stage
             Name::FunctionCall(ref mut fcall) => {
-                let FunctionCall {
-                    name: prefix,
-                    parameters,
-                } = fcall.as_mut();
-
-                if let Some(indexes) = assoc_elems_to_indexes(parameters) {
-                    *name = Name::Indexed(Box::new(prefix.clone()), indexes);
+                if let Some(indexed_name) = fcall.to_indexed() {
+                    *name = indexed_name;
                     self.resolve_target_name(region, name_pos, name, diagnostics)
                 } else {
                     diagnostics.push(invalid_assignment_target(name_pos));
@@ -277,33 +282,6 @@ fn is_valid_assignment_type(ent: &NamedEntity, assignment_type: AssignmentType) 
             matches!(class, ObjectClass::Variable | ObjectClass::SharedVariable)
         }
     }
-}
-
-fn assoc_elem_to_index(assoc_elem: AssociationElement) -> Option<WithPos<Expression>> {
-    if assoc_elem.formal.is_some() {
-        return None;
-    }
-
-    match assoc_elem.actual.item {
-        ActualPart::Open => None,
-        ActualPart::Expression(expr) => Some(WithPos::new(expr, assoc_elem.actual.pos)),
-    }
-}
-
-fn assoc_elems_to_indexes(
-    assoc_elems: &mut Vec<AssociationElement>,
-) -> Option<Vec<WithPos<Expression>>> {
-    let mut result: Vec<WithPos<Expression>> = Vec::with_capacity(assoc_elems.len());
-
-    for elem in assoc_elems.drain(..) {
-        if let Some(expr) = assoc_elem_to_index(elem) {
-            result.push(expr);
-        } else {
-            return None;
-        }
-    }
-
-    Some(result)
 }
 
 fn invalid_assignment_target(pos: &SrcPos) -> Diagnostic {
