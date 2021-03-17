@@ -436,7 +436,30 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         let QualifiedExpression { name, expr } = qexpr;
-        self.resolve_name(region, &name.pos, &mut name.item, diagnostics)?;
+        let entities = self.resolve_name(region, &name.pos, &mut name.item, diagnostics)?;
+
+        if let Some(entities) = entities {
+            match self.resolve_non_overloaded(
+                entities,
+                &name.pos,
+                &NamedEntityKind::is_type,
+                "type",
+            ) {
+                Ok(target_type) => {
+                    self.analyze_expression_with_target_type(
+                        region,
+                        &target_type,
+                        expr,
+                        diagnostics,
+                    )?;
+                    return Ok(());
+                }
+                Err(err) => {
+                    err.add_to(diagnostics)?;
+                }
+            }
+        }
+
         self.analyze_expression(region, expr, diagnostics)?;
         Ok(())
     }

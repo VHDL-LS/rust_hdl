@@ -394,6 +394,23 @@ end package;
 }
 
 #[test]
+fn test_qualified_expression_must_be_a_type() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+constant bar : natural := 0; 
+constant foo : natural := bar'(0);
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![kind_error(&code, "bar", 2, 1, "type", "constant 'bar'")],
+    );
+}
+
+#[test]
 fn error_on_type_mark_ok() {
     check_code_with_no_diagnostics(
         "
