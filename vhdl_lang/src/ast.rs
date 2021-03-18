@@ -107,11 +107,21 @@ pub struct AttributeName {
 }
 
 /// LRM 8.7 External names
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ExternalObjectClass {
     Constant,
     Signal,
     Variable,
+}
+
+impl Into<ObjectClass> for ExternalObjectClass {
+    fn into(self) -> ObjectClass {
+        match self {
+            ExternalObjectClass::Constant => ObjectClass::Constant,
+            ExternalObjectClass::Variable => ObjectClass::Variable,
+            ExternalObjectClass::Signal => ObjectClass::Signal,
+        }
+    }
 }
 
 /// LRM 8.7 External names

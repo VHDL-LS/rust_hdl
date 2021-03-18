@@ -228,7 +228,7 @@ constant bar : natural := foo(0);
         diagnostics,
         vec![Diagnostic::error(
             code.s("foo", 2),
-            "constant 'foo' of subtype 'NATURAL' cannot be indexed",
+            "subtype 'NATURAL' cannot be indexed",
         )],
     );
 }
@@ -247,6 +247,19 @@ procedure proc is
 begin
     foo := myvar(0);
 end procedure;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn test_type_conversion() {
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "
+  constant foo : natural := natural(0);
         ",
     );
 

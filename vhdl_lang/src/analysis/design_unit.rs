@@ -433,16 +433,9 @@ impl<'a> AnalyzeContext<'a> {
                 suffix.clear_reference();
                 let prefix_ent = self.resolve_context_item_prefix(region, prefix)?;
 
-                match self.lookup_selected(&prefix.pos, &prefix_ent, suffix)? {
-                    Some(visible) => {
-                        suffix.set_reference(&visible);
-                        Ok(UsedNames::Single(visible))
-                    }
-                    None => Err(AnalysisError::not_fatal_error(
-                        &prefix.pos,
-                        "Invalid prefix for selected name",
-                    )),
-                }
+                let visible = self.lookup_selected(&prefix.pos, &prefix_ent, suffix)?;
+                suffix.set_reference(&visible);
+                Ok(UsedNames::Single(visible))
             }
 
             Name::SelectedAll(prefix) => {

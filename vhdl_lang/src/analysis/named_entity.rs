@@ -11,8 +11,15 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Weak};
 
 pub enum NamedEntityKind {
-    AliasOf(Arc<NamedEntity>),
-    UnknownAlias,
+    NonObjectAlias(Arc<NamedEntity>),
+    ExternalAlias {
+        class: ExternalObjectClass,
+        type_mark: Arc<NamedEntity>,
+    },
+    ObjectAlias {
+        base_object: ObjectEnt,
+        type_mark: Arc<NamedEntity>,
+    },
     File,
     InterfaceFile(Arc<NamedEntity>),
     Component,
@@ -27,6 +34,7 @@ pub enum NamedEntityKind {
     ArrayType {
         implicit: Vec<Weak<NamedEntity>>,
         indexes: Vec<Option<Arc<NamedEntity>>>,
+        elem_type: Arc<NamedEntity>,
     },
     IntegerType(Vec<Weak<NamedEntity>>),
     AccessType(Subtype),
@@ -89,11 +97,6 @@ impl NamedEntityKind {
         )
     }
 
-    // Is object or interface object
-    pub fn is_object(&self) -> bool {
-        matches!(self, NamedEntityKind::Object(..))
-    }
-
     pub fn implicit_declarations(&self) -> Vec<Arc<NamedEntity>> {
         let weak = match self {
             NamedEntityKind::TypeDeclaration(ref implicit) => implicit,
@@ -113,8 +116,9 @@ impl NamedEntityKind {
     pub fn describe(&self) -> &str {
         use NamedEntityKind::*;
         match self {
-            AliasOf(..) => "alias",
-            UnknownAlias => "alias",
+            NonObjectAlias(..) => "alias",
+            ObjectAlias { .. } => "object alias",
+            ExternalAlias { .. } => "external alias",
             File => "file",
             InterfaceFile(..) => "file",
             ElementDeclaration(..) => "element declaration",
@@ -194,7 +198,8 @@ impl Subtype {
 // Strip aliases and subtypes down to base type
 pub fn base_type(ent: &Arc<NamedEntity>) -> &Arc<NamedEntity> {
     match ent.kind() {
-        NamedEntityKind::AliasOf(ref ent) => base_type(ent),
+        NamedEntityKind::NonObjectAlias(ref ent) => base_type(ent),
+        NamedEntityKind::ObjectAlias { type_mark, .. } => base_type(type_mark),
         NamedEntityKind::Subtype(ref ent) => ent.base_type(),
         _ => ent,
     }
@@ -505,7 +510,7 @@ impl NamedEntity {
     /// Strip aliases and return reference to actual named entity
     pub fn as_actual(&self) -> &NamedEntity {
         match self.kind() {
-            NamedEntityKind::AliasOf(ref ent) => ent.as_actual(),
+            NamedEntityKind::NonObjectAlias(ref ent) => ent.as_actual(),
             _ => self,
         }
     }
@@ -513,7 +518,8 @@ impl NamedEntity {
     /// Strip aliases and subtypes down to base type
     pub fn base_type(&self) -> &NamedEntity {
         match self.kind() {
-            NamedEntityKind::AliasOf(ref ent) => ent.base_type(),
+            NamedEntityKind::NonObjectAlias(ref ent) => ent.base_type(),
+            NamedEntityKind::ObjectAlias { ref type_mark, .. } => type_mark.base_type(),
             NamedEntityKind::Subtype(ref subtype) => subtype.base_type(),
             NamedEntityKind::Object(ref ent) => ent.subtype.base_type(),
             NamedEntityKind::DeferredConstant(ref subtype) => subtype.base_type(),
@@ -523,6 +529,17 @@ impl NamedEntity {
         }
     }
 
+    pub fn type_mark(&self) -> &NamedEntity {
+        match self.kind() {
+            NamedEntityKind::NonObjectAlias(ref ent) => ent.type_mark(),
+            NamedEntityKind::Subtype(ref subtype) => subtype.type_mark(),
+            NamedEntityKind::Object(ref ent) => ent.subtype.type_mark(),
+            NamedEntityKind::DeferredConstant(ref subtype) => subtype.type_mark(),
+            NamedEntityKind::ElementDeclaration(ref subtype) => subtype.type_mark(),
+            NamedEntityKind::PhysicalLiteral(ref base_type) => base_type,
+            _ => self,
+        }
+    }
     /// Strip aliases and return reference to actual entity kind
     pub fn actual_kind(&self) -> &NamedEntityKind {
         self.as_actual().kind()
@@ -531,7 +548,7 @@ impl NamedEntity {
     /// Returns true if self is alias of other
     pub fn is_alias_of(&self, other: &NamedEntity) -> bool {
         match self.kind() {
-            NamedEntityKind::AliasOf(ref ent) => {
+            NamedEntityKind::NonObjectAlias(ref ent) => {
                 if ent.id() == other.id() {
                     true
                 } else {
@@ -544,7 +561,7 @@ impl NamedEntity {
 
     pub fn describe(&self) -> String {
         match self.kind {
-            NamedEntityKind::AliasOf(..) => format!(
+            NamedEntityKind::NonObjectAlias(..) => format!(
                 "alias '{}' of {}",
                 self.designator,
                 self.as_actual().describe()
@@ -590,5 +607,46 @@ pub fn new_id() -> EntityId {
 impl std::cmp::PartialEq for NamedEntity {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
+    }
+}
+
+// A named entity that is known to be an object
+#[derive(Clone)]
+pub struct ObjectEnt {
+    pub ent: Arc<NamedEntity>,
+}
+
+impl ObjectEnt {
+    pub fn new(ent: Arc<NamedEntity>) -> Self {
+        debug_assert!(matches!(ent.actual_kind(), NamedEntityKind::Object(..)));
+        Self { ent }
+    }
+
+    pub fn class(&self) -> ObjectClass {
+        self.object().class
+    }
+
+    pub fn mode(&self) -> Option<Mode> {
+        self.object().mode
+    }
+
+    pub fn describe_class(&self) -> String {
+        if let Some(mode) = self.mode() {
+            if self.class() == ObjectClass::Constant {
+                format!("interface {}", self.class())
+            } else {
+                format!("interface {} of mode {}", self.class(), mode)
+            }
+        } else {
+            format!("{}", self.class())
+        }
+    }
+
+    pub fn object(&self) -> &Object {
+        if let NamedEntityKind::Object(object) = self.ent.actual_kind() {
+            object
+        } else {
+            unreachable!("Must be object");
+        }
     }
 }

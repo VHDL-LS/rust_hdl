@@ -382,14 +382,7 @@ end package;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![kind_error(
-            &code,
-            "bad",
-            2,
-            1,
-            "type",
-            "alias 'bad' of constant 'const'",
-        )],
+        vec![kind_error(&code, "bad", 2, 1, "type", "object alias 'bad'")],
     );
 }
 

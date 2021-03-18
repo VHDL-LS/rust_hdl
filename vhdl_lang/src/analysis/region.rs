@@ -401,7 +401,7 @@ impl<'a> Region<'a> {
         for entity in ent.actual_kind().implicit_declarations() {
             let entity = NamedEntity::implicit(
                 entity.designator().clone(),
-                NamedEntityKind::AliasOf(entity.clone()),
+                NamedEntityKind::NonObjectAlias(entity.clone()),
                 ent.decl_pos(),
             );
             self.add_named_entity(Arc::new(entity), diagnostics);
