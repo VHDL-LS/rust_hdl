@@ -370,6 +370,32 @@ end architecture;
 }
 
 #[test]
+fn sliced_assignment_target() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    signal foo : natural;
+begin
+    foo(0 to 1) <= (0, 2);
+end architecture;
+",
+    );
+
+    let expected = vec![Diagnostic::error(
+        code.s("foo", 2),
+        "subtype 'NATURAL' cannot be sliced",
+    )];
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(diagnostics, expected);
+}
+
+#[test]
 fn sliced_names_may_be_assignment_target() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(

@@ -210,6 +210,11 @@ impl<'a> AnalyzeContext<'a> {
                     err_msg,
                     diagnostics,
                 );
+
+                if let Ok(ResolvedName::ObjectSelection { ref type_mark, .. }) = res {
+                    self.analyze_sliced_name(prefix.suffix_pos(), type_mark, diagnostics)?;
+                }
+
                 self.analyze_discrete_range(region, drange.as_mut(), diagnostics)?;
                 res
             }

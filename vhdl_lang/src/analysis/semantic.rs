@@ -553,6 +553,31 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
+    pub fn analyze_sliced_name(
+        &self,
+        suffix_pos: &SrcPos,
+        type_mark: &NamedEntity,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        let base_type = type_mark.base_type();
+
+        let base_type = if let NamedEntityKind::AccessType(ref subtype) = base_type.kind() {
+            subtype.base_type()
+        } else {
+            base_type
+        };
+
+        if let NamedEntityKind::ArrayType { .. } = base_type.kind() {
+        } else {
+            diagnostics.error(
+                suffix_pos,
+                format!("{} cannot be sliced", type_mark.describe()),
+            );
+        }
+
+        Ok(())
+    }
+
     /// Function call cannot be distinguished from indexed names when parsing
     /// Use the named entity kind to disambiguate
     pub fn analyze_ambiguous_function_call(
@@ -729,6 +754,20 @@ impl<'a> AnalyzeContext<'a> {
             }
             Name::FunctionCall(..) => {
                 self.analyze_ambiguous_function_call(region, name_pos, name, diagnostics)?;
+            }
+
+            Name::Slice(ref mut prefix, ref mut drange) => {
+                if let Some(NamedEntities::Single(ref named_entity)) =
+                    self.resolve_name(region, &prefix.pos, &mut prefix.item, diagnostics)?
+                {
+                    self.analyze_sliced_name(
+                        prefix.suffix_pos(),
+                        named_entity.type_mark(),
+                        diagnostics,
+                    )?;
+                }
+
+                self.analyze_discrete_range(region, drange.as_mut(), diagnostics)?;
             }
             _ => {
                 self.resolve_name(region, name_pos, name, diagnostics)?;

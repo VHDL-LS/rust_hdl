@@ -234,6 +234,26 @@ constant bar : natural := foo(0);
 }
 
 #[test]
+fn test_name_can_be_sliced() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+constant foo : natural := 0;
+constant bar : natural := foo(0 to 0);
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("foo", 2),
+            "subtype 'NATURAL' cannot be sliced",
+        )],
+    );
+}
+
+#[test]
 fn test_access_type_can_be_indexed() {
     let mut builder = LibraryBuilder::new();
     builder.in_declarative_region(
