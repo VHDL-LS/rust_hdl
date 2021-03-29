@@ -114,9 +114,9 @@ pub enum ExternalObjectClass {
     Variable,
 }
 
-impl Into<ObjectClass> for ExternalObjectClass {
-    fn into(self) -> ObjectClass {
-        match self {
+impl From<ExternalObjectClass> for ObjectClass {
+    fn from(object: ExternalObjectClass) -> ObjectClass {
+        match object {
             ExternalObjectClass::Constant => ObjectClass::Constant,
             ExternalObjectClass::Variable => ObjectClass::Variable,
             ExternalObjectClass::Signal => ObjectClass::Signal,

@@ -101,7 +101,7 @@ pub fn parse_declarative_part_leave_end_token(
                 | Use
                 | Alias
         )
-    };
+    }
 
     while let Some(token) = stream.peek()? {
         match token.kind {

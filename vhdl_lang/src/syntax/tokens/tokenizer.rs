@@ -176,12 +176,13 @@ macro_rules! match_token_kind {
                     $($kind)|+ => $result
                 ),*,
                 _ => {
-                    let mut kinds = Vec::new();
-                    $(
+                    let kinds = vec![
                         $(
-                            kinds.push($kind);
+                            $(
+                                $kind,
+                            )*
                         )*
-                    )*
+                    ];
 
                     Err($token.kinds_error(&kinds))
                 }
@@ -200,12 +201,13 @@ macro_rules! try_token_kind {
                 $($kind)|+ => $result
             ),*,
             _ => {
-                let mut kinds = Vec::new();
-                $(
+                let kinds = vec![
                     $(
-                        kinds.push($kind);
+                        $(
+                            $kind,
+                        )*
                     )*
-                )*
+                ];
 
                 return Err($token.kinds_error(&kinds));
             }
@@ -428,10 +430,9 @@ impl AsRef<SrcPos> for Token {
     }
 }
 
-use std::convert::Into;
-impl Into<SrcPos> for Token {
-    fn into(self) -> SrcPos {
-        self.pos
+impl From<Token> for SrcPos {
+    fn from(token: Token) -> SrcPos {
+        token.pos
     }
 }
 
