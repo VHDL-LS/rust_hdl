@@ -23,7 +23,6 @@ jobs:
           - x86_64-pc-windows-msvc
         rust:
           - stable
-          - 1.50.0 # MSRV
 
         include:
           - target: x86_64-unknown-linux-gnu

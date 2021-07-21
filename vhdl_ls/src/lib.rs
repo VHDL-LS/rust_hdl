@@ -3,6 +3,7 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
+#![allow(clippy::upper_case_acronyms)]
 
 #[macro_use]
 extern crate log;

@@ -1,0 +1,12 @@
+[submodule "example_project/UVVM"]
+	path = example_project/UVVM
+	url = https://github.com/UVVM/UVVM.git
+[submodule "example_project/vunit"]
+	path = example_project/vunit
+	url = https://github.com/VUnit/vunit.git
+[submodule "example_project/PoC"]
+	path = example_project/PoC
+	url = https://github.com/VLSI-EDA/PoC.git
+[submodule "example_project/OSVVM"]
+	path = example_project/OSVVM
+	url = https://github.com/OSVVM/OSVVM.git

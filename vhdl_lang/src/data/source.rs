@@ -337,9 +337,9 @@ impl AsRef<SrcPos> for SrcPos {
     }
 }
 
-impl<T> Into<SrcPos> for WithPos<T> {
-    fn into(self) -> SrcPos {
-        self.pos
+impl<T> From<WithPos<T>> for SrcPos {
+    fn from(with_pos: WithPos<T>) -> SrcPos {
+        with_pos.pos
     }
 }
 

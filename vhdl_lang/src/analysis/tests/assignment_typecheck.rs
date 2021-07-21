@@ -146,11 +146,11 @@ end architecture;
     let expected = vec![
         Diagnostic::error(
             code.s("foo1", 3),
-            "constant 'foo1' may not be the target of an assignment",
+            "constant may not be the target of an assignment",
         ),
         Diagnostic::error(
             code.s("foo2", 2),
-            "alias 'foo2' of constant 'foo1' may not be the target of an assignment",
+            "constant may not be the target of an assignment",
         ),
     ];
 
@@ -277,11 +277,11 @@ end architecture;
     let expected = vec![
         Diagnostic::error(
             code.s("foo1", 2),
-            "interface constant 'foo1' may not be the target of an assignment",
+            "interface constant may not be the target of an assignment",
         ),
         Diagnostic::error(
             code.s("foo2", 2),
-            "interface variable 'foo2' : in may not be the target of an assignment",
+            "interface variable of mode in may not be the target of an assignment",
         ),
     ];
 
@@ -323,19 +323,19 @@ end architecture;
     let expected = vec![
         Diagnostic::error(
             code.s("foo1", 2),
-            "interface signal 'foo1' : out may not be the target of a variable assignment",
+            "interface signal of mode out may not be the target of a variable assignment",
         ),
         Diagnostic::error(
             code.s("foo2", 2),
-            "interface variable 'foo2' : out may not be the target of a signal assignment",
+            "interface variable of mode out may not be the target of a signal assignment",
         ),
         Diagnostic::error(
             code.s("foo3", 2),
-            "signal 'foo3' may not be the target of a variable assignment",
+            "signal may not be the target of a variable assignment",
         ),
         Diagnostic::error(
             code.s("foo4", 2),
-            "variable 'foo4' may not be the target of a signal assignment",
+            "variable may not be the target of a signal assignment",
         ),
     ];
 
@@ -362,9 +362,124 @@ end architecture;
 
     let expected = vec![Diagnostic::error(
         code.s("foo", 2),
-        "signal 'foo' of subtype 'NATURAL' cannot be indexed",
+        "subtype 'NATURAL' cannot be indexed",
     )];
 
     let diagnostics = builder.analyze();
     check_diagnostics(diagnostics, expected);
+}
+
+#[test]
+fn sliced_assignment_target() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    signal foo : natural;
+begin
+    foo(0 to 1) <= (0, 2);
+end architecture;
+",
+    );
+
+    let expected = vec![Diagnostic::error(
+        code.s("foo", 2),
+        "subtype 'NATURAL' cannot be sliced",
+    )];
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(diagnostics, expected);
+}
+
+#[test]
+fn sliced_names_may_be_assignment_target() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+  type arr1_t is array (natural range 0 to 1) of natural;
+  signal foo1 : arr1_t;
+begin
+  foo1(0 to 1) <= (others => 0);
+
+  main : process
+  begin
+      foo1(0 to 1) := (others => 0);
+  end process;
+end architecture;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("foo1(0 to 1)", 2),
+            "signal may not be the target of a variable assignment",
+        )],
+    );
+}
+
+#[test]
+fn test_array_element_target_can_be_selected() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is        
+    type rec_t is record
+        elem : natural;
+    end record;
+    type arr_t is array (0 to 1) of rec_t;
+    signal c1 : arr_t;
+begin
+    c1(0).elem <= 1;
+end architecture;
+
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn test_alias_target() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is        
+    type rec_t is record
+        elem : natural;
+    end record;
+    type arr_t is array (0 to 1) of rec_t;
+    signal c1 : arr_t;
+    alias a1 is c1;
+    alias a2 is c1(0);
+    alias a3 is a2.elem;
+begin
+    a1(0) <= 1;
+    a2.elem <= 1;
+    a3 <= 1;    
+end architecture;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
 }

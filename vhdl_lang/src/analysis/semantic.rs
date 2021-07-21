@@ -18,14 +18,14 @@ impl<'a> AnalyzeContext<'a> {
         prefix_pos: &SrcPos,
         prefix: &NamedEntity,
         suffix: &WithPos<WithRef<Designator>>,
-    ) -> AnalysisResult<Option<NamedEntities>> {
+    ) -> AnalysisResult<NamedEntities> {
         match prefix.actual_kind() {
             NamedEntityKind::Library => {
                 let library_name = prefix.designator().expect_identifier();
                 let named_entity =
                     self.lookup_in_library(library_name, &suffix.pos, suffix.designator())?;
 
-                Ok(Some(NamedEntities::new(named_entity)))
+                Ok(NamedEntities::new(named_entity))
             }
 
             NamedEntityKind::UninstPackage(..) => Err(AnalysisError::NotFatal(
@@ -34,6 +34,12 @@ impl<'a> AnalyzeContext<'a> {
             NamedEntityKind::Object(ref object) => {
                 self.lookup_type_selected(prefix_pos, &object.subtype.type_mark(), suffix)
             }
+            NamedEntityKind::ObjectAlias { ref type_mark, .. } => {
+                self.lookup_type_selected(prefix_pos, type_mark, suffix)
+            }
+            NamedEntityKind::ExternalAlias { ref type_mark, .. } => {
+                self.lookup_type_selected(prefix_pos, type_mark, suffix)
+            }
             NamedEntityKind::ElementDeclaration(ref subtype) => {
                 self.lookup_type_selected(prefix_pos, subtype.type_mark(), suffix)
             }
@@ -41,12 +47,11 @@ impl<'a> AnalyzeContext<'a> {
             | NamedEntityKind::PackageInstance(ref region)
             | NamedEntityKind::LocalPackageInstance(ref region) => {
                 if let Some(decl) = region.lookup_selected(suffix.designator()) {
-                    Ok(Some(decl.clone()))
+                    Ok(decl.clone())
                 } else {
                     Err(no_declaration_within(prefix, suffix).into())
                 }
             }
-            NamedEntityKind::UnknownAlias => Ok(None),
             _ => Err(invalid_selected_name_prefix(prefix, prefix_pos).into()),
         }
     }
@@ -57,22 +62,18 @@ impl<'a> AnalyzeContext<'a> {
         prefix_pos: &SrcPos,
         prefix_type: &NamedEntity,
         suffix: &WithPos<WithRef<Designator>>,
-    ) -> AnalysisResult<Option<NamedEntities>> {
+    ) -> AnalysisResult<NamedEntities> {
         match prefix_type.actual_kind() {
             NamedEntityKind::RecordType(ref region) => {
                 if let Some(decl) = region.lookup_selected(suffix.designator()) {
-                    Ok(Some(decl.clone()))
+                    Ok(decl.clone())
                 } else {
                     Err(no_declaration_within(prefix_type, suffix).into())
                 }
             }
-            NamedEntityKind::UnknownAlias => {
-                // @TODO forbid prefix
-                Ok(None)
-            }
             NamedEntityKind::ProtectedType(region) => {
                 if let Some(decl) = region.lookup_selected(suffix.designator()) {
-                    Ok(Some(decl.clone()))
+                    Ok(decl.clone())
                 } else {
                     Err(no_declaration_within(prefix_type, suffix).into())
                 }
@@ -82,7 +83,11 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(full_type) = full_type.upgrade() {
                     self.lookup_type_selected(prefix_pos, &full_type, suffix)
                 } else {
-                    Ok(None)
+                    Err(Diagnostic::error(
+                        prefix_pos,
+                        "Internal error when referencing full type of incomplete type",
+                    )
+                    .into())
                 }
             }
             NamedEntityKind::Subtype(subtype) => {
@@ -108,10 +113,9 @@ impl<'a> AnalyzeContext<'a> {
                     .resolve_selected_name(region, prefix)?
                     .into_non_overloaded();
                 if let Ok(prefix_ent) = prefix_ent {
-                    if let Some(visible) = self.lookup_selected(&prefix.pos, &prefix_ent, suffix)? {
-                        suffix.set_reference(&visible);
-                        return Ok(visible);
-                    };
+                    let visible = self.lookup_selected(&prefix.pos, &prefix_ent, suffix)?;
+                    suffix.set_reference(&visible);
+                    return Ok(visible);
                 };
 
                 Err(AnalysisError::NotFatal(Diagnostic::error(
@@ -142,11 +146,10 @@ impl<'a> AnalyzeContext<'a> {
                 match self.resolve_name(region, &prefix.pos, &mut prefix.item, diagnostics)? {
                     Some(NamedEntities::Single(ref named_entity)) => {
                         match self.lookup_selected(&prefix.pos, named_entity, suffix) {
-                            Ok(Some(visible)) => {
+                            Ok(visible) => {
                                 suffix.set_reference(&visible);
                                 Ok(Some(visible))
                             }
-                            Ok(None) => Ok(None),
                             Err(err) => {
                                 err.add_to(diagnostics)?;
                                 Ok(None)
@@ -503,51 +506,73 @@ impl<'a> AnalyzeContext<'a> {
     }
 
     /// Analyze an indexed name where the prefix entity is already known
+    /// Returns the type of the array element
     pub fn analyze_indexed_name(
         &self,
         region: &Region<'_>,
         name_pos: &SrcPos,
         suffix_pos: &SrcPos,
-        ent: &NamedEntity,
+        type_mark: &NamedEntity,
         indexes: &mut [WithPos<Expression>],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
-        if let NamedEntityKind::Object(object) = ent.actual_kind() {
-            let base_type = ent.base_type();
+    ) -> AnalysisResult<Arc<NamedEntity>> {
+        let base_type = type_mark.base_type();
 
-            let base_type = if let NamedEntityKind::AccessType(ref subtype) = base_type.kind() {
-                subtype.base_type()
-            } else {
-                base_type
-            };
+        let base_type = if let NamedEntityKind::AccessType(ref subtype) = base_type.kind() {
+            subtype.base_type()
+        } else {
+            base_type
+        };
 
-            if let NamedEntityKind::ArrayType {
-                indexes: ref index_types,
-                ..
-            } = base_type.kind()
-            {
-                if indexes.len() != index_types.len() {
-                    diagnostics.push(dimension_mismatch(
-                        name_pos,
-                        base_type,
-                        indexes.len(),
-                        index_types.len(),
-                    ))
-                }
-            } else {
-                diagnostics.push(Diagnostic::error(
-                    suffix_pos,
-                    format!(
-                        "{} of {} cannot be indexed",
-                        ent.describe(),
-                        object.subtype.type_mark().describe()
-                    ),
+        if let NamedEntityKind::ArrayType {
+            indexes: ref index_types,
+            elem_type,
+            ..
+        } = base_type.kind()
+        {
+            if indexes.len() != index_types.len() {
+                diagnostics.push(dimension_mismatch(
+                    name_pos,
+                    base_type,
+                    indexes.len(),
+                    index_types.len(),
                 ))
             }
-        }
 
-        for index in indexes.iter_mut() {
-            self.analyze_expression(region, index, diagnostics)?;
+            for index in indexes.iter_mut() {
+                self.analyze_expression(region, index, diagnostics)?;
+            }
+
+            Ok(elem_type.clone())
+        } else {
+            Err(Diagnostic::error(
+                suffix_pos,
+                format!("{} cannot be indexed", type_mark.describe()),
+            )
+            .into())
+        }
+    }
+
+    pub fn analyze_sliced_name(
+        &self,
+        suffix_pos: &SrcPos,
+        type_mark: &NamedEntity,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        let base_type = type_mark.base_type();
+
+        let base_type = if let NamedEntityKind::AccessType(ref subtype) = base_type.kind() {
+            subtype.base_type()
+        } else {
+            base_type
+        };
+
+        if let NamedEntityKind::ArrayType { .. } = base_type.kind() {
+        } else {
+            diagnostics.error(
+                suffix_pos,
+                format!("{} cannot be sliced", type_mark.describe()),
+            );
         }
 
         Ok(())
@@ -571,18 +596,24 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics,
                 )? {
                     Some(NamedEntities::Single(ent)) => {
-                        if let Some(indexed_name) = fcall.to_indexed() {
+                        if ent.actual_kind().is_type() {
+                            // A type conversion
+                            // @TODO Ignore for now
+                            self.analyze_assoc_elems(region, &mut fcall.parameters, diagnostics)?;
+                        } else if let Some(indexed_name) = fcall.to_indexed() {
                             *name = indexed_name;
 
                             if let Name::Indexed(ref mut prefix, ref mut indexes) = name {
-                                self.analyze_indexed_name(
+                                if let Err(err) = self.analyze_indexed_name(
                                     region,
                                     name_pos,
                                     prefix.suffix_pos(),
-                                    &ent,
+                                    ent.type_mark(),
                                     indexes,
                                     diagnostics,
-                                )?;
+                                ) {
+                                    err.add_to(diagnostics)?;
+                                }
                             }
                         } else {
                             diagnostics.push(Diagnostic::error(
@@ -674,7 +705,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.resolve_name(region, &prefix.pos, &mut prefix.item, diagnostics)?
                 {
                     match self.lookup_selected(&prefix.pos, named_entity, designator) {
-                        Ok(Some(entities)) => {
+                        Ok(entities) => {
                             // If the name is unique it is more helpful to get a reference
                             // Even if the type has a mismatch
                             designator.set_reference(&entities);
@@ -715,7 +746,6 @@ impl<'a> AnalyzeContext<'a> {
                                 }
                             }
                         }
-                        Ok(None) => {}
                         Err(err) => {
                             err.add_to(diagnostics)?;
                         }
@@ -724,6 +754,20 @@ impl<'a> AnalyzeContext<'a> {
             }
             Name::FunctionCall(..) => {
                 self.analyze_ambiguous_function_call(region, name_pos, name, diagnostics)?;
+            }
+
+            Name::Slice(ref mut prefix, ref mut drange) => {
+                if let Some(NamedEntities::Single(ref named_entity)) =
+                    self.resolve_name(region, &prefix.pos, &mut prefix.item, diagnostics)?
+                {
+                    self.analyze_sliced_name(
+                        prefix.suffix_pos(),
+                        named_entity.type_mark(),
+                        diagnostics,
+                    )?;
+                }
+
+                self.analyze_discrete_range(region, drange.as_mut(), diagnostics)?;
             }
             _ => {
                 self.resolve_name(region, name_pos, name, diagnostics)?;
