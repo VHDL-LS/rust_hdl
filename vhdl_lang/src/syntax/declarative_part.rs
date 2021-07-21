@@ -16,30 +16,32 @@ use super::subprogram::parse_subprogram;
 use super::tokens::{Kind::*, *};
 use super::type_declaration::parse_type_declaration;
 use crate::ast::{ContextClause, Declaration, PackageInstantiation};
-use crate::data::DiagnosticHandler;
+use crate::data::{DiagnosticHandler, WithPos};
 
 pub fn parse_package_instantiation(stream: &mut TokenStream) -> ParseResult<PackageInstantiation> {
-    stream.expect_kind(Package)?;
+    let package_token = stream.expect_kind(Package)?;
     let ident = stream.expect_ident()?;
     stream.expect_kind(Is)?;
     stream.expect_kind(New)?;
     let package_name = parse_selected_name(stream)?;
 
     let token = stream.expect()?;
-    let generic_map = try_token_kind!(
+    let (generic_map, semi_token) = try_token_kind!(
         token,
         Generic => {
             stream.expect_kind(Map)?;
             let association_list = parse_association_list(stream)?;
-            stream.expect_kind(SemiColon)?;
-            Some(association_list)
+            let semi_token = stream.expect_kind(SemiColon)?;
+            (Some(association_list), semi_token)
         },
-        SemiColon => None);
+        SemiColon => (None, token));
+    let range = package_token.pos.combine_into(&semi_token);
     Ok(PackageInstantiation {
         context_clause: ContextClause::default(),
         ident,
         package_name,
         generic_map,
+        range,
     })
 }
 
@@ -101,7 +103,7 @@ pub fn parse_declarative_part_leave_end_token(
                 | Use
                 | Alias
         )
-    };
+    }
 
     while let Some(token) = stream.peek()? {
         match token.kind {
@@ -171,12 +173,40 @@ pub fn parse_declarative_part_leave_end_token(
     Ok(declarations)
 }
 
+pub fn parse_declarative_part_with_pos_leave_end_token(
+    stream: &mut TokenStream,
+    diagnostics: &mut dyn DiagnosticHandler,
+    start_token: Token,
+) -> ParseResult<WithPos<Vec<Declaration>>> {
+    let decl = parse_declarative_part_leave_end_token(stream, diagnostics)?;
+    let end_pos = match stream.peek_expect() {
+        Ok(token) => token.pos,
+        Err(diag) => diag.pos,
+    };
+    Ok(WithPos {
+        item: decl,
+        pos: start_token.pos.combine_into_between(&end_pos),
+    })
+}
+
+pub fn parse_declarative_part_with_pos(
+    stream: &mut TokenStream,
+    diagnostics: &mut dyn DiagnosticHandler,
+    start_token: Token,
+    begin_is_end: bool,
+) -> ParseResult<WithPos<Vec<Declaration>>> {
+    let decl = parse_declarative_part_with_pos_leave_end_token(stream, diagnostics, start_token)?;
+    let end_token = if begin_is_end { Begin } else { End };
+    stream.expect_kind(end_token).log(diagnostics);
+    Ok(decl)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::ast::{ObjectClass, ObjectDeclaration};
     use crate::data::Diagnostic;
-    use crate::syntax::test::Code;
+    use crate::syntax::test::{source_range, Code};
 
     #[test]
     fn package_instantiation() {
@@ -191,7 +221,8 @@ package ident is new lib.foo.bar;
                 context_clause: ContextClause::default(),
                 ident: code.s1("ident").ident(),
                 package_name: code.s1("lib.foo.bar").selected_name(),
-                generic_map: None
+                generic_map: None,
+                range: source_range(&code, "package", ";"),
             }
         );
     }
@@ -217,7 +248,8 @@ package ident is new lib.foo.bar
     foo => bar
   )")
                         .association_list()
-                )
+                ),
+                range: source_range(&code, "package", ");"),
             }
         );
     }

@@ -9,12 +9,12 @@ use super::common::ParseResult;
 use super::interface_declaration::{parse_generic_interface_list, parse_port_interface_list};
 use super::tokens::{Kind::*, TokenStream};
 use crate::ast::{ComponentDeclaration, InterfaceDeclaration};
-use crate::data::{Diagnostic, DiagnosticHandler};
+use crate::data::{Diagnostic, DiagnosticHandler, WithPos};
 
 pub fn parse_optional_generic_list(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
-) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
+) -> ParseResult<Option<WithPos<Vec<InterfaceDeclaration>>>> {
     let mut list = None;
     loop {
         let token = stream.peek_expect()?;
@@ -22,11 +22,14 @@ pub fn parse_optional_generic_list(
             Generic => {
                 stream.move_after(&token);
                 let new_list = parse_generic_interface_list(stream, diagnostics)?;
-                stream.expect_kind(SemiColon)?;
+                let semi_token = stream.expect_kind(SemiColon)?;
                 if list.is_some() {
                     diagnostics.push(Diagnostic::error(token, "Duplicate generic clause"));
                 } else {
-                    list = Some(new_list);
+                    list = Some(WithPos {
+                        item: new_list,
+                        pos: token.pos.combine_into(&semi_token),
+                    });
                 }
             }
             _ => break,
@@ -39,7 +42,7 @@ pub fn parse_optional_generic_list(
 pub fn parse_optional_port_list(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
-) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
+) -> ParseResult<Option<WithPos<Vec<InterfaceDeclaration>>>> {
     let mut list = None;
     loop {
         let token = stream.peek_expect()?;
@@ -47,11 +50,14 @@ pub fn parse_optional_port_list(
             Port => {
                 stream.move_after(&token);
                 let new_list = parse_port_interface_list(stream, diagnostics)?;
-                stream.expect_kind(SemiColon)?;
+                let semi_token = stream.expect_kind(SemiColon)?;
                 if list.is_some() {
                     diagnostics.push(Diagnostic::error(token, "Duplicate port clause"));
                 } else {
-                    list = Some(new_list);
+                    list = Some(WithPos {
+                        item: new_list,
+                        pos: token.pos.combine_into(&semi_token),
+                    });
                 }
             }
             Generic => {
@@ -92,8 +98,8 @@ pub fn parse_component_declaration(
 
     Ok(ComponentDeclaration {
         ident,
-        generic_list: generic_list.unwrap_or_default(),
-        port_list: port_list.unwrap_or_default(),
+        generic_list: generic_list.map_or(Vec::new(), |x| x.item),
+        port_list: port_list.map_or(Vec::new(), |x| x.item),
     })
 }
 
@@ -102,7 +108,7 @@ mod tests {
     use super::*;
 
     use crate::ast::Ident;
-    use crate::syntax::test::Code;
+    use crate::syntax::test::{source_range, Code};
 
     fn to_component(
         ident: Ident,
@@ -222,7 +228,13 @@ end
                 "Duplicate generic clause"
             )]
         );
-        assert_eq!(result, Ok(Some(vec![code.s1("foo : natural").generic()])),);
+        assert_eq!(
+            result,
+            Ok(Some(WithPos {
+                item: vec![code.s1("foo : natural").generic()],
+                pos: source_range(&code, "generic (", ");"),
+            })),
+        );
     }
 
     #[test]
@@ -246,7 +258,13 @@ end
                 "Duplicate port clause"
             )]
         );
-        assert_eq!(result, Ok(Some(vec![code.s1("foo : natural").port()])),);
+        assert_eq!(
+            result,
+            Ok(Some(WithPos {
+                item: vec![code.s1("foo : natural").port()],
+                pos: source_range(&code, "port (", ");"),
+            })),
+        );
     }
 
     #[test]
@@ -270,6 +288,12 @@ end
                 "Generic clause must come before port clause"
             )]
         );
-        assert_eq!(result, Ok(Some(vec![code.s1("foo : natural").port()])),);
+        assert_eq!(
+            result,
+            Ok(Some(WithPos {
+                item: vec![code.s1("foo : natural").port()],
+                pos: source_range(&code, "port (", ");"),
+            })),
+        );
     }
 }

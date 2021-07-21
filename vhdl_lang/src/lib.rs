@@ -16,7 +16,7 @@ mod syntax;
 pub use crate::config::Config;
 pub use crate::data::{
     Diagnostic, Latin1String, Message, MessageHandler, MessagePrinter, MessageType, Position,
-    Range, Severity, Source, SrcPos,
+    Range, Severity, Source, SrcPos, WithPos,
 };
 
 pub use crate::project::{Project, SourceFile};

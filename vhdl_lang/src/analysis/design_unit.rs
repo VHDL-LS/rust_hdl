@@ -75,14 +75,15 @@ impl<'a> AnalyzeContext<'a> {
         );
 
         if let Some(ref mut list) = unit.generic_clause {
-            self.analyze_interface_list(&mut primary_region, list, diagnostics)?;
+            self.analyze_interface_list(&mut primary_region, &mut list.item, diagnostics)?;
         }
         if let Some(ref mut list) = unit.port_clause {
-            self.analyze_interface_list(&mut primary_region, list, diagnostics)?;
+            self.analyze_interface_list(&mut primary_region, &mut list.item, diagnostics)?;
         }
-        self.analyze_declarative_part(&mut primary_region, &mut unit.decl, diagnostics)?;
-        self.analyze_concurrent_part(&mut primary_region, &mut unit.statements, diagnostics)?;
-
+        self.analyze_declarative_part(&mut primary_region, &mut unit.decl.item, diagnostics)?;
+        if let Some(ref mut statements) = unit.statements {
+            self.analyze_concurrent_part(&mut primary_region, &mut statements.item, diagnostics)?;
+        }
         *region = primary_region.without_parent();
 
         Ok(())
@@ -148,9 +149,9 @@ impl<'a> AnalyzeContext<'a> {
         );
 
         if let Some(ref mut list) = unit.generic_clause {
-            self.analyze_interface_list(&mut primary_region, list, diagnostics)?;
+            self.analyze_interface_list(&mut primary_region, &mut list.item, diagnostics)?;
         }
-        self.analyze_declarative_part(&mut primary_region, &mut unit.decl, diagnostics)?;
+        self.analyze_declarative_part(&mut primary_region, &mut unit.decl.item, diagnostics)?;
 
         if !self.has_package_body() {
             primary_region.close(diagnostics);
@@ -241,8 +242,8 @@ impl<'a> AnalyzeContext<'a> {
             )),
         );
 
-        self.analyze_declarative_part(&mut region, &mut unit.decl, diagnostics)?;
-        self.analyze_concurrent_part(&mut region, &mut unit.statements, diagnostics)?;
+        self.analyze_declarative_part(&mut region, &mut unit.decl.item, diagnostics)?;
+        self.analyze_concurrent_part(&mut region, &mut unit.statements.item, diagnostics)?;
         region.close(diagnostics);
         Ok(())
     }
@@ -278,7 +279,7 @@ impl<'a> AnalyzeContext<'a> {
 
         let mut region = Region::extend(&package.result().region, Some(&root_region));
 
-        self.analyze_declarative_part(&mut region, &mut unit.decl, diagnostics)?;
+        self.analyze_declarative_part(&mut region, &mut unit.decl.item, diagnostics)?;
         region.close(diagnostics);
         Ok(())
     }

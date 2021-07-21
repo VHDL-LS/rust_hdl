@@ -65,6 +65,7 @@ impl<'a> AnalyzeContext<'a> {
                     sensitivity_list,
                     decl,
                     statements,
+                    range: _,
                 } = process;
                 if let Some(sensitivity_list) = sensitivity_list {
                     match sensitivity_list {

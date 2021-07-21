@@ -863,6 +863,7 @@ pub struct BlockStatement {
     pub header: BlockHeader,
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledConcurrentStatement>,
+    pub range: SrcPos,
 }
 
 /// LRM 11.2 Block statement
@@ -887,6 +888,7 @@ pub struct ProcessStatement {
     pub sensitivity_list: Option<SensitivityList>,
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledSequentialStatement>,
+    pub range: SrcPos,
 }
 
 /// LRM 11.4 Concurrent procedure call statements
@@ -1001,6 +1003,7 @@ pub enum ContextItem {
 pub struct ContextDeclaration {
     pub ident: Ident,
     pub items: ContextClause,
+    pub range: SrcPos,
 }
 
 /// LRM 4.9 Package instatiation declaration
@@ -1010,6 +1013,7 @@ pub struct PackageInstantiation {
     pub ident: Ident,
     pub package_name: WithPos<SelectedName>,
     pub generic_map: Option<Vec<AssociationElement>>,
+    pub range: SrcPos,
 }
 
 /// LRM 7.3 Configuration specification
@@ -1097,6 +1101,7 @@ pub struct ConfigurationDeclaration {
     pub decl: Vec<ConfigurationDeclarativeItem>,
     pub vunit_bind_inds: Vec<VUnitBindingIndication>,
     pub block_config: BlockConfiguration,
+    pub range: SrcPos,
 }
 
 /// LRM 3.2 Entity declarations
@@ -1104,10 +1109,11 @@ pub struct ConfigurationDeclaration {
 pub struct EntityDeclaration {
     pub context_clause: ContextClause,
     pub ident: Ident,
-    pub generic_clause: Option<Vec<InterfaceDeclaration>>,
-    pub port_clause: Option<Vec<InterfaceDeclaration>>,
-    pub decl: Vec<Declaration>,
-    pub statements: Vec<LabeledConcurrentStatement>,
+    pub generic_clause: Option<WithPos<Vec<InterfaceDeclaration>>>,
+    pub port_clause: Option<WithPos<Vec<InterfaceDeclaration>>>,
+    pub decl: WithPos<Vec<Declaration>>,
+    pub statements: Option<WithPos<Vec<LabeledConcurrentStatement>>>,
+    pub range: SrcPos,
 }
 
 /// LRM 3.3 Architecture bodies
@@ -1116,8 +1122,9 @@ pub struct ArchitectureBody {
     pub context_clause: ContextClause,
     pub ident: Ident,
     pub entity_name: WithRef<Ident>,
-    pub decl: Vec<Declaration>,
-    pub statements: Vec<LabeledConcurrentStatement>,
+    pub decl: WithPos<Vec<Declaration>>,
+    pub statements: WithPos<Vec<LabeledConcurrentStatement>>,
+    pub range: SrcPos,
 }
 
 /// LRM 4.7 Package declarations
@@ -1125,8 +1132,9 @@ pub struct ArchitectureBody {
 pub struct PackageDeclaration {
     pub context_clause: ContextClause,
     pub ident: Ident,
-    pub generic_clause: Option<Vec<InterfaceDeclaration>>,
-    pub decl: Vec<Declaration>,
+    pub generic_clause: Option<WithPos<Vec<InterfaceDeclaration>>>,
+    pub decl: WithPos<Vec<Declaration>>,
+    pub range: SrcPos,
 }
 
 /// LRM 4.8 Package bodies
@@ -1134,7 +1142,8 @@ pub struct PackageDeclaration {
 pub struct PackageBody {
     pub context_clause: ContextClause,
     pub ident: WithRef<Ident>,
-    pub decl: Vec<Declaration>,
+    pub decl: WithPos<Vec<Declaration>>,
+    pub range: SrcPos,
 }
 
 /// LRM 13.1 Design units

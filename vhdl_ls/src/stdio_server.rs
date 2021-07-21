@@ -168,6 +168,14 @@ impl ConnectionRpcChannel {
             }
             Err(request) => request,
         };
+        let request = match extract::<request::DocumentSymbolRequest>(request) {
+            Ok((id, params)) => {
+                let result = server.text_document_document_symbol(&params);
+                self.send_response(lsp_server::Response::new_ok(id, result));
+                return;
+            }
+            Err(request) => request,
+        };
         let request = match extract::<request::Shutdown>(request) {
             Ok((id, _params)) => {
                 server.shutdown_server();

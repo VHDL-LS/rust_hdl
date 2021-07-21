@@ -597,6 +597,48 @@ impl AsRef<SrcPos> for Code {
     }
 }
 
+// Create a Range spanning from the first substring occurance of start to
+// to the first occurance of end after start (start and end may overlap)
+pub fn source_range(code: &Code, start: &str, end: &str) -> SrcPos {
+    let start = code.s1(start).pos;
+    let mut end_occurance = 1;
+    loop {
+        let end = code.s(end, end_occurance).pos;
+        if end.range().start.line >= start.range().start.line
+            && end.range().end.line >= start.range().end.line
+        {
+            break start.combine_into(&end);
+        }
+        end_occurance += 1;
+        if end_occurance > 1000 {
+            panic!("Unable to find range");
+        }
+    }
+}
+
+pub fn source_range_between(code: &Code, start: &str, end: &str) -> SrcPos {
+    let start = code.s1(start).pos;
+    let mut end_occurance = 1;
+    loop {
+        let end = code.s(end, end_occurance).pos;
+        if end.range().start.line >= start.range().start.line
+            && end.range().end.line >= start.range().end.line
+        {
+            break SrcPos::new(
+                code.source().clone(),
+                Range {
+                    start: start.pos().end(),
+                    end: end.pos().start(),
+                },
+            );
+        }
+        end_occurance += 1;
+        if end_occurance > 1000 {
+            panic!("Unable to find range");
+        }
+    }
+}
+
 mod tests {
     use super::*;
 

@@ -134,6 +134,13 @@ impl<T: Search> Search for Vec<T> {
     }
 }
 
+impl<T: Search> Search for WithPos<Vec<T>> {
+    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+        return_if_found!(&self.item.search(searcher));
+        NotFound
+    }
+}
+
 impl<T: Search> Search for Option<T> {
     fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
         for decl in self.iter() {
@@ -423,6 +430,7 @@ impl Search for LabeledConcurrentStatement {
                     sensitivity_list,
                     decl,
                     statements,
+                    range: _,
                 } = process;
                 return_if_found!(sensitivity_list.search(searcher));
                 return_if_found!(decl.search(searcher));

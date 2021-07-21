@@ -7,6 +7,7 @@
 #[macro_use]
 extern crate log;
 
+mod document_symbol;
 mod rpc_channel;
 mod stdio_server;
 mod vhdl_server;

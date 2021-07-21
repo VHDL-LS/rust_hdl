@@ -3,21 +3,20 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
-
-use super::tokens::{Kind::*, TokenStream};
-
 use super::common::error_on_end_identifier_mismatch;
 use super::common::ParseResult;
 use super::component_declaration::{parse_optional_generic_list, parse_optional_port_list};
-use super::concurrent_statement::parse_labeled_concurrent_statements;
+use super::concurrent_statement::parse_labeled_concurrent_statements_end_token;
 use super::configuration::parse_configuration_declaration;
 use super::context::{
     parse_context, parse_library_clause, parse_use_clause, DeclarationOrReference,
 };
 use super::declarative_part::{
-    parse_declarative_part, parse_declarative_part_leave_end_token, parse_package_instantiation,
+    parse_declarative_part_leave_end_token, parse_declarative_part_with_pos,
+    parse_declarative_part_with_pos_leave_end_token, parse_package_instantiation,
 };
 use super::interface_declaration::parse_generic_interface_list;
+use super::tokens::{Kind::*, TokenStream};
 use crate::ast::*;
 use crate::data::*;
 
@@ -27,10 +26,10 @@ pub fn parse_entity_declaration(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<EntityDeclaration> {
-    stream.expect_kind(Entity)?;
+    let entity_token = stream.expect_kind(Entity)?;
 
     let ident = stream.expect_ident()?;
-    stream.expect_kind(Is)?;
+    let is_token = stream.expect_kind(Is)?;
 
     let generic_clause = parse_optional_generic_list(stream, diagnostics)?;
     let port_clause = parse_optional_port_list(stream, diagnostics)?;
@@ -38,17 +37,37 @@ pub fn parse_entity_declaration(
     let decl = parse_declarative_part_leave_end_token(stream, diagnostics)?;
 
     let token = stream.expect()?;
+    let decl = {
+        let decl_start = if let Some(ref ports) = port_clause {
+            &ports.pos
+        } else if let Some(ref generics) = generic_clause {
+            &generics.pos
+        } else {
+            &is_token.pos
+        };
+        WithPos {
+            item: decl,
+            pos: decl_start.clone().combine_into_between(&token.pos),
+        }
+    };
     let statements = try_token_kind!(
         token,
-        End => Vec::new(),
-        Begin => parse_labeled_concurrent_statements(stream, diagnostics)?
+        End => None,
+        Begin => {
+            let (items, end_token) = parse_labeled_concurrent_statements_end_token(stream, diagnostics)?;
+            Some(WithPos{
+                item: items,
+                pos: token.pos.combine_into_between(&end_token),
+            })}
     );
     stream.pop_if_kind(Entity)?;
     let end_ident = stream.pop_optional_ident()?;
     if let Some(diagnostic) = error_on_end_identifier_mismatch(&ident, &end_ident) {
         diagnostics.push(diagnostic);
     }
-    stream.expect_kind(SemiColon)?;
+    let semi_token = stream.expect_kind(SemiColon)?;
+    let range = entity_token.pos.combine_into(&semi_token);
+
     Ok(EntityDeclaration {
         context_clause: ContextClause::default(),
         ident,
@@ -56,6 +75,7 @@ pub fn parse_entity_declaration(
         port_clause,
         decl,
         statements,
+        range,
     })
 }
 
@@ -64,15 +84,22 @@ pub fn parse_architecture_body(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ArchitectureBody> {
-    stream.expect_kind(Architecture)?;
+    let architecture_token = stream.expect_kind(Architecture)?;
     let ident = stream.expect_ident()?;
     stream.expect_kind(Of)?;
     let entity_name = stream.expect_ident()?;
-    stream.expect_kind(Is)?;
+    let is_token = stream.expect_kind(Is)?;
+    let decl = parse_declarative_part_with_pos_leave_end_token(stream, diagnostics, is_token)?;
+    let statements_start = match stream.expect_kind(Begin) {
+        Ok(begin_token) => begin_token.pos,
+        Err(err) => {
+            diagnostics.push(err);
+            decl.pos.clone()
+        }
+    };
 
-    let decl = parse_declarative_part(stream, diagnostics, true)?;
-
-    let statements = parse_labeled_concurrent_statements(stream, diagnostics)?;
+    let (statements, end_token) =
+        parse_labeled_concurrent_statements_end_token(stream, diagnostics)?;
     stream.pop_if_kind(Architecture)?;
 
     let end_ident = stream.pop_optional_ident()?;
@@ -80,14 +107,18 @@ pub fn parse_architecture_body(
         diagnostics.push(diagnostic);
     }
 
-    stream.expect_kind(SemiColon)?;
-
+    let semi_token = stream.expect_kind(SemiColon)?;
+    let range = architecture_token.pos.combine_into(&semi_token);
     Ok(ArchitectureBody {
         context_clause: ContextClause::default(),
         ident,
         entity_name: entity_name.into_ref(),
         decl,
-        statements,
+        statements: WithPos {
+            item: statements,
+            pos: statements_start.combine_into_between(&end_token.pos),
+        },
+        range,
     })
 }
 
@@ -96,32 +127,38 @@ pub fn parse_package_declaration(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<PackageDeclaration> {
-    stream.expect_kind(Package)?;
+    let package_token = stream.expect_kind(Package)?;
     let ident = stream.expect_ident()?;
 
-    stream.expect_kind(Is)?;
+    let mut decl_start_token = stream.expect_kind(Is)?;
     let generic_clause = {
-        if stream.skip_if_kind(Generic)? {
+        if let Some(generic_token) = stream.pop_if_kind(Generic)? {
             let decl = parse_generic_interface_list(stream, diagnostics)?;
-            stream.expect_kind(SemiColon)?;
-            Some(decl)
+            decl_start_token = stream.expect_kind(SemiColon)?;
+            Some(WithPos {
+                item: decl,
+                pos: generic_token.pos.combine_into(&decl_start_token),
+            })
         } else {
             None
         }
     };
-    let decl = parse_declarative_part(stream, diagnostics, false)?;
+
+    let decl = parse_declarative_part_with_pos(stream, diagnostics, decl_start_token, false)?;
     stream.pop_if_kind(Package)?;
     let end_ident = stream.pop_optional_ident()?;
     if let Some(diagnostic) = error_on_end_identifier_mismatch(&ident, &end_ident) {
         diagnostics.push(diagnostic);
     }
     stream.pop_if_kind(Identifier)?;
-    stream.expect_kind(SemiColon)?;
+    let semi_token = stream.expect_kind(SemiColon)?;
+    let range = package_token.pos.combine_into(&semi_token);
     Ok(PackageDeclaration {
         context_clause: ContextClause::default(),
         ident,
         generic_clause,
         decl,
+        range,
     })
 }
 
@@ -130,12 +167,12 @@ pub fn parse_package_body(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<PackageBody> {
-    stream.expect_kind(Package)?;
+    let package_token = stream.expect_kind(Package)?;
     stream.expect_kind(Body)?;
     let ident = stream.expect_ident()?;
 
-    stream.expect_kind(Is)?;
-    let decl = parse_declarative_part(stream, diagnostics, false)?;
+    let is_token = stream.expect_kind(Is)?;
+    let decl = parse_declarative_part_with_pos(stream, diagnostics, is_token, false)?;
     if stream.skip_if_kind(Package)? {
         stream.expect_kind(Body)?;
     }
@@ -143,12 +180,13 @@ pub fn parse_package_body(
     if let Some(diagnostic) = error_on_end_identifier_mismatch(&ident, &end_ident) {
         diagnostics.push(diagnostic);
     }
-    stream.expect_kind(SemiColon)?;
-
+    let semi_token = stream.expect_kind(SemiColon)?;
+    let range = package_token.pos.combine_into(&semi_token);
     Ok(PackageBody {
         context_clause: ContextClause::default(),
         ident: ident.into_ref(),
         decl,
+        range,
     })
 }
 
@@ -278,9 +316,11 @@ pub fn parse_design_file(
 #[cfg(test)]
 mod tests {
     use super::*;
-
     use crate::data::Diagnostic;
-    use crate::syntax::test::{check_diagnostics, check_no_diagnostics, Code};
+    use crate::syntax::test::{
+        check_diagnostics, check_no_diagnostics, source_range, source_range_between, Code,
+    };
+    use pretty_assertions::assert_eq;
 
     fn parse_str(code: &str) -> (Code, DesignFile, Vec<Diagnostic>) {
         let code = Code::new(code);
@@ -309,14 +349,18 @@ mod tests {
     }
 
     /// An simple entity with only a name
-    fn simple_entity(ident: Ident) -> AnyDesignUnit {
+    fn simple_entity(code: &Code, ident: &str) -> AnyDesignUnit {
         AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(EntityDeclaration {
             context_clause: ContextClause::default(),
-            ident,
+            ident: code.s1(ident).ident(),
             generic_clause: None,
             port_clause: None,
-            decl: vec![],
-            statements: vec![],
+            decl: WithPos {
+                item: vec![],
+                pos: source_range_between(&code, &format!("entity {} is", &ident), "end"),
+            },
+            statements: None,
+            range: source_range(code, &format!("entity {}", &ident), ";"),
         }))
     }
 
@@ -328,10 +372,7 @@ entity myent is
 end entity;
 ",
         );
-        assert_eq!(
-            design_file.design_units,
-            [simple_entity(code.s1("myent").ident())]
-        );
+        assert_eq!(design_file.design_units, [simple_entity(&code, "myent")]);
 
         let (code, design_file) = parse_ok(
             "
@@ -339,10 +380,7 @@ entity myent is
 end entity myent;
 ",
         );
-        assert_eq!(
-            design_file.design_units,
-            [simple_entity(code.s1("myent").ident())]
-        );
+        assert_eq!(design_file.design_units, [simple_entity(&code, "myent")]);
     }
 
     #[test]
@@ -359,10 +397,17 @@ end entity;
             EntityDeclaration {
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").ident(),
-                generic_clause: Some(Vec::new()),
+                generic_clause: Some(WithPos {
+                    item: Vec::new(),
+                    pos: source_range(&code, "generic (", ");")
+                }),
                 port_clause: None,
-                decl: vec![],
-                statements: vec![],
+                decl: WithPos {
+                    item: vec![],
+                    pos: source_range_between(&code, ");", "end"),
+                },
+                statements: None,
+                range: source_range(&code, "entity", "end entity;"),
             }
         );
     }
@@ -386,10 +431,17 @@ end entity;
                     item: code.symbol("myent"),
                     pos: code.s1("myent").pos()
                 },
-                generic_clause: Some(vec![code.s1("runner_cfg : string").generic()]),
+                generic_clause: Some(WithPos {
+                    item: vec![code.s1("runner_cfg : string").generic()],
+                    pos: source_range(&code, "generic (", ");"),
+                }),
                 port_clause: None,
-                decl: vec![],
-                statements: vec![],
+                decl: WithPos {
+                    item: vec![],
+                    pos: source_range_between(&code, ");", "end"),
+                },
+                statements: None,
+                range: source_range(&code, "entity", "end entity;"),
             }
         );
     }
@@ -409,9 +461,16 @@ end entity;
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").ident(),
                 generic_clause: None,
-                port_clause: Some(vec![]),
-                decl: vec![],
-                statements: vec![],
+                port_clause: Some(WithPos {
+                    item: vec![],
+                    pos: source_range(&code, "port (", ");"),
+                }),
+                decl: WithPos {
+                    item: vec![],
+                    pos: source_range_between(&code, ");", "end"),
+                },
+                statements: None,
+                range: source_range(&code, "entity", "end entity;"),
             }
         );
     }
@@ -432,8 +491,15 @@ end entity;
                 ident: code.s1("myent").ident(),
                 generic_clause: None,
                 port_clause: None,
-                decl: vec![],
-                statements: vec![],
+                decl: WithPos {
+                    item: vec![],
+                    pos: source_range_between(&code, "is", "begin"),
+                },
+                statements: Some(WithPos {
+                    item: vec![],
+                    pos: source_range_between(&code, "begin", "end"),
+                }),
+                range: source_range(&code, "entity", "end entity;"),
             }
         );
     }
@@ -454,8 +520,12 @@ end entity;
                 ident: code.s1("myent").ident(),
                 generic_clause: None,
                 port_clause: None,
-                decl: code.s1("constant foo : natural := 0;").declarative_part(),
-                statements: vec![],
+                decl: WithPos {
+                    item: code.s1("constant foo : natural := 0;").declarative_part(),
+                    pos: source_range_between(&code, "myent is", "end entity"),
+                },
+                statements: None,
+                range: source_range(&code, "entity", "end entity;"),
             }
         );
     }
@@ -477,8 +547,15 @@ end entity;
                 ident: code.s1("myent").ident(),
                 generic_clause: None,
                 port_clause: None,
-                decl: vec![],
-                statements: vec![code.s1("check(clk, valid);").concurrent_statement()],
+                decl: WithPos {
+                    item: vec![],
+                    pos: source_range_between(&code, "is", "begin"),
+                },
+                statements: Some(WithPos {
+                    item: vec![code.s1("check(clk, valid);").concurrent_statement()],
+                    pos: source_range_between(&code, "begin", "end")
+                }),
+                range: source_range(&code, "entity", "end entity;"),
             }
         );
     }
@@ -503,22 +580,29 @@ end;
         assert_eq!(
             design_file.design_units,
             [
-                simple_entity(code.s1("myent").ident()),
-                simple_entity(code.s1("myent2").ident()),
-                simple_entity(code.s1("myent3").ident()),
-                simple_entity(code.s1("myent4").ident())
+                simple_entity(&code, "myent"),
+                simple_entity(&code, "myent2"),
+                simple_entity(&code, "myent3"),
+                simple_entity(&code, "myent4")
             ]
         );
     }
 
     // An simple entity with only a name
-    fn simple_architecture(ident: Ident, entity_name: Ident) -> AnyDesignUnit {
+    fn simple_architecture(code: &Code, ident: &str, entity_name: &str) -> AnyDesignUnit {
         AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(ArchitectureBody {
             context_clause: ContextClause::default(),
-            ident,
-            entity_name: entity_name.into_ref(),
-            decl: Vec::new(),
-            statements: vec![],
+            ident: code.s1(ident).ident(),
+            entity_name: code.s1(entity_name).ident().into_ref(),
+            decl: WithPos {
+                item: Vec::new(),
+                pos: source_range_between(code, "is", "begin"),
+            },
+            statements: WithPos {
+                item: vec![],
+                pos: source_range_between(code, "begin", "end"),
+            },
+            range: source_range(code, &format!("architecture {}", &ident), ";"),
         }))
     }
 
@@ -533,10 +617,7 @@ end architecture;
         );
         assert_eq!(
             design_file.design_units,
-            [simple_architecture(
-                code.s1("arch_name").ident(),
-                code.s1("myent").ident()
-            )]
+            [simple_architecture(&code, "arch_name", "myent")]
         );
     }
 
@@ -551,10 +632,7 @@ end architecture arch_name;
         );
         assert_eq!(
             design_file.design_units,
-            [simple_architecture(
-                code.s1("arch_name").ident(),
-                code.s1("myent").ident()
-            )]
+            [simple_architecture(&code, "arch_name", "myent")]
         );
     }
 
@@ -569,10 +647,7 @@ end;
         );
         assert_eq!(
             design_file.design_units,
-            [simple_architecture(
-                code.s1("arch_name").ident(),
-                code.s1("myent").ident()
-            )]
+            [simple_architecture(&code, "arch_name", "myent")]
         );
     }
 
@@ -590,7 +665,11 @@ end package;
                 context_clause: ContextClause::default(),
                 ident: code.s1("pkg_name").ident(),
                 generic_clause: None,
-                decl: vec![],
+                decl: WithPos {
+                    item: vec![],
+                    pos: source_range_between(&code, "is", "end package;"),
+                },
+                range: source_range(&code, "package", "end package;"),
             }
         );
     }
@@ -611,12 +690,16 @@ end package;
                 context_clause: ContextClause::default(),
                 ident: code.s1("pkg_name").ident(),
                 generic_clause: None,
-                decl: code
-                    .s1("\
+                decl: WithPos {
+                    item: code
+                        .s1("\
   type foo;
   constant bar : natural := 0;
 ")
-                    .declarative_part(),
+                        .declarative_part(),
+                    pos: source_range_between(&code, "is", "end package;")
+                },
+                range: source_range(&code, "package", "end package;"),
             }
         );
     }
@@ -638,11 +721,15 @@ end package;
             PackageDeclaration {
                 context_clause: ContextClause::default(),
                 ident: code.s1("pkg_name").ident(),
-                generic_clause: Some(vec![
-                    code.s1("type foo").generic(),
-                    code.s1("type bar").generic()
-                ]),
-                decl: vec![]
+                generic_clause: Some(WithPos {
+                    item: vec![code.s1("type foo").generic(), code.s1("type bar").generic()],
+                    pos: source_range(&code, "generic (", ");"),
+                }),
+                decl: WithPos {
+                    item: vec![],
+                    pos: source_range_between(&code, ");", "end package;"),
+                },
+                range: source_range(&code, "package", "end package;"),
             }
         );
     }
@@ -674,8 +761,12 @@ end entity;
                         ident: code.s1("myent").ident(),
                         generic_clause: None,
                         port_clause: None,
-                        decl: vec![],
-                        statements: vec![],
+                        decl: WithPos {
+                            item: vec![],
+                            pos: source_range_between(&code, "is", "end"),
+                        },
+                        statements: None,
+                        range: source_range(&code, "entity", "end entity;"),
                     }
                 ))]
             }

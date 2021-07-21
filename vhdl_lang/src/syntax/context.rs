@@ -94,6 +94,7 @@ pub fn parse_context(
     if stream.skip_if_kind(Is)? {
         let mut items = Vec::with_capacity(16);
         let end_ident;
+        let semi_pos;
         loop {
             let token = stream.expect()?;
             try_token_kind!(
@@ -104,7 +105,7 @@ pub fn parse_context(
                 End => {
                     stream.pop_if_kind(Context)?;
                     end_ident = stream.pop_optional_ident()?;
-                    stream.expect_kind(SemiColon)?;
+                    semi_pos = Some(stream.expect_kind(SemiColon)?.pos);
                     break;
                 }
             )
@@ -113,10 +114,17 @@ pub fn parse_context(
         let ident = to_simple_name(name)?;
 
         diagnostics.push_some(error_on_end_identifier_mismatch(&ident, &end_ident));
-
+        let range = match semi_pos {
+            Some(semi) => context_token.pos.combine_into(&semi),
+            None => match stream.peek_expect() {
+                Ok(token) => context_token.pos.combine_into(&token.pos),
+                Err(err) => context_token.pos.combine_into(&err.pos),
+            },
+        };
         Ok(DeclarationOrReference::Declaration(ContextDeclaration {
             ident,
             items,
+            range,
         }))
     } else {
         // Context reference
@@ -140,7 +148,7 @@ mod tests {
     use super::*;
 
     use crate::data::Diagnostic;
-    use crate::syntax::test::Code;
+    use crate::syntax::test::{source_range, Code};
 
     #[test]
     fn test_library_clause_single_name() {
@@ -252,7 +260,8 @@ end context ident;
                 code.with_stream_no_diagnostics(parse_context),
                 DeclarationOrReference::Declaration(ContextDeclaration {
                     ident: code.s1("ident").ident(),
-                    items: vec![]
+                    items: vec![],
+                    range: source_range(&code, "context", ";"),
                 })
             );
         }
@@ -278,7 +287,8 @@ end context ident2;
             context,
             DeclarationOrReference::Declaration(ContextDeclaration {
                 ident: code.s1("ident").ident(),
-                items: vec![]
+                items: vec![],
+                range: source_range(&code, "context ident", "end context ident2;"),
             })
         );
     }
@@ -317,7 +327,8 @@ end context;
                         }),
                         code.s1("context foo.ctx;")
                     ),
-                ]
+                ],
+                range: source_range(&code, "context ident", "end context;"),
             })
         )
     }

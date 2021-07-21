@@ -515,6 +515,21 @@ impl SrcPos {
         }
     }
 
+    /// Combines two lexical positions into a larger lexical position between both.
+    /// The file name is assumed to be the same.
+    pub fn combine_into_between(self, other: &dyn AsRef<Self>) -> Self {
+        let other = other.as_ref();
+        debug_assert!(self.source == other.source, "Assumes sources are equal");
+
+        let start = min(self.range.end, other.range.end);
+        let end = max(self.range.start, other.range.start);
+
+        SrcPos {
+            source: self.source,
+            range: Range { start, end },
+        }
+    }
+
     pub fn start(&self) -> Position {
         self.range.start
     }
