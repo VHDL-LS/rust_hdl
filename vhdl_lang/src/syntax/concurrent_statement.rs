@@ -627,7 +627,9 @@ pub fn parse_concurrent_statement(
                 parse_assignment_known_target(stream, name.map_into(Target::Name))?
             },
             LeftPar => {
-                let target = parse_aggregate_leftpar_known(stream)?.map_into(Target::Aggregate);
+                let start = token.pos;
+                let mut target = parse_aggregate_leftpar_known(stream)?.map_into(Target::Aggregate);
+                target.pos = start.combine_into(&target.pos);
                 let token = stream.expect()?;
                 parse_assignment_or_procedure_call(stream, &token, target)?
             }

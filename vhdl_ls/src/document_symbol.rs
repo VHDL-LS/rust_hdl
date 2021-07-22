@@ -600,7 +600,6 @@ impl HasDocumentSymbol for LabeledConcurrentStatement {
     fn document_symbol(&self) -> DocumentSymbol {
         let mut symbol = self.statement.document_symbol();
         if let Some(ref label) = self.label {
-            symbol.detail = Some(symbol.name);
             symbol.name = label.item.name_utf8();
             symbol.range = lsp_types::Range::new(to_lsp_pos(label.pos.start()), symbol.range.end);
             symbol.selection_range = to_lsp_range(&label.pos);
@@ -629,7 +628,7 @@ impl HasDocumentSymbol for ConcurrentProcedureCall {
     fn document_symbol(&self) -> DocumentSymbol {
         DocumentSymbol {
             name: name_to_string(&self.call.name.item),
-            detail: Some(String::from("procedure")),
+            detail: Some(String::from("procedure call")),
             kind: SymbolKind::Method,
             deprecated: None,
             range: to_lsp_range(&self.call.name.pos),
@@ -644,8 +643,8 @@ impl HasDocumentSymbol for BlockStatement {
     fn document_symbol(&self) -> DocumentSymbol {
         let block_start = to_lsp_pos(self.range.start());
         DocumentSymbol {
-            name: String::from("block"),
-            detail: None,
+            name: String::from(" "),
+            detail: Some(String::from("block")),
             kind: SymbolKind::Module,
             deprecated: None,
             range: to_lsp_range(&self.range),
@@ -662,8 +661,8 @@ impl HasDocumentSymbol for ProcessStatement {
     fn document_symbol(&self) -> DocumentSymbol {
         let start_pos = to_lsp_pos(self.range.start());
         DocumentSymbol {
-            name: String::from("process"),
-            detail: None,
+            name: String::from(" "),
+            detail: Some(String::from("process")),
             kind: SymbolKind::Event,
             deprecated: None,
             range: to_lsp_range(&self.range),
@@ -679,8 +678,8 @@ impl HasDocumentSymbol for ProcessStatement {
 impl HasDocumentSymbol for ConcurrentAssertStatement {
     fn document_symbol(&self) -> DocumentSymbol {
         DocumentSymbol {
-            name: String::from("assertion"),
-            detail: None,
+            name: String::from(" "),
+            detail: Some(String::from("assertion")),
             kind: SymbolKind::Field,
             deprecated: None,
             range: to_lsp_range(&self.statement.condition.pos),
@@ -692,9 +691,20 @@ impl HasDocumentSymbol for ConcurrentAssertStatement {
 
 impl HasDocumentSymbol for ConcurrentSignalAssignment {
     fn document_symbol(&self) -> DocumentSymbol {
+        let name = match &self.target.item {
+            Target::Name(name) => name.to_string(),
+            Target::Aggregate(aggregate) => aggregate
+                .iter()
+                .map(|x| match x {
+                    ElementAssociation::Positional(pos) => pos.item.to_string(),
+                    ElementAssociation::Named(_, pos) => pos.item.to_string(),
+                })
+                .collect::<Vec<String>>()
+                .join(", "),
+        };
         DocumentSymbol {
-            name: String::from("assignment"),
-            detail: None,
+            name,
+            detail: Some(String::from("assignment")),
             kind: SymbolKind::Field,
             deprecated: None,
             range: to_lsp_range(&self.target.pos),
@@ -706,32 +716,39 @@ impl HasDocumentSymbol for ConcurrentSignalAssignment {
 
 impl HasDocumentSymbol for InstantiationStatement {
     fn document_symbol(&self) -> DocumentSymbol {
+        let name = String::from("instantiation");
         match &self.unit {
-            InstantiatedUnit::Component(selected_name) => DocumentSymbol {
-                name: String::from("component"),
-                detail: None,
+            InstantiatedUnit::Component(component_name) => DocumentSymbol {
+                name,
+                detail: Some(format!("{} : component", component_name.item)),
                 kind: SymbolKind::Object,
                 deprecated: None,
-                range: to_lsp_range(&selected_name.pos),
-                selection_range: to_lsp_range(&selected_name.pos),
+                range: to_lsp_range(&component_name.pos),
+                selection_range: to_lsp_range(&component_name.pos),
                 children: None,
             },
-            InstantiatedUnit::Entity(selected_name, _) => DocumentSymbol {
-                name: String::from("entity"),
-                detail: None,
+            InstantiatedUnit::Entity(entity_name, architecture_name) => DocumentSymbol {
+                name,
+                detail: Some(format!(
+                    "{}{} : entity",
+                    entity_name.item,
+                    architecture_name
+                        .as_ref()
+                        .map_or(String::from(""), |arch| format!("({})", arch))
+                )),
                 kind: SymbolKind::Object,
                 deprecated: None,
-                range: to_lsp_range(&selected_name.pos),
-                selection_range: to_lsp_range(&selected_name.pos),
+                range: to_lsp_range(&entity_name.pos),
+                selection_range: to_lsp_range(&entity_name.pos),
                 children: None,
             },
-            InstantiatedUnit::Configuration(selected_name) => DocumentSymbol {
-                name: String::from("configuration"),
-                detail: None,
+            InstantiatedUnit::Configuration(configuration_name) => DocumentSymbol {
+                name,
+                detail: Some(format!("{} : configuration", configuration_name.item)),
                 kind: SymbolKind::Object,
                 deprecated: None,
-                range: to_lsp_range(&selected_name.pos),
-                selection_range: to_lsp_range(&selected_name.pos),
+                range: to_lsp_range(&configuration_name.pos),
+                selection_range: to_lsp_range(&configuration_name.pos),
                 children: None,
             },
         }
@@ -741,8 +758,8 @@ impl HasDocumentSymbol for InstantiationStatement {
 impl HasDocumentSymbol for ForGenerateStatement {
     fn document_symbol(&self) -> DocumentSymbol {
         DocumentSymbol {
-            name: String::from("generate"),
-            detail: None,
+            name: String::from(" "),
+            detail: Some(String::from("for generate")),
             kind: SymbolKind::Field,
             deprecated: None,
             range: to_lsp_range(&self.index_name.pos),
@@ -769,8 +786,8 @@ impl HasDocumentSymbol for IfGenerateStatement {
             }
         };
         DocumentSymbol {
-            name: String::from("generate"),
-            detail: None,
+            name: String::from(" "),
+            detail: Some(String::from("if generate")),
             kind: SymbolKind::Field,
             deprecated: None,
             range,
@@ -784,8 +801,8 @@ impl HasDocumentSymbol for CaseGenerateStatement {
     fn document_symbol(&self) -> DocumentSymbol {
         let range = to_lsp_range(&self.expression.pos);
         DocumentSymbol {
-            name: String::from("generate"),
-            detail: None,
+            name: String::from(" "),
+            detail: Some(String::from("case generate")),
             kind: SymbolKind::Field,
             deprecated: None,
             range,
@@ -1821,8 +1838,8 @@ end;
             get_statements(code),
             vec![
                 statement2(
-                    "assertion",
-                    None,
+                    " ",
+                    Some("assertion"),
                     SymbolKind::Field,
                     range1(code, "true"),
                     range1(code, "true"),
@@ -1845,14 +1862,16 @@ architecture rtl of ent is
 begin
     sig <= 1;
     lbl: sig <= 2;
+    (sig1,sig2) <= asd;
+    lbl2: (sig1,sig2) <= asd;
 end;
 ";
         assert_eq!(
             get_statements(code),
             vec![
                 statement2(
-                    "assignment",
-                    None,
+                    "sig",
+                    Some("assignment"),
                     SymbolKind::Field,
                     range1(code, "sig"),
                     range1(code, "sig"),
@@ -1863,7 +1882,21 @@ end;
                     SymbolKind::Field,
                     range(code, "lbl", "sig"),
                     range1(code, "lbl"),
-                )
+                ),
+                statement2(
+                    "sig1, sig2",
+                    Some("assignment"),
+                    SymbolKind::Field,
+                    range1(code, "(sig1,sig2)"),
+                    range1(code, "(sig1,sig2)"),
+                ),
+                statement2(
+                    "lbl2",
+                    Some("assignment"),
+                    SymbolKind::Field,
+                    range(code, "lbl2", "(sig1,sig2)"),
+                    range1(code, "lbl2"),
+                ),
             ]
         )
     }
@@ -1882,21 +1915,21 @@ end;
             vec![
                 statement2(
                     "ent_i",
-                    Some("entity"),
+                    Some("work.ent_name(rtl) : entity"),
                     SymbolKind::Object,
                     range(code, "ent_i", "work.ent_name"),
                     range1(code, "ent_i"),
                 ),
                 statement2(
                     "cmp_i",
-                    Some("component"),
+                    Some("comp_name : component"),
                     SymbolKind::Object,
                     range(code, "cmp_i", "comp_name"),
                     range1(code, "cmp_i"),
                 ),
                 statement2(
                     "cnf_i",
-                    Some("configuration"),
+                    Some("work.cnf_name : configuration"),
                     SymbolKind::Object,
                     range(code, "cnf_i", "work.cnf_name"),
                     range1(code, "cnf_i"),
@@ -1963,7 +1996,7 @@ end;
             get_statements(code),
             vec![statement2(
                 "lbl",
-                Some("generate"),
+                Some("case generate"),
                 SymbolKind::Field,
                 range(code, "lbl", "expr"),
                 range1(code, "lbl"),
