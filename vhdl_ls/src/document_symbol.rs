@@ -1756,12 +1756,12 @@ end;
                 statement(
                     code,
                     "procedure_call",
-                    Some("procedure"),
+                    Some("procedure call"),
                     SymbolKind::Method
                 ),
                 statement2(
                     "lbl",
-                    Some("procedure_call"),
+                    Some("procedure call"),
                     SymbolKind::Method,
                     range(code, "lbl", "procedure_call"),
                     range1(code, "lbl"),
@@ -1805,8 +1805,8 @@ end;
             get_statements(code),
             vec![
                 statement2(
-                    "process",
-                    None,
+                    " ",
+                    Some("process"),
                     SymbolKind::Event,
                     range(code, "process", "end process;"),
                     lsp_types::Range {
@@ -1952,7 +1952,7 @@ end;
             get_statements(code),
             vec![statement2(
                 "lbl",
-                Some("generate"),
+                Some("for generate"),
                 SymbolKind::Field,
                 range(code, "lbl", "index_name"),
                 range1(code, "lbl"),
@@ -1974,7 +1974,7 @@ end;
             get_statements(code),
             vec![statement2(
                 "lbl",
-                Some("generate"),
+                Some("if generate"),
                 SymbolKind::Field,
                 range(code, "lbl", "true"),
                 range1(code, "lbl"),
