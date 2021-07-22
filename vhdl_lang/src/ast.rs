@@ -3,7 +3,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
+// Copyright (c) 2021, Olof Kraigher olof.kraigher@gmail.com
 
 // Allowing this, since box_patterns are feature gated: https://github.com/rust-lang/rfcs/pull/469
 // Track here: https://github.com/rust-lang/rust/issues/29641

@@ -3,7 +3,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
+// Copyright (c) 2021, Olof Kraigher olof.kraigher@gmail.com
 
 // These fields are better explicit than .. since we are forced to consider if new fields should be searched
 #![allow(clippy::unneeded_field_pattern)]

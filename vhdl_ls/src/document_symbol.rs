@@ -414,7 +414,7 @@ impl HasDocumentSymbol for SubprogramDeclaration {
 
 impl HasDocumentSymbol for WithPos<UseClause> {
     fn document_symbol(&self) -> DocumentSymbol {
-        if &self.item.name_list.len() == &1 {
+        if self.item.name_list.len() == 1 {
             DocumentSymbol {
                 name: name_to_string(&self.item.name_list[0].item),
                 detail: Some(String::from("use")),
@@ -883,7 +883,7 @@ fn none_if_empty<T>(vec: Vec<T>) -> Option<Vec<T>> {
     }
 }
 
-fn push_context_clause(context_clause: &ContextClause, symbols: &mut Vec<DocumentSymbol>) {
+fn push_context_clause(context_clause: &[WithPos<ContextItem>], symbols: &mut Vec<DocumentSymbol>) {
     if let Some(ref first) = context_clause.first() {
         let range = first
             .pos
