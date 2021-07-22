@@ -3,13 +3,5 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 // Copyright (c) 2021, Olof Kraigher olof.kraigher@gmail.com
-#![allow(clippy::upper_case_acronyms)]
 
-#[macro_use]
-extern crate log;
-
-mod requests;
-mod rpc_channel;
-mod stdio_server;
-mod vhdl_server;
-pub use crate::stdio_server::start;
+pub mod document_symbol;

@@ -9,7 +9,7 @@ use lsp_types::*;
 use fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
 
-use crate::document_symbol::{
+use crate::requests::document_symbol::{
     nested_document_symbol_response_from_file, nested_document_symbol_response_from_source,
 };
 use crate::rpc_channel::{MessageChannel, RpcChannel};
