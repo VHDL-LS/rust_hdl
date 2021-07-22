@@ -6,7 +6,6 @@
 
 use lsp_types::{DocumentSymbol, DocumentSymbolResponse, SymbolKind, Url};
 use vhdl_lang::ast::*;
-use vhdl_lang::Latin1String;
 use vhdl_lang::{Source, SrcPos, VHDLParser, WithPos};
 
 pub fn nested_document_symbol_response_from_file(uri: &Url) -> Option<DocumentSymbolResponse> {
@@ -232,90 +231,6 @@ impl HasDocumentSymbol for ArchitectureBody {
     }
 }
 
-fn push_interface_list(
-    list: &WithPos<Vec<InterfaceDeclaration>>,
-    list_type: InterfaceListType,
-    symbols: &mut Vec<DocumentSymbol>,
-) {
-    if !list.item.is_empty() {
-        let (name, kind) = match list_type {
-            InterfaceListType::Port => (String::from("ports"), SymbolKind::Interface),
-            InterfaceListType::Generic => (String::from("generics"), SymbolKind::Constant),
-            InterfaceListType::Parameter => (String::from("parameters"), SymbolKind::Interface),
-        };
-        symbols.push(DocumentSymbol {
-            name,
-            detail: None,
-            kind,
-            deprecated: None,
-            range: to_lsp_range(&list.pos),
-            selection_range: lsp_types::Range {
-                start: to_lsp_pos(list.pos.start()),
-                end: to_lsp_pos(list.pos.start()),
-            },
-            children: none_if_empty(list.item.iter().map(|x| x.document_symbol()).collect()),
-        });
-    }
-}
-
-fn push_optional_interface_list(
-    list: Option<&WithPos<Vec<InterfaceDeclaration>>>,
-    list_type: InterfaceListType,
-    symbols: &mut Vec<DocumentSymbol>,
-) {
-    if let Some(list) = list {
-        push_interface_list(list, list_type, symbols);
-    }
-}
-
-fn push_declarations(list: &WithPos<Vec<Declaration>>, symbols: &mut Vec<DocumentSymbol>) {
-    if !list.item.is_empty() {
-        let range = to_lsp_range(&list.pos);
-        symbols.push(DocumentSymbol {
-            name: String::from("declarations"),
-            detail: None,
-            kind: SymbolKind::Field,
-            deprecated: None,
-            range,
-            selection_range: lsp_types::Range {
-                start: range.start,
-                end: range.start,
-            },
-            children: Some(
-                list.item
-                    .iter()
-                    .map(|decl| decl.document_symbol())
-                    .collect(),
-            ),
-        });
-    }
-}
-
-fn push_concurrent_statements(
-    statements: &WithPos<Vec<LabeledConcurrentStatement>>,
-    symbols: &mut Vec<DocumentSymbol>,
-) {
-    let range = to_lsp_range(&statements.pos);
-    symbols.push(DocumentSymbol {
-        name: String::from("statements"),
-        detail: None,
-        kind: SymbolKind::Field,
-        deprecated: None,
-        range,
-        selection_range: lsp_types::Range {
-            start: range.start,
-            end: range.start,
-        },
-        children: Some(
-            statements
-                .item
-                .iter()
-                .map(|stmt| stmt.document_symbol())
-                .collect(),
-        ),
-    });
-}
-
 impl HasDocumentSymbol for InterfaceDeclaration {
     fn document_symbol(&self) -> DocumentSymbol {
         match self {
@@ -343,14 +258,14 @@ impl HasDocumentSymbol for InterfaceObjectDeclaration {
         let mode = if self.class == ObjectClass::Constant {
             String::from("")
         } else {
-            mode_to_string(self.mode)
+            self.mode.to_string()
         };
         DocumentSymbol {
             name: self.ident.item.name_utf8(),
             detail: Some(format!(
                 "{} {}",
                 mode,
-                subtype_indication_designator_to_string(&self.subtype_indication)
+                self.subtype_indication.to_string() // subtype_indication_designator_to_string(&self.subtype_indication)
             )),
             kind: symbol_kind_from_object_class(self.class),
             deprecated: None,
@@ -365,9 +280,7 @@ impl HasDocumentSymbol for InterfaceFileDeclaration {
     fn document_symbol(&self) -> DocumentSymbol {
         DocumentSymbol {
             name: self.ident.item.name_utf8(),
-            detail: Some(subtype_indication_designator_to_string(
-                &self.subtype_indication,
-            )),
+            detail: Some(self.subtype_indication.to_string()),
             kind: SymbolKind::File,
             deprecated: None,
             range: to_lsp_range(&self.ident.pos),
@@ -416,7 +329,7 @@ impl HasDocumentSymbol for WithPos<UseClause> {
     fn document_symbol(&self) -> DocumentSymbol {
         if self.item.name_list.len() == 1 {
             DocumentSymbol {
-                name: name_to_string(&self.item.name_list[0].item),
+                name: self.item.name_list[0].to_string(),
                 detail: Some(String::from("use")),
                 kind: SymbolKind::Namespace,
                 deprecated: None,
@@ -440,7 +353,7 @@ impl HasDocumentSymbol for WithPos<UseClause> {
                         .name_list
                         .iter()
                         .map(|x| DocumentSymbol {
-                            name: name_to_string(&x.item),
+                            name: x.to_string(),
                             detail: Some(String::from("use")),
                             kind: SymbolKind::Namespace,
                             deprecated: None,
@@ -571,7 +484,7 @@ impl HasDocumentSymbol for Attribute {
 impl HasDocumentSymbol for AliasDeclaration {
     fn document_symbol(&self) -> DocumentSymbol {
         DocumentSymbol {
-            name: designator_name_to_string(&self.designator.item),
+            name: self.designator.to_string(),
             detail: Some(String::from("alias")),
             kind: SymbolKind::TypeParameter,
             deprecated: None,
@@ -627,7 +540,7 @@ impl HasDocumentSymbol for ConcurrentStatement {
 impl HasDocumentSymbol for ConcurrentProcedureCall {
     fn document_symbol(&self) -> DocumentSymbol {
         DocumentSymbol {
-            name: name_to_string(&self.call.name.item),
+            name: self.call.name.to_string(),
             detail: Some(String::from("procedure call")),
             kind: SymbolKind::Method,
             deprecated: None,
@@ -645,7 +558,7 @@ impl HasDocumentSymbol for BlockStatement {
         DocumentSymbol {
             name: String::from(" "),
             detail: Some(String::from("block")),
-            kind: SymbolKind::Module,
+            kind: SymbolKind::Namespace,
             deprecated: None,
             range: to_lsp_range(&self.range),
             selection_range: lsp_types::Range {
@@ -720,7 +633,7 @@ impl HasDocumentSymbol for InstantiationStatement {
         match &self.unit {
             InstantiatedUnit::Component(component_name) => DocumentSymbol {
                 name,
-                detail: Some(format!("{} : component", component_name.item)),
+                detail: Some(component_name.item.to_string()),
                 kind: SymbolKind::Object,
                 deprecated: None,
                 range: to_lsp_range(&component_name.pos),
@@ -730,7 +643,7 @@ impl HasDocumentSymbol for InstantiationStatement {
             InstantiatedUnit::Entity(entity_name, architecture_name) => DocumentSymbol {
                 name,
                 detail: Some(format!(
-                    "{}{} : entity",
+                    "{}{}",
                     entity_name.item,
                     architecture_name
                         .as_ref()
@@ -744,7 +657,7 @@ impl HasDocumentSymbol for InstantiationStatement {
             },
             InstantiatedUnit::Configuration(configuration_name) => DocumentSymbol {
                 name,
-                detail: Some(format!("{} : configuration", configuration_name.item)),
+                detail: Some(configuration_name.item.to_string()),
                 kind: SymbolKind::Object,
                 deprecated: None,
                 range: to_lsp_range(&configuration_name.pos),
@@ -812,6 +725,90 @@ impl HasDocumentSymbol for CaseGenerateStatement {
     }
 }
 
+fn push_interface_list(
+    list: &WithPos<Vec<InterfaceDeclaration>>,
+    list_type: InterfaceListType,
+    symbols: &mut Vec<DocumentSymbol>,
+) {
+    if !list.item.is_empty() {
+        let (name, kind) = match list_type {
+            InterfaceListType::Port => (String::from("ports"), SymbolKind::Interface),
+            InterfaceListType::Generic => (String::from("generics"), SymbolKind::Constant),
+            InterfaceListType::Parameter => (String::from("parameters"), SymbolKind::Interface),
+        };
+        symbols.push(DocumentSymbol {
+            name,
+            detail: None,
+            kind,
+            deprecated: None,
+            range: to_lsp_range(&list.pos),
+            selection_range: lsp_types::Range {
+                start: to_lsp_pos(list.pos.start()),
+                end: to_lsp_pos(list.pos.start()),
+            },
+            children: none_if_empty(list.item.iter().map(|x| x.document_symbol()).collect()),
+        });
+    }
+}
+
+fn push_optional_interface_list(
+    list: Option<&WithPos<Vec<InterfaceDeclaration>>>,
+    list_type: InterfaceListType,
+    symbols: &mut Vec<DocumentSymbol>,
+) {
+    if let Some(list) = list {
+        push_interface_list(list, list_type, symbols);
+    }
+}
+
+fn push_declarations(list: &WithPos<Vec<Declaration>>, symbols: &mut Vec<DocumentSymbol>) {
+    if !list.item.is_empty() {
+        let range = to_lsp_range(&list.pos);
+        symbols.push(DocumentSymbol {
+            name: String::from("declarations"),
+            detail: None,
+            kind: SymbolKind::Field,
+            deprecated: None,
+            range,
+            selection_range: lsp_types::Range {
+                start: range.start,
+                end: range.start,
+            },
+            children: Some(
+                list.item
+                    .iter()
+                    .map(|decl| decl.document_symbol())
+                    .collect(),
+            ),
+        });
+    }
+}
+
+fn push_concurrent_statements(
+    statements: &WithPos<Vec<LabeledConcurrentStatement>>,
+    symbols: &mut Vec<DocumentSymbol>,
+) {
+    let range = to_lsp_range(&statements.pos);
+    symbols.push(DocumentSymbol {
+        name: String::from("statements"),
+        detail: None,
+        kind: SymbolKind::Field,
+        deprecated: None,
+        range,
+        selection_range: lsp_types::Range {
+            start: range.start,
+            end: range.start,
+        },
+        children: Some(
+            statements
+                .item
+                .iter()
+                .map(|stmt| stmt.document_symbol())
+                .collect(),
+        ),
+    });
+}
+
 fn symbol_kind_from_type_definition(type_definition: &TypeDefinition) -> SymbolKind {
     match type_definition {
         TypeDefinition::Enumeration(_) => SymbolKind::Enum,
@@ -825,46 +822,6 @@ fn symbol_kind_from_type_definition(type_definition: &TypeDefinition) -> SymbolK
         TypeDefinition::Protected(_) => SymbolKind::Object,
         TypeDefinition::ProtectedBody(_) => SymbolKind::Object,
         TypeDefinition::Subtype(_) => SymbolKind::TypeParameter,
-    }
-}
-
-fn name_to_string(name: &Name) -> String {
-    match name {
-        Name::Designator(designator) => designator_name_to_string(&designator.item),
-        Name::Selected(name, designator) => format!(
-            "{}.{}",
-            name_to_string(&name.item),
-            designator_name_to_string(&designator.item.item)
-        ),
-        Name::SelectedAll(name) => format!("{}.{}", name_to_string(&name.item), "all"),
-        _ => String::from(" "),
-    }
-}
-
-fn designator_name_to_string(designator: &Designator) -> String {
-    match designator {
-        Designator::Identifier(symbol) => symbol.name_utf8(),
-        Designator::OperatorSymbol(symbol) => format!("\"{}\"", symbol.to_string()),
-        Designator::Character(character) => {
-            format!("'{}'", Latin1String::new(&[character.to_owned()]))
-        }
-    }
-}
-
-fn mode_to_string(mode: Mode) -> String {
-    String::from(match mode {
-        Mode::In => "in",
-        Mode::Out => "out",
-        Mode::InOut => "inout",
-        Mode::Buffer => "buffer",
-        Mode::Linkage => "linkage",
-    })
-}
-
-fn subtype_indication_designator_to_string(subtype_indication: &SubtypeIndication) -> String {
-    match &subtype_indication.type_mark.item {
-        SelectedName::Designator(name) => designator_name_to_string(&name.item),
-        SelectedName::Selected(_, name) => designator_name_to_string(&name.item.item),
     }
 }
 
@@ -912,7 +869,7 @@ fn push_context_clause(context_clause: &[WithPos<ContextItem>], symbols: &mut Ve
                 ContextItem::Use(use_clause) => {
                     for name in use_clause.name_list.iter() {
                         children.push(DocumentSymbol {
-                            name: name_to_string(&name.item),
+                            name: name.to_string(),
                             detail: Some(String::from("use")),
                             kind: SymbolKind::Namespace,
                             deprecated: None,
@@ -925,7 +882,7 @@ fn push_context_clause(context_clause: &[WithPos<ContextItem>], symbols: &mut Ve
                 ContextItem::Library(library_clause) => {
                     for name in library_clause.name_list.iter() {
                         children.push(DocumentSymbol {
-                            name: name.item.name_utf8(),
+                            name: name.to_string(),
                             detail: Some(String::from("library")),
                             kind: SymbolKind::Namespace,
                             deprecated: None,
@@ -938,7 +895,7 @@ fn push_context_clause(context_clause: &[WithPos<ContextItem>], symbols: &mut Ve
                 ContextItem::Context(context_reference) => {
                     for name in context_reference.name_list.iter() {
                         children.push(DocumentSymbol {
-                            name: name_to_string(&name.item),
+                            name: name.to_string(),
                             detail: Some(String::from("context")),
                             kind: SymbolKind::Namespace,
                             deprecated: None,
@@ -1785,7 +1742,7 @@ end;
             vec![statement2(
                 "block_lbl",
                 Some("block"),
-                SymbolKind::Module,
+                SymbolKind::Namespace,
                 range(code, "block_lbl", ";"),
                 range1(code, "block_lbl"),
             )]
@@ -1915,21 +1872,21 @@ end;
             vec![
                 statement2(
                     "ent_i",
-                    Some("work.ent_name(rtl) : entity"),
+                    Some("work.ent_name(rtl)"),
                     SymbolKind::Object,
                     range(code, "ent_i", "work.ent_name"),
                     range1(code, "ent_i"),
                 ),
                 statement2(
                     "cmp_i",
-                    Some("comp_name : component"),
+                    Some("comp_name"),
                     SymbolKind::Object,
                     range(code, "cmp_i", "comp_name"),
                     range1(code, "cmp_i"),
                 ),
                 statement2(
                     "cnf_i",
-                    Some("work.cnf_name : configuration"),
+                    Some("work.cnf_name"),
                     SymbolKind::Object,
                     range(code, "cnf_i", "work.cnf_name"),
                     range1(code, "cnf_i"),
