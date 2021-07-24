@@ -262,11 +262,7 @@ impl HasDocumentSymbol for InterfaceObjectDeclaration {
         };
         DocumentSymbol {
             name: self.ident.item.name_utf8(),
-            detail: Some(format!(
-                "{} {}",
-                mode,
-                self.subtype_indication.to_string() // subtype_indication_designator_to_string(&self.subtype_indication)
-            )),
+            detail: Some(format!("{} {}", mode, self.subtype_indication.to_string())),
             kind: symbol_kind_from_object_class(self.class),
             deprecated: None,
             range: to_lsp_range(&self.ident.pos),
@@ -1426,40 +1422,152 @@ end;
     }
 
     #[test]
-    fn type_declaration() {
+    fn enum_type_declaration() {
         let code = "
 package pkg is
     type t_enum is (a, b, c);
+end;
+";
+        assert_eq!(
+            get_declarations(code),
+            vec![declaration(code, "t_enum", Some("type"), SymbolKind::Enum),]
+        )
+    }
+
+    #[test]
+    fn integer_type_declaration() {
+        let code = "
+package pkg is
     type t_integer is range 0 to 1;
+end;
+";
+        assert_eq!(
+            get_declarations(code),
+            vec![declaration(
+                code,
+                "t_integer",
+                Some("type"),
+                SymbolKind::TypeParameter
+            ),]
+        )
+    }
+
+    #[test]
+    fn physical_type_declaration() {
+        let code = "
+package pkg is
     type t_physical is range 0 to 1e4 units
         a;
         b = 1000 a;
     end units t_physical;
+end;
+";
+        assert_eq!(
+            get_declarations(code),
+            vec![declaration(
+                code,
+                "t_physical",
+                Some("type"),
+                SymbolKind::TypeParameter
+            ),]
+        )
+    }
+
+    #[test]
+    fn array_type_declaration() {
+        let code = "
+package pkg is
     type t_array is array (natural range <>) of integer;
+end;
+";
+        assert_eq!(
+            get_declarations(code),
+            vec![declaration(
+                code,
+                "t_array",
+                Some("type"),
+                SymbolKind::Array
+            ),]
+        )
+    }
+
+    #[test]
+    fn record_stype_declaration() {
+        let code = "
+package pkg is
     type t_record is record
         a : integer;
     end record t_record;
+end;
+";
+        assert_eq!(
+            get_declarations(code),
+            vec![declaration(
+                code,
+                "t_record",
+                Some("type"),
+                SymbolKind::Struct
+            ),]
+        )
+    }
+
+    #[test]
+    fn access_type_declaration() {
+        let code = "
+package pkg is
     type t_access is access integer;
+end;
+";
+        assert_eq!(
+            get_declarations(code),
+            vec![declaration(code, "t_access", Some("type"), SymbolKind::Key),]
+        )
+    }
+
+    #[test]
+    fn incomplete_type_declaration() {
+        let code = "
+package pkg is
     type t_incomp;
+end;
+";
+        assert_eq!(
+            get_declarations(code),
+            vec![declaration(
+                code,
+                "t_incomp",
+                Some("type"),
+                SymbolKind::TypeParameter
+            ),]
+        )
+    }
+
+    #[test]
+    fn file_type_declaration() {
+        let code = "
+package pkg is
     type t_file is file of integer;
+end;
+";
+        assert_eq!(
+            get_declarations(code),
+            vec![declaration(code, "t_file", Some("type"), SymbolKind::File),]
+        )
+    }
+
+    #[test]
+    fn protected_type_declaration() {
+        let code = "
+package pkg is
     type t_protected is protected
     end protected t_protected;
     type t_protected is protected body
     end protected body t_protected;
-    subtype t_subtype is integer range 1 to 2;
 end;
 ";
         assert_eq!(
             get_declarations(code),
             vec![
-                declaration(code, "t_enum", Some("type"), SymbolKind::Enum),
-                declaration(code, "t_integer", Some("type"), SymbolKind::TypeParameter),
-                declaration(code, "t_physical", Some("type"), SymbolKind::TypeParameter),
-                declaration(code, "t_array", Some("type"), SymbolKind::Array),
-                declaration(code, "t_record", Some("type"), SymbolKind::Struct),
-                declaration(code, "t_access", Some("type"), SymbolKind::Key),
-                declaration(code, "t_incomp", Some("type"), SymbolKind::TypeParameter),
-                declaration(code, "t_file", Some("type"), SymbolKind::File),
                 declaration(code, "t_protected", Some("type"), SymbolKind::Object),
                 {
                     let mut protected_body =
@@ -1470,8 +1578,25 @@ end;
                     protected_body.selection_range.end.line += 2;
                     protected_body
                 },
-                declaration(code, "t_subtype", Some("type"), SymbolKind::TypeParameter),
             ]
+        )
+    }
+
+    #[test]
+    fn subtype_declaration() {
+        let code = "
+package pkg is
+    subtype t_subtype is integer range 1 to 2;
+end;
+";
+        assert_eq!(
+            get_declarations(code),
+            vec![declaration(
+                code,
+                "t_subtype",
+                Some("type"),
+                SymbolKind::TypeParameter
+            ),]
         )
     }
 
