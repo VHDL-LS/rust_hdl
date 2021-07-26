@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
+// Copyright (c) 2021, Olof Kraigher olof.kraigher@gmail.com
 
 use super::alias_declaration::parse_alias_declaration;
 use super::common::ParseResult;
@@ -594,6 +594,48 @@ pub fn assert_eq_unordered<T: PartialEq + Debug>(got: &[T], expected: &[T]) {
 impl AsRef<SrcPos> for Code {
     fn as_ref(&self) -> &SrcPos {
         &self.pos
+    }
+}
+
+// Create a Range spanning from the first substring occurance of start to
+// to the first occurance of end after start (start and end may overlap)
+pub fn source_range(code: &Code, start: &str, end: &str) -> SrcPos {
+    let start = code.s1(start).pos;
+    let mut end_occurance = 1;
+    loop {
+        let end = code.s(end, end_occurance).pos;
+        if end.range().start.line >= start.range().start.line
+            && end.range().end.line >= start.range().end.line
+        {
+            break start.combine_into(&end);
+        }
+        end_occurance += 1;
+        if end_occurance > 1000 {
+            panic!("Unable to find range");
+        }
+    }
+}
+
+pub fn source_range_between(code: &Code, start: &str, end: &str) -> SrcPos {
+    let start = code.s1(start).pos;
+    let mut end_occurance = 1;
+    loop {
+        let end = code.s(end, end_occurance).pos;
+        if end.range().start.line >= start.range().start.line
+            && end.range().end.line >= start.range().end.line
+        {
+            break SrcPos::new(
+                code.source().clone(),
+                Range {
+                    start: start.pos().end(),
+                    end: end.pos().start(),
+                },
+            );
+        }
+        end_occurance += 1;
+        if end_occurance > 1000 {
+            panic!("Unable to find range");
+        }
     }
 }
 

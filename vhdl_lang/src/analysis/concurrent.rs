@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
+// Copyright (c) 2021, Olof Kraigher olof.kraigher@gmail.com
 
 // These fields are better explicit than .. since we are forced to consider if new fields should be searched
 #![allow(clippy::unneeded_field_pattern)]
@@ -65,6 +65,7 @@ impl<'a> AnalyzeContext<'a> {
                     sensitivity_list,
                     decl,
                     statements,
+                    source_range: _,
                 } = process;
                 if let Some(sensitivity_list) = sensitivity_list {
                     match sensitivity_list {

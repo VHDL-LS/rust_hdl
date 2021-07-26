@@ -142,10 +142,10 @@ impl Project {
             self.files.insert(
                 source.file_name().to_owned(),
                 SourceFile {
-                    source,
                     library_names,
-                    parser_diagnostics,
+                    source,
                     design_file,
+                    parser_diagnostics,
                 },
             );
         }

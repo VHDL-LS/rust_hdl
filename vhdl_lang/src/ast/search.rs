@@ -3,7 +3,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
+// Copyright (c) 2021, Olof Kraigher olof.kraigher@gmail.com
 
 // These fields are better explicit than .. since we are forced to consider if new fields should be searched
 #![allow(clippy::unneeded_field_pattern)]
@@ -130,6 +130,13 @@ impl<T: Search> Search for Vec<T> {
         for decl in self.iter() {
             return_if_found!(decl.search(searcher));
         }
+        NotFound
+    }
+}
+
+impl<T: Search> Search for WithPos<Vec<T>> {
+    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+        return_if_found!(&self.item.search(searcher));
         NotFound
     }
 }
@@ -423,6 +430,7 @@ impl Search for LabeledConcurrentStatement {
                     sensitivity_list,
                     decl,
                     statements,
+                    source_range: _,
                 } = process;
                 return_if_found!(sensitivity_list.search(searcher));
                 return_if_found!(decl.search(searcher));

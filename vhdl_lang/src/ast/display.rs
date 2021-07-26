@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
+// Copyright (c) 2021, Olof Kraigher olof.kraigher@gmail.com
 
 //! Implementation of Display
 
@@ -1039,7 +1039,7 @@ impl Display for EntityDeclaration {
 
         if let Some(generic_clause) = &self.generic_clause {
             let mut first = true;
-            for generic in generic_clause {
+            for generic in &generic_clause.item {
                 if first {
                     write!(f, "\n  generic (\n    {}", generic)?;
                 } else {
@@ -1054,7 +1054,7 @@ impl Display for EntityDeclaration {
 
         if let Some(port_clause) = &self.port_clause {
             let mut first = true;
-            for port in port_clause {
+            for port in &port_clause.item {
                 if first {
                     write!(f, "\n  port (\n    {}", port)?;
                 } else {
@@ -1078,7 +1078,7 @@ impl Display for PackageDeclaration {
             write!(f, "package {} is", self.ident)?;
 
             let mut first = true;
-            for generic in generic_clause {
+            for generic in &generic_clause.item {
                 if first {
                     write!(f, "\n  generic (\n    {}", generic)?;
                 } else {

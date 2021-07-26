@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
+// Copyright (c) 2021, Olof Kraigher olof.kraigher@gmail.com
 #![allow(clippy::upper_case_acronyms)]
 // False positives with unconditional loops
 // allow for now
@@ -20,7 +20,7 @@ mod syntax;
 pub use crate::config::Config;
 pub use crate::data::{
     Diagnostic, Latin1String, Message, MessageHandler, MessagePrinter, MessageType, Position,
-    Range, Severity, Source, SrcPos,
+    Range, Severity, Source, SrcPos, WithPos,
 };
 
 pub use crate::project::{Project, SourceFile};

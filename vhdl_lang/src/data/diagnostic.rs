@@ -72,7 +72,7 @@ impl Diagnostic {
 
     pub fn drain_related(&mut self) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::with_capacity(self.related.len());
-        let related = std::mem::replace(&mut self.related, Vec::new());
+        let related = std::mem::take(&mut self.related);
         for (pos, msg) in related {
             diagnostics.push(Diagnostic::new(
                 pos,

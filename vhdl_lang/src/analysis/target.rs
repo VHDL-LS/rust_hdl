@@ -90,10 +90,10 @@ pub enum AssignmentType {
 }
 
 impl AssignmentType {
-    fn to_str(&self) -> &str {
+    fn to_str(self) -> String {
         match self {
-            AssignmentType::Signal => "signal",
-            AssignmentType::Variable => "variable",
+            AssignmentType::Signal => String::from("signal"),
+            AssignmentType::Variable => String::from("variable"),
         }
     }
 }

@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
+// Copyright (c) 2021, Olof Kraigher olof.kraigher@gmail.com
 
 //! This module handles setting up `VHDLServer` for `stdio` communication.
 //! It also contains the main event loop for handling incoming messages from the LSP client and
@@ -163,6 +163,14 @@ impl ConnectionRpcChannel {
         let request = match extract::<request::References>(request) {
             Ok((id, params)) => {
                 let result = server.text_document_references(&params);
+                self.send_response(lsp_server::Response::new_ok(id, result));
+                return;
+            }
+            Err(request) => request,
+        };
+        let request = match extract::<request::DocumentSymbolRequest>(request) {
+            Ok((id, params)) => {
+                let result = server.text_document_document_symbol(&params);
                 self.send_response(lsp_server::Response::new_ok(id, result));
                 return;
             }

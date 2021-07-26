@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
+// Copyright (c) 2021, Olof Kraigher olof.kraigher@gmail.com
 
 use super::contents::Contents;
 use super::diagnostic::{Diagnostic, DiagnosticResult};
@@ -508,6 +508,21 @@ impl SrcPos {
 
         let start = min(self.range.start, other.range.start);
         let end = max(self.range.end, other.range.end);
+
+        SrcPos {
+            source: self.source,
+            range: Range { start, end },
+        }
+    }
+
+    /// Combines two lexical positions into a larger lexical position between both.
+    /// The file name is assumed to be the same.
+    pub fn combine_into_between(self, other: &dyn AsRef<Self>) -> Self {
+        let other = other.as_ref();
+        debug_assert!(self.source == other.source, "Assumes sources are equal");
+
+        let start = min(self.range.end, other.range.end);
+        let end = max(self.range.start, other.range.start);
 
         SrcPos {
             source: self.source,
