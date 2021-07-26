@@ -136,14 +136,13 @@ fn split_lines(code: &str) -> Vec<String> {
     while i < bytes.len() {
         let byte = bytes[i];
 
+        i += 1;
         if byte == b'\n' {
-            i += 1;
             let line = bytes[start..i].to_owned();
             let line = unsafe { String::from_utf8_unchecked(line) };
             lines.push(line);
             start = i;
         } else if byte == b'\r' {
-            i += 1;
             let mut line = bytes[start..i].to_owned();
             let last = line.len().saturating_sub(1);
             line[last] = b'\n';
@@ -155,8 +154,6 @@ fn split_lines(code: &str) -> Vec<String> {
             }
 
             start = i;
-        } else {
-            i += 1;
         }
     }
 

@@ -332,12 +332,8 @@ impl FunctionCall {
             ref name,
             ref parameters,
         } = self;
-
-        if let Some(indexes) = assoc_elems_to_indexes(parameters) {
-            Some(Name::Indexed(Box::new(name.clone()), indexes))
-        } else {
-            None
-        }
+        assoc_elems_to_indexes(parameters)
+            .map(|indexes| Name::Indexed(Box::new(name.clone()), indexes))
     }
 }
 

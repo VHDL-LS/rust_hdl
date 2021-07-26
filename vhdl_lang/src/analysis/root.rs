@@ -387,10 +387,10 @@ impl DesignRoot {
 
                 let result = AnalysisData {
                     diagnostics,
+                    has_circular_dependency,
                     root_region,
                     region,
                     ent,
-                    has_circular_dependency,
                 };
 
                 unit.finish(result)
