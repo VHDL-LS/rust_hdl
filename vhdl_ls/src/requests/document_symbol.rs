@@ -934,7 +934,7 @@ mod tests {
         for err in diagnostics.iter() {
             println!("{}", err.show());
         }
-        if diagnostics.len() > 0 {
+        if !diagnostics.is_empty() {
             panic!("Found errors");
         }
         design_file
@@ -969,16 +969,15 @@ mod tests {
         let mut found_start = false;
         let mut end_line = 0;
         let mut end_column = 0;
-        let mut line_number = 0;
         let mut occurance = 0;
-        for line in code.lines() {
+        for (line_number, line) in code.lines().enumerate() {
             if !found_start {
                 if let Some(pos) = line.find(start) {
                     occurance += 1;
                     if occurance == start_occurance {
                         start_column = pos;
                         if !inclusive {
-                            start_column = start_column + start.len();
+                            start_column += start.len();
                         }
                         start_line = line_number;
                         found_start = true;
@@ -989,13 +988,12 @@ mod tests {
                 if let Some(pos) = line.find(end) {
                     end_column = pos;
                     if inclusive {
-                        end_column = end_column + end.len();
+                        end_column += end.len();
                     }
                     end_line = line_number;
                     break;
                 }
             }
-            line_number += 1;
         }
 
         lsp_types::Range {
@@ -1347,7 +1345,7 @@ end architecture;
     ) -> DocumentSymbol {
         DocumentSymbol {
             name: String::from(name),
-            detail: detail.map(|detail| String::from(detail)),
+            detail: detail.map(String::from),
             kind,
             deprecated: None,
             range: range1(code, name),
@@ -1365,7 +1363,7 @@ end architecture;
     ) -> DocumentSymbol {
         DocumentSymbol {
             name: String::from(name),
-            detail: detail.map(|detail| String::from(detail)),
+            detail: detail.map(String::from),
             kind,
             deprecated: None,
             range,
@@ -1783,7 +1781,7 @@ end;
     fn statement(code: &str, name: &str, detail: Option<&str>, kind: SymbolKind) -> DocumentSymbol {
         DocumentSymbol {
             name: String::from(name),
-            detail: detail.map(|detail| String::from(detail)),
+            detail: detail.map(String::from),
             kind,
             deprecated: None,
             range: range1(code, name),
@@ -1801,7 +1799,7 @@ end;
     ) -> DocumentSymbol {
         DocumentSymbol {
             name: String::from(name),
-            detail: detail.map(|detail| String::from(detail)),
+            detail: detail.map(String::from),
             kind,
             deprecated: None,
             range,
