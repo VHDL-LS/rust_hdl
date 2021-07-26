@@ -66,7 +66,7 @@ pub fn parse_entity_declaration(
         diagnostics.push(diagnostic);
     }
     let semi_token = stream.expect_kind(SemiColon)?;
-    let range = entity_token.pos.combine_into(&semi_token);
+    let source_range = entity_token.pos.combine_into(&semi_token);
 
     Ok(EntityDeclaration {
         context_clause: ContextClause::default(),
@@ -75,7 +75,7 @@ pub fn parse_entity_declaration(
         port_clause,
         decl,
         statements,
-        range,
+        source_range,
     })
 }
 
@@ -108,7 +108,7 @@ pub fn parse_architecture_body(
     }
 
     let semi_token = stream.expect_kind(SemiColon)?;
-    let range = architecture_token.pos.combine_into(&semi_token);
+    let source_range = architecture_token.pos.combine_into(&semi_token);
     Ok(ArchitectureBody {
         context_clause: ContextClause::default(),
         ident,
@@ -118,7 +118,7 @@ pub fn parse_architecture_body(
             item: statements,
             pos: statements_start.combine_into_between(&end_token.pos),
         },
-        range,
+        source_range,
     })
 }
 
@@ -152,13 +152,13 @@ pub fn parse_package_declaration(
     }
     stream.pop_if_kind(Identifier)?;
     let semi_token = stream.expect_kind(SemiColon)?;
-    let range = package_token.pos.combine_into(&semi_token);
+    let source_range = package_token.pos.combine_into(&semi_token);
     Ok(PackageDeclaration {
         context_clause: ContextClause::default(),
         ident,
         generic_clause,
         decl,
-        range,
+        source_range,
     })
 }
 
@@ -181,12 +181,12 @@ pub fn parse_package_body(
         diagnostics.push(diagnostic);
     }
     let semi_token = stream.expect_kind(SemiColon)?;
-    let range = package_token.pos.combine_into(&semi_token);
+    let source_range = package_token.pos.combine_into(&semi_token);
     Ok(PackageBody {
         context_clause: ContextClause::default(),
         ident: ident.into_ref(),
         decl,
-        range,
+        source_range,
     })
 }
 
@@ -360,7 +360,7 @@ mod tests {
                 pos: source_range_between(&code, &format!("entity {} is", &ident), "end"),
             },
             statements: None,
-            range: source_range(code, &format!("entity {}", &ident), ";"),
+            source_range: source_range(code, &format!("entity {}", &ident), ";"),
         }))
     }
 
@@ -407,7 +407,7 @@ end entity;
                     pos: source_range_between(&code, ");", "end"),
                 },
                 statements: None,
-                range: source_range(&code, "entity", "end entity;"),
+                source_range: source_range(&code, "entity", "end entity;"),
             }
         );
     }
@@ -441,7 +441,7 @@ end entity;
                     pos: source_range_between(&code, ");", "end"),
                 },
                 statements: None,
-                range: source_range(&code, "entity", "end entity;"),
+                source_range: source_range(&code, "entity", "end entity;"),
             }
         );
     }
@@ -470,7 +470,7 @@ end entity;
                     pos: source_range_between(&code, ");", "end"),
                 },
                 statements: None,
-                range: source_range(&code, "entity", "end entity;"),
+                source_range: source_range(&code, "entity", "end entity;"),
             }
         );
     }
@@ -499,7 +499,7 @@ end entity;
                     item: vec![],
                     pos: source_range_between(&code, "begin", "end"),
                 }),
-                range: source_range(&code, "entity", "end entity;"),
+                source_range: source_range(&code, "entity", "end entity;"),
             }
         );
     }
@@ -525,7 +525,7 @@ end entity;
                     pos: source_range_between(&code, "myent is", "end entity"),
                 },
                 statements: None,
-                range: source_range(&code, "entity", "end entity;"),
+                source_range: source_range(&code, "entity", "end entity;"),
             }
         );
     }
@@ -555,7 +555,7 @@ end entity;
                     item: vec![code.s1("check(clk, valid);").concurrent_statement()],
                     pos: source_range_between(&code, "begin", "end")
                 }),
-                range: source_range(&code, "entity", "end entity;"),
+                source_range: source_range(&code, "entity", "end entity;"),
             }
         );
     }
@@ -602,7 +602,7 @@ end;
                 item: vec![],
                 pos: source_range_between(code, "begin", "end"),
             },
-            range: source_range(code, &format!("architecture {}", &ident), ";"),
+            source_range: source_range(code, &format!("architecture {}", &ident), ";"),
         }))
     }
 
@@ -669,7 +669,7 @@ end package;
                     item: vec![],
                     pos: source_range_between(&code, "is", "end package;"),
                 },
-                range: source_range(&code, "package", "end package;"),
+                source_range: source_range(&code, "package", "end package;"),
             }
         );
     }
@@ -699,7 +699,7 @@ end package;
                         .declarative_part(),
                     pos: source_range_between(&code, "is", "end package;")
                 },
-                range: source_range(&code, "package", "end package;"),
+                source_range: source_range(&code, "package", "end package;"),
             }
         );
     }
@@ -729,7 +729,7 @@ end package;
                     item: vec![],
                     pos: source_range_between(&code, ");", "end package;"),
                 },
-                range: source_range(&code, "package", "end package;"),
+                source_range: source_range(&code, "package", "end package;"),
             }
         );
     }
@@ -766,7 +766,7 @@ end entity;
                             pos: source_range_between(&code, "is", "end"),
                         },
                         statements: None,
-                        range: source_range(&code, "entity", "end entity;"),
+                        source_range: source_range(&code, "entity", "end entity;"),
                     }
                 ))]
             }

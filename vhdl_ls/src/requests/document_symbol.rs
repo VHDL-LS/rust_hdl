@@ -78,7 +78,7 @@ impl HasDocumentSymbol for EntityDeclaration {
         if let Some(ref statements) = self.statements {
             push_concurrent_statements(statements, &mut children);
         }
-        let mut range = to_lsp_range(&self.range);
+        let mut range = to_lsp_range(&self.source_range);
         if !self.context_clause.is_empty() {
             range.start = to_lsp_pos(self.context_clause[0].pos.start());
         }
@@ -98,7 +98,7 @@ impl HasDocumentSymbol for ConfigurationDeclaration {
     fn document_symbol(&self) -> DocumentSymbol {
         let mut children = vec![];
         push_context_clause(&self.context_clause, &mut children);
-        let mut range = to_lsp_range(&self.range);
+        let mut range = to_lsp_range(&self.source_range);
         if !self.context_clause.is_empty() {
             range.start = to_lsp_pos(self.context_clause[0].pos.start());
         }
@@ -124,7 +124,7 @@ impl HasDocumentSymbol for PackageDeclaration {
             &mut children,
         );
         push_declarations(&self.decl, &mut children);
-        let mut range = to_lsp_range(&self.range);
+        let mut range = to_lsp_range(&self.source_range);
         if !self.context_clause.is_empty() {
             range.start = to_lsp_pos(self.context_clause[0].pos.start());
         }
@@ -144,7 +144,7 @@ impl HasDocumentSymbol for PackageInstantiation {
     fn document_symbol(&self) -> DocumentSymbol {
         let mut children = vec![];
         push_context_clause(&self.context_clause, &mut children);
-        let mut range = to_lsp_range(&self.range);
+        let mut range = to_lsp_range(&self.source_range);
         if !self.context_clause.is_empty() {
             range.start = to_lsp_pos(self.context_clause[0].pos.start());
         }
@@ -169,7 +169,7 @@ impl HasDocumentSymbol for ContextDeclaration {
             detail: Some(String::from("context")),
             kind: SymbolKind::Namespace,
             deprecated: None,
-            range: to_lsp_range(&self.range),
+            range: to_lsp_range(&self.source_range),
             selection_range: to_lsp_range(&self.ident.pos),
             children: none_if_empty(children),
         }
@@ -190,7 +190,7 @@ impl HasDocumentSymbol for PackageBody {
         let mut children = vec![];
         push_context_clause(&self.context_clause, &mut children);
         push_declarations(&self.decl, &mut children);
-        let mut range = to_lsp_range(&self.range);
+        let mut range = to_lsp_range(&self.source_range);
         if !self.context_clause.is_empty() {
             range.start = to_lsp_pos(self.context_clause[0].pos.start());
         }
@@ -209,7 +209,7 @@ impl HasDocumentSymbol for PackageBody {
 impl HasDocumentSymbol for ArchitectureBody {
     fn document_symbol(&self) -> DocumentSymbol {
         let mut children = vec![];
-        let mut range = to_lsp_range(&self.range);
+        let mut range = to_lsp_range(&self.source_range);
         if !self.context_clause.is_empty() {
             range.start = to_lsp_pos(self.context_clause[0].pos.start());
         }
@@ -550,13 +550,13 @@ impl HasDocumentSymbol for ConcurrentProcedureCall {
 // TODO: Add children from generics, ports, declarations and statements
 impl HasDocumentSymbol for BlockStatement {
     fn document_symbol(&self) -> DocumentSymbol {
-        let block_start = to_lsp_pos(self.range.start());
+        let block_start = to_lsp_pos(self.source_range.start());
         DocumentSymbol {
             name: String::from(" "),
             detail: Some(String::from("block")),
             kind: SymbolKind::Namespace,
             deprecated: None,
-            range: to_lsp_range(&self.range),
+            range: to_lsp_range(&self.source_range),
             selection_range: lsp_types::Range {
                 start: block_start,
                 end: block_start,
@@ -568,13 +568,13 @@ impl HasDocumentSymbol for BlockStatement {
 
 impl HasDocumentSymbol for ProcessStatement {
     fn document_symbol(&self) -> DocumentSymbol {
-        let start_pos = to_lsp_pos(self.range.start());
+        let start_pos = to_lsp_pos(self.source_range.start());
         DocumentSymbol {
             name: String::from(" "),
             detail: Some(String::from("process")),
             kind: SymbolKind::Event,
             deprecated: None,
-            range: to_lsp_range(&self.range),
+            range: to_lsp_range(&self.source_range),
             selection_range: lsp_types::Range {
                 start: start_pos,
                 end: start_pos,

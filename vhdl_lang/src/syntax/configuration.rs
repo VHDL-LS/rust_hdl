@@ -302,7 +302,7 @@ pub fn parse_configuration_declaration(
         diagnostics.push(diagnostic)
     }
     let semi_token = stream.expect_kind(SemiColon)?;
-    let range = configuration_token.pos.combine_into(&semi_token);
+    let source_range = configuration_token.pos.combine_into(&semi_token);
     Ok(ConfigurationDeclaration {
         context_clause: ContextClause::default(),
         ident,
@@ -310,7 +310,7 @@ pub fn parse_configuration_declaration(
         decl,
         vunit_bind_inds,
         block_config,
-        range,
+        source_range,
     })
 }
 
@@ -378,7 +378,7 @@ end;
                     use_clauses: vec![],
                     items: vec![],
                 },
-                range: source_range(&code, "configuration", "end;")
+                source_range: source_range(&code, "configuration", "end;")
             }
         );
     }
@@ -406,7 +406,7 @@ end configuration cfg;
                     use_clauses: vec![],
                     items: vec![],
                 },
-                range: source_range(&code, "configuration cfg", "end configuration cfg;"),
+                source_range: source_range(&code, "configuration cfg", "end configuration cfg;"),
             }
         );
     }
@@ -438,7 +438,7 @@ end configuration cfg;
                     use_clauses: vec![],
                     items: vec![],
                 },
-                range: source_range(&code, "configuration cfg", "end configuration cfg;"),
+                source_range: source_range(&code, "configuration cfg", "end configuration cfg;"),
             }
         );
     }
@@ -472,7 +472,7 @@ end configuration cfg;
                     use_clauses: vec![],
                     items: vec![],
                 },
-                range: source_range(&code, "configuration cfg", "end configuration cfg;"),
+                source_range: source_range(&code, "configuration cfg", "end configuration cfg;"),
             }
         );
     }
@@ -500,7 +500,7 @@ end configuration cfg;
                     use_clauses: vec![],
                     items: vec![],
                 },
-                range: source_range(&code, "configuration cfg", "end configuration cfg;"),
+                source_range: source_range(&code, "configuration cfg", "end configuration cfg;"),
             }
         );
     }
@@ -543,7 +543,7 @@ end configuration cfg;
                         })
                     ],
                 },
-                range: source_range(&code, "configuration cfg", "end configuration cfg;"),
+                source_range: source_range(&code, "configuration cfg", "end configuration cfg;"),
             }
         );
     }
@@ -589,7 +589,7 @@ end configuration cfg;
                         }),
                     }),],
                 },
-                range: source_range(&code, "configuration cfg", "end configuration cfg;"),
+                source_range: source_range(&code, "configuration cfg", "end configuration cfg;"),
             }
         );
     }
@@ -646,7 +646,7 @@ end configuration cfg;
                         }),
                     }),],
                 },
-                range: source_range(&code, "configuration cfg", "end configuration cfg;"),
+                source_range: source_range(&code, "configuration cfg", "end configuration cfg;"),
             }
         );
     }
@@ -694,7 +694,7 @@ end configuration cfg;
                         block_config: None,
                     }),],
                 },
-                range: source_range(&code, "configuration cfg", "end configuration cfg;"),
+                source_range: source_range(&code, "configuration cfg", "end configuration cfg;"),
             }
         );
     }
@@ -773,7 +773,7 @@ end configuration cfg;
                         })
                     ],
                 },
-                range: source_range(&code, "configuration cfg", "end configuration cfg;"),
+                source_range: source_range(&code, "configuration cfg", "end configuration cfg;"),
             }
         );
     }

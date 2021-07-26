@@ -35,13 +35,13 @@ pub fn parse_package_instantiation(stream: &mut TokenStream) -> ParseResult<Pack
             (Some(association_list), semi_token)
         },
         SemiColon => (None, token));
-    let range = package_token.pos.combine_into(&semi_token);
+    let source_range = package_token.pos.combine_into(&semi_token);
     Ok(PackageInstantiation {
         context_clause: ContextClause::default(),
         ident,
         package_name,
         generic_map,
-        range,
+        source_range,
     })
 }
 
@@ -222,7 +222,7 @@ package ident is new lib.foo.bar;
                 ident: code.s1("ident").ident(),
                 package_name: code.s1("lib.foo.bar").selected_name(),
                 generic_map: None,
-                range: source_range(&code, "package", ";"),
+                source_range: source_range(&code, "package", ";"),
             }
         );
     }
@@ -249,7 +249,7 @@ package ident is new lib.foo.bar
   )")
                         .association_list()
                 ),
-                range: source_range(&code, "package", ");"),
+                source_range: source_range(&code, "package", ");"),
             }
         );
     }

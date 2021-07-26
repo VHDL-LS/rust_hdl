@@ -55,7 +55,7 @@ pub fn parse_block_statement(
         header,
         decl,
         statements,
-        range: start_pos.combine_into(&semi_token.pos),
+        source_range: start_pos.combine_into(&semi_token.pos),
     })
 }
 
@@ -216,7 +216,7 @@ pub fn parse_process_statement(
         sensitivity_list,
         decl,
         statements,
-        range: start_pos.combine_into(&semi_token.pos),
+        source_range: start_pos.combine_into(&semi_token.pos),
     })
 }
 
@@ -806,7 +806,7 @@ end block;
                 label: Some(code.s1("name2").ident()),
                 statement: ConcurrentStatement::ProcedureCall(call),
             }],
-            range: source_range(&code, "block", "end block;"),
+            source_range: source_range(&code, "block", "end block;"),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("name").ident()));
@@ -832,7 +832,7 @@ end block name;
             },
             decl: vec![],
             statements: vec![],
-            range: source_range(&code, "block", "end block name;"),
+            source_range: source_range(&code, "block", "end block name;"),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("name").ident()));
@@ -858,7 +858,7 @@ end block;
             },
             decl: vec![],
             statements: vec![],
-            range: source_range(&code, "block", "end block;"),
+            source_range: source_range(&code, "block", "end block;"),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("name").ident()));
@@ -884,7 +884,7 @@ end block;
             },
             decl: vec![],
             statements: vec![],
-            range: source_range(&code, "block", "end block;"),
+            source_range: source_range(&code, "block", "end block;"),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("name").ident()));
@@ -914,7 +914,7 @@ end block;
             },
             decl: vec![],
             statements: vec![],
-            range: source_range(&code, "block", "end block;"),
+            source_range: source_range(&code, "block", "end block;"),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("name").ident()));
@@ -935,7 +935,7 @@ end process;
             sensitivity_list: None,
             decl: vec![],
             statements: vec![],
-            range: source_range(&code, "process", "end process;"),
+            source_range: source_range(&code, "process", "end process;"),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
@@ -956,7 +956,7 @@ end process name;
             sensitivity_list: None,
             decl: vec![],
             statements: vec![],
-            range: source_range(&code, "process", "end process name;"),
+            source_range: source_range(&code, "process", "end process name;"),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("name").ident()));
@@ -977,7 +977,7 @@ end process;
             sensitivity_list: None,
             decl: vec![],
             statements: vec![],
-            range: source_range(&code, "postponed", "end process;"),
+            source_range: source_range(&code, "postponed", "end process;"),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
@@ -998,7 +998,7 @@ end postponed process;
             sensitivity_list: None,
             decl: vec![],
             statements: vec![],
-            range: source_range(&code, "postponed", "process;"),
+            source_range: source_range(&code, "postponed", "process;"),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
@@ -1020,7 +1020,7 @@ end postponed process;
             sensitivity_list: None,
             decl: Vec::new(),
             statements: Vec::new(),
-            range: source_range(&code, "process", "process;"),
+            source_range: source_range(&code, "process", "process;"),
         };
         assert_eq!(
             diagnostics,
@@ -1049,7 +1049,7 @@ end process;
             ])),
             decl: vec![],
             statements: vec![],
-            range: source_range(&code, "process", "end process;"),
+            source_range: source_range(&code, "process", "end process;"),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
@@ -1071,7 +1071,7 @@ end process;
             sensitivity_list: Some(SensitivityList::Names(Vec::new())),
             decl: Vec::new(),
             statements: Vec::new(),
-            range: source_range(&code, "process", "end process;"),
+            source_range: source_range(&code, "process", "end process;"),
         };
         assert_eq!(
             diagnostics,
@@ -1103,7 +1103,7 @@ end process;
                 code.s1("foo <= true;").sequential_statement(),
                 code.s1("wait;").sequential_statement(),
             ],
-            range: source_range(&code, "process", "end process;"),
+            source_range: source_range(&code, "process", "end process;"),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);

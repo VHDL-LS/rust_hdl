@@ -430,7 +430,7 @@ impl Search for LabeledConcurrentStatement {
                     sensitivity_list,
                     decl,
                     statements,
-                    range: _,
+                    source_range: _,
                 } = process;
                 return_if_found!(sensitivity_list.search(searcher));
                 return_if_found!(decl.search(searcher));

@@ -114,7 +114,7 @@ pub fn parse_context(
         let ident = to_simple_name(name)?;
 
         diagnostics.push_some(error_on_end_identifier_mismatch(&ident, &end_ident));
-        let range = match semi_pos {
+        let source_range = match semi_pos {
             Some(semi) => context_token.pos.combine_into(&semi),
             None => match stream.peek_expect() {
                 Ok(token) => context_token.pos.combine_into(&token.pos),
@@ -124,7 +124,7 @@ pub fn parse_context(
         Ok(DeclarationOrReference::Declaration(ContextDeclaration {
             ident,
             items,
-            range,
+            source_range,
         }))
     } else {
         // Context reference
@@ -261,7 +261,7 @@ end context ident;
                 DeclarationOrReference::Declaration(ContextDeclaration {
                     ident: code.s1("ident").ident(),
                     items: vec![],
-                    range: source_range(&code, "context", ";"),
+                    source_range: source_range(&code, "context", ";"),
                 })
             );
         }
@@ -288,7 +288,7 @@ end context ident2;
             DeclarationOrReference::Declaration(ContextDeclaration {
                 ident: code.s1("ident").ident(),
                 items: vec![],
-                range: source_range(&code, "context ident", "end context ident2;"),
+                source_range: source_range(&code, "context ident", "end context ident2;"),
             })
         );
     }
@@ -328,7 +328,7 @@ end context;
                         code.s1("context foo.ctx;")
                     ),
                 ],
-                range: source_range(&code, "context ident", "end context;"),
+                source_range: source_range(&code, "context ident", "end context;"),
             })
         )
     }
