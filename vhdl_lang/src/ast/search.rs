@@ -878,7 +878,9 @@ impl Search for Declaration {
             Declaration::Object(object) => {
                 return_if_found!(object.search(searcher));
             }
-            Declaration::Type(typ) => return_if_found!(typ.search(searcher)),
+            Declaration::Type(typ) => {
+                return_if_found!(typ.search(searcher));
+            }
             Declaration::SubprogramBody(body) => {
                 return_if_found!(body.specification.search(searcher));
                 return_if_found!(body.declarations.search(searcher));
@@ -906,9 +908,11 @@ impl Search for Declaration {
                     return_if_found!(signature.item.search(searcher));
                 }
             }
-            Declaration::Use(use_clause) => return_if_found!(searcher
-                .search_with_pos(&use_clause.pos)
-                .or_else(|| use_clause.item.name_list.search(searcher))),
+            Declaration::Use(use_clause) => {
+                return_if_found!(searcher
+                    .search_with_pos(&use_clause.pos)
+                    .or_else(|| use_clause.item.name_list.search(searcher)));
+            }
             Declaration::Component(component) => {
                 let ComponentDeclaration {
                     ident,
@@ -966,8 +970,12 @@ impl Search for InterfaceDeclaration {
 impl Search for SubprogramDeclaration {
     fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
         match self {
-            SubprogramDeclaration::Function(ref decl) => return_if_found!(decl.search(searcher)),
-            SubprogramDeclaration::Procedure(ref decl) => return_if_found!(decl.search(searcher)),
+            SubprogramDeclaration::Function(ref decl) => {
+                return_if_found!(decl.search(searcher));
+            }
+            SubprogramDeclaration::Procedure(ref decl) => {
+                return_if_found!(decl.search(searcher));
+            }
         }
         NotFound
     }
@@ -1008,13 +1016,13 @@ impl Search for WithPos<ContextItem> {
         return_if_finished!(searcher.search_with_pos(&self.pos));
         match self.item {
             ContextItem::Use(ref use_clause) => {
-                return_if_found!(use_clause.name_list.search(searcher))
+                return_if_found!(use_clause.name_list.search(searcher));
             }
             ContextItem::Library(ref library_clause) => {
-                return_if_found!(library_clause.search(searcher))
+                return_if_found!(library_clause.search(searcher));
             }
             ContextItem::Context(ref context_clause) => {
-                return_if_found!(context_clause.name_list.search(searcher))
+                return_if_found!(context_clause.name_list.search(searcher));
             }
         }
         NotFound
