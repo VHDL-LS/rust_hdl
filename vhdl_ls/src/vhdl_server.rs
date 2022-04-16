@@ -438,7 +438,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             self.project
                 .find_all_references(decl_pos)
                 .iter()
-                .map(|pos| srcpos_to_location(pos))
+                .map(srcpos_to_location)
                 .collect()
         } else {
             Vec::new()

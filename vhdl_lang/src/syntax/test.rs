@@ -416,7 +416,7 @@ impl Code {
     }
 
     pub fn aggregate(&self) -> WithPos<Vec<ElementAssociation>> {
-        self.parse_ok(|stream| parse_aggregate(stream))
+        self.parse_ok(parse_aggregate)
     }
 
     pub fn range(&self) -> ast::Range {

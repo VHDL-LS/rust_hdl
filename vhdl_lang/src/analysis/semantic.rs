@@ -327,7 +327,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_choices(
         &self,
         region: &Region<'_>,
-        choices: &mut Vec<Choice>,
+        choices: &mut [Choice],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         for choice in choices.iter_mut() {
@@ -377,7 +377,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_assoc_elems(
         &self,
         region: &Region<'_>,
-        elems: &mut Vec<AssociationElement>,
+        elems: &mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         for AssociationElement { actual, .. } in elems.iter_mut() {
@@ -405,7 +405,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_aggregate(
         &self,
         region: &Region<'_>,
-        assocs: &mut Vec<ElementAssociation>,
+        assocs: &mut [ElementAssociation],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         for assoc in assocs.iter_mut() {

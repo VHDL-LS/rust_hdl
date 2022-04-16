@@ -334,14 +334,14 @@ mod tests {
     #[test]
     fn test_is_literal() {
         for is_windows in &[false, true] {
-            assert_eq!(is_literal("file.vhd", *is_windows), true);
-            assert_eq!(is_literal("file*.vhd", *is_windows), false);
-            assert_eq!(is_literal("file?.vhd", *is_windows), false);
-            assert_eq!(is_literal("file[ab].vhd", *is_windows), false);
+            assert!(is_literal("file.vhd", *is_windows));
+            assert!(!is_literal("file*.vhd", *is_windows));
+            assert!(!is_literal("file?.vhd", *is_windows));
+            assert!(!is_literal("file[ab].vhd", *is_windows));
         }
 
-        assert_eq!(is_literal("\\\\?file.vhd", true), true);
-        assert_eq!(is_literal("\\\\?*file.vhd", true), false);
+        assert!(is_literal("\\\\?file.vhd", true));
+        assert!(!is_literal("\\\\?*file.vhd", true));
     }
 
     #[test]

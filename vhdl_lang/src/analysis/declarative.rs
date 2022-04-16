@@ -701,7 +701,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 // We need to overwrite the type due to circular pointer relations between implicit subprograms
                 // and type declarations
-                let implicit = implicit.iter().map(|ent| Arc::downgrade(ent)).collect();
+                let implicit = implicit.iter().map(Arc::downgrade).collect();
                 let file_type =
                     file_type.clone_with_kind(NamedEntityKind::TypeDeclaration(implicit));
                 parent.add_named_entity(Arc::new(file_type), diagnostics);

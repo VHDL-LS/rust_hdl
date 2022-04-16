@@ -1640,7 +1640,7 @@ mod tests {
     }
 
     fn kinds(tokens: &[Token]) -> Vec<Kind> {
-        tokens.iter().map(|ref tok| tok.kind).collect()
+        tokens.iter().map(|tok| tok.kind).collect()
     }
 
     // Shorthand for testing

@@ -471,7 +471,7 @@ mod tests {
     fn flatten(contents: &Contents) -> String {
         let mut result = String::new();
         for line in contents.lines.iter() {
-            result.push_str(&line.to_string());
+            result.push_str(line);
         }
         result
     }
