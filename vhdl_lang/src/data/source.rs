@@ -546,7 +546,7 @@ pub trait HasSource {
 
 impl HasSource for Source {
     fn source(&self) -> &Source {
-        &self
+        self
     }
 }
 
@@ -557,7 +557,7 @@ pub trait HasSrcPos {
 
 impl HasSrcPos for SrcPos {
     fn pos(&self) -> &SrcPos {
-        &self
+        self
     }
 }
 

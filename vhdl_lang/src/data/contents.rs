@@ -447,10 +447,10 @@ mod tests {
     fn matches() {
         let contents = new("abc");
         let mut reader = reader(&contents);
-        assert!(reader.matches(&"abc"));
-        assert!(!reader.matches(&"bc"));
+        assert!(reader.matches("abc"));
+        assert!(!reader.matches("bc"));
         reader.skip();
-        assert!(reader.matches(&"bc"));
+        assert!(reader.matches("bc"));
     }
 
     #[test]

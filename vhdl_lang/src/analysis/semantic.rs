@@ -32,7 +32,7 @@ impl<'a> AnalyzeContext<'a> {
                 invalid_selected_name_prefix(prefix, prefix_pos),
             )),
             NamedEntityKind::Object(ref object) => {
-                self.lookup_type_selected(prefix_pos, &object.subtype.type_mark(), suffix)
+                self.lookup_type_selected(prefix_pos, object.subtype.type_mark(), suffix)
             }
             NamedEntityKind::ObjectAlias { ref type_mark, .. } => {
                 self.lookup_type_selected(prefix_pos, type_mark, suffix)

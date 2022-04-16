@@ -441,7 +441,7 @@ impl<'a> AnalyzeContext<'a> {
                             Ok(ent) => {
                                 if let NamedEntityKind::ProtectedType(ptype_region) = ent.kind() {
                                     body.type_reference.set_unique_reference(&ent);
-                                    let mut region = Region::extend(&ptype_region, Some(parent));
+                                    let mut region = Region::extend(ptype_region, Some(parent));
                                     self.analyze_declarative_part(
                                         &mut region,
                                         &mut body.decl,

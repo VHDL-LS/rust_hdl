@@ -360,7 +360,7 @@ impl<'a> AnalyzeContext<'a> {
             SelectedName::Selected(ref mut prefix, ref mut designator) => {
                 designator.clear_reference();
 
-                self.resolve_selected_name(&region, prefix)?
+                self.resolve_selected_name(region, prefix)?
                     .into_non_overloaded()
                     .map_err(|ent|
                              AnalysisError::not_fatal_error(
@@ -500,7 +500,7 @@ impl<'a> AnalyzeContext<'a> {
                             }
                         }
 
-                        match self.resolve_context_item_name(&region, name) {
+                        match self.resolve_context_item_name(region, name) {
                             Ok(UsedNames::Single(visible)) => {
                                 let ent = visible.first();
                                 match ent.kind() {
@@ -558,7 +558,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
 
-            match self.resolve_context_item_name(&region, name) {
+            match self.resolve_context_item_name(region, name) {
                 Ok(UsedNames::Single(visible)) => {
                     visible.make_potentially_visible_in(Some(&name.pos), region);
                 }

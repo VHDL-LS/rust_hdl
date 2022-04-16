@@ -463,7 +463,7 @@ fn substr_range(source: &Source, range: Range, substr: &str, occurence: usize) -
     reader.seek_pos(range.start);
 
     while reader.pos() < range.end {
-        if reader.matches(&substr) {
+        if reader.matches(substr) {
             count -= 1;
             if count == 0 {
                 let start = reader.pos();

@@ -119,7 +119,7 @@ impl<T: HasIdent> HasSrcPos for T {
 
 impl HasIdent for Ident {
     fn ident(&self) -> &Ident {
-        &self
+        self
     }
 }
 

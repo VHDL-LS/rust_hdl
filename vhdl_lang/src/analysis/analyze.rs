@@ -246,7 +246,7 @@ impl<'a> AnalyzeContext<'a> {
         use_pos: Option<&SrcPos>,
         unit: &'a LockedUnit,
     ) -> FatalResult<UnitReadGuard<'a>> {
-        self.make_use_of(use_pos, &unit.unit_id())?;
+        self.make_use_of(use_pos, unit.unit_id())?;
         let data = self.root.get_analysis(unit);
 
         // Change circular dependency reference when used by another unit during analysis

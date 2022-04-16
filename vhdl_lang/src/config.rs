@@ -45,11 +45,11 @@ impl LibraryConfig {
 
         let mut result = Vec::new();
         for pattern in self.patterns.iter() {
-            if is_literal(&pattern, cfg!(windows)) {
+            if is_literal(pattern, cfg!(windows)) {
                 let file_path = Path::new(pattern);
 
                 if file_path.exists() {
-                    match as_abspath(&file_path) {
+                    match as_abspath(file_path) {
                         Ok(abs_path) => {
                             result.push(abs_path);
                         }
@@ -252,13 +252,13 @@ impl Config {
     /// Load configuration file from environment
     fn load_env_config(&mut self, env_name: &str, messages: &mut dyn MessageHandler) {
         if let Some(file_name) = std::env::var_os(env_name) {
-            self.load_config(&Path::new(&file_name), env_name, messages);
+            self.load_config(Path::new(&file_name), env_name, messages);
         };
     }
 
     /// Load and append configuration file
     fn load_config(&mut self, file_name: &Path, desc: &str, messages: &mut dyn MessageHandler) {
-        match Config::read_file_path(&Path::new(&file_name)) {
+        match Config::read_file_path(Path::new(&file_name)) {
             Ok(env_config) => {
                 messages.push(Message::log(format!(
                     "Loaded {} configuration file: {}",
@@ -368,7 +368,7 @@ lib1.files = [
 ",
                 absolute_vhd.to_str().unwrap()
             ),
-            &parent,
+            parent,
         )
         .unwrap();
         let mut libraries: Vec<&str> = config.iter_libraries().map(|lib| lib.name()).collect();
@@ -378,9 +378,9 @@ lib1.files = [
         let lib1 = config.get_library("lib1").unwrap();
         let lib2 = config.get_library("lib2").unwrap();
 
-        let pkg1_path = touch(&parent, "pkg1.vhd");
-        let pkg2_path = touch(&parent, "pkg2.vhd");
-        let tb_ent_path = touch(&parent, "tb_ent.vhd");
+        let pkg1_path = touch(parent, "pkg1.vhd");
+        let pkg2_path = touch(parent, "pkg2.vhd");
+        let tb_ent_path = touch(parent, "tb_ent.vhd");
 
         let mut messages = vec![];
         assert_files_eq(&lib1.file_names(&mut messages), &[pkg1_path, tb_ent_path]);
@@ -401,7 +401,7 @@ lib2.files = [
   'pkg2.vhd'
 ]
 ",
-            &parent0,
+            parent0,
         )
         .unwrap();
 
@@ -416,7 +416,7 @@ lib3.files = [
   'pkg3.vhd',
 ]
 ",
-            &parent1,
+            parent1,
         )
         .unwrap();
 
@@ -439,7 +439,7 @@ lib3.files = [
                 ent = parent1.join("ent.vhd").to_str().unwrap(),
                 pkg3 = parent1.join("pkg3.vhd").to_str().unwrap()
             ),
-            &expected_parent,
+            expected_parent,
         )
         .unwrap();
 
@@ -458,7 +458,7 @@ lib.files = [
   'missing.vhd'
 ]
 ",
-            &parent,
+            parent,
         )
         .unwrap();
 
@@ -485,12 +485,12 @@ lib.files = [
   '*.vhd'
 ]
 ",
-            &parent,
+            parent,
         )
         .unwrap();
 
-        let file1 = touch(&parent, "file1.vhd");
-        let file2 = touch(&parent, "file2.vhd");
+        let file1 = touch(parent, "file1.vhd");
+        let file2 = touch(parent, "file2.vhd");
 
         let mut messages = vec![];
         let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
@@ -510,12 +510,12 @@ lib.files = [
   'file*.vhd'
 ]
 ",
-            &parent,
+            parent,
         )
         .unwrap();
 
-        let file1 = touch(&parent, "file1.vhd");
-        let file2 = touch(&parent, "file2.vhd");
+        let file1 = touch(parent, "file1.vhd");
+        let file2 = touch(parent, "file2.vhd");
 
         let mut messages = vec![];
         let file_names = config.get_library("lib").unwrap().file_names(&mut messages);
@@ -532,7 +532,7 @@ lib.files = [
   'missing*.vhd'
 ]
 ",
-            &parent,
+            parent,
         )
         .unwrap();
 
