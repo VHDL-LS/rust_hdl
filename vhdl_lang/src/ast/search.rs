@@ -112,8 +112,8 @@ macro_rules! return_if_found {
     ($result:expr) => {
         if let Found = $result {
             return Found;
-        };
-    };
+        }
+    }
 }
 
 #[macro_export]
