@@ -6,7 +6,7 @@
 
 use std::path::Path;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum MessageType {
     Error,
     Warning,
@@ -15,7 +15,7 @@ pub enum MessageType {
 }
 
 #[must_use]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Message {
     pub message_type: MessageType,
     pub message: String,

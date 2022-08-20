@@ -1070,7 +1070,7 @@ mod tests {
                     AbstractLiteral::Integer(val) => format!("Integer({})", val),
                     AbstractLiteral::Real(val) => format!("Real({})", val),
                 },
-                Literal::Character(val) => format!("'{}'", Latin1String::new(&[*val]).to_string()),
+                Literal::Character(val) => format!("'{}'", Latin1String::new(&[*val])),
                 Literal::Physical(ref val, ref sym) => match val {
                     AbstractLiteral::Integer(val) => {
                         format!("Physical(Integer({}), {})", val, sym.name())

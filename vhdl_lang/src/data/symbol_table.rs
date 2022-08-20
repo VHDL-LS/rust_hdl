@@ -100,12 +100,7 @@ impl SymbolTable {
     /// and `None` otherwise.
     pub fn lookup(&self, name: &Latin1String) -> Option<Symbol> {
         let name_to_symbol = self.name_to_symbol.read();
-        if let Some(sym) = name_to_symbol.get(name) {
-            // Symbol already exists with identical case
-            Some(sym.clone())
-        } else {
-            None
-        }
+        name_to_symbol.get(name).cloned()
     }
 
     /// Inserts a basic identifier and returns a corresponding `Symbol` instance.
@@ -135,7 +130,7 @@ impl SymbolTable {
             return sym.clone();
         }
 
-        debug_assert_eq!(name.bytes.get(0) == Some(&b'\\'), is_extended);
+        debug_assert_eq!(name.bytes.first() == Some(&b'\\'), is_extended);
         let name = Arc::from(name.clone());
         if is_extended {
             let id = name_to_symbol.len();

@@ -203,10 +203,8 @@ impl<'a> Visible<'a> {
             );
 
             fn last_visible_pos(visible_entity: &VisibleEntityRef) -> u32 {
-                for pos in visible_entity.visible_pos.iter().rev() {
-                    if let Some(pos) = pos {
-                        return pos.range().start.line;
-                    }
+                if let Some(pos) = visible_entity.visible_pos.iter().rev().flatten().next() {
+                    return pos.range().start.line;
                 }
                 0
             }
@@ -216,13 +214,11 @@ impl<'a> Visible<'a> {
             visible_entities.sort_by_key(|ent| last_visible_pos(*ent));
 
             for visible_entity in visible_entities {
-                for visible_pos in visible_entity.visible_pos.iter().rev() {
-                    if let Some(pos) = visible_pos {
-                        error.add_related(
-                            pos,
-                            format!("Conflicting name '{}' made visible here", designator),
-                        );
-                    }
+                for visible_pos in visible_entity.visible_pos.iter().rev().flatten() {
+                    error.add_related(
+                        visible_pos,
+                        format!("Conflicting name '{}' made visible here", designator),
+                    );
                 }
                 if let Some(pos) = visible_entity.entity.decl_pos() {
                     error.add_related(

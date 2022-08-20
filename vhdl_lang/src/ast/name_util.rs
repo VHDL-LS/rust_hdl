@@ -119,7 +119,7 @@ impl<T: HasIdent> HasSrcPos for T {
 
 impl HasIdent for Ident {
     fn ident(&self) -> &Ident {
-        &self
+        self
     }
 }
 
@@ -333,11 +333,7 @@ impl FunctionCall {
             ref parameters,
         } = self;
 
-        if let Some(indexes) = assoc_elems_to_indexes(parameters) {
-            Some(Name::Indexed(Box::new(name.clone()), indexes))
-        } else {
-            None
-        }
+        assoc_elems_to_indexes(parameters).map(|indexes| Name::Indexed(Box::new(name.clone()), indexes))
     }
 }
 

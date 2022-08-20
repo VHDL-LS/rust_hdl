@@ -273,7 +273,7 @@ impl PartialOrd for SrcPos {
 }
 
 /// A generic object with an associated source file and lexical range.
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct WithPos<T> {
     pub item: T,
     pub pos: SrcPos,
@@ -546,7 +546,7 @@ pub trait HasSource {
 
 impl HasSource for Source {
     fn source(&self) -> &Source {
-        &self
+        self
     }
 }
 
@@ -557,7 +557,7 @@ pub trait HasSrcPos {
 
 impl HasSrcPos for SrcPos {
     fn pos(&self) -> &SrcPos {
-        &self
+        self
     }
 }
 

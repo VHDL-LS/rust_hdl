@@ -27,7 +27,7 @@ pub use crate::analysis::NamedEntity;
 use crate::data::*;
 
 /// LRM 15.8 Bit string literals
-#[derive(PartialEq, Copy, Clone, Debug)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum BaseSpecifier {
     B,
     O,
@@ -41,7 +41,7 @@ pub enum BaseSpecifier {
     D,
 }
 
-#[derive(PartialEq, Copy, Clone, Debug)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum Unary {
     And,
     Or,
@@ -56,7 +56,7 @@ pub enum Unary {
     QueQue, // ?? conditional operator
 }
 
-#[derive(PartialEq, Copy, Clone, Debug)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum Binary {
     And,
     Or,
@@ -107,7 +107,7 @@ pub struct AttributeName {
 }
 
 /// LRM 8.7 External names
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum ExternalObjectClass {
     Constant,
     Signal,
@@ -207,7 +207,7 @@ pub enum AbstractLiteral {
 }
 
 /// LRM 15.8 Bit string literals
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct BitString {
     pub length: Option<u32>,
     pub base: BaseSpecifier,
@@ -264,7 +264,7 @@ pub enum Expression {
 /// An identifier together with the lexical source location it occurs in.
 pub type Ident = WithPos<Symbol>;
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum Direction {
     Ascending,
     Descending,
@@ -416,7 +416,7 @@ pub enum EntityName {
 
 /// LRM 7.2 Attribute specification
 // @TODO there are more classes
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum EntityClass {
     Entity,
     Architecture,
@@ -470,7 +470,7 @@ pub struct PhysicalTypeDeclaration {
 }
 
 /// LRM 5.2.2 Enumeration types
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum EnumerationLiteral {
     Identifier(Symbol),
     Character(u8),
@@ -513,7 +513,7 @@ pub struct TypeDeclaration {
 }
 
 /// LRM 6.4.2 Object Declarations
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum ObjectClass {
     Signal,
     Constant,
@@ -521,7 +521,7 @@ pub enum ObjectClass {
     SharedVariable,
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum InterfaceListType {
     Port,
     Generic,
@@ -544,7 +544,7 @@ pub struct FileDeclaration {
     pub file_name: Option<WithPos<Expression>>,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum SubprogramDesignator {
     Identifier(Symbol),
     OperatorSymbol(Latin1String),
@@ -636,7 +636,7 @@ pub enum InterfaceDeclaration {
     Package(InterfacePackageDeclaration),
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum Mode {
     In,
     Out,
@@ -732,7 +732,7 @@ pub struct SignalAssignment {
     pub rhs: AssignmentRightHand<Waveform>,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum ForceMode {
     In,
     Out,
@@ -981,7 +981,7 @@ pub struct LabeledConcurrentStatement {
 }
 
 /// LRM 13. Design units and their analysis
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct LibraryClause {
     pub name_list: Vec<Ident>,
 }
@@ -1023,7 +1023,7 @@ pub struct PackageInstantiation {
 }
 
 /// LRM 7.3 Configuration specification
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum InstantiationList {
     Labels(Vec<Ident>),
     Others,

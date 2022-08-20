@@ -168,7 +168,7 @@ fn split_lines(code: &str) -> Vec<String> {
     lines
 }
 
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub struct ReaderState {
     pos: Position,
     idx: usize, // Byte offset in line
@@ -447,10 +447,10 @@ mod tests {
     fn matches() {
         let contents = new("abc");
         let mut reader = reader(&contents);
-        assert!(reader.matches(&"abc"));
-        assert!(!reader.matches(&"bc"));
+        assert!(reader.matches("abc"));
+        assert!(!reader.matches("bc"));
         reader.skip();
-        assert!(reader.matches(&"bc"));
+        assert!(reader.matches("bc"));
     }
 
     #[test]

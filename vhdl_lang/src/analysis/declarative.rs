@@ -441,7 +441,7 @@ impl<'a> AnalyzeContext<'a> {
                             Ok(ent) => {
                                 if let NamedEntityKind::ProtectedType(ptype_region) = ent.kind() {
                                     body.type_reference.set_unique_reference(&ent);
-                                    let mut region = Region::extend(&ptype_region, Some(parent));
+                                    let mut region = Region::extend(ptype_region, Some(parent));
                                     self.analyze_declarative_part(
                                         &mut region,
                                         &mut body.decl,
@@ -701,7 +701,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 // We need to overwrite the type due to circular pointer relations between implicit subprograms
                 // and type declarations
-                let implicit = implicit.iter().map(|ent| Arc::downgrade(ent)).collect();
+                let implicit = implicit.iter().map(Arc::downgrade).collect();
                 let file_type =
                     file_type.clone_with_kind(NamedEntityKind::TypeDeclaration(implicit));
                 parent.add_named_entity(Arc::new(file_type), diagnostics);

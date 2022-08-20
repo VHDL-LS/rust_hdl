@@ -226,7 +226,7 @@ impl<'a> AnalyzeContext<'a> {
 
         let name = self.current_unit.primary_name();
 
-        if let Some(ref unit) = units.get(&UnitKey::Secondary(name.clone(), name.clone())) {
+        if let Some(unit) = units.get(&UnitKey::Secondary(name.clone(), name.clone())) {
             if unit.kind() == AnyKind::Secondary(SecondaryKind::PackageBody) {
                 Some(unit)
             } else {
@@ -246,7 +246,7 @@ impl<'a> AnalyzeContext<'a> {
         use_pos: Option<&SrcPos>,
         unit: &'a LockedUnit,
     ) -> FatalResult<UnitReadGuard<'a>> {
-        self.make_use_of(use_pos, &unit.unit_id())?;
+        self.make_use_of(use_pos, unit.unit_id())?;
         let data = self.root.get_analysis(unit);
 
         // Change circular dependency reference when used by another unit during analysis
@@ -262,7 +262,7 @@ impl<'a> AnalyzeContext<'a> {
         let units = self.root.get_library_units(library_name)?;
         // @TODO missing library
 
-        if let Some(ref unit) = units.get(&UnitKey::Primary(name.clone())) {
+        if let Some(unit) = units.get(&UnitKey::Primary(name.clone())) {
             return Some(unit);
         }
 
