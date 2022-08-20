@@ -113,7 +113,7 @@ macro_rules! return_if_found {
         if let Found = $result {
             return Found;
         }
-    }
+    };
 }
 
 #[macro_export]
