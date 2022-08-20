@@ -26,7 +26,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: ${{ matrix.rust }}
+          toolchain: stable
           override: true
           components: rustfmt, clippy
 
@@ -51,9 +51,6 @@ jobs:
         target:
           - x86_64-unknown-linux-gnu
           - x86_64-pc-windows-msvc
-        rust:
-          - stable
-
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
@@ -71,9 +68,8 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: ${{ matrix.rust }}
+          toolchain: stable
           override: true
-          components: rustfmt, clippy
 
       - name: Build
         uses: actions-rs/cargo@v1
