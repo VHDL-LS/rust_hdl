@@ -44,7 +44,7 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
                 "Workspace root configuration file not set",
             )
         })?;
-        let config = Config::read_file_path(&config_file)?;
+        let config = Config::read_file_path(config_file)?;
 
         // Log which file was loaded
         self.rpc_channel.push_msg(Message::log(format!(
@@ -159,12 +159,12 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
 
     pub fn text_document_did_change_notification(&mut self, params: &DidChangeTextDocumentParams) {
         self.mut_server()
-            .text_document_did_change_notification(&params)
+            .text_document_did_change_notification(params)
     }
 
     pub fn text_document_did_open_notification(&mut self, params: &DidOpenTextDocumentParams) {
         self.mut_server()
-            .text_document_did_open_notification(&params)
+            .text_document_did_open_notification(params)
     }
 
     pub fn workspace_did_change_watched_files(&mut self, params: &DidChangeWatchedFilesParams) {
@@ -188,7 +188,7 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         &mut self,
         params: &TextDocumentPositionParams,
     ) -> Option<Location> {
-        self.mut_server().text_document_declaration(&params)
+        self.mut_server().text_document_declaration(params)
     }
 
     // textDocument/definition
@@ -196,17 +196,17 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         &mut self,
         params: &TextDocumentPositionParams,
     ) -> Option<Location> {
-        self.mut_server().text_document_definition(&params)
+        self.mut_server().text_document_definition(params)
     }
 
     // textDocument/hover
     pub fn text_document_hover(&mut self, params: &TextDocumentPositionParams) -> Option<Hover> {
-        self.mut_server().text_document_hover(&params)
+        self.mut_server().text_document_hover(params)
     }
 
     // textDocument/references
     pub fn text_document_references(&mut self, params: &ReferenceParams) -> Vec<Location> {
-        self.mut_server().text_document_references(&params)
+        self.mut_server().text_document_references(params)
     }
 }
 
@@ -348,7 +348,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
     fn open(&mut self, uri: &Url, code: &str) {
         let file_name = uri_to_file_name(uri);
         if let Some(source) = self.project.get_source(&file_name) {
-            source.change(None, &code);
+            source.change(None, code);
             self.project.update_source(&source);
             self.publish_diagnostics();
         } else {
@@ -438,7 +438,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
             self.project
                 .find_all_references(decl_pos)
                 .iter()
-                .map(|pos| srcpos_to_location(pos))
+                .map(srcpos_to_location)
                 .collect()
         } else {
             Vec::new()
