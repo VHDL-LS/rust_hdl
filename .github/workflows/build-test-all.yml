@@ -12,6 +12,36 @@ jobs:
       - name: Show version
         run: echo "This is a release build for v${GITHUB_REF/refs\/tags\/v/}"
 
+  lint:
+    strategy:
+      matrix:
+        crate:
+          - vhdl_lang
+          - vhdl_ls
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+          components: rustfmt, clippy
+
+      - name: rustfmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --package ${{ matrix.crate }} -- --check
+
+      - name: clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --package ${{ matrix.crate }} --all-targets --all-features -- -D warnings
+
   build:
     strategy:
       matrix:
@@ -56,20 +86,6 @@ jobs:
         with:
           command: test
           args: --manifest-path ${{ matrix.crate }}/Cargo.toml --release --target ${{ matrix.target }} --features "packaged"
-
-      - name: rustfmt
-        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --package ${{ matrix.crate }} -- --check
-
-      - name: clippy
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --package ${{ matrix.crate }} --all-targets --all-features -- -D warnings
 
       - name: Assemble
         if: matrix.rust == 'stable'
