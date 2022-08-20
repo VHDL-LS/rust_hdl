@@ -333,7 +333,8 @@ impl FunctionCall {
             ref parameters,
         } = self;
 
-        assoc_elems_to_indexes(parameters).map(|indexes| Name::Indexed(Box::new(name.clone()), indexes))
+        assoc_elems_to_indexes(parameters)
+            .map(|indexes| Name::Indexed(Box::new(name.clone()), indexes))
     }
 }
 
