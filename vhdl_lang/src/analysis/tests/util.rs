@@ -128,10 +128,10 @@ pub fn missing(code: &Code, name: &str, occ: usize) -> Diagnostic {
 
 pub fn duplicate(code: &Code, name: &str, occ1: usize, occ2: usize) -> Diagnostic {
     Diagnostic::error(
-        code.s(&name, occ2),
+        code.s(name, occ2),
         format!("Duplicate declaration of '{}'", &name),
     )
-    .related(code.s(&name, occ1), "Previously defined here")
+    .related(code.s(name, occ1), "Previously defined here")
 }
 
 pub fn duplicates(code: &Code, names: &[&str]) -> Vec<Diagnostic> {
@@ -147,10 +147,10 @@ pub fn duplicate_in_two_files(code1: &Code, code2: &Code, names: &[&str]) -> Vec
     for name in names {
         diagnostics.push(
             Diagnostic::error(
-                code2.s1(&name),
+                code2.s1(name),
                 format!("Duplicate declaration of '{}'", &name),
             )
-            .related(code1.s1(&name), "Previously defined here"),
+            .related(code1.s1(name), "Previously defined here"),
         )
     }
     diagnostics

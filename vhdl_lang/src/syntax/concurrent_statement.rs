@@ -341,8 +341,8 @@ pub fn parse_instantiation_statement(
 
     let inst = InstantiationStatement {
         unit,
-        generic_map: generic_map.unwrap_or_else(Vec::new),
-        port_map: port_map.unwrap_or_else(Vec::new),
+        generic_map: generic_map.unwrap_or_default(),
+        port_map: port_map.unwrap_or_default(),
     };
     stream.expect_kind(SemiColon)?;
     Ok(inst)

@@ -447,10 +447,10 @@ mod tests {
     fn matches() {
         let contents = new("abc");
         let mut reader = reader(&contents);
-        assert!(reader.matches(&"abc"));
-        assert!(!reader.matches(&"bc"));
+        assert!(reader.matches("abc"));
+        assert!(!reader.matches("bc"));
         reader.skip();
-        assert!(reader.matches(&"bc"));
+        assert!(reader.matches("bc"));
     }
 
     #[test]
@@ -471,7 +471,7 @@ mod tests {
     fn flatten(contents: &Contents) -> String {
         let mut result = String::new();
         for line in contents.lines.iter() {
-            result.push_str(&line.to_string());
+            result.push_str(line);
         }
         result
     }

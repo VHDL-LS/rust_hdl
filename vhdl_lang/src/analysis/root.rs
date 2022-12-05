@@ -402,7 +402,7 @@ impl DesignRoot {
     fn get_unit<'a>(&'a self, unit_id: &UnitId) -> Option<&'a LockedUnit> {
         self.libraries
             .get(unit_id.library_name())
-            .and_then(|library| library.units.get(&unit_id.key()))
+            .and_then(|library| library.units.get(unit_id.key()))
     }
 
     fn reset_affected(&self, mut affected: FnvHashSet<UnitId>) {
@@ -551,7 +551,7 @@ impl DesignRoot {
         for removed_unit in removed.iter() {
             users_of.remove(removed_unit);
             if let Some(library_all_affected) =
-                users_of_library_all.get_mut(&removed_unit.library_name())
+                users_of_library_all.get_mut(removed_unit.library_name())
             {
                 library_all_affected.remove(removed_unit);
             }
@@ -587,7 +587,7 @@ impl DesignRoot {
         // Emit diagnostics sorted within a file
         for library in self.libraries.values() {
             for unit_id in library.sorted_unit_ids() {
-                let unit = library.units.get(&unit_id.key()).unwrap();
+                let unit = library.units.get(unit_id.key()).unwrap();
                 diagnostics.append(unit.unit.expect_analyzed().result().diagnostics.clone());
             }
         }
@@ -631,7 +631,7 @@ impl Search for DesignRoot {
 impl Search for Library {
     fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
         for unit_id in self.sorted_unit_ids() {
-            let unit = self.units.get(&unit_id.key()).unwrap();
+            let unit = self.units.get(unit_id.key()).unwrap();
             return_if_found!(unit.unit.read().search(searcher));
         }
         NotFound

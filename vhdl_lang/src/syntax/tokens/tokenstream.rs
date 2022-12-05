@@ -19,11 +19,11 @@ impl<'a> TokenStream<'a> {
     }
 
     pub fn range_sym(&self) -> &Symbol {
-        &self.tokenizer.range_sym()
+        self.tokenizer.range_sym()
     }
 
     pub fn reverse_range_sym(&self) -> &Symbol {
-        &self.tokenizer.reverse_range_sym()
+        self.tokenizer.reverse_range_sym()
     }
 
     pub fn state(&self) -> TokenState {
