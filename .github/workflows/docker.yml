@@ -10,7 +10,7 @@ on:
 jobs:
   publish:
     name: Publish
-    if: github.repository == 'kraigher/rust_hdl'
+    if: github.repository == 'VHDL-LS/rust_hdl'
     strategy:
       matrix:
         crate:
@@ -32,7 +32,7 @@ jobs:
   # A job is required when the publish job is skipped
   skip-publish:
     name: Skip publish
-    if: github.repository != 'kraigher/rust_hdl'
+    if: github.repository != 'VHDL-LS/rust_hdl'
     runs-on: ubuntu-latest
     steps:
     - name: Report
