@@ -4,19 +4,16 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-#[macro_use]
-extern crate log;
+use clap::Parser;
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Args {}
 
 fn main() {
-    use clap::App;
-
-    let _matches = App::new(env!("CARGO_PKG_NAME"))
-        .version(env!("CARGO_PKG_VERSION"))
-        .author(env!("CARGO_PKG_AUTHORS"))
-        .about(env!("CARGO_PKG_DESCRIPTION"))
-        .get_matches();
+    Args::parse();
 
     env_logger::init();
-    info!("Starting language server");
+    log::info!("Starting language server");
     vhdl_ls::start();
 }

@@ -14,7 +14,7 @@ use std::path::Path;
 use std::time::SystemTime;
 use vhdl_lang::{Config, Diagnostic, MessagePrinter, Project};
 
-/// Simple program to greet a person
+/// Run vhdl analysis
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
