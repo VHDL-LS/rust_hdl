@@ -6,27 +6,27 @@
 
 [package]
 name = "vhdl_ls"
-version = "0.18.0"
+version = "0.19.0"
 authors = ["Olof Kraigher <olof.kraigher@gmail.com>"]
 license = "MPL-2.0"
 description = "VHDL Language Server"
 repository = "https://github.com/kraigher/rust_hdl"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
-vhdl_lang = { version = "^0.18.0", path = "../vhdl_lang"}
-serde_json = "^1"
-serde = "^1"
-lsp-types = "^0.63"
-fnv = "^1"
-log = "0.4.6"
-env_logger = "0.6.0"
+vhdl_lang = { version = "^0.19.0", path = "../vhdl_lang"}
+serde_json = "*"
+serde = "*"
+lsp-types = "*"
+fnv = "*"
+log = "*"
+env_logger = "*"
 clap = "^2"
-lsp-server = "^0.3"
+lsp-server = "*"
 
 [dev-dependencies]
-tempfile = "^3"
-pretty_assertions = "^0"
+tempfile = "*"
+pretty_assertions = "*"
 
 [features]
 default = []

@@ -8,7 +8,7 @@
 //! It also contains the main event loop for handling incoming messages from the LSP client and
 //! dispatching them to the appropriate server methods.
 
-use lsp_server::{Connection, Request, RequestId};
+use lsp_server::{Connection, ExtractError, Request, RequestId};
 use lsp_types::{
     notification::{self, Notification},
     request, InitializeParams,
@@ -35,7 +35,7 @@ pub fn start() {
 #[derive(Clone)]
 struct ConnectionRpcChannel {
     connection: Rc<Connection>,
-    next_outgoing_request_id: Rc<RefCell<u64>>,
+    next_outgoing_request_id: Rc<RefCell<i32>>,
 }
 
 impl RpcChannel for ConnectionRpcChannel {
@@ -132,13 +132,19 @@ impl ConnectionRpcChannel {
             R: request::Request,
             R::Params: serde::de::DeserializeOwned,
         {
-            request.extract(R::METHOD)
+            request.extract(R::METHOD).map_err(|e| match e {
+                ExtractError::MethodMismatch(r) => r,
+                err @ ExtractError::JsonError { .. } => {
+                    panic!("{err:?}");
+                }
+            })
         }
 
         trace!("Handling request: {:?}", request);
         let request = match extract::<request::GotoDeclaration>(request) {
             Ok((id, params)) => {
-                let result = server.text_document_declaration(&params);
+                let result =
+                    server.text_document_declaration(&params.text_document_position_params);
                 self.send_response(lsp_server::Response::new_ok(id, result));
                 return;
             }
@@ -146,7 +152,7 @@ impl ConnectionRpcChannel {
         };
         let request = match extract::<request::GotoDefinition>(request) {
             Ok((id, params)) => {
-                let result = server.text_document_definition(&params);
+                let result = server.text_document_definition(&params.text_document_position_params);
                 self.send_response(lsp_server::Response::new_ok(id, result));
                 return;
             }
@@ -154,7 +160,7 @@ impl ConnectionRpcChannel {
         };
         let request = match extract::<request::HoverRequest>(request) {
             Ok((id, params)) => {
-                let result = server.text_document_hover(&params);
+                let result = server.text_document_hover(&params.text_document_position_params);
                 self.send_response(lsp_server::Response::new_ok(id, result));
                 return;
             }
@@ -198,7 +204,12 @@ impl ConnectionRpcChannel {
             N: notification::Notification,
             N::Params: serde::de::DeserializeOwned,
         {
-            notification.extract(N::METHOD)
+            notification.extract(N::METHOD).map_err(|e| match e {
+                ExtractError::MethodMismatch(n) => n,
+                err @ ExtractError::JsonError { .. } => {
+                    panic!("{err:?}");
+                }
+            })
         }
 
         trace!("Handling notification: {:?}", notification);

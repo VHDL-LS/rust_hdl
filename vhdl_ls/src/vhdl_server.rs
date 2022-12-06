@@ -249,12 +249,12 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
 
         let capabilities = ServerCapabilities {
             text_document_sync: Some(TextDocumentSyncCapability::Kind(
-                TextDocumentSyncKind::Incremental,
+                TextDocumentSyncKind::INCREMENTAL,
             )),
-            declaration_provider: Some(true),
-            definition_provider: Some(true),
-            hover_provider: Some(true),
-            references_provider: Some(true),
+            declaration_provider: Some(DeclarationCapability::Simple(true)),
+            definition_provider: Some(OneOf::Left(true)),
+            hover_provider: Some(HoverProviderCapability::Simple(true)),
+            references_provider: Some(OneOf::Left(true)),
             ..Default::default()
         };
 
@@ -463,8 +463,8 @@ fn from_lsp_pos(position: lsp_types::Position) -> vhdl_lang::Position {
 
 fn to_lsp_pos(position: vhdl_lang::Position) -> lsp_types::Position {
     lsp_types::Position {
-        line: position.line as u64,
-        character: position.character as u64,
+        line: position.line,
+        character: position.character,
     }
 }
 
@@ -520,10 +520,10 @@ fn uri_to_file_name(uri: &Url) -> PathBuf {
 
 fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {
     let severity = match diagnostic.severity {
-        Severity::Error => DiagnosticSeverity::Error,
-        Severity::Warning => DiagnosticSeverity::Warning,
-        Severity::Info => DiagnosticSeverity::Information,
-        Severity::Hint => DiagnosticSeverity::Hint,
+        Severity::Error => DiagnosticSeverity::ERROR,
+        Severity::Warning => DiagnosticSeverity::WARNING,
+        Severity::Info => DiagnosticSeverity::INFORMATION,
+        Severity::Hint => DiagnosticSeverity::HINT,
     };
 
     let related_information = if !diagnostic.related.is_empty() {
@@ -550,7 +550,7 @@ fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {
         source: Some("vhdl ls".to_owned()),
         message: diagnostic.message,
         related_information,
-        tags: None,
+        ..Default::default()
     }
 }
 
@@ -572,6 +572,7 @@ mod tests {
             trace: None,
             workspace_folders: None,
             client_info: None,
+            locale: None,
         };
 
         server.initialize_request(initialize_params);
@@ -677,19 +678,18 @@ end entity ent2;
                 range: Range {
                     start: lsp_types::Position {
                         line: 2,
-                        character: "end entity ".len() as u64,
+                        character: "end entity ".len() as u32,
                     },
                     end: lsp_types::Position {
                         line: 2,
-                        character: "end entity ent2".len() as u64,
+                        character: "end entity ent2".len() as u32,
                     },
                 },
                 code: None,
-                severity: Some(DiagnosticSeverity::Error),
+                severity: Some(DiagnosticSeverity::ERROR),
                 source: Some("vhdl ls".to_owned()),
                 message: "End identifier mismatch, expected ent".to_owned(),
-                related_information: None,
-                tags: None,
+                ..Default::default()
             }],
             version: None,
         };
@@ -708,7 +708,7 @@ end entity ent;
         let did_change = DidChangeTextDocumentParams {
             text_document: VersionedTextDocumentIdentifier {
                 uri: file_url.clone(),
-                version: Some(1),
+                version: 1,
             },
             content_changes: vec![TextDocumentContentChangeEvent {
                 range: None,
@@ -770,19 +770,18 @@ lib.files = [
                 range: Range {
                     start: lsp_types::Position {
                         line: 3,
-                        character: "architecture rtl of ".len() as u64,
+                        character: "architecture rtl of ".len() as u32,
                     },
                     end: lsp_types::Position {
                         line: 3,
-                        character: "architecture rtl of ent2".len() as u64,
+                        character: "architecture rtl of ent2".len() as u32,
                     },
                 },
                 code: None,
-                severity: Some(DiagnosticSeverity::Error),
+                severity: Some(DiagnosticSeverity::ERROR),
                 source: Some("vhdl ls".to_owned()),
                 message: "No entity \'ent2\' within library \'lib\'".to_owned(),
-                related_information: None,
-                tags: None,
+                ..Default::default()
             }],
             version: None,
         };
@@ -881,7 +880,7 @@ lib.files = [
             text_document: TextDocumentIdentifier { uri: file_url2 },
             position: lsp_types::Position {
                 line: 2,
-                character: "  constant c : t".len() as u64,
+                character: "  constant c : t".len() as u32,
             },
         });
 
@@ -890,11 +889,11 @@ lib.files = [
             range: Range {
                 start: lsp_types::Position {
                     line: 1,
-                    character: "  type ".len() as u64,
+                    character: "  type ".len() as u32,
                 },
                 end: lsp_types::Position {
                     line: 1,
-                    character: "  type tpe_t".len() as u64,
+                    character: "  type tpe_t".len() as u32,
                 },
             },
         };
@@ -933,7 +932,7 @@ lib.files = [
 
         let capabilities = ClientCapabilities {
             workspace: Some(WorkspaceClientCapabilities {
-                did_change_watched_files: Some(GenericCapability {
+                did_change_watched_files: Some(DynamicRegistrationClientCapabilities {
                     dynamic_registration: Some(true),
                 }),
                 ..WorkspaceClientCapabilities::default()
@@ -942,14 +941,9 @@ lib.files = [
         };
         #[allow(deprecated)]
         let initialize_params = InitializeParams {
-            process_id: None,
-            root_path: None,
             root_uri: Some(root_uri),
-            initialization_options: None,
             capabilities,
-            trace: None,
-            workspace_folders: None,
-            client_info: None,
+            ..Default::default()
         };
 
         server.initialize_request(initialize_params);
@@ -994,19 +988,18 @@ lib.files = [
                 range: Range {
                     start: lsp_types::Position {
                         line: 0,
-                        character: "architecture rtl of ".len() as u64,
+                        character: "architecture rtl of ".len() as u32,
                     },
                     end: lsp_types::Position {
                         line: 0,
-                        character: "architecture rtl of ent".len() as u64,
+                        character: "architecture rtl of ent".len() as u32,
                     },
                 },
                 code: None,
-                severity: Some(DiagnosticSeverity::Error),
+                severity: Some(DiagnosticSeverity::ERROR),
                 source: Some("vhdl ls".to_owned()),
                 message: "No entity \'ent\' within library \'lib\'".to_owned(),
-                related_information: None,
-                tags: None,
+                ..Default::default()
             }],
             version: None,
         };
@@ -1042,7 +1035,7 @@ lib.files = [
         );
         server.workspace_did_change_watched_files(&DidChangeWatchedFilesParams {
             changes: vec![FileEvent {
-                typ: FileChangeType::Changed,
+                typ: FileChangeType::CHANGED,
                 uri: config_uri,
             }],
         });

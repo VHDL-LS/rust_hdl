@@ -69,10 +69,10 @@ impl<'a, T: RpcChannel> MessageHandler for MessageChannel<'a, T> {
 
 fn to_lsp_message_type(message_type: &vhdl_lang::MessageType) -> MessageType {
     match message_type {
-        vhdl_lang::MessageType::Error => MessageType::Error,
-        vhdl_lang::MessageType::Warning => MessageType::Warning,
-        vhdl_lang::MessageType::Info => MessageType::Info,
-        vhdl_lang::MessageType::Log => MessageType::Log,
+        vhdl_lang::MessageType::Error => MessageType::ERROR,
+        vhdl_lang::MessageType::Warning => MessageType::WARNING,
+        vhdl_lang::MessageType::Info => MessageType::INFO,
+        vhdl_lang::MessageType::Log => MessageType::LOG,
     }
 }
 
