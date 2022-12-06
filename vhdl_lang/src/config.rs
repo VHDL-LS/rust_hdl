@@ -45,7 +45,13 @@ impl LibraryConfig {
 
         let mut result = Vec::new();
         for pattern in self.patterns.iter() {
-            if is_literal(pattern, cfg!(windows)) {
+            let stripped_pattern = if cfg!(windows) {
+                pattern.strip_prefix("\\\\?\\").unwrap_or(pattern.as_str())
+            } else {
+                pattern.as_str()
+            };
+
+            if is_literal(stripped_pattern) {
                 let file_path = Path::new(pattern);
 
                 if file_path.exists() {
@@ -63,7 +69,7 @@ impl LibraryConfig {
                     ));
                 }
             } else {
-                match glob::glob(pattern) {
+                match glob::glob(stripped_pattern) {
                     Ok(paths) => {
                         let mut empty_pattern = true;
 
@@ -89,7 +95,7 @@ impl LibraryConfig {
                         if empty_pattern {
                             messages.push(Message::warning(format!(
                                 "Pattern '{}' did not match any file",
-                                pattern
+                                stripped_pattern
                             )));
                         }
                     }
@@ -286,17 +292,8 @@ impl Config {
 }
 
 /// Returns true if the pattern is a plain file name and not a glob pattern
-fn is_literal(pattern: &str, is_windows: bool) -> bool {
-    let mut chars = pattern.chars();
-
-    let extended_path_prefix = "\\\\?";
-    if is_windows && pattern.starts_with(extended_path_prefix) {
-        for _ in 0..extended_path_prefix.len() {
-            chars.next();
-        }
-    };
-
-    for chr in chars {
+fn is_literal(pattern: &str) -> bool {
+    for chr in pattern.chars() {
         match chr {
             '?' | '*' | '[' => {
                 return false;
@@ -333,15 +330,10 @@ mod tests {
 
     #[test]
     fn test_is_literal() {
-        for is_windows in &[false, true] {
-            assert!(is_literal("file.vhd", *is_windows));
-            assert!(!is_literal("file*.vhd", *is_windows));
-            assert!(!is_literal("file?.vhd", *is_windows));
-            assert!(!is_literal("file[ab].vhd", *is_windows));
-        }
-
-        assert!(is_literal("\\\\?file.vhd", true));
-        assert!(!is_literal("\\\\?*file.vhd", true));
+        assert!(is_literal("file.vhd"));
+        assert!(!is_literal("file*.vhd"));
+        assert!(!is_literal("file?.vhd"));
+        assert!(!is_literal("file[ab].vhd"));
     }
 
     #[test]
