@@ -198,7 +198,7 @@ pub fn parse_design_file(
                         let mut diagnostic = Diagnostic::error(&context_decl.ident, "Context declaration may not be preceeded by a context clause");
 
                         for context_item in context_clause.iter() {
-                            diagnostic.add_related(&context_item, context_item_message(&context_item.item, "may not come before context declaration"));
+                            diagnostic.add_related(context_item, context_item_message(&context_item.item, "may not come before context declaration"));
                         }
 
                         diagnostics.push(diagnostic);

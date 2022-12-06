@@ -168,7 +168,7 @@ fn split_lines(code: &str) -> Vec<String> {
     lines
 }
 
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub struct ReaderState {
     pos: Position,
     idx: usize, // Byte offset in line

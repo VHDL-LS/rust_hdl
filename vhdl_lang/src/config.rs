@@ -15,13 +15,13 @@ use std::io::prelude::*;
 use std::path::Path;
 use toml::Value;
 
-#[derive(Clone, PartialEq, Default, Debug)]
+#[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct Config {
     // A map from library name to file name
     libraries: FnvHashMap<String, LibraryConfig>,
 }
 
-#[derive(Clone, PartialEq, Default, Debug)]
+#[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct LibraryConfig {
     name: String,
     patterns: Vec<String>,

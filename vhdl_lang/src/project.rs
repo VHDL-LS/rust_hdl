@@ -400,7 +400,7 @@ use_lib.files = ['use_file.vhd']
     }
 
     fn update(project: &mut Project, source: &mut Source, contents: &str) {
-        std::fs::write(&std::path::Path::new(source.file_name()), contents).unwrap();
+        std::fs::write(std::path::Path::new(source.file_name()), contents).unwrap();
         *source = Source::from_latin1_file(source.file_name()).unwrap();
         project.update_source(source);
     }

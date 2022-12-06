@@ -273,7 +273,7 @@ impl PartialOrd for SrcPos {
 }
 
 /// A generic object with an associated source file and lexical range.
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct WithPos<T> {
     pub item: T,
     pub pos: SrcPos,

@@ -211,7 +211,7 @@ impl<'a> Visible<'a> {
 
             // Sort by last visible pos to make error messages and testing deterministic
             let mut visible_entities: Vec<_> = self.visible_entities.values().collect();
-            visible_entities.sort_by_key(|ent| last_visible_pos(*ent));
+            visible_entities.sort_by_key(|ent| last_visible_pos(ent));
 
             for visible_entity in visible_entities {
                 for visible_pos in visible_entity.visible_pos.iter().rev().flatten() {

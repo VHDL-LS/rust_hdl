@@ -118,7 +118,7 @@ fn parse_interface_object_declaration(
         if object_class == ObjectClass::Constant && mode != Mode::In {
             let pos = mode_pos.as_ref().unwrap_or(&ident.pos);
             return Err(Diagnostic::error(
-                &pos,
+                pos,
                 "Interface constant declaration may only have mode=in",
             ));
         };
@@ -126,7 +126,7 @@ fn parse_interface_object_declaration(
         if list_type == InterfaceListType::Port && object_class != ObjectClass::Signal {
             let pos = object_class_pos.as_ref().unwrap_or(&ident.pos);
             return Err(Diagnostic::error(
-                &pos,
+                pos,
                 "Port list only allows signal object class",
             ));
         };
@@ -134,7 +134,7 @@ fn parse_interface_object_declaration(
         if list_type == InterfaceListType::Generic && object_class != ObjectClass::Constant {
             let pos = object_class_pos.as_ref().unwrap_or(&ident.pos);
             return Err(Diagnostic::error(
-                &pos,
+                pos,
                 "Generic list only allows constant object class",
             ));
         };

@@ -94,7 +94,7 @@ struct Library {
     duplicates: Vec<(SrcPos, LockedUnit)>,
 }
 
-impl<'a> Library {
+impl Library {
     fn new(name: Symbol) -> Library {
         let ent = Arc::new(NamedEntity::new(
             Designator::Identifier(name.clone()),
@@ -163,7 +163,7 @@ impl<'a> Library {
                 ),
                 UnitKey::Secondary(ref primary_name, ref name) => match unit.kind() {
                     AnyKind::Secondary(SecondaryKind::Architecture) => Diagnostic::error(
-                        &unit.ident(),
+                        unit.ident(),
                         format!(
                             "Duplicate architecture '{}' of entity '{}'",
                             name, primary_name,
@@ -343,7 +343,7 @@ impl DesignRoot {
 
                 let has_circular_dependency = if let Err(err) = context.analyze_design_unit(
                     entity_id,
-                    &mut *unit,
+                    &mut unit,
                     &mut root_region,
                     &mut region,
                     &mut diagnostics,
@@ -581,7 +581,7 @@ impl DesignRoot {
 
         // @TODO compute the best order to process the units in parallel
         units.par_iter().for_each(|unit| {
-            self.get_analysis(*unit);
+            self.get_analysis(unit);
         });
 
         // Emit diagnostics sorted within a file

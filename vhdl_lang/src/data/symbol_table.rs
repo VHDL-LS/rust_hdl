@@ -131,7 +131,7 @@ impl SymbolTable {
             return sym.clone();
         }
 
-        debug_assert_eq!(name.bytes.get(0) == Some(&b'\\'), is_extended);
+        debug_assert_eq!(name.bytes.first() == Some(&b'\\'), is_extended);
         let name = Arc::from(name.clone());
         if is_extended {
             let id = name_to_symbol.len();

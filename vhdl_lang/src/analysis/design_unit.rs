@@ -471,14 +471,14 @@ impl<'a> AnalyzeContext<'a> {
                     for library_name in name_list.iter() {
                         if self.work_sym == library_name.item {
                             diagnostics.push(Diagnostic::hint(
-                                &library_name,
+                                library_name,
                                 "Library clause not necessary for current working library",
                             ))
                         } else if let Some(library) = self.get_library(&library_name.item) {
                             region.make_potentially_visible(Some(&library_name.pos), library);
                         } else {
                             diagnostics.push(Diagnostic::error(
-                                &library_name,
+                                library_name,
                                 format!("No such library '{}'", library_name.item),
                             ));
                         }
@@ -514,7 +514,7 @@ impl<'a> AnalyzeContext<'a> {
                                     _ => {
                                         if let Name::Selected(_, ref suffix) = name.item {
                                             diagnostics.push(Diagnostic::error(
-                                                &suffix,
+                                                suffix,
                                                 format!(
                                                     "{} does not denote a context declaration",
                                                     ent.describe()

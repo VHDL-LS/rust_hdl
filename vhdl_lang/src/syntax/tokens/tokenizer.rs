@@ -9,7 +9,7 @@ use crate::ast::{BaseSpecifier, Ident};
 use crate::data::*;
 
 /// The kind of a Token
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Kind {
     // Keywords
     Architecture,
@@ -410,13 +410,13 @@ pub struct Token {
     pub comments: Option<Box<TokenComments>>,
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct TokenComments {
     pub leading: Vec<Comment>,
     pub trailing: Option<Comment>,
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct Comment {
     pub value: String,
     pub range: crate::data::Range,
@@ -584,9 +584,9 @@ fn parse_integer(
                 break;
             }
 
-            b'0'..=b'9' => (b - b'0'),
-            b'a'..=b'f' => (10 + b - b'a'),
-            b'A'..=b'F' => (10 + b - b'A'),
+            b'0'..=b'9' => b - b'0',
+            b'a'..=b'f' => 10 + b - b'a',
+            b'A'..=b'F' => 10 + b - b'A',
             b'_' => {
                 reader.skip();
                 continue;

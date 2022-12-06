@@ -171,7 +171,7 @@ impl fmt::Display for Latin1String {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct Utf8ToLatin1Error {
     pub pos: Position,
     pub value: char,
