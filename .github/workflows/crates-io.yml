@@ -9,19 +9,18 @@ jobs:
   publish:
     name: Publish
     if: github.repository == 'VHDL-LS/rust_hdl'
-    strategy:
-      matrix:
-        crate:
-        - vhdl_lang
-        - vhdl_ls
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - uses: actions-rs/cargo@v1.0.1
       with:
         command: publish
-        args: --manifest-path ./${{ matrix.crate }}/Cargo.toml --token ${{ secrets.CRATES_IO_TOKEN }}
-  
+        args: --manifest-path ./vhdl_lang/Cargo.toml --token ${{ secrets.CRATES_IO_TOKEN }}
+    - uses: actions-rs/cargo@v1.0.1
+      with:
+        command: publish
+        args: --manifest-path ./vhdl_ls/Cargo.toml --token ${{ secrets.CRATES_IO_TOKEN }}
+
   # A job is required when the publish job is skipped
   skip-publish:
     name: Skip publish
