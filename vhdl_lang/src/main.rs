@@ -9,58 +9,40 @@
 // Track here: https://github.com/rust-lang/rust-clippy/issues/1981
 #![allow(clippy::ptr_arg)]
 
-#[macro_use]
-extern crate clap;
-
+use clap::Parser;
 use std::path::Path;
 use std::time::SystemTime;
 use vhdl_lang::{Config, Diagnostic, MessagePrinter, Project};
 
+/// Simple program to greet a person
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// The number of threads to use. By default the maximum is selected based on process cores
+    #[arg(short = 'p', long, default_value_t = 1)]
+    num_threads: usize,
+
+    /// Prints the number of files processed and the execution time
+    #[arg(long, default_value_t = false)]
+    perf: bool,
+
+    /// Config file in TOML format containing libraries and settings
+    #[arg(short, long)]
+    config: String,
+}
+
 fn main() {
-    use clap::{App, Arg};
+    let args = Args::parse();
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(args.num_threads)
+        .build_global()
+        .unwrap();
 
-    let matches = App::new(env!("CARGO_PKG_NAME"))
-        .version(env!("CARGO_PKG_VERSION"))
-        .author(env!("CARGO_PKG_AUTHORS"))
-        .about(env!("CARGO_PKG_DESCRIPTION"))
-        .arg(
-            Arg::with_name("num-threads")
-                .short("-p")
-                .long("--num-threads")
-                .help("The number of threads to use. By default the maximum is selected based on process cores"),
-        )
-        .arg(
-            Arg::with_name("perf")
-                .long("--perf")
-                .help("Prints the number of files processed and the execution time")
-                .takes_value(false),
-        )
-        .arg(
-            Arg::with_name("config")
-                .help("Config file in TOML format containing libraries and settings")
-                .short("-c")
-                .long("--config")
-                .required(true)
-                .takes_value(true),
-        )
-        .get_matches();
-
-    if matches.is_present("num-threads") {
-        let num_threads = value_t_or_exit!(matches.value_of("num-threads"), usize);
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(num_threads)
-            .build_global()
-            .unwrap();
-    }
-
-    let show_perf = matches.is_present("perf");
-
-    let file_name = value_t_or_exit!(matches.value_of("config"), String);
     let mut config = Config::default();
     let mut msg_printer = MessagePrinter::default();
     config.load_external_config(&mut msg_printer);
     config.append(
-        &Config::read_file_path(Path::new(&file_name)).expect("Failed to read config file"),
+        &Config::read_file_path(Path::new(&args.config)).expect("Failed to read config file"),
         &mut msg_printer,
     );
 
@@ -70,7 +52,7 @@ fn main() {
     let duration = start.elapsed().unwrap();
     show_diagnostics(&diagnostics);
 
-    if show_perf {
+    if args.perf {
         let mut num_files = 0;
         let mut num_lines = 0;
         for source_file in project.files() {

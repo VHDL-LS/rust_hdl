@@ -16,7 +16,7 @@ edition = "2021"
 [dependencies]
 pad = "*"
 fnv = "*"
-clap = "^2"
+clap = { version = "*", features = ["derive"] }
 toml = "*"
 glob = "*"
 dirs = "*"

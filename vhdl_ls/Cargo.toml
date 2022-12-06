@@ -21,7 +21,7 @@ lsp-types = "*"
 fnv = "*"
 log = "*"
 env_logger = "*"
-clap = "^2"
+clap = { version = "*", features = ["derive"] }
 lsp-server = "*"
 
 [dev-dependencies]
