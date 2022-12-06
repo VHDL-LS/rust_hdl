@@ -14,21 +14,21 @@ repository = "https://github.com/kraigher/rust_hdl"
 edition = "2021"
 
 [dependencies]
-pad = "*"
-fnv = "*"
-clap = { version = "*", features = ["derive"] }
-toml = "*"
-glob = "*"
-dirs = "*"
-rayon = "*"
-parking_lot = "*"
-dunce = "*"
-arc-swap = {version = "*", features = ["weak"]}
+pad = "0"
+fnv = "1"
+clap = { version = "4", features = ["derive"] }
+toml = "0"
+glob = "0"
+dirs = "4"
+rayon = "1"
+parking_lot = "0"
+dunce = "1"
+arc-swap = {version = "1", features = ["weak"]}
 
 [dev-dependencies]
-tempfile = "*"
-pretty_assertions = "*"
-assert_matches = "*"
+tempfile = "3"
+pretty_assertions = "1"
+assert_matches = "1"
 
 [features]
 default = []

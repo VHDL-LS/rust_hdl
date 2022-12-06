@@ -15,18 +15,18 @@ edition = "2021"
 
 [dependencies]
 vhdl_lang = { version = "^0.19.0", path = "../vhdl_lang"}
-serde_json = "*"
-serde = "*"
-lsp-types = "*"
-fnv = "*"
-log = "*"
-env_logger = "*"
-clap = { version = "*", features = ["derive"] }
-lsp-server = "*"
+serde_json = "1"
+serde = "1"
+lsp-types = "0"
+fnv = "1"
+log = "0"
+env_logger = "0"
+clap = { version = "4", features = ["derive"] }
+lsp-server = "0"
 
 [dev-dependencies]
-tempfile = "*"
-pretty_assertions = "*"
+tempfile = "3"
+pretty_assertions = "1"
 
 [features]
 default = []
