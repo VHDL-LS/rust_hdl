@@ -2,8 +2,8 @@ name: Crates.io
 
 on:
   push:
-    tags:
-    - '**'
+    branches:
+    - master
 
 jobs:
   publish:
@@ -12,20 +12,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - uses: actions-rs/cargo@v1.0.1
+    - uses: actions-rs/toolchain@v1
       with:
-        command: publish
-        args: --manifest-path ./vhdl_lang/Cargo.toml --token ${{ secrets.CRATES_IO_TOKEN }}
-    - uses: actions-rs/cargo@v1.0.1
+          toolchain: stable
+          override: true
+    - uses: katyo/publish-crates@v1
       with:
-        command: publish
-        args: --manifest-path ./vhdl_ls/Cargo.toml --token ${{ secrets.CRATES_IO_TOKEN }}
-
-  # A job is required when the publish job is skipped
-  skip-publish:
-    name: Skip publish
-    if: github.repository != 'VHDL-LS/rust_hdl'
-    runs-on: ubuntu-latest
-    steps:
-    - name: Report
-      run: echo Skipped action from repository ${{ github.repository }}
+          registry-token: ${{ secrets.CRATES_IO_TOKEN }}
+          ignore-unpublished-changes: true
