@@ -2,8 +2,8 @@ name: Crates.io
 
 on:
   push:
-    branches:
-    - master
+    tags:
+    - '**'
 
 jobs:
   publish:
