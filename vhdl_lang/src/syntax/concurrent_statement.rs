@@ -379,7 +379,6 @@ fn parse_generate_body_end_token(
         SemiColon => {
             // Inner end no label
             stream.move_after(&token);
-            stream.expect_kind(SemiColon)?;
             end_token = stream.expect()?;
         },
         Identifier => {
@@ -705,6 +704,7 @@ mod tests {
     use super::*;
     use crate::ast::{Alternative, AssertStatement, DelayMechanism, Selection};
     use crate::syntax::test::Code;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_concurrent_procedure() {
@@ -1405,31 +1405,88 @@ end generate;
 
     #[test]
     fn test_for_generate_empty_declarations() {
-        let code = Code::new(
-            "\
+        fn test(decl: Option<Vec<Declaration>>, code: Code) {
+            let gen = ForGenerateStatement {
+                index_name: code.s1("idx").ident(),
+                discrete_range: code.s1("0 to 1").discrete_range(),
+                body: GenerateBody {
+                    alternative_label: None,
+                    decl,
+                    statements: vec![code.s1("foo <= bar;").concurrent_statement()],
+                },
+            };
+            let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
+            assert_eq!(stmt.label, Some(code.s1("gen").ident()));
+            assert_eq!(stmt.statement, ConcurrentStatement::ForGenerate(gen));
+        }
+        test(
+            Some(vec![]),
+            Code::new(
+                "\
 gen: for idx in 0 to 1 generate
 begin
   foo <= bar;
 end generate;
 ",
+            ),
         );
-        let gen = ForGenerateStatement {
-            index_name: code.s1("idx").ident(),
-            discrete_range: code.s1("0 to 1").discrete_range(),
-            body: GenerateBody {
-                alternative_label: None,
-                decl: Some(vec![]),
-                statements: vec![code.s1("foo <= bar;").concurrent_statement()],
-            },
-        };
-        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("gen").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::ForGenerate(gen));
+
+        test(
+            None,
+            Code::new(
+                "\
+gen: for idx in 0 to 1 generate
+  foo <= bar;
+end generate;
+",
+            ),
+        );
+
+        test(
+            Some(vec![]),
+            Code::new(
+                "\
+gen: for idx in 0 to 1 generate
+begin
+  foo <= bar;
+end;
+end generate;
+",
+            ),
+        );
+
+        test(
+            Some(vec![]),
+            Code::new(
+                "\
+gen: for idx in 0 to 1 generate
+begin
+  foo <= bar;
+end alt_label;
+end generate;
+",
+            ),
+        );
     }
 
     #[test]
     fn test_for_generate_declarations() {
-        let code = Code::new(
+        fn test(code: Code) {
+            let gen = ForGenerateStatement {
+                index_name: code.s1("idx").ident(),
+                discrete_range: code.s1("0 to 1").discrete_range(),
+                body: GenerateBody {
+                    alternative_label: None,
+                    decl: Some(code.s1("signal foo : natural;").declarative_part()),
+                    statements: vec![code.s1("foo <= bar;").concurrent_statement()],
+                },
+            };
+            let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
+            assert_eq!(stmt.label, Some(code.s1("gen").ident()));
+            assert_eq!(stmt.statement, ConcurrentStatement::ForGenerate(gen));
+        }
+
+        test(Code::new(
             "\
 gen: for idx in 0 to 1 generate
   signal foo : natural;
@@ -1437,19 +1494,29 @@ begin
   foo <= bar;
 end generate;
 ",
-        );
-        let gen = ForGenerateStatement {
-            index_name: code.s1("idx").ident(),
-            discrete_range: code.s1("0 to 1").discrete_range(),
-            body: GenerateBody {
-                alternative_label: None,
-                decl: Some(code.s1("signal foo : natural;").declarative_part()),
-                statements: vec![code.s1("foo <= bar;").concurrent_statement()],
-            },
-        };
-        let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("gen").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::ForGenerate(gen));
+        ));
+
+        test(Code::new(
+            "\
+gen: for idx in 0 to 1 generate
+  signal foo : natural;
+begin
+  foo <= bar;
+end;
+end generate;
+",
+        ));
+
+        test(Code::new(
+            "\
+gen: for idx in 0 to 1 generate
+  signal foo : natural;
+begin
+  foo <= bar;
+end alt_label;
+end generate;
+",
+        ));
     }
 
     #[test]
