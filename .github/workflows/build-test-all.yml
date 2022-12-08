@@ -99,15 +99,6 @@ jobs:
           echo ::set-output name=v::${GITHUB_REF/refs\/tags\/v/}
           echo "Version is v${GITHUB_REF/refs\/tags\/v/}"
       - uses: actions/checkout@v1
-      - name: Check release notes exist
-        run: |
-          if [ -f release_notes/v${{ steps.v.outputs.v }}.md ]
-          then
-            echo "Release notes found at release_notes/v${{ steps.v.outputs.v }}.md"
-          else
-            echo "Release notes not found at release_notes/v${{ steps.v.outputs.v }}.md"
-            exit 1
-          fi
       - name: Get vhdl_lang linux
         uses: actions/download-artifact@v1
         with:
@@ -157,5 +148,4 @@ jobs:
         with:
           draft: false
           artifacts: "vhdl_lang-x86_64-unknown-linux-gnu.zip,vhdl_ls-x86_64-unknown-linux-gnu.zip,vhdl_lang-x86_64-pc-windows-msvc.zip,vhdl_ls-x86_64-pc-windows-msvc.zip"
-          bodyFile: "release_notes/v${{ steps.v.outputs.v }}.md"
           token: ${{ secrets.GITHUB_TOKEN }}
