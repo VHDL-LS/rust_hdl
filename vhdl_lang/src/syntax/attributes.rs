@@ -6,7 +6,7 @@
 
 use super::common::ParseResult;
 use super::expression::parse_expression;
-use super::names::parse_selected_name;
+use super::names::parse_type_mark;
 use super::subprogram::parse_signature;
 use super::tokens::{Kind::*, TokenStream};
 use crate::ast::{
@@ -92,7 +92,7 @@ pub fn parse_attribute(stream: &mut TokenStream) -> ParseResult<Vec<Attribute>> 
     Ok(try_token_kind!(
         token,
         Colon => {
-            let type_mark = parse_selected_name(stream)?;
+            let type_mark = parse_type_mark(stream)?;
             stream.expect_kind(SemiColon)?;
             vec![Attribute::Declaration(AttributeDeclaration {
                 ident,
@@ -133,7 +133,7 @@ mod tests {
             code.with_stream(parse_attribute),
             vec![Attribute::Declaration(AttributeDeclaration {
                 ident: code.s1("foo").ident(),
-                type_mark: code.s1("lib.name").selected_name()
+                type_mark: code.s1("lib.name").type_mark()
             })]
         )
     }

@@ -13,7 +13,9 @@ use super::declarative_part::parse_declarative_part_leave_end_token;
 use super::design_unit::{parse_design_file, parse_entity_declaration};
 use super::expression::{parse_aggregate, parse_choices, parse_expression};
 use super::interface_declaration::{parse_generic, parse_parameter, parse_port};
-use super::names::{parse_association_list, parse_designator, parse_name, parse_selected_name};
+use super::names::{
+    parse_association_list, parse_designator, parse_name, parse_selected_name, parse_type_mark,
+};
 use super::object_declaration::{parse_file_declaration, parse_object_declaration};
 use super::range::{parse_discrete_range, parse_range};
 use super::sequential_statement::parse_sequential_statement;
@@ -307,10 +309,6 @@ impl Code {
         self.parse_ok(parse_designator)
     }
 
-    pub fn designator_ref(&self) -> WithPos<WithRef<Designator>> {
-        self.parse_ok(parse_designator).into_ref()
-    }
-
     pub fn character(&self) -> WithPos<u8> {
         self.parse_ok(|stream: &mut TokenStream| stream.expect()?.expect_character())
     }
@@ -327,6 +325,10 @@ impl Code {
 
     pub fn selected_name(&self) -> WithPos<SelectedName> {
         self.parse_ok(parse_selected_name)
+    }
+
+    pub fn type_mark(&self) -> WithPos<TypeMark> {
+        self.parse_ok(parse_type_mark)
     }
 
     pub fn signature(&self) -> WithPos<Signature> {

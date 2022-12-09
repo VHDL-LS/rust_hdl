@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use super::common::ParseResult;
-use super::names::parse_selected_name;
+use super::names::{parse_selected_name, parse_type_mark, parse_type_mark_starting_with_name};
 use super::range::{parse_discrete_range, parse_range};
 use super::tokens::{Kind::*, TokenStream};
 /// LRM 6.3 Subtype declarations
@@ -185,16 +185,19 @@ pub fn parse_subtype_indication(stream: &mut TokenStream) -> ParseResult<Subtype
     let (resolution, type_mark) = {
         if stream.peek_kind()? == Some(LeftPar) {
             let resolution = parse_element_resolution_indication(stream)?;
-            let type_mark = parse_selected_name(stream)?;
+            let type_mark = parse_type_mark(stream)?;
             (resolution, type_mark)
         } else {
             let selected_name = parse_selected_name(stream)?;
             match stream.peek_kind()? {
                 Some(Identifier) => (
                     ResolutionIndication::FunctionName(selected_name),
-                    parse_selected_name(stream)?,
+                    parse_type_mark(stream)?,
                 ),
-                _ => (ResolutionIndication::Unresolved, selected_name),
+                _ => (
+                    ResolutionIndication::Unresolved,
+                    parse_type_mark_starting_with_name(stream, selected_name)?,
+                ),
             }
         }
     };
@@ -221,7 +224,7 @@ mod tests {
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: code.s1("std_logic").selected_name(),
+                type_mark: code.s1("std_logic").type_mark(),
                 constraint: None
             }
         );
@@ -234,7 +237,7 @@ mod tests {
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::FunctionName(code.s1("resolve").selected_name()),
-                type_mark: code.s1("std_logic").selected_name(),
+                type_mark: code.s1("std_logic").type_mark(),
                 constraint: None
             }
         );
@@ -247,7 +250,7 @@ mod tests {
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::ArrayElement(code.s1("resolve").selected_name()),
-                type_mark: code.s1("integer_vector").selected_name(),
+                type_mark: code.s1("integer_vector").type_mark(),
                 constraint: None
             }
         );
@@ -268,7 +271,7 @@ mod tests {
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Record(vec![elem_resolution]),
-                type_mark: code.s1("rec_t").selected_name(),
+                type_mark: code.s1("rec_t").type_mark(),
                 constraint: None
             }
         );
@@ -313,7 +316,7 @@ mod tests {
                     elem2_resolution,
                     elem3_resolution
                 ]),
-                type_mark: code.s1("rec_t").selected_name(),
+                type_mark: code.s1("rec_t").type_mark(),
                 constraint: None
             }
         );
@@ -328,7 +331,7 @@ mod tests {
                 resolution: ResolutionIndication::FunctionName(
                     code.s1("lib.foo.resolve").selected_name()
                 ),
-                type_mark: code.s1("std_logic").selected_name(),
+                type_mark: code.s1("std_logic").type_mark(),
                 constraint: None
             }
         );
@@ -342,7 +345,7 @@ mod tests {
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: code.s1("lib.foo.bar").selected_name(),
+                type_mark: code.s1("lib.foo.bar").type_mark(),
                 constraint: None
             }
         );
@@ -361,7 +364,7 @@ mod tests {
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: code.s1("integer").selected_name(),
+                type_mark: code.s1("integer").type_mark(),
                 constraint: Some(constraint)
             }
         );
@@ -380,7 +383,7 @@ mod tests {
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: code.s1("integer").selected_name(),
+                type_mark: code.s1("integer").type_mark(),
                 constraint: Some(constraint)
             }
         );
@@ -399,7 +402,7 @@ mod tests {
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: code.s1("integer_vector").selected_name(),
+                type_mark: code.s1("integer_vector").type_mark(),
                 constraint: Some(constraint)
             }
         );
@@ -418,7 +421,7 @@ mod tests {
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: code.s1("integer_vector").selected_name(),
+                type_mark: code.s1("integer_vector").type_mark(),
                 constraint: Some(constraint)
             }
         );
@@ -437,7 +440,7 @@ mod tests {
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: code.s1("integer_vector").selected_name(),
+                type_mark: code.s1("integer_vector").type_mark(),
                 constraint: Some(constraint)
             }
         );
@@ -453,7 +456,7 @@ mod tests {
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: code.s1("integer_vector").selected_name(),
+                type_mark: code.s1("integer_vector").type_mark(),
                 constraint: Some(constraint)
             }
         );
@@ -478,7 +481,7 @@ mod tests {
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: code.s1("integer_vector").selected_name(),
+                type_mark: code.s1("integer_vector").type_mark(),
                 constraint: Some(constraint)
             }
         );
@@ -508,7 +511,7 @@ mod tests {
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: code.s1("integer_vector").selected_name(),
+                type_mark: code.s1("integer_vector").type_mark(),
                 constraint: Some(constraint)
             }
         );
@@ -538,11 +541,36 @@ mod tests {
             code.with_stream(parse_subtype_indication),
             SubtypeIndication {
                 resolution: ResolutionIndication::Unresolved,
-                type_mark: code.s1("axi_m2s_t").selected_name(),
+                type_mark: code.s1("axi_m2s_t").type_mark(),
                 constraint: Some(WithPos::new(
                     SubtypeConstraint::Record(vec![tdata_constraint, tuser_constraint]),
                     code.s1("(tdata(2-1 downto 0), tuser(3 to 5))")
                 ))
+            }
+        );
+    }
+
+    #[test]
+    fn test_subtype_indication_with_subtype_attribute() {
+        let code = Code::new("obj'subtype");
+
+        assert_eq!(
+            code.with_stream(parse_subtype_indication),
+            SubtypeIndication {
+                resolution: ResolutionIndication::Unresolved,
+                type_mark: code.s1("obj'subtype").type_mark(),
+                constraint: None
+            }
+        );
+
+        let code = Code::new("obj.field'subtype");
+
+        assert_eq!(
+            code.with_stream(parse_subtype_indication),
+            SubtypeIndication {
+                resolution: ResolutionIndication::Unresolved,
+                type_mark: code.s1("obj.field'subtype").type_mark(),
+                constraint: None
             }
         );
     }

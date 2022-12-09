@@ -235,8 +235,8 @@ pub enum Allocator {
 /// LRM 9.3.5 Qualified expressions
 #[derive(PartialEq, Debug, Clone)]
 pub struct QualifiedExpression {
-    pub name: Box<WithPos<Name>>,
-    pub expr: Box<WithPos<Expression>>,
+    pub type_mark: WithPos<TypeMark>,
+    pub expr: WithPos<Expression>,
 }
 
 /// LRM 9. Expressions
@@ -326,11 +326,18 @@ pub enum ResolutionIndication {
     Unresolved,
 }
 
+#[derive(PartialEq, Debug, Clone)]
+pub struct TypeMark {
+    pub name: WithPos<SelectedName>,
+    // Is the 'subtype attribute of the selected name
+    pub subtype: bool,
+}
+
 /// LRM 6.3 Subtype declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct SubtypeIndication {
     pub resolution: ResolutionIndication,
-    pub type_mark: WithPos<SelectedName>,
+    pub type_mark: WithPos<TypeMark>,
     pub constraint: Option<WithPos<SubtypeConstraint>>,
 }
 
@@ -396,7 +403,7 @@ pub struct AliasDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct AttributeDeclaration {
     pub ident: Ident,
-    pub type_mark: WithPos<SelectedName>,
+    pub type_mark: WithPos<TypeMark>,
 }
 
 /// LRM 7.2 Attribute specification

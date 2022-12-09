@@ -18,6 +18,10 @@ impl<'a> TokenStream<'a> {
         TokenStream { tokenizer }
     }
 
+    pub fn subtype_sym(&self) -> &Symbol {
+        self.tokenizer.subtype_sym()
+    }
+
     pub fn range_sym(&self) -> &Symbol {
         self.tokenizer.range_sym()
     }
@@ -134,12 +138,15 @@ impl<'a> TokenStream<'a> {
         token.expect_ident()
     }
 
-    /// Expect identifier or range keyword
-    pub fn expect_ident_or_range(&mut self) -> DiagnosticResult<Ident> {
+    /// Expect identifier or subtype/range keywords
+    /// foo'subtype or foo'range
+    pub fn expect_attribute_designator(&mut self) -> DiagnosticResult<Ident> {
         let token = self.expect()?;
         match_token_kind!(
             token,
             Identifier => token.expect_ident(),
+            Subtype => Ok(Ident {item: self.tokenizer.subtype_sym().clone(),
+                                 pos: token.pos}),
             Range => Ok(Ident {item: self.range_sym().clone(),
                                pos: token.pos})
         )

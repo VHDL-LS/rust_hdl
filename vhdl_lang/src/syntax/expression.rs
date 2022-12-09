@@ -5,12 +5,12 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use super::common::ParseResult;
-use super::names::{parse_name_initial_token, parse_selected_name};
+use super::names::{parse_name_initial_token, parse_type_mark};
 use super::subtype_indication::parse_subtype_constraint;
 use super::tokens::{Kind, Kind::*, Token, TokenStream};
 use crate::ast;
 use crate::ast::*;
-use crate::data::{Diagnostic, WithPos};
+use crate::data::{Diagnostic, Symbol, WithPos};
 
 fn name_to_expression(name: WithPos<Name>) -> WithPos<Expression> {
     WithPos {
@@ -194,21 +194,17 @@ pub fn parse_choices(stream: &mut TokenStream) -> ParseResult<Vec<Choice>> {
 
 /// LRM 9.3.7 Allocators
 fn parse_allocator(stream: &mut TokenStream) -> ParseResult<WithPos<Allocator>> {
-    let selected_name = parse_selected_name(stream)?;
+    let type_mark = parse_type_mark(stream)?;
 
     if stream.skip_if_kind(Tick)? {
         let expr = parse_expression(stream)?;
-        let name: WithPos<Name> = selected_name.into();
-        let pos = name.pos.clone().combine_into(&expr);
+        let pos = type_mark.pos.clone().combine_into(&expr);
         Ok(WithPos {
-            item: Allocator::Qualified(QualifiedExpression {
-                name: Box::new(name),
-                expr: Box::new(expr),
-            }),
+            item: Allocator::Qualified(QualifiedExpression { type_mark, expr }),
             pos,
         })
     } else {
-        let mut pos = selected_name.pos.clone();
+        let mut pos = type_mark.pos.clone();
 
         let constraint = {
             if let Some(constraint) = parse_subtype_constraint(stream)? {
@@ -221,7 +217,7 @@ fn parse_allocator(stream: &mut TokenStream) -> ParseResult<WithPos<Allocator>> 
 
         let subtype = SubtypeIndication {
             resolution: ResolutionIndication::Unresolved,
-            type_mark: selected_name,
+            type_mark,
             constraint,
         };
 
@@ -229,6 +225,42 @@ fn parse_allocator(stream: &mut TokenStream) -> ParseResult<WithPos<Allocator>> 
             item: Allocator::Subtype(subtype),
             pos,
         })
+    }
+}
+
+fn name_to_type_mark(name: WithPos<Name>, subtype_sym: &Symbol) -> ParseResult<WithPos<TypeMark>> {
+    let pos = name.pos.clone();
+    let type_mark = name
+        .try_map_into(|name| match name {
+            Name::Attribute(attr) => {
+                if attr.signature.is_none() && attr.expr.is_none() && attr.attr.item == *subtype_sym
+                {
+                    Some(TypeMark {
+                        name: attr.name.try_map_into(name_to_selected_name)?,
+                        subtype: true,
+                    })
+                } else {
+                    None
+                }
+            }
+            _ => Some(TypeMark {
+                name: WithPos::from(name_to_selected_name(name)?, pos.clone()),
+                subtype: false,
+            }),
+        })
+        .ok_or_else(|| Diagnostic::error(&pos, "Expected type mark"))?;
+
+    Ok(type_mark)
+}
+
+fn name_to_selected_name(name: Name) -> Option<SelectedName> {
+    match name {
+        Name::Designator(d) => Some(SelectedName::Designator(d)),
+        Name::Selected(p, d) => Some(SelectedName::Selected(
+            Box::new(p.try_map_into(name_to_selected_name)?),
+            d,
+        )),
+        _ => None,
     }
 }
 
@@ -248,8 +280,8 @@ fn parse_primary_initial_token(
                 let pos = name.pos.combine(&expr);
                 Ok(WithPos {
                     item: Expression::Qualified(Box::new(QualifiedExpression {
-                        name: Box::new(name),
-                        expr: Box::new(expr),
+                        type_mark: name_to_type_mark(name, stream.subtype_sym())?,
+                        expr,
                     })),
                     pos,
                 })
@@ -612,17 +644,11 @@ mod tests {
     #[test]
     fn parses_new_allocator_qualified() {
         let code = Code::new("new integer_vector'(0, 1)");
-        let vec_name = code
-            .s1("integer_vector")
-            .designator_ref()
-            .map_into(Name::Designator);
+        let type_mark = code.s1("integer_vector").type_mark();
         let expr = code.s1("(0, 1)").expr();
 
         let alloc = WithPos {
-            item: Allocator::Qualified(QualifiedExpression {
-                name: Box::new(vec_name),
-                expr: Box::new(expr),
-            }),
+            item: Allocator::Qualified(QualifiedExpression { type_mark, expr }),
             pos: code.s1("integer_vector'(0, 1)").pos(),
         };
 
@@ -755,14 +781,11 @@ mod tests {
     #[test]
     fn parses_qualified_expression() {
         let code = Code::new("foo'(1+2)");
-        let foo_name = code.s1("foo").designator_ref().map_into(Name::Designator);
+        let type_mark = code.s1("foo").type_mark();
         let expr = code.s1("(1+2)").expr();
 
         let qexpr = WithPos {
-            item: Expression::Qualified(Box::new(QualifiedExpression {
-                name: Box::new(foo_name),
-                expr: Box::new(expr),
-            })),
+            item: Expression::Qualified(Box::new(QualifiedExpression { type_mark, expr })),
             pos: code.pos(),
         };
 
@@ -772,14 +795,11 @@ mod tests {
     #[test]
     fn parses_qualified_aggregate() {
         let code = Code::new("foo'(others => '1')");
-        let foo_name = code.s1("foo").designator_ref().map_into(Name::Designator);
+        let type_mark = code.s1("foo").type_mark();
         let expr = code.s1("(others => '1')").expr();
 
         let qexpr = WithPos {
-            item: Expression::Qualified(Box::new(QualifiedExpression {
-                name: Box::new(foo_name),
-                expr: Box::new(expr),
-            })),
+            item: Expression::Qualified(Box::new(QualifiedExpression { type_mark, expr })),
             pos: code.pos(),
         };
 

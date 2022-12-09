@@ -208,53 +208,76 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    pub fn resolve_non_overloaded(
+    pub fn resolve_non_overloaded_with_kind(
         &self,
         named_entities: NamedEntities,
         pos: &SrcPos,
         kind_ok: &impl Fn(&NamedEntityKind) -> bool,
         expected: &str,
     ) -> AnalysisResult<Arc<NamedEntity>> {
-        match named_entities.into_non_overloaded() {
-            Ok(ent) => {
-                if kind_ok(ent.actual_kind()) {
-                    Ok(ent)
-                } else {
-                    let mut error = Diagnostic::error(
-                        pos,
-                        format!("Expected {}, got {}", expected, ent.describe()),
-                    );
-                    if let Some(decl_pos) = ent.decl_pos() {
-                        error.add_related(decl_pos, "Defined here");
-                    }
-                    Err(AnalysisError::NotFatal(error))
-                }
-            }
-            Err(overloaded) => {
-                let mut error =
-                    Diagnostic::error(pos, format!("Expected {}, got overloaded name", expected));
-                for ent in overloaded.entities() {
-                    if let Some(decl_pos) = ent.decl_pos() {
-                        error.add_related(decl_pos, "Defined here");
-                    }
-                }
-                Err(AnalysisError::NotFatal(error))
-            }
+        let ent = self.resolve_non_overloaded(named_entities, pos, expected)?;
+        if kind_ok(ent.actual_kind()) {
+            Ok(ent)
+        } else {
+            Err(AnalysisError::NotFatal(ent.kind_error(pos, expected)))
         }
     }
 
-    pub fn resolve_type_mark(
+    pub fn resolve_non_overloaded(
+        &self,
+        named_entities: NamedEntities,
+        pos: &SrcPos,
+        expected: &str,
+    ) -> AnalysisResult<Arc<NamedEntity>> {
+        named_entities.into_non_overloaded().map_err(|overloaded| {
+            let mut error =
+                Diagnostic::error(pos, format!("Expected {}, got overloaded name", expected));
+            for ent in overloaded.entities() {
+                if let Some(decl_pos) = ent.decl_pos() {
+                    error.add_related(decl_pos, "Defined here");
+                }
+            }
+            AnalysisError::NotFatal(error)
+        })
+    }
+
+    pub fn resolve_type_mark_name(
         &self,
         region: &Region<'_>,
         type_mark: &mut WithPos<SelectedName>,
     ) -> AnalysisResult<Arc<NamedEntity>> {
         let entities = self.resolve_selected_name(region, type_mark)?;
-        self.resolve_non_overloaded(
+        self.resolve_non_overloaded_with_kind(
             entities,
             type_mark.suffix_pos(),
             &NamedEntityKind::is_type,
             "type",
         )
+    }
+
+    pub fn resolve_type_mark(
+        &self,
+        region: &Region<'_>,
+        type_mark: &mut WithPos<TypeMark>,
+    ) -> AnalysisResult<Arc<NamedEntity>> {
+        if !type_mark.item.subtype {
+            self.resolve_type_mark_name(region, &mut type_mark.item.name)
+        } else {
+            let entities = self.resolve_selected_name(region, &mut type_mark.item.name)?;
+
+            let pos = type_mark.item.name.suffix_pos();
+            let expected = "object or alias";
+            let named_entity = self.resolve_non_overloaded(entities, pos, expected)?;
+
+            match named_entity.kind() {
+                NamedEntityKind::Object(obj) => Ok(obj.subtype.type_mark().clone()),
+                NamedEntityKind::ObjectAlias { type_mark, .. } => Ok(type_mark.clone()),
+                NamedEntityKind::ElementDeclaration(subtype) => Ok(subtype.type_mark().clone()),
+                _ => Err(AnalysisError::NotFatal(
+                    named_entity.kind_error(pos, expected),
+                )),
+            }
+        }
     }
 
     fn analyze_attribute_name(
@@ -310,7 +333,7 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalNullResult {
         match drange {
             DiscreteRange::Discrete(ref mut type_mark, ref mut range) => {
-                if let Err(err) = self.resolve_type_mark(region, type_mark) {
+                if let Err(err) = self.resolve_type_mark_name(region, type_mark) {
                     err.add_to(diagnostics)?;
                 }
                 if let Some(ref mut range) = range {
@@ -438,28 +461,15 @@ impl<'a> AnalyzeContext<'a> {
         qexpr: &mut QualifiedExpression,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        let QualifiedExpression { name, expr } = qexpr;
-        let entities = self.resolve_name(region, &name.pos, &mut name.item, diagnostics)?;
+        let QualifiedExpression { type_mark, expr } = qexpr;
 
-        if let Some(entities) = entities {
-            match self.resolve_non_overloaded(
-                entities,
-                &name.pos,
-                &NamedEntityKind::is_type,
-                "type",
-            ) {
-                Ok(target_type) => {
-                    self.analyze_expression_with_target_type(
-                        region,
-                        &target_type,
-                        expr,
-                        diagnostics,
-                    )?;
-                    return Ok(());
-                }
-                Err(err) => {
-                    err.add_to(diagnostics)?;
-                }
+        match self.resolve_type_mark(region, type_mark) {
+            Ok(target_type) => {
+                self.analyze_expression_with_target_type(region, &target_type, expr, diagnostics)?;
+                return Ok(());
+            }
+            Err(e) => {
+                e.add_to(diagnostics)?;
             }
         }
 
@@ -961,6 +971,19 @@ fn ambiguous_overloaded_type(
     }
 
     diagnostic
+}
+
+impl NamedEntity {
+    fn kind_error(&self, pos: &SrcPos, expected: &str) -> Diagnostic {
+        let mut error = Diagnostic::error(
+            pos,
+            format!("Expected {}, got {}", expected, self.describe()),
+        );
+        if let Some(decl_pos) = self.decl_pos() {
+            error.add_related(decl_pos, "Defined here");
+        }
+        error
+    }
 }
 
 fn overloaded_type_mismatch(pos: &SrcPos, name: &Name, expected_type: &NamedEntity) -> Diagnostic {

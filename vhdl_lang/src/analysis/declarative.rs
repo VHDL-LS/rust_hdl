@@ -682,7 +682,7 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             TypeDefinition::File(ref mut type_mark) => {
-                if let Err(err) = self.resolve_type_mark(parent, type_mark) {
+                if let Err(err) = self.resolve_type_mark_name(parent, type_mark) {
                     err.add_to(diagnostics)?;
                 }
 
@@ -836,15 +836,15 @@ impl<'a> AnalyzeContext<'a> {
             ast::Signature::Function(ref mut args, ref mut ret) => {
                 let args: Vec<_> = args
                     .iter_mut()
-                    .map(|arg| self.resolve_type_mark(region, arg))
+                    .map(|arg| self.resolve_type_mark_name(region, arg))
                     .collect();
-                let return_type = self.resolve_type_mark(region, ret);
+                let return_type = self.resolve_type_mark_name(region, ret);
                 (args, Some(return_type))
             }
             ast::Signature::Procedure(args) => {
                 let args: Vec<_> = args
                     .iter_mut()
-                    .map(|arg| self.resolve_type_mark(region, arg))
+                    .map(|arg| self.resolve_type_mark_name(region, arg))
                     .collect();
                 (args, None)
             }
@@ -999,7 +999,7 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalNullResult {
         match array_index {
             ArrayIndex::IndexSubtypeDefintion(ref mut type_mark) => {
-                if let Err(err) = self.resolve_type_mark(region, type_mark) {
+                if let Err(err) = self.resolve_type_mark_name(region, type_mark) {
                     err.add_to(diagnostics)?;
                 }
             }
@@ -1091,7 +1091,7 @@ impl<'a> AnalyzeContext<'a> {
             SubprogramDeclaration::Function(fun) => {
                 let params =
                     self.analyze_parameter_list(region, &mut fun.parameter_list, diagnostics);
-                let return_type = self.resolve_type_mark(region, &mut fun.return_type);
+                let return_type = self.resolve_type_mark_name(region, &mut fun.return_type);
                 Ok(Signature::new(params?, Some(return_type?)))
             }
             SubprogramDeclaration::Procedure(procedure) => {

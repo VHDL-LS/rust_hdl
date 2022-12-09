@@ -602,6 +602,13 @@ impl Search for SubtypeIndication {
     }
 }
 
+impl Search for WithPos<TypeMark> {
+    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+        return_if_finished!(searcher.search_with_pos(&self.pos));
+        self.item.name.search(searcher)
+    }
+}
+
 impl Search for RangeConstraint {
     fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
         let RangeConstraint {
@@ -792,8 +799,8 @@ impl Search for ElementAssociation {
 
 impl Search for QualifiedExpression {
     fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
-        let QualifiedExpression { name, expr } = self;
-        return_if_found!(name.search(searcher));
+        let QualifiedExpression { type_mark, expr } = self;
+        return_if_found!(type_mark.search(searcher));
         return_if_found!(expr.search(searcher));
         NotFound
     }

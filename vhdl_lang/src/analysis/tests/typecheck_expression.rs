@@ -347,3 +347,23 @@ constant bar : natural := foo(arg => 0);
         )],
     );
 }
+
+#[test]
+fn test_typechecks_expression_for_type_mark_with_subtype_attribute() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+signal sig0 : integer_vector(0 to 7);
+signal sig1 : sig0'subtype := false;
+signal sig2 : sig0'subtype := (others => 0); -- ok
+",
+    );
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("false"),
+            "'false' does not match array type 'INTEGER_VECTOR'",
+        )],
+    );
+}

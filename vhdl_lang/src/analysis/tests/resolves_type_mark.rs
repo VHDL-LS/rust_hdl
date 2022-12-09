@@ -404,7 +404,28 @@ constant foo : natural := bar'(0);
 }
 
 #[test]
-fn error_on_type_mark_ok() {
+fn test_type_mark_with_subtype_attribute_is_ok() {
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "
+signal sig0 : integer_vector(0 to 7);
+
+type rec_t is record
+    field: integer_vector(0 to 7);
+end record;
+signal rec : rec_t;
+
+attribute attr : sig0'subtype;
+signal sig1 : sig0'subtype;
+signal sig2 : rec.field'subtype;   
+",
+    );
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn check_good_type_marks() {
     check_code_with_no_diagnostics(
         "
 package gpkg is

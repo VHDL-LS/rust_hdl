@@ -198,7 +198,7 @@ impl<'a> AnalyzeContext<'a> {
                 if let Err(err) =
                     self.resolve_selected_name(parent, entity_name)
                         .and_then(|entities| {
-                            self.resolve_non_overloaded(
+                            self.resolve_non_overloaded_with_kind(
                                 entities,
                                 entity_name.suffix_pos(),
                                 &is_entity,
@@ -217,7 +217,7 @@ impl<'a> AnalyzeContext<'a> {
                 if let Err(err) =
                     self.resolve_selected_name(parent, component_name)
                         .and_then(|entities| {
-                            self.resolve_non_overloaded(
+                            self.resolve_non_overloaded_with_kind(
                                 entities,
                                 component_name.suffix_pos(),
                                 &is_component,
@@ -236,7 +236,7 @@ impl<'a> AnalyzeContext<'a> {
                 if let Err(err) =
                     self.resolve_selected_name(parent, config_name)
                         .and_then(|entities| {
-                            self.resolve_non_overloaded(
+                            self.resolve_non_overloaded_with_kind(
                                 entities,
                                 config_name.suffix_pos(),
                                 &is_configuration,

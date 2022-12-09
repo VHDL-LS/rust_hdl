@@ -285,8 +285,8 @@ impl Display for Allocator {
 impl Display for QualifiedExpression {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self.expr.item {
-            Expression::Aggregate(..) => write!(f, "{}'{}", self.name, self.expr),
-            _ => write!(f, "{}'({})", self.name, self.expr),
+            Expression::Aggregate(..) => write!(f, "{}'{}", self.type_mark, self.expr),
+            _ => write!(f, "{}'({})", self.type_mark, self.expr),
         }
     }
 }
@@ -572,6 +572,16 @@ impl Display for SubtypeIndication {
             Some(ref constraint) => write!(f, "{}", constraint),
             None => Ok(()),
         }
+    }
+}
+
+impl Display for TypeMark {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{}", self.name)?;
+        if self.subtype {
+            write!(f, "'subtype")?;
+        }
+        Ok(())
     }
 }
 

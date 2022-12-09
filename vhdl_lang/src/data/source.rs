@@ -5,7 +5,6 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use super::contents::Contents;
-use super::diagnostic::{Diagnostic, DiagnosticResult};
 use parking_lot::{RwLock, RwLockReadGuard};
 use std::cmp::{max, min};
 use std::collections::hash_map::DefaultHasher;
@@ -304,17 +303,14 @@ impl<T> WithPos<T> {
         }
     }
 
-    pub fn try_map_into<F, U>(self, f: F) -> DiagnosticResult<WithPos<U>>
+    pub fn try_map_into<F, U>(self, f: F) -> Option<WithPos<U>>
     where
-        F: FnOnce(T) -> Result<U, String>,
+        F: FnOnce(T) -> Option<U>,
     {
-        match f(self.item) {
-            Ok(item) => Ok(WithPos {
-                item,
-                pos: self.pos,
-            }),
-            Err(msg) => Err(Diagnostic::error(&self.pos, msg)),
-        }
+        Some(WithPos {
+            item: f(self.item)?,
+            pos: self.pos,
+        })
     }
 
     pub fn combine_pos_with(self, other: &dyn AsRef<SrcPos>) -> Self {

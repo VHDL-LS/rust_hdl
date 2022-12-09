@@ -39,6 +39,42 @@ pub fn parse_selected_name(stream: &mut TokenStream) -> ParseResult<WithPos<Sele
     Ok(name)
 }
 
+pub fn parse_type_mark(stream: &mut TokenStream) -> ParseResult<WithPos<TypeMark>> {
+    let name = parse_selected_name(stream)?;
+    parse_type_mark_starting_with_name(stream, name)
+}
+
+pub fn parse_type_mark_starting_with_name(
+    stream: &mut TokenStream,
+    name: WithPos<SelectedName>,
+) -> ParseResult<WithPos<TypeMark>> {
+    let state = stream.state();
+
+    // Check if it is a type mark with a subtype attribute:
+    // Example: signal sig0 : sig1'subtype;
+    if stream.pop_if_kind(Tick)?.is_some() {
+        let subtype_token = stream.expect()?;
+        if subtype_token.kind == Subtype {
+            return Ok(WithPos {
+                pos: subtype_token.pos.combine_into(&name.pos),
+                item: TypeMark {
+                    name,
+                    subtype: true,
+                },
+            });
+        };
+        stream.set_state(state);
+    };
+
+    Ok(WithPos {
+        pos: name.pos.clone(),
+        item: TypeMark {
+            name,
+            subtype: false,
+        },
+    })
+}
+
 pub fn into_selected_name(name: WithPos<Name>) -> ParseResult<WithPos<SelectedName>> {
     match name.item {
         Name::Selected(prefix, suffix) => {
@@ -193,7 +229,7 @@ fn parse_attribute_name(
     name: WithPos<Name>,
     signature: Option<WithPos<Signature>>,
 ) -> ParseResult<WithPos<Name>> {
-    let attr = stream.expect_ident_or_range()?;
+    let attr = stream.expect_attribute_designator()?;
 
     let (expression, pos) = {
         if stream.skip_if_kind(LeftPar)? {
@@ -640,6 +676,61 @@ mod tests {
             pos: code.s1("prefix'range").pos(),
         };
         assert_eq!(code.with_stream(parse_name), attr);
+    }
+
+    #[test]
+    fn test_attribute_name_subtype() {
+        let code = Code::new("prefix'subtype");
+        let prefix = WithPos {
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
+            pos: code.s1("prefix").pos(),
+        };
+        let attr = WithPos {
+            item: Name::Attribute(Box::new(AttributeName {
+                name: prefix,
+                attr: WithPos {
+                    item: code.symbol("subtype"),
+                    pos: code.s1("subtype").pos(),
+                },
+                signature: None,
+                expr: None,
+            })),
+            pos: code.s1("prefix'subtype").pos(),
+        };
+        assert_eq!(code.with_stream(parse_name), attr);
+    }
+
+    #[test]
+    fn test_type_mark_without_subtype() {
+        let code = Code::new("prefix");
+        let name = code.s1("prefix").selected_name();
+
+        assert_eq!(
+            code.with_stream(parse_type_mark),
+            WithPos {
+                pos: name.pos.clone(),
+                item: TypeMark {
+                    name,
+                    subtype: false
+                },
+            }
+        );
+    }
+
+    #[test]
+    fn test_type_mark_with_subtype() {
+        let code = Code::new("prefix'subtype");
+
+        assert_eq!(
+            code.with_stream(parse_type_mark),
+            WithPos {
+                pos: code.pos(),
+                item: TypeMark {
+                    name: code.s1("prefix").selected_name(),
+                    subtype: true
+                },
+            }
+        );
     }
 
     #[test]
