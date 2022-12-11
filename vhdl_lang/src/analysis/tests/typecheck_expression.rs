@@ -94,6 +94,26 @@ constant good_b : time := 2 ps;
 }
 
 #[test]
+fn test_string_literal_expression() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+signal good : string(1 to 3) := \"101\";
+signal bad : natural := \"110\";
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("\"110\""),
+            "string literal does not match subtype 'NATURAL'",
+        )],
+    )
+}
+
+#[test]
 fn test_integer_selected_name_expression_typecheck() {
     let mut builder = LibraryBuilder::new();
     let code = builder.in_declarative_region(

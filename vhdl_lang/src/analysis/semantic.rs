@@ -832,6 +832,15 @@ impl<'a> AnalyzeContext<'a> {
                             ));
                         }
                     },
+                    Literal::String(_) => {
+                        if matches!(target_base.kind(), NamedEntityKind::IntegerType(..)) {
+                            diagnostics.push(Diagnostic::error(
+                                expr,
+                                format!("string literal does not match {}", target_type.describe()),
+                            ));
+                        }
+                    }
+
                     _ => {}
                 }
 
