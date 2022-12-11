@@ -1421,7 +1421,7 @@ end architecture;
 }
 
 #[test]
-fn incomplete_acccess_type_of_record_can_be_selected() {
+fn incomplete_access_type_of_record_can_be_selected() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(
         "libname",

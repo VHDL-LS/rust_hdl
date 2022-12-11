@@ -39,6 +39,27 @@ constant bad_b : my_bool := 4;
 }
 
 #[test]
+fn test_integer_literal_with_alias() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+alias alias_t is integer;
+constant good : alias_t := 1;
+constant bad : alias_t := false;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("false"),
+            "'false' does not match alias 'alias_t'",
+        )],
+    );
+}
+
+#[test]
 fn test_character_literal_expression() {
     let mut builder = LibraryBuilder::new();
     let code = builder.in_declarative_region(

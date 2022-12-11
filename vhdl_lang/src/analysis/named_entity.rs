@@ -8,21 +8,97 @@ use crate::ast::*;
 use crate::data::*;
 use arc_swap::ArcSwapWeak;
 use fnv::FnvHashMap;
+use std::borrow::Borrow;
+use std::ops::Deref;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Weak};
+
+pub enum Type {
+    // Some types have an optional list of implicit declarations
+    // Use Weak reference since implicit declaration typically reference the type itself
+    Array {
+        implicit: Vec<Weak<NamedEntity>>,
+        // Indexes are Option<> to handle unknown types
+        indexes: Vec<Option<Arc<NamedEntity>>>,
+        elem_type: TypeEnt,
+    },
+    Enum(FnvHashMap<Designator, Weak<NamedEntity>>),
+    Integer(Vec<Weak<NamedEntity>>),
+    Physical(Vec<Weak<NamedEntity>>),
+    Access(Subtype),
+    Record(Arc<Region<'static>>),
+    // Weak references since incomplete access types can create cycles
+    // The reference is for the full type which is filled in after creation
+    Incomplete(ArcSwapWeak<NamedEntity>),
+    Subtype(Subtype),
+    // The region of the protected type which needs to be extendend by the body
+    Protected(Arc<Region<'static>>),
+    File(Vec<Weak<NamedEntity>>),
+    Interface,
+    Alias(TypeEnt),
+}
+
+impl Type {
+    pub fn implicit_declarations(&self) -> Vec<Arc<NamedEntity>> {
+        let weak = match self {
+            Type::Array { ref implicit, .. } => implicit,
+            Type::Enum(ref implicit) => {
+                return implicit
+                    .values()
+                    // We expect the implicit declarations to live as long as the type so unwrap
+                    .map(|ent| ent.upgrade().unwrap())
+                    .collect();
+            }
+            Type::Integer(ref implicit) => implicit,
+            Type::Physical(ref implicit) => implicit,
+            Type::File(ref implicit) => implicit,
+            Type::Incomplete(..)
+            | Type::Interface
+            | Type::Access(..)
+            | Type::Protected(..)
+            | Type::Record(..)
+            | Type::Subtype(..)
+            | Type::Alias(..) => {
+                return Vec::new();
+            }
+        };
+
+        weak.iter()
+            // We expect the implicit declarations to live as long as the type so unwrap
+            .map(|ent| ent.upgrade().unwrap())
+            .collect()
+    }
+
+    pub fn describe(&self) -> &str {
+        match self {
+            Type::Alias(..) => "alias",
+            Type::Record(..) => "record type",
+            Type::Array { .. } => "array type",
+            Type::Enum(..) => "type",
+            Type::Integer(..) => "integer type",
+            Type::Physical(..) => "physical type",
+            Type::Access(..) => "access type",
+            Type::Subtype(..) => "subtype",
+            Type::Incomplete(..) => "type",
+            Type::Interface => "type",
+            Type::File(..) => "file type",
+            Type::Protected(..) => "protected type",
+        }
+    }
+}
 
 pub enum NamedEntityKind {
     NonObjectAlias(Arc<NamedEntity>),
     ExternalAlias {
         class: ExternalObjectClass,
-        type_mark: Arc<NamedEntity>,
+        type_mark: TypeEnt,
     },
     ObjectAlias {
         base_object: ObjectEnt,
-        type_mark: Arc<NamedEntity>,
+        type_mark: TypeEnt,
     },
     File,
-    InterfaceFile(Arc<NamedEntity>),
+    InterfaceFile(TypeEnt),
     Component,
     Attribute,
     SubprogramDecl(Signature),
@@ -30,30 +106,13 @@ pub enum NamedEntityKind {
     EnumLiteral(Signature),
     // An optional list of implicit declarations
     // Use Weak reference since implicit declaration typically reference the type itself
-    TypeDeclaration(Vec<Weak<NamedEntity>>),
-    // Indexes are Option<> to handle unknown types
-    ArrayType {
-        implicit: Vec<Weak<NamedEntity>>,
-        indexes: Vec<Option<Arc<NamedEntity>>>,
-        elem_type: Arc<NamedEntity>,
-    },
-    EnumType(FnvHashMap<Designator, Weak<NamedEntity>>),
-    IntegerType(Vec<Weak<NamedEntity>>),
-    AccessType(Subtype),
-    RecordType(Arc<Region<'static>>),
+    Type(Type),
     ElementDeclaration(Subtype),
-    Subtype(Subtype),
-    // Weak references since incomplete access types can create cycles
-    // The reference is for the full type which is filled in after creation
-    IncompleteType(ArcSwapWeak<NamedEntity>),
-    InterfaceType,
     Label,
     Object(Object),
     LoopParameter,
-    PhysicalLiteral(Arc<NamedEntity>),
+    PhysicalLiteral(TypeEnt),
     DeferredConstant(Subtype),
-    // The region of the protected type which needs to be extendend by the body
-    ProtectedType(Arc<Region<'static>>),
     Library,
     Entity(Arc<Region<'static>>),
     Configuration(Arc<Region<'static>>),
@@ -81,46 +140,18 @@ impl NamedEntityKind {
     }
 
     pub fn is_protected_type(&self) -> bool {
-        matches!(self, NamedEntityKind::ProtectedType(..))
+        matches!(self, NamedEntityKind::Type(Type::Protected(..)))
     }
 
     pub fn is_type(&self) -> bool {
-        matches!(
-            self,
-            NamedEntityKind::IncompleteType(..)
-                | NamedEntityKind::ProtectedType(..)
-                | NamedEntityKind::InterfaceType
-                | NamedEntityKind::Subtype(..)
-                | NamedEntityKind::TypeDeclaration(..)
-                | NamedEntityKind::ArrayType { .. }
-                | NamedEntityKind::EnumType(..)
-                | NamedEntityKind::IntegerType(..)
-                | NamedEntityKind::AccessType(..)
-                | NamedEntityKind::RecordType(..)
-        )
+        matches!(self, NamedEntityKind::Type(..))
     }
 
     pub fn implicit_declarations(&self) -> Vec<Arc<NamedEntity>> {
-        let weak = match self {
-            NamedEntityKind::TypeDeclaration(ref implicit) => implicit,
-            NamedEntityKind::ArrayType { ref implicit, .. } => implicit,
-            NamedEntityKind::EnumType(ref implicit) => {
-                return implicit
-                    .values()
-                    // We expect the implicit declarations to live as long as the type so unwrap
-                    .map(|ent| ent.upgrade().unwrap())
-                    .collect();
-            }
-            NamedEntityKind::IntegerType(ref implicit) => implicit,
-            _ => {
-                return Vec::new();
-            }
-        };
-
-        weak.iter()
-            // We expect the implicit declarations to live as long as the type so unwrap
-            .map(|ent| ent.upgrade().unwrap())
-            .collect()
+        match self {
+            NamedEntityKind::Type(typ) => typ.implicit_declarations(),
+            _ => Vec::new(),
+        }
     }
 
     pub fn describe(&self) -> &str {
@@ -132,7 +163,6 @@ impl NamedEntityKind {
             File => "file",
             InterfaceFile(..) => "file",
             ElementDeclaration(..) => "element declaration",
-            RecordType(..) => "record type",
             Component => "component",
             Attribute => "attribute",
             SubprogramDecl(signature) | Subprogram(signature) => {
@@ -143,20 +173,11 @@ impl NamedEntityKind {
                 }
             }
             EnumLiteral(..) => "enum literal",
-            TypeDeclaration(..) => "type",
-            ArrayType { .. } => "array type",
-            EnumType(..) => "type",
-            IntegerType(..) => "integer type",
-            AccessType(..) => "access type",
-            Subtype(..) => "subtype",
-            IncompleteType(..) => "type",
-            InterfaceType => "type",
             Label => "label",
             LoopParameter => "loop parameter",
             Object(object) => object.class.describe(),
             PhysicalLiteral(..) => "physical literal",
             DeferredConstant(..) => "deferred constant",
-            ProtectedType(..) => "protected type",
             Library => "library",
             Entity(..) => "entity",
             Configuration(..) => "configuration",
@@ -165,6 +186,7 @@ impl NamedEntityKind {
             PackageInstance(..) => "package instance",
             Context(..) => "context",
             LocalPackageInstance(..) => "package instance",
+            Type(typ) => typ.describe(),
         }
     }
 }
@@ -188,31 +210,26 @@ pub struct Object {
 
 #[derive(Clone)]
 pub struct Subtype {
-    type_mark: Arc<NamedEntity>,
+    type_mark: TypeEnt,
 }
 
 impl Subtype {
-    pub fn new(type_mark: Arc<NamedEntity>) -> Subtype {
-        debug_assert!(type_mark.actual_kind().is_type());
-        Subtype { type_mark }
+    pub fn new(type_mark: TypeEnt) -> Subtype {
+        Subtype {
+            type_mark,
+        }
     }
 
-    pub fn type_mark(&self) -> &Arc<NamedEntity> {
+    pub fn type_mark(&self) -> &TypeEnt {
         &self.type_mark
     }
 
-    pub fn base_type(&self) -> &Arc<NamedEntity> {
-        base_type(&self.type_mark)
-    }
-}
-
-// Strip aliases and subtypes down to base type
-pub fn base_type(ent: &Arc<NamedEntity>) -> &Arc<NamedEntity> {
-    match ent.kind() {
-        NamedEntityKind::NonObjectAlias(ref ent) => base_type(ent),
-        NamedEntityKind::ObjectAlias { type_mark, .. } => base_type(type_mark),
-        NamedEntityKind::Subtype(ref ent) => ent.base_type(),
-        _ => ent,
+    pub fn base_type(&self) -> &TypeEnt {
+        let flat = self.type_mark.flatten_alias();
+        match flat.kind() {
+            Type::Subtype(ref subtype) => subtype.base_type(),
+            _ => flat.base_type(),
+        }
     }
 }
 
@@ -245,17 +262,18 @@ impl Parameter {
         }
     }
 
-    pub fn base_type(&self) -> &NamedEntity {
+    pub fn base_type(&self) -> &TypeEnt {
         match self.param.kind() {
             NamedEntityKind::Object(obj) => obj.subtype.base_type(),
             NamedEntityKind::InterfaceFile(file_type) => file_type.base_type(),
+            NamedEntityKind::Type(Type::Subtype(subtype)) => subtype.base_type(),
             _ => {
                 unreachable!();
             }
         }
     }
 
-    pub fn type_mark(&self) -> &NamedEntity {
+    pub fn type_mark(&self) -> &TypeEnt {
         match self.param.kind() {
             NamedEntityKind::Object(obj) => obj.subtype.type_mark(),
             NamedEntityKind::InterfaceFile(file_type) => file_type,
@@ -276,17 +294,14 @@ impl ParameterList {
 pub struct Signature {
     /// Vector of InterfaceObject or InterfaceFile
     params: ParameterList,
-    return_type: Option<Arc<NamedEntity>>,
+    return_type: Option<TypeEnt>,
 }
 
 impl Signature {
-    pub fn new(params: ParameterList, return_type: Option<Arc<NamedEntity>>) -> Signature {
-        if let Some(ref return_type) = return_type {
-            debug_assert!(return_type.actual_kind().is_type());
-        }
+    pub fn new(params: ParameterList, return_type: Option<TypeEnt>) -> Signature {
         Signature {
             params,
-            return_type,
+            return_type: return_type.as_ref().map(TypeEnt::to_owned),
         }
     }
 
@@ -335,17 +350,17 @@ impl Signature {
         self.params.params.iter().all(|param| param.has_default())
     }
 
-    pub fn return_type(&self) -> Option<&NamedEntity> {
-        self.return_type.as_ref().map(|ent| ent.as_ref())
+    pub fn return_type(&self) -> Option<&TypeEnt> {
+        self.return_type.as_ref()
     }
 
-    pub fn return_base_type(&self) -> Option<&NamedEntity> {
+    pub fn return_base_type(&self) -> Option<&TypeEnt> {
         self.return_type().map(|ent| ent.base_type())
     }
 
-    pub fn match_return_type(&self, typ: &NamedEntity) -> bool {
+    pub fn match_return_type(&self, typ: &TypeEnt) -> bool {
         if let Some(return_type) = self.return_base_type() {
-            return_type == typ
+            return_type.flatten_alias() == typ.flatten_alias()
         } else {
             false
         }
@@ -519,38 +534,22 @@ impl NamedEntity {
     }
 
     /// Strip aliases and return reference to actual named entity
+    pub fn flatten_alias(ent: &Arc<NamedEntity>) -> &Arc<NamedEntity> {
+        match ent.kind() {
+            NamedEntityKind::NonObjectAlias(ref ent) => NamedEntity::flatten_alias(ent),
+            NamedEntityKind::Type(Type::Alias(ref ent)) => NamedEntity::flatten_alias(&ent.0),
+            _ => ent,
+        }
+    }
+
     pub fn as_actual(&self) -> &NamedEntity {
         match self.kind() {
             NamedEntityKind::NonObjectAlias(ref ent) => ent.as_actual(),
+            NamedEntityKind::Type(Type::Alias(ref ent)) => ent.as_actual(),
             _ => self,
         }
     }
 
-    /// Strip aliases and subtypes down to base type
-    pub fn base_type(&self) -> &NamedEntity {
-        match self.kind() {
-            NamedEntityKind::NonObjectAlias(ref ent) => ent.base_type(),
-            NamedEntityKind::ObjectAlias { ref type_mark, .. } => type_mark.base_type(),
-            NamedEntityKind::Subtype(ref subtype) => subtype.base_type(),
-            NamedEntityKind::Object(ref ent) => ent.subtype.base_type(),
-            NamedEntityKind::DeferredConstant(ref subtype) => subtype.base_type(),
-            NamedEntityKind::ElementDeclaration(ref subtype) => subtype.base_type(),
-            NamedEntityKind::PhysicalLiteral(ref base_type) => base_type,
-            _ => self,
-        }
-    }
-
-    pub fn type_mark(&self) -> &NamedEntity {
-        match self.kind() {
-            NamedEntityKind::NonObjectAlias(ref ent) => ent.type_mark(),
-            NamedEntityKind::Subtype(ref subtype) => subtype.type_mark(),
-            NamedEntityKind::Object(ref ent) => ent.subtype.type_mark(),
-            NamedEntityKind::DeferredConstant(ref subtype) => subtype.type_mark(),
-            NamedEntityKind::ElementDeclaration(ref subtype) => subtype.type_mark(),
-            NamedEntityKind::PhysicalLiteral(ref base_type) => base_type,
-            _ => self,
-        }
-    }
     /// Strip aliases and return reference to actual entity kind
     pub fn actual_kind(&self) -> &NamedEntityKind {
         self.as_actual().kind()
@@ -559,7 +558,7 @@ impl NamedEntity {
     /// Returns true if self is alias of other
     pub fn is_alias_of(&self, other: &NamedEntity) -> bool {
         match self.kind() {
-            NamedEntityKind::NonObjectAlias(ref ent) => {
+            NamedEntityKind::Type(Type::Alias(ref ent)) => {
                 if ent.id() == other.id() {
                     true
                 } else {
@@ -659,5 +658,79 @@ impl ObjectEnt {
         } else {
             unreachable!("Must be object");
         }
+    }
+}
+
+// A named entity that is known to be a type
+#[derive(Clone)]
+pub struct TypeEnt(Arc<NamedEntity>);
+
+impl TypeEnt {
+    pub fn new_with_opt_id(
+        id: Option<EntityId>,
+        designator: impl Into<Designator>,
+        kind: Type,
+        decl_pos: Option<&SrcPos>,
+    ) -> TypeEnt {
+        TypeEnt(Arc::new(NamedEntity {
+            id: id.unwrap_or_else(new_id),
+            implicit: false,
+            decl_pos: decl_pos.cloned(),
+            designator: designator.into(),
+            kind: NamedEntityKind::Type(kind),
+        }))
+    }
+
+    pub fn from_any(ent: Arc<NamedEntity>) -> Result<TypeEnt, Arc<NamedEntity>> {
+        if matches!(ent.kind(), NamedEntityKind::Type(..)) {
+            Ok(TypeEnt(ent))
+        } else {
+            Err(ent)
+        }
+    }
+
+    pub fn kind(&self) -> &Type {
+        if let NamedEntityKind::Type(typ) = self.0.kind() {
+            typ
+        } else {
+            unreachable!("Must be a type");
+        }
+    }
+
+    // Flatten all aliases
+    pub fn flatten_alias(&self) -> &TypeEnt {
+        if let Type::Alias(alias) = self.kind() {
+            alias.flatten_alias()
+        } else {
+            self
+        }
+    }
+
+    pub fn base_type(&self) -> &TypeEnt {
+        let actual = self.flatten_alias();
+        match actual.kind() {
+            Type::Subtype(ref subtype) => subtype.base_type(),
+            _ => actual,
+        }
+    }
+}
+
+impl From<TypeEnt> for Arc<NamedEntity> {
+    fn from(ent: TypeEnt) -> Self {
+        ent.0
+    }
+}
+
+impl std::cmp::PartialEq for TypeEnt {
+    fn eq(&self, other: &Self) -> bool {
+        self.deref() == other.deref()
+    }
+}
+
+impl std::ops::Deref for TypeEnt {
+    type Target = NamedEntity;
+    fn deref(&self) -> &NamedEntity {
+        let val: &Arc<NamedEntity> = self.0.borrow();
+        val.as_ref()
     }
 }

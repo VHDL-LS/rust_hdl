@@ -14,8 +14,8 @@ use arc_swap::ArcSwapWeak;
 use fnv::FnvHashMap;
 use named_entity::Signature;
 use region::*;
+use std::collections::hash_map::Entry;
 use std::sync::Arc;
-use std::{collections::hash_map::Entry, sync::Weak};
 
 impl<'a> AnalyzeContext<'a> {
     pub fn analyze_declarative_part(
@@ -64,7 +64,7 @@ impl<'a> AnalyzeContext<'a> {
                                 // Set incomplete type defintion to position of full declaration
                                 let ent = Arc::new(NamedEntity::new(
                                     designator,
-                                    NamedEntityKind::IncompleteType(ArcSwapWeak::new(Weak::new())),
+                                    NamedEntityKind::Type(Type::Incomplete(ArcSwapWeak::default())),
                                     Some(decl_pos),
                                 ));
                                 reference.set_unique_reference(&ent);
@@ -98,10 +98,12 @@ impl<'a> AnalyzeContext<'a> {
                             if let Some(NamedEntities::Single(full_type)) =
                                 region.lookup_immediate(incomplete_type.designator())
                             {
-                                if let NamedEntityKind::IncompleteType(full_ref) =
+                                if let NamedEntityKind::Type(Type::Incomplete(full_ref)) =
                                     incomplete_type.kind()
                                 {
-                                    full_ref.store(Arc::downgrade(full_type));
+                                    if full_type.kind().is_type() {
+                                        full_ref.store(Arc::downgrade(full_type));
+                                    }
                                 }
                             }
                         } else {
@@ -176,6 +178,12 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.push(signature_error(signature));
                     }
                     NamedEntityKind::NonObjectAlias(ent)
+                }
+                ResolvedName::Type(typ) => {
+                    if let Some(ref signature) = signature {
+                        diagnostics.push(signature_error(signature));
+                    }
+                    NamedEntityKind::Type(Type::Alias(typ))
                 }
                 ResolvedName::Overloaded(overloaded) => {
                     if let Some(ref mut signature) = signature {
@@ -400,12 +408,12 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalNullResult {
         match type_decl.def {
             TypeDefinition::Enumeration(ref enumeration) => {
-                let enum_type = Arc::new(NamedEntity::new_with_opt_id(
+                let enum_type = TypeEnt::new_with_opt_id(
                     overwrite_id,
                     type_decl.ident.name().clone(),
-                    NamedEntityKind::EnumType(Default::default()),
+                    Type::Enum(Default::default()),
                     Some(&type_decl.ident.pos),
-                ));
+                );
 
                 let signature = Signature::new(ParameterList::default(), Some(enum_type.clone()));
 
@@ -432,7 +440,9 @@ impl<'a> AnalyzeContext<'a> {
                 //       the enum literals will not contain the full type declaration of the
                 //       enum type
                 parent.add_named_entity(
-                    Arc::new(enum_type.clone_with_kind(NamedEntityKind::EnumType(implicit))),
+                    Arc::new(
+                        enum_type.clone_with_kind(NamedEntityKind::Type(Type::Enum(implicit))),
+                    ),
                     diagnostics,
                 );
             }
@@ -443,7 +453,9 @@ impl<'a> AnalyzeContext<'a> {
                     Some(visible) => {
                         let is_ok = match visible.clone().into_non_overloaded() {
                             Ok(ent) => {
-                                if let NamedEntityKind::ProtectedType(ptype_region) = ent.kind() {
+                                if let NamedEntityKind::Type(Type::Protected(ptype_region)) =
+                                    ent.kind()
+                                {
                                     body.type_reference.set_unique_reference(&ent);
                                     let mut region = Region::extend(ptype_region, Some(parent));
                                     self.analyze_declarative_part(
@@ -484,7 +496,7 @@ impl<'a> AnalyzeContext<'a> {
                 let ptype = Arc::new(NamedEntity::new_with_opt_id(
                     overwrite_id,
                     type_decl.ident.name().clone(),
-                    NamedEntityKind::TypeDeclaration(Vec::new()),
+                    NamedEntityKind::Type(Type::Protected(Arc::new(Region::default()))),
                     Some(&type_decl.ident.pos),
                 ));
                 parent.add_named_entity(ptype.clone(), diagnostics);
@@ -521,7 +533,9 @@ impl<'a> AnalyzeContext<'a> {
 
                 parent.add_named_entity(
                     Arc::new(
-                        ptype.clone_with_kind(NamedEntityKind::ProtectedType(Arc::new(region))),
+                        ptype.clone_with_kind(NamedEntityKind::Type(Type::Protected(Arc::new(
+                            region,
+                        )))),
                     ),
                     &mut Vec::new(),
                 );
@@ -552,7 +566,7 @@ impl<'a> AnalyzeContext<'a> {
                 let type_ent = Arc::new(NamedEntity::new_with_opt_id(
                     overwrite_id,
                     type_decl.ident.name().clone(),
-                    NamedEntityKind::RecordType(Arc::new(region)),
+                    NamedEntityKind::Type(Type::Record(Arc::new(region))),
                     Some(&type_decl.ident.pos),
                 ));
                 parent.add_named_entity(type_ent, diagnostics);
@@ -565,7 +579,7 @@ impl<'a> AnalyzeContext<'a> {
                         let type_ent = Arc::new(NamedEntity::new_with_opt_id(
                             overwrite_id,
                             type_decl.ident.name().clone(),
-                            NamedEntityKind::AccessType(subtype),
+                            NamedEntityKind::Type(Type::Access(subtype)),
                             Some(&type_decl.ident.pos),
                         ));
                         parent.add_named_entity(type_ent, diagnostics);
@@ -586,23 +600,23 @@ impl<'a> AnalyzeContext<'a> {
                     subtype_indication,
                     diagnostics,
                 ) {
-                    Ok(subtype) => subtype.type_mark().clone(),
+                    Ok(subtype) => subtype.type_mark().to_owned(),
                     Err(err) => {
                         err.add_to(diagnostics)?;
                         return Ok(());
                     }
                 };
 
-                let type_ent = Arc::new(NamedEntity::new_with_opt_id(
+                let type_ent = TypeEnt::new_with_opt_id(
                     overwrite_id,
                     type_decl.ident.name().clone(),
-                    NamedEntityKind::ArrayType {
+                    Type::Array {
                         implicit: Vec::new(),
                         indexes: vec![],
-                        elem_type: elem_type.clone(),
+                        elem_type: elem_type.to_owned(),
                     },
                     Some(&type_decl.ident.pos),
-                ));
+                );
 
                 let mut implicit = Vec::new();
                 if !self.is_standard_package() {
@@ -612,11 +626,11 @@ impl<'a> AnalyzeContext<'a> {
                     implicit.push(Arc::downgrade(&to_string));
                 }
                 parent.add_named_entity(
-                    Arc::new(type_ent.clone_with_kind(NamedEntityKind::ArrayType {
+                    Arc::new(type_ent.clone_with_kind(NamedEntityKind::Type(Type::Array {
                         implicit: Vec::new(),
                         indexes,
                         elem_type,
-                    })),
+                    }))),
                     diagnostics,
                 );
             }
@@ -626,7 +640,7 @@ impl<'a> AnalyzeContext<'a> {
                         let type_ent = Arc::new(NamedEntity::new_with_opt_id(
                             overwrite_id,
                             type_decl.ident.name().clone(),
-                            NamedEntityKind::Subtype(subtype),
+                            NamedEntityKind::Type(Type::Subtype(subtype)),
                             Some(&type_decl.ident.pos),
                         ));
                         parent.add_named_entity(type_ent, diagnostics);
@@ -637,12 +651,12 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             TypeDefinition::Physical(ref mut physical) => {
-                let phys_type = Arc::new(NamedEntity::new_with_opt_id(
+                let phys_type = TypeEnt::new_with_opt_id(
                     overwrite_id,
                     type_decl.ident.name().clone(),
-                    NamedEntityKind::TypeDeclaration(Vec::new()),
+                    Type::Physical(Vec::new()),
                     Some(&type_decl.ident.pos),
-                ));
+                );
 
                 parent.add(
                     physical.primary_unit.clone(),
@@ -657,7 +671,7 @@ impl<'a> AnalyzeContext<'a> {
                     )
                 }
 
-                parent.add_named_entity(phys_type, diagnostics);
+                parent.add_named_entity(phys_type.into(), diagnostics);
             }
             TypeDefinition::Incomplete(..) => {
                 unreachable!("Handled elsewhere");
@@ -665,12 +679,12 @@ impl<'a> AnalyzeContext<'a> {
 
             TypeDefinition::Integer(ref mut range) => {
                 self.analyze_range(parent, range, diagnostics)?;
-                let type_ent = Arc::new(NamedEntity::new_with_opt_id(
+                let type_ent = TypeEnt::new_with_opt_id(
                     overwrite_id,
                     type_decl.ident.name().clone(),
-                    NamedEntityKind::IntegerType(Vec::new()),
+                    Type::Integer(Vec::new()),
                     Some(&type_decl.ident.pos),
-                ));
+                );
 
                 let mut implicit = Vec::new();
                 if !self.is_standard_package() {
@@ -680,7 +694,9 @@ impl<'a> AnalyzeContext<'a> {
                     implicit.push(Arc::downgrade(&to_string));
                 }
                 parent.add_named_entity(
-                    Arc::new(type_ent.clone_with_kind(NamedEntityKind::IntegerType(implicit))),
+                    Arc::new(
+                        type_ent.clone_with_kind(NamedEntityKind::Type(Type::Integer(implicit))),
+                    ),
                     diagnostics,
                 );
             }
@@ -690,12 +706,12 @@ impl<'a> AnalyzeContext<'a> {
                     err.add_to(diagnostics)?;
                 }
 
-                let file_type = Arc::new(NamedEntity::new_with_opt_id(
+                let file_type = TypeEnt::new_with_opt_id(
                     overwrite_id,
                     type_decl.ident.name().clone(),
-                    NamedEntityKind::TypeDeclaration(Vec::new()),
+                    Type::File(Vec::new()),
                     Some(&type_decl.ident.pos),
-                ));
+                );
 
                 let implicit = self.create_implicit_file_type_subprograms(file_type.clone());
 
@@ -707,7 +723,7 @@ impl<'a> AnalyzeContext<'a> {
                 // and type declarations
                 let implicit = implicit.iter().map(Arc::downgrade).collect();
                 let file_type =
-                    file_type.clone_with_kind(NamedEntityKind::TypeDeclaration(implicit));
+                    file_type.clone_with_kind(NamedEntityKind::Type(Type::File(implicit)));
                 parent.add_named_entity(Arc::new(file_type), diagnostics);
             }
         }
@@ -717,33 +733,39 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn create_implicit_file_type_subprograms(
         &self,
-        file_type: Arc<NamedEntity>,
+        file_type: TypeEnt,
     ) -> Vec<Arc<NamedEntity>> {
         let mut implicit = Vec::new();
 
         let standard = self.expect_standard_package_analysis().unwrap();
         let standard_region = &standard.result().region;
 
-        let string = standard_region
-            .lookup_immediate(&self.symbol_utf8("STRING").into())
-            .unwrap()
-            .clone()
-            .into_non_overloaded()
-            .unwrap();
+        let string = TypeEnt::from_any(
+            standard_region
+                .lookup_immediate(&self.symbol_utf8("STRING").into())
+                .unwrap()
+                .clone()
+                .into_non_overloaded()
+                .unwrap(),
+        )
+        .unwrap();
 
-        let boolean = standard_region
-            .lookup_immediate(&self.symbol_utf8("BOOLEAN").into())
-            .unwrap()
-            .clone()
-            .into_non_overloaded()
-            .unwrap();
+        let boolean = TypeEnt::from_any(
+            standard_region
+                .lookup_immediate(&self.symbol_utf8("BOOLEAN").into())
+                .unwrap()
+                .clone()
+                .into_non_overloaded()
+                .unwrap(),
+        )
+        .unwrap();
 
         // procedure FILE_OPEN (file F: FT; External_Name: in STRING);
         {
             let mut params = ParameterList::default();
             params.add_param(Arc::new(NamedEntity::new(
                 self.symbol_utf8("F"),
-                NamedEntityKind::InterfaceFile(file_type.clone()),
+                NamedEntityKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
             )));
             params.add_param(Arc::new(NamedEntity::new(
@@ -769,7 +791,7 @@ impl<'a> AnalyzeContext<'a> {
             let mut params = ParameterList::default();
             params.add_param(Arc::new(NamedEntity::new(
                 self.symbol_utf8("F"),
-                NamedEntityKind::InterfaceFile(file_type.clone()),
+                NamedEntityKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
             )));
 
@@ -785,7 +807,7 @@ impl<'a> AnalyzeContext<'a> {
             let mut params = ParameterList::default();
             params.add_param(Arc::new(NamedEntity::new(
                 self.symbol_utf8("F"),
-                NamedEntityKind::InterfaceFile(file_type.clone()),
+                NamedEntityKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
             )));
 
@@ -801,16 +823,19 @@ impl<'a> AnalyzeContext<'a> {
 
     /// Create implicit TO_STRING
     /// function TO_STRING (VALUE: T) return STRING;
-    pub fn create_to_string(&self, type_ent: Arc<NamedEntity>) -> NamedEntity {
+    pub fn create_to_string(&self, type_ent: TypeEnt) -> NamedEntity {
         let standard = self.expect_standard_package_analysis().unwrap();
         let region = &standard.result().region;
 
-        let string = region
-            .lookup_immediate(&self.symbol_utf8("STRING").into())
-            .unwrap()
-            .clone()
-            .into_non_overloaded()
-            .unwrap();
+        let string = TypeEnt::from_any(
+            region
+                .lookup_immediate(&self.symbol_utf8("STRING").into())
+                .unwrap()
+                .clone()
+                .into_non_overloaded()
+                .unwrap(),
+        )
+        .unwrap();
 
         let mut params = ParameterList::default();
         params.add_param(Arc::new(NamedEntity::new(
@@ -818,7 +843,7 @@ impl<'a> AnalyzeContext<'a> {
             NamedEntityKind::Object(Object {
                 class: ObjectClass::Constant,
                 mode: Some(Mode::In),
-                subtype: Subtype::new(type_ent.clone()),
+                subtype: Subtype::new(type_ent.to_owned()),
                 has_default: false,
             }),
             type_ent.decl_pos(),
@@ -884,7 +909,7 @@ impl<'a> AnalyzeContext<'a> {
                 )?;
                 NamedEntity::new(
                     file_decl.ident.name().clone(),
-                    NamedEntityKind::InterfaceFile(file_type.type_mark().clone()),
+                    NamedEntityKind::InterfaceFile(file_type.type_mark().to_owned()),
                     Some(&file_decl.ident.pos),
                 )
             }
@@ -923,7 +948,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             InterfaceDeclaration::Type(ref ident) => NamedEntity::new(
                 ident.name().clone(),
-                NamedEntityKind::InterfaceType,
+                NamedEntityKind::Type(Type::Interface),
                 Some(&ident.pos),
             ),
             InterfaceDeclaration::Subprogram(ref mut subpgm, ..) => {

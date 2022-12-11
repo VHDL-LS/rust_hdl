@@ -9,14 +9,15 @@ use std::sync::Arc;
 // 2. Object such a direct reference to an object or some kind of index, slice or selected name
 pub enum ResolvedName {
     NonObject(Arc<NamedEntity>),
+    Type(TypeEnt),
     Overloaded(OverloadedName),
     ObjectSelection {
         base_object: ObjectEnt,
-        type_mark: Arc<NamedEntity>,
+        type_mark: TypeEnt,
     },
     ExternalName {
         class: ExternalObjectClass,
-        type_mark: Arc<NamedEntity>,
+        type_mark: TypeEnt,
     },
 }
 
@@ -24,7 +25,7 @@ impl ResolvedName {
     fn new(ent: Arc<NamedEntity>) -> Self {
         match ent.kind() {
             NamedEntityKind::Object(object) => {
-                let type_mark = object.subtype.type_mark().clone();
+                let type_mark = object.subtype.type_mark().to_owned();
                 Self::ObjectSelection {
                     base_object: ObjectEnt::new(ent),
                     type_mark,
@@ -35,39 +36,46 @@ impl ResolvedName {
                 type_mark,
             } => Self::ObjectSelection {
                 base_object: base_object.clone(),
-                type_mark: type_mark.clone(),
+                type_mark: type_mark.to_owned(),
             },
+            NamedEntityKind::Type(_) => ResolvedName::Type(TypeEnt::from_any(ent).unwrap()),
             _ => Self::NonObject(ent),
         }
     }
 
-    fn with_suffix(self, ent: Arc<NamedEntity>) -> Self {
+    fn with_suffix(self, ent: Arc<NamedEntity>) -> Result<Self, String> {
         match ent.kind() {
             NamedEntityKind::Object(..) => {
                 debug_assert!(matches!(self, Self::NonObject(_)));
-                Self::new(ent)
+                Ok(Self::new(ent))
             }
             NamedEntityKind::ObjectAlias { .. } => {
                 debug_assert!(matches!(self, Self::NonObject(_)));
-                Self::new(ent)
+                Ok(Self::new(ent))
             }
             _ => {
                 match self {
-                    Self::NonObject(_) => Self::NonObject(ent),
+                    Self::NonObject(_) => Ok(match TypeEnt::from_any(ent) {
+                        Ok(typ) => Self::Type(typ),
+                        Err(ent) => Self::NonObject(ent),
+                    }),
+                    Self::Type(_) => {
+                        Err("Type may not be the prefix of a selected name".to_owned())
+                    }
                     Self::ObjectSelection { base_object, .. } => match ent.actual_kind() {
-                        NamedEntityKind::ElementDeclaration(subtype) => Self::ObjectSelection {
+                        NamedEntityKind::ElementDeclaration(subtype) => Ok(Self::ObjectSelection {
                             base_object,
-                            type_mark: subtype.type_mark().clone(),
-                        },
-                        _ => Self::NonObject(ent),
+                            type_mark: subtype.type_mark().to_owned(),
+                        }),
+                        _ => Ok(Self::NonObject(ent)),
                     },
                     Self::ExternalName { class, .. } => match ent.actual_kind() {
-                        NamedEntityKind::ElementDeclaration(subtype) => Self::ExternalName {
+                        NamedEntityKind::ElementDeclaration(subtype) => Ok(Self::ExternalName {
                             class,
-                            type_mark: subtype.type_mark().clone(),
-                        },
+                            type_mark: subtype.type_mark().to_owned(),
+                        }),
                         // @TODO this is probably an error
-                        _ => Self::NonObject(ent),
+                        _ => Ok(Self::NonObject(ent)),
                     },
                     Self::Overloaded(..) => {
                         unreachable!("Overloaded suffix of overloaded name");
@@ -108,7 +116,9 @@ impl<'a> AnalyzeContext<'a> {
                         match self.lookup_selected(&prefix.pos, ent, suffix)? {
                             NamedEntities::Single(named_entity) => {
                                 suffix.set_unique_reference(&named_entity);
-                                Ok(resolved.with_suffix(named_entity))
+                                resolved
+                                    .with_suffix(named_entity)
+                                    .map_err(|e| Diagnostic::error(name_pos, e).into())
                             }
                             NamedEntities::Overloaded(overloaded) => {
                                 // Could be used for an alias of a subprogram
@@ -116,11 +126,14 @@ impl<'a> AnalyzeContext<'a> {
                             }
                         }
                     }
+                    ResolvedName::Type(..) => Err(Diagnostic::error(name_pos, err_msg).into()),
                     ResolvedName::ObjectSelection { ref type_mark, .. } => {
                         match self.lookup_type_selected(&prefix.pos, type_mark, suffix)? {
                             NamedEntities::Single(named_entity) => {
                                 suffix.set_unique_reference(&named_entity);
-                                Ok(resolved.with_suffix(named_entity))
+                                resolved
+                                    .with_suffix(named_entity)
+                                    .map_err(|e| Diagnostic::error(name_pos, e).into())
                             }
                             NamedEntities::Overloaded(..) => {
                                 // Probably a protected type method, this can never be aliased or a target
@@ -132,7 +145,9 @@ impl<'a> AnalyzeContext<'a> {
                         match self.lookup_type_selected(&prefix.pos, type_mark, suffix)? {
                             NamedEntities::Single(named_entity) => {
                                 suffix.set_unique_reference(&named_entity);
-                                Ok(resolved.with_suffix(named_entity))
+                                resolved
+                                    .with_suffix(named_entity)
+                                    .map_err(|e| Diagnostic::error(name_pos, e).into())
                             }
                             NamedEntities::Overloaded(..) => {
                                 // Probably a protected type method, this can never be aliased or a target
@@ -233,7 +248,7 @@ impl<'a> AnalyzeContext<'a> {
                 let subtype = self.resolve_subtype_indication(region, subtype, diagnostics)?;
                 Ok(ResolvedName::ExternalName {
                     class: *class,
-                    type_mark: subtype.type_mark().clone(),
+                    type_mark: subtype.type_mark().to_owned(),
                 })
             }
         }

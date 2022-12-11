@@ -60,27 +60,30 @@ impl<'a> AnalyzeContext<'a> {
     pub fn lookup_type_selected(
         &self,
         prefix_pos: &SrcPos,
-        prefix_type: &NamedEntity,
+        prefix_type: &TypeEnt,
         suffix: &WithPos<WithRef<Designator>>,
     ) -> AnalysisResult<NamedEntities> {
-        match prefix_type.actual_kind() {
-            NamedEntityKind::RecordType(ref region) => {
+        match prefix_type.flatten_alias().kind() {
+            Type::Record(ref region) => {
                 if let Some(decl) = region.lookup_selected(suffix.designator()) {
                     Ok(decl.clone())
                 } else {
                     Err(no_declaration_within(prefix_type, suffix).into())
                 }
             }
-            NamedEntityKind::ProtectedType(region) => {
+            Type::Protected(region) => {
                 if let Some(decl) = region.lookup_selected(suffix.designator()) {
                     Ok(decl.clone())
                 } else {
                     Err(no_declaration_within(prefix_type, suffix).into())
                 }
             }
-            NamedEntityKind::IncompleteType(full_type_ref) => {
-                let full_type = full_type_ref.load();
-                if let Some(full_type) = full_type.upgrade() {
+            Type::Incomplete(full_type_ref) => {
+                if let Some(full_type) = full_type_ref
+                    .load()
+                    .upgrade()
+                    .and_then(|e| TypeEnt::from_any(e).ok())
+                {
                     self.lookup_type_selected(prefix_pos, &full_type, suffix)
                 } else {
                     Err(Diagnostic::error(
@@ -90,10 +93,10 @@ impl<'a> AnalyzeContext<'a> {
                     .into())
                 }
             }
-            NamedEntityKind::Subtype(subtype) => {
+            Type::Subtype(subtype) => {
                 self.lookup_type_selected(prefix_pos, subtype.type_mark(), suffix)
             }
-            NamedEntityKind::AccessType(subtype) => {
+            Type::Access(subtype) => {
                 self.lookup_type_selected(prefix_pos, subtype.type_mark(), suffix)
             }
             _ => Err(invalid_selected_name_prefix(prefix_type, prefix_pos).into()),
@@ -245,21 +248,20 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         region: &Region<'_>,
         type_mark: &mut WithPos<SelectedName>,
-    ) -> AnalysisResult<Arc<NamedEntity>> {
+    ) -> AnalysisResult<TypeEnt> {
         let entities = self.resolve_selected_name(region, type_mark)?;
-        self.resolve_non_overloaded_with_kind(
-            entities,
-            type_mark.suffix_pos(),
-            &NamedEntityKind::is_type,
-            "type",
-        )
+
+        let pos = type_mark.suffix_pos();
+        let expected = "type";
+        let ent = self.resolve_non_overloaded(entities, pos, expected)?;
+        TypeEnt::from_any(ent).map_err(|ent| AnalysisError::NotFatal(ent.kind_error(pos, expected)))
     }
 
     pub fn resolve_type_mark(
         &self,
         region: &Region<'_>,
         type_mark: &mut WithPos<TypeMark>,
-    ) -> AnalysisResult<Arc<NamedEntity>> {
+    ) -> AnalysisResult<TypeEnt> {
         if !type_mark.item.subtype {
             self.resolve_type_mark_name(region, &mut type_mark.item.name)
         } else {
@@ -270,9 +272,9 @@ impl<'a> AnalyzeContext<'a> {
             let named_entity = self.resolve_non_overloaded(entities, pos, expected)?;
 
             match named_entity.kind() {
-                NamedEntityKind::Object(obj) => Ok(obj.subtype.type_mark().clone()),
+                NamedEntityKind::Object(obj) => Ok(obj.subtype.type_mark().to_owned()),
                 NamedEntityKind::ObjectAlias { type_mark, .. } => Ok(type_mark.clone()),
-                NamedEntityKind::ElementDeclaration(subtype) => Ok(subtype.type_mark().clone()),
+                NamedEntityKind::ElementDeclaration(subtype) => Ok(subtype.type_mark().to_owned()),
                 _ => Err(AnalysisError::NotFatal(
                     named_entity.kind_error(pos, expected),
                 )),
@@ -522,19 +524,19 @@ impl<'a> AnalyzeContext<'a> {
         region: &Region<'_>,
         name_pos: &SrcPos,
         suffix_pos: &SrcPos,
-        type_mark: &NamedEntity,
+        type_mark: &TypeEnt,
         indexes: &mut [WithPos<Expression>],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<Arc<NamedEntity>> {
+    ) -> AnalysisResult<TypeEnt> {
         let base_type = type_mark.base_type();
 
-        let base_type = if let NamedEntityKind::AccessType(ref subtype) = base_type.kind() {
+        let base_type = if let Type::Access(ref subtype) = base_type.kind() {
             subtype.base_type()
         } else {
             base_type
         };
 
-        if let NamedEntityKind::ArrayType {
+        if let Type::Array {
             indexes: ref index_types,
             elem_type,
             ..
@@ -566,18 +568,18 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_sliced_name(
         &self,
         suffix_pos: &SrcPos,
-        type_mark: &NamedEntity,
+        type_mark: &TypeEnt,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         let base_type = type_mark.base_type();
 
-        let base_type = if let NamedEntityKind::AccessType(ref subtype) = base_type.kind() {
+        let base_type = if let Type::Access(ref subtype) = base_type.kind() {
             subtype.base_type()
         } else {
             base_type
         };
 
-        if let NamedEntityKind::ArrayType { .. } = base_type.kind() {
+        if let Type::Array { .. } = base_type.kind() {
         } else {
             diagnostics.error(
                 suffix_pos,
@@ -614,15 +616,22 @@ impl<'a> AnalyzeContext<'a> {
                             *name = indexed_name;
 
                             if let Name::Indexed(ref mut prefix, ref mut indexes) = name {
-                                if let Err(err) = self.analyze_indexed_name(
-                                    region,
-                                    name_pos,
-                                    prefix.suffix_pos(),
-                                    ent.type_mark(),
-                                    indexes,
-                                    diagnostics,
-                                ) {
-                                    err.add_to(diagnostics)?;
+                                if let Some(type_mark) = type_mark_of_sliced_or_indexed(&ent) {
+                                    if let Err(err) = self.analyze_indexed_name(
+                                        region,
+                                        name_pos,
+                                        prefix.suffix_pos(),
+                                        type_mark,
+                                        indexes,
+                                        diagnostics,
+                                    ) {
+                                        err.add_to(diagnostics)?;
+                                    }
+                                } else {
+                                    diagnostics.error(
+                                        prefix.suffix_pos(),
+                                        format!("{} cannot be indexed", ent.describe()),
+                                    )
                                 }
                             }
                         } else {
@@ -656,7 +665,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_name_with_target_type(
         &self,
         region: &Region<'_>,
-        target_type: &NamedEntity,
+        target_type: &TypeEnt,
         name_pos: &SrcPos,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -770,11 +779,14 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(NamedEntities::Single(ref named_entity)) =
                     self.resolve_name(region, &prefix.pos, &mut prefix.item, diagnostics)?
                 {
-                    self.analyze_sliced_name(
-                        prefix.suffix_pos(),
-                        named_entity.type_mark(),
-                        diagnostics,
-                    )?;
+                    if let Some(type_mark) = type_mark_of_sliced_or_indexed(named_entity) {
+                        self.analyze_sliced_name(prefix.suffix_pos(), type_mark, diagnostics)?;
+                    } else {
+                        diagnostics.error(
+                            prefix.suffix_pos(),
+                            format!("{} cannot be sliced", named_entity.describe()),
+                        )
+                    }
                 }
 
                 self.analyze_discrete_range(region, drange.as_mut(), diagnostics)?;
@@ -790,7 +802,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_expression_with_target_type(
         &self,
         region: &Region<'_>,
-        target_type: &NamedEntity,
+        target_type: &TypeEnt,
         expr: &mut WithPos<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -800,7 +812,7 @@ impl<'a> AnalyzeContext<'a> {
             Expression::Literal(ref lit) => {
                 match lit {
                     Literal::AbstractLiteral(AbstractLiteral::Integer(_)) => {
-                        if !matches!(target_base.kind(), NamedEntityKind::IntegerType(..)) {
+                        if !matches!(target_base.kind(), Type::Integer(..)) {
                             diagnostics.push(Diagnostic::error(
                                 expr,
                                 format!(
@@ -811,7 +823,7 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     }
                     Literal::Character(char) => match target_base.kind() {
-                        NamedEntityKind::EnumType(literals) => {
+                        Type::Enum(literals) => {
                             if !literals.contains_key(&Designator::Character(*char)) {
                                 diagnostics.push(Diagnostic::error(
                                     expr,
@@ -833,7 +845,7 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     },
                     Literal::String(_) => {
-                        if matches!(target_base.kind(), NamedEntityKind::IntegerType(..)) {
+                        if matches!(target_base.kind(), Type::Integer(..)) {
                             diagnostics.push(Diagnostic::error(
                                 expr,
                                 format!("string literal does not match {}", target_type.describe()),
@@ -952,13 +964,37 @@ impl<'a> AnalyzeContext<'a> {
 
 /// Match a named entity with a target type
 /// Returns a diagnostic in case of mismatch
-fn match_non_overloaded_types(ent: &NamedEntity, target_type: &NamedEntity) -> bool {
-    if let NamedEntityKind::LoopParameter = ent.actual_kind() {
+fn match_non_overloaded_types(ent: &Arc<NamedEntity>, target_type: &TypeEnt) -> bool {
+    let typ = match ent.actual_kind() {
+        NamedEntityKind::ObjectAlias { ref type_mark, .. } => type_mark.base_type(),
+        NamedEntityKind::Object(ref ent) => ent.subtype.base_type(),
+        NamedEntityKind::DeferredConstant(ref subtype) => subtype.base_type(),
+        NamedEntityKind::ElementDeclaration(ref subtype) => subtype.base_type(),
+        NamedEntityKind::PhysicalLiteral(ref base_type) => base_type,
+
         // Ignore now to avoid false positives
-        true
-    } else {
-        ent.base_type() == target_type.base_type()
-    }
+        NamedEntityKind::LoopParameter => return true,
+        _ => {
+            return false;
+        }
+    };
+
+    typ == target_type.base_type()
+}
+
+fn type_mark_of_sliced_or_indexed(ent: &Arc<NamedEntity>) -> Option<&TypeEnt> {
+    Some(match ent.kind() {
+        NamedEntityKind::NonObjectAlias(ref alias) => {
+            return type_mark_of_sliced_or_indexed(alias);
+        }
+        NamedEntityKind::Object(ref ent) => ent.subtype.type_mark(),
+        NamedEntityKind::DeferredConstant(ref subtype) => subtype.type_mark(),
+        NamedEntityKind::ElementDeclaration(ref subtype) => subtype.type_mark(),
+        NamedEntityKind::ObjectAlias { type_mark, .. } => type_mark,
+        _ => {
+            return None;
+        }
+    })
 }
 
 /// Match the type of overloaded name with the target type
@@ -969,7 +1005,7 @@ fn match_non_overloaded_types(ent: &NamedEntity, target_type: &NamedEntity) -> b
 /// such as an enumeration literal or function call without any arguments
 fn match_overloaded_types<'e>(
     overloaded: &'e OverloadedName,
-    target_type: &NamedEntity,
+    target_type: &TypeEnt,
 ) -> Result<&'e Arc<NamedEntity>, Vec<&'e Arc<NamedEntity>>> {
     let target_base = target_type.base_type();
     let mut candidates = Vec::new();
@@ -1078,7 +1114,7 @@ fn plural(singular: &'static str, plural: &'static str, count: usize) -> &'stati
 
 fn dimension_mismatch(
     pos: &SrcPos,
-    base_type: &NamedEntity,
+    base_type: &TypeEnt,
     got: usize,
     expected: usize,
 ) -> Diagnostic {
