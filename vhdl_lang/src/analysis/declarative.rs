@@ -403,13 +403,14 @@ impl<'a> AnalyzeContext<'a> {
                 let enum_type = Arc::new(NamedEntity::new_with_opt_id(
                     overwrite_id,
                     type_decl.ident.name().clone(),
-                    NamedEntityKind::TypeDeclaration(Vec::new()),
+                    NamedEntityKind::EnumType(Default::default()),
                     Some(&type_decl.ident.pos),
                 ));
 
                 let signature = Signature::new(ParameterList::default(), Some(enum_type.clone()));
 
-                let mut implicit = Vec::with_capacity(enumeration.len());
+                let mut implicit =
+                    FnvHashMap::with_capacity_and_hasher(enumeration.len(), Default::default());
 
                 for literal in enumeration.iter() {
                     let literal_ent = NamedEntity::new(
@@ -418,7 +419,10 @@ impl<'a> AnalyzeContext<'a> {
                         Some(&literal.pos),
                     );
                     let literal_ent = Arc::new(literal_ent);
-                    implicit.push(Arc::downgrade(&literal_ent));
+                    implicit.insert(
+                        literal.item.clone().into_designator(),
+                        Arc::downgrade(&literal_ent),
+                    );
                     parent.add_named_entity(literal_ent, diagnostics);
                 }
 
@@ -428,7 +432,7 @@ impl<'a> AnalyzeContext<'a> {
                 //       the enum literals will not contain the full type declaration of the
                 //       enum type
                 parent.add_named_entity(
-                    Arc::new(enum_type.clone_with_kind(NamedEntityKind::TypeDeclaration(implicit))),
+                    Arc::new(enum_type.clone_with_kind(NamedEntityKind::EnumType(implicit))),
                     diagnostics,
                 );
             }

@@ -797,13 +797,44 @@ impl<'a> AnalyzeContext<'a> {
         let target_base = target_type.base_type();
 
         match expr.item {
-            Expression::Literal(Literal::AbstractLiteral(AbstractLiteral::Integer(_))) => {
-                if !matches!(target_base.kind(), NamedEntityKind::IntegerType(..)) {
-                    diagnostics.push(Diagnostic::error(
-                        expr,
-                        format!("integer literal does not match {}", target_type.describe()),
-                    ));
+            Expression::Literal(ref lit) => {
+                match lit {
+                    Literal::AbstractLiteral(AbstractLiteral::Integer(_)) => {
+                        if !matches!(target_base.kind(), NamedEntityKind::IntegerType(..)) {
+                            diagnostics.push(Diagnostic::error(
+                                expr,
+                                format!(
+                                    "integer literal does not match {}",
+                                    target_type.describe()
+                                ),
+                            ));
+                        }
+                    }
+                    Literal::Character(char) => match target_base.kind() {
+                        NamedEntityKind::EnumType(literals) => {
+                            if !literals.contains_key(&Designator::Character(*char)) {
+                                diagnostics.push(Diagnostic::error(
+                                    expr,
+                                    format!(
+                                        "character literal does not match {}",
+                                        target_type.describe()
+                                    ),
+                                ));
+                            }
+                        }
+                        _ => {
+                            diagnostics.push(Diagnostic::error(
+                                expr,
+                                format!(
+                                    "character literal does not match {}",
+                                    target_type.describe()
+                                ),
+                            ));
+                        }
+                    },
+                    _ => {}
                 }
+
                 Ok(())
             }
             Expression::Name(ref mut name) => self.analyze_name_with_target_type(

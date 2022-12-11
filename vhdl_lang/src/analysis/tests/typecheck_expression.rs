@@ -39,6 +39,47 @@ constant bad_b : my_bool := 4;
 }
 
 #[test]
+fn test_character_literal_expression() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+constant good : character := 'a';
+constant bad : natural := 'b';
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("'b'"),
+            "character literal does not match subtype 'NATURAL'",
+        )],
+    );
+}
+
+#[test]
+fn test_character_literal_expression_not_part_of_enum() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type enum_t is ('a', 'b');
+constant good : enum_t := 'a';
+constant bad : enum_t := 'c';
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("'c'"),
+            "character literal does not match type 'enum_t'",
+        )],
+    );
+}
+
+#[test]
 fn test_physical_literal_expression_typecheck() {
     let mut builder = LibraryBuilder::new();
     builder.in_declarative_region(

@@ -7,6 +7,7 @@ use super::region::Region;
 use crate::ast::*;
 use crate::data::*;
 use arc_swap::ArcSwapWeak;
+use fnv::FnvHashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Weak};
 
@@ -36,6 +37,7 @@ pub enum NamedEntityKind {
         indexes: Vec<Option<Arc<NamedEntity>>>,
         elem_type: Arc<NamedEntity>,
     },
+    EnumType(FnvHashMap<Designator, Weak<NamedEntity>>),
     IntegerType(Vec<Weak<NamedEntity>>),
     AccessType(Subtype),
     RecordType(Arc<Region<'static>>),
@@ -91,6 +93,7 @@ impl NamedEntityKind {
                 | NamedEntityKind::Subtype(..)
                 | NamedEntityKind::TypeDeclaration(..)
                 | NamedEntityKind::ArrayType { .. }
+                | NamedEntityKind::EnumType(..)
                 | NamedEntityKind::IntegerType(..)
                 | NamedEntityKind::AccessType(..)
                 | NamedEntityKind::RecordType(..)
@@ -101,6 +104,13 @@ impl NamedEntityKind {
         let weak = match self {
             NamedEntityKind::TypeDeclaration(ref implicit) => implicit,
             NamedEntityKind::ArrayType { ref implicit, .. } => implicit,
+            NamedEntityKind::EnumType(ref implicit) => {
+                return implicit
+                    .values()
+                    // We expect the implicit declarations to live as long as the type so unwrap
+                    .map(|ent| ent.upgrade().unwrap())
+                    .collect();
+            }
             NamedEntityKind::IntegerType(ref implicit) => implicit,
             _ => {
                 return Vec::new();
@@ -135,6 +145,7 @@ impl NamedEntityKind {
             EnumLiteral(..) => "enum literal",
             TypeDeclaration(..) => "type",
             ArrayType { .. } => "array type",
+            EnumType(..) => "type",
             IntegerType(..) => "integer type",
             AccessType(..) => "access type",
             Subtype(..) => "subtype",
