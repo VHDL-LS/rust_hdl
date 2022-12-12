@@ -66,6 +66,10 @@ impl Latin1String {
         }
     }
 
+    pub fn chars(&self) -> impl Iterator<Item = &u8> {
+        self.bytes.iter()
+    }
+
     pub fn from_vec(bytes: Vec<u8>) -> Latin1String {
         Latin1String { bytes }
     }

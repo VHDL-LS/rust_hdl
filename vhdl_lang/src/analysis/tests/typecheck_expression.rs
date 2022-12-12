@@ -135,6 +135,48 @@ signal bad : natural := \"110\";
 }
 
 #[test]
+fn test_string_literals_allowed_characters_for_array() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type enum_t is ('a', foo);
+type enum_vec_t is array (natural range <>) of enum_t;
+
+signal good1 : bit_vector(1 to 1) := \"1\";
+signal good2 : enum_vec_t(1 to 1) := \"a\";
+
+signal bad2 : bit_vector(1 to 1) := \"2\";
+signal bad3 : enum_vec_t(1 to 1) := \"b\";
+
+type enum_vec2_t is array (natural range <>, natural range <>) of enum_t;
+type enum_vec3_t is array (natural range <>) of enum_vec_t(1 to 1);
+signal bad4 : enum_vec2_t(1 to 1, 1 to 1) := \"a\";
+signal bad5 : enum_vec3_t(1 to 1) := \"a\";
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(code.s1("\"2\""), "type 'BIT' does not define character '2'"),
+            Diagnostic::error(
+                code.s1("\"b\""),
+                "type 'enum_t' does not define character 'b'",
+            ),
+            Diagnostic::error(
+                code.s("\"a\"", 2),
+                "string literal does not match array type 'enum_vec2_t'",
+            ),
+            Diagnostic::error(
+                code.s("\"a\"", 3),
+                "string literal does not match array type 'enum_vec3_t'",
+            ),
+        ],
+    )
+}
+
+#[test]
 fn test_integer_selected_name_expression_typecheck() {
     let mut builder = LibraryBuilder::new();
     let code = builder.in_declarative_region(
