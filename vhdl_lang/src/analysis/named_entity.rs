@@ -215,9 +215,7 @@ pub struct Subtype {
 
 impl Subtype {
     pub fn new(type_mark: TypeEnt) -> Subtype {
-        Subtype {
-            type_mark,
-        }
+        Subtype { type_mark }
     }
 
     pub fn type_mark(&self) -> &TypeEnt {
