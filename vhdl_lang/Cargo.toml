@@ -32,4 +32,3 @@ assert_matches = "1"
 
 [features]
 default = []
-packaged = []

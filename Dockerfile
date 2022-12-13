@@ -3,7 +3,7 @@ FROM clux/muslrust:$RUST_VERSION as builder
 WORKDIR /volume
 COPY . /volume/
 ARG CRATE
-RUN cargo build --manifest-path $CRATE/Cargo.toml --release --features "packaged"
+RUN cargo build --manifest-path $CRATE/Cargo.toml --release
 
 FROM scratch
 ARG CRATE

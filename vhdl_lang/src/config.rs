@@ -218,28 +218,32 @@ impl Config {
 
     /// Load configuration file from installation folder
     fn load_installed_config(&mut self, messages: &mut dyn MessageHandler) {
-        let config_relative_path = if cfg!(feature = "packaged") {
-            // relative to packaged bin folder
-            "../vhdl_libraries"
-        } else {
-            // relative to target/debug or target/release
-            "../../vhdl_libraries"
-        };
+        let search_paths = [
+            "../vhdl_libraries",
+            "../../vhdl_libraries",
+            "/usr/lib/rust_hdl/vhdl_libraries",
+        ];
 
-        let exe_path = env::current_exe().expect("Executable path needed");
-        let exe_folder = exe_path.parent().expect("Executable folder must exist");
-
-        let mut file_name = exe_folder.join(config_relative_path);
-        file_name.push("vhdl_ls.toml");
-
-        if !file_name.exists() {
-            panic!(
-                "Couldn't find installed libraries at {}.",
-                file_name.to_string_lossy()
-            );
+        for dir in search_paths.into_iter() {
+            let mut file_name = PathBuf::from(dir);
+            // Expand a relative path
+            if !file_name.is_absolute() {
+                let exe_path = env::current_exe().expect("Executable path needed");
+                let exe_folder = exe_path.parent().expect("Executable folder must exist");
+                file_name = exe_folder.join(file_name)
+            }
+            file_name.push("vhdl_ls.toml");
+            if file_name.exists() {
+                self.load_config(&file_name, "Installation", messages);
+                return;
+            }
         }
 
-        self.load_config(&file_name, "Installation", messages);
+        // Panic if we did not yet find the installed libraries
+        panic!(
+            "Couldn't find installed libraries at {}.",
+            search_paths.join(", ")
+        );
     }
 
     /// Load configuration file from home folder
