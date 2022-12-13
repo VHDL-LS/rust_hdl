@@ -471,11 +471,11 @@ impl<'a> AnalyzeContext<'a> {
                 return Ok(());
             }
             Err(e) => {
+                self.analyze_expression(region, expr, diagnostics)?;
                 e.add_to(diagnostics)?;
             }
         }
 
-        self.analyze_expression(region, expr, diagnostics)?;
         Ok(())
     }
 
