@@ -799,88 +799,72 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
-    pub fn analyze_expression_with_target_type(
+    pub fn analyze_literal_with_target_type(
         &self,
-        region: &Region<'_>,
         target_type: &TypeEnt,
-        expr: &mut WithPos<Expression>,
+        pos: &SrcPos,
+        literal: &Literal,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         let target_base = target_type.base_type();
 
-        match expr.item {
-            Expression::Literal(ref lit) => {
-                match lit {
-                    Literal::AbstractLiteral(AbstractLiteral::Integer(_)) => {
-                        if !matches!(target_base.kind(), Type::Integer(..)) {
-                            diagnostics.push(Diagnostic::error(
-                                expr,
-                                format!(
-                                    "integer literal does not match {}",
-                                    target_type.describe()
-                                ),
-                            ));
-                        }
+        match literal {
+            Literal::AbstractLiteral(AbstractLiteral::Integer(_)) => {
+                if !matches!(target_base.kind(), Type::Integer(..)) {
+                    diagnostics.push(Diagnostic::error(
+                        pos,
+                        format!("integer literal does not match {}", target_type.describe()),
+                    ));
+                }
+            }
+            Literal::Character(char) => match target_base.kind() {
+                Type::Enum(literals) => {
+                    if !literals.contains_key(&Designator::Character(*char)) {
+                        diagnostics.push(Diagnostic::error(
+                            pos,
+                            format!(
+                                "character literal does not match {}",
+                                target_type.describe()
+                            ),
+                        ));
                     }
-                    Literal::Character(char) => match target_base.kind() {
-                        Type::Enum(literals) => {
-                            if !literals.contains_key(&Designator::Character(*char)) {
-                                diagnostics.push(Diagnostic::error(
-                                    expr,
-                                    format!(
-                                        "character literal does not match {}",
-                                        target_type.describe()
-                                    ),
-                                ));
-                            }
-                        }
-                        _ => {
-                            diagnostics.push(Diagnostic::error(
-                                expr,
-                                format!(
-                                    "character literal does not match {}",
-                                    target_type.describe()
-                                ),
-                            ));
-                        }
-                    },
-                    Literal::String(string_lit) => match target_base.kind() {
-                        Type::Array {
-                            indexes, elem_type, ..
-                        } => {
-                            if indexes.len() == 1 {
-                                match elem_type.base_type().kind() {
-                                    Type::Enum(literals) => {
-                                        for chr in string_lit.chars() {
-                                            let chr = Designator::Character(*chr);
-                                            if !literals.contains_key(&chr) {
-                                                diagnostics.push(Diagnostic::error(
-                                                    &expr,
-                                                    format!(
-                                                        "{} does not define character {}",
-                                                        elem_type.describe(),
-                                                        chr
-                                                    ),
-                                                ))
-                                            }
-                                        }
-                                    }
-                                    _ => {
-                                        // String literal can only be matched with single dimensional array
-                                        // With elements of enumeration type such as character
+                }
+                _ => {
+                    diagnostics.push(Diagnostic::error(
+                        pos,
+                        format!(
+                            "character literal does not match {}",
+                            target_type.describe()
+                        ),
+                    ));
+                }
+            },
+            Literal::String(string_lit) => match target_base.kind() {
+                Type::Array {
+                    indexes, elem_type, ..
+                } => {
+                    if indexes.len() == 1 {
+                        match elem_type.base_type().kind() {
+                            Type::Enum(literals) => {
+                                for chr in string_lit.chars() {
+                                    let chr = Designator::Character(*chr);
+                                    if !literals.contains_key(&chr) {
                                         diagnostics.push(Diagnostic::error(
-                                            &expr,
+                                            pos,
                                             format!(
-                                                "string literal does not match {}",
-                                                target_type.describe()
+                                                "{} does not define character {}",
+                                                elem_type.describe(),
+                                                chr
                                             ),
                                         ))
                                     }
                                 }
-                            } else {
+                            }
+                            _ => {
                                 // String literal can only be matched with single dimensional array
+                                // With elements of enumeration type such as character
                                 diagnostics.push(Diagnostic::error(
-                                    expr,
+                                    pos,
                                     format!(
                                         "string literal does not match {}",
                                         target_type.describe()
@@ -888,18 +872,38 @@ impl<'a> AnalyzeContext<'a> {
                                 ))
                             }
                         }
-                        _ => {
-                            diagnostics.push(Diagnostic::error(
-                                expr,
-                                format!("string literal does not match {}", target_type.describe()),
-                            ));
-                        }
-                    },
-
-                    _ => {}
+                    } else {
+                        // String literal can only be matched with single dimensional array
+                        diagnostics.push(Diagnostic::error(
+                            pos,
+                            format!("string literal does not match {}", target_type.describe()),
+                        ))
+                    }
                 }
+                _ => {
+                    diagnostics.push(Diagnostic::error(
+                        pos,
+                        format!("string literal does not match {}", target_type.describe()),
+                    ));
+                }
+            },
 
-                Ok(())
+            _ => {}
+        }
+
+        Ok(())
+    }
+
+    pub fn analyze_expression_with_target_type(
+        &self,
+        region: &Region<'_>,
+        target_type: &TypeEnt,
+        expr: &mut WithPos<Expression>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        match expr.item {
+            Expression::Literal(ref lit) => {
+                self.analyze_literal_with_target_type(target_type, &expr.pos, lit, diagnostics)
             }
             Expression::Name(ref mut name) => self.analyze_name_with_target_type(
                 region,
