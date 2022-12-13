@@ -44,6 +44,12 @@ impl OverloadedName {
         self.entities.values()
     }
 
+    pub fn sorted_entities(&self) -> Vec<&Arc<NamedEntity>> {
+        let mut res: Vec<_> = self.entities.values().collect();
+        res.sort_by_key(|ent| ent.decl_pos());
+        res
+    }
+
     pub fn signatures(&self) -> impl Iterator<Item = &named_entity::Signature> {
         self.entities().map(|ent| ent.signature().unwrap())
     }

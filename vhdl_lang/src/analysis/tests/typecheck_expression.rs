@@ -270,10 +270,11 @@ constant bad : character := fun1;
     let (root, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
-            code.s("fun1", 4),
-            "'fun1' does not match type 'CHARACTER'",
-        )],
+        vec![
+            Diagnostic::error(code.s("fun1", 4), "'fun1' does not match type 'CHARACTER'")
+                .related(code.s("fun1", 1), "does not match fun1[return NATURAL]")
+                .related(code.s("fun1", 2), "does not match fun1[return BOOLEAN]"),
+        ],
     );
 
     assert_eq!(
@@ -305,10 +306,14 @@ constant bad : character := fun1;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
-            code.s("fun1", 4),
-            "'fun1' does not match type 'CHARACTER'",
-        )],
+        vec![
+            Diagnostic::error(code.s("fun1", 4), "'fun1' does not match type 'CHARACTER'")
+                .related(
+                    code.s("fun1", 1),
+                    "does not match fun1[NATURAL return NATURAL]",
+                )
+                .related(code.s("fun1", 2), "does not match fun1[return BOOLEAN]"),
+        ],
     );
 }
 
