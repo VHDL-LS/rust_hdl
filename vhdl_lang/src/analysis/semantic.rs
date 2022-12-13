@@ -462,21 +462,20 @@ impl<'a> AnalyzeContext<'a> {
         region: &Region<'_>,
         qexpr: &mut QualifiedExpression,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult<Option<TypeEnt>> {
         let QualifiedExpression { type_mark, expr } = qexpr;
 
         match self.resolve_type_mark(region, type_mark) {
             Ok(target_type) => {
                 self.analyze_expression_with_target_type(region, &target_type, expr, diagnostics)?;
-                return Ok(());
+                Ok(Some(target_type))
             }
             Err(e) => {
                 self.analyze_expression(region, expr, diagnostics)?;
                 e.add_to(diagnostics)?;
+                Ok(None)
             }
         }
-
-        Ok(())
     }
 
     fn analyze_expression_pos(
@@ -502,12 +501,14 @@ impl<'a> AnalyzeContext<'a> {
                 self.analyze_aggregate(region, assocs, diagnostics)
             }
             Expression::Qualified(ref mut qexpr) => {
-                self.analyze_qualified_expression(region, qexpr, diagnostics)
+                self.analyze_qualified_expression(region, qexpr, diagnostics)?;
+                Ok(())
             }
 
             Expression::New(ref mut alloc) => match alloc.item {
                 Allocator::Qualified(ref mut qexpr) => {
-                    self.analyze_qualified_expression(region, qexpr, diagnostics)
+                    self.analyze_qualified_expression(region, qexpr, diagnostics)?;
+                    Ok(())
                 }
                 Allocator::Subtype(ref mut subtype) => {
                     self.analyze_subtype_indication(region, subtype, diagnostics)
@@ -912,6 +913,16 @@ impl<'a> AnalyzeContext<'a> {
                 name,
                 diagnostics,
             ),
+            Expression::Qualified(ref mut qexpr) => {
+                if let Some(type_mark) =
+                    self.analyze_qualified_expression(region, qexpr, diagnostics)?
+                {
+                    if target_type.base_type() != type_mark.base_type() {
+                        diagnostics.push(type_mismatch(&expr.pos, &type_mark, target_type));
+                    }
+                }
+                Ok(())
+            }
             _ => self.analyze_expression(region, expr, diagnostics),
         }
     }

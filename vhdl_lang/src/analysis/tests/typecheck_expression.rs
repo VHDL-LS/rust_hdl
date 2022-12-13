@@ -491,3 +491,29 @@ signal sig2 : sig0'subtype := (others => 0); -- ok
         )],
     );
 }
+
+#[test]
+fn qualified_expression_type_mark() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+signal good : natural := integer'(0);
+signal bad1 : natural := integer'(\"hello\");
+signal bad2 : natural := string'(\"hello\");
+",
+    );
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s1("(\"hello\")"),
+                "string literal does not match integer type 'INTEGER'",
+            ),
+            Diagnostic::error(
+                code.s1("string'(\"hello\")"),
+                "array type 'STRING' does not match subtype 'NATURAL'",
+            ),
+        ],
+    );
+}
