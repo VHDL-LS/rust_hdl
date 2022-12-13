@@ -267,13 +267,18 @@ constant bad : character := fun1;
         ",
     );
 
-    let diagnostics = builder.analyze();
+    let (root, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
         vec![Diagnostic::error(
             code.s("fun1", 4),
             "'fun1' does not match type 'CHARACTER'",
         )],
+    );
+
+    assert_eq!(
+        root.search_reference(code.source(), code.s1(":= fun1").end()),
+        Some(code.s1("fun1").pos())
     );
 }
 
