@@ -209,7 +209,7 @@ constant bad_b : my_bool := rval.elem;
                 "constant 'ival' does not match type 'BOOLEAN'",
             ),
             Diagnostic::error(
-                code.s("rval.elem", 2),
+                code.s("rval.elem", 2).s1("elem"),
                 "element declaration 'elem' does not match subtype 'my_bool'",
             ),
         ],
