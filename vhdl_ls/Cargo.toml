@@ -30,4 +30,3 @@ pretty_assertions = "1"
 
 [features]
 default = []
-packaged = ["vhdl_lang/packaged"]

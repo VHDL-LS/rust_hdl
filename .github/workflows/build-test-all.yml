@@ -49,13 +49,13 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --manifest-path ${{ matrix.crate }}/Cargo.toml --release --target ${{ matrix.target }} --features "packaged"
+          args: --manifest-path ${{ matrix.crate }}/Cargo.toml --release --target ${{ matrix.target }}
 
       - name: Test
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --manifest-path ${{ matrix.crate }}/Cargo.toml --release --target ${{ matrix.target }} --features "packaged"
+          args: --manifest-path ${{ matrix.crate }}/Cargo.toml --release --target ${{ matrix.target }}
 
       - name: rustfmt
         if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
