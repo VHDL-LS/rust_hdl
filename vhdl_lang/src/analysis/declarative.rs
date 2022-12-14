@@ -625,6 +625,7 @@ impl<'a> AnalyzeContext<'a> {
                     parent.add_named_entity(to_string.clone(), diagnostics);
                     implicit.push(Arc::downgrade(&to_string));
                 }
+
                 parent.add_named_entity(
                     Arc::new(type_ent.clone_with_kind(NamedEntityKind::Type(Type::Array {
                         implicit: Vec::new(),
@@ -692,6 +693,18 @@ impl<'a> AnalyzeContext<'a> {
                     let to_string = Arc::new(self.create_to_string(type_ent.clone()));
                     parent.add_named_entity(to_string.clone(), diagnostics);
                     implicit.push(Arc::downgrade(&to_string));
+                }
+
+                {
+                    let minimum = Arc::new(self.create_min_or_maximum("MINMUM", type_ent.clone()));
+                    parent.add_named_entity(minimum.clone(), diagnostics);
+                    implicit.push(Arc::downgrade(&minimum));
+                }
+
+                {
+                    let maximum = Arc::new(self.create_min_or_maximum("MAXIMUM", type_ent.clone()));
+                    parent.add_named_entity(maximum.clone(), diagnostics);
+                    implicit.push(Arc::downgrade(&maximum));
                 }
                 parent.add_named_entity(
                     Arc::new(
@@ -852,6 +865,40 @@ impl<'a> AnalyzeContext<'a> {
         NamedEntity::implicit(
             self.symbol_utf8("TO_STRING"),
             NamedEntityKind::Subprogram(Signature::new(params, Some(string))),
+            type_ent.decl_pos(),
+        )
+    }
+
+    /// Create implicit MAXIMUM/MINIMUM
+    // function MINIMUM (L, R: T) return T;
+    // function MAXIMUM (L, R: T) return T;
+    pub fn create_min_or_maximum(&self, name: &str, type_ent: TypeEnt) -> NamedEntity {
+        let mut params = ParameterList::default();
+        params.add_param(Arc::new(NamedEntity::new(
+            self.symbol_utf8("L"),
+            NamedEntityKind::Object(Object {
+                class: ObjectClass::Constant,
+                mode: Some(Mode::In),
+                subtype: Subtype::new(type_ent.to_owned()),
+                has_default: false,
+            }),
+            type_ent.decl_pos(),
+        )));
+
+        params.add_param(Arc::new(NamedEntity::new(
+            self.symbol_utf8("R"),
+            NamedEntityKind::Object(Object {
+                class: ObjectClass::Constant,
+                mode: Some(Mode::In),
+                subtype: Subtype::new(type_ent.to_owned()),
+                has_default: false,
+            }),
+            type_ent.decl_pos(),
+        )));
+
+        NamedEntity::implicit(
+            self.symbol_utf8(name),
+            NamedEntityKind::Subprogram(Signature::new(params, Some(type_ent.clone()))),
             type_ent.decl_pos(),
         )
     }

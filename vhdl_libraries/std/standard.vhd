@@ -94,8 +94,6 @@ package standard is
   function FALLING_EDGE(signal S: BOOLEAN) return BOOLEAN;
   function FALLING_EDGE(signal B: BIT) return BOOLEAN;
 
-  function MAXIMUM return NATURAL;
-  function MINIMUM return NATURAL;
   procedure DEALLOCATE;
 
 end package;
