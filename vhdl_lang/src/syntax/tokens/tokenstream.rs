@@ -68,7 +68,7 @@ impl<'a> TokenStream<'a> {
             Err(self
                 .tokenizer
                 .eof_error()
-                .when(&format!("expecting {}", kinds_str(&[kind]))))
+                .when(format!("expecting {}", kinds_str(&[kind]))))
         }
     }
 

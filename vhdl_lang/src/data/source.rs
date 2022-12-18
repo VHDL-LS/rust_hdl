@@ -178,7 +178,7 @@ impl Source {
 }
 
 /// A lexical position (line, column) in a source.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash, Debug, Default)]
 pub struct Position {
     /// Line (zero-based).
     pub line: u32,
@@ -187,13 +187,6 @@ pub struct Position {
 }
 
 impl Position {
-    pub fn default() -> Position {
-        Position {
-            line: 0,
-            character: 0,
-        }
-    }
-
     pub fn new(line: u32, character: u32) -> Position {
         Position { line, character }
     }

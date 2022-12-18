@@ -225,16 +225,9 @@ impl<'a> AnalyzeContext<'a> {
         let units = self.root.get_library_units(self.work_library_name())?;
 
         let name = self.current_unit.primary_name();
-
-        if let Some(unit) = units.get(&UnitKey::Secondary(name.clone(), name.clone())) {
-            if unit.kind() == AnyKind::Secondary(SecondaryKind::PackageBody) {
-                Some(unit)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
+        units
+            .get(&UnitKey::Secondary(name.clone(), name.clone()))
+            .filter(|&unit| unit.kind() == AnyKind::Secondary(SecondaryKind::PackageBody))
     }
 
     pub fn has_package_body(&self) -> bool {

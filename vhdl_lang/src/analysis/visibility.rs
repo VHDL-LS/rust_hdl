@@ -185,8 +185,8 @@ impl<'a> Visible<'a> {
     ) -> Result<Option<NamedEntities>, Diagnostic> {
         let mut named_entities: Vec<_> = self
             .visible_entities
-            .iter()
-            .map(|(_, ent)| ent.entity.clone())
+            .values()
+            .map(|ent| ent.entity.clone())
             .collect();
 
         if named_entities.is_empty() {
