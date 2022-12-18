@@ -191,38 +191,70 @@ impl<'a> AnalyzeContext<'a> {
         match instance.unit {
             // @TODO architecture
             InstantiatedUnit::Entity(ref mut entity_name, ..) => {
-                fn is_entity(kind: &NamedEntityKind) -> bool {
-                    matches!(kind, NamedEntityKind::Entity(..))
-                }
-
                 if let Err(err) =
                     self.resolve_selected_name(parent, entity_name)
                         .and_then(|entities| {
-                            self.resolve_non_overloaded_with_kind(
+                            let expected = "entity";
+                            let ent = self.resolve_non_overloaded(
                                 entities,
                                 entity_name.suffix_pos(),
-                                &is_entity,
-                                "entity",
-                            )
+                                expected,
+                            )?;
+
+                            if let NamedEntityKind::Entity(ent_region) = ent.kind() {
+                                self.analyze_assoc_elems_with_formal_region(
+                                    ent_region,
+                                    parent,
+                                    &mut instance.generic_map,
+                                    diagnostics,
+                                )?;
+                                self.analyze_assoc_elems_with_formal_region(
+                                    ent_region,
+                                    parent,
+                                    &mut instance.port_map,
+                                    diagnostics,
+                                )?;
+                                Ok(())
+                            } else {
+                                Err(AnalysisError::NotFatal(
+                                    ent.kind_error(entity_name.suffix_pos(), expected),
+                                ))
+                            }
                         })
                 {
                     err.add_to(diagnostics)?;
                 }
             }
             InstantiatedUnit::Component(ref mut component_name) => {
-                fn is_component(kind: &NamedEntityKind) -> bool {
-                    matches!(kind, NamedEntityKind::Component)
-                }
-
                 if let Err(err) =
                     self.resolve_selected_name(parent, component_name)
                         .and_then(|entities| {
-                            self.resolve_non_overloaded_with_kind(
+                            let expected = "component";
+                            let ent = self.resolve_non_overloaded(
                                 entities,
                                 component_name.suffix_pos(),
-                                &is_component,
-                                "component",
-                            )
+                                expected,
+                            )?;
+
+                            if let NamedEntityKind::Component(ent_region) = ent.kind() {
+                                self.analyze_assoc_elems_with_formal_region(
+                                    ent_region,
+                                    parent,
+                                    &mut instance.generic_map,
+                                    diagnostics,
+                                )?;
+                                self.analyze_assoc_elems_with_formal_region(
+                                    ent_region,
+                                    parent,
+                                    &mut instance.port_map,
+                                    diagnostics,
+                                )?;
+                                Ok(())
+                            } else {
+                                Err(AnalysisError::NotFatal(
+                                    ent.kind_error(component_name.suffix_pos(), expected),
+                                ))
+                            }
                         })
                 {
                     err.add_to(diagnostics)?;
@@ -246,11 +278,11 @@ impl<'a> AnalyzeContext<'a> {
                 {
                     err.add_to(diagnostics)?;
                 }
+
+                self.analyze_assoc_elems(parent, &mut instance.generic_map, diagnostics)?;
+                self.analyze_assoc_elems(parent, &mut instance.port_map, diagnostics)?;
             }
         };
-
-        self.analyze_assoc_elems(parent, &mut instance.generic_map, diagnostics)?;
-        self.analyze_assoc_elems(parent, &mut instance.port_map, diagnostics)?;
 
         Ok(())
     }

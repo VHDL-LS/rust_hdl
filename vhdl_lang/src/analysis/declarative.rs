@@ -303,11 +303,23 @@ impl<'a> AnalyzeContext<'a> {
                 region.add(ident.clone(), NamedEntityKind::File, diagnostics);
             }
             Declaration::Component(ref mut component) => {
-                region.add(&component.ident, NamedEntityKind::Component, diagnostics);
-                let mut region = region.nested();
-                self.analyze_interface_list(&mut region, &mut component.generic_list, diagnostics)?;
-                self.analyze_interface_list(&mut region, &mut component.port_list, diagnostics)?;
-                region.close(diagnostics);
+                let mut component_region = region.nested();
+                self.analyze_interface_list(
+                    &mut component_region,
+                    &mut component.generic_list,
+                    diagnostics,
+                )?;
+                self.analyze_interface_list(
+                    &mut component_region,
+                    &mut component.port_list,
+                    diagnostics,
+                )?;
+                component_region.close(diagnostics);
+                region.add(
+                    &component.ident,
+                    NamedEntityKind::Component(component_region.without_parent()),
+                    diagnostics,
+                );
             }
             Declaration::Attribute(ref mut attr) => match attr {
                 Attribute::Declaration(ref mut attr_decl) => {

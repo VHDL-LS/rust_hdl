@@ -322,6 +322,19 @@ impl Name {
             _ => None,
         }
     }
+
+    pub fn prefix(&self) -> Option<&Designator> {
+        match self {
+            Self::Attribute(attr) => attr.name.item.prefix(),
+            Self::Designator(d) => Some(d.designator()),
+            Self::External(..) => None,
+            Self::FunctionCall(fcall) => fcall.name.item.prefix(),
+            Self::Indexed(name, ..) => name.item.prefix(),
+            Self::SelectedAll(name) => name.item.prefix(),
+            Self::Selected(name, ..) => name.item.prefix(),
+            Self::Slice(name, ..) => name.item.prefix(),
+        }
+    }
 }
 
 impl FunctionCall {

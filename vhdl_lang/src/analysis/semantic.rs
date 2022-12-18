@@ -416,6 +416,228 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
+    pub fn resolve_formal_name(
+        &self,
+        formal_region: &Region<'_>,
+        region: &Region<'_>,
+        name_pos: &SrcPos,
+        name: &mut Name,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult<Option<NamedEntities>> {
+        match name {
+            Name::Selected(prefix, suffix) => {
+                suffix.clear_reference();
+
+                match self.resolve_formal_name(
+                    formal_region,
+                    region,
+                    &prefix.pos,
+                    &mut prefix.item,
+                    diagnostics,
+                )? {
+                    Some(NamedEntities::Single(ref named_entity)) => {
+                        match self.lookup_selected(&prefix.pos, named_entity, suffix) {
+                            Ok(visible) => {
+                                suffix.set_reference(&visible);
+                                Ok(Some(visible))
+                            }
+                            Err(err) => {
+                                err.add_to(diagnostics)?;
+                                Ok(None)
+                            }
+                        }
+                    }
+                    Some(NamedEntities::Overloaded(..)) => Ok(None),
+                    None => Ok(None),
+                }
+            }
+
+            Name::SelectedAll(_) => {
+                diagnostics.error(name_pos, "Invalid formal");
+                Ok(None)
+            }
+            Name::Designator(designator) => {
+                designator.clear_reference();
+                match formal_region.lookup_within(name_pos, designator.designator()) {
+                    Ok(visible) => {
+                        designator.set_reference(&visible);
+                        Ok(Some(visible))
+                    }
+                    Err(diagnostic) => {
+                        diagnostics.push(diagnostic);
+                        Ok(None)
+                    }
+                }
+            }
+            Name::Indexed(ref mut prefix, ref mut exprs) => {
+                self.resolve_formal_name(
+                    formal_region,
+                    region,
+                    &prefix.pos,
+                    &mut prefix.item,
+                    diagnostics,
+                )?;
+                for expr in exprs.iter_mut() {
+                    self.analyze_expression(region, expr, diagnostics)?;
+                }
+                Ok(None)
+            }
+
+            Name::Slice(ref mut prefix, ref mut drange) => {
+                self.resolve_formal_name(
+                    formal_region,
+                    region,
+                    &prefix.pos,
+                    &mut prefix.item,
+                    diagnostics,
+                )?;
+                self.analyze_discrete_range(region, drange.as_mut(), diagnostics)?;
+                Ok(None)
+            }
+            Name::Attribute(..) => {
+                diagnostics.error(name_pos, "Invalid formal");
+                Ok(None)
+            }
+            Name::FunctionCall(ref mut fcall) => {
+                let prefix = if let Some(prefix) = fcall.name.item.prefix() {
+                    prefix
+                } else {
+                    diagnostics.error(name_pos, "Invalid formal");
+                    return Ok(None);
+                };
+
+                if formal_region
+                    .lookup_within(name_pos, prefix.designator())
+                    .is_err()
+                {
+                    // The prefix of the name was not found in the formal region
+                    // it must be a type conversion or a single parameter function call
+                    self.resolve_name(region, &fcall.name.pos, &mut fcall.name.item, diagnostics)?;
+                    // @TODO check is type cast or function call
+
+                    if let &mut [AssociationElement {
+                        ref formal,
+                        ref mut actual,
+                    }] = &mut fcall.parameters[..]
+                    {
+                        if formal.is_some() {
+                            diagnostics.error(name_pos, "Invalid formal conversion");
+                        } else if let ActualPart::Expression(Expression::Name(
+                            ref mut actual_name,
+                        )) = actual.item
+                        {
+                            self.resolve_formal_name(
+                                formal_region,
+                                region,
+                                &actual.pos,
+                                actual_name.as_mut(),
+                                diagnostics,
+                            )?;
+                        }
+                    } else {
+                        diagnostics.error(name_pos, "Invalid formal conversion");
+                    }
+                } else {
+                    match self.resolve_formal_name(
+                        formal_region,
+                        region,
+                        &fcall.name.pos,
+                        &mut fcall.name.item,
+                        diagnostics,
+                    )? {
+                        Some(NamedEntities::Single(ent)) => {
+                            if ent.actual_kind().is_type() {
+                                // A type conversion
+                                // @TODO Ignore for now
+                                self.analyze_assoc_elems(
+                                    region,
+                                    &mut fcall.parameters,
+                                    diagnostics,
+                                )?;
+                            } else if let Some(indexed_name) = fcall.to_indexed() {
+                                *name = indexed_name;
+
+                                if let Name::Indexed(ref mut prefix, ref mut indexes) = name {
+                                    if let Some(type_mark) = type_mark_of_sliced_or_indexed(&ent) {
+                                        if let Err(err) = self.analyze_indexed_name(
+                                            region,
+                                            name_pos,
+                                            prefix.suffix_pos(),
+                                            type_mark,
+                                            indexes,
+                                            diagnostics,
+                                        ) {
+                                            err.add_to(diagnostics)?;
+                                        }
+                                    } else {
+                                        diagnostics.error(
+                                            prefix.suffix_pos(),
+                                            format!("{} cannot be indexed", ent.describe()),
+                                        )
+                                    }
+                                }
+                            } else {
+                                diagnostics.push(Diagnostic::error(
+                                    &fcall.name.pos,
+                                    format!(
+                                        "{} cannot be the prefix of a function call",
+                                        ent.describe()
+                                    ),
+                                ));
+
+                                self.analyze_assoc_elems(
+                                    region,
+                                    &mut fcall.parameters,
+                                    diagnostics,
+                                )?;
+                            }
+                        }
+                        Some(NamedEntities::Overloaded(..)) => {
+                            // @TODO check function arguments
+                            self.analyze_assoc_elems(region, &mut fcall.parameters, diagnostics)?;
+                        }
+                        None => {
+                            self.analyze_assoc_elems(region, &mut fcall.parameters, diagnostics)?;
+                        }
+                    };
+                }
+
+                Ok(None)
+            }
+            Name::External(..) => {
+                diagnostics.error(name_pos, "Invalid formal");
+                Ok(None)
+            }
+        }
+    }
+
+    pub fn analyze_assoc_elems_with_formal_region(
+        &self,
+        formal_region: &Region<'_>,
+        region: &Region<'_>,
+        elems: &mut [AssociationElement],
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        for AssociationElement { formal, actual } in elems.iter_mut() {
+            if let Some(ref mut formal) = formal {
+                self.resolve_formal_name(
+                    formal_region,
+                    region,
+                    &formal.pos,
+                    &mut formal.item,
+                    diagnostics,
+                )?;
+            }
+            match actual.item {
+                ActualPart::Expression(ref mut expr) => {
+                    self.analyze_expression_pos(region, &actual.pos, expr, diagnostics)?;
+                }
+                ActualPart::Open => {}
+            }
+        }
+        Ok(())
+    }
+
     pub fn analyze_function_call(
         &self,
         region: &Region<'_>,
@@ -1103,7 +1325,7 @@ impl Diagnostic {
 }
 
 impl NamedEntity {
-    fn kind_error(&self, pos: &SrcPos, expected: &str) -> Diagnostic {
+    pub fn kind_error(&self, pos: &SrcPos, expected: &str) -> Diagnostic {
         let mut error = Diagnostic::error(
             pos,
             format!("Expected {}, got {}", expected, self.describe()),

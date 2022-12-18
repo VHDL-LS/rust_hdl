@@ -5,6 +5,7 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 mod assignment_typecheck;
+mod association_formal;
 mod circular_dependencies;
 mod context_clause;
 mod deferred_constant;

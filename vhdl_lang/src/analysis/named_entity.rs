@@ -99,7 +99,7 @@ pub enum NamedEntityKind {
     },
     File,
     InterfaceFile(TypeEnt),
-    Component,
+    Component(Region<'static>),
     Attribute,
     SubprogramDecl(Signature),
     Subprogram(Signature),
@@ -163,7 +163,7 @@ impl NamedEntityKind {
             File => "file",
             InterfaceFile(..) => "file",
             ElementDeclaration(..) => "element declaration",
-            Component => "component",
+            Component(..) => "component",
             Attribute => "attribute",
             SubprogramDecl(signature) | Subprogram(signature) => {
                 if signature.return_type.is_some() {
