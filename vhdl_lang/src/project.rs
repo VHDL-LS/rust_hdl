@@ -294,7 +294,7 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let vhdl_file_path = root.path().join("file.vhd");
         std::fs::write(
-            &vhdl_file_path,
+            vhdl_file_path,
             "
 library missing;
 
@@ -358,7 +358,7 @@ end architecture;
         let root = tempfile::tempdir().unwrap();
         let vhdl_file_path1 = root.path().join("file.vhd");
         std::fs::write(
-            &vhdl_file_path1,
+            vhdl_file_path1,
             "
 package pkg is
 end package;
@@ -368,7 +368,7 @@ end package;
 
         let vhdl_file_path2 = root.path().join("use_file.vhd");
         std::fs::write(
-            &vhdl_file_path2,
+            vhdl_file_path2,
             "
 library lib1;
 use lib1.pkg.all;
