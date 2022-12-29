@@ -5,8 +5,6 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 use super::analyze::*;
-use super::formal_region::FormalRegion;
-use super::formal_region::InterfaceEnt;
 use super::region::*;
 use super::target::AssignmentType;
 use crate::ast::Range;
@@ -202,7 +200,7 @@ impl<'a> AnalyzeContext<'a> {
                 Ok(None)
             }
             Name::FunctionCall(..) => {
-                self.analyze_ambiguous_function_call(region, name_pos, name, diagnostics)?;
+                self.analyze_function_call_or_indexed_name(region, name_pos, name, diagnostics)?;
                 Ok(None)
             }
             Name::External(ref mut ename) => {
@@ -234,16 +232,9 @@ impl<'a> AnalyzeContext<'a> {
         pos: &SrcPos,
         expected: &str,
     ) -> AnalysisResult<Arc<NamedEntity>> {
-        named_entities.into_non_overloaded().map_err(|overloaded| {
-            let mut error =
-                Diagnostic::error(pos, format!("Expected {}, got overloaded name", expected));
-            for ent in overloaded.entities() {
-                if let Some(decl_pos) = ent.decl_pos() {
-                    error.add_related(decl_pos, "Defined here");
-                }
-            }
-            AnalysisError::NotFatal(error)
-        })
+        Ok(named_entities.expect_non_overloaded(pos, || {
+            format!("Expected {}, got overloaded name", expected)
+        })?)
     }
 
     pub fn resolve_type_mark_name(
@@ -418,212 +409,6 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
-    // Returns None when the formal name is itself selected
-    // This mostly happens with records in ports
-    // It could also could also happen in function calls in very rare cases
-    // We ignore function calls for now
-    pub fn resolve_formal_name(
-        &self,
-        formal_region: &FormalRegion,
-        region: &Region<'_>,
-        name_pos: &SrcPos,
-        name: &mut Name,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<Option<InterfaceEnt>> {
-        match name {
-            Name::Selected(prefix, suffix) => {
-                suffix.clear_reference();
-
-                let prefix_ent = self.resolve_formal_name(
-                    formal_region,
-                    region,
-                    &prefix.pos,
-                    &mut prefix.item,
-                    diagnostics,
-                )?;
-
-                if let Some(prefix_ent) = prefix_ent {
-                    let visible = self.lookup_selected(&prefix.pos, &prefix_ent, suffix)?;
-                    suffix.set_reference(&visible);
-                    // @TODO this could be a field of a port that is a record, we ingore these for now
-                }
-
-                Ok(None)
-            }
-
-            Name::SelectedAll(_) => Err(Diagnostic::error(name_pos, "Invalid formal").into()),
-            Name::Designator(designator) => {
-                designator.clear_reference();
-                let ent = formal_region.lookup(name_pos, designator.designator())?;
-                designator.set_unique_reference(ent.inner());
-                Ok(Some(ent))
-            }
-            Name::Indexed(ref mut prefix, ref mut exprs) => {
-                self.resolve_formal_name(
-                    formal_region,
-                    region,
-                    &prefix.pos,
-                    &mut prefix.item,
-                    diagnostics,
-                )?;
-                for expr in exprs.iter_mut() {
-                    self.analyze_expression(region, expr, diagnostics)?;
-                }
-                Ok(None)
-            }
-
-            Name::Slice(ref mut prefix, ref mut drange) => {
-                self.resolve_formal_name(
-                    formal_region,
-                    region,
-                    &prefix.pos,
-                    &mut prefix.item,
-                    diagnostics,
-                )?;
-                self.analyze_discrete_range(region, drange.as_mut(), diagnostics)?;
-                Ok(None)
-            }
-            Name::Attribute(..) => {
-                diagnostics.error(name_pos, "Invalid formal");
-                Ok(None)
-            }
-            Name::FunctionCall(ref mut fcall) => {
-                let prefix = if let Some(prefix) = fcall.name.item.prefix() {
-                    prefix
-                } else {
-                    diagnostics.error(name_pos, "Invalid formal");
-                    return Ok(None);
-                };
-
-                if formal_region.lookup(name_pos, prefix.designator()).is_err() {
-                    // The prefix of the name was not found in the formal region
-                    // it must be a type conversion or a single parameter function call
-                    self.resolve_name(region, &fcall.name.pos, &mut fcall.name.item, diagnostics)?;
-                    // @TODO check is type cast or function call
-
-                    if let &mut [AssociationElement {
-                        ref formal,
-                        ref mut actual,
-                    }] = &mut fcall.parameters[..]
-                    {
-                        if formal.is_some() {
-                            diagnostics.error(name_pos, "Invalid formal conversion");
-                        } else if let ActualPart::Expression(Expression::Name(
-                            ref mut actual_name,
-                        )) = actual.item
-                        {
-                            self.resolve_formal_name(
-                                formal_region,
-                                region,
-                                &actual.pos,
-                                actual_name.as_mut(),
-                                diagnostics,
-                            )?;
-                        }
-                    } else {
-                        diagnostics.error(name_pos, "Invalid formal conversion");
-                    }
-                } else {
-                    match self.resolve_formal_name(
-                        formal_region,
-                        region,
-                        &fcall.name.pos,
-                        &mut fcall.name.item,
-                        diagnostics,
-                    )? {
-                        Some(ent) => {
-                            if ent.actual_kind().is_type() {
-                                // A type conversion
-                                // @TODO Ignore for now
-                                self.analyze_assoc_elems(
-                                    region,
-                                    &mut fcall.parameters,
-                                    diagnostics,
-                                )?;
-                            } else if let Some(indexed_name) = fcall.to_indexed() {
-                                *name = indexed_name;
-
-                                if let Name::Indexed(ref mut prefix, ref mut indexes) = name {
-                                    if let Some(type_mark) =
-                                        type_mark_of_sliced_or_indexed(ent.inner())
-                                    {
-                                        if let Err(err) = self.analyze_indexed_name(
-                                            region,
-                                            name_pos,
-                                            prefix.suffix_pos(),
-                                            type_mark,
-                                            indexes,
-                                            diagnostics,
-                                        ) {
-                                            err.add_to(diagnostics)?;
-                                        }
-                                    } else {
-                                        diagnostics.error(
-                                            prefix.suffix_pos(),
-                                            format!("{} cannot be indexed", ent.describe()),
-                                        )
-                                    }
-                                }
-                            } else {
-                                diagnostics.push(Diagnostic::error(
-                                    &fcall.name.pos,
-                                    format!(
-                                        "{} cannot be the prefix of a function call",
-                                        ent.describe()
-                                    ),
-                                ));
-
-                                self.analyze_assoc_elems(
-                                    region,
-                                    &mut fcall.parameters,
-                                    diagnostics,
-                                )?;
-                            }
-                        }
-                        None => {
-                            self.analyze_assoc_elems(region, &mut fcall.parameters, diagnostics)?;
-                        }
-                    };
-                }
-
-                Ok(None)
-            }
-            Name::External(..) => {
-                diagnostics.error(name_pos, "Invalid formal");
-                Ok(None)
-            }
-        }
-    }
-
-    pub fn analyze_assoc_elems_with_formal_region(
-        &self,
-        formal_region: &FormalRegion,
-        region: &Region<'_>,
-        elems: &mut [AssociationElement],
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
-        for AssociationElement { formal, actual } in elems.iter_mut() {
-            if let Some(ref mut formal) = formal {
-                if let Err(err) = self.resolve_formal_name(
-                    formal_region,
-                    region,
-                    &formal.pos,
-                    &mut formal.item,
-                    diagnostics,
-                ) {
-                    err.add_to(diagnostics)?;
-                }
-            }
-            match actual.item {
-                ActualPart::Expression(ref mut expr) => {
-                    self.analyze_expression_pos(region, &actual.pos, expr, diagnostics)?;
-                }
-                ActualPart::Open => {}
-            }
-        }
-        Ok(())
-    }
-
     pub fn analyze_procedure_call(
         &self,
         region: &Region<'_>,
@@ -643,6 +428,7 @@ impl<'a> AnalyzeContext<'a> {
                         );
                     }
                     diagnostics.push(diagnostic);
+                    self.analyze_assoc_elems(region, parameters, diagnostics)?;
                 }
                 NamedEntities::Overloaded(names) => {
                     let mut found = false;
@@ -657,7 +443,21 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     }
 
-                    if !found {
+                    if found {
+                        if let Some(reference) = fcall.name.item.suffix_reference_mut() {
+                            self.resolve_overloaded_with_target_type(
+                                region,
+                                names,
+                                None,
+                                &fcall.name.pos,
+                                reference,
+                                &mut fcall.parameters,
+                                diagnostics,
+                            )?;
+                        } else {
+                            self.analyze_assoc_elems(region, parameters, diagnostics)?;
+                        }
+                    } else {
                         let mut diagnostic = Diagnostic::error(&name.pos, "Invalid procedure call");
                         for ent in names.sorted_entities() {
                             if let Some(decl_pos) = ent.decl_pos() {
@@ -668,12 +468,14 @@ impl<'a> AnalyzeContext<'a> {
                             }
                         }
                         diagnostics.push(diagnostic);
+                        self.analyze_assoc_elems(region, parameters, diagnostics)?;
                     }
                 }
             };
+        } else {
+            self.analyze_assoc_elems(region, parameters, diagnostics)?;
         }
-
-        self.analyze_assoc_elems(region, parameters, diagnostics)
+        Ok(())
     }
 
     pub fn analyze_aggregate(
@@ -716,7 +518,13 @@ impl<'a> AnalyzeContext<'a> {
 
         match self.resolve_type_mark(region, type_mark) {
             Ok(target_type) => {
-                self.analyze_expression_with_target_type(region, &target_type, expr, diagnostics)?;
+                self.analyze_expression_with_target_type(
+                    region,
+                    &target_type,
+                    &expr.pos,
+                    &mut expr.item,
+                    diagnostics,
+                )?;
                 Ok(Some(target_type))
             }
             Err(e) => {
@@ -727,7 +535,7 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    fn analyze_expression_pos(
+    pub fn analyze_expression_pos(
         &self,
         region: &Region<'_>,
         pos: &SrcPos,
@@ -842,7 +650,7 @@ impl<'a> AnalyzeContext<'a> {
 
     /// Function call cannot be distinguished from indexed names when parsing
     /// Use the named entity kind to disambiguate
-    pub fn analyze_ambiguous_function_call(
+    pub fn analyze_function_call_or_indexed_name(
         &self,
         region: &Region<'_>,
         name_pos: &SrcPos,
@@ -862,27 +670,26 @@ impl<'a> AnalyzeContext<'a> {
                             // A type conversion
                             // @TODO Ignore for now
                             self.analyze_assoc_elems(region, &mut fcall.parameters, diagnostics)?;
-                        } else if let Some(indexed_name) = fcall.to_indexed() {
-                            *name = indexed_name;
+                        } else if let Some((prefix, indexes)) = fcall.to_indexed() {
+                            *name = Name::Indexed(prefix, indexes);
+                            let Name::Indexed(ref mut prefix, ref mut indexes) = name else { unreachable!()};
 
-                            if let Name::Indexed(ref mut prefix, ref mut indexes) = name {
-                                if let Some(type_mark) = type_mark_of_sliced_or_indexed(&ent) {
-                                    if let Err(err) = self.analyze_indexed_name(
-                                        region,
-                                        name_pos,
-                                        prefix.suffix_pos(),
-                                        type_mark,
-                                        indexes,
-                                        diagnostics,
-                                    ) {
-                                        err.add_to(diagnostics)?;
-                                    }
-                                } else {
-                                    diagnostics.error(
-                                        prefix.suffix_pos(),
-                                        format!("{} cannot be indexed", ent.describe()),
-                                    )
+                            if let Some(type_mark) = type_mark_of_sliced_or_indexed(&ent) {
+                                if let Err(err) = self.analyze_indexed_name(
+                                    region,
+                                    name_pos,
+                                    prefix.suffix_pos(),
+                                    type_mark,
+                                    indexes,
+                                    diagnostics,
+                                ) {
+                                    err.add_to(diagnostics)?;
                                 }
+                            } else {
+                                diagnostics.error(
+                                    prefix.suffix_pos(),
+                                    format!("{} cannot be indexed", ent.describe()),
+                                )
                             }
                         } else {
                             diagnostics.push(Diagnostic::error(
@@ -912,6 +719,8 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
+    /// Returns true if the name actually matches the target type
+    /// None if it was uncertain
     pub fn analyze_name_with_target_type(
         &self,
         region: &Region<'_>,
@@ -919,7 +728,7 @@ impl<'a> AnalyzeContext<'a> {
         name_pos: &SrcPos,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult<Option<bool>> {
         match name {
             Name::Designator(designator) => {
                 designator.clear_reference();
@@ -933,16 +742,30 @@ impl<'a> AnalyzeContext<'a> {
                         match entities {
                             NamedEntities::Single(ent) => {
                                 designator.set_unique_reference(&ent);
-                                ent.resolve(target_type, name_pos, diagnostics);
+                                let is_correct = ent.match_with_target_type(target_type);
+
+                                if is_correct == Some(false) {
+                                    diagnostics.push(type_mismatch(name_pos, &ent, target_type));
+                                }
+
+                                Ok(is_correct)
                             }
-                            NamedEntities::Overloaded(overloaded) => {
-                                overloaded.resolve(target_type, name_pos, designator, diagnostics)
-                            }
+                            NamedEntities::Overloaded(overloaded) => self
+                                .resolve_overloaded_with_target_type(
+                                    region,
+                                    overloaded,
+                                    Some(target_type),
+                                    name_pos,
+                                    designator,
+                                    &mut [],
+                                    diagnostics,
+                                ),
                         }
                     }
 
                     Err(diagnostic) => {
                         diagnostics.push(diagnostic);
+                        Ok(None)
                     }
                 }
             }
@@ -960,24 +783,124 @@ impl<'a> AnalyzeContext<'a> {
                             match entities {
                                 NamedEntities::Single(ent) => {
                                     designator.set_unique_reference(&ent);
-                                    ent.resolve(target_type, &designator.pos, diagnostics);
+                                    let is_correct = ent.match_with_target_type(target_type);
+
+                                    if is_correct == Some(false) {
+                                        diagnostics.push(type_mismatch(
+                                            &designator.pos,
+                                            &ent,
+                                            target_type,
+                                        ));
+                                    }
+                                    Ok(is_correct)
                                 }
-                                NamedEntities::Overloaded(overloaded) => overloaded.resolve(
-                                    target_type,
-                                    &designator.pos,
-                                    &mut designator.item,
-                                    diagnostics,
-                                ),
+                                NamedEntities::Overloaded(overloaded) => self
+                                    .resolve_overloaded_with_target_type(
+                                        region,
+                                        overloaded,
+                                        Some(target_type),
+                                        &designator.pos,
+                                        &mut designator.item,
+                                        &mut [],
+                                        diagnostics,
+                                    ),
                             }
                         }
                         Err(err) => {
                             err.add_to(diagnostics)?;
+                            Ok(None)
                         }
                     }
+                } else {
+                    Ok(None)
                 }
             }
-            Name::FunctionCall(..) => {
-                self.analyze_ambiguous_function_call(region, name_pos, name, diagnostics)?;
+            Name::FunctionCall(fcall) => {
+                match self.resolve_name(
+                    region,
+                    &fcall.name.pos,
+                    &mut fcall.name.item,
+                    diagnostics,
+                )? {
+                    Some(NamedEntities::Single(ent)) => {
+                        if ent.actual_kind().is_type() {
+                            // A type conversion
+                            // @TODO Ignore for now
+                            self.analyze_assoc_elems(region, &mut fcall.parameters, diagnostics)?;
+                        } else if let Some((prefix, indexes)) = fcall.to_indexed() {
+                            *name = Name::Indexed(prefix, indexes);
+                            let Name::Indexed(ref mut prefix, ref mut indexes) = name else { unreachable!()};
+
+                            if let Some(type_mark) = type_mark_of_sliced_or_indexed(&ent) {
+                                if let Err(err) = self.analyze_indexed_name(
+                                    region,
+                                    name_pos,
+                                    prefix.suffix_pos(),
+                                    type_mark,
+                                    indexes,
+                                    diagnostics,
+                                ) {
+                                    err.add_to(diagnostics)?;
+                                }
+                            } else {
+                                diagnostics.error(
+                                    prefix.suffix_pos(),
+                                    format!("{} cannot be indexed", ent.describe()),
+                                )
+                            }
+                        } else {
+                            diagnostics.push(Diagnostic::error(
+                                &fcall.name.pos,
+                                format!(
+                                    "{} cannot be the prefix of a function call",
+                                    ent.describe()
+                                ),
+                            ));
+
+                            self.analyze_assoc_elems(region, &mut fcall.parameters, diagnostics)?;
+                        }
+                    }
+                    Some(NamedEntities::Overloaded(overloaded)) => {
+                        if let Some(reference) = fcall.name.item.suffix_reference_mut() {
+                            self.resolve_overloaded_with_target_type(
+                                region,
+                                overloaded,
+                                Some(target_type),
+                                &fcall.name.pos,
+                                reference,
+                                fcall.parameters.as_mut_slice(),
+                                diagnostics,
+                            )?;
+                        }
+                    }
+                    None => {
+                        self.analyze_assoc_elems(region, &mut fcall.parameters, diagnostics)?;
+                    }
+                };
+                // @TODO
+                Ok(None)
+            }
+            Name::Indexed(..) => {
+                // Parser will not emit an indexed name
+                Ok(None)
+            }
+
+            Name::SelectedAll(..) => {
+                // @TODO check type
+                self.resolve_name(region, name_pos, name, diagnostics)?;
+                Ok(None)
+            }
+
+            Name::External(..) => {
+                // @TODO check type
+                self.resolve_name(region, name_pos, name, diagnostics)?;
+                Ok(None)
+            }
+
+            Name::Attribute(..) => {
+                // @TODO check type
+                self.resolve_name(region, name_pos, name, diagnostics)?;
+                Ok(None)
             }
 
             Name::Slice(ref mut prefix, ref mut drange) => {
@@ -995,36 +918,153 @@ impl<'a> AnalyzeContext<'a> {
                 }
 
                 self.analyze_discrete_range(region, drange.as_mut(), diagnostics)?;
+                Ok(None)
             }
-            _ => {
-                self.resolve_name(region, name_pos, name, diagnostics)?;
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn resolve_overloaded_with_target_type(
+        &self,
+        region: &Region<'_>,
+        overloaded: OverloadedName,
+        target_type: Option<&TypeEnt>,
+        pos: &SrcPos,
+        designator: &mut WithRef<Designator>,
+        parameters: &mut [AssociationElement],
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult<Option<bool>> {
+        let mut good = Vec::with_capacity(overloaded.len());
+        let mut bad = Vec::with_capacity(overloaded.len());
+        let mut uncertain = false;
+        for name in overloaded.entities() {
+            if let Some(sig) = name.signature() {
+                let is_correct = if sig.match_return_type(target_type) {
+                    let mut temp_diagnostics = Vec::new();
+                    // @TODO clear references that could have been incorrectly set
+                    self.analyze_assoc_elems_with_formal_region(
+                        pos,
+                        &sig.params,
+                        region,
+                        parameters,
+                        &mut temp_diagnostics,
+                    )?
+                } else {
+                    Some(false)
+                };
+
+                match is_correct {
+                    Some(true) => good.push((name, sig)),
+                    Some(false) => bad.push((name, sig)),
+                    None => uncertain = true,
+                }
             }
         }
 
-        Ok(())
+        #[allow(clippy::if_same_then_else)]
+        if good.len() > 1 {
+            // Not unique
+            let mut diagnostic =
+                Diagnostic::error(pos, format!("Ambiguous use of '{}'", designator));
+            diagnostic.add_subprogram_candidates(
+                "Migth be",
+                good.into_iter().map(|(ent, _)| ent).collect(),
+            );
+            diagnostics.push(diagnostic);
+            self.analyze_assoc_elems(region, parameters, diagnostics)?;
+            Ok(None)
+        } else if uncertain {
+            self.analyze_assoc_elems(region, parameters, diagnostics)?;
+            Ok(None)
+        } else if let &[(ent, sig)] = good.as_slice() {
+            // Unique correct match
+            designator.set_unique_reference(ent);
+            self.analyze_assoc_elems_with_formal_region(
+                pos,
+                &sig.params,
+                region,
+                parameters,
+                diagnostics,
+            )?;
+            Ok(Some(true))
+        } else if let &[(ent, sig)] = bad.as_slice() {
+            // Unique incorrect match
+            designator.set_unique_reference(ent);
+            if parameters.is_empty() && sig.params.is_empty() {
+                // Typically enumeration literals such as character, boolean
+                // We provide a better diagnostic for those
+                if let Some(target_type) = target_type {
+                    diagnostics.error(
+                        pos,
+                        format!("'{}' does not match {}", designator, target_type.describe()),
+                    )
+                } else {
+                    let mut diagnostic =
+                        Diagnostic::error(pos, format!("Could not resolve '{}'", designator));
+                    diagnostic
+                        .add_subprogram_candidates("Does not match", overloaded.sorted_entities());
+                    diagnostics.push(diagnostic)
+                };
+            } else {
+                // The analysis below will produce the diagnostics for the bad option
+                self.analyze_assoc_elems_with_formal_region(
+                    pos,
+                    &sig.params,
+                    region,
+                    parameters,
+                    diagnostics,
+                )?;
+            }
+            Ok(Some(false))
+        } else {
+            // Found no function matching the target type
+            if let (Some(ent), Some(target_type)) = (overloaded.as_unique(), target_type) {
+                designator.set_unique_reference(ent);
+                diagnostics.error(
+                    pos,
+                    format!("'{}' does not match {}", designator, target_type.describe()),
+                )
+            } else {
+                let mut diagnostic =
+                    Diagnostic::error(pos, format!("Could not resolve '{}'", designator));
+                diagnostic
+                    .add_subprogram_candidates("Does not match", overloaded.sorted_entities());
+                diagnostics.push(diagnostic)
+            }
+
+            self.analyze_assoc_elems(region, parameters, diagnostics)?;
+            Ok(Some(false))
+        }
     }
 
+    /// Returns true if the name actually matches the target type
+    /// None if it was uncertain
     pub fn analyze_literal_with_target_type(
         &self,
         target_type: &TypeEnt,
         pos: &SrcPos,
         literal: &Literal,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult<Option<bool>> {
         let target_base = target_type.base_type();
 
-        match literal {
+        let is_correct = match literal {
             Literal::AbstractLiteral(AbstractLiteral::Integer(_)) => {
-                if !matches!(target_base.kind(), Type::Integer(..)) {
+                let is_correct = matches!(target_base.kind(), Type::Integer(..));
+
+                if !is_correct {
                     diagnostics.push(Diagnostic::error(
                         pos,
                         format!("integer literal does not match {}", target_type.describe()),
                     ));
                 }
+                Some(is_correct)
             }
             Literal::Character(char) => match target_base.kind() {
                 Type::Enum(_, literals) => {
-                    if !literals.contains(&Designator::Character(*char)) {
+                    if literals.contains(&Designator::Character(*char)) {
+                        Some(true)
+                    } else {
                         diagnostics.push(Diagnostic::error(
                             pos,
                             format!(
@@ -1032,6 +1072,7 @@ impl<'a> AnalyzeContext<'a> {
                                 target_type.describe()
                             ),
                         ));
+                        Some(false)
                     }
                 }
                 _ => {
@@ -1042,6 +1083,7 @@ impl<'a> AnalyzeContext<'a> {
                             target_type.describe()
                         ),
                     ));
+                    Some(false)
                 }
             },
             Literal::String(string_lit) => match target_base.kind() {
@@ -1051,9 +1093,11 @@ impl<'a> AnalyzeContext<'a> {
                     if indexes.len() == 1 {
                         match elem_type.base_type().kind() {
                             Type::Enum(_, literals) => {
+                                let mut is_correct = true;
                                 for chr in string_lit.chars() {
                                     let chr = Designator::Character(*chr);
                                     if !literals.contains(&chr) {
+                                        is_correct = false;
                                         diagnostics.push(Diagnostic::error(
                                             pos,
                                             format!(
@@ -1064,6 +1108,7 @@ impl<'a> AnalyzeContext<'a> {
                                         ))
                                     }
                                 }
+                                Some(is_correct)
                             }
                             _ => {
                                 // String literal can only be matched with single dimensional array
@@ -1074,7 +1119,8 @@ impl<'a> AnalyzeContext<'a> {
                                         "string literal does not match {}",
                                         target_type.describe()
                                     ),
-                                ))
+                                ));
+                                Some(false)
                             }
                         }
                     } else {
@@ -1082,7 +1128,9 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.push(Diagnostic::error(
                             pos,
                             format!("string literal does not match {}", target_type.describe()),
-                        ))
+                        ));
+
+                        Some(false)
                     }
                 }
                 _ => {
@@ -1090,44 +1138,52 @@ impl<'a> AnalyzeContext<'a> {
                         pos,
                         format!("string literal does not match {}", target_type.describe()),
                     ));
+
+                    Some(false)
                 }
             },
 
-            _ => {}
-        }
+            _ => None,
+        };
 
-        Ok(())
+        Ok(is_correct)
     }
 
+    /// Returns true if the name actually matches the target type
+    /// None if it was uncertain
     pub fn analyze_expression_with_target_type(
         &self,
         region: &Region<'_>,
         target_type: &TypeEnt,
-        expr: &mut WithPos<Expression>,
+        expr_pos: &SrcPos,
+        expr: &mut Expression,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
-        match expr.item {
+    ) -> FatalResult<Option<bool>> {
+        match expr {
             Expression::Literal(ref lit) => {
-                self.analyze_literal_with_target_type(target_type, &expr.pos, lit, diagnostics)
+                self.analyze_literal_with_target_type(target_type, expr_pos, lit, diagnostics)
             }
-            Expression::Name(ref mut name) => self.analyze_name_with_target_type(
-                region,
-                target_type,
-                &expr.pos,
-                name,
-                diagnostics,
-            ),
+            Expression::Name(ref mut name) => {
+                self.analyze_name_with_target_type(region, target_type, expr_pos, name, diagnostics)
+            }
             Expression::Qualified(ref mut qexpr) => {
-                if let Some(type_mark) =
+                let is_correct = if let Some(type_mark) =
                     self.analyze_qualified_expression(region, qexpr, diagnostics)?
                 {
-                    if target_type.base_type() != type_mark.base_type() {
-                        diagnostics.push(type_mismatch(&expr.pos, &type_mark, target_type));
+                    let is_correct = target_type.base_type() == type_mark.base_type();
+                    if !is_correct {
+                        diagnostics.push(type_mismatch(expr_pos, &type_mark, target_type));
                     }
-                }
-                Ok(())
+                    Some(is_correct)
+                } else {
+                    None
+                };
+                Ok(is_correct)
             }
-            _ => self.analyze_expression(region, expr, diagnostics),
+            _ => {
+                self.analyze_expression_pos(region, expr_pos, expr, diagnostics)?;
+                Ok(None)
+            }
         }
     }
 
@@ -1224,7 +1280,7 @@ impl<'a> AnalyzeContext<'a> {
     }
 }
 
-fn type_mark_of_sliced_or_indexed(ent: &Arc<NamedEntity>) -> Option<&TypeEnt> {
+pub fn type_mark_of_sliced_or_indexed(ent: &Arc<NamedEntity>) -> Option<&TypeEnt> {
     Some(match ent.kind() {
         NamedEntityKind::NonObjectAlias(ref alias) => {
             return type_mark_of_sliced_or_indexed(alias);
@@ -1239,105 +1295,14 @@ fn type_mark_of_sliced_or_indexed(ent: &Arc<NamedEntity>) -> Option<&TypeEnt> {
     })
 }
 
-enum OverloadedMatches<'a> {
-    Unique(&'a Arc<NamedEntity>),
-    Ambiguous(Vec<&'a Arc<NamedEntity>>),
-    WrongArgumentCount(Vec<&'a Arc<NamedEntity>>),
-    None,
-}
-
-impl OverloadedName {
-    pub fn resolve(
-        &self,
-        target_type: &TypeEnt,
-        pos: &SrcPos,
-        designator: &mut WithRef<Designator>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) {
-        match self.match_target_type(target_type) {
-            OverloadedMatches::Unique(ent) => {
-                designator.set_unique_reference(ent);
-            }
-            OverloadedMatches::Ambiguous(candidates) => {
-                diagnostics.push(ambiguous_overloaded_type(
-                    pos,
-                    designator,
-                    candidates.as_ref(),
-                ));
-            }
-            OverloadedMatches::WrongArgumentCount(candidates) => {
-                let mut diagnostic = Diagnostic::error(
-                    pos,
-                    format!(
-                        "Wrong number of arguments in call to subprogram '{}'",
-                        designator
-                    ),
-                );
-                diagnostic.add_subprogram_candidates("migth be", &candidates);
-                diagnostics.push(diagnostic);
-            }
-            OverloadedMatches::None => {
-                let mut diagnostic = Diagnostic::error(
-                    pos,
-                    format!("'{}' does not match {}", designator, target_type.describe()),
-                );
-                if self.as_unique().is_none() {
-                    diagnostic.add_subprogram_candidates("does not match", &self.sorted_entities());
-                }
-                diagnostics.push(diagnostic);
-            }
-        }
-    }
-
-    /// Match the type of overloaded name with the target type
-    /// Returns an unique match if found
-    ///  ... or return a vector of ambiguous candidates
-    //   ... or an empty array if no match
-    /// An overloaded name is a simple or selected name without any arguments
-    /// such as an enumeration literal or function call without any arguments
-    fn match_target_type<'e>(&'e self, target_type: &TypeEnt) -> OverloadedMatches<'e> {
-        let target_base = target_type.base_type();
-        let mut candidates = Vec::new();
-        let mut wrong_args = Vec::new();
-
-        for ent in self.entities() {
-            if let Some(signature) = ent.signature() {
-                if signature.match_return_type(target_base) {
-                    if signature.can_be_called_without_parameters() {
-                        candidates.push(ent);
-                    } else {
-                        wrong_args.push(ent);
-                    }
-                }
-            }
-        }
-
-        if candidates.len() == 1 {
-            OverloadedMatches::Unique(candidates[0])
-        } else if !candidates.is_empty() {
-            candidates.sort_by_key(|ent| ent.decl_pos());
-            OverloadedMatches::Ambiguous(candidates)
-        } else if !wrong_args.is_empty() {
-            wrong_args.sort_by_key(|ent| ent.decl_pos());
-            OverloadedMatches::WrongArgumentCount(wrong_args)
-        } else {
-            OverloadedMatches::None
-        }
-    }
-}
-
-fn ambiguous_overloaded_type(
-    pos: &SrcPos,
-    name: impl std::fmt::Display,
-    candidates: &[&Arc<NamedEntity>],
-) -> Diagnostic {
-    let mut diagnostic = Diagnostic::error(pos, format!("ambiguous use of '{}'", name));
-    diagnostic.add_subprogram_candidates("migth be", candidates);
-    diagnostic
-}
-
 impl Diagnostic {
-    fn add_subprogram_candidates(&mut self, prefix: &str, candidates: &[&Arc<NamedEntity>]) {
+    pub fn add_subprogram_candidates(
+        &mut self,
+        prefix: &str,
+        mut candidates: Vec<&Arc<NamedEntity>>,
+    ) {
+        candidates.sort_by_key(|ent| ent.decl_pos());
+
         for ent in candidates {
             if let Some(signature) = ent.signature() {
                 if let Some(decl_pos) = ent.decl_pos() {
@@ -1363,20 +1328,9 @@ impl NamedEntity {
         error
     }
 
-    fn resolve(
-        &self,
-        target_type: &TypeEnt,
-        pos: &SrcPos,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) {
-        if !self.match_with_target_type(target_type) {
-            diagnostics.push(type_mismatch(pos, self, target_type));
-        }
-    }
-
     /// Match a named entity with a target type
     /// Returns a diagnostic in case of mismatch
-    fn match_with_target_type(&self, target_type: &TypeEnt) -> bool {
+    fn match_with_target_type(&self, target_type: &TypeEnt) -> Option<bool> {
         let typ = match self.actual_kind() {
             NamedEntityKind::ObjectAlias { ref type_mark, .. } => type_mark.base_type(),
             NamedEntityKind::Object(ref ent) => ent.subtype.base_type(),
@@ -1386,13 +1340,19 @@ impl NamedEntity {
             NamedEntityKind::InterfaceFile(ref file) => file.base_type(),
             NamedEntityKind::File(ref file) => file.base_type(),
             // Ignore now to avoid false positives
-            NamedEntityKind::LoopParameter => return true,
             _ => {
-                return false;
+                return None;
             }
         };
 
-        typ == target_type.base_type()
+        let target_base = target_type.base_type();
+
+        if matches!(typ.kind(), Type::Interface) || matches!(target_base.kind(), Type::Interface) {
+            // Flag interface types as uncertain for now
+            None
+        } else {
+            Some(typ == target_base)
+        }
     }
 }
 

@@ -7,7 +7,7 @@
 use std::sync::Arc;
 
 use crate::{
-    ast::{Designator, ObjectClass},
+    ast::{Designator, InterfaceListType, Mode, ObjectClass},
     Diagnostic, SrcPos,
 };
 
@@ -50,13 +50,12 @@ impl InterfaceEnt {
         }
     }
 
-    pub fn base_type(&self) -> &TypeEnt {
+    pub fn is_output_signal(&self) -> bool {
         match self.ent.kind() {
-            NamedEntityKind::Object(obj) => obj.subtype.base_type(),
-            NamedEntityKind::InterfaceFile(file_type) => file_type.base_type(),
-            _ => {
-                unreachable!();
+            NamedEntityKind::Object(obj) => {
+                obj.class == ObjectClass::Signal && obj.mode == Some(Mode::Out)
             }
+            _ => false,
         }
     }
 
@@ -69,6 +68,10 @@ impl InterfaceEnt {
             }
         }
     }
+
+    pub fn base_type(&self) -> &TypeEnt {
+        self.type_mark().base_type()
+    }
 }
 
 impl std::ops::Deref for InterfaceEnt {
@@ -79,23 +82,38 @@ impl std::ops::Deref for InterfaceEnt {
 }
 
 /// The formal region is an ordered list of interface elements such as ports, generics and subprogram arguments
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct FormalRegion {
+    pub typ: InterfaceListType,
     entities: Vec<InterfaceEnt>,
 }
 
 impl FormalRegion {
-    pub fn new(entities: Vec<InterfaceEnt>) -> Self {
-        Self { entities }
+    pub fn new(typ: InterfaceListType) -> Self {
+        Self {
+            typ,
+            entities: Default::default(),
+        }
+    }
+
+    pub fn new_params() -> Self {
+        Self {
+            typ: InterfaceListType::Parameter,
+            entities: Default::default(),
+        }
+    }
+
+    pub fn new_with(typ: InterfaceListType, entities: Vec<InterfaceEnt>) -> Self {
+        Self { typ, entities }
     }
     pub fn lookup(
         &self,
         pos: &SrcPos,
         designator: &Designator,
-    ) -> Result<InterfaceEnt, Diagnostic> {
-        for ent in self.entities.iter() {
+    ) -> Result<(usize, InterfaceEnt), Diagnostic> {
+        for (idx, ent) in self.entities.iter().enumerate() {
             if ent.designator() == designator {
-                return Ok(ent.clone());
+                return Ok((idx, ent.clone()));
             }
         }
         Err(Diagnostic::error(

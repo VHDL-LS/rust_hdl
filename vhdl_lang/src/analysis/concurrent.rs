@@ -201,12 +201,14 @@ impl<'a> AnalyzeContext<'a> {
                                 let (generic_region, port_region) = ent_region.to_entity_formal();
 
                                 self.analyze_assoc_elems_with_formal_region(
+                                    &entity_name.pos,
                                     &generic_region,
                                     parent,
                                     &mut instance.generic_map,
                                     diagnostics,
                                 )?;
                                 self.analyze_assoc_elems_with_formal_region(
+                                    &entity_name.pos,
                                     &port_region,
                                     parent,
                                     &mut instance.port_map,
@@ -237,12 +239,14 @@ impl<'a> AnalyzeContext<'a> {
                             if let NamedEntityKind::Component(ent_region) = ent.kind() {
                                 let (generic_region, port_region) = ent_region.to_entity_formal();
                                 self.analyze_assoc_elems_with_formal_region(
+                                    &component_name.pos,
                                     &generic_region,
                                     parent,
                                     &mut instance.generic_map,
                                     diagnostics,
                                 )?;
                                 self.analyze_assoc_elems_with_formal_region(
+                                    &component_name.pos,
                                     &port_region,
                                     parent,
                                     &mut instance.port_map,

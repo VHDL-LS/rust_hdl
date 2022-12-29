@@ -227,10 +227,10 @@ impl Subtype {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Signature {
     /// Vector of InterfaceObject or InterfaceFile
-    params: FormalRegion,
+    pub params: FormalRegion,
     return_type: Option<TypeEnt>,
 }
 
@@ -286,20 +286,22 @@ impl Signature {
         self.params.iter().all(|param| param.has_default())
     }
 
+    pub fn can_be_called_with_single_parameter(&self, typ: &TypeEnt) -> bool {
+        let mut params = self.params.iter();
+        if let Some(first) = params.next() {
+            if params.all(|param| param.has_default()) {
+                return first.base_type() == typ.base_type();
+            }
+        }
+        false
+    }
+
     pub fn return_type(&self) -> Option<&TypeEnt> {
         self.return_type.as_ref()
     }
 
-    pub fn return_base_type(&self) -> Option<&TypeEnt> {
-        self.return_type().map(|ent| ent.base_type())
-    }
-
-    pub fn match_return_type(&self, typ: &TypeEnt) -> bool {
-        if let Some(return_type) = self.return_base_type() {
-            return_type.flatten_alias() == typ.flatten_alias()
-        } else {
-            false
-        }
+    pub fn match_return_type(&self, typ: Option<&TypeEnt>) -> bool {
+        self.return_type().map(|ent| ent.base_type()) == typ.map(|ent| ent.base_type())
     }
 }
 

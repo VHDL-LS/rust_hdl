@@ -369,3 +369,32 @@ end architecture;
         )],
     );
 }
+
+#[test]
+fn output_ports_may_be_left_open() {
+    check_code_with_no_diagnostics(
+        "
+entity ent2 is
+port (
+    signal inport: in natural;
+    signal outport: out natural  );
+end entity;
+
+architecture a of ent2 is
+begin
+end architecture;
+
+entity ent is
+end entity;
+
+architecture a of ent is
+    signal sig : natural;
+begin
+    inst: entity work.ent2
+        port map (
+        inport => sig
+        );
+end architecture;
+    ",
+    );
+}

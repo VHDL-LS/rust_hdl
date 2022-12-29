@@ -6,6 +6,7 @@
 
 #[macro_use]
 mod analyze;
+mod association;
 mod concurrent;
 mod declarative;
 mod design_unit;

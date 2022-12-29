@@ -259,7 +259,8 @@ impl<'a> AnalyzeContext<'a> {
                         self.analyze_expression_with_target_type(
                             region,
                             subtype.type_mark(),
-                            expr,
+                            &expr.pos,
+                            &mut expr.item,
                             diagnostics,
                         )?;
                     } else {
@@ -451,7 +452,10 @@ impl<'a> AnalyzeContext<'a> {
                     ),
                 );
 
-                let signature = Signature::new(FormalRegion::default(), Some(enum_type.clone()));
+                let signature = Signature::new(
+                    FormalRegion::new(InterfaceListType::Parameter),
+                    Some(enum_type.clone()),
+                );
 
                 for literal in enumeration.iter_mut() {
                     let literal_ent = Arc::new(NamedEntity::new(
@@ -837,7 +841,8 @@ impl<'a> AnalyzeContext<'a> {
                         self.analyze_expression_with_target_type(
                             region,
                             subtype.type_mark(),
-                            expression,
+                            &expression.pos,
+                            &mut expression.item,
                             diagnostics,
                         )?;
                     } else {
@@ -902,7 +907,7 @@ impl<'a> AnalyzeContext<'a> {
         declarations: &mut [InterfaceDeclaration],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<FormalRegion> {
-        let mut params = FormalRegion::default();
+        let mut params = FormalRegion::new(InterfaceListType::Parameter);
 
         for decl in declarations.iter_mut() {
             match self.analyze_interface_declaration(region, decl, diagnostics) {

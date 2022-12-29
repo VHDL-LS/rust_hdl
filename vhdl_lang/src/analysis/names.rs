@@ -1,3 +1,9 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
+//
+// Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
+
 use super::analyze::*;
 use super::region::*;
 use crate::ast::*;
@@ -237,8 +243,8 @@ impl<'a> AnalyzeContext<'a> {
             Name::Attribute(..) => Err(Diagnostic::error(name_pos, err_msg).into()),
 
             Name::FunctionCall(ref mut fcall) => {
-                if let Some(indexed_name) = fcall.to_indexed() {
-                    *name = indexed_name;
+                if let Some((prefix, indexes)) = fcall.to_indexed() {
+                    *name = Name::Indexed(prefix, indexes);
                     self.resolve_object_prefix(region, name_pos, name, err_msg, diagnostics)
                 } else {
                     Err(Diagnostic::error(name_pos, err_msg).into())

@@ -309,10 +309,10 @@ impl Designator {
 }
 
 impl Name {
-    pub fn suffix_reference_mut(&mut self) -> Option<&mut Reference> {
+    pub fn suffix_reference_mut(&mut self) -> Option<&mut WithRef<Designator>> {
         match self {
-            Name::Designator(suffix) => Some(&mut suffix.reference),
-            Name::Selected(_, suffix) => Some(&mut suffix.item.reference),
+            Name::Designator(suffix) => Some(suffix),
+            Name::Selected(_, suffix) => Some(&mut suffix.item),
             _ => None,
         }
     }
@@ -334,14 +334,14 @@ impl Name {
 impl FunctionCall {
     // During parsing function calls and indexed names are ambiguous
     // Thus we convert function calls to indexed names during the analysis stage
-    pub fn to_indexed(&self) -> Option<Name> {
+    #[allow(clippy::type_complexity)]
+    pub fn to_indexed(&self) -> Option<(Box<WithPos<Name>>, Vec<WithPos<Expression>>)> {
         let FunctionCall {
             ref name,
             ref parameters,
         } = self;
 
-        assoc_elems_to_indexes(parameters)
-            .map(|indexes| Name::Indexed(Box::new(name.clone()), indexes))
+        assoc_elems_to_indexes(parameters).map(|indexes| (Box::new(name.clone()), indexes))
     }
 }
 

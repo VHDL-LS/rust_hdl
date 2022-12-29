@@ -76,7 +76,7 @@ impl<'a> StandardRegion<'a> {
 
         // procedure FILE_OPEN (file F: FT; External_Name: in STRING; Open_Kind: in FILE_OPEN_KIND := READ_MODE);
         {
-            let mut params = FormalRegion::default();
+            let mut params = FormalRegion::new_params();
             params.add(Arc::new(NamedEntity::new(
                 self.symbol("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
@@ -99,7 +99,7 @@ impl<'a> StandardRegion<'a> {
                     class: ObjectClass::Constant,
                     mode: Some(Mode::In),
                     subtype: Subtype::new(file_open_kind.clone()),
-                    has_default: false,
+                    has_default: true,
                 }),
                 file_type.decl_pos(),
             )));
@@ -113,7 +113,7 @@ impl<'a> StandardRegion<'a> {
 
         // procedure FILE_OPEN (Status: out FILE_OPEN_STATUS; file F: FT; External_Name: in STRING; Open_Kind: in FILE_OPEN_KIND := READ_MODE);
         {
-            let mut params = FormalRegion::default();
+            let mut params = FormalRegion::new_params();
             params.add(Arc::new(NamedEntity::new(
                 self.symbol("Status"),
                 NamedEntityKind::Object(Object {
@@ -146,7 +146,7 @@ impl<'a> StandardRegion<'a> {
                     class: ObjectClass::Constant,
                     mode: Some(Mode::In),
                     subtype: Subtype::new(file_open_kind),
-                    has_default: false,
+                    has_default: true,
                 }),
                 file_type.decl_pos(),
             )));
@@ -160,7 +160,7 @@ impl<'a> StandardRegion<'a> {
 
         // procedure FILE_CLOSE (file F: FT);
         {
-            let mut params = FormalRegion::default();
+            let mut params = FormalRegion::new_params();
             params.add(Arc::new(NamedEntity::new(
                 self.symbol("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
@@ -177,7 +177,7 @@ impl<'a> StandardRegion<'a> {
 
         // procedure READ (file F: FT; VALUE: out TM);
         {
-            let mut params = FormalRegion::default();
+            let mut params = FormalRegion::new_params();
             params.add(Arc::new(NamedEntity::new(
                 self.symbol("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
@@ -205,7 +205,7 @@ impl<'a> StandardRegion<'a> {
 
         // procedure WRITE (file F: FT; VALUE: in TM);
         {
-            let mut params = FormalRegion::default();
+            let mut params = FormalRegion::new_params();
             params.add(Arc::new(NamedEntity::new(
                 self.symbol("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
@@ -233,7 +233,7 @@ impl<'a> StandardRegion<'a> {
 
         // procedure FLUSH (file F: FT);
         {
-            let mut params = FormalRegion::default();
+            let mut params = FormalRegion::new_params();
             params.add(Arc::new(NamedEntity::new(
                 self.symbol("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
@@ -250,7 +250,7 @@ impl<'a> StandardRegion<'a> {
 
         // function ENDFILE (file F: FT) return BOOLEAN;
         {
-            let mut params = FormalRegion::default();
+            let mut params = FormalRegion::new_params();
             params.add(Arc::new(NamedEntity::new(
                 self.symbol("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
@@ -271,7 +271,7 @@ impl<'a> StandardRegion<'a> {
     /// Create implicit TO_STRING
     /// function TO_STRING (VALUE: T) return STRING;
     pub fn create_to_string(&self, type_ent: TypeEnt) -> Arc<NamedEntity> {
-        let mut params = FormalRegion::default();
+        let mut params = FormalRegion::new_params();
         params.add(Arc::new(NamedEntity::new(
             self.symbol("VALUE"),
             NamedEntityKind::Object(Object {
@@ -295,7 +295,7 @@ impl<'a> StandardRegion<'a> {
     // function MINIMUM (L, R: T) return T;
     // function MAXIMUM (L, R: T) return T;
     fn create_min_or_maximum(&self, name: &str, type_ent: TypeEnt) -> Arc<NamedEntity> {
-        let mut params = FormalRegion::default();
+        let mut params = FormalRegion::new_params();
         params.add(Arc::new(NamedEntity::new(
             self.symbol("L"),
             NamedEntityKind::Object(Object {
@@ -337,7 +337,7 @@ impl<'a> StandardRegion<'a> {
     /// Create implicit DEALLOCATE
     /// procedure DEALLOCATE (P: inout AT);
     pub fn create_deallocate(&self, type_ent: &TypeEnt) -> Arc<NamedEntity> {
-        let mut params = FormalRegion::default();
+        let mut params = FormalRegion::new_params();
         params.add(Arc::new(NamedEntity::new(
             self.symbol("P"),
             NamedEntityKind::Object(Object {

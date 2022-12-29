@@ -42,6 +42,10 @@ impl OverloadedName {
         self.first().designator()
     }
 
+    pub fn len(&self) -> usize {
+        self.entities.len()
+    }
+
     pub fn entities(&self) -> impl Iterator<Item = &Arc<NamedEntity>> {
         self.entities.values()
     }
@@ -151,6 +155,25 @@ impl NamedEntities {
         match self {
             Self::Single(ent) => Ok(ent),
             Self::Overloaded(ent_vec) => Err(ent_vec),
+        }
+    }
+
+    pub fn expect_non_overloaded(
+        self,
+        pos: &SrcPos,
+        message: impl FnOnce() -> String,
+    ) -> Result<Arc<NamedEntity>, Diagnostic> {
+        match self {
+            Self::Single(ent) => Ok(ent),
+            Self::Overloaded(overloaded) => {
+                let mut error = Diagnostic::error(pos, message());
+                for ent in overloaded.entities() {
+                    if let Some(decl_pos) = ent.decl_pos() {
+                        error.add_related(decl_pos, "Defined here");
+                    }
+                }
+                Err(error)
+            }
         }
     }
 
@@ -272,7 +295,10 @@ impl<'a> Region<'a> {
         // Sorting by source file position gives declaration order
         generics.sort_by_key(|ent| ent.decl_pos().map(|pos| pos.range().start));
         ports.sort_by_key(|ent| ent.decl_pos().map(|pos| pos.range().start));
-        (FormalRegion::new(generics), FormalRegion::new(ports))
+        (
+            FormalRegion::new_with(InterfaceListType::Generic, generics),
+            FormalRegion::new_with(InterfaceListType::Port, ports),
+        )
     }
 
     pub fn extend(region: &'a Region<'a>, parent: Option<&'a Region<'a>>) -> Region<'a> {

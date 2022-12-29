@@ -668,7 +668,7 @@ end package;
 #[test]
 fn nested_subprogram_shadows_outer() {
     let mut builder = LibraryBuilder::new();
-    builder.in_declarative_region(
+    let code = builder.in_declarative_region(
         "
 procedure theproc(arg: character) is
 begin
@@ -685,6 +685,16 @@ begin
 end function;
 ",
     );
-    let diagnostics = builder.analyze();
+    let (root, diagnostics) = builder.get_analyzed_root();
     check_no_diagnostics(&diagnostics);
+
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s1("theproc('c')").start()),
+        Some(code.s1("theproc").pos())
+    );
+
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s1("theproc(arg)").start()),
+        Some(code.s("theproc", 2).pos())
+    );
 }

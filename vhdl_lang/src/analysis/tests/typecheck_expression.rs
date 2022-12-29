@@ -271,9 +271,9 @@ constant bad : character := fun1;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s("fun1", 4), "'fun1' does not match type 'CHARACTER'")
-                .related(code.s("fun1", 1), "does not match fun1[return NATURAL]")
-                .related(code.s("fun1", 2), "does not match fun1[return BOOLEAN]"),
+            Diagnostic::error(code.s("fun1", 4), "Could not resolve 'fun1'")
+                .related(code.s("fun1", 1), "Does not match fun1[return NATURAL]")
+                .related(code.s("fun1", 2), "Does not match fun1[return BOOLEAN]"),
         ],
     );
 
@@ -307,12 +307,12 @@ constant bad : character := fun1;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s("fun1", 4), "'fun1' does not match type 'CHARACTER'")
+            Diagnostic::error(code.s("fun1", 4), "Could not resolve 'fun1'")
                 .related(
                     code.s("fun1", 1),
-                    "does not match fun1[NATURAL return NATURAL]",
+                    "Does not match fun1[NATURAL return NATURAL]",
                 )
-                .related(code.s("fun1", 2), "does not match fun1[return BOOLEAN]"),
+                .related(code.s("fun1", 2), "Does not match fun1[return BOOLEAN]"),
         ],
     );
 }
@@ -332,6 +332,12 @@ begin
     return 0;
 end function;
 
+-- Do not consider this as ambiguous
+function fun1(arg : character) return natural is
+begin
+    return 0;
+end function;
+
 constant bad: integer := fun1;
         ",
     );
@@ -340,9 +346,9 @@ constant bad: integer := fun1;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s("fun1", 3), "ambiguous use of 'fun1'")
-                .related(code.s("fun1", 1), "migth be fun1[NATURAL return NATURAL]")
-                .related(code.s("fun1", 2), "migth be fun1[BOOLEAN return NATURAL]"),
+            Diagnostic::error(code.s1(":= fun1").s1("fun1"), "Ambiguous use of 'fun1'")
+                .related(code.s("fun1", 1), "Migth be fun1[NATURAL return NATURAL]")
+                .related(code.s("fun1", 2), "Migth be fun1[BOOLEAN return NATURAL]"),
         ],
     );
 }
@@ -523,6 +529,40 @@ signal bad2 : natural := string'(\"hello\");
             Diagnostic::error(
                 code.s1("string'(\"hello\")"),
                 "array type 'STRING' does not match subtype 'NATURAL'",
+            ),
+        ],
+    );
+}
+
+#[test]
+fn subprogram_positional_argument() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+procedure theproc(arg: character) is
+begin
+end procedure;
+
+function thefun(arg: integer) return natural is
+begin
+    theproc(arg);
+    return 0;
+end function;
+
+constant const : natural := thefun('c');
+",
+    );
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s1("theproc(arg)").s1("arg"),
+                "interface constant 'arg' does not match type 'CHARACTER'",
+            ),
+            Diagnostic::error(
+                code.s1("thefun('c')").s1("'c'"),
+                "character literal does not match integer type 'INTEGER'",
             ),
         ],
     );
