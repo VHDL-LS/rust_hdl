@@ -132,11 +132,8 @@ impl<'a> AnalyzeContext<'a> {
                 )?;
             }
             ConcurrentStatement::ProcedureCall(ref mut pcall) => {
-                let ConcurrentProcedureCall {
-                    call,
-                    postponed: _postponed,
-                } = pcall;
-                self.analyze_function_call(parent, call, diagnostics)?;
+                let ConcurrentProcedureCall { call, .. } = pcall;
+                self.analyze_procedure_call(parent, call, diagnostics)?;
             }
             ConcurrentStatement::Assert(ref mut assert) => {
                 let ConcurrentAssertStatement {

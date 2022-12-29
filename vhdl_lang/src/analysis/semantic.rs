@@ -638,14 +638,55 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
-    pub fn analyze_function_call(
+    pub fn analyze_procedure_call(
         &self,
         region: &Region<'_>,
         fcall: &mut FunctionCall,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         let FunctionCall { name, parameters } = fcall;
-        self.resolve_name(region, &name.pos, &mut name.item, diagnostics)?;
+
+        if let Some(entities) = self.resolve_name(region, &name.pos, &mut name.item, diagnostics)? {
+            match entities {
+                NamedEntities::Single(ent) => {
+                    let mut diagnostic = Diagnostic::error(&name.pos, "Invalid procedure call");
+                    if let Some(decl_pos) = ent.decl_pos() {
+                        diagnostic.add_related(
+                            decl_pos,
+                            format!("{} is not a procedure", ent.describe()),
+                        );
+                    }
+                    diagnostics.push(diagnostic);
+                }
+                NamedEntities::Overloaded(names) => {
+                    let mut found = false;
+
+                    for ent in names.entities() {
+                        // @TODO add wrapper for entities with known signatures
+                        if let Some(sig) = ent.signature() {
+                            if sig.return_type().is_none() {
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if !found {
+                        let mut diagnostic = Diagnostic::error(&name.pos, "Invalid procedure call");
+                        for ent in names.sorted_entities() {
+                            if let Some(decl_pos) = ent.decl_pos() {
+                                diagnostic.add_related(
+                                    decl_pos,
+                                    format!("{} is not a procedure", ent.describe()),
+                                );
+                            }
+                        }
+                        diagnostics.push(diagnostic);
+                    }
+                }
+            };
+        }
+
         self.analyze_assoc_elems(region, parameters, diagnostics)
     }
 

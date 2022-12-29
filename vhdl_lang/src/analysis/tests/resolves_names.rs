@@ -480,7 +480,7 @@ package pkg is
 end package;
 
 package body pkg is
-    function f2(c : natural) return natural is
+    procedure proc2(c : natural) is
     begin
       return c;
     end;
@@ -509,7 +509,7 @@ package body pkg is
 
        -- Loops
        for i in missing to missing loop
-         f2(i); -- Index is defined
+         proc2(i); -- Index is defined
          missing;
        end loop;
 
@@ -1018,7 +1018,7 @@ use work.pkg.all;
 architecture a of ent is
   signal foo : decl;
 begin
-  inst : work.ent2;
+  inst : entity work.ent2;
   foo <= << signal inst.foo : decl >>;
 end architecture;
 ",

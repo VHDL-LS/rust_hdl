@@ -143,7 +143,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             SequentialStatement::ProcedureCall(ref mut pcall) => {
-                self.analyze_function_call(parent, pcall, diagnostics)?;
+                self.analyze_procedure_call(parent, pcall, diagnostics)?;
             }
             SequentialStatement::SignalAssignment(ref mut assign) => {
                 // @TODO more
