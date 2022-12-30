@@ -65,13 +65,13 @@ end architecture;",
         let mut diagnostics = Vec::new();
 
         add_standard_library(self.symbols(), &mut root);
+        root.analyze(&mut diagnostics);
 
         for (library_name, codes) in self.libraries.iter() {
             for code in codes {
                 root.add_design_file(library_name.clone(), code.design_file());
             }
         }
-
         root.analyze(&mut diagnostics);
 
         (root, diagnostics)
