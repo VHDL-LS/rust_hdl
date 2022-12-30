@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
+use super::standard::StandardRegion;
 use super::*;
 use crate::ast::*;
 use crate::data::*;
@@ -151,6 +152,14 @@ impl<'a> AnalyzeContext<'a> {
             self.analyze_interface_list(&mut primary_region, list, diagnostics)?;
         }
         self.analyze_declarative_part(&mut primary_region, &mut unit.decl, diagnostics)?;
+
+        if self.is_standard_package() {
+            let standard = StandardRegion::new(&self.root.symbols, &primary_region);
+
+            for imp in standard.end_of_package_implicits() {
+                primary_region.add_named_entity(imp, diagnostics);
+            }
+        }
 
         if !self.has_package_body() {
             primary_region.close(diagnostics);

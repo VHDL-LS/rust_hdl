@@ -86,9 +86,6 @@ package standard is
 
   attribute FOREIGN: STRING;
 
-  -- @TODO add implicitly
-  function TO_STRING(VALUE : INTEGER) return STRING;
-
   function RISING_EDGE(signal S: BOOLEAN) return BOOLEAN;
   function RISING_EDGE(signal B: BIT) return BOOLEAN;
   function FALLING_EDGE(signal S: BOOLEAN) return BOOLEAN;

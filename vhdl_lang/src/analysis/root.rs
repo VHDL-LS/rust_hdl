@@ -241,7 +241,7 @@ impl Library {
 /// Besides all loaded libraries and design units, `DesignRoot` also keeps track of
 /// dependencies between design units.
 pub struct DesignRoot {
-    symbols: Arc<Symbols>,
+    pub symbols: Arc<Symbols>,
     libraries: FnvHashMap<Symbol, Library>,
 
     // Dependency tracking for incremental analysis.

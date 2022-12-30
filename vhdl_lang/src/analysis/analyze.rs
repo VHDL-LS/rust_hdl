@@ -73,7 +73,7 @@ impl AnalysisError {
 }
 
 pub(super) struct AnalyzeContext<'a> {
-    root: &'a DesignRoot,
+    pub(super) root: &'a DesignRoot,
 
     pub work_sym: Symbol,
     std_sym: Symbol,
@@ -122,10 +122,6 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn current_unit_id(&self) -> &UnitId {
         &self.current_unit
-    }
-
-    pub fn symbol_utf8(&self, name: &str) -> Symbol {
-        self.root.symbol_utf8(name)
     }
 
     fn make_use_of(&self, use_pos: Option<&SrcPos>, unit_id: &UnitId) -> FatalNullResult {

@@ -1,5 +1,20 @@
 use super::*;
 
+#[test]
+fn adds_to_string_for_standard_types() {
+    check_code_with_no_diagnostics(
+        "
+package pkg is
+   procedure proc is
+      constant iconst : integer := 0;
+   begin
+      report to_string(iconst);
+   end procedure;
+end package;
+",
+    );
+}
+
 // procedure FILE_OPEN (file F: FT; External_Name: in STRING; Open_Kind: in FILE_OPEN_KIND := READ_MODE);
 // procedure FILE_OPEN (Status: out FILE_OPEN_STATUS; file F: FT; External_Name: in STRING; Open_Kind: in FILE_OPEN_KIND := READ_MODE);
 // procedure FILE_CLOSE (file F: FT);
