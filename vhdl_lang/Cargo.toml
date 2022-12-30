@@ -24,6 +24,7 @@ rayon = "1"
 parking_lot = "0"
 dunce = "1"
 arc-swap = {version = "1", features = ["weak"]}
+either = "*"
 
 [dev-dependencies]
 tempfile = "3"

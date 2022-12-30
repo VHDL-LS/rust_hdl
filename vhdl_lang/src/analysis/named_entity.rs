@@ -2,29 +2,31 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 20, Olof Kraigher olof.kraigher@gmail.com
+// Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
+
+use super::implicits::ImplicitMap;
+use super::implicits::ImplicitVec;
 use super::region::Region;
 use crate::ast::*;
 use crate::data::*;
 use arc_swap::ArcSwapWeak;
-use fnv::FnvHashMap;
 use std::borrow::Borrow;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
 
 pub enum Type {
     // Some types have an optional list of implicit declarations
     // Use Weak reference since implicit declaration typically reference the type itself
     Array {
-        implicit: Vec<Weak<NamedEntity>>,
+        implicit: ImplicitVec,
         // Indexes are Option<> to handle unknown types
         indexes: Vec<Option<Arc<NamedEntity>>>,
         elem_type: TypeEnt,
     },
-    Enum(FnvHashMap<Designator, Weak<NamedEntity>>),
-    Integer(Vec<Weak<NamedEntity>>),
-    Physical(Vec<Weak<NamedEntity>>),
+    Enum(ImplicitMap),
+    Integer(ImplicitVec),
+    Physical(ImplicitVec),
     Access(Subtype),
     Record(Arc<Region<'static>>),
     // Weak references since incomplete access types can create cycles
@@ -33,22 +35,16 @@ pub enum Type {
     Subtype(Subtype),
     // The region of the protected type which needs to be extendend by the body
     Protected(Arc<Region<'static>>),
-    File(Vec<Weak<NamedEntity>>),
+    File(ImplicitVec),
     Interface,
     Alias(TypeEnt),
 }
 
 impl Type {
-    pub fn implicit_declarations(&self) -> Vec<Arc<NamedEntity>> {
-        let weak = match self {
+    pub fn implicit_declarations(&self) -> Option<impl Iterator<Item = Arc<NamedEntity>> + '_> {
+        let implicit = match self {
             Type::Array { ref implicit, .. } => implicit,
-            Type::Enum(ref implicit) => {
-                return implicit
-                    .values()
-                    // We expect the implicit declarations to live as long as the type so unwrap
-                    .map(|ent| ent.upgrade().unwrap())
-                    .collect();
-            }
+            Type::Enum(ref implicit) => return Some(either::Either::Left(implicit.iter())),
             Type::Integer(ref implicit) => implicit,
             Type::Physical(ref implicit) => implicit,
             Type::File(ref implicit) => implicit,
@@ -59,14 +55,11 @@ impl Type {
             | Type::Record(..)
             | Type::Subtype(..)
             | Type::Alias(..) => {
-                return Vec::new();
+                return None;
             }
         };
 
-        weak.iter()
-            // We expect the implicit declarations to live as long as the type so unwrap
-            .map(|ent| ent.upgrade().unwrap())
-            .collect()
+        Some(either::Either::Right(implicit.iter()))
     }
 
     pub fn describe(&self) -> &str {
@@ -147,10 +140,10 @@ impl NamedEntityKind {
         matches!(self, NamedEntityKind::Type(..))
     }
 
-    pub fn implicit_declarations(&self) -> Vec<Arc<NamedEntity>> {
+    pub fn implicit_declarations(&self) -> Option<impl Iterator<Item = Arc<NamedEntity>> + '_> {
         match self {
             NamedEntityKind::Type(typ) => typ.implicit_declarations(),
-            _ => Vec::new(),
+            _ => None,
         }
     }
 

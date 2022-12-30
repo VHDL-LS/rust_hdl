@@ -4,6 +4,9 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
+use super::implicits::ImplicitMapBuilder;
+use super::implicits::ImplicitVecBuilder;
+use super::implicits::Implicits;
 use super::names::*;
 use super::*;
 use crate::ast;
@@ -420,17 +423,15 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalNullResult {
         match type_decl.def {
             TypeDefinition::Enumeration(ref enumeration) => {
+                let implicit = ImplicitMapBuilder::default();
                 let enum_type = TypeEnt::new_with_opt_id(
                     overwrite_id,
                     type_decl.ident.name().clone(),
-                    Type::Enum(Default::default()),
+                    Type::Enum(implicit.inner()),
                     Some(&type_decl.ident.pos),
                 );
 
                 let signature = Signature::new(ParameterList::default(), Some(enum_type.clone()));
-
-                let mut implicit =
-                    FnvHashMap::with_capacity_and_hasher(enumeration.len(), Default::default());
 
                 for literal in enumeration.iter() {
                     let literal_ent = NamedEntity::new(
@@ -439,24 +440,11 @@ impl<'a> AnalyzeContext<'a> {
                         Some(&literal.pos),
                     );
                     let literal_ent = Arc::new(literal_ent);
-                    implicit.insert(
-                        literal.item.clone().into_designator(),
-                        Arc::downgrade(&literal_ent),
-                    );
+                    implicit.insert(literal.item.clone().into_designator(), &literal_ent);
                     parent.add_named_entity(literal_ent, diagnostics);
                 }
 
-                // Overwrite enum type with one that contains the implicit declarations
-                // @TODO investigate get_mut_unchecked to change the original enum_type
-                //       this will create a new struct instance and thus the signature of
-                //       the enum literals will not contain the full type declaration of the
-                //       enum type
-                parent.add_named_entity(
-                    Arc::new(
-                        enum_type.clone_with_kind(NamedEntityKind::Type(Type::Enum(implicit))),
-                    ),
-                    diagnostics,
-                );
+                parent.add_named_entity(enum_type.into(), diagnostics);
             }
             TypeDefinition::ProtectedBody(ref mut body) => {
                 body.type_reference.clear_reference();
@@ -619,33 +607,26 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 };
 
-                let type_ent = TypeEnt::new_with_opt_id(
+                let implicits = ImplicitVecBuilder::default();
+                let array_ent = TypeEnt::new_with_opt_id(
                     overwrite_id,
                     type_decl.ident.name().clone(),
                     Type::Array {
-                        implicit: Vec::new(),
-                        indexes: vec![],
-                        elem_type: elem_type.to_owned(),
+                        implicit: implicits.inner(),
+                        indexes,
+                        elem_type,
                     },
                     Some(&type_decl.ident.pos),
                 );
 
-                let mut implicit = Vec::new();
                 if !self.is_standard_package() {
                     // @TODO analyze standard package separately
-                    let to_string = Arc::new(self.create_to_string(type_ent.clone()));
-                    parent.add_named_entity(to_string.clone(), diagnostics);
-                    implicit.push(Arc::downgrade(&to_string));
+                    let to_string = Arc::new(self.create_to_string(array_ent.clone()));
+                    implicits.push(&to_string);
+                    parent.add_named_entity(to_string, diagnostics);
                 }
 
-                parent.add_named_entity(
-                    Arc::new(type_ent.clone_with_kind(NamedEntityKind::Type(Type::Array {
-                        implicit: Vec::new(),
-                        indexes,
-                        elem_type,
-                    }))),
-                    diagnostics,
-                );
+                parent.add_named_entity(array_ent.into(), diagnostics);
             }
             TypeDefinition::Subtype(ref mut subtype_indication) => {
                 match self.resolve_subtype_indication(parent, subtype_indication, diagnostics) {
@@ -667,7 +648,7 @@ impl<'a> AnalyzeContext<'a> {
                 let phys_type = TypeEnt::new_with_opt_id(
                     overwrite_id,
                     type_decl.ident.name().clone(),
-                    Type::Physical(Vec::new()),
+                    Type::Physical(Implicits::default()),
                     Some(&type_decl.ident.pos),
                 );
 
@@ -692,64 +673,55 @@ impl<'a> AnalyzeContext<'a> {
 
             TypeDefinition::Integer(ref mut range) => {
                 self.analyze_range(parent, range, diagnostics)?;
+                let implicit = ImplicitVecBuilder::default();
+
                 let type_ent = TypeEnt::new_with_opt_id(
                     overwrite_id,
                     type_decl.ident.name().clone(),
-                    Type::Integer(Vec::new()),
+                    Type::Integer(implicit.inner()),
                     Some(&type_decl.ident.pos),
                 );
+                parent.add_named_entity(type_ent.clone().into(), diagnostics);
 
-                let mut implicit = Vec::new();
                 if !self.is_standard_package() {
                     // @TODO analyze standard package separately
                     let to_string = Arc::new(self.create_to_string(type_ent.clone()));
-                    parent.add_named_entity(to_string.clone(), diagnostics);
-                    implicit.push(Arc::downgrade(&to_string));
+                    implicit.push(&to_string);
+                    parent.add_named_entity(to_string, diagnostics);
                 }
 
                 {
                     let minimum = Arc::new(self.create_min_or_maximum("MINMUM", type_ent.clone()));
-                    parent.add_named_entity(minimum.clone(), diagnostics);
-                    implicit.push(Arc::downgrade(&minimum));
+                    implicit.push(&minimum);
+                    parent.add_named_entity(minimum, diagnostics);
                 }
 
                 {
-                    let maximum = Arc::new(self.create_min_or_maximum("MAXIMUM", type_ent.clone()));
-                    parent.add_named_entity(maximum.clone(), diagnostics);
-                    implicit.push(Arc::downgrade(&maximum));
+                    let maximum = Arc::new(self.create_min_or_maximum("MAXIMUM", type_ent));
+                    implicit.push(&maximum);
+                    parent.add_named_entity(maximum, diagnostics);
                 }
-                parent.add_named_entity(
-                    Arc::new(
-                        type_ent.clone_with_kind(NamedEntityKind::Type(Type::Integer(implicit))),
-                    ),
-                    diagnostics,
-                );
             }
 
             TypeDefinition::File(ref mut type_mark) => {
                 if let Err(err) = self.resolve_type_mark_name(parent, type_mark) {
                     err.add_to(diagnostics)?;
                 }
+                let implicit = ImplicitVecBuilder::default();
 
                 let file_type = TypeEnt::new_with_opt_id(
                     overwrite_id,
                     type_decl.ident.name().clone(),
-                    Type::File(Vec::new()),
+                    Type::File(implicit.inner()),
                     Some(&type_decl.ident.pos),
                 );
 
-                let implicit = self.create_implicit_file_type_subprograms(file_type.clone());
-
-                for ent in implicit.iter() {
-                    parent.add_named_entity(ent.clone(), diagnostics);
+                for ent in self.create_implicit_file_type_subprograms(file_type.clone()) {
+                    implicit.push(&ent);
+                    parent.add_named_entity(ent, diagnostics);
                 }
 
-                // We need to overwrite the type due to circular pointer relations between implicit subprograms
-                // and type declarations
-                let implicit = implicit.iter().map(Arc::downgrade).collect();
-                let file_type =
-                    file_type.clone_with_kind(NamedEntityKind::Type(Type::File(implicit)));
-                parent.add_named_entity(Arc::new(file_type), diagnostics);
+                parent.add_named_entity(file_type.into(), diagnostics);
             }
         }
 

@@ -404,13 +404,15 @@ impl<'a> Region<'a> {
         ent: &NamedEntity,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
-        for entity in ent.actual_kind().implicit_declarations() {
-            let entity = NamedEntity::implicit(
-                entity.designator().clone(),
-                NamedEntityKind::NonObjectAlias(entity.clone()),
-                ent.decl_pos(),
-            );
-            self.add_named_entity(Arc::new(entity), diagnostics);
+        if let Some(implicit) = ent.actual_kind().implicit_declarations() {
+            for entity in implicit {
+                let entity = NamedEntity::implicit(
+                    entity.designator().clone(),
+                    NamedEntityKind::NonObjectAlias(entity.clone()),
+                    ent.decl_pos(),
+                );
+                self.add_named_entity(Arc::new(entity), diagnostics);
+            }
         }
     }
 
