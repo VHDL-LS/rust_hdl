@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
+use super::formal_region::FormalRegion;
 use super::implicits::ImplicitMapBuilder;
 use super::implicits::ImplicitVecBuilder;
 use super::implicits::Implicits;
@@ -296,14 +297,29 @@ impl<'a> AnalyzeContext<'a> {
                     open_info,
                     file_name,
                 } = file;
-                self.analyze_subtype_indication(region, subtype_indication, diagnostics)?;
+
+                let subtype = match self.resolve_subtype_indication(
+                    region,
+                    subtype_indication,
+                    diagnostics,
+                ) {
+                    Ok(subtype) => Some(subtype),
+                    Err(err) => {
+                        err.add_to(diagnostics)?;
+                        None
+                    }
+                };
+
                 if let Some(ref mut expr) = open_info {
                     self.analyze_expression(region, expr, diagnostics)?;
                 }
                 if let Some(ref mut expr) = file_name {
                     self.analyze_expression(region, expr, diagnostics)?;
                 }
-                region.add(ident.clone(), NamedEntityKind::File, diagnostics);
+
+                if subtype.is_some() {
+                    region.add(ident.clone(), NamedEntityKind::File, diagnostics);
+                }
             }
             Declaration::Component(ref mut component) => {
                 let mut component_region = region.nested();
@@ -431,7 +447,7 @@ impl<'a> AnalyzeContext<'a> {
                     Some(&type_decl.ident.pos),
                 );
 
-                let signature = Signature::new(ParameterList::default(), Some(enum_type.clone()));
+                let signature = Signature::new(FormalRegion::default(), Some(enum_type.clone()));
 
                 for literal in enumeration.iter() {
                     let literal_ent = NamedEntity::new(
@@ -790,13 +806,13 @@ impl<'a> AnalyzeContext<'a> {
 
         // procedure FILE_OPEN (file F: FT; External_Name: in STRING; Open_Kind: in FILE_OPEN_KIND := READ_MODE);
         {
-            let mut params = ParameterList::default();
-            params.add_param(Arc::new(NamedEntity::new(
+            let mut params = FormalRegion::default();
+            params.add(Arc::new(NamedEntity::new(
                 self.symbol_utf8("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
             )));
-            params.add_param(Arc::new(NamedEntity::new(
+            params.add(Arc::new(NamedEntity::new(
                 self.symbol_utf8("External_Name"),
                 NamedEntityKind::Object(Object {
                     class: ObjectClass::Constant,
@@ -807,7 +823,7 @@ impl<'a> AnalyzeContext<'a> {
                 file_type.decl_pos(),
             )));
 
-            params.add_param(Arc::new(NamedEntity::new(
+            params.add(Arc::new(NamedEntity::new(
                 self.symbol_utf8("Open_Kind"),
                 NamedEntityKind::Object(Object {
                     class: ObjectClass::Constant,
@@ -826,8 +842,8 @@ impl<'a> AnalyzeContext<'a> {
 
         // procedure FILE_OPEN (Status: out FILE_OPEN_STATUS; file F: FT; External_Name: in STRING; Open_Kind: in FILE_OPEN_KIND := READ_MODE);
         {
-            let mut params = ParameterList::default();
-            params.add_param(Arc::new(NamedEntity::new(
+            let mut params = FormalRegion::default();
+            params.add(Arc::new(NamedEntity::new(
                 self.symbol_utf8("Status"),
                 NamedEntityKind::Object(Object {
                     class: ObjectClass::Variable,
@@ -837,12 +853,12 @@ impl<'a> AnalyzeContext<'a> {
                 }),
                 file_type.decl_pos(),
             )));
-            params.add_param(Arc::new(NamedEntity::new(
+            params.add(Arc::new(NamedEntity::new(
                 self.symbol_utf8("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
             )));
-            params.add_param(Arc::new(NamedEntity::new(
+            params.add(Arc::new(NamedEntity::new(
                 self.symbol_utf8("External_Name"),
                 NamedEntityKind::Object(Object {
                     class: ObjectClass::Constant,
@@ -853,7 +869,7 @@ impl<'a> AnalyzeContext<'a> {
                 file_type.decl_pos(),
             )));
 
-            params.add_param(Arc::new(NamedEntity::new(
+            params.add(Arc::new(NamedEntity::new(
                 self.symbol_utf8("Open_Kind"),
                 NamedEntityKind::Object(Object {
                     class: ObjectClass::Constant,
@@ -872,8 +888,8 @@ impl<'a> AnalyzeContext<'a> {
 
         // procedure FILE_CLOSE (file F: FT);
         {
-            let mut params = ParameterList::default();
-            params.add_param(Arc::new(NamedEntity::new(
+            let mut params = FormalRegion::default();
+            params.add(Arc::new(NamedEntity::new(
                 self.symbol_utf8("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
@@ -888,14 +904,14 @@ impl<'a> AnalyzeContext<'a> {
 
         // procedure READ (file F: FT; VALUE: out TM);
         {
-            let mut params = ParameterList::default();
-            params.add_param(Arc::new(NamedEntity::new(
+            let mut params = FormalRegion::default();
+            params.add(Arc::new(NamedEntity::new(
                 self.symbol_utf8("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
             )));
 
-            params.add_param(Arc::new(NamedEntity::new(
+            params.add(Arc::new(NamedEntity::new(
                 self.symbol_utf8("VALUE"),
                 NamedEntityKind::Object(Object {
                     class: ObjectClass::Variable,
@@ -915,14 +931,14 @@ impl<'a> AnalyzeContext<'a> {
 
         // procedure WRITE (file F: FT; VALUE: in TM);
         {
-            let mut params = ParameterList::default();
-            params.add_param(Arc::new(NamedEntity::new(
+            let mut params = FormalRegion::default();
+            params.add(Arc::new(NamedEntity::new(
                 self.symbol_utf8("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
             )));
 
-            params.add_param(Arc::new(NamedEntity::new(
+            params.add(Arc::new(NamedEntity::new(
                 self.symbol_utf8("VALUE"),
                 NamedEntityKind::Object(Object {
                     class: ObjectClass::Constant,
@@ -942,8 +958,8 @@ impl<'a> AnalyzeContext<'a> {
 
         // procedure FLUSH (file F: FT);
         {
-            let mut params = ParameterList::default();
-            params.add_param(Arc::new(NamedEntity::new(
+            let mut params = FormalRegion::default();
+            params.add(Arc::new(NamedEntity::new(
                 self.symbol_utf8("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
@@ -958,8 +974,8 @@ impl<'a> AnalyzeContext<'a> {
 
         // function ENDFILE (file F: FT) return BOOLEAN;
         {
-            let mut params = ParameterList::default();
-            params.add_param(Arc::new(NamedEntity::new(
+            let mut params = FormalRegion::default();
+            params.add(Arc::new(NamedEntity::new(
                 self.symbol_utf8("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
@@ -991,8 +1007,8 @@ impl<'a> AnalyzeContext<'a> {
         )
         .unwrap();
 
-        let mut params = ParameterList::default();
-        params.add_param(Arc::new(NamedEntity::new(
+        let mut params = FormalRegion::default();
+        params.add(Arc::new(NamedEntity::new(
             self.symbol_utf8("VALUE"),
             NamedEntityKind::Object(Object {
                 class: ObjectClass::Constant,
@@ -1014,8 +1030,8 @@ impl<'a> AnalyzeContext<'a> {
     // function MINIMUM (L, R: T) return T;
     // function MAXIMUM (L, R: T) return T;
     pub fn create_min_or_maximum(&self, name: &str, type_ent: TypeEnt) -> NamedEntity {
-        let mut params = ParameterList::default();
-        params.add_param(Arc::new(NamedEntity::new(
+        let mut params = FormalRegion::default();
+        params.add(Arc::new(NamedEntity::new(
             self.symbol_utf8("L"),
             NamedEntityKind::Object(Object {
                 class: ObjectClass::Constant,
@@ -1026,7 +1042,7 @@ impl<'a> AnalyzeContext<'a> {
             type_ent.decl_pos(),
         )));
 
-        params.add_param(Arc::new(NamedEntity::new(
+        params.add(Arc::new(NamedEntity::new(
             self.symbol_utf8("R"),
             NamedEntityKind::Object(Object {
                 class: ObjectClass::Constant,
@@ -1047,8 +1063,8 @@ impl<'a> AnalyzeContext<'a> {
     /// Create implicit DEALLOCATE
     /// procedure DEALLOCATE (P: inout AT);
     pub fn create_deallocate(&self, type_ent: &TypeEnt) -> Arc<NamedEntity> {
-        let mut params = ParameterList::default();
-        params.add_param(Arc::new(NamedEntity::new(
+        let mut params = FormalRegion::default();
+        params.add(Arc::new(NamedEntity::new(
             self.symbol_utf8("P"),
             NamedEntityKind::Object(Object {
                 class: ObjectClass::Variable,
@@ -1212,15 +1228,15 @@ impl<'a> AnalyzeContext<'a> {
         region: &mut Region<'_>,
         declarations: &mut [InterfaceDeclaration],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<ParameterList> {
-        let mut params = ParameterList::default();
+    ) -> FatalResult<FormalRegion> {
+        let mut params = FormalRegion::default();
 
         for decl in declarations.iter_mut() {
             match self.analyze_interface_declaration(region, decl, diagnostics) {
                 Ok(ent) => {
                     let ent = Arc::new(ent);
                     region.add_named_entity(ent.clone(), diagnostics);
-                    params.add_param(ent);
+                    params.add(ent);
                 }
                 Err(err) => {
                     err.add_to(diagnostics)?;

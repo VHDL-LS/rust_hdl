@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
+use super::formal_region::FormalRegion;
 use super::implicits::ImplicitMap;
 use super::implicits::ImplicitVec;
 use super::region::Region;
@@ -224,72 +225,15 @@ impl Subtype {
     }
 }
 
-#[derive(Clone)]
-pub struct Parameter {
-    /// InterfaceObject or InterfaceFile
-    param: Arc<NamedEntity>,
-}
-
-#[derive(Clone, Default)]
-pub struct ParameterList {
-    params: Vec<Parameter>,
-}
-
-impl Parameter {
-    pub fn new(param: Arc<NamedEntity>) -> Self {
-        debug_assert!(matches!(
-            param.kind(),
-            NamedEntityKind::Object(Object { mode: Some(_), .. })
-                | NamedEntityKind::InterfaceFile(..)
-        ));
-        Self { param }
-    }
-
-    pub fn has_default(&self) -> bool {
-        if let NamedEntityKind::Object(Object { has_default, .. }) = self.param.kind() {
-            *has_default
-        } else {
-            false
-        }
-    }
-
-    pub fn base_type(&self) -> &TypeEnt {
-        match self.param.kind() {
-            NamedEntityKind::Object(obj) => obj.subtype.base_type(),
-            NamedEntityKind::InterfaceFile(file_type) => file_type.base_type(),
-            NamedEntityKind::Type(Type::Subtype(subtype)) => subtype.base_type(),
-            _ => {
-                unreachable!();
-            }
-        }
-    }
-
-    pub fn type_mark(&self) -> &TypeEnt {
-        match self.param.kind() {
-            NamedEntityKind::Object(obj) => obj.subtype.type_mark(),
-            NamedEntityKind::InterfaceFile(file_type) => file_type,
-            _ => {
-                unreachable!();
-            }
-        }
-    }
-}
-
-impl ParameterList {
-    pub fn add_param(&mut self, param: Arc<NamedEntity>) {
-        self.params.push(Parameter::new(param));
-    }
-}
-
 #[derive(Clone, Default)]
 pub struct Signature {
     /// Vector of InterfaceObject or InterfaceFile
-    params: ParameterList,
+    params: FormalRegion,
     return_type: Option<TypeEnt>,
 }
 
 impl Signature {
-    pub fn new(params: ParameterList, return_type: Option<TypeEnt>) -> Signature {
+    pub fn new(params: FormalRegion, return_type: Option<TypeEnt>) -> Signature {
         Signature {
             params,
             return_type: return_type.as_ref().map(TypeEnt::to_owned),
@@ -298,7 +242,6 @@ impl Signature {
 
     pub fn key(&self) -> SignatureKey {
         let params = self
-            .params
             .params
             .iter()
             .map(|param| param.base_type().id())
@@ -314,15 +257,15 @@ impl Signature {
     pub fn describe(&self) -> String {
         let mut result = String::new();
         result.push('[');
-        for (i, param) in self.params.params.iter().enumerate() {
+        for (i, param) in self.params.iter().enumerate() {
             result.push_str(&param.type_mark().designator().to_string());
 
-            if i + 1 < self.params.params.len() {
+            if i + 1 < self.params.len() {
                 result.push_str(", ");
             }
         }
 
-        if !self.params.params.is_empty() && self.return_type.is_some() {
+        if !self.params.is_empty() && self.return_type.is_some() {
             result.push(' ');
         }
 
@@ -338,7 +281,7 @@ impl Signature {
     /// Returns true if the function has no arguments
     /// or all arguments have defaults
     pub fn can_be_called_without_parameters(&self) -> bool {
-        self.params.params.iter().all(|param| param.has_default())
+        self.params.iter().all(|param| param.has_default())
     }
 
     pub fn return_type(&self) -> Option<&TypeEnt> {

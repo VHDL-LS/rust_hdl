@@ -9,6 +9,7 @@ mod analyze;
 mod concurrent;
 mod declarative;
 mod design_unit;
+mod formal_region;
 mod implicits;
 mod lock;
 mod named_entity;
