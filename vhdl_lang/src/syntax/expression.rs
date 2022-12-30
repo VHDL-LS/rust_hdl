@@ -264,6 +264,42 @@ fn name_to_selected_name(name: Name) -> Option<SelectedName> {
     }
 }
 
+fn parse_expression_or_aggregate(stream: &mut TokenStream) -> ParseResult<WithPos<Expression>> {
+    let choices = parse_choices(stream)?;
+    // Parenthesized expression or aggregate
+    match *choices.as_slice() {
+        // Can be aggregate or expression
+        [Choice::Expression(ref expr)] => {
+            let sep_token = stream.peek_expect()?;
+            match_token_kind!(
+                sep_token,
+
+                // Was aggregate
+                Comma | RightArrow => {
+                    Ok(parse_aggregate_initial_choices(
+                        stream,
+                        vec![Choice::Expression(expr.clone())],
+                    )?.map_into(Expression::Aggregate))
+                },
+
+                // Was expression with parenthesis
+                RightPar => {
+                    let rpar_token = stream.expect()?;
+                    // Lexical position between parenthesis
+                    let expr = WithPos {
+                        item: expr.item.clone(),
+                        pos: rpar_token.pos,
+                    };
+                    Ok(expr)
+                }
+            )
+        }
+        // Must be aggregate
+        _ => Ok(parse_aggregate_initial_choices(stream, choices.clone())?
+            .map_into(Expression::Aggregate)),
+    }
+}
+
 /// Parse a primary value which is:
 /// 1. CHARACTER_LITERAL|INTEGER_LITERAL|IDENTIFIER|BOOLEAN_LITERAL
 /// 2. (expression)
@@ -276,7 +312,8 @@ fn parse_primary_initial_token(
         Identifier | LtLt => {
             let name = parse_name_initial_token(stream, token)?;
             if stream.skip_if_kind(Tick)? {
-                let expr = parse_expression(stream)?;
+                let lpar = stream.expect_kind(LeftPar)?;
+                let expr = parse_expression_or_aggregate(stream)?.combine_pos_with(&lpar);
                 let pos = name.pos.combine(&expr);
                 Ok(WithPos {
                     item: Expression::Qualified(Box::new(QualifiedExpression {
@@ -337,43 +374,7 @@ fn parse_primary_initial_token(
             }
         }
 
-        LeftPar => {
-            let choices = parse_choices(stream)?;
-            // Parenthesized expression or aggregate
-            match *choices.as_slice() {
-                // Can be aggregate or expression
-                [Choice::Expression(ref expr)] => {
-                    let sep_token = stream.peek_expect()?;
-                    match_token_kind!(
-                        sep_token,
-
-                        // Was aggregate
-                        Comma | RightArrow => {
-                            Ok(parse_aggregate_initial_choices(
-                                stream,
-                                vec![Choice::Expression(expr.clone())],
-                            )?.map_into(Expression::Aggregate)
-                               .combine_pos_with(&token))
-                        },
-
-                        // Was expression with parenthesis
-                        RightPar => {
-                            let rpar_token = stream.expect()?;
-                            // Lexical position between parenthesis
-                            let expr = WithPos {
-                                item: expr.item.clone(),
-                                pos: rpar_token.pos.combine_into(&token),
-                            };
-                            Ok(expr)
-                        }
-                    )
-                }
-                // Must be aggregate
-                _ => Ok(parse_aggregate_initial_choices(stream, choices.clone())?
-                    .map_into(Expression::Aggregate)
-                    .combine_pos_with(&token)),
-            }
-        }
+        LeftPar => parse_expression_or_aggregate(stream).map(|expr| expr.combine_pos_with(&token)),
 
         kind => {
             // Prefix unary operation
@@ -790,6 +791,21 @@ mod tests {
         };
 
         assert_eq!(code.with_stream(parse_expression), qexpr);
+    }
+
+    #[test]
+    fn qualified_expression_precedence() {
+        let code = Code::new("mark0'(0) < mark1'(1)");
+        let expr = WithPos {
+            item: Expression::Binary(
+                Binary::LT,
+                Box::new(code.s1("mark0'(0)").expr()),
+                Box::new(code.s1("mark1'(1)").expr()),
+            ),
+            pos: code.pos(),
+        };
+
+        assert_eq!(code.expr(), expr);
     }
 
     #[test]
