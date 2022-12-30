@@ -458,17 +458,36 @@ impl<'a> Region<'a> {
     }
 
     /// Lookup a named entity declared in this region or an enclosing region
-    fn lookup_enclosing(&self, designator: &Designator) -> Option<&NamedEntities> {
+
+    fn lookup_enclosing(&self, designator: &Designator) -> Option<NamedEntities> {
         // We do not need to look in the enclosing region of the extended region
         // since extended region always has the same parent except for protected types
         // split into package / package body.
         // In that case the package / package body parent of the protected type / body
         // is the same extended region anyway
-        self.lookup_immediate(designator).or_else(|| {
-            self.parent
+
+        match self.lookup_immediate(designator).cloned() {
+            // A non-overloaded name is found in the immediate region
+            // no need to look further up
+            Some(NamedEntities::Single(single)) => Some(NamedEntities::Single(single)),
+
+            // The name is overloaded we must also check enclosing regions
+            Some(NamedEntities::Overloaded(immediate)) => {
+                if let Some(NamedEntities::Overloaded(enclosing)) = self
+                    .parent
+                    .as_ref()
+                    .and_then(|region| region.lookup_enclosing(designator))
+                {
+                    Some(NamedEntities::Overloaded(immediate.with_visible(enclosing)))
+                } else {
+                    Some(NamedEntities::Overloaded(immediate))
+                }
+            }
+            None => self
+                .parent
                 .as_ref()
-                .and_then(|region| region.lookup_enclosing(designator))
-        })
+                .and_then(|region| region.lookup_enclosing(designator)),
+        }
     }
 
     fn lookup_visiblity_into(&'a self, designator: &Designator, visible: &mut Visible<'a>) {
@@ -503,8 +522,6 @@ impl<'a> Region<'a> {
         designator: &Designator,
     ) -> Result<NamedEntities, Diagnostic> {
         let result = if let Some(enclosing) = self.lookup_enclosing(designator) {
-            let enclosing = enclosing.clone();
-
             match enclosing {
                 // non overloaded in enclosing region ignores any visible overloaded names
                 NamedEntities::Single(..) => Some(enclosing),

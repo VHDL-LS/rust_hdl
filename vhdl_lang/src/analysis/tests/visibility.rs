@@ -664,3 +664,27 @@ end package;
         &[alpha2_pos, alpha2_ref],
     );
 }
+
+#[test]
+fn nested_subprogram_shadows_outer() {
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "
+procedure theproc(arg: character) is
+begin
+end procedure;
+
+function thefun(arg: integer) return natural is
+    procedure theproc(arg: integer) is
+    begin
+        theproc('c');
+    end procedure;
+begin
+    theproc(arg);
+    return 0;
+end function;
+",
+    );
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
