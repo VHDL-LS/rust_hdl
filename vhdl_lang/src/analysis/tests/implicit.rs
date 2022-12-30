@@ -1,20 +1,31 @@
 use super::*;
 
+// procedure FILE_OPEN (file F: FT; External_Name: in STRING; Open_Kind: in FILE_OPEN_KIND := READ_MODE);
+// procedure FILE_OPEN (Status: out FILE_OPEN_STATUS; file F: FT; External_Name: in STRING; Open_Kind: in FILE_OPEN_KIND := READ_MODE);
+// procedure FILE_CLOSE (file F: FT);
+// procedure READ (file F: FT; VALUE: out TM);
+// procedure WRITE (file F: FT; VALUE: in TM);
+// procedure FLUSH (file F: FT);
+// function ENDFILE (file F: FT) return BOOLEAN
 #[test]
 fn adds_file_subprograms_implicitly() {
     check_code_with_no_diagnostics(
         "
-use std.textio.text;
-
 package pkg is
 end package;
 
 package body pkg is
+  type binary_file_t is file of character;
+
   procedure proc is
-    file f : text;
+    file f : binary_file_t;
+    variable char : character;
   begin
     file_open(f, \"foo.txt\");
     assert not endfile(f);
+    write(f, 'c');
+    flush(f);
+    read(f, char);
     file_close(f);
   end procedure;
 end package body;

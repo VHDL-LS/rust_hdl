@@ -708,9 +708,6 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             TypeDefinition::File(ref mut type_mark) => {
-                if let Err(err) = self.resolve_type_mark_name(parent, type_mark) {
-                    err.add_to(diagnostics)?;
-                }
                 let implicit = ImplicitVecBuilder::default();
 
                 let file_type = TypeEnt::new_with_opt_id(
@@ -720,9 +717,18 @@ impl<'a> AnalyzeContext<'a> {
                     Some(&type_decl.ident.pos),
                 );
 
-                for ent in self.create_implicit_file_type_subprograms(file_type.clone()) {
-                    implicit.push(&ent);
-                    parent.add_named_entity(ent, diagnostics);
+                match self.resolve_type_mark_name(parent, type_mark) {
+                    Ok(type_mark) => {
+                        for ent in
+                            self.create_implicit_file_type_subprograms(&file_type, &type_mark)
+                        {
+                            implicit.push(&ent);
+                            parent.add_named_entity(ent, diagnostics);
+                        }
+                    }
+                    Err(err) => {
+                        err.add_to(diagnostics)?;
+                    }
                 }
 
                 parent.add_named_entity(file_type.into(), diagnostics);
@@ -734,7 +740,8 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn create_implicit_file_type_subprograms(
         &self,
-        file_type: TypeEnt,
+        file_type: &TypeEnt,
+        type_mark: &TypeEnt,
     ) -> Vec<Arc<NamedEntity>> {
         let mut implicit = Vec::new();
 
@@ -761,9 +768,75 @@ impl<'a> AnalyzeContext<'a> {
         )
         .unwrap();
 
-        // procedure FILE_OPEN (file F: FT; External_Name: in STRING);
+        let file_open_kind = TypeEnt::from_any(
+            standard_region
+                .lookup_immediate(&self.symbol_utf8("FILE_OPEN_KIND").into())
+                .unwrap()
+                .clone()
+                .into_non_overloaded()
+                .unwrap(),
+        )
+        .unwrap();
+
+        let file_open_status = TypeEnt::from_any(
+            standard_region
+                .lookup_immediate(&self.symbol_utf8("FILE_OPEN_STATUS").into())
+                .unwrap()
+                .clone()
+                .into_non_overloaded()
+                .unwrap(),
+        )
+        .unwrap();
+
+        // procedure FILE_OPEN (file F: FT; External_Name: in STRING; Open_Kind: in FILE_OPEN_KIND := READ_MODE);
         {
             let mut params = ParameterList::default();
+            params.add_param(Arc::new(NamedEntity::new(
+                self.symbol_utf8("F"),
+                NamedEntityKind::InterfaceFile(file_type.to_owned()),
+                file_type.decl_pos(),
+            )));
+            params.add_param(Arc::new(NamedEntity::new(
+                self.symbol_utf8("External_Name"),
+                NamedEntityKind::Object(Object {
+                    class: ObjectClass::Constant,
+                    mode: Some(Mode::In),
+                    subtype: Subtype::new(string.clone()),
+                    has_default: false,
+                }),
+                file_type.decl_pos(),
+            )));
+
+            params.add_param(Arc::new(NamedEntity::new(
+                self.symbol_utf8("Open_Kind"),
+                NamedEntityKind::Object(Object {
+                    class: ObjectClass::Constant,
+                    mode: Some(Mode::In),
+                    subtype: Subtype::new(file_open_kind.clone()),
+                    has_default: false,
+                }),
+                file_type.decl_pos(),
+            )));
+            implicit.push(Arc::new(NamedEntity::implicit(
+                self.symbol_utf8("FILE_OPEN"),
+                NamedEntityKind::Subprogram(Signature::new(params, None)),
+                file_type.decl_pos(),
+            )));
+        }
+
+        // procedure FILE_OPEN (Status: out FILE_OPEN_STATUS; file F: FT; External_Name: in STRING; Open_Kind: in FILE_OPEN_KIND := READ_MODE);
+        {
+            let mut params = ParameterList::default();
+            params.add_param(Arc::new(NamedEntity::new(
+                self.symbol_utf8("Status"),
+                NamedEntityKind::Object(Object {
+                    class: ObjectClass::Variable,
+                    mode: Some(Mode::Out),
+                    subtype: Subtype::new(file_open_status),
+                    has_default: false,
+                }),
+                file_type.decl_pos(),
+            )));
             params.add_param(Arc::new(NamedEntity::new(
                 self.symbol_utf8("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
@@ -780,6 +853,16 @@ impl<'a> AnalyzeContext<'a> {
                 file_type.decl_pos(),
             )));
 
+            params.add_param(Arc::new(NamedEntity::new(
+                self.symbol_utf8("Open_Kind"),
+                NamedEntityKind::Object(Object {
+                    class: ObjectClass::Constant,
+                    mode: Some(Mode::In),
+                    subtype: Subtype::new(file_open_kind),
+                    has_default: false,
+                }),
+                file_type.decl_pos(),
+            )));
             implicit.push(Arc::new(NamedEntity::implicit(
                 self.symbol_utf8("FILE_OPEN"),
                 NamedEntityKind::Subprogram(Signature::new(params, None)),
@@ -798,6 +881,76 @@ impl<'a> AnalyzeContext<'a> {
 
             implicit.push(Arc::new(NamedEntity::implicit(
                 self.symbol_utf8("FILE_CLOSE"),
+                NamedEntityKind::Subprogram(Signature::new(params, None)),
+                file_type.decl_pos(),
+            )));
+        }
+
+        // procedure READ (file F: FT; VALUE: out TM);
+        {
+            let mut params = ParameterList::default();
+            params.add_param(Arc::new(NamedEntity::new(
+                self.symbol_utf8("F"),
+                NamedEntityKind::InterfaceFile(file_type.to_owned()),
+                file_type.decl_pos(),
+            )));
+
+            params.add_param(Arc::new(NamedEntity::new(
+                self.symbol_utf8("VALUE"),
+                NamedEntityKind::Object(Object {
+                    class: ObjectClass::Variable,
+                    mode: Some(Mode::Out),
+                    subtype: Subtype::new(type_mark.clone()),
+                    has_default: false,
+                }),
+                file_type.decl_pos(),
+            )));
+
+            implicit.push(Arc::new(NamedEntity::implicit(
+                self.symbol_utf8("READ"),
+                NamedEntityKind::Subprogram(Signature::new(params, None)),
+                file_type.decl_pos(),
+            )));
+        }
+
+        // procedure WRITE (file F: FT; VALUE: in TM);
+        {
+            let mut params = ParameterList::default();
+            params.add_param(Arc::new(NamedEntity::new(
+                self.symbol_utf8("F"),
+                NamedEntityKind::InterfaceFile(file_type.to_owned()),
+                file_type.decl_pos(),
+            )));
+
+            params.add_param(Arc::new(NamedEntity::new(
+                self.symbol_utf8("VALUE"),
+                NamedEntityKind::Object(Object {
+                    class: ObjectClass::Constant,
+                    mode: Some(Mode::In),
+                    subtype: Subtype::new(type_mark.clone()),
+                    has_default: false,
+                }),
+                file_type.decl_pos(),
+            )));
+
+            implicit.push(Arc::new(NamedEntity::implicit(
+                self.symbol_utf8("WRITE"),
+                NamedEntityKind::Subprogram(Signature::new(params, None)),
+                file_type.decl_pos(),
+            )));
+        }
+
+        // procedure FLUSH (file F: FT);
+        {
+            let mut params = ParameterList::default();
+            params.add_param(Arc::new(NamedEntity::new(
+                self.symbol_utf8("F"),
+                NamedEntityKind::InterfaceFile(file_type.to_owned()),
+                file_type.decl_pos(),
+            )));
+
+            implicit.push(Arc::new(NamedEntity::implicit(
+                self.symbol_utf8("FLUSH"),
                 NamedEntityKind::Subprogram(Signature::new(params, None)),
                 file_type.decl_pos(),
             )));
