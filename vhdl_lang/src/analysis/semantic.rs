@@ -96,7 +96,7 @@ impl<'a> AnalyzeContext<'a> {
             Type::Subtype(subtype) => {
                 self.lookup_type_selected(prefix_pos, subtype.type_mark(), suffix)
             }
-            Type::Access(subtype) => {
+            Type::Access(subtype, ..) => {
                 self.lookup_type_selected(prefix_pos, subtype.type_mark(), suffix)
             }
             _ => Err(invalid_selected_name_prefix(prefix_type, prefix_pos).into()),
@@ -794,7 +794,7 @@ impl<'a> AnalyzeContext<'a> {
     ) -> AnalysisResult<TypeEnt> {
         let base_type = type_mark.base_type();
 
-        let base_type = if let Type::Access(ref subtype) = base_type.kind() {
+        let base_type = if let Type::Access(ref subtype, ..) = base_type.kind() {
             subtype.base_type()
         } else {
             base_type
@@ -837,7 +837,7 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalNullResult {
         let base_type = type_mark.base_type();
 
-        let base_type = if let Type::Access(ref subtype) = base_type.kind() {
+        let base_type = if let Type::Access(ref subtype, ..) = base_type.kind() {
             subtype.base_type()
         } else {
             base_type

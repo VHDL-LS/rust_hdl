@@ -58,3 +58,21 @@ end package;
 ",
     );
 }
+
+#[test]
+fn deallocate_is_defined_for_access_type() {
+    check_code_with_no_diagnostics(
+        "
+package pkg is
+  type arr_t is array (natural range <>) of character;
+  type ptr_t is access arr_t;
+
+  procedure theproc is
+      variable theptr: ptr_t;
+  begin
+      deallocate(theptr);
+  end procedure;
+end package;
+",
+    );
+}

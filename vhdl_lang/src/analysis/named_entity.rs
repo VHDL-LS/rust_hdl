@@ -27,7 +27,7 @@ pub enum Type {
     Enum(ImplicitMap),
     Integer(ImplicitVec),
     Physical(ImplicitVec),
-    Access(Subtype),
+    Access(Subtype, ImplicitVec),
     Record(Arc<Region<'static>>),
     // Weak references since incomplete access types can create cycles
     // The reference is for the full type which is filled in after creation
@@ -48,9 +48,9 @@ impl Type {
             Type::Integer(ref implicit) => implicit,
             Type::Physical(ref implicit) => implicit,
             Type::File(ref implicit) => implicit,
+            Type::Access(.., ref implicit) => implicit,
             Type::Incomplete(..)
             | Type::Interface
-            | Type::Access(..)
             | Type::Protected(..)
             | Type::Record(..)
             | Type::Subtype(..)

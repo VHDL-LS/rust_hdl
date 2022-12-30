@@ -576,13 +576,17 @@ impl<'a> AnalyzeContext<'a> {
                     self.resolve_subtype_indication(parent, subtype_indication, diagnostics);
                 match subtype {
                     Ok(subtype) => {
-                        let type_ent = Arc::new(NamedEntity::new_with_opt_id(
+                        let implicit = ImplicitVecBuilder::default();
+                        let type_ent = TypeEnt::new_with_opt_id(
                             overwrite_id,
                             type_decl.ident.name().clone(),
-                            NamedEntityKind::Type(Type::Access(subtype)),
+                            Type::Access(subtype, implicit.inner()),
                             Some(&type_decl.ident.pos),
-                        ));
-                        parent.add_named_entity(type_ent, diagnostics);
+                        );
+                        let deallocate = self.create_deallocate(&type_ent);
+                        implicit.push(&deallocate);
+                        parent.add_named_entity(type_ent.into(), diagnostics);
+                        parent.add_named_entity(deallocate, diagnostics);
                     }
                     Err(err) => err.add_to(diagnostics)?,
                 }
@@ -885,6 +889,28 @@ impl<'a> AnalyzeContext<'a> {
             NamedEntityKind::Subprogram(Signature::new(params, Some(type_ent.clone()))),
             type_ent.decl_pos(),
         )
+    }
+
+    /// Create implicit DEALLOCATE
+    /// procedure DEALLOCATE (P: inout AT);
+    pub fn create_deallocate(&self, type_ent: &TypeEnt) -> Arc<NamedEntity> {
+        let mut params = ParameterList::default();
+        params.add_param(Arc::new(NamedEntity::new(
+            self.symbol_utf8("P"),
+            NamedEntityKind::Object(Object {
+                class: ObjectClass::Variable,
+                mode: Some(Mode::InOut),
+                subtype: Subtype::new(type_ent.to_owned()),
+                has_default: false,
+            }),
+            type_ent.decl_pos(),
+        )));
+
+        Arc::new(NamedEntity::implicit(
+            self.symbol_utf8("DEALLOCATE"),
+            NamedEntityKind::Subprogram(Signature::new(params, None)),
+            type_ent.decl_pos(),
+        ))
     }
 
     pub fn resolve_signature(
