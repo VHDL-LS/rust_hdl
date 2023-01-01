@@ -73,6 +73,18 @@ end package;
 }
 
 #[test]
+fn adds_to_string_for_enum_types() {
+    check_code_with_no_diagnostics(
+        "
+package pkg is
+  type enum_t is (alpha, beta);
+  alias my_to_string is to_string[enum_t return string];
+end package;  
+  ",
+    );
+}
+
+#[test]
 fn no_error_for_duplicate_alias_of_implicit() {
     check_code_with_no_diagnostics(
         "

@@ -461,7 +461,16 @@ impl<'a> AnalyzeContext<'a> {
                     parent.add_named_entity(literal_ent, diagnostics);
                 }
 
-                parent.add_named_entity(enum_type.into(), diagnostics);
+                parent.add_named_entity(enum_type.clone().into(), diagnostics);
+
+                if !self.is_standard_package() {
+                    let standard = self.expect_standard_package_analysis().unwrap();
+                    let standard_region =
+                        StandardRegion::new(&self.root.symbols, &standard.result().region);
+
+                    parent
+                        .add_named_entity(standard_region.create_to_string(enum_type), diagnostics);
+                }
             }
             TypeDefinition::ProtectedBody(ref mut body) => {
                 body.type_reference.clear_reference();

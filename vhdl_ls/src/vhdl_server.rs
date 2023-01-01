@@ -854,12 +854,18 @@ end package;
 
         let config_uri = write_config(
             &root_uri,
-            "
+            format!(
+                "
 [libraries]
+std.files = [
+'{}/../vhdl_libraries/std/*.vhd',
+]
 lib.files = [
   '*.vhd'
 ]
 ",
+                std::env::var("CARGO_MANIFEST_DIR").unwrap()
+            ),
         );
 
         expect_loaded_config_messages(&mock, &config_uri);
