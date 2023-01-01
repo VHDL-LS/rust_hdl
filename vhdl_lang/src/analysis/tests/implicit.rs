@@ -116,6 +116,22 @@ end package;
 }
 
 #[test]
+fn enum_implicit_function_is_added_on_use() {
+    check_code_with_no_diagnostics(
+        "
+package pkg1 is
+    type enum_t is (alpha, beta);
+end package;
+
+use work.pkg1.enum_t;
+package pkg is
+    alias my_to_string is to_string[enum_t return string];
+end package;
+",
+    );
+}
+
+#[test]
 fn find_all_references_does_not_include_implicits() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(

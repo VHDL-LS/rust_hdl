@@ -1023,8 +1023,8 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             Literal::Character(char) => match target_base.kind() {
-                Type::Enum(literals) => {
-                    if !literals.contains_key(&Designator::Character(*char)) {
+                Type::Enum(_, literals) => {
+                    if !literals.contains(&Designator::Character(*char)) {
                         diagnostics.push(Diagnostic::error(
                             pos,
                             format!(
@@ -1050,10 +1050,10 @@ impl<'a> AnalyzeContext<'a> {
                 } => {
                     if indexes.len() == 1 {
                         match elem_type.base_type().kind() {
-                            Type::Enum(literals) => {
+                            Type::Enum(_, literals) => {
                                 for chr in string_lit.chars() {
                                     let chr = Designator::Character(*chr);
-                                    if !literals.contains_key(&chr) {
+                                    if !literals.contains(&chr) {
                                         diagnostics.push(Diagnostic::error(
                                             pos,
                                             format!(

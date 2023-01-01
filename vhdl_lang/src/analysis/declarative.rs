@@ -5,7 +5,6 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use super::formal_region::FormalRegion;
-use super::implicits::ImplicitMapBuilder;
 use super::implicits::ImplicitVecBuilder;
 use super::implicits::Implicits;
 use super::names::*;
@@ -439,11 +438,17 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalNullResult {
         match type_decl.def {
             TypeDefinition::Enumeration(ref mut enumeration) => {
-                let implicit = ImplicitMapBuilder::default();
+                let implicit = ImplicitVecBuilder::default();
                 let enum_type = TypeEnt::define_with_opt_id(
                     overwrite_id,
                     &mut type_decl.ident,
-                    Type::Enum(implicit.inner()),
+                    Type::Enum(
+                        implicit.inner(),
+                        enumeration
+                            .iter()
+                            .map(|literal| literal.tree.item.clone().into_designator())
+                            .collect(),
+                    ),
                 );
 
                 let signature = Signature::new(FormalRegion::default(), Some(enum_type.clone()));
@@ -455,7 +460,7 @@ impl<'a> AnalyzeContext<'a> {
                         Some(&literal.tree.pos),
                     ));
                     literal.decl = Some(literal_ent.clone());
-                    implicit.insert(literal.tree.item.clone().into_designator(), &literal_ent);
+                    implicit.push(&literal_ent);
                     parent.add(literal_ent, diagnostics);
                 }
 
@@ -465,8 +470,9 @@ impl<'a> AnalyzeContext<'a> {
                     let standard = self.expect_standard_package_analysis().unwrap();
                     let standard_region =
                         StandardRegion::new(&self.root.symbols, &standard.result().region);
-
-                    parent.add(standard_region.create_to_string(enum_type), diagnostics);
+                    let to_string = standard_region.create_to_string(enum_type);
+                    implicit.push(&to_string);
+                    parent.add(to_string, diagnostics);
                 }
             }
             TypeDefinition::ProtectedBody(ref mut body) => {

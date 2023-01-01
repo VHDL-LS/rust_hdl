@@ -5,12 +5,12 @@
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
 use super::formal_region::FormalRegion;
-use super::implicits::ImplicitMap;
 use super::implicits::ImplicitVec;
 use super::region::Region;
 use crate::ast::*;
 use crate::data::*;
 use arc_swap::ArcSwapWeak;
+use fnv::FnvHashSet;
 use std::borrow::Borrow;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -25,7 +25,7 @@ pub enum Type {
         indexes: Vec<Option<Arc<NamedEntity>>>,
         elem_type: TypeEnt,
     },
-    Enum(ImplicitMap),
+    Enum(ImplicitVec, FnvHashSet<Designator>),
     Integer(ImplicitVec),
     Physical(ImplicitVec),
     Access(Subtype, ImplicitVec),
@@ -44,12 +44,12 @@ pub enum Type {
 impl Type {
     pub fn implicit_declarations(&self) -> impl Iterator<Item = Arc<NamedEntity>> + '_ {
         match self {
-            Type::Array { ref implicit, .. } => Some(either::Either::Right(implicit.iter())),
-            Type::Enum(ref implicit) => Some(either::Either::Left(implicit.iter())),
-            Type::Integer(ref implicit) => Some(either::Either::Right(implicit.iter())),
-            Type::Physical(ref implicit) => Some(either::Either::Right(implicit.iter())),
-            Type::File(ref implicit) => Some(either::Either::Right(implicit.iter())),
-            Type::Access(.., ref implicit) => Some(either::Either::Right(implicit.iter())),
+            Type::Array { ref implicit, .. } => Some(implicit.iter()),
+            Type::Enum(ref implicit, _) => Some(implicit.iter()),
+            Type::Integer(ref implicit) => Some(implicit.iter()),
+            Type::Physical(ref implicit) => Some(implicit.iter()),
+            Type::File(ref implicit) => Some(implicit.iter()),
+            Type::Access(.., ref implicit) => Some(implicit.iter()),
             Type::Incomplete(..)
             | Type::Interface
             | Type::Protected(..)
