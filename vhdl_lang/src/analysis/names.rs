@@ -7,6 +7,7 @@ use std::sync::Arc;
 // Represent a resolved name which can be either a
 // 1. NonObject such as a library or design unit
 // 2. Object such a direct reference to an object or some kind of index, slice or selected name
+#[derive(Debug)]
 pub enum ResolvedName {
     NonObject(Arc<NamedEntity>),
     Type(TypeEnt),

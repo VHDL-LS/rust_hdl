@@ -206,7 +206,6 @@ impl<'a> AnalyzeContext<'a> {
         };
 
         if let Some(std_library) = self.get_library(&self.std_sym) {
-            // @TODO add warning for missing standard library
             region.make_potentially_visible(None, std_library);
 
             let standard_pkg_data = self.expect_standard_package_analysis()?;

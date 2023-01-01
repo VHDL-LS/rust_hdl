@@ -327,7 +327,7 @@ impl<'a> StandardRegion<'a> {
     }
 
     pub fn minimum(&self, type_ent: TypeEnt) -> Arc<NamedEntity> {
-        self.create_min_or_maximum("MINMUM", type_ent)
+        self.create_min_or_maximum("MINIMUM", type_ent)
     }
 
     pub fn maximum(&self, type_ent: TypeEnt) -> Arc<NamedEntity> {
@@ -391,11 +391,20 @@ impl<'a> StandardRegion<'a> {
             "FILE_OPEN_STATUS",
         ] {
             let typ = self.lookup_type(name);
-            res.extend([
+            let implicits = vec![
                 self.create_to_string(typ.clone()),
                 self.minimum(typ.clone()),
-                self.maximum(typ),
-            ]);
+                self.maximum(typ.clone()),
+            ];
+
+            for ent in implicits.iter() {
+                if let Some(implicit) = typ.kind().implicits() {
+                    // This is safe because the standard package is analyzed in a single thread
+                    unsafe { implicit.push(ent) };
+                }
+            }
+
+            res.extend(implicits);
         }
 
         res

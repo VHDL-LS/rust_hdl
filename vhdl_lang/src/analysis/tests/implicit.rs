@@ -5,11 +5,9 @@ fn adds_to_string_for_standard_types() {
     check_code_with_no_diagnostics(
         "
 package pkg is
-   procedure proc is
-      constant iconst : integer := 0;
-   begin
-      report to_string(iconst);
-   end procedure;
+    alias alias1 is to_string[integer return string];
+    alias alias2 is minimum[integer, integer return integer];
+    alias alias3 is maximum[integer, integer return integer];
 end package;
 ",
     );

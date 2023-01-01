@@ -43,13 +43,17 @@ pub enum Type {
 
 impl Type {
     pub fn implicit_declarations(&self) -> impl Iterator<Item = Arc<NamedEntity>> + '_ {
+        self.implicits().into_iter().flat_map(|imp| imp.iter())
+    }
+
+    pub fn implicits(&self) -> Option<&ImplicitVec> {
         match self {
-            Type::Array { ref implicit, .. } => Some(implicit.iter()),
-            Type::Enum(ref implicit, _) => Some(implicit.iter()),
-            Type::Integer(ref implicit) => Some(implicit.iter()),
-            Type::Physical(ref implicit) => Some(implicit.iter()),
-            Type::File(ref implicit) => Some(implicit.iter()),
-            Type::Access(.., ref implicit) => Some(implicit.iter()),
+            Type::Array { ref implicit, .. } => Some(implicit),
+            Type::Enum(ref implicit, _) => Some(implicit),
+            Type::Integer(ref implicit) => Some(implicit),
+            Type::Physical(ref implicit) => Some(implicit),
+            Type::File(ref implicit) => Some(implicit),
+            Type::Access(.., ref implicit) => Some(implicit),
             Type::Incomplete(..)
             | Type::Interface
             | Type::Protected(..)
@@ -57,8 +61,6 @@ impl Type {
             | Type::Subtype(..)
             | Type::Alias(..) => None,
         }
-        .into_iter()
-        .flatten()
     }
 
     pub fn describe(&self) -> &str {
@@ -541,7 +543,7 @@ impl std::cmp::PartialEq for NamedEntity {
 }
 
 // A named entity that is known to be an object
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ObjectEnt {
     pub ent: Arc<NamedEntity>,
 }
@@ -582,7 +584,7 @@ impl ObjectEnt {
 }
 
 // A named entity that is known to be a type
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TypeEnt(Arc<NamedEntity>);
 
 impl TypeEnt {

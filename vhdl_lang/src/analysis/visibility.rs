@@ -144,12 +144,13 @@ impl Visibility {
     }
 }
 
+#[derive(Debug)]
 struct VisibleEntityRef<'a> {
     visible_pos: &'a [Option<SrcPos>],
     entity: &'a Arc<NamedEntity>,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Visible<'a> {
     visible_entities: FnvHashMap<EntityId, VisibleEntityRef<'a>>,
 }

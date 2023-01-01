@@ -34,18 +34,16 @@ impl ImplicitVec {
     pub fn iter(&self) -> impl Iterator<Item = Arc<NamedEntity>> + '_ {
         self.0.iter().filter_map(|weak_ent| weak_ent.upgrade())
     }
+
+    pub unsafe fn push(&self, ent: &Arc<NamedEntity>) {
+        raw_mut(&self.0).push(Arc::downgrade(ent));
+    }
 }
 
 #[derive(Default)]
 pub struct ImplicitsBuilder<T>(Arc<T>);
 
 impl<T> ImplicitsBuilder<T> {
-    #[allow(clippy::mut_from_ref)]
-    unsafe fn raw_mut(&self) -> &mut T {
-        let ptr = self.0.as_ref() as *const T as *mut T;
-        &mut *ptr
-    }
-
     pub fn inner(&self) -> Implicits<T> {
         Implicits(self.0.clone())
     }
@@ -53,7 +51,13 @@ impl<T> ImplicitsBuilder<T> {
 impl ImplicitVecBuilder {
     pub fn push(&self, ent: &Arc<NamedEntity>) {
         unsafe {
-            self.raw_mut().push(Arc::downgrade(ent));
+            raw_mut(&self.0).push(Arc::downgrade(ent));
         }
     }
+}
+
+#[allow(clippy::mut_from_ref)]
+unsafe fn raw_mut<T>(arc: &Arc<T>) -> &mut T {
+    let ptr = arc.as_ref() as *const T as *mut T;
+    &mut *ptr
 }
