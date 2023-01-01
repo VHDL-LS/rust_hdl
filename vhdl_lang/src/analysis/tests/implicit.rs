@@ -175,3 +175,37 @@ end package;
         Some(code.s1("enum_t").pos())
     );
 }
+
+#[test]
+fn hover_for_implicit() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "lib",
+        "
+package pkg is
+type enum_t is (alpha, beta);
+alias thealias is to_string[enum_t return string];
+end package;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    let to_string = code.s1("to_string");
+    assert_eq!(
+        root.format_declaration(
+            root.search_reference(to_string.source(), to_string.start())
+                .unwrap()
+        ),
+        Some(
+            "\
+-- function 'TO_STRING' with signature [enum_t return STRING]
+
+-- Implicitly defined by:
+type enum_t is (alpha, beta);
+"
+            .to_owned()
+        )
+    );
+}

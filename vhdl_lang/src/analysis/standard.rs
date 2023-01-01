@@ -104,6 +104,7 @@ impl<'a> StandardRegion<'a> {
                 file_type.decl_pos(),
             )));
             implicit.push(Arc::new(NamedEntity::implicit(
+                file_type.clone().into(),
                 self.symbol("FILE_OPEN"),
                 NamedEntityKind::Subprogram(Signature::new(params, None)),
                 file_type.decl_pos(),
@@ -150,6 +151,7 @@ impl<'a> StandardRegion<'a> {
                 file_type.decl_pos(),
             )));
             implicit.push(Arc::new(NamedEntity::implicit(
+                file_type.clone().into(),
                 self.symbol("FILE_OPEN"),
                 NamedEntityKind::Subprogram(Signature::new(params, None)),
                 file_type.decl_pos(),
@@ -166,6 +168,7 @@ impl<'a> StandardRegion<'a> {
             )));
 
             implicit.push(Arc::new(NamedEntity::implicit(
+                file_type.clone().into(),
                 self.symbol("FILE_CLOSE"),
                 NamedEntityKind::Subprogram(Signature::new(params, None)),
                 file_type.decl_pos(),
@@ -193,6 +196,7 @@ impl<'a> StandardRegion<'a> {
             )));
 
             implicit.push(Arc::new(NamedEntity::implicit(
+                file_type.clone().into(),
                 self.symbol("READ"),
                 NamedEntityKind::Subprogram(Signature::new(params, None)),
                 file_type.decl_pos(),
@@ -220,6 +224,7 @@ impl<'a> StandardRegion<'a> {
             )));
 
             implicit.push(Arc::new(NamedEntity::implicit(
+                file_type.clone().into(),
                 self.symbol("WRITE"),
                 NamedEntityKind::Subprogram(Signature::new(params, None)),
                 file_type.decl_pos(),
@@ -236,6 +241,7 @@ impl<'a> StandardRegion<'a> {
             )));
 
             implicit.push(Arc::new(NamedEntity::implicit(
+                file_type.clone().into(),
                 self.symbol("FLUSH"),
                 NamedEntityKind::Subprogram(Signature::new(params, None)),
                 file_type.decl_pos(),
@@ -252,6 +258,7 @@ impl<'a> StandardRegion<'a> {
             )));
 
             implicit.push(Arc::new(NamedEntity::implicit(
+                file_type.clone().into(),
                 self.symbol("ENDFILE"),
                 NamedEntityKind::Subprogram(Signature::new(params, Some(boolean))),
                 file_type.decl_pos(),
@@ -277,6 +284,7 @@ impl<'a> StandardRegion<'a> {
         )));
 
         Arc::new(NamedEntity::implicit(
+            type_ent.clone().into(),
             self.symbol("TO_STRING"),
             NamedEntityKind::Subprogram(Signature::new(params, Some(self.string()))),
             type_ent.decl_pos(),
@@ -311,6 +319,7 @@ impl<'a> StandardRegion<'a> {
         )));
 
         Arc::new(NamedEntity::implicit(
+            type_ent.clone().into(),
             self.symbol(name),
             NamedEntityKind::Subprogram(Signature::new(params, Some(type_ent.clone()))),
             type_ent.decl_pos(),
@@ -341,6 +350,7 @@ impl<'a> StandardRegion<'a> {
         )));
 
         Arc::new(NamedEntity::implicit(
+            type_ent.clone().into(),
             self.symbol("DEALLOCATE"),
             NamedEntityKind::Subprogram(Signature::new(params, None)),
             type_ent.decl_pos(),

@@ -341,7 +341,7 @@ pub struct NamedEntity {
     /// A unique id of the entity.
     /// Entities with the same id will be the same.
     id: EntityId,
-    implicit: bool,
+    pub implicit_of: Option<Arc<NamedEntity>>,
     /// The location where the declaration was made.
     /// Builtin and implicit declaration will not have a source position.
     designator: Designator,
@@ -366,7 +366,7 @@ impl NamedEntity {
     ) -> NamedEntity {
         NamedEntity {
             id,
-            implicit: false,
+            implicit_of: None,
             decl_pos,
             designator,
             kind,
@@ -374,13 +374,14 @@ impl NamedEntity {
     }
 
     pub fn implicit(
+        of_ent: Arc<NamedEntity>,
         designator: impl Into<Designator>,
         kind: NamedEntityKind,
         decl_pos: Option<&SrcPos>,
     ) -> NamedEntity {
         NamedEntity {
             id: new_id(),
-            implicit: true,
+            implicit_of: Some(of_ent),
             decl_pos: decl_pos.cloned(),
             designator: designator.into(),
             kind,
@@ -392,7 +393,7 @@ impl NamedEntity {
     }
 
     pub fn is_implicit(&self) -> bool {
-        self.implicit
+        self.implicit_of.is_some()
     }
 
     pub fn is_subprogram(&self) -> bool {
@@ -404,7 +405,7 @@ impl NamedEntity {
     }
 
     pub fn is_explicit(&self) -> bool {
-        !self.implicit
+        self.implicit_of.is_none()
     }
 
     pub fn decl_pos(&self) -> Option<&SrcPos> {
@@ -592,7 +593,7 @@ impl TypeEnt {
     ) -> TypeEnt {
         let ent = Arc::new(NamedEntity {
             id: id.unwrap_or_else(new_id),
-            implicit: false,
+            implicit_of: None,
             decl_pos: Some(ident.tree.pos.clone()),
             designator: ident.tree.item.clone().into(),
             kind: NamedEntityKind::Type(kind),

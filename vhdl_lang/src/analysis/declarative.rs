@@ -244,7 +244,7 @@ impl<'a> AnalyzeContext<'a> {
             Declaration::Alias(alias) => {
                 if let Some(ent) = self.analyze_alias_declaration(region, alias, diagnostics)? {
                     region.add(ent.clone(), diagnostics);
-                    region.add_implicit_declaration_aliases(&ent, diagnostics);
+                    region.add_implicit_declaration_aliases(ent, diagnostics);
                 }
             }
             Declaration::Object(ref mut object_decl) => {

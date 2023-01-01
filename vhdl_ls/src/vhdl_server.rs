@@ -418,7 +418,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
                 kind: MarkupKind::Markdown,
-                value,
+                value: format!("```vhdl\n{}\n```", value),
             }),
             range: None,
         })

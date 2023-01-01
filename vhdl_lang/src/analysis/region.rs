@@ -397,11 +397,12 @@ impl<'a> Region<'a> {
 
     pub fn add_implicit_declaration_aliases(
         &mut self,
-        ent: &NamedEntity,
+        ent: Arc<NamedEntity>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
         for entity in ent.actual_kind().implicit_declarations() {
             let entity = NamedEntity::implicit(
+                ent.clone(),
                 entity.designator().clone(),
                 NamedEntityKind::NonObjectAlias(entity.clone()),
                 ent.decl_pos(),
