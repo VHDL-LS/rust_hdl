@@ -199,14 +199,16 @@ impl<'a> AnalyzeContext<'a> {
                             )?;
 
                             if let NamedEntityKind::Entity(ent_region) = ent.kind() {
+                                let formal_region = ent_region.to_entity_formal();
+
                                 self.analyze_assoc_elems_with_formal_region(
-                                    ent_region,
+                                    &formal_region,
                                     parent,
                                     &mut instance.generic_map,
                                     diagnostics,
                                 )?;
                                 self.analyze_assoc_elems_with_formal_region(
-                                    ent_region,
+                                    &formal_region,
                                     parent,
                                     &mut instance.port_map,
                                     diagnostics,
@@ -234,14 +236,15 @@ impl<'a> AnalyzeContext<'a> {
                             )?;
 
                             if let NamedEntityKind::Component(ent_region) = ent.kind() {
+                                let formal_region = ent_region.to_entity_formal();
                                 self.analyze_assoc_elems_with_formal_region(
-                                    ent_region,
+                                    &formal_region,
                                     parent,
                                     &mut instance.generic_map,
                                     diagnostics,
                                 )?;
                                 self.analyze_assoc_elems_with_formal_region(
-                                    ent_region,
+                                    &formal_region,
                                     parent,
                                     &mut instance.port_map,
                                     diagnostics,

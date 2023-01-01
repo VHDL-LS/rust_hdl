@@ -1,3 +1,5 @@
+use super::formal_region::FormalRegion;
+use super::formal_region::InterfaceEnt;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -249,6 +251,21 @@ impl<'a> Region<'a> {
     pub fn in_package_declaration(mut self) -> Region<'a> {
         self.kind = RegionKind::PackageDeclaration;
         self
+    }
+
+    pub fn to_entity_formal(&self) -> FormalRegion {
+        // @TODO separate generics and ports
+        let mut entities = Vec::with_capacity(self.entities.len());
+        for ent in self.entities.values() {
+            if let NamedEntities::Single(ent) = ent {
+                if let Some(ent) = InterfaceEnt::from_any(ent.clone()) {
+                    entities.push(ent);
+                }
+            }
+        }
+        // Sorting by source file position gives declaration order
+        entities.sort_by_key(|ent| ent.decl_pos().map(|pos| pos.range().start));
+        FormalRegion::new(entities)
     }
 
     pub fn extend(region: &'a Region<'a>, parent: Option<&'a Region<'a>>) -> Region<'a> {
