@@ -9,7 +9,7 @@ use super::declarative_part::parse_declarative_part;
 use super::interface_declaration::parse_parameter_interface_list;
 use super::names::parse_selected_name;
 use super::sequential_statement::parse_labeled_sequential_statements;
-use super::tokens::{Kind::*, TokenStream};
+use super::tokens::{kinds_error, Kind::*, TokenStream};
 use crate::ast::*;
 use crate::data::*;
 
@@ -18,54 +18,48 @@ pub fn parse_signature(stream: &mut TokenStream) -> ParseResult<WithPos<Signatur
     let start_pos = left_square.pos;
     let mut type_marks = Vec::new();
     let mut return_mark = None;
-    let mut errmsg = None;
 
-    let pos = loop {
-        let token = stream.peek_expect()?;
+    let token = stream.peek_expect()?;
+    let pos = try_token_kind!(
+        token,
+        Return => {
+            stream.move_after(&token);
+            return_mark = Some(parse_selected_name(stream)?);
+            start_pos.combine(&stream.expect_kind(RightSquare)?)
+        },
+        RightSquare => {
+            stream.move_after(&token);
+            start_pos.combine(&token.pos)
+        },
+        Identifier => {
+            loop {
+                let token = stream.peek_expect()?;
 
-        try_token_kind!(
-            token,
+                match token.kind {
+                    Identifier => {
+                        type_marks.push(parse_selected_name(stream)?);
+                        let sep_token = stream.expect()?;
 
-            Identifier => {
-                type_marks.push(parse_selected_name(stream)?);
-                let sep_token = stream.expect()?;
-
-                try_token_kind!(
-                    sep_token,
-                    Comma => {},
-                    RightSquare => {
-                        break start_pos.combine(&sep_token.pos);
-                    },
-                    Return => {
-                        let new_return_mark = Some(parse_selected_name(stream)?);
-                        if return_mark.is_some() {
-                            errmsg = Some(Diagnostic::error(sep_token, "Duplicate return in signature"));
-                        } else {
-                            return_mark = new_return_mark;
-                        }
+                        try_token_kind!(
+                            sep_token,
+                            Comma => {},
+                            RightSquare => {
+                                break start_pos.combine(&sep_token.pos);
+                            },
+                            Return => {
+                                return_mark = Some(parse_selected_name(stream)?);
+                                break start_pos.combine(&stream.expect_kind(RightSquare)?);
+                            }
+                        )
                     }
-                )
-            },
-            Return => {
-                stream.move_after(&token);
-                let new_return_mark = Some(parse_selected_name(stream)?);
-                if return_mark.is_some() {
-                    errmsg = Some(Diagnostic::error(token, "Duplicate return in signature"));
-                } else {
-                    return_mark = new_return_mark;
-                }
-            },
-            RightSquare => {
-                stream.move_after(&token);
-                break start_pos.combine(&token.pos);
+                    _ => {
+                        stream.move_after(&token);
+                        return Err(kinds_error(token.pos, &[Identifier]))
+                    }
+                };
             }
-        )
-    };
-
-    if let Some(diagnostic) = errmsg {
-        // @TODO recoverable error should not return Err
-        return Err(diagnostic);
-    }
+        }
+    );
 
     let signature = match return_mark {
         Some(return_mark) => Signature::Function(type_marks, return_mark),
@@ -367,6 +361,15 @@ function foo(foo : natural) return lib.foo.natural;
     }
 
     #[test]
+    pub fn parses_function_signature_error_on_comma() {
+        let code = Code::new("[foo.type_mark, return");
+        assert_eq!(
+            code.with_stream_err(parse_signature),
+            Diagnostic::error(code.s1("return"), "Expected '{identifier}'"),
+        );
+    }
+
+    #[test]
     pub fn parses_procedure_signature() {
         let code = Code::new("[foo.type_mark]");
         assert_eq!(
@@ -398,16 +401,16 @@ function foo(foo : natural) return lib.foo.natural;
 
     #[test]
     pub fn parses_function_signature_many_return_error() {
-        let code = Code::new("[return bar.type_mark return bar2]");
+        let code = Code::new("[return bar.type_mark return");
         assert_eq!(
             code.with_stream_err(parse_signature),
-            Diagnostic::error(code.s("return", 2), "Duplicate return in signature")
+            Diagnostic::error(code.s("return", 2), "Expected ']'")
         );
 
-        let code = Code::new("[foo return bar.type_mark return bar2]");
+        let code = Code::new("[foo return bar.type_mark return");
         assert_eq!(
             code.with_stream_err(parse_signature),
-            Diagnostic::error(code.s("return", 2), "Duplicate return in signature")
+            Diagnostic::error(code.s("return", 2), "Expected ']'")
         );
     }
 

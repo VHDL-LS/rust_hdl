@@ -54,7 +54,7 @@ fn adds_to_string_for_integer_types() {
         "
 package pkg is
   type type_t is range 0 to 1;
-  alias my_to_string is to_string[type_t, return string];
+  alias my_to_string is to_string[type_t return string];
 end package;
 ",
     );
@@ -66,7 +66,7 @@ fn adds_to_string_for_array_types() {
         "
 package pkg is
   type type_t is array (natural range 0 to 1) of integer;
-  alias my_to_string is to_string[type_t, return string];
+  alias my_to_string is to_string[type_t return string];
 end package;
 ",
     );

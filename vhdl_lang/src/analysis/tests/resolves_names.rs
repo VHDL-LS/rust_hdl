@@ -1123,10 +1123,10 @@ package body pkg is
   begin
   end;
 
-  alias alias1 is subpgm[integer, return integer];
-  alias alias2 is subpgm[type_alias, return type_alias];
-  alias alias3 is subpgm[sub_type, return sub_type];
-  alias alias4 is subpgm[sub_type2, return sub_type2];
+  alias alias1 is subpgm[integer return integer];
+  alias alias2 is subpgm[type_alias return type_alias];
+  alias alias3 is subpgm[sub_type return sub_type];
+  alias alias4 is subpgm[sub_type2 return sub_type2];
 end package body;
 ",
     );
@@ -1150,8 +1150,8 @@ package body pkg is
   begin
   end;
 
-  alias alias1 is subpgm[boolean, return boolean];
-  alias alias2 is subpgm[integer, return integer];
+  alias alias1 is subpgm[boolean return boolean];
+  alias alias2 is subpgm[integer return integer];
 end package body;
 ",
     );
