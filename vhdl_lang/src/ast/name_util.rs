@@ -123,15 +123,21 @@ impl HasIdent for Ident {
     }
 }
 
+impl<T: HasIdent> HasIdent for WithDecl<T> {
+    fn ident(&self) -> &Ident {
+        self.tree.ident()
+    }
+}
+
 impl HasIdent for EntityDeclaration {
     fn ident(&self) -> &Ident {
-        &self.ident
+        self.ident.ident()
     }
 }
 
 impl HasIdent for PackageDeclaration {
     fn ident(&self) -> &Ident {
-        &self.ident
+        self.ident.ident()
     }
 }
 
@@ -149,19 +155,19 @@ impl HasIdent for ArchitectureBody {
 
 impl HasIdent for PackageInstantiation {
     fn ident(&self) -> &Ident {
-        &self.ident
+        self.ident.ident()
     }
 }
 
 impl HasIdent for ContextDeclaration {
     fn ident(&self) -> &Ident {
-        &self.ident
+        self.ident.ident()
     }
 }
 
 impl HasIdent for ConfigurationDeclaration {
     fn ident(&self) -> &Ident {
-        &self.ident
+        self.ident.ident()
     }
 }
 
@@ -271,22 +277,10 @@ impl SubprogramDesignator {
 }
 
 impl SubprogramDeclaration {
-    pub fn designator(&self) -> WithPos<Designator> {
-        match self {
-            SubprogramDeclaration::Function(ref function) => function
-                .designator
-                .clone()
-                .map_into(|des| des.into_designator()),
-            SubprogramDeclaration::Procedure(ref procedure) => procedure
-                .designator
-                .clone()
-                .map_into(|des| des.into_designator()),
-        }
-    }
     pub fn pos(&self) -> &SrcPos {
         match self {
-            SubprogramDeclaration::Function(ref function) => &function.designator.pos,
-            SubprogramDeclaration::Procedure(ref procedure) => &procedure.designator.pos,
+            SubprogramDeclaration::Function(ref function) => &function.designator.tree.pos,
+            SubprogramDeclaration::Procedure(ref procedure) => &procedure.designator.tree.pos,
         }
     }
 }

@@ -134,25 +134,25 @@ end package;",
 
     // Cursor before symbol
     assert_eq!(
-        root.search_reference(code2.source(), code2.s1(" typ_t").start()),
+        root.search_reference_pos(code2.source(), code2.s1(" typ_t").start()),
         None
     );
 
     // Cursor at beginning of symbol
     assert_eq!(
-        root.search_reference(code2.source(), code2.s1("typ_t").start()),
+        root.search_reference_pos(code2.source(), code2.s1("typ_t").start()),
         Some(decl_pos.clone())
     );
 
     // Cursor at end of symbol
     assert_eq!(
-        root.search_reference(code2.source(), code2.s1("typ_t").end()),
+        root.search_reference_pos(code2.source(), code2.s1("typ_t").end()),
         Some(decl_pos)
     );
 
     // Cursor after end of symbol
     assert_eq!(
-        root.search_reference(code2.source(), code2.s1("typ_t ").end()),
+        root.search_reference_pos(code2.source(), code2.s1("typ_t ").end()),
         None
     );
 }
@@ -174,7 +174,7 @@ end package;",
     let decl_pos = code.s1("typ_t").pos();
 
     assert_eq!(
-        root.search_reference(code.source(), decl_pos.start()),
+        root.search_reference_pos(code.source(), decl_pos.start()),
         Some(decl_pos)
     );
 }
@@ -213,7 +213,7 @@ end package;",
     ];
 
     assert_eq_unordered(
-        &root.find_all_references(&code1.s1("typ_t").pos()),
+        &root.find_all_references_pos(&code1.s1("typ_t").pos()),
         &references,
     );
 }
@@ -237,18 +237,18 @@ end package;",
 
     // Goto declaration from declaration
     assert_eq!(
-        root.search_reference(code.source(), code.s("typ_t", 1).end()),
+        root.search_reference_pos(code.source(), code.s("typ_t", 1).end()),
         Some(code.s("typ_t", 1).pos())
     );
 
     // Goto declaration from reference
     assert_eq!(
-        root.search_reference(code.source(), code.s("typ_t", 2).end()),
+        root.search_reference_pos(code.source(), code.s("typ_t", 2).end()),
         Some(code.s("typ_t", 1).pos())
     );
 
     assert_eq_unordered(
-        &root.find_all_references(&code.s("typ_t", 1).pos()),
+        &root.find_all_references_pos(&code.s("typ_t", 1).pos()),
         &[code.s("typ_t", 1).pos(), code.s("typ_t", 2).pos()],
     );
 }
@@ -290,7 +290,7 @@ end package;",
     for i in 1..=num_references {
         let refpos = code.s("typ_t", i).pos();
         assert_eq!(
-            root.search_reference(code.source(), refpos.end()),
+            root.search_reference_pos(code.source(), refpos.end()),
             Some(code.s("typ_t", 1).pos()),
             "i={}",
             i
@@ -299,7 +299,7 @@ end package;",
     }
 
     assert_eq_unordered(
-        &root.find_all_references(&code.s("typ_t", 1).pos()),
+        &root.find_all_references_pos(&code.s("typ_t", 1).pos()),
         &references,
     );
 }

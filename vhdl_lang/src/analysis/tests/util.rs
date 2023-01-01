@@ -195,7 +195,7 @@ pub fn check_search_reference_with_name(decl_name: &str, contents: &str) {
     let mut references = Vec::new();
     for idx in 1..=occurences {
         assert_eq!(
-            root.search_reference(code.source(), code.s(decl_name, idx).end()),
+            root.search_reference_pos(code.source(), code.s(decl_name, idx).end()),
             Some(code.s(decl_name, 1).pos()),
             "{}",
             idx
@@ -203,7 +203,7 @@ pub fn check_search_reference_with_name(decl_name: &str, contents: &str) {
         references.push(code.s(decl_name, idx).pos());
     }
     assert_eq!(
-        root.find_all_references(&code.s(decl_name, 1).pos()),
+        root.find_all_references_pos(&code.s(decl_name, 1).pos()),
         references,
     );
 }

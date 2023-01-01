@@ -25,7 +25,6 @@ pub(super) struct AnalysisData {
     // Only for primary units
     pub root_region: Arc<Region<'static>>,
     pub region: Arc<Region<'static>>,
-    pub ent: Option<Arc<NamedEntity>>,
 }
 
 pub(super) type UnitReadGuard<'a> = ReadGuard<'a, AnyDesignUnit, AnalysisData>;
@@ -313,18 +312,32 @@ impl DesignRoot {
     ///
     /// If the character value is greater than the line length it defaults back to the
     /// line length.
-    pub fn search_reference(&self, source: &Source, cursor: Position) -> Option<SrcPos> {
+    pub fn search_reference(&self, source: &Source, cursor: Position) -> Option<Arc<NamedEntity>> {
         ItemAtCursor::search(self, source, cursor)
     }
 
+    #[cfg(test)]
+    pub fn search_reference_pos(&self, source: &Source, cursor: Position) -> Option<SrcPos> {
+        self.search_reference(source, cursor)
+            .and_then(|ent| ent.decl_pos().cloned())
+    }
     /// Search for the declaration at decl_pos and format it
-    pub fn format_declaration(&self, decl_pos: &SrcPos) -> Option<String> {
-        FormatDeclaration::search(self, decl_pos)
+    pub fn format_declaration(&self, ent: Arc<NamedEntity>) -> Option<String> {
+        FormatDeclaration::search(self, ent)
     }
 
     /// Search for all references to the declaration at decl_pos
-    pub fn find_all_references(&self, decl_pos: &SrcPos) -> Vec<SrcPos> {
-        FindAllReferences::search(self, decl_pos)
+    pub fn find_all_references(&self, ent: Arc<NamedEntity>) -> Vec<SrcPos> {
+        FindAllReferences::search(self, ent)
+    }
+
+    #[cfg(test)]
+    pub fn find_all_references_pos(&self, decl_pos: &SrcPos) -> Vec<SrcPos> {
+        if let Some(ent) = ItemAtCursor::search(self, decl_pos.source(), decl_pos.start()) {
+            FindAllReferences::search(self, ent)
+        } else {
+            Vec::new()
+        }
     }
 
     pub fn symbol_utf8(&self, name: &str) -> Symbol {
@@ -357,39 +370,36 @@ impl DesignRoot {
                 let root_region = Arc::new(root_region);
                 let region = Arc::new(region);
 
-                let ent = if let Some(primary_unit) = unit.as_primary() {
+                if let Some(primary_unit) = unit.as_primary_mut() {
                     let region = region.clone();
-                    let kind = match primary_unit {
-                        AnyPrimaryUnit::Entity(..) => NamedEntityKind::Entity(region),
-                        AnyPrimaryUnit::Configuration(..) => NamedEntityKind::Configuration(region),
-                        AnyPrimaryUnit::Package(ref package) => {
+                    match primary_unit {
+                        AnyPrimaryUnit::Entity(entity) => entity
+                            .ident
+                            .define_with_id(entity_id, NamedEntityKind::Entity(region)),
+                        AnyPrimaryUnit::Configuration(cfg) => cfg
+                            .ident
+                            .define_with_id(entity_id, NamedEntityKind::Configuration(region)),
+                        AnyPrimaryUnit::Package(package) => package.ident.define_with_id(
+                            entity_id,
                             if package.generic_clause.is_some() {
                                 NamedEntityKind::UninstPackage(region)
                             } else {
                                 NamedEntityKind::Package(region)
-                            }
-                        }
-                        AnyPrimaryUnit::PackageInstance(..) => {
-                            NamedEntityKind::PackageInstance(region)
-                        }
-                        AnyPrimaryUnit::Context(..) => NamedEntityKind::Context(region),
+                            },
+                        ),
+                        AnyPrimaryUnit::PackageInstance(inst) => inst
+                            .ident
+                            .define_with_id(entity_id, NamedEntityKind::PackageInstance(region)),
+                        AnyPrimaryUnit::Context(ctx) => ctx
+                            .ident
+                            .define_with_id(entity_id, NamedEntityKind::Context(region)),
                     };
-
-                    Some(Arc::new(NamedEntity::new_with_id(
-                        entity_id,
-                        unit.name(),
-                        kind,
-                        Some(unit.pos()),
-                    )))
-                } else {
-                    None
                 };
 
                 let result = AnalysisData {
                     diagnostics,
                     root_region,
                     region,
-                    ent,
                     has_circular_dependency,
                 };
 

@@ -355,35 +355,20 @@ impl NamedEntity {
         kind: NamedEntityKind,
         decl_pos: Option<&SrcPos>,
     ) -> NamedEntity {
-        NamedEntity::new_with_id(new_id(), designator, kind, decl_pos)
+        NamedEntity::new_with_id(new_id(), designator.into(), kind, decl_pos.cloned())
     }
 
     pub fn new_with_id(
         id: EntityId,
-        designator: impl Into<Designator>,
+        designator: Designator,
         kind: NamedEntityKind,
-        decl_pos: Option<&SrcPos>,
+        decl_pos: Option<SrcPos>,
     ) -> NamedEntity {
         NamedEntity {
             id,
             implicit: false,
-            decl_pos: decl_pos.cloned(),
-            designator: designator.into(),
-            kind,
-        }
-    }
-
-    pub fn new_with_opt_id(
-        id: Option<EntityId>,
-        designator: impl Into<Designator>,
-        kind: NamedEntityKind,
-        decl_pos: Option<&SrcPos>,
-    ) -> NamedEntity {
-        NamedEntity {
-            id: id.unwrap_or_else(new_id),
-            implicit: false,
-            decl_pos: decl_pos.cloned(),
-            designator: designator.into(),
+            decl_pos,
+            designator,
             kind,
         }
     }
@@ -444,7 +429,7 @@ impl NamedEntity {
             self.id(),
             self.designator.clone(),
             kind,
-            self.decl_pos.as_ref(),
+            self.decl_pos.clone(),
         )
     }
 
@@ -600,19 +585,20 @@ impl ObjectEnt {
 pub struct TypeEnt(Arc<NamedEntity>);
 
 impl TypeEnt {
-    pub fn new_with_opt_id(
+    pub fn define_with_opt_id(
         id: Option<EntityId>,
-        designator: impl Into<Designator>,
+        ident: &mut WithDecl<Ident>,
         kind: Type,
-        decl_pos: Option<&SrcPos>,
     ) -> TypeEnt {
-        TypeEnt(Arc::new(NamedEntity {
+        let ent = Arc::new(NamedEntity {
             id: id.unwrap_or_else(new_id),
             implicit: false,
-            decl_pos: decl_pos.cloned(),
-            designator: designator.into(),
+            decl_pos: Some(ident.tree.pos.clone()),
+            designator: ident.tree.item.clone().into(),
             kind: NamedEntityKind::Type(kind),
-        }))
+        });
+        ident.decl = Some(ent.clone());
+        TypeEnt(ent)
     }
 
     pub fn from_any(ent: Arc<NamedEntity>) -> Result<TypeEnt, Arc<NamedEntity>> {
@@ -666,5 +652,71 @@ impl std::ops::Deref for TypeEnt {
     fn deref(&self) -> &NamedEntity {
         let val: &Arc<NamedEntity> = self.0.borrow();
         val.as_ref()
+    }
+}
+
+/// This trait is implemented for Ast-nodes which declare named entities
+pub trait HasNamedEntity {
+    fn named_entity(&self) -> Option<&Arc<NamedEntity>>;
+}
+
+impl HasNamedEntity for AnyPrimaryUnit {
+    fn named_entity(&self) -> Option<&Arc<NamedEntity>> {
+        delegate_primary!(self, unit, unit.ident.decl.as_ref())
+    }
+}
+
+impl WithDecl<Ident> {
+    pub fn define(&mut self, kind: NamedEntityKind) -> Arc<NamedEntity> {
+        let ent = Arc::new(NamedEntity::new(
+            self.tree.name().clone(),
+            kind,
+            Some(self.tree.pos()),
+        ));
+        self.decl = Some(ent.clone());
+        ent
+    }
+    pub fn define_with_id(&mut self, id: EntityId, kind: NamedEntityKind) -> Arc<NamedEntity> {
+        let ent = Arc::new(NamedEntity::new_with_id(
+            id,
+            self.tree.name().clone().into(),
+            kind,
+            Some(self.tree.pos().clone()),
+        ));
+        self.decl = Some(ent.clone());
+        ent
+    }
+}
+
+impl WithDecl<WithPos<SubprogramDesignator>> {
+    pub fn define(&mut self, kind: NamedEntityKind) -> Arc<NamedEntity> {
+        let ent = Arc::new(NamedEntity::new(
+            self.tree.item.clone().into_designator(),
+            kind,
+            Some(&self.tree.pos),
+        ));
+        self.decl = Some(ent.clone());
+        ent
+    }
+}
+
+impl WithDecl<WithPos<Designator>> {
+    pub fn define(&mut self, kind: NamedEntityKind) -> Arc<NamedEntity> {
+        let ent = Arc::new(NamedEntity::new(
+            self.tree.item.clone(),
+            kind,
+            Some(&self.tree.pos),
+        ));
+        self.decl = Some(ent.clone());
+        ent
+    }
+}
+
+impl SubprogramDeclaration {
+    pub fn define(&mut self, kind: NamedEntityKind) -> Arc<NamedEntity> {
+        match self {
+            SubprogramDeclaration::Function(f) => f.designator.define(kind),
+            SubprogramDeclaration::Procedure(p) => p.designator.define(kind),
+        }
     }
 }

@@ -138,7 +138,7 @@ end package;
     // Reference from incomplete goes to full
     for i in 1..=4 {
         assert_eq!(
-            root.search_reference(code.source(), code.s("rec_t", i).start()),
+            root.search_reference_pos(code.source(), code.s("rec_t", i).start()),
             Some(code.s("rec_t", 3).pos()),
             "{}",
             i
@@ -147,7 +147,7 @@ end package;
 
     let references: Vec<_> = (1..=4).map(|idx| code.s("rec_t", idx).pos()).collect();
     assert_eq!(
-        root.find_all_references(&code.s("rec_t", 3).pos()),
+        root.find_all_references_pos(&code.s("rec_t", 3).pos()),
         references
     );
 }

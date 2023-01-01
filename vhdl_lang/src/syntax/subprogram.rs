@@ -115,13 +115,13 @@ pub fn parse_subprogram_declaration_no_semi(
         let return_type = parse_selected_name(stream)?;
         Ok(SubprogramDeclaration::Function(FunctionSpecification {
             pure: is_pure,
-            designator,
+            designator: designator.into(),
             parameter_list,
             return_type,
         }))
     } else {
         Ok(SubprogramDeclaration::Procedure(ProcedureSpecification {
-            designator,
+            designator: designator.into(),
             parameter_list,
         }))
     }
@@ -203,7 +203,8 @@ procedure foo;
                 designator: code
                     .s1("foo")
                     .ident()
-                    .map_into(SubprogramDesignator::Identifier),
+                    .map_into(SubprogramDesignator::Identifier)
+                    .into(),
                 parameter_list: Vec::new(),
             })
         );
@@ -223,7 +224,8 @@ function foo return lib.foo.natural;
                 designator: code
                     .s1("foo")
                     .ident()
-                    .map_into(SubprogramDesignator::Identifier),
+                    .map_into(SubprogramDesignator::Identifier)
+                    .into(),
                 parameter_list: Vec::new(),
                 return_type: code.s1("lib.foo.natural").selected_name()
             })
@@ -246,7 +248,8 @@ function \"+\" return lib.foo.natural;
                         "+"
                     )),
                     pos: code.s1("\"+\"").pos()
-                },
+                }
+                .into(),
                 parameter_list: Vec::new(),
                 return_type: code.s1("lib.foo.natural").selected_name()
             })
@@ -267,7 +270,8 @@ impure function foo return lib.foo.natural;
                 designator: code
                     .s1("foo")
                     .ident()
-                    .map_into(SubprogramDesignator::Identifier),
+                    .map_into(SubprogramDesignator::Identifier)
+                    .into(),
                 parameter_list: Vec::new(),
                 return_type: code.s1("lib.foo.natural").selected_name()
             })
@@ -287,7 +291,8 @@ pure function foo return lib.foo.natural;
                 designator: code
                     .s1("foo")
                     .ident()
-                    .map_into(SubprogramDesignator::Identifier),
+                    .map_into(SubprogramDesignator::Identifier)
+                    .into(),
                 parameter_list: Vec::new(),
                 return_type: code.s1("lib.foo.natural").selected_name()
             })
@@ -306,7 +311,8 @@ procedure foo(foo : natural);
                 designator: code
                     .s1("foo")
                     .ident()
-                    .map_into(SubprogramDesignator::Identifier),
+                    .map_into(SubprogramDesignator::Identifier)
+                    .into(),
                 parameter_list: vec![code.s1("foo : natural").parameter()],
             })
         );
@@ -326,7 +332,8 @@ function foo(foo : natural) return lib.foo.natural;
                 designator: code
                     .s1("foo")
                     .ident()
-                    .map_into(SubprogramDesignator::Identifier),
+                    .map_into(SubprogramDesignator::Identifier)
+                    .into(),
                 parameter_list: vec![code.s1("foo : natural").parameter()],
                 return_type: code.s1("lib.foo.natural").selected_name()
             })

@@ -287,13 +287,13 @@ end architecture;
 
     // From reference position
     assert_eq!(
-        root.search_reference(code.source(), code.s("ename1", 3).start()),
+        root.search_reference_pos(code.source(), code.s("ename1", 3).start()),
         Some(code.s("ename1", 1).pos())
     );
 
     // Find all references
     assert_eq_unordered(
-        &root.find_all_references(&code.s1("ename1").pos()),
+        &root.find_all_references_pos(&code.s1("ename1").pos()),
         &[
             code.s("ename1", 1).pos(),
             code.s("ename1", 2).pos(),
@@ -390,19 +390,19 @@ end package body;
 
     // From declaration position
     assert_eq!(
-        root.search_reference(code.source(), code.s("pkg", 1).start()),
+        root.search_reference_pos(code.source(), code.s("pkg", 1).start()),
         Some(code.s("pkg", 1).pos())
     );
 
     // From reference position
     assert_eq!(
-        root.search_reference(code.source(), code.s("pkg", 2).start()),
+        root.search_reference_pos(code.source(), code.s("pkg", 2).start()),
         Some(code.s("pkg", 1).pos())
     );
 
     // Find all references
     assert_eq_unordered(
-        &root.find_all_references(&code.s1("pkg").pos()),
+        &root.find_all_references_pos(&code.s1("pkg").pos()),
         &[code.s("pkg", 1).pos(), code.s("pkg", 2).pos()],
     );
 }

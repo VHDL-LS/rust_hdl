@@ -37,7 +37,7 @@ pub fn parse_package_instantiation(stream: &mut TokenStream) -> ParseResult<Pack
         SemiColon => None);
     Ok(PackageInstantiation {
         context_clause: ContextClause::default(),
-        ident,
+        ident: ident.into(),
         package_name,
         generic_map,
     })
@@ -189,7 +189,7 @@ package ident is new lib.foo.bar;
             code.with_stream(parse_package_instantiation),
             PackageInstantiation {
                 context_clause: ContextClause::default(),
-                ident: code.s1("ident").ident(),
+                ident: code.s1("ident").decl_ident(),
                 package_name: code.s1("lib.foo.bar").selected_name(),
                 generic_map: None
             }
@@ -210,7 +210,7 @@ package ident is new lib.foo.bar
             code.with_stream(parse_package_instantiation),
             PackageInstantiation {
                 context_clause: ContextClause::default(),
-                ident: code.s1("ident").ident(),
+                ident: code.s1("ident").decl_ident(),
                 package_name: code.s1("lib.foo.bar").selected_name(),
                 generic_map: Some(
                     code.s1("(
@@ -236,7 +236,7 @@ constant x: natural := 5;
             decls,
             Ok(vec![Declaration::Object(ObjectDeclaration {
                 class: ObjectClass::Constant,
-                ident: code.s1("x").ident(),
+                ident: code.s1("x").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
                 expression: Some(code.s1("5").expr())
             })])

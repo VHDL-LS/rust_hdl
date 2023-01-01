@@ -278,7 +278,7 @@ constant bad : character := fun1;
     );
 
     assert_eq!(
-        root.search_reference(code.source(), code.s1(":= fun1").end()),
+        root.search_reference_pos(code.source(), code.s1(":= fun1").end()),
         Some(code.s1("fun1").pos())
     );
 }

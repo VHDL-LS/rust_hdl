@@ -12,6 +12,7 @@ use analyze::*;
 use region::*;
 use root::*;
 use semantic::invalid_selected_name_prefix;
+use std::ops::Deref;
 use std::sync::Arc;
 
 impl<'a> AnalyzeContext<'a> {
@@ -69,9 +70,9 @@ impl<'a> AnalyzeContext<'a> {
             Some(unit.pos()),
             Arc::new(NamedEntity::new_with_id(
                 id,
-                unit.name(),
+                unit.name().into(),
                 NamedEntityKind::Label,
-                Some(unit.pos()),
+                Some(unit.pos().clone()),
             )),
         );
 
@@ -142,9 +143,9 @@ impl<'a> AnalyzeContext<'a> {
             Some(unit.pos()),
             Arc::new(NamedEntity::new_with_id(
                 id,
-                unit.name(),
+                unit.name().into(),
                 NamedEntityKind::Label,
-                Some(unit.pos()),
+                Some(unit.pos().clone()),
             )),
         );
 
@@ -157,7 +158,7 @@ impl<'a> AnalyzeContext<'a> {
             let standard = StandardRegion::new(&self.root.symbols, &primary_region);
 
             for imp in standard.end_of_package_implicits() {
-                primary_region.add_named_entity(imp, diagnostics);
+                primary_region.add(imp, diagnostics);
             }
         }
 
@@ -231,8 +232,10 @@ impl<'a> AnalyzeContext<'a> {
         };
 
         // Set architecture entity name reference to named entity
-        if let Some(ref named_entity) = entity.result().ent {
-            unit.entity_name.set_unique_reference(named_entity);
+        if let AnyDesignUnit::Primary(primary) = entity.deref() {
+            if let Some(named_entity) = primary.named_entity() {
+                unit.entity_name.set_unique_reference(named_entity);
+            }
         }
 
         let mut root_region = Region::default().with_parent(&entity.result().root_region);
@@ -244,9 +247,9 @@ impl<'a> AnalyzeContext<'a> {
             Some(unit.pos()),
             Arc::new(NamedEntity::new_with_id(
                 id,
-                unit.name(),
+                unit.name().into(),
                 NamedEntityKind::Label,
-                Some(unit.pos()),
+                Some(unit.pos().clone()),
             )),
         );
 
@@ -277,8 +280,10 @@ impl<'a> AnalyzeContext<'a> {
         };
 
         // Set package body package name reference to package named entity
-        if let Some(ref named_entity) = package.result().ent {
-            unit.ident.set_unique_reference(named_entity);
+        if let AnyDesignUnit::Primary(primary) = package.deref() {
+            if let Some(named_entity) = primary.named_entity() {
+                unit.ident.set_unique_reference(named_entity);
+            }
         }
 
         // @TODO make pattern of primary/secondary extension

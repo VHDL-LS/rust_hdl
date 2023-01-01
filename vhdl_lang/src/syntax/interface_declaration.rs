@@ -147,7 +147,7 @@ fn parse_interface_object_declaration(
                 list_type,
                 mode,
                 class: object_class,
-                ident,
+                ident: ident.into(),
                 subtype_indication: subtype.clone(),
                 expression: expr.clone(),
             })
@@ -204,7 +204,7 @@ fn parse_interface_package_declaration_known_keyword(
     };
 
     Ok(InterfacePackageDeclaration {
-        ident,
+        ident: ident.into(),
         package_name,
         generic_map,
     })
@@ -226,7 +226,7 @@ fn parse_interface_declaration(
         Type => {
             stream.move_after(&token);
             let ident = stream.expect_ident()?;
-            Ok(vec![InterfaceDeclaration::Type(ident)])
+            Ok(vec![InterfaceDeclaration::Type(WithDecl::new(ident))])
         },
         Function | Procedure | Impure | Pure => {
             let decl = parse_subprogram_declaration_no_semi(stream, diagnostics)?;
@@ -402,7 +402,7 @@ mod tests {
                     list_type: InterfaceListType::Generic,
                     mode: Mode::In,
                     class: ObjectClass::Constant,
-                    ident: code.s1("foo").ident(),
+                    ident: code.s1("foo").decl_ident(),
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: None
                 }),
@@ -410,7 +410,7 @@ mod tests {
                     list_type: InterfaceListType::Generic,
                     mode: Mode::In,
                     class: ObjectClass::Constant,
-                    ident: code.s1("bar").ident(),
+                    ident: code.s1("bar").decl_ident(),
                     subtype_indication: code.s1("natural").subtype_indication(),
                     expression: None
                 })
@@ -427,7 +427,7 @@ mod tests {
                 list_type: InterfaceListType::Generic,
                 mode: Mode::In,
                 class: ObjectClass::Constant,
-                ident: code.s1("foo").ident(),
+                ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("std_logic").subtype_indication(),
                 expression: None
             })
@@ -440,7 +440,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_parameter),
             InterfaceDeclaration::File(InterfaceFileDeclaration {
-                ident: code.s1("foo").ident(),
+                ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("text").subtype_indication(),
             })
         );
@@ -479,7 +479,7 @@ mod tests {
                 list_type: InterfaceListType::Port,
                 mode: Mode::In,
                 class: ObjectClass::Signal,
-                ident: code.s1("foo").ident(),
+                ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("std_logic").subtype_indication(),
                 expression: None
             })
@@ -547,7 +547,7 @@ mod tests {
                 list_type: InterfaceListType::Generic,
                 mode: Mode::In,
                 class: ObjectClass::Constant,
-                ident: code.s1("foo").ident(),
+                ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("std_logic").subtype_indication(),
                 expression: None
             })
@@ -563,7 +563,7 @@ mod tests {
                 list_type: InterfaceListType::Port,
                 mode: Mode::In,
                 class: ObjectClass::Signal,
-                ident: code.s1("foo").ident(),
+                ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("std_logic").subtype_indication(),
                 expression: None
             })
@@ -743,7 +743,7 @@ bar : natural)",
         let code = Code::new("type name");
         assert_eq!(
             code.with_stream(parse_generic),
-            InterfaceDeclaration::Type(code.s1("name").ident())
+            InterfaceDeclaration::Type(code.s1("name").decl_ident())
         );
     }
 
@@ -803,7 +803,7 @@ package foo is new lib.pkg
         assert_eq!(
             code.with_stream(parse_generic),
             InterfaceDeclaration::Package(InterfacePackageDeclaration {
-                ident: code.s1("foo").ident(),
+                ident: code.s1("foo").decl_ident(),
                 package_name: code.s1("lib.pkg").selected_name(),
                 generic_map: InterfacePackageGenericMapAspect::Map(
                     code.s1("(foo => bar)").association_list()
@@ -822,7 +822,7 @@ package foo is new lib.pkg
         assert_eq!(
             code.with_stream(parse_generic),
             InterfaceDeclaration::Package(InterfacePackageDeclaration {
-                ident: code.s1("foo").ident(),
+                ident: code.s1("foo").decl_ident(),
                 package_name: code.s1("lib.pkg").selected_name(),
                 generic_map: InterfacePackageGenericMapAspect::Box
             })
@@ -839,7 +839,7 @@ package foo is new lib.pkg
         assert_eq!(
             code.with_stream(parse_generic),
             InterfaceDeclaration::Package(InterfacePackageDeclaration {
-                ident: code.s1("foo").ident(),
+                ident: code.s1("foo").decl_ident(),
                 package_name: code.s1("lib.pkg").selected_name(),
                 generic_map: InterfacePackageGenericMapAspect::Default
             })

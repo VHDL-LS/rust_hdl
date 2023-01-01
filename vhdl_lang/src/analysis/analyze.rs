@@ -4,12 +4,14 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
+use super::named_entity::HasNamedEntity;
 use super::region::*;
 use super::root::*;
 use crate::ast::*;
 use crate::data::*;
 use fnv::FnvHashSet;
 use std::cell::RefCell;
+use std::ops::Deref;
 use std::sync::Arc;
 
 pub enum AnalysisError {
@@ -167,10 +169,11 @@ impl<'a> AnalyzeContext<'a> {
             match unit.kind() {
                 AnyKind::Primary(..) => {
                     let data = self.get_analysis(Some(use_pos), unit)?;
-                    region.make_potentially_visible(
-                        Some(use_pos),
-                        data.result().ent.clone().unwrap(),
-                    );
+                    if let AnyDesignUnit::Primary(primary) = data.deref() {
+                        if let Some(ent) = primary.named_entity() {
+                            region.make_potentially_visible(Some(use_pos), ent.clone());
+                        }
+                    }
                 }
                 AnyKind::Secondary(..) => {}
             }
@@ -284,7 +287,11 @@ impl<'a> AnalyzeContext<'a> {
         if let Designator::Identifier(ref primary_name) = primary_name {
             if let Some(unit) = self.get_primary_unit(library_name, primary_name) {
                 let data = self.get_analysis(Some(pos), unit)?;
-                return Ok(data.result().ent.clone().unwrap());
+                if let AnyDesignUnit::Primary(primary) = data.deref() {
+                    if let Some(ent) = primary.named_entity() {
+                        return Ok(ent.clone());
+                    }
+                }
             }
         }
 

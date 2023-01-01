@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::analysis::DesignRoot;
+use crate::analysis::{DesignRoot, NamedEntity};
 use crate::ast::DesignFile;
 use crate::config::Config;
 use crate::data::*;
@@ -12,6 +12,7 @@ use crate::syntax::VHDLParser;
 use fnv::{FnvHashMap, FnvHashSet};
 use std::collections::hash_map::Entry;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 pub struct Project {
     parser: VHDLParser,
@@ -222,18 +223,18 @@ impl Project {
     ///
     /// If the character value is greater than the line length it defaults back to the
     /// line length.
-    pub fn search_reference(&self, source: &Source, cursor: Position) -> Option<SrcPos> {
+    pub fn search_reference(&self, source: &Source, cursor: Position) -> Option<Arc<NamedEntity>> {
         self.root.search_reference(source, cursor)
     }
 
     /// Search for the declaration at decl_pos and format it
-    pub fn format_declaration(&self, decl_pos: &SrcPos) -> Option<String> {
-        self.root.format_declaration(decl_pos)
+    pub fn format_declaration(&self, ent: Arc<NamedEntity>) -> Option<String> {
+        self.root.format_declaration(ent)
     }
 
     /// Search for all references to the declaration at decl_pos
-    pub fn find_all_references(&self, decl_pos: &SrcPos) -> Vec<SrcPos> {
-        self.root.find_all_references(decl_pos)
+    pub fn find_all_references(&self, ent: Arc<NamedEntity>) -> Vec<SrcPos> {
+        self.root.find_all_references(ent)
     }
 
     pub fn files(&self) -> impl Iterator<Item = &SourceFile> {

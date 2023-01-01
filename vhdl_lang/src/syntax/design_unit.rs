@@ -51,7 +51,7 @@ pub fn parse_entity_declaration(
     stream.expect_kind(SemiColon)?;
     Ok(EntityDeclaration {
         context_clause: ContextClause::default(),
-        ident,
+        ident: ident.into(),
         generic_clause,
         port_clause,
         decl,
@@ -119,7 +119,7 @@ pub fn parse_package_declaration(
     stream.expect_kind(SemiColon)?;
     Ok(PackageDeclaration {
         context_clause: ContextClause::default(),
-        ident,
+        ident: ident.into(),
         generic_clause,
         decl,
     })
@@ -312,7 +312,7 @@ mod tests {
     fn simple_entity(ident: Ident) -> AnyDesignUnit {
         AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(EntityDeclaration {
             context_clause: ContextClause::default(),
-            ident,
+            ident: ident.into(),
             generic_clause: None,
             port_clause: None,
             decl: vec![],
@@ -358,7 +358,7 @@ end entity;
             to_single_entity(design_file),
             EntityDeclaration {
                 context_clause: ContextClause::default(),
-                ident: code.s1("myent").ident(),
+                ident: code.s1("myent").decl_ident(),
                 generic_clause: Some(Vec::new()),
                 port_clause: None,
                 decl: vec![],
@@ -382,10 +382,7 @@ end entity;
             to_single_entity(design_file),
             EntityDeclaration {
                 context_clause: ContextClause::default(),
-                ident: Ident {
-                    item: code.symbol("myent"),
-                    pos: code.s1("myent").pos()
-                },
+                ident: code.s1("myent").decl_ident(),
                 generic_clause: Some(vec![code.s1("runner_cfg : string").generic()]),
                 port_clause: None,
                 decl: vec![],
@@ -407,7 +404,7 @@ end entity;
             to_single_entity(design_file),
             EntityDeclaration {
                 context_clause: ContextClause::default(),
-                ident: code.s1("myent").ident(),
+                ident: code.s1("myent").decl_ident(),
                 generic_clause: None,
                 port_clause: Some(vec![]),
                 decl: vec![],
@@ -429,7 +426,7 @@ end entity;
             to_single_entity(design_file),
             EntityDeclaration {
                 context_clause: ContextClause::default(),
-                ident: code.s1("myent").ident(),
+                ident: code.s1("myent").decl_ident(),
                 generic_clause: None,
                 port_clause: None,
                 decl: vec![],
@@ -451,7 +448,7 @@ end entity;
             to_single_entity(design_file),
             EntityDeclaration {
                 context_clause: ContextClause::default(),
-                ident: code.s1("myent").ident(),
+                ident: code.s1("myent").decl_ident(),
                 generic_clause: None,
                 port_clause: None,
                 decl: code.s1("constant foo : natural := 0;").declarative_part(),
@@ -474,7 +471,7 @@ end entity;
             to_single_entity(design_file),
             EntityDeclaration {
                 context_clause: ContextClause::default(),
-                ident: code.s1("myent").ident(),
+                ident: code.s1("myent").decl_ident(),
                 generic_clause: None,
                 port_clause: None,
                 decl: vec![],
@@ -588,7 +585,7 @@ end package;
             code.with_stream_no_diagnostics(parse_package_declaration),
             PackageDeclaration {
                 context_clause: ContextClause::default(),
-                ident: code.s1("pkg_name").ident(),
+                ident: code.s1("pkg_name").decl_ident(),
                 generic_clause: None,
                 decl: vec![],
             }
@@ -609,7 +606,7 @@ end package;
             code.with_stream_no_diagnostics(parse_package_declaration),
             PackageDeclaration {
                 context_clause: ContextClause::default(),
-                ident: code.s1("pkg_name").ident(),
+                ident: code.s1("pkg_name").decl_ident(),
                 generic_clause: None,
                 decl: code
                     .s1("\
@@ -637,7 +634,7 @@ end package;
             code.with_stream_no_diagnostics(parse_package_declaration),
             PackageDeclaration {
                 context_clause: ContextClause::default(),
-                ident: code.s1("pkg_name").ident(),
+                ident: code.s1("pkg_name").decl_ident(),
                 generic_clause: Some(vec![
                     code.s1("type foo").generic(),
                     code.s1("type bar").generic()
@@ -671,7 +668,7 @@ end entity;
                                 .use_clause()
                                 .map_into(ContextItem::Use),
                         ],
-                        ident: code.s1("myent").ident(),
+                        ident: code.s1("myent").decl_ident(),
                         generic_clause: None,
                         port_clause: None,
                         decl: vec![],

@@ -30,7 +30,7 @@ fn parse_enumeration_type_definition(stream: &mut TokenStream) -> ParseResult<Ty
                     Identifier => literal_token.expect_ident()?.map_into(EnumerationLiteral::Identifier),
                     Character => literal_token.expect_character()?.map_into(EnumerationLiteral::Character)
                 );
-                enum_literals.push(enum_literal);
+                enum_literals.push(WithDecl::new(enum_literal));
 
                 try_token_kind!(
                     stream.expect()?,
@@ -93,7 +93,7 @@ fn parse_record_type_definition(
         let subtype = parse_subtype_indication(stream)?;
         for ident in idents {
             elem_decls.push(ElementDeclaration {
-                ident,
+                ident: ident.into(),
                 subtype: subtype.clone(),
             });
         }
@@ -108,7 +108,7 @@ pub fn parse_subtype_declaration(stream: &mut TokenStream) -> ParseResult<TypeDe
     let subtype_indication = parse_subtype_indication(stream)?;
     stream.expect_kind(SemiColon)?;
     Ok(TypeDeclaration {
-        ident,
+        ident: ident.into(),
         def: TypeDefinition::Subtype(subtype_indication),
     })
 }
@@ -144,7 +144,7 @@ fn parse_physical_type_definition(
     stream: &mut TokenStream,
     range: Range,
 ) -> ParseResult<(TypeDefinition, Option<Ident>)> {
-    let primary_unit = stream.expect_ident()?;
+    let primary_unit = WithDecl::new(stream.expect_ident()?);
     stream.expect_kind(SemiColon)?;
 
     let mut secondary_units = Vec::new();
@@ -158,7 +158,7 @@ fn parse_physical_type_definition(
             },
             Identifier => {
                 stream.move_after(&token);
-                let ident = token.expect_ident()?;
+                let ident = WithDecl::new(token.expect_ident()?);
                 stream.expect_kind(EQ)?;
                 let literal = {
                     let value_token = stream.expect()?;
@@ -220,7 +220,7 @@ pub fn parse_type_declaration(
         Is => {},
         SemiColon => {
             return Ok(TypeDeclaration {
-                ident,
+                ident: ident.into(),
                 def: TypeDefinition::Incomplete(Reference::default()),
             });
         }
@@ -280,7 +280,10 @@ pub fn parse_type_declaration(
         LeftPar => parse_enumeration_type_definition(stream)?
     );
 
-    Ok(TypeDeclaration { ident, def })
+    Ok(TypeDeclaration {
+        ident: ident.into(),
+        def,
+    })
 }
 
 #[cfg(test)]
@@ -295,7 +298,7 @@ mod tests {
         let code = Code::new("type foo is range 0 to 1;");
 
         let type_decl = TypeDeclaration {
-            ident: code.s1("foo").ident(),
+            ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Integer(code.s1("0 to 1").range()),
         };
         assert_eq!(
@@ -309,14 +312,16 @@ mod tests {
         let code = Code::new("type foo is (alpha, beta);");
 
         let type_decl = TypeDeclaration {
-            ident: code.s1("foo").ident(),
+            ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Enumeration(vec![
                 code.s1("alpha")
                     .ident()
-                    .map_into(EnumerationLiteral::Identifier),
+                    .map_into(EnumerationLiteral::Identifier)
+                    .into(),
                 code.s1("beta")
                     .ident()
-                    .map_into(EnumerationLiteral::Identifier),
+                    .map_into(EnumerationLiteral::Identifier)
+                    .into(),
             ]),
         };
         assert_eq!(
@@ -330,14 +335,16 @@ mod tests {
         let code = Code::new("type foo is ('a', 'b');");
 
         let type_decl = TypeDeclaration {
-            ident: code.s1("foo").ident(),
+            ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Enumeration(vec![
                 code.s1("'a'")
                     .character()
-                    .map_into(EnumerationLiteral::Character),
+                    .map_into(EnumerationLiteral::Character)
+                    .into(),
                 code.s1("'b'")
                     .character()
-                    .map_into(EnumerationLiteral::Character),
+                    .map_into(EnumerationLiteral::Character)
+                    .into(),
             ]),
         };
         assert_eq!(
@@ -351,14 +358,16 @@ mod tests {
         let code = Code::new("type foo is (ident, 'b');");
 
         let type_decl = TypeDeclaration {
-            ident: code.s1("foo").ident(),
+            ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Enumeration(vec![
                 code.s1("ident")
                     .ident()
-                    .map_into(EnumerationLiteral::Identifier),
+                    .map_into(EnumerationLiteral::Identifier)
+                    .into(),
                 code.s1("'b'")
                     .character()
-                    .map_into(EnumerationLiteral::Character),
+                    .map_into(EnumerationLiteral::Character)
+                    .into(),
             ]),
         };
         assert_eq!(
@@ -372,7 +381,7 @@ mod tests {
         let code = Code::new("type foo is array (natural range <>) of boolean;");
 
         let type_decl = TypeDeclaration {
-            ident: code.s1("foo").ident(),
+            ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
                 vec![ArrayIndex::IndexSubtypeDefintion(
                     code.s1("natural").selected_name(),
@@ -392,7 +401,7 @@ mod tests {
         let code = Code::new("type foo is array (natural) of boolean;");
 
         let type_decl = TypeDeclaration {
-            ident: code.s1("foo").ident(),
+            ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
                 vec![ArrayIndex::Discrete(DiscreteRange::Discrete(
                     code.s1("natural").selected_name(),
@@ -413,7 +422,7 @@ mod tests {
         let code = Code::new("type foo is array (lib.pkg.foo) of boolean;");
 
         let type_decl = TypeDeclaration {
-            ident: code.s1("foo").ident(),
+            ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
                 vec![ArrayIndex::Discrete(DiscreteRange::Discrete(
                     code.s1("lib.pkg.foo").selected_name(),
@@ -434,7 +443,7 @@ mod tests {
         let code = Code::new("type foo is array (arr_t'range) of boolean;");
 
         let type_decl = TypeDeclaration {
-            ident: code.s1("foo").ident(),
+            ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
                 vec![ArrayIndex::Discrete(DiscreteRange::Range(
                     code.s1("arr_t'range").range(),
@@ -456,7 +465,7 @@ mod tests {
         let index = ArrayIndex::Discrete(DiscreteRange::Range(code.s1("2-1 downto 0").range()));
 
         let type_decl = TypeDeclaration {
-            ident: code.s1("foo").ident(),
+            ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(vec![index], code.s1("boolean").subtype_indication()),
         };
 
@@ -475,7 +484,7 @@ mod tests {
         let index1 = ArrayIndex::IndexSubtypeDefintion(code.s1("integer").selected_name());
 
         let type_decl = TypeDeclaration {
-            ident: code.s1("foo").ident(),
+            ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
                 vec![index0, index1],
                 code.s1("boolean").subtype_indication(),
@@ -498,12 +507,12 @@ end record;",
         );
 
         let elem_decl = ElementDeclaration {
-            ident: code.s1("element").ident(),
+            ident: code.s1("element").decl_ident(),
             subtype: code.s1("boolean").subtype_indication(),
         };
 
         let type_decl = TypeDeclaration {
-            ident: code.s1("foo").ident(),
+            ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Record(vec![elem_decl]),
         };
 
@@ -524,22 +533,22 @@ end foo;",
         );
 
         let elem_decl0a = ElementDeclaration {
-            ident: code.s1("element").ident(),
+            ident: code.s1("element").decl_ident(),
             subtype: code.s1("boolean").subtype_indication(),
         };
 
         let elem_decl0b = ElementDeclaration {
-            ident: code.s1("field").ident(),
+            ident: code.s1("field").decl_ident(),
             subtype: code.s1("boolean").subtype_indication(),
         };
 
         let elem_decl1 = ElementDeclaration {
-            ident: code.s1("other_element").ident(),
+            ident: code.s1("other_element").decl_ident(),
             subtype: code.s1("std_logic_vector(0 to 1)").subtype_indication(),
         };
 
         let type_decl = TypeDeclaration {
-            ident: code.s1("foo").ident(),
+            ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Record(vec![elem_decl0a, elem_decl0b, elem_decl1]),
         };
 
@@ -556,7 +565,7 @@ end foo;",
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
-                ident: code.s1("vec_t").ident(),
+                ident: code.s1("vec_t").decl_ident(),
                 def: TypeDefinition::Subtype(
                     code.s1("integer_vector(2-1 downto 0)").subtype_indication()
                 )
@@ -571,7 +580,7 @@ end foo;",
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
-                ident: code.s1("ptr_t").ident(),
+                ident: code.s1("ptr_t").decl_ident(),
                 def: TypeDefinition::Access(
                     code.s1("integer_vector(2-1 downto 0)").subtype_indication()
                 )
@@ -586,7 +595,7 @@ end foo;",
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
-                ident: code.s1("incomplete").ident(),
+                ident: code.s1("incomplete").decl_ident(),
                 def: TypeDefinition::Incomplete(Reference::default())
             }
         );
@@ -599,7 +608,7 @@ end foo;",
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
-                ident: code.s1("foo").ident(),
+                ident: code.s1("foo").decl_ident(),
                 def: TypeDefinition::File(code.s1("character").selected_name())
             }
         );
@@ -607,7 +616,7 @@ end foo;",
 
     fn protected_decl(ident: Ident, items: Vec<ProtectedTypeDeclarativeItem>) -> TypeDeclaration {
         TypeDeclaration {
-            ident,
+            ident: ident.into(),
             def: TypeDefinition::Protected(ProtectedTypeDeclaration { items }),
         }
     }
@@ -684,7 +693,7 @@ end protected body;
   end;")
             .declarative_part();
 
-        let ident = code.s1("foo").ident();
+        let ident = code.s1("foo").decl_ident();
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
@@ -710,10 +719,10 @@ end units phys;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
-                ident: code.s1("phys").ident(),
+                ident: code.s1("phys").decl_ident(),
                 def: TypeDefinition::Physical(PhysicalTypeDeclaration {
                     range: code.s1("0 to 15").range(),
-                    primary_unit: code.s1("primary_unit").ident(),
+                    primary_unit: code.s1("primary_unit").decl_ident(),
                     secondary_units: vec![]
                 })
             }
@@ -734,12 +743,12 @@ end units;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
-                ident: code.s1("phys").ident(),
+                ident: code.s1("phys").decl_ident(),
                 def: TypeDefinition::Physical(PhysicalTypeDeclaration {
                     range: code.s1("0 to 15").range(),
-                    primary_unit: code.s1("primary_unit").ident(),
+                    primary_unit: code.s1("primary_unit").decl_ident(),
                     secondary_units: vec![(
-                        code.s1("secondary_unit").ident(),
+                        code.s1("secondary_unit").decl_ident(),
                         Literal::Physical(AbstractLiteral::Integer(5), code.symbol("primary_unit"))
                     ),]
                 })
@@ -761,12 +770,12 @@ end units;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
-                ident: code.s1("phys").ident(),
+                ident: code.s1("phys").decl_ident(),
                 def: TypeDefinition::Physical(PhysicalTypeDeclaration {
                     range: code.s1("0 to 15").range(),
-                    primary_unit: code.s1("primary_unit").ident(),
+                    primary_unit: code.s1("primary_unit").decl_ident(),
                     secondary_units: vec![(
-                        code.s1("secondary_unit").ident(),
+                        code.s1("secondary_unit").decl_ident(),
                         Literal::Physical(AbstractLiteral::Integer(1), code.symbol("primary_unit"))
                     ),]
                 })

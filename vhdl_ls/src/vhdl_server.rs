@@ -387,13 +387,14 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         &mut self,
         params: &TextDocumentPositionParams,
     ) -> Option<Location> {
-        self.project
-            .get_source(&uri_to_file_name(&params.text_document.uri))
-            .and_then(|source| {
-                self.project
-                    .search_reference(&source, from_lsp_pos(params.position))
-            })
-            .map(|result| srcpos_to_location(&result))
+        let source = self
+            .project
+            .get_source(&uri_to_file_name(&params.text_document.uri))?;
+
+        let ent = self
+            .project
+            .search_reference(&source, from_lsp_pos(params.position))?;
+        Some(srcpos_to_location(ent.decl_pos()?))
     }
 
     // Copy goto-declaration for now
@@ -405,24 +406,26 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
     }
 
     pub fn text_document_hover(&mut self, params: &TextDocumentPositionParams) -> Option<Hover> {
-        self.project
-            .get_source(&uri_to_file_name(&params.text_document.uri))
-            .and_then(|source| {
-                self.project
-                    .search_reference(&source, from_lsp_pos(params.position))
-            })
-            .and_then(|decl_pos| self.project.format_declaration(&decl_pos))
-            .map(|result| Hover {
-                contents: HoverContents::Markup(MarkupContent {
-                    kind: MarkupKind::Markdown,
-                    value: result,
-                }),
-                range: None,
-            })
+        let source = self
+            .project
+            .get_source(&uri_to_file_name(&params.text_document.uri))?;
+        let ent = self
+            .project
+            .search_reference(&source, from_lsp_pos(params.position))?;
+
+        let value = self.project.format_declaration(ent)?;
+
+        Some(Hover {
+            contents: HoverContents::Markup(MarkupContent {
+                kind: MarkupKind::Markdown,
+                value,
+            }),
+            range: None,
+        })
     }
 
     pub fn text_document_references(&mut self, params: &ReferenceParams) -> Vec<Location> {
-        let decl_pos = self
+        let ent = self
             .project
             .get_source(&uri_to_file_name(
                 &params.text_document_position.text_document.uri,
@@ -434,9 +437,9 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
                 )
             });
 
-        if let Some(ref decl_pos) = decl_pos {
+        if let Some(ent) = ent {
             self.project
-                .find_all_references(decl_pos)
+                .find_all_references(ent)
                 .iter()
                 .map(srcpos_to_location)
                 .collect()

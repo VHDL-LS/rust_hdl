@@ -29,13 +29,13 @@ end package;",
 
     // Goto declaration from declaration
     assert_eq!(
-        root.search_reference(code.source(), code.s("c0", 1).end()),
+        root.search_reference_pos(code.source(), code.s("c0", 1).end()),
         Some(code.s("c0", 1).pos())
     );
 
     // Goto declaration from reference
     assert_eq!(
-        root.search_reference(code.source(), code.s("c0", 2).end()),
+        root.search_reference_pos(code.source(), code.s("c0", 2).end()),
         Some(code.s("c0", 1).pos())
     );
 }
@@ -123,13 +123,13 @@ end package;",
 
     // Goto declaration from reference that is prefix of indexed/function call
     assert_eq!(
-        root.search_reference(code.source(), code.s("c0", 2).end()),
+        root.search_reference_pos(code.source(), code.s("c0", 2).end()),
         Some(code.s("c0", 1).pos())
     );
 
     // Goto declaration from reference that is prefix of slice
     assert_eq!(
-        root.search_reference(code.source(), code.s("c0", 3).end()),
+        root.search_reference_pos(code.source(), code.s("c0", 3).end()),
         Some(code.s("c0", 1).pos())
     );
 }
@@ -169,14 +169,14 @@ end architecture;
 
     for i in 1..=3 {
         assert_eq!(
-            root.search_reference(code.source(), code.s("lab1", i).end()),
+            root.search_reference_pos(code.source(), code.s("lab1", i).end()),
             Some(code.s("lab1", 1).pos())
         );
     }
 
     for i in 1..=2 {
         assert_eq!(
-            root.search_reference(code.source(), code.s("lab2", i).end()),
+            root.search_reference_pos(code.source(), code.s("lab2", i).end()),
             Some(code.s("lab2", 1).pos())
         );
     }
@@ -1161,12 +1161,12 @@ end package body;
 
     // Goto declaration from declaration
     assert_eq!(
-        root.search_reference(code.source(), code.s("subpgm", 3).end()),
+        root.search_reference_pos(code.source(), code.s("subpgm", 3).end()),
         Some(code.s("subpgm", 2).pos())
     );
 
     assert_eq!(
-        root.search_reference(code.source(), code.s("subpgm", 4).end()),
+        root.search_reference_pos(code.source(), code.s("subpgm", 4).end()),
         Some(code.s("subpgm", 1).pos())
     );
 }
@@ -1288,7 +1288,7 @@ end architecture;",
     let references = vec![code.s("field", 1).pos(), code.s("field", 2).pos()];
 
     assert_eq_unordered(
-        &root.find_all_references(&code.s1("field").pos()),
+        &root.find_all_references_pos(&code.s1("field").pos()),
         &references,
     );
 }

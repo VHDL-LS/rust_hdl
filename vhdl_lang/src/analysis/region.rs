@@ -335,11 +335,7 @@ impl<'a> Region<'a> {
         }
     }
 
-    pub fn add_named_entity(
-        &mut self,
-        ent: Arc<NamedEntity>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) {
+    pub fn add(&mut self, ent: Arc<NamedEntity>, diagnostics: &mut dyn DiagnosticHandler) {
         if ent.kind().is_deferred_constant() && self.kind != RegionKind::PackageDeclaration {
             ent.error(
                 diagnostics,
@@ -399,23 +395,6 @@ impl<'a> Region<'a> {
         }
     }
 
-    pub fn add(
-        &mut self,
-        designator: impl Into<WithPos<Designator>>,
-        kind: NamedEntityKind,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) {
-        let designator = designator.into();
-        self.add_named_entity(
-            Arc::new(NamedEntity::new(
-                designator.item,
-                kind,
-                Some(&designator.pos),
-            )),
-            diagnostics,
-        );
-    }
-
     pub fn add_implicit_declaration_aliases(
         &mut self,
         ent: &NamedEntity,
@@ -428,7 +407,7 @@ impl<'a> Region<'a> {
                     NamedEntityKind::NonObjectAlias(entity.clone()),
                     ent.decl_pos(),
                 );
-                self.add_named_entity(Arc::new(entity), diagnostics);
+                self.add(Arc::new(entity), diagnostics);
             }
         }
     }

@@ -15,6 +15,12 @@ impl<T: Display> Display for WithPos<T> {
     }
 }
 
+impl<T: Display> Display for WithDecl<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{}", &self.tree)
+    }
+}
+
 impl Display for BaseSpecifier {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {

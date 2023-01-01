@@ -114,3 +114,48 @@ end package;
 ",
     );
 }
+
+#[test]
+fn find_all_references_does_not_include_implicits() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "lib",
+        "
+package pkg is
+type enum_t is (alpha, beta);
+alias my_to_string is to_string[enum_t return string];
+end package;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    assert_eq_unordered(
+        &root.find_all_references_pos(&code.s1("enum_t").pos()),
+        &[code.s("enum_t", 1).pos(), code.s("enum_t", 2).pos()],
+    );
+}
+
+#[test]
+fn goto_references_for_implicit() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "lib",
+        "
+package pkg is
+type enum_t is (alpha, beta);
+alias thealias is to_string[enum_t return string];
+end package;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    let to_string = code.s1("to_string");
+    assert_eq!(
+        root.search_reference_pos(to_string.source(), to_string.start()),
+        Some(code.s1("enum_t").pos())
+    );
+}

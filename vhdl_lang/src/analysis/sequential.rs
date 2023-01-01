@@ -21,8 +21,8 @@ impl<'a> AnalyzeContext<'a> {
         statement: &mut LabeledSequentialStatement,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        if let Some(ref label) = statement.label {
-            parent.add(label.clone(), NamedEntityKind::Label, diagnostics);
+        if let Some(ref mut label) = statement.label {
+            parent.add(label.define(NamedEntityKind::Label), diagnostics);
         }
 
         match statement.statement {
@@ -129,8 +129,7 @@ impl<'a> AnalyzeContext<'a> {
                     Some(IterationScheme::For(ref mut index, ref mut drange)) => {
                         self.analyze_discrete_range(parent, drange, diagnostics)?;
                         let mut region = parent.nested();
-                        let designator: WithPos<Designator> = index.clone().into();
-                        region.add(designator, NamedEntityKind::LoopParameter, diagnostics);
+                        region.add(index.define(NamedEntityKind::LoopParameter), diagnostics);
                         self.analyze_sequential_part(&mut region, statements, diagnostics)?;
                     }
                     Some(IterationScheme::While(ref mut expr)) => {

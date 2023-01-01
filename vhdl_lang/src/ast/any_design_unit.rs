@@ -209,8 +209,8 @@ impl SecondaryKind {
 }
 
 impl AnyDesignUnit {
-    pub fn as_primary(&self) -> Option<&AnyPrimaryUnit> {
-        if let AnyDesignUnit::Primary(ref unit) = self {
+    pub fn as_primary_mut(&mut self) -> Option<&mut AnyPrimaryUnit> {
+        if let AnyDesignUnit::Primary(unit) = self {
             Some(unit)
         } else {
             None

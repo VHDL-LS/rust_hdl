@@ -265,13 +265,13 @@ end package;",
 
     // Reference should go to protected type and not body of it
     assert_eq!(
-        root.search_reference(code.source(), code.s("prot_t", 2).start()),
+        root.search_reference_pos(code.source(), code.s("prot_t", 2).start()),
         Some(code.s1("prot_t").pos())
     );
 
     // Reference should go to protected type and not body of it
     assert_eq!(
-        root.search_reference(code.source(), code.s("prot_t", 3).start()),
+        root.search_reference_pos(code.source(), code.s("prot_t", 3).start()),
         Some(code.s1("prot_t").pos())
     );
 }

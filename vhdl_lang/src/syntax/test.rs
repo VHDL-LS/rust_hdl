@@ -305,8 +305,16 @@ impl Code {
         self.parse_ok(|stream: &mut TokenStream| stream.expect_ident())
     }
 
+    pub fn decl_ident(&self) -> WithDecl<Ident> {
+        WithDecl::new(self.parse_ok(|stream: &mut TokenStream| stream.expect_ident()))
+    }
+
     pub fn designator(&self) -> WithPos<Designator> {
         self.parse_ok(parse_designator)
+    }
+
+    pub fn decl_designator(&self) -> WithDecl<WithPos<Designator>> {
+        WithDecl::new(self.parse_ok(parse_designator))
     }
 
     pub fn character(&self) -> WithPos<u8> {

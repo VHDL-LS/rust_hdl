@@ -304,7 +304,7 @@ pub fn parse_configuration_declaration(
     stream.expect_kind(SemiColon)?;
     Ok(ConfigurationDeclaration {
         context_clause: ContextClause::default(),
-        ident,
+        ident: ident.into(),
         entity_name,
         decl,
         vunit_bind_inds,
@@ -367,7 +367,7 @@ end;
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
                 context_clause: ContextClause::default(),
-                ident: code.s1("cfg").ident(),
+                ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
@@ -394,7 +394,7 @@ end configuration cfg;
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
                 context_clause: ContextClause::default(),
-                ident: code.s1("cfg").ident(),
+                ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
@@ -422,7 +422,7 @@ end configuration cfg;
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
                 context_clause: ContextClause::default(),
-                ident: code.s1("cfg").ident(),
+                ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![
                     ConfigurationDeclarativeItem::Use(code.s1("use lib.foo.bar;").use_clause()),
@@ -454,7 +454,7 @@ end configuration cfg;
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
                 context_clause: ContextClause::default(),
-                ident: code.s1("cfg").ident(),
+                ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![ConfigurationDeclarativeItem::Use(
                     code.s1("use lib.foo.bar;").use_clause()
@@ -485,7 +485,7 @@ end configuration cfg;
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
                 context_clause: ContextClause::default(),
-                ident: code.s1("cfg").ident(),
+                ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
@@ -516,7 +516,7 @@ end configuration cfg;
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
                 context_clause: ContextClause::default(),
-                ident: code.s1("cfg").ident(),
+                ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
@@ -558,7 +558,7 @@ end configuration cfg;
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
                 context_clause: ContextClause::default(),
-                ident: code.s1("cfg").ident(),
+                ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
@@ -605,7 +605,7 @@ end configuration cfg;
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
                 context_clause: ContextClause::default(),
-                ident: code.s1("cfg").ident(),
+                ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
@@ -658,7 +658,7 @@ end configuration cfg;
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
                 context_clause: ContextClause::default(),
-                ident: code.s1("cfg").ident(),
+                ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),
@@ -710,7 +710,7 @@ end configuration cfg;
             code.with_stream_no_diagnostics(parse_configuration_declaration),
             ConfigurationDeclaration {
                 context_clause: ContextClause::default(),
-                ident: code.s1("cfg").ident(),
+                ident: code.s1("cfg").decl_ident(),
                 entity_name: code.s1("entity_name").selected_name(),
                 decl: vec![],
                 vunit_bind_inds: Vec::new(),

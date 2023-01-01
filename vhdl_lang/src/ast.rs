@@ -355,7 +355,7 @@ pub enum ArrayIndex {
 /// LRM 5.3.3 Record types
 #[derive(PartialEq, Debug, Clone)]
 pub struct ElementDeclaration {
-    pub ident: Ident,
+    pub ident: WithDecl<Ident>,
     pub subtype: SubtypeIndication,
 }
 
@@ -390,10 +390,35 @@ impl<T> WithRef<T> {
     }
 }
 
+/// An item which declares a named entity
+#[derive(PartialEq, Debug, Clone)]
+pub struct WithDecl<T> {
+    pub tree: T,
+    pub decl: Option<Arc<NamedEntity>>,
+}
+
+impl<T> WithDecl<T> {
+    pub fn new(tree: T) -> WithDecl<T> {
+        WithDecl { tree, decl: None }
+    }
+}
+
+impl<T> From<T> for WithDecl<T> {
+    fn from(value: T) -> Self {
+        WithDecl::new(value)
+    }
+}
+
+impl<T: AsRef<SrcPos>> AsRef<SrcPos> for WithDecl<T> {
+    fn as_ref(&self) -> &SrcPos {
+        self.tree.as_ref()
+    }
+}
+
 /// LRM 6.6 Alias declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct AliasDeclaration {
-    pub designator: WithPos<Designator>,
+    pub designator: WithDecl<WithPos<Designator>>,
     pub subtype_indication: Option<SubtypeIndication>,
     pub name: WithPos<Name>,
     pub signature: Option<WithPos<Signature>>,
@@ -402,7 +427,7 @@ pub struct AliasDeclaration {
 /// LRM 6.7 Attribute declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct AttributeDeclaration {
-    pub ident: Ident,
+    pub ident: WithDecl<Ident>,
     pub type_mark: WithPos<TypeMark>,
 }
 
@@ -442,7 +467,7 @@ pub enum EntityClass {
 /// LRM 7.2 Attribute specification
 #[derive(PartialEq, Debug, Clone)]
 pub struct AttributeSpecification {
-    pub ident: Ident,
+    pub ident: WithDecl<Ident>,
     pub entity_name: EntityName,
     pub entity_class: EntityClass,
     pub expr: WithPos<Expression>,
@@ -472,8 +497,8 @@ pub struct ProtectedTypeBody {
 #[derive(PartialEq, Debug, Clone)]
 pub struct PhysicalTypeDeclaration {
     pub range: Range,
-    pub primary_unit: Ident,
-    pub secondary_units: Vec<(Ident, Literal)>,
+    pub primary_unit: WithDecl<Ident>,
+    pub secondary_units: Vec<(WithDecl<Ident>, Literal)>,
 }
 
 /// LRM 5.2.2 Enumeration types
@@ -488,7 +513,7 @@ pub enum EnumerationLiteral {
 pub enum TypeDefinition {
     /// LRM 5.2 Scalar Types
     /// LRM 5.2.2 Enumeration types
-    Enumeration(Vec<WithPos<EnumerationLiteral>>),
+    Enumeration(Vec<WithDecl<WithPos<EnumerationLiteral>>>),
     /// LRM 5.2.3 Integer types
     Integer(Range),
     /// LRM 5.2.4 Physical types
@@ -515,7 +540,7 @@ pub enum TypeDefinition {
 /// LRM 6.2 Type declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct TypeDeclaration {
-    pub ident: Ident,
+    pub ident: WithDecl<Ident>,
     pub def: TypeDefinition,
 }
 
@@ -538,14 +563,14 @@ pub enum InterfaceListType {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ObjectDeclaration {
     pub class: ObjectClass,
-    pub ident: Ident,
+    pub ident: WithDecl<Ident>,
     pub subtype_indication: SubtypeIndication,
     pub expression: Option<WithPos<Expression>>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct FileDeclaration {
-    pub ident: Ident,
+    pub ident: WithDecl<Ident>,
     pub subtype_indication: SubtypeIndication,
     pub open_info: Option<WithPos<Expression>>,
     pub file_name: Option<WithPos<Expression>>,
@@ -560,7 +585,7 @@ pub enum SubprogramDesignator {
 /// LRM 4.2 Subprogram declaration
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProcedureSpecification {
-    pub designator: WithPos<SubprogramDesignator>,
+    pub designator: WithDecl<WithPos<SubprogramDesignator>>,
     pub parameter_list: Vec<InterfaceDeclaration>,
 }
 
@@ -568,7 +593,7 @@ pub struct ProcedureSpecification {
 #[derive(PartialEq, Debug, Clone)]
 pub struct FunctionSpecification {
     pub pure: bool,
-    pub designator: WithPos<SubprogramDesignator>,
+    pub designator: WithDecl<WithPos<SubprogramDesignator>>,
     pub parameter_list: Vec<InterfaceDeclaration>,
     pub return_type: WithPos<SelectedName>,
 }
@@ -596,7 +621,7 @@ pub enum SubprogramDeclaration {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfaceFileDeclaration {
-    pub ident: Ident,
+    pub ident: WithDecl<Ident>,
     pub subtype_indication: SubtypeIndication,
 }
 
@@ -605,7 +630,7 @@ pub struct InterfaceFileDeclaration {
 pub struct InterfaceObjectDeclaration {
     pub list_type: InterfaceListType,
     pub class: ObjectClass,
-    pub ident: Ident,
+    pub ident: WithDecl<Ident>,
     pub mode: Mode,
     pub subtype_indication: SubtypeIndication,
     pub expression: Option<WithPos<Expression>>,
@@ -627,7 +652,7 @@ pub enum InterfacePackageGenericMapAspect {
 /// LRM 6.5.5 Interface package declaration
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfacePackageDeclaration {
-    pub ident: Ident,
+    pub ident: WithDecl<Ident>,
     pub package_name: WithPos<SelectedName>,
     pub generic_map: InterfacePackageGenericMapAspect,
 }
@@ -636,7 +661,7 @@ pub struct InterfacePackageDeclaration {
 pub enum InterfaceDeclaration {
     Object(InterfaceObjectDeclaration),
     File(InterfaceFileDeclaration),
-    Type(Ident),
+    Type(WithDecl<Ident>),
     /// LRM 6.5.4 Interface subprogram declarations
     Subprogram(SubprogramDeclaration, Option<SubprogramDefault>),
     /// LRM 6.5.5 Interface package declaration
@@ -660,7 +685,7 @@ pub struct PortClause {
 /// LRM 6.8 Component declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct ComponentDeclaration {
-    pub ident: Ident,
+    pub ident: WithDecl<Ident>,
     pub generic_list: Vec<InterfaceDeclaration>,
     pub port_list: Vec<InterfaceDeclaration>,
 }
@@ -816,7 +841,7 @@ pub struct CaseStatement {
 #[derive(PartialEq, Debug, Clone)]
 pub enum IterationScheme {
     While(WithPos<Expression>),
-    For(Ident, DiscreteRange),
+    For(WithDecl<Ident>, DiscreteRange),
 }
 
 /// LRM 10.10 Loop statement
@@ -869,7 +894,7 @@ pub enum SequentialStatement {
 /// LRM 10. Sequential statements
 #[derive(PartialEq, Debug, Clone)]
 pub struct LabeledSequentialStatement {
-    pub label: Option<Ident>,
+    pub label: Option<WithDecl<Ident>>,
     pub statement: SequentialStatement,
 }
 
@@ -949,7 +974,7 @@ pub struct InstantiationStatement {
 /// 11.8 Generate statements
 #[derive(PartialEq, Debug, Clone)]
 pub struct GenerateBody {
-    pub alternative_label: Option<Ident>,
+    pub alternative_label: Option<WithDecl<Ident>>,
     pub decl: Option<Vec<Declaration>>,
     pub statements: Vec<LabeledConcurrentStatement>,
 }
@@ -957,7 +982,7 @@ pub struct GenerateBody {
 /// 11.8 Generate statements
 #[derive(PartialEq, Debug, Clone)]
 pub struct ForGenerateStatement {
-    pub index_name: Ident,
+    pub index_name: WithDecl<Ident>,
     pub discrete_range: DiscreteRange,
     pub body: GenerateBody,
 }
@@ -983,7 +1008,7 @@ pub enum ConcurrentStatement {
 /// LRM 11. Concurrent statements
 #[derive(PartialEq, Debug, Clone)]
 pub struct LabeledConcurrentStatement {
-    pub label: Option<Ident>,
+    pub label: Option<WithDecl<Ident>>,
     pub statement: ConcurrentStatement,
 }
 
@@ -1016,7 +1041,7 @@ pub enum ContextItem {
 /// LRM 13.4 Context clauses
 #[derive(PartialEq, Debug, Clone)]
 pub struct ContextDeclaration {
-    pub ident: Ident,
+    pub ident: WithDecl<Ident>,
     pub items: ContextClause,
 }
 
@@ -1024,7 +1049,7 @@ pub struct ContextDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct PackageInstantiation {
     pub context_clause: ContextClause,
-    pub ident: Ident,
+    pub ident: WithDecl<Ident>,
     pub package_name: WithPos<SelectedName>,
     pub generic_map: Option<Vec<AssociationElement>>,
 }
@@ -1109,7 +1134,7 @@ pub struct BlockConfiguration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ConfigurationDeclaration {
     pub context_clause: ContextClause,
-    pub ident: Ident,
+    pub ident: WithDecl<Ident>,
     pub entity_name: WithPos<SelectedName>,
     pub decl: Vec<ConfigurationDeclarativeItem>,
     pub vunit_bind_inds: Vec<VUnitBindingIndication>,
@@ -1120,7 +1145,7 @@ pub struct ConfigurationDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct EntityDeclaration {
     pub context_clause: ContextClause,
-    pub ident: Ident,
+    pub ident: WithDecl<Ident>,
     pub generic_clause: Option<Vec<InterfaceDeclaration>>,
     pub port_clause: Option<Vec<InterfaceDeclaration>>,
     pub decl: Vec<Declaration>,
@@ -1141,7 +1166,7 @@ pub struct ArchitectureBody {
 #[derive(PartialEq, Debug, Clone)]
 pub struct PackageDeclaration {
     pub context_clause: ContextClause,
-    pub ident: Ident,
+    pub ident: WithDecl<Ident>,
     pub generic_clause: Option<Vec<InterfaceDeclaration>>,
     pub decl: Vec<Declaration>,
 }

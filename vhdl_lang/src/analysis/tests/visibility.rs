@@ -63,7 +63,7 @@ end package pkg;
     check_no_diagnostics(&diagnostics);
 
     assert_eq!(
-        root.search_reference(code.source(), code.s("decl", 4).start()),
+        root.search_reference_pos(code.source(), code.s("decl", 4).start()),
         Some(code.s("decl", 2).pos())
     );
 }
@@ -96,7 +96,7 @@ end package body pkg;
     check_no_diagnostics(&diagnostics);
 
     assert_eq!(
-        root.search_reference(code.source(), code.s("decl", 5).start()),
+        root.search_reference_pos(code.source(), code.s("decl", 5).start()),
         Some(code.s("decl", 2).pos())
     );
 }
@@ -130,7 +130,7 @@ end architecture;
     check_no_diagnostics(&diagnostics);
 
     assert_eq!(
-        root.search_reference(code.source(), code.s("decl", 4).start()),
+        root.search_reference_pos(code.source(), code.s("decl", 4).start()),
         Some(code.s("decl", 2).pos())
     );
 }
@@ -611,7 +611,7 @@ end package;
     let deepest_pos = code.s1("alias enum_t is work.pkg2.enum_t").s1("enum_t");
 
     assert_eq!(
-        root.search_reference(code.source(), ref_pos.start()),
+        root.search_reference_pos(code.source(), ref_pos.start()),
         Some(deepest_pos.pos())
     );
 }
@@ -644,23 +644,23 @@ end package;
     let alpha1_pos = code.s("alpha", 1).pos();
     let alpha1_ref = code.s("alpha", 3).pos();
     assert_eq!(
-        root.search_reference(code.source(), alpha1_ref.start()),
+        root.search_reference_pos(code.source(), alpha1_ref.start()),
         Some(alpha1_pos.clone())
     );
 
     let alpha2_pos = code.s("alpha", 2).pos();
     let alpha2_ref = code.s("alpha", 4).pos();
     assert_eq!(
-        root.search_reference(code.source(), alpha2_ref.start()),
+        root.search_reference_pos(code.source(), alpha2_ref.start()),
         Some(alpha2_pos.clone())
     );
 
     assert_eq_unordered(
-        &root.find_all_references(&alpha1_pos),
+        &root.find_all_references_pos(&alpha1_pos),
         &[alpha1_pos, alpha1_ref],
     );
     assert_eq_unordered(
-        &root.find_all_references(&alpha2_pos),
+        &root.find_all_references_pos(&alpha2_pos),
         &[alpha2_pos, alpha2_ref],
     );
 }

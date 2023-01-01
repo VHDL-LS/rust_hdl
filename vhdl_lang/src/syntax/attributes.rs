@@ -95,7 +95,7 @@ pub fn parse_attribute(stream: &mut TokenStream) -> ParseResult<Vec<Attribute>> 
             let type_mark = parse_type_mark(stream)?;
             stream.expect_kind(SemiColon)?;
             vec![Attribute::Declaration(AttributeDeclaration {
-                ident,
+                ident: ident.into(),
                 type_mark,
             })]
         },
@@ -111,7 +111,7 @@ pub fn parse_attribute(stream: &mut TokenStream) -> ParseResult<Vec<Attribute>> 
                 .into_iter()
                 .map(|entity_name| {
                     Attribute::Specification(AttributeSpecification {
-                        ident: ident.clone(),
+                        ident: ident.clone().into(),
                         entity_name,
                         entity_class,
                         expr: expr.clone(),
@@ -132,7 +132,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Declaration(AttributeDeclaration {
-                ident: code.s1("foo").ident(),
+                ident: code.s1("foo").decl_ident(),
                 type_mark: code.s1("lib.name").type_mark()
             })]
         )
@@ -144,7 +144,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
-                ident: code.s1("attr_name").ident(),
+                ident: code.s1("attr_name").decl_ident(),
                 entity_name: EntityName::Name(EntityTag {
                     designator: code.s1("foo").designator(),
                     signature: None
@@ -161,7 +161,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
-                ident: code.s1("attr_name").ident(),
+                ident: code.s1("attr_name").decl_ident(),
                 entity_name: EntityName::Name(EntityTag {
                     designator: code.s1("\"**\"").designator(),
                     signature: None
@@ -179,7 +179,7 @@ mod tests {
             code.with_stream(parse_attribute),
             vec![
                 Attribute::Specification(AttributeSpecification {
-                    ident: code.s1("attr_name").ident(),
+                    ident: code.s1("attr_name").decl_ident(),
                     entity_name: EntityName::Name(EntityTag {
                         designator: code.s1("foo").designator(),
                         signature: None
@@ -188,7 +188,7 @@ mod tests {
                     expr: code.s1("0+1").expr()
                 }),
                 Attribute::Specification(AttributeSpecification {
-                    ident: code.s1("attr_name").ident(),
+                    ident: code.s1("attr_name").decl_ident(),
                     entity_name: EntityName::Name(EntityTag {
                         designator: code.s1("bar").designator(),
                         signature: None
@@ -206,7 +206,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
-                ident: code.s1("attr_name").ident(),
+                ident: code.s1("attr_name").decl_ident(),
                 entity_name: EntityName::All,
                 entity_class: EntityClass::Signal,
                 expr: code.s1("0+1").expr()
@@ -220,7 +220,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
-                ident: code.s1("attr_name").ident(),
+                ident: code.s1("attr_name").decl_ident(),
                 entity_name: EntityName::Others,
                 entity_class: EntityClass::Signal,
                 expr: code.s1("0+1").expr()
@@ -234,7 +234,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
-                ident: code.s1("attr_name").ident(),
+                ident: code.s1("attr_name").decl_ident(),
                 entity_name: EntityName::Name(EntityTag {
                     designator: code.s1("foo").designator(),
                     signature: Some(code.s1("[return natural]").signature())

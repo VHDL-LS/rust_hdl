@@ -206,7 +206,7 @@ fn parse_loop_statement_initial_token(
                 stream.expect_kind(In)?;
                 let discrete_range = parse_discrete_range(stream)?;
                 stream.expect_kind(Loop)?;
-                Some(IterationScheme::For(ident, discrete_range))
+                Some(IterationScheme::For(ident.into(), discrete_range))
             }
         )
     };
@@ -576,7 +576,7 @@ pub fn parse_sequential_statement_initial_token(
         let name = parse_name_initial_token(stream, token)?;
         let token = stream.expect()?;
         if token.kind == Colon {
-            let label = Some(to_simple_name(name)?);
+            let label = Some(WithDecl::new(to_simple_name(name)?));
             let token = stream.expect()?;
             let statement = parse_unlabeled_sequential_statement(stream, token, diagnostics)?;
             Ok(LabeledSequentialStatement { label, statement })
@@ -611,7 +611,7 @@ mod tests {
     }
 
     fn with_label(
-        label: Option<Ident>,
+        label: Option<WithDecl<Ident>>,
         statement: SequentialStatement,
     ) -> LabeledSequentialStatement {
         LabeledSequentialStatement { label, statement }
@@ -639,7 +639,7 @@ mod tests {
         assert_eq!(
             statement,
             with_label(
-                Some(code.s1("foo").ident()),
+                Some(code.s1("foo").decl_ident()),
                 SequentialStatement::Wait(WaitStatement {
                     sensitivity_clause: vec![],
                     condition_clause: None,
@@ -934,7 +934,7 @@ mod tests {
         assert_eq!(
             statement,
             with_label(
-                Some(code.s1("name").ident()),
+                Some(code.s1("name").decl_ident()),
                 SequentialStatement::VariableAssignment(VariableAssignment {
                     target: code
                         .s1("(foo, 1 => bar)")
@@ -952,7 +952,7 @@ mod tests {
         assert_eq!(
             statement,
             with_label(
-                Some(code.s1("name").ident()),
+                Some(code.s1("name").decl_ident()),
                 SequentialStatement::VariableAssignment(VariableAssignment {
                     target: code.s1("foo(0)").name().map_into(Target::Name),
                     rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
@@ -1252,7 +1252,7 @@ end if mylabel;
         assert_eq!(
             statement,
             with_label(
-                Some(code.s1("mylabel").ident()),
+                Some(code.s1("mylabel").decl_ident()),
                 SequentialStatement::If(IfStatement {
                     conditionals: vec![Conditional {
                         condition: code.s1("cond = true").expr(),
@@ -1307,7 +1307,7 @@ end if mylabel;
         assert_eq!(
             statement,
             with_label(
-                Some(code.s1("mylabel").ident()),
+                Some(code.s1("mylabel").decl_ident()),
                 SequentialStatement::If(IfStatement {
                     conditionals: vec![Conditional {
                         condition: code.s1("cond = true").expr(),
@@ -1367,7 +1367,7 @@ end if mylabel;
         assert_eq!(
             statement,
             with_label(
-                Some(code.s1("mylabel").ident()),
+                Some(code.s1("mylabel").decl_ident()),
                 SequentialStatement::If(IfStatement {
                     conditionals: vec![
                         Conditional {
@@ -1516,7 +1516,7 @@ end loop;
                 None,
                 SequentialStatement::Loop(LoopStatement {
                     iteration_scheme: Some(IterationScheme::For(
-                        code.s1("idx").ident(),
+                        code.s1("idx").decl_ident(),
                         code.s1("0 to 3").discrete_range()
                     )),
                     statements: vec![

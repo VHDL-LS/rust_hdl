@@ -37,7 +37,7 @@ fn parse_object_declaration_kind(
         .into_iter()
         .map(|ident| ObjectDeclaration {
             class,
-            ident,
+            ident: ident.into(),
             subtype_indication: subtype.clone(),
             expression: opt_expression.clone(),
         })
@@ -87,7 +87,7 @@ pub fn parse_file_declaration_no_semi(
     Ok(idents
         .into_iter()
         .map(|ident| FileDeclaration {
-            ident,
+            ident: ident.into(),
             subtype_indication: subtype.clone(),
             open_info: open_info.clone(),
             file_name: file_name.clone(),
@@ -113,7 +113,7 @@ mod tests {
             code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
                 class: ObjectClass::Constant,
-                ident: code.s1("foo").ident(),
+                ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
                 expression: None
             }]
@@ -127,7 +127,7 @@ mod tests {
             code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
                 class: ObjectClass::Signal,
-                ident: code.s1("foo").ident(),
+                ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
                 expression: None
             }]
@@ -141,7 +141,7 @@ mod tests {
             code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
                 class: ObjectClass::Variable,
-                ident: code.s1("foo").ident(),
+                ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
                 expression: None
             }]
@@ -155,7 +155,7 @@ mod tests {
             code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
                 class: ObjectClass::SharedVariable,
-                ident: code.s1("foo").ident(),
+                ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
                 expression: None
             }]
@@ -168,7 +168,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_file_declaration),
             vec![FileDeclaration {
-                ident: code.s1("foo").ident(),
+                ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("text").subtype_indication(),
                 open_info: None,
                 file_name: None
@@ -182,7 +182,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_file_declaration),
             vec![FileDeclaration {
-                ident: code.s1("foo").ident(),
+                ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("text").subtype_indication(),
                 open_info: None,
                 file_name: Some(code.s1("\"file_name\"").expr())
@@ -196,7 +196,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_file_declaration),
             vec![FileDeclaration {
-                ident: code.s1("foo").ident(),
+                ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("text").subtype_indication(),
                 open_info: Some(code.s1("write_mode").expr()),
                 file_name: Some(code.s1("\"file_name\"").expr())
@@ -211,7 +211,7 @@ mod tests {
             code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
                 class: ObjectClass::Constant,
-                ident: code.s1("foo").ident(),
+                ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
                 expression: Some(code.s1("0").expr())
             }]
@@ -225,13 +225,13 @@ mod tests {
         let objects = vec![
             ObjectDeclaration {
                 class: ObjectClass::Constant,
-                ident: code.s1("foo").ident(),
+                ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
                 expression: Some(code.s1("0").expr()),
             },
             ObjectDeclaration {
                 class: ObjectClass::Constant,
-                ident: code.s1("bar").ident(),
+                ident: code.s1("bar").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
                 expression: Some(code.s1("0").expr()),
             },

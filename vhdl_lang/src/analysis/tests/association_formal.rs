@@ -109,7 +109,7 @@ end architecture;
     check_no_diagnostics(&diagnostics);
 
     assert_eq!(
-        root.search_reference(code.source(), code.s("theport", 2).end()),
+        root.search_reference_pos(code.source(), code.s("theport", 2).end()),
         Some(code.s1("theport").pos())
     );
 }
@@ -145,7 +145,7 @@ end architecture;
     check_no_diagnostics(&diagnostics);
 
     assert_eq!(
-        root.search_reference(code.source(), code.s("thegeneric", 2).end()),
+        root.search_reference_pos(code.source(), code.s("thegeneric", 2).end()),
         Some(code.s1("thegeneric").pos())
     );
 }
@@ -182,12 +182,12 @@ end architecture;
     check_no_diagnostics(&diagnostics);
 
     assert_eq!(
-        root.search_reference(code.source(), code.s("theport", 2).end()),
+        root.search_reference_pos(code.source(), code.s("theport", 2).end()),
         Some(code.s1("theport").pos())
     );
 
     assert_eq!(
-        root.search_reference(code.source(), code.s("const0", 2).end()),
+        root.search_reference_pos(code.source(), code.s("const0", 2).end()),
         Some(code.s1("const0").pos())
     );
 }
@@ -230,12 +230,12 @@ end architecture;
     check_no_diagnostics(&diagnostics);
 
     assert_eq!(
-        root.search_reference(code.source(), code.s("fun1", 2).end()),
+        root.search_reference_pos(code.source(), code.s("fun1", 2).end()),
         Some(code.s1("fun1").pos())
     );
 
     assert_eq!(
-        root.search_reference(code.source(), code.s("theport", 2).end()),
+        root.search_reference_pos(code.source(), code.s("theport", 2).end()),
         Some(code.s1("theport").pos())
     );
 }

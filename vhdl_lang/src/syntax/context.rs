@@ -115,7 +115,7 @@ pub fn parse_context(
         diagnostics.push_some(error_on_end_identifier_mismatch(&ident, &end_ident));
 
         Ok(DeclarationOrReference::Declaration(ContextDeclaration {
-            ident,
+            ident: ident.into(),
             items,
         }))
     } else {
@@ -251,7 +251,7 @@ end context ident;
             assert_eq!(
                 code.with_stream_no_diagnostics(parse_context),
                 DeclarationOrReference::Declaration(ContextDeclaration {
-                    ident: code.s1("ident").ident(),
+                    ident: code.s1("ident").decl_ident(),
                     items: vec![]
                 })
             );
@@ -277,7 +277,7 @@ end context ident2;
         assert_eq!(
             context,
             DeclarationOrReference::Declaration(ContextDeclaration {
-                ident: code.s1("ident").ident(),
+                ident: code.s1("ident").decl_ident(),
                 items: vec![]
             })
         );
@@ -297,7 +297,7 @@ end context;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_context),
             DeclarationOrReference::Declaration(ContextDeclaration {
-                ident: code.s1("ident").ident(),
+                ident: code.s1("ident").decl_ident(),
                 items: vec![
                     WithPos::new(
                         ContextItem::Library(LibraryClause {

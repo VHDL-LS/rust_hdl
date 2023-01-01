@@ -9,11 +9,11 @@ use super::names::{parse_designator, parse_name};
 use super::subprogram::parse_signature;
 use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, TokenStream};
-use crate::ast::AliasDeclaration;
+use crate::ast::{AliasDeclaration, WithDecl};
 
 pub fn parse_alias_declaration(stream: &mut TokenStream) -> ParseResult<AliasDeclaration> {
     stream.expect_kind(Alias)?;
-    let designator = parse_designator(stream)?;
+    let designator = WithDecl::new(parse_designator(stream)?);
     let subtype_indication = {
         if stream.skip_if_kind(Colon)? {
             Some(parse_subtype_indication(stream)?)
@@ -54,7 +54,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_alias_declaration),
             AliasDeclaration {
-                designator: code.s1("foo").designator(),
+                designator: code.s1("foo").decl_designator(),
                 subtype_indication: None,
                 name: code.s1("name").name(),
                 signature: None
@@ -68,7 +68,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_alias_declaration),
             AliasDeclaration {
-                designator: code.s1("foo").designator(),
+                designator: code.s1("foo").decl_designator(),
                 subtype_indication: Some(code.s1("vector(0 to 1)").subtype_indication()),
                 name: code.s1("name").name(),
                 signature: None
@@ -82,7 +82,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_alias_declaration),
             AliasDeclaration {
-                designator: code.s1("foo").designator(),
+                designator: code.s1("foo").decl_designator(),
                 subtype_indication: None,
                 name: code.s1("name").name(),
                 signature: Some(code.s1("[return natural]").signature())
@@ -94,7 +94,7 @@ mod tests {
     fn parse_alias_with_operator_symbol() {
         let code = Code::new("alias \"and\" is name;");
 
-        let designator = code.s1("\"and\"").designator();
+        let designator = code.s1("\"and\"").decl_designator();
 
         assert_eq!(
             code.with_stream(parse_alias_declaration),
@@ -111,7 +111,7 @@ mod tests {
     fn parse_alias_with_character() {
         let code = Code::new("alias 'c' is 'b';");
 
-        let designator = code.s1("'c'").designator();
+        let designator = code.s1("'c'").decl_designator();
 
         assert_eq!(
             code.with_stream(parse_alias_declaration),
