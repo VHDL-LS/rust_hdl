@@ -1250,74 +1250,7 @@ impl FormatDeclaration {
 impl Searcher for FormatDeclaration {
     fn search_decl(&mut self, decl: FoundDeclaration) -> SearchState {
         if decl.named_entity().map(|ent| ent.id()) == Some(self.ent.id()) {
-            self.result = Some(match decl {
-                FoundDeclaration::InterfaceObject(ref value) => match value.list_type {
-                    InterfaceListType::Port => format!("```vhdl\nport {};\n```", value),
-                    InterfaceListType::Generic => format!("```vhdl\ngeneric {};\n```", value),
-                    InterfaceListType::Parameter => format!("```vhdl\n{};\n```", value),
-                },
-                FoundDeclaration::ForIndex(ref ident, ref drange) => {
-                    format!("```vhdl\nfor {} in {} loop\n```", ident, drange)
-                }
-                FoundDeclaration::ForGenerateIndex(ref ident, ref value) => match ident {
-                    Some(ident) => format!("```vhdl\n{}: {}\n```", ident, value),
-                    None => format!("```vhdl\n{}\n```", value),
-                },
-                FoundDeclaration::Library(ref value) => {
-                    format!("```vhdl\nlibrary {};\n```", value)
-                }
-                FoundDeclaration::Function(ref value) => {
-                    format!("```vhdl\n{};\n```", value)
-                }
-                FoundDeclaration::Procedure(ref value) => {
-                    format!("```vhdl\n{};\n```", value)
-                }
-                FoundDeclaration::Object(ref value) => {
-                    format!("```vhdl\n{}\n```", value)
-                }
-                FoundDeclaration::ElementDeclaration(elem) => {
-                    format!("```vhdl\n{}\n```", elem)
-                }
-                FoundDeclaration::EnumerationLiteral(ident, elem) => {
-                    format!("```vhdl\n{} : {}\n```", elem, ident)
-                }
-                FoundDeclaration::File(ref value) => {
-                    format!("```vhdl\n{}\n```", value)
-                }
-                FoundDeclaration::Type(ref value) => {
-                    format!("```vhdl\n{}\n```", value)
-                }
-                FoundDeclaration::Component(ref value) => {
-                    format!("```vhdl\n{}\n```", value)
-                }
-                FoundDeclaration::Alias(ref value) => {
-                    format!("```vhdl\n{}\n```", value)
-                }
-                FoundDeclaration::Package(ref value) => {
-                    format!("```vhdl\n{}\n```", value)
-                }
-                FoundDeclaration::PackageInstance(ref value) => {
-                    format!("```vhdl\n{}\n```", value)
-                }
-                FoundDeclaration::Configuration(ref value) => {
-                    format!("```vhdl\n{}\n```", value)
-                }
-                FoundDeclaration::Entity(ref value) => {
-                    format!("```vhdl\n{}\n```", value)
-                }
-                FoundDeclaration::Context(ref value) => {
-                    format!("```vhdl\n{}\n```", value)
-                }
-                FoundDeclaration::GenerateBody(value) => {
-                    format!("```vhdl\n{}\n```", value)
-                }
-                FoundDeclaration::ConcurrentStatement(value) => {
-                    format!("```vhdl\n{}\n```", value)
-                }
-                FoundDeclaration::SequentialStatement(value) => {
-                    format!("```vhdl\n{}\n```", value)
-                }
-            });
+            self.result = Some(decl.to_hover());
             Finished(Found)
         } else {
             NotFinished
@@ -1418,6 +1351,79 @@ impl<'a> HasSrcPos for FoundDeclaration<'a> {
             FoundDeclaration::GenerateBody(value) => value.pos(),
             FoundDeclaration::ConcurrentStatement(value) => value.pos(),
             FoundDeclaration::SequentialStatement(value) => value.pos(),
+        }
+    }
+}
+
+impl FoundDeclaration<'_> {
+    fn to_hover(&self) -> String {
+        match self {
+            FoundDeclaration::InterfaceObject(ref value) => match value.list_type {
+                InterfaceListType::Port => format!("```vhdl\nport {};\n```", value),
+                InterfaceListType::Generic => format!("```vhdl\ngeneric {};\n```", value),
+                InterfaceListType::Parameter => format!("```vhdl\n{};\n```", value),
+            },
+            FoundDeclaration::ForIndex(ref ident, ref drange) => {
+                format!("```vhdl\nfor {} in {} loop\n```", ident, drange)
+            }
+            FoundDeclaration::ForGenerateIndex(ref ident, ref value) => match ident {
+                Some(ident) => format!("```vhdl\n{}: {}\n```", ident, value),
+                None => format!("```vhdl\n{}\n```", value),
+            },
+            FoundDeclaration::Library(ref value) => {
+                format!("```vhdl\nlibrary {};\n```", value)
+            }
+            FoundDeclaration::Function(ref value) => {
+                format!("```vhdl\n{};\n```", value)
+            }
+            FoundDeclaration::Procedure(ref value) => {
+                format!("```vhdl\n{};\n```", value)
+            }
+            FoundDeclaration::Object(ref value) => {
+                format!("```vhdl\n{}\n```", value)
+            }
+            FoundDeclaration::ElementDeclaration(elem) => {
+                format!("```vhdl\n{}\n```", elem)
+            }
+            FoundDeclaration::EnumerationLiteral(ident, elem) => {
+                format!("```vhdl\n{} : {}\n```", elem, ident)
+            }
+            FoundDeclaration::File(ref value) => {
+                format!("```vhdl\n{}\n```", value)
+            }
+            FoundDeclaration::Type(ref value) => {
+                format!("```vhdl\n{}\n```", value)
+            }
+            FoundDeclaration::Component(ref value) => {
+                format!("```vhdl\n{}\n```", value)
+            }
+            FoundDeclaration::Alias(ref value) => {
+                format!("```vhdl\n{}\n```", value)
+            }
+            FoundDeclaration::Package(ref value) => {
+                format!("```vhdl\n{}\n```", value)
+            }
+            FoundDeclaration::PackageInstance(ref value) => {
+                format!("```vhdl\n{}\n```", value)
+            }
+            FoundDeclaration::Configuration(ref value) => {
+                format!("```vhdl\n{}\n```", value)
+            }
+            FoundDeclaration::Entity(ref value) => {
+                format!("```vhdl\n{}\n```", value)
+            }
+            FoundDeclaration::Context(ref value) => {
+                format!("```vhdl\n{}\n```", value)
+            }
+            FoundDeclaration::GenerateBody(value) => {
+                format!("```vhdl\n{}\n```", value)
+            }
+            FoundDeclaration::ConcurrentStatement(value) => {
+                format!("```vhdl\n{}\n```", value)
+            }
+            FoundDeclaration::SequentialStatement(value) => {
+                format!("```vhdl\n{}\n```", value)
+            }
         }
     }
 }
