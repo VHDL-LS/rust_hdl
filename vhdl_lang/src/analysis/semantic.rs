@@ -1397,7 +1397,8 @@ impl NamedEntity {
             NamedEntityKind::DeferredConstant(ref subtype) => subtype.base_type(),
             NamedEntityKind::ElementDeclaration(ref subtype) => subtype.base_type(),
             NamedEntityKind::PhysicalLiteral(ref base_type) => base_type,
-
+            NamedEntityKind::InterfaceFile(ref file) => file.base_type(),
+            NamedEntityKind::File(ref file) => file.base_type(),
             // Ignore now to avoid false positives
             NamedEntityKind::LoopParameter => return true,
             _ => {

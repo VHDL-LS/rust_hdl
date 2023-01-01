@@ -318,8 +318,8 @@ impl<'a> AnalyzeContext<'a> {
                     self.analyze_expression(region, expr, diagnostics)?;
                 }
 
-                if subtype.is_some() {
-                    region.add(ident.clone(), NamedEntityKind::File, diagnostics);
+                if let Some(subtype) = subtype {
+                    region.add(ident.clone(), NamedEntityKind::File(subtype), diagnostics);
                 }
             }
             Declaration::Component(ref mut component) => {
