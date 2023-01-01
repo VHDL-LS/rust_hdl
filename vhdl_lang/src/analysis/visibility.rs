@@ -90,14 +90,12 @@ impl Visibility {
     ) {
         // Add implicit declarations when using declaration
         // For example all enum literals are made implicititly visible when using an enum type
-        if let Some(implicit) = ent.actual_kind().implicit_declarations() {
-            for entity in implicit {
-                self.make_potentially_visible_with_name(
-                    visible_pos,
-                    entity.designator().clone(),
-                    entity.clone(),
-                );
-            }
+        for entity in ent.actual_kind().implicit_declarations() {
+            self.make_potentially_visible_with_name(
+                visible_pos,
+                entity.designator().clone(),
+                entity.clone(),
+            );
         }
 
         let visible_ent = VisibleEntity {

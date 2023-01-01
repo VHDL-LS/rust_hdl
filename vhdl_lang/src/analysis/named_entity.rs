@@ -42,25 +42,23 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn implicit_declarations(&self) -> Option<impl Iterator<Item = Arc<NamedEntity>> + '_> {
-        let implicit = match self {
-            Type::Array { ref implicit, .. } => implicit,
-            Type::Enum(ref implicit) => return Some(either::Either::Left(implicit.iter())),
-            Type::Integer(ref implicit) => implicit,
-            Type::Physical(ref implicit) => implicit,
-            Type::File(ref implicit) => implicit,
-            Type::Access(.., ref implicit) => implicit,
+    pub fn implicit_declarations(&self) -> impl Iterator<Item = Arc<NamedEntity>> + '_ {
+        match self {
+            Type::Array { ref implicit, .. } => Some(either::Either::Right(implicit.iter())),
+            Type::Enum(ref implicit) => Some(either::Either::Left(implicit.iter())),
+            Type::Integer(ref implicit) => Some(either::Either::Right(implicit.iter())),
+            Type::Physical(ref implicit) => Some(either::Either::Right(implicit.iter())),
+            Type::File(ref implicit) => Some(either::Either::Right(implicit.iter())),
+            Type::Access(.., ref implicit) => Some(either::Either::Right(implicit.iter())),
             Type::Incomplete(..)
             | Type::Interface
             | Type::Protected(..)
             | Type::Record(..)
             | Type::Subtype(..)
-            | Type::Alias(..) => {
-                return None;
-            }
-        };
-
-        Some(either::Either::Right(implicit.iter()))
+            | Type::Alias(..) => None,
+        }
+        .into_iter()
+        .flatten()
     }
 
     pub fn describe(&self) -> &str {
@@ -141,11 +139,13 @@ impl NamedEntityKind {
         matches!(self, NamedEntityKind::Type(..))
     }
 
-    pub fn implicit_declarations(&self) -> Option<impl Iterator<Item = Arc<NamedEntity>> + '_> {
+    pub fn implicit_declarations(&self) -> impl Iterator<Item = Arc<NamedEntity>> + '_ {
         match self {
-            NamedEntityKind::Type(typ) => typ.implicit_declarations(),
+            NamedEntityKind::Type(typ) => Some(typ.implicit_declarations()),
             _ => None,
         }
+        .into_iter()
+        .flatten()
     }
 
     pub fn describe(&self) -> &str {
