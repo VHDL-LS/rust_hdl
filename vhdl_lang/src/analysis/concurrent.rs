@@ -198,16 +198,16 @@ impl<'a> AnalyzeContext<'a> {
                             )?;
 
                             if let NamedEntityKind::Entity(ent_region) = ent.kind() {
-                                let formal_region = ent_region.to_entity_formal();
+                                let (generic_region, port_region) = ent_region.to_entity_formal();
 
                                 self.analyze_assoc_elems_with_formal_region(
-                                    &formal_region,
+                                    &generic_region,
                                     parent,
                                     &mut instance.generic_map,
                                     diagnostics,
                                 )?;
                                 self.analyze_assoc_elems_with_formal_region(
-                                    &formal_region,
+                                    &port_region,
                                     parent,
                                     &mut instance.port_map,
                                     diagnostics,
@@ -235,15 +235,15 @@ impl<'a> AnalyzeContext<'a> {
                             )?;
 
                             if let NamedEntityKind::Component(ent_region) = ent.kind() {
-                                let formal_region = ent_region.to_entity_formal();
+                                let (generic_region, port_region) = ent_region.to_entity_formal();
                                 self.analyze_assoc_elems_with_formal_region(
-                                    &formal_region,
+                                    &generic_region,
                                     parent,
                                     &mut instance.generic_map,
                                     diagnostics,
                                 )?;
                                 self.analyze_assoc_elems_with_formal_region(
-                                    &formal_region,
+                                    &port_region,
                                     parent,
                                     &mut instance.port_map,
                                     diagnostics,

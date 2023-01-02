@@ -6,10 +6,13 @@
 
 use std::sync::Arc;
 
-use crate::{ast::Designator, Diagnostic, SrcPos};
+use crate::{
+    ast::{Designator, ObjectClass},
+    Diagnostic, SrcPos,
+};
 
 use super::{
-    region::{NamedEntityKind, Object, Type, TypeEnt},
+    region::{NamedEntityKind, Object, TypeEnt},
     NamedEntity,
 };
 
@@ -40,11 +43,17 @@ impl InterfaceEnt {
         }
     }
 
+    pub fn is_signal(&self) -> bool {
+        match self.ent.kind() {
+            NamedEntityKind::Object(obj) => obj.class == ObjectClass::Signal,
+            _ => false,
+        }
+    }
+
     pub fn base_type(&self) -> &TypeEnt {
         match self.ent.kind() {
             NamedEntityKind::Object(obj) => obj.subtype.base_type(),
             NamedEntityKind::InterfaceFile(file_type) => file_type.base_type(),
-            NamedEntityKind::Type(Type::Subtype(subtype)) => subtype.base_type(),
             _ => {
                 unreachable!();
             }

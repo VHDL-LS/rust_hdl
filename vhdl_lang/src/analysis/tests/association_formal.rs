@@ -151,6 +151,48 @@ end architecture;
 }
 
 #[test]
+fn does_not_mixup_ports_and_generics() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent_inst is
+    generic (
+        thegeneric : boolean 
+    );
+    port (
+        theport : in boolean 
+    );
+end entity;
+
+architecture a of ent_inst is
+begin
+end architecture;
+
+entity ent is
+end entity;
+
+architecture a of ent is
+   signal sig : boolean;
+begin
+   ent: entity work.ent_inst
+       generic map (theport => sig)
+       port map (thegeneric => 0);
+end architecture;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(code.s("theport", 2), "No declaration of 'theport'"),
+            Diagnostic::error(code.s("thegeneric", 2), "No declaration of 'thegeneric'"),
+        ],
+    );
+}
+
+#[test]
 fn resolve_port_and_surrounding_name() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(

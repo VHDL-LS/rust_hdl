@@ -253,19 +253,26 @@ impl<'a> Region<'a> {
         self
     }
 
-    pub fn to_entity_formal(&self) -> FormalRegion {
+    pub fn to_entity_formal(&self) -> (FormalRegion, FormalRegion) {
         // @TODO separate generics and ports
-        let mut entities = Vec::with_capacity(self.entities.len());
+        let mut generics = Vec::with_capacity(self.entities.len());
+        let mut ports = Vec::with_capacity(self.entities.len());
+
         for ent in self.entities.values() {
             if let NamedEntities::Single(ent) = ent {
                 if let Some(ent) = InterfaceEnt::from_any(ent.clone()) {
-                    entities.push(ent);
+                    if ent.is_signal() {
+                        ports.push(ent);
+                    } else {
+                        generics.push(ent);
+                    }
                 }
             }
         }
         // Sorting by source file position gives declaration order
-        entities.sort_by_key(|ent| ent.decl_pos().map(|pos| pos.range().start));
-        FormalRegion::new(entities)
+        generics.sort_by_key(|ent| ent.decl_pos().map(|pos| pos.range().start));
+        ports.sort_by_key(|ent| ent.decl_pos().map(|pos| pos.range().start));
+        (FormalRegion::new(generics), FormalRegion::new(ports))
     }
 
     pub fn extend(region: &'a Region<'a>, parent: Option<&'a Region<'a>>) -> Region<'a> {
