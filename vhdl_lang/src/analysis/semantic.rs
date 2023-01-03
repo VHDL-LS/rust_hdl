@@ -1060,6 +1060,17 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 Some(is_correct)
             }
+            Literal::AbstractLiteral(AbstractLiteral::Real(_)) => {
+                let is_correct = matches!(target_base.kind(), Type::Real(..));
+
+                if !is_correct {
+                    diagnostics.push(Diagnostic::error(
+                        pos,
+                        format!("real literal does not match {}", target_type.describe()),
+                    ));
+                }
+                Some(is_correct)
+            }
             Literal::Character(char) => match target_base.kind() {
                 Type::Enum(_, literals) => {
                     if literals.contains(&Designator::Character(*char)) {

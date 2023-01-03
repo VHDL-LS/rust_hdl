@@ -567,3 +567,32 @@ constant const : natural := thefun('c');
         ],
     );
 }
+
+#[test]
+fn check_real_vs_integer() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+constant rgood : real := 1.2;
+constant rbad : real := 3;
+
+constant igood : integer := 4;
+constant ibad : integer := 5.6;
+
+",
+    );
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s1("3"),
+                "integer literal does not match real type 'REAL'",
+            ),
+            Diagnostic::error(
+                code.s1("5.6"),
+                "real literal does not match integer type 'INTEGER'",
+            ),
+        ],
+    );
+}

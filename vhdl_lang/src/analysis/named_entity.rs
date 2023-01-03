@@ -27,6 +27,7 @@ pub enum Type {
     },
     Enum(ImplicitVec, FnvHashSet<Designator>),
     Integer(ImplicitVec),
+    Real(ImplicitVec),
     Physical(ImplicitVec),
     Access(Subtype, ImplicitVec),
     Record(Arc<Region<'static>>),
@@ -50,6 +51,7 @@ impl Type {
         match self {
             Type::Array { ref implicit, .. } => Some(implicit),
             Type::Enum(ref implicit, _) => Some(implicit),
+            Type::Real(ref implicit) => Some(implicit),
             Type::Integer(ref implicit) => Some(implicit),
             Type::Physical(ref implicit) => Some(implicit),
             Type::File(ref implicit) => Some(implicit),
@@ -70,6 +72,7 @@ impl Type {
             Type::Array { .. } => "array type",
             Type::Enum(..) => "type",
             Type::Integer(..) => "integer type",
+            Type::Real(..) => "real type",
             Type::Physical(..) => "physical type",
             Type::Access(..) => "access type",
             Type::Subtype(..) => "subtype",

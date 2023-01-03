@@ -717,11 +717,13 @@ impl<'a> AnalyzeContext<'a> {
                 self.analyze_range(parent, range, diagnostics)?;
                 let implicit = ImplicitVecBuilder::default();
 
-                let type_ent = TypeEnt::define_with_opt_id(
-                    overwrite_id,
-                    &mut type_decl.ident,
-                    Type::Integer(implicit.inner()),
-                );
+                let kind = match integer_or_real_range(range) {
+                    ScalarType::Integer => Type::Integer(implicit.inner()),
+                    ScalarType::Real => Type::Real(implicit.inner()),
+                };
+
+                let type_ent =
+                    TypeEnt::define_with_opt_id(overwrite_id, &mut type_decl.ident, kind);
                 parent.add(type_ent.clone().into(), diagnostics);
 
                 if !self.is_standard_package() {
@@ -1061,4 +1063,26 @@ fn signature_error(pos: impl AsRef<SrcPos>) -> Diagnostic {
         pos,
         "Alias should only have a signature for subprograms and enum literals",
     )
+}
+
+enum ScalarType {
+    Integer,
+    Real,
+}
+
+/// @TODO A simple and incomplete way to disambiguate integer and real in standard.vhd
+fn integer_or_real_range(range: &ast::Range) -> ScalarType {
+    if let ast::Range::Range(RangeConstraint { left_expr, .. }) = range {
+        let expr = if let Expression::Unary(_, ref expr) = left_expr.item {
+            &expr.item
+        } else {
+            &left_expr.item
+        };
+
+        if let Expression::Literal(Literal::AbstractLiteral(AbstractLiteral::Real(_))) = expr {
+            return ScalarType::Real;
+        }
+    }
+
+    ScalarType::Integer
 }
