@@ -55,6 +55,18 @@ impl<'a> StandardRegion<'a> {
         self.lookup_type("BOOLEAN")
     }
 
+    fn natural(&self) -> TypeEnt {
+        self.lookup_type("NATURAL")
+    }
+
+    fn real(&self) -> TypeEnt {
+        self.lookup_type("REAL")
+    }
+
+    fn time(&self) -> TypeEnt {
+        self.lookup_type("TIME")
+    }
+
     fn file_open_kind(&self) -> TypeEnt {
         self.lookup_type("FILE_OPEN_KIND")
     }
@@ -374,11 +386,6 @@ impl<'a> StandardRegion<'a> {
         // function TO_STRING (VALUE: FILE_OPEN_KIND) return STRING;
         // function TO_STRING (VALUE: FILE_OPEN_STATUS) return STRING;
 
-        // @TODO Predefined overloaded TO_STRING operations
-        // function TO_STRING (VALUE: REAL; DIGITS: NATURAL) return STRING;
-        // function TO_STRING (VALUE: REAL; FORMAT: STRING) return STRING;
-        // function TO_STRING (VALUE: TIME; UNIT: TIME) return STRING
-
         for name in [
             "BOOLEAN",
             "BIT",
@@ -407,6 +414,132 @@ impl<'a> StandardRegion<'a> {
             res.extend(implicits);
         }
 
+        // Predefined overloaded TO_STRING operations
+        // function TO_STRING (VALUE: REAL; DIGITS: NATURAL) return STRING;
+        {
+            let real = self.real();
+            let natural = self.natural();
+            let string = self.string();
+
+            let mut params = FormalRegion::new_params();
+            params.add(Arc::new(NamedEntity::new(
+                self.symbol("VALUE"),
+                NamedEntityKind::Object(Object {
+                    class: ObjectClass::Constant,
+                    mode: Some(Mode::In),
+                    subtype: Subtype::new(real.to_owned()),
+                    has_default: false,
+                }),
+                real.decl_pos(),
+            )));
+
+            params.add(Arc::new(NamedEntity::new(
+                self.symbol("DIGITS"),
+                NamedEntityKind::Object(Object {
+                    class: ObjectClass::Constant,
+                    mode: Some(Mode::In),
+                    subtype: Subtype::new(natural),
+                    has_default: false,
+                }),
+                real.decl_pos(),
+            )));
+
+            let ent = Arc::new(NamedEntity::implicit(
+                real.clone().into(),
+                self.symbol("TO_STRING"),
+                NamedEntityKind::Subprogram(Signature::new(params, Some(string))),
+                real.decl_pos(),
+            ));
+
+            if let Some(implicit) = real.kind().implicits() {
+                // This is safe because the standard package is analyzed in a single thread
+                unsafe { implicit.push(&ent) };
+            }
+            res.push(ent);
+        }
+
+        // function TO_STRING (VALUE: REAL; FORMAT: STRING) return STRING;
+        {
+            let real = self.real();
+            let string = self.string();
+
+            let mut params = FormalRegion::new_params();
+            params.add(Arc::new(NamedEntity::new(
+                self.symbol("VALUE"),
+                NamedEntityKind::Object(Object {
+                    class: ObjectClass::Constant,
+                    mode: Some(Mode::In),
+                    subtype: Subtype::new(real.to_owned()),
+                    has_default: false,
+                }),
+                real.decl_pos(),
+            )));
+
+            params.add(Arc::new(NamedEntity::new(
+                self.symbol("FORMAT"),
+                NamedEntityKind::Object(Object {
+                    class: ObjectClass::Constant,
+                    mode: Some(Mode::In),
+                    subtype: Subtype::new(string.to_owned()),
+                    has_default: false,
+                }),
+                real.decl_pos(),
+            )));
+
+            let ent = Arc::new(NamedEntity::implicit(
+                real.clone().into(),
+                self.symbol("TO_STRING"),
+                NamedEntityKind::Subprogram(Signature::new(params, Some(string))),
+                real.decl_pos(),
+            ));
+
+            if let Some(implicit) = real.kind().implicits() {
+                // This is safe because the standard package is analyzed in a single thread
+                unsafe { implicit.push(&ent) };
+            }
+            res.push(ent);
+        }
+
+        // function TO_STRING (VALUE: TIME; UNIT: TIME) return STRING
+        {
+            let time = self.time();
+            let string = self.string();
+            let mut params = FormalRegion::new_params();
+            params.add(Arc::new(NamedEntity::new(
+                self.symbol("VALUE"),
+                NamedEntityKind::Object(Object {
+                    class: ObjectClass::Constant,
+                    mode: Some(Mode::In),
+                    subtype: Subtype::new(time.to_owned()),
+                    has_default: false,
+                }),
+                time.decl_pos(),
+            )));
+
+            params.add(Arc::new(NamedEntity::new(
+                self.symbol("UNIT"),
+                NamedEntityKind::Object(Object {
+                    class: ObjectClass::Constant,
+                    mode: Some(Mode::In),
+                    subtype: Subtype::new(time.to_owned()),
+                    has_default: false,
+                }),
+                time.decl_pos(),
+            )));
+
+            let ent = Arc::new(NamedEntity::implicit(
+                time.clone().into(),
+                self.symbol("TO_STRING"),
+                NamedEntityKind::Subprogram(Signature::new(params, Some(string))),
+                time.decl_pos(),
+            ));
+
+            if let Some(implicit) = time.kind().implicits() {
+                // This is safe because the standard package is analyzed in a single thread
+                unsafe { implicit.push(&ent) };
+            }
+            res.push(ent);
+        }
         res
     }
 }
