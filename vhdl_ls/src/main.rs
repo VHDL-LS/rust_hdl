@@ -13,6 +13,10 @@ struct Args {
     /// Disable diagnostic messages, only use navigation and hover features
     #[arg(long, default_value_t = false)]
     no_lint: bool,
+
+    /// Silence all but error messages
+    #[arg(long, default_value_t = false)]
+    silent: bool,
 }
 
 fn main() {
@@ -22,5 +26,6 @@ fn main() {
     log::info!("Starting language server");
     vhdl_ls::start(VHDLServerSettings {
         no_lint: args.no_lint,
+        silent: args.silent,
     });
 }

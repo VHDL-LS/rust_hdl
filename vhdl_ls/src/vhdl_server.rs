@@ -17,6 +17,7 @@ use vhdl_lang::{Config, Diagnostic, Message, MessageHandler, Project, Severity, 
 #[derive(Default, Clone)]
 pub struct VHDLServerSettings {
     pub no_lint: bool,
+    pub silent: bool,
 }
 
 pub struct VHDLServer {
@@ -384,6 +385,7 @@ impl VHDLServer {
 
     fn message_filter(&self) -> MessageFilter {
         MessageFilter {
+            silent: self.settings.silent,
             rpc: self.rpc.clone(),
         }
     }
@@ -394,11 +396,16 @@ impl VHDLServer {
 }
 
 struct MessageFilter {
+    silent: bool,
     rpc: SharedRpcChannel,
 }
 
 impl MessageHandler for MessageFilter {
     fn push(&mut self, msg: Message) {
+        if self.silent && msg.message_type != vhdl_lang::MessageType::Error {
+            return;
+        }
+
         if matches!(
             msg.message_type,
             vhdl_lang::MessageType::Warning | vhdl_lang::MessageType::Error
