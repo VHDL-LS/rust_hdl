@@ -331,6 +331,10 @@ impl DesignRoot {
         FindAllReferences::search(self, ent)
     }
 
+    pub fn find_all_unresolved(&self) -> (usize, Vec<SrcPos>) {
+        FindAllUnresolved::search(self)
+    }
+
     #[cfg(test)]
     pub fn find_all_references_pos(&self, decl_pos: &SrcPos) -> Vec<SrcPos> {
         if let Some(ent) = ItemAtCursor::search(self, decl_pos.source(), decl_pos.start()) {

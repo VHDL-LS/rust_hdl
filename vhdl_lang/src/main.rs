@@ -29,6 +29,11 @@ struct Args {
     /// Config file in TOML format containing libraries and settings
     #[arg(short, long)]
     config: String,
+
+    /// Dump items that are not resolved into an unique reference
+    /// This is used for development to test where the language server is blind
+    #[arg(long)]
+    dump_unresolved: bool,
 }
 
 fn main() {
@@ -70,6 +75,14 @@ fn main() {
             duration.as_millis(),
             duration_per_line.as_nanos()
         );
+    }
+
+    if args.dump_unresolved {
+        let (total, unresolved) = project.find_all_unresolved();
+        for pos in unresolved.iter() {
+            println!("{}", pos.show("Unresolved"));
+        }
+        println!("{} out of {} positions unresolved", unresolved.len(), total);
     }
 
     // Exit without running Drop on entire allocated AST

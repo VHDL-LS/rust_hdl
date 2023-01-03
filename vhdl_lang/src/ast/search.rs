@@ -1471,3 +1471,29 @@ impl std::fmt::Display for FoundDeclaration<'_> {
         }
     }
 }
+
+pub struct FindAllUnresolved {
+    pub count: usize,
+    pub unresolved: Vec<SrcPos>,
+}
+
+impl Searcher for FindAllUnresolved {
+    fn search_pos_with_ref(&mut self, pos: &SrcPos, reference: &Reference) -> SearchState {
+        self.count += 1;
+        if reference.is_none() {
+            self.unresolved.push(pos.clone());
+        }
+        NotFinished
+    }
+}
+
+impl FindAllUnresolved {
+    pub fn search(searchable: &impl Search) -> (usize, Vec<SrcPos>) {
+        let mut searcher = Self {
+            count: 0,
+            unresolved: Default::default(),
+        };
+        let _ = searchable.search(&mut searcher);
+        (searcher.count, searcher.unresolved)
+    }
+}
