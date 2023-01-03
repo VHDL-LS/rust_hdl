@@ -14,12 +14,13 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::rpc_channel::RpcChannel;
 use crate::vhdl_server::VHDLServer;
+use crate::vhdl_server::VHDLServerSettings;
 
 /// Set up the IO channel for `stdio` and start the VHDL language server.
-pub fn start() {
+pub fn start(settings: VHDLServerSettings) {
     let (connection, io_threads) = Connection::stdio();
     let connection_rpc = ConnectionRpcChannel::new(connection);
-    let mut server = VHDLServer::new(connection_rpc.clone());
+    let mut server = VHDLServer::new_settings(connection_rpc.clone(), settings);
 
     connection_rpc.handle_initialization(&mut server);
     connection_rpc.main_event_loop(server);

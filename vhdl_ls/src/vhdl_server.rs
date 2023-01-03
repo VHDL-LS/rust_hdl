@@ -14,8 +14,14 @@ use std::io;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{Config, Diagnostic, Message, Project, Severity, Source, SrcPos};
 
+#[derive(Default, Clone)]
+pub struct VHDLServerSettings {
+    pub no_lint: bool,
+}
+
 pub struct VHDLServer<T: RpcChannel + Clone> {
     rpc_channel: T,
+    settings: VHDLServerSettings,
     // To have well defined unit tests that are not affected by environment
     use_external_config: bool,
     server: Option<InitializedVHDLServer<T>>,
@@ -23,13 +29,21 @@ pub struct VHDLServer<T: RpcChannel + Clone> {
 }
 
 impl<T: RpcChannel + Clone> VHDLServer<T> {
-    pub fn new(rpc_channel: T) -> VHDLServer<T> {
-        Self::new_external_config(rpc_channel, true)
+    pub fn new_settings(rpc_channel: T, settings: VHDLServerSettings) -> VHDLServer<T> {
+        VHDLServer {
+            rpc_channel,
+            settings,
+            use_external_config: true,
+            server: None,
+            config_file: None,
+        }
     }
 
+    #[cfg(test)]
     fn new_external_config(rpc_channel: T, use_external_config: bool) -> VHDLServer<T> {
         VHDLServer {
             rpc_channel,
+            settings: Default::default(),
             use_external_config,
             server: None,
             config_file: None,
@@ -86,7 +100,12 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
     pub fn initialize_request(&mut self, params: InitializeParams) -> InitializeResult {
         self.config_file = self.root_uri_config_file(&params);
         let config = self.load_config();
-        let (server, result) = InitializedVHDLServer::new(self.rpc_channel.clone(), config, params);
+        let (server, result) = InitializedVHDLServer::new(
+            self.rpc_channel.clone(),
+            self.settings.clone(),
+            config,
+            params,
+        );
         self.server = Some(server);
         result
     }
@@ -212,6 +231,7 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
 
 struct InitializedVHDLServer<T: RpcChannel> {
     rpc_channel: T,
+    settings: VHDLServerSettings,
     init_params: InitializeParams,
     project: Project,
     files_with_notifications: FnvHashMap<Url, ()>,
@@ -235,6 +255,7 @@ impl<T: RpcChannel> RpcChannel for InitializedVHDLServer<T> {
 impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
     pub fn new(
         rpc_channel: T,
+        settings: VHDLServerSettings,
         config: Config,
         init_params: InitializeParams,
     ) -> (InitializedVHDLServer<T>, InitializeResult) {
@@ -242,6 +263,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
 
         let server = InitializedVHDLServer {
             rpc_channel,
+            settings,
             init_params,
             project,
             files_with_notifications: FnvHashMap::default(),
@@ -303,6 +325,10 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
     }
 
     fn publish_diagnostics(&mut self) {
+        if self.settings.no_lint {
+            return;
+        }
+
         let supports_related_information = self.client_supports_related_information();
         let diagnostics = self.project.analyse();
         let diagnostics = {
