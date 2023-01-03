@@ -364,9 +364,12 @@ fn parse_primary_initial_token(
             if let Some(unit_token) = stream.pop_if_kind(Identifier)? {
                 let unit = unit_token.expect_ident()?;
                 let pos = value.pos.combine_into(&unit);
-                let physical = Literal::Physical(value.item, unit.item);
+                let physical = PhysicalLiteral {
+                    value: value.item,
+                    unit: WithRef::new(unit),
+                };
                 Ok(WithPos {
-                    item: Expression::Literal(physical),
+                    item: Expression::Literal(Literal::Physical(physical)),
                     pos,
                 })
             } else {
@@ -716,10 +719,10 @@ mod tests {
     fn parses_physical_unit_expression() {
         let code = Code::new("1 ns");
         let expr = WithPos {
-            item: Expression::Literal(Literal::Physical(
-                AbstractLiteral::Integer(1),
-                code.symbol("ns"),
-            )),
+            item: Expression::Literal(Literal::Physical(PhysicalLiteral {
+                value: AbstractLiteral::Integer(1),
+                unit: code.s1("ns").ident().into_ref(),
+            })),
             pos: code.pos(),
         };
 
@@ -730,10 +733,10 @@ mod tests {
     fn parses_physical_unit_expression_real() {
         let code = Code::new("1.0 ns");
         let expr = WithPos {
-            item: Expression::Literal(Literal::Physical(
-                AbstractLiteral::Real(1.0),
-                code.symbol("ns"),
-            )),
+            item: Expression::Literal(Literal::Physical(PhysicalLiteral {
+                value: AbstractLiteral::Real(1.0),
+                unit: code.s1("ns").ident().into_ref(),
+            })),
             pos: code.pos(),
         };
 
@@ -744,10 +747,10 @@ mod tests {
     fn parses_physical_unit_expression_binary() {
         let code = Code::new("2 * 1 ns");
         let time_expr = WithPos {
-            item: Expression::Literal(Literal::Physical(
-                AbstractLiteral::Integer(1),
-                code.symbol("ns"),
-            )),
+            item: Expression::Literal(Literal::Physical(PhysicalLiteral {
+                value: AbstractLiteral::Integer(1),
+                unit: code.s1("ns").ident().into_ref(),
+            })),
             pos: code.s1("1 ns").pos(),
         };
         let two_expr = WithPos {
@@ -765,10 +768,10 @@ mod tests {
     fn parses_physical_unit_expression_unary() {
         let code = Code::new("- 1 ns");
         let time_expr = WithPos {
-            item: Expression::Literal(Literal::Physical(
-                AbstractLiteral::Integer(1),
-                code.symbol("ns"),
-            )),
+            item: Expression::Literal(Literal::Physical(PhysicalLiteral {
+                value: AbstractLiteral::Integer(1),
+                unit: code.s1("ns").ident().into_ref(),
+            })),
             pos: code.s1("1 ns").pos(),
         };
         let expr = WithPos {
@@ -1107,12 +1110,12 @@ mod tests {
                     AbstractLiteral::Real(val) => format!("Real({})", val),
                 },
                 Literal::Character(val) => format!("'{}'", Latin1String::new(&[*val])),
-                Literal::Physical(ref val, ref sym) => match val {
+                Literal::Physical(ref physical) => match physical.value {
                     AbstractLiteral::Integer(val) => {
-                        format!("Physical(Integer({}), {})", val, sym.name())
+                        format!("Physical(Integer({}), {})", val, physical.unit.item.name())
                     }
                     AbstractLiteral::Real(val) => {
-                        format!("Physical(Real({}), {})", val, sym.name())
+                        format!("Physical(Real({}), {})", val, physical.unit.item.name())
                     }
                 },
                 _ => {

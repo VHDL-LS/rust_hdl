@@ -214,6 +214,12 @@ pub struct BitString {
     pub value: Latin1String,
 }
 
+#[derive(PartialEq, Debug, Clone)]
+pub struct PhysicalLiteral {
+    pub value: AbstractLiteral,
+    pub unit: WithRef<Ident>,
+}
+
 /// LRM 9.3.2 Literals
 #[derive(PartialEq, Debug, Clone)]
 pub enum Literal {
@@ -221,7 +227,7 @@ pub enum Literal {
     BitString(BitString),
     Character(u8),
     AbstractLiteral(AbstractLiteral),
-    Physical(AbstractLiteral, Symbol),
+    Physical(PhysicalLiteral),
     Null,
 }
 
@@ -498,7 +504,7 @@ pub struct ProtectedTypeBody {
 pub struct PhysicalTypeDeclaration {
     pub range: Range,
     pub primary_unit: WithDecl<Ident>,
-    pub secondary_units: Vec<(WithDecl<Ident>, Literal)>,
+    pub secondary_units: Vec<(WithDecl<Ident>, PhysicalLiteral)>,
 }
 
 /// LRM 5.2.2 Enumeration types

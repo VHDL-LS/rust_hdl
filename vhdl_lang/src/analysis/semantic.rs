@@ -571,7 +571,15 @@ impl<'a> AnalyzeContext<'a> {
                     self.analyze_subtype_indication(region, subtype, diagnostics)
                 }
             },
-            Expression::Literal(_) => Ok(()),
+            Expression::Literal(ref mut literal) => match literal {
+                Literal::Physical(PhysicalLiteral { ref mut unit, .. }) => {
+                    if let Err(diagnostic) = self.resolve_physical_unit(region, unit) {
+                        diagnostics.push(diagnostic);
+                    }
+                    Ok(())
+                }
+                _ => Ok(()),
+            },
         }
     }
 
@@ -1041,9 +1049,10 @@ impl<'a> AnalyzeContext<'a> {
     /// None if it was uncertain
     pub fn analyze_literal_with_target_type(
         &self,
+        region: &Region<'_>,
         target_type: &TypeEnt,
         pos: &SrcPos,
-        literal: &Literal,
+        literal: &mut Literal,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<Option<bool>> {
         let target_base = target_type.base_type();
@@ -1154,10 +1163,46 @@ impl<'a> AnalyzeContext<'a> {
                 }
             },
 
+            Literal::Physical(PhysicalLiteral { ref mut unit, .. }) => {
+                match self.resolve_physical_unit(region, unit) {
+                    Ok(physical_type) => Some(physical_type.base_type() == target_base),
+                    Err(diagnostic) => {
+                        diagnostics.push(diagnostic);
+                        Some(false)
+                    }
+                }
+            }
             _ => None,
         };
 
         Ok(is_correct)
+    }
+
+    pub fn resolve_physical_unit(
+        &self,
+        region: &Region<'_>,
+        unit: &mut WithRef<Ident>,
+    ) -> Result<TypeEnt, Diagnostic> {
+        match region.lookup_within(
+            &unit.item.pos,
+            &Designator::Identifier(unit.item.item.clone()),
+        )? {
+            NamedEntities::Single(unit_ent) => {
+                unit.set_unique_reference(&unit_ent);
+                if let NamedEntityKind::PhysicalLiteral(physical_ent) = unit_ent.actual_kind() {
+                    Ok(physical_ent.clone())
+                } else {
+                    Err(Diagnostic::error(
+                        &unit.item.pos,
+                        format!("{} is not a physical unit", unit_ent.describe()),
+                    ))
+                }
+            }
+            NamedEntities::Overloaded(_) => Err(Diagnostic::error(
+                &unit.item.pos,
+                "Overloaded name may not be physical unit",
+            )),
+        }
     }
 
     /// Returns true if the name actually matches the target type
@@ -1171,9 +1216,13 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<Option<bool>> {
         match expr {
-            Expression::Literal(ref lit) => {
-                self.analyze_literal_with_target_type(target_type, expr_pos, lit, diagnostics)
-            }
+            Expression::Literal(ref mut lit) => self.analyze_literal_with_target_type(
+                region,
+                target_type,
+                expr_pos,
+                lit,
+                diagnostics,
+            ),
             Expression::Name(ref mut name) => {
                 self.analyze_name_with_target_type(region, target_type, expr_pos, name, diagnostics)
             }

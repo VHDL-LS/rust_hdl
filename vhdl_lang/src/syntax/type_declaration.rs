@@ -167,11 +167,11 @@ fn parse_physical_type_definition(
                         AbstractLiteral => {
                             let value = value_token.expect_abstract_literal()?.item;
                             let unit = stream.expect_ident()?;
-                            Literal::Physical(value, unit.item)
+                            PhysicalLiteral {value, unit: unit.into_ref()}
                         },
                         Identifier => {
                             let unit = value_token.expect_ident()?;
-                            Literal::Physical(AbstractLiteral::Integer(1), unit.item)
+                            PhysicalLiteral {value: AbstractLiteral::Integer(1), unit: unit.into_ref()}
                         }
                     )
                 };
@@ -749,7 +749,10 @@ end units;
                     primary_unit: code.s1("primary_unit").decl_ident(),
                     secondary_units: vec![(
                         code.s1("secondary_unit").decl_ident(),
-                        Literal::Physical(AbstractLiteral::Integer(5), code.symbol("primary_unit"))
+                        PhysicalLiteral {
+                            value: AbstractLiteral::Integer(5),
+                            unit: code.s("primary_unit", 2).ident().into_ref()
+                        }
                     ),]
                 })
             }
@@ -776,7 +779,10 @@ end units;
                     primary_unit: code.s1("primary_unit").decl_ident(),
                     secondary_units: vec![(
                         code.s1("secondary_unit").decl_ident(),
-                        Literal::Physical(AbstractLiteral::Integer(1), code.symbol("primary_unit"))
+                        PhysicalLiteral {
+                            value: AbstractLiteral::Integer(1),
+                            unit: code.s("primary_unit", 2).ident().into_ref()
+                        }
                     ),]
                 })
             }

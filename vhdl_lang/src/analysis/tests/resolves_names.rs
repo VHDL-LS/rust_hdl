@@ -1471,3 +1471,42 @@ end architecture;
         ],
     );
 }
+
+#[test]
+fn hover_for_physical_type_units() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type time_t is range -9223372036854775807 to 9223372036854775807
+units
+  small;
+  big = 1000 small;
+end units;
+
+constant the_time1 : time_t := small;
+constant the_time2 : time_t := 1000 small;
+constant the_time3 : time_t := big;
+constant the_time4 : time_t := 1000 big;
+    
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    for i in 0..3 {
+        let ent = root
+            .search_reference(code.source(), code.s("small", 1 + i).start())
+            .unwrap();
+        assert_eq!(ent.decl_pos().unwrap(), &code.s1("small").pos());
+        assert_eq!(root.format_declaration(ent), Some("small".to_string()));
+    }
+
+    for i in 0..2 {
+        let ent = root
+            .search_reference(code.source(), code.s("big", 1 + i).start())
+            .unwrap();
+        assert_eq!(ent.decl_pos().unwrap(), &code.s1("big").pos());
+        assert_eq!(root.format_declaration(ent), Some("1000 small".to_string()));
+    }
+}

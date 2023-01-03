@@ -266,6 +266,12 @@ impl Display for BitString {
     }
 }
 
+impl Display for PhysicalLiteral {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{} {}", self.value, self.unit)
+    }
+}
+
 impl Display for Literal {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
@@ -273,7 +279,7 @@ impl Display for Literal {
             Literal::BitString(ref val) => write!(f, "{}", val),
             Literal::Character(byte) => write!(f, "'{}'", *byte as char),
             Literal::AbstractLiteral(ref val) => write!(f, "{}", val),
-            Literal::Physical(ref val, ref sym) => write!(f, "{} {}", val, sym),
+            Literal::Physical(ref val) => write!(f, "{}", val),
             Literal::Null => write!(f, "null"),
         }
     }

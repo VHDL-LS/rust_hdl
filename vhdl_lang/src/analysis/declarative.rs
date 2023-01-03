@@ -692,6 +692,7 @@ impl<'a> AnalyzeContext<'a> {
                     &mut type_decl.ident,
                     Type::Physical(Implicits::default()),
                 );
+                parent.add(phys_type.clone().into(), diagnostics);
 
                 parent.add(
                     physical
@@ -699,15 +700,29 @@ impl<'a> AnalyzeContext<'a> {
                         .define(NamedEntityKind::PhysicalLiteral(phys_type.clone())),
                     diagnostics,
                 );
-                for (secondary_unit_name, _) in physical.secondary_units.iter_mut() {
+                for (secondary_unit_name, value) in physical.secondary_units.iter_mut() {
+                    match self.resolve_physical_unit(parent, &mut value.unit) {
+                        Ok(secondary_unit_type) => {
+                            if secondary_unit_type.base_type() != &phys_type {
+                                diagnostics.error(
+                                    &value.unit.item.pos,
+                                    format!(
+                                        "Physical unit of type '{}' does not match {}",
+                                        secondary_unit_type.designator(),
+                                        phys_type.describe()
+                                    ),
+                                )
+                            }
+                        }
+                        Err(err) => diagnostics.push(err),
+                    }
+
                     parent.add(
                         secondary_unit_name
                             .define(NamedEntityKind::PhysicalLiteral(phys_type.clone())),
                         diagnostics,
                     )
                 }
-
-                parent.add(phys_type.into(), diagnostics);
             }
             TypeDefinition::Incomplete(..) => {
                 unreachable!("Handled elsewhere");

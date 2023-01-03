@@ -815,6 +815,10 @@ end package;
             // Secondary units
             duplicate(&code, "bugs", 1, 2),
             duplicate(&code, "bugs", 1, 3),
+            Diagnostic::error(
+                code.s("10 bangs", 2).s1("bangs"),
+                "Physical unit of type 'phys_t' does not match physical type 'phys2_t'",
+            ),
         ],
     );
 }

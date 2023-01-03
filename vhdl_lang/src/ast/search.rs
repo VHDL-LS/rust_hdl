@@ -47,6 +47,8 @@ pub enum FoundDeclaration<'a> {
     InterfaceObject(&'a InterfaceObjectDeclaration),
     File(&'a FileDeclaration),
     Type(&'a TypeDeclaration),
+    PhysicalTypePrimary(&'a WithDecl<Ident>),
+    PhysicalTypeSecondary(&'a WithDecl<Ident>, &'a PhysicalLiteral),
     Component(&'a ComponentDeclaration),
     //Attribute(&'a AttributeDeclaration),
     Alias(&'a AliasDeclaration),
@@ -750,11 +752,22 @@ impl Search for TypeDeclaration {
                         .or_not_found());
                 }
             }
-            // @TODO others
-            _ => {
+            TypeDefinition::Physical(ref physical) => {
+                let PhysicalTypeDeclaration {
+                    range,
+                    primary_unit,
+                    secondary_units,
+                } = physical;
+                return_if_found!(range.search(searcher));
                 return_if_found!(searcher
-                    .search_decl(FoundDeclaration::Type(self))
+                    .search_decl(FoundDeclaration::PhysicalTypePrimary(primary_unit))
                     .or_not_found());
+                for (ident, literal) in secondary_units.iter() {
+                    return_if_found!(searcher
+                        .search_decl(FoundDeclaration::PhysicalTypeSecondary(ident, literal))
+                        .or_not_found());
+                    return_if_found!(searcher.search_ident_ref(&literal.unit).or_not_found());
+                }
             }
         }
         NotFound
@@ -779,7 +792,12 @@ fn search_pos_expr(pos: &SrcPos, expr: &Expression, searcher: &mut impl Searcher
                 Allocator::Subtype(ref subtype) => subtype.search(searcher),
             }
         }
-        Expression::Literal(_) => NotFound,
+        Expression::Literal(literal) => match literal {
+            Literal::Physical(PhysicalLiteral { unit, .. }) => {
+                searcher.search_ident_ref(unit).or_not_found()
+            }
+            _ => NotFound,
+        },
     }
 }
 
@@ -1329,6 +1347,8 @@ impl<'a> HasNamedEntity for FoundDeclaration<'a> {
             FoundDeclaration::EnumerationLiteral(_, elem) => elem.decl.as_ref(),
             FoundDeclaration::File(value) => value.ident.decl.as_ref(),
             FoundDeclaration::Type(value) => value.ident.decl.as_ref(),
+            FoundDeclaration::PhysicalTypePrimary(value) => value.decl.as_ref(),
+            FoundDeclaration::PhysicalTypeSecondary(value, _) => value.decl.as_ref(),
             FoundDeclaration::Component(value) => value.ident.decl.as_ref(),
             FoundDeclaration::Alias(value) => value.designator.decl.as_ref(),
             FoundDeclaration::Package(value) => value.ident.decl.as_ref(),
@@ -1357,6 +1377,8 @@ impl<'a> HasSrcPos for FoundDeclaration<'a> {
             FoundDeclaration::EnumerationLiteral(_, elem) => &elem.tree.pos,
             FoundDeclaration::File(value) => value.ident.pos(),
             FoundDeclaration::Type(value) => value.ident.pos(),
+            FoundDeclaration::PhysicalTypePrimary(value) => value.pos(),
+            FoundDeclaration::PhysicalTypeSecondary(value, _) => value.as_ref(),
             FoundDeclaration::Component(value) => value.ident.pos(),
             FoundDeclaration::Alias(value) => &value.designator.tree.pos,
             FoundDeclaration::Package(value) => value.ident.pos(),
@@ -1406,6 +1428,12 @@ impl std::fmt::Display for FoundDeclaration<'_> {
             }
             FoundDeclaration::File(ref value) => {
                 write!(f, "{}", value)
+            }
+            FoundDeclaration::PhysicalTypePrimary(ref value) => {
+                write!(f, "{}", value)
+            }
+            FoundDeclaration::PhysicalTypeSecondary(_, ref literal) => {
+                write!(f, "{}", literal)
             }
             FoundDeclaration::Type(ref value) => {
                 write!(f, "{}", value)
