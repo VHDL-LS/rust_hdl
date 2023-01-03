@@ -19,8 +19,8 @@ use vhdl_lang::{Config, Diagnostic, MessagePrinter, Project};
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// The number of threads to use. By default the maximum is selected based on process cores
-    #[arg(short = 'p', long, default_value_t = 1)]
-    num_threads: usize,
+    #[arg(short = 'p', long)]
+    num_threads: Option<usize>,
 
     /// Prints the number of files processed and the execution time
     #[arg(long, default_value_t = false)]
@@ -34,7 +34,7 @@ struct Args {
 fn main() {
     let args = Args::parse();
     rayon::ThreadPoolBuilder::new()
-        .num_threads(args.num_threads)
+        .num_threads(args.num_threads.unwrap_or(0))
         .build_global()
         .unwrap();
 
