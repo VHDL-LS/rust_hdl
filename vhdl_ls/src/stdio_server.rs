@@ -10,18 +10,20 @@
 
 use lsp_server::{Connection, ExtractError, Request, RequestId};
 use lsp_types::{notification, request, InitializeParams};
+use serde_json::Value;
+
 use std::{cell::RefCell, rc::Rc};
 
-use crate::rpc_channel::RpcChannel;
+use crate::rpc_channel::{RpcChannel, SharedRpcChannel};
 use crate::vhdl_server::VHDLServer;
 use crate::vhdl_server::VHDLServerSettings;
 
 /// Set up the IO channel for `stdio` and start the VHDL language server.
 pub fn start(settings: VHDLServerSettings) {
     let (connection, io_threads) = Connection::stdio();
-    let connection_rpc = ConnectionRpcChannel::new(connection);
-    let mut server = VHDLServer::new_settings(connection_rpc.clone(), settings);
-
+    let connection_rpc = Rc::new(ConnectionRpcChannel::new(connection));
+    let rpc = SharedRpcChannel::new(connection_rpc.clone());
+    let mut server = VHDLServer::new_settings(rpc, settings);
     connection_rpc.handle_initialization(&mut server);
     connection_rpc.main_event_loop(server);
 
@@ -38,29 +40,18 @@ struct ConnectionRpcChannel {
 
 impl RpcChannel for ConnectionRpcChannel {
     /// Send notification to the client.
-    fn send_notification(
-        &self,
-        method: impl Into<String>,
-        notification: impl serde::ser::Serialize,
-    ) {
-        let notification = lsp_server::Notification {
-            method: method.into(),
-            params: serde_json::to_value(notification).unwrap(),
-        };
+    fn send_notification(&self, method: String, params: Value) {
+        let notification = lsp_server::Notification { method, params };
 
         trace!("Sending notification: {:?}", notification);
         self.connection.sender.send(notification.into()).unwrap();
     }
 
     /// Send request to the client.
-    fn send_request(&self, method: impl Into<String>, params: impl serde::ser::Serialize) {
+    fn send_request(&self, method: String, params: Value) {
         let request_id = self.next_outgoing_request_id.replace_with(|&mut id| id + 1);
 
-        let request = Request::new(
-            RequestId::from(request_id),
-            method.into(),
-            serde_json::to_value(params).unwrap(),
-        );
+        let request = Request::new(RequestId::from(request_id), method, params);
         self.connection.sender.send(request.into()).unwrap();
     }
 }
@@ -74,7 +65,7 @@ impl ConnectionRpcChannel {
     }
 
     /// Wait for initialize request from the client and let the server respond to it.
-    fn handle_initialization<T: RpcChannel + Clone>(&self, server: &mut VHDLServer<T>) {
+    fn handle_initialization(&self, server: &mut VHDLServer) {
         let (initialize_id, initialize_params) = self.connection.initialize_start().unwrap();
         let initialize_params =
             serde_json::from_value::<InitializeParams>(initialize_params).unwrap();
@@ -90,7 +81,7 @@ impl ConnectionRpcChannel {
     }
 
     /// Main event loop handling incoming messages from the client.
-    fn main_event_loop<T: RpcChannel + Clone>(&self, mut server: VHDLServer<T>) {
+    fn main_event_loop(&self, mut server: VHDLServer) {
         info!("Language server initialized, waiting for messages ...");
         while let Ok(message) = self.connection.receiver.recv() {
             trace!("Received message: {:?}", message);
@@ -113,11 +104,7 @@ impl ConnectionRpcChannel {
     }
 
     /// Handle incoming requests from the client.
-    fn handle_request<T: RpcChannel + Clone>(
-        &self,
-        server: &mut VHDLServer<T>,
-        request: lsp_server::Request,
-    ) {
+    fn handle_request(&self, server: &mut VHDLServer, request: lsp_server::Request) {
         fn extract<R>(
             request: lsp_server::Request,
         ) -> Result<(lsp_server::RequestId, R::Params), lsp_server::Request>
@@ -185,11 +172,7 @@ impl ConnectionRpcChannel {
     }
 
     /// Handle incoming notifications from the client.
-    fn handle_notification<T: RpcChannel + Clone>(
-        &self,
-        server: &mut VHDLServer<T>,
-        notification: lsp_server::Notification,
-    ) {
+    fn handle_notification(&self, server: &mut VHDLServer, notification: lsp_server::Notification) {
         fn extract<N>(
             notification: lsp_server::Notification,
         ) -> Result<N::Params, lsp_server::Notification>
@@ -233,11 +216,7 @@ impl ConnectionRpcChannel {
     }
 
     /// Handle incoming responses (to requests sent by us) from the client.
-    fn handle_response<T: RpcChannel + Clone>(
-        &self,
-        _server: &mut VHDLServer<T>,
-        response: lsp_server::Response,
-    ) {
+    fn handle_response(&self, _server: &mut VHDLServer, response: lsp_server::Response) {
         trace!("Handling response: {:?}", response);
         // We currently can ignore incoming responses as the implemented
         // outgoing requests do not require confirmation by the client.

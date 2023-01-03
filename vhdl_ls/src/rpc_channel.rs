@@ -6,73 +6,41 @@
 
 //! Contains the RpcChannel Traid and associated convenience functions
 
-use lsp_types::*;
-use vhdl_lang::{Message, MessageHandler};
+use serde_json::Value;
+use std::rc::Rc;
 
 pub trait RpcChannel {
     /// Send notification to the client.
-    fn send_notification(
+    fn send_notification(&self, method: String, notification: Value);
+
+    /// Send request to the client.
+    fn send_request(&self, method: String, params: Value);
+}
+
+#[derive(Clone)]
+pub struct SharedRpcChannel {
+    chan: Rc<dyn RpcChannel>,
+}
+
+impl SharedRpcChannel {
+    pub fn new(chan: Rc<dyn RpcChannel>) -> Self {
+        Self { chan }
+    }
+
+    /// Send notification to the client.
+    pub fn send_notification(
         &self,
         method: impl Into<String>,
         notification: impl serde::ser::Serialize,
-    );
+    ) {
+        self.chan
+            .send_notification(method.into(), serde_json::to_value(&notification).unwrap())
+    }
 
     /// Send request to the client.
-    fn send_request(&self, method: impl Into<String>, params: impl serde::ser::Serialize);
-
-    fn window_show_message(&self, typ: MessageType, message: impl Into<String>) {
-        self.send_notification(
-            "window/showMessage",
-            ShowMessageParams {
-                typ,
-                message: message.into(),
-            },
-        );
-    }
-
-    fn window_log_message(&self, typ: MessageType, message: impl Into<String>) {
-        self.send_notification(
-            "window/logMessage",
-            LogMessageParams {
-                typ,
-                message: message.into(),
-            },
-        );
-    }
-
-    fn push_msg(&self, msg: Message) {
-        if matches!(
-            msg.message_type,
-            vhdl_lang::MessageType::Warning | vhdl_lang::MessageType::Error
-        ) {
-            self.window_show_message(to_lsp_message_type(&msg.message_type), msg.message.clone());
-        }
-        self.window_log_message(to_lsp_message_type(&msg.message_type), msg.message);
-    }
-}
-
-pub struct MessageChannel<'a, T: RpcChannel> {
-    channel: &'a T,
-}
-
-impl<'a, T: RpcChannel> MessageChannel<'a, T> {
-    pub fn new(channel: &'a T) -> MessageChannel<'a, T> {
-        MessageChannel { channel }
-    }
-}
-
-impl<'a, T: RpcChannel> MessageHandler for MessageChannel<'a, T> {
-    fn push(&mut self, message: Message) {
-        self.channel.push_msg(message);
-    }
-}
-
-fn to_lsp_message_type(message_type: &vhdl_lang::MessageType) -> MessageType {
-    match message_type {
-        vhdl_lang::MessageType::Error => MessageType::ERROR,
-        vhdl_lang::MessageType::Warning => MessageType::WARNING,
-        vhdl_lang::MessageType::Info => MessageType::INFO,
-        vhdl_lang::MessageType::Log => MessageType::LOG,
+    pub fn send_request(&self, method: impl Into<String>, params: impl serde::ser::Serialize) {
+        self.chan
+            .send_request(method.into(), serde_json::to_value(&params).unwrap())
     }
 }
 
@@ -80,6 +48,7 @@ fn to_lsp_message_type(message_type: &vhdl_lang::MessageType) -> MessageType {
 pub mod test_support {
 
     use pretty_assertions::assert_eq;
+    use serde_json::Value;
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::rc::Rc;
@@ -191,13 +160,7 @@ pub mod test_support {
     }
 
     impl super::RpcChannel for RpcMock {
-        fn send_notification(
-            &self,
-            method: impl Into<String>,
-            notification: impl serde::ser::Serialize,
-        ) {
-            let method = method.into();
-            let notification = serde_json::to_value(notification).unwrap();
+        fn send_notification(&self, method: String, notification: Value) {
             let expected = self
                 .expected
                 .borrow_mut()
@@ -240,9 +203,7 @@ pub mod test_support {
             }
         }
 
-        fn send_request(&self, method: impl Into<String>, params: impl serde::ser::Serialize) {
-            let method = method.into();
-            let params = serde_json::to_value(params).unwrap();
+        fn send_request(&self, method: String, params: Value) {
             let expected = self
                 .expected
                 .borrow_mut()

@@ -9,43 +9,49 @@ use lsp_types::*;
 use fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
 
-use crate::rpc_channel::{MessageChannel, RpcChannel};
+use crate::rpc_channel::SharedRpcChannel;
 use std::io;
 use std::path::{Path, PathBuf};
-use vhdl_lang::{Config, Diagnostic, Message, Project, Severity, Source, SrcPos};
+use vhdl_lang::{Config, Diagnostic, Message, MessageHandler, Project, Severity, Source, SrcPos};
 
 #[derive(Default, Clone)]
 pub struct VHDLServerSettings {
     pub no_lint: bool,
 }
 
-pub struct VHDLServer<T: RpcChannel + Clone> {
-    rpc_channel: T,
+pub struct VHDLServer {
+    rpc: SharedRpcChannel,
     settings: VHDLServerSettings,
     // To have well defined unit tests that are not affected by environment
     use_external_config: bool,
-    server: Option<InitializedVHDLServer<T>>,
+    project: Project,
+    files_with_notifications: FnvHashMap<Url, ()>,
+    init_params: Option<InitializeParams>,
     config_file: Option<PathBuf>,
 }
 
-impl<T: RpcChannel + Clone> VHDLServer<T> {
-    pub fn new_settings(rpc_channel: T, settings: VHDLServerSettings) -> VHDLServer<T> {
+impl VHDLServer {
+    pub fn new_settings(rpc: SharedRpcChannel, settings: VHDLServerSettings) -> VHDLServer {
         VHDLServer {
-            rpc_channel,
+            rpc,
             settings,
             use_external_config: true,
-            server: None,
+            project: Project::new(),
+            files_with_notifications: FnvHashMap::default(),
+            init_params: None,
             config_file: None,
         }
     }
 
     #[cfg(test)]
-    fn new_external_config(rpc_channel: T, use_external_config: bool) -> VHDLServer<T> {
+    fn new_external_config(rpc: SharedRpcChannel, use_external_config: bool) -> VHDLServer {
         VHDLServer {
-            rpc_channel,
+            rpc,
             settings: Default::default(),
             use_external_config,
-            server: None,
+            project: Project::new(),
+            files_with_notifications: FnvHashMap::default(),
+            init_params: None,
             config_file: None,
         }
     }
@@ -61,7 +67,7 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         let config = Config::read_file_path(config_file)?;
 
         // Log which file was loaded
-        self.rpc_channel.push_msg(Message::log(format!(
+        self.message(Message::log(format!(
             "Loaded workspace root configuration file: {}",
             config_file.to_str().unwrap()
         )));
@@ -73,22 +79,21 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
     /// Log info/error messages to the client
     fn load_config(&self) -> Config {
         let mut config = Config::default();
-        let mut message_chan = MessageChannel::new(&self.rpc_channel);
 
         if self.use_external_config {
-            config.load_external_config(&mut message_chan);
+            config.load_external_config(&mut self.message_filter());
         }
 
         match self.load_root_uri_config() {
             Ok(root_config) => {
-                config.append(&root_config, &mut message_chan);
+                config.append(&root_config, &mut self.message_filter());
             }
             Err(ref err) => {
-                self.rpc_channel.push_msg(Message::error(format!(
+                self.message(Message::error(format!(
                     "Library mapping is unknown due to missing vhdl_ls.toml config file in the workspace root path: {}",
                     err
                 )));
-                self.rpc_channel.push_msg(Message::warning(
+                self.message(Message::warning(
                     "Without library mapping semantic analysis might be incorrect",
                 ));
             }
@@ -97,17 +102,27 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
         config
     }
 
-    pub fn initialize_request(&mut self, params: InitializeParams) -> InitializeResult {
-        self.config_file = self.root_uri_config_file(&params);
+    pub fn initialize_request(&mut self, init_params: InitializeParams) -> InitializeResult {
+        self.config_file = self.root_uri_config_file(&init_params);
         let config = self.load_config();
-        let (server, result) = InitializedVHDLServer::new(
-            self.rpc_channel.clone(),
-            self.settings.clone(),
-            config,
-            params,
-        );
-        self.server = Some(server);
-        result
+        self.project = Project::from_config(&config, &mut self.message_filter());
+        self.init_params = Some(init_params);
+
+        let capabilities = ServerCapabilities {
+            text_document_sync: Some(TextDocumentSyncCapability::Kind(
+                TextDocumentSyncKind::INCREMENTAL,
+            )),
+            declaration_provider: Some(DeclarationCapability::Simple(true)),
+            definition_provider: Some(OneOf::Left(true)),
+            hover_provider: Some(HoverProviderCapability::Simple(true)),
+            references_provider: Some(OneOf::Left(true)),
+            ..Default::default()
+        };
+
+        InitializeResult {
+            capabilities,
+            server_info: None,
+        }
     }
 
     /// Extract path of workspace root configuration file from InitializeParams
@@ -117,7 +132,7 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
                 .to_file_path()
                 .map(|root_path| root_path.join("vhdl_ls.toml"))
                 .map_err(|_| {
-                    self.rpc_channel.push_msg(Message::error(format!(
+                    self.message(Message::error(format!(
                         "{} {} {:?} ",
                         "Cannot load workspace:",
                         "initializeParams.rootUri is not a valid file path:",
@@ -126,7 +141,7 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
                 })
                 .ok(),
             None => {
-                self.rpc_channel.push_msg(Message::error(
+                self.message(Message::error(
                     "Cannot load workspace: Initialize request is missing rootUri parameter.",
                 ));
                 None
@@ -135,15 +150,11 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
     }
 
     pub fn shutdown_server(&mut self) {
-        self.server = None;
-    }
-
-    fn mut_server(&mut self) -> &mut InitializedVHDLServer<T> {
-        self.server.as_mut().expect("Expected initialized server")
+        self.init_params = None;
     }
 
     pub fn exit_notification(&mut self) {
-        match self.server {
+        match self.init_params {
             Some(_) => ::std::process::exit(1),
             None => ::std::process::exit(0),
         }
@@ -152,7 +163,7 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
     /// Register capabilities on the client side:
     /// - watch workspace config file for changes
     fn register_capabilities(&mut self) {
-        if self.mut_server().client_supports_did_change_watched_files() {
+        if self.client_supports_did_change_watched_files() {
             let register_options = DidChangeWatchedFilesRegistrationOptions {
                 watchers: vec![FileSystemWatcher {
                     glob_pattern: "**/vhdl_ls.toml".to_owned(),
@@ -166,24 +177,48 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
                     register_options: serde_json::to_value(register_options).ok(),
                 }],
             };
-            self.mut_server()
-                .send_request("client/registerCapability", params);
+            self.rpc.send_request("client/registerCapability", params);
         }
     }
 
     pub fn initialized_notification(&mut self) {
         self.register_capabilities();
-        self.mut_server().initialized_notification();
+        self.publish_diagnostics();
     }
 
     pub fn text_document_did_change_notification(&mut self, params: &DidChangeTextDocumentParams) {
-        self.mut_server()
-            .text_document_did_change_notification(params)
+        let file_name = uri_to_file_name(&params.text_document.uri);
+        if let Some(source) = self.project.get_source(&file_name) {
+            for content_change in params.content_changes.iter() {
+                let range = content_change.range.map(from_lsp_range);
+                source.change(range.as_ref(), &content_change.text);
+            }
+            self.project.update_source(&source);
+            self.publish_diagnostics();
+        } else {
+            self.message(Message::error(format!(
+                "Changing file {} that is not part of the project",
+                file_name.to_string_lossy()
+            )));
+        }
     }
 
     pub fn text_document_did_open_notification(&mut self, params: &DidOpenTextDocumentParams) {
-        self.mut_server()
-            .text_document_did_open_notification(params)
+        let TextDocumentItem { uri, text, .. } = &params.text_document;
+        let file_name = uri_to_file_name(uri);
+        if let Some(source) = self.project.get_source(&file_name) {
+            source.change(None, text);
+            self.project.update_source(&source);
+            self.publish_diagnostics();
+        } else {
+            self.message(Message::warning(format!(
+                "Opening file {} that is not part of the project",
+                file_name.to_string_lossy()
+            )));
+            self.project
+                .update_source(&Source::inline(&file_name, text));
+            self.publish_diagnostics();
+        }
     }
 
     pub fn workspace_did_change_watched_files(&mut self, params: &DidChangeWatchedFilesParams) {
@@ -193,114 +228,22 @@ impl<T: RpcChannel + Clone> VHDLServer<T> {
                 .iter()
                 .any(|change| uri_to_file_name(&change.uri).as_path() == config_file);
             if config_file_has_changed {
-                self.rpc_channel.push_msg(Message::log(
+                self.message(Message::log(
                     "Configuration file has changed, reloading project...",
                 ));
                 let config = self.load_config();
-                self.mut_server().change_configuration(config);
+
+                self.project
+                    .update_config(&config, &mut self.message_filter());
+                self.publish_diagnostics();
             }
         }
-    }
-
-    // textDocument/declaration
-    pub fn text_document_declaration(
-        &mut self,
-        params: &TextDocumentPositionParams,
-    ) -> Option<Location> {
-        self.mut_server().text_document_declaration(params)
-    }
-
-    // textDocument/definition
-    pub fn text_document_definition(
-        &mut self,
-        params: &TextDocumentPositionParams,
-    ) -> Option<Location> {
-        self.mut_server().text_document_definition(params)
-    }
-
-    // textDocument/hover
-    pub fn text_document_hover(&mut self, params: &TextDocumentPositionParams) -> Option<Hover> {
-        self.mut_server().text_document_hover(params)
-    }
-
-    // textDocument/references
-    pub fn text_document_references(&mut self, params: &ReferenceParams) -> Vec<Location> {
-        self.mut_server().text_document_references(params)
-    }
-}
-
-struct InitializedVHDLServer<T: RpcChannel> {
-    rpc_channel: T,
-    settings: VHDLServerSettings,
-    init_params: InitializeParams,
-    project: Project,
-    files_with_notifications: FnvHashMap<Url, ()>,
-}
-
-/// Allow VHDL Server to act as an RpcChannel
-impl<T: RpcChannel> RpcChannel for InitializedVHDLServer<T> {
-    fn send_notification(
-        &self,
-        method: impl Into<String>,
-        notification: impl serde::ser::Serialize,
-    ) {
-        self.rpc_channel.send_notification(method, notification);
-    }
-
-    fn send_request(&self, method: impl Into<String>, params: impl serde::ser::Serialize) {
-        self.rpc_channel.send_request(method, params);
-    }
-}
-
-impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
-    pub fn new(
-        rpc_channel: T,
-        settings: VHDLServerSettings,
-        config: Config,
-        init_params: InitializeParams,
-    ) -> (InitializedVHDLServer<T>, InitializeResult) {
-        let project = Project::from_config(&config, &mut MessageChannel::new(&rpc_channel));
-
-        let server = InitializedVHDLServer {
-            rpc_channel,
-            settings,
-            init_params,
-            project,
-            files_with_notifications: FnvHashMap::default(),
-        };
-
-        let capabilities = ServerCapabilities {
-            text_document_sync: Some(TextDocumentSyncCapability::Kind(
-                TextDocumentSyncKind::INCREMENTAL,
-            )),
-            declaration_provider: Some(DeclarationCapability::Simple(true)),
-            definition_provider: Some(OneOf::Left(true)),
-            hover_provider: Some(HoverProviderCapability::Simple(true)),
-            references_provider: Some(OneOf::Left(true)),
-            ..Default::default()
-        };
-
-        let result = InitializeResult {
-            capabilities,
-            server_info: None,
-        };
-
-        (server, result)
-    }
-
-    pub fn change_configuration(&mut self, config: Config) {
-        self.project
-            .update_config(&config, &mut MessageChannel::new(&self.rpc_channel));
-        self.publish_diagnostics();
-    }
-
-    pub fn initialized_notification(&mut self) {
-        self.publish_diagnostics();
     }
 
     fn client_supports_related_information(&self) -> bool {
         let try_fun = || {
             self.init_params
+                .as_ref()?
                 .capabilities
                 .text_document
                 .as_ref()?
@@ -314,6 +257,7 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
     fn client_supports_did_change_watched_files(&self) -> bool {
         let try_fun = || {
             self.init_params
+                .as_ref()?
                 .capabilities
                 .workspace
                 .as_ref()?
@@ -352,7 +296,8 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
                 version: None,
             };
 
-            self.send_notification("textDocument/publishDiagnostics", publish_diagnostics);
+            self.rpc
+                .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
 
             self.files_with_notifications.insert(file_uri.clone(), ());
         }
@@ -366,47 +311,10 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
                     version: None,
                 };
 
-                self.send_notification("textDocument/publishDiagnostics", publish_diagnostics);
+                self.rpc
+                    .send_notification("textDocument/publishDiagnostics", publish_diagnostics);
             }
         }
-    }
-
-    fn open(&mut self, uri: &Url, code: &str) {
-        let file_name = uri_to_file_name(uri);
-        if let Some(source) = self.project.get_source(&file_name) {
-            source.change(None, code);
-            self.project.update_source(&source);
-            self.publish_diagnostics();
-        } else {
-            self.push_msg(Message::warning(format!(
-                "Opening file {} that is not part of the project",
-                file_name.to_string_lossy()
-            )));
-            self.project
-                .update_source(&Source::inline(&file_name, code));
-            self.publish_diagnostics();
-        }
-    }
-
-    pub fn text_document_did_change_notification(&mut self, params: &DidChangeTextDocumentParams) {
-        let file_name = uri_to_file_name(&params.text_document.uri);
-        if let Some(source) = self.project.get_source(&file_name) {
-            for content_change in params.content_changes.iter() {
-                let range = content_change.range.map(from_lsp_range);
-                source.change(range.as_ref(), &content_change.text);
-            }
-            self.project.update_source(&source);
-            self.publish_diagnostics();
-        } else {
-            self.push_msg(Message::error(format!(
-                "Changing file {} that is not part of the project",
-                file_name.to_string_lossy()
-            )));
-        }
-    }
-
-    pub fn text_document_did_open_notification(&mut self, params: &DidOpenTextDocumentParams) {
-        self.open(&params.text_document.uri, &params.text_document.text);
     }
 
     pub fn text_document_declaration(
@@ -472,6 +380,54 @@ impl<T: RpcChannel + Clone> InitializedVHDLServer<T> {
         } else {
             Vec::new()
         }
+    }
+
+    fn message_filter(&self) -> MessageFilter {
+        MessageFilter {
+            rpc: self.rpc.clone(),
+        }
+    }
+
+    fn message(&self, msg: Message) {
+        self.message_filter().push(msg);
+    }
+}
+
+struct MessageFilter {
+    rpc: SharedRpcChannel,
+}
+
+impl MessageHandler for MessageFilter {
+    fn push(&mut self, msg: Message) {
+        if matches!(
+            msg.message_type,
+            vhdl_lang::MessageType::Warning | vhdl_lang::MessageType::Error
+        ) {
+            self.rpc.send_notification(
+                "window/showMessage",
+                ShowMessageParams {
+                    typ: to_lsp_message_type(&msg.message_type),
+                    message: msg.message.clone(),
+                },
+            );
+        }
+
+        self.rpc.send_notification(
+            "window/logMessage",
+            LogMessageParams {
+                typ: to_lsp_message_type(&msg.message_type),
+                message: msg.message,
+            },
+        );
+    }
+}
+
+fn to_lsp_message_type(message_type: &vhdl_lang::MessageType) -> MessageType {
+    match message_type {
+        vhdl_lang::MessageType::Error => MessageType::ERROR,
+        vhdl_lang::MessageType::Warning => MessageType::WARNING,
+        vhdl_lang::MessageType::Info => MessageType::INFO,
+        vhdl_lang::MessageType::Log => MessageType::LOG,
     }
 }
 
@@ -585,10 +541,12 @@ fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use super::*;
     use crate::rpc_channel::test_support::*;
 
-    fn initialize_server(server: &mut VHDLServer<RpcMock>, root_uri: Url) {
+    fn initialize_server(server: &mut VHDLServer, root_uri: Url) {
         let capabilities = ClientCapabilities::default();
 
         #[allow(deprecated)]
@@ -635,9 +593,9 @@ mod tests {
     }
 
     /// Create RpcMock and VHDLServer
-    fn setup_server() -> (RpcMock, VHDLServer<RpcMock>) {
-        let mock = RpcMock::new();
-        let server = VHDLServer::new_external_config(mock.clone(), false);
+    fn setup_server() -> (Rc<RpcMock>, VHDLServer) {
+        let mock = Rc::new(RpcMock::new());
+        let server = VHDLServer::new_external_config(SharedRpcChannel::new(mock.clone()), false);
         (mock, server)
     }
 
