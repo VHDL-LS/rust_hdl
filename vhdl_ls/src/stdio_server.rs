@@ -9,10 +9,7 @@
 //! dispatching them to the appropriate server methods.
 
 use lsp_server::{Connection, ExtractError, Request, RequestId};
-use lsp_types::{
-    notification::{self, Notification},
-    request, InitializeParams,
-};
+use lsp_types::{notification, request, InitializeParams};
 use std::{cell::RefCell, rc::Rc};
 
 use crate::rpc_channel::RpcChannel;
@@ -96,11 +93,6 @@ impl ConnectionRpcChannel {
         info!("Language server initialized, waiting for messages ...");
         while let Ok(message) = self.connection.receiver.recv() {
             trace!("Received message: {:?}", message);
-            if let lsp_server::Message::Notification(notification) = &message {
-                if notification.method == notification::Exit::METHOD {
-                    return;
-                }
-            }
             match message {
                 lsp_server::Message::Request(request) => self.handle_request(&mut server, request),
                 lsp_server::Message::Notification(notification) => {
