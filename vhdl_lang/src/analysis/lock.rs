@@ -7,7 +7,7 @@
 //! This module contains types to handle the analysis data in a thread-safe way,
 //! in particular when the dependencies between design units are not known.
 
-use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use parking_lot::{MappedRwLockWriteGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// Combines an item to be analyzed (typically, a design unit) with the optional results
 /// of that analysis.
@@ -43,9 +43,9 @@ impl<T, R> AnalysisLock<T, R> {
         }
     }
 
-    /// Returns an immutable reference to the data.
-    pub fn read(&self) -> MappedRwLockReadGuard<'_, T> {
-        RwLockReadGuard::map(self.state.read(), |data| &data.data)
+    /// Returns an mutable reference to the data.
+    pub fn write(&self) -> MappedRwLockWriteGuard<'_, T> {
+        RwLockWriteGuard::map(self.state.write(), |data| &mut data.data)
     }
 
     /// Reset analysis state, analysis needs to be redone.

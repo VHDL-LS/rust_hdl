@@ -311,8 +311,14 @@ fn check_analysis_equal(got: &mut DesignRoot, expected: &mut DesignRoot) -> Vec<
 
     // Check that all references are equal, ensures the incremental
     // analysis has cleared refereces
-    let got_refs: FnvHashSet<_> = FindAnyReferences::search(got).into_iter().collect();
-    let expected_refs: FnvHashSet<_> = FindAnyReferences::search(expected).into_iter().collect();
+    let mut got_searcher = FindAnyReferences::default();
+    let _ = got.search(&mut got_searcher);
+
+    let mut expected_searcher = FindAnyReferences::default();
+    let _ = expected.search(&mut expected_searcher);
+
+    let got_refs: FnvHashSet<_> = got_searcher.references.into_iter().collect();
+    let expected_refs: FnvHashSet<_> = expected_searcher.references.into_iter().collect();
     let diff: FnvHashSet<_> = got_refs.symmetric_difference(&expected_refs).collect();
     assert_eq!(diff, FnvHashSet::default());
 
@@ -321,26 +327,13 @@ fn check_analysis_equal(got: &mut DesignRoot, expected: &mut DesignRoot) -> Vec<
 
 /// Find any reference
 /// Added to help ensure that there are no references to removed sources
+#[derive(Default)]
 struct FindAnyReferences {
     references: Vec<SrcPos>,
 }
 
-impl FindAnyReferences {
-    fn new() -> FindAnyReferences {
-        FindAnyReferences {
-            references: Vec::new(),
-        }
-    }
-
-    fn search(searchable: &impl Search) -> Vec<SrcPos> {
-        let mut searcher = Self::new();
-        let _ = searchable.search(&mut searcher);
-        searcher.references
-    }
-}
-
 impl Searcher for FindAnyReferences {
-    fn search_pos_with_ref(&mut self, _: &SrcPos, reference: &Reference) -> SearchState {
+    fn search_pos_with_ref(&mut self, _: &SrcPos, reference: &mut Reference) -> SearchState {
         if let Some(pos) = reference
             .as_ref()
             .and_then(|reference| reference.decl_pos())

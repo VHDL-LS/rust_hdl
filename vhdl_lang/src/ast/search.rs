@@ -39,52 +39,52 @@ impl SearchState {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug)]
 pub enum FoundDeclaration<'a> {
-    Object(&'a ObjectDeclaration),
-    ElementDeclaration(&'a ElementDeclaration),
-    EnumerationLiteral(&'a Ident, &'a WithDecl<WithPos<EnumerationLiteral>>),
-    InterfaceObject(&'a InterfaceObjectDeclaration),
-    File(&'a FileDeclaration),
-    Type(&'a TypeDeclaration),
-    PhysicalTypePrimary(&'a WithDecl<Ident>),
-    PhysicalTypeSecondary(&'a WithDecl<Ident>, &'a PhysicalLiteral),
-    Component(&'a ComponentDeclaration),
-    //Attribute(&'a AttributeDeclaration),
-    Alias(&'a AliasDeclaration),
-    Function(&'a FunctionSpecification),
-    Procedure(&'a ProcedureSpecification),
+    Object(&'a mut ObjectDeclaration),
+    ElementDeclaration(&'a mut ElementDeclaration),
+    EnumerationLiteral(&'a mut Ident, &'a mut WithDecl<WithPos<EnumerationLiteral>>),
+    InterfaceObject(&'a mut InterfaceObjectDeclaration),
+    File(&'a mut FileDeclaration),
+    Type(&'a mut TypeDeclaration),
+    PhysicalTypePrimary(&'a mut WithDecl<Ident>),
+    PhysicalTypeSecondary(&'a mut WithDecl<Ident>, &'a mut PhysicalLiteral),
+    Component(&'a mut ComponentDeclaration),
+    //Attribute(&'a mut AttributeDeclaration),
+    Alias(&'a mut AliasDeclaration),
+    Function(&'a mut FunctionSpecification),
+    Procedure(&'a mut ProcedureSpecification),
     Library(&'a Ident),
-    Package(&'a PackageDeclaration),
-    PackageInstance(&'a PackageInstantiation),
-    Configuration(&'a ConfigurationDeclaration),
-    Entity(&'a EntityDeclaration),
-    Context(&'a ContextDeclaration),
-    ForIndex(&'a WithDecl<Ident>, &'a DiscreteRange),
-    ForGenerateIndex(Option<&'a Ident>, &'a ForGenerateStatement),
-    ConcurrentStatement(&'a WithDecl<Ident>),
-    GenerateBody(&'a WithDecl<Ident>),
-    SequentialStatement(&'a WithDecl<Ident>),
+    Package(&'a mut PackageDeclaration),
+    PackageInstance(&'a mut PackageInstantiation),
+    Configuration(&'a mut ConfigurationDeclaration),
+    Entity(&'a mut EntityDeclaration),
+    Context(&'a mut ContextDeclaration),
+    ForIndex(&'a mut WithDecl<Ident>, &'a mut DiscreteRange),
+    ForGenerateIndex(Option<&'a Ident>, &'a mut ForGenerateStatement),
+    ConcurrentStatement(&'a mut WithDecl<Ident>),
+    GenerateBody(&'a mut WithDecl<Ident>),
+    SequentialStatement(&'a mut WithDecl<Ident>),
 }
 
 pub trait Searcher {
     /// Search an position that has a reference to a declaration
-    fn search_pos_with_ref(&mut self, _pos: &SrcPos, _ref: &Reference) -> SearchState {
+    fn search_pos_with_ref(&mut self, _pos: &SrcPos, _ref: &mut Reference) -> SearchState {
         NotFinished
     }
 
     /// Search a designator that has a reference to a declaration
     fn search_designator_ref(
         &mut self,
-        pos: &SrcPos,
-        designator: &WithRef<Designator>,
+        pos: &mut SrcPos,
+        designator: &mut WithRef<Designator>,
     ) -> SearchState {
-        self.search_pos_with_ref(pos, &designator.reference)
+        self.search_pos_with_ref(pos, &mut designator.reference)
     }
 
     /// Search an identifier that has a reference to a declaration
-    fn search_ident_ref(&mut self, ident: &WithRef<Ident>) -> SearchState {
-        self.search_pos_with_ref(&ident.item.pos, &ident.reference)
+    fn search_ident_ref(&mut self, ident: &mut WithRef<Ident>) -> SearchState {
+        self.search_pos_with_ref(&ident.item.pos, &mut ident.reference)
     }
 
     /// Search a declaration of a named entity
@@ -101,7 +101,7 @@ pub trait Searcher {
 }
 
 pub trait Search {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult;
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult;
 }
 
 #[macro_export]
@@ -123,8 +123,8 @@ macro_rules! return_if_finished {
 }
 
 impl<T: Search> Search for Vec<T> {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
-        for decl in self.iter() {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
+        for decl in self.iter_mut() {
             return_if_found!(decl.search(searcher));
         }
         NotFound
@@ -132,8 +132,8 @@ impl<T: Search> Search for Vec<T> {
 }
 
 impl<T: Search> Search for Option<T> {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
-        for decl in self.iter() {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
+        for decl in self.iter_mut() {
             return_if_found!(decl.search(searcher));
         }
         NotFound
@@ -141,7 +141,7 @@ impl<T: Search> Search for Option<T> {
 }
 
 fn search_conditionals<T: Search>(
-    conditionals: &Conditionals<T>,
+    conditionals: &mut Conditionals<T>,
     item_before_cond: bool,
     searcher: &mut impl Searcher,
 ) -> SearchResult {
@@ -168,11 +168,11 @@ fn search_conditionals<T: Search>(
 }
 
 fn search_alternatives<T: Search>(
-    alternatives: &[Alternative<T>],
+    alternatives: &mut [Alternative<T>],
     item_before_choice: bool,
     searcher: &mut impl Searcher,
 ) -> SearchResult {
-    for alternative in alternatives.iter() {
+    for alternative in alternatives.iter_mut() {
         let Alternative { choices, item } = alternative;
         if item_before_choice {
             return_if_found!(item.search(searcher));
@@ -186,7 +186,7 @@ fn search_alternatives<T: Search>(
 }
 
 fn search_selection<T: Search>(
-    selection: &Selection<T>,
+    selection: &mut Selection<T>,
     item_before_cond: bool,
     searcher: &mut impl Searcher,
 ) -> SearchResult {
@@ -204,8 +204,8 @@ fn search_selection<T: Search>(
 }
 
 fn search_assignment<T: Search>(
-    target: &WithPos<Target>,
-    rhs: &AssignmentRightHand<T>,
+    target: &mut WithPos<Target>,
+    rhs: &mut AssignmentRightHand<T>,
     searcher: &mut impl Searcher,
 ) -> SearchResult {
     match rhs {
@@ -231,12 +231,12 @@ fn search_assignment<T: Search>(
 }
 
 impl Search for Choice {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         match self {
-            Choice::DiscreteRange(ref drange) => {
+            Choice::DiscreteRange(ref mut drange) => {
                 return_if_found!(drange.search(searcher));
             }
-            Choice::Expression(ref expr) => {
+            Choice::Expression(ref mut expr) => {
                 return_if_found!(expr.search(searcher));
             }
             Choice::Others => {}
@@ -246,32 +246,32 @@ impl Search for Choice {
 }
 
 impl Search for WithPos<Target> {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         match self.item {
-            Target::Name(ref name) => search_pos_name(&self.pos, name, searcher),
-            Target::Aggregate(ref assocs) => assocs.search(searcher),
+            Target::Name(ref mut name) => search_pos_name(&mut self.pos, name, searcher),
+            Target::Aggregate(ref mut assocs) => assocs.search(searcher),
         }
     }
 }
 
 impl Search for LabeledSequentialStatement {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
-        if let Some(ref label) = self.label {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
+        if let Some(ref mut label) = self.label {
             return_if_found!(searcher
                 .search_decl(FoundDeclaration::SequentialStatement(label))
                 .or_not_found());
         }
         match self.statement {
-            SequentialStatement::Return(ReturnStatement { ref expression }) => {
+            SequentialStatement::Return(ReturnStatement { ref mut expression }) => {
                 return_if_found!(expression.search(searcher));
             }
-            SequentialStatement::ProcedureCall(ref pcall) => {
+            SequentialStatement::ProcedureCall(ref mut pcall) => {
                 return_if_found!(pcall.search(searcher));
             }
-            SequentialStatement::If(ref ifstmt) => {
+            SequentialStatement::If(ref mut ifstmt) => {
                 return_if_found!(search_conditionals(ifstmt, false, searcher));
             }
-            SequentialStatement::Wait(ref wait_stmt) => {
+            SequentialStatement::Wait(ref mut wait_stmt) => {
                 let WaitStatement {
                     sensitivity_clause,
                     condition_clause,
@@ -281,7 +281,7 @@ impl Search for LabeledSequentialStatement {
                 return_if_found!(condition_clause.search(searcher));
                 return_if_found!(timeout_clause.search(searcher));
             }
-            SequentialStatement::Assert(ref assert_stmt) => {
+            SequentialStatement::Assert(ref mut assert_stmt) => {
                 let AssertStatement {
                     condition,
                     report,
@@ -291,38 +291,38 @@ impl Search for LabeledSequentialStatement {
                 return_if_found!(report.search(searcher));
                 return_if_found!(severity.search(searcher));
             }
-            SequentialStatement::Report(ref report_stmt) => {
+            SequentialStatement::Report(ref mut report_stmt) => {
                 let ReportStatement { report, severity } = report_stmt;
                 return_if_found!(report.search(searcher));
                 return_if_found!(severity.search(searcher));
             }
-            SequentialStatement::Exit(ref exit_stmt) => {
+            SequentialStatement::Exit(ref mut exit_stmt) => {
                 // @TODO loop label
                 let ExitStatement { condition, .. } = exit_stmt;
                 return_if_found!(condition.search(searcher));
             }
-            SequentialStatement::Next(ref next_stmt) => {
+            SequentialStatement::Next(ref mut next_stmt) => {
                 // @TODO loop label
                 let NextStatement { condition, .. } = next_stmt;
                 return_if_found!(condition.search(searcher));
             }
-            SequentialStatement::Case(ref case_stmt) => {
+            SequentialStatement::Case(ref mut case_stmt) => {
                 return_if_found!(case_stmt.search(searcher));
             }
-            SequentialStatement::Loop(ref loop_stmt) => {
+            SequentialStatement::Loop(ref mut loop_stmt) => {
                 let LoopStatement {
                     iteration_scheme,
                     statements,
                 } = loop_stmt;
                 match iteration_scheme {
-                    Some(IterationScheme::For(ref index, ref drange)) => {
+                    Some(IterationScheme::For(ref mut index, ref mut drange)) => {
                         return_if_found!(searcher
                             .search_decl(FoundDeclaration::ForIndex(index, drange))
                             .or_not_found());
                         return_if_found!(drange.search(searcher));
                         return_if_found!(statements.search(searcher));
                     }
-                    Some(IterationScheme::While(ref expr)) => {
+                    Some(IterationScheme::While(ref mut expr)) => {
                         return_if_found!(expr.search(searcher));
                         return_if_found!(statements.search(searcher));
                     }
@@ -331,16 +331,16 @@ impl Search for LabeledSequentialStatement {
                     }
                 }
             }
-            SequentialStatement::SignalAssignment(ref assign) => {
+            SequentialStatement::SignalAssignment(ref mut assign) => {
                 // @TODO more
                 let SignalAssignment { target, rhs, .. } = assign;
                 return_if_found!(search_assignment(target, rhs, searcher));
             }
-            SequentialStatement::VariableAssignment(ref assign) => {
+            SequentialStatement::VariableAssignment(ref mut assign) => {
                 let VariableAssignment { target, rhs } = assign;
                 return_if_found!(search_assignment(target, rhs, searcher));
             }
-            SequentialStatement::SignalForceAssignment(ref assign) => {
+            SequentialStatement::SignalForceAssignment(ref mut assign) => {
                 let SignalForceAssignment {
                     target,
                     force_mode: _,
@@ -348,7 +348,7 @@ impl Search for LabeledSequentialStatement {
                 } = assign;
                 return_if_found!(search_assignment(target, rhs, searcher));
             }
-            SequentialStatement::SignalReleaseAssignment(ref assign) => {
+            SequentialStatement::SignalReleaseAssignment(ref mut assign) => {
                 let SignalReleaseAssignment {
                     target,
                     force_mode: _,
@@ -362,13 +362,13 @@ impl Search for LabeledSequentialStatement {
 }
 
 impl Search for GenerateBody {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         let GenerateBody {
             alternative_label,
             decl,
             statements,
         } = self;
-        if let Some(ref label) = alternative_label {
+        if let Some(ref mut label) = alternative_label {
             return_if_found!(searcher
                 .search_decl(FoundDeclaration::GenerateBody(label))
                 .or_not_found());
@@ -379,15 +379,15 @@ impl Search for GenerateBody {
 }
 
 impl Search for InstantiationStatement {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         match self.unit {
-            InstantiatedUnit::Entity(ref ent_name, _) => {
+            InstantiatedUnit::Entity(ref mut ent_name, _) => {
                 return_if_found!(ent_name.search(searcher));
             }
-            InstantiatedUnit::Component(ref component_name) => {
+            InstantiatedUnit::Component(ref mut component_name) => {
                 return_if_found!(component_name.search(searcher));
             }
-            InstantiatedUnit::Configuration(ref config_name) => {
+            InstantiatedUnit::Configuration(ref mut config_name) => {
                 return_if_found!(config_name.search(searcher));
             }
         };
@@ -399,7 +399,7 @@ impl Search for InstantiationStatement {
 }
 
 impl Search for SensitivityList {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         match self {
             SensitivityList::Names(names) => names.search(searcher),
             SensitivityList::All => NotFound,
@@ -408,19 +408,19 @@ impl Search for SensitivityList {
 }
 
 impl Search for LabeledConcurrentStatement {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
-        if let Some(ref label) = self.label {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
+        if let Some(ref mut label) = self.label {
             return_if_found!(searcher
                 .search_decl(FoundDeclaration::ConcurrentStatement(label))
                 .or_not_found());
         }
         match self.statement {
-            ConcurrentStatement::Block(ref block) => {
+            ConcurrentStatement::Block(ref mut block) => {
                 // @TODO guard condition
                 return_if_found!(block.decl.search(searcher));
                 block.statements.search(searcher)
             }
-            ConcurrentStatement::Process(ref process) => {
+            ConcurrentStatement::Process(ref mut process) => {
                 let ProcessStatement {
                     postponed: _,
                     sensitivity_list,
@@ -431,30 +431,34 @@ impl Search for LabeledConcurrentStatement {
                 return_if_found!(decl.search(searcher));
                 statements.search(searcher)
             }
-            ConcurrentStatement::ForGenerate(ref gen) => {
-                let ForGenerateStatement {
-                    index_name: _,
-                    discrete_range,
-                    body,
-                } = gen;
+            ConcurrentStatement::ForGenerate(ref mut gen) => {
                 return_if_found!(searcher
                     .search_decl(FoundDeclaration::ForGenerateIndex(
                         self.label.as_ref().map(|l| &l.tree),
                         gen
                     ))
                     .or_not_found());
+                let ForGenerateStatement {
+                    index_name: _,
+                    discrete_range,
+                    body,
+                } = gen;
                 return_if_found!(discrete_range.search(searcher));
                 body.search(searcher)
             }
-            ConcurrentStatement::IfGenerate(ref gen) => search_conditionals(gen, false, searcher),
-            ConcurrentStatement::CaseGenerate(ref gen) => search_selection(gen, false, searcher),
-            ConcurrentStatement::Instance(ref inst) => inst.search(searcher),
-            ConcurrentStatement::Assignment(ref assign) => {
+            ConcurrentStatement::IfGenerate(ref mut gen) => {
+                search_conditionals(gen, false, searcher)
+            }
+            ConcurrentStatement::CaseGenerate(ref mut gen) => {
+                search_selection(gen, false, searcher)
+            }
+            ConcurrentStatement::Instance(ref mut inst) => inst.search(searcher),
+            ConcurrentStatement::Assignment(ref mut assign) => {
                 let ConcurrentSignalAssignment { target, rhs, .. } = assign;
                 return_if_found!(search_assignment(target, rhs, searcher));
                 NotFound
             }
-            ConcurrentStatement::ProcedureCall(ref pcall) => {
+            ConcurrentStatement::ProcedureCall(ref mut pcall) => {
                 let ConcurrentProcedureCall {
                     postponed: _postponed,
                     call,
@@ -462,7 +466,7 @@ impl Search for LabeledConcurrentStatement {
                 return_if_found!(call.search(searcher));
                 NotFound
             }
-            ConcurrentStatement::Assert(ref assert) => {
+            ConcurrentStatement::Assert(ref mut assert) => {
                 let ConcurrentAssertStatement {
                     postponed: _postponed,
                     statement:
@@ -482,66 +486,70 @@ impl Search for LabeledConcurrentStatement {
 }
 
 impl Search for WithPos<WithRef<Designator>> {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         return_if_finished!(searcher.search_with_pos(&self.pos));
         searcher
-            .search_designator_ref(&self.pos, &self.item)
+            .search_designator_ref(&mut self.pos, &mut self.item)
             .or_not_found()
     }
 }
 
 impl Search for WithPos<SelectedName> {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         return_if_finished!(searcher.search_with_pos(&self.pos));
         match self.item {
-            SelectedName::Selected(ref prefix, ref designator) => {
+            SelectedName::Selected(ref mut prefix, ref mut designator) => {
                 return_if_found!(prefix.search(searcher));
                 return_if_found!(designator.search(searcher));
                 NotFound
             }
-            SelectedName::Designator(ref designator) => searcher
-                .search_designator_ref(&self.pos, designator)
+            SelectedName::Designator(ref mut designator) => searcher
+                .search_designator_ref(&mut self.pos, designator)
                 .or_not_found(),
         }
     }
 }
 
-fn search_pos_name(pos: &SrcPos, name: &Name, searcher: &mut impl Searcher) -> SearchResult {
+fn search_pos_name(
+    pos: &mut SrcPos,
+    name: &mut Name,
+    searcher: &mut impl Searcher,
+) -> SearchResult {
     match name {
-        Name::Selected(ref prefix, ref designator) => {
+        Name::Selected(ref mut prefix, ref mut designator) => {
             return_if_found!(prefix.search(searcher));
             return_if_found!(designator.search(searcher));
             NotFound
         }
-        Name::SelectedAll(ref prefix) => {
+        Name::SelectedAll(ref mut prefix) => {
             return_if_found!(prefix.search(searcher));
             NotFound
         }
-        Name::Designator(ref designator) => searcher
+        Name::Designator(ref mut designator) => searcher
             .search_designator_ref(pos, designator)
             .or_not_found(),
-        Name::Indexed(ref prefix, ref indexes) => {
+        Name::Indexed(ref mut prefix, ref mut indexes) => {
             return_if_found!(prefix.search(searcher));
             return_if_found!(indexes.search(searcher));
             NotFound
         }
-        Name::Slice(ref prefix, ref dranges) => {
+        Name::Slice(ref mut prefix, ref mut dranges) => {
             return_if_found!(prefix.search(searcher));
             return_if_found!(dranges.search(searcher));
             NotFound
         }
-        Name::FunctionCall(ref fcall) => fcall.search(searcher),
-        Name::Attribute(ref attr) => {
+        Name::FunctionCall(ref mut fcall) => fcall.search(searcher),
+        Name::Attribute(ref mut attr) => {
             // @TODO more
-            let AttributeName { name, expr, .. } = attr.as_ref();
+            let AttributeName { name, expr, .. } = attr.as_mut();
             return_if_found!(name.search(searcher));
             if let Some(expr) = expr {
                 return_if_found!(expr.search(searcher));
             }
             NotFound
         }
-        Name::External(ref ename) => {
-            let ExternalName { subtype, .. } = ename.as_ref();
+        Name::External(ref mut ename) => {
+            let ExternalName { subtype, .. } = ename.as_mut();
             return_if_found!(subtype.search(searcher));
             NotFound
         }
@@ -549,14 +557,14 @@ fn search_pos_name(pos: &SrcPos, name: &Name, searcher: &mut impl Searcher) -> S
 }
 
 impl Search for WithPos<Name> {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         return_if_finished!(searcher.search_with_pos(&self.pos));
-        search_pos_name(&self.pos, &self.item, searcher)
+        search_pos_name(&mut self.pos, &mut self.item, searcher)
     }
 }
 
 impl Search for ElementConstraint {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         // @TODO more
         let ElementConstraint { constraint, .. } = self;
         constraint.search(searcher)
@@ -564,26 +572,26 @@ impl Search for ElementConstraint {
 }
 
 impl Search for WithPos<ElementConstraint> {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         return_if_finished!(searcher.search_with_pos(&self.pos));
         self.item.search(searcher)
     }
 }
 
 impl Search for WithPos<SubtypeConstraint> {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         return_if_finished!(searcher.search_with_pos(&self.pos));
         match self.item {
-            SubtypeConstraint::Array(ref dranges, ref constraint) => {
+            SubtypeConstraint::Array(ref mut dranges, ref mut constraint) => {
                 return_if_found!(dranges.search(searcher));
-                if let Some(ref constraint) = constraint {
+                if let Some(ref mut constraint) = constraint {
                     return_if_found!(constraint.search(searcher));
                 }
             }
-            SubtypeConstraint::Range(ref range) => {
+            SubtypeConstraint::Range(ref mut range) => {
                 return_if_found!(range.search(searcher));
             }
-            SubtypeConstraint::Record(ref constraints) => {
+            SubtypeConstraint::Record(ref mut constraints) => {
                 return_if_found!(constraints.search(searcher));
             }
         }
@@ -592,7 +600,7 @@ impl Search for WithPos<SubtypeConstraint> {
 }
 
 impl Search for SubtypeIndication {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         // @TODO more
         let SubtypeIndication {
             type_mark,
@@ -606,14 +614,14 @@ impl Search for SubtypeIndication {
 }
 
 impl Search for WithPos<TypeMark> {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         return_if_finished!(searcher.search_with_pos(&self.pos));
         self.item.name.search(searcher)
     }
 }
 
 impl Search for RangeConstraint {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         let RangeConstraint {
             direction: _,
             left_expr,
@@ -626,7 +634,7 @@ impl Search for RangeConstraint {
 }
 
 impl Search for AttributeName {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         // @TODO more
         let AttributeName { name, .. } = self;
         name.search(searcher)
@@ -634,7 +642,7 @@ impl Search for AttributeName {
 }
 
 impl Search for Range {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         match self {
             Range::Range(constraint) => {
                 return_if_found!(constraint.search(searcher));
@@ -648,43 +656,43 @@ impl Search for Range {
 }
 
 impl Search for DiscreteRange {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         match self {
-            DiscreteRange::Discrete(ref type_mark, ref constraint) => {
+            DiscreteRange::Discrete(ref mut type_mark, ref mut constraint) => {
                 return_if_found!(type_mark.search(searcher));
                 constraint.search(searcher)
             }
-            DiscreteRange::Range(ref constraint) => constraint.search(searcher),
+            DiscreteRange::Range(ref mut constraint) => constraint.search(searcher),
         }
     }
 }
 
 impl Search for TypeDeclaration {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
+        if !matches!(self.def, TypeDefinition::ProtectedBody(_)) {
+            return_if_found!(searcher
+                .search_decl(FoundDeclaration::Type(self))
+                .or_not_found());
+        }
+
         match self.def {
-            TypeDefinition::ProtectedBody(ref body) => {
+            TypeDefinition::ProtectedBody(ref mut body) => {
                 // Protected type body is not considered a declaration
                 return_if_found!(searcher
-                    .search_pos_with_ref(self.ident.pos(), &body.type_reference)
+                    .search_pos_with_ref(self.ident.pos(), &mut body.type_reference)
                     .or_not_found());
                 return_if_found!(body.decl.search(searcher));
             }
-            TypeDefinition::Protected(ref prot_decl) => {
-                return_if_found!(searcher
-                    .search_decl(FoundDeclaration::Type(self))
-                    .or_not_found());
-                for item in prot_decl.items.iter() {
+            TypeDefinition::Protected(ref mut prot_decl) => {
+                for item in prot_decl.items.iter_mut() {
                     match item {
-                        ProtectedTypeDeclarativeItem::Subprogram(ref subprogram) => {
+                        ProtectedTypeDeclarativeItem::Subprogram(ref mut subprogram) => {
                             return_if_found!(subprogram.search(searcher));
                         }
                     }
                 }
             }
-            TypeDefinition::Record(ref element_decls) => {
-                return_if_found!(searcher
-                    .search_decl(FoundDeclaration::Type(self))
-                    .or_not_found());
+            TypeDefinition::Record(ref mut element_decls) => {
                 for elem in element_decls {
                     return_if_found!(searcher
                         .search_decl(FoundDeclaration::ElementDeclaration(elem))
@@ -692,67 +700,48 @@ impl Search for TypeDeclaration {
                     return_if_found!(elem.subtype.search(searcher));
                 }
             }
-            TypeDefinition::Access(ref subtype_indication) => {
-                return_if_found!(searcher
-                    .search_decl(FoundDeclaration::Type(self))
-                    .or_not_found());
+            TypeDefinition::Access(ref mut subtype_indication) => {
                 return_if_found!(subtype_indication.search(searcher));
             }
-            TypeDefinition::Array(ref indexes, ref subtype_indication) => {
-                return_if_found!(searcher
-                    .search_decl(FoundDeclaration::Type(self))
-                    .or_not_found());
-                for index in indexes.iter() {
+            TypeDefinition::Array(ref mut indexes, ref mut subtype_indication) => {
+                for index in indexes.iter_mut() {
                     match index {
-                        ArrayIndex::IndexSubtypeDefintion(ref type_mark) => {
+                        ArrayIndex::IndexSubtypeDefintion(ref mut type_mark) => {
                             return_if_found!(type_mark.search(searcher));
                         }
-                        ArrayIndex::Discrete(ref drange) => {
+                        ArrayIndex::Discrete(ref mut drange) => {
                             return_if_found!(drange.search(searcher));
                         }
                     }
                 }
                 return_if_found!(subtype_indication.search(searcher));
             }
-            TypeDefinition::Subtype(ref subtype_indication) => {
-                return_if_found!(searcher
-                    .search_decl(FoundDeclaration::Type(self))
-                    .or_not_found());
+            TypeDefinition::Subtype(ref mut subtype_indication) => {
                 return_if_found!(subtype_indication.search(searcher));
             }
-            TypeDefinition::Integer(ref range) => {
-                return_if_found!(searcher
-                    .search_decl(FoundDeclaration::Type(self))
-                    .or_not_found());
+            TypeDefinition::Integer(ref mut range) => {
                 return_if_found!(range.search(searcher));
             }
-            TypeDefinition::File(ref type_mark) => {
-                return_if_found!(searcher
-                    .search_decl(FoundDeclaration::Type(self))
-                    .or_not_found());
+            TypeDefinition::File(ref mut type_mark) => {
                 return_if_found!(type_mark.search(searcher));
             }
-            TypeDefinition::Incomplete(ref reference) => {
+            TypeDefinition::Incomplete(ref mut reference) => {
                 // Incomplete type should reference full declaration
                 return_if_found!(searcher
                     .search_pos_with_ref(self.ident.pos(), reference)
                     .or_not_found());
             }
-            TypeDefinition::Enumeration(ref literals) => {
-                return_if_found!(searcher
-                    .search_decl(FoundDeclaration::Type(self))
-                    .or_not_found());
-
+            TypeDefinition::Enumeration(ref mut literals) => {
                 for literal in literals {
                     return_if_found!(searcher
                         .search_decl(FoundDeclaration::EnumerationLiteral(
-                            &self.ident.tree,
+                            &mut self.ident.tree,
                             literal
                         ))
                         .or_not_found());
                 }
             }
-            TypeDefinition::Physical(ref physical) => {
+            TypeDefinition::Physical(ref mut physical) => {
                 let PhysicalTypeDeclaration {
                     range,
                     primary_unit,
@@ -762,11 +751,11 @@ impl Search for TypeDeclaration {
                 return_if_found!(searcher
                     .search_decl(FoundDeclaration::PhysicalTypePrimary(primary_unit))
                     .or_not_found());
-                for (ident, literal) in secondary_units.iter() {
+                for (ident, literal) in secondary_units.iter_mut() {
                     return_if_found!(searcher
                         .search_decl(FoundDeclaration::PhysicalTypeSecondary(ident, literal))
                         .or_not_found());
-                    return_if_found!(searcher.search_ident_ref(&literal.unit).or_not_found());
+                    return_if_found!(searcher.search_ident_ref(&mut literal.unit).or_not_found());
                 }
             }
         }
@@ -774,22 +763,26 @@ impl Search for TypeDeclaration {
     }
 }
 
-fn search_pos_expr(pos: &SrcPos, expr: &Expression, searcher: &mut impl Searcher) -> SearchResult {
+fn search_pos_expr(
+    pos: &mut SrcPos,
+    expr: &mut Expression,
+    searcher: &mut impl Searcher,
+) -> SearchResult {
     return_if_finished!(searcher.search_with_pos(pos));
     match expr {
-        Expression::Binary(_, ref left, ref right) => {
+        Expression::Binary(_, ref mut left, ref mut right) => {
             return_if_found!(left.search(searcher));
             right.search(searcher)
         }
-        Expression::Unary(_, ref expr) => expr.search(searcher),
-        Expression::Name(ref name) => search_pos_name(pos, name, searcher),
-        Expression::Aggregate(ref assocs) => assocs.search(searcher),
-        Expression::Qualified(ref qexpr) => qexpr.search(searcher),
-        Expression::New(ref alloc) => {
+        Expression::Unary(_, ref mut expr) => expr.search(searcher),
+        Expression::Name(ref mut name) => search_pos_name(pos, name, searcher),
+        Expression::Aggregate(ref mut assocs) => assocs.search(searcher),
+        Expression::Qualified(ref mut qexpr) => qexpr.search(searcher),
+        Expression::New(ref mut alloc) => {
             return_if_finished!(searcher.search_with_pos(&alloc.pos));
             match alloc.item {
-                Allocator::Qualified(ref qexpr) => qexpr.search(searcher),
-                Allocator::Subtype(ref subtype) => subtype.search(searcher),
+                Allocator::Qualified(ref mut qexpr) => qexpr.search(searcher),
+                Allocator::Subtype(ref mut subtype) => subtype.search(searcher),
             }
         }
         Expression::Literal(literal) => match literal {
@@ -802,13 +795,13 @@ fn search_pos_expr(pos: &SrcPos, expr: &Expression, searcher: &mut impl Searcher
 }
 
 impl Search for ElementAssociation {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         match self {
-            ElementAssociation::Named(ref choices, ref expr) => {
+            ElementAssociation::Named(ref mut choices, ref mut expr) => {
                 return_if_found!(choices.search(searcher));
                 return_if_found!(expr.search(searcher));
             }
-            ElementAssociation::Positional(ref expr) => {
+            ElementAssociation::Positional(ref mut expr) => {
                 return_if_found!(expr.search(searcher));
             }
         }
@@ -817,7 +810,7 @@ impl Search for ElementAssociation {
 }
 
 impl Search for QualifiedExpression {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         let QualifiedExpression { type_mark, expr } = self;
         return_if_found!(type_mark.search(searcher));
         return_if_found!(expr.search(searcher));
@@ -826,15 +819,15 @@ impl Search for QualifiedExpression {
 }
 
 impl Search for AssociationElement {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         let AssociationElement { formal, actual } = self;
         if let Some(formal) = formal {
-            return_if_found!(search_pos_name(&formal.pos, &formal.item, searcher));
+            return_if_found!(search_pos_name(&mut formal.pos, &mut formal.item, searcher));
         }
 
         match actual.item {
-            ActualPart::Expression(ref expr) => {
-                return_if_found!(search_pos_expr(&actual.pos, expr, searcher));
+            ActualPart::Expression(ref mut expr) => {
+                return_if_found!(search_pos_expr(&mut actual.pos, expr, searcher));
             }
             ActualPart::Open => {}
         }
@@ -843,7 +836,7 @@ impl Search for AssociationElement {
 }
 
 impl Search for FunctionCall {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         let FunctionCall { name, parameters } = self;
         return_if_found!(name.search(searcher));
         return_if_found!(parameters.search(searcher));
@@ -852,10 +845,10 @@ impl Search for FunctionCall {
 }
 
 impl Search for Waveform {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         match self {
-            Waveform::Elements(ref elems) => {
-                for elem in elems.iter() {
+            Waveform::Elements(ref mut elems) => {
+                for elem in elems.iter_mut() {
                     let WaveformElement { value, after } = elem;
                     return_if_found!(value.search(searcher));
                     return_if_found!(after.search(searcher));
@@ -868,18 +861,18 @@ impl Search for Waveform {
 }
 
 impl Search for WithPos<Expression> {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
-        search_pos_expr(&self.pos, &self.item, searcher)
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
+        search_pos_expr(&mut self.pos, &mut self.item, searcher)
     }
 }
 
 impl Search for ObjectDeclaration {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         return_if_found!(searcher
             .search_decl(FoundDeclaration::Object(self))
             .or_not_found());
         return_if_found!(self.subtype_indication.search(searcher));
-        if let Some(ref expr) = self.expression {
+        if let Some(ref mut expr) = self.expression {
             expr.search(searcher)
         } else {
             NotFound
@@ -887,7 +880,7 @@ impl Search for ObjectDeclaration {
     }
 }
 impl Search for Signature {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         match self {
             Signature::Function(args, ret) => {
                 return_if_found!(args.search(searcher));
@@ -902,7 +895,7 @@ impl Search for Signature {
 }
 
 impl Search for Declaration {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         match self {
             Declaration::Object(object) => {
                 return_if_found!(object.search(searcher));
@@ -922,15 +915,15 @@ impl Search for Declaration {
                 return_if_found!(decl.type_mark.search(searcher));
             }
             Declaration::Alias(alias) => {
+                return_if_found!(searcher
+                    .search_decl(FoundDeclaration::Alias(alias))
+                    .or_not_found());
                 let AliasDeclaration {
                     designator: _,
                     subtype_indication,
                     name,
                     signature,
                 } = alias;
-                return_if_found!(searcher
-                    .search_decl(FoundDeclaration::Alias(alias))
-                    .or_not_found());
                 return_if_found!(subtype_indication.search(searcher));
                 return_if_found!(name.search(searcher));
                 if let Some(signature) = signature {
@@ -943,28 +936,28 @@ impl Search for Declaration {
                     .or_else(|| use_clause.item.name_list.search(searcher)));
             }
             Declaration::Component(component) => {
+                return_if_found!(searcher
+                    .search_decl(FoundDeclaration::Component(component))
+                    .or_not_found());
                 let ComponentDeclaration {
                     ident: _,
                     generic_list,
                     port_list,
                 } = component;
-                return_if_found!(searcher
-                    .search_decl(FoundDeclaration::Component(component))
-                    .or_not_found());
                 return_if_found!(generic_list.search(searcher));
                 return_if_found!(port_list.search(searcher));
             }
 
             Declaration::File(file) => {
+                return_if_found!(searcher
+                    .search_decl(FoundDeclaration::File(file))
+                    .or_not_found());
                 let FileDeclaration {
                     ident: _,
                     subtype_indication,
                     open_info,
                     file_name,
                 } = file;
-                return_if_found!(searcher
-                    .search_decl(FoundDeclaration::File(file))
-                    .or_not_found());
                 return_if_found!(subtype_indication.search(searcher));
                 return_if_found!(open_info.search(searcher));
                 return_if_found!(file_name.search(searcher));
@@ -978,16 +971,16 @@ impl Search for Declaration {
 }
 
 impl Search for InterfaceDeclaration {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         match self {
-            InterfaceDeclaration::Object(ref decl) => {
+            InterfaceDeclaration::Object(ref mut decl) => {
                 return_if_found!(searcher
                     .search_decl(FoundDeclaration::InterfaceObject(decl))
                     .or_not_found());
                 return_if_found!(decl.subtype_indication.search(searcher));
                 return_if_found!(decl.expression.search(searcher));
             }
-            InterfaceDeclaration::Subprogram(ref decl, _) => {
+            InterfaceDeclaration::Subprogram(ref mut decl, _) => {
                 return_if_found!(decl.search(searcher));
             }
             _ => {}
@@ -997,12 +990,12 @@ impl Search for InterfaceDeclaration {
 }
 
 impl Search for SubprogramDeclaration {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         match self {
-            SubprogramDeclaration::Function(ref decl) => {
+            SubprogramDeclaration::Function(ref mut decl) => {
                 return_if_found!(decl.search(searcher));
             }
-            SubprogramDeclaration::Procedure(ref decl) => {
+            SubprogramDeclaration::Procedure(ref mut decl) => {
                 return_if_found!(decl.search(searcher));
             }
         }
@@ -1011,7 +1004,7 @@ impl Search for SubprogramDeclaration {
 }
 
 impl Search for ProcedureSpecification {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         return_if_found!(searcher
             .search_decl(FoundDeclaration::Procedure(self))
             .or_not_found());
@@ -1020,7 +1013,7 @@ impl Search for ProcedureSpecification {
 }
 
 impl Search for FunctionSpecification {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         return_if_found!(searcher
             .search_decl(FoundDeclaration::Function(self))
             .or_not_found());
@@ -1030,8 +1023,8 @@ impl Search for FunctionSpecification {
 }
 
 impl Search for LibraryClause {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
-        for name in self.name_list.iter() {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
+        for name in self.name_list.iter_mut() {
             return_if_found!(searcher
                 .search_decl(FoundDeclaration::Library(name))
                 .or_not_found());
@@ -1041,16 +1034,16 @@ impl Search for LibraryClause {
 }
 
 impl Search for WithPos<ContextItem> {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         return_if_finished!(searcher.search_with_pos(&self.pos));
         match self.item {
-            ContextItem::Use(ref use_clause) => {
+            ContextItem::Use(ref mut use_clause) => {
                 return_if_found!(use_clause.name_list.search(searcher));
             }
-            ContextItem::Library(ref library_clause) => {
+            ContextItem::Library(ref mut library_clause) => {
                 return_if_found!(library_clause.search(searcher));
             }
-            ContextItem::Context(ref context_clause) => {
+            ContextItem::Context(ref mut context_clause) => {
                 return_if_found!(context_clause.name_list.search(searcher));
             }
         }
@@ -1059,25 +1052,25 @@ impl Search for WithPos<ContextItem> {
 }
 
 impl Search for AnyDesignUnit {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         delegate_any!(self, unit, unit.search(searcher))
     }
 }
 
 impl Search for AnyPrimaryUnit {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         delegate_primary!(self, unit, unit.search(searcher))
     }
 }
 
 impl Search for AnySecondaryUnit {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         delegate_secondary!(self, unit, unit.search(searcher))
     }
 }
 
 impl Search for EntityDeclaration {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         return_if_finished!(searcher.search_source(self.source()));
         return_if_found!(self.context_clause.search(searcher));
         return_if_found!(searcher
@@ -1091,17 +1084,19 @@ impl Search for EntityDeclaration {
 }
 
 impl Search for ArchitectureBody {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         return_if_finished!(searcher.search_source(self.source()));
         return_if_found!(self.context_clause.search(searcher));
-        return_if_found!(searcher.search_ident_ref(&self.entity_name).or_not_found());
+        return_if_found!(searcher
+            .search_ident_ref(&mut self.entity_name)
+            .or_not_found());
         return_if_found!(self.decl.search(searcher));
         self.statements.search(searcher)
     }
 }
 
 impl Search for PackageDeclaration {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         return_if_finished!(searcher.search_source(self.source()));
         return_if_found!(self.context_clause.search(searcher));
         return_if_found!(searcher
@@ -1113,16 +1108,16 @@ impl Search for PackageDeclaration {
 }
 
 impl Search for PackageBody {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         return_if_finished!(searcher.search_source(self.source()));
         return_if_found!(self.context_clause.search(searcher));
-        return_if_found!(searcher.search_ident_ref(&self.ident).or_not_found());
+        return_if_found!(searcher.search_ident_ref(&mut self.ident).or_not_found());
         self.decl.search(searcher)
     }
 }
 
 impl Search for PackageInstantiation {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         return_if_finished!(searcher.search_source(self.source()));
         return_if_found!(self.context_clause.search(searcher));
         return_if_found!(searcher
@@ -1133,7 +1128,7 @@ impl Search for PackageInstantiation {
 }
 
 impl Search for ConfigurationDeclaration {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         return_if_finished!(searcher.search_source(self.source()));
         return_if_found!(self.context_clause.search(searcher));
         return_if_found!(searcher
@@ -1144,7 +1139,7 @@ impl Search for ConfigurationDeclaration {
 }
 
 impl Search for ContextDeclaration {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         return_if_finished!(searcher.search_source(self.source()));
         return_if_found!(searcher
             .search_decl(FoundDeclaration::Context(self))
@@ -1154,7 +1149,7 @@ impl Search for ContextDeclaration {
 }
 
 impl Search for CaseStatement {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         let CaseStatement {
             is_matching: _,
             expression,
@@ -1170,7 +1165,7 @@ impl Search for CaseStatement {
 pub struct ItemAtCursor {
     source: Source,
     cursor: Position,
-    result: Option<Arc<NamedEntity>>,
+    pub result: Option<Arc<NamedEntity>>,
 }
 
 impl ItemAtCursor {
@@ -1186,16 +1181,6 @@ impl ItemAtCursor {
         // cursor is the gap between character cursor and cursor + 1
         // Thus cursor will match character cursor and cursor + 1
         pos.start() <= self.cursor && self.cursor <= pos.end()
-    }
-
-    pub fn search(
-        searchable: &impl Search,
-        source: &Source,
-        cursor: Position,
-    ) -> Option<Arc<NamedEntity>> {
-        let mut searcher = Self::new(source, cursor);
-        let _ = searchable.search(&mut searcher);
-        searcher.result
     }
 }
 
@@ -1224,7 +1209,7 @@ impl Searcher for ItemAtCursor {
         }
     }
 
-    fn search_pos_with_ref(&mut self, pos: &SrcPos, reference: &Reference) -> SearchState {
+    fn search_pos_with_ref(&mut self, pos: &SrcPos, reference: &mut Reference) -> SearchState {
         if self.is_inside(pos) {
             if let Some(ent) = reference {
                 self.result = Some(ent.clone());
@@ -1239,7 +1224,7 @@ impl Searcher for ItemAtCursor {
 
     // Assume source is searched first to filter out design units in other files
     fn search_source(&mut self, source: &Source) -> SearchState {
-        if source == &self.source {
+        if source == &mut self.source {
             NotFinished
         } else {
             Finished(NotFound)
@@ -1250,18 +1235,12 @@ impl Searcher for ItemAtCursor {
 // Search for a declaration/definition and format it
 pub struct FormatDeclaration {
     ent: Arc<NamedEntity>,
-    result: Option<String>,
+    pub result: Option<String>,
 }
 
 impl FormatDeclaration {
     pub fn new(ent: Arc<NamedEntity>) -> FormatDeclaration {
         FormatDeclaration { ent, result: None }
-    }
-
-    pub fn search(searchable: &impl Search, ent: Arc<NamedEntity>) -> Option<String> {
-        let mut searcher = Self::new(ent);
-        let _ = searchable.search(&mut searcher);
-        searcher.result
     }
 }
 
@@ -1295,7 +1274,7 @@ impl Searcher for FormatDeclaration {
 // Search for all references to declaration/definition
 pub struct FindAllReferences {
     ent: Arc<NamedEntity>,
-    references: Vec<SrcPos>,
+    pub references: Vec<SrcPos>,
 }
 
 impl FindAllReferences {
@@ -1304,12 +1283,6 @@ impl FindAllReferences {
             ent,
             references: Vec::new(),
         }
-    }
-
-    pub fn search(searchable: &impl Search, ent: Arc<NamedEntity>) -> Vec<SrcPos> {
-        let mut searcher = Self::new(ent);
-        let _ = searchable.search(&mut searcher);
-        searcher.references
     }
 }
 
@@ -1323,7 +1296,7 @@ impl Searcher for FindAllReferences {
         NotFinished
     }
 
-    fn search_pos_with_ref(&mut self, pos: &SrcPos, reference: &Reference) -> SearchState {
+    fn search_pos_with_ref(&mut self, pos: &SrcPos, reference: &mut Reference) -> SearchState {
         if let Some(ent) = reference.as_ref() {
             if self.ent.id() == ent.id() {
                 self.references.push(pos.clone());
@@ -1472,28 +1445,18 @@ impl std::fmt::Display for FoundDeclaration<'_> {
     }
 }
 
+#[derive(Default)]
 pub struct FindAllUnresolved {
     pub count: usize,
     pub unresolved: Vec<SrcPos>,
 }
 
 impl Searcher for FindAllUnresolved {
-    fn search_pos_with_ref(&mut self, pos: &SrcPos, reference: &Reference) -> SearchState {
+    fn search_pos_with_ref(&mut self, pos: &SrcPos, reference: &mut Reference) -> SearchState {
         self.count += 1;
         if reference.is_none() {
             self.unresolved.push(pos.clone());
         }
         NotFinished
-    }
-}
-
-impl FindAllUnresolved {
-    pub fn search(searchable: &impl Search) -> (usize, Vec<SrcPos>) {
-        let mut searcher = Self {
-            count: 0,
-            unresolved: Default::default(),
-        };
-        let _ = searchable.search(&mut searcher);
-        (searcher.count, searcher.unresolved)
     }
 }

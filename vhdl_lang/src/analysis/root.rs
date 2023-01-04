@@ -313,7 +313,9 @@ impl DesignRoot {
     /// If the character value is greater than the line length it defaults back to the
     /// line length.
     pub fn search_reference(&self, source: &Source, cursor: Position) -> Option<Arc<NamedEntity>> {
-        ItemAtCursor::search(self, source, cursor)
+        let mut searcher = ItemAtCursor::new(source, cursor);
+        let _ = self.search(&mut searcher);
+        searcher.result
     }
 
     #[cfg(test)]
@@ -323,25 +325,41 @@ impl DesignRoot {
     }
     /// Search for the declaration at decl_pos and format it
     pub fn format_declaration(&self, ent: Arc<NamedEntity>) -> Option<String> {
-        FormatDeclaration::search(self, ent)
+        let mut searcher = FormatDeclaration::new(ent);
+        let _ = self.search(&mut searcher);
+        searcher.result
     }
 
     /// Search for all references to the declaration at decl_pos
     pub fn find_all_references(&self, ent: Arc<NamedEntity>) -> Vec<SrcPos> {
-        FindAllReferences::search(self, ent)
+        let mut searcher = FindAllReferences::new(ent);
+        let _ = self.search(&mut searcher);
+        searcher.references
     }
 
     pub fn find_all_unresolved(&self) -> (usize, Vec<SrcPos>) {
-        FindAllUnresolved::search(self)
+        let mut searcher = FindAllUnresolved::default();
+        let _ = self.search(&mut searcher);
+        (searcher.count, searcher.unresolved)
     }
 
     #[cfg(test)]
     pub fn find_all_references_pos(&self, decl_pos: &SrcPos) -> Vec<SrcPos> {
-        if let Some(ent) = ItemAtCursor::search(self, decl_pos.source(), decl_pos.start()) {
-            FindAllReferences::search(self, ent)
+        if let Some(ent) = self.search_reference(decl_pos.source(), decl_pos.start()) {
+            self.find_all_references(ent)
         } else {
             Vec::new()
         }
+    }
+
+    pub fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
+        for library in self.libraries.values() {
+            for unit_id in library.sorted_unit_ids() {
+                let unit = library.units.get(unit_id.key()).unwrap();
+                return_if_found!(unit.unit.write().search(searcher));
+            }
+        }
+        NotFound
     }
 
     pub fn symbol_utf8(&self, name: &str) -> Symbol {
@@ -631,25 +649,6 @@ fn get_all_affected(
         affected = std::mem::replace(&mut next_affected, affected);
     }
     all_affected
-}
-
-impl Search for DesignRoot {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
-        for library in self.libraries.values() {
-            return_if_found!(library.search(searcher));
-        }
-        NotFound
-    }
-}
-
-impl Search for Library {
-    fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
-        for unit_id in self.sorted_unit_ids() {
-            let unit = self.units.get(unit_id.key()).unwrap();
-            return_if_found!(unit.unit.read().search(searcher));
-        }
-        NotFound
-    }
 }
 
 #[cfg(test)]
