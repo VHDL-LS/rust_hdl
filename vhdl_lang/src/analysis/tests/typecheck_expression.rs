@@ -653,3 +653,28 @@ constant bad5 : arr0_t := x\"6\";
         ],
     );
 }
+
+#[test]
+fn check_null_literal() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type ptr_t is access integer_vector;
+
+procedure proc is
+    variable good : ptr_t := null;
+    variable bad : integer := null;
+begin
+end procedure;
+
+",
+    );
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("null", 2),
+            "null literal does not match integer type 'INTEGER'",
+        )],
+    );
+}

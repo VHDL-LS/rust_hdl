@@ -153,7 +153,17 @@ impl<'a> AnalyzeContext<'a> {
                     Some(false)
                 }
             }
-            Literal::Null => None,
+            Literal::Null => {
+                if let Type::Access(_, _) = target_base.kind() {
+                    Some(true)
+                } else {
+                    diagnostics.push(Diagnostic::error(
+                        pos,
+                        format!("null literal does not match {}", target_base.describe()),
+                    ));
+                    Some(false)
+                }
+            }
         };
 
         Ok(is_correct)
