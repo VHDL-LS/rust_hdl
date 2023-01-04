@@ -20,7 +20,7 @@ impl<'a> AnalyzeContext<'a> {
         pos: &SrcPos,
         literal: &mut Literal,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<bool>> {
+    ) -> FatalResult<bool> {
         let target_base = target_type.base_type();
 
         let is_correct = match literal {
@@ -34,7 +34,7 @@ impl<'a> AnalyzeContext<'a> {
                             format!("integer literal does not match {}", target_type.describe()),
                         ));
                     }
-                    Some(is_correct)
+                    is_correct
                 }
                 AbstractLiteral::Real(_) => {
                     let is_correct = matches!(target_base.kind(), Type::Real(..));
@@ -45,13 +45,13 @@ impl<'a> AnalyzeContext<'a> {
                             format!("real literal does not match {}", target_type.describe()),
                         ));
                     }
-                    Some(is_correct)
+                    is_correct
                 }
             },
             Literal::Character(char) => match target_base.kind() {
                 Type::Enum(_, literals) => {
                     if literals.contains(&Designator::Character(*char)) {
-                        Some(true)
+                        true
                     } else {
                         diagnostics.push(Diagnostic::error(
                             pos,
@@ -60,7 +60,7 @@ impl<'a> AnalyzeContext<'a> {
                                 target_type.describe()
                             ),
                         ));
-                        Some(false)
+                        false
                     }
                 }
                 _ => {
@@ -71,7 +71,7 @@ impl<'a> AnalyzeContext<'a> {
                             target_type.describe()
                         ),
                     ));
-                    Some(false)
+                    false
                 }
             },
             Literal::String(string_lit) => {
@@ -91,21 +91,21 @@ impl<'a> AnalyzeContext<'a> {
                             ))
                         }
                     }
-                    Some(is_correct)
+                    is_correct
                 } else {
                     diagnostics.push(Diagnostic::error(
                         pos,
                         format!("string literal does not match {}", target_type.describe()),
                     ));
-                    Some(false)
+                    false
                 }
             }
             Literal::Physical(PhysicalLiteral { ref mut unit, .. }) => {
                 match self.resolve_physical_unit(region, unit) {
-                    Ok(physical_type) => Some(physical_type.base_type() == target_base),
+                    Ok(physical_type) => physical_type.base_type() == target_base,
                     Err(diagnostic) => {
                         diagnostics.push(diagnostic);
-                        Some(false)
+                        false
                     }
                 }
             }
@@ -141,7 +141,7 @@ impl<'a> AnalyzeContext<'a> {
                             ),
                         ))
                     }
-                    Some(is_correct)
+                    is_correct
                 } else {
                     diagnostics.push(Diagnostic::error(
                         pos,
@@ -150,18 +150,18 @@ impl<'a> AnalyzeContext<'a> {
                             target_type.describe()
                         ),
                     ));
-                    Some(false)
+                    false
                 }
             }
             Literal::Null => {
                 if let Type::Access(_, _) = target_base.kind() {
-                    Some(true)
+                    true
                 } else {
                     diagnostics.push(Diagnostic::error(
                         pos,
                         format!("null literal does not match {}", target_base.describe()),
                     ));
-                    Some(false)
+                    false
                 }
             }
         };

@@ -1061,13 +1061,9 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<Option<bool>> {
         match expr {
-            Expression::Literal(ref mut lit) => self.analyze_literal_with_target_type(
-                region,
-                target_type,
-                expr_pos,
-                lit,
-                diagnostics,
-            ),
+            Expression::Literal(ref mut lit) => self
+                .analyze_literal_with_target_type(region, target_type, expr_pos, lit, diagnostics)
+                .map(Some),
             Expression::Name(ref mut name) => {
                 self.analyze_name_with_target_type(region, target_type, expr_pos, name, diagnostics)
             }
