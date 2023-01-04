@@ -6,7 +6,6 @@
 
 use super::formal_region::FormalRegion;
 use super::implicits::ImplicitVecBuilder;
-use super::implicits::Implicits;
 use super::names::*;
 use super::standard::StandardRegion;
 use super::*;
@@ -687,19 +686,22 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             TypeDefinition::Physical(ref mut physical) => {
+                let implicits = ImplicitVecBuilder::default();
+
                 let phys_type = TypeEnt::define_with_opt_id(
                     overwrite_id,
                     &mut type_decl.ident,
-                    Type::Physical(Implicits::default()),
+                    Type::Physical(implicits.inner()),
                 );
                 parent.add(phys_type.clone().into(), diagnostics);
 
-                parent.add(
-                    physical
-                        .primary_unit
-                        .define(NamedEntityKind::PhysicalLiteral(phys_type.clone())),
-                    diagnostics,
-                );
+                let primary = physical
+                    .primary_unit
+                    .define(NamedEntityKind::PhysicalLiteral(phys_type.clone()));
+
+                implicits.push(&primary);
+                parent.add(primary, diagnostics);
+
                 for (secondary_unit_name, value) in physical.secondary_units.iter_mut() {
                     match self.resolve_physical_unit(parent, &mut value.unit) {
                         Ok(secondary_unit_type) => {
@@ -717,11 +719,10 @@ impl<'a> AnalyzeContext<'a> {
                         Err(err) => diagnostics.push(err),
                     }
 
-                    parent.add(
-                        secondary_unit_name
-                            .define(NamedEntityKind::PhysicalLiteral(phys_type.clone())),
-                        diagnostics,
-                    )
+                    let secondary_unit = secondary_unit_name
+                        .define(NamedEntityKind::PhysicalLiteral(phys_type.clone()));
+                    implicits.push(&secondary_unit);
+                    parent.add(secondary_unit, diagnostics)
                 }
             }
             TypeDefinition::Incomplete(..) => {
