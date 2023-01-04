@@ -596,3 +596,60 @@ constant ibad : integer := 5.6;
         ],
     );
 }
+
+#[test]
+fn check_bitstring_literal() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+constant good1 : bit_vector := x\"1\";
+constant bad1 : integer := x\"2\";
+constant bad2 : integer_vector := x\"3\";
+
+type enum_t is (alpha, beta);
+type arr_t is array (natural range <>) of enum_t;
+constant bad3 : arr_t := x\"4\";
+constant bad4 : arr_t := x\"5\";
+
+type enum0_t is ('0', alpha);
+type arr0_t is array (natural range <>) of enum0_t;
+constant good3 : arr0_t := x\"00\";
+constant bad5 : arr0_t := x\"6\";
+
+",
+    );
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s1("x\"2\""),
+                "bit string literal does not match integer type 'INTEGER'",
+            ),
+            Diagnostic::error(
+                code.s1("x\"3\""),
+                "bit string literal does not match array type 'INTEGER_VECTOR'",
+            ),
+            Diagnostic::error(
+                code.s1("x\"4\""),
+                "element type 'enum_t' of array type 'arr_t' does not define character '0'",
+            ),
+            Diagnostic::error(
+                code.s1("x\"4\""),
+                "element type 'enum_t' of array type 'arr_t' does not define character '1'",
+            ),
+            Diagnostic::error(
+                code.s1("x\"5\""),
+                "element type 'enum_t' of array type 'arr_t' does not define character '0'",
+            ),
+            Diagnostic::error(
+                code.s1("x\"5\""),
+                "element type 'enum_t' of array type 'arr_t' does not define character '1'",
+            ),
+            Diagnostic::error(
+                code.s1("x\"6\""),
+                "element type 'enum0_t' of array type 'arr0_t' does not define character '1'",
+            ),
+        ],
+    );
+}

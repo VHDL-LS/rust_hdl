@@ -12,6 +12,7 @@ mod declarative;
 mod design_unit;
 mod formal_region;
 mod implicits;
+mod literals;
 mod lock;
 mod named_entity;
 mod names;
