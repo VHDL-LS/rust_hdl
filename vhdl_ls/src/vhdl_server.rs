@@ -402,14 +402,12 @@ struct MessageFilter {
 
 impl MessageHandler for MessageFilter {
     fn push(&mut self, msg: Message) {
-        if self.silent && msg.message_type != vhdl_lang::MessageType::Error {
-            return;
-        }
-
-        if matches!(
-            msg.message_type,
-            vhdl_lang::MessageType::Warning | vhdl_lang::MessageType::Error
-        ) {
+        if !self.silent
+            && matches!(
+                msg.message_type,
+                vhdl_lang::MessageType::Warning | vhdl_lang::MessageType::Error
+            )
+        {
             self.rpc.send_notification(
                 "window/showMessage",
                 ShowMessageParams {

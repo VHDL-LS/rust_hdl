@@ -14,7 +14,8 @@ struct Args {
     #[arg(long, default_value_t = false)]
     no_lint: bool,
 
-    /// Silence all but error messages
+    /// Normally warning and error messages are sent to window/showMessage
+    /// This will silence all window/showMessage and only use window/logMessage
     #[arg(long, default_value_t = false)]
     silent: bool,
 }
