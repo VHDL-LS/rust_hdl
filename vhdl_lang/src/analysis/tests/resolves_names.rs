@@ -1494,6 +1494,21 @@ constant the_time4 : time_t := 1000 big;
     let (root, diagnostics) = builder.get_analyzed_root();
     check_no_diagnostics(&diagnostics);
 
+    let time_t = root
+        .search_reference(code.source(), code.s1("time_t").start())
+        .unwrap();
+    assert_eq!(time_t.decl_pos().unwrap(), code.s1("time_t").pos().as_ref());
+    assert_eq!(
+        root.find_all_references(time_t),
+        vec![
+            code.s("time_t", 1).pos(),
+            code.s("time_t", 2).pos(),
+            code.s("time_t", 3).pos(),
+            code.s("time_t", 4).pos(),
+            code.s("time_t", 5).pos(),
+        ]
+    );
+
     for i in 0..3 {
         let ent = root
             .search_reference(code.source(), code.s("small", 1 + i).start())
