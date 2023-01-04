@@ -7,6 +7,7 @@
 use super::analyze::*;
 use super::region::*;
 use super::target::AssignmentType;
+use crate::ast::search::clear_references;
 use crate::ast::Range;
 use crate::ast::*;
 use crate::data::*;
@@ -949,7 +950,6 @@ impl<'a> AnalyzeContext<'a> {
             if let Some(sig) = name.signature() {
                 let is_correct = if sig.match_return_type(target_type) {
                     let mut temp_diagnostics = Vec::new();
-                    // @TODO clear references that could have been incorrectly set
                     self.analyze_assoc_elems_with_formal_region(
                         pos,
                         &sig.params,
@@ -960,6 +960,11 @@ impl<'a> AnalyzeContext<'a> {
                 } else {
                     Some(false)
                 };
+
+                // Clear references that could have been incorrectly set
+                for elem in parameters.iter_mut() {
+                    clear_references(elem);
+                }
 
                 match is_correct {
                     Some(true) => good.push((name, sig)),

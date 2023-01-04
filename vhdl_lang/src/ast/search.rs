@@ -1460,3 +1460,17 @@ impl Searcher for FindAllUnresolved {
         NotFinished
     }
 }
+
+pub fn clear_references(tree: &mut impl Search) {
+    struct ReferenceClearer;
+
+    impl Searcher for ReferenceClearer {
+        fn search_pos_with_ref(&mut self, _pos: &SrcPos, reference: &mut Reference) -> SearchState {
+            *reference = None;
+            NotFinished
+        }
+    }
+
+    let mut searcher = ReferenceClearer;
+    let _ = tree.search(&mut searcher);
+}
