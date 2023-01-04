@@ -1058,28 +1058,30 @@ impl<'a> AnalyzeContext<'a> {
         let target_base = target_type.base_type();
 
         let is_correct = match literal {
-            Literal::AbstractLiteral(AbstractLiteral::Integer(_)) => {
-                let is_correct = matches!(target_base.kind(), Type::Integer(..));
+            Literal::AbstractLiteral(abst) => match abst {
+                AbstractLiteral::Integer(_) => {
+                    let is_correct = matches!(target_base.kind(), Type::Integer(..));
 
-                if !is_correct {
-                    diagnostics.push(Diagnostic::error(
-                        pos,
-                        format!("integer literal does not match {}", target_type.describe()),
-                    ));
+                    if !is_correct {
+                        diagnostics.push(Diagnostic::error(
+                            pos,
+                            format!("integer literal does not match {}", target_type.describe()),
+                        ));
+                    }
+                    Some(is_correct)
                 }
-                Some(is_correct)
-            }
-            Literal::AbstractLiteral(AbstractLiteral::Real(_)) => {
-                let is_correct = matches!(target_base.kind(), Type::Real(..));
+                AbstractLiteral::Real(_) => {
+                    let is_correct = matches!(target_base.kind(), Type::Real(..));
 
-                if !is_correct {
-                    diagnostics.push(Diagnostic::error(
-                        pos,
-                        format!("real literal does not match {}", target_type.describe()),
-                    ));
+                    if !is_correct {
+                        diagnostics.push(Diagnostic::error(
+                            pos,
+                            format!("real literal does not match {}", target_type.describe()),
+                        ));
+                    }
+                    Some(is_correct)
                 }
-                Some(is_correct)
-            }
+            },
             Literal::Character(char) => match target_base.kind() {
                 Type::Enum(_, literals) => {
                     if literals.contains(&Designator::Character(*char)) {
