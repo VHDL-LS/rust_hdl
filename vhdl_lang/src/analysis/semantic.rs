@@ -544,9 +544,10 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
-    pub fn analyze_array_assoc_elem(
+    pub fn analyze_1d_array_assoc_elem(
         &self,
         region: &Region<'_>,
+        index_type: Option<&TypeEnt>,
         elem_type: &TypeEnt,
         assoc: &mut ElementAssociation,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -562,21 +563,32 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics,
                     )
                 } else {
+                    let mut check = TypeCheck::Ok;
                     for choice in choices.iter_mut() {
                         match choice {
-                            Choice::Expression(..) => {
-                                // @TODO could be record field so we cannot do more now
+                            Choice::Expression(index_expr) => {
+                                if let Some(index_type) = index_type {
+                                    check.add(self.analyze_expression_with_target_type(
+                                        region,
+                                        index_type,
+                                        &index_expr.pos,
+                                        &mut index_expr.item,
+                                        diagnostics,
+                                    )?);
+                                }
                             }
                             Choice::DiscreteRange(ref mut drange) => {
                                 self.analyze_discrete_range(region, drange, diagnostics)?;
+                                check.add(TypeCheck::Unknown);
                             }
                             Choice::Others => {
                                 // @TODO choice must be alone so cannot appear here
+                                check.add(TypeCheck::Unknown);
                             }
                         }
                     }
                     self.analyze_expression(region, expr, diagnostics)?;
-                    Ok(TypeCheck::Unknown)
+                    Ok(check)
                 }
             }
             ElementAssociation::Positional(ref mut expr) => self
@@ -1184,10 +1196,11 @@ impl<'a> AnalyzeContext<'a> {
                     elem_type, indexes, ..
                 } => {
                     let mut check = TypeCheck::Ok;
-                    if indexes.len() == 1 {
+                    if let [index_type] = indexes.as_slice() {
                         for assoc in assocs.iter_mut() {
-                            check.add(self.analyze_array_assoc_elem(
+                            check.add(self.analyze_1d_array_assoc_elem(
                                 region,
+                                index_type.as_ref(),
                                 elem_type,
                                 assoc,
                                 diagnostics,

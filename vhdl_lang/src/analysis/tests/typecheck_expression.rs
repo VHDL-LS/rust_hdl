@@ -737,3 +737,23 @@ constant bad2 : integer_vector := (others => 'd');
         ],
     );
 }
+
+#[test]
+fn typecheck_array_association_index() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+constant good : integer_vector := (0 | 1 => 11, 2 => 22);
+constant bad1 : integer_vector := ('c' => 0);
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("'c'"),
+            "character literal does not match subtype 'NATURAL'",
+        )],
+    );
+}

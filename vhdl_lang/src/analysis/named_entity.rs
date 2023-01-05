@@ -22,7 +22,7 @@ pub enum Type {
     Array {
         implicit: ImplicitVec,
         // Indexes are Option<> to handle unknown types
-        indexes: Vec<Option<Arc<NamedEntity>>>,
+        indexes: Vec<Option<TypeEnt>>,
         elem_type: TypeEnt,
     },
     Enum(ImplicitVec, FnvHashSet<Designator>),

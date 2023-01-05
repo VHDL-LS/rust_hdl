@@ -628,11 +628,9 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             TypeDefinition::Array(ref mut array_indexes, ref mut subtype_indication) => {
-                let mut indexes: Vec<Option<Arc<NamedEntity>>> =
-                    Vec::with_capacity(array_indexes.len());
+                let mut indexes: Vec<Option<TypeEnt>> = Vec::with_capacity(array_indexes.len());
                 for index in array_indexes.iter_mut() {
-                    self.analyze_array_index(parent, index, diagnostics)?;
-                    indexes.push(None);
+                    indexes.push(self.analyze_array_index(parent, index, diagnostics)?);
                 }
 
                 let elem_type = match self.resolve_subtype_indication(
@@ -946,19 +944,24 @@ impl<'a> AnalyzeContext<'a> {
         region: &mut Region<'_>,
         array_index: &mut ArrayIndex,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult<Option<TypeEnt>> {
         match array_index {
             ArrayIndex::IndexSubtypeDefintion(ref mut type_mark) => {
-                if let Err(err) = self.resolve_type_mark_name(region, type_mark) {
-                    err.add_to(diagnostics)?;
+                match self.resolve_type_mark_name(region, type_mark) {
+                    Ok(typ) => Ok(Some(typ)),
+                    Err(err) => {
+                        err.add_to(diagnostics)?;
+                        Ok(None)
+                    }
                 }
             }
             ArrayIndex::Discrete(ref mut drange) => {
                 self.analyze_discrete_range(region, drange, diagnostics)?;
+                Ok(None)
             }
         }
-        Ok(())
     }
+
     fn analyze_element_constraint(
         &self,
         region: &Region<'_>,
