@@ -718,15 +718,22 @@ type arr2_t is array (0 to 1, 0 to 1) of natural;
 constant good1 : integer_vector := (0, 1, 2);
 constant good2 : arr2_t := ((0, 1), (2, 3));
 constant bad1 : integer_vector := (3, 4, 'c');
+constant bad2 : integer_vector := (others => 'd');
         ",
     );
 
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
-            code.s1("'c'"),
-            "character literal does not match integer type 'INTEGER'",
-        )],
+        vec![
+            Diagnostic::error(
+                code.s1("'c'"),
+                "character literal does not match integer type 'INTEGER'",
+            ),
+            Diagnostic::error(
+                code.s1("'d'"),
+                "character literal does not match integer type 'INTEGER'",
+            ),
+        ],
     );
 }

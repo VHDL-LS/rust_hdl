@@ -553,19 +553,31 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalResult<TypeCheck> {
         match assoc {
             ElementAssociation::Named(ref mut choices, ref mut expr) => {
-                for choice in choices.iter_mut() {
-                    match choice {
-                        Choice::Expression(..) => {
-                            // @TODO could be record field so we cannot do more now
+                if let &[Choice::Others] = choices.as_slice() {
+                    self.analyze_expression_with_target_type(
+                        region,
+                        elem_type,
+                        &expr.pos,
+                        &mut expr.item,
+                        diagnostics,
+                    )
+                } else {
+                    for choice in choices.iter_mut() {
+                        match choice {
+                            Choice::Expression(..) => {
+                                // @TODO could be record field so we cannot do more now
+                            }
+                            Choice::DiscreteRange(ref mut drange) => {
+                                self.analyze_discrete_range(region, drange, diagnostics)?;
+                            }
+                            Choice::Others => {
+                                // @TODO choice must be alone so cannot appear here
+                            }
                         }
-                        Choice::DiscreteRange(ref mut drange) => {
-                            self.analyze_discrete_range(region, drange, diagnostics)?;
-                        }
-                        Choice::Others => {}
                     }
+                    self.analyze_expression(region, expr, diagnostics)?;
+                    Ok(TypeCheck::Unknown)
                 }
-                self.analyze_expression(region, expr, diagnostics)?;
-                Ok(TypeCheck::Unknown)
             }
             ElementAssociation::Positional(ref mut expr) => self
                 .analyze_expression_with_target_type(
