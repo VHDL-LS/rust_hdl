@@ -703,3 +703,30 @@ constant bad1 : integer := (3, 4, 5);
         )],
     );
 }
+
+#[test]
+fn typecheck_aggregate_element_association_expr() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type rec_t is record
+    field : natural;
+end record;
+
+type arr2_t is array (0 to 1, 0 to 1) of natural;
+
+constant good1 : integer_vector := (0, 1, 2);
+constant good2 : arr2_t := ((0, 1), (2, 3));
+constant bad1 : integer_vector := (3, 4, 'c');
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("'c'"),
+            "character literal does not match integer type 'INTEGER'",
+        )],
+    );
+}

@@ -544,6 +544,40 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
+    pub fn analyze_array_assoc_elem(
+        &self,
+        region: &Region<'_>,
+        elem_type: &TypeEnt,
+        assoc: &mut ElementAssociation,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult<TypeCheck> {
+        match assoc {
+            ElementAssociation::Named(ref mut choices, ref mut expr) => {
+                for choice in choices.iter_mut() {
+                    match choice {
+                        Choice::Expression(..) => {
+                            // @TODO could be record field so we cannot do more now
+                        }
+                        Choice::DiscreteRange(ref mut drange) => {
+                            self.analyze_discrete_range(region, drange, diagnostics)?;
+                        }
+                        Choice::Others => {}
+                    }
+                }
+                self.analyze_expression(region, expr, diagnostics)?;
+                Ok(TypeCheck::Unknown)
+            }
+            ElementAssociation::Positional(ref mut expr) => self
+                .analyze_expression_with_target_type(
+                    region,
+                    elem_type,
+                    &expr.pos,
+                    &mut expr.item,
+                    diagnostics,
+                ),
+        }
+    }
+
     fn analyze_qualified_expression(
         &self,
         region: &Region<'_>,
@@ -1133,21 +1167,41 @@ impl<'a> AnalyzeContext<'a> {
                 self.analyze_expression(region, expr, diagnostics)?;
                 Ok(TypeCheck::Unknown)
             }
-            Expression::Aggregate(assocs) => {
-                match target_type.base_type().kind() {
-                    Type::Array { .. } => {}
-                    Type::Record { .. } => {}
-                    _ => {
-                        diagnostics.error(
-                            expr_pos,
-                            format!("Composite does not match {}", target_type.describe()),
-                        );
+            Expression::Aggregate(assocs) => match target_type.base_type().kind() {
+                Type::Array {
+                    elem_type, indexes, ..
+                } => {
+                    let mut check = TypeCheck::Ok;
+                    if indexes.len() == 1 {
+                        for assoc in assocs.iter_mut() {
+                            check.add(self.analyze_array_assoc_elem(
+                                region,
+                                elem_type,
+                                assoc,
+                                diagnostics,
+                            )?);
+                        }
+                    } else {
+                        // @TODO multi dimensional array
+                        self.analyze_aggregate(region, assocs, diagnostics)?;
+                        check.add(TypeCheck::Unknown);
                     }
+                    Ok(check)
                 }
+                Type::Record { .. } => {
+                    self.analyze_aggregate(region, assocs, diagnostics)?;
+                    Ok(TypeCheck::Unknown)
+                }
+                _ => {
+                    self.analyze_aggregate(region, assocs, diagnostics)?;
 
-                self.analyze_aggregate(region, assocs, diagnostics)?;
-                Ok(TypeCheck::Unknown)
-            }
+                    diagnostics.error(
+                        expr_pos,
+                        format!("Composite does not match {}", target_type.describe()),
+                    );
+                    Ok(TypeCheck::Unknown)
+                }
+            },
             Expression::New(ref mut alloc) => {
                 self.analyze_allocation(region, alloc, diagnostics)?;
                 Ok(TypeCheck::Unknown)
