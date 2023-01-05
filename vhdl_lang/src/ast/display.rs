@@ -38,59 +38,44 @@ impl Display for BaseSpecifier {
     }
 }
 
-impl Display for Unary {
+impl Display for Operator {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            Unary::And => write!(f, "and "),
-            Unary::Or => write!(f, "or "),
-            Unary::Nand => write!(f, "nand "),
-            Unary::Nor => write!(f, "nor "),
-            Unary::Xor => write!(f, "xor "),
-            Unary::Xnor => write!(f, "xnor "),
-            Unary::Abs => write!(f, "abs "),
-            Unary::Not => write!(f, "not "),
-            Unary::Minus => write!(f, "-"),
-            Unary::Plus => write!(f, "+"),
-            Unary::QueQue => write!(f, "?? "),
-        }
-    }
-}
-
-impl Display for Binary {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        match self {
-            Binary::And => write!(f, " and "),
-            Binary::Or => write!(f, " or "),
-            Binary::Nand => write!(f, " nand "),
-            Binary::Nor => write!(f, " nor "),
-            Binary::Xor => write!(f, " xor "),
-            Binary::Xnor => write!(f, " xnor "),
-            Binary::EQ => write!(f, " = "),
-            Binary::NE => write!(f, " /= "),
-            Binary::LT => write!(f, " < "),
-            Binary::LTE => write!(f, " <= "),
-            Binary::GT => write!(f, " > "),
-            Binary::GTE => write!(f, " >= "),
-            Binary::QueEQ => write!(f, " ?= "),
-            Binary::QueNE => write!(f, " ?/= "),
-            Binary::QueLT => write!(f, " ?< "),
-            Binary::QueLTE => write!(f, " ?<= "),
-            Binary::QueGT => write!(f, " ?> "),
-            Binary::QueGTE => write!(f, " ?>= "),
-            Binary::SLL => write!(f, " sll "),
-            Binary::SRL => write!(f, " srl "),
-            Binary::SLA => write!(f, " sla "),
-            Binary::SRA => write!(f, " sra "),
-            Binary::ROL => write!(f, " rol "),
-            Binary::ROR => write!(f, " ror "),
-            Binary::Plus => write!(f, " + "),
-            Binary::Minus => write!(f, " - "),
-            Binary::Concat => write!(f, " & "),
-            Binary::Times => write!(f, " * "),
-            Binary::Div => write!(f, " / "),
-            Binary::Mod => write!(f, " mod "),
-            Binary::Rem => write!(f, " rem "),
-            Binary::Pow => write!(f, " ** "),
+            Operator::And => write!(f, "and"),
+            Operator::Or => write!(f, "or"),
+            Operator::Nand => write!(f, "nand"),
+            Operator::Nor => write!(f, "nor"),
+            Operator::Xor => write!(f, "xor"),
+            Operator::Xnor => write!(f, "xnor"),
+            Operator::EQ => write!(f, "="),
+            Operator::NE => write!(f, "/="),
+            Operator::LT => write!(f, "<"),
+            Operator::LTE => write!(f, "<="),
+            Operator::GT => write!(f, ">"),
+            Operator::GTE => write!(f, ">="),
+            Operator::QueEQ => write!(f, "?="),
+            Operator::QueNE => write!(f, "?/="),
+            Operator::QueLT => write!(f, "?<"),
+            Operator::QueLTE => write!(f, "?<="),
+            Operator::QueGT => write!(f, "?>"),
+            Operator::QueGTE => write!(f, "?>="),
+            Operator::SLL => write!(f, "sll"),
+            Operator::SRL => write!(f, "srl"),
+            Operator::SLA => write!(f, "sla"),
+            Operator::SRA => write!(f, "sra"),
+            Operator::ROL => write!(f, "rol"),
+            Operator::ROR => write!(f, "ror"),
+            Operator::Plus => write!(f, "+"),
+            Operator::Minus => write!(f, "-"),
+            Operator::Concat => write!(f, "&"),
+            Operator::Times => write!(f, "*"),
+            Operator::Div => write!(f, "/"),
+            Operator::Mod => write!(f, "mod"),
+            Operator::Rem => write!(f, "rem"),
+            Operator::Pow => write!(f, "**"),
+            Operator::Abs => write!(f, "abs"),
+            Operator::Not => write!(f, "not"),
+            Operator::QueQue => write!(f, "??"),
         }
     }
 }
@@ -303,81 +288,22 @@ impl Display for QualifiedExpression {
     }
 }
 
-fn binary_precedence(op: Binary) -> usize {
-    match op {
-        Binary::And => 2,
-        Binary::Or => 2,
-        Binary::Nand => 2,
-        Binary::Nor => 2,
-        Binary::Xor => 2,
-        Binary::Xnor => 2,
-
-        Binary::EQ => 3,
-        Binary::NE => 3,
-        Binary::LT => 3,
-        Binary::LTE => 3,
-        Binary::GT => 3,
-        Binary::GTE => 3,
-        Binary::QueEQ => 3,
-        Binary::QueNE => 3,
-        Binary::QueLT => 3,
-        Binary::QueLTE => 3,
-        Binary::QueGT => 3,
-        Binary::QueGTE => 3,
-
-        Binary::SLL => 4,
-        Binary::SRL => 4,
-        Binary::SLA => 4,
-        Binary::SRA => 4,
-        Binary::ROL => 4,
-        Binary::ROR => 4,
-
-        Binary::Plus => 5,
-        Binary::Minus => 5,
-        Binary::Concat => 5,
-
-        Binary::Times => 7,
-        Binary::Div => 7,
-        Binary::Mod => 7,
-        Binary::Rem => 7,
-
-        Binary::Pow => 8,
-    }
-}
-
-fn unary_precedence(op: Unary) -> usize {
-    match op {
-        Unary::And => 8,
-        Unary::Or => 8,
-        Unary::Nand => 8,
-        Unary::Nor => 8,
-        Unary::Xor => 8,
-        Unary::Xnor => 8,
-
-        Unary::Abs => 8,
-        Unary::Not => 8,
-        Unary::Minus => 6,
-        Unary::Plus => 6,
-        Unary::QueQue => 1,
-    }
-}
-
 impl Display for Expression {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             Expression::Binary(ref op, ref lhs, ref rhs) => {
                 // Add parentheses as necessary to satisfy order of precedence.
-                let precedence = binary_precedence(*op);
+                let precedence = op.binary_precedence().unwrap();
                 match lhs.item {
                     Expression::Binary(op, ..) => {
-                        if precedence <= binary_precedence(op) {
+                        if precedence <= op.binary_precedence().unwrap() {
                             write!(f, "{}", lhs)?;
                         } else {
                             write!(f, "({})", lhs)?;
                         }
                     }
                     Expression::Unary(op, ..) => {
-                        if precedence <= unary_precedence(op) {
+                        if precedence <= op.unary_precedence().unwrap() {
                             write!(f, "{}", lhs)?;
                         } else {
                             write!(f, "({})", lhs)?;
@@ -385,10 +311,10 @@ impl Display for Expression {
                     }
                     _ => write!(f, "{}", lhs)?,
                 }
-                write!(f, "{}", op)?;
+                write!(f, " {} ", op)?;
                 match rhs.item {
                     Expression::Binary(op, ..) => {
-                        if precedence < binary_precedence(op) {
+                        if precedence < op.binary_precedence().unwrap() {
                             write!(f, "{}", rhs)
                         } else {
                             write!(f, "({})", rhs)
@@ -399,8 +325,12 @@ impl Display for Expression {
             }
             Expression::Unary(ref op, ref expr) => {
                 // Add parentheses as necessary to satisfy order of precedence.
-                let precedence = unary_precedence(*op);
-                write!(f, "{}", op)?;
+                let precedence = op.unary_precedence().unwrap();
+                if matches!(op, Operator::Minus | Operator::Plus) {
+                    write!(f, "{}", op)?;
+                } else {
+                    write!(f, "{} ", op)?;
+                }
                 match expr.item {
                     // Binary operators having precedence over unary ones is
                     // confusing, so always add parentheses.
@@ -411,7 +341,7 @@ impl Display for Expression {
                     // chained operators with the same precedence are
                     // parenthesized for clarity.
                     Expression::Unary(op, ..) => {
-                        if precedence != unary_precedence(op) {
+                        if precedence != op.unary_precedence().unwrap() {
                             write!(f, "{}", expr)
                         } else {
                             write!(f, "({})", expr)
@@ -620,7 +550,7 @@ impl Display for Designator {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             Designator::Identifier(ref sym) => write!(f, "{}", sym),
-            Designator::OperatorSymbol(ref latin1) => write!(f, "\"{}\"", latin1),
+            Designator::OperatorSymbol(ref op) => write!(f, "\"{}\"", op),
             Designator::Character(byte) => write!(f, "'{}'", *byte as char),
         }
     }

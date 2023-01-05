@@ -19,73 +19,126 @@ fn name_to_expression(name: WithPos<Name>) -> WithPos<Expression> {
     }
 }
 
-/// Convert kind to binary operation
-/// Also returns the precedence
-fn kind_to_binary_op(kind: Kind) -> Option<(Binary, usize)> {
-    match kind {
-        And => Some((Binary::And, 2)),
-        Or => Some((Binary::Or, 2)),
-        Nand => Some((Binary::Nand, 2)),
-        Nor => Some((Binary::Nor, 2)),
-        Xor => Some((Binary::Xor, 2)),
-        Xnor => Some((Binary::Xnor, 2)),
+impl Operator {
+    pub fn binary_precedence(&self) -> Option<usize> {
+        Some(match self {
+            Operator::And => 2,
+            Operator::Or => 2,
+            Operator::Nand => 2,
+            Operator::Nor => 2,
+            Operator::Xor => 2,
+            Operator::Xnor => 2,
+            Operator::EQ => 3,
+            Operator::NE => 3,
+            Operator::LT => 3,
+            Operator::LTE => 3,
+            Operator::GT => 3,
+            Operator::GTE => 3,
+            Operator::QueEQ => 3,
+            Operator::QueNE => 3,
+            Operator::QueLT => 3,
+            Operator::QueLTE => 3,
+            Operator::QueGT => 3,
+            Operator::QueGTE => 3,
+            Operator::SLL => 4,
+            Operator::SRL => 4,
+            Operator::SLA => 4,
+            Operator::SRA => 4,
+            Operator::ROL => 4,
+            Operator::ROR => 4,
+            Operator::Plus => 5,
+            Operator::Minus => 5,
+            Operator::Concat => 5,
+            Operator::Times => 7,
+            Operator::Div => 7,
+            Operator::Mod => 7,
+            Operator::Rem => 7,
+            Operator::Pow => 8,
+            _ => {
+                return None;
+            }
+        })
+    }
 
-        EQ => Some((Binary::EQ, 3)),
-        NE => Some((Binary::NE, 3)),
-        LT => Some((Binary::LT, 3)),
-        LTE => Some((Binary::LTE, 3)),
-        GT => Some((Binary::GT, 3)),
-        GTE => Some((Binary::GTE, 3)),
-        QueEQ => Some((Binary::QueEQ, 3)),
-        QueNE => Some((Binary::QueNE, 3)),
-        QueLT => Some((Binary::QueLT, 3)),
-        QueLTE => Some((Binary::QueLTE, 3)),
-        QueGT => Some((Binary::QueGT, 3)),
-        QueGTE => Some((Binary::QueGTE, 3)),
+    pub fn unary_precedence(&self) -> Option<usize> {
+        Some(match self {
+            Operator::Abs => 8,
+            Operator::Not => 8,
+            Operator::Plus => 6,
+            Operator::Minus => 6,
+            Operator::QueQue => 1,
 
-        SLL => Some((Binary::SLL, 4)),
-        SRL => Some((Binary::SRL, 4)),
-        SLA => Some((Binary::SLA, 4)),
-        SRA => Some((Binary::SRA, 4)),
-        ROL => Some((Binary::ROL, 4)),
-        ROR => Some((Binary::ROR, 4)),
+            // LRM: All of the binary logical operators belong to the
+            // class of operators with the lowest precedence. The unary
+            // logical operators belong to the class of operators with
+            // the highest precedence.
+            Operator::And => 8,
+            Operator::Or => 8,
+            Operator::Nand => 8,
+            Operator::Nor => 8,
+            Operator::Xor => 8,
+            Operator::Xnor => 8,
 
-        Plus => Some((Binary::Plus, 5)),
-        Minus => Some((Binary::Minus, 5)),
-        Concat => Some((Binary::Concat, 5)),
-
-        Times => Some((Binary::Times, 7)),
-        Div => Some((Binary::Div, 7)),
-        Mod => Some((Binary::Mod, 7)),
-        Rem => Some((Binary::Rem, 7)),
-
-        Pow => Some((Binary::Pow, 8)),
-        _ => None,
+            _ => {
+                return None;
+            }
+        })
     }
 }
-/// Convert kind to a unary operation that is the prefix of the value
-/// Also returns the precedence
-fn kind_to_prefix_unary_op(kind: Kind) -> Option<(Unary, usize)> {
-    match kind {
-        Abs => Some((Unary::Abs, 8)),
-        Not => Some((Unary::Not, 8)),
-        Plus => Some((Unary::Plus, 6)),
-        Minus => Some((Unary::Minus, 6)),
-        QueQue => Some((Unary::QueQue, 1)),
 
-        // LRM: All of the binary logical operators belong to the
-        // class of operators with the lowest precedence. The unary
-        // logical operators belong to the class of operators with
-        // the highest precedence.
-        And => Some((Unary::And, 8)),
-        Or => Some((Unary::Or, 8)),
-        Nand => Some((Unary::Nand, 8)),
-        Nor => Some((Unary::Nor, 8)),
-        Xor => Some((Unary::Xor, 8)),
-        Xnor => Some((Unary::Xnor, 8)),
+fn kind_to_operator(kind: Kind) -> Option<Operator> {
+    Some(match kind {
+        And => Operator::And,
+        Or => Operator::Or,
+        Nand => Operator::Nand,
+        Nor => Operator::Nor,
+        Xor => Operator::Xor,
+        Xnor => Operator::Xnor,
+        EQ => Operator::EQ,
+        NE => Operator::NE,
+        LT => Operator::LT,
+        LTE => Operator::LTE,
+        GT => Operator::GT,
+        GTE => Operator::GTE,
+        QueEQ => Operator::QueEQ,
+        QueNE => Operator::QueNE,
+        QueLT => Operator::QueLT,
+        QueLTE => Operator::QueLTE,
+        QueGT => Operator::QueGT,
+        QueGTE => Operator::QueGTE,
+        SLL => Operator::SLL,
+        SRL => Operator::SRL,
+        SLA => Operator::SLA,
+        SRA => Operator::SRA,
+        ROL => Operator::ROL,
+        ROR => Operator::ROR,
+        Plus => Operator::Plus,
+        Minus => Operator::Minus,
+        Concat => Operator::Concat,
+        Times => Operator::Times,
+        Div => Operator::Div,
+        Mod => Operator::Mod,
+        Rem => Operator::Rem,
+        Pow => Operator::Pow,
+        Abs => Operator::Abs,
+        Not => Operator::Not,
+        QueQue => Operator::QueQue,
+        _ => {
+            return None;
+        }
+    })
+}
 
-        _ => None,
-    }
+fn kind_to_prefix_unary_op(kind: Kind) -> Option<(Operator, usize)> {
+    let op = kind_to_operator(kind)?;
+    let prec = op.unary_precedence()?;
+    Some((op, prec))
+}
+
+fn kind_to_binary_op(kind: Kind) -> Option<(Operator, usize)> {
+    let op = kind_to_operator(kind)?;
+    let prec = op.binary_precedence()?;
+    Some((op, prec))
 }
 
 pub fn parse_aggregate_initial_choices(
@@ -333,16 +386,14 @@ fn parse_primary_initial_token(
             .expect_character()?
             .map_into(|chr| Expression::Literal(Literal::Character(chr)))),
         StringLiteral => {
-            let name = parse_name_initial_token(stream, token)?;
-            match name.item {
-                Name::Designator(WithRef {
-                    item: Designator::OperatorSymbol(string),
-                    ..
-                }) => Ok(WithPos {
-                    item: Expression::Literal(Literal::String(string)),
-                    pos: name.pos,
-                }),
-                _ => Ok(name.map_into(|name| Expression::Name(Box::new(name)))),
+            if stream.peek_kind()? == Some(LeftPar) {
+                // Probably an function call via operator symbol "foo"()
+                parse_name_initial_token(stream, token)
+                    .map(|name| name.map_into(|name| Expression::Name(Box::new(name))))
+            } else {
+                Ok(token
+                    .expect_string()?
+                    .map_into(|string| Expression::Literal(Literal::String(string))))
             }
         }
         Null => Ok(WithPos {
@@ -516,10 +567,10 @@ mod tests {
 
     #[test]
     fn parses_operator_symbol() {
-        let code = Code::new("\"string\"(1, 2)");
+        let code = Code::new("\"+\"(1, 2)");
         assert_eq!(
             code.with_stream(parse_expression),
-            code.s1("\"string\"(1, 2)")
+            code.s1("\"+\"(1, 2)")
                 .name()
                 .map_into(|name| Expression::Name(Box::new(name)))
         );
@@ -567,7 +618,7 @@ mod tests {
         };
 
         let expr_add = WithPos {
-            item: Expression::Binary(Binary::Plus, Box::new(lhs), Box::new(rhs)),
+            item: Expression::Binary(Operator::Plus, Box::new(lhs), Box::new(rhs)),
             pos: code.pos(),
         };
 
@@ -588,7 +639,7 @@ mod tests {
         };
 
         let expr_sub = WithPos {
-            item: Expression::Binary(Binary::Minus, Box::new(lhs), Box::new(rhs)),
+            item: Expression::Binary(Operator::Minus, Box::new(lhs), Box::new(rhs)),
             pos: code.pos(),
         };
 
@@ -604,7 +655,7 @@ mod tests {
         };
 
         let expr_abs = WithPos {
-            item: Expression::Unary(Unary::Abs, Box::new(expr)),
+            item: Expression::Unary(Operator::Abs, Box::new(expr)),
             pos: code.pos(),
         };
 
@@ -620,7 +671,7 @@ mod tests {
         };
 
         let expr_cond = WithPos {
-            item: Expression::Unary(Unary::QueQue, Box::new(expr)),
+            item: Expression::Unary(Operator::QueQue, Box::new(expr)),
             pos: code.pos(),
         };
 
@@ -638,7 +689,7 @@ mod tests {
         };
 
         let expr_not = WithPos {
-            item: Expression::Unary(Unary::Not, Box::new(name_false)),
+            item: Expression::Unary(Operator::Not, Box::new(name_false)),
             pos: code.pos(),
         };
 
@@ -758,7 +809,7 @@ mod tests {
             pos: code.s1("2").pos(),
         };
         let expr = WithPos {
-            item: Expression::Binary(Binary::Times, Box::new(two_expr), Box::new(time_expr)),
+            item: Expression::Binary(Operator::Times, Box::new(two_expr), Box::new(time_expr)),
             pos: code.pos(),
         };
         assert_eq!(code.with_stream(parse_expression), expr);
@@ -775,7 +826,7 @@ mod tests {
             pos: code.s1("1 ns").pos(),
         };
         let expr = WithPos {
-            item: Expression::Unary(Unary::Minus, Box::new(time_expr)),
+            item: Expression::Unary(Operator::Minus, Box::new(time_expr)),
             pos: code.pos(),
         };
 
@@ -801,7 +852,7 @@ mod tests {
         let code = Code::new("mark0'(0) < mark1'(1)");
         let expr = WithPos {
             item: Expression::Binary(
-                Binary::LT,
+                Operator::LT,
                 Box::new(code.s1("mark0'(0)").expr()),
                 Box::new(code.s1("mark1'(1)").expr()),
             ),
@@ -1050,12 +1101,12 @@ mod tests {
         };
 
         let expr_add0 = WithPos {
-            item: Expression::Binary(Binary::Plus, Box::new(two), Box::new(three)),
+            item: Expression::Binary(Operator::Plus, Box::new(two), Box::new(three)),
             pos: code.s1("(2 + 3)").pos(),
         };
 
         let expr_add1 = WithPos {
-            item: Expression::Binary(Binary::Plus, Box::new(one), Box::new(expr_add0)),
+            item: Expression::Binary(Operator::Plus, Box::new(one), Box::new(expr_add0)),
             pos: code.pos(),
         };
 
@@ -1082,12 +1133,12 @@ mod tests {
         };
 
         let expr_add0 = WithPos {
-            item: Expression::Binary(Binary::Plus, Box::new(one), Box::new(two)),
+            item: Expression::Binary(Operator::Plus, Box::new(one), Box::new(two)),
             pos: code.s1("(1 + 2)").pos(),
         };
 
         let expr_add1 = WithPos {
-            item: Expression::Binary(Binary::Plus, Box::new(expr_add0), Box::new(three)),
+            item: Expression::Binary(Operator::Plus, Box::new(expr_add0), Box::new(three)),
             pos: code.pos(),
         };
 

@@ -41,8 +41,8 @@ pub enum BaseSpecifier {
     D,
 }
 
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
-pub enum Unary {
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
+pub enum Operator {
     And,
     Or,
     Nand,
@@ -54,16 +54,6 @@ pub enum Unary {
     Minus,
     Plus,
     QueQue, // ?? conditional operator
-}
-
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
-pub enum Binary {
-    And,
-    Or,
-    Nand,
-    Nor,
-    Xor,
-    Xnor,
 
     EQ,
     NE,
@@ -85,8 +75,6 @@ pub enum Binary {
     ROL,
     ROR,
 
-    Plus,
-    Minus,
     Concat,
 
     Times,
@@ -248,8 +236,8 @@ pub struct QualifiedExpression {
 /// LRM 9. Expressions
 #[derive(PartialEq, Debug, Clone)]
 pub enum Expression {
-    Binary(Binary, Box<WithPos<Expression>>, Box<WithPos<Expression>>),
-    Unary(Unary, Box<WithPos<Expression>>),
+    Binary(Operator, Box<WithPos<Expression>>, Box<WithPos<Expression>>),
+    Unary(Operator, Box<WithPos<Expression>>),
 
     /// LRM 9.3.3 Aggregates
     Aggregate(Vec<ElementAssociation>),
@@ -374,7 +362,7 @@ pub enum ProtectedTypeDeclarativeItem {
 #[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub enum Designator {
     Identifier(Symbol),
-    OperatorSymbol(Latin1String),
+    OperatorSymbol(Operator),
     Character(u8),
 }
 
@@ -585,7 +573,7 @@ pub struct FileDeclaration {
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum SubprogramDesignator {
     Identifier(Symbol),
-    OperatorSymbol(Latin1String),
+    OperatorSymbol(Operator),
 }
 
 /// LRM 4.2 Subprogram declaration

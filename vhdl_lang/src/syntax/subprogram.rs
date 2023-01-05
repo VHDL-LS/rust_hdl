@@ -74,7 +74,7 @@ fn parse_designator(stream: &mut TokenStream) -> ParseResult<WithPos<SubprogramD
     Ok(try_token_kind!(
         token,
         Identifier => token.expect_ident()?.map_into(SubprogramDesignator::Identifier),
-        StringLiteral => token.expect_string()?.map_into(SubprogramDesignator::OperatorSymbol)
+        StringLiteral => token.expect_operator_symbol()?.map_into(SubprogramDesignator::OperatorSymbol)
     ))
 }
 
@@ -187,7 +187,6 @@ pub fn parse_subprogram(
 mod tests {
     use super::*;
 
-    use crate::data::Latin1String;
     use crate::syntax::test::Code;
 
     #[test]
@@ -244,9 +243,7 @@ function \"+\" return lib.foo.natural;
             SubprogramDeclaration::Function(FunctionSpecification {
                 pure: true,
                 designator: WithPos {
-                    item: SubprogramDesignator::OperatorSymbol(Latin1String::from_utf8_unchecked(
-                        "+"
-                    )),
+                    item: SubprogramDesignator::OperatorSymbol(Operator::Plus),
                     pos: code.s1("\"+\"").pos()
                 }
                 .into(),

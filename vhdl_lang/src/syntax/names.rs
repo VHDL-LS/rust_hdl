@@ -19,7 +19,7 @@ pub fn parse_designator(stream: &mut TokenStream) -> ParseResult<WithPos<Designa
     Ok(try_token_kind!(
         token,
         Identifier => token.expect_ident()?.map_into(Designator::Identifier),
-        StringLiteral => token.expect_string()?.map_into(Designator::OperatorSymbol),
+        StringLiteral => token.expect_operator_symbol()?.map_into(Designator::OperatorSymbol),
         Character => token.expect_character()?.map_into(Designator::Character)
     ))
 }
@@ -118,10 +118,16 @@ fn expression_to_name(expr: WithPos<Expression>) -> ParseResult<WithPos<Name>> {
             item: *name,
             pos: expr.pos,
         }),
-        Expression::Literal(Literal::String(val)) => Ok(WithPos {
-            item: Name::Designator(Designator::OperatorSymbol(val).into_ref()),
-            pos: expr.pos,
-        }),
+        Expression::Literal(Literal::String(val)) => {
+            if let Some(op) = Operator::from_latin1(val) {
+                Ok(WithPos {
+                    item: Name::Designator(Designator::OperatorSymbol(op).into_ref()),
+                    pos: expr.pos,
+                })
+            } else {
+                Err(Diagnostic::error(expr.pos, "Invalid operator symbol"))
+            }
+        }
         Expression::Literal(Literal::Character(val)) => Ok(WithPos {
             item: Name::Designator(Designator::Character(val).into_ref()),
             pos: expr.pos,
@@ -263,7 +269,7 @@ fn to_suffix(token: Token) -> ParseResult<WithPos<DesignatorOrAll>> {
             token,
             Identifier => token.expect_ident()?.map_into(|ident| DesignatorOrAll::Designator(Designator::Identifier(ident))),
             Character => token.expect_character()?.map_into(|byte| DesignatorOrAll::Designator(Designator::Character(byte))),
-            StringLiteral => token.expect_string()?.map_into(|string| DesignatorOrAll::Designator(Designator::OperatorSymbol(string))),
+            StringLiteral => token.expect_operator_symbol()?.map_into(|string| DesignatorOrAll::Designator(Designator::OperatorSymbol(string))),
             All => WithPos::from(DesignatorOrAll::All, token)
         )
     };
@@ -455,7 +461,6 @@ pub fn parse_name(stream: &mut TokenStream) -> ParseResult<WithPos<Name>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::data::Latin1String;
     use crate::syntax::test::Code;
 
     #[test]
@@ -544,10 +549,28 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_name),
             WithPos {
-                item: Name::Designator(
-                    Designator::OperatorSymbol(Latin1String::from_utf8_unchecked("+")).into_ref()
-                ),
+                item: Name::Designator(Designator::OperatorSymbol(Operator::Plus).into_ref()),
                 pos: code.s1("\"+\"").pos()
+            }
+        );
+
+        // Upper case
+        let code = Code::new("\"AND\"");
+        assert_eq!(
+            code.with_stream(parse_name),
+            WithPos {
+                item: Name::Designator(Designator::OperatorSymbol(Operator::And).into_ref()),
+                pos: code.s1("\"AND\"").pos()
+            }
+        );
+
+        // Lower case
+        let code = Code::new("\"and\"");
+        assert_eq!(
+            code.with_stream(parse_name),
+            WithPos {
+                item: Name::Designator(Designator::OperatorSymbol(Operator::And).into_ref()),
+                pos: code.s1("\"and\"").pos()
             }
         );
     }

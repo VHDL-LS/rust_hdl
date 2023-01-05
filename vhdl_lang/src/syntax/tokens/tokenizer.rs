@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::ast;
+use crate::ast::{self, Operator};
 use crate::ast::{BaseSpecifier, Ident};
 use crate::data::*;
 
@@ -524,6 +524,65 @@ impl Token {
         } else {
             Err(self.kinds_error(&[StringLiteral]))
         }
+    }
+
+    pub fn expect_operator_symbol(self) -> DiagnosticResult<WithPos<Operator>> {
+        let string = self.expect_string()?;
+        if let Some(op) = Operator::from_latin1(string.item) {
+            Ok(WithPos::new(op, string.pos))
+        } else {
+            Err(Diagnostic::error(&string.pos, "Invalid operator symbol"))
+        }
+    }
+}
+
+impl Operator {
+    pub fn to_latin1(&self) -> Latin1String {
+        Latin1String::from_vec(self.to_string().into_bytes())
+    }
+
+    pub fn from_latin1(mut latin1: Latin1String) -> Option<Self> {
+        latin1.make_lowercase();
+        Some(match latin1.bytes.as_slice() {
+            b"and" => Operator::And,
+            b"or" => Operator::Or,
+            b"nand" => Operator::Nand,
+            b"nor" => Operator::Nor,
+            b"xor" => Operator::Xor,
+            b"xnor" => Operator::Xnor,
+            b"=" => Operator::EQ,
+            b"/=" => Operator::NE,
+            b"<" => Operator::LT,
+            b"<=" => Operator::LTE,
+            b">" => Operator::GT,
+            b">=" => Operator::GTE,
+            b"?=" => Operator::QueEQ,
+            b"?/=" => Operator::QueNE,
+            b"?<" => Operator::QueLT,
+            b"?<=" => Operator::QueLTE,
+            b"?>" => Operator::QueGT,
+            b"?>=" => Operator::QueGTE,
+            b"sll" => Operator::SLL,
+            b"srl" => Operator::SRL,
+            b"sla" => Operator::SLA,
+            b"sra" => Operator::SRA,
+            b"rol" => Operator::ROL,
+            b"ror" => Operator::ROR,
+            b"+" => Operator::Plus,
+            b"-" => Operator::Minus,
+            b"&" => Operator::Concat,
+            b"*" => Operator::Times,
+            b"/" => Operator::Div,
+            b"mod" => Operator::Mod,
+            b"rem" => Operator::Rem,
+            b"**" => Operator::Pow,
+            b"abs" => Operator::Abs,
+            b"not" => Operator::Not,
+            b"??" => Operator::QueQue,
+            _ => {
+                return None;
+            }
+        })
     }
 }
 
