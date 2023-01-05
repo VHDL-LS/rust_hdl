@@ -536,6 +536,23 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
+    pub fn analyze_allocation(
+        &self,
+        region: &Region<'_>,
+        alloc: &mut WithPos<Allocator>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        match &mut alloc.item {
+            Allocator::Qualified(ref mut qexpr) => {
+                self.analyze_qualified_expression(region, qexpr, diagnostics)?;
+            }
+            Allocator::Subtype(ref mut subtype) => {
+                self.analyze_subtype_indication(region, subtype, diagnostics)?;
+            }
+        }
+        Ok(())
+    }
+
     pub fn analyze_expression_pos(
         &self,
         region: &Region<'_>,
@@ -562,16 +579,7 @@ impl<'a> AnalyzeContext<'a> {
                 self.analyze_qualified_expression(region, qexpr, diagnostics)?;
                 Ok(())
             }
-
-            Expression::New(ref mut alloc) => match alloc.item {
-                Allocator::Qualified(ref mut qexpr) => {
-                    self.analyze_qualified_expression(region, qexpr, diagnostics)?;
-                    Ok(())
-                }
-                Allocator::Subtype(ref mut subtype) => {
-                    self.analyze_subtype_indication(region, subtype, diagnostics)
-                }
-            },
+            Expression::New(ref mut alloc) => self.analyze_allocation(region, alloc, diagnostics),
             Expression::Literal(ref mut literal) => match literal {
                 Literal::Physical(PhysicalLiteral { ref mut unit, .. }) => {
                     if let Err(diagnostic) = self.resolve_physical_unit(region, unit) {
@@ -1081,8 +1089,31 @@ impl<'a> AnalyzeContext<'a> {
                 };
                 Ok(is_correct)
             }
-            _ => {
-                self.analyze_expression_pos(region, expr_pos, expr, diagnostics)?;
+            Expression::Binary(_, ref mut left, ref mut right) => {
+                self.analyze_expression(region, left, diagnostics)?;
+                self.analyze_expression(region, right, diagnostics)?;
+                Ok(None)
+            }
+            Expression::Unary(_, ref mut expr) => {
+                self.analyze_expression(region, expr, diagnostics)?;
+                Ok(None)
+            }
+            Expression::Aggregate(assocs) => {
+                match target_type.base_type().kind() {
+                    Type::Array { .. } => {}
+                    Type::Record { .. } => {}
+                    _ => {
+                        diagnostics.error(
+                            expr_pos,
+                            format!("Composite does not match {}", target_type.describe()),
+                        );
+                    }
+                }
+                self.analyze_aggregate(region, assocs, diagnostics)?;
+                Ok(None)
+            }
+            Expression::New(ref mut alloc) => {
+                self.analyze_allocation(region, alloc, diagnostics)?;
                 Ok(None)
             }
         }

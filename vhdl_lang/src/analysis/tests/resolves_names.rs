@@ -1342,15 +1342,15 @@ end;
 
 architecture a of ent is
   type rec_t is record
-    elem : integer_vector;
+    elem : integer;
   end record;
 
   type rec_access_t is access rec_t;
 begin
 
   main : process
-      variable avar : rec_access_t := new rec_access_t'(elem => 0);
-      variable v : natural;
+    variable avar : rec_access_t := new rec_t'(elem => 0);
+    variable v : integer;
   begin
      -- Ok
      v := avar.elem;

@@ -678,3 +678,28 @@ end procedure;
         )],
     );
 }
+
+#[test]
+fn typecheck_element_association() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type rec_t is record
+    field : natural;
+end record;
+
+constant good1 : integer_vector := (0, 1, 2);
+constant good2 : rec_t := (others => 0);
+constant bad1 : integer := (3, 4, 5);
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("(3, 4, 5)"),
+            "Composite does not match integer type 'INTEGER'",
+        )],
+    );
+}
