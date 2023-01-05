@@ -745,15 +745,26 @@ fn typecheck_array_association_index() {
         "
 constant good : integer_vector := (0 | 1 => 11, 2 => 22);
 constant bad1 : integer_vector := ('c' => 0);
+constant bad2 : integer_vector := ('a' to 'z' => 0);
         ",
     );
 
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
-            code.s1("'c'"),
-            "character literal does not match subtype 'NATURAL'",
-        )],
+        vec![
+            Diagnostic::error(
+                code.s1("'c'"),
+                "character literal does not match subtype 'NATURAL'",
+            ),
+            Diagnostic::error(
+                code.s1("'a'"),
+                "character literal does not match subtype 'NATURAL'",
+            ),
+            Diagnostic::error(
+                code.s1("'z'"),
+                "character literal does not match subtype 'NATURAL'",
+            ),
+        ],
     );
 }

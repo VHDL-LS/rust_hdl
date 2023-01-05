@@ -356,6 +356,36 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
+    pub fn analyze_range_with_target_type(
+        &self,
+        region: &Region<'_>,
+        target_type: &TypeEnt,
+        range: &mut Range,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult<TypeCheck> {
+        match range {
+            Range::Range(ref mut constraint) => Ok(self
+                .analyze_expression_with_target_type(
+                    region,
+                    target_type,
+                    &constraint.left_expr.pos,
+                    &mut constraint.left_expr.item,
+                    diagnostics,
+                )?
+                .combine(self.analyze_expression_with_target_type(
+                    region,
+                    target_type,
+                    &constraint.right_expr.pos,
+                    &mut constraint.right_expr.item,
+                    diagnostics,
+                )?)),
+            Range::Attribute(ref mut attr) => {
+                self.analyze_attribute_name(region, attr, diagnostics)?;
+                Ok(TypeCheck::Unknown)
+            }
+        }
+    }
+
     pub fn analyze_discrete_range(
         &self,
         region: &Region<'_>,
@@ -376,6 +406,29 @@ impl<'a> AnalyzeContext<'a> {
             }
         }
         Ok(())
+    }
+
+    pub fn analyze_discrete_range_with_target_type(
+        &self,
+        region: &Region<'_>,
+        target_type: &TypeEnt,
+        drange: &mut DiscreteRange,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult<TypeCheck> {
+        match drange {
+            DiscreteRange::Discrete(ref mut type_mark, ref mut range) => {
+                if let Err(err) = self.resolve_type_mark_name(region, type_mark) {
+                    err.add_to(diagnostics)?;
+                }
+                if let Some(ref mut range) = range {
+                    self.analyze_range_with_target_type(region, target_type, range, diagnostics)?;
+                }
+                Ok(TypeCheck::Unknown)
+            }
+            DiscreteRange::Range(ref mut range) => {
+                self.analyze_range_with_target_type(region, target_type, range, diagnostics)
+            }
+        }
     }
 
     pub fn analyze_choices(
@@ -578,8 +631,17 @@ impl<'a> AnalyzeContext<'a> {
                                 }
                             }
                             Choice::DiscreteRange(ref mut drange) => {
-                                self.analyze_discrete_range(region, drange, diagnostics)?;
-                                check.add(TypeCheck::Unknown);
+                                if let Some(index_type) = index_type {
+                                    check.add(self.analyze_discrete_range_with_target_type(
+                                        region,
+                                        index_type,
+                                        drange,
+                                        diagnostics,
+                                    )?);
+                                } else {
+                                    self.analyze_discrete_range(region, drange, diagnostics)?;
+                                    check.add(TypeCheck::Unknown)
+                                }
                             }
                             Choice::Others => {
                                 // @TODO choice must be alone so cannot appear here
