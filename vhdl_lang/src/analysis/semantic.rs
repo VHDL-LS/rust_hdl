@@ -13,6 +13,41 @@ use crate::ast::*;
 use crate::data::*;
 use std::sync::Arc;
 
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum TypeCheck {
+    Ok,
+    NotOk,
+    Unknown,
+}
+
+impl TypeCheck {
+    pub fn from_bool(check: bool) -> Self {
+        if check {
+            TypeCheck::Ok
+        } else {
+            TypeCheck::NotOk
+        }
+    }
+
+    pub fn combine(&self, other: TypeCheck) -> Self {
+        match other {
+            TypeCheck::Ok => *self,
+            TypeCheck::NotOk => TypeCheck::NotOk,
+            TypeCheck::Unknown => {
+                if *self == TypeCheck::NotOk {
+                    TypeCheck::NotOk
+                } else {
+                    TypeCheck::Unknown
+                }
+            }
+        }
+    }
+
+    pub fn add(&mut self, other: TypeCheck) {
+        *self = self.combine(other);
+    }
+}
+
 impl<'a> AnalyzeContext<'a> {
     pub fn lookup_selected(
         &self,
@@ -745,7 +780,7 @@ impl<'a> AnalyzeContext<'a> {
         name_pos: &SrcPos,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<bool>> {
+    ) -> FatalResult<TypeCheck> {
         match name {
             Name::Designator(designator) => {
                 designator.clear_reference();
@@ -761,7 +796,7 @@ impl<'a> AnalyzeContext<'a> {
                                 designator.set_unique_reference(&ent);
                                 let is_correct = ent.match_with_target_type(target_type);
 
-                                if is_correct == Some(false) {
+                                if is_correct == TypeCheck::NotOk {
                                     diagnostics.push(type_mismatch(name_pos, &ent, target_type));
                                 }
 
@@ -782,7 +817,7 @@ impl<'a> AnalyzeContext<'a> {
 
                     Err(diagnostic) => {
                         diagnostics.push(diagnostic);
-                        Ok(None)
+                        Ok(TypeCheck::Unknown)
                     }
                 }
             }
@@ -802,7 +837,7 @@ impl<'a> AnalyzeContext<'a> {
                                     designator.set_unique_reference(&ent);
                                     let is_correct = ent.match_with_target_type(target_type);
 
-                                    if is_correct == Some(false) {
+                                    if is_correct == TypeCheck::NotOk {
                                         diagnostics.push(type_mismatch(
                                             &designator.pos,
                                             &ent,
@@ -825,11 +860,11 @@ impl<'a> AnalyzeContext<'a> {
                         }
                         Err(err) => {
                             err.add_to(diagnostics)?;
-                            Ok(None)
+                            Ok(TypeCheck::Unknown)
                         }
                     }
                 } else {
-                    Ok(None)
+                    Ok(TypeCheck::Unknown)
                 }
             }
             Name::FunctionCall(fcall) => {
@@ -895,29 +930,29 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 };
                 // @TODO
-                Ok(None)
+                Ok(TypeCheck::Unknown)
             }
             Name::Indexed(..) => {
                 // Parser will not emit an indexed name
-                Ok(None)
+                Ok(TypeCheck::Unknown)
             }
 
             Name::SelectedAll(..) => {
                 // @TODO check type
                 self.resolve_name(region, name_pos, name, diagnostics)?;
-                Ok(None)
+                Ok(TypeCheck::Unknown)
             }
 
             Name::External(..) => {
                 // @TODO check type
                 self.resolve_name(region, name_pos, name, diagnostics)?;
-                Ok(None)
+                Ok(TypeCheck::Unknown)
             }
 
             Name::Attribute(..) => {
                 // @TODO check type
                 self.resolve_name(region, name_pos, name, diagnostics)?;
-                Ok(None)
+                Ok(TypeCheck::Unknown)
             }
 
             Name::Slice(ref mut prefix, ref mut drange) => {
@@ -935,7 +970,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
 
                 self.analyze_discrete_range(region, drange.as_mut(), diagnostics)?;
-                Ok(None)
+                Ok(TypeCheck::Unknown)
             }
         }
     }
@@ -950,7 +985,7 @@ impl<'a> AnalyzeContext<'a> {
         designator: &mut WithRef<Designator>,
         parameters: &mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<bool>> {
+    ) -> FatalResult<TypeCheck> {
         let mut good = Vec::with_capacity(overloaded.len());
         let mut bad = Vec::with_capacity(overloaded.len());
         let mut uncertain = false;
@@ -966,7 +1001,7 @@ impl<'a> AnalyzeContext<'a> {
                         &mut temp_diagnostics,
                     )?
                 } else {
-                    Some(false)
+                    TypeCheck::NotOk
                 };
 
                 // Clear references that could have been incorrectly set
@@ -975,9 +1010,9 @@ impl<'a> AnalyzeContext<'a> {
                 }
 
                 match is_correct {
-                    Some(true) => good.push((name, sig)),
-                    Some(false) => bad.push((name, sig)),
-                    None => uncertain = true,
+                    TypeCheck::Ok => good.push((name, sig)),
+                    TypeCheck::NotOk => bad.push((name, sig)),
+                    TypeCheck::Unknown => uncertain = true,
                 }
             }
         }
@@ -993,10 +1028,10 @@ impl<'a> AnalyzeContext<'a> {
             );
             diagnostics.push(diagnostic);
             self.analyze_assoc_elems(region, parameters, diagnostics)?;
-            Ok(None)
+            Ok(TypeCheck::Unknown)
         } else if uncertain {
             self.analyze_assoc_elems(region, parameters, diagnostics)?;
-            Ok(None)
+            Ok(TypeCheck::Unknown)
         } else if let &[(ent, sig)] = good.as_slice() {
             // Unique correct match
             designator.set_unique_reference(ent);
@@ -1007,7 +1042,7 @@ impl<'a> AnalyzeContext<'a> {
                 parameters,
                 diagnostics,
             )?;
-            Ok(Some(true))
+            Ok(TypeCheck::Ok)
         } else if let &[(ent, sig)] = bad.as_slice() {
             // Unique incorrect match
             designator.set_unique_reference(ent);
@@ -1036,7 +1071,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics,
                 )?;
             }
-            Ok(Some(false))
+            Ok(TypeCheck::NotOk)
         } else {
             // Found no function matching the target type
             if let (Some(ent), Some(target_type)) = (overloaded.as_unique(), target_type) {
@@ -1054,7 +1089,7 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             self.analyze_assoc_elems(region, parameters, diagnostics)?;
-            Ok(Some(false))
+            Ok(TypeCheck::NotOk)
         }
     }
 
@@ -1067,11 +1102,11 @@ impl<'a> AnalyzeContext<'a> {
         expr_pos: &SrcPos,
         expr: &mut Expression,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<bool>> {
+    ) -> FatalResult<TypeCheck> {
         match expr {
             Expression::Literal(ref mut lit) => self
                 .analyze_literal_with_target_type(region, target_type, expr_pos, lit, diagnostics)
-                .map(Some),
+                .map(TypeCheck::from_bool),
             Expression::Name(ref mut name) => {
                 self.analyze_name_with_target_type(region, target_type, expr_pos, name, diagnostics)
             }
@@ -1083,20 +1118,20 @@ impl<'a> AnalyzeContext<'a> {
                     if !is_correct {
                         diagnostics.push(type_mismatch(expr_pos, &type_mark, target_type));
                     }
-                    Some(is_correct)
+                    TypeCheck::from_bool(is_correct)
                 } else {
-                    None
+                    TypeCheck::Unknown
                 };
                 Ok(is_correct)
             }
             Expression::Binary(_, ref mut left, ref mut right) => {
                 self.analyze_expression(region, left, diagnostics)?;
                 self.analyze_expression(region, right, diagnostics)?;
-                Ok(None)
+                Ok(TypeCheck::Unknown)
             }
             Expression::Unary(_, ref mut expr) => {
                 self.analyze_expression(region, expr, diagnostics)?;
-                Ok(None)
+                Ok(TypeCheck::Unknown)
             }
             Expression::Aggregate(assocs) => {
                 match target_type.base_type().kind() {
@@ -1109,12 +1144,13 @@ impl<'a> AnalyzeContext<'a> {
                         );
                     }
                 }
+
                 self.analyze_aggregate(region, assocs, diagnostics)?;
-                Ok(None)
+                Ok(TypeCheck::Unknown)
             }
             Expression::New(ref mut alloc) => {
                 self.analyze_allocation(region, alloc, diagnostics)?;
-                Ok(None)
+                Ok(TypeCheck::Unknown)
             }
         }
     }
@@ -1262,7 +1298,7 @@ impl NamedEntity {
 
     /// Match a named entity with a target type
     /// Returns a diagnostic in case of mismatch
-    fn match_with_target_type(&self, target_type: &TypeEnt) -> Option<bool> {
+    fn match_with_target_type(&self, target_type: &TypeEnt) -> TypeCheck {
         let typ = match self.actual_kind() {
             NamedEntityKind::ObjectAlias { ref type_mark, .. } => type_mark.base_type(),
             NamedEntityKind::Object(ref ent) => ent.subtype.base_type(),
@@ -1273,7 +1309,7 @@ impl NamedEntity {
             NamedEntityKind::File(ref file) => file.base_type(),
             // Ignore now to avoid false positives
             _ => {
-                return None;
+                return TypeCheck::Unknown;
             }
         };
 
@@ -1281,9 +1317,9 @@ impl NamedEntity {
 
         if matches!(typ.kind(), Type::Interface) || matches!(target_base.kind(), Type::Interface) {
             // Flag interface types as uncertain for now
-            None
+            TypeCheck::Unknown
         } else {
-            Some(typ == target_base)
+            TypeCheck::from_bool(typ == target_base)
         }
     }
 }

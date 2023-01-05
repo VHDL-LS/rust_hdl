@@ -680,7 +680,7 @@ end procedure;
 }
 
 #[test]
-fn typecheck_element_association() {
+fn typecheck_aggregate() {
     let mut builder = LibraryBuilder::new();
     let code = builder.in_declarative_region(
         "

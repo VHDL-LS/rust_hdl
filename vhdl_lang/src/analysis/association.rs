@@ -11,6 +11,7 @@ use super::analyze::*;
 use super::formal_region::FormalRegion;
 use super::formal_region::InterfaceEnt;
 use super::region::*;
+use super::semantic::TypeCheck;
 use crate::ast::*;
 use crate::data::*;
 
@@ -270,8 +271,8 @@ impl<'a> AnalyzeContext<'a> {
         region: &Region<'_>,
         elems: &mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<bool>> {
-        let mut is_correct = Some(true);
+    ) -> FatalResult<TypeCheck> {
+        let mut check = TypeCheck::Ok;
 
         let mut associated_indexes: FnvHashSet<usize> = Default::default();
         let mut extra_associations: Vec<&SrcPos> = Default::default();
@@ -288,7 +289,7 @@ impl<'a> AnalyzeContext<'a> {
                 ) {
                     Err(err) => {
                         err.add_to(diagnostics)?;
-                        is_correct = Some(false);
+                        check = TypeCheck::NotOk;
                         None
                     }
                     Ok(formal) => Some(formal),
@@ -305,19 +306,13 @@ impl<'a> AnalyzeContext<'a> {
 
                 match actual.item {
                     ActualPart::Expression(ref mut expr) => {
-                        let actual_is_correct = self.analyze_expression_with_target_type(
+                        check.add(self.analyze_expression_with_target_type(
                             region,
                             formal_ent.base_type(),
                             &actual.pos,
                             expr,
                             diagnostics,
-                        )?;
-
-                        if actual_is_correct == Some(false) {
-                            is_correct = Some(false);
-                        } else if actual_is_correct.is_none() && is_correct == Some(true) {
-                            is_correct = None;
-                        }
+                        )?);
                     }
                     ActualPart::Open => {}
                 }
@@ -340,9 +335,9 @@ impl<'a> AnalyzeContext<'a> {
         }
 
         if not_associated.is_empty() && extra_associations.is_empty() {
-            Ok(is_correct)
+            Ok(check)
         } else {
-            if is_correct == Some(true) {
+            if check == TypeCheck::Ok {
                 // Only complain if nothing else is wrong
                 for idx in not_associated {
                     if let Some(formal) = formal_region.nth(idx) {
@@ -368,7 +363,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.error(pos, "Unexpected extra argument")
                 }
             }
-            Ok(Some(false))
+            Ok(TypeCheck::NotOk)
         }
     }
 }
