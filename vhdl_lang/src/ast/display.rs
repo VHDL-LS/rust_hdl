@@ -293,17 +293,17 @@ impl Display for Expression {
         match self {
             Expression::Binary(ref op, ref lhs, ref rhs) => {
                 // Add parentheses as necessary to satisfy order of precedence.
-                let precedence = op.binary_precedence().unwrap();
-                match lhs.item {
+                let precedence = op.item.item.binary_precedence().unwrap();
+                match &lhs.item {
                     Expression::Binary(op, ..) => {
-                        if precedence <= op.binary_precedence().unwrap() {
+                        if precedence <= op.item.item.binary_precedence().unwrap() {
                             write!(f, "{}", lhs)?;
                         } else {
                             write!(f, "({})", lhs)?;
                         }
                     }
                     Expression::Unary(op, ..) => {
-                        if precedence <= op.unary_precedence().unwrap() {
+                        if precedence <= op.item.item.unary_precedence().unwrap() {
                             write!(f, "{}", lhs)?;
                         } else {
                             write!(f, "({})", lhs)?;
@@ -312,9 +312,9 @@ impl Display for Expression {
                     _ => write!(f, "{}", lhs)?,
                 }
                 write!(f, " {} ", op)?;
-                match rhs.item {
+                match &rhs.item {
                     Expression::Binary(op, ..) => {
-                        if precedence < op.binary_precedence().unwrap() {
+                        if precedence < op.item.item.binary_precedence().unwrap() {
                             write!(f, "{}", rhs)
                         } else {
                             write!(f, "({})", rhs)
@@ -325,13 +325,13 @@ impl Display for Expression {
             }
             Expression::Unary(ref op, ref expr) => {
                 // Add parentheses as necessary to satisfy order of precedence.
-                let precedence = op.unary_precedence().unwrap();
-                if matches!(op, Operator::Minus | Operator::Plus) {
+                let precedence = op.item.item.unary_precedence().unwrap();
+                if matches!(op.item.item, Operator::Minus | Operator::Plus) {
                     write!(f, "{}", op)?;
                 } else {
                     write!(f, "{} ", op)?;
                 }
-                match expr.item {
+                match &expr.item {
                     // Binary operators having precedence over unary ones is
                     // confusing, so always add parentheses.
                     Expression::Binary(..) => {
@@ -341,7 +341,7 @@ impl Display for Expression {
                     // chained operators with the same precedence are
                     // parenthesized for clarity.
                     Expression::Unary(op, ..) => {
-                        if precedence != op.unary_precedence().unwrap() {
+                        if precedence != op.item.item.unary_precedence().unwrap() {
                             write!(f, "{}", expr)
                         } else {
                             write!(f, "({})", expr)

@@ -434,9 +434,13 @@ fn parse_primary_initial_token(
             // Prefix unary operation
             if let Some((unary_op, op_precedence)) = kind_to_prefix_unary_op(kind) {
                 let expr = parse_expr(stream, op_precedence)?;
-                let pos = token.pos.combine_into(&expr);
+                let pos = token.pos.combine(&expr);
+
                 Ok(WithPos {
-                    item: Expression::Unary(unary_op, Box::new(expr)),
+                    item: Expression::Unary(
+                        WithPos::new(WithRef::new(unary_op), token.pos),
+                        Box::new(expr),
+                    ),
                     pos,
                 })
             } else {
@@ -469,7 +473,11 @@ fn parse_expr_initial_token(
                 let rhs = parse_expr(stream, op_precedence)?;
                 let pos = lhs.pos.combine(&rhs);
                 lhs = WithPos {
-                    item: Expression::Binary(binary_op, Box::new(lhs), Box::new(rhs)),
+                    item: Expression::Binary(
+                        WithPos::new(WithRef::new(binary_op), token.pos),
+                        Box::new(lhs),
+                        Box::new(rhs),
+                    ),
                     pos,
                 };
             } else {
@@ -618,7 +626,11 @@ mod tests {
         };
 
         let expr_add = WithPos {
-            item: Expression::Binary(Operator::Plus, Box::new(lhs), Box::new(rhs)),
+            item: Expression::Binary(
+                WithPos::new(WithRef::new(Operator::Plus), code.s1("+").pos()),
+                Box::new(lhs),
+                Box::new(rhs),
+            ),
             pos: code.pos(),
         };
 
@@ -639,7 +651,11 @@ mod tests {
         };
 
         let expr_sub = WithPos {
-            item: Expression::Binary(Operator::Minus, Box::new(lhs), Box::new(rhs)),
+            item: Expression::Binary(
+                WithPos::new(WithRef::new(Operator::Minus), code.s1("-").pos()),
+                Box::new(lhs),
+                Box::new(rhs),
+            ),
             pos: code.pos(),
         };
 
@@ -655,7 +671,10 @@ mod tests {
         };
 
         let expr_abs = WithPos {
-            item: Expression::Unary(Operator::Abs, Box::new(expr)),
+            item: Expression::Unary(
+                WithPos::new(WithRef::new(Operator::Abs), code.s1("abs").pos()),
+                Box::new(expr),
+            ),
             pos: code.pos(),
         };
 
@@ -671,7 +690,10 @@ mod tests {
         };
 
         let expr_cond = WithPos {
-            item: Expression::Unary(Operator::QueQue, Box::new(expr)),
+            item: Expression::Unary(
+                WithPos::new(WithRef::new(Operator::QueQue), code.s1("??").pos()),
+                Box::new(expr),
+            ),
             pos: code.pos(),
         };
 
@@ -689,7 +711,10 @@ mod tests {
         };
 
         let expr_not = WithPos {
-            item: Expression::Unary(Operator::Not, Box::new(name_false)),
+            item: Expression::Unary(
+                WithPos::new(WithRef::new(Operator::Not), code.s1("not").pos()),
+                Box::new(name_false),
+            ),
             pos: code.pos(),
         };
 
@@ -809,7 +834,11 @@ mod tests {
             pos: code.s1("2").pos(),
         };
         let expr = WithPos {
-            item: Expression::Binary(Operator::Times, Box::new(two_expr), Box::new(time_expr)),
+            item: Expression::Binary(
+                WithPos::new(WithRef::new(Operator::Times), code.s1("*").pos()),
+                Box::new(two_expr),
+                Box::new(time_expr),
+            ),
             pos: code.pos(),
         };
         assert_eq!(code.with_stream(parse_expression), expr);
@@ -826,7 +855,10 @@ mod tests {
             pos: code.s1("1 ns").pos(),
         };
         let expr = WithPos {
-            item: Expression::Unary(Operator::Minus, Box::new(time_expr)),
+            item: Expression::Unary(
+                WithPos::new(WithRef::new(Operator::Minus), code.s1("-").pos()),
+                Box::new(time_expr),
+            ),
             pos: code.pos(),
         };
 
@@ -852,7 +884,7 @@ mod tests {
         let code = Code::new("mark0'(0) < mark1'(1)");
         let expr = WithPos {
             item: Expression::Binary(
-                Operator::LT,
+                WithPos::new(WithRef::new(Operator::LT), code.s1("<").pos()),
                 Box::new(code.s1("mark0'(0)").expr()),
                 Box::new(code.s1("mark1'(1)").expr()),
             ),
@@ -1101,12 +1133,20 @@ mod tests {
         };
 
         let expr_add0 = WithPos {
-            item: Expression::Binary(Operator::Plus, Box::new(two), Box::new(three)),
+            item: Expression::Binary(
+                WithPos::new(WithRef::new(Operator::Plus), code.s("+", 2).pos()),
+                Box::new(two),
+                Box::new(three),
+            ),
             pos: code.s1("(2 + 3)").pos(),
         };
 
         let expr_add1 = WithPos {
-            item: Expression::Binary(Operator::Plus, Box::new(one), Box::new(expr_add0)),
+            item: Expression::Binary(
+                WithPos::new(WithRef::new(Operator::Plus), code.s("+", 1).pos()),
+                Box::new(one),
+                Box::new(expr_add0),
+            ),
             pos: code.pos(),
         };
 
@@ -1133,12 +1173,20 @@ mod tests {
         };
 
         let expr_add0 = WithPos {
-            item: Expression::Binary(Operator::Plus, Box::new(one), Box::new(two)),
+            item: Expression::Binary(
+                WithPos::new(WithRef::new(Operator::Plus), code.s("+", 1).pos()),
+                Box::new(one),
+                Box::new(two),
+            ),
             pos: code.s1("(1 + 2)").pos(),
         };
 
         let expr_add1 = WithPos {
-            item: Expression::Binary(Operator::Plus, Box::new(expr_add0), Box::new(three)),
+            item: Expression::Binary(
+                WithPos::new(WithRef::new(Operator::Plus), code.s("+", 2).pos()),
+                Box::new(expr_add0),
+                Box::new(three),
+            ),
             pos: code.pos(),
         };
 
@@ -1149,9 +1197,9 @@ mod tests {
     fn fmt(expr: &WithPos<Expression>) -> String {
         match expr.item {
             Expression::Binary(ref op, ref lhs, ref rhs) => {
-                format!("({} {:?} {})", fmt(lhs), op, fmt(rhs))
+                format!("({} {:?} {})", fmt(lhs), op.item.item, fmt(rhs))
             }
-            Expression::Unary(ref op, ref rhs) => format!("({:?} {})", op, fmt(rhs)),
+            Expression::Unary(ref op, ref rhs) => format!("({:?} {})", op.item.item, fmt(rhs)),
             Expression::Literal(ref lit) => match lit {
                 Literal::Null => "null".to_string(),
                 // @TODO quote and escape

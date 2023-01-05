@@ -236,8 +236,12 @@ pub struct QualifiedExpression {
 /// LRM 9. Expressions
 #[derive(PartialEq, Debug, Clone)]
 pub enum Expression {
-    Binary(Operator, Box<WithPos<Expression>>, Box<WithPos<Expression>>),
-    Unary(Operator, Box<WithPos<Expression>>),
+    Binary(
+        WithPos<WithRef<Operator>>,
+        Box<WithPos<Expression>>,
+        Box<WithPos<Expression>>,
+    ),
+    Unary(WithPos<WithRef<Operator>>, Box<WithPos<Expression>>),
 
     /// LRM 9.3.3 Aggregates
     Aggregate(Vec<ElementAssociation>),
