@@ -11,7 +11,7 @@
 
 use std::sync::Arc;
 mod display;
-mod name_util;
+mod util;
 
 #[macro_use]
 mod any_design_unit;
@@ -20,7 +20,7 @@ mod any_design_unit;
 pub mod search;
 
 pub use self::display::*;
-pub use self::name_util::*;
+pub use self::util::*;
 pub use any_design_unit::*;
 
 pub use crate::analysis::NamedEntity;
