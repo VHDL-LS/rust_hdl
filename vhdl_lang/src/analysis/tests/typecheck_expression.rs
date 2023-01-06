@@ -743,7 +743,8 @@ constant good2 : arr2_t := ((0, 1), (2, 3));
 constant good3 : rec_t := (field => 0);
 constant bad1 : integer_vector := (3, 4, 'c');
 constant bad2 : integer_vector := (others => 'd');
-constant bad3 : rec_t := (field => 'e');
+constant bad3 : integer_vector := (1 to 3 => 'e');
+constant bad4 : rec_t := (field => 'f');
 
         ",
     );
@@ -762,6 +763,10 @@ constant bad3 : rec_t := (field => 'e');
             ),
             Diagnostic::error(
                 code.s1("'e'"),
+                "character literal does not match integer type 'INTEGER'",
+            ),
+            Diagnostic::error(
+                code.s1("'f'"),
                 "character literal does not match integer type 'INTEGER'",
             ),
         ],
@@ -797,4 +802,20 @@ constant bad2 : integer_vector := ('a' to 'z' => 0);
             ),
         ],
     );
+}
+
+/// LRM 9.3.3.3 Array aggregates
+#[test]
+fn array_element_association_may_be_array_of_element_type() {
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "
+constant good1 : integer_vector := (0 to 2 => (0, 1, 2));
+constant good2 : string(1 to 6) := (\"text\", others => ' ');
+
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
 }

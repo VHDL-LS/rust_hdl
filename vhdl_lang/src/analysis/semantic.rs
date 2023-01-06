@@ -672,68 +672,99 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_1d_array_assoc_elem(
         &self,
         region: &Region<'_>,
+        array_type: &TypeEnt,
         index_type: Option<&TypeEnt>,
         elem_type: &TypeEnt,
         assoc: &mut ElementAssociation,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<TypeCheck> {
-        match assoc {
+        let mut can_be_array = true;
+        let mut check = TypeCheck::Ok;
+
+        let expr = match assoc {
             ElementAssociation::Named(ref mut choices, ref mut expr) => {
-                if let &[Choice::Others] = choices.as_slice() {
-                    self.analyze_expression_with_target_type(
-                        region,
-                        elem_type,
-                        &expr.pos,
-                        &mut expr.item,
-                        diagnostics,
-                    )
-                } else {
-                    let mut check = TypeCheck::Ok;
-                    for choice in choices.iter_mut() {
-                        match choice {
-                            Choice::Expression(index_expr) => {
-                                if let Some(index_type) = index_type {
-                                    check.add(self.analyze_expression_with_target_type(
-                                        region,
-                                        index_type,
-                                        &index_expr.pos,
-                                        &mut index_expr.item,
-                                        diagnostics,
-                                    )?);
-                                }
+                for choice in choices.iter_mut() {
+                    match choice {
+                        Choice::Expression(index_expr) => {
+                            if let Some(index_type) = index_type {
+                                check.add(self.analyze_expression_with_target_type(
+                                    region,
+                                    index_type,
+                                    &index_expr.pos,
+                                    &mut index_expr.item,
+                                    diagnostics,
+                                )?);
                             }
-                            Choice::DiscreteRange(ref mut drange) => {
-                                if let Some(index_type) = index_type {
-                                    check.add(self.analyze_discrete_range_with_target_type(
-                                        region,
-                                        index_type,
-                                        drange,
-                                        diagnostics,
-                                    )?);
-                                } else {
-                                    self.analyze_discrete_range(region, drange, diagnostics)?;
-                                    check.add(TypeCheck::Unknown)
-                                }
-                            }
-                            Choice::Others => {
-                                // @TODO choice must be alone so cannot appear here
-                                check.add(TypeCheck::Unknown);
+                            can_be_array = false;
+                        }
+                        Choice::DiscreteRange(ref mut drange) => {
+                            if let Some(index_type) = index_type {
+                                check.add(self.analyze_discrete_range_with_target_type(
+                                    region,
+                                    index_type,
+                                    drange,
+                                    diagnostics,
+                                )?);
+                            } else {
+                                self.analyze_discrete_range(region, drange, diagnostics)?;
+                                check.add(TypeCheck::Unknown)
                             }
                         }
+                        Choice::Others => {
+                            // @TODO choice must be alone so cannot appear here
+                            check.add(TypeCheck::Unknown);
+                            can_be_array = false;
+                        }
                     }
-                    self.analyze_expression(region, expr, diagnostics)?;
-                    Ok(check)
                 }
+                expr
             }
-            ElementAssociation::Positional(ref mut expr) => self
-                .analyze_expression_with_target_type(
+            ElementAssociation::Positional(ref mut expr) => expr,
+        };
+
+        if can_be_array {
+            // If the choice is only a range or positional the expression can be an array
+            let mut elem_diagnostics = Vec::new();
+
+            let elem_check = self.analyze_expression_with_target_type(
+                region,
+                elem_type,
+                &expr.pos,
+                &mut expr.item,
+                &mut elem_diagnostics,
+            )?;
+
+            if elem_check == TypeCheck::Ok {
+                diagnostics.append(elem_diagnostics);
+                check.add(elem_check);
+            } else {
+                let mut array_diagnostics = Vec::new();
+                let array_check = self.analyze_expression_with_target_type(
                     region,
-                    elem_type,
+                    array_type,
                     &expr.pos,
                     &mut expr.item,
-                    diagnostics,
-                ),
+                    &mut array_diagnostics,
+                )?;
+
+                if array_check == TypeCheck::Ok {
+                    diagnostics.append(array_diagnostics);
+                    check.add(array_check);
+                } else {
+                    diagnostics.append(elem_diagnostics);
+                    check.add(elem_check);
+                }
+            };
+        } else {
+            check.add(self.analyze_expression_with_target_type(
+                region,
+                elem_type,
+                &expr.pos,
+                &mut expr.item,
+                diagnostics,
+            )?);
         }
+        Ok(check)
     }
 
     fn analyze_qualified_expression(
@@ -1184,13 +1215,12 @@ impl<'a> AnalyzeContext<'a> {
         for name in overloaded.entities() {
             if let Some(sig) = name.signature() {
                 let is_correct = if sig.match_return_type(target_type) {
-                    let mut temp_diagnostics = Vec::new();
                     self.analyze_assoc_elems_with_formal_region(
                         pos,
                         &sig.params,
                         region,
                         parameters,
-                        &mut temp_diagnostics,
+                        &mut NullDiagnostics,
                     )?
                 } else {
                     TypeCheck::NotOk
@@ -1335,6 +1365,7 @@ impl<'a> AnalyzeContext<'a> {
                         for assoc in assocs.iter_mut() {
                             check.add(self.analyze_1d_array_assoc_elem(
                                 region,
+                                target_base,
                                 index_type.as_ref(),
                                 elem_type,
                                 assoc,

@@ -147,6 +147,14 @@ impl DiagnosticHandler for Vec<Diagnostic> {
     }
 }
 
+pub struct NullDiagnostics;
+
+impl DiagnosticHandler for NullDiagnostics {
+    fn push(&mut self, _diagnostic: Diagnostic) {
+        // Ignore
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
