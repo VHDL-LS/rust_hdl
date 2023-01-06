@@ -129,7 +129,7 @@ impl Visibility {
                     }
                     NamedEntities::Overloaded(overloaded) => {
                         for entity in overloaded.entities() {
-                            visible.insert(&visible_region.visible_pos, entity);
+                            visible.insert(&visible_region.visible_pos, entity.inner());
                         }
                     }
                 }
@@ -193,7 +193,12 @@ impl<'a> Visible<'a> {
         if named_entities.is_empty() {
             Ok(None)
         } else if named_entities.iter().all(|ent| ent.is_overloaded()) {
-            Ok(Some(NamedEntities::new_overloaded(named_entities)))
+            Ok(Some(NamedEntities::new_overloaded(
+                named_entities
+                    .into_iter()
+                    .map(|ent| OverloadedEnt::from_any(ent).unwrap())
+                    .collect(),
+            )))
         } else if named_entities.len() == 1 {
             Ok(Some(NamedEntities::new(named_entities.pop().unwrap())))
         } else {

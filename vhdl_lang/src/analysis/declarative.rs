@@ -194,9 +194,9 @@ impl<'a> AnalyzeContext<'a> {
                             Ok(signature_key) => {
                                 if let Some(ent) = overloaded.get(&signature_key) {
                                     if let Some(reference) = name.item.suffix_reference_mut() {
-                                        reference.set_unique_reference(&ent);
+                                        reference.set_unique_reference(ent.inner());
                                     }
-                                    NamedEntityKind::NonObjectAlias(ent)
+                                    NamedEntityKind::NonObjectAlias(ent.into())
                                 } else {
                                     let mut diagnostic = Diagnostic::error(
                                         name,

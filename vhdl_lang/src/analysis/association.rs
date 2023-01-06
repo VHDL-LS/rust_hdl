@@ -203,14 +203,12 @@ impl<'a> AnalyzeContext<'a> {
                             let mut candidates = Vec::with_capacity(overloaded.len());
 
                             for ent in overloaded.entities() {
-                                if let Some(sig) = ent.signature() {
-                                    if sig.return_type().is_some()
-                                        && sig.can_be_called_with_single_parameter(
-                                            formal_ent.type_mark(),
-                                        )
-                                    {
-                                        candidates.push(ent);
-                                    }
+                                if ent.is_function()
+                                    && ent
+                                        .signature()
+                                        .can_be_called_with_single_parameter(formal_ent.type_mark())
+                                {
+                                    candidates.push(ent);
                                 }
                             }
 
@@ -225,7 +223,7 @@ impl<'a> AnalyzeContext<'a> {
 
                                 return Err(diagnostic.into());
                             } else if let Some(ent) = candidates.pop() {
-                                ent.signature().unwrap().return_type().cloned().unwrap()
+                                ent.return_type().cloned().unwrap()
                             } else {
                                 // No match
                                 return Err(Diagnostic::error(

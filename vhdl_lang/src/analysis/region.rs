@@ -17,23 +17,20 @@ use std::sync::Arc;
 #[derive(Clone, Debug)]
 /// A non-emtpy collection of overloaded entites
 pub struct OverloadedName {
-    entities: FnvHashMap<SignatureKey, Arc<NamedEntity>>,
+    entities: FnvHashMap<SignatureKey, OverloadedEnt>,
 }
 
 impl OverloadedName {
-    pub fn new(entities: Vec<Arc<NamedEntity>>) -> OverloadedName {
+    pub fn new(entities: Vec<OverloadedEnt>) -> OverloadedName {
         debug_assert!(!entities.is_empty());
-        debug_assert!(entities.iter().all(|ent| ent.signature().is_some()));
-
         let mut map = FnvHashMap::default();
         for ent in entities.into_iter() {
-            debug_assert!(ent.signature().is_some(), "All must be overloaded");
-            map.insert(ent.signature().unwrap().key(), ent);
+            map.insert(ent.signature().key(), ent);
         }
         OverloadedName { entities: map }
     }
 
-    pub fn first(&self) -> &Arc<NamedEntity> {
+    pub fn first(&self) -> &OverloadedEnt {
         let first_key = self.entities.keys().next().unwrap();
         self.entities.get(first_key).unwrap()
     }
@@ -46,26 +43,26 @@ impl OverloadedName {
         self.entities.len()
     }
 
-    pub fn entities(&self) -> impl Iterator<Item = &Arc<NamedEntity>> {
+    pub fn entities(&self) -> impl Iterator<Item = &OverloadedEnt> {
         self.entities.values()
     }
 
-    pub fn sorted_entities(&self) -> Vec<&Arc<NamedEntity>> {
+    pub fn sorted_entities(&self) -> Vec<&OverloadedEnt> {
         let mut res: Vec<_> = self.entities.values().collect();
         res.sort_by_key(|ent| ent.decl_pos());
         res
     }
 
     pub fn signatures(&self) -> impl Iterator<Item = &named_entity::Signature> {
-        self.entities().map(|ent| ent.signature().unwrap())
+        self.entities().map(|ent| ent.signature())
     }
 
-    pub fn get(&self, key: &SignatureKey) -> Option<Arc<NamedEntity>> {
+    pub fn get(&self, key: &SignatureKey) -> Option<OverloadedEnt> {
         self.entities.get(key).cloned()
     }
 
     // Returns only if the overloaded name is unique
-    pub fn as_unique(&self) -> Option<&Arc<NamedEntity>> {
+    pub fn as_unique(&self) -> Option<&OverloadedEnt> {
         if self.entities.len() == 1 {
             self.entities.values().next()
         } else {
@@ -74,9 +71,8 @@ impl OverloadedName {
     }
 
     #[allow(clippy::if_same_then_else)]
-    fn insert(&mut self, ent: Arc<NamedEntity>) -> Result<(), Diagnostic> {
-        debug_assert!(ent.signature().is_some(), "Must be overloaded");
-        match self.entities.entry(ent.signature().unwrap().key()) {
+    fn insert(&mut self, ent: OverloadedEnt) -> Result<(), Diagnostic> {
+        match self.entities.entry(ent.signature().key()) {
             Entry::Occupied(mut entry) => {
                 let old_ent = entry.get();
 
@@ -102,7 +98,7 @@ impl OverloadedName {
                     format!(
                         "Duplicate declaration of '{}' with signature {}",
                         ent.designator(),
-                        ent.signature().unwrap().describe()
+                        ent.signature().describe()
                     ),
                 );
                 if let Some(old_pos) = old_ent.decl_pos() {
@@ -139,15 +135,14 @@ pub enum NamedEntities {
 }
 
 impl NamedEntities {
-    pub fn new(named_entity: Arc<NamedEntity>) -> NamedEntities {
-        if named_entity.is_overloaded() {
-            Self::Overloaded(OverloadedName::new(vec![named_entity]))
-        } else {
-            Self::Single(named_entity)
+    pub fn new(ent: Arc<NamedEntity>) -> NamedEntities {
+        match OverloadedEnt::from_any(ent) {
+            Ok(ent) => Self::Overloaded(OverloadedName::new(vec![ent])),
+            Err(ent) => Self::Single(ent),
         }
     }
 
-    pub fn new_overloaded(named_entities: Vec<Arc<NamedEntity>>) -> NamedEntities {
+    pub fn new_overloaded(named_entities: Vec<OverloadedEnt>) -> NamedEntities {
         Self::Overloaded(OverloadedName::new(named_entities))
     }
 
@@ -191,7 +186,7 @@ impl NamedEntities {
     pub fn first(&self) -> &Arc<NamedEntity> {
         match self {
             Self::Single(ent) => ent,
-            Self::Overloaded(overloaded) => overloaded.first(),
+            Self::Overloaded(overloaded) => overloaded.first().inner(),
         }
     }
 
@@ -210,7 +205,7 @@ impl NamedEntities {
             }
             Self::Overloaded(overloaded) => {
                 for ent in overloaded.entities() {
-                    region.make_potentially_visible(visible_pos, ent.clone());
+                    region.make_potentially_visible(visible_pos, ent.inner().clone());
                 }
             }
         }
@@ -407,16 +402,21 @@ impl<'a> Region<'a> {
                         }
                     }
                     NamedEntities::Overloaded(ref mut overloaded) => {
-                        if ent.is_overloaded() {
-                            if let Err(err) = overloaded.insert(ent) {
-                                diagnostics.push(err);
+                        match OverloadedEnt::from_any(ent) {
+                            Ok(ent) => {
+                                if let Err(err) = overloaded.insert(ent) {
+                                    diagnostics.push(err);
+                                }
                             }
-                        } else if let Some(pos) = ent.decl_pos() {
-                            diagnostics.push(duplicate_error(
-                                overloaded.first().designator(),
-                                pos,
-                                overloaded.first().decl_pos(),
-                            ));
+                            Err(ent) => {
+                                if let Some(pos) = ent.decl_pos() {
+                                    diagnostics.push(duplicate_error(
+                                        overloaded.first().designator(),
+                                        pos,
+                                        overloaded.first().decl_pos(),
+                                    ));
+                                }
+                            }
                         }
                     }
                 }
@@ -603,7 +603,7 @@ pub trait SetReference {
             }
             NamedEntities::Overloaded(overloaded) => {
                 if let Some(ent) = overloaded.as_unique() {
-                    self.set_unique_reference(ent);
+                    self.set_unique_reference(ent.inner());
                 } else {
                     self.clear_reference();
                 }

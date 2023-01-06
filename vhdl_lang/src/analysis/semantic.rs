@@ -524,12 +524,9 @@ impl<'a> AnalyzeContext<'a> {
                     let mut found = false;
 
                     for ent in names.entities() {
-                        // @TODO add wrapper for entities with known signatures
-                        if let Some(sig) = ent.signature() {
-                            if sig.return_type().is_none() {
-                                found = true;
-                                break;
-                            }
+                        if ent.is_procedure() {
+                            found = true;
+                            break;
                         }
                     }
 
@@ -1471,21 +1468,20 @@ pub fn type_mark_of_sliced_or_indexed(ent: &Arc<NamedEntity>) -> Option<&TypeEnt
 }
 
 impl Diagnostic {
-    pub fn add_subprogram_candidates(
-        &mut self,
-        prefix: &str,
-        candidates: &mut [&Arc<NamedEntity>],
-    ) {
+    pub fn add_subprogram_candidates(&mut self, prefix: &str, candidates: &mut [&OverloadedEnt]) {
         candidates.sort_by_key(|ent| ent.decl_pos());
 
         for ent in candidates {
-            if let Some(signature) = ent.signature() {
-                if let Some(decl_pos) = ent.decl_pos() {
-                    self.add_related(
-                        decl_pos,
-                        format!("{} {}{}", prefix, ent.designator(), signature.describe()),
-                    )
-                }
+            if let Some(decl_pos) = ent.decl_pos() {
+                self.add_related(
+                    decl_pos,
+                    format!(
+                        "{} {}{}",
+                        prefix,
+                        ent.designator(),
+                        ent.signature().describe()
+                    ),
+                )
             }
         }
     }

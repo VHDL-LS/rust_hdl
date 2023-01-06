@@ -726,3 +726,61 @@ impl SubprogramDeclaration {
         }
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct OverloadedEnt {
+    ent: Arc<NamedEntity>,
+}
+
+impl OverloadedEnt {
+    pub fn from_any(ent: Arc<NamedEntity>) -> Result<Self, Arc<NamedEntity>> {
+        match ent.actual_kind() {
+            NamedEntityKind::Subprogram(..)
+            | NamedEntityKind::SubprogramDecl(..)
+            | NamedEntityKind::EnumLiteral(..) => Ok(OverloadedEnt { ent }),
+            _ => Err(ent),
+        }
+    }
+
+    pub fn signature(&self) -> &Signature {
+        match self.actual_kind() {
+            NamedEntityKind::Subprogram(ref signature)
+            | NamedEntityKind::SubprogramDecl(ref signature)
+            | NamedEntityKind::EnumLiteral(ref signature) => signature,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn return_type(&self) -> Option<&TypeEnt> {
+        self.signature().return_type()
+    }
+
+    pub fn is_procedure(&self) -> bool {
+        self.return_type().is_none()
+    }
+
+    pub fn is_function(&self) -> bool {
+        self.return_type().is_some()
+    }
+
+    pub fn formals(&self) -> &FormalRegion {
+        &self.signature().params
+    }
+
+    pub fn inner(&self) -> &Arc<NamedEntity> {
+        &self.ent
+    }
+}
+
+impl std::ops::Deref for OverloadedEnt {
+    type Target = NamedEntity;
+    fn deref(&self) -> &NamedEntity {
+        &self.ent
+    }
+}
+
+impl From<OverloadedEnt> for Arc<NamedEntity> {
+    fn from(value: OverloadedEnt) -> Self {
+        value.ent
+    }
+}

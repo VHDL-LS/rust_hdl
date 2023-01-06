@@ -29,39 +29,37 @@ impl<'a> AnalyzeContext<'a> {
         let mut bad = Vec::with_capacity(overloaded.len());
         let mut uncertain = false;
         for name in overloaded.entities() {
-            if let Some(sig) = name.signature() {
-                // Do not consider procedure vs. function
-                if sig.return_type().is_some() != target_type.is_some() {
+            // Do not consider procedure vs. function
+            if name.is_function() != target_type.is_some() {
+                continue;
+            }
+
+            // Do not consider operators unary vs binary operators
+            if let Some(operator_len) = parameters.operator_len() {
+                if name.formals().len() != operator_len {
                     continue;
                 }
+            }
 
-                // Do not consider operators unary vs binary operators
-                if let Some(operator_len) = parameters.operator_len() {
-                    if sig.params.len() != operator_len {
-                        continue;
-                    }
-                }
+            let is_correct = if name.signature().match_return_type(target_type) {
+                self.analyze_parameters_with_formal_region(
+                    pos,
+                    name.formals(),
+                    region,
+                    parameters,
+                    &mut NullDiagnostics,
+                )?
+            } else {
+                TypeCheck::NotOk
+            };
 
-                let is_correct = if sig.match_return_type(target_type) {
-                    self.analyze_parameters_with_formal_region(
-                        pos,
-                        &sig.params,
-                        region,
-                        parameters,
-                        &mut NullDiagnostics,
-                    )?
-                } else {
-                    TypeCheck::NotOk
-                };
+            // Clear references that could have been incorrectly set
+            parameters.clear_references();
 
-                // Clear references that could have been incorrectly set
-                parameters.clear_references();
-
-                match is_correct {
-                    TypeCheck::Ok => good.push(name),
-                    TypeCheck::NotOk => bad.push(name),
-                    TypeCheck::Unknown => uncertain = true,
-                }
+            match is_correct {
+                TypeCheck::Ok => good.push(name),
+                TypeCheck::NotOk => bad.push(name),
+                TypeCheck::Unknown => uncertain = true,
             }
         }
 
@@ -79,10 +77,10 @@ impl<'a> AnalyzeContext<'a> {
             Ok(TypeCheck::Unknown)
         } else if let &[ent] = good.as_slice() {
             // Unique correct match
-            reference.set_unique_reference(ent);
+            reference.set_unique_reference(ent.inner());
             self.analyze_parameters_with_formal_region(
                 pos,
-                &ent.signature().unwrap().params,
+                ent.formals(),
                 region,
                 parameters,
                 diagnostics,
@@ -90,8 +88,8 @@ impl<'a> AnalyzeContext<'a> {
             Ok(TypeCheck::Ok)
         } else if let &[ent] = bad.as_slice() {
             // Unique incorrect match
-            reference.set_unique_reference(ent);
-            if parameters.is_empty() && ent.signature().unwrap().params.is_empty() {
+            reference.set_unique_reference(ent.inner());
+            if parameters.is_empty() && ent.formals().is_empty() {
                 // Typically enumeration literals such as character, boolean
                 // We provide a better diagnostic for those
                 if let Some(target_type) = target_type {
@@ -111,7 +109,7 @@ impl<'a> AnalyzeContext<'a> {
                 // The analysis below will produce the diagnostics for the bad option
                 self.analyze_parameters_with_formal_region(
                     pos,
-                    &ent.signature().unwrap().params,
+                    ent.formals(),
                     region,
                     parameters,
                     diagnostics,
