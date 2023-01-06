@@ -429,6 +429,10 @@ impl<'a> StandardRegion<'a> {
         self.binary(op, typ.clone(), typ.clone(), typ.clone(), typ)
     }
 
+    fn comparison(&self, op: Operator, typ: TypeEnt) -> Arc<NamedEntity> {
+        self.binary(op, typ.clone(), typ.clone(), typ, self.boolean())
+    }
+
     pub fn minimum(&self, type_ent: TypeEnt) -> Arc<NamedEntity> {
         self.create_min_or_maximum("MINIMUM", type_ent)
     }
@@ -439,7 +443,7 @@ impl<'a> StandardRegion<'a> {
 
     /// Create implicit DEALLOCATE
     /// procedure DEALLOCATE (P: inout AT);
-    pub fn create_deallocate(&self, type_ent: TypeEnt) -> Arc<NamedEntity> {
+    pub fn deallocate(&self, type_ent: TypeEnt) -> Arc<NamedEntity> {
         let mut params = FormalRegion::new_params();
         params.add(Arc::new(NamedEntity::new(
             self.symbol("P"),
@@ -460,8 +464,20 @@ impl<'a> StandardRegion<'a> {
         ))
     }
 
-    pub fn implicits_of_integer_type(&self, typ: TypeEnt) -> Vec<Arc<NamedEntity>> {
-        vec![
+    pub fn comparators(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<NamedEntity>> {
+        [
+            self.comparison(Operator::EQ, typ.clone()),
+            self.comparison(Operator::NE, typ.clone()),
+            self.comparison(Operator::LT, typ.clone()),
+            self.comparison(Operator::LTE, typ.clone()),
+            self.comparison(Operator::GT, typ.clone()),
+            self.comparison(Operator::GTE, typ),
+        ]
+        .into_iter()
+    }
+
+    pub fn integer_implicits(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<NamedEntity>> {
+        [
             self.minimum(typ.clone()),
             self.maximum(typ.clone()),
             self.create_to_string(typ.clone()),
@@ -469,67 +485,87 @@ impl<'a> StandardRegion<'a> {
             self.symmetric_unary(Operator::Plus, typ.clone()),
             self.symmetric_unary(Operator::Abs, typ.clone()),
             self.symmetric_binary(Operator::Plus, typ.clone()),
-            self.symmetric_binary(Operator::Minus, typ),
+            self.symmetric_binary(Operator::Minus, typ.clone()),
         ]
+        .into_iter()
+        .chain(self.comparators(typ).into_iter())
     }
 
-    pub fn implicits_of_physical_type(&self, typ: TypeEnt) -> Vec<Arc<NamedEntity>> {
-        vec![
+    pub fn physical_implicits(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<NamedEntity>> {
+        [
             self.minimum(typ.clone()),
             self.maximum(typ.clone()),
             self.symmetric_unary(Operator::Minus, typ.clone()),
             self.symmetric_unary(Operator::Plus, typ.clone()),
             self.symmetric_unary(Operator::Abs, typ.clone()),
             self.symmetric_binary(Operator::Plus, typ.clone()),
-            self.symmetric_binary(Operator::Minus, typ),
+            self.symmetric_binary(Operator::Minus, typ.clone()),
         ]
+        .into_iter()
+        .chain(self.comparators(typ).into_iter())
     }
+
+    pub fn enum_implicits(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<NamedEntity>> {
+        [
+            self.create_to_string(typ.clone()),
+            self.minimum(typ.clone()),
+            self.maximum(typ.clone()),
+        ]
+        .into_iter()
+        .chain(self.comparators(typ).into_iter())
+    }
+
+    pub fn record_implicits(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<NamedEntity>> {
+        [
+            self.comparison(Operator::EQ, typ.clone()),
+            self.comparison(Operator::NE, typ),
+        ]
+        .into_iter()
+    }
+
+    pub fn array_implicits(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<NamedEntity>> {
+        [
+            self.create_to_string(typ.clone()),
+            self.comparison(Operator::EQ, typ.clone()),
+            self.comparison(Operator::NE, typ),
+        ]
+        .into_iter()
+    }
+
+    pub fn access_implicits(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<NamedEntity>> {
+        [
+            self.deallocate(typ.clone()),
+            self.comparison(Operator::EQ, typ.clone()),
+            self.comparison(Operator::NE, typ),
+        ]
+        .into_iter()
+    }
+
+    // Return the
 
     // Return the implicit things defined at the end of the standard packge
     pub fn end_of_package_implicits(&self) -> Vec<Arc<NamedEntity>> {
         let mut res = Vec::new();
 
-        // Predefined TO_STRING operations on scalar types
-        // function TO_STRING (VALUE: BOOLEAN) return STRING;
-        // function TO_STRING (VALUE: BIT) return STRING;
-        // function TO_STRING (VALUE: CHARACTER) return STRING;
-        // function TO_STRING (VALUE: SEVERITY_LEVEL) return STRING;
-        // function TO_STRING (VALUE: universal_integer) return STRING;
-        // function TO_STRING (VALUE: universal_real) return STRING;
-        // function TO_STRING (VALUE: INTEGER) return STRING;
-        // function TO_STRING (VALUE: REAL) return STRING;
-        // function TO_STRING (VALUE: TIME) return STRING;
-        // function TO_STRING (VALUE: FILE_OPEN_KIND) return STRING;
-        // function TO_STRING (VALUE: FILE_OPEN_STATUS) return STRING;
-
         for name in [
-            "BOOLEAN",
-            "BIT",
             "CHARACTER",
             "SEVERITY_LEVEL",
             "FILE_OPEN_KIND",
             "FILE_OPEN_STATUS",
         ] {
             let typ = self.lookup_type(name);
-            let implicits = vec![
-                self.create_to_string(typ.clone()),
-                self.minimum(typ.clone()),
-                self.maximum(typ.clone()),
-            ];
-
-            for ent in implicits.iter() {
+            for ent in self.enum_implicits(typ.clone()) {
                 if let Some(implicit) = typ.kind().implicits() {
                     // This is safe because the standard package is analyzed in a single thread
-                    unsafe { implicit.push(ent) };
+                    unsafe { implicit.push(&ent) };
                 }
+                res.push(ent);
             }
-
-            res.extend(implicits);
         }
 
         for name in ["INTEGER", "REAL", "TIME"] {
             let typ = self.lookup_type(name);
-            for ent in self.implicits_of_integer_type(typ.clone()) {
+            for ent in self.integer_implicits(typ.clone()) {
                 if let Some(implicit) = typ.kind().implicits() {
                     // This is safe because the standard package is analyzed in a single thread
                     unsafe { implicit.push(&ent) };
@@ -541,6 +577,9 @@ impl<'a> StandardRegion<'a> {
         for name in ["BOOLEAN", "BIT"] {
             let typ = self.lookup_type(name);
             let implicits = [
+                self.create_to_string(typ.clone()),
+                self.minimum(typ.clone()),
+                self.maximum(typ.clone()),
                 self.symmetric_binary(Operator::And, typ.clone()),
                 self.symmetric_binary(Operator::Or, typ.clone()),
                 self.symmetric_binary(Operator::Nand, typ.clone()),
@@ -548,7 +587,9 @@ impl<'a> StandardRegion<'a> {
                 self.symmetric_binary(Operator::Xor, typ.clone()),
                 self.symmetric_binary(Operator::Xnor, typ.clone()),
                 self.symmetric_unary(Operator::Not, typ.clone()),
-            ];
+            ]
+            .into_iter()
+            .chain(self.comparators(typ.clone()));
 
             for ent in implicits {
                 if let Some(implicit) = typ.kind().implicits() {
@@ -565,6 +606,24 @@ impl<'a> StandardRegion<'a> {
             let implicits = [self.unary(Operator::Not, typ.clone(), return_typ.clone())];
 
             for ent in implicits {
+                if let Some(implicit) = typ.kind().implicits() {
+                    // This is safe because the standard package is analyzed in a single thread
+                    unsafe { implicit.push(&ent) };
+                }
+                res.push(ent);
+            }
+        }
+
+        for name in [
+            "BOOLEAN_VECTOR",
+            "BIT_VECTOR",
+            "INTEGER_VECTOR",
+            "REAL_VECTOR",
+            "TIME_VECTOR",
+            "STRING",
+        ] {
+            let typ = self.lookup_type(name);
+            for ent in self.array_implicits(typ.clone()) {
                 if let Some(implicit) = typ.kind().implicits() {
                     // This is safe because the standard package is analyzed in a single thread
                     unsafe { implicit.push(&ent) };

@@ -31,7 +31,7 @@ pub enum Type {
     Real(ImplicitVec),
     Physical(ImplicitVec),
     Access(Subtype, ImplicitVec),
-    Record(RecordRegion),
+    Record(RecordRegion, ImplicitVec),
     // Weak references since incomplete access types can create cycles
     // The reference is for the full type which is filled in after creation
     Incomplete(ArcSwapWeak<NamedEntity>),
@@ -57,10 +57,10 @@ impl Type {
             Type::Physical(ref implicit) => Some(implicit),
             Type::File(ref implicit) => Some(implicit),
             Type::Access(.., ref implicit) => Some(implicit),
+            Type::Record(.., ref implicit) => Some(implicit),
             Type::Incomplete(..)
             | Type::Interface
             | Type::Protected(..)
-            | Type::Record(..)
             | Type::Subtype(..)
             | Type::Alias(..) => None,
         }

@@ -101,7 +101,7 @@ impl<'a> AnalyzeContext<'a> {
         suffix: &WithPos<WithRef<Designator>>,
     ) -> AnalysisResult<NamedEntities> {
         match prefix_type.flatten_alias().kind() {
-            Type::Record(ref region) => {
+            Type::Record(ref region, _) => {
                 if let Some(decl) = region.lookup(suffix.designator()) {
                     Ok(NamedEntities::Single(decl.clone().into()))
                 } else {
@@ -1247,6 +1247,12 @@ impl<'a> AnalyzeContext<'a> {
                         | Operator::Nor
                         | Operator::Xor
                         | Operator::Xnor
+                        | Operator::EQ
+                        | Operator::NE
+                        | Operator::LT
+                        | Operator::LTE
+                        | Operator::GT
+                        | Operator::GTE
                 ) {
                     let designator = Designator::OperatorSymbol(op.item.item);
                     match region.lookup_within(&op.pos, &Designator::OperatorSymbol(op.item.item)) {
@@ -1329,7 +1335,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     Ok(check)
                 }
-                Type::Record(record_region) => {
+                Type::Record(record_region, _) => {
                     self.analyze_record_aggregate(
                         region,
                         target_base,

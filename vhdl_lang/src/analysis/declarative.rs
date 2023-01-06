@@ -470,9 +470,10 @@ impl<'a> AnalyzeContext<'a> {
                 parent.add(enum_type.clone().into(), diagnostics);
 
                 if let Some(standard) = self.standard_package() {
-                    let to_string = standard.create_to_string(enum_type);
-                    implicit.push(&to_string);
-                    parent.add(to_string, diagnostics);
+                    for ent in standard.enum_implicits(enum_type) {
+                        implicit.push(&ent);
+                        parent.add(ent, diagnostics);
+                    }
                 }
             }
             TypeDefinition::ProtectedBody(ref mut body) => {
@@ -594,12 +595,20 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 region.close(diagnostics);
 
+                let implicit = ImplicitVecBuilder::default();
                 let type_ent = TypeEnt::define_with_opt_id(
                     overwrite_id,
                     &mut type_decl.ident,
-                    Type::Record(elems),
+                    Type::Record(elems, implicit.inner()),
                 );
-                parent.add(type_ent.into(), diagnostics);
+                parent.add(type_ent.clone().into(), diagnostics);
+
+                if let Some(standard) = self.standard_package() {
+                    for ent in standard.record_implicits(type_ent) {
+                        implicit.push(&ent);
+                        parent.add(ent, diagnostics);
+                    }
+                }
             }
             TypeDefinition::Access(ref mut subtype_indication) => {
                 let subtype =
@@ -616,9 +625,10 @@ impl<'a> AnalyzeContext<'a> {
                         parent.add(type_ent.clone().into(), diagnostics);
 
                         if let Some(standard) = self.standard_package() {
-                            let deallocate = standard.create_deallocate(type_ent);
-                            implicit.push(&deallocate);
-                            parent.add(deallocate, diagnostics);
+                            for ent in standard.access_implicits(type_ent) {
+                                implicit.push(&ent);
+                                parent.add(ent, diagnostics);
+                            }
                         }
                     }
                     Err(err) => err.add_to(diagnostics)?,
@@ -653,13 +663,14 @@ impl<'a> AnalyzeContext<'a> {
                     },
                 );
 
-                if let Some(standard) = self.standard_package() {
-                    let to_string = standard.create_to_string(array_ent.clone());
-                    implicits.push(&to_string);
-                    parent.add(to_string, diagnostics);
-                }
+                parent.add(array_ent.clone().into(), diagnostics);
 
-                parent.add(array_ent.into(), diagnostics);
+                if let Some(standard) = self.standard_package() {
+                    for ent in standard.array_implicits(array_ent) {
+                        implicits.push(&ent);
+                        parent.add(ent, diagnostics);
+                    }
+                }
             }
             TypeDefinition::Subtype(ref mut subtype_indication) => {
                 match self.resolve_subtype_indication(parent, subtype_indication, diagnostics) {
@@ -717,7 +728,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
 
                 if let Some(standard) = self.standard_package() {
-                    for ent in standard.implicits_of_physical_type(phys_type) {
+                    for ent in standard.physical_implicits(phys_type) {
                         implicits.push(&ent);
                         parent.add(ent, diagnostics);
                     }
@@ -741,7 +752,7 @@ impl<'a> AnalyzeContext<'a> {
                 parent.add(type_ent.clone().into(), diagnostics);
 
                 if let Some(standard) = self.standard_package() {
-                    for ent in standard.implicits_of_integer_type(type_ent) {
+                    for ent in standard.integer_implicits(type_ent) {
                         implicit.push(&ent);
                         parent.add(ent, diagnostics);
                     }
