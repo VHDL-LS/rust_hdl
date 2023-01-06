@@ -30,6 +30,18 @@ impl<'a> AnalyzeContext<'a> {
         let mut uncertain = false;
         for name in overloaded.entities() {
             if let Some(sig) = name.signature() {
+                // Do not consider procedure vs. function
+                if sig.return_type().is_some() != target_type.is_some() {
+                    continue;
+                }
+
+                // Do not consider operators unary vs binary operators
+                if let Some(operator_len) = parameters.operator_len() {
+                    if sig.params.len() != operator_len {
+                        continue;
+                    }
+                }
+
                 let is_correct = if sig.match_return_type(target_type) {
                     self.analyze_parameters_with_formal_region(
                         pos,
@@ -46,8 +58,8 @@ impl<'a> AnalyzeContext<'a> {
                 parameters.clear_references();
 
                 match is_correct {
-                    TypeCheck::Ok => good.push((name, sig)),
-                    TypeCheck::NotOk => bad.push((name, sig)),
+                    TypeCheck::Ok => good.push(name),
+                    TypeCheck::NotOk => bad.push(name),
                     TypeCheck::Unknown => uncertain = true,
                 }
             }
@@ -58,31 +70,28 @@ impl<'a> AnalyzeContext<'a> {
             // Not unique
             let mut diagnostic =
                 Diagnostic::error(pos, format!("Ambiguous use of '{}'", designator));
-            diagnostic.add_subprogram_candidates(
-                "Migth be",
-                good.into_iter().map(|(ent, _)| ent).collect(),
-            );
+            diagnostic.add_subprogram_candidates("Migth be", &mut good);
             diagnostics.push(diagnostic);
             self.analyze_parameters(region, parameters, diagnostics)?;
             Ok(TypeCheck::Unknown)
         } else if uncertain {
             self.analyze_parameters(region, parameters, diagnostics)?;
             Ok(TypeCheck::Unknown)
-        } else if let &[(ent, sig)] = good.as_slice() {
+        } else if let &[ent] = good.as_slice() {
             // Unique correct match
             reference.set_unique_reference(ent);
             self.analyze_parameters_with_formal_region(
                 pos,
-                &sig.params,
+                &ent.signature().unwrap().params,
                 region,
                 parameters,
                 diagnostics,
             )?;
             Ok(TypeCheck::Ok)
-        } else if let &[(ent, sig)] = bad.as_slice() {
+        } else if let &[ent] = bad.as_slice() {
             // Unique incorrect match
             reference.set_unique_reference(ent);
-            if parameters.is_empty() && sig.params.is_empty() {
+            if parameters.is_empty() && ent.signature().unwrap().params.is_empty() {
                 // Typically enumeration literals such as character, boolean
                 // We provide a better diagnostic for those
                 if let Some(target_type) = target_type {
@@ -95,15 +104,14 @@ impl<'a> AnalyzeContext<'a> {
                         pos,
                         format!("Could not resolve {}", designator.describe()),
                     );
-                    diagnostic
-                        .add_subprogram_candidates("Does not match", overloaded.sorted_entities());
+                    diagnostic.add_subprogram_candidates("Does not match", &mut [ent]);
                     diagnostics.push(diagnostic)
                 };
             } else {
                 // The analysis below will produce the diagnostics for the bad option
                 self.analyze_parameters_with_formal_region(
                     pos,
-                    &sig.params,
+                    &ent.signature().unwrap().params,
                     region,
                     parameters,
                     diagnostics,
@@ -111,20 +119,10 @@ impl<'a> AnalyzeContext<'a> {
             }
             Ok(TypeCheck::NotOk)
         } else {
-            // Found no function matching the target type
-            if let (Some(ent), Some(target_type)) = (overloaded.as_unique(), target_type) {
-                reference.set_unique_reference(ent);
-                diagnostics.error(
-                    pos,
-                    format!("'{}' does not match {}", designator, target_type.describe()),
-                )
-            } else {
-                let mut diagnostic =
-                    Diagnostic::error(pos, format!("Could not resolve {}", designator.describe()));
-                diagnostic
-                    .add_subprogram_candidates("Does not match", overloaded.sorted_entities());
-                diagnostics.push(diagnostic)
-            }
+            let mut diagnostic =
+                Diagnostic::error(pos, format!("Could not resolve {}", designator.describe()));
+            diagnostic.add_subprogram_candidates("Does not match", &mut bad);
+            diagnostics.push(diagnostic);
 
             self.analyze_parameters(region, parameters, diagnostics)?;
             Ok(TypeCheck::NotOk)
@@ -147,6 +145,36 @@ impl<'a> AnalyzeContext<'a> {
                 elems,
                 diagnostics,
             ),
+            ParametersMut::Binary(lexpr, rexpr) => {
+                let mut check = TypeCheck::Ok;
+
+                if let Some(formal) = formal_region.nth(0) {
+                    check.add(self.analyze_expression_with_target_type(
+                        region,
+                        formal.type_mark(),
+                        &lexpr.pos,
+                        &mut lexpr.item,
+                        diagnostics,
+                    )?);
+                } else {
+                    self.analyze_expression_pos(region, &lexpr.pos, &mut lexpr.item, diagnostics)?;
+                    check.add(TypeCheck::NotOk)
+                }
+
+                if let Some(formal) = formal_region.nth(1) {
+                    check.add(self.analyze_expression_with_target_type(
+                        region,
+                        formal.type_mark(),
+                        &rexpr.pos,
+                        &mut rexpr.item,
+                        diagnostics,
+                    )?);
+                } else {
+                    self.analyze_expression_pos(region, &rexpr.pos, &mut rexpr.item, diagnostics)?;
+                    check.add(TypeCheck::NotOk)
+                }
+                Ok(check)
+            }
             ParametersMut::Unary(expr) => {
                 if let Some(formal) = formal_region.nth(0) {
                     self.analyze_expression_with_target_type(
@@ -174,6 +202,10 @@ impl<'a> AnalyzeContext<'a> {
             ParametersMut::AssociationList(elems) => {
                 self.analyze_assoc_elems(region, elems, diagnostics)
             }
+            ParametersMut::Binary(lexpr, rexpr) => {
+                self.analyze_expression_pos(region, &lexpr.pos, &mut lexpr.item, diagnostics)?;
+                self.analyze_expression_pos(region, &rexpr.pos, &mut rexpr.item, diagnostics)
+            }
             ParametersMut::Unary(expr) => {
                 self.analyze_expression_pos(region, &expr.pos, &mut expr.item, diagnostics)
             }
@@ -184,6 +216,7 @@ impl<'a> AnalyzeContext<'a> {
 // Allow us to handle functions and operators equally
 pub enum ParametersMut<'a> {
     AssociationList(&'a mut [AssociationElement]),
+    Binary(&'a mut WithPos<Expression>, &'a mut WithPos<Expression>),
     Unary(&'a mut WithPos<Expression>),
 }
 
@@ -195,6 +228,10 @@ impl ParametersMut<'_> {
                     clear_references(elem);
                 }
             }
+            ParametersMut::Binary(lexpr, rexpr) => {
+                clear_references(*lexpr);
+                clear_references(*rexpr);
+            }
             ParametersMut::Unary(expr) => {
                 clear_references(*expr);
             }
@@ -204,7 +241,15 @@ impl ParametersMut<'_> {
     fn is_empty(&self) -> bool {
         match self {
             ParametersMut::AssociationList(list) => list.is_empty(),
-            ParametersMut::Unary(_) => false,
+            _ => false,
+        }
+    }
+
+    fn operator_len(&self) -> Option<usize> {
+        match self {
+            ParametersMut::AssociationList(..) => None,
+            ParametersMut::Unary(..) => Some(1),
+            ParametersMut::Binary(..) => Some(2),
         }
     }
 }

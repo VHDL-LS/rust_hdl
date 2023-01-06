@@ -1236,10 +1236,39 @@ impl<'a> AnalyzeContext<'a> {
                 };
                 Ok(is_correct)
             }
-            Expression::Binary(_, ref mut left, ref mut right) => {
-                self.analyze_expression(region, left, diagnostics)?;
-                self.analyze_expression(region, right, diagnostics)?;
-                Ok(TypeCheck::Unknown)
+            Expression::Binary(ref mut op, ref mut left, ref mut right) => {
+                if matches!(op.item.item, Operator::Plus | Operator::Minus) {
+                    let designator = Designator::OperatorSymbol(op.item.item);
+                    match region.lookup_within(&op.pos, &Designator::OperatorSymbol(op.item.item)) {
+                        Ok(NamedEntities::Single(_)) => {
+                            // @TODO error since operator needs to be an overloaded name
+                            self.analyze_expression(region, left, diagnostics)?;
+                            self.analyze_expression(region, right, diagnostics)?;
+                            Ok(TypeCheck::Unknown)
+                        }
+                        Ok(NamedEntities::Overloaded(overloaded)) => self
+                            .resolve_overloaded_with_target_type(
+                                region,
+                                overloaded,
+                                Some(target_type),
+                                &op.pos,
+                                &designator,
+                                &mut op.item.reference,
+                                &mut ParametersMut::Binary(left, right),
+                                diagnostics,
+                            ),
+                        Err(diag) => {
+                            diagnostics.push(diag);
+                            self.analyze_expression(region, left, diagnostics)?;
+                            self.analyze_expression(region, right, diagnostics)?;
+                            Ok(TypeCheck::Unknown)
+                        }
+                    }
+                } else {
+                    self.analyze_expression(region, left, diagnostics)?;
+                    self.analyze_expression(region, right, diagnostics)?;
+                    Ok(TypeCheck::Unknown)
+                }
             }
             Expression::Unary(ref mut op, ref mut expr) => {
                 let designator = Designator::OperatorSymbol(op.item.item);
@@ -1429,7 +1458,7 @@ impl Diagnostic {
     pub fn add_subprogram_candidates(
         &mut self,
         prefix: &str,
-        mut candidates: Vec<&Arc<NamedEntity>>,
+        candidates: &mut [&Arc<NamedEntity>],
     ) {
         candidates.sort_by_key(|ent| ent.decl_pos());
 

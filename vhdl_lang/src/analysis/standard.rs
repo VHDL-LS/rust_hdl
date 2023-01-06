@@ -20,16 +20,34 @@ use super::region::Object;
 use super::region::Region;
 use super::region::Subtype;
 use super::region::TypeEnt;
+use super::root::UnitReadGuard;
 use super::NamedEntity;
 
-pub struct StandardRegion<'a> {
+pub(super) enum RegionRef<'a> {
+    // Inside the standard package itself we can hold a reference
+    Inside(&'a Region<'a>),
+    // Outside we need an analysis result
+    Outside(UnitReadGuard<'a>),
+}
+
+impl<'a> std::ops::Deref for RegionRef<'a> {
+    type Target = Region<'a>;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            RegionRef::Inside(r) => r,
+            RegionRef::Outside(r) => &r.result().region,
+        }
+    }
+}
+
+pub(super) struct StandardRegion<'a> {
     // Only for symbol table
     symbols: &'a Symbols,
-    region: &'a Region<'a>,
+    region: RegionRef<'a>,
 }
 
 impl<'a> StandardRegion<'a> {
-    pub fn new(symbols: &'a Symbols, region: &'a Region<'a>) -> Self {
+    pub(super) fn new(symbols: &'a Symbols, region: RegionRef<'a>) -> Self {
         Self { symbols, region }
     }
 
@@ -349,7 +367,7 @@ impl<'a> StandardRegion<'a> {
         let mut params = FormalRegion::new_params();
         params.add(Arc::new(NamedEntity::new(
             // @TODO anonymous
-            self.symbol("arg"),
+            self.symbol("V"),
             NamedEntityKind::Object(Object {
                 class: ObjectClass::Constant,
                 mode: Some(Mode::In),
@@ -367,6 +385,47 @@ impl<'a> StandardRegion<'a> {
         ))
     }
 
+    fn create_binary_operator(
+        &self,
+        op: Operator,
+        implicit_of: TypeEnt,
+        left: TypeEnt,
+        right: TypeEnt,
+        return_type: TypeEnt,
+    ) -> Arc<NamedEntity> {
+        let mut params = FormalRegion::new_params();
+        params.add(Arc::new(NamedEntity::new(
+            // @TODO anonymous
+            self.symbol("L"),
+            NamedEntityKind::Object(Object {
+                class: ObjectClass::Constant,
+                mode: Some(Mode::In),
+                subtype: Subtype::new(left),
+                has_default: false,
+            }),
+            implicit_of.decl_pos(),
+        )));
+
+        params.add(Arc::new(NamedEntity::new(
+            // @TODO anonymous
+            self.symbol("R"),
+            NamedEntityKind::Object(Object {
+                class: ObjectClass::Constant,
+                mode: Some(Mode::In),
+                subtype: Subtype::new(right),
+                has_default: false,
+            }),
+            implicit_of.decl_pos(),
+        )));
+
+        Arc::new(NamedEntity::implicit(
+            implicit_of.clone().into(),
+            Designator::OperatorSymbol(op),
+            NamedEntityKind::Subprogram(Signature::new(params, Some(return_type))),
+            implicit_of.decl_pos(),
+        ))
+    }
+
     pub fn minimum(&self, type_ent: TypeEnt) -> Arc<NamedEntity> {
         self.create_min_or_maximum("MINIMUM", type_ent)
     }
@@ -377,7 +436,7 @@ impl<'a> StandardRegion<'a> {
 
     /// Create implicit DEALLOCATE
     /// procedure DEALLOCATE (P: inout AT);
-    pub fn create_deallocate(&self, type_ent: &TypeEnt) -> Arc<NamedEntity> {
+    pub fn create_deallocate(&self, type_ent: TypeEnt) -> Arc<NamedEntity> {
         let mut params = FormalRegion::new_params();
         params.add(Arc::new(NamedEntity::new(
             self.symbol("P"),
@@ -396,6 +455,55 @@ impl<'a> StandardRegion<'a> {
             NamedEntityKind::Subprogram(Signature::new(params, None)),
             type_ent.decl_pos(),
         ))
+    }
+
+    pub fn implicits_of_integer_type(&self, typ: TypeEnt) -> Vec<Arc<NamedEntity>> {
+        vec![
+            self.minimum(typ.clone()),
+            self.maximum(typ.clone()),
+            self.create_to_string(typ.clone()),
+            self.create_unary_operator(Operator::Minus, typ.clone(), typ.clone()),
+            self.create_unary_operator(Operator::Plus, typ.clone(), typ.clone()),
+            self.create_unary_operator(Operator::Abs, typ.clone(), typ.clone()),
+            self.create_binary_operator(
+                Operator::Plus,
+                typ.clone(),
+                typ.clone(),
+                typ.clone(),
+                typ.clone(),
+            ),
+            self.create_binary_operator(
+                Operator::Minus,
+                typ.clone(),
+                typ.clone(),
+                typ.clone(),
+                typ,
+            ),
+        ]
+    }
+
+    pub fn implicits_of_physical_type(&self, typ: TypeEnt) -> Vec<Arc<NamedEntity>> {
+        vec![
+            self.minimum(typ.clone()),
+            self.maximum(typ.clone()),
+            self.create_unary_operator(Operator::Minus, typ.clone(), typ.clone()),
+            self.create_unary_operator(Operator::Plus, typ.clone(), typ.clone()),
+            self.create_unary_operator(Operator::Abs, typ.clone(), typ.clone()),
+            self.create_binary_operator(
+                Operator::Plus,
+                typ.clone(),
+                typ.clone(),
+                typ.clone(),
+                typ.clone(),
+            ),
+            self.create_binary_operator(
+                Operator::Minus,
+                typ.clone(),
+                typ.clone(),
+                typ.clone(),
+                typ,
+            ),
+        ]
     }
 
     // Return the implicit things defined at the end of the standard packge
@@ -420,9 +528,6 @@ impl<'a> StandardRegion<'a> {
             "BIT",
             "CHARACTER",
             "SEVERITY_LEVEL",
-            "INTEGER",
-            "REAL",
-            "TIME",
             "FILE_OPEN_KIND",
             "FILE_OPEN_STATUS",
         ] {
@@ -445,13 +550,7 @@ impl<'a> StandardRegion<'a> {
 
         for name in ["INTEGER", "REAL", "TIME"] {
             let typ = self.lookup_type(name);
-            let implicits = [
-                self.create_unary_operator(Operator::Minus, typ.clone(), typ.clone()),
-                self.create_unary_operator(Operator::Plus, typ.clone(), typ.clone()),
-                self.create_unary_operator(Operator::Abs, typ.clone(), typ.clone()),
-            ];
-
-            for ent in implicits {
+            for ent in self.implicits_of_integer_type(typ.clone()) {
                 if let Some(implicit) = typ.kind().implicits() {
                     // This is safe because the standard package is analyzed in a single thread
                     unsafe { implicit.push(&ent) };

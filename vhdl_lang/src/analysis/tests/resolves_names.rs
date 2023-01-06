@@ -1584,3 +1584,25 @@ constant good1 : integer := - i0;
 
     check_no_diagnostics(&diagnostics);
 }
+
+#[test]
+fn binary_operator() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+constant i0 : integer := 0;
+constant good1 : integer := i0 + i0;
+        ",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    let integer = root.find_standard_symbol("INTEGER");
+
+    let op_pos = code.s1("+");
+    let minus = root
+        .search_reference(code.source(), op_pos.start())
+        .unwrap();
+    assert_eq!(minus.decl_pos(), integer.decl_pos());
+
+    check_no_diagnostics(&diagnostics);
+}

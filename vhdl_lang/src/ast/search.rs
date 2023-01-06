@@ -770,7 +770,10 @@ fn search_pos_expr(
 ) -> SearchResult {
     return_if_finished!(searcher.search_with_pos(pos));
     match expr {
-        Expression::Binary(_, ref mut left, ref mut right) => {
+        Expression::Binary(ref mut op, ref mut left, ref mut right) => {
+            return_if_found!(searcher
+                .search_pos_with_ref(&op.pos, &mut op.item.reference)
+                .or_not_found());
             return_if_found!(left.search(searcher));
             right.search(searcher)
         }

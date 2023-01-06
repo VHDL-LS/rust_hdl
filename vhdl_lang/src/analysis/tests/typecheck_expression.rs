@@ -864,3 +864,48 @@ constant bad : character := - i0;
         )],
     );
 }
+
+#[test]
+fn evaluates_binary_expressions() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+constant i0 : integer := 0;
+constant r0 : real := 0.0;
+constant t0 : time := 0 ns;
+constant good1 : integer := 1 + 1;
+constant good2 : real := 1.0 + 1.0;
+constant good3 : time := 1 ns + 1 ns;
+constant good4 : integer := i0 + i0;
+constant good5 : real := r0 + r0;
+constant good6 : time := t0 + t0;
+
+constant bad : character := i0 + i0;
+        ",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    let integer = root.find_standard_symbol("INTEGER");
+    let real = root.find_standard_symbol("REAL");
+    let time = root.find_standard_symbol("TIME");
+
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("character := i0 + i0").s1("+"),
+            "Could not resolve operator \"+\"",
+        )
+        .related(
+            integer.decl_pos().unwrap(),
+            "Does not match \"+\"[INTEGER, INTEGER return INTEGER]",
+        )
+        .related(
+            real.decl_pos().unwrap(),
+            "Does not match \"+\"[REAL, REAL return REAL]",
+        )
+        .related(
+            time.decl_pos().unwrap(),
+            "Does not match \"+\"[TIME, TIME return TIME]",
+        )],
+    );
+}

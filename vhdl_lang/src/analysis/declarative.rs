@@ -8,7 +8,6 @@ use super::formal_region::FormalRegion;
 use super::formal_region::RecordRegion;
 use super::implicits::ImplicitVecBuilder;
 use super::names::*;
-use super::standard::StandardRegion;
 use super::*;
 use crate::ast;
 use crate::ast::*;
@@ -470,11 +469,8 @@ impl<'a> AnalyzeContext<'a> {
 
                 parent.add(enum_type.clone().into(), diagnostics);
 
-                if !self.is_standard_package() {
-                    let standard = self.expect_standard_package_analysis().unwrap();
-                    let standard_region =
-                        StandardRegion::new(&self.root.symbols, &standard.result().region);
-                    let to_string = standard_region.create_to_string(enum_type);
+                if let Some(standard) = self.standard_package() {
+                    let to_string = standard.create_to_string(enum_type);
                     implicit.push(&to_string);
                     parent.add(to_string, diagnostics);
                 }
@@ -616,14 +612,14 @@ impl<'a> AnalyzeContext<'a> {
                             &mut type_decl.ident,
                             Type::Access(subtype, implicit.inner()),
                         );
-                        let standard = self.expect_standard_package_analysis().unwrap();
-                        let standard_region =
-                            StandardRegion::new(&self.root.symbols, &standard.result().region);
 
-                        let deallocate = standard_region.create_deallocate(&type_ent);
-                        implicit.push(&deallocate);
-                        parent.add(type_ent.into(), diagnostics);
-                        parent.add(deallocate, diagnostics);
+                        parent.add(type_ent.clone().into(), diagnostics);
+
+                        if let Some(standard) = self.standard_package() {
+                            let deallocate = standard.create_deallocate(type_ent);
+                            implicit.push(&deallocate);
+                            parent.add(deallocate, diagnostics);
+                        }
                     }
                     Err(err) => err.add_to(diagnostics)?,
                 }
@@ -657,12 +653,8 @@ impl<'a> AnalyzeContext<'a> {
                     },
                 );
 
-                if !self.is_standard_package() {
-                    let standard = self.expect_standard_package_analysis().unwrap();
-                    let standard_region =
-                        StandardRegion::new(&self.root.symbols, &standard.result().region);
-
-                    let to_string = standard_region.create_to_string(array_ent.clone());
+                if let Some(standard) = self.standard_package() {
+                    let to_string = standard.create_to_string(array_ent.clone());
                     implicits.push(&to_string);
                     parent.add(to_string, diagnostics);
                 }
@@ -723,6 +715,13 @@ impl<'a> AnalyzeContext<'a> {
                     implicits.push(&secondary_unit);
                     parent.add(secondary_unit, diagnostics)
                 }
+
+                if let Some(standard) = self.standard_package() {
+                    for ent in standard.implicits_of_physical_type(phys_type) {
+                        implicits.push(&ent);
+                        parent.add(ent, diagnostics);
+                    }
+                }
             }
             TypeDefinition::Incomplete(..) => {
                 unreachable!("Handled elsewhere");
@@ -741,18 +740,10 @@ impl<'a> AnalyzeContext<'a> {
                     TypeEnt::define_with_opt_id(overwrite_id, &mut type_decl.ident, kind);
                 parent.add(type_ent.clone().into(), diagnostics);
 
-                if !self.is_standard_package() {
-                    let standard = self.expect_standard_package_analysis().unwrap();
-                    let standard_region =
-                        StandardRegion::new(&self.root.symbols, &standard.result().region);
-
-                    for imp in [
-                        standard_region.create_to_string(type_ent.clone()),
-                        standard_region.minimum(type_ent.clone()),
-                        standard_region.maximum(type_ent),
-                    ] {
-                        implicit.push(&imp);
-                        parent.add(imp, diagnostics);
+                if let Some(standard) = self.standard_package() {
+                    for ent in standard.implicits_of_integer_type(type_ent) {
+                        implicit.push(&ent);
+                        parent.add(ent, diagnostics);
                     }
                 }
             }
@@ -768,15 +759,13 @@ impl<'a> AnalyzeContext<'a> {
 
                 match self.resolve_type_mark_name(parent, type_mark) {
                     Ok(type_mark) => {
-                        let standard = self.expect_standard_package_analysis().unwrap();
-                        let standard_region =
-                            StandardRegion::new(&self.root.symbols, &standard.result().region);
-
-                        for ent in standard_region
-                            .create_implicit_file_type_subprograms(&file_type, &type_mark)
-                        {
-                            implicit.push(&ent);
-                            parent.add(ent, diagnostics);
+                        if let Some(standard) = self.standard_package() {
+                            for ent in standard
+                                .create_implicit_file_type_subprograms(&file_type, &type_mark)
+                            {
+                                implicit.push(&ent);
+                                parent.add(ent, diagnostics);
+                            }
                         }
                     }
                     Err(err) => {

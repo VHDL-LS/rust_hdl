@@ -207,3 +207,48 @@ type enum_t is (alpha, beta);
         )
     );
 }
+
+#[test]
+fn implicit_functions_on_physical_type() {
+    check_code_with_no_diagnostics(
+        "
+package pkg is
+    type time_t is range 0 to 1
+    units
+      small;
+      big = 1000 small;
+    end units;
+
+    constant c0 : time_t := 10 small;
+    constant good1 : time_t := - c0;
+    constant good2 : time_t := + c0;
+    constant good3 : time_t := abs c0;
+    constant good4 : time_t := c0 + c0;
+    constant good5 : time_t := c0 - c0;
+    constant good6 : time_t := minimum(c0, c0);
+    constant good7 : time_t := maximum(c0, c0);
+end package;
+",
+    );
+}
+
+#[test]
+fn implicit_functions_on_integer_type() {
+    check_code_with_no_diagnostics(
+        "
+package pkg is
+    type type_t is range 0 to 1;
+
+    constant c0 : type_t := 10;
+    constant good1 : type_t := - c0;
+    constant good2 : type_t := + c0;
+    constant good3 : type_t := abs c0;
+    constant good4 : type_t := c0 + c0;
+    constant good5 : type_t := c0 - c0;
+    constant good6 : type_t := minimum(c0, c0);
+    constant good7 : type_t := maximum(c0, c0);
+    constant good8 : string := to_string(c0);
+end package;
+",
+    );
+}

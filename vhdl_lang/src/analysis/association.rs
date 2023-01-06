@@ -204,12 +204,12 @@ impl<'a> AnalyzeContext<'a> {
 
                             for ent in overloaded.entities() {
                                 if let Some(sig) = ent.signature() {
-                                    if let Some(rtype) = sig.return_type() {
-                                        if sig.can_be_called_with_single_parameter(
+                                    if sig.return_type().is_some()
+                                        && sig.can_be_called_with_single_parameter(
                                             formal_ent.type_mark(),
-                                        ) {
-                                            candidates.push((ent, rtype));
-                                        }
+                                        )
+                                    {
+                                        candidates.push(ent);
                                     }
                                 }
                             }
@@ -221,17 +221,11 @@ impl<'a> AnalyzeContext<'a> {
                                     format!("Ambiguous call to function '{}'", fcall.name),
                                 );
 
-                                diagnostic.add_subprogram_candidates(
-                                    "migth be",
-                                    candidates
-                                        .into_iter()
-                                        .map(|(ent, _)| ent)
-                                        .collect::<Vec<_>>(),
-                                );
+                                diagnostic.add_subprogram_candidates("migth be", &mut candidates);
 
                                 return Err(diagnostic.into());
-                            } else if let Some((_, rtype)) = candidates.pop() {
-                                rtype.clone()
+                            } else if let Some(ent) = candidates.pop() {
+                                ent.signature().unwrap().return_type().cloned().unwrap()
                             } else {
                                 // No match
                                 return Err(Diagnostic::error(

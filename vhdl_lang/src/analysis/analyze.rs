@@ -7,6 +7,8 @@
 use super::named_entity::HasNamedEntity;
 use super::region::*;
 use super::root::*;
+use super::standard::RegionRef;
+use super::standard::StandardRegion;
 use crate::ast::*;
 use crate::data::*;
 use fnv::FnvHashSet;
@@ -208,7 +210,7 @@ impl<'a> AnalyzeContext<'a> {
         if let Some(std_library) = self.get_library(&self.std_sym) {
             region.make_potentially_visible(None, std_library);
 
-            let standard_pkg_data = self.expect_standard_package_analysis()?;
+            let standard_pkg_data = self.expect_standard_package_analysis();
             region.make_all_potentially_visible(None, &standard_pkg_data.result().region);
         }
 
@@ -303,16 +305,30 @@ impl<'a> AnalyzeContext<'a> {
         )))
     }
 
-    pub fn expect_standard_package_analysis(&self) -> FatalResult<UnitReadGuard<'a>> {
+    pub fn expect_standard_package_analysis(&self) -> UnitReadGuard<'a> {
+        self.standard_package_analysis()
+            .expect("Could not find standard package")
+    }
+
+    // Returns None when analyzing the standard package itsel
+    pub fn standard_package_analysis(&self) -> Option<UnitReadGuard<'a>> {
         if let Some(unit) =
             self.get_primary_unit_kind(&self.std_sym, &self.standard_sym, PrimaryKind::Package)
         {
-            self.get_analysis(None, unit)
+            return Some(self.get_analysis(None, unit).unwrap());
+        }
+        None
+    }
+
+    pub fn standard_package(&'a self) -> Option<StandardRegion<'a>> {
+        if self.is_standard_package() {
+            None
         } else {
-            unreachable!(
-                "Could not find package {}.{}",
-                self.std_sym, self.standard_sym
-            );
+            let standard = self.standard_package_analysis().unwrap();
+            Some(StandardRegion::new(
+                &self.root.symbols,
+                RegionRef::Outside(standard),
+            ))
         }
     }
 
