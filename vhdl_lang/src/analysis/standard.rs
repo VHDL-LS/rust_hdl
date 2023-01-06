@@ -358,12 +358,7 @@ impl<'a> StandardRegion<'a> {
         ))
     }
 
-    fn create_unary_operator(
-        &self,
-        op: Operator,
-        typ: TypeEnt,
-        return_type: TypeEnt,
-    ) -> Arc<NamedEntity> {
+    fn unary(&self, op: Operator, typ: TypeEnt, return_type: TypeEnt) -> Arc<NamedEntity> {
         let mut params = FormalRegion::new_params();
         params.add(Arc::new(NamedEntity::new(
             // @TODO anonymous
@@ -385,7 +380,11 @@ impl<'a> StandardRegion<'a> {
         ))
     }
 
-    fn create_binary_operator(
+    fn symmetric_unary(&self, op: Operator, typ: TypeEnt) -> Arc<NamedEntity> {
+        self.unary(op, typ.clone(), typ)
+    }
+
+    fn binary(
         &self,
         op: Operator,
         implicit_of: TypeEnt,
@@ -426,6 +425,10 @@ impl<'a> StandardRegion<'a> {
         ))
     }
 
+    fn symmetric_binary(&self, op: Operator, typ: TypeEnt) -> Arc<NamedEntity> {
+        self.binary(op, typ.clone(), typ.clone(), typ.clone(), typ)
+    }
+
     pub fn minimum(&self, type_ent: TypeEnt) -> Arc<NamedEntity> {
         self.create_min_or_maximum("MINIMUM", type_ent)
     }
@@ -462,23 +465,11 @@ impl<'a> StandardRegion<'a> {
             self.minimum(typ.clone()),
             self.maximum(typ.clone()),
             self.create_to_string(typ.clone()),
-            self.create_unary_operator(Operator::Minus, typ.clone(), typ.clone()),
-            self.create_unary_operator(Operator::Plus, typ.clone(), typ.clone()),
-            self.create_unary_operator(Operator::Abs, typ.clone(), typ.clone()),
-            self.create_binary_operator(
-                Operator::Plus,
-                typ.clone(),
-                typ.clone(),
-                typ.clone(),
-                typ.clone(),
-            ),
-            self.create_binary_operator(
-                Operator::Minus,
-                typ.clone(),
-                typ.clone(),
-                typ.clone(),
-                typ,
-            ),
+            self.symmetric_unary(Operator::Minus, typ.clone()),
+            self.symmetric_unary(Operator::Plus, typ.clone()),
+            self.symmetric_unary(Operator::Abs, typ.clone()),
+            self.symmetric_binary(Operator::Plus, typ.clone()),
+            self.symmetric_binary(Operator::Minus, typ),
         ]
     }
 
@@ -486,23 +477,11 @@ impl<'a> StandardRegion<'a> {
         vec![
             self.minimum(typ.clone()),
             self.maximum(typ.clone()),
-            self.create_unary_operator(Operator::Minus, typ.clone(), typ.clone()),
-            self.create_unary_operator(Operator::Plus, typ.clone(), typ.clone()),
-            self.create_unary_operator(Operator::Abs, typ.clone(), typ.clone()),
-            self.create_binary_operator(
-                Operator::Plus,
-                typ.clone(),
-                typ.clone(),
-                typ.clone(),
-                typ.clone(),
-            ),
-            self.create_binary_operator(
-                Operator::Minus,
-                typ.clone(),
-                typ.clone(),
-                typ.clone(),
-                typ,
-            ),
+            self.symmetric_unary(Operator::Minus, typ.clone()),
+            self.symmetric_unary(Operator::Plus, typ.clone()),
+            self.symmetric_unary(Operator::Abs, typ.clone()),
+            self.symmetric_binary(Operator::Plus, typ.clone()),
+            self.symmetric_binary(Operator::Minus, typ),
         ]
     }
 
@@ -561,7 +540,7 @@ impl<'a> StandardRegion<'a> {
 
         for name in ["BOOLEAN", "BIT"] {
             let typ = self.lookup_type(name);
-            let implicits = [self.create_unary_operator(Operator::Not, typ.clone(), typ.clone())];
+            let implicits = [self.symmetric_unary(Operator::Not, typ.clone())];
 
             for ent in implicits {
                 if let Some(implicit) = typ.kind().implicits() {
@@ -575,8 +554,7 @@ impl<'a> StandardRegion<'a> {
         for name in ["BOOLEAN_VECTOR", "BIT_VECTOR"] {
             let typ = self.lookup_type(name);
             let return_typ = self.lookup_type(name.strip_suffix("_VECTOR").unwrap());
-            let implicits =
-                [self.create_unary_operator(Operator::Not, typ.clone(), return_typ.clone())];
+            let implicits = [self.unary(Operator::Not, typ.clone(), return_typ.clone())];
 
             for ent in implicits {
                 if let Some(implicit) = typ.kind().implicits() {
