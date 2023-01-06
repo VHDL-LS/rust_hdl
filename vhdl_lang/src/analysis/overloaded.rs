@@ -144,34 +144,39 @@ impl<'a> AnalyzeContext<'a> {
                 diagnostics,
             ),
             ParametersMut::Binary(lexpr, rexpr) => {
-                let mut check = TypeCheck::Ok;
-
-                if let Some(formal) = formal_region.nth(0) {
-                    check.add(self.analyze_expression_with_target_type(
+                if let Some((left_formal, right_formal)) = formal_region.binary() {
+                    let check = self.analyze_expression_with_target_type(
                         region,
-                        formal.type_mark(),
+                        left_formal.type_mark(),
                         &lexpr.pos,
                         &mut lexpr.item,
                         diagnostics,
-                    )?);
+                    )?;
+
+                    // Early exit to prevent combinatorial explosion in nested expressions
+                    // @TODO check deepest tree first
+                    if check != TypeCheck::Ok {
+                        self.analyze_expression_pos(
+                            region,
+                            &rexpr.pos,
+                            &mut rexpr.item,
+                            diagnostics,
+                        )?;
+                        Ok(check)
+                    } else {
+                        Ok(self.analyze_expression_with_target_type(
+                            region,
+                            right_formal.type_mark(),
+                            &rexpr.pos,
+                            &mut rexpr.item,
+                            diagnostics,
+                        )?)
+                    }
                 } else {
                     self.analyze_expression_pos(region, &lexpr.pos, &mut lexpr.item, diagnostics)?;
-                    check.add(TypeCheck::NotOk)
-                }
-
-                if let Some(formal) = formal_region.nth(1) {
-                    check.add(self.analyze_expression_with_target_type(
-                        region,
-                        formal.type_mark(),
-                        &rexpr.pos,
-                        &mut rexpr.item,
-                        diagnostics,
-                    )?);
-                } else {
                     self.analyze_expression_pos(region, &rexpr.pos, &mut rexpr.item, diagnostics)?;
-                    check.add(TypeCheck::NotOk)
+                    Ok(TypeCheck::NotOk)
                 }
-                Ok(check)
             }
             ParametersMut::Unary(expr) => {
                 if let Some(formal) = formal_region.nth(0) {

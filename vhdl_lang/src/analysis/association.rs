@@ -34,10 +34,6 @@ pub enum ResolvedFormal {
 }
 
 impl ResolvedFormal {
-    pub fn base_type(&self) -> &TypeEnt {
-        self.type_mark().base_type()
-    }
-
     pub fn type_mark(&self) -> &TypeEnt {
         match self {
             ResolvedFormal::Basic(_, ent) => ent.type_mark(),
@@ -256,21 +252,22 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    pub fn analyze_assoc_elems_with_formal_region(
+    fn resolve_associaton_formals<'e>(
         &self,
         error_pos: &SrcPos, // The position of the instance/call-site
         formal_region: &FormalRegion,
         region: &Region<'_>,
-        elems: &mut [AssociationElement],
+        elems: &'e mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<TypeCheck> {
-        let mut check = TypeCheck::Ok;
+    ) -> FatalResult<Option<Vec<ResolvedFormal>>> {
+        let mut result: Vec<ResolvedFormal> = Default::default();
 
+        let mut missing = false;
         let mut associated_indexes: FnvHashSet<usize> = Default::default();
-        let mut extra_associations: Vec<&SrcPos> = Default::default();
+        let mut extra_associations: Vec<SrcPos> = Default::default();
 
         for (idx, AssociationElement { formal, actual }) in elems.iter_mut().enumerate() {
-            let formal_ent = if let Some(ref mut formal) = formal {
+            if let Some(ref mut formal) = formal {
                 // Call by name using formal
                 match self.resolve_formal(
                     formal_region,
@@ -280,43 +277,20 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics,
                 ) {
                     Err(err) => {
-                        err.add_to(diagnostics)?;
-                        check = TypeCheck::NotOk;
-                        None
+                        missing = true;
+                        diagnostics.push(err.into_non_fatal()?);
                     }
-                    Ok(formal) => Some(formal),
+                    Ok(formal) => {
+                        associated_indexes.insert(formal.idx());
+                        result.push(formal);
+                    }
                 }
-            } else if let Some(formal) = formal_region.nth(idx) {
-                Some(ResolvedFormal::Basic(idx, formal.clone()))
+            } else if let Some(formal) = formal_region.nth(idx).cloned() {
+                associated_indexes.insert(idx);
+                result.push(ResolvedFormal::Basic(idx, formal));
             } else {
-                extra_associations.push(&actual.pos);
-                None
+                extra_associations.push(actual.pos.clone());
             };
-
-            if let Some(formal_ent) = formal_ent {
-                associated_indexes.insert(formal_ent.idx());
-
-                match actual.item {
-                    ActualPart::Expression(ref mut expr) => {
-                        check.add(self.analyze_expression_with_target_type(
-                            region,
-                            formal_ent.base_type(),
-                            &actual.pos,
-                            expr,
-                            diagnostics,
-                        )?);
-                    }
-                    ActualPart::Open => {}
-                }
-            } else {
-                // Formal not found, analyze expressions anyway to get hover references
-                match actual.item {
-                    ActualPart::Expression(ref mut expr) => {
-                        self.analyze_expression_pos(region, &actual.pos, expr, diagnostics)?;
-                    }
-                    ActualPart::Open => {}
-                }
-            }
         }
 
         let mut not_associated = Vec::new();
@@ -326,35 +300,74 @@ impl<'a> AnalyzeContext<'a> {
             }
         }
 
-        if not_associated.is_empty() && extra_associations.is_empty() {
-            Ok(check)
+        if not_associated.is_empty() && extra_associations.is_empty() && !missing {
+            Ok(Some(result))
         } else {
-            if check == TypeCheck::Ok {
-                // Only complain if nothing else is wrong
-                for idx in not_associated {
-                    if let Some(formal) = formal_region.nth(idx) {
-                        if formal_region.typ == InterfaceListType::Port && formal.is_output_signal()
-                        {
-                            // Output ports are allowed to be unconnected
-                            continue;
-                        }
-
-                        let mut diagnostic = Diagnostic::error(
-                            error_pos,
-                            format!("No association of {}", formal.describe()),
-                        );
-
-                        if let Some(decl_pos) = formal.decl_pos() {
-                            diagnostic.add_related(decl_pos, "Defined here");
-                        }
-
-                        diagnostics.push(diagnostic);
+            // Only complain if nothing else is wrong
+            for idx in not_associated {
+                if let Some(formal) = formal_region.nth(idx) {
+                    if formal_region.typ == InterfaceListType::Port && formal.is_output_signal() {
+                        // Output ports are allowed to be unconnected
+                        continue;
                     }
-                }
-                for pos in extra_associations.into_iter() {
-                    diagnostics.error(pos, "Unexpected extra argument")
+
+                    let mut diagnostic = Diagnostic::error(
+                        error_pos,
+                        format!("No association of {}", formal.describe()),
+                    );
+
+                    if let Some(decl_pos) = formal.decl_pos() {
+                        diagnostic.add_related(decl_pos, "Defined here");
+                    }
+
+                    diagnostics.push(diagnostic);
                 }
             }
+            for pos in extra_associations.into_iter() {
+                diagnostics.error(pos, "Unexpected extra argument")
+            }
+            Ok(None)
+        }
+    }
+
+    pub fn analyze_assoc_elems_with_formal_region(
+        &self,
+        error_pos: &SrcPos, // The position of the instance/call-site
+        formal_region: &FormalRegion,
+        region: &Region<'_>,
+        elems: &mut [AssociationElement],
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult<TypeCheck> {
+        if let Some(formals) =
+            self.resolve_associaton_formals(error_pos, formal_region, region, elems, diagnostics)?
+        {
+            let mut check = TypeCheck::Ok;
+
+            for (formal, actual) in formals
+                .iter()
+                .zip(elems.iter_mut().map(|assoc| &mut assoc.actual))
+            {
+                match &mut actual.item {
+                    ActualPart::Expression(expr) => {
+                        check.add(self.analyze_expression_with_target_type(
+                            region,
+                            formal.type_mark(),
+                            &actual.pos,
+                            expr,
+                            diagnostics,
+                        )?);
+                    }
+                    ActualPart::Open => {}
+                }
+
+                // To avoid combinatorial explosion when checking trees of overloaded subpograms
+                if check != TypeCheck::Ok {
+                    return Ok(check);
+                }
+            }
+
+            Ok(check)
+        } else {
             Ok(TypeCheck::NotOk)
         }
     }

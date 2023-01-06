@@ -66,12 +66,15 @@ impl From<Diagnostic> for AnalysisError {
 impl AnalysisError {
     // Add Non-fatal error to diagnostics or return fatal error
     pub fn add_to(self, diagnostics: &mut dyn DiagnosticHandler) -> FatalNullResult {
+        let diag = self.into_non_fatal()?;
+        diagnostics.push(diag);
+        Ok(())
+    }
+
+    pub fn into_non_fatal(self) -> FatalResult<Diagnostic> {
         match self {
             AnalysisError::Fatal(err) => Err(err),
-            AnalysisError::NotFatal(diag) => {
-                diagnostics.push(diag);
-                Ok(())
-            }
+            AnalysisError::NotFatal(diag) => Ok(diag),
         }
     }
 }

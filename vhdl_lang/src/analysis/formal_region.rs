@@ -145,6 +145,12 @@ impl FormalRegion {
     pub fn nth(&self, idx: usize) -> Option<&InterfaceEnt> {
         self.entities.get(idx)
     }
+
+    pub fn binary(&self) -> Option<(&InterfaceEnt, &InterfaceEnt)> {
+        let left = self.nth(0)?;
+        let right = self.nth(1)?;
+        Some((left, right))
+    }
 }
 
 /// The formal region is an ordered list of interface elements such as ports, generics and subprogram arguments

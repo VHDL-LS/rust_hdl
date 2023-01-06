@@ -119,10 +119,14 @@ constant bad : integer := subpgm(arg2 => 1);
     let (root, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
-            code.s1("arg2"),
-            "No declaration of 'arg2'",
-        )],
+        vec![
+            Diagnostic::error(code.s1("arg2"), "No declaration of 'arg2'"),
+            Diagnostic::error(
+                code.s1("subpgm(arg2").s1("subpgm"),
+                "No association of interface constant 'arg1'",
+            )
+            .related(code.s1("arg1"), "Defined here"),
+        ],
     );
 
     assert_eq!(

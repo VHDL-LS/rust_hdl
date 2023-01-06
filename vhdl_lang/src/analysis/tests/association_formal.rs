@@ -187,7 +187,17 @@ end architecture;
         diagnostics,
         vec![
             Diagnostic::error(code.s("theport", 2), "No declaration of 'theport'"),
+            Diagnostic::error(
+                code.s1("work.ent_inst"),
+                "No association of interface signal 'theport' : in",
+            )
+            .related(code.s1("theport"), "Defined here"),
             Diagnostic::error(code.s("thegeneric", 2), "No declaration of 'thegeneric'"),
+            Diagnostic::error(
+                code.s1("work.ent_inst"),
+                "No association of interface constant 'thegeneric'",
+            )
+            .related(code.s1("thegeneric"), "Defined here"),
         ],
     );
 }
