@@ -198,7 +198,7 @@ end package;
         ),
         Some(
             "\
--- function 'TO_STRING' with signature [enum_t return STRING]
+-- TO_STRING[enum_t return STRING]
 
 -- Implicitly defined by:
 type enum_t is (alpha, beta);

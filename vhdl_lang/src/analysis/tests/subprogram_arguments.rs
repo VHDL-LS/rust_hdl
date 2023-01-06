@@ -65,7 +65,7 @@ end architecture;
         vec![
             Diagnostic::error(code.s("subpgm", 2), "Invalid procedure call").related(
                 code.s("subpgm", 1),
-                "function 'subpgm' with signature [NATURAL return NATURAL] is not a procedure",
+                "subpgm[NATURAL return NATURAL] is not a procedure",
             ),
             Diagnostic::error(code.s("thesig", 2), "Invalid procedure call")
                 .related(code.s("thesig", 1), "signal 'thesig' is not a procedure"),

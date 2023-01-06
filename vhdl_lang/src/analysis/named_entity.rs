@@ -522,12 +522,9 @@ impl NamedEntity {
             }
             NamedEntityKind::EnumLiteral(ref signature)
             | NamedEntityKind::SubprogramDecl(ref signature)
-            | NamedEntityKind::Subprogram(ref signature) => format!(
-                "{} '{}' with signature {}",
-                self.kind.describe(),
-                self.designator,
-                signature.describe()
-            ),
+            | NamedEntityKind::Subprogram(ref signature) => {
+                format!("{}{}", self.designator, signature.describe())
+            }
             _ => format!("{} '{}'", self.kind.describe(), self.designator),
         }
     }
