@@ -1525,3 +1525,40 @@ constant the_time4 : time_t := 1000 big;
         assert_eq!(root.format_declaration(ent), Some("1000 small".to_string()));
     }
 }
+
+#[test]
+fn resolve_record_aggregate_choices() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type rec_t is record
+  field : natural;
+end rec_t;
+
+constant good : rec_t := (field => 0);
+constant bad : rec_t := (missing => 0);
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("missing"),
+            "No declaration of 'missing' within record type 'rec_t'",
+        )],
+    );
+    let field = root
+        .search_reference(code.source(), code.s("field", 2).start())
+        .unwrap();
+    assert_eq!(field.decl_pos().unwrap(), code.s1("field").pos().as_ref());
+    assert_eq!(
+        root.find_all_references(field.clone()),
+        vec![code.s("field", 1).pos(), code.s("field", 2).pos(),]
+    );
+
+    assert_eq!(
+        root.format_declaration(field),
+        Some("field : natural".to_string())
+    );
+}

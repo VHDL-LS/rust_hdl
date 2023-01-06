@@ -5,6 +5,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 use super::analyze::*;
+use super::formal_region::RecordRegion;
 use super::region::*;
 use super::target::AssignmentType;
 use crate::ast::search::clear_references;
@@ -85,7 +86,7 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(decl) = region.lookup_selected(suffix.designator()) {
                     Ok(decl.clone())
                 } else {
-                    Err(no_declaration_within(prefix, suffix).into())
+                    Err(no_declaration_within(prefix, &suffix.pos, &suffix.item.item).into())
                 }
             }
             _ => Err(invalid_selected_name_prefix(prefix, prefix_pos).into()),
@@ -101,17 +102,17 @@ impl<'a> AnalyzeContext<'a> {
     ) -> AnalysisResult<NamedEntities> {
         match prefix_type.flatten_alias().kind() {
             Type::Record(ref region) => {
-                if let Some(decl) = region.lookup_selected(suffix.designator()) {
-                    Ok(decl.clone())
+                if let Some(decl) = region.lookup(suffix.designator()) {
+                    Ok(NamedEntities::Single(decl.clone().into()))
                 } else {
-                    Err(no_declaration_within(prefix_type, suffix).into())
+                    Err(no_declaration_within(prefix_type, &suffix.pos, &suffix.item.item).into())
                 }
             }
             Type::Protected(region) => {
                 if let Some(decl) = region.lookup_selected(suffix.designator()) {
                     Ok(decl.clone())
                 } else {
-                    Err(no_declaration_within(prefix_type, suffix).into())
+                    Err(no_declaration_within(prefix_type, &suffix.pos, &suffix.item.item).into())
                 }
             }
             Type::Incomplete(full_type_ref) => {
@@ -595,6 +596,77 @@ impl<'a> AnalyzeContext<'a> {
             }
         }
         Ok(())
+    }
+
+    pub fn analyze_record_aggregate(
+        &self,
+        region: &Region<'_>,
+        record_type: &TypeEnt,
+        elems: &RecordRegion,
+        assocs: &mut [ElementAssociation],
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult<TypeCheck> {
+        for assoc in assocs.iter_mut() {
+            match assoc {
+                ElementAssociation::Named(ref mut choices, ref mut actual_expr) => {
+                    let elem = if let [choice] = choices.as_mut_slice() {
+                        match choice {
+                            Choice::Expression(choice_expr) => {
+                                if let Some(simple_name) =
+                                    as_name_mut(&mut choice_expr.item).and_then(as_simple_name_mut)
+                                {
+                                    if let Some(elem) = elems.lookup(&simple_name.item) {
+                                        simple_name.set_unique_reference(elem.as_ref());
+                                        Some(elem)
+                                    } else {
+                                        diagnostics.push(no_declaration_within(
+                                            record_type,
+                                            &choice_expr.pos,
+                                            &simple_name.item,
+                                        ));
+                                        None
+                                    }
+                                } else {
+                                    diagnostics.error(
+                                        &choice_expr.pos,
+                                        "Record aggregate choice must be a simple name",
+                                    );
+                                    None
+                                }
+                            }
+                            Choice::DiscreteRange(_decl) => {
+                                // @TODO not allowed for enum
+                                None
+                            }
+                            Choice::Others => {
+                                // @TODO handle specially
+                                None
+                            }
+                        }
+                    } else {
+                        // @TODO not allowed for num
+                        // Record aggregate can only have a single choice
+                        None
+                    };
+
+                    if let Some(elem) = elem {
+                        self.analyze_expression_with_target_type(
+                            region,
+                            elem.type_mark(),
+                            &actual_expr.pos,
+                            &mut actual_expr.item,
+                            diagnostics,
+                        )?;
+                    } else {
+                        self.analyze_expression(region, actual_expr, diagnostics)?;
+                    }
+                }
+                ElementAssociation::Positional(ref mut expr) => {
+                    self.analyze_expression(region, expr, diagnostics)?;
+                }
+            }
+        }
+        Ok(TypeCheck::Unknown)
     }
 
     pub fn analyze_1d_array_assoc_elem(
@@ -1223,6 +1295,7 @@ impl<'a> AnalyzeContext<'a> {
         expr: &mut Expression,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<TypeCheck> {
+        let target_base = target_type.base_type();
         match expr {
             Expression::Literal(ref mut lit) => self
                 .analyze_literal_with_target_type(region, target_type, expr_pos, lit, diagnostics)
@@ -1234,7 +1307,7 @@ impl<'a> AnalyzeContext<'a> {
                 let is_correct = if let Some(type_mark) =
                     self.analyze_qualified_expression(region, qexpr, diagnostics)?
                 {
-                    let is_correct = target_type.base_type() == type_mark.base_type();
+                    let is_correct = target_base == type_mark.base_type();
                     if !is_correct {
                         diagnostics.push(type_mismatch(expr_pos, &type_mark, target_type));
                     }
@@ -1253,7 +1326,7 @@ impl<'a> AnalyzeContext<'a> {
                 self.analyze_expression(region, expr, diagnostics)?;
                 Ok(TypeCheck::Unknown)
             }
-            Expression::Aggregate(assocs) => match target_type.base_type().kind() {
+            Expression::Aggregate(assocs) => match target_base.kind() {
                 Type::Array {
                     elem_type, indexes, ..
                 } => {
@@ -1275,8 +1348,14 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     Ok(check)
                 }
-                Type::Record { .. } => {
-                    self.analyze_aggregate(region, assocs, diagnostics)?;
+                Type::Record(record_region) => {
+                    self.analyze_record_aggregate(
+                        region,
+                        target_base,
+                        record_region,
+                        assocs,
+                        diagnostics,
+                    )?;
                     Ok(TypeCheck::Unknown)
                 }
                 _ => {
@@ -1488,13 +1567,14 @@ pub fn invalid_selected_name_prefix(named_entity: &NamedEntity, prefix: &SrcPos)
 
 pub fn no_declaration_within(
     named_entity: &NamedEntity,
-    suffix: &WithPos<WithRef<Designator>>,
+    pos: &SrcPos,
+    suffix: &Designator,
 ) -> Diagnostic {
     Diagnostic::error(
-        suffix.as_ref(),
+        pos,
         format!(
             "No declaration of '{}' within {}",
-            suffix.item,
+            suffix,
             named_entity.describe(),
         ),
     )

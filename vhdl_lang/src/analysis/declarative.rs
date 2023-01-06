@@ -5,6 +5,7 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use super::formal_region::FormalRegion;
+use super::formal_region::RecordRegion;
 use super::implicits::ImplicitVecBuilder;
 use super::names::*;
 use super::standard::StandardRegion;
@@ -574,6 +575,7 @@ impl<'a> AnalyzeContext<'a> {
                 );
             }
             TypeDefinition::Record(ref mut element_decls) => {
+                let mut elems = RecordRegion::default();
                 let mut region = Region::default();
                 for elem_decl in element_decls.iter_mut() {
                     let subtype = self.resolve_subtype_indication(
@@ -583,12 +585,11 @@ impl<'a> AnalyzeContext<'a> {
                     );
                     match subtype {
                         Ok(subtype) => {
-                            region.add(
-                                elem_decl
-                                    .ident
-                                    .define(NamedEntityKind::ElementDeclaration(subtype)),
-                                diagnostics,
-                            );
+                            let elem = elem_decl
+                                .ident
+                                .define(NamedEntityKind::ElementDeclaration(subtype));
+                            region.add(elem.clone(), diagnostics);
+                            elems.add(elem);
                         }
                         Err(err) => {
                             err.add_to(diagnostics)?;
@@ -600,7 +601,7 @@ impl<'a> AnalyzeContext<'a> {
                 let type_ent = TypeEnt::define_with_opt_id(
                     overwrite_id,
                     &mut type_decl.ident,
-                    Type::Record(Arc::new(region)),
+                    Type::Record(elems),
                 );
                 parent.add(type_ent.into(), diagnostics);
             }

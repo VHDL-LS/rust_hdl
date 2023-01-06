@@ -146,3 +146,83 @@ impl FormalRegion {
         self.entities.get(idx)
     }
 }
+
+/// The formal region is an ordered list of interface elements such as ports, generics and subprogram arguments
+#[derive(Default, Clone)]
+pub struct RecordRegion {
+    elems: Vec<RecordElement>,
+}
+
+impl RecordRegion {
+    pub fn lookup(&self, designator: &Designator) -> Option<&RecordElement> {
+        self.elems.iter().find(|ent| ent.designator() == designator)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.elems.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.elems.len()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &RecordElement> {
+        self.elems.iter()
+    }
+
+    pub fn add(&mut self, ent: Arc<NamedEntity>) {
+        if let Some(elem) = RecordElement::from_any(ent) {
+            self.elems.push(elem);
+        } else {
+            debug_assert!(false);
+        }
+    }
+
+    pub fn nth(&self, idx: usize) -> Option<&RecordElement> {
+        self.elems.get(idx)
+    }
+}
+
+#[derive(Clone)]
+pub struct RecordElement {
+    // A record element declaration
+    ent: Arc<NamedEntity>,
+}
+
+impl RecordElement {
+    pub fn from_any(ent: Arc<NamedEntity>) -> Option<Self> {
+        if let NamedEntityKind::ElementDeclaration(_) = ent.kind() {
+            Some(RecordElement { ent })
+        } else {
+            None
+        }
+    }
+
+    pub fn type_mark(&self) -> &TypeEnt {
+        match self.ent.kind() {
+            NamedEntityKind::ElementDeclaration(subtype) => subtype.type_mark(),
+            _ => {
+                unreachable!();
+            }
+        }
+    }
+}
+
+impl std::ops::Deref for RecordElement {
+    type Target = NamedEntity;
+    fn deref(&self) -> &NamedEntity {
+        &self.ent
+    }
+}
+
+impl AsRef<Arc<NamedEntity>> for RecordElement {
+    fn as_ref(&self) -> &Arc<NamedEntity> {
+        &self.ent
+    }
+}
+
+impl From<RecordElement> for Arc<NamedEntity> {
+    fn from(value: RecordElement) -> Self {
+        value.ent
+    }
+}

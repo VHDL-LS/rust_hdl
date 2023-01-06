@@ -5,6 +5,7 @@
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
 use super::formal_region::FormalRegion;
+use super::formal_region::RecordRegion;
 use super::implicits::ImplicitVec;
 use super::region::Region;
 use crate::ast::*;
@@ -30,7 +31,7 @@ pub enum Type {
     Real(ImplicitVec),
     Physical(ImplicitVec),
     Access(Subtype, ImplicitVec),
-    Record(Arc<Region<'static>>),
+    Record(RecordRegion),
     // Weak references since incomplete access types can create cycles
     // The reference is for the full type which is filled in after creation
     Incomplete(ArcSwapWeak<NamedEntity>),

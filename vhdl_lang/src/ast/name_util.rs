@@ -64,6 +64,25 @@ pub fn to_simple_name(name: WithPos<Name>) -> DiagnosticResult<Ident> {
     }
 }
 
+pub fn as_simple_name_mut(name: &mut Name) -> Option<&mut WithRef<Designator>> {
+    match name {
+        Name::Designator(
+            des @ WithRef {
+                item: Designator::Identifier(_),
+                ..
+            },
+        ) => Some(des),
+        _ => None,
+    }
+}
+
+pub fn as_name_mut(expr: &mut Expression) -> Option<&mut Name> {
+    match expr {
+        Expression::Name(name) => Some(name.as_mut()),
+        _ => None,
+    }
+}
+
 pub trait HasDesignator {
     fn designator(&self) -> &Designator;
 }
