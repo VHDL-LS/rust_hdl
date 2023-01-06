@@ -6,8 +6,10 @@
 
 use std::sync::Arc;
 
+use crate::ast::Designator;
 use crate::ast::Mode;
 use crate::ast::ObjectClass;
+use crate::ast::Operator;
 use crate::data::Symbol;
 use crate::syntax::Symbols;
 
@@ -338,6 +340,33 @@ impl<'a> StandardRegion<'a> {
         ))
     }
 
+    fn create_unary_operator(
+        &self,
+        op: Operator,
+        typ: TypeEnt,
+        return_type: TypeEnt,
+    ) -> Arc<NamedEntity> {
+        let mut params = FormalRegion::new_params();
+        params.add(Arc::new(NamedEntity::new(
+            // @TODO anonymous
+            self.symbol("arg"),
+            NamedEntityKind::Object(Object {
+                class: ObjectClass::Constant,
+                mode: Some(Mode::In),
+                subtype: Subtype::new(typ.to_owned()),
+                has_default: false,
+            }),
+            typ.decl_pos(),
+        )));
+
+        Arc::new(NamedEntity::implicit(
+            typ.clone().into(),
+            Designator::OperatorSymbol(op),
+            NamedEntityKind::Subprogram(Signature::new(params, Some(return_type))),
+            typ.decl_pos(),
+        ))
+    }
+
     pub fn minimum(&self, type_ent: TypeEnt) -> Arc<NamedEntity> {
         self.create_min_or_maximum("MINIMUM", type_ent)
     }
@@ -412,6 +441,51 @@ impl<'a> StandardRegion<'a> {
             }
 
             res.extend(implicits);
+        }
+
+        for name in ["INTEGER", "REAL", "TIME"] {
+            let typ = self.lookup_type(name);
+            let implicits = [
+                self.create_unary_operator(Operator::Minus, typ.clone(), typ.clone()),
+                self.create_unary_operator(Operator::Plus, typ.clone(), typ.clone()),
+                self.create_unary_operator(Operator::Abs, typ.clone(), typ.clone()),
+            ];
+
+            for ent in implicits {
+                if let Some(implicit) = typ.kind().implicits() {
+                    // This is safe because the standard package is analyzed in a single thread
+                    unsafe { implicit.push(&ent) };
+                }
+                res.push(ent);
+            }
+        }
+
+        for name in ["BOOLEAN", "BIT"] {
+            let typ = self.lookup_type(name);
+            let implicits = [self.create_unary_operator(Operator::Not, typ.clone(), typ.clone())];
+
+            for ent in implicits {
+                if let Some(implicit) = typ.kind().implicits() {
+                    // This is safe because the standard package is analyzed in a single thread
+                    unsafe { implicit.push(&ent) };
+                }
+                res.push(ent);
+            }
+        }
+
+        for name in ["BOOLEAN_VECTOR", "BIT_VECTOR"] {
+            let typ = self.lookup_type(name);
+            let return_typ = self.lookup_type(name.strip_suffix("_VECTOR").unwrap());
+            let implicits =
+                [self.create_unary_operator(Operator::Not, typ.clone(), return_typ.clone())];
+
+            for ent in implicits {
+                if let Some(implicit) = typ.kind().implicits() {
+                    // This is safe because the standard package is analyzed in a single thread
+                    unsafe { implicit.push(&ent) };
+                }
+                res.push(ent);
+            }
         }
 
         // Predefined overloaded TO_STRING operations

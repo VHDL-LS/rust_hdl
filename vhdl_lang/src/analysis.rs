@@ -16,6 +16,7 @@ mod literals;
 mod lock;
 mod named_entity;
 mod names;
+mod overloaded;
 mod region;
 mod root;
 mod semantic;

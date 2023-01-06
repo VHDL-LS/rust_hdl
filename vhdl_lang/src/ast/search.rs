@@ -774,7 +774,12 @@ fn search_pos_expr(
             return_if_found!(left.search(searcher));
             right.search(searcher)
         }
-        Expression::Unary(_, ref mut expr) => expr.search(searcher),
+        Expression::Unary(ref mut op, ref mut expr) => {
+            return_if_found!(searcher
+                .search_pos_with_ref(&op.pos, &mut op.item.reference)
+                .or_not_found());
+            expr.search(searcher)
+        }
         Expression::Name(ref mut name) => search_pos_name(pos, name, searcher),
         Expression::Aggregate(ref mut assocs) => assocs.search(searcher),
         Expression::Qualified(ref mut qexpr) => qexpr.search(searcher),

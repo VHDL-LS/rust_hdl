@@ -6,9 +6,9 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 use super::analyze::*;
 use super::formal_region::RecordRegion;
+use super::overloaded::ParametersMut;
 use super::region::*;
 use super::target::AssignmentType;
-use crate::ast::search::clear_references;
 use crate::ast::Range;
 use crate::ast::*;
 use crate::data::*;
@@ -534,14 +534,15 @@ impl<'a> AnalyzeContext<'a> {
                     }
 
                     if found {
-                        if let Some(reference) = fcall.name.item.suffix_reference_mut() {
+                        if let Some(suffix) = fcall.name.item.suffix_reference_mut() {
                             self.resolve_overloaded_with_target_type(
                                 region,
                                 names,
                                 None,
                                 &fcall.name.pos,
-                                reference,
-                                &mut fcall.parameters,
+                                &suffix.item,
+                                &mut suffix.reference,
+                                &mut ParametersMut::AssociationList(&mut fcall.parameters),
                                 diagnostics,
                             )?;
                         } else {
@@ -1031,8 +1032,9 @@ impl<'a> AnalyzeContext<'a> {
                                     overloaded,
                                     Some(target_type),
                                     name_pos,
-                                    designator,
-                                    &mut [],
+                                    &designator.item,
+                                    &mut designator.reference,
+                                    &mut ParametersMut::AssociationList(&mut []),
                                     diagnostics,
                                 ),
                         }
@@ -1075,8 +1077,9 @@ impl<'a> AnalyzeContext<'a> {
                                         overloaded,
                                         Some(target_type),
                                         &designator.pos,
-                                        &mut designator.item,
-                                        &mut [],
+                                        &designator.item.item,
+                                        &mut designator.item.reference,
+                                        &mut ParametersMut::AssociationList(&mut []),
                                         diagnostics,
                                     ),
                             }
@@ -1136,14 +1139,17 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     }
                     Some(NamedEntities::Overloaded(overloaded)) => {
-                        if let Some(reference) = fcall.name.item.suffix_reference_mut() {
+                        if let Some(suffix) = fcall.name.item.suffix_reference_mut() {
                             self.resolve_overloaded_with_target_type(
                                 region,
                                 overloaded,
                                 Some(target_type),
                                 &fcall.name.pos,
-                                reference,
-                                fcall.parameters.as_mut_slice(),
+                                &suffix.item,
+                                &mut suffix.reference,
+                                &mut ParametersMut::AssociationList(
+                                    fcall.parameters.as_mut_slice(),
+                                ),
                                 diagnostics,
                             )?;
                         }
@@ -1198,123 +1204,6 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub fn resolve_overloaded_with_target_type(
-        &self,
-        region: &Region<'_>,
-        overloaded: OverloadedName,
-        target_type: Option<&TypeEnt>,
-        pos: &SrcPos,
-        designator: &mut WithRef<Designator>,
-        parameters: &mut [AssociationElement],
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<TypeCheck> {
-        let mut good = Vec::with_capacity(overloaded.len());
-        let mut bad = Vec::with_capacity(overloaded.len());
-        let mut uncertain = false;
-        for name in overloaded.entities() {
-            if let Some(sig) = name.signature() {
-                let is_correct = if sig.match_return_type(target_type) {
-                    self.analyze_assoc_elems_with_formal_region(
-                        pos,
-                        &sig.params,
-                        region,
-                        parameters,
-                        &mut NullDiagnostics,
-                    )?
-                } else {
-                    TypeCheck::NotOk
-                };
-
-                // Clear references that could have been incorrectly set
-                for elem in parameters.iter_mut() {
-                    clear_references(elem);
-                }
-
-                match is_correct {
-                    TypeCheck::Ok => good.push((name, sig)),
-                    TypeCheck::NotOk => bad.push((name, sig)),
-                    TypeCheck::Unknown => uncertain = true,
-                }
-            }
-        }
-
-        #[allow(clippy::if_same_then_else)]
-        if good.len() > 1 {
-            // Not unique
-            let mut diagnostic =
-                Diagnostic::error(pos, format!("Ambiguous use of '{}'", designator));
-            diagnostic.add_subprogram_candidates(
-                "Migth be",
-                good.into_iter().map(|(ent, _)| ent).collect(),
-            );
-            diagnostics.push(diagnostic);
-            self.analyze_assoc_elems(region, parameters, diagnostics)?;
-            Ok(TypeCheck::Unknown)
-        } else if uncertain {
-            self.analyze_assoc_elems(region, parameters, diagnostics)?;
-            Ok(TypeCheck::Unknown)
-        } else if let &[(ent, sig)] = good.as_slice() {
-            // Unique correct match
-            designator.set_unique_reference(ent);
-            self.analyze_assoc_elems_with_formal_region(
-                pos,
-                &sig.params,
-                region,
-                parameters,
-                diagnostics,
-            )?;
-            Ok(TypeCheck::Ok)
-        } else if let &[(ent, sig)] = bad.as_slice() {
-            // Unique incorrect match
-            designator.set_unique_reference(ent);
-            if parameters.is_empty() && sig.params.is_empty() {
-                // Typically enumeration literals such as character, boolean
-                // We provide a better diagnostic for those
-                if let Some(target_type) = target_type {
-                    diagnostics.error(
-                        pos,
-                        format!("'{}' does not match {}", designator, target_type.describe()),
-                    )
-                } else {
-                    let mut diagnostic =
-                        Diagnostic::error(pos, format!("Could not resolve '{}'", designator));
-                    diagnostic
-                        .add_subprogram_candidates("Does not match", overloaded.sorted_entities());
-                    diagnostics.push(diagnostic)
-                };
-            } else {
-                // The analysis below will produce the diagnostics for the bad option
-                self.analyze_assoc_elems_with_formal_region(
-                    pos,
-                    &sig.params,
-                    region,
-                    parameters,
-                    diagnostics,
-                )?;
-            }
-            Ok(TypeCheck::NotOk)
-        } else {
-            // Found no function matching the target type
-            if let (Some(ent), Some(target_type)) = (overloaded.as_unique(), target_type) {
-                designator.set_unique_reference(ent);
-                diagnostics.error(
-                    pos,
-                    format!("'{}' does not match {}", designator, target_type.describe()),
-                )
-            } else {
-                let mut diagnostic =
-                    Diagnostic::error(pos, format!("Could not resolve '{}'", designator));
-                diagnostic
-                    .add_subprogram_candidates("Does not match", overloaded.sorted_entities());
-                diagnostics.push(diagnostic)
-            }
-
-            self.analyze_assoc_elems(region, parameters, diagnostics)?;
-            Ok(TypeCheck::NotOk)
-        }
-    }
-
     /// Returns true if the name actually matches the target type
     /// None if it was uncertain
     pub fn analyze_expression_with_target_type(
@@ -1352,9 +1241,31 @@ impl<'a> AnalyzeContext<'a> {
                 self.analyze_expression(region, right, diagnostics)?;
                 Ok(TypeCheck::Unknown)
             }
-            Expression::Unary(_, ref mut expr) => {
-                self.analyze_expression(region, expr, diagnostics)?;
-                Ok(TypeCheck::Unknown)
+            Expression::Unary(ref mut op, ref mut expr) => {
+                let designator = Designator::OperatorSymbol(op.item.item);
+                match region.lookup_within(&op.pos, &Designator::OperatorSymbol(op.item.item)) {
+                    Ok(NamedEntities::Single(_)) => {
+                        // @TODO error since operator needs to be an overloaded name
+                        self.analyze_expression(region, expr, diagnostics)?;
+                        Ok(TypeCheck::Unknown)
+                    }
+                    Ok(NamedEntities::Overloaded(overloaded)) => self
+                        .resolve_overloaded_with_target_type(
+                            region,
+                            overloaded,
+                            Some(target_type),
+                            &op.pos,
+                            &designator,
+                            &mut op.item.reference,
+                            &mut ParametersMut::Unary(expr),
+                            diagnostics,
+                        ),
+                    Err(diag) => {
+                        diagnostics.push(diag);
+                        self.analyze_expression(region, expr, diagnostics)?;
+                        Ok(TypeCheck::Unknown)
+                    }
+                }
             }
             Expression::Aggregate(assocs) => match target_base.kind() {
                 Type::Array {

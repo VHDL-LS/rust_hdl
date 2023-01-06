@@ -233,6 +233,11 @@ impl Library {
         }
         result
     }
+
+    #[cfg(test)]
+    fn get_unit(&self, key: &UnitKey) -> Option<&LockedUnit> {
+        self.units.get(key)
+    }
 }
 
 /// Contains the entire design state.
@@ -350,6 +355,27 @@ impl DesignRoot {
         } else {
             Vec::new()
         }
+    }
+
+    #[cfg(test)]
+    pub fn find_standard_symbol(&self, name: &str) -> Arc<NamedEntity> {
+        let std_lib = self.libraries.get(&self.symbol_utf8("std")).unwrap();
+        let unit = std_lib
+            .get_unit(&UnitKey::Primary(self.symbol_utf8("standard")))
+            .unwrap();
+
+        if let AnyPrimaryUnit::Package(pkg) = unit.unit.write().as_primary_mut().unwrap() {
+            if let NamedEntityKind::Package(region) = pkg.ident.decl.as_ref().unwrap().kind() {
+                return region
+                    .lookup_immediate(&Designator::Identifier(self.symbol_utf8(name)))
+                    .unwrap()
+                    .as_non_overloaded()
+                    .cloned()
+                    .unwrap();
+            }
+        }
+
+        panic!("Not a package");
     }
 
     pub fn search(&self, searcher: &mut impl Searcher) -> SearchResult {

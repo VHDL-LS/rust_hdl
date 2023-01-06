@@ -96,25 +96,36 @@ end architecture;",
     }
 }
 
-pub fn add_standard_library(symbols: Arc<Symbols>, root: &mut DesignRoot) {
-    let builder = CodeBuilder {
-        symbols: symbols.clone(),
-    };
-    let std_standard = builder.code_from_source(Source::inline(
+fn standard_package() -> Source {
+    Source::inline(
         Path::new("standard.vhd"),
         &Latin1String::new(include_bytes!(
             "../../../../vhdl_libraries/std/standard.vhd"
         ))
         .to_string(),
-    ));
-    let std_textio = builder.code_from_source(Source::inline(
+    )
+}
+fn textio_package() -> Source {
+    Source::inline(
         Path::new("textio.vhd"),
         &Latin1String::new(include_bytes!("../../../../vhdl_libraries/std/textio.vhd")).to_string(),
-    ));
-    let std_env = builder.code_from_source(Source::inline(
+    )
+}
+
+fn env_package() -> Source {
+    Source::inline(
         Path::new("env.vhd"),
         &Latin1String::new(include_bytes!("../../../../vhdl_libraries/std/env.vhd")).to_string(),
-    ));
+    )
+}
+
+pub fn add_standard_library(symbols: Arc<Symbols>, root: &mut DesignRoot) {
+    let builder = CodeBuilder {
+        symbols: symbols.clone(),
+    };
+    let std_standard = builder.code_from_source(standard_package());
+    let std_textio = builder.code_from_source(textio_package());
+    let std_env = builder.code_from_source(env_package());
     let std_sym = symbols.symtab().insert_utf8("std");
 
     root.add_design_file(std_sym.clone(), std_standard.design_file());

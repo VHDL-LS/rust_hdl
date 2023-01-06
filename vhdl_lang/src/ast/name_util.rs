@@ -325,6 +325,14 @@ impl Designator {
     pub fn expect_identifier(&self) -> &Symbol {
         self.as_identifier().unwrap()
     }
+
+    pub fn describe(&self) -> String {
+        match self {
+            Designator::Character(chr) => format!("'{}'", chr),
+            Designator::Identifier(ident) => format!("'{}'", ident),
+            Designator::OperatorSymbol(op) => format!("operator \"{}\"", op),
+        }
+    }
 }
 
 impl Name {

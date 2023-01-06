@@ -576,7 +576,17 @@ impl<'a> Region<'a> {
             Some(visible) => Ok(visible),
             None => Err(Diagnostic::error(
                 pos,
-                format!("No declaration of '{}'", designator),
+                match designator {
+                    Designator::Identifier(ident) => {
+                        format!("No declaration of '{}'", ident)
+                    }
+                    Designator::OperatorSymbol(operator) => {
+                        format!("No declaration of operator '{}'", operator)
+                    }
+                    Designator::Character(chr) => {
+                        format!("No declaration of '{}'", chr)
+                    }
+                },
             )),
         }
     }

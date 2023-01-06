@@ -819,3 +819,48 @@ constant good2 : string(1 to 6) := (\"text\", others => ' ');
     let diagnostics = builder.analyze();
     check_no_diagnostics(&diagnostics);
 }
+
+#[test]
+fn evaluates_unary_expressions() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+constant i0 : integer := 0;
+constant r0 : real := 0.0;
+constant t0 : time := 0 ns;
+constant good1 : integer := - 1;
+constant good2 : real := - 1.0;
+constant good3 : time := - 1 ns;
+constant good4 : integer := - i0;
+constant good5 : real := - r0;
+constant good6 : time := - t0;
+
+constant bad : character := - i0;
+        ",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    let integer = root.find_standard_symbol("INTEGER");
+    let real = root.find_standard_symbol("REAL");
+    let time = root.find_standard_symbol("TIME");
+
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("character := -").s1("-"),
+            "Could not resolve operator \"-\"",
+        )
+        .related(
+            integer.decl_pos().unwrap(),
+            "Does not match \"-\"[INTEGER return INTEGER]",
+        )
+        .related(
+            real.decl_pos().unwrap(),
+            "Does not match \"-\"[REAL return REAL]",
+        )
+        .related(
+            time.decl_pos().unwrap(),
+            "Does not match \"-\"[TIME return TIME]",
+        )],
+    );
+}

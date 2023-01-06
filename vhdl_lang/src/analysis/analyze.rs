@@ -46,7 +46,7 @@ impl CircularDependencyError {
 }
 
 pub type AnalysisResult<T> = Result<T, AnalysisError>;
-pub type FatalResult<T> = Result<T, CircularDependencyError>;
+pub type FatalResult<T = ()> = Result<T, CircularDependencyError>;
 pub type FatalNullResult = FatalResult<()>;
 
 impl From<CircularDependencyError> for AnalysisError {
