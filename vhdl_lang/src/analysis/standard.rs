@@ -540,7 +540,15 @@ impl<'a> StandardRegion<'a> {
 
         for name in ["BOOLEAN", "BIT"] {
             let typ = self.lookup_type(name);
-            let implicits = [self.symmetric_unary(Operator::Not, typ.clone())];
+            let implicits = [
+                self.symmetric_binary(Operator::And, typ.clone()),
+                self.symmetric_binary(Operator::Or, typ.clone()),
+                self.symmetric_binary(Operator::Nand, typ.clone()),
+                self.symmetric_binary(Operator::Nor, typ.clone()),
+                self.symmetric_binary(Operator::Xor, typ.clone()),
+                self.symmetric_binary(Operator::Xnor, typ.clone()),
+                self.symmetric_unary(Operator::Not, typ.clone()),
+            ];
 
             for ent in implicits {
                 if let Some(implicit) = typ.kind().implicits() {

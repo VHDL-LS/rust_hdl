@@ -1237,7 +1237,17 @@ impl<'a> AnalyzeContext<'a> {
                 Ok(is_correct)
             }
             Expression::Binary(ref mut op, ref mut left, ref mut right) => {
-                if matches!(op.item.item, Operator::Plus | Operator::Minus) {
+                if matches!(
+                    op.item.item,
+                    Operator::Plus
+                        | Operator::Minus
+                        | Operator::And
+                        | Operator::Or
+                        | Operator::Nand
+                        | Operator::Nor
+                        | Operator::Xor
+                        | Operator::Xnor
+                ) {
                     let designator = Designator::OperatorSymbol(op.item.item);
                     match region.lookup_within(&op.pos, &Designator::OperatorSymbol(op.item.item)) {
                         Ok(NamedEntities::Single(_)) => {
