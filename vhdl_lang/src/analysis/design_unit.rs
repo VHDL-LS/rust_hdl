@@ -22,7 +22,7 @@ impl<'a> AnalyzeContext<'a> {
         id: EntityId,
         unit: &mut AnyDesignUnit,
         root_scope: &mut Scope<'_>,
-        region: &mut Region<'_>,
+        region: &mut Region,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         match unit {
@@ -57,7 +57,7 @@ impl<'a> AnalyzeContext<'a> {
         id: EntityId,
         unit: &mut EntityDeclaration,
         root_scope: &mut Scope<'_>,
-        region: &mut Region<'_>,
+        region: &mut Region,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         *root_scope = Scope::default();
@@ -86,7 +86,7 @@ impl<'a> AnalyzeContext<'a> {
         self.analyze_declarative_part(&mut primary_scope, &mut unit.decl, diagnostics)?;
         self.analyze_concurrent_part(&mut primary_scope, &mut unit.statements, diagnostics)?;
 
-        *region = primary_scope.into_bare_region();
+        *region = primary_scope.into_region();
 
         Ok(())
     }
@@ -130,7 +130,7 @@ impl<'a> AnalyzeContext<'a> {
         id: EntityId,
         unit: &mut PackageDeclaration,
         root_scope: &mut Scope<'_>,
-        region: &mut Region<'_>,
+        region: &mut Region,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         *root_scope = Scope::default();
@@ -169,7 +169,7 @@ impl<'a> AnalyzeContext<'a> {
             scope.close(diagnostics);
         }
 
-        *region = scope.into_bare_region();
+        *region = scope.into_region();
 
         Ok(())
     }
@@ -178,7 +178,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         unit: &mut PackageInstantiation,
         root_scope: &mut Scope<'_>,
-        region: &mut Region<'_>,
+        region: &mut Region,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         *root_scope = Scope::default();
@@ -202,14 +202,14 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         unit: &mut ContextDeclaration,
         root_scope: &mut Scope<'_>,
-        region: &mut Region<'_>,
+        region: &mut Region,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         *root_scope = Scope::default();
         self.add_implicit_context_clause(root_scope)?;
         let mut scope = root_scope.nested();
         self.analyze_context_clause(&mut scope, &mut unit.items, diagnostics)?;
-        *region = scope.into_bare_region();
+        *region = scope.into_region();
         Ok(())
     }
 
@@ -241,8 +241,8 @@ impl<'a> AnalyzeContext<'a> {
             }
         }
 
-        let mut root_scope =
-            Scope::new(Region::default().with_parent(&entity.result().root_region));
+        let parent = Scope::new_borrowed(entity.result().root_region.as_ref());
+        let mut root_scope = Scope::default().with_parent(&parent);
         self.analyze_context_clause(&mut root_scope, &mut unit.context_clause, diagnostics)?;
         let mut scope = Scope::extend(&entity.result().region, Some(&root_scope));
 
@@ -291,8 +291,8 @@ impl<'a> AnalyzeContext<'a> {
         }
 
         // @TODO make pattern of primary/secondary extension
-        let mut root_scope =
-            Scope::new(Region::default().with_parent(&package.result().root_region));
+        let parent = Scope::new_borrowed(package.result().root_region.as_ref());
+        let mut root_scope = Scope::default().with_parent(&parent);
         self.analyze_context_clause(&mut root_scope, &mut unit.context_clause, diagnostics)?;
 
         let mut scope = Scope::extend(&package.result().region, Some(&root_scope));
@@ -615,7 +615,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'_>,
         package_name: &mut WithPos<SelectedName>,
-    ) -> AnalysisResult<Arc<Region<'static>>> {
+    ) -> AnalysisResult<Arc<Region>> {
         let decl = self.resolve_selected_name(scope, package_name)?;
 
         if let NamedEntityKind::UninstPackage(ref package_region) = decl.first_kind() {

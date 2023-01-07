@@ -27,13 +27,13 @@ use super::NamedEntity;
 
 pub(super) enum RegionRef<'a> {
     // Inside the standard package itself we can hold a reference
-    Inside(&'a Region<'a>),
+    Inside(&'a Region),
     // Outside we need an analysis result
     Outside(UnitReadGuard<'a>),
 }
 
 impl<'a> std::ops::Deref for RegionRef<'a> {
-    type Target = Region<'a>;
+    type Target = Region;
     fn deref(&self) -> &Self::Target {
         match self {
             RegionRef::Inside(r) => r,

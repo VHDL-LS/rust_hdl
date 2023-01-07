@@ -23,8 +23,8 @@ pub(super) struct AnalysisData {
     pub has_circular_dependency: bool,
 
     // Only for primary units
-    pub root_region: Arc<Region<'static>>,
-    pub region: Arc<Region<'static>>,
+    pub root_region: Arc<Region>,
+    pub region: Arc<Region>,
 }
 
 pub(super) type UnitReadGuard<'a> = ReadGuard<'a, AnyDesignUnit, AnalysisData>;
@@ -415,7 +415,7 @@ impl DesignRoot {
                     false
                 };
 
-                let root_region = Arc::new(root_scope.into_bare_region());
+                let root_region = Arc::new(root_scope.into_region());
                 let region = Arc::new(region);
 
                 if let Some(primary_unit) = unit.as_primary_mut() {

@@ -329,9 +329,9 @@ impl<'a> AnalyzeContext<'a> {
                 )?;
                 component_region.close(diagnostics);
                 scope.add(
-                    component.ident.define(NamedEntityKind::Component(
-                        component_region.into_bare_region(),
-                    )),
+                    component
+                        .ident
+                        .define(NamedEntityKind::Component(component_region.into_region())),
                     diagnostics,
                 );
             }
@@ -358,7 +358,7 @@ impl<'a> AnalyzeContext<'a> {
                 );
 
                 // End mutable borrow of scope
-                let subpgm_region = Scope::new(subpgm_region.into_bare_region());
+                let subpgm_region = Scope::new(subpgm_region.into_region());
 
                 // Overwrite subprogram definition with full signature
                 match signature {
@@ -577,11 +577,11 @@ impl<'a> AnalyzeContext<'a> {
                     };
 
                     let region_ptr = unsafe {
-                        let region_ptr = region_ptr as *const Region<'static>;
-                        let region_ptr = region_ptr as *mut Region<'static>;
-                        &mut *region_ptr as &mut Region<'static>
+                        let region_ptr = region_ptr as *const Region;
+                        let region_ptr = region_ptr as *mut Region;
+                        &mut *region_ptr as &mut Region
                     };
-                    *region_ptr = region.into_bare_region();
+                    *region_ptr = region.into_region();
                 }
             }
             TypeDefinition::Record(ref mut element_decls) => {
@@ -898,9 +898,9 @@ impl<'a> AnalyzeContext<'a> {
                 let package_region =
                     self.analyze_package_instance_name(scope, &mut instance.package_name)?;
 
-                instance.ident.define(NamedEntityKind::LocalPackageInstance(
-                    package_region.clone(),
-                ))
+                instance
+                    .ident
+                    .define(NamedEntityKind::LocalPackageInstance(package_region))
             }
         };
         Ok(ent)

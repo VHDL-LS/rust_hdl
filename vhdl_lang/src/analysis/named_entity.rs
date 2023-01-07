@@ -38,7 +38,7 @@ pub enum Type {
     Incomplete(ArcSwapWeak<NamedEntity>),
     Subtype(Subtype),
     // The region of the protected type which needs to be extendend by the body
-    Protected(Region<'static>, ArcSwapOption<SrcPos>),
+    Protected(Region, ArcSwapOption<SrcPos>),
     File(ImplicitVec),
     Interface,
     Alias(TypeEnt),
@@ -98,7 +98,7 @@ pub enum NamedEntityKind {
     },
     File(Subtype),
     InterfaceFile(TypeEnt),
-    Component(Region<'static>),
+    Component(Region),
     Attribute,
     SubprogramDecl(Signature),
     Subprogram(Signature),
@@ -113,13 +113,13 @@ pub enum NamedEntityKind {
     PhysicalLiteral(TypeEnt),
     DeferredConstant(Subtype),
     Library,
-    Entity(Arc<Region<'static>>),
-    Configuration(Arc<Region<'static>>),
-    Package(Arc<Region<'static>>),
-    UninstPackage(Arc<Region<'static>>),
-    PackageInstance(Arc<Region<'static>>),
-    Context(Arc<Region<'static>>),
-    LocalPackageInstance(Arc<Region<'static>>),
+    Entity(Arc<Region>),
+    Configuration(Arc<Region>),
+    Package(Arc<Region>),
+    UninstPackage(Arc<Region>),
+    PackageInstance(Arc<Region>),
+    Context(Arc<Region>),
+    LocalPackageInstance(Arc<Region>),
 }
 
 impl NamedEntityKind {

@@ -30,7 +30,7 @@ impl VisibleEntity {
 struct VisibleRegion {
     // The position where the entity was made visible
     visible_pos: Vec<Option<SrcPos>>,
-    region: Arc<Region<'static>>,
+    region: Arc<Region>,
 }
 
 impl VisibleRegion {
@@ -53,7 +53,7 @@ impl Visibility {
     pub fn make_all_potentially_visible(
         &mut self,
         visible_pos: Option<&SrcPos>,
-        region: &Arc<Region<'static>>,
+        region: &Arc<Region>,
     ) {
         self.all_in_regions.push(VisibleRegion {
             visible_pos: vec![visible_pos.cloned()],

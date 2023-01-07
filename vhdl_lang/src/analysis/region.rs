@@ -11,6 +11,7 @@ use crate::ast::*;
 use crate::data::*;
 
 use fnv::FnvHashMap;
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
 use std::sync::Arc;
@@ -224,58 +225,52 @@ impl Default for RegionKind {
 
 #[derive(Default)]
 pub struct Scope<'a> {
-    region: Region<'a>,
+    parent: Option<&'a Scope<'a>>,
+    region: Cow<'a, Region>,
 
     // Cache for fast lookup
     cache: RefCell<FnvHashMap<Designator, NamedEntities>>,
 }
 
 impl<'a> Scope<'a> {
-    pub fn new(region: Region<'a>) -> Self {
+    pub fn new_borrowed(region: &'a Region) -> Self {
         Scope {
-            region,
+            region: Cow::Borrowed(region),
             ..Default::default()
         }
     }
 
-    pub fn region(&self) -> &Region<'_> {
-        &self.region
-    }
-
-    pub fn into_bare_region(self) -> Region<'static> {
-        self.region.without_parent()
-    }
-
-    pub fn lookup(
-        &self,
-        pos: &SrcPos,
-        designator: &Designator,
-    ) -> Result<NamedEntities, Diagnostic> {
-        let mut cache = self.cache.borrow_mut();
-        if let Some(ents) = cache.get(designator) {
-            Ok(ents.clone())
-        } else if let Entry::Vacant(vacant) = cache.entry(designator.clone()) {
-            let ents = self.region.lookup(pos, designator)?;
-            Ok(vacant.insert(ents).clone())
-        } else {
-            unreachable!("Cache miss cannot be followed by occupied entry")
+    pub fn new(region: Region) -> Self {
+        Scope {
+            region: Cow::Owned(region),
+            ..Default::default()
         }
     }
 
-    pub fn lookup_immediate(&self, designator: &Designator) -> Option<&NamedEntities> {
-        self.region.lookup_immediate(designator)
+    pub fn region(&self) -> &Region {
+        &self.region
+    }
+
+    fn region_mut(&mut self) -> &mut Region {
+        match self.region {
+            Cow::Borrowed(_) => unreachable!("Adding to borrowed region"),
+            Cow::Owned(ref mut region) => region,
+        }
+    }
+
+    pub fn into_region(self) -> Region {
+        match self.region {
+            Cow::Borrowed(_) => unreachable!("Cannot convert into borrowed region"),
+            Cow::Owned(region) => region,
+        }
     }
 
     pub fn nested(&'a self) -> Scope<'a> {
         Self {
-            region: self.region.nested(),
+            parent: Some(self),
+            region: Cow::Owned(Region::default()),
             cache: self.cache.clone(),
         }
-    }
-
-    pub fn add(&mut self, ent: Arc<NamedEntity>, diagnostics: &mut dyn DiagnosticHandler) {
-        self.cache.borrow_mut().remove(ent.designator());
-        self.region.add(ent, diagnostics)
     }
 
     pub fn close(&self, diagnostics: &mut dyn DiagnosticHandler) {
@@ -283,15 +278,43 @@ impl<'a> Scope<'a> {
     }
 
     pub fn with_parent(self, scope: &'a Scope<'a>) -> Scope<'a> {
-        Scope::new(self.region.with_parent(&scope.region))
+        Self {
+            parent: Some(scope),
+            region: self.region,
+            cache: Default::default(),
+        }
     }
 
-    pub fn extend(region: &'a Region<'a>, parent: Option<&'a Scope<'a>>) -> Scope<'a> {
-        Scope::new(Region::extend(region, parent.map(|scope| &scope.region)))
+    pub fn extend(region: &Region, parent: Option<&'a Scope<'a>>) -> Scope<'a> {
+        let kind = match region.kind {
+            RegionKind::PackageDeclaration => RegionKind::PackageBody,
+            _ => RegionKind::Other,
+        };
+
+        let extended_region = Region {
+            visibility: region.visibility.clone(),
+            entities: region.entities.clone(),
+            kind,
+        };
+
+        if let Some(parent) = parent {
+            Scope::new(extended_region).with_parent(parent)
+        } else {
+            Scope::new(extended_region)
+        }
     }
 
     pub fn in_package_declaration(self) -> Scope<'a> {
-        Scope::new(self.region.in_package_declaration())
+        Self {
+            parent: self.parent,
+            region: Cow::Owned(self.into_region().in_package_declaration()),
+            ..Default::default()
+        }
+    }
+
+    pub fn add(&mut self, ent: Arc<NamedEntity>, diagnostics: &mut dyn DiagnosticHandler) {
+        self.cache.borrow_mut().remove(ent.designator());
+        self.region_mut().add(ent, diagnostics)
     }
 
     pub fn add_implicit_declaration_aliases(
@@ -316,11 +339,9 @@ impl<'a> Scope<'a> {
         ent: Arc<NamedEntity>,
     ) {
         self.cache.borrow_mut().remove(ent.designator());
-        self.region.visibility.make_potentially_visible_with_name(
-            visible_pos,
-            ent.designator().clone(),
-            ent,
-        );
+        self.region_mut()
+            .visibility
+            .make_potentially_visible_with_name(visible_pos, ent.designator().clone(), ent);
     }
 
     pub fn make_potentially_visible_with_name(
@@ -330,7 +351,7 @@ impl<'a> Scope<'a> {
         ent: Arc<NamedEntity>,
     ) {
         self.cache.borrow_mut().remove(ent.designator());
-        self.region
+        self.region_mut()
             .visibility
             .make_potentially_visible_with_name(visible_pos, designator, ent);
     }
@@ -338,36 +359,151 @@ impl<'a> Scope<'a> {
     pub fn make_all_potentially_visible(
         &mut self,
         visible_pos: Option<&SrcPos>,
-        region: &Arc<Region<'static>>,
+        region: &Arc<Region>,
     ) {
         self.cache.borrow_mut().clear();
-        self.region
+        self.region_mut()
             .visibility
             .make_all_potentially_visible(visible_pos, region);
     }
 
     /// Used when using context clauses
-    pub fn add_context_visibility(&mut self, visible_pos: Option<&SrcPos>, region: &Region<'a>) {
+    pub fn add_context_visibility(&mut self, visible_pos: Option<&SrcPos>, region: &Region) {
         self.cache.borrow_mut().clear();
         // ignores parent but used only for contexts where this is true
-        self.region
+        self.region_mut()
             .visibility
             .add_context_visibility(visible_pos, &region.visibility);
+    }
+
+    pub fn lookup(
+        &self,
+        pos: &SrcPos,
+        designator: &Designator,
+    ) -> Result<NamedEntities, Diagnostic> {
+        let mut cache = self.cache.borrow_mut();
+        if let Some(ents) = cache.get(designator) {
+            Ok(ents.clone())
+        } else if let Entry::Vacant(vacant) = cache.entry(designator.clone()) {
+            let ents = self.lookup_uncached(pos, designator)?;
+            Ok(vacant.insert(ents).clone())
+        } else {
+            unreachable!("Cache miss cannot be followed by occupied entry")
+        }
+    }
+
+    pub fn lookup_immediate(&self, designator: &Designator) -> Option<&NamedEntities> {
+        self.region.lookup_immediate(designator)
+    }
+
+    /// Lookup a named entity declared in this region or an enclosing region
+    fn lookup_enclosing(&self, designator: &Designator) -> Option<NamedEntities> {
+        // We do not need to look in the enclosing region of the extended region
+        // since extended region always has the same parent except for protected types
+        // split into package / package body.
+        // In that case the package / package body parent of the protected type / body
+        // is the same extended region anyway
+
+        match self.lookup_immediate(designator).cloned() {
+            // A non-overloaded name is found in the immediate region
+            // no need to look further up
+            Some(NamedEntities::Single(single)) => Some(NamedEntities::Single(single)),
+
+            // The name is overloaded we must also check enclosing regions
+            Some(NamedEntities::Overloaded(immediate)) => {
+                if let Some(NamedEntities::Overloaded(enclosing)) = self
+                    .parent
+                    .as_ref()
+                    .and_then(|region| region.lookup_enclosing(designator))
+                {
+                    Some(NamedEntities::Overloaded(immediate.with_visible(enclosing)))
+                } else {
+                    Some(NamedEntities::Overloaded(immediate))
+                }
+            }
+            None => self
+                .parent
+                .as_ref()
+                .and_then(|region| region.lookup_enclosing(designator)),
+        }
+    }
+
+    fn lookup_visiblity_into(&'a self, designator: &Designator, visible: &mut Visible<'a>) {
+        self.region.visibility.lookup_into(designator, visible);
+        if let Some(parent) = self.parent {
+            parent.lookup_visiblity_into(designator, visible);
+        }
+    }
+
+    /// Lookup a named entity that was made potentially visible via a use clause
+    fn lookup_visible(
+        &self,
+        pos: &SrcPos,
+        designator: &Designator,
+    ) -> Result<Option<NamedEntities>, Diagnostic> {
+        let mut visible = Visible::default();
+        self.lookup_visiblity_into(designator, &mut visible);
+        visible.into_unambiguous(pos, designator)
+    }
+
+    /// Lookup a designator from within the region itself
+    /// Thus all parent regions and visibility is relevant
+    fn lookup_uncached(
+        &self,
+        pos: &SrcPos,
+        designator: &Designator,
+    ) -> Result<NamedEntities, Diagnostic> {
+        let result = if let Some(enclosing) = self.lookup_enclosing(designator) {
+            match enclosing {
+                // non overloaded in enclosing region ignores any visible overloaded names
+                NamedEntities::Single(..) => Some(enclosing),
+                // In case of overloaded local, non-conflicting visible names are still relevant
+                NamedEntities::Overloaded(enclosing_overloaded) => {
+                    if let Ok(Some(NamedEntities::Overloaded(overloaded))) =
+                        self.lookup_visible(pos, designator)
+                    {
+                        Some(NamedEntities::Overloaded(
+                            enclosing_overloaded.with_visible(overloaded),
+                        ))
+                    } else {
+                        Some(NamedEntities::Overloaded(enclosing_overloaded))
+                    }
+                }
+            }
+        } else {
+            self.lookup_visible(pos, designator)?
+        };
+
+        match result {
+            Some(visible) => Ok(visible),
+            None => Err(Diagnostic::error(
+                pos,
+                match designator {
+                    Designator::Identifier(ident) => {
+                        format!("No declaration of '{}'", ident)
+                    }
+                    Designator::OperatorSymbol(operator) => {
+                        format!("No declaration of operator '{}'", operator)
+                    }
+                    Designator::Character(chr) => {
+                        format!("No declaration of '{}'", chr)
+                    }
+                },
+            )),
+        }
     }
 }
 
 #[derive(Clone)]
-pub struct Region<'a> {
-    parent: Option<&'a Region<'a>>,
+pub struct Region {
     visibility: Visibility,
     entities: FnvHashMap<Designator, NamedEntities>,
     kind: RegionKind,
 }
 
-impl<'a> Default for Region<'a> {
-    fn default() -> Region<'static> {
+impl Default for Region {
+    fn default() -> Region {
         Region {
-            parent: None,
             visibility: Visibility::default(),
             entities: FnvHashMap::default(),
             kind: RegionKind::Other,
@@ -375,28 +511,8 @@ impl<'a> Default for Region<'a> {
     }
 }
 
-impl<'a> Region<'a> {
-    pub fn nested(&'a self) -> Region<'a> {
-        Region::default().with_parent(self)
-    }
-
-    pub fn with_parent(self, parent: &'a Region<'a>) -> Region<'a> {
-        Region {
-            parent: Some(parent),
-            ..self
-        }
-    }
-
-    pub fn without_parent(self) -> Region<'static> {
-        Region {
-            parent: None,
-            visibility: self.visibility,
-            entities: self.entities,
-            kind: self.kind,
-        }
-    }
-
-    pub fn in_package_declaration(mut self) -> Region<'a> {
+impl Region {
+    pub fn in_package_declaration(mut self) -> Region {
         self.kind = RegionKind::PackageDeclaration;
         self
     }
@@ -424,24 +540,6 @@ impl<'a> Region<'a> {
             FormalRegion::new_with(InterfaceListType::Generic, generics),
             FormalRegion::new_with(InterfaceListType::Port, ports),
         )
-    }
-
-    pub fn extend(region: &'a Region<'a>, parent: Option<&'a Region<'a>>) -> Region<'a> {
-        let kind = match region.kind {
-            RegionKind::PackageDeclaration => RegionKind::PackageBody,
-            _ => RegionKind::Other,
-        };
-        debug_assert!(
-            region.parent.is_none(),
-            "Parent of extended region must be the same as the parent"
-        );
-
-        Region {
-            parent,
-            visibility: region.visibility.clone(),
-            entities: region.entities.clone(),
-            kind,
-        }
     }
 
     fn check_deferred_constant_pairs(&self, diagnostics: &mut dyn DiagnosticHandler) {
@@ -548,100 +646,6 @@ impl<'a> Region<'a> {
 
     pub fn immediates(&self) -> impl Iterator<Item = &NamedEntities> {
         self.entities.values()
-    }
-
-    /// Lookup a named entity declared in this region or an enclosing region
-
-    fn lookup_enclosing(&self, designator: &Designator) -> Option<NamedEntities> {
-        // We do not need to look in the enclosing region of the extended region
-        // since extended region always has the same parent except for protected types
-        // split into package / package body.
-        // In that case the package / package body parent of the protected type / body
-        // is the same extended region anyway
-
-        match self.lookup_immediate(designator).cloned() {
-            // A non-overloaded name is found in the immediate region
-            // no need to look further up
-            Some(NamedEntities::Single(single)) => Some(NamedEntities::Single(single)),
-
-            // The name is overloaded we must also check enclosing regions
-            Some(NamedEntities::Overloaded(immediate)) => {
-                if let Some(NamedEntities::Overloaded(enclosing)) = self
-                    .parent
-                    .as_ref()
-                    .and_then(|region| region.lookup_enclosing(designator))
-                {
-                    Some(NamedEntities::Overloaded(immediate.with_visible(enclosing)))
-                } else {
-                    Some(NamedEntities::Overloaded(immediate))
-                }
-            }
-            None => self
-                .parent
-                .as_ref()
-                .and_then(|region| region.lookup_enclosing(designator)),
-        }
-    }
-
-    fn lookup_visiblity_into(&'a self, designator: &Designator, visible: &mut Visible<'a>) {
-        self.visibility.lookup_into(designator, visible);
-        if let Some(parent) = self.parent {
-            parent.lookup_visiblity_into(designator, visible);
-        }
-    }
-
-    /// Lookup a named entity that was made potentially visible via a use clause
-    fn lookup_visible(
-        &self,
-        pos: &SrcPos,
-        designator: &Designator,
-    ) -> Result<Option<NamedEntities>, Diagnostic> {
-        let mut visible = Visible::default();
-        self.lookup_visiblity_into(designator, &mut visible);
-        visible.into_unambiguous(pos, designator)
-    }
-
-    /// Lookup a designator from within the region itself
-    /// Thus all parent regions and visibility is relevant
-    fn lookup(&self, pos: &SrcPos, designator: &Designator) -> Result<NamedEntities, Diagnostic> {
-        let result = if let Some(enclosing) = self.lookup_enclosing(designator) {
-            match enclosing {
-                // non overloaded in enclosing region ignores any visible overloaded names
-                NamedEntities::Single(..) => Some(enclosing),
-                // In case of overloaded local, non-conflicting visible names are still relevant
-                NamedEntities::Overloaded(enclosing_overloaded) => {
-                    if let Ok(Some(NamedEntities::Overloaded(overloaded))) =
-                        self.lookup_visible(pos, designator)
-                    {
-                        Some(NamedEntities::Overloaded(
-                            enclosing_overloaded.with_visible(overloaded),
-                        ))
-                    } else {
-                        Some(NamedEntities::Overloaded(enclosing_overloaded))
-                    }
-                }
-            }
-        } else {
-            self.lookup_visible(pos, designator)?
-        };
-
-        match result {
-            Some(visible) => Ok(visible),
-            None => Err(Diagnostic::error(
-                pos,
-                match designator {
-                    Designator::Identifier(ident) => {
-                        format!("No declaration of '{}'", ident)
-                    }
-                    Designator::OperatorSymbol(operator) => {
-                        format!("No declaration of operator '{}'", operator)
-                    }
-                    Designator::Character(chr) => {
-                        format!("No declaration of '{}'", chr)
-                    }
-                },
-            )),
-        }
     }
 }
 
