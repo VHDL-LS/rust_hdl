@@ -97,3 +97,12 @@ impl MessageHandler for MessagePrinter {
         println!("{}", message);
     }
 }
+
+#[derive(Default)]
+pub struct NullMessages;
+
+impl MessageHandler for NullMessages {
+    fn push(&mut self, _message: Message) {
+        // Ignore
+    }
+}

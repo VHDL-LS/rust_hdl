@@ -12,7 +12,7 @@
 use clap::Parser;
 use std::path::Path;
 use std::time::SystemTime;
-use vhdl_lang::{Config, Diagnostic, MessagePrinter, Project};
+use vhdl_lang::{Config, Diagnostic, MessagePrinter, NullMessages, Project};
 
 /// Run vhdl analysis
 #[derive(Parser, Debug)]
@@ -25,6 +25,10 @@ struct Args {
     /// Prints the number of files processed and the execution time
     #[arg(long, default_value_t = false)]
     perf: bool,
+
+    /// Run repeatedly to get a reliable benchmark result
+    #[arg(long, default_value_t = false)]
+    bench: bool,
 
     /// Config file in TOML format containing libraries and settings
     #[arg(short, long)]
@@ -57,12 +61,25 @@ fn main() {
     );
 
     let start = SystemTime::now();
+
+    let iterations = if args.bench {
+        let iterations = 10;
+        println!("Running {} iterations for benchmarking", iterations);
+        for _ in 0..(iterations - 1) {
+            let mut project = Project::from_config(&config, &mut NullMessages);
+            project.analyse();
+        }
+        iterations
+    } else {
+        1
+    };
+
     let mut project = Project::from_config(&config, &mut msg_printer);
     let diagnostics = project.analyse();
-    let duration = start.elapsed().unwrap();
+    let duration = start.elapsed().unwrap() / iterations;
     show_diagnostics(&diagnostics);
 
-    if args.perf {
+    if args.perf || args.bench {
         let mut num_files = 0;
         let mut num_lines = 0;
         for source_file in project.files() {
