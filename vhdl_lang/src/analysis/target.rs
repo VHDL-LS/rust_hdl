@@ -13,18 +13,18 @@ use crate::data::*;
 impl<'a> AnalyzeContext<'a> {
     pub fn analyze_target(
         &self,
-        parent: &Region<'_>,
+        scope: &Scope<'_>,
         target: &mut WithPos<Target>,
         assignment_type: AssignmentType,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         match target.item {
             Target::Name(ref mut name) => {
-                self.analyze_target_name(parent, name, &target.pos, assignment_type, diagnostics)?;
+                self.analyze_target_name(scope, name, &target.pos, assignment_type, diagnostics)?;
                 Ok(())
             }
             Target::Aggregate(ref mut assocs) => {
-                self.analyze_aggregate(parent, assocs, diagnostics)?;
+                self.analyze_aggregate(scope, assocs, diagnostics)?;
                 Ok(())
             }
         }
@@ -32,14 +32,14 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_target_name(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         target: &mut Name,
         target_pos: &SrcPos,
         assignment_type: AssignmentType,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         match self.resolve_object_prefix(
-            region,
+            scope,
             target_pos,
             target,
             "Invalid assignment target",

@@ -399,13 +399,13 @@ impl DesignRoot {
 
                 let entity_id = super::named_entity::new_id();
                 let mut diagnostics = Vec::new();
-                let mut root_region = Region::default();
+                let mut root_scope = Scope::new(Region::default());
                 let mut region = Region::default();
 
                 let has_circular_dependency = if let Err(err) = context.analyze_design_unit(
                     entity_id,
                     &mut unit,
-                    &mut root_region,
+                    &mut root_scope,
                     &mut region,
                     &mut diagnostics,
                 ) {
@@ -415,7 +415,7 @@ impl DesignRoot {
                     false
                 };
 
-                let root_region = Arc::new(root_region);
+                let root_region = Arc::new(root_scope.into_region());
                 let region = Arc::new(region);
 
                 if let Some(primary_unit) = unit.as_primary_mut() {

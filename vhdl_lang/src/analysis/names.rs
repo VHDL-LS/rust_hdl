@@ -100,7 +100,7 @@ impl<'a> AnalyzeContext<'a> {
     // Takes an error message as an argument to be re-usable
     pub fn resolve_object_prefix(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         name_pos: &SrcPos,
         name: &mut Name,
         err_msg: &'static str,
@@ -111,7 +111,7 @@ impl<'a> AnalyzeContext<'a> {
                 suffix.clear_reference();
 
                 let resolved = self.resolve_object_prefix(
-                    region,
+                    scope,
                     &prefix.pos,
                     &mut prefix.item,
                     err_msg,
@@ -170,7 +170,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             Name::SelectedAll(prefix) => self.resolve_object_prefix(
-                region,
+                scope,
                 &prefix.pos,
                 &mut prefix.item,
                 err_msg,
@@ -179,7 +179,7 @@ impl<'a> AnalyzeContext<'a> {
             Name::Designator(designator) => {
                 designator.clear_reference();
 
-                match region.lookup(name_pos, designator.designator())? {
+                match scope.lookup(name_pos, designator.designator())? {
                     NamedEntities::Single(named_entity) => {
                         designator.set_unique_reference(&named_entity);
                         Ok(ResolvedName::new(named_entity))
@@ -192,7 +192,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             Name::Indexed(ref mut prefix, ref mut indexes) => {
                 let resolved = self.resolve_object_prefix(
-                    region,
+                    scope,
                     &prefix.pos,
                     &mut prefix.item,
                     err_msg,
@@ -204,7 +204,7 @@ impl<'a> AnalyzeContext<'a> {
                 }) = resolved
                 {
                     let elem_type = self.analyze_indexed_name(
-                        region,
+                        scope,
                         name_pos,
                         prefix.suffix_pos(),
                         &type_mark,
@@ -218,7 +218,7 @@ impl<'a> AnalyzeContext<'a> {
                     })
                 } else {
                     for expr in indexes.iter_mut() {
-                        self.analyze_expression(region, expr, diagnostics)?;
+                        self.analyze_expression(scope, expr, diagnostics)?;
                     }
                     Err(Diagnostic::error(&prefix.pos, err_msg).into())
                 }
@@ -226,7 +226,7 @@ impl<'a> AnalyzeContext<'a> {
 
             Name::Slice(ref mut prefix, ref mut drange) => {
                 let res = self.resolve_object_prefix(
-                    region,
+                    scope,
                     &prefix.pos,
                     &mut prefix.item,
                     err_msg,
@@ -237,7 +237,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.analyze_sliced_name(prefix.suffix_pos(), type_mark, diagnostics)?;
                 }
 
-                self.analyze_discrete_range(region, drange.as_mut(), diagnostics)?;
+                self.analyze_discrete_range(scope, drange.as_mut(), diagnostics)?;
                 res
             }
             Name::Attribute(..) => Err(Diagnostic::error(name_pos, err_msg).into()),
@@ -245,14 +245,14 @@ impl<'a> AnalyzeContext<'a> {
             Name::FunctionCall(ref mut fcall) => {
                 if let Some((prefix, indexes)) = fcall.to_indexed() {
                     *name = Name::Indexed(prefix, indexes);
-                    self.resolve_object_prefix(region, name_pos, name, err_msg, diagnostics)
+                    self.resolve_object_prefix(scope, name_pos, name, err_msg, diagnostics)
                 } else {
                     Err(Diagnostic::error(name_pos, err_msg).into())
                 }
             }
             Name::External(ref mut ename) => {
                 let ExternalName { subtype, class, .. } = ename.as_mut();
-                let subtype = self.resolve_subtype_indication(region, subtype, diagnostics)?;
+                let subtype = self.resolve_subtype_indication(scope, subtype, diagnostics)?;
                 Ok(ResolvedName::ExternalName {
                     class: *class,
                     type_mark: subtype.type_mark().to_owned(),

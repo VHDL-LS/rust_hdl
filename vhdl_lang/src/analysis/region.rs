@@ -194,18 +194,14 @@ impl NamedEntities {
         self.first().kind()
     }
 
-    pub fn make_potentially_visible_in(
-        &self,
-        visible_pos: Option<&SrcPos>,
-        region: &mut Region<'_>,
-    ) {
+    pub fn make_potentially_visible_in(&self, visible_pos: Option<&SrcPos>, scope: &mut Scope<'_>) {
         match self {
             Self::Single(ent) => {
-                region.make_potentially_visible(visible_pos, ent.clone());
+                scope.make_potentially_visible(visible_pos, ent.clone());
             }
             Self::Overloaded(overloaded) => {
                 for ent in overloaded.entities() {
-                    region.make_potentially_visible(visible_pos, ent.inner().clone());
+                    scope.make_potentially_visible(visible_pos, ent.inner().clone());
                 }
             }
         }
@@ -222,6 +218,117 @@ enum RegionKind {
 impl Default for RegionKind {
     fn default() -> RegionKind {
         RegionKind::Other
+    }
+}
+
+#[derive(Default)]
+pub struct Scope<'a> {
+    region: Region<'a>,
+}
+
+impl<'a> Scope<'a> {
+    pub fn new(region: Region<'a>) -> Self {
+        Scope { region }
+    }
+
+    pub fn region(&self) -> &Region<'_> {
+        &self.region
+    }
+
+    pub fn into_region(self) -> Region<'a> {
+        self.region
+    }
+
+    pub fn lookup(
+        &self,
+        pos: &SrcPos,
+        designator: &Designator,
+    ) -> Result<NamedEntities, Diagnostic> {
+        self.region.lookup(pos, designator)
+    }
+
+    pub fn lookup_immediate(&self, designator: &Designator) -> Option<&NamedEntities> {
+        self.region.lookup_immediate(designator)
+    }
+
+    pub fn nested(&'a self) -> Self {
+        Self {
+            region: self.region.nested(),
+        }
+    }
+
+    pub fn add(&mut self, ent: Arc<NamedEntity>, diagnostics: &mut dyn DiagnosticHandler) {
+        self.region.add(ent, diagnostics)
+    }
+
+    pub fn close(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
+        self.region.close(diagnostics)
+    }
+
+    pub fn without_parent(self) -> Region<'static> {
+        self.region.without_parent()
+    }
+
+    pub fn with_parent(self, scope: &'a Scope<'a>) -> Region<'a> {
+        self.region.with_parent(&scope.region)
+    }
+
+    pub fn extend(region: &'a Region<'a>, parent: Option<&'a Scope<'a>>) -> Scope<'a> {
+        Scope::new(Region::extend(region, parent.map(|scope| &scope.region)))
+    }
+
+    pub fn in_package_declaration(self) -> Scope<'a> {
+        Scope::new(self.region.in_package_declaration())
+    }
+
+    pub fn add_implicit_declaration_aliases(
+        &mut self,
+        ent: Arc<NamedEntity>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        self.region
+            .add_implicit_declaration_aliases(ent, diagnostics)
+    }
+
+    pub fn make_potentially_visible(
+        &mut self,
+        visible_pos: Option<&SrcPos>,
+        ent: Arc<NamedEntity>,
+    ) {
+        self.region.visibility.make_potentially_visible_with_name(
+            visible_pos,
+            ent.designator().clone(),
+            ent,
+        );
+    }
+
+    pub fn make_potentially_visible_with_name(
+        &mut self,
+        visible_pos: Option<&SrcPos>,
+        designator: Designator,
+        ent: Arc<NamedEntity>,
+    ) {
+        self.region
+            .visibility
+            .make_potentially_visible_with_name(visible_pos, designator, ent);
+    }
+
+    pub fn make_all_potentially_visible(
+        &mut self,
+        visible_pos: Option<&SrcPos>,
+        region: &Arc<Region<'static>>,
+    ) {
+        self.region
+            .visibility
+            .make_all_potentially_visible(visible_pos, region);
+    }
+
+    /// Used when using context clauses
+    pub fn add_context_visibility(&mut self, visible_pos: Option<&SrcPos>, region: &Region<'a>) {
+        // ignores parent but used only for contexts where this is true
+        self.region
+            .visibility
+            .add_context_visibility(visible_pos, &region.visibility);
     }
 }
 
@@ -424,44 +531,6 @@ impl<'a> Region<'a> {
         }
     }
 
-    pub fn make_potentially_visible(
-        &mut self,
-        visible_pos: Option<&SrcPos>,
-        ent: Arc<NamedEntity>,
-    ) {
-        self.visibility.make_potentially_visible_with_name(
-            visible_pos,
-            ent.designator().clone(),
-            ent,
-        );
-    }
-
-    pub fn make_potentially_visible_with_name(
-        &mut self,
-        visible_pos: Option<&SrcPos>,
-        designator: Designator,
-        ent: Arc<NamedEntity>,
-    ) {
-        self.visibility
-            .make_potentially_visible_with_name(visible_pos, designator, ent);
-    }
-
-    pub fn make_all_potentially_visible(
-        &mut self,
-        visible_pos: Option<&SrcPos>,
-        region: &Arc<Region<'static>>,
-    ) {
-        self.visibility
-            .make_all_potentially_visible(visible_pos, region);
-    }
-
-    /// Used when using context clauses
-    pub fn add_context_visibility(&mut self, visible_pos: Option<&SrcPos>, region: &Region<'a>) {
-        // ignores parent but used only for contexts where this is true
-        self.visibility
-            .add_context_visibility(visible_pos, &region.visibility);
-    }
-
     /// Lookup a named entity declared in this region
     pub fn lookup_immediate(&self, designator: &Designator) -> Option<&NamedEntities> {
         self.entities.get(designator)
@@ -524,11 +593,7 @@ impl<'a> Region<'a> {
 
     /// Lookup a designator from within the region itself
     /// Thus all parent regions and visibility is relevant
-    pub fn lookup(
-        &self,
-        pos: &SrcPos,
-        designator: &Designator,
-    ) -> Result<NamedEntities, Diagnostic> {
+    fn lookup(&self, pos: &SrcPos, designator: &Designator) -> Result<NamedEntities, Diagnostic> {
         let result = if let Some(enclosing) = self.lookup_enclosing(designator) {
             match enclosing {
                 // non overloaded in enclosing region ignores any visible overloaded names

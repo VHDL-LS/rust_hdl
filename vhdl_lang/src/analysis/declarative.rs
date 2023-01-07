@@ -24,7 +24,7 @@ use std::sync::Arc;
 impl<'a> AnalyzeContext<'a> {
     pub fn analyze_declarative_part(
         &self,
-        region: &mut Region<'_>,
+        scope: &mut Scope<'_>,
         declarations: &mut [Declaration],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -74,7 +74,7 @@ impl<'a> AnalyzeContext<'a> {
                                 reference.set_unique_reference(&ent);
 
                                 entry.insert((ent.clone(), type_decl.ident.pos().clone()));
-                                region.add(ent, diagnostics);
+                                scope.add(ent, diagnostics);
                             }
                             Entry::Occupied(entry) => {
                                 let (_, decl_pos) = entry.get();
@@ -91,7 +91,7 @@ impl<'a> AnalyzeContext<'a> {
                         let incomplete_type = incomplete_types.get(type_decl.ident.name());
                         if let Some((incomplete_type, _)) = incomplete_type {
                             self.analyze_type_declaration(
-                                region,
+                                scope,
                                 type_decl,
                                 Some(incomplete_type.id()),
                                 diagnostics,
@@ -100,7 +100,7 @@ impl<'a> AnalyzeContext<'a> {
                             // Lookup the newly analyzed type and set it as the full definition of
                             // the incomplete type
                             if let Some(NamedEntities::Single(full_type)) =
-                                region.lookup_immediate(incomplete_type.designator())
+                                scope.lookup_immediate(incomplete_type.designator())
                             {
                                 if let NamedEntityKind::Type(Type::Incomplete(full_ref)) =
                                     incomplete_type.kind()
@@ -111,12 +111,12 @@ impl<'a> AnalyzeContext<'a> {
                                 }
                             }
                         } else {
-                            self.analyze_type_declaration(region, type_decl, None, diagnostics)?;
+                            self.analyze_type_declaration(scope, type_decl, None, diagnostics)?;
                         }
                     }
                 },
                 _ => {
-                    self.analyze_declaration(region, &mut declarations[i], diagnostics)?;
+                    self.analyze_declaration(scope, &mut declarations[i], diagnostics)?;
                 }
             }
         }
@@ -125,7 +125,7 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_alias_declaration(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         alias: &mut AliasDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<Option<Arc<NamedEntity>>> {
@@ -137,7 +137,7 @@ impl<'a> AnalyzeContext<'a> {
         } = alias;
 
         let resolved_name = self.resolve_object_prefix(
-            region,
+            scope,
             &name.pos,
             &mut name.item,
             "Invalid alias name",
@@ -146,7 +146,7 @@ impl<'a> AnalyzeContext<'a> {
 
         if let Some(ref mut subtype_indication) = subtype_indication {
             // Object alias
-            self.analyze_subtype_indication(region, subtype_indication, diagnostics)?;
+            self.analyze_subtype_indication(scope, subtype_indication, diagnostics)?;
         }
 
         let resolved_name = match resolved_name {
@@ -191,7 +191,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 ResolvedName::Overloaded(overloaded) => {
                     if let Some(ref mut signature) = signature {
-                        match self.resolve_signature(region, signature) {
+                        match self.resolve_signature(scope, signature) {
                             Ok(signature_key) => {
                                 if let Some(ent) = overloaded.get(&signature_key) {
                                     if let Some(reference) = name.item.suffix_reference_mut() {
@@ -236,20 +236,20 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_declaration(
         &self,
-        region: &mut Region<'_>,
+        scope: &mut Scope<'_>,
         decl: &mut Declaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         match decl {
             Declaration::Alias(alias) => {
-                if let Some(ent) = self.analyze_alias_declaration(region, alias, diagnostics)? {
-                    region.add(ent.clone(), diagnostics);
-                    region.add_implicit_declaration_aliases(ent, diagnostics);
+                if let Some(ent) = self.analyze_alias_declaration(scope, alias, diagnostics)? {
+                    scope.add(ent.clone(), diagnostics);
+                    scope.add_implicit_declaration_aliases(ent, diagnostics);
                 }
             }
             Declaration::Object(ref mut object_decl) => {
                 let subtype = self.resolve_subtype_indication(
-                    region,
+                    scope,
                     &mut object_decl.subtype_indication,
                     diagnostics,
                 );
@@ -257,14 +257,14 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(ref mut expr) = object_decl.expression {
                     if let Ok(ref subtype) = subtype {
                         self.analyze_expression_with_target_type(
-                            region,
+                            scope,
                             subtype.type_mark(),
                             &expr.pos,
                             &mut expr.item,
                             diagnostics,
                         )?;
                     } else {
-                        self.analyze_expression(region, expr, diagnostics)?;
+                        self.analyze_expression(scope, expr, diagnostics)?;
                     }
                 }
 
@@ -282,7 +282,7 @@ impl<'a> AnalyzeContext<'a> {
                                 subtype,
                             })
                         };
-                        region.add(object_decl.ident.define(kind), diagnostics);
+                        scope.add(object_decl.ident.define(kind), diagnostics);
                     }
                     Err(err) => err.add_to(diagnostics)?,
                 }
@@ -295,31 +295,28 @@ impl<'a> AnalyzeContext<'a> {
                     file_name,
                 } = file;
 
-                let subtype = match self.resolve_subtype_indication(
-                    region,
-                    subtype_indication,
-                    diagnostics,
-                ) {
-                    Ok(subtype) => Some(subtype),
-                    Err(err) => {
-                        err.add_to(diagnostics)?;
-                        None
-                    }
-                };
+                let subtype =
+                    match self.resolve_subtype_indication(scope, subtype_indication, diagnostics) {
+                        Ok(subtype) => Some(subtype),
+                        Err(err) => {
+                            err.add_to(diagnostics)?;
+                            None
+                        }
+                    };
 
                 if let Some(ref mut expr) = open_info {
-                    self.analyze_expression(region, expr, diagnostics)?;
+                    self.analyze_expression(scope, expr, diagnostics)?;
                 }
                 if let Some(ref mut expr) = file_name {
-                    self.analyze_expression(region, expr, diagnostics)?;
+                    self.analyze_expression(scope, expr, diagnostics)?;
                 }
 
                 if let Some(subtype) = subtype {
-                    region.add(ident.define(NamedEntityKind::File(subtype)), diagnostics);
+                    scope.add(ident.define(NamedEntityKind::File(subtype)), diagnostics);
                 }
             }
             Declaration::Component(ref mut component) => {
-                let mut component_region = region.nested();
+                let mut component_region = scope.nested();
                 self.analyze_interface_list(
                     &mut component_region,
                     &mut component.generic_list,
@@ -331,7 +328,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics,
                 )?;
                 component_region.close(diagnostics);
-                region.add(
+                scope.add(
                     component.ident.define(NamedEntityKind::Component(
                         component_region.without_parent(),
                     )),
@@ -340,10 +337,10 @@ impl<'a> AnalyzeContext<'a> {
             }
             Declaration::Attribute(ref mut attr) => match attr {
                 Attribute::Declaration(ref mut attr_decl) => {
-                    if let Err(err) = self.resolve_type_mark(region, &mut attr_decl.type_mark) {
+                    if let Err(err) = self.resolve_type_mark(scope, &mut attr_decl.type_mark) {
                         err.add_to(diagnostics)?;
                     }
-                    region.add(
+                    scope.add(
                         attr_decl.ident.define(NamedEntityKind::Attribute),
                         diagnostics,
                     );
@@ -352,7 +349,7 @@ impl<'a> AnalyzeContext<'a> {
                 Attribute::Specification(..) => {}
             },
             Declaration::SubprogramBody(ref mut body) => {
-                let mut subpgm_region = region.nested();
+                let mut subpgm_region = scope.nested();
 
                 let signature = self.analyze_subprogram_declaration(
                     &mut subpgm_region,
@@ -360,8 +357,8 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics,
                 );
 
-                // End mutable borrow of parent
-                let subpgm_region = subpgm_region.without_parent();
+                // End mutable borrow of scope
+                let subpgm_region = Scope::new(subpgm_region.without_parent());
 
                 // Overwrite subprogram definition with full signature
                 match signature {
@@ -369,11 +366,11 @@ impl<'a> AnalyzeContext<'a> {
                         let subpgm_ent = body
                             .specification
                             .define(NamedEntityKind::Subprogram(signature));
-                        region.add(subpgm_ent, diagnostics);
+                        scope.add(subpgm_ent, diagnostics);
                     }
                     Err(err) => err.add_to(diagnostics)?,
                 }
-                let mut subpgm_region = subpgm_region.with_parent(region);
+                let mut subpgm_region = Scope::new(subpgm_region.with_parent(scope));
 
                 self.analyze_declarative_part(
                     &mut subpgm_region,
@@ -389,7 +386,7 @@ impl<'a> AnalyzeContext<'a> {
                 )?;
             }
             Declaration::SubprogramDeclaration(ref mut subdecl) => {
-                let mut subpgm_region = region.nested();
+                let mut subpgm_region = scope.nested();
                 let signature =
                     self.analyze_subprogram_declaration(&mut subpgm_region, subdecl, diagnostics);
                 subpgm_region.close(diagnostics);
@@ -397,7 +394,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 match signature {
                     Ok(signature) => {
-                        region.add(
+                        scope.add(
                             subdecl.define(NamedEntityKind::SubprogramDecl(signature)),
                             diagnostics,
                         );
@@ -407,12 +404,12 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             Declaration::Use(ref mut use_clause) => {
-                self.analyze_use_clause(region, &mut use_clause.item, diagnostics)?;
+                self.analyze_use_clause(scope, &mut use_clause.item, diagnostics)?;
             }
 
             Declaration::Package(ref mut instance) => {
-                match self.analyze_package_instance_name(region, &mut instance.package_name) {
-                    Ok(package_region) => region.add(
+                match self.analyze_package_instance_name(scope, &mut instance.package_name) {
+                    Ok(package_region) => scope.add(
                         instance
                             .ident
                             .define(NamedEntityKind::LocalPackageInstance(package_region)),
@@ -430,7 +427,7 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_type_declaration(
         &self,
-        parent: &mut Region<'_>,
+        scope: &mut Scope<'_>,
         type_decl: &mut TypeDeclaration,
         // Is the full type declaration of an incomplete type
         // Overwrite id when defining full type
@@ -465,22 +462,22 @@ impl<'a> AnalyzeContext<'a> {
                     ));
                     literal.decl = Some(literal_ent.clone());
                     implicit.push(&literal_ent);
-                    parent.add(literal_ent, diagnostics);
+                    scope.add(literal_ent, diagnostics);
                 }
 
-                parent.add(enum_type.clone().into(), diagnostics);
+                scope.add(enum_type.clone().into(), diagnostics);
 
                 if let Some(standard) = self.standard_package() {
                     for ent in standard.enum_implicits(enum_type) {
                         implicit.push(&ent);
-                        parent.add(ent, diagnostics);
+                        scope.add(ent, diagnostics);
                     }
                 }
             }
             TypeDefinition::ProtectedBody(ref mut body) => {
                 body.type_reference.clear_reference();
 
-                match parent.lookup_immediate(&type_decl.ident.tree.item.clone().into()) {
+                match scope.lookup_immediate(&type_decl.ident.tree.item.clone().into()) {
                     Some(visible) => {
                         let is_ok = match visible.clone().into_non_overloaded() {
                             Ok(ent) => {
@@ -490,7 +487,7 @@ impl<'a> AnalyzeContext<'a> {
                                 )) = ent.kind()
                                 {
                                     body.type_reference.set_unique_reference(&ent);
-                                    let mut region = Region::extend(ptype_region, Some(parent));
+                                    let mut region = Scope::extend(ptype_region, Some(scope));
                                     self.analyze_declarative_part(
                                         &mut region,
                                         &mut body.decl,
@@ -541,9 +538,9 @@ impl<'a> AnalyzeContext<'a> {
                 )
                 .into();
 
-                parent.add(ptype.clone(), diagnostics);
+                scope.add(ptype.clone(), diagnostics);
 
-                let mut region = parent.nested();
+                let mut region = scope.nested();
                 for item in prot_decl.items.iter_mut() {
                     match item {
                         ProtectedTypeDeclarativeItem::Subprogram(ref mut subprogram) => {
@@ -591,11 +588,8 @@ impl<'a> AnalyzeContext<'a> {
                 let mut elems = RecordRegion::default();
                 let mut region = Region::default();
                 for elem_decl in element_decls.iter_mut() {
-                    let subtype = self.resolve_subtype_indication(
-                        parent,
-                        &mut elem_decl.subtype,
-                        diagnostics,
-                    );
+                    let subtype =
+                        self.resolve_subtype_indication(scope, &mut elem_decl.subtype, diagnostics);
                     match subtype {
                         Ok(subtype) => {
                             let elem = elem_decl
@@ -617,18 +611,18 @@ impl<'a> AnalyzeContext<'a> {
                     &mut type_decl.ident,
                     Type::Record(elems, implicit.inner()),
                 );
-                parent.add(type_ent.clone().into(), diagnostics);
+                scope.add(type_ent.clone().into(), diagnostics);
 
                 if let Some(standard) = self.standard_package() {
                     for ent in standard.record_implicits(type_ent) {
                         implicit.push(&ent);
-                        parent.add(ent, diagnostics);
+                        scope.add(ent, diagnostics);
                     }
                 }
             }
             TypeDefinition::Access(ref mut subtype_indication) => {
                 let subtype =
-                    self.resolve_subtype_indication(parent, subtype_indication, diagnostics);
+                    self.resolve_subtype_indication(scope, subtype_indication, diagnostics);
                 match subtype {
                     Ok(subtype) => {
                         let implicit = ImplicitVecBuilder::default();
@@ -638,12 +632,12 @@ impl<'a> AnalyzeContext<'a> {
                             Type::Access(subtype, implicit.inner()),
                         );
 
-                        parent.add(type_ent.clone().into(), diagnostics);
+                        scope.add(type_ent.clone().into(), diagnostics);
 
                         if let Some(standard) = self.standard_package() {
                             for ent in standard.access_implicits(type_ent) {
                                 implicit.push(&ent);
-                                parent.add(ent, diagnostics);
+                                scope.add(ent, diagnostics);
                             }
                         }
                     }
@@ -653,20 +647,17 @@ impl<'a> AnalyzeContext<'a> {
             TypeDefinition::Array(ref mut array_indexes, ref mut subtype_indication) => {
                 let mut indexes: Vec<Option<TypeEnt>> = Vec::with_capacity(array_indexes.len());
                 for index in array_indexes.iter_mut() {
-                    indexes.push(self.analyze_array_index(parent, index, diagnostics)?);
+                    indexes.push(self.analyze_array_index(scope, index, diagnostics)?);
                 }
 
-                let elem_type = match self.resolve_subtype_indication(
-                    parent,
-                    subtype_indication,
-                    diagnostics,
-                ) {
-                    Ok(subtype) => subtype.type_mark().to_owned(),
-                    Err(err) => {
-                        err.add_to(diagnostics)?;
-                        return Ok(());
-                    }
-                };
+                let elem_type =
+                    match self.resolve_subtype_indication(scope, subtype_indication, diagnostics) {
+                        Ok(subtype) => subtype.type_mark().to_owned(),
+                        Err(err) => {
+                            err.add_to(diagnostics)?;
+                            return Ok(());
+                        }
+                    };
 
                 let implicits = ImplicitVecBuilder::default();
                 let array_ent = TypeEnt::define_with_opt_id(
@@ -679,24 +670,24 @@ impl<'a> AnalyzeContext<'a> {
                     },
                 );
 
-                parent.add(array_ent.clone().into(), diagnostics);
+                scope.add(array_ent.clone().into(), diagnostics);
 
                 if let Some(standard) = self.standard_package() {
                     for ent in standard.array_implicits(array_ent) {
                         implicits.push(&ent);
-                        parent.add(ent, diagnostics);
+                        scope.add(ent, diagnostics);
                     }
                 }
             }
             TypeDefinition::Subtype(ref mut subtype_indication) => {
-                match self.resolve_subtype_indication(parent, subtype_indication, diagnostics) {
+                match self.resolve_subtype_indication(scope, subtype_indication, diagnostics) {
                     Ok(subtype) => {
                         let type_ent = TypeEnt::define_with_opt_id(
                             overwrite_id,
                             &mut type_decl.ident,
                             Type::Subtype(subtype),
                         );
-                        parent.add(type_ent.into(), diagnostics);
+                        scope.add(type_ent.into(), diagnostics);
                     }
                     Err(err) => {
                         err.add_to(diagnostics)?;
@@ -711,17 +702,17 @@ impl<'a> AnalyzeContext<'a> {
                     &mut type_decl.ident,
                     Type::Physical(implicits.inner()),
                 );
-                parent.add(phys_type.clone().into(), diagnostics);
+                scope.add(phys_type.clone().into(), diagnostics);
 
                 let primary = physical
                     .primary_unit
                     .define(NamedEntityKind::PhysicalLiteral(phys_type.clone()));
 
                 implicits.push(&primary);
-                parent.add(primary, diagnostics);
+                scope.add(primary, diagnostics);
 
                 for (secondary_unit_name, value) in physical.secondary_units.iter_mut() {
-                    match self.resolve_physical_unit(parent, &mut value.unit) {
+                    match self.resolve_physical_unit(scope, &mut value.unit) {
                         Ok(secondary_unit_type) => {
                             if secondary_unit_type.base_type() != &phys_type {
                                 diagnostics.error(
@@ -740,13 +731,13 @@ impl<'a> AnalyzeContext<'a> {
                     let secondary_unit = secondary_unit_name
                         .define(NamedEntityKind::PhysicalLiteral(phys_type.clone()));
                     implicits.push(&secondary_unit);
-                    parent.add(secondary_unit, diagnostics)
+                    scope.add(secondary_unit, diagnostics)
                 }
 
                 if let Some(standard) = self.standard_package() {
                     for ent in standard.physical_implicits(phys_type) {
                         implicits.push(&ent);
-                        parent.add(ent, diagnostics);
+                        scope.add(ent, diagnostics);
                     }
                 }
             }
@@ -755,7 +746,7 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             TypeDefinition::Numeric(ref mut range) => {
-                self.analyze_range(parent, range, diagnostics)?;
+                self.analyze_range(scope, range, diagnostics)?;
                 let implicit = ImplicitVecBuilder::default();
 
                 let kind = match integer_or_real_range(range) {
@@ -765,12 +756,12 @@ impl<'a> AnalyzeContext<'a> {
 
                 let type_ent =
                     TypeEnt::define_with_opt_id(overwrite_id, &mut type_decl.ident, kind);
-                parent.add(type_ent.clone().into(), diagnostics);
+                scope.add(type_ent.clone().into(), diagnostics);
 
                 if let Some(standard) = self.standard_package() {
                     for ent in standard.numeric_implicits(type_ent) {
                         implicit.push(&ent);
-                        parent.add(ent, diagnostics);
+                        scope.add(ent, diagnostics);
                     }
                 }
             }
@@ -784,14 +775,14 @@ impl<'a> AnalyzeContext<'a> {
                     Type::File(implicit.inner()),
                 );
 
-                match self.resolve_type_mark_name(parent, type_mark) {
+                match self.resolve_type_mark_name(scope, type_mark) {
                     Ok(type_mark) => {
                         if let Some(standard) = self.standard_package() {
                             for ent in standard
                                 .create_implicit_file_type_subprograms(&file_type, &type_mark)
                             {
                                 implicit.push(&ent);
-                                parent.add(ent, diagnostics);
+                                scope.add(ent, diagnostics);
                             }
                         }
                     }
@@ -800,7 +791,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
 
-                parent.add(file_type.into(), diagnostics);
+                scope.add(file_type.into(), diagnostics);
             }
         }
 
@@ -809,22 +800,22 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn resolve_signature(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         signature: &mut WithPos<ast::Signature>,
     ) -> AnalysisResult<SignatureKey> {
         let (args, return_type) = match &mut signature.item {
             ast::Signature::Function(ref mut args, ref mut ret) => {
                 let args: Vec<_> = args
                     .iter_mut()
-                    .map(|arg| self.resolve_type_mark_name(region, arg))
+                    .map(|arg| self.resolve_type_mark_name(scope, arg))
                     .collect();
-                let return_type = self.resolve_type_mark_name(region, ret);
+                let return_type = self.resolve_type_mark_name(scope, ret);
                 (args, Some(return_type))
             }
             ast::Signature::Procedure(args) => {
                 let args: Vec<_> = args
                     .iter_mut()
-                    .map(|arg| self.resolve_type_mark_name(region, arg))
+                    .map(|arg| self.resolve_type_mark_name(scope, arg))
                     .collect();
                 (args, None)
             }
@@ -847,14 +838,14 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_interface_declaration(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         decl: &mut InterfaceDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> AnalysisResult<Arc<NamedEntity>> {
         let ent = match decl {
             InterfaceDeclaration::File(ref mut file_decl) => {
                 let file_type = self.resolve_subtype_indication(
-                    region,
+                    scope,
                     &mut file_decl.subtype_indication,
                     diagnostics,
                 )?;
@@ -864,7 +855,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             InterfaceDeclaration::Object(ref mut object_decl) => {
                 let subtype = self.resolve_subtype_indication(
-                    region,
+                    scope,
                     &mut object_decl.subtype_indication,
                     diagnostics,
                 );
@@ -872,14 +863,14 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(ref mut expression) = object_decl.expression {
                     if let Ok(ref subtype) = subtype {
                         self.analyze_expression_with_target_type(
-                            region,
+                            scope,
                             subtype.type_mark(),
                             &expression.pos,
                             &mut expression.item,
                             diagnostics,
                         )?;
                     } else {
-                        self.analyze_expression(region, expression, diagnostics)?
+                        self.analyze_expression(scope, expression, diagnostics)?
                     }
                 }
 
@@ -895,7 +886,7 @@ impl<'a> AnalyzeContext<'a> {
                 ident.define(NamedEntityKind::Type(Type::Interface))
             }
             InterfaceDeclaration::Subprogram(ref mut subpgm, ..) => {
-                let mut subpgm_region = region.nested();
+                let mut subpgm_region = scope.nested();
                 let signature =
                     self.analyze_subprogram_declaration(&mut subpgm_region, subpgm, diagnostics);
                 subpgm_region.close(diagnostics);
@@ -905,7 +896,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             InterfaceDeclaration::Package(ref mut instance) => {
                 let package_region =
-                    self.analyze_package_instance_name(region, &mut instance.package_name)?;
+                    self.analyze_package_instance_name(scope, &mut instance.package_name)?;
 
                 instance.ident.define(NamedEntityKind::LocalPackageInstance(
                     package_region.clone(),
@@ -917,14 +908,14 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_interface_list(
         &self,
-        region: &mut Region<'_>,
+        scope: &mut Scope<'_>,
         declarations: &mut [InterfaceDeclaration],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         for decl in declarations.iter_mut() {
-            match self.analyze_interface_declaration(region, decl, diagnostics) {
+            match self.analyze_interface_declaration(scope, decl, diagnostics) {
                 Ok(ent) => {
-                    region.add(ent, diagnostics);
+                    scope.add(ent, diagnostics);
                 }
                 Err(err) => {
                     err.add_to(diagnostics)?;
@@ -936,16 +927,16 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_parameter_list(
         &self,
-        region: &mut Region<'_>,
+        scope: &mut Scope<'_>,
         declarations: &mut [InterfaceDeclaration],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<FormalRegion> {
         let mut params = FormalRegion::new(InterfaceListType::Parameter);
 
         for decl in declarations.iter_mut() {
-            match self.analyze_interface_declaration(region, decl, diagnostics) {
+            match self.analyze_interface_declaration(scope, decl, diagnostics) {
                 Ok(ent) => {
-                    region.add(ent.clone(), diagnostics);
+                    scope.add(ent.clone(), diagnostics);
                     params.add(ent);
                 }
                 Err(err) => {
@@ -958,13 +949,13 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_array_index(
         &self,
-        region: &mut Region<'_>,
+        scope: &mut Scope<'_>,
         array_index: &mut ArrayIndex,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<Option<TypeEnt>> {
         match array_index {
             ArrayIndex::IndexSubtypeDefintion(ref mut type_mark) => {
-                match self.resolve_type_mark_name(region, type_mark) {
+                match self.resolve_type_mark_name(scope, type_mark) {
                     Ok(typ) => Ok(Some(typ)),
                     Err(err) => {
                         err.add_to(diagnostics)?;
@@ -973,7 +964,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             ArrayIndex::Discrete(ref mut drange) => {
-                self.analyze_discrete_range(region, drange, diagnostics)?;
+                self.analyze_discrete_range(scope, drange, diagnostics)?;
                 Ok(None)
             }
         }
@@ -981,36 +972,36 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_element_constraint(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         constraint: &mut ElementConstraint,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         // @TODO more
         let ElementConstraint { constraint, .. } = constraint;
-        self.analyze_subtype_constraint(region, &mut constraint.item, diagnostics)
+        self.analyze_subtype_constraint(scope, &mut constraint.item, diagnostics)
     }
 
     fn analyze_subtype_constraint(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         constraint: &mut SubtypeConstraint,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         match constraint {
             SubtypeConstraint::Array(ref mut dranges, ref mut constraint) => {
                 for drange in dranges.iter_mut() {
-                    self.analyze_discrete_range(region, drange, diagnostics)?;
+                    self.analyze_discrete_range(scope, drange, diagnostics)?;
                 }
                 if let Some(constraint) = constraint {
-                    self.analyze_subtype_constraint(region, &mut constraint.item, diagnostics)?;
+                    self.analyze_subtype_constraint(scope, &mut constraint.item, diagnostics)?;
                 }
             }
             SubtypeConstraint::Range(ref mut range) => {
-                self.analyze_range(region, range, diagnostics)?;
+                self.analyze_range(scope, range, diagnostics)?;
             }
             SubtypeConstraint::Record(ref mut constraints) => {
                 for constraint in constraints.iter_mut() {
-                    self.analyze_element_constraint(region, constraint, diagnostics)?;
+                    self.analyze_element_constraint(scope, constraint, diagnostics)?;
                 }
             }
         }
@@ -1019,7 +1010,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn resolve_subtype_indication(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         subtype_indication: &mut SubtypeIndication,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> AnalysisResult<Subtype> {
@@ -1030,10 +1021,10 @@ impl<'a> AnalyzeContext<'a> {
             ..
         } = subtype_indication;
 
-        let base_type = self.resolve_type_mark(region, type_mark)?;
+        let base_type = self.resolve_type_mark(scope, type_mark)?;
 
         if let Some(constraint) = constraint {
-            self.analyze_subtype_constraint(region, &mut constraint.item, diagnostics)?;
+            self.analyze_subtype_constraint(scope, &mut constraint.item, diagnostics)?;
         }
 
         Ok(Subtype::new(base_type))
@@ -1041,11 +1032,11 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_subtype_indication(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         subtype_indication: &mut SubtypeIndication,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        if let Err(err) = self.resolve_subtype_indication(region, subtype_indication, diagnostics) {
+        if let Err(err) = self.resolve_subtype_indication(scope, subtype_indication, diagnostics) {
             err.add_to(diagnostics)?;
         }
         Ok(())
@@ -1053,20 +1044,20 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_subprogram_declaration(
         &self,
-        region: &mut Region<'_>,
+        scope: &mut Scope<'_>,
         subprogram: &mut SubprogramDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> AnalysisResult<Signature> {
         match subprogram {
             SubprogramDeclaration::Function(fun) => {
                 let params =
-                    self.analyze_parameter_list(region, &mut fun.parameter_list, diagnostics);
-                let return_type = self.resolve_type_mark_name(region, &mut fun.return_type);
+                    self.analyze_parameter_list(scope, &mut fun.parameter_list, diagnostics);
+                let return_type = self.resolve_type_mark_name(scope, &mut fun.return_type);
                 Ok(Signature::new(params?, Some(return_type?)))
             }
             SubprogramDeclaration::Procedure(procedure) => {
                 let params =
-                    self.analyze_parameter_list(region, &mut procedure.parameter_list, diagnostics);
+                    self.analyze_parameter_list(scope, &mut procedure.parameter_list, diagnostics);
                 Ok(Signature::new(params?, None))
             }
         }

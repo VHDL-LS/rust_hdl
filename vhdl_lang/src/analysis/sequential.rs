@@ -17,19 +17,19 @@ use target::AssignmentType;
 impl<'a> AnalyzeContext<'a> {
     fn analyze_sequential_statement(
         &self,
-        parent: &mut Region<'_>,
+        scope: &mut Scope<'_>,
         statement: &mut LabeledSequentialStatement,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         if let Some(ref mut label) = statement.label {
-            parent.add(label.define(NamedEntityKind::Label), diagnostics);
+            scope.add(label.define(NamedEntityKind::Label), diagnostics);
         }
 
         match statement.statement {
             SequentialStatement::Return(ref mut ret) => {
                 let ReturnStatement { expression } = ret;
                 if let Some(ref mut expression) = expression {
-                    self.analyze_expression(parent, expression, diagnostics)?;
+                    self.analyze_expression(scope, expression, diagnostics)?;
                 }
             }
             SequentialStatement::Wait(ref mut wait_stmt) => {
@@ -39,13 +39,13 @@ impl<'a> AnalyzeContext<'a> {
                     timeout_clause,
                 } = wait_stmt;
                 for name in sensitivity_clause.iter_mut() {
-                    self.resolve_name(parent, &name.pos, &mut name.item, diagnostics)?;
+                    self.resolve_name(scope, &name.pos, &mut name.item, diagnostics)?;
                 }
                 if let Some(expr) = condition_clause {
-                    self.analyze_expression(parent, expr, diagnostics)?;
+                    self.analyze_expression(scope, expr, diagnostics)?;
                 }
                 if let Some(expr) = timeout_clause {
-                    self.analyze_expression(parent, expr, diagnostics)?;
+                    self.analyze_expression(scope, expr, diagnostics)?;
                 }
             }
             SequentialStatement::Assert(ref mut assert_stmt) => {
@@ -54,19 +54,19 @@ impl<'a> AnalyzeContext<'a> {
                     report,
                     severity,
                 } = assert_stmt;
-                self.analyze_expression(parent, condition, diagnostics)?;
+                self.analyze_expression(scope, condition, diagnostics)?;
                 if let Some(expr) = report {
-                    self.analyze_expression(parent, expr, diagnostics)?;
+                    self.analyze_expression(scope, expr, diagnostics)?;
                 }
                 if let Some(expr) = severity {
-                    self.analyze_expression(parent, expr, diagnostics)?;
+                    self.analyze_expression(scope, expr, diagnostics)?;
                 }
             }
             SequentialStatement::Report(ref mut report_stmt) => {
                 let ReportStatement { report, severity } = report_stmt;
-                self.analyze_expression(parent, report, diagnostics)?;
+                self.analyze_expression(scope, report, diagnostics)?;
                 if let Some(expr) = severity {
-                    self.analyze_expression(parent, expr, diagnostics)?;
+                    self.analyze_expression(scope, expr, diagnostics)?;
                 }
             }
             SequentialStatement::Exit(ref mut exit_stmt) => {
@@ -77,7 +77,7 @@ impl<'a> AnalyzeContext<'a> {
                 } = exit_stmt;
 
                 if let Some(expr) = condition {
-                    self.analyze_expression(parent, expr, diagnostics)?;
+                    self.analyze_expression(scope, expr, diagnostics)?;
                 }
             }
             SequentialStatement::Next(ref mut next_stmt) => {
@@ -88,7 +88,7 @@ impl<'a> AnalyzeContext<'a> {
                 } = next_stmt;
 
                 if let Some(expr) = condition {
-                    self.analyze_expression(parent, expr, diagnostics)?;
+                    self.analyze_expression(scope, expr, diagnostics)?;
                 }
             }
             SequentialStatement::If(ref mut ifstmt) => {
@@ -100,11 +100,11 @@ impl<'a> AnalyzeContext<'a> {
                 // @TODO write generic function for this
                 for conditional in conditionals {
                     let Conditional { condition, item } = conditional;
-                    self.analyze_sequential_part(parent, item, diagnostics)?;
-                    self.analyze_expression(parent, condition, diagnostics)?;
+                    self.analyze_sequential_part(scope, item, diagnostics)?;
+                    self.analyze_expression(scope, condition, diagnostics)?;
                 }
                 if let Some(else_item) = else_item {
-                    self.analyze_sequential_part(parent, else_item, diagnostics)?;
+                    self.analyze_sequential_part(scope, else_item, diagnostics)?;
                 }
             }
             SequentialStatement::Case(ref mut case_stmt) => {
@@ -113,11 +113,11 @@ impl<'a> AnalyzeContext<'a> {
                     expression,
                     alternatives,
                 } = case_stmt;
-                self.analyze_expression(parent, expression, diagnostics)?;
+                self.analyze_expression(scope, expression, diagnostics)?;
                 for alternative in alternatives.iter_mut() {
                     let Alternative { choices, item } = alternative;
-                    self.analyze_choices(parent, choices, diagnostics)?;
-                    self.analyze_sequential_part(parent, item, diagnostics)?;
+                    self.analyze_choices(scope, choices, diagnostics)?;
+                    self.analyze_sequential_part(scope, item, diagnostics)?;
                 }
             }
             SequentialStatement::Loop(ref mut loop_stmt) => {
@@ -127,28 +127,28 @@ impl<'a> AnalyzeContext<'a> {
                 } = loop_stmt;
                 match iteration_scheme {
                     Some(IterationScheme::For(ref mut index, ref mut drange)) => {
-                        self.analyze_discrete_range(parent, drange, diagnostics)?;
-                        let mut region = parent.nested();
+                        self.analyze_discrete_range(scope, drange, diagnostics)?;
+                        let mut region = scope.nested();
                         region.add(index.define(NamedEntityKind::LoopParameter), diagnostics);
                         self.analyze_sequential_part(&mut region, statements, diagnostics)?;
                     }
                     Some(IterationScheme::While(ref mut expr)) => {
-                        self.analyze_expression(parent, expr, diagnostics)?;
-                        self.analyze_sequential_part(parent, statements, diagnostics)?;
+                        self.analyze_expression(scope, expr, diagnostics)?;
+                        self.analyze_sequential_part(scope, statements, diagnostics)?;
                     }
                     None => {
-                        self.analyze_sequential_part(parent, statements, diagnostics)?;
+                        self.analyze_sequential_part(scope, statements, diagnostics)?;
                     }
                 }
             }
             SequentialStatement::ProcedureCall(ref mut pcall) => {
-                self.analyze_procedure_call(parent, pcall, diagnostics)?;
+                self.analyze_procedure_call(scope, pcall, diagnostics)?;
             }
             SequentialStatement::SignalAssignment(ref mut assign) => {
                 // @TODO more
                 let SignalAssignment { target, rhs, .. } = assign;
                 self.analyze_waveform_assignment(
-                    parent,
+                    scope,
                     target,
                     AssignmentType::Signal,
                     rhs,
@@ -158,7 +158,7 @@ impl<'a> AnalyzeContext<'a> {
             SequentialStatement::VariableAssignment(ref mut assign) => {
                 let VariableAssignment { target, rhs } = assign;
                 self.analyze_expr_assignment(
-                    parent,
+                    scope,
                     target,
                     AssignmentType::Variable,
                     rhs,
@@ -172,7 +172,7 @@ impl<'a> AnalyzeContext<'a> {
                     rhs,
                 } = assign;
                 self.analyze_expr_assignment(
-                    parent,
+                    scope,
                     target,
                     AssignmentType::Signal,
                     rhs,
@@ -184,7 +184,7 @@ impl<'a> AnalyzeContext<'a> {
                     target,
                     force_mode: _,
                 } = assign;
-                self.analyze_target(parent, target, AssignmentType::Signal, diagnostics)?;
+                self.analyze_target(scope, target, AssignmentType::Signal, diagnostics)?;
             }
             SequentialStatement::Null => {}
         }
@@ -193,12 +193,12 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_sequential_part(
         &self,
-        parent: &mut Region<'_>,
+        scope: &mut Scope<'_>,
         statements: &mut [LabeledSequentialStatement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         for statement in statements.iter_mut() {
-            self.analyze_sequential_statement(parent, statement, diagnostics)?;
+            self.analyze_sequential_statement(scope, statement, diagnostics)?;
         }
 
         Ok(())

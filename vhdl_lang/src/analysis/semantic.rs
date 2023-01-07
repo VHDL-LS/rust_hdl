@@ -142,7 +142,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn resolve_selected_name(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         name: &mut WithPos<SelectedName>,
     ) -> AnalysisResult<NamedEntities> {
         match name.item {
@@ -150,7 +150,7 @@ impl<'a> AnalyzeContext<'a> {
                 suffix.clear_reference();
 
                 let prefix_ent = self
-                    .resolve_selected_name(region, prefix)?
+                    .resolve_selected_name(scope, prefix)?
                     .into_non_overloaded();
                 if let Ok(prefix_ent) = prefix_ent {
                     let visible = self.lookup_selected(&prefix.pos, &prefix_ent, suffix)?;
@@ -165,7 +165,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             SelectedName::Designator(ref mut designator) => {
                 designator.clear_reference();
-                let visible = region.lookup(&name.pos, designator.designator())?;
+                let visible = scope.lookup(&name.pos, designator.designator())?;
                 designator.set_reference(&visible);
                 Ok(visible)
             }
@@ -174,7 +174,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn resolve_name(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         name_pos: &SrcPos,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -183,7 +183,7 @@ impl<'a> AnalyzeContext<'a> {
             Name::Selected(prefix, suffix) => {
                 suffix.clear_reference();
 
-                match self.resolve_name(region, &prefix.pos, &mut prefix.item, diagnostics)? {
+                match self.resolve_name(scope, &prefix.pos, &mut prefix.item, diagnostics)? {
                     Some(NamedEntities::Single(ref named_entity)) => {
                         match self.lookup_selected(&prefix.pos, named_entity, suffix) {
                             Ok(visible) => {
@@ -202,13 +202,13 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             Name::SelectedAll(prefix) => {
-                self.resolve_name(region, &prefix.pos, &mut prefix.item, diagnostics)?;
+                self.resolve_name(scope, &prefix.pos, &mut prefix.item, diagnostics)?;
 
                 Ok(None)
             }
             Name::Designator(designator) => {
                 designator.clear_reference();
-                match region.lookup(name_pos, designator.designator()) {
+                match scope.lookup(name_pos, designator.designator()) {
                     Ok(visible) => {
                         designator.set_reference(&visible);
                         Ok(Some(visible))
@@ -220,29 +220,29 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             Name::Indexed(ref mut prefix, ref mut exprs) => {
-                self.resolve_name(region, &prefix.pos, &mut prefix.item, diagnostics)?;
+                self.resolve_name(scope, &prefix.pos, &mut prefix.item, diagnostics)?;
                 for expr in exprs.iter_mut() {
-                    self.analyze_expression(region, expr, diagnostics)?;
+                    self.analyze_expression(scope, expr, diagnostics)?;
                 }
                 Ok(None)
             }
 
             Name::Slice(ref mut prefix, ref mut drange) => {
-                self.resolve_name(region, &prefix.pos, &mut prefix.item, diagnostics)?;
-                self.analyze_discrete_range(region, drange.as_mut(), diagnostics)?;
+                self.resolve_name(scope, &prefix.pos, &mut prefix.item, diagnostics)?;
+                self.analyze_discrete_range(scope, drange.as_mut(), diagnostics)?;
                 Ok(None)
             }
             Name::Attribute(ref mut attr) => {
-                self.analyze_attribute_name(region, attr, diagnostics)?;
+                self.analyze_attribute_name(scope, attr, diagnostics)?;
                 Ok(None)
             }
             Name::FunctionCall(..) => {
-                self.analyze_function_call_or_indexed_name(region, name_pos, name, diagnostics)?;
+                self.analyze_function_call_or_indexed_name(scope, name_pos, name, diagnostics)?;
                 Ok(None)
             }
             Name::External(ref mut ename) => {
                 let ExternalName { subtype, .. } = ename.as_mut();
-                self.analyze_subtype_indication(region, subtype, diagnostics)?;
+                self.analyze_subtype_indication(scope, subtype, diagnostics)?;
                 Ok(None)
             }
         }
@@ -276,10 +276,10 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn resolve_type_mark_name(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         type_mark: &mut WithPos<SelectedName>,
     ) -> AnalysisResult<TypeEnt> {
-        let entities = self.resolve_selected_name(region, type_mark)?;
+        let entities = self.resolve_selected_name(scope, type_mark)?;
 
         let pos = type_mark.suffix_pos();
         let expected = "type";
@@ -289,13 +289,13 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn resolve_type_mark(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         type_mark: &mut WithPos<TypeMark>,
     ) -> AnalysisResult<TypeEnt> {
         if !type_mark.item.subtype {
-            self.resolve_type_mark_name(region, &mut type_mark.item.name)
+            self.resolve_type_mark_name(scope, &mut type_mark.item.name)
         } else {
-            let entities = self.resolve_selected_name(region, &mut type_mark.item.name)?;
+            let entities = self.resolve_selected_name(scope, &mut type_mark.item.name)?;
 
             let pos = type_mark.item.name.suffix_pos();
             let expected = "object or alias";
@@ -314,11 +314,11 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_attribute_name(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         attr: &mut AttributeName,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        // @TODO more, attr must be checked inside the region of attributes of prefix
+        // @TODO more, attr must be checked inside the scope of attributes of prefix
         let AttributeName {
             name,
             signature,
@@ -326,32 +326,32 @@ impl<'a> AnalyzeContext<'a> {
             ..
         } = attr;
 
-        self.resolve_name(region, &name.pos, &mut name.item, diagnostics)?;
+        self.resolve_name(scope, &name.pos, &mut name.item, diagnostics)?;
 
         if let Some(ref mut signature) = signature {
-            if let Err(err) = self.resolve_signature(region, signature) {
+            if let Err(err) = self.resolve_signature(scope, signature) {
                 err.add_to(diagnostics)?;
             }
         }
         if let Some(ref mut expr) = expr {
-            self.analyze_expression(region, expr, diagnostics)?;
+            self.analyze_expression(scope, expr, diagnostics)?;
         }
         Ok(())
     }
 
     pub fn analyze_range(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         range: &mut Range,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         match range {
             Range::Range(ref mut constraint) => {
-                self.analyze_expression(region, &mut constraint.left_expr, diagnostics)?;
-                self.analyze_expression(region, &mut constraint.right_expr, diagnostics)?;
+                self.analyze_expression(scope, &mut constraint.left_expr, diagnostics)?;
+                self.analyze_expression(scope, &mut constraint.right_expr, diagnostics)?;
             }
             Range::Attribute(ref mut attr) => {
-                self.analyze_attribute_name(region, attr, diagnostics)?
+                self.analyze_attribute_name(scope, attr, diagnostics)?
             }
         }
         Ok(())
@@ -359,7 +359,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_range_with_target_type(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         target_type: &TypeEnt,
         range: &mut Range,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -367,21 +367,21 @@ impl<'a> AnalyzeContext<'a> {
         match range {
             Range::Range(ref mut constraint) => Ok(self
                 .analyze_expression_with_target_type(
-                    region,
+                    scope,
                     target_type,
                     &constraint.left_expr.pos,
                     &mut constraint.left_expr.item,
                     diagnostics,
                 )?
                 .combine(self.analyze_expression_with_target_type(
-                    region,
+                    scope,
                     target_type,
                     &constraint.right_expr.pos,
                     &mut constraint.right_expr.item,
                     diagnostics,
                 )?)),
             Range::Attribute(ref mut attr) => {
-                self.analyze_attribute_name(region, attr, diagnostics)?;
+                self.analyze_attribute_name(scope, attr, diagnostics)?;
                 Ok(TypeCheck::Unknown)
             }
         }
@@ -389,21 +389,21 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_discrete_range(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         drange: &mut DiscreteRange,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         match drange {
             DiscreteRange::Discrete(ref mut type_mark, ref mut range) => {
-                if let Err(err) = self.resolve_type_mark_name(region, type_mark) {
+                if let Err(err) = self.resolve_type_mark_name(scope, type_mark) {
                     err.add_to(diagnostics)?;
                 }
                 if let Some(ref mut range) = range {
-                    self.analyze_range(region, range, diagnostics)?;
+                    self.analyze_range(scope, range, diagnostics)?;
                 }
             }
             DiscreteRange::Range(ref mut range) => {
-                self.analyze_range(region, range, diagnostics)?;
+                self.analyze_range(scope, range, diagnostics)?;
             }
         }
         Ok(())
@@ -411,40 +411,40 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_discrete_range_with_target_type(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         target_type: &TypeEnt,
         drange: &mut DiscreteRange,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<TypeCheck> {
         match drange {
             DiscreteRange::Discrete(ref mut type_mark, ref mut range) => {
-                if let Err(err) = self.resolve_type_mark_name(region, type_mark) {
+                if let Err(err) = self.resolve_type_mark_name(scope, type_mark) {
                     err.add_to(diagnostics)?;
                 }
                 if let Some(ref mut range) = range {
-                    self.analyze_range_with_target_type(region, target_type, range, diagnostics)?;
+                    self.analyze_range_with_target_type(scope, target_type, range, diagnostics)?;
                 }
                 Ok(TypeCheck::Unknown)
             }
             DiscreteRange::Range(ref mut range) => {
-                self.analyze_range_with_target_type(region, target_type, range, diagnostics)
+                self.analyze_range_with_target_type(scope, target_type, range, diagnostics)
             }
         }
     }
 
     pub fn analyze_choices(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         choices: &mut [Choice],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         for choice in choices.iter_mut() {
             match choice {
                 Choice::Expression(ref mut expr) => {
-                    self.analyze_expression(region, expr, diagnostics)?;
+                    self.analyze_expression(scope, expr, diagnostics)?;
                 }
                 Choice::DiscreteRange(ref mut drange) => {
-                    self.analyze_discrete_range(region, drange, diagnostics)?;
+                    self.analyze_discrete_range(scope, drange, diagnostics)?;
                 }
                 Choice::Others => {}
             }
@@ -454,16 +454,16 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_expression(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         expr: &mut WithPos<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        self.analyze_expression_pos(region, &expr.pos, &mut expr.item, diagnostics)
+        self.analyze_expression_pos(scope, &expr.pos, &mut expr.item, diagnostics)
     }
 
     pub fn analyze_waveform(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         wavf: &mut Waveform,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -471,9 +471,9 @@ impl<'a> AnalyzeContext<'a> {
             Waveform::Elements(ref mut elems) => {
                 for elem in elems.iter_mut() {
                     let WaveformElement { value, after } = elem;
-                    self.analyze_expression(region, value, diagnostics)?;
+                    self.analyze_expression(scope, value, diagnostics)?;
                     if let Some(expr) = after {
-                        self.analyze_expression(region, expr, diagnostics)?;
+                        self.analyze_expression(scope, expr, diagnostics)?;
                     }
                 }
             }
@@ -484,14 +484,14 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_assoc_elems(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         elems: &mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         for AssociationElement { actual, .. } in elems.iter_mut() {
             match actual.item {
                 ActualPart::Expression(ref mut expr) => {
-                    self.analyze_expression_pos(region, &actual.pos, expr, diagnostics)?;
+                    self.analyze_expression_pos(scope, &actual.pos, expr, diagnostics)?;
                 }
                 ActualPart::Open => {}
             }
@@ -501,13 +501,13 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_procedure_call(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         fcall: &mut FunctionCall,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         let FunctionCall { name, parameters } = fcall;
 
-        if let Some(entities) = self.resolve_name(region, &name.pos, &mut name.item, diagnostics)? {
+        if let Some(entities) = self.resolve_name(scope, &name.pos, &mut name.item, diagnostics)? {
             match entities {
                 NamedEntities::Single(ent) => {
                     let mut diagnostic = Diagnostic::error(&name.pos, "Invalid procedure call");
@@ -518,7 +518,7 @@ impl<'a> AnalyzeContext<'a> {
                         );
                     }
                     diagnostics.push(diagnostic);
-                    self.analyze_assoc_elems(region, parameters, diagnostics)?;
+                    self.analyze_assoc_elems(scope, parameters, diagnostics)?;
                 }
                 NamedEntities::Overloaded(names) => {
                     let mut found = false;
@@ -533,7 +533,7 @@ impl<'a> AnalyzeContext<'a> {
                     if found {
                         if let Some(suffix) = fcall.name.item.suffix_reference_mut() {
                             self.resolve_overloaded_with_target_type(
-                                region,
+                                scope,
                                 names,
                                 None,
                                 &fcall.name.pos,
@@ -543,7 +543,7 @@ impl<'a> AnalyzeContext<'a> {
                                 diagnostics,
                             )?;
                         } else {
-                            self.analyze_assoc_elems(region, parameters, diagnostics)?;
+                            self.analyze_assoc_elems(scope, parameters, diagnostics)?;
                         }
                     } else {
                         let mut diagnostic = Diagnostic::error(&name.pos, "Invalid procedure call");
@@ -556,19 +556,19 @@ impl<'a> AnalyzeContext<'a> {
                             }
                         }
                         diagnostics.push(diagnostic);
-                        self.analyze_assoc_elems(region, parameters, diagnostics)?;
+                        self.analyze_assoc_elems(scope, parameters, diagnostics)?;
                     }
                 }
             };
         } else {
-            self.analyze_assoc_elems(region, parameters, diagnostics)?;
+            self.analyze_assoc_elems(scope, parameters, diagnostics)?;
         }
         Ok(())
     }
 
     pub fn analyze_aggregate(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         assocs: &mut [ElementAssociation],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -581,15 +581,15 @@ impl<'a> AnalyzeContext<'a> {
                                 // @TODO could be record field so we cannot do more now
                             }
                             Choice::DiscreteRange(ref mut drange) => {
-                                self.analyze_discrete_range(region, drange, diagnostics)?;
+                                self.analyze_discrete_range(scope, drange, diagnostics)?;
                             }
                             Choice::Others => {}
                         }
                     }
-                    self.analyze_expression(region, expr, diagnostics)?;
+                    self.analyze_expression(scope, expr, diagnostics)?;
                 }
                 ElementAssociation::Positional(ref mut expr) => {
-                    self.analyze_expression(region, expr, diagnostics)?;
+                    self.analyze_expression(scope, expr, diagnostics)?;
                 }
             }
         }
@@ -598,7 +598,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_record_aggregate(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         record_type: &TypeEnt,
         elems: &RecordRegion,
         assocs: &mut [ElementAssociation],
@@ -649,18 +649,18 @@ impl<'a> AnalyzeContext<'a> {
 
                     if let Some(elem) = elem {
                         self.analyze_expression_with_target_type(
-                            region,
+                            scope,
                             elem.type_mark(),
                             &actual_expr.pos,
                             &mut actual_expr.item,
                             diagnostics,
                         )?;
                     } else {
-                        self.analyze_expression(region, actual_expr, diagnostics)?;
+                        self.analyze_expression(scope, actual_expr, diagnostics)?;
                     }
                 }
                 ElementAssociation::Positional(ref mut expr) => {
-                    self.analyze_expression(region, expr, diagnostics)?;
+                    self.analyze_expression(scope, expr, diagnostics)?;
                 }
             }
         }
@@ -669,7 +669,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_1d_array_assoc_elem(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         array_type: &TypeEnt,
         index_type: Option<&TypeEnt>,
         elem_type: &TypeEnt,
@@ -686,7 +686,7 @@ impl<'a> AnalyzeContext<'a> {
                         Choice::Expression(index_expr) => {
                             if let Some(index_type) = index_type {
                                 check.add(self.analyze_expression_with_target_type(
-                                    region,
+                                    scope,
                                     index_type,
                                     &index_expr.pos,
                                     &mut index_expr.item,
@@ -698,13 +698,13 @@ impl<'a> AnalyzeContext<'a> {
                         Choice::DiscreteRange(ref mut drange) => {
                             if let Some(index_type) = index_type {
                                 check.add(self.analyze_discrete_range_with_target_type(
-                                    region,
+                                    scope,
                                     index_type,
                                     drange,
                                     diagnostics,
                                 )?);
                             } else {
-                                self.analyze_discrete_range(region, drange, diagnostics)?;
+                                self.analyze_discrete_range(scope, drange, diagnostics)?;
                                 check.add(TypeCheck::Unknown)
                             }
                         }
@@ -725,7 +725,7 @@ impl<'a> AnalyzeContext<'a> {
             let mut elem_diagnostics = Vec::new();
 
             let elem_check = self.analyze_expression_with_target_type(
-                region,
+                scope,
                 elem_type,
                 &expr.pos,
                 &mut expr.item,
@@ -738,7 +738,7 @@ impl<'a> AnalyzeContext<'a> {
             } else {
                 let mut array_diagnostics = Vec::new();
                 let array_check = self.analyze_expression_with_target_type(
-                    region,
+                    scope,
                     array_type,
                     &expr.pos,
                     &mut expr.item,
@@ -755,7 +755,7 @@ impl<'a> AnalyzeContext<'a> {
             };
         } else {
             check.add(self.analyze_expression_with_target_type(
-                region,
+                scope,
                 elem_type,
                 &expr.pos,
                 &mut expr.item,
@@ -767,16 +767,16 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_qualified_expression(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         qexpr: &mut QualifiedExpression,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<Option<TypeEnt>> {
         let QualifiedExpression { type_mark, expr } = qexpr;
 
-        match self.resolve_type_mark(region, type_mark) {
+        match self.resolve_type_mark(scope, type_mark) {
             Ok(target_type) => {
                 self.analyze_expression_with_target_type(
-                    region,
+                    scope,
                     &target_type,
                     &expr.pos,
                     &mut expr.item,
@@ -785,7 +785,7 @@ impl<'a> AnalyzeContext<'a> {
                 Ok(Some(target_type))
             }
             Err(e) => {
-                self.analyze_expression(region, expr, diagnostics)?;
+                self.analyze_expression(scope, expr, diagnostics)?;
                 e.add_to(diagnostics)?;
                 Ok(None)
             }
@@ -794,16 +794,16 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_allocation(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         alloc: &mut WithPos<Allocator>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         match &mut alloc.item {
             Allocator::Qualified(ref mut qexpr) => {
-                self.analyze_qualified_expression(region, qexpr, diagnostics)?;
+                self.analyze_qualified_expression(scope, qexpr, diagnostics)?;
             }
             Allocator::Subtype(ref mut subtype) => {
-                self.analyze_subtype_indication(region, subtype, diagnostics)?;
+                self.analyze_subtype_indication(scope, subtype, diagnostics)?;
             }
         }
         Ok(())
@@ -811,34 +811,34 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_expression_pos(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         pos: &SrcPos,
         expr: &mut Expression,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         match expr {
             Expression::Binary(_, ref mut left, ref mut right) => {
-                self.analyze_expression(region, left, diagnostics)?;
-                self.analyze_expression(region, right, diagnostics)
+                self.analyze_expression(scope, left, diagnostics)?;
+                self.analyze_expression(scope, right, diagnostics)
             }
             Expression::Unary(_, ref mut inner) => {
-                self.analyze_expression(region, inner, diagnostics)
+                self.analyze_expression(scope, inner, diagnostics)
             }
             Expression::Name(ref mut name) => {
-                self.resolve_name(region, pos, name, diagnostics)?;
+                self.resolve_name(scope, pos, name, diagnostics)?;
                 Ok(())
             }
             Expression::Aggregate(ref mut assocs) => {
-                self.analyze_aggregate(region, assocs, diagnostics)
+                self.analyze_aggregate(scope, assocs, diagnostics)
             }
             Expression::Qualified(ref mut qexpr) => {
-                self.analyze_qualified_expression(region, qexpr, diagnostics)?;
+                self.analyze_qualified_expression(scope, qexpr, diagnostics)?;
                 Ok(())
             }
-            Expression::New(ref mut alloc) => self.analyze_allocation(region, alloc, diagnostics),
+            Expression::New(ref mut alloc) => self.analyze_allocation(scope, alloc, diagnostics),
             Expression::Literal(ref mut literal) => match literal {
                 Literal::Physical(PhysicalLiteral { ref mut unit, .. }) => {
-                    if let Err(diagnostic) = self.resolve_physical_unit(region, unit) {
+                    if let Err(diagnostic) = self.resolve_physical_unit(scope, unit) {
                         diagnostics.push(diagnostic);
                     }
                     Ok(())
@@ -852,7 +852,7 @@ impl<'a> AnalyzeContext<'a> {
     /// Returns the type of the array element
     pub fn analyze_indexed_name(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         name_pos: &SrcPos,
         suffix_pos: &SrcPos,
         type_mark: &TypeEnt,
@@ -883,7 +883,7 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             for index in indexes.iter_mut() {
-                self.analyze_expression(region, index, diagnostics)?;
+                self.analyze_expression(scope, index, diagnostics)?;
             }
 
             Ok(elem_type.clone())
@@ -925,7 +925,7 @@ impl<'a> AnalyzeContext<'a> {
     /// Use the named entity kind to disambiguate
     pub fn analyze_function_call_or_indexed_name(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         name_pos: &SrcPos,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -933,7 +933,7 @@ impl<'a> AnalyzeContext<'a> {
         match name {
             Name::FunctionCall(ref mut fcall) => {
                 match self.resolve_name(
-                    region,
+                    scope,
                     &fcall.name.pos,
                     &mut fcall.name.item,
                     diagnostics,
@@ -942,14 +942,14 @@ impl<'a> AnalyzeContext<'a> {
                         if ent.actual_kind().is_type() {
                             // A type conversion
                             // @TODO Ignore for now
-                            self.analyze_assoc_elems(region, &mut fcall.parameters, diagnostics)?;
+                            self.analyze_assoc_elems(scope, &mut fcall.parameters, diagnostics)?;
                         } else if let Some((prefix, indexes)) = fcall.to_indexed() {
                             *name = Name::Indexed(prefix, indexes);
                             let Name::Indexed(ref mut prefix, ref mut indexes) = name else { unreachable!()};
 
                             if let Some(type_mark) = type_mark_of_sliced_or_indexed(&ent) {
                                 if let Err(err) = self.analyze_indexed_name(
-                                    region,
+                                    scope,
                                     name_pos,
                                     prefix.suffix_pos(),
                                     type_mark,
@@ -973,15 +973,15 @@ impl<'a> AnalyzeContext<'a> {
                                 ),
                             ));
 
-                            self.analyze_assoc_elems(region, &mut fcall.parameters, diagnostics)?;
+                            self.analyze_assoc_elems(scope, &mut fcall.parameters, diagnostics)?;
                         }
                     }
                     Some(NamedEntities::Overloaded(..)) => {
                         // @TODO check function arguments
-                        self.analyze_assoc_elems(region, &mut fcall.parameters, diagnostics)?;
+                        self.analyze_assoc_elems(scope, &mut fcall.parameters, diagnostics)?;
                     }
                     None => {
-                        self.analyze_assoc_elems(region, &mut fcall.parameters, diagnostics)?;
+                        self.analyze_assoc_elems(scope, &mut fcall.parameters, diagnostics)?;
                     }
                 };
             }
@@ -996,7 +996,7 @@ impl<'a> AnalyzeContext<'a> {
     /// None if it was uncertain
     pub fn analyze_name_with_target_type(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         target_type: &TypeEnt,
         name_pos: &SrcPos,
         name: &mut Name,
@@ -1006,7 +1006,7 @@ impl<'a> AnalyzeContext<'a> {
             Name::Designator(designator) => {
                 designator.clear_reference();
 
-                match region.lookup(name_pos, designator.designator()) {
+                match scope.lookup(name_pos, designator.designator()) {
                     Ok(entities) => {
                         // If the name is unique it is more helpful to get a reference
                         // Even if the type has a mismatch
@@ -1025,7 +1025,7 @@ impl<'a> AnalyzeContext<'a> {
                             }
                             NamedEntities::Overloaded(overloaded) => self
                                 .resolve_overloaded_with_target_type(
-                                    region,
+                                    scope,
                                     overloaded,
                                     Some(target_type),
                                     name_pos,
@@ -1047,7 +1047,7 @@ impl<'a> AnalyzeContext<'a> {
                 designator.clear_reference();
 
                 if let Some(NamedEntities::Single(ref named_entity)) =
-                    self.resolve_name(region, &prefix.pos, &mut prefix.item, diagnostics)?
+                    self.resolve_name(scope, &prefix.pos, &mut prefix.item, diagnostics)?
                 {
                     match self.lookup_selected(&prefix.pos, named_entity, designator) {
                         Ok(entities) => {
@@ -1070,7 +1070,7 @@ impl<'a> AnalyzeContext<'a> {
                                 }
                                 NamedEntities::Overloaded(overloaded) => self
                                     .resolve_overloaded_with_target_type(
-                                        region,
+                                        scope,
                                         overloaded,
                                         Some(target_type),
                                         &designator.pos,
@@ -1092,7 +1092,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             Name::FunctionCall(fcall) => {
                 match self.resolve_name(
-                    region,
+                    scope,
                     &fcall.name.pos,
                     &mut fcall.name.item,
                     diagnostics,
@@ -1101,14 +1101,14 @@ impl<'a> AnalyzeContext<'a> {
                         if ent.actual_kind().is_type() {
                             // A type conversion
                             // @TODO Ignore for now
-                            self.analyze_assoc_elems(region, &mut fcall.parameters, diagnostics)?;
+                            self.analyze_assoc_elems(scope, &mut fcall.parameters, diagnostics)?;
                         } else if let Some((prefix, indexes)) = fcall.to_indexed() {
                             *name = Name::Indexed(prefix, indexes);
                             let Name::Indexed(ref mut prefix, ref mut indexes) = name else { unreachable!()};
 
                             if let Some(type_mark) = type_mark_of_sliced_or_indexed(&ent) {
                                 if let Err(err) = self.analyze_indexed_name(
-                                    region,
+                                    scope,
                                     name_pos,
                                     prefix.suffix_pos(),
                                     type_mark,
@@ -1132,13 +1132,13 @@ impl<'a> AnalyzeContext<'a> {
                                 ),
                             ));
 
-                            self.analyze_assoc_elems(region, &mut fcall.parameters, diagnostics)?;
+                            self.analyze_assoc_elems(scope, &mut fcall.parameters, diagnostics)?;
                         }
                     }
                     Some(NamedEntities::Overloaded(overloaded)) => {
                         if let Some(suffix) = fcall.name.item.suffix_reference_mut() {
                             self.resolve_overloaded_with_target_type(
-                                region,
+                                scope,
                                 overloaded,
                                 Some(target_type),
                                 &fcall.name.pos,
@@ -1152,7 +1152,7 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     }
                     None => {
-                        self.analyze_assoc_elems(region, &mut fcall.parameters, diagnostics)?;
+                        self.analyze_assoc_elems(scope, &mut fcall.parameters, diagnostics)?;
                     }
                 };
                 // @TODO
@@ -1165,25 +1165,25 @@ impl<'a> AnalyzeContext<'a> {
 
             Name::SelectedAll(..) => {
                 // @TODO check type
-                self.resolve_name(region, name_pos, name, diagnostics)?;
+                self.resolve_name(scope, name_pos, name, diagnostics)?;
                 Ok(TypeCheck::Unknown)
             }
 
             Name::External(..) => {
                 // @TODO check type
-                self.resolve_name(region, name_pos, name, diagnostics)?;
+                self.resolve_name(scope, name_pos, name, diagnostics)?;
                 Ok(TypeCheck::Unknown)
             }
 
             Name::Attribute(..) => {
                 // @TODO check type
-                self.resolve_name(region, name_pos, name, diagnostics)?;
+                self.resolve_name(scope, name_pos, name, diagnostics)?;
                 Ok(TypeCheck::Unknown)
             }
 
             Name::Slice(ref mut prefix, ref mut drange) => {
                 if let Some(NamedEntities::Single(ref named_entity)) =
-                    self.resolve_name(region, &prefix.pos, &mut prefix.item, diagnostics)?
+                    self.resolve_name(scope, &prefix.pos, &mut prefix.item, diagnostics)?
                 {
                     if let Some(type_mark) = type_mark_of_sliced_or_indexed(named_entity) {
                         self.analyze_sliced_name(prefix.suffix_pos(), type_mark, diagnostics)?;
@@ -1195,7 +1195,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
 
-                self.analyze_discrete_range(region, drange.as_mut(), diagnostics)?;
+                self.analyze_discrete_range(scope, drange.as_mut(), diagnostics)?;
                 Ok(TypeCheck::Unknown)
             }
         }
@@ -1205,7 +1205,7 @@ impl<'a> AnalyzeContext<'a> {
     /// None if it was uncertain
     pub fn analyze_expression_with_target_type(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         target_type: &TypeEnt,
         expr_pos: &SrcPos,
         expr: &mut Expression,
@@ -1214,14 +1214,14 @@ impl<'a> AnalyzeContext<'a> {
         let target_base = target_type.base_type();
         match expr {
             Expression::Literal(ref mut lit) => self
-                .analyze_literal_with_target_type(region, target_type, expr_pos, lit, diagnostics)
+                .analyze_literal_with_target_type(scope, target_type, expr_pos, lit, diagnostics)
                 .map(TypeCheck::from_bool),
             Expression::Name(ref mut name) => {
-                self.analyze_name_with_target_type(region, target_type, expr_pos, name, diagnostics)
+                self.analyze_name_with_target_type(scope, target_type, expr_pos, name, diagnostics)
             }
             Expression::Qualified(ref mut qexpr) => {
                 let is_correct = if let Some(type_mark) =
-                    self.analyze_qualified_expression(region, qexpr, diagnostics)?
+                    self.analyze_qualified_expression(scope, qexpr, diagnostics)?
                 {
                     let is_correct = target_base == type_mark.base_type();
                     if !is_correct {
@@ -1252,16 +1252,16 @@ impl<'a> AnalyzeContext<'a> {
                         | Operator::GTE
                 ) {
                     let designator = Designator::OperatorSymbol(op.item.item);
-                    match region.lookup(&op.pos, &Designator::OperatorSymbol(op.item.item)) {
+                    match scope.lookup(&op.pos, &Designator::OperatorSymbol(op.item.item)) {
                         Ok(NamedEntities::Single(_)) => {
                             // @TODO error since operator needs to be an overloaded name
-                            self.analyze_expression(region, left, diagnostics)?;
-                            self.analyze_expression(region, right, diagnostics)?;
+                            self.analyze_expression(scope, left, diagnostics)?;
+                            self.analyze_expression(scope, right, diagnostics)?;
                             Ok(TypeCheck::Unknown)
                         }
                         Ok(NamedEntities::Overloaded(overloaded)) => self
                             .resolve_overloaded_with_target_type(
-                                region,
+                                scope,
                                 overloaded,
                                 Some(target_type),
                                 &op.pos,
@@ -1272,28 +1272,28 @@ impl<'a> AnalyzeContext<'a> {
                             ),
                         Err(diag) => {
                             diagnostics.push(diag);
-                            self.analyze_expression(region, left, diagnostics)?;
-                            self.analyze_expression(region, right, diagnostics)?;
+                            self.analyze_expression(scope, left, diagnostics)?;
+                            self.analyze_expression(scope, right, diagnostics)?;
                             Ok(TypeCheck::Unknown)
                         }
                     }
                 } else {
-                    self.analyze_expression(region, left, diagnostics)?;
-                    self.analyze_expression(region, right, diagnostics)?;
+                    self.analyze_expression(scope, left, diagnostics)?;
+                    self.analyze_expression(scope, right, diagnostics)?;
                     Ok(TypeCheck::Unknown)
                 }
             }
             Expression::Unary(ref mut op, ref mut expr) => {
                 let designator = Designator::OperatorSymbol(op.item.item);
-                match region.lookup(&op.pos, &Designator::OperatorSymbol(op.item.item)) {
+                match scope.lookup(&op.pos, &Designator::OperatorSymbol(op.item.item)) {
                     Ok(NamedEntities::Single(_)) => {
                         // @TODO error since operator needs to be an overloaded name
-                        self.analyze_expression(region, expr, diagnostics)?;
+                        self.analyze_expression(scope, expr, diagnostics)?;
                         Ok(TypeCheck::Unknown)
                     }
                     Ok(NamedEntities::Overloaded(overloaded)) => self
                         .resolve_overloaded_with_target_type(
-                            region,
+                            scope,
                             overloaded,
                             Some(target_type),
                             &op.pos,
@@ -1304,7 +1304,7 @@ impl<'a> AnalyzeContext<'a> {
                         ),
                     Err(diag) => {
                         diagnostics.push(diag);
-                        self.analyze_expression(region, expr, diagnostics)?;
+                        self.analyze_expression(scope, expr, diagnostics)?;
                         Ok(TypeCheck::Unknown)
                     }
                 }
@@ -1317,7 +1317,7 @@ impl<'a> AnalyzeContext<'a> {
                     if let [index_type] = indexes.as_slice() {
                         for assoc in assocs.iter_mut() {
                             check.add(self.analyze_1d_array_assoc_elem(
-                                region,
+                                scope,
                                 target_base,
                                 index_type.as_ref(),
                                 elem_type,
@@ -1327,23 +1327,23 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     } else {
                         // @TODO multi dimensional array
-                        self.analyze_aggregate(region, assocs, diagnostics)?;
+                        self.analyze_aggregate(scope, assocs, diagnostics)?;
                         check.add(TypeCheck::Unknown);
                     }
                     Ok(check)
                 }
-                Type::Record(record_region, _) => {
+                Type::Record(record_scope, _) => {
                     self.analyze_record_aggregate(
-                        region,
+                        scope,
                         target_base,
-                        record_region,
+                        record_scope,
                         assocs,
                         diagnostics,
                     )?;
                     Ok(TypeCheck::Unknown)
                 }
                 _ => {
-                    self.analyze_aggregate(region, assocs, diagnostics)?;
+                    self.analyze_aggregate(scope, assocs, diagnostics)?;
 
                     diagnostics.error(
                         expr_pos,
@@ -1353,7 +1353,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             },
             Expression::New(ref mut alloc) => {
-                self.analyze_allocation(region, alloc, diagnostics)?;
+                self.analyze_allocation(scope, alloc, diagnostics)?;
                 Ok(TypeCheck::Unknown)
             }
         }
@@ -1363,7 +1363,7 @@ impl<'a> AnalyzeContext<'a> {
     // wait until type checking to see if it makes sense
     pub fn analyze_expr_assignment(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         target: &mut WithPos<Target>,
         assignment_type: AssignmentType,
         rhs: &mut AssignmentRightHand<WithPos<Expression>>,
@@ -1371,22 +1371,22 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalNullResult {
         match rhs {
             AssignmentRightHand::Simple(expr) => {
-                self.analyze_target(region, target, assignment_type, diagnostics)?;
-                self.analyze_expression(region, expr, diagnostics)?;
+                self.analyze_target(scope, target, assignment_type, diagnostics)?;
+                self.analyze_expression(scope, expr, diagnostics)?;
             }
             AssignmentRightHand::Conditional(conditionals) => {
                 let Conditionals {
                     conditionals,
                     else_item,
                 } = conditionals;
-                self.analyze_target(region, target, assignment_type, diagnostics)?;
+                self.analyze_target(scope, target, assignment_type, diagnostics)?;
                 for conditional in conditionals {
                     let Conditional { condition, item } = conditional;
-                    self.analyze_expression(region, item, diagnostics)?;
-                    self.analyze_expression(region, condition, diagnostics)?;
+                    self.analyze_expression(scope, item, diagnostics)?;
+                    self.analyze_expression(scope, condition, diagnostics)?;
                 }
                 if let Some(expr) = else_item {
-                    self.analyze_expression(region, expr, diagnostics)?;
+                    self.analyze_expression(scope, expr, diagnostics)?;
                 }
             }
             AssignmentRightHand::Selected(selection) => {
@@ -1394,12 +1394,12 @@ impl<'a> AnalyzeContext<'a> {
                     expression,
                     alternatives,
                 } = selection;
-                self.analyze_expression(region, expression, diagnostics)?;
+                self.analyze_expression(scope, expression, diagnostics)?;
                 // target is located after expression
-                self.analyze_target(region, target, assignment_type, diagnostics)?;
+                self.analyze_target(scope, target, assignment_type, diagnostics)?;
                 for Alternative { choices, item } in alternatives.iter_mut() {
-                    self.analyze_expression(region, item, diagnostics)?;
-                    self.analyze_choices(region, choices, diagnostics)?;
+                    self.analyze_expression(scope, item, diagnostics)?;
+                    self.analyze_choices(scope, choices, diagnostics)?;
                 }
             }
         }
@@ -1408,7 +1408,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_waveform_assignment(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         target: &mut WithPos<Target>,
         assignment_type: AssignmentType,
         rhs: &mut AssignmentRightHand<Waveform>,
@@ -1416,22 +1416,22 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalNullResult {
         match rhs {
             AssignmentRightHand::Simple(wavf) => {
-                self.analyze_target(region, target, assignment_type, diagnostics)?;
-                self.analyze_waveform(region, wavf, diagnostics)?;
+                self.analyze_target(scope, target, assignment_type, diagnostics)?;
+                self.analyze_waveform(scope, wavf, diagnostics)?;
             }
             AssignmentRightHand::Conditional(conditionals) => {
                 let Conditionals {
                     conditionals,
                     else_item,
                 } = conditionals;
-                self.analyze_target(region, target, assignment_type, diagnostics)?;
+                self.analyze_target(scope, target, assignment_type, diagnostics)?;
                 for conditional in conditionals {
                     let Conditional { condition, item } = conditional;
-                    self.analyze_waveform(region, item, diagnostics)?;
-                    self.analyze_expression(region, condition, diagnostics)?;
+                    self.analyze_waveform(scope, item, diagnostics)?;
+                    self.analyze_expression(scope, condition, diagnostics)?;
                 }
                 if let Some(wavf) = else_item {
-                    self.analyze_waveform(region, wavf, diagnostics)?;
+                    self.analyze_waveform(scope, wavf, diagnostics)?;
                 }
             }
             AssignmentRightHand::Selected(selection) => {
@@ -1439,12 +1439,12 @@ impl<'a> AnalyzeContext<'a> {
                     expression,
                     alternatives,
                 } = selection;
-                self.analyze_expression(region, expression, diagnostics)?;
+                self.analyze_expression(scope, expression, diagnostics)?;
                 // target is located after expression
-                self.analyze_target(region, target, assignment_type, diagnostics)?;
+                self.analyze_target(scope, target, assignment_type, diagnostics)?;
                 for Alternative { choices, item } in alternatives.iter_mut() {
-                    self.analyze_waveform(region, item, diagnostics)?;
-                    self.analyze_choices(region, choices, diagnostics)?;
+                    self.analyze_waveform(scope, item, diagnostics)?;
+                    self.analyze_choices(scope, choices, diagnostics)?;
                 }
             }
         }

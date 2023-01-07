@@ -15,7 +15,7 @@ impl<'a> AnalyzeContext<'a> {
     /// None if it was uncertain
     pub fn analyze_literal_with_target_type(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         target_type: &TypeEnt,
         pos: &SrcPos,
         literal: &mut Literal,
@@ -101,7 +101,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             Literal::Physical(PhysicalLiteral { ref mut unit, .. }) => {
-                match self.resolve_physical_unit(region, unit) {
+                match self.resolve_physical_unit(scope, unit) {
                     Ok(physical_type) => physical_type.base_type() == target_base,
                     Err(diagnostic) => {
                         diagnostics.push(diagnostic);
@@ -171,10 +171,10 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn resolve_physical_unit(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         unit: &mut WithRef<Ident>,
     ) -> Result<TypeEnt, Diagnostic> {
-        match region.lookup(
+        match scope.lookup(
             &unit.item.pos,
             &Designator::Identifier(unit.item.item.clone()),
         )? {

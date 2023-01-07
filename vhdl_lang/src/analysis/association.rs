@@ -70,7 +70,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn resolve_formal(
         &self,
         formal_region: &FormalRegion,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         name_pos: &SrcPos,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -81,7 +81,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 let resolved_prefix = self.resolve_formal(
                     formal_region,
-                    region,
+                    scope,
                     &prefix.pos,
                     &mut prefix.item,
                     diagnostics,
@@ -118,14 +118,14 @@ impl<'a> AnalyzeContext<'a> {
             Name::Indexed(ref mut prefix, ref mut indexes) => {
                 let resolved_prefix = self.resolve_formal(
                     formal_region,
-                    region,
+                    scope,
                     &prefix.pos,
                     &mut prefix.item,
                     diagnostics,
                 )?;
 
                 let new_typ = self.analyze_indexed_name(
-                    region,
+                    scope,
                     name_pos,
                     prefix.suffix_pos(),
                     resolved_prefix.type_mark(),
@@ -143,7 +143,7 @@ impl<'a> AnalyzeContext<'a> {
             Name::Slice(ref mut prefix, ref mut drange) => {
                 let resolved_prefix = self.resolve_formal(
                     formal_region,
-                    region,
+                    scope,
                     &prefix.pos,
                     &mut prefix.item,
                     diagnostics,
@@ -154,7 +154,7 @@ impl<'a> AnalyzeContext<'a> {
                     return Err(Diagnostic::error(name_pos, "Invalid formal").into());
                 }
 
-                self.analyze_discrete_range(region, drange.as_mut(), diagnostics)?;
+                self.analyze_discrete_range(scope, drange.as_mut(), diagnostics)?;
                 Ok(resolved_prefix)
             }
             Name::Attribute(..) => Err(Diagnostic::error(name_pos, "Invalid formal").into()),
@@ -181,7 +181,7 @@ impl<'a> AnalyzeContext<'a> {
                     };
 
                     let converted_typ = match self.resolve_name(
-                        region,
+                        scope,
                         &fcall.name.pos,
                         &mut fcall.name.item,
                         diagnostics,
@@ -243,7 +243,7 @@ impl<'a> AnalyzeContext<'a> {
                     Ok(ResolvedFormal::Converted(idx, formal_ent, converted_typ))
                 } else if let Some((prefix, indexes)) = fcall.to_indexed() {
                     *name = Name::Indexed(prefix, indexes);
-                    self.resolve_formal(formal_region, region, name_pos, name, diagnostics)
+                    self.resolve_formal(formal_region, scope, name_pos, name, diagnostics)
                 } else {
                     Err(Diagnostic::error(name_pos, "Invalid formal").into())
                 }
@@ -256,7 +256,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         error_pos: &SrcPos, // The position of the instance/call-site
         formal_region: &FormalRegion,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         elems: &'e mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<Option<Vec<ResolvedFormal>>> {
@@ -271,7 +271,7 @@ impl<'a> AnalyzeContext<'a> {
                 // Call by name using formal
                 match self.resolve_formal(
                     formal_region,
-                    region,
+                    scope,
                     &formal.pos,
                     &mut formal.item,
                     diagnostics,
@@ -334,12 +334,12 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         error_pos: &SrcPos, // The position of the instance/call-site
         formal_region: &FormalRegion,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         elems: &mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<TypeCheck> {
         if let Some(formals) =
-            self.resolve_associaton_formals(error_pos, formal_region, region, elems, diagnostics)?
+            self.resolve_associaton_formals(error_pos, formal_region, scope, elems, diagnostics)?
         {
             let mut check = TypeCheck::Ok;
 
@@ -350,7 +350,7 @@ impl<'a> AnalyzeContext<'a> {
                 match &mut actual.item {
                     ActualPart::Expression(expr) => {
                         check.add(self.analyze_expression_with_target_type(
-                            region,
+                            scope,
                             formal.type_mark(),
                             &actual.pos,
                             expr,

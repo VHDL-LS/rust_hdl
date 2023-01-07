@@ -16,7 +16,7 @@ impl<'a> AnalyzeContext<'a> {
     #[allow(clippy::too_many_arguments)]
     pub fn resolve_overloaded_with_target_type(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         overloaded: OverloadedName,
         target_type: Option<&TypeEnt>,
         pos: &SrcPos,
@@ -45,7 +45,7 @@ impl<'a> AnalyzeContext<'a> {
                 self.analyze_parameters_with_formal_region(
                     pos,
                     name.formals(),
-                    region,
+                    scope,
                     parameters,
                     &mut NullDiagnostics,
                 )?
@@ -70,10 +70,10 @@ impl<'a> AnalyzeContext<'a> {
                 Diagnostic::error(pos, format!("Ambiguous use of '{}'", designator));
             diagnostic.add_subprogram_candidates("Migth be", &mut good);
             diagnostics.push(diagnostic);
-            self.analyze_parameters(region, parameters, diagnostics)?;
+            self.analyze_parameters(scope, parameters, diagnostics)?;
             Ok(TypeCheck::Unknown)
         } else if uncertain {
-            self.analyze_parameters(region, parameters, diagnostics)?;
+            self.analyze_parameters(scope, parameters, diagnostics)?;
             Ok(TypeCheck::Unknown)
         } else if let &[ent] = good.as_slice() {
             // Unique correct match
@@ -81,7 +81,7 @@ impl<'a> AnalyzeContext<'a> {
             self.analyze_parameters_with_formal_region(
                 pos,
                 ent.formals(),
-                region,
+                scope,
                 parameters,
                 diagnostics,
             )?;
@@ -110,7 +110,7 @@ impl<'a> AnalyzeContext<'a> {
                 self.analyze_parameters_with_formal_region(
                     pos,
                     ent.formals(),
-                    region,
+                    scope,
                     parameters,
                     diagnostics,
                 )?;
@@ -122,7 +122,7 @@ impl<'a> AnalyzeContext<'a> {
             diagnostic.add_subprogram_candidates("Does not match", &mut bad);
             diagnostics.push(diagnostic);
 
-            self.analyze_parameters(region, parameters, diagnostics)?;
+            self.analyze_parameters(scope, parameters, diagnostics)?;
             Ok(TypeCheck::NotOk)
         }
     }
@@ -131,7 +131,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         error_pos: &SrcPos, // The position of the instance/call-site
         formal_region: &FormalRegion,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         parameters: &mut ParametersMut<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<TypeCheck> {
@@ -139,14 +139,14 @@ impl<'a> AnalyzeContext<'a> {
             ParametersMut::AssociationList(elems) => self.analyze_assoc_elems_with_formal_region(
                 error_pos,
                 formal_region,
-                region,
+                scope,
                 elems,
                 diagnostics,
             ),
             ParametersMut::Binary(lexpr, rexpr) => {
                 if let Some((left_formal, right_formal)) = formal_region.binary() {
                     let check = self.analyze_expression_with_target_type(
-                        region,
+                        scope,
                         left_formal.type_mark(),
                         &lexpr.pos,
                         &mut lexpr.item,
@@ -157,7 +157,7 @@ impl<'a> AnalyzeContext<'a> {
                     // @TODO check deepest tree first
                     if check != TypeCheck::Ok {
                         self.analyze_expression_pos(
-                            region,
+                            scope,
                             &rexpr.pos,
                             &mut rexpr.item,
                             diagnostics,
@@ -165,7 +165,7 @@ impl<'a> AnalyzeContext<'a> {
                         Ok(check)
                     } else {
                         Ok(self.analyze_expression_with_target_type(
-                            region,
+                            scope,
                             right_formal.type_mark(),
                             &rexpr.pos,
                             &mut rexpr.item,
@@ -173,22 +173,22 @@ impl<'a> AnalyzeContext<'a> {
                         )?)
                     }
                 } else {
-                    self.analyze_expression_pos(region, &lexpr.pos, &mut lexpr.item, diagnostics)?;
-                    self.analyze_expression_pos(region, &rexpr.pos, &mut rexpr.item, diagnostics)?;
+                    self.analyze_expression_pos(scope, &lexpr.pos, &mut lexpr.item, diagnostics)?;
+                    self.analyze_expression_pos(scope, &rexpr.pos, &mut rexpr.item, diagnostics)?;
                     Ok(TypeCheck::NotOk)
                 }
             }
             ParametersMut::Unary(expr) => {
                 if let Some(formal) = formal_region.nth(0) {
                     self.analyze_expression_with_target_type(
-                        region,
+                        scope,
                         formal.type_mark(),
                         &expr.pos,
                         &mut expr.item,
                         diagnostics,
                     )
                 } else {
-                    self.analyze_expression_pos(region, &expr.pos, &mut expr.item, diagnostics)?;
+                    self.analyze_expression_pos(scope, &expr.pos, &mut expr.item, diagnostics)?;
                     Ok(TypeCheck::NotOk)
                 }
             }
@@ -197,20 +197,20 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_parameters(
         &self,
-        region: &Region<'_>,
+        scope: &Scope<'_>,
         parameters: &mut ParametersMut<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         match parameters {
             ParametersMut::AssociationList(elems) => {
-                self.analyze_assoc_elems(region, elems, diagnostics)
+                self.analyze_assoc_elems(scope, elems, diagnostics)
             }
             ParametersMut::Binary(lexpr, rexpr) => {
-                self.analyze_expression_pos(region, &lexpr.pos, &mut lexpr.item, diagnostics)?;
-                self.analyze_expression_pos(region, &rexpr.pos, &mut rexpr.item, diagnostics)
+                self.analyze_expression_pos(scope, &lexpr.pos, &mut lexpr.item, diagnostics)?;
+                self.analyze_expression_pos(scope, &rexpr.pos, &mut rexpr.item, diagnostics)
             }
             ParametersMut::Unary(expr) => {
-                self.analyze_expression_pos(region, &expr.pos, &mut expr.item, diagnostics)
+                self.analyze_expression_pos(scope, &expr.pos, &mut expr.item, diagnostics)
             }
         }
     }

@@ -166,7 +166,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         use_pos: &SrcPos,
         library_name: &Symbol,
-        region: &mut Region<'_>,
+        scope: &mut Scope<'_>,
     ) -> FatalNullResult {
         let units = self.root.get_library_units(library_name).unwrap();
 
@@ -176,7 +176,7 @@ impl<'a> AnalyzeContext<'a> {
                     let data = self.get_analysis(Some(use_pos), unit)?;
                     if let AnyDesignUnit::Primary(primary) = data.deref() {
                         if let Some(ent) = primary.named_entity() {
-                            region.make_potentially_visible(Some(use_pos), ent.clone());
+                            scope.make_potentially_visible(Some(use_pos), ent.clone());
                         }
                     }
                 }
@@ -196,10 +196,10 @@ impl<'a> AnalyzeContext<'a> {
     /// Add implicit context clause for all packages except STD.STANDARD
     /// library STD, WORK;
     /// use STD.STANDARD.all;
-    pub fn add_implicit_context_clause(&self, region: &mut Region<'_>) -> FatalNullResult {
+    pub fn add_implicit_context_clause(&self, scope: &mut Scope<'_>) -> FatalNullResult {
         // work is not visible in context declarations
         if self.current_unit.kind() != AnyKind::Primary(PrimaryKind::Context) {
-            region.make_potentially_visible_with_name(
+            scope.make_potentially_visible_with_name(
                 None,
                 self.work_sym.clone().into(),
                 self.work_library(),
@@ -211,10 +211,10 @@ impl<'a> AnalyzeContext<'a> {
         };
 
         if let Some(std_library) = self.get_library(&self.std_sym) {
-            region.make_potentially_visible(None, std_library);
+            scope.make_potentially_visible(None, std_library);
 
             let standard_pkg_data = self.expect_standard_package_analysis();
-            region.make_all_potentially_visible(None, &standard_pkg_data.result().region);
+            scope.make_all_potentially_visible(None, &standard_pkg_data.result().region);
         }
 
         Ok(())
