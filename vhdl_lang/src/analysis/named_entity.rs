@@ -602,6 +602,14 @@ impl TypeEnt {
         }
     }
 
+    pub fn from_any_ref(ent: &Arc<NamedEntity>) -> Option<TypeEnt> {
+        if matches!(ent.kind(), NamedEntityKind::Type(..)) {
+            Some(TypeEnt(ent.clone()))
+        } else {
+            None
+        }
+    }
+
     pub fn kind(&self) -> &Type {
         if let NamedEntityKind::Type(typ) = self.0.kind() {
             typ

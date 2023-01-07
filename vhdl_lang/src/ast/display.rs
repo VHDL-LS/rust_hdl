@@ -601,7 +601,7 @@ impl Display for TypeDefinition {
                 }
                 write!(f, ");")
             }
-            TypeDefinition::Integer(ref constraint) => {
+            TypeDefinition::Numeric(ref constraint) => {
                 write!(f, " is range {};", constraint)
             }
             TypeDefinition::Physical(ref physical) => {

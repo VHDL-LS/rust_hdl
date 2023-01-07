@@ -513,7 +513,8 @@ pub enum TypeDefinition {
     /// LRM 5.2.2 Enumeration types
     Enumeration(Vec<WithDecl<WithPos<EnumerationLiteral>>>),
     /// LRM 5.2.3 Integer types
-    Integer(Range),
+    ///     5.2.5 Floating-point types
+    Numeric(Range),
     /// LRM 5.2.4 Physical types
     Physical(PhysicalTypeDeclaration),
     // @TODO floating

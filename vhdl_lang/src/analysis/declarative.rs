@@ -754,7 +754,7 @@ impl<'a> AnalyzeContext<'a> {
                 unreachable!("Handled elsewhere");
             }
 
-            TypeDefinition::Integer(ref mut range) => {
+            TypeDefinition::Numeric(ref mut range) => {
                 self.analyze_range(parent, range, diagnostics)?;
                 let implicit = ImplicitVecBuilder::default();
 
@@ -768,7 +768,7 @@ impl<'a> AnalyzeContext<'a> {
                 parent.add(type_ent.clone().into(), diagnostics);
 
                 if let Some(standard) = self.standard_package() {
-                    for ent in standard.integer_implicits(type_ent) {
+                    for ent in standard.numeric_implicits(type_ent) {
                         implicit.push(&ent);
                         parent.add(ent, diagnostics);
                     }

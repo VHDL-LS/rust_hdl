@@ -467,6 +467,10 @@ impl<'a> Region<'a> {
         self.entities.get(designator)
     }
 
+    pub fn immediates(&self) -> impl Iterator<Item = &NamedEntities> {
+        self.entities.values()
+    }
+
     /// Lookup a named entity declared in this region or an enclosing region
 
     fn lookup_enclosing(&self, designator: &Designator) -> Option<NamedEntities> {

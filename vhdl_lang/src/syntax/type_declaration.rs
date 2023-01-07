@@ -233,7 +233,7 @@ pub fn parse_type_declaration(
             let constraint = parse_range(stream)?.item;
             try_token_kind!(
                 stream.expect()?,
-                SemiColon => TypeDefinition::Integer(constraint),
+                SemiColon => TypeDefinition::Numeric(constraint),
                 Units => {
                     let (def, end_ident) = parse_physical_type_definition(stream, constraint)?;
                     diagnostics.push_some(error_on_end_identifier_mismatch(&ident, &end_ident));
@@ -299,7 +299,7 @@ mod tests {
 
         let type_decl = TypeDeclaration {
             ident: code.s1("foo").decl_ident(),
-            def: TypeDefinition::Integer(code.s1("0 to 1").range()),
+            def: TypeDefinition::Numeric(code.s1("0 to 1").range()),
         };
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),

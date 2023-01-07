@@ -15,6 +15,8 @@ use crate::syntax::Symbols;
 
 use super::formal_region::FormalRegion;
 use super::named_entity::Signature;
+use super::named_entity::Type;
+use super::region::NamedEntities;
 use super::region::NamedEntityKind;
 use super::region::Object;
 use super::region::Region;
@@ -476,7 +478,7 @@ impl<'a> StandardRegion<'a> {
         .into_iter()
     }
 
-    pub fn integer_implicits(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<NamedEntity>> {
+    pub fn numeric_implicits(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<NamedEntity>> {
         [
             self.minimum(typ.clone()),
             self.maximum(typ.clone()),
@@ -541,45 +543,58 @@ impl<'a> StandardRegion<'a> {
         .into_iter()
     }
 
+    pub fn type_implicits(&self, typ: TypeEnt) -> Vec<Arc<NamedEntity>> {
+        match typ.kind() {
+            Type::Access(..) => self.access_implicits(typ).collect(),
+            Type::Enum(..) => self.enum_implicits(typ).collect(),
+            Type::Integer(..) => self.numeric_implicits(typ).collect(),
+            Type::Real(..) => self.numeric_implicits(typ).collect(),
+            Type::Record(..) => self.record_implicits(typ).collect(),
+            Type::Physical(..) => self.physical_implicits(typ).collect(),
+            Type::Array { .. } => self.array_implicits(typ).collect(),
+            Type::Interface { .. }
+            | Type::Alias(..)
+            | Type::Protected(..)
+            | Type::Incomplete(..)
+            | Type::File(..)
+            | Type::Subtype(..) => Vec::new(),
+        }
+    }
+
     // Return the
 
     // Return the implicit things defined at the end of the standard packge
     pub fn end_of_package_implicits(&self) -> Vec<Arc<NamedEntity>> {
         let mut res = Vec::new();
 
-        for name in [
-            "CHARACTER",
-            "SEVERITY_LEVEL",
-            "FILE_OPEN_KIND",
-            "FILE_OPEN_STATUS",
-        ] {
-            let typ = self.lookup_type(name);
-            for ent in self.enum_implicits(typ.clone()) {
-                if let Some(implicit) = typ.kind().implicits() {
-                    // This is safe because the standard package is analyzed in a single thread
-                    unsafe { implicit.push(&ent) };
+        for ent in self.region.immediates() {
+            if let NamedEntities::Single(ent) = ent {
+                if let Some(typ) = TypeEnt::from_any_ref(ent) {
+                    for ent in self.type_implicits(typ.clone()) {
+                        if let Some(implicit) = typ.kind().implicits() {
+                            // This is safe because the standard package is analyzed in a single thread
+                            unsafe { implicit.push(&ent) };
+                        }
+                        res.push(ent);
+                    }
                 }
-                res.push(ent);
             }
         }
 
-        for name in ["INTEGER", "REAL", "TIME"] {
-            let typ = self.lookup_type(name);
-            for ent in self.integer_implicits(typ.clone()) {
-                if let Some(implicit) = typ.kind().implicits() {
-                    // This is safe because the standard package is analyzed in a single thread
-                    unsafe { implicit.push(&ent) };
-                }
-                res.push(ent);
+        {
+            let time = self.time();
+            let to_string = self.create_to_string(time.clone());
+
+            if let Some(implicit) = time.kind().implicits() {
+                // This is safe because the standard package is analyzed in a single thread
+                unsafe { implicit.push(&to_string) };
             }
+            res.push(to_string);
         }
 
         for name in ["BOOLEAN", "BIT"] {
             let typ = self.lookup_type(name);
             let implicits = [
-                self.create_to_string(typ.clone()),
-                self.minimum(typ.clone()),
-                self.maximum(typ.clone()),
                 self.symmetric_binary(Operator::And, typ.clone()),
                 self.symmetric_binary(Operator::Or, typ.clone()),
                 self.symmetric_binary(Operator::Nand, typ.clone()),
@@ -588,8 +603,7 @@ impl<'a> StandardRegion<'a> {
                 self.symmetric_binary(Operator::Xnor, typ.clone()),
                 self.symmetric_unary(Operator::Not, typ.clone()),
             ]
-            .into_iter()
-            .chain(self.comparators(typ.clone()));
+            .into_iter();
 
             for ent in implicits {
                 if let Some(implicit) = typ.kind().implicits() {
@@ -606,24 +620,6 @@ impl<'a> StandardRegion<'a> {
             let implicits = [self.unary(Operator::Not, typ.clone(), return_typ.clone())];
 
             for ent in implicits {
-                if let Some(implicit) = typ.kind().implicits() {
-                    // This is safe because the standard package is analyzed in a single thread
-                    unsafe { implicit.push(&ent) };
-                }
-                res.push(ent);
-            }
-        }
-
-        for name in [
-            "BOOLEAN_VECTOR",
-            "BIT_VECTOR",
-            "INTEGER_VECTOR",
-            "REAL_VECTOR",
-            "TIME_VECTOR",
-            "STRING",
-        ] {
-            let typ = self.lookup_type(name);
-            for ent in self.array_implicits(typ.clone()) {
                 if let Some(implicit) = typ.kind().implicits() {
                     // This is safe because the standard package is analyzed in a single thread
                     unsafe { implicit.push(&ent) };

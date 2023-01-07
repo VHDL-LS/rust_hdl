@@ -719,7 +719,7 @@ impl Search for TypeDeclaration {
             TypeDefinition::Subtype(ref mut subtype_indication) => {
                 return_if_found!(subtype_indication.search(searcher));
             }
-            TypeDefinition::Integer(ref mut range) => {
+            TypeDefinition::Numeric(ref mut range) => {
                 return_if_found!(range.search(searcher));
             }
             TypeDefinition::File(ref mut type_mark) => {
