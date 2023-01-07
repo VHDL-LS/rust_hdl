@@ -415,7 +415,7 @@ impl DesignRoot {
                     false
                 };
 
-                let root_region = Arc::new(root_scope.into_region());
+                let root_region = Arc::new(root_scope.into_bare_region());
                 let region = Arc::new(region);
 
                 if let Some(primary_unit) = unit.as_primary_mut() {

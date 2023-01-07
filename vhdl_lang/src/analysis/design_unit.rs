@@ -86,7 +86,7 @@ impl<'a> AnalyzeContext<'a> {
         self.analyze_declarative_part(&mut primary_scope, &mut unit.decl, diagnostics)?;
         self.analyze_concurrent_part(&mut primary_scope, &mut unit.statements, diagnostics)?;
 
-        *region = primary_scope.without_parent();
+        *region = primary_scope.into_bare_region();
 
         Ok(())
     }
@@ -169,7 +169,7 @@ impl<'a> AnalyzeContext<'a> {
             scope.close(diagnostics);
         }
 
-        *region = scope.without_parent();
+        *region = scope.into_bare_region();
 
         Ok(())
     }
@@ -209,7 +209,7 @@ impl<'a> AnalyzeContext<'a> {
         self.add_implicit_context_clause(root_scope)?;
         let mut scope = root_scope.nested();
         self.analyze_context_clause(&mut scope, &mut unit.items, diagnostics)?;
-        *region = scope.without_parent();
+        *region = scope.into_bare_region();
         Ok(())
     }
 

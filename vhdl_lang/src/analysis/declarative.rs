@@ -330,7 +330,7 @@ impl<'a> AnalyzeContext<'a> {
                 component_region.close(diagnostics);
                 scope.add(
                     component.ident.define(NamedEntityKind::Component(
-                        component_region.without_parent(),
+                        component_region.into_bare_region(),
                     )),
                     diagnostics,
                 );
@@ -358,7 +358,7 @@ impl<'a> AnalyzeContext<'a> {
                 );
 
                 // End mutable borrow of scope
-                let subpgm_region = Scope::new(subpgm_region.without_parent());
+                let subpgm_region = Scope::new(subpgm_region.into_bare_region());
 
                 // Overwrite subprogram definition with full signature
                 match signature {
@@ -370,7 +370,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     Err(err) => err.add_to(diagnostics)?,
                 }
-                let mut subpgm_region = Scope::new(subpgm_region.with_parent(scope));
+                let mut subpgm_region = subpgm_region.with_parent(scope);
 
                 self.analyze_declarative_part(
                     &mut subpgm_region,
@@ -581,7 +581,7 @@ impl<'a> AnalyzeContext<'a> {
                         let region_ptr = region_ptr as *mut Region<'static>;
                         &mut *region_ptr as &mut Region<'static>
                     };
-                    *region_ptr = region.without_parent();
+                    *region_ptr = region.into_bare_region();
                 }
             }
             TypeDefinition::Record(ref mut element_decls) => {

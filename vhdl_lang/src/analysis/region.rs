@@ -11,6 +11,7 @@ use crate::ast::*;
 use crate::data::*;
 
 use fnv::FnvHashMap;
+use std::cell::RefCell;
 use std::collections::hash_map::Entry;
 use std::sync::Arc;
 
@@ -224,19 +225,25 @@ impl Default for RegionKind {
 #[derive(Default)]
 pub struct Scope<'a> {
     region: Region<'a>,
+
+    // Cache for fast lookup
+    cache: RefCell<FnvHashMap<Designator, NamedEntities>>,
 }
 
 impl<'a> Scope<'a> {
     pub fn new(region: Region<'a>) -> Self {
-        Scope { region }
+        Scope {
+            region,
+            ..Default::default()
+        }
     }
 
     pub fn region(&self) -> &Region<'_> {
         &self.region
     }
 
-    pub fn into_region(self) -> Region<'a> {
-        self.region
+    pub fn into_bare_region(self) -> Region<'static> {
+        self.region.without_parent()
     }
 
     pub fn lookup(
@@ -244,33 +251,39 @@ impl<'a> Scope<'a> {
         pos: &SrcPos,
         designator: &Designator,
     ) -> Result<NamedEntities, Diagnostic> {
-        self.region.lookup(pos, designator)
+        let mut cache = self.cache.borrow_mut();
+        if let Some(ents) = cache.get(designator) {
+            Ok(ents.clone())
+        } else if let Entry::Vacant(vacant) = cache.entry(designator.clone()) {
+            let ents = self.region.lookup(pos, designator)?;
+            Ok(vacant.insert(ents).clone())
+        } else {
+            unreachable!("Cache miss cannot be followed by occupied entry")
+        }
     }
 
     pub fn lookup_immediate(&self, designator: &Designator) -> Option<&NamedEntities> {
         self.region.lookup_immediate(designator)
     }
 
-    pub fn nested(&'a self) -> Self {
+    pub fn nested(&'a self) -> Scope<'a> {
         Self {
             region: self.region.nested(),
+            cache: self.cache.clone(),
         }
     }
 
     pub fn add(&mut self, ent: Arc<NamedEntity>, diagnostics: &mut dyn DiagnosticHandler) {
+        self.cache.borrow_mut().remove(ent.designator());
         self.region.add(ent, diagnostics)
     }
 
-    pub fn close(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
+    pub fn close(&self, diagnostics: &mut dyn DiagnosticHandler) {
         self.region.close(diagnostics)
     }
 
-    pub fn without_parent(self) -> Region<'static> {
-        self.region.without_parent()
-    }
-
-    pub fn with_parent(self, scope: &'a Scope<'a>) -> Region<'a> {
-        self.region.with_parent(&scope.region)
+    pub fn with_parent(self, scope: &'a Scope<'a>) -> Scope<'a> {
+        Scope::new(self.region.with_parent(&scope.region))
     }
 
     pub fn extend(region: &'a Region<'a>, parent: Option<&'a Scope<'a>>) -> Scope<'a> {
@@ -286,8 +299,15 @@ impl<'a> Scope<'a> {
         ent: Arc<NamedEntity>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
-        self.region
-            .add_implicit_declaration_aliases(ent, diagnostics)
+        for entity in ent.actual_kind().implicit_declarations() {
+            let entity = NamedEntity::implicit(
+                ent.clone(),
+                entity.designator().clone(),
+                NamedEntityKind::NonObjectAlias(entity.clone()),
+                ent.decl_pos(),
+            );
+            self.add(Arc::new(entity), diagnostics);
+        }
     }
 
     pub fn make_potentially_visible(
@@ -295,6 +315,7 @@ impl<'a> Scope<'a> {
         visible_pos: Option<&SrcPos>,
         ent: Arc<NamedEntity>,
     ) {
+        self.cache.borrow_mut().remove(ent.designator());
         self.region.visibility.make_potentially_visible_with_name(
             visible_pos,
             ent.designator().clone(),
@@ -308,6 +329,7 @@ impl<'a> Scope<'a> {
         designator: Designator,
         ent: Arc<NamedEntity>,
     ) {
+        self.cache.borrow_mut().remove(ent.designator());
         self.region
             .visibility
             .make_potentially_visible_with_name(visible_pos, designator, ent);
@@ -318,6 +340,7 @@ impl<'a> Scope<'a> {
         visible_pos: Option<&SrcPos>,
         region: &Arc<Region<'static>>,
     ) {
+        self.cache.borrow_mut().clear();
         self.region
             .visibility
             .make_all_potentially_visible(visible_pos, region);
@@ -325,6 +348,7 @@ impl<'a> Scope<'a> {
 
     /// Used when using context clauses
     pub fn add_context_visibility(&mut self, visible_pos: Option<&SrcPos>, region: &Region<'a>) {
+        self.cache.borrow_mut().clear();
         // ignores parent but used only for contexts where this is true
         self.region
             .visibility
@@ -332,7 +356,7 @@ impl<'a> Scope<'a> {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Region<'a> {
     parent: Option<&'a Region<'a>>,
     visibility: Visibility,
@@ -340,8 +364,8 @@ pub struct Region<'a> {
     kind: RegionKind,
 }
 
-impl<'a> Region<'a> {
-    pub fn default() -> Region<'static> {
+impl<'a> Default for Region<'a> {
+    fn default() -> Region<'static> {
         Region {
             parent: None,
             visibility: Visibility::default(),
@@ -349,7 +373,9 @@ impl<'a> Region<'a> {
             kind: RegionKind::Other,
         }
     }
+}
 
+impl<'a> Region<'a> {
     pub fn nested(&'a self) -> Region<'a> {
         Region::default().with_parent(self)
     }
@@ -445,7 +471,7 @@ impl<'a> Region<'a> {
         }
     }
 
-    pub fn close(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
+    pub fn close(&self, diagnostics: &mut dyn DiagnosticHandler) {
         self.check_deferred_constant_pairs(diagnostics);
         self.check_protected_types_have_body(diagnostics);
     }
@@ -512,22 +538,6 @@ impl<'a> Region<'a> {
             Entry::Vacant(entry) => {
                 entry.insert(NamedEntities::new(ent));
             }
-        }
-    }
-
-    pub fn add_implicit_declaration_aliases(
-        &mut self,
-        ent: Arc<NamedEntity>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) {
-        for entity in ent.actual_kind().implicit_declarations() {
-            let entity = NamedEntity::implicit(
-                ent.clone(),
-                entity.designator().clone(),
-                NamedEntityKind::NonObjectAlias(entity.clone()),
-                ent.decl_pos(),
-            );
-            self.add(Arc::new(entity), diagnostics);
         }
     }
 
