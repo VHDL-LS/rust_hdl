@@ -122,7 +122,7 @@ impl Visibility {
     /// Helper function lookup a visible declaration within the region
     pub fn lookup_into<'a>(&'a self, designator: &Designator, visible: &mut Visible<'a>) {
         for visible_region in self.all_in_regions.iter() {
-            if let Some(named_entities) = visible_region.region.lookup_selected(designator) {
+            if let Some(named_entities) = visible_region.region.lookup_immediate(designator) {
                 match named_entities {
                     NamedEntities::Single(entity) => {
                         visible.insert(&visible_region.visible_pos, entity);

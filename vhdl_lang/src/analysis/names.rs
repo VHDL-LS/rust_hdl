@@ -179,7 +179,7 @@ impl<'a> AnalyzeContext<'a> {
             Name::Designator(designator) => {
                 designator.clear_reference();
 
-                match region.lookup_within(name_pos, designator.designator())? {
+                match region.lookup(name_pos, designator.designator())? {
                     NamedEntities::Single(named_entity) => {
                         designator.set_unique_reference(&named_entity);
                         Ok(ResolvedName::new(named_entity))

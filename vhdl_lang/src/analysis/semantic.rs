@@ -83,7 +83,7 @@ impl<'a> AnalyzeContext<'a> {
             NamedEntityKind::Package(ref region)
             | NamedEntityKind::PackageInstance(ref region)
             | NamedEntityKind::LocalPackageInstance(ref region) => {
-                if let Some(decl) = region.lookup_selected(suffix.designator()) {
+                if let Some(decl) = region.lookup_immediate(suffix.designator()) {
                     Ok(decl.clone())
                 } else {
                     Err(no_declaration_within(prefix, &suffix.pos, &suffix.item.item).into())
@@ -109,7 +109,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             Type::Protected(region, _) => {
-                if let Some(decl) = region.lookup_selected(suffix.designator()) {
+                if let Some(decl) = region.lookup_immediate(suffix.designator()) {
                     Ok(decl.clone())
                 } else {
                     Err(no_declaration_within(prefix_type, &suffix.pos, &suffix.item.item).into())
@@ -165,7 +165,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             SelectedName::Designator(ref mut designator) => {
                 designator.clear_reference();
-                let visible = region.lookup_within(&name.pos, designator.designator())?;
+                let visible = region.lookup(&name.pos, designator.designator())?;
                 designator.set_reference(&visible);
                 Ok(visible)
             }
@@ -208,7 +208,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             Name::Designator(designator) => {
                 designator.clear_reference();
-                match region.lookup_within(name_pos, designator.designator()) {
+                match region.lookup(name_pos, designator.designator()) {
                     Ok(visible) => {
                         designator.set_reference(&visible);
                         Ok(Some(visible))
@@ -1006,7 +1006,7 @@ impl<'a> AnalyzeContext<'a> {
             Name::Designator(designator) => {
                 designator.clear_reference();
 
-                match region.lookup_within(name_pos, designator.designator()) {
+                match region.lookup(name_pos, designator.designator()) {
                     Ok(entities) => {
                         // If the name is unique it is more helpful to get a reference
                         // Even if the type has a mismatch
@@ -1252,7 +1252,7 @@ impl<'a> AnalyzeContext<'a> {
                         | Operator::GTE
                 ) {
                     let designator = Designator::OperatorSymbol(op.item.item);
-                    match region.lookup_within(&op.pos, &Designator::OperatorSymbol(op.item.item)) {
+                    match region.lookup(&op.pos, &Designator::OperatorSymbol(op.item.item)) {
                         Ok(NamedEntities::Single(_)) => {
                             // @TODO error since operator needs to be an overloaded name
                             self.analyze_expression(region, left, diagnostics)?;
@@ -1285,7 +1285,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             Expression::Unary(ref mut op, ref mut expr) => {
                 let designator = Designator::OperatorSymbol(op.item.item);
-                match region.lookup_within(&op.pos, &Designator::OperatorSymbol(op.item.item)) {
+                match region.lookup(&op.pos, &Designator::OperatorSymbol(op.item.item)) {
                     Ok(NamedEntities::Single(_)) => {
                         // @TODO error since operator needs to be an overloaded name
                         self.analyze_expression(region, expr, diagnostics)?;

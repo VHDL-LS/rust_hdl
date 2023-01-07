@@ -174,7 +174,7 @@ impl<'a> AnalyzeContext<'a> {
         region: &Region<'_>,
         unit: &mut WithRef<Ident>,
     ) -> Result<TypeEnt, Diagnostic> {
-        match region.lookup_within(
+        match region.lookup(
             &unit.item.pos,
             &Designator::Identifier(unit.item.item.clone()),
         )? {

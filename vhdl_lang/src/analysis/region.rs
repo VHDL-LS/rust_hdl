@@ -522,15 +522,9 @@ impl<'a> Region<'a> {
         visible.into_unambiguous(pos, designator)
     }
 
-    /// Lookup where this region is the prefix of a selected name
-    /// Thus any visibility inside the region is irrelevant
-    pub fn lookup_selected(&self, designator: &Designator) -> Option<&NamedEntities> {
-        self.lookup_immediate(designator)
-    }
-
     /// Lookup a designator from within the region itself
     /// Thus all parent regions and visibility is relevant
-    pub fn lookup_within(
+    pub fn lookup(
         &self,
         pos: &SrcPos,
         designator: &Designator,

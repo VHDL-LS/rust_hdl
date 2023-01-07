@@ -461,7 +461,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             Name::Designator(designator) => {
                 designator.clear_reference();
-                let visible = region.lookup_within(&name.pos, designator.designator())?;
+                let visible = region.lookup(&name.pos, designator.designator())?;
                 designator.set_reference(&visible);
                 Ok(UsedNames::Single(visible))
             }
