@@ -537,9 +537,10 @@ impl<'a> AnalyzeContext<'a> {
                 let ptype: Arc<NamedEntity> = TypeEnt::define_with_opt_id(
                     overwrite_id,
                     &mut type_decl.ident,
-                    Type::Protected(Arc::new(Region::default()), ArcSwapOption::default()),
+                    Type::Protected(Region::default(), ArcSwapOption::default()),
                 )
                 .into();
+
                 parent.add(ptype.clone(), diagnostics);
 
                 let mut region = parent.nested();
@@ -570,15 +571,21 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     }
                 }
-                let region = region.without_parent();
 
-                parent.add(
-                    Arc::new(ptype.clone_with_kind(NamedEntityKind::Type(Type::Protected(
-                        Arc::new(region),
-                        ArcSwapOption::default(),
-                    )))),
-                    &mut Vec::new(),
-                );
+                // This is safe since we are in a single thread and no other reference can exist yes
+                // Also the region is stored inside an Arc which cannot move
+                {
+                    let NamedEntityKind::Type(Type::Protected(region_ptr, _)) = ptype.kind() else {
+                        unreachable!();
+                    };
+
+                    let region_ptr = unsafe {
+                        let region_ptr = region_ptr as *const Region<'static>;
+                        let region_ptr = region_ptr as *mut Region<'static>;
+                        &mut *region_ptr as &mut Region<'static>
+                    };
+                    *region_ptr = region.without_parent();
+                }
             }
             TypeDefinition::Record(ref mut element_decls) => {
                 let mut elems = RecordRegion::default();

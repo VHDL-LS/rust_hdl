@@ -38,7 +38,7 @@ pub enum Type {
     Incomplete(ArcSwapWeak<NamedEntity>),
     Subtype(Subtype),
     // The region of the protected type which needs to be extendend by the body
-    Protected(Arc<Region<'static>>, ArcSwapOption<SrcPos>),
+    Protected(Region<'static>, ArcSwapOption<SrcPos>),
     File(ImplicitVec),
     Interface,
     Alias(TypeEnt),
@@ -427,20 +427,6 @@ impl NamedEntity {
 
     pub fn kind(&self) -> &NamedEntityKind {
         &self.kind
-    }
-
-    /// Create a copy of this named entity with the same ID but with an updated kind
-    /// The use case is to overwrite an entity with a new kind when the full kind cannot
-    /// Be created initially due to cyclic dependencies such as when defining an enum literal
-    /// With a reference to the enum type where the enum type also needs to know about the literals
-    /// @TODO investigate get_mut_unchecked instead
-    pub fn clone_with_kind(&self, kind: NamedEntityKind) -> NamedEntity {
-        NamedEntity::new_with_id(
-            self.id(),
-            self.designator.clone(),
-            kind,
-            self.decl_pos.clone(),
-        )
     }
 
     pub fn error(&self, diagnostics: &mut dyn DiagnosticHandler, message: impl Into<String>) {
