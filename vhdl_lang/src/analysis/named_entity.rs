@@ -10,6 +10,7 @@ use super::implicits::ImplicitVec;
 use super::region::Region;
 use crate::ast::*;
 use crate::data::*;
+use arc_swap::ArcSwapOption;
 use arc_swap::ArcSwapWeak;
 use fnv::FnvHashSet;
 use std::borrow::Borrow;
@@ -37,7 +38,7 @@ pub enum Type {
     Incomplete(ArcSwapWeak<NamedEntity>),
     Subtype(Subtype),
     // The region of the protected type which needs to be extendend by the body
-    Protected(Arc<Region<'static>>),
+    Protected(Arc<Region<'static>>, ArcSwapOption<SrcPos>),
     File(ImplicitVec),
     Interface,
     Alias(TypeEnt),

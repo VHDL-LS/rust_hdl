@@ -108,7 +108,7 @@ impl<'a> AnalyzeContext<'a> {
                     Err(no_declaration_within(prefix_type, &suffix.pos, &suffix.item.item).into())
                 }
             }
-            Type::Protected(region) => {
+            Type::Protected(region, _) => {
                 if let Some(decl) = region.lookup_selected(suffix.designator()) {
                     Ok(decl.clone())
                 } else {

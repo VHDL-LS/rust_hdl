@@ -13,6 +13,7 @@ use crate::ast;
 use crate::ast::*;
 use crate::data::*;
 use analyze::*;
+use arc_swap::ArcSwapOption;
 use arc_swap::ArcSwapWeak;
 use fnv::FnvHashMap;
 use named_entity::Signature;
@@ -483,8 +484,10 @@ impl<'a> AnalyzeContext<'a> {
                     Some(visible) => {
                         let is_ok = match visible.clone().into_non_overloaded() {
                             Ok(ent) => {
-                                if let NamedEntityKind::Type(Type::Protected(ptype_region)) =
-                                    ent.kind()
+                                if let NamedEntityKind::Type(Type::Protected(
+                                    ptype_region,
+                                    body_pos,
+                                )) = ent.kind()
                                 {
                                     body.type_reference.set_unique_reference(&ent);
                                     let mut region = Region::extend(ptype_region, Some(parent));
@@ -493,10 +496,17 @@ impl<'a> AnalyzeContext<'a> {
                                         &mut body.decl,
                                         diagnostics,
                                     )?;
-                                    parent.add_protected_body(
-                                        type_decl.ident.tree.clone(),
-                                        diagnostics,
-                                    );
+
+                                    if let Some(prev_pos) = body_pos
+                                        .swap(Some(Arc::new(type_decl.ident.tree.pos.clone())))
+                                    {
+                                        diagnostics.push(duplicate_error(
+                                            &type_decl.ident.tree,
+                                            &type_decl.ident.tree.pos,
+                                            Some(&prev_pos),
+                                        ))
+                                    }
+
                                     true
                                 } else {
                                     false
@@ -527,7 +537,7 @@ impl<'a> AnalyzeContext<'a> {
                 let ptype: Arc<NamedEntity> = TypeEnt::define_with_opt_id(
                     overwrite_id,
                     &mut type_decl.ident,
-                    Type::Protected(Arc::new(Region::default())),
+                    Type::Protected(Arc::new(Region::default()), ArcSwapOption::default()),
                 )
                 .into();
                 parent.add(ptype.clone(), diagnostics);
@@ -563,11 +573,10 @@ impl<'a> AnalyzeContext<'a> {
                 let region = region.without_parent();
 
                 parent.add(
-                    Arc::new(
-                        ptype.clone_with_kind(NamedEntityKind::Type(Type::Protected(Arc::new(
-                            region,
-                        )))),
-                    ),
+                    Arc::new(ptype.clone_with_kind(NamedEntityKind::Type(Type::Protected(
+                        Arc::new(region),
+                        ArcSwapOption::default(),
+                    )))),
                     &mut Vec::new(),
                 );
             }

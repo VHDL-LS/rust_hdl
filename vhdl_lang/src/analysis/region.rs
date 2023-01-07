@@ -230,7 +230,6 @@ pub struct Region<'a> {
     parent: Option<&'a Region<'a>>,
     visibility: Visibility,
     entities: FnvHashMap<Designator, NamedEntities>,
-    protected_bodies: FnvHashMap<Symbol, SrcPos>,
     kind: RegionKind,
 }
 
@@ -240,7 +239,6 @@ impl<'a> Region<'a> {
             parent: None,
             visibility: Visibility::default(),
             entities: FnvHashMap::default(),
-            protected_bodies: FnvHashMap::default(),
             kind: RegionKind::Other,
         }
     }
@@ -261,7 +259,6 @@ impl<'a> Region<'a> {
             parent: None,
             visibility: self.visibility,
             entities: self.entities,
-            protected_bodies: self.protected_bodies,
             kind: self.kind,
         }
     }
@@ -310,7 +307,6 @@ impl<'a> Region<'a> {
             parent,
             visibility: region.visibility.clone(),
             entities: region.entities.clone(),
-            protected_bodies: region.protected_bodies.clone(),
             kind,
         }
     }
@@ -329,23 +325,15 @@ impl<'a> Region<'a> {
         }
     }
 
-    fn get_protected_body(&self, name: &Symbol) -> Option<&SrcPos> {
-        self.protected_bodies.get(name)
-    }
-
-    fn has_protected_body(&self, name: &Symbol) -> bool {
-        self.get_protected_body(name).is_some()
-    }
-
     fn check_protected_types_have_body(&self, diagnostics: &mut dyn DiagnosticHandler) {
         for ent in self.entities.values() {
-            if ent.first_kind().is_protected_type()
-                && !self.has_protected_body(ent.designator().expect_identifier())
-            {
-                ent.first().error(
-                    diagnostics,
-                    format!("Missing body for protected type '{}'", ent.designator()),
-                );
+            if let NamedEntityKind::Type(Type::Protected(_, body_pos)) = ent.first_kind() {
+                if body_pos.load().is_none() {
+                    ent.first().error(
+                        diagnostics,
+                        format!("Missing body for protected type '{}'", ent.designator()),
+                    );
+                }
             }
         }
     }
@@ -353,14 +341,6 @@ impl<'a> Region<'a> {
     pub fn close(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
         self.check_deferred_constant_pairs(diagnostics);
         self.check_protected_types_have_body(diagnostics);
-    }
-
-    pub fn add_protected_body(&mut self, ident: Ident, diagnostics: &mut dyn DiagnosticHandler) {
-        if let Some(prev_pos) = self.get_protected_body(&ident.item) {
-            diagnostics.push(duplicate_error(&ident.item, &ident.pos, Some(prev_pos)));
-        } else {
-            self.protected_bodies.insert(ident.item, ident.pos);
-        }
     }
 
     pub fn add(&mut self, ent: Arc<NamedEntity>, diagnostics: &mut dyn DiagnosticHandler) {
