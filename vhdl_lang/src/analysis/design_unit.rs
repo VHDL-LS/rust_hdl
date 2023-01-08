@@ -4,8 +4,6 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
-use super::standard::RegionRef;
-use super::standard::StandardRegion;
 use super::*;
 use crate::ast::*;
 use crate::data::*;
@@ -154,16 +152,6 @@ impl<'a> AnalyzeContext<'a> {
             self.analyze_interface_list(&mut scope, list, diagnostics)?;
         }
         self.analyze_declarative_part(&mut scope, &mut unit.decl, diagnostics)?;
-
-        if self.is_standard_package() {
-            let standard =
-                StandardRegion::new(&self.root.symbols, RegionRef::Inside(scope.region()));
-            let implicits = standard.end_of_package_implicits();
-            drop(standard);
-            for imp in implicits.into_iter() {
-                scope.add(imp, diagnostics);
-            }
-        }
 
         if !self.has_package_body() {
             scope.close(diagnostics);

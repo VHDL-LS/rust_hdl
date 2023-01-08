@@ -42,6 +42,13 @@ pub enum Type {
     File(ImplicitVec),
     Interface,
     Alias(TypeEnt),
+    Universal(UniversalType, ImplicitVec),
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum UniversalType {
+    Real,
+    Integer,
 }
 
 impl Type {
@@ -59,6 +66,7 @@ impl Type {
             Type::File(ref implicit) => Some(implicit),
             Type::Access(.., ref implicit) => Some(implicit),
             Type::Record(.., ref implicit) => Some(implicit),
+            Type::Universal(.., ref implicit) => Some(implicit),
             Type::Incomplete(..)
             | Type::Interface
             | Type::Protected(..)
@@ -67,7 +75,7 @@ impl Type {
         }
     }
 
-    pub fn describe(&self) -> &str {
+    pub fn describe(&self) -> &'static str {
         match self {
             Type::Alias(..) => "alias",
             Type::Record(..) => "record type",
@@ -82,6 +90,16 @@ impl Type {
             Type::Interface => "type",
             Type::File(..) => "file type",
             Type::Protected(..) => "protected type",
+            Type::Universal(univ, _) => univ.describe(),
+        }
+    }
+}
+
+impl UniversalType {
+    pub fn describe(&self) -> &'static str {
+        match self {
+            UniversalType::Integer => "universal_integer",
+            UniversalType::Real => "universal_real",
         }
     }
 }
@@ -364,7 +382,7 @@ impl NamedEntity {
         kind: NamedEntityKind,
         decl_pos: Option<&SrcPos>,
     ) -> NamedEntity {
-        NamedEntity::new_with_id(new_id(), designator.into(), kind, decl_pos.cloned())
+        NamedEntity::new_with_id(EntityId::new(), designator.into(), kind, decl_pos.cloned())
     }
 
     pub fn new_with_id(
@@ -389,7 +407,7 @@ impl NamedEntity {
         decl_pos: Option<&SrcPos>,
     ) -> NamedEntity {
         NamedEntity {
-            id: new_id(),
+            id: EntityId::new(),
             implicit_of: Some(of_ent),
             decl_pos: decl_pos.cloned(),
             designator: designator.into(),
@@ -517,12 +535,25 @@ impl NamedEntity {
     }
 }
 
-static COUNTER: AtomicUsize = AtomicUsize::new(1);
+static UNIVERSAL_REAL_ID: EntityId = EntityId { id: 1 };
+static UNIVERSAL_INTEGER_ID: EntityId = EntityId { id: 2 };
+static COUNTER: AtomicUsize = AtomicUsize::new(3);
 
-// Using 64-bits we can create 5 * 10**9 ids per second for 100 years before wrapping
-pub fn new_id() -> EntityId {
-    EntityId {
-        id: COUNTER.fetch_add(1, Ordering::Relaxed),
+impl EntityId {
+    // Using 64-bits we can create 5 * 10**9 ids per second for 100 years before wrapping
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
+        EntityId {
+            id: COUNTER.fetch_add(1, Ordering::Relaxed),
+        }
+    }
+
+    pub fn universal_integer() -> Self {
+        UNIVERSAL_INTEGER_ID
+    }
+
+    pub fn universal_real() -> Self {
+        UNIVERSAL_REAL_ID
     }
 }
 
@@ -584,7 +615,7 @@ impl TypeEnt {
         kind: Type,
     ) -> TypeEnt {
         let ent = Arc::new(NamedEntity {
-            id: id.unwrap_or_else(new_id),
+            id: id.unwrap_or_else(EntityId::new),
             implicit_of: None,
             decl_pos: Some(ident.tree.pos.clone()),
             designator: ident.tree.item.clone().into(),

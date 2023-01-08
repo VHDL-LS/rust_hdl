@@ -12,32 +12,50 @@ use crate::ast::ObjectClass;
 use crate::ast::Operator;
 use crate::data::Symbol;
 use crate::syntax::Symbols;
+use crate::SrcPos;
 
 use super::formal_region::FormalRegion;
+use super::implicits::ImplicitVec;
+use super::named_entity::EntityId;
 use super::named_entity::Signature;
 use super::named_entity::Type;
+use super::named_entity::UniversalType;
 use super::region::NamedEntities;
 use super::region::NamedEntityKind;
 use super::region::Object;
 use super::region::Region;
 use super::region::Subtype;
 use super::region::TypeEnt;
-use super::root::UnitReadGuard;
+use super::DesignRoot;
 use super::NamedEntity;
 
-pub(super) enum RegionRef<'a> {
-    // Inside the standard package itself we can hold a reference
-    Inside(&'a Region),
-    // Outside we need an analysis result
-    Outside(UnitReadGuard<'a>),
+#[derive(Clone)]
+pub struct UniversalTypes {
+    pub integer: TypeEnt,
+    pub real: TypeEnt,
 }
 
-impl<'a> std::ops::Deref for RegionRef<'a> {
-    type Target = Region;
-    fn deref(&self) -> &Self::Target {
-        match self {
-            RegionRef::Inside(r) => r,
-            RegionRef::Outside(r) => &r.result().region,
+impl UniversalTypes {
+    pub fn new(pos: &SrcPos, symbols: &Symbols) -> Self {
+        let integer = Arc::new(NamedEntity::new_with_id(
+            EntityId::universal_integer(),
+            Designator::Identifier(symbols.symtab().insert_utf8("universal_integer")),
+            NamedEntityKind::Type(Type::Universal(
+                UniversalType::Integer,
+                ImplicitVec::default(),
+            )),
+            Some(pos.clone()),
+        ));
+
+        let real = Arc::new(NamedEntity::new_with_id(
+            EntityId::universal_real(),
+            Designator::Identifier(symbols.symtab().insert_utf8("universal_real")),
+            NamedEntityKind::Type(Type::Universal(UniversalType::Real, ImplicitVec::default())),
+            Some(pos.clone()),
+        ));
+        Self {
+            real: TypeEnt::from_any(real).unwrap(),
+            integer: TypeEnt::from_any(integer).unwrap(),
         }
     }
 }
@@ -45,12 +63,15 @@ impl<'a> std::ops::Deref for RegionRef<'a> {
 pub(super) struct StandardRegion<'a> {
     // Only for symbol table
     symbols: &'a Symbols,
-    region: RegionRef<'a>,
+    region: &'a Region,
 }
 
 impl<'a> StandardRegion<'a> {
-    pub(super) fn new(symbols: &'a Symbols, region: RegionRef<'a>) -> Self {
-        Self { symbols, region }
+    pub(super) fn new(root: &'a DesignRoot, region: &'a Region) -> Self {
+        Self {
+            symbols: &root.symbols,
+            region,
+        }
     }
 
     fn symbol(&self, name: &str) -> Symbol {
@@ -552,6 +573,7 @@ impl<'a> StandardRegion<'a> {
             Type::Record(..) => self.record_implicits(typ).collect(),
             Type::Physical(..) => self.physical_implicits(typ).collect(),
             Type::Array { .. } => self.array_implicits(typ).collect(),
+            Type::Universal(..) => Vec::new(), // Defined before the standard package
             Type::Interface { .. }
             | Type::Alias(..)
             | Type::Protected(..)

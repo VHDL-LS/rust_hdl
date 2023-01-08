@@ -10,6 +10,8 @@ use std::collections::hash_map::Entry;
 use super::analyze::*;
 use super::lock::*;
 use super::region::*;
+use super::standard::UniversalTypes;
+use crate::analysis::standard::StandardRegion;
 use crate::ast::search::*;
 use crate::ast::*;
 use crate::data::*;
@@ -28,6 +30,7 @@ pub(super) struct AnalysisData {
 }
 
 pub(super) type UnitReadGuard<'a> = ReadGuard<'a, AnyDesignUnit, AnalysisData>;
+pub(super) type UnitWriteGuard<'a> = WriteGuard<'a, AnyDesignUnit, AnalysisData>;
 
 /// Wraps the AST of a [design unit](../../ast/enum.AnyDesignUnit.html) in a thread-safe
 /// r/w-lock for analysis.
@@ -246,6 +249,8 @@ impl Library {
 /// dependencies between design units.
 pub struct DesignRoot {
     pub symbols: Arc<Symbols>,
+    pub standard_pkg: Option<Arc<NamedEntity>>,
+    pub universal: Option<UniversalTypes>,
     libraries: FnvHashMap<Symbol, Library>,
 
     // Dependency tracking for incremental analysis.
@@ -263,6 +268,8 @@ pub struct DesignRoot {
 impl DesignRoot {
     pub fn new(symbols: Arc<Symbols>) -> DesignRoot {
         DesignRoot {
+            universal: None,
+            standard_pkg: None,
             symbols,
             libraries: FnvHashMap::default(),
             users_of: RwLock::new(FnvHashMap::default()),
@@ -392,66 +399,71 @@ impl DesignRoot {
         self.symbols.symtab().insert_utf8(name)
     }
 
+    fn analyze_unit<'a>(&self, unit_id: &UnitId, unit: &mut UnitWriteGuard<'a>) {
+        let context = AnalyzeContext::new(self, unit_id);
+
+        let entity_id = EntityId::new();
+        let mut diagnostics = Vec::new();
+        let mut root_scope = Scope::new(Region::default());
+        let mut region = Region::default();
+
+        let has_circular_dependency = if let Err(err) = context.analyze_design_unit(
+            entity_id,
+            unit,
+            &mut root_scope,
+            &mut region,
+            &mut diagnostics,
+        ) {
+            err.push_into(&mut diagnostics);
+            true
+        } else {
+            false
+        };
+
+        let root_region = Arc::new(root_scope.into_region());
+        let region = Arc::new(region);
+
+        if let Some(primary_unit) = unit.as_primary_mut() {
+            let region = region.clone();
+            match primary_unit {
+                AnyPrimaryUnit::Entity(entity) => entity
+                    .ident
+                    .define_with_id(entity_id, NamedEntityKind::Entity(region)),
+                AnyPrimaryUnit::Configuration(cfg) => cfg
+                    .ident
+                    .define_with_id(entity_id, NamedEntityKind::Configuration(region)),
+                AnyPrimaryUnit::Package(package) => package.ident.define_with_id(
+                    entity_id,
+                    if package.generic_clause.is_some() {
+                        NamedEntityKind::UninstPackage(region)
+                    } else {
+                        NamedEntityKind::Package(region)
+                    },
+                ),
+                AnyPrimaryUnit::PackageInstance(inst) => inst
+                    .ident
+                    .define_with_id(entity_id, NamedEntityKind::PackageInstance(region)),
+                AnyPrimaryUnit::Context(ctx) => ctx
+                    .ident
+                    .define_with_id(entity_id, NamedEntityKind::Context(region)),
+            };
+        };
+
+        let result = AnalysisData {
+            diagnostics,
+            root_region,
+            region,
+            has_circular_dependency,
+        };
+
+        unit.finish(result);
+    }
+
     pub(super) fn get_analysis<'a>(&self, locked_unit: &'a LockedUnit) -> UnitReadGuard<'a> {
         match locked_unit.unit.entry() {
             AnalysisEntry::Vacant(mut unit) => {
-                let context = AnalyzeContext::new(self, locked_unit.unit_id());
-
-                let entity_id = super::named_entity::new_id();
-                let mut diagnostics = Vec::new();
-                let mut root_scope = Scope::new(Region::default());
-                let mut region = Region::default();
-
-                let has_circular_dependency = if let Err(err) = context.analyze_design_unit(
-                    entity_id,
-                    &mut unit,
-                    &mut root_scope,
-                    &mut region,
-                    &mut diagnostics,
-                ) {
-                    err.push_into(&mut diagnostics);
-                    true
-                } else {
-                    false
-                };
-
-                let root_region = Arc::new(root_scope.into_region());
-                let region = Arc::new(region);
-
-                if let Some(primary_unit) = unit.as_primary_mut() {
-                    let region = region.clone();
-                    match primary_unit {
-                        AnyPrimaryUnit::Entity(entity) => entity
-                            .ident
-                            .define_with_id(entity_id, NamedEntityKind::Entity(region)),
-                        AnyPrimaryUnit::Configuration(cfg) => cfg
-                            .ident
-                            .define_with_id(entity_id, NamedEntityKind::Configuration(region)),
-                        AnyPrimaryUnit::Package(package) => package.ident.define_with_id(
-                            entity_id,
-                            if package.generic_clause.is_some() {
-                                NamedEntityKind::UninstPackage(region)
-                            } else {
-                                NamedEntityKind::Package(region)
-                            },
-                        ),
-                        AnyPrimaryUnit::PackageInstance(inst) => inst
-                            .ident
-                            .define_with_id(entity_id, NamedEntityKind::PackageInstance(region)),
-                        AnyPrimaryUnit::Context(ctx) => ctx
-                            .ident
-                            .define_with_id(entity_id, NamedEntityKind::Context(region)),
-                    };
-                };
-
-                let result = AnalysisData {
-                    diagnostics,
-                    root_region,
-                    region,
-                    has_circular_dependency,
-                };
-
-                unit.finish(result)
+                self.analyze_unit(locked_unit.unit_id(), &mut unit);
+                unit.downgrade()
             }
             AnalysisEntry::Occupied(unit) => unit,
         }
@@ -621,12 +633,85 @@ impl DesignRoot {
         }
     }
 
+    fn analyze_standard_package(&mut self) {
+        // Analyze standard package first if it exits
+
+        if let Some(standard_units) = self
+            .libraries
+            .get(&self.symbol_utf8("std"))
+            .map(|library| &library.units)
+        {
+            if let Some(standard_pkg) =
+                standard_units.get(&UnitKey::Primary(self.symbol_utf8("standard")))
+            {
+                if let AnalysisEntry::Vacant(mut unit) = standard_pkg.unit.entry() {
+                    // Clear to ensure the analysis of standard package does not believe it has the standard package
+                    self.standard_pkg = None;
+                    self.universal = Some(UniversalTypes::new(unit.pos(), self.symbols.as_ref()));
+
+                    let context = AnalyzeContext::new(self, standard_pkg.unit_id());
+
+                    let entity_id = EntityId::new();
+                    let mut diagnostics = Vec::new();
+                    let mut root_scope = Scope::new(Region::default());
+                    let mut region = Region::default();
+
+                    let has_circular_dependency = if let Err(err) = context.analyze_design_unit(
+                        entity_id,
+                        &mut unit,
+                        &mut root_scope,
+                        &mut region,
+                        &mut diagnostics,
+                    ) {
+                        err.push_into(&mut diagnostics);
+                        true
+                    } else {
+                        false
+                    };
+
+                    let standard = StandardRegion::new(self, &region);
+                    let implicits = standard.end_of_package_implicits();
+                    for imp in implicits.into_iter() {
+                        region.add(imp, &mut diagnostics);
+                    }
+
+                    let region = Arc::new(region);
+
+                    if let Some(AnyPrimaryUnit::Package(package)) = unit.as_primary_mut() {
+                        let ent = package.ident.define_with_id(
+                            entity_id,
+                            if package.generic_clause.is_some() {
+                                unreachable!("Expected std.standard to not be generic package");
+                            } else {
+                                NamedEntityKind::Package(region.clone())
+                            },
+                        );
+                        self.standard_pkg = Some(ent);
+                    } else {
+                        unreachable!("Expected std.standard to be a package");
+                    }
+
+                    let result = AnalysisData {
+                        diagnostics,
+                        root_region: Arc::new(root_scope.into_region()),
+                        region,
+                        has_circular_dependency,
+                    };
+
+                    unit.finish(result);
+                }
+            }
+        }
+    }
+
     pub fn analyze(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
         self.reset();
 
         for library in self.libraries.values_mut() {
             library.refresh(diagnostics);
         }
+
+        self.analyze_standard_package();
 
         use rayon::prelude::*;
         // @TODO run in parallel

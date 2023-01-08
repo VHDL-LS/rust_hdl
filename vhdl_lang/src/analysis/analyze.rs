@@ -7,7 +7,6 @@
 use super::named_entity::HasNamedEntity;
 use super::region::*;
 use super::root::*;
-use super::standard::RegionRef;
 use super::standard::StandardRegion;
 use crate::ast::*;
 use crate::data::*;
@@ -213,8 +212,10 @@ impl<'a> AnalyzeContext<'a> {
         if let Some(std_library) = self.get_library(&self.std_sym) {
             scope.make_potentially_visible(None, std_library);
 
-            let standard_pkg_data = self.expect_standard_package_analysis();
-            scope.make_all_potentially_visible(None, &standard_pkg_data.result().region);
+            let standard_region = self
+                .standard_package_region()
+                .expect("Expected standard package");
+            scope.make_all_potentially_visible(None, standard_region);
         }
 
         Ok(())
@@ -308,31 +309,26 @@ impl<'a> AnalyzeContext<'a> {
         )))
     }
 
-    fn expect_standard_package_analysis(&self) -> UnitReadGuard<'a> {
-        self.standard_package_analysis()
-            .expect("Could not find standard package")
-    }
-
     // Returns None when analyzing the standard package itsel
-    fn standard_package_analysis(&self) -> Option<UnitReadGuard<'a>> {
-        if let Some(unit) =
-            self.get_primary_unit_kind(&self.std_sym, &self.standard_sym, PrimaryKind::Package)
-        {
-            return Some(self.get_analysis(None, unit).unwrap());
+    fn standard_package_region(&self) -> Option<&Arc<Region>> {
+        if let Some(pkg) = self.root.standard_pkg.as_ref() {
+            // Ensure things that depend on the standard package are re-analyzed
+            self.make_use_of(None, &UnitId::package(&self.std_sym, &self.standard_sym))
+                .unwrap();
+
+            if let NamedEntityKind::Package(region) = pkg.kind() {
+                Some(region)
+            } else {
+                unreachable!("Standard package is not a package");
+            }
+        } else {
+            None
         }
-        None
     }
 
     pub fn standard_package(&'a self) -> Option<StandardRegion<'a>> {
-        if self.is_standard_package() {
-            None
-        } else {
-            let standard = self.standard_package_analysis().unwrap();
-            Some(StandardRegion::new(
-                &self.root.symbols,
-                RegionRef::Outside(standard),
-            ))
-        }
+        let region = self.standard_package_region()?;
+        Some(StandardRegion::new(self.root, region.as_ref()))
     }
 
     pub fn get_primary_analysis(
