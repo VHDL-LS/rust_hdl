@@ -308,13 +308,13 @@ impl<'a> AnalyzeContext<'a> {
         )))
     }
 
-    pub fn expect_standard_package_analysis(&self) -> UnitReadGuard<'a> {
+    fn expect_standard_package_analysis(&self) -> UnitReadGuard<'a> {
         self.standard_package_analysis()
             .expect("Could not find standard package")
     }
 
     // Returns None when analyzing the standard package itsel
-    pub fn standard_package_analysis(&self) -> Option<UnitReadGuard<'a>> {
+    fn standard_package_analysis(&self) -> Option<UnitReadGuard<'a>> {
         if let Some(unit) =
             self.get_primary_unit_kind(&self.std_sym, &self.standard_sym, PrimaryKind::Package)
         {
