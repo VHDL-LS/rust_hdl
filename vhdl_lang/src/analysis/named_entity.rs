@@ -20,6 +20,9 @@ pub use types::{Subtype, Type, TypeEnt, UniversalType};
 mod overloaded;
 pub use overloaded::{OverloadedEnt, Signature, SignatureKey};
 
+mod object;
+pub use object::ObjectEnt;
+
 pub enum NamedEntityKind {
     NonObjectAlias(Arc<NamedEntity>),
     ExternalAlias {
@@ -360,47 +363,6 @@ impl EntityId {
 impl std::cmp::PartialEq for NamedEntity {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
-    }
-}
-
-// A named entity that is known to be an object
-#[derive(Clone, Debug)]
-pub struct ObjectEnt {
-    pub ent: Arc<NamedEntity>,
-}
-
-impl ObjectEnt {
-    pub fn new(ent: Arc<NamedEntity>) -> Self {
-        debug_assert!(matches!(ent.actual_kind(), NamedEntityKind::Object(..)));
-        Self { ent }
-    }
-
-    pub fn class(&self) -> ObjectClass {
-        self.object().class
-    }
-
-    pub fn mode(&self) -> Option<Mode> {
-        self.object().mode
-    }
-
-    pub fn describe_class(&self) -> String {
-        if let Some(mode) = self.mode() {
-            if self.class() == ObjectClass::Constant {
-                format!("interface {}", self.class())
-            } else {
-                format!("interface {} of mode {}", self.class(), mode)
-            }
-        } else {
-            format!("{}", self.class())
-        }
-    }
-
-    pub fn object(&self) -> &Object {
-        if let NamedEntityKind::Object(object) = self.ent.actual_kind() {
-            object
-        } else {
-            unreachable!("Must be object");
-        }
     }
 }
 
