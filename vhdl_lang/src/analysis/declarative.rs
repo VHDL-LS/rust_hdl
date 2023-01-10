@@ -363,9 +363,9 @@ impl<'a> AnalyzeContext<'a> {
                 // Overwrite subprogram definition with full signature
                 match signature {
                     Ok(signature) => {
-                        let subpgm_ent = body
-                            .specification
-                            .define(NamedEntityKind::Subprogram(signature));
+                        let subpgm_ent = body.specification.define(NamedEntityKind::Overloaded(
+                            Overloaded::Subprogram(signature),
+                        ));
                         scope.add(subpgm_ent, diagnostics);
                     }
                     Err(err) => err.add_to(diagnostics)?,
@@ -395,7 +395,9 @@ impl<'a> AnalyzeContext<'a> {
                 match signature {
                     Ok(signature) => {
                         scope.add(
-                            subdecl.define(NamedEntityKind::SubprogramDecl(signature)),
+                            subdecl.define(NamedEntityKind::Overloaded(
+                                Overloaded::SubprogramDecl(signature),
+                            )),
                             diagnostics,
                         );
                     }
@@ -457,7 +459,7 @@ impl<'a> AnalyzeContext<'a> {
                 for literal in enumeration.iter_mut() {
                     let literal_ent = Arc::new(NamedEntity::new(
                         literal.tree.item.clone().into_designator(),
-                        NamedEntityKind::EnumLiteral(signature.clone()),
+                        NamedEntityKind::Overloaded(Overloaded::EnumLiteral(signature.clone())),
                         Some(&literal.tree.pos),
                     ));
                     literal.decl = Some(literal_ent.clone());
@@ -556,8 +558,9 @@ impl<'a> AnalyzeContext<'a> {
                             match signature {
                                 Ok(signature) => {
                                     region.add(
-                                        subprogram
-                                            .define(NamedEntityKind::SubprogramDecl(signature)),
+                                        subprogram.define(NamedEntityKind::Overloaded(
+                                            Overloaded::SubprogramDecl(signature),
+                                        )),
                                         diagnostics,
                                     );
                                 }
@@ -892,7 +895,9 @@ impl<'a> AnalyzeContext<'a> {
                 subpgm_region.close(diagnostics);
                 drop(subpgm_region);
 
-                subpgm.define(NamedEntityKind::Subprogram(signature?))
+                subpgm.define(NamedEntityKind::Overloaded(Overloaded::Subprogram(
+                    signature?,
+                )))
             }
             InterfaceDeclaration::Package(ref mut instance) => {
                 let package_region =

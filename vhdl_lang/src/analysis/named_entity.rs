@@ -4,6 +4,7 @@
 //
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
+use super::formal_region::FormalRegion;
 use super::region::Region;
 use crate::ast::{
     AnyPrimaryUnit, Designator, HasIdent, Ident, ObjectClass, SubprogramDeclaration,
@@ -18,7 +19,7 @@ mod types;
 pub use types::{Subtype, Type, TypeEnt, UniversalType};
 
 mod overloaded;
-pub use overloaded::{OverloadedEnt, Signature, SignatureKey};
+pub use overloaded::{Overloaded, OverloadedEnt, Signature, SignatureKey};
 
 mod object;
 pub use object::ObjectEnt;
@@ -40,11 +41,7 @@ pub enum NamedEntityKind {
     InterfaceFile(TypeEnt),
     Component(Region),
     Attribute,
-    SubprogramDecl(Signature),
-    Subprogram(Signature),
-    EnumLiteral(Signature),
-    // An optional list of implicit declarations
-    // Use Weak reference since implicit declaration typically reference the type itself
+    Overloaded(Overloaded),
     Type(Type),
     ElementDeclaration(Subtype),
     Label,
@@ -57,6 +54,17 @@ pub enum NamedEntityKind {
 }
 
 impl NamedEntityKind {
+    pub fn new_function_decl(formals: FormalRegion, return_type: TypeEnt) -> NamedEntityKind {
+        NamedEntityKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(
+            formals,
+            Some(return_type),
+        )))
+    }
+
+    pub fn new_procedure_decl(formals: FormalRegion) -> NamedEntityKind {
+        NamedEntityKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(formals, None)))
+    }
+
     pub fn is_deferred_constant(&self) -> bool {
         matches!(self, NamedEntityKind::DeferredConstant(..))
     }
@@ -100,14 +108,7 @@ impl NamedEntityKind {
             ElementDeclaration(..) => "element declaration",
             Component(..) => "component",
             Attribute => "attribute",
-            SubprogramDecl(signature) | Subprogram(signature) => {
-                if signature.return_type().is_some() {
-                    "function"
-                } else {
-                    "procedure"
-                }
-            }
-            EnumLiteral(..) => "enum literal",
+            Overloaded(overloaded) => overloaded.describe(),
             Label => "label",
             LoopParameter => "loop parameter",
             Object(object) => object.class.describe(),
@@ -218,11 +219,17 @@ impl NamedEntity {
     }
 
     pub fn is_subprogram(&self) -> bool {
-        matches!(self.kind, NamedEntityKind::Subprogram(..))
+        matches!(
+            self.kind,
+            NamedEntityKind::Overloaded(Overloaded::Subprogram(..))
+        )
     }
 
     pub fn is_subprogram_decl(&self) -> bool {
-        matches!(self.kind, NamedEntityKind::SubprogramDecl(..))
+        matches!(
+            self.kind,
+            NamedEntityKind::Overloaded(Overloaded::SubprogramDecl(..))
+        )
     }
 
     pub fn is_explicit(&self) -> bool {
@@ -253,9 +260,7 @@ impl NamedEntity {
 
     pub fn signature(&self) -> Option<&Signature> {
         match self.actual_kind() {
-            NamedEntityKind::Subprogram(ref signature)
-            | NamedEntityKind::SubprogramDecl(ref signature)
-            | NamedEntityKind::EnumLiteral(ref signature) => Some(signature),
+            NamedEntityKind::Overloaded(ref overloaded) => Some(overloaded.signature()),
             _ => None,
         }
     }
@@ -319,11 +324,10 @@ impl NamedEntity {
                     )
                 }
             }
-            NamedEntityKind::EnumLiteral(ref signature)
-            | NamedEntityKind::SubprogramDecl(ref signature)
-            | NamedEntityKind::Subprogram(ref signature) => {
-                format!("{}{}", self.designator, signature.describe())
+            NamedEntityKind::Overloaded(ref overloaded) => {
+                format!("{}{}", self.designator, overloaded.signature().describe())
             }
+
             _ => format!("{} '{}'", self.kind.describe(), self.designator),
         }
     }

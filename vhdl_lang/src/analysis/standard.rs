@@ -17,7 +17,6 @@ use crate::SrcPos;
 use super::formal_region::FormalRegion;
 use super::implicits::ImplicitVec;
 use super::named_entity::EntityId;
-use super::named_entity::Signature;
 use super::named_entity::Type;
 use super::named_entity::UniversalType;
 use super::region::NamedEntities;
@@ -131,13 +130,13 @@ impl<'a> StandardRegion<'a> {
 
         // procedure FILE_OPEN (file F: FT; External_Name: in STRING; Open_Kind: in FILE_OPEN_KIND := READ_MODE);
         {
-            let mut params = FormalRegion::new_params();
-            params.add(Arc::new(NamedEntity::new(
+            let mut formals = FormalRegion::new_params();
+            formals.add(Arc::new(NamedEntity::new(
                 self.symbol("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
             )));
-            params.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(NamedEntity::new(
                 self.symbol("External_Name"),
                 NamedEntityKind::Object(Object {
                     class: ObjectClass::Constant,
@@ -148,7 +147,7 @@ impl<'a> StandardRegion<'a> {
                 file_type.decl_pos(),
             )));
 
-            params.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(NamedEntity::new(
                 self.symbol("Open_Kind"),
                 NamedEntityKind::Object(Object {
                     class: ObjectClass::Constant,
@@ -161,15 +160,15 @@ impl<'a> StandardRegion<'a> {
             implicit.push(Arc::new(NamedEntity::implicit(
                 file_type.clone().into(),
                 self.symbol("FILE_OPEN"),
-                NamedEntityKind::Subprogram(Signature::new(params, None)),
+                NamedEntityKind::new_procedure_decl(formals),
                 file_type.decl_pos(),
             )));
         }
 
         // procedure FILE_OPEN (Status: out FILE_OPEN_STATUS; file F: FT; External_Name: in STRING; Open_Kind: in FILE_OPEN_KIND := READ_MODE);
         {
-            let mut params = FormalRegion::new_params();
-            params.add(Arc::new(NamedEntity::new(
+            let mut formals = FormalRegion::new_params();
+            formals.add(Arc::new(NamedEntity::new(
                 self.symbol("Status"),
                 NamedEntityKind::Object(Object {
                     class: ObjectClass::Variable,
@@ -179,12 +178,12 @@ impl<'a> StandardRegion<'a> {
                 }),
                 file_type.decl_pos(),
             )));
-            params.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(NamedEntity::new(
                 self.symbol("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
             )));
-            params.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(NamedEntity::new(
                 self.symbol("External_Name"),
                 NamedEntityKind::Object(Object {
                     class: ObjectClass::Constant,
@@ -195,7 +194,7 @@ impl<'a> StandardRegion<'a> {
                 file_type.decl_pos(),
             )));
 
-            params.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(NamedEntity::new(
                 self.symbol("Open_Kind"),
                 NamedEntityKind::Object(Object {
                     class: ObjectClass::Constant,
@@ -208,15 +207,15 @@ impl<'a> StandardRegion<'a> {
             implicit.push(Arc::new(NamedEntity::implicit(
                 file_type.clone().into(),
                 self.symbol("FILE_OPEN"),
-                NamedEntityKind::Subprogram(Signature::new(params, None)),
+                NamedEntityKind::new_procedure_decl(formals),
                 file_type.decl_pos(),
             )));
         }
 
         // procedure FILE_CLOSE (file F: FT);
         {
-            let mut params = FormalRegion::new_params();
-            params.add(Arc::new(NamedEntity::new(
+            let mut formals = FormalRegion::new_params();
+            formals.add(Arc::new(NamedEntity::new(
                 self.symbol("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
@@ -225,21 +224,21 @@ impl<'a> StandardRegion<'a> {
             implicit.push(Arc::new(NamedEntity::implicit(
                 file_type.clone().into(),
                 self.symbol("FILE_CLOSE"),
-                NamedEntityKind::Subprogram(Signature::new(params, None)),
+                NamedEntityKind::new_procedure_decl(formals),
                 file_type.decl_pos(),
             )));
         }
 
         // procedure READ (file F: FT; VALUE: out TM);
         {
-            let mut params = FormalRegion::new_params();
-            params.add(Arc::new(NamedEntity::new(
+            let mut formals = FormalRegion::new_params();
+            formals.add(Arc::new(NamedEntity::new(
                 self.symbol("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
             )));
 
-            params.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(NamedEntity::new(
                 self.symbol("VALUE"),
                 NamedEntityKind::Object(Object {
                     class: ObjectClass::Variable,
@@ -253,21 +252,21 @@ impl<'a> StandardRegion<'a> {
             implicit.push(Arc::new(NamedEntity::implicit(
                 file_type.clone().into(),
                 self.symbol("READ"),
-                NamedEntityKind::Subprogram(Signature::new(params, None)),
+                NamedEntityKind::new_procedure_decl(formals),
                 file_type.decl_pos(),
             )));
         }
 
         // procedure WRITE (file F: FT; VALUE: in TM);
         {
-            let mut params = FormalRegion::new_params();
-            params.add(Arc::new(NamedEntity::new(
+            let mut formals = FormalRegion::new_params();
+            formals.add(Arc::new(NamedEntity::new(
                 self.symbol("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
             )));
 
-            params.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(NamedEntity::new(
                 self.symbol("VALUE"),
                 NamedEntityKind::Object(Object {
                     class: ObjectClass::Constant,
@@ -281,15 +280,15 @@ impl<'a> StandardRegion<'a> {
             implicit.push(Arc::new(NamedEntity::implicit(
                 file_type.clone().into(),
                 self.symbol("WRITE"),
-                NamedEntityKind::Subprogram(Signature::new(params, None)),
+                NamedEntityKind::new_procedure_decl(formals),
                 file_type.decl_pos(),
             )));
         }
 
         // procedure FLUSH (file F: FT);
         {
-            let mut params = FormalRegion::new_params();
-            params.add(Arc::new(NamedEntity::new(
+            let mut formals = FormalRegion::new_params();
+            formals.add(Arc::new(NamedEntity::new(
                 self.symbol("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
@@ -298,15 +297,15 @@ impl<'a> StandardRegion<'a> {
             implicit.push(Arc::new(NamedEntity::implicit(
                 file_type.clone().into(),
                 self.symbol("FLUSH"),
-                NamedEntityKind::Subprogram(Signature::new(params, None)),
+                NamedEntityKind::new_procedure_decl(formals),
                 file_type.decl_pos(),
             )));
         }
 
         // function ENDFILE (file F: FT) return BOOLEAN;
         {
-            let mut params = FormalRegion::new_params();
-            params.add(Arc::new(NamedEntity::new(
+            let mut formals = FormalRegion::new_params();
+            formals.add(Arc::new(NamedEntity::new(
                 self.symbol("F"),
                 NamedEntityKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
@@ -315,7 +314,7 @@ impl<'a> StandardRegion<'a> {
             implicit.push(Arc::new(NamedEntity::implicit(
                 file_type.clone().into(),
                 self.symbol("ENDFILE"),
-                NamedEntityKind::Subprogram(Signature::new(params, Some(boolean))),
+                NamedEntityKind::new_function_decl(formals, boolean),
                 file_type.decl_pos(),
             )));
         }
@@ -326,8 +325,8 @@ impl<'a> StandardRegion<'a> {
     /// Create implicit TO_STRING
     /// function TO_STRING (VALUE: T) return STRING;
     pub fn create_to_string(&self, type_ent: TypeEnt) -> Arc<NamedEntity> {
-        let mut params = FormalRegion::new_params();
-        params.add(Arc::new(NamedEntity::new(
+        let mut formals = FormalRegion::new_params();
+        formals.add(Arc::new(NamedEntity::new(
             self.symbol("VALUE"),
             NamedEntityKind::Object(Object {
                 class: ObjectClass::Constant,
@@ -341,7 +340,7 @@ impl<'a> StandardRegion<'a> {
         Arc::new(NamedEntity::implicit(
             type_ent.clone().into(),
             self.symbol("TO_STRING"),
-            NamedEntityKind::Subprogram(Signature::new(params, Some(self.string()))),
+            NamedEntityKind::new_function_decl(formals, self.string()),
             type_ent.decl_pos(),
         ))
     }
@@ -350,8 +349,8 @@ impl<'a> StandardRegion<'a> {
     // function MINIMUM (L, R: T) return T;
     // function MAXIMUM (L, R: T) return T;
     fn create_min_or_maximum(&self, name: &str, type_ent: TypeEnt) -> Arc<NamedEntity> {
-        let mut params = FormalRegion::new_params();
-        params.add(Arc::new(NamedEntity::new(
+        let mut formals = FormalRegion::new_params();
+        formals.add(Arc::new(NamedEntity::new(
             self.symbol("L"),
             NamedEntityKind::Object(Object {
                 class: ObjectClass::Constant,
@@ -362,7 +361,7 @@ impl<'a> StandardRegion<'a> {
             type_ent.decl_pos(),
         )));
 
-        params.add(Arc::new(NamedEntity::new(
+        formals.add(Arc::new(NamedEntity::new(
             self.symbol("R"),
             NamedEntityKind::Object(Object {
                 class: ObjectClass::Constant,
@@ -376,14 +375,14 @@ impl<'a> StandardRegion<'a> {
         Arc::new(NamedEntity::implicit(
             type_ent.clone().into(),
             self.symbol(name),
-            NamedEntityKind::Subprogram(Signature::new(params, Some(type_ent.clone()))),
+            NamedEntityKind::new_function_decl(formals, type_ent.clone()),
             type_ent.decl_pos(),
         ))
     }
 
     fn unary(&self, op: Operator, typ: TypeEnt, return_type: TypeEnt) -> Arc<NamedEntity> {
-        let mut params = FormalRegion::new_params();
-        params.add(Arc::new(NamedEntity::new(
+        let mut formals = FormalRegion::new_params();
+        formals.add(Arc::new(NamedEntity::new(
             // @TODO anonymous
             self.symbol("V"),
             NamedEntityKind::Object(Object {
@@ -398,7 +397,7 @@ impl<'a> StandardRegion<'a> {
         Arc::new(NamedEntity::implicit(
             typ.clone().into(),
             Designator::OperatorSymbol(op),
-            NamedEntityKind::Subprogram(Signature::new(params, Some(return_type))),
+            NamedEntityKind::new_function_decl(formals, return_type),
             typ.decl_pos(),
         ))
     }
@@ -415,8 +414,8 @@ impl<'a> StandardRegion<'a> {
         right: TypeEnt,
         return_type: TypeEnt,
     ) -> Arc<NamedEntity> {
-        let mut params = FormalRegion::new_params();
-        params.add(Arc::new(NamedEntity::new(
+        let mut formals = FormalRegion::new_params();
+        formals.add(Arc::new(NamedEntity::new(
             // @TODO anonymous
             self.symbol("L"),
             NamedEntityKind::Object(Object {
@@ -428,7 +427,7 @@ impl<'a> StandardRegion<'a> {
             implicit_of.decl_pos(),
         )));
 
-        params.add(Arc::new(NamedEntity::new(
+        formals.add(Arc::new(NamedEntity::new(
             // @TODO anonymous
             self.symbol("R"),
             NamedEntityKind::Object(Object {
@@ -443,7 +442,7 @@ impl<'a> StandardRegion<'a> {
         Arc::new(NamedEntity::implicit(
             implicit_of.clone().into(),
             Designator::OperatorSymbol(op),
-            NamedEntityKind::Subprogram(Signature::new(params, Some(return_type))),
+            NamedEntityKind::new_function_decl(formals, return_type),
             implicit_of.decl_pos(),
         ))
     }
@@ -467,8 +466,8 @@ impl<'a> StandardRegion<'a> {
     /// Create implicit DEALLOCATE
     /// procedure DEALLOCATE (P: inout AT);
     pub fn deallocate(&self, type_ent: TypeEnt) -> Arc<NamedEntity> {
-        let mut params = FormalRegion::new_params();
-        params.add(Arc::new(NamedEntity::new(
+        let mut formals = FormalRegion::new_params();
+        formals.add(Arc::new(NamedEntity::new(
             self.symbol("P"),
             NamedEntityKind::Object(Object {
                 class: ObjectClass::Variable,
@@ -482,7 +481,7 @@ impl<'a> StandardRegion<'a> {
         Arc::new(NamedEntity::implicit(
             type_ent.clone().into(),
             self.symbol("DEALLOCATE"),
-            NamedEntityKind::Subprogram(Signature::new(params, None)),
+            NamedEntityKind::new_procedure_decl(formals),
             type_ent.decl_pos(),
         ))
     }
@@ -657,8 +656,8 @@ impl<'a> StandardRegion<'a> {
             let natural = self.natural();
             let string = self.string();
 
-            let mut params = FormalRegion::new_params();
-            params.add(Arc::new(NamedEntity::new(
+            let mut formals = FormalRegion::new_params();
+            formals.add(Arc::new(NamedEntity::new(
                 self.symbol("VALUE"),
                 NamedEntityKind::Object(Object {
                     class: ObjectClass::Constant,
@@ -669,7 +668,7 @@ impl<'a> StandardRegion<'a> {
                 real.decl_pos(),
             )));
 
-            params.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(NamedEntity::new(
                 self.symbol("DIGITS"),
                 NamedEntityKind::Object(Object {
                     class: ObjectClass::Constant,
@@ -683,7 +682,7 @@ impl<'a> StandardRegion<'a> {
             let ent = Arc::new(NamedEntity::implicit(
                 real.clone().into(),
                 self.symbol("TO_STRING"),
-                NamedEntityKind::Subprogram(Signature::new(params, Some(string))),
+                NamedEntityKind::new_function_decl(formals, string),
                 real.decl_pos(),
             ));
 
@@ -699,8 +698,8 @@ impl<'a> StandardRegion<'a> {
             let real = self.real();
             let string = self.string();
 
-            let mut params = FormalRegion::new_params();
-            params.add(Arc::new(NamedEntity::new(
+            let mut formals = FormalRegion::new_params();
+            formals.add(Arc::new(NamedEntity::new(
                 self.symbol("VALUE"),
                 NamedEntityKind::Object(Object {
                     class: ObjectClass::Constant,
@@ -711,7 +710,7 @@ impl<'a> StandardRegion<'a> {
                 real.decl_pos(),
             )));
 
-            params.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(NamedEntity::new(
                 self.symbol("FORMAT"),
                 NamedEntityKind::Object(Object {
                     class: ObjectClass::Constant,
@@ -725,7 +724,7 @@ impl<'a> StandardRegion<'a> {
             let ent = Arc::new(NamedEntity::implicit(
                 real.clone().into(),
                 self.symbol("TO_STRING"),
-                NamedEntityKind::Subprogram(Signature::new(params, Some(string))),
+                NamedEntityKind::new_function_decl(formals, string),
                 real.decl_pos(),
             ));
 
@@ -740,8 +739,8 @@ impl<'a> StandardRegion<'a> {
         {
             let time = self.time();
             let string = self.string();
-            let mut params = FormalRegion::new_params();
-            params.add(Arc::new(NamedEntity::new(
+            let mut formals = FormalRegion::new_params();
+            formals.add(Arc::new(NamedEntity::new(
                 self.symbol("VALUE"),
                 NamedEntityKind::Object(Object {
                     class: ObjectClass::Constant,
@@ -752,7 +751,7 @@ impl<'a> StandardRegion<'a> {
                 time.decl_pos(),
             )));
 
-            params.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(NamedEntity::new(
                 self.symbol("UNIT"),
                 NamedEntityKind::Object(Object {
                     class: ObjectClass::Constant,
@@ -766,7 +765,7 @@ impl<'a> StandardRegion<'a> {
             let ent = Arc::new(NamedEntity::implicit(
                 time.clone().into(),
                 self.symbol("TO_STRING"),
-                NamedEntityKind::Subprogram(Signature::new(params, Some(string))),
+                NamedEntityKind::new_function_decl(formals, string),
                 time.decl_pos(),
             ));
 
