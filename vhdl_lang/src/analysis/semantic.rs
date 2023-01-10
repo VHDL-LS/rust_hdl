@@ -64,10 +64,6 @@ impl<'a> AnalyzeContext<'a> {
 
                 Ok(NamedEntities::new(named_entity))
             }
-
-            NamedEntityKind::UninstPackage(..) => Err(AnalysisError::NotFatal(
-                invalid_selected_name_prefix(prefix, prefix_pos),
-            )),
             NamedEntityKind::Object(ref object) => {
                 self.lookup_type_selected(prefix_pos, object.subtype.type_mark(), suffix)
             }
@@ -80,15 +76,19 @@ impl<'a> AnalyzeContext<'a> {
             NamedEntityKind::ElementDeclaration(ref subtype) => {
                 self.lookup_type_selected(prefix_pos, subtype.type_mark(), suffix)
             }
-            NamedEntityKind::Package(ref region)
-            | NamedEntityKind::PackageInstance(ref region)
-            | NamedEntityKind::LocalPackageInstance(ref region) => {
-                if let Some(decl) = region.lookup_immediate(suffix.designator()) {
-                    Ok(decl.clone())
-                } else {
-                    Err(no_declaration_within(prefix, &suffix.pos, &suffix.item.item).into())
+            NamedEntityKind::Design(design) => match design {
+                Design::Package(ref region)
+                | Design::PackageInstance(ref region)
+                | Design::LocalPackageInstance(ref region) => {
+                    if let Some(decl) = region.lookup_immediate(suffix.designator()) {
+                        Ok(decl.clone())
+                    } else {
+                        Err(no_declaration_within(prefix, &suffix.pos, &suffix.item.item).into())
+                    }
                 }
-            }
+                _ => Err(invalid_selected_name_prefix(prefix, prefix_pos).into()),
+            },
+
             _ => Err(invalid_selected_name_prefix(prefix, prefix_pos).into()),
         }
     }

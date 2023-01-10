@@ -23,6 +23,9 @@ pub use overloaded::{OverloadedEnt, Signature, SignatureKey};
 mod object;
 pub use object::ObjectEnt;
 
+mod design;
+pub use design::Design;
+
 pub enum NamedEntityKind {
     NonObjectAlias(Arc<NamedEntity>),
     ExternalAlias {
@@ -50,13 +53,7 @@ pub enum NamedEntityKind {
     PhysicalLiteral(TypeEnt),
     DeferredConstant(Subtype),
     Library,
-    Entity(Arc<Region>),
-    Configuration(Arc<Region>),
-    Package(Arc<Region>),
-    UninstPackage(Arc<Region>),
-    PackageInstance(Arc<Region>),
-    Context(Arc<Region>),
-    LocalPackageInstance(Arc<Region>),
+    Design(Design),
 }
 
 impl NamedEntityKind {
@@ -117,13 +114,7 @@ impl NamedEntityKind {
             PhysicalLiteral(..) => "physical literal",
             DeferredConstant(..) => "deferred constant",
             Library => "library",
-            Entity(..) => "entity",
-            Configuration(..) => "configuration",
-            Package(..) => "package",
-            UninstPackage(..) => "uninstantiated package",
-            PackageInstance(..) => "package instance",
-            Context(..) => "context",
-            LocalPackageInstance(..) => "package instance",
+            Design(design) => design.describe(),
             Type(typ) => typ.describe(),
         }
     }

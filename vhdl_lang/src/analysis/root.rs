@@ -372,7 +372,9 @@ impl DesignRoot {
             .unwrap();
 
         if let AnyPrimaryUnit::Package(pkg) = unit.unit.write().as_primary_mut().unwrap() {
-            if let NamedEntityKind::Package(region) = pkg.ident.decl.as_ref().unwrap().kind() {
+            if let NamedEntityKind::Design(Design::Package(region)) =
+                pkg.ident.decl.as_ref().unwrap().kind()
+            {
                 return region
                     .lookup_immediate(&Designator::Identifier(self.symbol_utf8(name)))
                     .unwrap()
@@ -428,24 +430,26 @@ impl DesignRoot {
             match primary_unit {
                 AnyPrimaryUnit::Entity(entity) => entity
                     .ident
-                    .define_with_id(entity_id, NamedEntityKind::Entity(region)),
-                AnyPrimaryUnit::Configuration(cfg) => cfg
-                    .ident
-                    .define_with_id(entity_id, NamedEntityKind::Configuration(region)),
+                    .define_with_id(entity_id, NamedEntityKind::Design(Design::Entity(region))),
+                AnyPrimaryUnit::Configuration(cfg) => cfg.ident.define_with_id(
+                    entity_id,
+                    NamedEntityKind::Design(Design::Configuration(region)),
+                ),
                 AnyPrimaryUnit::Package(package) => package.ident.define_with_id(
                     entity_id,
                     if package.generic_clause.is_some() {
-                        NamedEntityKind::UninstPackage(region)
+                        NamedEntityKind::Design(Design::UninstPackage(region))
                     } else {
-                        NamedEntityKind::Package(region)
+                        NamedEntityKind::Design(Design::Package(region))
                     },
                 ),
-                AnyPrimaryUnit::PackageInstance(inst) => inst
-                    .ident
-                    .define_with_id(entity_id, NamedEntityKind::PackageInstance(region)),
+                AnyPrimaryUnit::PackageInstance(inst) => inst.ident.define_with_id(
+                    entity_id,
+                    NamedEntityKind::Design(Design::PackageInstance(region)),
+                ),
                 AnyPrimaryUnit::Context(ctx) => ctx
                     .ident
-                    .define_with_id(entity_id, NamedEntityKind::Context(region)),
+                    .define_with_id(entity_id, NamedEntityKind::Design(Design::Context(region))),
             };
         };
 
@@ -683,7 +687,7 @@ impl DesignRoot {
                             if package.generic_clause.is_some() {
                                 unreachable!("Expected std.standard to not be generic package");
                             } else {
-                                NamedEntityKind::Package(region.clone())
+                                NamedEntityKind::Design(Design::Package(region.clone()))
                             },
                         );
                         self.standard_pkg = Some(ent);

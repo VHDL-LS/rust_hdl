@@ -386,7 +386,7 @@ impl<'a> AnalyzeContext<'a> {
                             } else {
                                 let primary_ent = self.lookup_in_library(library_name, &designator.pos, designator.designator())?;
                                 match primary_ent.kind() {
-                                    NamedEntityKind::Entity(..) => {
+                                    NamedEntityKind::Design(Design::Entity(..)) => {
                                         designator.set_unique_reference(&primary_ent);
                                         Ok(
                                             primary_ent,
@@ -512,7 +512,9 @@ impl<'a> AnalyzeContext<'a> {
                                 let ent = visible.first();
                                 match ent.kind() {
                                     // OK
-                                    NamedEntityKind::Context(ref context_region) => {
+                                    NamedEntityKind::Design(Design::Context(
+                                        ref context_region,
+                                    )) => {
                                         scope.add_context_visibility(
                                             Some(&name.pos),
                                             context_region,
@@ -575,15 +577,24 @@ impl<'a> AnalyzeContext<'a> {
                             let library_name = named_entity.designator().expect_identifier();
                             self.use_all_in_library(&name.pos, library_name, scope)?;
                         }
-                        NamedEntityKind::UninstPackage(..) => {
-                            diagnostics
-                                .push(invalid_selected_name_prefix(&named_entity, &visibility_pos));
-                        }
-                        NamedEntityKind::Package(ref primary_region)
-                        | NamedEntityKind::PackageInstance(ref primary_region)
-                        | NamedEntityKind::LocalPackageInstance(ref primary_region) => {
-                            scope.make_all_potentially_visible(Some(&name.pos), primary_region);
-                        }
+                        NamedEntityKind::Design(design) => match design {
+                            Design::UninstPackage(..) => {
+                                diagnostics.push(invalid_selected_name_prefix(
+                                    &named_entity,
+                                    &visibility_pos,
+                                ));
+                            }
+                            Design::Package(ref primary_region)
+                            | Design::PackageInstance(ref primary_region)
+                            | Design::LocalPackageInstance(ref primary_region) => {
+                                scope.make_all_potentially_visible(Some(&name.pos), primary_region);
+                            }
+                            _ => {
+                                diagnostics
+                                    .error(visibility_pos, "Invalid prefix for selected name");
+                            }
+                        },
+
                         _ => {
                             diagnostics.error(visibility_pos, "Invalid prefix for selected name");
                         }
@@ -606,7 +617,9 @@ impl<'a> AnalyzeContext<'a> {
     ) -> AnalysisResult<Arc<Region>> {
         let decl = self.resolve_selected_name(scope, package_name)?;
 
-        if let NamedEntityKind::UninstPackage(ref package_region) = decl.first_kind() {
+        if let NamedEntityKind::Design(Design::UninstPackage(ref package_region)) =
+            decl.first_kind()
+        {
             Ok(package_region.clone())
         } else {
             Err(AnalysisError::not_fatal_error(

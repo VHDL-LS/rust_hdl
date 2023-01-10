@@ -316,7 +316,7 @@ impl<'a> AnalyzeContext<'a> {
             self.make_use_of(None, &UnitId::package(&self.std_sym, &self.standard_sym))
                 .unwrap();
 
-            if let NamedEntityKind::Package(region) = pkg.kind() {
+            if let NamedEntityKind::Design(Design::Package(region)) = pkg.kind() {
                 Some(region)
             } else {
                 unreachable!("Standard package is not a package");

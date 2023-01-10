@@ -410,9 +410,9 @@ impl<'a> AnalyzeContext<'a> {
             Declaration::Package(ref mut instance) => {
                 match self.analyze_package_instance_name(scope, &mut instance.package_name) {
                     Ok(package_region) => scope.add(
-                        instance
-                            .ident
-                            .define(NamedEntityKind::LocalPackageInstance(package_region)),
+                        instance.ident.define(NamedEntityKind::Design(
+                            Design::LocalPackageInstance(package_region),
+                        )),
                         diagnostics,
                     ),
                     Err(err) => err.add_to(diagnostics)?,
@@ -900,7 +900,9 @@ impl<'a> AnalyzeContext<'a> {
 
                 instance
                     .ident
-                    .define(NamedEntityKind::LocalPackageInstance(package_region))
+                    .define(NamedEntityKind::Design(Design::LocalPackageInstance(
+                        package_region,
+                    )))
             }
         };
         Ok(ent)

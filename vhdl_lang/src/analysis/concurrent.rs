@@ -197,7 +197,8 @@ impl<'a> AnalyzeContext<'a> {
                                 expected,
                             )?;
 
-                            if let NamedEntityKind::Entity(ent_region) = ent.kind() {
+                            if let NamedEntityKind::Design(Design::Entity(ent_region)) = ent.kind()
+                            {
                                 let (generic_region, port_region) = ent_region.to_entity_formal();
 
                                 self.analyze_assoc_elems_with_formal_region(
@@ -265,7 +266,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             InstantiatedUnit::Configuration(ref mut config_name) => {
                 fn is_configuration(kind: &NamedEntityKind) -> bool {
-                    matches!(kind, NamedEntityKind::Configuration(..))
+                    matches!(kind, NamedEntityKind::Design(Design::Configuration(..)))
                 }
 
                 if let Err(err) =
