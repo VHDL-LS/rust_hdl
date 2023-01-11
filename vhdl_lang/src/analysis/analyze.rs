@@ -288,23 +288,28 @@ impl<'a> AnalyzeContext<'a> {
         library_name: &Symbol,
         pos: &SrcPos,
         primary_name: &Designator,
+        reference: &mut Reference,
     ) -> AnalysisResult<DesignEnt> {
+        reference.clear_reference();
+
         if let Designator::Identifier(ref primary_name) = primary_name {
             if let Some(unit) = self.get_primary_unit(library_name, primary_name) {
                 let data = self.get_analysis(Some(pos), unit)?;
                 if let AnyDesignUnit::Primary(primary) = data.deref() {
                     if let Some(ent) = primary.named_entity() {
-                        return DesignEnt::from_any(ent.clone()).map_err(|ent| {
+                        let design = DesignEnt::from_any(ent.clone()).map_err(|ent| {
                             // Almost impossible but better not fail silently
-                            AnalysisError::NotFatal(Diagnostic::error(
+                            Diagnostic::error(
                                 pos,
                                 format!(
                                     "Found non-design {} unit within library {}",
                                     ent.describe(),
                                     library_name
                                 ),
-                            ))
-                        });
+                            )
+                        })?;
+                        reference.set_unique_reference(design.as_ref());
+                        return Ok(design);
                     }
                 }
             }

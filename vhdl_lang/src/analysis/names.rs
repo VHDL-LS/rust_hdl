@@ -135,9 +135,14 @@ impl<'a> AnalyzeContext<'a> {
                 };
 
                 match resolved {
-                    ResolvedName::Library(ref library_name) => Ok(Some(ResolvedName::Design(
-                        self.lookup_in_library(library_name, &suffix.pos, suffix.designator())?,
-                    ))),
+                    ResolvedName::Library(ref library_name) => {
+                        Ok(Some(ResolvedName::Design(self.lookup_in_library(
+                            library_name,
+                            &suffix.pos,
+                            &suffix.item.item,
+                            &mut suffix.item.reference,
+                        )?)))
+                    }
                     ResolvedName::Design(ref ent) => {
                         match ent.selected(&prefix.pos, suffix)? {
                             NamedEntities::Single(named_entity) => {

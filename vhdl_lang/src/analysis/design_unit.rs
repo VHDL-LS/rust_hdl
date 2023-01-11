@@ -345,22 +345,12 @@ impl<'a> AnalyzeContext<'a> {
         match ent_name.item {
             // Entitities are implicitly defined for configurations
             // configuration cfg of ent
-            SelectedName::Designator(ref mut designator) => {
-                match self.lookup_in_library(
-                    self.work_library_name(),
-                    &ent_name.pos,
-                    &designator.item,
-                ) {
-                    Ok(ent) => {
-                        designator.set_unique_reference(&ent);
-                        Ok(ent)
-                    }
-                    Err(err) => {
-                        designator.clear_reference();
-                        Err(err)
-                    }
-                }
-            }
+            SelectedName::Designator(ref mut designator) => self.lookup_in_library(
+                self.work_library_name(),
+                &ent_name.pos,
+                &designator.item,
+                &mut designator.reference,
+            ),
 
             // configuration cfg of lib.ent
             SelectedName::Selected(ref mut prefix, ref mut designator) => {
@@ -383,15 +373,9 @@ impl<'a> AnalyzeContext<'a> {
                                     format!("Configuration must be within the same library '{}' as the corresponding entity", self.work_library_name()),
                                 ))
                             } else {
-                                let primary_ent = self.lookup_in_library(library_name, &designator.pos, designator.designator())?;
+                                let primary_ent = self.lookup_in_library(library_name, &designator.pos, &designator.item.item, &mut designator.item.reference)?;
                                 match primary_ent.kind() {
-                                    Design::Entity(..) => {
-                                        designator.set_unique_reference(&primary_ent);
-                                        Ok(
-                                            primary_ent,
-                                        )
-
-                                    }
+                                    Design::Entity(..) => Ok(primary_ent),
                                     _ => {
                                         Err(AnalysisError::not_fatal_error(
                                             designator,

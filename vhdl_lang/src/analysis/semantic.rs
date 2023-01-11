@@ -54,13 +54,17 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         prefix_pos: &SrcPos,
         prefix: &Arc<AnyEnt>,
-        suffix: &WithPos<WithRef<Designator>>,
+        suffix: &mut WithPos<WithRef<Designator>>,
     ) -> AnalysisResult<NamedEntities> {
         match prefix.actual_kind() {
             AnyEntKind::Library => {
                 let library_name = prefix.designator().expect_identifier();
-                let named_entity =
-                    self.lookup_in_library(library_name, &suffix.pos, suffix.designator())?;
+                let named_entity = self.lookup_in_library(
+                    library_name,
+                    &suffix.pos,
+                    &suffix.item.item,
+                    &mut suffix.item.reference,
+                )?;
 
                 Ok(NamedEntities::new(named_entity.into()))
             }
