@@ -155,20 +155,11 @@ impl TypeEnt {
         }
     }
 
-    // Flatten all aliases
-    pub fn flatten_alias(&self) -> &TypeEnt {
-        if let Type::Alias(alias) = self.kind() {
-            alias.flatten_alias()
-        } else {
-            self
-        }
-    }
-
     pub fn base_type(&self) -> &TypeEnt {
-        let actual = self.flatten_alias();
-        match actual.kind() {
-            Type::Subtype(ref subtype) => subtype.base_type(),
-            _ => actual,
+        match self.kind() {
+            Type::Alias(alias) => alias.base_type(),
+            Type::Subtype(subtype) => subtype.base_type(),
+            _ => self,
         }
     }
 
@@ -273,10 +264,6 @@ impl Subtype {
     }
 
     pub fn base_type(&self) -> &TypeEnt {
-        let flat = self.type_mark.flatten_alias();
-        match flat.kind() {
-            Type::Subtype(ref subtype) => subtype.base_type(),
-            _ => flat.base_type(),
-        }
+        self.type_mark.base_type()
     }
 }
