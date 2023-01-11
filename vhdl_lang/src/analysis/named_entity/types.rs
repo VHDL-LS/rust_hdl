@@ -8,7 +8,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use crate::analysis::analyze::AnalysisResult;
-use crate::analysis::named_entity::{EntityId, NamedEntity, NamedEntityKind};
+use crate::analysis::named_entity::{AnyEnt, AnyEntKind, EntityId};
 
 use crate::analysis::formal_region::RecordRegion;
 use crate::analysis::implicits::ImplicitVec;
@@ -41,7 +41,7 @@ pub enum Type {
     Record(RecordRegion, ImplicitVec),
     // Weak references since incomplete access types can create cycles
     // The reference is for the full type which is filled in after creation
-    Incomplete(ArcSwapWeak<NamedEntity>),
+    Incomplete(ArcSwapWeak<AnyEnt>),
     Subtype(Subtype),
     // The region of the protected type which needs to be extendend by the body
     Protected(Region, ArcSwapOption<SrcPos>),
@@ -58,7 +58,7 @@ pub enum UniversalType {
 }
 
 impl Type {
-    pub fn implicit_declarations(&self) -> impl Iterator<Item = Arc<NamedEntity>> + '_ {
+    pub fn implicit_declarations(&self) -> impl Iterator<Item = Arc<AnyEnt>> + '_ {
         self.implicits().into_iter().flat_map(|imp| imp.iter())
     }
 
@@ -112,7 +112,7 @@ impl UniversalType {
 
 // A named entity that is known to be a type
 #[derive(Clone, Debug)]
-pub struct TypeEnt(Arc<NamedEntity>);
+pub struct TypeEnt(Arc<AnyEnt>);
 
 impl TypeEnt {
     pub fn define_with_opt_id(
@@ -120,27 +120,27 @@ impl TypeEnt {
         ident: &mut WithDecl<Ident>,
         kind: Type,
     ) -> TypeEnt {
-        let ent = Arc::new(NamedEntity {
+        let ent = Arc::new(AnyEnt {
             id: id.unwrap_or_else(EntityId::new),
             implicit_of: None,
             decl_pos: Some(ident.tree.pos.clone()),
             designator: ident.tree.item.clone().into(),
-            kind: NamedEntityKind::Type(kind),
+            kind: AnyEntKind::Type(kind),
         });
         ident.decl = Some(ent.clone());
         TypeEnt(ent)
     }
 
-    pub fn from_any(ent: Arc<NamedEntity>) -> Result<TypeEnt, Arc<NamedEntity>> {
-        if matches!(ent.kind(), NamedEntityKind::Type(..)) {
+    pub fn from_any(ent: Arc<AnyEnt>) -> Result<TypeEnt, Arc<AnyEnt>> {
+        if matches!(ent.kind(), AnyEntKind::Type(..)) {
             Ok(TypeEnt(ent))
         } else {
             Err(ent)
         }
     }
 
-    pub fn from_any_ref(ent: &Arc<NamedEntity>) -> Option<TypeEnt> {
-        if matches!(ent.kind(), NamedEntityKind::Type(..)) {
+    pub fn from_any_ref(ent: &Arc<AnyEnt>) -> Option<TypeEnt> {
+        if matches!(ent.kind(), AnyEntKind::Type(..)) {
             Some(TypeEnt(ent.clone()))
         } else {
             None
@@ -148,7 +148,7 @@ impl TypeEnt {
     }
 
     pub fn kind(&self) -> &Type {
-        if let NamedEntityKind::Type(typ) = self.0.kind() {
+        if let AnyEntKind::Type(typ) = self.0.kind() {
             typ
         } else {
             unreachable!("Must be a type");
@@ -223,7 +223,7 @@ impl TypeEnt {
     }
 }
 
-impl From<TypeEnt> for Arc<NamedEntity> {
+impl From<TypeEnt> for Arc<AnyEnt> {
     fn from(ent: TypeEnt) -> Self {
         ent.0
     }
@@ -235,16 +235,16 @@ impl std::cmp::PartialEq for TypeEnt {
     }
 }
 
-impl AsRef<Arc<NamedEntity>> for TypeEnt {
-    fn as_ref(&self) -> &Arc<NamedEntity> {
+impl AsRef<Arc<AnyEnt>> for TypeEnt {
+    fn as_ref(&self) -> &Arc<AnyEnt> {
         &self.0
     }
 }
 
 impl Deref for TypeEnt {
-    type Target = NamedEntity;
-    fn deref(&self) -> &NamedEntity {
-        let val: &Arc<NamedEntity> = self.0.borrow();
+    type Target = AnyEnt;
+    fn deref(&self) -> &AnyEnt {
+        let val: &Arc<AnyEnt> = self.0.borrow();
         val.as_ref()
     }
 }

@@ -81,7 +81,7 @@ struct Library {
     name: Symbol,
 
     /// Named entity corresponding to the library.
-    ent: Arc<NamedEntity>,
+    ent: Arc<AnyEnt>,
 
     units: FnvHashMap<UnitKey, LockedUnit>,
     units_by_source: FnvHashMap<Source, FnvHashSet<UnitId>>,
@@ -98,9 +98,9 @@ struct Library {
 
 impl Library {
     fn new(name: Symbol) -> Library {
-        let ent = Arc::new(NamedEntity::new(
+        let ent = Arc::new(AnyEnt::new(
             Designator::Identifier(name.clone()),
-            NamedEntityKind::Library,
+            AnyEntKind::Library,
             None,
         ));
         Library {
@@ -249,7 +249,7 @@ impl Library {
 /// dependencies between design units.
 pub struct DesignRoot {
     pub symbols: Arc<Symbols>,
-    pub standard_pkg: Option<Arc<NamedEntity>>,
+    pub standard_pkg: Option<Arc<AnyEnt>>,
     pub universal: Option<UniversalTypes>,
     libraries: FnvHashMap<Symbol, Library>,
 
@@ -303,7 +303,7 @@ impl DesignRoot {
     }
 
     /// Get a named entity corresponding to the library
-    pub(super) fn get_library_ent(&self, library_name: &Symbol) -> Option<&Arc<NamedEntity>> {
+    pub(super) fn get_library_ent(&self, library_name: &Symbol) -> Option<&Arc<AnyEnt>> {
         self.libraries.get(library_name).map(|library| &library.ent)
     }
 
@@ -324,7 +324,7 @@ impl DesignRoot {
     ///
     /// If the character value is greater than the line length it defaults back to the
     /// line length.
-    pub fn search_reference(&self, source: &Source, cursor: Position) -> Option<Arc<NamedEntity>> {
+    pub fn search_reference(&self, source: &Source, cursor: Position) -> Option<Arc<AnyEnt>> {
         let mut searcher = ItemAtCursor::new(source, cursor);
         let _ = self.search(&mut searcher);
         searcher.result
@@ -336,14 +336,14 @@ impl DesignRoot {
             .and_then(|ent| ent.decl_pos().cloned())
     }
     /// Search for the declaration at decl_pos and format it
-    pub fn format_declaration(&self, ent: Arc<NamedEntity>) -> Option<String> {
+    pub fn format_declaration(&self, ent: Arc<AnyEnt>) -> Option<String> {
         let mut searcher = FormatDeclaration::new(ent);
         let _ = self.search(&mut searcher);
         searcher.result
     }
 
     /// Search for all references to the declaration at decl_pos
-    pub fn find_all_references(&self, ent: Arc<NamedEntity>) -> Vec<SrcPos> {
+    pub fn find_all_references(&self, ent: Arc<AnyEnt>) -> Vec<SrcPos> {
         let mut searcher = FindAllReferences::new(ent);
         let _ = self.search(&mut searcher);
         searcher.references
@@ -365,14 +365,14 @@ impl DesignRoot {
     }
 
     #[cfg(test)]
-    pub fn find_standard_symbol(&self, name: &str) -> Arc<NamedEntity> {
+    pub fn find_standard_symbol(&self, name: &str) -> Arc<AnyEnt> {
         let std_lib = self.libraries.get(&self.symbol_utf8("std")).unwrap();
         let unit = std_lib
             .get_unit(&UnitKey::Primary(self.symbol_utf8("standard")))
             .unwrap();
 
         if let AnyPrimaryUnit::Package(pkg) = unit.unit.write().as_primary_mut().unwrap() {
-            if let NamedEntityKind::Design(Design::Package(region)) =
+            if let AnyEntKind::Design(Design::Package(region)) =
                 pkg.ident.decl.as_ref().unwrap().kind()
             {
                 return region
@@ -430,26 +430,25 @@ impl DesignRoot {
             match primary_unit {
                 AnyPrimaryUnit::Entity(entity) => entity
                     .ident
-                    .define_with_id(entity_id, NamedEntityKind::Design(Design::Entity(region))),
-                AnyPrimaryUnit::Configuration(cfg) => cfg.ident.define_with_id(
-                    entity_id,
-                    NamedEntityKind::Design(Design::Configuration(region)),
-                ),
+                    .define_with_id(entity_id, AnyEntKind::Design(Design::Entity(region))),
+                AnyPrimaryUnit::Configuration(cfg) => cfg
+                    .ident
+                    .define_with_id(entity_id, AnyEntKind::Design(Design::Configuration(region))),
                 AnyPrimaryUnit::Package(package) => package.ident.define_with_id(
                     entity_id,
                     if package.generic_clause.is_some() {
-                        NamedEntityKind::Design(Design::UninstPackage(region))
+                        AnyEntKind::Design(Design::UninstPackage(region))
                     } else {
-                        NamedEntityKind::Design(Design::Package(region))
+                        AnyEntKind::Design(Design::Package(region))
                     },
                 ),
                 AnyPrimaryUnit::PackageInstance(inst) => inst.ident.define_with_id(
                     entity_id,
-                    NamedEntityKind::Design(Design::PackageInstance(region)),
+                    AnyEntKind::Design(Design::PackageInstance(region)),
                 ),
                 AnyPrimaryUnit::Context(ctx) => ctx
                     .ident
-                    .define_with_id(entity_id, NamedEntityKind::Design(Design::Context(region))),
+                    .define_with_id(entity_id, AnyEntKind::Design(Design::Context(region))),
             };
         };
 
@@ -687,7 +686,7 @@ impl DesignRoot {
                             if package.generic_clause.is_some() {
                                 unreachable!("Expected std.standard to not be generic package");
                             } else {
-                                NamedEntityKind::Design(Design::Package(region.clone()))
+                                AnyEntKind::Design(Design::Package(region.clone()))
                             },
                         );
                         self.standard_pkg = Some(ent);

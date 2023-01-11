@@ -53,30 +53,28 @@ impl<'a> AnalyzeContext<'a> {
     pub fn lookup_selected(
         &self,
         prefix_pos: &SrcPos,
-        prefix: &NamedEntity,
+        prefix: &AnyEnt,
         suffix: &WithPos<WithRef<Designator>>,
     ) -> AnalysisResult<NamedEntities> {
         match prefix.actual_kind() {
-            NamedEntityKind::Library => {
+            AnyEntKind::Library => {
                 let library_name = prefix.designator().expect_identifier();
                 let named_entity =
                     self.lookup_in_library(library_name, &suffix.pos, suffix.designator())?;
 
                 Ok(NamedEntities::new(named_entity))
             }
-            NamedEntityKind::Object(ref object) => {
+            AnyEntKind::Object(ref object) => {
                 object.subtype.type_mark().selected(prefix_pos, suffix)
             }
-            NamedEntityKind::ObjectAlias { ref type_mark, .. } => {
+            AnyEntKind::ObjectAlias { ref type_mark, .. } => type_mark.selected(prefix_pos, suffix),
+            AnyEntKind::ExternalAlias { ref type_mark, .. } => {
                 type_mark.selected(prefix_pos, suffix)
             }
-            NamedEntityKind::ExternalAlias { ref type_mark, .. } => {
-                type_mark.selected(prefix_pos, suffix)
-            }
-            NamedEntityKind::ElementDeclaration(ref subtype) => {
+            AnyEntKind::ElementDeclaration(ref subtype) => {
                 subtype.type_mark().selected(prefix_pos, suffix)
             }
-            NamedEntityKind::Design(design) => match design {
+            AnyEntKind::Design(design) => match design {
                 Design::Package(ref region)
                 | Design::PackageInstance(ref region)
                 | Design::LocalPackageInstance(ref region) => {
@@ -210,9 +208,9 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         named_entities: NamedEntities,
         pos: &SrcPos,
-        kind_ok: &impl Fn(&NamedEntityKind) -> bool,
+        kind_ok: &impl Fn(&AnyEntKind) -> bool,
         expected: &str,
-    ) -> AnalysisResult<Arc<NamedEntity>> {
+    ) -> AnalysisResult<Arc<AnyEnt>> {
         let ent = self.resolve_non_overloaded(named_entities, pos, expected)?;
         if kind_ok(ent.actual_kind()) {
             Ok(ent)
@@ -226,7 +224,7 @@ impl<'a> AnalyzeContext<'a> {
         named_entities: NamedEntities,
         pos: &SrcPos,
         expected: &str,
-    ) -> AnalysisResult<Arc<NamedEntity>> {
+    ) -> AnalysisResult<Arc<AnyEnt>> {
         Ok(named_entities.expect_non_overloaded(pos, || {
             format!("Expected {}, got overloaded name", expected)
         })?)
@@ -260,9 +258,9 @@ impl<'a> AnalyzeContext<'a> {
             let named_entity = self.resolve_non_overloaded(entities, pos, expected)?;
 
             match named_entity.kind() {
-                NamedEntityKind::Object(obj) => Ok(obj.subtype.type_mark().to_owned()),
-                NamedEntityKind::ObjectAlias { type_mark, .. } => Ok(type_mark.clone()),
-                NamedEntityKind::ElementDeclaration(subtype) => Ok(subtype.type_mark().to_owned()),
+                AnyEntKind::Object(obj) => Ok(obj.subtype.type_mark().to_owned()),
+                AnyEntKind::ObjectAlias { type_mark, .. } => Ok(type_mark.clone()),
+                AnyEntKind::ElementDeclaration(subtype) => Ok(subtype.type_mark().to_owned()),
                 _ => Err(AnalysisError::NotFatal(
                     named_entity.kind_error(pos, expected),
                 )),
@@ -1410,12 +1408,12 @@ impl<'a> AnalyzeContext<'a> {
     }
 }
 
-pub fn type_mark_of_sliced_or_indexed(ent: &Arc<NamedEntity>) -> Option<&TypeEnt> {
+pub fn type_mark_of_sliced_or_indexed(ent: &Arc<AnyEnt>) -> Option<&TypeEnt> {
     Some(match ent.kind() {
-        NamedEntityKind::Object(ref ent) => ent.subtype.type_mark(),
-        NamedEntityKind::DeferredConstant(ref subtype) => subtype.type_mark(),
-        NamedEntityKind::ElementDeclaration(ref subtype) => subtype.type_mark(),
-        NamedEntityKind::ObjectAlias { type_mark, .. } => type_mark,
+        AnyEntKind::Object(ref ent) => ent.subtype.type_mark(),
+        AnyEntKind::DeferredConstant(ref subtype) => subtype.type_mark(),
+        AnyEntKind::ElementDeclaration(ref subtype) => subtype.type_mark(),
+        AnyEntKind::ObjectAlias { type_mark, .. } => type_mark,
         _ => {
             return None;
         }
@@ -1442,7 +1440,7 @@ impl Diagnostic {
     }
 }
 
-impl NamedEntity {
+impl AnyEnt {
     pub fn kind_error(&self, pos: &SrcPos, expected: &str) -> Diagnostic {
         let mut error = Diagnostic::error(
             pos,
@@ -1458,13 +1456,13 @@ impl NamedEntity {
     /// Returns a diagnostic in case of mismatch
     fn match_with_target_type(&self, target_type: &TypeEnt) -> TypeCheck {
         let typ = match self.actual_kind() {
-            NamedEntityKind::ObjectAlias { ref type_mark, .. } => type_mark.base_type(),
-            NamedEntityKind::Object(ref ent) => ent.subtype.base_type(),
-            NamedEntityKind::DeferredConstant(ref subtype) => subtype.base_type(),
-            NamedEntityKind::ElementDeclaration(ref subtype) => subtype.base_type(),
-            NamedEntityKind::PhysicalLiteral(ref base_type) => base_type,
-            NamedEntityKind::InterfaceFile(ref file) => file.base_type(),
-            NamedEntityKind::File(ref file) => file.base_type(),
+            AnyEntKind::ObjectAlias { ref type_mark, .. } => type_mark.base_type(),
+            AnyEntKind::Object(ref ent) => ent.subtype.base_type(),
+            AnyEntKind::DeferredConstant(ref subtype) => subtype.base_type(),
+            AnyEntKind::ElementDeclaration(ref subtype) => subtype.base_type(),
+            AnyEntKind::PhysicalLiteral(ref base_type) => base_type,
+            AnyEntKind::InterfaceFile(ref file) => file.base_type(),
+            AnyEntKind::File(ref file) => file.base_type(),
             // Ignore now to avoid false positives
             _ => {
                 return TypeCheck::Unknown;
@@ -1482,7 +1480,7 @@ impl NamedEntity {
     }
 }
 
-fn type_mismatch(pos: &SrcPos, ent: &NamedEntity, expected_type: &NamedEntity) -> Diagnostic {
+fn type_mismatch(pos: &SrcPos, ent: &AnyEnt, expected_type: &AnyEnt) -> Diagnostic {
     Diagnostic::error(
         pos,
         format!(
@@ -1494,7 +1492,7 @@ fn type_mismatch(pos: &SrcPos, ent: &NamedEntity, expected_type: &NamedEntity) -
 }
 
 impl Diagnostic {
-    pub fn invalid_selected_name_prefix(named_entity: &NamedEntity, prefix: &SrcPos) -> Diagnostic {
+    pub fn invalid_selected_name_prefix(named_entity: &AnyEnt, prefix: &SrcPos) -> Diagnostic {
         Diagnostic::error(
             prefix,
             capitalize(&format!(
@@ -1505,7 +1503,7 @@ impl Diagnostic {
     }
 
     pub fn no_declaration_within(
-        named_entity: &NamedEntity,
+        named_entity: &AnyEnt,
         pos: &SrcPos,
         suffix: &Designator,
     ) -> Diagnostic {

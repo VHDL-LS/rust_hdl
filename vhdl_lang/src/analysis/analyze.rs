@@ -122,7 +122,7 @@ impl<'a> AnalyzeContext<'a> {
         self.current_unit.library_name()
     }
 
-    pub fn work_library(&self) -> Arc<NamedEntity> {
+    pub fn work_library(&self) -> Arc<AnyEnt> {
         self.get_library(self.current_unit.library_name()).unwrap()
     }
 
@@ -221,7 +221,7 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
-    pub fn get_library(&self, library_name: &Symbol) -> Option<Arc<NamedEntity>> {
+    pub fn get_library(&self, library_name: &Symbol) -> Option<Arc<AnyEnt>> {
         self.root.get_library_ent(library_name).cloned()
     }
 
@@ -288,7 +288,7 @@ impl<'a> AnalyzeContext<'a> {
         library_name: &Symbol,
         pos: &SrcPos,
         primary_name: &Designator,
-    ) -> AnalysisResult<Arc<NamedEntity>> {
+    ) -> AnalysisResult<Arc<AnyEnt>> {
         if let Designator::Identifier(ref primary_name) = primary_name {
             if let Some(unit) = self.get_primary_unit(library_name, primary_name) {
                 let data = self.get_analysis(Some(pos), unit)?;
@@ -316,7 +316,7 @@ impl<'a> AnalyzeContext<'a> {
             self.make_use_of(None, &UnitId::package(&self.std_sym, &self.standard_sym))
                 .unwrap();
 
-            if let NamedEntityKind::Design(Design::Package(region)) = pkg.kind() {
+            if let AnyEntKind::Design(Design::Package(region)) = pkg.kind() {
                 Some(region)
             } else {
                 unreachable!("Standard package is not a package");

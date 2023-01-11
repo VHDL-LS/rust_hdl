@@ -27,7 +27,7 @@ pub use object::ObjectEnt;
 mod design;
 pub use design::Design;
 
-pub enum NamedEntityKind {
+pub enum AnyEntKind {
     ExternalAlias {
         class: ExternalObjectClass,
         type_mark: TypeEnt,
@@ -52,26 +52,26 @@ pub enum NamedEntityKind {
     Design(Design),
 }
 
-impl NamedEntityKind {
-    pub fn new_function_decl(formals: FormalRegion, return_type: TypeEnt) -> NamedEntityKind {
-        NamedEntityKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(
+impl AnyEntKind {
+    pub fn new_function_decl(formals: FormalRegion, return_type: TypeEnt) -> AnyEntKind {
+        AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(
             formals,
             Some(return_type),
         )))
     }
 
-    pub fn new_procedure_decl(formals: FormalRegion) -> NamedEntityKind {
-        NamedEntityKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(formals, None)))
+    pub fn new_procedure_decl(formals: FormalRegion) -> AnyEntKind {
+        AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(formals, None)))
     }
 
     pub fn is_deferred_constant(&self) -> bool {
-        matches!(self, NamedEntityKind::DeferredConstant(..))
+        matches!(self, AnyEntKind::DeferredConstant(..))
     }
 
     pub fn is_non_deferred_constant(&self) -> bool {
         matches!(
             self,
-            NamedEntityKind::Object(Object {
+            AnyEntKind::Object(Object {
                 class: ObjectClass::Constant,
                 mode: None,
                 ..
@@ -80,16 +80,16 @@ impl NamedEntityKind {
     }
 
     pub fn is_protected_type(&self) -> bool {
-        matches!(self, NamedEntityKind::Type(Type::Protected(..)))
+        matches!(self, AnyEntKind::Type(Type::Protected(..)))
     }
 
     pub fn is_type(&self) -> bool {
-        matches!(self, NamedEntityKind::Type(..))
+        matches!(self, AnyEntKind::Type(..))
     }
 
-    pub fn implicit_declarations(&self) -> impl Iterator<Item = Arc<NamedEntity>> + '_ {
+    pub fn implicit_declarations(&self) -> impl Iterator<Item = Arc<AnyEnt>> + '_ {
         match self {
-            NamedEntityKind::Type(typ) => Some(typ.implicit_declarations()),
+            AnyEntKind::Type(typ) => Some(typ.implicit_declarations()),
             _ => None,
         }
         .into_iter()
@@ -97,7 +97,7 @@ impl NamedEntityKind {
     }
 
     pub fn describe(&self) -> &str {
-        use NamedEntityKind::*;
+        use AnyEntKind::*;
         match self {
             ObjectAlias { .. } => "object alias",
             ExternalAlias { .. } => "external alias",
@@ -119,7 +119,7 @@ impl NamedEntityKind {
     }
 }
 
-impl std::fmt::Debug for NamedEntityKind {
+impl std::fmt::Debug for AnyEntKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.describe())
     }
@@ -157,34 +157,34 @@ pub struct EntityId {
 ///
 /// Every declaration creates one or more named entities.
 #[derive(Debug)]
-pub struct NamedEntity {
+pub struct AnyEnt {
     /// A unique id of the entity.
     /// Entities with the same id will be the same.
     id: EntityId,
-    pub implicit_of: Option<Arc<NamedEntity>>,
+    pub implicit_of: Option<Arc<AnyEnt>>,
     /// The location where the declaration was made.
     /// Builtin and implicit declaration will not have a source position.
     designator: Designator,
-    kind: NamedEntityKind,
+    kind: AnyEntKind,
     decl_pos: Option<SrcPos>,
 }
 
-impl NamedEntity {
+impl AnyEnt {
     pub fn new(
         designator: impl Into<Designator>,
-        kind: NamedEntityKind,
+        kind: AnyEntKind,
         decl_pos: Option<&SrcPos>,
-    ) -> NamedEntity {
-        NamedEntity::new_with_id(EntityId::new(), designator.into(), kind, decl_pos.cloned())
+    ) -> AnyEnt {
+        AnyEnt::new_with_id(EntityId::new(), designator.into(), kind, decl_pos.cloned())
     }
 
     pub fn new_with_id(
         id: EntityId,
         designator: Designator,
-        kind: NamedEntityKind,
+        kind: AnyEntKind,
         decl_pos: Option<SrcPos>,
-    ) -> NamedEntity {
-        NamedEntity {
+    ) -> AnyEnt {
+        AnyEnt {
             id,
             implicit_of: None,
             decl_pos,
@@ -194,12 +194,12 @@ impl NamedEntity {
     }
 
     pub fn implicit(
-        of_ent: Arc<NamedEntity>,
+        of_ent: Arc<AnyEnt>,
         designator: impl Into<Designator>,
-        kind: NamedEntityKind,
+        kind: AnyEntKind,
         decl_pos: Option<&SrcPos>,
-    ) -> NamedEntity {
-        NamedEntity {
+    ) -> AnyEnt {
+        AnyEnt {
             id: EntityId::new(),
             implicit_of: Some(of_ent),
             decl_pos: decl_pos.cloned(),
@@ -219,14 +219,14 @@ impl NamedEntity {
     pub fn is_subprogram(&self) -> bool {
         matches!(
             self.kind,
-            NamedEntityKind::Overloaded(Overloaded::Subprogram(..))
+            AnyEntKind::Overloaded(Overloaded::Subprogram(..))
         )
     }
 
     pub fn is_subprogram_decl(&self) -> bool {
         matches!(
             self.kind,
-            NamedEntityKind::Overloaded(Overloaded::SubprogramDecl(..))
+            AnyEntKind::Overloaded(Overloaded::SubprogramDecl(..))
         )
     }
 
@@ -242,7 +242,7 @@ impl NamedEntity {
         &self.designator
     }
 
-    pub fn kind(&self) -> &NamedEntityKind {
+    pub fn kind(&self) -> &AnyEntKind {
         &self.kind
     }
 
@@ -258,28 +258,28 @@ impl NamedEntity {
 
     pub fn signature(&self) -> Option<&Signature> {
         match self.actual_kind() {
-            NamedEntityKind::Overloaded(ref overloaded) => Some(overloaded.signature()),
+            AnyEntKind::Overloaded(ref overloaded) => Some(overloaded.signature()),
             _ => None,
         }
     }
 
-    pub fn as_actual(&self) -> &NamedEntity {
+    pub fn as_actual(&self) -> &AnyEnt {
         match self.kind() {
-            NamedEntityKind::Overloaded(Overloaded::Alias(ref ent)) => ent.as_actual(),
-            NamedEntityKind::Type(Type::Alias(ref ent)) => ent.as_actual(),
+            AnyEntKind::Overloaded(Overloaded::Alias(ref ent)) => ent.as_actual(),
+            AnyEntKind::Type(Type::Alias(ref ent)) => ent.as_actual(),
             _ => self,
         }
     }
 
     /// Strip aliases and return reference to actual entity kind
-    pub fn actual_kind(&self) -> &NamedEntityKind {
+    pub fn actual_kind(&self) -> &AnyEntKind {
         self.as_actual().kind()
     }
 
     /// Returns true if self is alias of other
-    pub fn is_alias_of(&self, other: &NamedEntity) -> bool {
+    pub fn is_alias_of(&self, other: &AnyEnt) -> bool {
         match self.kind() {
-            NamedEntityKind::Type(Type::Alias(ref ent)) => {
+            AnyEntKind::Type(Type::Alias(ref ent)) => {
                 if ent.id() == other.id() {
                     true
                 } else {
@@ -292,7 +292,7 @@ impl NamedEntity {
 
     pub fn describe(&self) -> String {
         match self.kind {
-            NamedEntityKind::Object(Object {
+            AnyEntKind::Object(Object {
                 ref class,
                 mode: Some(ref mode),
                 ..
@@ -308,7 +308,7 @@ impl NamedEntity {
                     )
                 }
             }
-            NamedEntityKind::Overloaded(ref overloaded) => {
+            AnyEntKind::Overloaded(ref overloaded) => {
                 format!("{}{}", self.designator, overloaded.signature().describe())
             }
 
@@ -339,7 +339,7 @@ impl EntityId {
     }
 }
 
-impl std::cmp::PartialEq for NamedEntity {
+impl std::cmp::PartialEq for AnyEnt {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
@@ -347,18 +347,18 @@ impl std::cmp::PartialEq for NamedEntity {
 
 /// This trait is implemented for Ast-nodes which declare named entities
 pub trait HasNamedEntity {
-    fn named_entity(&self) -> Option<&Arc<NamedEntity>>;
+    fn named_entity(&self) -> Option<&Arc<AnyEnt>>;
 }
 
 impl HasNamedEntity for AnyPrimaryUnit {
-    fn named_entity(&self) -> Option<&Arc<NamedEntity>> {
+    fn named_entity(&self) -> Option<&Arc<AnyEnt>> {
         delegate_primary!(self, unit, unit.ident.decl.as_ref())
     }
 }
 
 impl WithDecl<Ident> {
-    pub fn define(&mut self, kind: NamedEntityKind) -> Arc<NamedEntity> {
-        let ent = Arc::new(NamedEntity::new(
+    pub fn define(&mut self, kind: AnyEntKind) -> Arc<AnyEnt> {
+        let ent = Arc::new(AnyEnt::new(
             self.tree.name().clone(),
             kind,
             Some(self.tree.pos()),
@@ -366,8 +366,8 @@ impl WithDecl<Ident> {
         self.decl = Some(ent.clone());
         ent
     }
-    pub fn define_with_id(&mut self, id: EntityId, kind: NamedEntityKind) -> Arc<NamedEntity> {
-        let ent = Arc::new(NamedEntity::new_with_id(
+    pub fn define_with_id(&mut self, id: EntityId, kind: AnyEntKind) -> Arc<AnyEnt> {
+        let ent = Arc::new(AnyEnt::new_with_id(
             id,
             self.tree.name().clone().into(),
             kind,
@@ -379,8 +379,8 @@ impl WithDecl<Ident> {
 }
 
 impl WithDecl<WithPos<SubprogramDesignator>> {
-    pub fn define(&mut self, kind: NamedEntityKind) -> Arc<NamedEntity> {
-        let ent = Arc::new(NamedEntity::new(
+    pub fn define(&mut self, kind: AnyEntKind) -> Arc<AnyEnt> {
+        let ent = Arc::new(AnyEnt::new(
             self.tree.item.clone().into_designator(),
             kind,
             Some(&self.tree.pos),
@@ -391,8 +391,8 @@ impl WithDecl<WithPos<SubprogramDesignator>> {
 }
 
 impl WithDecl<WithPos<Designator>> {
-    pub fn define(&mut self, kind: NamedEntityKind) -> Arc<NamedEntity> {
-        let ent = Arc::new(NamedEntity::new(
+    pub fn define(&mut self, kind: AnyEntKind) -> Arc<AnyEnt> {
+        let ent = Arc::new(AnyEnt::new(
             self.tree.item.clone(),
             kind,
             Some(&self.tree.pos),
@@ -403,7 +403,7 @@ impl WithDecl<WithPos<Designator>> {
 }
 
 impl SubprogramDeclaration {
-    pub fn define(&mut self, kind: NamedEntityKind) -> Arc<NamedEntity> {
+    pub fn define(&mut self, kind: AnyEntKind) -> Arc<AnyEnt> {
         match self {
             SubprogramDeclaration::Function(f) => f.designator.define(kind),
             SubprogramDeclaration::Procedure(p) => p.designator.define(kind),

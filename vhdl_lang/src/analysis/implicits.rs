@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
-use super::NamedEntity;
+use super::AnyEnt;
 use std::sync::{Arc, Weak};
 
 /// Implicits typically contain self-references thus we use weak pointers
@@ -13,8 +13,8 @@ use std::sync::{Arc, Weak};
 /// This happens immediately after creation in the same thread and so it is safe.
 #[derive(Clone, Default)]
 pub struct Implicits<T>(Arc<T>);
-pub type ImplicitVec = Implicits<Vec<Weak<NamedEntity>>>;
-pub type ImplicitVecBuilder = ImplicitsBuilder<Vec<Weak<NamedEntity>>>;
+pub type ImplicitVec = Implicits<Vec<Weak<AnyEnt>>>;
+pub type ImplicitVecBuilder = ImplicitsBuilder<Vec<Weak<AnyEnt>>>;
 
 impl<T: Default> Implicits<T> {
     pub fn build() -> ImplicitsBuilder<T> {
@@ -31,11 +31,11 @@ impl<T> std::ops::Deref for Implicits<T> {
 }
 
 impl ImplicitVec {
-    pub fn iter(&self) -> impl Iterator<Item = Arc<NamedEntity>> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = Arc<AnyEnt>> + '_ {
         self.0.iter().filter_map(|weak_ent| weak_ent.upgrade())
     }
 
-    pub unsafe fn push(&self, ent: &Arc<NamedEntity>) {
+    pub unsafe fn push(&self, ent: &Arc<AnyEnt>) {
         raw_mut(&self.0).push(Arc::downgrade(ent));
     }
 }
@@ -49,7 +49,7 @@ impl<T> ImplicitsBuilder<T> {
     }
 }
 impl ImplicitVecBuilder {
-    pub fn push(&self, ent: &Arc<NamedEntity>) {
+    pub fn push(&self, ent: &Arc<AnyEnt>) {
         unsafe {
             raw_mut(&self.0).push(Arc::downgrade(ent));
         }

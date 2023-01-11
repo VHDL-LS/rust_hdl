@@ -15,7 +15,7 @@ use std::sync::Arc;
 struct VisibleEntity {
     // The position where the entity was made visible
     visible_pos: Vec<Option<SrcPos>>,
-    entity: Arc<NamedEntity>,
+    entity: Arc<AnyEnt>,
 }
 
 impl VisibleEntity {
@@ -86,7 +86,7 @@ impl Visibility {
         &mut self,
         visible_pos: Option<&SrcPos>,
         designator: Designator,
-        ent: Arc<NamedEntity>,
+        ent: Arc<AnyEnt>,
     ) {
         // Add implicit declarations when using declaration
         // For example all enum literals are made implicititly visible when using an enum type
@@ -147,7 +147,7 @@ impl Visibility {
 #[derive(Debug)]
 struct VisibleEntityRef<'a> {
     visible_pos: &'a [Option<SrcPos>],
-    entity: &'a Arc<NamedEntity>,
+    entity: &'a Arc<AnyEnt>,
 }
 
 #[derive(Default, Debug)]
@@ -156,7 +156,7 @@ pub struct Visible<'a> {
 }
 
 impl<'a> Visible<'a> {
-    fn insert(&mut self, visible_pos: &'a [Option<SrcPos>], entity: &'a Arc<NamedEntity>) {
+    fn insert(&mut self, visible_pos: &'a [Option<SrcPos>], entity: &'a Arc<AnyEnt>) {
         let actual_entity = entity.as_actual();
 
         match self.visible_entities.entry(actual_entity.id()) {

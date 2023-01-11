@@ -35,7 +35,7 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         if let Some(ref mut label) = statement.label {
-            scope.add(label.define(NamedEntityKind::Label), diagnostics);
+            scope.add(label.define(AnyEntKind::Label), diagnostics);
         }
 
         match statement.statement {
@@ -88,10 +88,7 @@ impl<'a> AnalyzeContext<'a> {
                 } = gen;
                 self.analyze_discrete_range(scope, discrete_range, diagnostics)?;
                 let mut nested = scope.nested();
-                nested.add(
-                    index_name.define(NamedEntityKind::LoopParameter),
-                    diagnostics,
-                );
+                nested.add(index_name.define(AnyEntKind::LoopParameter), diagnostics);
                 self.analyze_generate_body(&mut nested, body, diagnostics)?;
             }
             ConcurrentStatement::IfGenerate(ref mut gen) => {
@@ -168,7 +165,7 @@ impl<'a> AnalyzeContext<'a> {
             statements,
         } = body;
         if let Some(label) = alternative_label {
-            scope.add(label.define(NamedEntityKind::Label), diagnostics);
+            scope.add(label.define(AnyEntKind::Label), diagnostics);
         }
         if let Some(ref mut decl) = decl {
             self.analyze_declarative_part(scope, decl, diagnostics)?;
@@ -197,8 +194,7 @@ impl<'a> AnalyzeContext<'a> {
                                 expected,
                             )?;
 
-                            if let NamedEntityKind::Design(Design::Entity(ent_region)) = ent.kind()
-                            {
+                            if let AnyEntKind::Design(Design::Entity(ent_region)) = ent.kind() {
                                 let (generic_region, port_region) = ent_region.to_entity_formal();
 
                                 self.analyze_assoc_elems_with_formal_region(
@@ -237,7 +233,7 @@ impl<'a> AnalyzeContext<'a> {
                                 expected,
                             )?;
 
-                            if let NamedEntityKind::Component(ent_region) = ent.kind() {
+                            if let AnyEntKind::Component(ent_region) = ent.kind() {
                                 let (generic_region, port_region) = ent_region.to_entity_formal();
                                 self.analyze_assoc_elems_with_formal_region(
                                     &component_name.pos,
@@ -265,8 +261,8 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             InstantiatedUnit::Configuration(ref mut config_name) => {
-                fn is_configuration(kind: &NamedEntityKind) -> bool {
-                    matches!(kind, NamedEntityKind::Design(Design::Configuration(..)))
+                fn is_configuration(kind: &AnyEntKind) -> bool {
+                    matches!(kind, AnyEntKind::Design(Design::Configuration(..)))
                 }
 
                 if let Err(err) =

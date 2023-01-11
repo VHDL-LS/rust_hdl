@@ -15,7 +15,7 @@ use std::sync::Arc;
 // 2. Object such a direct reference to an object or some kind of index, slice or selected name
 #[derive(Debug)]
 pub enum ResolvedName {
-    Design(Arc<NamedEntity>),
+    Design(Arc<AnyEnt>),
     Type(TypeEnt),
     Overloaded(OverloadedName),
     ObjectSelection {
@@ -29,24 +29,24 @@ pub enum ResolvedName {
 }
 
 impl ResolvedName {
-    fn new(ent: Arc<NamedEntity>) -> Option<Self> {
+    fn new(ent: Arc<AnyEnt>) -> Option<Self> {
         let name = match ent.kind() {
-            NamedEntityKind::Object(object) => {
+            AnyEntKind::Object(object) => {
                 let type_mark = object.subtype.type_mark().to_owned();
                 Self::ObjectSelection {
                     base_object: ObjectEnt::new(ent),
                     type_mark,
                 }
             }
-            NamedEntityKind::ObjectAlias {
+            AnyEntKind::ObjectAlias {
                 base_object,
                 type_mark,
             } => Self::ObjectSelection {
                 base_object: base_object.clone(),
                 type_mark: type_mark.to_owned(),
             },
-            NamedEntityKind::Type(_) => ResolvedName::Type(TypeEnt::from_any(ent).unwrap()),
-            NamedEntityKind::Design(_) | NamedEntityKind::Library => Self::Design(ent),
+            AnyEntKind::Type(_) => ResolvedName::Type(TypeEnt::from_any(ent).unwrap()),
+            AnyEntKind::Design(_) | AnyEntKind::Library => Self::Design(ent),
             _ => {
                 return None;
             }
@@ -55,13 +55,13 @@ impl ResolvedName {
         Some(name)
     }
 
-    fn with_suffix(self, ent: Arc<NamedEntity>) -> Result<Option<Self>, String> {
+    fn with_suffix(self, ent: Arc<AnyEnt>) -> Result<Option<Self>, String> {
         match ent.kind() {
-            NamedEntityKind::Object(..) => {
+            AnyEntKind::Object(..) => {
                 debug_assert!(matches!(self, Self::Design(_)));
                 Ok(Self::new(ent))
             }
-            NamedEntityKind::ObjectAlias { .. } => {
+            AnyEntKind::ObjectAlias { .. } => {
                 debug_assert!(matches!(self, Self::Design(_)));
                 Ok(Self::new(ent))
             }
@@ -72,7 +72,7 @@ impl ResolvedName {
                         Err("Type may not be the prefix of a selected name".to_owned())
                     }
                     Self::ObjectSelection { base_object, .. } => match ent.actual_kind() {
-                        NamedEntityKind::ElementDeclaration(subtype) => {
+                        AnyEntKind::ElementDeclaration(subtype) => {
                             Ok(Some(Self::ObjectSelection {
                                 base_object,
                                 type_mark: subtype.type_mark().to_owned(),
@@ -82,12 +82,10 @@ impl ResolvedName {
                         _ => Ok(None),
                     },
                     Self::ExternalName { class, .. } => match ent.actual_kind() {
-                        NamedEntityKind::ElementDeclaration(subtype) => {
-                            Ok(Some(Self::ExternalName {
-                                class,
-                                type_mark: subtype.type_mark().to_owned(),
-                            }))
-                        }
+                        AnyEntKind::ElementDeclaration(subtype) => Ok(Some(Self::ExternalName {
+                            class,
+                            type_mark: subtype.type_mark().to_owned(),
+                        })),
                         // @TODO this is probably an error
                         _ => Ok(None),
                     },

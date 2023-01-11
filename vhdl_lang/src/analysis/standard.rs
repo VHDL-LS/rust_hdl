@@ -19,14 +19,14 @@ use super::implicits::ImplicitVec;
 use super::named_entity::EntityId;
 use super::named_entity::Type;
 use super::named_entity::UniversalType;
+use super::region::AnyEntKind;
 use super::region::NamedEntities;
-use super::region::NamedEntityKind;
 use super::region::Object;
 use super::region::Region;
 use super::region::Subtype;
 use super::region::TypeEnt;
+use super::AnyEnt;
 use super::DesignRoot;
-use super::NamedEntity;
 
 #[derive(Clone)]
 pub struct UniversalTypes {
@@ -36,20 +36,20 @@ pub struct UniversalTypes {
 
 impl UniversalTypes {
     pub fn new(pos: &SrcPos, symbols: &Symbols) -> Self {
-        let integer = Arc::new(NamedEntity::new_with_id(
+        let integer = Arc::new(AnyEnt::new_with_id(
             EntityId::universal_integer(),
             Designator::Identifier(symbols.symtab().insert_utf8("universal_integer")),
-            NamedEntityKind::Type(Type::Universal(
+            AnyEntKind::Type(Type::Universal(
                 UniversalType::Integer,
                 ImplicitVec::default(),
             )),
             Some(pos.clone()),
         ));
 
-        let real = Arc::new(NamedEntity::new_with_id(
+        let real = Arc::new(AnyEnt::new_with_id(
             EntityId::universal_real(),
             Designator::Identifier(symbols.symtab().insert_utf8("universal_real")),
-            NamedEntityKind::Type(Type::Universal(UniversalType::Real, ImplicitVec::default())),
+            AnyEntKind::Type(Type::Universal(UniversalType::Real, ImplicitVec::default())),
             Some(pos.clone()),
         ));
         Self {
@@ -120,7 +120,7 @@ impl<'a> StandardRegion<'a> {
         &self,
         file_type: &TypeEnt,
         type_mark: &TypeEnt,
-    ) -> Vec<Arc<NamedEntity>> {
+    ) -> Vec<Arc<AnyEnt>> {
         let mut implicit = Vec::new();
 
         let string = self.string();
@@ -131,14 +131,14 @@ impl<'a> StandardRegion<'a> {
         // procedure FILE_OPEN (file F: FT; External_Name: in STRING; Open_Kind: in FILE_OPEN_KIND := READ_MODE);
         {
             let mut formals = FormalRegion::new_params();
-            formals.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(AnyEnt::new(
                 self.symbol("F"),
-                NamedEntityKind::InterfaceFile(file_type.to_owned()),
+                AnyEntKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
             )));
-            formals.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(AnyEnt::new(
                 self.symbol("External_Name"),
-                NamedEntityKind::Object(Object {
+                AnyEntKind::Object(Object {
                     class: ObjectClass::Constant,
                     mode: Some(Mode::In),
                     subtype: Subtype::new(string.clone()),
@@ -147,9 +147,9 @@ impl<'a> StandardRegion<'a> {
                 file_type.decl_pos(),
             )));
 
-            formals.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(AnyEnt::new(
                 self.symbol("Open_Kind"),
-                NamedEntityKind::Object(Object {
+                AnyEntKind::Object(Object {
                     class: ObjectClass::Constant,
                     mode: Some(Mode::In),
                     subtype: Subtype::new(file_open_kind.clone()),
@@ -157,10 +157,10 @@ impl<'a> StandardRegion<'a> {
                 }),
                 file_type.decl_pos(),
             )));
-            implicit.push(Arc::new(NamedEntity::implicit(
+            implicit.push(Arc::new(AnyEnt::implicit(
                 file_type.clone().into(),
                 self.symbol("FILE_OPEN"),
-                NamedEntityKind::new_procedure_decl(formals),
+                AnyEntKind::new_procedure_decl(formals),
                 file_type.decl_pos(),
             )));
         }
@@ -168,9 +168,9 @@ impl<'a> StandardRegion<'a> {
         // procedure FILE_OPEN (Status: out FILE_OPEN_STATUS; file F: FT; External_Name: in STRING; Open_Kind: in FILE_OPEN_KIND := READ_MODE);
         {
             let mut formals = FormalRegion::new_params();
-            formals.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(AnyEnt::new(
                 self.symbol("Status"),
-                NamedEntityKind::Object(Object {
+                AnyEntKind::Object(Object {
                     class: ObjectClass::Variable,
                     mode: Some(Mode::Out),
                     subtype: Subtype::new(file_open_status),
@@ -178,14 +178,14 @@ impl<'a> StandardRegion<'a> {
                 }),
                 file_type.decl_pos(),
             )));
-            formals.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(AnyEnt::new(
                 self.symbol("F"),
-                NamedEntityKind::InterfaceFile(file_type.to_owned()),
+                AnyEntKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
             )));
-            formals.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(AnyEnt::new(
                 self.symbol("External_Name"),
-                NamedEntityKind::Object(Object {
+                AnyEntKind::Object(Object {
                     class: ObjectClass::Constant,
                     mode: Some(Mode::In),
                     subtype: Subtype::new(string),
@@ -194,9 +194,9 @@ impl<'a> StandardRegion<'a> {
                 file_type.decl_pos(),
             )));
 
-            formals.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(AnyEnt::new(
                 self.symbol("Open_Kind"),
-                NamedEntityKind::Object(Object {
+                AnyEntKind::Object(Object {
                     class: ObjectClass::Constant,
                     mode: Some(Mode::In),
                     subtype: Subtype::new(file_open_kind),
@@ -204,10 +204,10 @@ impl<'a> StandardRegion<'a> {
                 }),
                 file_type.decl_pos(),
             )));
-            implicit.push(Arc::new(NamedEntity::implicit(
+            implicit.push(Arc::new(AnyEnt::implicit(
                 file_type.clone().into(),
                 self.symbol("FILE_OPEN"),
-                NamedEntityKind::new_procedure_decl(formals),
+                AnyEntKind::new_procedure_decl(formals),
                 file_type.decl_pos(),
             )));
         }
@@ -215,16 +215,16 @@ impl<'a> StandardRegion<'a> {
         // procedure FILE_CLOSE (file F: FT);
         {
             let mut formals = FormalRegion::new_params();
-            formals.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(AnyEnt::new(
                 self.symbol("F"),
-                NamedEntityKind::InterfaceFile(file_type.to_owned()),
+                AnyEntKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
             )));
 
-            implicit.push(Arc::new(NamedEntity::implicit(
+            implicit.push(Arc::new(AnyEnt::implicit(
                 file_type.clone().into(),
                 self.symbol("FILE_CLOSE"),
-                NamedEntityKind::new_procedure_decl(formals),
+                AnyEntKind::new_procedure_decl(formals),
                 file_type.decl_pos(),
             )));
         }
@@ -232,15 +232,15 @@ impl<'a> StandardRegion<'a> {
         // procedure READ (file F: FT; VALUE: out TM);
         {
             let mut formals = FormalRegion::new_params();
-            formals.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(AnyEnt::new(
                 self.symbol("F"),
-                NamedEntityKind::InterfaceFile(file_type.to_owned()),
+                AnyEntKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
             )));
 
-            formals.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(AnyEnt::new(
                 self.symbol("VALUE"),
-                NamedEntityKind::Object(Object {
+                AnyEntKind::Object(Object {
                     class: ObjectClass::Variable,
                     mode: Some(Mode::Out),
                     subtype: Subtype::new(type_mark.clone()),
@@ -249,10 +249,10 @@ impl<'a> StandardRegion<'a> {
                 file_type.decl_pos(),
             )));
 
-            implicit.push(Arc::new(NamedEntity::implicit(
+            implicit.push(Arc::new(AnyEnt::implicit(
                 file_type.clone().into(),
                 self.symbol("READ"),
-                NamedEntityKind::new_procedure_decl(formals),
+                AnyEntKind::new_procedure_decl(formals),
                 file_type.decl_pos(),
             )));
         }
@@ -260,15 +260,15 @@ impl<'a> StandardRegion<'a> {
         // procedure WRITE (file F: FT; VALUE: in TM);
         {
             let mut formals = FormalRegion::new_params();
-            formals.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(AnyEnt::new(
                 self.symbol("F"),
-                NamedEntityKind::InterfaceFile(file_type.to_owned()),
+                AnyEntKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
             )));
 
-            formals.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(AnyEnt::new(
                 self.symbol("VALUE"),
-                NamedEntityKind::Object(Object {
+                AnyEntKind::Object(Object {
                     class: ObjectClass::Constant,
                     mode: Some(Mode::In),
                     subtype: Subtype::new(type_mark.clone()),
@@ -277,10 +277,10 @@ impl<'a> StandardRegion<'a> {
                 file_type.decl_pos(),
             )));
 
-            implicit.push(Arc::new(NamedEntity::implicit(
+            implicit.push(Arc::new(AnyEnt::implicit(
                 file_type.clone().into(),
                 self.symbol("WRITE"),
-                NamedEntityKind::new_procedure_decl(formals),
+                AnyEntKind::new_procedure_decl(formals),
                 file_type.decl_pos(),
             )));
         }
@@ -288,16 +288,16 @@ impl<'a> StandardRegion<'a> {
         // procedure FLUSH (file F: FT);
         {
             let mut formals = FormalRegion::new_params();
-            formals.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(AnyEnt::new(
                 self.symbol("F"),
-                NamedEntityKind::InterfaceFile(file_type.to_owned()),
+                AnyEntKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
             )));
 
-            implicit.push(Arc::new(NamedEntity::implicit(
+            implicit.push(Arc::new(AnyEnt::implicit(
                 file_type.clone().into(),
                 self.symbol("FLUSH"),
-                NamedEntityKind::new_procedure_decl(formals),
+                AnyEntKind::new_procedure_decl(formals),
                 file_type.decl_pos(),
             )));
         }
@@ -305,16 +305,16 @@ impl<'a> StandardRegion<'a> {
         // function ENDFILE (file F: FT) return BOOLEAN;
         {
             let mut formals = FormalRegion::new_params();
-            formals.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(AnyEnt::new(
                 self.symbol("F"),
-                NamedEntityKind::InterfaceFile(file_type.to_owned()),
+                AnyEntKind::InterfaceFile(file_type.to_owned()),
                 file_type.decl_pos(),
             )));
 
-            implicit.push(Arc::new(NamedEntity::implicit(
+            implicit.push(Arc::new(AnyEnt::implicit(
                 file_type.clone().into(),
                 self.symbol("ENDFILE"),
-                NamedEntityKind::new_function_decl(formals, boolean),
+                AnyEntKind::new_function_decl(formals, boolean),
                 file_type.decl_pos(),
             )));
         }
@@ -324,11 +324,11 @@ impl<'a> StandardRegion<'a> {
 
     /// Create implicit TO_STRING
     /// function TO_STRING (VALUE: T) return STRING;
-    pub fn create_to_string(&self, type_ent: TypeEnt) -> Arc<NamedEntity> {
+    pub fn create_to_string(&self, type_ent: TypeEnt) -> Arc<AnyEnt> {
         let mut formals = FormalRegion::new_params();
-        formals.add(Arc::new(NamedEntity::new(
+        formals.add(Arc::new(AnyEnt::new(
             self.symbol("VALUE"),
-            NamedEntityKind::Object(Object {
+            AnyEntKind::Object(Object {
                 class: ObjectClass::Constant,
                 mode: Some(Mode::In),
                 subtype: Subtype::new(type_ent.to_owned()),
@@ -337,10 +337,10 @@ impl<'a> StandardRegion<'a> {
             type_ent.decl_pos(),
         )));
 
-        Arc::new(NamedEntity::implicit(
+        Arc::new(AnyEnt::implicit(
             type_ent.clone().into(),
             self.symbol("TO_STRING"),
-            NamedEntityKind::new_function_decl(formals, self.string()),
+            AnyEntKind::new_function_decl(formals, self.string()),
             type_ent.decl_pos(),
         ))
     }
@@ -348,11 +348,11 @@ impl<'a> StandardRegion<'a> {
     /// Create implicit MAXIMUM/MINIMUM
     // function MINIMUM (L, R: T) return T;
     // function MAXIMUM (L, R: T) return T;
-    fn create_min_or_maximum(&self, name: &str, type_ent: TypeEnt) -> Arc<NamedEntity> {
+    fn create_min_or_maximum(&self, name: &str, type_ent: TypeEnt) -> Arc<AnyEnt> {
         let mut formals = FormalRegion::new_params();
-        formals.add(Arc::new(NamedEntity::new(
+        formals.add(Arc::new(AnyEnt::new(
             self.symbol("L"),
-            NamedEntityKind::Object(Object {
+            AnyEntKind::Object(Object {
                 class: ObjectClass::Constant,
                 mode: Some(Mode::In),
                 subtype: Subtype::new(type_ent.to_owned()),
@@ -361,9 +361,9 @@ impl<'a> StandardRegion<'a> {
             type_ent.decl_pos(),
         )));
 
-        formals.add(Arc::new(NamedEntity::new(
+        formals.add(Arc::new(AnyEnt::new(
             self.symbol("R"),
-            NamedEntityKind::Object(Object {
+            AnyEntKind::Object(Object {
                 class: ObjectClass::Constant,
                 mode: Some(Mode::In),
                 subtype: Subtype::new(type_ent.to_owned()),
@@ -372,20 +372,20 @@ impl<'a> StandardRegion<'a> {
             type_ent.decl_pos(),
         )));
 
-        Arc::new(NamedEntity::implicit(
+        Arc::new(AnyEnt::implicit(
             type_ent.clone().into(),
             self.symbol(name),
-            NamedEntityKind::new_function_decl(formals, type_ent.clone()),
+            AnyEntKind::new_function_decl(formals, type_ent.clone()),
             type_ent.decl_pos(),
         ))
     }
 
-    fn unary(&self, op: Operator, typ: TypeEnt, return_type: TypeEnt) -> Arc<NamedEntity> {
+    fn unary(&self, op: Operator, typ: TypeEnt, return_type: TypeEnt) -> Arc<AnyEnt> {
         let mut formals = FormalRegion::new_params();
-        formals.add(Arc::new(NamedEntity::new(
+        formals.add(Arc::new(AnyEnt::new(
             // @TODO anonymous
             self.symbol("V"),
-            NamedEntityKind::Object(Object {
+            AnyEntKind::Object(Object {
                 class: ObjectClass::Constant,
                 mode: Some(Mode::In),
                 subtype: Subtype::new(typ.to_owned()),
@@ -394,15 +394,15 @@ impl<'a> StandardRegion<'a> {
             typ.decl_pos(),
         )));
 
-        Arc::new(NamedEntity::implicit(
+        Arc::new(AnyEnt::implicit(
             typ.clone().into(),
             Designator::OperatorSymbol(op),
-            NamedEntityKind::new_function_decl(formals, return_type),
+            AnyEntKind::new_function_decl(formals, return_type),
             typ.decl_pos(),
         ))
     }
 
-    fn symmetric_unary(&self, op: Operator, typ: TypeEnt) -> Arc<NamedEntity> {
+    fn symmetric_unary(&self, op: Operator, typ: TypeEnt) -> Arc<AnyEnt> {
         self.unary(op, typ.clone(), typ)
     }
 
@@ -413,12 +413,12 @@ impl<'a> StandardRegion<'a> {
         left: TypeEnt,
         right: TypeEnt,
         return_type: TypeEnt,
-    ) -> Arc<NamedEntity> {
+    ) -> Arc<AnyEnt> {
         let mut formals = FormalRegion::new_params();
-        formals.add(Arc::new(NamedEntity::new(
+        formals.add(Arc::new(AnyEnt::new(
             // @TODO anonymous
             self.symbol("L"),
-            NamedEntityKind::Object(Object {
+            AnyEntKind::Object(Object {
                 class: ObjectClass::Constant,
                 mode: Some(Mode::In),
                 subtype: Subtype::new(left),
@@ -427,10 +427,10 @@ impl<'a> StandardRegion<'a> {
             implicit_of.decl_pos(),
         )));
 
-        formals.add(Arc::new(NamedEntity::new(
+        formals.add(Arc::new(AnyEnt::new(
             // @TODO anonymous
             self.symbol("R"),
-            NamedEntityKind::Object(Object {
+            AnyEntKind::Object(Object {
                 class: ObjectClass::Constant,
                 mode: Some(Mode::In),
                 subtype: Subtype::new(right),
@@ -439,37 +439,37 @@ impl<'a> StandardRegion<'a> {
             implicit_of.decl_pos(),
         )));
 
-        Arc::new(NamedEntity::implicit(
+        Arc::new(AnyEnt::implicit(
             implicit_of.clone().into(),
             Designator::OperatorSymbol(op),
-            NamedEntityKind::new_function_decl(formals, return_type),
+            AnyEntKind::new_function_decl(formals, return_type),
             implicit_of.decl_pos(),
         ))
     }
 
-    fn symmetric_binary(&self, op: Operator, typ: TypeEnt) -> Arc<NamedEntity> {
+    fn symmetric_binary(&self, op: Operator, typ: TypeEnt) -> Arc<AnyEnt> {
         self.binary(op, typ.clone(), typ.clone(), typ.clone(), typ)
     }
 
-    fn comparison(&self, op: Operator, typ: TypeEnt) -> Arc<NamedEntity> {
+    fn comparison(&self, op: Operator, typ: TypeEnt) -> Arc<AnyEnt> {
         self.binary(op, typ.clone(), typ.clone(), typ, self.boolean())
     }
 
-    pub fn minimum(&self, type_ent: TypeEnt) -> Arc<NamedEntity> {
+    pub fn minimum(&self, type_ent: TypeEnt) -> Arc<AnyEnt> {
         self.create_min_or_maximum("MINIMUM", type_ent)
     }
 
-    pub fn maximum(&self, type_ent: TypeEnt) -> Arc<NamedEntity> {
+    pub fn maximum(&self, type_ent: TypeEnt) -> Arc<AnyEnt> {
         self.create_min_or_maximum("MAXIMUM", type_ent)
     }
 
     /// Create implicit DEALLOCATE
     /// procedure DEALLOCATE (P: inout AT);
-    pub fn deallocate(&self, type_ent: TypeEnt) -> Arc<NamedEntity> {
+    pub fn deallocate(&self, type_ent: TypeEnt) -> Arc<AnyEnt> {
         let mut formals = FormalRegion::new_params();
-        formals.add(Arc::new(NamedEntity::new(
+        formals.add(Arc::new(AnyEnt::new(
             self.symbol("P"),
-            NamedEntityKind::Object(Object {
+            AnyEntKind::Object(Object {
                 class: ObjectClass::Variable,
                 mode: Some(Mode::InOut),
                 subtype: Subtype::new(type_ent.to_owned()),
@@ -478,15 +478,15 @@ impl<'a> StandardRegion<'a> {
             type_ent.decl_pos(),
         )));
 
-        Arc::new(NamedEntity::implicit(
+        Arc::new(AnyEnt::implicit(
             type_ent.clone().into(),
             self.symbol("DEALLOCATE"),
-            NamedEntityKind::new_procedure_decl(formals),
+            AnyEntKind::new_procedure_decl(formals),
             type_ent.decl_pos(),
         ))
     }
 
-    pub fn comparators(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<NamedEntity>> {
+    pub fn comparators(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<AnyEnt>> {
         [
             self.comparison(Operator::EQ, typ.clone()),
             self.comparison(Operator::NE, typ.clone()),
@@ -498,7 +498,7 @@ impl<'a> StandardRegion<'a> {
         .into_iter()
     }
 
-    pub fn numeric_implicits(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<NamedEntity>> {
+    pub fn numeric_implicits(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<AnyEnt>> {
         [
             self.minimum(typ.clone()),
             self.maximum(typ.clone()),
@@ -513,7 +513,7 @@ impl<'a> StandardRegion<'a> {
         .chain(self.comparators(typ).into_iter())
     }
 
-    pub fn physical_implicits(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<NamedEntity>> {
+    pub fn physical_implicits(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<AnyEnt>> {
         [
             self.minimum(typ.clone()),
             self.maximum(typ.clone()),
@@ -527,7 +527,7 @@ impl<'a> StandardRegion<'a> {
         .chain(self.comparators(typ).into_iter())
     }
 
-    pub fn enum_implicits(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<NamedEntity>> {
+    pub fn enum_implicits(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<AnyEnt>> {
         [
             self.create_to_string(typ.clone()),
             self.minimum(typ.clone()),
@@ -537,7 +537,7 @@ impl<'a> StandardRegion<'a> {
         .chain(self.comparators(typ).into_iter())
     }
 
-    pub fn record_implicits(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<NamedEntity>> {
+    pub fn record_implicits(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<AnyEnt>> {
         [
             self.comparison(Operator::EQ, typ.clone()),
             self.comparison(Operator::NE, typ),
@@ -545,7 +545,7 @@ impl<'a> StandardRegion<'a> {
         .into_iter()
     }
 
-    pub fn array_implicits(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<NamedEntity>> {
+    pub fn array_implicits(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<AnyEnt>> {
         [
             self.create_to_string(typ.clone()),
             self.comparison(Operator::EQ, typ.clone()),
@@ -554,7 +554,7 @@ impl<'a> StandardRegion<'a> {
         .into_iter()
     }
 
-    pub fn access_implicits(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<NamedEntity>> {
+    pub fn access_implicits(&self, typ: TypeEnt) -> impl Iterator<Item = Arc<AnyEnt>> {
         [
             self.deallocate(typ.clone()),
             self.comparison(Operator::EQ, typ.clone()),
@@ -563,7 +563,7 @@ impl<'a> StandardRegion<'a> {
         .into_iter()
     }
 
-    pub fn type_implicits(&self, typ: TypeEnt) -> Vec<Arc<NamedEntity>> {
+    pub fn type_implicits(&self, typ: TypeEnt) -> Vec<Arc<AnyEnt>> {
         match typ.kind() {
             Type::Access(..) => self.access_implicits(typ).collect(),
             Type::Enum(..) => self.enum_implicits(typ).collect(),
@@ -585,7 +585,7 @@ impl<'a> StandardRegion<'a> {
     // Return the
 
     // Return the implicit things defined at the end of the standard packge
-    pub fn end_of_package_implicits(&self) -> Vec<Arc<NamedEntity>> {
+    pub fn end_of_package_implicits(&self) -> Vec<Arc<AnyEnt>> {
         let mut res = Vec::new();
 
         for ent in self.region.immediates() {
@@ -657,9 +657,9 @@ impl<'a> StandardRegion<'a> {
             let string = self.string();
 
             let mut formals = FormalRegion::new_params();
-            formals.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(AnyEnt::new(
                 self.symbol("VALUE"),
-                NamedEntityKind::Object(Object {
+                AnyEntKind::Object(Object {
                     class: ObjectClass::Constant,
                     mode: Some(Mode::In),
                     subtype: Subtype::new(real.to_owned()),
@@ -668,9 +668,9 @@ impl<'a> StandardRegion<'a> {
                 real.decl_pos(),
             )));
 
-            formals.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(AnyEnt::new(
                 self.symbol("DIGITS"),
-                NamedEntityKind::Object(Object {
+                AnyEntKind::Object(Object {
                     class: ObjectClass::Constant,
                     mode: Some(Mode::In),
                     subtype: Subtype::new(natural),
@@ -679,10 +679,10 @@ impl<'a> StandardRegion<'a> {
                 real.decl_pos(),
             )));
 
-            let ent = Arc::new(NamedEntity::implicit(
+            let ent = Arc::new(AnyEnt::implicit(
                 real.clone().into(),
                 self.symbol("TO_STRING"),
-                NamedEntityKind::new_function_decl(formals, string),
+                AnyEntKind::new_function_decl(formals, string),
                 real.decl_pos(),
             ));
 
@@ -699,9 +699,9 @@ impl<'a> StandardRegion<'a> {
             let string = self.string();
 
             let mut formals = FormalRegion::new_params();
-            formals.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(AnyEnt::new(
                 self.symbol("VALUE"),
-                NamedEntityKind::Object(Object {
+                AnyEntKind::Object(Object {
                     class: ObjectClass::Constant,
                     mode: Some(Mode::In),
                     subtype: Subtype::new(real.to_owned()),
@@ -710,9 +710,9 @@ impl<'a> StandardRegion<'a> {
                 real.decl_pos(),
             )));
 
-            formals.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(AnyEnt::new(
                 self.symbol("FORMAT"),
-                NamedEntityKind::Object(Object {
+                AnyEntKind::Object(Object {
                     class: ObjectClass::Constant,
                     mode: Some(Mode::In),
                     subtype: Subtype::new(string.to_owned()),
@@ -721,10 +721,10 @@ impl<'a> StandardRegion<'a> {
                 real.decl_pos(),
             )));
 
-            let ent = Arc::new(NamedEntity::implicit(
+            let ent = Arc::new(AnyEnt::implicit(
                 real.clone().into(),
                 self.symbol("TO_STRING"),
-                NamedEntityKind::new_function_decl(formals, string),
+                AnyEntKind::new_function_decl(formals, string),
                 real.decl_pos(),
             ));
 
@@ -740,9 +740,9 @@ impl<'a> StandardRegion<'a> {
             let time = self.time();
             let string = self.string();
             let mut formals = FormalRegion::new_params();
-            formals.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(AnyEnt::new(
                 self.symbol("VALUE"),
-                NamedEntityKind::Object(Object {
+                AnyEntKind::Object(Object {
                     class: ObjectClass::Constant,
                     mode: Some(Mode::In),
                     subtype: Subtype::new(time.to_owned()),
@@ -751,9 +751,9 @@ impl<'a> StandardRegion<'a> {
                 time.decl_pos(),
             )));
 
-            formals.add(Arc::new(NamedEntity::new(
+            formals.add(Arc::new(AnyEnt::new(
                 self.symbol("UNIT"),
-                NamedEntityKind::Object(Object {
+                AnyEntKind::Object(Object {
                     class: ObjectClass::Constant,
                     mode: Some(Mode::In),
                     subtype: Subtype::new(time.to_owned()),
@@ -762,10 +762,10 @@ impl<'a> StandardRegion<'a> {
                 time.decl_pos(),
             )));
 
-            let ent = Arc::new(NamedEntity::implicit(
+            let ent = Arc::new(AnyEnt::implicit(
                 time.clone().into(),
                 self.symbol("TO_STRING"),
-                NamedEntityKind::new_function_decl(formals, string),
+                AnyEntKind::new_function_decl(formals, string),
                 time.decl_pos(),
             ));
 

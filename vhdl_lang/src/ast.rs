@@ -23,7 +23,7 @@ pub use self::display::*;
 pub use self::util::*;
 pub use any_design_unit::*;
 
-pub use crate::analysis::NamedEntity;
+pub use crate::analysis::AnyEnt;
 use crate::data::*;
 
 /// LRM 15.8 Bit string literals
@@ -370,7 +370,7 @@ pub enum Designator {
     Character(u8),
 }
 
-pub type Reference = Option<Arc<NamedEntity>>;
+pub type Reference = Option<Arc<AnyEnt>>;
 
 /// An item which has a reference to a declaration
 #[derive(PartialEq, Debug, Clone)]
@@ -392,7 +392,7 @@ impl<T> WithRef<T> {
 #[derive(PartialEq, Debug, Clone)]
 pub struct WithDecl<T> {
     pub tree: T,
-    pub decl: Option<Arc<NamedEntity>>,
+    pub decl: Option<Arc<AnyEnt>>,
 }
 
 impl<T> WithDecl<T> {

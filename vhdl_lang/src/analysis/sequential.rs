@@ -22,7 +22,7 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         if let Some(ref mut label) = statement.label {
-            scope.add(label.define(NamedEntityKind::Label), diagnostics);
+            scope.add(label.define(AnyEntKind::Label), diagnostics);
         }
 
         match statement.statement {
@@ -129,7 +129,7 @@ impl<'a> AnalyzeContext<'a> {
                     Some(IterationScheme::For(ref mut index, ref mut drange)) => {
                         self.analyze_discrete_range(scope, drange, diagnostics)?;
                         let mut region = scope.nested();
-                        region.add(index.define(NamedEntityKind::LoopParameter), diagnostics);
+                        region.add(index.define(AnyEntKind::LoopParameter), diagnostics);
                         self.analyze_sequential_part(&mut region, statements, diagnostics)?;
                     }
                     Some(IterationScheme::While(ref mut expr)) => {

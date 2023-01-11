@@ -180,7 +180,7 @@ impl<'a> AnalyzeContext<'a> {
         )? {
             NamedEntities::Single(unit_ent) => {
                 unit.set_unique_reference(&unit_ent);
-                if let NamedEntityKind::PhysicalLiteral(physical_ent) = unit_ent.actual_kind() {
+                if let AnyEntKind::PhysicalLiteral(physical_ent) = unit_ent.actual_kind() {
                     Ok(physical_ent.clone())
                 } else {
                     Err(Diagnostic::error(

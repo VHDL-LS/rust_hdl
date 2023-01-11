@@ -12,31 +12,32 @@ use crate::{
 };
 
 use super::{
-    region::{NamedEntityKind, Object, TypeEnt},
-    NamedEntity,
+    region::{AnyEntKind, Object, TypeEnt},
+    AnyEnt,
 };
 
 #[derive(Clone)]
 pub struct InterfaceEnt {
     /// InterfaceObject or InterfaceFile
-    ent: Arc<NamedEntity>,
+    ent: Arc<AnyEnt>,
 }
 
 impl InterfaceEnt {
-    pub fn inner(&self) -> &Arc<NamedEntity> {
+    pub fn inner(&self) -> &Arc<AnyEnt> {
         &self.ent
     }
 
-    pub fn from_any(ent: Arc<NamedEntity>) -> Option<Self> {
+    pub fn from_any(ent: Arc<AnyEnt>) -> Option<Self> {
         match ent.kind() {
-            NamedEntityKind::Object(Object { mode: Some(_), .. })
-            | NamedEntityKind::InterfaceFile(..) => Some(InterfaceEnt { ent }),
+            AnyEntKind::Object(Object { mode: Some(_), .. }) | AnyEntKind::InterfaceFile(..) => {
+                Some(InterfaceEnt { ent })
+            }
             _ => None,
         }
     }
 
     pub fn has_default(&self) -> bool {
-        if let NamedEntityKind::Object(Object { has_default, .. }) = self.ent.kind() {
+        if let AnyEntKind::Object(Object { has_default, .. }) = self.ent.kind() {
             *has_default
         } else {
             false
@@ -45,14 +46,14 @@ impl InterfaceEnt {
 
     pub fn is_signal(&self) -> bool {
         match self.ent.kind() {
-            NamedEntityKind::Object(obj) => obj.class == ObjectClass::Signal,
+            AnyEntKind::Object(obj) => obj.class == ObjectClass::Signal,
             _ => false,
         }
     }
 
     pub fn is_output_signal(&self) -> bool {
         match self.ent.kind() {
-            NamedEntityKind::Object(obj) => {
+            AnyEntKind::Object(obj) => {
                 obj.class == ObjectClass::Signal && obj.mode == Some(Mode::Out)
             }
             _ => false,
@@ -61,8 +62,8 @@ impl InterfaceEnt {
 
     pub fn type_mark(&self) -> &TypeEnt {
         match self.ent.kind() {
-            NamedEntityKind::Object(obj) => obj.subtype.type_mark(),
-            NamedEntityKind::InterfaceFile(file_type) => file_type,
+            AnyEntKind::Object(obj) => obj.subtype.type_mark(),
+            AnyEntKind::InterfaceFile(file_type) => file_type,
             _ => {
                 unreachable!();
             }
@@ -75,8 +76,8 @@ impl InterfaceEnt {
 }
 
 impl std::ops::Deref for InterfaceEnt {
-    type Target = NamedEntity;
-    fn deref(&self) -> &NamedEntity {
+    type Target = AnyEnt;
+    fn deref(&self) -> &AnyEnt {
         &self.ent
     }
 }
@@ -134,7 +135,7 @@ impl FormalRegion {
         self.entities.iter()
     }
 
-    pub fn add(&mut self, param: Arc<NamedEntity>) {
+    pub fn add(&mut self, param: Arc<AnyEnt>) {
         if let Some(ent) = InterfaceEnt::from_any(param) {
             self.entities.push(ent);
         } else {
@@ -176,7 +177,7 @@ impl RecordRegion {
         self.elems.iter()
     }
 
-    pub fn add(&mut self, ent: Arc<NamedEntity>) {
+    pub fn add(&mut self, ent: Arc<AnyEnt>) {
         if let Some(elem) = RecordElement::from_any(ent) {
             self.elems.push(elem);
         } else {
@@ -192,12 +193,12 @@ impl RecordRegion {
 #[derive(Clone)]
 pub struct RecordElement {
     // A record element declaration
-    ent: Arc<NamedEntity>,
+    ent: Arc<AnyEnt>,
 }
 
 impl RecordElement {
-    pub fn from_any(ent: Arc<NamedEntity>) -> Option<Self> {
-        if let NamedEntityKind::ElementDeclaration(_) = ent.kind() {
+    pub fn from_any(ent: Arc<AnyEnt>) -> Option<Self> {
+        if let AnyEntKind::ElementDeclaration(_) = ent.kind() {
             Some(RecordElement { ent })
         } else {
             None
@@ -206,7 +207,7 @@ impl RecordElement {
 
     pub fn type_mark(&self) -> &TypeEnt {
         match self.ent.kind() {
-            NamedEntityKind::ElementDeclaration(subtype) => subtype.type_mark(),
+            AnyEntKind::ElementDeclaration(subtype) => subtype.type_mark(),
             _ => {
                 unreachable!();
             }
@@ -215,19 +216,19 @@ impl RecordElement {
 }
 
 impl std::ops::Deref for RecordElement {
-    type Target = NamedEntity;
-    fn deref(&self) -> &NamedEntity {
+    type Target = AnyEnt;
+    fn deref(&self) -> &AnyEnt {
         &self.ent
     }
 }
 
-impl AsRef<Arc<NamedEntity>> for RecordElement {
-    fn as_ref(&self) -> &Arc<NamedEntity> {
+impl AsRef<Arc<AnyEnt>> for RecordElement {
+    fn as_ref(&self) -> &Arc<AnyEnt> {
         &self.ent
     }
 }
 
-impl From<RecordElement> for Arc<NamedEntity> {
+impl From<RecordElement> for Arc<AnyEnt> {
     fn from(value: RecordElement) -> Self {
         value.ent
     }

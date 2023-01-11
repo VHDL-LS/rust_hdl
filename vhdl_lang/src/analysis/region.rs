@@ -132,12 +132,12 @@ impl OverloadedName {
 #[derive(Clone, Debug)]
 /// Identically named entities
 pub enum NamedEntities {
-    Single(Arc<NamedEntity>),
+    Single(Arc<AnyEnt>),
     Overloaded(OverloadedName),
 }
 
 impl NamedEntities {
-    pub fn new(ent: Arc<NamedEntity>) -> NamedEntities {
+    pub fn new(ent: Arc<AnyEnt>) -> NamedEntities {
         match OverloadedEnt::from_any(ent) {
             Ok(ent) => Self::Overloaded(OverloadedName::new(vec![ent])),
             Err(ent) => Self::Single(ent),
@@ -148,7 +148,7 @@ impl NamedEntities {
         Self::Overloaded(OverloadedName::new(named_entities))
     }
 
-    pub fn into_non_overloaded(self) -> Result<Arc<NamedEntity>, OverloadedName> {
+    pub fn into_non_overloaded(self) -> Result<Arc<AnyEnt>, OverloadedName> {
         match self {
             Self::Single(ent) => Ok(ent),
             Self::Overloaded(ent_vec) => Err(ent_vec),
@@ -159,7 +159,7 @@ impl NamedEntities {
         self,
         pos: &SrcPos,
         message: impl FnOnce() -> String,
-    ) -> Result<Arc<NamedEntity>, Diagnostic> {
+    ) -> Result<Arc<AnyEnt>, Diagnostic> {
         match self {
             Self::Single(ent) => Ok(ent),
             Self::Overloaded(overloaded) => {
@@ -174,7 +174,7 @@ impl NamedEntities {
         }
     }
 
-    pub fn as_non_overloaded(&self) -> Option<&Arc<NamedEntity>> {
+    pub fn as_non_overloaded(&self) -> Option<&Arc<AnyEnt>> {
         match self {
             Self::Single(ent) => Some(ent),
             Self::Overloaded(..) => None,
@@ -185,14 +185,14 @@ impl NamedEntities {
         self.first().designator()
     }
 
-    pub fn first(&self) -> &Arc<NamedEntity> {
+    pub fn first(&self) -> &Arc<AnyEnt> {
         match self {
             Self::Single(ent) => ent,
             Self::Overloaded(overloaded) => overloaded.first().inner(),
         }
     }
 
-    pub fn first_kind(&self) -> &NamedEntityKind {
+    pub fn first_kind(&self) -> &AnyEntKind {
         self.first().kind()
     }
 
@@ -312,23 +312,23 @@ impl<'a> Scope<'a> {
         }
     }
 
-    pub fn add(&mut self, ent: Arc<NamedEntity>, diagnostics: &mut dyn DiagnosticHandler) {
+    pub fn add(&mut self, ent: Arc<AnyEnt>, diagnostics: &mut dyn DiagnosticHandler) {
         self.cache.borrow_mut().remove(ent.designator());
         self.region_mut().add(ent, diagnostics)
     }
 
     pub fn add_implicit_declaration_aliases(
         &mut self,
-        ent: Arc<NamedEntity>,
+        ent: Arc<AnyEnt>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
         for implicit in ent.actual_kind().implicit_declarations() {
             match OverloadedEnt::from_any(implicit) {
                 Ok(implicit) => {
-                    let entity = NamedEntity::implicit(
+                    let entity = AnyEnt::implicit(
                         ent.clone(),
                         implicit.designator().clone(),
-                        NamedEntityKind::Overloaded(Overloaded::Alias(implicit)),
+                        AnyEntKind::Overloaded(Overloaded::Alias(implicit)),
                         ent.decl_pos(),
                     );
                     self.add(Arc::new(entity), diagnostics);
@@ -343,11 +343,7 @@ impl<'a> Scope<'a> {
         }
     }
 
-    pub fn make_potentially_visible(
-        &mut self,
-        visible_pos: Option<&SrcPos>,
-        ent: Arc<NamedEntity>,
-    ) {
+    pub fn make_potentially_visible(&mut self, visible_pos: Option<&SrcPos>, ent: Arc<AnyEnt>) {
         self.cache.borrow_mut().remove(ent.designator());
         self.region_mut()
             .visibility
@@ -358,7 +354,7 @@ impl<'a> Scope<'a> {
         &mut self,
         visible_pos: Option<&SrcPos>,
         designator: Designator,
-        ent: Arc<NamedEntity>,
+        ent: Arc<AnyEnt>,
     ) {
         self.cache.borrow_mut().remove(ent.designator());
         self.region_mut()
@@ -557,7 +553,7 @@ impl Region {
             // Package without body may not have deferred constants
             RegionKind::PackageDeclaration | RegionKind::PackageBody => {
                 for ent in self.entities.values() {
-                    if let NamedEntityKind::DeferredConstant(..) = ent.first_kind() {
+                    if let AnyEntKind::DeferredConstant(..) = ent.first_kind() {
                         ent.first().error(diagnostics, format!("Deferred constant '{}' lacks corresponding full constant declaration in package body", ent.designator()));
                     }
                 }
@@ -568,7 +564,7 @@ impl Region {
 
     fn check_protected_types_have_body(&self, diagnostics: &mut dyn DiagnosticHandler) {
         for ent in self.entities.values() {
-            if let NamedEntityKind::Type(Type::Protected(_, body_pos)) = ent.first_kind() {
+            if let AnyEntKind::Type(Type::Protected(_, body_pos)) = ent.first_kind() {
                 if body_pos.load().is_none() {
                     ent.first().error(
                         diagnostics,
@@ -584,7 +580,7 @@ impl Region {
         self.check_protected_types_have_body(diagnostics);
     }
 
-    pub fn add(&mut self, ent: Arc<NamedEntity>, diagnostics: &mut dyn DiagnosticHandler) {
+    pub fn add(&mut self, ent: Arc<AnyEnt>, diagnostics: &mut dyn DiagnosticHandler) {
         if ent.kind().is_deferred_constant() && self.kind != RegionKind::PackageDeclaration {
             ent.error(
                 diagnostics,
@@ -660,7 +656,7 @@ impl Region {
 }
 
 pub trait SetReference {
-    fn set_unique_reference(&mut self, ent: &Arc<NamedEntity>);
+    fn set_unique_reference(&mut self, ent: &Arc<AnyEnt>);
     fn clear_reference(&mut self);
 
     fn set_reference(&mut self, visible: &NamedEntities) {
@@ -680,7 +676,7 @@ pub trait SetReference {
 }
 
 impl<T> SetReference for WithRef<T> {
-    fn set_unique_reference(&mut self, ent: &Arc<NamedEntity>) {
+    fn set_unique_reference(&mut self, ent: &Arc<AnyEnt>) {
         self.reference.set_unique_reference(ent);
     }
 
@@ -690,7 +686,7 @@ impl<T> SetReference for WithRef<T> {
 }
 
 impl<T: SetReference> SetReference for WithPos<T> {
-    fn set_unique_reference(&mut self, ent: &Arc<NamedEntity>) {
+    fn set_unique_reference(&mut self, ent: &Arc<AnyEnt>) {
         self.item.set_unique_reference(ent);
     }
 
@@ -700,7 +696,7 @@ impl<T: SetReference> SetReference for WithPos<T> {
 }
 
 impl SetReference for Reference {
-    fn set_unique_reference(&mut self, ent: &Arc<NamedEntity>) {
+    fn set_unique_reference(&mut self, ent: &Arc<AnyEnt>) {
         *self = Some(ent.clone());
     }
     fn clear_reference(&mut self) {

@@ -66,10 +66,10 @@ impl<'a> AnalyzeContext<'a> {
         // Entity name is visible
         primary_scope.make_potentially_visible(
             Some(unit.pos()),
-            Arc::new(NamedEntity::new_with_id(
+            Arc::new(AnyEnt::new_with_id(
                 id,
                 unit.name().into(),
-                NamedEntityKind::Label,
+                AnyEntKind::Label,
                 Some(unit.pos().clone()),
             )),
         );
@@ -139,10 +139,10 @@ impl<'a> AnalyzeContext<'a> {
         // Package name is visible
         scope.make_potentially_visible(
             Some(unit.pos()),
-            Arc::new(NamedEntity::new_with_id(
+            Arc::new(AnyEnt::new_with_id(
                 id,
                 unit.name().into(),
-                NamedEntityKind::Label,
+                AnyEntKind::Label,
                 Some(unit.pos().clone()),
             )),
         );
@@ -236,10 +236,10 @@ impl<'a> AnalyzeContext<'a> {
         // Architecture name is visible
         scope.make_potentially_visible(
             Some(unit.pos()),
-            Arc::new(NamedEntity::new_with_id(
+            Arc::new(AnyEnt::new_with_id(
                 id,
                 unit.name().into(),
-                NamedEntityKind::Label,
+                AnyEntKind::Label,
                 Some(unit.pos().clone()),
             )),
         );
@@ -339,7 +339,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'_>,
         config: &mut ConfigurationDeclaration,
-    ) -> AnalysisResult<Arc<NamedEntity>> {
+    ) -> AnalysisResult<Arc<AnyEnt>> {
         let ent_name = &mut config.entity_name;
 
         match ent_name.item {
@@ -375,7 +375,7 @@ impl<'a> AnalyzeContext<'a> {
                              )
                     )
                     .and_then(|library_ent| match library_ent.kind() {
-                        NamedEntityKind::Library => {
+                        AnyEntKind::Library => {
                             let library_name = library_ent.designator().expect_identifier();
                             if library_name != self.work_library_name() {
                                 Err(AnalysisError::not_fatal_error(
@@ -385,7 +385,7 @@ impl<'a> AnalyzeContext<'a> {
                             } else {
                                 let primary_ent = self.lookup_in_library(library_name, &designator.pos, designator.designator())?;
                                 match primary_ent.kind() {
-                                    NamedEntityKind::Design(Design::Entity(..)) => {
+                                    AnyEntKind::Design(Design::Entity(..)) => {
                                         designator.set_unique_reference(&primary_ent);
                                         Ok(
                                             primary_ent,
@@ -417,7 +417,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'_>,
         prefix: &mut WithPos<Name>,
-    ) -> AnalysisResult<Arc<NamedEntity>> {
+    ) -> AnalysisResult<Arc<AnyEnt>> {
         match self.resolve_context_item_name(scope, prefix)? {
             UsedNames::Single(visible) => visible.into_non_overloaded().map_err(|_| {
                 AnalysisError::not_fatal_error(&prefix, "Invalid prefix of a selected name")
@@ -511,9 +511,7 @@ impl<'a> AnalyzeContext<'a> {
                                 let ent = visible.first();
                                 match ent.kind() {
                                     // OK
-                                    NamedEntityKind::Design(Design::Context(
-                                        ref context_region,
-                                    )) => {
+                                    AnyEntKind::Design(Design::Context(ref context_region)) => {
                                         scope.add_context_visibility(
                                             Some(&name.pos),
                                             context_region,
@@ -572,11 +570,11 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 Ok(UsedNames::AllWithin(visibility_pos, named_entity)) => {
                     match named_entity.kind() {
-                        NamedEntityKind::Library => {
+                        AnyEntKind::Library => {
                             let library_name = named_entity.designator().expect_identifier();
                             self.use_all_in_library(&name.pos, library_name, scope)?;
                         }
-                        NamedEntityKind::Design(design) => match design {
+                        AnyEntKind::Design(design) => match design {
                             Design::UninstPackage(..) => {
                                 diagnostics.push(Diagnostic::invalid_selected_name_prefix(
                                     &named_entity,
@@ -616,9 +614,7 @@ impl<'a> AnalyzeContext<'a> {
     ) -> AnalysisResult<Arc<Region>> {
         let decl = self.resolve_selected_name(scope, package_name)?;
 
-        if let NamedEntityKind::Design(Design::UninstPackage(ref package_region)) =
-            decl.first_kind()
-        {
+        if let AnyEntKind::Design(Design::UninstPackage(ref package_region)) = decl.first_kind() {
             Ok(package_region.clone())
         } else {
             Err(AnalysisError::not_fatal_error(
@@ -637,5 +633,5 @@ pub enum UsedNames {
     Single(NamedEntities),
     /// All names within was selected
     /// @TODO add pos for where declaration was made visible into VisibleDeclaration
-    AllWithin(SrcPos, Arc<NamedEntity>),
+    AllWithin(SrcPos, Arc<AnyEnt>),
 }

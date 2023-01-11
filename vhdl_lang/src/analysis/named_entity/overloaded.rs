@@ -8,9 +8,9 @@ use std::sync::Arc;
 
 use crate::analysis::formal_region::FormalRegion;
 
+use super::AnyEnt;
+use super::AnyEntKind;
 use super::EntityId;
-use super::NamedEntity;
-use super::NamedEntityKind;
 use super::TypeEnt;
 
 pub enum Overloaded {
@@ -141,12 +141,12 @@ impl SignatureKey {
 
 #[derive(Clone, Debug)]
 pub struct OverloadedEnt {
-    ent: Arc<NamedEntity>,
+    ent: Arc<AnyEnt>,
 }
 
 impl OverloadedEnt {
-    pub fn from_any(ent: Arc<NamedEntity>) -> Result<Self, Arc<NamedEntity>> {
-        if let NamedEntityKind::Overloaded(..) = ent.actual_kind() {
+    pub fn from_any(ent: Arc<AnyEnt>) -> Result<Self, Arc<AnyEnt>> {
+        if let AnyEntKind::Overloaded(..) = ent.actual_kind() {
             Ok(OverloadedEnt { ent })
         } else {
             Err(ent)
@@ -154,7 +154,7 @@ impl OverloadedEnt {
     }
 
     pub fn kind(&self) -> &Overloaded {
-        if let NamedEntityKind::Overloaded(kind) = self.ent.actual_kind() {
+        if let AnyEntKind::Overloaded(kind) = self.ent.actual_kind() {
             kind
         } else {
             unreachable!();
@@ -181,19 +181,19 @@ impl OverloadedEnt {
         &self.signature().formals
     }
 
-    pub fn inner(&self) -> &Arc<NamedEntity> {
+    pub fn inner(&self) -> &Arc<AnyEnt> {
         &self.ent
     }
 }
 
 impl std::ops::Deref for OverloadedEnt {
-    type Target = NamedEntity;
-    fn deref(&self) -> &NamedEntity {
+    type Target = AnyEnt;
+    fn deref(&self) -> &AnyEnt {
         &self.ent
     }
 }
 
-impl From<OverloadedEnt> for Arc<NamedEntity> {
+impl From<OverloadedEnt> for Arc<AnyEnt> {
     fn from(value: OverloadedEnt) -> Self {
         value.ent
     }

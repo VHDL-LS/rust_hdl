@@ -95,7 +95,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 suffix.set_unique_reference(&suffix_ent);
 
-                if let NamedEntityKind::ElementDeclaration(elem) = suffix_ent.actual_kind() {
+                if let AnyEntKind::ElementDeclaration(elem) = suffix_ent.actual_kind() {
                     if let Some(resolved_formal) = resolved_prefix.select(elem.type_mark().clone())
                     {
                         Ok(resolved_formal)

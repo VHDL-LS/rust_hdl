@@ -1173,7 +1173,7 @@ impl Search for CaseStatement {
 pub struct ItemAtCursor {
     source: Source,
     cursor: Position,
-    pub result: Option<Arc<NamedEntity>>,
+    pub result: Option<Arc<AnyEnt>>,
 }
 
 impl ItemAtCursor {
@@ -1242,12 +1242,12 @@ impl Searcher for ItemAtCursor {
 
 // Search for a declaration/definition and format it
 pub struct FormatDeclaration {
-    ent: Arc<NamedEntity>,
+    ent: Arc<AnyEnt>,
     pub result: Option<String>,
 }
 
 impl FormatDeclaration {
-    pub fn new(ent: Arc<NamedEntity>) -> FormatDeclaration {
+    pub fn new(ent: Arc<AnyEnt>) -> FormatDeclaration {
         FormatDeclaration { ent, result: None }
     }
 }
@@ -1281,12 +1281,12 @@ impl Searcher for FormatDeclaration {
 
 // Search for all references to declaration/definition
 pub struct FindAllReferences {
-    ent: Arc<NamedEntity>,
+    ent: Arc<AnyEnt>,
     pub references: Vec<SrcPos>,
 }
 
 impl FindAllReferences {
-    pub fn new(ent: Arc<NamedEntity>) -> FindAllReferences {
+    pub fn new(ent: Arc<AnyEnt>) -> FindAllReferences {
         FindAllReferences {
             ent,
             references: Vec::new(),
@@ -1315,7 +1315,7 @@ impl Searcher for FindAllReferences {
 }
 
 impl<'a> HasNamedEntity for FoundDeclaration<'a> {
-    fn named_entity(&self) -> Option<&Arc<NamedEntity>> {
+    fn named_entity(&self) -> Option<&Arc<AnyEnt>> {
         match self {
             FoundDeclaration::InterfaceObject(value) => value.ident.decl.as_ref(),
             FoundDeclaration::ForIndex(ident, _) => ident.decl.as_ref(),

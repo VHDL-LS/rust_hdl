@@ -6,22 +6,22 @@
 
 use std::sync::Arc;
 
-use crate::analysis::NamedEntityKind;
+use crate::analysis::AnyEntKind;
 use crate::ast::Mode;
 use crate::ast::ObjectClass;
 
-use super::NamedEntity;
+use super::AnyEnt;
 use super::Object;
 
 // A named entity that is known to be an object
 #[derive(Clone, Debug)]
 pub struct ObjectEnt {
-    pub ent: Arc<NamedEntity>,
+    pub ent: Arc<AnyEnt>,
 }
 
 impl ObjectEnt {
-    pub fn new(ent: Arc<NamedEntity>) -> Self {
-        debug_assert!(matches!(ent.actual_kind(), NamedEntityKind::Object(..)));
+    pub fn new(ent: Arc<AnyEnt>) -> Self {
+        debug_assert!(matches!(ent.actual_kind(), AnyEntKind::Object(..)));
         Self { ent }
     }
 
@@ -46,7 +46,7 @@ impl ObjectEnt {
     }
 
     pub fn object(&self) -> &Object {
-        if let NamedEntityKind::Object(object) = self.ent.actual_kind() {
+        if let AnyEntKind::Object(object) = self.ent.actual_kind() {
             object
         } else {
             unreachable!("Must be object");
