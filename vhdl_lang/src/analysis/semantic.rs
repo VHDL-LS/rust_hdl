@@ -65,14 +65,16 @@ impl<'a> AnalyzeContext<'a> {
                 Ok(NamedEntities::new(named_entity))
             }
             AnyEntKind::Object(ref object) => {
-                object.subtype.type_mark().selected(prefix_pos, suffix)
+                Ok(object.subtype.type_mark().selected(prefix_pos, suffix)?)
             }
-            AnyEntKind::ObjectAlias { ref type_mark, .. } => type_mark.selected(prefix_pos, suffix),
+            AnyEntKind::ObjectAlias { ref type_mark, .. } => {
+                Ok(type_mark.selected(prefix_pos, suffix)?)
+            }
             AnyEntKind::ExternalAlias { ref type_mark, .. } => {
-                type_mark.selected(prefix_pos, suffix)
+                Ok(type_mark.selected(prefix_pos, suffix)?)
             }
             AnyEntKind::ElementDeclaration(ref subtype) => {
-                subtype.type_mark().selected(prefix_pos, suffix)
+                Ok(subtype.type_mark().selected(prefix_pos, suffix)?)
             }
             AnyEntKind::Design(design) => match design {
                 Design::Package(ref region)

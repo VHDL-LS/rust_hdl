@@ -7,7 +7,6 @@
 use std::ops::Deref;
 use std::sync::Arc;
 
-use crate::analysis::analyze::AnalysisResult;
 use crate::analysis::named_entity::{AnyEnt, AnyEntKind, EntityId};
 
 use crate::analysis::formal_region::RecordRegion;
@@ -169,26 +168,28 @@ impl TypeEnt {
         &self,
         prefix_pos: &SrcPos,
         suffix: &WithPos<WithRef<Designator>>,
-    ) -> AnalysisResult<NamedEntities> {
+    ) -> Result<NamedEntities, Diagnostic> {
         match self.kind() {
             Type::Record(ref region, _) => {
                 if let Some(decl) = region.lookup(suffix.designator()) {
                     Ok(NamedEntities::Single(decl.clone().into()))
                 } else {
-                    Err(
-                        Diagnostic::no_declaration_within(self, &suffix.pos, &suffix.item.item)
-                            .into(),
-                    )
+                    Err(Diagnostic::no_declaration_within(
+                        self,
+                        &suffix.pos,
+                        &suffix.item.item,
+                    ))
                 }
             }
             Type::Protected(region, _) => {
                 if let Some(decl) = region.lookup_immediate(suffix.designator()) {
                     Ok(decl.clone())
                 } else {
-                    Err(
-                        Diagnostic::no_declaration_within(self, &suffix.pos, &suffix.item.item)
-                            .into(),
-                    )
+                    Err(Diagnostic::no_declaration_within(
+                        self,
+                        &suffix.pos,
+                        &suffix.item.item,
+                    ))
                 }
             }
             Type::Incomplete(full_type_ref) => {
@@ -202,8 +203,7 @@ impl TypeEnt {
                     Err(Diagnostic::error(
                         prefix_pos,
                         "Internal error when referencing full type of incomplete type",
-                    )
-                    .into())
+                    ))
                 }
             }
             Type::Subtype(subtype) => subtype.type_mark().selected(prefix_pos, suffix),
@@ -216,9 +216,7 @@ impl TypeEnt {
             | Type::Physical { .. }
             | Type::Universal { .. }
             | Type::Integer { .. }
-            | Type::Real { .. } => {
-                Err(Diagnostic::invalid_selected_name_prefix(self, prefix_pos).into())
-            }
+            | Type::Real { .. } => Err(Diagnostic::invalid_selected_name_prefix(self, prefix_pos)),
         }
     }
 }
