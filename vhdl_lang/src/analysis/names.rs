@@ -148,7 +148,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     ResolvedName::Type(..) => Err(Diagnostic::error(name_pos, err_msg).into()),
                     ResolvedName::ObjectSelection { ref type_mark, .. } => {
-                        match self.lookup_type_selected(&prefix.pos, type_mark, suffix)? {
+                        match type_mark.selected(&prefix.pos, suffix)? {
                             NamedEntities::Single(named_entity) => {
                                 suffix.set_unique_reference(&named_entity);
                                 resolved
@@ -162,7 +162,7 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     }
                     ResolvedName::ExternalName { ref type_mark, .. } => {
-                        match self.lookup_type_selected(&prefix.pos, type_mark, suffix)? {
+                        match type_mark.selected(&prefix.pos, suffix)? {
                             NamedEntities::Single(named_entity) => {
                                 suffix.set_unique_reference(&named_entity);
                                 resolved

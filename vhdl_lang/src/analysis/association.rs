@@ -87,8 +87,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics,
                 )?;
 
-                let suffix_ent =
-                    self.lookup_type_selected(&prefix.pos, resolved_prefix.type_mark(), suffix)?;
+                let suffix_ent = resolved_prefix.type_mark().selected(&prefix.pos, suffix)?;
                 suffix.set_reference(&suffix_ent);
 
                 let suffix_ent = suffix_ent

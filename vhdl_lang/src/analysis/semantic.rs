@@ -65,16 +65,16 @@ impl<'a> AnalyzeContext<'a> {
                 Ok(NamedEntities::new(named_entity))
             }
             NamedEntityKind::Object(ref object) => {
-                self.lookup_type_selected(prefix_pos, object.subtype.type_mark(), suffix)
+                object.subtype.type_mark().selected(prefix_pos, suffix)
             }
             NamedEntityKind::ObjectAlias { ref type_mark, .. } => {
-                self.lookup_type_selected(prefix_pos, type_mark, suffix)
+                type_mark.selected(prefix_pos, suffix)
             }
             NamedEntityKind::ExternalAlias { ref type_mark, .. } => {
-                self.lookup_type_selected(prefix_pos, type_mark, suffix)
+                type_mark.selected(prefix_pos, suffix)
             }
             NamedEntityKind::ElementDeclaration(ref subtype) => {
-                self.lookup_type_selected(prefix_pos, subtype.type_mark(), suffix)
+                subtype.type_mark().selected(prefix_pos, suffix)
             }
             NamedEntityKind::Design(design) => match design {
                 Design::Package(ref region)
@@ -83,60 +83,18 @@ impl<'a> AnalyzeContext<'a> {
                     if let Some(decl) = region.lookup_immediate(suffix.designator()) {
                         Ok(decl.clone())
                     } else {
-                        Err(no_declaration_within(prefix, &suffix.pos, &suffix.item.item).into())
+                        Err(Diagnostic::no_declaration_within(
+                            prefix,
+                            &suffix.pos,
+                            &suffix.item.item,
+                        )
+                        .into())
                     }
                 }
-                _ => Err(invalid_selected_name_prefix(prefix, prefix_pos).into()),
+                _ => Err(Diagnostic::invalid_selected_name_prefix(prefix, prefix_pos).into()),
             },
 
-            _ => Err(invalid_selected_name_prefix(prefix, prefix_pos).into()),
-        }
-    }
-
-    /// Lookup a selected name when the prefix has type
-    pub fn lookup_type_selected(
-        &self,
-        prefix_pos: &SrcPos,
-        prefix_type: &TypeEnt,
-        suffix: &WithPos<WithRef<Designator>>,
-    ) -> AnalysisResult<NamedEntities> {
-        match prefix_type.flatten_alias().kind() {
-            Type::Record(ref region, _) => {
-                if let Some(decl) = region.lookup(suffix.designator()) {
-                    Ok(NamedEntities::Single(decl.clone().into()))
-                } else {
-                    Err(no_declaration_within(prefix_type, &suffix.pos, &suffix.item.item).into())
-                }
-            }
-            Type::Protected(region, _) => {
-                if let Some(decl) = region.lookup_immediate(suffix.designator()) {
-                    Ok(decl.clone())
-                } else {
-                    Err(no_declaration_within(prefix_type, &suffix.pos, &suffix.item.item).into())
-                }
-            }
-            Type::Incomplete(full_type_ref) => {
-                if let Some(full_type) = full_type_ref
-                    .load()
-                    .upgrade()
-                    .and_then(|e| TypeEnt::from_any(e).ok())
-                {
-                    self.lookup_type_selected(prefix_pos, &full_type, suffix)
-                } else {
-                    Err(Diagnostic::error(
-                        prefix_pos,
-                        "Internal error when referencing full type of incomplete type",
-                    )
-                    .into())
-                }
-            }
-            Type::Subtype(subtype) => {
-                self.lookup_type_selected(prefix_pos, subtype.type_mark(), suffix)
-            }
-            Type::Access(subtype, ..) => {
-                self.lookup_type_selected(prefix_pos, subtype.type_mark(), suffix)
-            }
-            _ => Err(invalid_selected_name_prefix(prefix_type, prefix_pos).into()),
+            _ => Err(Diagnostic::invalid_selected_name_prefix(prefix, prefix_pos).into()),
         }
     }
 
@@ -617,7 +575,7 @@ impl<'a> AnalyzeContext<'a> {
                                         simple_name.set_unique_reference(elem.as_ref());
                                         Some(elem)
                                     } else {
-                                        diagnostics.push(no_declaration_within(
+                                        diagnostics.push(Diagnostic::no_declaration_within(
                                             record_type,
                                             &choice_expr.pos,
                                             &simple_name.item,
@@ -1535,29 +1493,31 @@ fn type_mismatch(pos: &SrcPos, ent: &NamedEntity, expected_type: &NamedEntity) -
     )
 }
 
-pub fn invalid_selected_name_prefix(named_entity: &NamedEntity, prefix: &SrcPos) -> Diagnostic {
-    Diagnostic::error(
-        prefix,
-        capitalize(&format!(
-            "{} may not be the prefix of a selected name",
-            named_entity.describe(),
-        )),
-    )
-}
+impl Diagnostic {
+    pub fn invalid_selected_name_prefix(named_entity: &NamedEntity, prefix: &SrcPos) -> Diagnostic {
+        Diagnostic::error(
+            prefix,
+            capitalize(&format!(
+                "{} may not be the prefix of a selected name",
+                named_entity.describe(),
+            )),
+        )
+    }
 
-pub fn no_declaration_within(
-    named_entity: &NamedEntity,
-    pos: &SrcPos,
-    suffix: &Designator,
-) -> Diagnostic {
-    Diagnostic::error(
-        pos,
-        format!(
-            "No declaration of '{}' within {}",
-            suffix,
-            named_entity.describe(),
-        ),
-    )
+    pub fn no_declaration_within(
+        named_entity: &NamedEntity,
+        pos: &SrcPos,
+        suffix: &Designator,
+    ) -> Diagnostic {
+        Diagnostic::error(
+            pos,
+            format!(
+                "No declaration of '{}' within {}",
+                suffix,
+                named_entity.describe(),
+            ),
+        )
+    }
 }
 
 fn plural(singular: &'static str, plural: &'static str, count: usize) -> &'static str {

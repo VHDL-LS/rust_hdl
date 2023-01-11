@@ -7,15 +7,17 @@
 use std::ops::Deref;
 use std::sync::Arc;
 
+use crate::analysis::analyze::AnalysisResult;
 use crate::analysis::named_entity::{EntityId, NamedEntity, NamedEntityKind};
 
 use crate::analysis::formal_region::RecordRegion;
 use crate::analysis::implicits::ImplicitVec;
-use crate::analysis::region::Region;
-use crate::ast::Designator;
-use crate::ast::Ident;
+use crate::analysis::region::{NamedEntities, Region};
 use crate::ast::WithDecl;
-use crate::SrcPos;
+use crate::ast::{Designator, WithRef};
+use crate::ast::{HasDesignator, Ident};
+use crate::data::WithPos;
+use crate::{Diagnostic, SrcPos};
 
 use arc_swap::ArcSwapOption;
 use arc_swap::ArcSwapWeak;
@@ -167,6 +169,65 @@ impl TypeEnt {
         match actual.kind() {
             Type::Subtype(ref subtype) => subtype.base_type(),
             _ => actual,
+        }
+    }
+
+    /// Lookup a selected name prefix.suffix
+    /// where prefix has this type
+    pub fn selected(
+        &self,
+        prefix_pos: &SrcPos,
+        suffix: &WithPos<WithRef<Designator>>,
+    ) -> AnalysisResult<NamedEntities> {
+        match self.kind() {
+            Type::Record(ref region, _) => {
+                if let Some(decl) = region.lookup(suffix.designator()) {
+                    Ok(NamedEntities::Single(decl.clone().into()))
+                } else {
+                    Err(
+                        Diagnostic::no_declaration_within(self, &suffix.pos, &suffix.item.item)
+                            .into(),
+                    )
+                }
+            }
+            Type::Protected(region, _) => {
+                if let Some(decl) = region.lookup_immediate(suffix.designator()) {
+                    Ok(decl.clone())
+                } else {
+                    Err(
+                        Diagnostic::no_declaration_within(self, &suffix.pos, &suffix.item.item)
+                            .into(),
+                    )
+                }
+            }
+            Type::Incomplete(full_type_ref) => {
+                if let Some(full_type) = full_type_ref
+                    .load()
+                    .upgrade()
+                    .and_then(|e| TypeEnt::from_any(e).ok())
+                {
+                    full_type.selected(prefix_pos, suffix)
+                } else {
+                    Err(Diagnostic::error(
+                        prefix_pos,
+                        "Internal error when referencing full type of incomplete type",
+                    )
+                    .into())
+                }
+            }
+            Type::Subtype(subtype) => subtype.type_mark().selected(prefix_pos, suffix),
+            Type::Access(subtype, ..) => subtype.type_mark().selected(prefix_pos, suffix),
+            Type::Alias(alias) => alias.selected(prefix_pos, suffix),
+            Type::Array { .. }
+            | Type::File { .. }
+            | Type::Interface { .. }
+            | Type::Enum { .. }
+            | Type::Physical { .. }
+            | Type::Universal { .. }
+            | Type::Integer { .. }
+            | Type::Real { .. } => {
+                Err(Diagnostic::invalid_selected_name_prefix(self, prefix_pos).into())
+            }
         }
     }
 }

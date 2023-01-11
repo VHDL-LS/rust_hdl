@@ -10,7 +10,6 @@ use crate::data::*;
 use analyze::*;
 use region::*;
 use root::*;
-use semantic::invalid_selected_name_prefix;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -579,7 +578,7 @@ impl<'a> AnalyzeContext<'a> {
                         }
                         NamedEntityKind::Design(design) => match design {
                             Design::UninstPackage(..) => {
-                                diagnostics.push(invalid_selected_name_prefix(
+                                diagnostics.push(Diagnostic::invalid_selected_name_prefix(
                                     &named_entity,
                                     &visibility_pos,
                                 ));
