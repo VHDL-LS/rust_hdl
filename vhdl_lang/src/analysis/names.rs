@@ -15,7 +15,8 @@ use std::sync::Arc;
 // 2. Object such a direct reference to an object or some kind of index, slice or selected name
 #[derive(Debug)]
 pub enum ResolvedName {
-    Design(Arc<AnyEnt>),
+    Library(Symbol),
+    Design(DesignEnt),
     Type(TypeEnt),
     Overloaded(OverloadedName),
     ObjectSelection {
@@ -46,7 +47,10 @@ impl ResolvedName {
                 type_mark: type_mark.to_owned(),
             },
             AnyEntKind::Type(_) => ResolvedName::Type(TypeEnt::from_any(ent).unwrap()),
-            AnyEntKind::Design(_) | AnyEntKind::Library => Self::Design(ent),
+            AnyEntKind::Design(_) => ResolvedName::Design(DesignEnt::from_any(ent).unwrap()),
+            AnyEntKind::Library => {
+                ResolvedName::Library(ent.designator().as_identifier().cloned().unwrap())
+            }
             _ => {
                 return None;
             }
@@ -89,8 +93,9 @@ impl ResolvedName {
                         // @TODO this is probably an error
                         _ => Ok(None),
                     },
-                    Self::Overloaded(..) => {
-                        unreachable!("Overloaded suffix of overloaded name");
+                    Self::Overloaded(..) => Err("Overloaded suffix of overloaded name".to_owned()),
+                    Self::Library(_) => {
+                        Err("Library may not be suffix of selected name".to_owned())
                     }
                 }
             }
@@ -130,6 +135,9 @@ impl<'a> AnalyzeContext<'a> {
                 };
 
                 match resolved {
+                    ResolvedName::Library(ref library_name) => Ok(Some(ResolvedName::Design(
+                        self.lookup_in_library(library_name, &suffix.pos, suffix.designator())?,
+                    ))),
                     ResolvedName::Design(ref ent) => {
                         match self.lookup_selected(&prefix.pos, ent, suffix)? {
                             NamedEntities::Single(named_entity) => {

@@ -25,7 +25,7 @@ mod object;
 pub use object::ObjectEnt;
 
 mod design;
-pub use design::Design;
+pub use design::{Design, DesignEnt};
 
 pub enum AnyEntKind {
     ExternalAlias {

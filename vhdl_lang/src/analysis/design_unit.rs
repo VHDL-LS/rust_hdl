@@ -339,7 +339,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'_>,
         config: &mut ConfigurationDeclaration,
-    ) -> AnalysisResult<Arc<AnyEnt>> {
+    ) -> AnalysisResult<DesignEnt> {
         let ent_name = &mut config.entity_name;
 
         match ent_name.item {
@@ -385,7 +385,7 @@ impl<'a> AnalyzeContext<'a> {
                             } else {
                                 let primary_ent = self.lookup_in_library(library_name, &designator.pos, designator.designator())?;
                                 match primary_ent.kind() {
-                                    AnyEntKind::Design(Design::Entity(..)) => {
+                                    Design::Entity(..) => {
                                         designator.set_unique_reference(&primary_ent);
                                         Ok(
                                             primary_ent,

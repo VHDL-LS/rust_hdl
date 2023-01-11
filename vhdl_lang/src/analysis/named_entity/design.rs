@@ -4,9 +4,14 @@
 //!
 //! Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
+use std::ops::Deref;
 use std::sync::Arc;
 
 use crate::analysis::region::Region;
+use std::borrow::Borrow;
+
+use super::AnyEnt;
+use super::AnyEntKind;
 
 pub enum Design {
     Entity(Arc<Region>),
@@ -30,5 +35,52 @@ impl Design {
             Context(..) => "context",
             LocalPackageInstance(..) => "package instance",
         }
+    }
+}
+
+// A named entity that is known to be a type
+#[derive(Clone, Debug)]
+pub struct DesignEnt(Arc<AnyEnt>);
+
+impl DesignEnt {
+    pub fn from_any(ent: Arc<AnyEnt>) -> Result<DesignEnt, Arc<AnyEnt>> {
+        if matches!(ent.kind(), AnyEntKind::Design(..)) {
+            Ok(DesignEnt(ent))
+        } else {
+            Err(ent)
+        }
+    }
+    pub fn kind(&self) -> &Design {
+        if let AnyEntKind::Design(typ) = self.0.kind() {
+            typ
+        } else {
+            unreachable!("Must be a design");
+        }
+    }
+}
+
+impl From<DesignEnt> for Arc<AnyEnt> {
+    fn from(ent: DesignEnt) -> Self {
+        ent.0
+    }
+}
+
+impl std::cmp::PartialEq for DesignEnt {
+    fn eq(&self, other: &Self) -> bool {
+        self.deref() == other.deref()
+    }
+}
+
+impl AsRef<Arc<AnyEnt>> for DesignEnt {
+    fn as_ref(&self) -> &Arc<AnyEnt> {
+        &self.0
+    }
+}
+
+impl Deref for DesignEnt {
+    type Target = Arc<AnyEnt>;
+    fn deref(&self) -> &Arc<AnyEnt> {
+        let val: &Arc<AnyEnt> = self.0.borrow();
+        val
     }
 }

@@ -62,7 +62,7 @@ impl<'a> AnalyzeContext<'a> {
                 let named_entity =
                     self.lookup_in_library(library_name, &suffix.pos, suffix.designator())?;
 
-                Ok(NamedEntities::new(named_entity))
+                Ok(NamedEntities::new(named_entity.into()))
             }
             AnyEntKind::Object(ref object) => {
                 Ok(object.subtype.type_mark().selected(prefix_pos, suffix)?)

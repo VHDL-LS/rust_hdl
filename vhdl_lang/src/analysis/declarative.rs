@@ -179,6 +179,13 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     AnyEntKind::ExternalAlias { class, type_mark }
                 }
+                ResolvedName::Library(sym) => {
+                    if let Some(ref signature) = signature {
+                        diagnostics.push(signature_error(signature));
+                    }
+                    diagnostics.error(&name.pos, format!("library {} cannot be aliased", sym));
+                    return Ok(None);
+                }
                 ResolvedName::Design(ent) => {
                     if let Some(ref signature) = signature {
                         diagnostics.push(signature_error(signature));
