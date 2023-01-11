@@ -45,7 +45,7 @@ impl<'a> AnalyzeContext<'a> {
             "Invalid assignment target",
             diagnostics,
         ) {
-            Ok(resolved_name) => {
+            Ok(Some(resolved_name)) => {
                 if let ResolvedName::ObjectSelection {
                     ref base_object, ..
                 } = resolved_name
@@ -72,6 +72,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.push(Diagnostic::error(target_pos, "Invalid assignment target"));
                 }
             }
+            Ok(None) => {}
             Err(err) => {
                 err.add_to(diagnostics)?;
             }

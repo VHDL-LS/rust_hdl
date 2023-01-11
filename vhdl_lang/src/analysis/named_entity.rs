@@ -28,7 +28,6 @@ mod design;
 pub use design::Design;
 
 pub enum NamedEntityKind {
-    NonObjectAlias(Arc<NamedEntity>),
     ExternalAlias {
         class: ExternalObjectClass,
         type_mark: TypeEnt,
@@ -100,7 +99,6 @@ impl NamedEntityKind {
     pub fn describe(&self) -> &str {
         use NamedEntityKind::*;
         match self {
-            NonObjectAlias(..) => "alias",
             ObjectAlias { .. } => "object alias",
             ExternalAlias { .. } => "external alias",
             File(..) => "file",
@@ -265,18 +263,9 @@ impl NamedEntity {
         }
     }
 
-    /// Strip aliases and return reference to actual named entity
-    pub fn flatten_alias(ent: &Arc<NamedEntity>) -> &Arc<NamedEntity> {
-        match ent.kind() {
-            NamedEntityKind::NonObjectAlias(ref ent) => NamedEntity::flatten_alias(ent),
-            NamedEntityKind::Type(Type::Alias(ref ent)) => NamedEntity::flatten_alias(ent.as_ref()),
-            _ => ent,
-        }
-    }
-
     pub fn as_actual(&self) -> &NamedEntity {
         match self.kind() {
-            NamedEntityKind::NonObjectAlias(ref ent) => ent.as_actual(),
+            NamedEntityKind::Overloaded(Overloaded::Alias(ref ent)) => ent.as_actual(),
             NamedEntityKind::Type(Type::Alias(ref ent)) => ent.as_actual(),
             _ => self,
         }
@@ -303,11 +292,6 @@ impl NamedEntity {
 
     pub fn describe(&self) -> String {
         match self.kind {
-            NamedEntityKind::NonObjectAlias(..) => format!(
-                "alias '{}' of {}",
-                self.designator,
-                self.as_actual().describe()
-            ),
             NamedEntityKind::Object(Object {
                 ref class,
                 mode: Some(ref mode),

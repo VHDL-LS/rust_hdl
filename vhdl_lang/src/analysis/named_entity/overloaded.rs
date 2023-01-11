@@ -17,6 +17,7 @@ pub enum Overloaded {
     SubprogramDecl(Signature),
     Subprogram(Signature),
     EnumLiteral(Signature),
+    Alias(OverloadedEnt),
 }
 
 impl Overloaded {
@@ -31,6 +32,7 @@ impl Overloaded {
                 }
             }
             EnumLiteral(..) => "enum literal",
+            Alias(..) => "alias",
         }
     }
 
@@ -39,6 +41,7 @@ impl Overloaded {
             Overloaded::Subprogram(ref signature)
             | Overloaded::SubprogramDecl(ref signature)
             | Overloaded::EnumLiteral(ref signature) => signature,
+            Overloaded::Alias(ref overloaded) => overloaded.signature(),
         }
     }
 }

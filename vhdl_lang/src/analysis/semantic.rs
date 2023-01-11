@@ -1454,9 +1454,6 @@ impl<'a> AnalyzeContext<'a> {
 
 pub fn type_mark_of_sliced_or_indexed(ent: &Arc<NamedEntity>) -> Option<&TypeEnt> {
     Some(match ent.kind() {
-        NamedEntityKind::NonObjectAlias(ref alias) => {
-            return type_mark_of_sliced_or_indexed(alias);
-        }
         NamedEntityKind::Object(ref ent) => ent.subtype.type_mark(),
         NamedEntityKind::DeferredConstant(ref subtype) => subtype.type_mark(),
         NamedEntityKind::ElementDeclaration(ref subtype) => subtype.type_mark(),

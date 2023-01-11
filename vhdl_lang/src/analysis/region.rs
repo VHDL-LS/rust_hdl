@@ -322,14 +322,24 @@ impl<'a> Scope<'a> {
         ent: Arc<NamedEntity>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
-        for entity in ent.actual_kind().implicit_declarations() {
-            let entity = NamedEntity::implicit(
-                ent.clone(),
-                entity.designator().clone(),
-                NamedEntityKind::NonObjectAlias(entity.clone()),
-                ent.decl_pos(),
-            );
-            self.add(Arc::new(entity), diagnostics);
+        for implicit in ent.actual_kind().implicit_declarations() {
+            match OverloadedEnt::from_any(implicit) {
+                Ok(implicit) => {
+                    let entity = NamedEntity::implicit(
+                        ent.clone(),
+                        implicit.designator().clone(),
+                        NamedEntityKind::Overloaded(Overloaded::Alias(implicit)),
+                        ent.decl_pos(),
+                    );
+                    self.add(Arc::new(entity), diagnostics);
+                }
+                Err(ent) => {
+                    eprintln!(
+                        "Expect implicit declaration to be overloaded, got: {}",
+                        ent.describe()
+                    )
+                }
+            }
         }
     }
 

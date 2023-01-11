@@ -150,7 +150,10 @@ impl<'a> AnalyzeContext<'a> {
         }
 
         let resolved_name = match resolved_name {
-            Ok(resolved_name) => resolved_name,
+            Ok(Some(resolved_name)) => resolved_name,
+            Ok(None) => {
+                return Ok(None);
+            }
             Err(err) => {
                 err.add_to(diagnostics)?;
                 return Ok(None);
@@ -177,11 +180,12 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     NamedEntityKind::ExternalAlias { class, type_mark }
                 }
-                ResolvedName::NonObject(ent) => {
+                ResolvedName::Design(ent) => {
                     if let Some(ref signature) = signature {
                         diagnostics.push(signature_error(signature));
                     }
-                    NamedEntityKind::NonObjectAlias(ent)
+                    diagnostics.error(&name.pos, format!("{} cannot be aliased", ent.describe()));
+                    return Ok(None);
                 }
                 ResolvedName::Type(typ) => {
                     if let Some(ref signature) = signature {
@@ -197,7 +201,7 @@ impl<'a> AnalyzeContext<'a> {
                                     if let Some(reference) = name.item.suffix_reference_mut() {
                                         reference.set_unique_reference(ent.inner());
                                     }
-                                    NamedEntityKind::NonObjectAlias(ent.into())
+                                    NamedEntityKind::Overloaded(Overloaded::Alias(ent))
                                 } else {
                                     let mut diagnostic = Diagnostic::error(
                                         name,
