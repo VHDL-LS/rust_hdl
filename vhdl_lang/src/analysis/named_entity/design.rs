@@ -7,7 +7,14 @@
 use std::ops::Deref;
 use std::sync::Arc;
 
+use crate::analysis::region::NamedEntities;
 use crate::analysis::region::Region;
+use crate::ast::Designator;
+use crate::ast::HasDesignator;
+use crate::ast::WithRef;
+use crate::data::WithPos;
+use crate::Diagnostic;
+use crate::SrcPos;
 use std::borrow::Borrow;
 
 use super::AnyEnt;
@@ -50,11 +57,35 @@ impl DesignEnt {
             Err(ent)
         }
     }
+
     pub fn kind(&self) -> &Design {
         if let AnyEntKind::Design(typ) = self.0.kind() {
             typ
         } else {
             unreachable!("Must be a design");
+        }
+    }
+
+    pub fn selected(
+        &self,
+        prefix_pos: &SrcPos,
+        suffix: &WithPos<WithRef<Designator>>,
+    ) -> Result<NamedEntities, Diagnostic> {
+        match self.kind() {
+            Design::Package(ref region)
+            | Design::PackageInstance(ref region)
+            | Design::LocalPackageInstance(ref region) => {
+                if let Some(decl) = region.lookup_immediate(suffix.designator()) {
+                    Ok(decl.clone())
+                } else {
+                    Err(Diagnostic::no_declaration_within(
+                        self,
+                        &suffix.pos,
+                        &suffix.item.item,
+                    ))
+                }
+            }
+            _ => Err(Diagnostic::invalid_selected_name_prefix(self, prefix_pos)),
         }
     }
 }

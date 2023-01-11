@@ -53,7 +53,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn lookup_selected(
         &self,
         prefix_pos: &SrcPos,
-        prefix: &AnyEnt,
+        prefix: &Arc<AnyEnt>,
         suffix: &WithPos<WithRef<Designator>>,
     ) -> AnalysisResult<NamedEntities> {
         match prefix.actual_kind() {
@@ -76,23 +76,20 @@ impl<'a> AnalyzeContext<'a> {
             AnyEntKind::ElementDeclaration(ref subtype) => {
                 Ok(subtype.type_mark().selected(prefix_pos, suffix)?)
             }
-            AnyEntKind::Design(design) => match design {
-                Design::Package(ref region)
-                | Design::PackageInstance(ref region)
-                | Design::LocalPackageInstance(ref region) => {
-                    if let Some(decl) = region.lookup_immediate(suffix.designator()) {
-                        Ok(decl.clone())
-                    } else {
-                        Err(Diagnostic::no_declaration_within(
-                            prefix,
-                            &suffix.pos,
-                            &suffix.item.item,
-                        )
-                        .into())
-                    }
-                }
-                _ => Err(Diagnostic::invalid_selected_name_prefix(prefix, prefix_pos).into()),
-            },
+            AnyEntKind::Design(_) => {
+                let design = DesignEnt::from_any(prefix.clone()).map_err(|ent| {
+                    Diagnostic::error(
+                        &suffix.pos,
+                        format!(
+                            "Internal error when expecting design unit, got {}",
+                            ent.describe()
+                        ),
+                    )
+                })?;
+
+                let named = design.selected(prefix_pos, suffix)?;
+                Ok(named)
+            }
 
             _ => Err(Diagnostic::invalid_selected_name_prefix(prefix, prefix_pos).into()),
         }

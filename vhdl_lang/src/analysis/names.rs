@@ -139,7 +139,7 @@ impl<'a> AnalyzeContext<'a> {
                         self.lookup_in_library(library_name, &suffix.pos, suffix.designator())?,
                     ))),
                     ResolvedName::Design(ref ent) => {
-                        match self.lookup_selected(&prefix.pos, ent, suffix)? {
+                        match ent.selected(&prefix.pos, suffix)? {
                             NamedEntities::Single(named_entity) => {
                                 suffix.set_unique_reference(&named_entity);
                                 resolved
