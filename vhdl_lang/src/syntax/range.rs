@@ -52,10 +52,7 @@ fn parse_name_or_range(stream: &mut TokenStream) -> ParseResult<NameOrRange> {
     } = expr
     {
         if let Name::Attribute(attribute_name) = *name {
-            if matches!(
-                attribute_name.attr.item,
-                AttributeDesignator::Range | AttributeDesignator::ReverseRange
-            ) {
+            if attribute_name.is_range() {
                 let range = ast::Range::Attribute(attribute_name);
                 Ok(NameOrRange::Range(WithPos::from(range, pos)))
             } else {

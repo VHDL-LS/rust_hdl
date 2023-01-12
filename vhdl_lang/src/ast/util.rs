@@ -398,3 +398,12 @@ fn assoc_elems_to_indexes(assoc_elems: &[AssociationElement]) -> Option<Vec<With
 
     Some(result)
 }
+
+impl AttributeName {
+    pub fn is_range(&self) -> bool {
+        matches!(
+            self.attr.item,
+            AttributeDesignator::Range | AttributeDesignator::ReverseRange,
+        )
+    }
+}

@@ -433,14 +433,15 @@ pub fn parse_name_initial_token(
                     },
                     RightPar => {
                         let pos = sep_token.pos.combine_into(&name);
-                        name = WithPos {
-                            item: Name::FunctionCall(Box::new(
-                                FunctionCall {
-                                    name,
-                                    parameters: vec![assoc]
-                                })),
-                            pos,
+                        let item = match into_range(assoc) {
+                            Ok(range) => Name::Slice(Box::new(name), Box::new(DiscreteRange::Range(range))),
+                            Err(assoc) => Name::FunctionCall(Box::new(FunctionCall {
+                                name,
+                                parameters: vec![assoc],
+                            })),
                         };
+
+                        name = WithPos::new(item, pos);
                     }
                 )
             }
@@ -453,6 +454,31 @@ pub fn parse_name_initial_token(
     Ok(name)
 }
 
+pub fn into_range(assoc: AssociationElement) -> Result<ast::Range, AssociationElement> {
+    if assoc.formal.is_some() {
+        return Err(assoc);
+    }
+
+    if let ActualPart::Expression(Expression::Name(ref name)) = &assoc.actual.item {
+        if let Name::Attribute(attr) = name.as_ref() {
+            if attr.is_range() {
+                if let ActualPart::Expression(Expression::Name(name)) = assoc.actual.item {
+                    if let Name::Attribute(attr) = *name {
+                        return Ok(ast::Range::Attribute(attr));
+                    }
+                }
+                unreachable!();
+            } else {
+                Err(assoc)
+            }
+        } else {
+            Err(assoc)
+        }
+    } else {
+        Err(assoc)
+    }
+}
+
 pub fn parse_name(stream: &mut TokenStream) -> ParseResult<WithPos<Name>> {
     let initial_token = stream.expect()?;
     parse_name_initial_token(stream, initial_token)
@@ -462,6 +488,7 @@ pub fn parse_name(stream: &mut TokenStream) -> ParseResult<WithPos<Name>> {
 mod tests {
     use super::*;
     use crate::syntax::test::Code;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_parse_selected_name_single() {
@@ -656,6 +683,23 @@ mod tests {
                 Box::new(code.s1("3 downto 0").discrete_range()),
             ),
             pos: code.s1("prefix(3 downto 0)").pos(),
+        };
+        assert_eq!(code.with_stream(parse_name), slice);
+    }
+
+    #[test]
+    fn test_slice_range_attribute() {
+        let code = Code::new("prefix(foo(0)'range)");
+        let prefix = WithPos {
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
+            pos: code.s1("prefix").pos(),
+        };
+        let slice = WithPos {
+            item: Name::Slice(
+                Box::new(prefix),
+                Box::new(code.s1("foo(0)'range").discrete_range()),
+            ),
+            pos: code.s1("prefix(foo(0)'range)").pos(),
         };
         assert_eq!(code.with_stream(parse_name), slice);
     }
