@@ -22,9 +22,9 @@ impl<'a> AnalyzeContext<'a> {
         rhs: &mut AssignmentRightHand<WithPos<Expression>>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
+        self.resolve_target(scope, target, assignment_type, diagnostics)?;
         match rhs {
             AssignmentRightHand::Simple(expr) => {
-                self.resolve_target(scope, target, assignment_type, diagnostics)?;
                 self.analyze_expression(scope, expr, diagnostics)?;
             }
             AssignmentRightHand::Conditional(conditionals) => {
@@ -32,7 +32,6 @@ impl<'a> AnalyzeContext<'a> {
                     conditionals,
                     else_item,
                 } = conditionals;
-                self.resolve_target(scope, target, assignment_type, diagnostics)?;
                 for conditional in conditionals {
                     let Conditional { condition, item } = conditional;
                     self.analyze_expression(scope, item, diagnostics)?;
@@ -48,8 +47,6 @@ impl<'a> AnalyzeContext<'a> {
                     alternatives,
                 } = selection;
                 self.analyze_expression(scope, expression, diagnostics)?;
-                // target is located after expression
-                self.resolve_target(scope, target, assignment_type, diagnostics)?;
                 for Alternative { choices, item } in alternatives.iter_mut() {
                     self.analyze_expression(scope, item, diagnostics)?;
                     self.analyze_choices(scope, choices, diagnostics)?;
@@ -67,9 +64,9 @@ impl<'a> AnalyzeContext<'a> {
         rhs: &mut AssignmentRightHand<Waveform>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
+        self.resolve_target(scope, target, assignment_type, diagnostics)?;
         match rhs {
             AssignmentRightHand::Simple(wavf) => {
-                self.resolve_target(scope, target, assignment_type, diagnostics)?;
                 self.analyze_waveform(scope, wavf, diagnostics)?;
             }
             AssignmentRightHand::Conditional(conditionals) => {
@@ -77,7 +74,6 @@ impl<'a> AnalyzeContext<'a> {
                     conditionals,
                     else_item,
                 } = conditionals;
-                self.resolve_target(scope, target, assignment_type, diagnostics)?;
                 for conditional in conditionals {
                     let Conditional { condition, item } = conditional;
                     self.analyze_waveform(scope, item, diagnostics)?;
@@ -93,8 +89,6 @@ impl<'a> AnalyzeContext<'a> {
                     alternatives,
                 } = selection;
                 self.analyze_expression(scope, expression, diagnostics)?;
-                // target is located after expression
-                self.resolve_target(scope, target, assignment_type, diagnostics)?;
                 for Alternative { choices, item } in alternatives.iter_mut() {
                     self.analyze_waveform(scope, item, diagnostics)?;
                     self.analyze_choices(scope, choices, diagnostics)?;
