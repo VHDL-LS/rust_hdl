@@ -73,15 +73,6 @@ impl OverloadedName {
         self.entities.get(key).cloned()
     }
 
-    // Returns only if the overloaded name is unique
-    pub fn as_unique(&self) -> Option<&OverloadedEnt> {
-        if self.entities.len() == 1 {
-            self.entities.values().next()
-        } else {
-            None
-        }
-    }
-
     #[allow(clippy::if_same_then_else)]
     fn insert(&mut self, ent: OverloadedEnt) -> Result<(), Diagnostic> {
         match self.entities.entry(ent.signature().key()) {
@@ -669,18 +660,38 @@ pub trait SetReference {
     fn set_unique_reference(&mut self, ent: &Arc<AnyEnt>);
     fn clear_reference(&mut self);
 
-    fn set_reference(&mut self, visible: &NamedEntities) {
-        match visible {
-            NamedEntities::Single(ent) => {
-                self.set_unique_reference(ent);
+    fn set_reference(&mut self, value: &impl AsUnique) {
+        if let Some(ent) = value.as_unique() {
+            self.set_unique_reference(ent);
+        } else {
+            self.clear_reference()
+        }
+    }
+}
+
+pub trait AsUnique {
+    fn as_unique(&self) -> Option<&Arc<AnyEnt>>;
+}
+
+impl AsUnique for OverloadedName {
+    fn as_unique(&self) -> Option<&Arc<AnyEnt>> {
+        if self.entities.len() == 1 {
+            if let Some(ent) = self.entities.values().next() {
+                Some(ent.inner())
+            } else {
+                None
             }
-            NamedEntities::Overloaded(overloaded) => {
-                if let Some(ent) = overloaded.as_unique() {
-                    self.set_unique_reference(ent.inner());
-                } else {
-                    self.clear_reference();
-                }
-            }
+        } else {
+            None
+        }
+    }
+}
+
+impl AsUnique for NamedEntities {
+    fn as_unique(&self) -> Option<&Arc<AnyEnt>> {
+        match self {
+            NamedEntities::Single(ent) => Some(ent),
+            NamedEntities::Overloaded(overloaded) => overloaded.as_unique(),
         }
     }
 }

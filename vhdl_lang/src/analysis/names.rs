@@ -203,14 +203,13 @@ impl<'a> AnalyzeContext<'a> {
                         )?)))
                     }
                     ResolvedName::Design(ref ent) => {
-                        match ent.selected(&prefix.pos, suffix)? {
-                            NamedEntities::Single(named_entity) => {
-                                suffix.set_unique_reference(&named_entity);
-                                Ok(Some(
-                                    ResolvedName::from_design(named_entity)
-                                        .map_err(|e| Diagnostic::error(&suffix.pos, e))?,
-                                ))
-                            }
+                        let name = ent.selected(&prefix.pos, suffix)?;
+                        suffix.set_reference(&name);
+                        match name {
+                            NamedEntities::Single(named_entity) => Ok(Some(
+                                ResolvedName::from_design(named_entity)
+                                    .map_err(|e| Diagnostic::error(&suffix.pos, e))?,
+                            )),
                             NamedEntities::Overloaded(overloaded) => {
                                 // Could be used for an alias of a subprogram
                                 Ok(Some(ResolvedName::Overloaded(overloaded)))
@@ -227,7 +226,8 @@ impl<'a> AnalyzeContext<'a> {
                                     type_mark: elem.type_mark().to_owned(),
                                 }))
                             }
-                            TypedSelection::ProtectedMethod(..) => {
+                            TypedSelection::ProtectedMethod(overloaded) => {
+                                suffix.set_reference(&overloaded);
                                 // Probably a protected type method, this can never be aliased or a target
                                 Err(Diagnostic::error(name_pos, err_msg).into())
                             }
@@ -249,15 +249,14 @@ impl<'a> AnalyzeContext<'a> {
             ),
             Name::Designator(designator) => {
                 designator.clear_reference();
+                let name = scope.lookup(name_pos, designator.designator())?;
+                designator.set_reference(&name);
 
-                match scope.lookup(name_pos, designator.designator())? {
-                    NamedEntities::Single(named_entity) => {
-                        designator.set_unique_reference(&named_entity);
-                        Ok(Some(
-                            ResolvedName::from_scope(named_entity)
-                                .map_err(|e| Diagnostic::error(name_pos, e))?,
-                        ))
-                    }
+                match name {
+                    NamedEntities::Single(named_entity) => Ok(Some(
+                        ResolvedName::from_scope(named_entity)
+                            .map_err(|e| Diagnostic::error(name_pos, e))?,
+                    )),
                     NamedEntities::Overloaded(overloaded) => {
                         // Could be used for an alias of a subprogram
                         Ok(Some(ResolvedName::Overloaded(overloaded)))
