@@ -483,3 +483,46 @@ end architecture;
     let diagnostics = builder.analyze();
     check_no_diagnostics(&diagnostics);
 }
+
+#[test]
+fn assignment_target_all() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+  type rec_t is record
+    field: natural;
+  end record;
+
+  type ptr_t is access rec_t;
+
+  procedure proc is
+    variable vptr : ptr_t;
+  begin
+    -- Good
+    vptr.all := (field => 0);
+    vptr.all.field := 0;
+    vptr.field := 0;
+
+    -- Bad
+    vptr.all.all := vptr;
+  end procedure;
+
+begin
+end architecture;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("vptr.all.all").s1("vptr.all"),
+            "Cannot be the prefix of .all",
+        )],
+    );
+}

@@ -184,7 +184,7 @@ impl<'a> AnalyzeContext<'a> {
                     target,
                     force_mode: _,
                 } = assign;
-                self.analyze_target(scope, target, AssignmentType::Signal, diagnostics)?;
+                self.resolve_target(scope, target, AssignmentType::Signal, diagnostics)?;
             }
             SequentialStatement::Null => {}
         }

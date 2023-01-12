@@ -254,7 +254,16 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics,
                 ));
 
-                Ok(Some(resolved))
+                if let ResolvedName::ObjectSelection { base, type_mark } = resolved {
+                    if let Some(type_mark) = type_mark.accessed_type() {
+                        return Ok(Some(ResolvedName::ObjectSelection {
+                            base,
+                            type_mark: type_mark.clone(),
+                        }));
+                    }
+                }
+
+                Err(Diagnostic::error(&prefix.pos, "Cannot be the prefix of .all").into())
             }
             Name::Designator(designator) => {
                 designator.clear_reference();

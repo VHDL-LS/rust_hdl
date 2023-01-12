@@ -1332,7 +1332,7 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalNullResult {
         match rhs {
             AssignmentRightHand::Simple(expr) => {
-                self.analyze_target(scope, target, assignment_type, diagnostics)?;
+                self.resolve_target(scope, target, assignment_type, diagnostics)?;
                 self.analyze_expression(scope, expr, diagnostics)?;
             }
             AssignmentRightHand::Conditional(conditionals) => {
@@ -1340,7 +1340,7 @@ impl<'a> AnalyzeContext<'a> {
                     conditionals,
                     else_item,
                 } = conditionals;
-                self.analyze_target(scope, target, assignment_type, diagnostics)?;
+                self.resolve_target(scope, target, assignment_type, diagnostics)?;
                 for conditional in conditionals {
                     let Conditional { condition, item } = conditional;
                     self.analyze_expression(scope, item, diagnostics)?;
@@ -1357,7 +1357,7 @@ impl<'a> AnalyzeContext<'a> {
                 } = selection;
                 self.analyze_expression(scope, expression, diagnostics)?;
                 // target is located after expression
-                self.analyze_target(scope, target, assignment_type, diagnostics)?;
+                self.resolve_target(scope, target, assignment_type, diagnostics)?;
                 for Alternative { choices, item } in alternatives.iter_mut() {
                     self.analyze_expression(scope, item, diagnostics)?;
                     self.analyze_choices(scope, choices, diagnostics)?;
@@ -1377,7 +1377,7 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalNullResult {
         match rhs {
             AssignmentRightHand::Simple(wavf) => {
-                self.analyze_target(scope, target, assignment_type, diagnostics)?;
+                self.resolve_target(scope, target, assignment_type, diagnostics)?;
                 self.analyze_waveform(scope, wavf, diagnostics)?;
             }
             AssignmentRightHand::Conditional(conditionals) => {
@@ -1385,7 +1385,7 @@ impl<'a> AnalyzeContext<'a> {
                     conditionals,
                     else_item,
                 } = conditionals;
-                self.analyze_target(scope, target, assignment_type, diagnostics)?;
+                self.resolve_target(scope, target, assignment_type, diagnostics)?;
                 for conditional in conditionals {
                     let Conditional { condition, item } = conditional;
                     self.analyze_waveform(scope, item, diagnostics)?;
@@ -1402,7 +1402,7 @@ impl<'a> AnalyzeContext<'a> {
                 } = selection;
                 self.analyze_expression(scope, expression, diagnostics)?;
                 // target is located after expression
-                self.analyze_target(scope, target, assignment_type, diagnostics)?;
+                self.resolve_target(scope, target, assignment_type, diagnostics)?;
                 for Alternative { choices, item } in alternatives.iter_mut() {
                     self.analyze_waveform(scope, item, diagnostics)?;
                     self.analyze_choices(scope, choices, diagnostics)?;

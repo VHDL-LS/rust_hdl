@@ -11,33 +11,32 @@ use crate::data::*;
 ///   target(0).elem := 1
 
 impl<'a> AnalyzeContext<'a> {
-    pub fn analyze_target(
+    pub fn resolve_target(
         &self,
         scope: &Scope<'_>,
         target: &mut WithPos<Target>,
         assignment_type: AssignmentType,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult<Option<TypeEnt>> {
         match target.item {
             Target::Name(ref mut name) => {
-                self.analyze_target_name(scope, name, &target.pos, assignment_type, diagnostics)?;
-                Ok(())
+                self.resolve_target_name(scope, name, &target.pos, assignment_type, diagnostics)
             }
             Target::Aggregate(ref mut assocs) => {
                 self.analyze_aggregate(scope, assocs, diagnostics)?;
-                Ok(())
+                Ok(None)
             }
         }
     }
 
-    pub fn analyze_target_name(
+    pub fn resolve_target_name(
         &self,
         scope: &Scope<'_>,
         target: &mut Name,
         target_pos: &SrcPos,
         assignment_type: AssignmentType,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult<Option<TypeEnt>> {
         match self.resolve_object_prefix(
             scope,
             target_pos,
@@ -46,7 +45,11 @@ impl<'a> AnalyzeContext<'a> {
             diagnostics,
         ) {
             Ok(Some(resolved_name)) => {
-                if let ResolvedName::ObjectSelection { ref base, .. } = resolved_name {
+                if let ResolvedName::ObjectSelection {
+                    ref base,
+                    ref type_mark,
+                } = resolved_name
+                {
                     if !is_valid_assignment_target(base) {
                         diagnostics.push(Diagnostic::error(
                             target_pos,
@@ -65,17 +68,18 @@ impl<'a> AnalyzeContext<'a> {
                             ),
                         ));
                     }
+                    Ok(Some(type_mark.clone()))
                 } else {
                     diagnostics.push(Diagnostic::error(target_pos, "Invalid assignment target"));
+                    Ok(None)
                 }
             }
-            Ok(None) => {}
+            Ok(None) => Ok(None),
             Err(err) => {
                 err.add_to(diagnostics)?;
+                Ok(None)
             }
         }
-
-        Ok(())
     }
 }
 

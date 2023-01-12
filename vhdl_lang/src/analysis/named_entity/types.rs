@@ -162,6 +162,14 @@ impl TypeEnt {
         }
     }
 
+    pub fn accessed_type(&self) -> Option<&TypeEnt> {
+        if let Type::Access(subtype, _) = self.base_type().kind() {
+            Some(subtype.type_mark())
+        } else {
+            None
+        }
+    }
+
     /// Lookup a selected name prefix.suffix
     /// where prefix has this type
     pub fn selected(
