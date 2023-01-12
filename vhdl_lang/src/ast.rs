@@ -90,8 +90,16 @@ pub enum Operator {
 pub struct AttributeName {
     pub name: WithPos<Name>,
     pub signature: Option<WithPos<Signature>>,
-    pub attr: Ident,
+    pub attr: WithPos<AttributeDesignator>,
     pub expr: Option<Box<WithPos<Expression>>>,
+}
+
+#[derive(PartialEq, Debug, Clone, Eq)]
+pub enum AttributeDesignator {
+    Subtype,
+    Range,
+    ReverseRange,
+    Ident(Symbol),
 }
 
 /// LRM 8.7 External names

@@ -670,7 +670,7 @@ mod tests {
         let attr = WithPos {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
-                attr: code.s1("foo").ident(),
+                attr: code.s1("foo").ident().map_into(AttributeDesignator::Ident),
                 signature: None,
                 expr: None,
             })),
@@ -690,7 +690,7 @@ mod tests {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
                 attr: WithPos {
-                    item: code.symbol("range"),
+                    item: AttributeDesignator::Range,
                     pos: code.s1("range").pos(),
                 },
                 signature: None,
@@ -712,7 +712,7 @@ mod tests {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
                 attr: WithPos {
-                    item: code.symbol("subtype"),
+                    item: AttributeDesignator::Subtype,
                     pos: code.s1("subtype").pos(),
                 },
                 signature: None,
@@ -766,7 +766,7 @@ mod tests {
         let attr = WithPos {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
-                attr: code.s1("foo").ident(),
+                attr: code.s1("foo").ident().map_into(AttributeDesignator::Ident),
                 signature: None,
                 expr: Some(Box::new(code.s1("expr+1").expr())),
             })),
@@ -785,7 +785,7 @@ mod tests {
         let attr = WithPos {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
-                attr: code.s1("foo").ident(),
+                attr: code.s1("foo").ident().map_into(AttributeDesignator::Ident),
                 signature: Some(code.s1("[return natural]").signature()),
                 expr: Some(Box::new(code.s1("expr+1").expr())),
             })),

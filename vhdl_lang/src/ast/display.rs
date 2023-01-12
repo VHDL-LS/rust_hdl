@@ -95,6 +95,17 @@ impl Display for AttributeName {
     }
 }
 
+impl Display for AttributeDesignator {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self {
+            AttributeDesignator::Ident(sym) => write!(f, "{}", sym),
+            AttributeDesignator::Range => write!(f, "range"),
+            AttributeDesignator::ReverseRange => write!(f, "reverse_range"),
+            AttributeDesignator::Subtype => write!(f, "subtype"),
+        }
+    }
+}
+
 impl Display for ExternalObjectClass {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {

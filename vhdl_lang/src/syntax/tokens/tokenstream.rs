@@ -6,8 +6,8 @@
 
 use super::tokenizer::Kind::*;
 use super::tokenizer::*;
-use crate::ast::Ident;
-use crate::data::{DiagnosticHandler, DiagnosticResult, Symbol};
+use crate::ast::{AttributeDesignator, Ident};
+use crate::data::{DiagnosticHandler, DiagnosticResult, Symbol, WithPos};
 
 pub struct TokenStream<'a> {
     tokenizer: Tokenizer<'a>,
@@ -16,14 +16,6 @@ pub struct TokenStream<'a> {
 impl<'a> TokenStream<'a> {
     pub fn new(tokenizer: Tokenizer<'a>) -> TokenStream<'a> {
         TokenStream { tokenizer }
-    }
-
-    pub fn subtype_sym(&self) -> &Symbol {
-        self.tokenizer.subtype_sym()
-    }
-
-    pub fn range_sym(&self) -> &Symbol {
-        self.tokenizer.range_sym()
     }
 
     pub fn reverse_range_sym(&self) -> &Symbol {
@@ -140,16 +132,24 @@ impl<'a> TokenStream<'a> {
 
     /// Expect identifier or subtype/range keywords
     /// foo'subtype or foo'range
-    pub fn expect_attribute_designator(&mut self) -> DiagnosticResult<Ident> {
+    pub fn expect_attribute_designator(
+        &mut self,
+    ) -> DiagnosticResult<WithPos<AttributeDesignator>> {
         let token = self.expect()?;
-        match_token_kind!(
+        let des = try_token_kind!(
             token,
-            Identifier => token.expect_ident(),
-            Subtype => Ok(Ident {item: self.tokenizer.subtype_sym().clone(),
-                                 pos: token.pos}),
-            Range => Ok(Ident {item: self.range_sym().clone(),
-                               pos: token.pos})
-        )
+            Identifier => {
+                let ident = token.expect_ident()?;
+                if &ident.item == self.reverse_range_sym() {
+                    ident.map_into(|_| AttributeDesignator::ReverseRange)
+                } else {
+                    ident.map_into(AttributeDesignator::Ident)
+                }
+            },
+            Subtype => WithPos::new(AttributeDesignator::Subtype, token.pos),
+            Range => WithPos::new(AttributeDesignator::Range, token.pos)
+        );
+        Ok(des)
     }
 }
 

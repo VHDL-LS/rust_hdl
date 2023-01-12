@@ -10,7 +10,7 @@ use super::subtype_indication::parse_subtype_constraint;
 use super::tokens::{Kind, Kind::*, Token, TokenStream};
 use crate::ast;
 use crate::ast::*;
-use crate::data::{Diagnostic, Symbol, WithPos};
+use crate::data::{Diagnostic, WithPos};
 
 fn name_to_expression(name: WithPos<Name>) -> WithPos<Expression> {
     WithPos {
@@ -281,12 +281,14 @@ fn parse_allocator(stream: &mut TokenStream) -> ParseResult<WithPos<Allocator>> 
     }
 }
 
-fn name_to_type_mark(name: WithPos<Name>, subtype_sym: &Symbol) -> ParseResult<WithPos<TypeMark>> {
+fn name_to_type_mark(name: WithPos<Name>) -> ParseResult<WithPos<TypeMark>> {
     let pos = name.pos.clone();
     let type_mark = name
         .try_map_into(|name| match name {
             Name::Attribute(attr) => {
-                if attr.signature.is_none() && attr.expr.is_none() && attr.attr.item == *subtype_sym
+                if attr.signature.is_none()
+                    && attr.expr.is_none()
+                    && attr.attr.item == AttributeDesignator::Subtype
                 {
                     Some(TypeMark {
                         name: attr.name.try_map_into(name_to_selected_name)?,
@@ -370,7 +372,7 @@ fn parse_primary_initial_token(
                 let pos = name.pos.combine(&expr);
                 Ok(WithPos {
                     item: Expression::Qualified(Box::new(QualifiedExpression {
-                        type_mark: name_to_type_mark(name, stream.subtype_sym())?,
+                        type_mark: name_to_type_mark(name)?,
                         expr,
                     })),
                     pos,

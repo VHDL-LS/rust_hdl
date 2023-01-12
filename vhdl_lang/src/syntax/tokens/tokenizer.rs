@@ -1353,8 +1353,6 @@ pub struct Tokenizer<'a> {
     source: &'a Source,
     reader: ContentReader<'a>,
     final_comments: Option<Vec<Comment>>,
-    range_sym: Symbol,
-    subtype_sym: Symbol,
     reverse_range_sym: Symbol,
 }
 
@@ -1364,8 +1362,6 @@ impl<'a> Tokenizer<'a> {
         source: &'a Source,
         reader: ContentReader<'a>,
     ) -> Tokenizer<'a> {
-        let subtype_sym = symbols.symtab().insert(&Latin1String::new(b"subtype"));
-        let range_sym = symbols.symtab().insert(&Latin1String::new(b"range"));
         let reverse_range_sym = symbols
             .symtab()
             .insert(&Latin1String::new(b"reverse_range"));
@@ -1377,8 +1373,6 @@ impl<'a> Tokenizer<'a> {
             source,
             reader,
             final_comments: None,
-            subtype_sym,
-            range_sym,
             reverse_range_sym,
         }
     }
@@ -1403,14 +1397,6 @@ impl<'a> Tokenizer<'a> {
     pub fn move_after(&mut self, token: &Token) {
         self.state.set_after(token);
         self.reader.set_state(self.state.start);
-    }
-
-    pub fn subtype_sym(&self) -> &Symbol {
-        &self.subtype_sym
-    }
-
-    pub fn range_sym(&self) -> &Symbol {
-        &self.range_sym
     }
 
     pub fn reverse_range_sym(&self) -> &Symbol {
