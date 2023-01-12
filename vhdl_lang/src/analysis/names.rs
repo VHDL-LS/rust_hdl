@@ -10,6 +10,17 @@ use crate::ast::*;
 use crate::data::*;
 use std::sync::Arc;
 
+macro_rules! try_unknown {
+    ($expr:expr) => {
+        if let Some(value) = $expr? {
+            value
+        } else {
+            // Unknown
+            return Ok(None);
+        }
+    };
+}
+
 #[derive(Debug)]
 pub enum ObjectBase {
     Object(ObjectEnt),
@@ -179,19 +190,13 @@ impl<'a> AnalyzeContext<'a> {
             Name::Selected(prefix, suffix) => {
                 suffix.clear_reference();
 
-                let resolved = self.resolve_object_prefix(
+                let resolved = try_unknown!(self.resolve_object_prefix(
                     scope,
                     &prefix.pos,
                     &mut prefix.item,
                     err_msg,
                     diagnostics,
-                )?;
-
-                let resolved = if let Some(resolved) = resolved {
-                    resolved
-                } else {
-                    return Ok(None);
-                };
+                ));
 
                 match resolved {
                     ResolvedName::Library(ref library_name) => {
@@ -240,13 +245,17 @@ impl<'a> AnalyzeContext<'a> {
                     ResolvedName::Final(..) => Err(Diagnostic::error(name_pos, err_msg).into()),
                 }
             }
-            Name::SelectedAll(prefix) => self.resolve_object_prefix(
-                scope,
-                &prefix.pos,
-                &mut prefix.item,
-                err_msg,
-                diagnostics,
-            ),
+            Name::SelectedAll(prefix) => {
+                let resolved = try_unknown!(self.resolve_object_prefix(
+                    scope,
+                    &prefix.pos,
+                    &mut prefix.item,
+                    err_msg,
+                    diagnostics,
+                ));
+
+                Ok(Some(resolved))
+            }
             Name::Designator(designator) => {
                 designator.clear_reference();
                 let name = scope.lookup(name_pos, designator.designator())?;
@@ -264,15 +273,15 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             Name::Indexed(ref mut prefix, ref mut indexes) => {
-                let resolved = self.resolve_object_prefix(
+                let resolved = try_unknown!(self.resolve_object_prefix(
                     scope,
                     &prefix.pos,
                     &mut prefix.item,
                     err_msg,
                     diagnostics,
-                );
+                ));
 
-                if let Ok(Some(ResolvedName::ObjectSelection { base, type_mark })) = resolved {
+                if let ResolvedName::ObjectSelection { base, type_mark } = resolved {
                     let elem_type = self.analyze_indexed_name(
                         scope,
                         name_pos,
@@ -295,20 +304,20 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             Name::Slice(ref mut prefix, ref mut drange) => {
-                let res = self.resolve_object_prefix(
+                let resolved = try_unknown!(self.resolve_object_prefix(
                     scope,
                     &prefix.pos,
                     &mut prefix.item,
                     err_msg,
                     diagnostics,
-                );
+                ));
 
-                if let Ok(Some(ResolvedName::ObjectSelection { ref type_mark, .. })) = res {
+                if let ResolvedName::ObjectSelection { ref type_mark, .. } = resolved {
                     self.analyze_sliced_name(prefix.suffix_pos(), type_mark, diagnostics)?;
                 }
 
                 self.analyze_discrete_range(scope, drange.as_mut(), diagnostics)?;
-                res
+                Ok(Some(resolved))
             }
             Name::Attribute(..) => Err(Diagnostic::error(name_pos, err_msg).into()),
 
