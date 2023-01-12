@@ -88,14 +88,8 @@ impl<'a> AnalyzeContext<'a> {
                 )?;
 
                 let suffix_ent = resolved_prefix.type_mark().selected(&prefix.pos, suffix)?;
-                suffix.set_reference(&suffix_ent);
-
-                let suffix_ent = suffix_ent
-                    .expect_non_overloaded(&suffix.pos, || "Invalid formal".to_string())?;
-
-                suffix.set_unique_reference(&suffix_ent);
-
-                if let AnyEntKind::ElementDeclaration(elem) = suffix_ent.actual_kind() {
+                if let TypedSelection::RecordElement(elem) = suffix_ent {
+                    suffix.set_unique_reference(elem.as_ref());
                     if let Some(resolved_formal) = resolved_prefix.select(elem.type_mark().clone())
                     {
                         Ok(resolved_formal)

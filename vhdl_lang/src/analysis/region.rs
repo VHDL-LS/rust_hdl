@@ -32,6 +32,12 @@ impl OverloadedName {
         OverloadedName { entities: map }
     }
 
+    pub fn single(ent: OverloadedEnt) -> OverloadedName {
+        let mut map = FnvHashMap::default();
+        map.insert(ent.signature().key(), ent);
+        OverloadedName { entities: map }
+    }
+
     pub fn first(&self) -> &OverloadedEnt {
         let first_key = self.entities.keys().next().unwrap();
         self.entities.get(first_key).unwrap()
@@ -47,6 +53,10 @@ impl OverloadedName {
 
     pub fn entities(&self) -> impl Iterator<Item = &OverloadedEnt> {
         self.entities.values()
+    }
+
+    pub fn into_entities(self) -> impl Iterator<Item = OverloadedEnt> {
+        self.entities.into_values()
     }
 
     pub fn sorted_entities(&self) -> Vec<&OverloadedEnt> {

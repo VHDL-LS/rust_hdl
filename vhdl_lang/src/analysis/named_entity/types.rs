@@ -9,9 +9,9 @@ use std::sync::Arc;
 
 use crate::analysis::named_entity::{AnyEnt, AnyEntKind, EntityId};
 
-use crate::analysis::formal_region::RecordRegion;
+use crate::analysis::formal_region::{RecordElement, RecordRegion};
 use crate::analysis::implicits::ImplicitVec;
-use crate::analysis::region::{NamedEntities, Region};
+use crate::analysis::region::{NamedEntities, OverloadedName, Region};
 use crate::ast::WithDecl;
 use crate::ast::{Designator, WithRef};
 use crate::ast::{HasDesignator, Ident};
@@ -168,11 +168,11 @@ impl TypeEnt {
         &self,
         prefix_pos: &SrcPos,
         suffix: &WithPos<WithRef<Designator>>,
-    ) -> Result<NamedEntities, Diagnostic> {
+    ) -> Result<TypedSelection, Diagnostic> {
         match self.kind() {
             Type::Record(ref region, _) => {
                 if let Some(decl) = region.lookup(suffix.designator()) {
-                    Ok(NamedEntities::Single(decl.clone().into()))
+                    Ok(TypedSelection::RecordElement(decl.clone()))
                 } else {
                     Err(Diagnostic::no_declaration_within(
                         self,
@@ -183,7 +183,18 @@ impl TypeEnt {
             }
             Type::Protected(region, _) => {
                 if let Some(decl) = region.lookup_immediate(suffix.designator()) {
-                    Ok(decl.clone())
+                    match decl {
+                        NamedEntities::Single(ent) => Err(Diagnostic::error(
+                            &suffix.pos,
+                            format!(
+                                "Protected type selection must be a method, got {}",
+                                ent.describe()
+                            ),
+                        )),
+                        NamedEntities::Overloaded(overloaded) => {
+                            Ok(TypedSelection::ProtectedMethod(overloaded.clone()))
+                        }
+                    }
                 } else {
                     Err(Diagnostic::no_declaration_within(
                         self,
@@ -263,5 +274,20 @@ impl Subtype {
 
     pub fn base_type(&self) -> &TypeEnt {
         self.type_mark.base_type()
+    }
+}
+
+/// The result of selecting an object
+pub enum TypedSelection {
+    RecordElement(RecordElement),
+    ProtectedMethod(OverloadedName),
+}
+
+impl TypedSelection {
+    pub fn into_any(self) -> NamedEntities {
+        match self {
+            TypedSelection::RecordElement(elem) => NamedEntities::Single(elem.into()),
+            TypedSelection::ProtectedMethod(overloaded) => NamedEntities::Overloaded(overloaded),
+        }
     }
 }

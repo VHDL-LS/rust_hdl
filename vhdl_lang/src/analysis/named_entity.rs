@@ -16,7 +16,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 mod types;
-pub use types::{Subtype, Type, TypeEnt, UniversalType};
+pub use types::{Subtype, Type, TypeEnt, TypedSelection, UniversalType};
 
 mod overloaded;
 pub use overloaded::{Overloaded, OverloadedEnt, Signature, SignatureKey};

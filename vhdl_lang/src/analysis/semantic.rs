@@ -68,17 +68,19 @@ impl<'a> AnalyzeContext<'a> {
 
                 Ok(NamedEntities::new(named_entity.into()))
             }
-            AnyEntKind::Object(ref object) => {
-                Ok(object.subtype.type_mark().selected(prefix_pos, suffix)?)
-            }
+            AnyEntKind::Object(ref object) => Ok(object
+                .subtype
+                .type_mark()
+                .selected(prefix_pos, suffix)?
+                .into_any()),
             AnyEntKind::ObjectAlias { ref type_mark, .. } => {
-                Ok(type_mark.selected(prefix_pos, suffix)?)
+                Ok(type_mark.selected(prefix_pos, suffix)?.into_any())
             }
             AnyEntKind::ExternalAlias { ref type_mark, .. } => {
-                Ok(type_mark.selected(prefix_pos, suffix)?)
+                Ok(type_mark.selected(prefix_pos, suffix)?.into_any())
             }
             AnyEntKind::ElementDeclaration(ref subtype) => {
-                Ok(subtype.type_mark().selected(prefix_pos, suffix)?)
+                Ok(subtype.type_mark().selected(prefix_pos, suffix)?.into_any())
             }
             AnyEntKind::Design(_) => {
                 let design = DesignEnt::from_any(prefix.clone()).map_err(|ent| {

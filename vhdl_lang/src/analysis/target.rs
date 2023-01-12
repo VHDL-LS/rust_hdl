@@ -46,24 +46,21 @@ impl<'a> AnalyzeContext<'a> {
             diagnostics,
         ) {
             Ok(Some(resolved_name)) => {
-                if let ResolvedName::ObjectSelection {
-                    ref base_object, ..
-                } = resolved_name
-                {
-                    if !is_valid_assignment_target(base_object) {
+                if let ResolvedName::ObjectSelection { ref base, .. } = resolved_name {
+                    if !is_valid_assignment_target(base) {
                         diagnostics.push(Diagnostic::error(
                             target_pos,
                             format!(
                                 "{} may not be the target of an assignment",
-                                base_object.describe_class()
+                                base.describe_class()
                             ),
                         ));
-                    } else if !is_valid_assignment_type(base_object, assignment_type) {
+                    } else if !is_valid_assignment_type(base, assignment_type) {
                         diagnostics.push(Diagnostic::error(
                             target_pos,
                             format!(
                                 "{} may not be the target of a {} assignment",
-                                base_object.describe_class(),
+                                base.describe_class(),
                                 assignment_type.to_str()
                             ),
                         ));
@@ -100,14 +97,13 @@ impl AssignmentType {
 }
 
 /// Check that the assignment target is a writable object and not constant or input only
-fn is_valid_assignment_target(ent: &ObjectEnt) -> bool {
-    let object = ent.object();
-    object.class != ObjectClass::Constant && !matches!(object.mode, Some(Mode::In))
+fn is_valid_assignment_target(base: &ObjectBase) -> bool {
+    base.class() != ObjectClass::Constant && !matches!(base.mode(), Some(Mode::In))
 }
 
 // Check that a signal is not the target of a variable assignment and vice-versa
-fn is_valid_assignment_type(ent: &ObjectEnt, assignment_type: AssignmentType) -> bool {
-    let class = ent.class();
+fn is_valid_assignment_type(base: &ObjectBase, assignment_type: AssignmentType) -> bool {
+    let class = base.class();
     match assignment_type {
         AssignmentType::Signal => matches!(class, ObjectClass::Signal),
         AssignmentType::Variable => {

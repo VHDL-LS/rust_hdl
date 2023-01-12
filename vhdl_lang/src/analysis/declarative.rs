@@ -161,23 +161,23 @@ impl<'a> AnalyzeContext<'a> {
 
         let kind = {
             match resolved_name {
-                ResolvedName::ObjectSelection {
-                    base_object,
-                    type_mark,
-                } => {
+                ResolvedName::ObjectSelection { base, type_mark } => {
                     if let Some(ref signature) = signature {
                         diagnostics.push(signature_error(signature));
                     }
-                    AnyEntKind::ObjectAlias {
-                        base_object,
-                        type_mark,
+                    match base {
+                        ObjectBase::Object(base_object) => AnyEntKind::ObjectAlias {
+                            base_object,
+                            type_mark,
+                        },
+                        ObjectBase::ExternalName(class) => {
+                            AnyEntKind::ExternalAlias { class, type_mark }
+                        }
+                        ObjectBase::DeferredConstant => {
+                            // @TODO handle
+                            return Ok(None);
+                        }
                     }
-                }
-                ResolvedName::ExternalName { class, type_mark } => {
-                    if let Some(ref signature) = signature {
-                        diagnostics.push(signature_error(signature));
-                    }
-                    AnyEntKind::ExternalAlias { class, type_mark }
                 }
                 ResolvedName::Library(sym) => {
                     if let Some(ref signature) = signature {
@@ -237,6 +237,10 @@ impl<'a> AnalyzeContext<'a> {
                         );
                         return Ok(None);
                     }
+                }
+                ResolvedName::Final(_) => {
+                    // @TODO some of these can probably be aliased
+                    return Ok(None);
                 }
             }
         };

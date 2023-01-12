@@ -10,9 +10,43 @@ use crate::ast::*;
 use crate::data::*;
 use std::sync::Arc;
 
-// Represent a resolved name which can be either a
-// 1. Design such as a library or design unit
-// 2. Object such a direct reference to an object or some kind of index, slice or selected name
+#[derive(Debug)]
+pub enum ObjectBase {
+    Object(ObjectEnt),
+    DeferredConstant,
+    ExternalName(ExternalObjectClass),
+}
+
+impl ObjectBase {
+    pub fn mode(&self) -> Option<Mode> {
+        match self {
+            ObjectBase::Object(object) => object.mode(),
+            ObjectBase::DeferredConstant => None,
+            ObjectBase::ExternalName(_) => None,
+        }
+    }
+
+    pub fn class(&self) -> ObjectClass {
+        match self {
+            ObjectBase::Object(object) => object.class(),
+            ObjectBase::DeferredConstant => ObjectClass::Constant,
+            ObjectBase::ExternalName(class) => (*class).into(),
+        }
+    }
+
+    pub fn describe_class(&self) -> String {
+        if let Some(mode) = self.mode() {
+            if self.class() == ObjectClass::Constant {
+                format!("interface {}", self.class())
+            } else {
+                format!("interface {} of mode {}", self.class(), mode)
+            }
+        } else {
+            format!("{}", self.class())
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum ResolvedName {
     Library(Symbol),
@@ -20,86 +54,111 @@ pub enum ResolvedName {
     Type(TypeEnt),
     Overloaded(OverloadedName),
     ObjectSelection {
-        base_object: ObjectEnt,
+        base: ObjectBase,
         type_mark: TypeEnt,
     },
-    ExternalName {
-        class: ExternalObjectClass,
-        type_mark: TypeEnt,
-    },
+    // Something that cannot be further selected
+    Final(Arc<AnyEnt>),
 }
 
 impl ResolvedName {
-    fn new(ent: Arc<AnyEnt>) -> Option<Self> {
+    /// The name was selected out of a design unit
+    fn from_design(ent: Arc<AnyEnt>) -> Result<Self, String> {
         let name = match ent.kind() {
             AnyEntKind::Object(object) => {
                 let type_mark = object.subtype.type_mark().to_owned();
-                Self::ObjectSelection {
-                    base_object: ObjectEnt::new(ent),
+                ResolvedName::ObjectSelection {
+                    base: ObjectBase::Object(ObjectEnt::new(ent)),
                     type_mark,
                 }
             }
             AnyEntKind::ObjectAlias {
                 base_object,
                 type_mark,
-            } => Self::ObjectSelection {
-                base_object: base_object.clone(),
+            } => ResolvedName::ObjectSelection {
+                base: ObjectBase::Object(base_object.clone()),
                 type_mark: type_mark.to_owned(),
+            },
+            AnyEntKind::ExternalAlias { class, type_mark } => ResolvedName::ObjectSelection {
+                base: ObjectBase::ExternalName(*class),
+                type_mark: type_mark.clone(),
+            },
+            AnyEntKind::DeferredConstant(subtype) => ResolvedName::ObjectSelection {
+                base: ObjectBase::DeferredConstant,
+                type_mark: subtype.type_mark().clone(),
+            },
+            AnyEntKind::Type(_) => ResolvedName::Type(TypeEnt::from_any(ent).unwrap()),
+            AnyEntKind::Overloaded(_) => ResolvedName::Overloaded(OverloadedName::single(
+                OverloadedEnt::from_any(ent).unwrap(),
+            )),
+            AnyEntKind::File(_)
+            | AnyEntKind::InterfaceFile(_)
+            | AnyEntKind::Component(_)
+            | AnyEntKind::PhysicalLiteral(_) => ResolvedName::Final(ent.clone()),
+            AnyEntKind::Design(_)
+            | AnyEntKind::Library
+            | AnyEntKind::Attribute
+            | AnyEntKind::ElementDeclaration(_)
+            | AnyEntKind::Label
+            | AnyEntKind::LoopParameter => {
+                return Err(format!(
+                    "{} cannot be selected from design unit",
+                    ent.kind().describe()
+                ))
+            }
+        };
+
+        Ok(name)
+    }
+
+    /// The name was looked up from the current scope
+    fn from_scope(ent: Arc<AnyEnt>) -> Result<Self, String> {
+        let name = match ent.kind() {
+            AnyEntKind::Object(object) => {
+                let type_mark = object.subtype.type_mark().to_owned();
+                ResolvedName::ObjectSelection {
+                    base: ObjectBase::Object(ObjectEnt::new(ent)),
+                    type_mark,
+                }
+            }
+            AnyEntKind::ObjectAlias {
+                base_object,
+                type_mark,
+            } => ResolvedName::ObjectSelection {
+                base: ObjectBase::Object(base_object.clone()),
+                type_mark: type_mark.to_owned(),
+            },
+            AnyEntKind::ExternalAlias { class, type_mark } => ResolvedName::ObjectSelection {
+                base: ObjectBase::ExternalName(*class),
+                type_mark: type_mark.clone(),
+            },
+            AnyEntKind::DeferredConstant(subtype) => ResolvedName::ObjectSelection {
+                base: ObjectBase::DeferredConstant,
+                type_mark: subtype.type_mark().clone(),
             },
             AnyEntKind::Type(_) => ResolvedName::Type(TypeEnt::from_any(ent).unwrap()),
             AnyEntKind::Design(_) => ResolvedName::Design(DesignEnt::from_any(ent).unwrap()),
             AnyEntKind::Library => {
                 ResolvedName::Library(ent.designator().as_identifier().cloned().unwrap())
             }
-            _ => {
-                return None;
+            AnyEntKind::Overloaded(_) => ResolvedName::Overloaded(OverloadedName::single(
+                OverloadedEnt::from_any(ent).unwrap(),
+            )),
+            AnyEntKind::File(_)
+            | AnyEntKind::InterfaceFile(_)
+            | AnyEntKind::Component(_)
+            | AnyEntKind::Label
+            | AnyEntKind::LoopParameter
+            | AnyEntKind::PhysicalLiteral(_) => ResolvedName::Final(ent.clone()),
+            AnyEntKind::Attribute | AnyEntKind::ElementDeclaration(_) => {
+                return Err(format!(
+                    "{} should never be looked up from the current scope",
+                    ent.kind().describe()
+                ))
             }
         };
 
-        Some(name)
-    }
-
-    fn with_suffix(self, ent: Arc<AnyEnt>) -> Result<Option<Self>, String> {
-        match ent.kind() {
-            AnyEntKind::Object(..) => {
-                debug_assert!(matches!(self, Self::Design(_)));
-                Ok(Self::new(ent))
-            }
-            AnyEntKind::ObjectAlias { .. } => {
-                debug_assert!(matches!(self, Self::Design(_)));
-                Ok(Self::new(ent))
-            }
-            _ => {
-                match self {
-                    Self::Design(_) => Ok(Self::new(ent)),
-                    Self::Type(_) => {
-                        Err("Type may not be the prefix of a selected name".to_owned())
-                    }
-                    Self::ObjectSelection { base_object, .. } => match ent.actual_kind() {
-                        AnyEntKind::ElementDeclaration(subtype) => {
-                            Ok(Some(Self::ObjectSelection {
-                                base_object,
-                                type_mark: subtype.type_mark().to_owned(),
-                            }))
-                        }
-                        // @TODO protected type method
-                        _ => Ok(None),
-                    },
-                    Self::ExternalName { class, .. } => match ent.actual_kind() {
-                        AnyEntKind::ElementDeclaration(subtype) => Ok(Some(Self::ExternalName {
-                            class,
-                            type_mark: subtype.type_mark().to_owned(),
-                        })),
-                        // @TODO this is probably an error
-                        _ => Ok(None),
-                    },
-                    Self::Overloaded(..) => Err("Overloaded suffix of overloaded name".to_owned()),
-                    Self::Library(_) => {
-                        Err("Library may not be suffix of selected name".to_owned())
-                    }
-                }
-            }
-        }
+        Ok(name)
     }
 }
 
@@ -147,9 +206,10 @@ impl<'a> AnalyzeContext<'a> {
                         match ent.selected(&prefix.pos, suffix)? {
                             NamedEntities::Single(named_entity) => {
                                 suffix.set_unique_reference(&named_entity);
-                                resolved
-                                    .with_suffix(named_entity)
-                                    .map_err(|e| Diagnostic::error(name_pos, e).into())
+                                Ok(Some(
+                                    ResolvedName::from_design(named_entity)
+                                        .map_err(|e| Diagnostic::error(&suffix.pos, e))?,
+                                ))
                             }
                             NamedEntities::Overloaded(overloaded) => {
                                 // Could be used for an alias of a subprogram
@@ -158,31 +218,17 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     }
                     ResolvedName::Type(..) => Err(Diagnostic::error(name_pos, err_msg).into()),
-                    ResolvedName::ObjectSelection { ref type_mark, .. } => {
+                    ResolvedName::ObjectSelection { base, type_mark } => {
                         match type_mark.selected(&prefix.pos, suffix)? {
-                            NamedEntities::Single(named_entity) => {
-                                suffix.set_unique_reference(&named_entity);
-                                resolved
-                                    .with_suffix(named_entity)
-                                    .map_err(|e| Diagnostic::error(name_pos, e).into())
+                            TypedSelection::RecordElement(elem) => {
+                                suffix.set_unique_reference(elem.as_ref());
+                                Ok(Some(ResolvedName::ObjectSelection {
+                                    base,
+                                    type_mark: elem.type_mark().to_owned(),
+                                }))
                             }
-                            NamedEntities::Overloaded(..) => {
+                            TypedSelection::ProtectedMethod(..) => {
                                 // Probably a protected type method, this can never be aliased or a target
-                                Err(Diagnostic::error(name_pos, err_msg).into())
-                            }
-                        }
-                    }
-                    ResolvedName::ExternalName { ref type_mark, .. } => {
-                        match type_mark.selected(&prefix.pos, suffix)? {
-                            NamedEntities::Single(named_entity) => {
-                                suffix.set_unique_reference(&named_entity);
-                                resolved
-                                    .with_suffix(named_entity)
-                                    .map_err(|e| Diagnostic::error(name_pos, e).into())
-                            }
-                            NamedEntities::Overloaded(..) => {
-                                // Probably a protected type method, this can never be aliased or a target
-                                // Likely a user error
                                 Err(Diagnostic::error(name_pos, err_msg).into())
                             }
                         }
@@ -191,6 +237,7 @@ impl<'a> AnalyzeContext<'a> {
                         // Overloaded suffix of overloaded name is not possible
                         Err(Diagnostic::error(name_pos, err_msg).into())
                     }
+                    ResolvedName::Final(..) => Err(Diagnostic::error(name_pos, err_msg).into()),
                 }
             }
             Name::SelectedAll(prefix) => self.resolve_object_prefix(
@@ -206,7 +253,10 @@ impl<'a> AnalyzeContext<'a> {
                 match scope.lookup(name_pos, designator.designator())? {
                     NamedEntities::Single(named_entity) => {
                         designator.set_unique_reference(&named_entity);
-                        Ok(ResolvedName::new(named_entity))
+                        Ok(Some(
+                            ResolvedName::from_scope(named_entity)
+                                .map_err(|e| Diagnostic::error(name_pos, e))?,
+                        ))
                     }
                     NamedEntities::Overloaded(overloaded) => {
                         // Could be used for an alias of a subprogram
@@ -223,11 +273,7 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics,
                 );
 
-                if let Ok(Some(ResolvedName::ObjectSelection {
-                    base_object,
-                    type_mark,
-                })) = resolved
-                {
+                if let Ok(Some(ResolvedName::ObjectSelection { base, type_mark })) = resolved {
                     let elem_type = self.analyze_indexed_name(
                         scope,
                         name_pos,
@@ -238,7 +284,7 @@ impl<'a> AnalyzeContext<'a> {
                     )?;
 
                     Ok(Some(ResolvedName::ObjectSelection {
-                        base_object,
+                        base,
                         type_mark: elem_type,
                     }))
                 } else {
@@ -278,8 +324,8 @@ impl<'a> AnalyzeContext<'a> {
             Name::External(ref mut ename) => {
                 let ExternalName { subtype, class, .. } = ename.as_mut();
                 let subtype = self.resolve_subtype_indication(scope, subtype, diagnostics)?;
-                Ok(Some(ResolvedName::ExternalName {
-                    class: *class,
+                Ok(Some(ResolvedName::ObjectSelection {
+                    base: ObjectBase::ExternalName(*class),
                     type_mark: subtype.type_mark().to_owned(),
                 }))
             }
