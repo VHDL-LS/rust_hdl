@@ -51,20 +51,25 @@ fn parse_name_or_range(stream: &mut TokenStream) -> ParseResult<NameOrRange> {
         pos,
     } = expr
     {
-        if let Name::Attribute(ref attribute_name) = *name.as_ref() {
+        if let Name::Attribute(attribute_name) = *name {
             if matches!(
                 attribute_name.attr.item,
                 AttributeDesignator::Range | AttributeDesignator::ReverseRange
             ) {
-                // @TODO avoid clone
-                let range = ast::Range::Attribute(attribute_name.clone());
-                return Ok(NameOrRange::Range(WithPos::from(range, pos)));
+                let range = ast::Range::Attribute(attribute_name);
+                Ok(NameOrRange::Range(WithPos::from(range, pos)))
+            } else {
+                Ok(NameOrRange::Name(WithPos::from(
+                    Name::Attribute(attribute_name),
+                    pos,
+                )))
             }
+        } else {
+            Ok(NameOrRange::Name(WithPos::from(*name, pos)))
         }
-        return Ok(NameOrRange::Name(WithPos::from(*name, pos)));
+    } else {
+        Err(Diagnostic::error(&expr, "Expected name or range"))
     }
-
-    Err(Diagnostic::error(&expr, "Expected name or range"))
 }
 
 /// {selected_name}'range
