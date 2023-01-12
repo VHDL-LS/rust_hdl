@@ -41,6 +41,12 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
 
+            if name.is_generic() {
+                // Bail since we cannot handle this yet
+                self.analyze_parameters(scope, parameters, diagnostics)?;
+                return Ok(TypeCheck::Unknown);
+            }
+
             let is_correct = if name.signature().match_return_type(target_type) {
                 self.analyze_parameters_with_formal_region(
                     pos,

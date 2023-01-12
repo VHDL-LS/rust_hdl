@@ -238,6 +238,11 @@ impl TypeEnt {
             | Type::Real { .. } => Err(Diagnostic::invalid_selected_name_prefix(self, prefix_pos)),
         }
     }
+
+    // @TODO used to skip things from instantiated packages which we cannot handle yet
+    pub fn is_generic(&self) -> bool {
+        matches!(self.base_type().kind(), Type::Interface)
+    }
 }
 
 impl From<TypeEnt> for Arc<AnyEnt> {

@@ -177,6 +177,19 @@ impl OverloadedEnt {
         self.return_type().is_some()
     }
 
+    // @TODO used to skip things from instantiated packages which we cannot handle yet
+    pub fn is_generic(&self) -> bool {
+        if let Some(return_type) = self.return_type() {
+            if return_type.is_generic() {
+                return true;
+            }
+        }
+
+        self.formals()
+            .iter()
+            .any(|typ| typ.type_mark().is_generic())
+    }
+
     pub fn formals(&self) -> &FormalRegion {
         &self.signature().formals
     }
