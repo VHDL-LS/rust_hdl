@@ -509,6 +509,7 @@ architecture a of ent is
     vptr.field := 0;
 
     -- Bad
+    vptr.all := vptr;
     vptr.all.all := vptr;
   end procedure;
 
@@ -520,9 +521,15 @@ end architecture;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
-            code.s1("vptr.all.all").s1("vptr.all"),
-            "Cannot be the prefix of .all",
-        )],
+        vec![
+            Diagnostic::error(
+                code.s1("vptr.all := vptr").s("vptr", 2),
+                "variable 'vptr' does not match record type 'rec_t'",
+            ),
+            Diagnostic::error(
+                code.s1("vptr.all.all").s1("vptr.all"),
+                "Cannot be the prefix of .all",
+            ),
+        ],
     );
 }

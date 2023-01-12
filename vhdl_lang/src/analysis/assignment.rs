@@ -22,10 +22,10 @@ impl<'a> AnalyzeContext<'a> {
         rhs: &mut AssignmentRightHand<WithPos<Expression>>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        self.resolve_target(scope, target, assignment_type, diagnostics)?;
+        let ttyp = self.resolve_target(scope, target, assignment_type, diagnostics)?;
         match rhs {
             AssignmentRightHand::Simple(expr) => {
-                self.analyze_expression(scope, expr, diagnostics)?;
+                self.analyze_expression_for_target(scope, ttyp.as_ref(), expr, diagnostics)?;
             }
             AssignmentRightHand::Conditional(conditionals) => {
                 let Conditionals {
@@ -115,6 +115,27 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             Waveform::Unaffected => {}
+        }
+        Ok(())
+    }
+
+    pub fn analyze_expression_for_target(
+        &self,
+        scope: &Scope<'_>,
+        ttyp: Option<&TypeEnt>,
+        expr: &mut WithPos<Expression>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        if let Some(ttyp) = ttyp {
+            self.analyze_expression_with_target_type(
+                scope,
+                ttyp,
+                &expr.pos,
+                &mut expr.item,
+                diagnostics,
+            )?;
+        } else {
+            self.analyze_expression_pos(scope, &expr.pos, &mut expr.item, diagnostics)?;
         }
         Ok(())
     }
