@@ -64,10 +64,10 @@ impl<'a> AnalyzeContext<'a> {
         rhs: &mut AssignmentRightHand<Waveform>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        self.resolve_target(scope, target, assignment_type, diagnostics)?;
+        let ttyp = self.resolve_target(scope, target, assignment_type, diagnostics)?;
         match rhs {
             AssignmentRightHand::Simple(wavf) => {
-                self.analyze_waveform(scope, wavf, diagnostics)?;
+                self.analyze_waveform(scope, ttyp.as_ref(), wavf, diagnostics)?;
             }
             AssignmentRightHand::Conditional(conditionals) => {
                 let Conditionals {
@@ -76,11 +76,11 @@ impl<'a> AnalyzeContext<'a> {
                 } = conditionals;
                 for conditional in conditionals {
                     let Conditional { condition, item } = conditional;
-                    self.analyze_waveform(scope, item, diagnostics)?;
+                    self.analyze_waveform(scope, ttyp.as_ref(), item, diagnostics)?;
                     self.analyze_expression(scope, condition, diagnostics)?;
                 }
                 if let Some(wavf) = else_item {
-                    self.analyze_waveform(scope, wavf, diagnostics)?;
+                    self.analyze_waveform(scope, ttyp.as_ref(), wavf, diagnostics)?;
                 }
             }
             AssignmentRightHand::Selected(selection) => {
@@ -90,7 +90,7 @@ impl<'a> AnalyzeContext<'a> {
                 } = selection;
                 self.analyze_expression(scope, expression, diagnostics)?;
                 for Alternative { choices, item } in alternatives.iter_mut() {
-                    self.analyze_waveform(scope, item, diagnostics)?;
+                    self.analyze_waveform(scope, ttyp.as_ref(), item, diagnostics)?;
                     self.analyze_choices(scope, choices, diagnostics)?;
                 }
             }
@@ -101,6 +101,7 @@ impl<'a> AnalyzeContext<'a> {
     fn analyze_waveform(
         &self,
         scope: &Scope<'_>,
+        ttyp: Option<&TypeEnt>,
         wavf: &mut Waveform,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -108,9 +109,16 @@ impl<'a> AnalyzeContext<'a> {
             Waveform::Elements(ref mut elems) => {
                 for elem in elems.iter_mut() {
                     let WaveformElement { value, after } = elem;
-                    self.analyze_expression(scope, value, diagnostics)?;
+                    self.analyze_expression_for_target(scope, ttyp, value, diagnostics)?;
                     if let Some(expr) = after {
-                        self.analyze_expression(scope, expr, diagnostics)?;
+                        let standard = self.standard_package().unwrap();
+                        self.analyze_expression_with_target_type(
+                            scope,
+                            &standard.time(),
+                            &expr.pos,
+                            &mut expr.item,
+                            diagnostics,
+                        )?;
                     }
                 }
             }

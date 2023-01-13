@@ -105,7 +105,7 @@ impl<'a> StandardRegion<'a> {
         self.lookup_type("REAL")
     }
 
-    fn time(&self) -> TypeEnt {
+    pub fn time(&self) -> TypeEnt {
         self.lookup_type("TIME")
     }
 
