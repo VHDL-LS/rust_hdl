@@ -493,8 +493,8 @@ generic (foo : natural);
 end package;
 
 package pkg is
-package a1 is new work.gpkg generic map (foo => bar);
-package a1 is new work.gpkg generic map (foo => bar);
+package a1 is new work.gpkg generic map (foo => 0);
+package a1 is new work.gpkg generic map (foo => 0);
 end package;
 ",
     );

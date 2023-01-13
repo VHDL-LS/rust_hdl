@@ -52,8 +52,8 @@ impl<'a> AnalyzeContext<'a> {
             true
         } else {
             match ttyp.kind() {
-                Type::Integer(_) => types.match_type(self.universal_integer()),
-                Type::Real(_) => types.match_type(self.universal_real()),
+                Type::Integer => types.match_type(self.universal_integer()),
+                Type::Real => types.match_type(self.universal_real()),
                 _ => false,
             }
         }
@@ -596,7 +596,7 @@ impl<'a> AnalyzeContext<'a> {
                         self.analyze_aggregate(scope, assocs, diagnostics)?;
                     }
                 }
-                Type::Record(record_scope, _) => {
+                Type::Record(record_scope) => {
                     self.analyze_record_aggregate(
                         scope,
                         target_base,

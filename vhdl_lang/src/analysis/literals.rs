@@ -27,7 +27,7 @@ impl<'a> AnalyzeContext<'a> {
         match literal {
             Literal::AbstractLiteral(abst) => match abst {
                 AbstractLiteral::Integer(_) => {
-                    if !matches!(target_base.kind(), Type::Integer(..)) {
+                    if !matches!(target_base.kind(), Type::Integer) {
                         diagnostics.push(Diagnostic::error(
                             pos,
                             format!("integer literal does not match {}", target_type.describe()),
@@ -35,7 +35,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
                 AbstractLiteral::Real(_) => {
-                    if !matches!(target_base.kind(), Type::Real(..)) {
+                    if !matches!(target_base.kind(), Type::Real) {
                         diagnostics.push(Diagnostic::error(
                             pos,
                             format!("real literal does not match {}", target_type.describe()),
@@ -44,7 +44,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             },
             Literal::Character(char) => match target_base.kind() {
-                Type::Enum(_, literals) => {
+                Type::Enum(literals) => {
                     if !literals.contains(&Designator::Character(*char)) {
                         diagnostics.push(Diagnostic::error(
                             pos,
@@ -143,7 +143,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             Literal::Null => {
-                if !matches!(target_base.kind(), Type::Access(_, _)) {
+                if !matches!(target_base.kind(), Type::Access(_)) {
                     diagnostics.push(Diagnostic::error(
                         pos,
                         format!("null literal does not match {}", target_base.describe()),
@@ -189,7 +189,7 @@ fn as_single_index_enum_array(typ: TypeEnt) -> Option<(TypeEnt, &FnvHashSet<Desi
     } = typ.kind()
     {
         if indexes.len() == 1 {
-            if let Type::Enum(_, literals) = elem_type.base_type().kind() {
+            if let Type::Enum(literals) = elem_type.base_type().kind() {
                 return Some((*elem_type, literals));
             }
         }

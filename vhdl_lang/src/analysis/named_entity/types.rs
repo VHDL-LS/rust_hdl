@@ -9,7 +9,6 @@ use std::ops::Deref;
 use crate::analysis::named_entity::{AnyEnt, AnyEntKind, EntityId};
 
 use crate::analysis::formal_region::{RecordElement, RecordRegion};
-use crate::analysis::implicits::ImplicitVec;
 use crate::analysis::region::{NamedEntities, OverloadedName, Region};
 use crate::ast::WithDecl;
 use crate::ast::{Designator, WithRef};
@@ -20,32 +19,31 @@ use crate::{Diagnostic, SrcPos};
 use arc_swap::ArcSwapOption;
 use fnv::FnvHashSet;
 
-use super::{Arena, EntRef};
+use super::{Arena, EntRef, Related};
 
 pub enum Type<'a> {
     // Some types have an optional list of implicit declarations
     // Use Weak reference since implicit declaration typically reference the type itself
     Array {
-        implicit: ImplicitVec<'a>,
         // Indexes are Option<> to handle unknown types
         indexes: Vec<Option<TypeEnt<'a>>>,
         elem_type: TypeEnt<'a>,
     },
-    Enum(ImplicitVec<'a>, FnvHashSet<Designator>),
-    Integer(ImplicitVec<'a>),
-    Real(ImplicitVec<'a>),
-    Physical(ImplicitVec<'a>),
-    Access(Subtype<'a>, ImplicitVec<'a>),
-    Record(RecordRegion<'a>, ImplicitVec<'a>),
+    Enum(FnvHashSet<Designator>),
+    Integer,
+    Real,
+    Physical,
+    Access(Subtype<'a>),
+    Record(RecordRegion<'a>),
     // Incomplete type will be overwritten when full type is found
     Incomplete,
     Subtype(Subtype<'a>),
     // The region of the protected type which needs to be extendend by the body
     Protected(Region<'a>, ArcSwapOption<SrcPos>),
-    File(ImplicitVec<'a>),
+    File,
     Interface,
     Alias(TypeEnt<'a>),
-    Universal(UniversalType, ImplicitVec<'a>),
+    Universal(UniversalType),
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -55,45 +53,22 @@ pub enum UniversalType {
 }
 
 impl<'a> Type<'a> {
-    pub fn implicit_declarations(&self) -> impl Iterator<Item = EntRef<'a>> + '_ {
-        self.implicits().into_iter().flat_map(|imp| imp.iter())
-    }
-
-    pub fn implicits(&self) -> Option<&ImplicitVec<'a>> {
-        match self {
-            Type::Array { ref implicit, .. } => Some(implicit),
-            Type::Enum(ref implicit, _) => Some(implicit),
-            Type::Real(ref implicit) => Some(implicit),
-            Type::Integer(ref implicit) => Some(implicit),
-            Type::Physical(ref implicit) => Some(implicit),
-            Type::File(ref implicit) => Some(implicit),
-            Type::Access(.., ref implicit) => Some(implicit),
-            Type::Record(.., ref implicit) => Some(implicit),
-            Type::Universal(.., ref implicit) => Some(implicit),
-            Type::Incomplete
-            | Type::Interface
-            | Type::Protected(..)
-            | Type::Subtype(..)
-            | Type::Alias(..) => None,
-        }
-    }
-
     pub fn describe(&self) -> &'static str {
         match self {
             Type::Alias(..) => "alias",
             Type::Record(..) => "record type",
             Type::Array { .. } => "array type",
             Type::Enum(..) => "type",
-            Type::Integer(..) => "integer type",
-            Type::Real(..) => "real type",
-            Type::Physical(..) => "physical type",
+            Type::Integer => "integer type",
+            Type::Real => "real type",
+            Type::Physical => "physical type",
             Type::Access(..) => "access type",
             Type::Subtype(..) => "subtype",
             Type::Incomplete => "type",
             Type::Interface => "type",
-            Type::File(..) => "file type",
+            Type::File => "file type",
             Type::Protected(..) => "protected type",
-            Type::Universal(univ, _) => univ.describe(),
+            Type::Universal(univ) => univ.describe(),
         }
     }
 }
@@ -123,7 +98,7 @@ impl<'a> TypeEnt<'a> {
                 arena.update(
                     id,
                     ident.tree.item.clone().into(),
-                    None,
+                    Related::None,
                     AnyEntKind::Type(kind),
                     Some(ident.tree.pos.clone()),
                 )
@@ -169,7 +144,7 @@ impl<'a> TypeEnt<'a> {
     }
 
     pub fn accessed_type(&self) -> Option<TypeEnt<'a>> {
-        if let Type::Access(subtype, _) = self.base_type().kind() {
+        if let Type::Access(subtype) = self.base_type().kind() {
             Some(subtype.type_mark())
         } else {
             None
@@ -201,7 +176,7 @@ impl<'a> TypeEnt<'a> {
         suffix: &WithPos<WithRef<Designator>>,
     ) -> Result<TypedSelection<'a>, Diagnostic> {
         match self.kind() {
-            Type::Record(ref region, _) => {
+            Type::Record(ref region) => {
                 if let Some(decl) = region.lookup(suffix.designator()) {
                     Ok(TypedSelection::RecordElement(decl))
                 } else {
@@ -347,9 +322,9 @@ impl<'a> Deref for BaseType<'a> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct Subtype<'a> {
-    type_mark: TypeEnt<'a>,
+    pub(crate) type_mark: TypeEnt<'a>,
 }
 
 impl<'a> Subtype<'a> {

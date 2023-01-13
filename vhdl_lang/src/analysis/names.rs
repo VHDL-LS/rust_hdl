@@ -133,7 +133,7 @@ impl<'a> ResolvedName<'a> {
     fn from_design_not_overloaded(ent: &'a AnyEnt) -> Result<Self, String> {
         let name = match ent.kind() {
             AnyEntKind::Object(_) => ResolvedName::ObjectName(ObjectName {
-                base: ObjectBase::Object(ObjectEnt::new(ent)),
+                base: ObjectBase::Object(ObjectEnt::from_any(ent).unwrap()),
                 type_mark: None,
             }),
             AnyEntKind::ObjectAlias {
@@ -183,7 +183,7 @@ impl<'a> ResolvedName<'a> {
     fn from_scope_not_overloaded(ent: &'a AnyEnt) -> Result<Self, String> {
         let name = match ent.kind() {
             AnyEntKind::Object(_) => ResolvedName::ObjectName(ObjectName {
-                base: ObjectBase::Object(ObjectEnt::new(ent)),
+                base: ObjectBase::Object(ObjectEnt::from_any(ent).unwrap()),
                 type_mark: None,
             }),
             AnyEntKind::ObjectAlias {
@@ -466,7 +466,7 @@ impl<'a> AnalyzeContext<'a> {
             let resolved = self.name_resolve(scope, expr_pos, name, diagnostics)?;
 
             if let Some(ResolvedName::Type(typ)) = resolved {
-                return if matches!(typ.base_type().kind(), Type::Enum { .. } | Type::Integer(_)) {
+                return if matches!(typ.base_type().kind(), Type::Enum { .. } | Type::Integer) {
                     Ok(Some(typ))
                 } else {
                     Err(Diagnostic::error(
@@ -851,6 +851,39 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
+    pub fn type_name(
+        &self,
+        scope: &Scope<'a>,
+        name_pos: &SrcPos,
+        name: &mut Name,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult<Option<TypeEnt<'a>>> {
+        let resolved = match self.name_resolve(scope, name_pos, name, diagnostics) {
+            Ok(Some(resolved)) => resolved,
+            Ok(None) => return Ok(None),
+            Err(err) => {
+                diagnostics.push(err.into_non_fatal()?);
+                return Ok(None);
+            }
+        };
+
+        match resolved {
+            ResolvedName::Type(typ) => Ok(Some(typ)),
+            ResolvedName::Library(_)
+            | ResolvedName::Design(_)
+            | ResolvedName::ObjectName(_)
+            | ResolvedName::Overloaded { .. }
+            | ResolvedName::Expression(_)
+            | ResolvedName::Final(_) => {
+                diagnostics.error(
+                    name_pos,
+                    format!("Expected type name, got {}", resolved.describe()),
+                );
+                Ok(None)
+            }
+        }
+    }
+
     /// Analyze a name that is part of an expression that could be ambiguous
     pub fn expression_name_types(
         &self,
@@ -1171,10 +1204,7 @@ impl Diagnostic {
             resolved.describe_type()
         };
 
-        Diagnostic::error(
-            prefix_pos,
-            format!("{name_desc} cannot be {suffix_desc}"),
-        )
+        Diagnostic::error(prefix_pos, format!("{name_desc} cannot be {suffix_desc}"))
     }
 
     fn dimension_mismatch(
@@ -1204,10 +1234,7 @@ impl Diagnostic {
 
     /// An internal logic error that we want to show to the user to get bug reports
     fn unreachable(pos: &SrcPos, expected: &str) -> Diagnostic {
-        Diagnostic::warning(
-            pos,
-            format!("Internal error, unreachable code {expected}"),
-        )
+        Diagnostic::warning(pos, format!("Internal error, unreachable code {expected}"))
     }
 
     fn ambiguous_call<'a>(

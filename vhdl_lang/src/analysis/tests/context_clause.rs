@@ -945,7 +945,7 @@ end package;
 
 -- Package instance context clause reference
 use work.pkg.all;
-package ipack is new work.genpack generic map(c => natural);
+package ipack is new work.genpack generic map(c => 0);
 
 context ctx is
   library libname;

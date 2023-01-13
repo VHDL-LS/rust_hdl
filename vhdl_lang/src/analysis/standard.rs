@@ -13,7 +13,6 @@ use crate::syntax::Symbols;
 use crate::SrcPos;
 
 use super::formal_region::FormalRegion;
-use super::implicits::ImplicitVec;
 use super::named_entity::*;
 use super::region::*;
 use super::DesignRoot;
@@ -29,16 +28,13 @@ impl UniversalTypes {
     pub fn new(arena: &Arena, pos: &SrcPos, symbols: &Symbols) -> Self {
         let integer = arena.explicit(
             Designator::Identifier(symbols.symtab().insert_utf8("universal_integer")),
-            AnyEntKind::Type(Type::Universal(
-                UniversalType::Integer,
-                ImplicitVec::default(),
-            )),
+            AnyEntKind::Type(Type::Universal(UniversalType::Integer)),
             Some(pos),
         );
 
         let real = arena.explicit(
             Designator::Identifier(symbols.symtab().insert_utf8("universal_real")),
-            AnyEntKind::Type(Type::Universal(UniversalType::Real, ImplicitVec::default())),
+            AnyEntKind::Type(Type::Universal(UniversalType::Real)),
             Some(pos),
         );
 
@@ -657,19 +653,19 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
         match typ.kind() {
             Type::Access(..) => self.access_implicits(typ).collect(),
             Type::Enum(..) => self.enum_implicits(typ).collect(),
-            Type::Integer(..) => self
+            Type::Integer => self
                 .numeric_implicits(UniversalType::Integer, typ)
                 .collect(),
-            Type::Real(..) => self.numeric_implicits(UniversalType::Real, typ).collect(),
+            Type::Real => self.numeric_implicits(UniversalType::Real, typ).collect(),
             Type::Record(..) => self.record_implicits(typ).collect(),
-            Type::Physical(..) => self.physical_implicits(typ).collect(),
+            Type::Physical => self.physical_implicits(typ).collect(),
             Type::Array { .. } => self.array_implicits(typ).collect(),
             Type::Universal(..) => Vec::new(), // Defined before the standard package
             Type::Interface { .. }
             | Type::Alias(..)
             | Type::Protected(..)
             | Type::Incomplete
-            | Type::File(..)
+            | Type::File
             | Type::Subtype(..) => Vec::new(),
         }
     }
@@ -682,10 +678,10 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
             if let NamedEntities::Single(ent) = ent {
                 if let Some(typ) = TypeEnt::from_any(ent) {
                     for ent in self.type_implicits(typ) {
-                        if let Some(implicit) = typ.kind().implicits() {
-                            // This is safe because the standard package is analyzed in a single thread
-                            unsafe { implicit.push(ent) };
-                        }
+                        // This is safe because the standard package is analyzed in a single thread
+                        unsafe {
+                            arena.add_implicit(typ.id(), ent);
+                        };
                         res.push(ent);
                     }
                 }
@@ -696,10 +692,9 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
             let time = self.time();
             let to_string = self.create_to_string(time);
 
-            if let Some(implicit) = time.kind().implicits() {
-                // This is safe because the standard package is analyzed in a single thread
-                unsafe { implicit.push(to_string) };
-            }
+            unsafe {
+                arena.add_implicit(time.id(), to_string);
+            };
             res.push(to_string);
         }
 
@@ -717,10 +712,9 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
             .into_iter();
 
             for ent in implicits {
-                if let Some(implicit) = typ.kind().implicits() {
-                    // This is safe because the standard package is analyzed in a single thread
-                    unsafe { implicit.push(ent) };
-                }
+                unsafe {
+                    arena.add_implicit(typ.id(), ent);
+                };
                 res.push(ent);
             }
         }
@@ -758,10 +752,10 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
             });
 
             for ent in implicits {
-                if let Some(implicit) = atyp.kind().implicits() {
-                    // This is safe because the standard package is analyzed in a single thread
-                    unsafe { implicit.push(ent) };
-                }
+                // This is safe because the standard package is analyzed in a single thread
+                unsafe {
+                    arena.add_implicit(atyp.id(), ent);
+                };
                 res.push(ent);
             }
         }
@@ -803,10 +797,10 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
                 real.decl_pos(),
             );
 
-            if let Some(implicit) = real.kind().implicits() {
-                // This is safe because the standard package is analyzed in a single thread
-                unsafe { implicit.push(ent) };
-            }
+            // This is safe because the standard package is analyzed in a single thread
+            unsafe {
+                arena.add_implicit(real.id(), ent);
+            };
             res.push(ent);
         }
 
@@ -845,10 +839,10 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
                 real.decl_pos(),
             );
 
-            if let Some(implicit) = real.kind().implicits() {
-                // This is safe because the standard package is analyzed in a single thread
-                unsafe { implicit.push(ent) };
-            }
+            // This is safe because the standard package is analyzed in a single thread
+            unsafe {
+                arena.add_implicit(real.id(), ent);
+            };
             res.push(ent);
         }
 
@@ -886,10 +880,10 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
                 time.decl_pos(),
             );
 
-            if let Some(implicit) = time.kind().implicits() {
-                // This is safe because the standard package is analyzed in a single thread
-                unsafe { implicit.push(ent) };
-            }
+            // This is safe because the standard package is analyzed in a single thread
+            unsafe {
+                arena.add_implicit(time.id(), ent);
+            };
             res.push(ent);
         }
         res

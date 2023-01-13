@@ -189,13 +189,6 @@ impl<'a> AnalyzeContext<'a> {
         all_overloaded: Vec<OverloadedEnt<'a>>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<Option<Disambiguated<'a>>> {
-        // @TODO early return if reference is already set
-
-        if all_overloaded.iter().any(|ent| ent.is_generic()) {
-            // @TODO we do not instantiate generic packages yet
-            return Ok(None);
-        }
-
         // Apply target type constraint if it exists
         let overloaded = if let Some(ttyp) = ttyp {
             let mut overloaded = all_overloaded.clone();

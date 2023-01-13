@@ -203,7 +203,7 @@ impl<'a> AnalyzeContext<'a> {
             self.arena.update(
                 id,
                 decl.tree.name().clone().into(),
-                None,
+                Related::None,
                 kind,
                 Some(decl.tree.pos().clone()),
             )
@@ -345,9 +345,7 @@ impl<'a> AnalyzeContext<'a> {
 
         Err(AnalysisError::NotFatal(Diagnostic::error(
             pos,
-            format!(
-                "No primary unit '{primary_name}' within library '{library_name}'"
-            ),
+            format!("No primary unit '{primary_name}' within library '{library_name}'"),
         )))
     }
 

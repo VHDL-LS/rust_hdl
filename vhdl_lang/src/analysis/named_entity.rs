@@ -91,15 +91,6 @@ impl<'a> AnyEntKind<'a> {
         matches!(self, AnyEntKind::Type(..))
     }
 
-    pub fn implicit_declarations(&self) -> impl Iterator<Item = EntRef<'a>> + '_ {
-        match self {
-            AnyEntKind::Type(typ) => Some(typ.implicit_declarations()),
-            _ => None,
-        }
-        .into_iter()
-        .flatten()
-    }
-
     pub fn describe(&self) -> &str {
         use AnyEntKind::*;
         match self {
@@ -131,6 +122,13 @@ impl<'a> std::fmt::Debug for AnyEntKind<'a> {
 
 pub type EntRef<'a> = &'a AnyEnt<'a>;
 
+#[derive(Debug, Copy, Clone)]
+pub enum Related<'a> {
+    ImplicitOf(EntRef<'a>),
+    InstanceOf(EntRef<'a>),
+    None,
+}
+
 /// A named entity as defined in LRM 6.1.
 ///
 /// Every declaration creates one or more named entities.
@@ -139,7 +137,8 @@ pub struct AnyEnt<'a> {
     /// A unique id of the entity.
     /// Entities with the same id will be the same.
     pub id: EntityId,
-    pub implicit_of: Option<EntRef<'a>>,
+    pub related: Related<'a>,
+    pub implicits: Vec<EntRef<'a>>,
     /// The location where the declaration was made.
     /// Builtin and implicit declaration will not have a source position.
     pub designator: Designator,
@@ -155,7 +154,12 @@ impl Arena {
         kind: AnyEntKind<'a>,
         decl_pos: Option<&SrcPos>,
     ) -> EntRef<'a> {
-        self.alloc(designator.into(), Some(of_ent), kind, decl_pos.cloned())
+        self.alloc(
+            designator.into(),
+            Related::ImplicitOf(of_ent),
+            kind,
+            decl_pos.cloned(),
+        )
     }
 
     pub fn define<'a, T: HasIdent>(
@@ -174,7 +178,7 @@ impl Arena {
         kind: AnyEntKind<'a>,
         decl_pos: Option<&SrcPos>,
     ) -> EntRef<'a> {
-        self.alloc(designator.into(), None, kind, decl_pos.cloned())
+        self.alloc(designator.into(), Related::None, kind, decl_pos.cloned())
     }
 }
 
@@ -184,7 +188,11 @@ impl<'a> AnyEnt<'a> {
     }
 
     pub fn is_implicit(&self) -> bool {
-        self.implicit_of.is_some()
+        match self.related {
+            Related::ImplicitOf(_) => true,
+            Related::InstanceOf(ent) => ent.is_implicit(),
+            Related::None => false,
+        }
     }
 
     pub fn is_subprogram(&self) -> bool {
@@ -202,7 +210,7 @@ impl<'a> AnyEnt<'a> {
     }
 
     pub fn is_explicit(&self) -> bool {
-        self.implicit_of.is_none()
+        !self.is_implicit()
     }
 
     pub fn decl_pos(&self) -> Option<&SrcPos> {
@@ -240,6 +248,10 @@ impl<'a> AnyEnt<'a> {
             AnyEntKind::Type(Type::Alias(ref ent)) => ent.as_actual(),
             _ => self,
         }
+    }
+
+    pub(crate) fn add_implicit(&mut self, ent: EntRef<'a>) {
+        self.implicits.push(ent);
     }
 
     /// Strip aliases and return reference to actual entity kind

@@ -6,7 +6,6 @@
 
 use super::formal_region::FormalRegion;
 use super::formal_region::RecordRegion;
-use super::implicits::ImplicitVecBuilder;
 use super::named_entity::*;
 use super::names::*;
 use super::*;
@@ -229,7 +228,7 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(ent) = self.analyze_alias_declaration(scope, alias, diagnostics)? {
                     scope.add(ent, diagnostics);
 
-                    for implicit in ent.actual_kind().implicit_declarations() {
+                    for implicit in ent.as_actual().implicits.iter() {
                         match OverloadedEnt::from_any(implicit) {
                             Ok(implicit) => {
                                 let impicit_alias = self.arena.implicit(
@@ -494,15 +493,16 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             Declaration::Package(ref mut instance) => {
-                match self.analyze_package_instance_name(scope, &mut instance.package_name) {
-                    Ok(package_region) => scope.add(
+                if let Some(pkg_region) =
+                    self.generic_package_instance(scope, instance, diagnostics)?
+                {
+                    scope.add(
                         self.arena.define(
                             &mut instance.ident,
-                            AnyEntKind::Design(Design::LocalPackageInstance(package_region)),
+                            AnyEntKind::Design(Design::PackageInstance(pkg_region)),
                         ),
                         diagnostics,
-                    ),
-                    Err(err) => err.add_to(diagnostics)?,
+                    );
                 }
             }
             Declaration::Configuration(..) => {}
@@ -523,13 +523,11 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalResult {
         match type_decl.def {
             TypeDefinition::Enumeration(ref mut enumeration) => {
-                let implicit = ImplicitVecBuilder::default();
                 let enum_type = TypeEnt::define_with_opt_id(
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
                     Type::Enum(
-                        implicit.inner(),
                         enumeration
                             .iter()
                             .map(|literal| literal.tree.item.clone().into_designator())
@@ -549,7 +547,11 @@ impl<'a> AnalyzeContext<'a> {
                         Some(&literal.tree.pos),
                     );
                     literal.decl = Some(literal_ent.id());
-                    implicit.push(literal_ent);
+
+                    unsafe {
+                        self.arena.add_implicit(enum_type.id(), literal_ent);
+                    }
+
                     scope.add(literal_ent, diagnostics);
                 }
 
@@ -557,7 +559,10 @@ impl<'a> AnalyzeContext<'a> {
 
                 if let Some(standard) = self.standard_package() {
                     for ent in standard.enum_implicits(enum_type) {
-                        implicit.push(ent);
+                        unsafe {
+                            self.arena.add_implicit(enum_type.id(), ent);
+                        }
+
                         scope.add(ent, diagnostics);
                     }
                 }
@@ -695,18 +700,19 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 region.close(diagnostics);
 
-                let implicit = ImplicitVecBuilder::default();
                 let type_ent = TypeEnt::define_with_opt_id(
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
-                    Type::Record(elems, implicit.inner()),
+                    Type::Record(elems),
                 );
                 scope.add(type_ent.into(), diagnostics);
 
                 if let Some(standard) = self.standard_package() {
                     for ent in standard.record_implicits(type_ent) {
-                        implicit.push(ent);
+                        unsafe {
+                            self.arena.add_implicit(type_ent.id(), ent);
+                        }
                         scope.add(ent, diagnostics);
                     }
                 }
@@ -716,19 +722,20 @@ impl<'a> AnalyzeContext<'a> {
                     self.resolve_subtype_indication(scope, subtype_indication, diagnostics);
                 match subtype {
                     Ok(subtype) => {
-                        let implicit = ImplicitVecBuilder::default();
                         let type_ent = TypeEnt::define_with_opt_id(
                             self.arena,
                             overwrite_id,
                             &mut type_decl.ident,
-                            Type::Access(subtype, implicit.inner()),
+                            Type::Access(subtype),
                         );
 
                         scope.add(type_ent.into(), diagnostics);
 
                         if let Some(standard) = self.standard_package() {
                             for ent in standard.access_implicits(type_ent) {
-                                implicit.push(ent);
+                                unsafe {
+                                    self.arena.add_implicit(type_ent.id(), ent);
+                                }
                                 scope.add(ent, diagnostics);
                             }
                         }
@@ -751,23 +758,20 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     };
 
-                let implicits = ImplicitVecBuilder::default();
                 let array_ent = TypeEnt::define_with_opt_id(
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
-                    Type::Array {
-                        implicit: implicits.inner(),
-                        indexes,
-                        elem_type,
-                    },
+                    Type::Array { indexes, elem_type },
                 );
 
                 scope.add(array_ent.into(), diagnostics);
 
                 if let Some(standard) = self.standard_package() {
                     for ent in standard.array_implicits(array_ent) {
-                        implicits.push(ent);
+                        unsafe {
+                            self.arena.add_implicit(array_ent.id(), ent);
+                        }
                         scope.add(ent, diagnostics);
                     }
                 }
@@ -789,13 +793,11 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             TypeDefinition::Physical(ref mut physical) => {
-                let implicits = ImplicitVecBuilder::default();
-
                 let phys_type = TypeEnt::define_with_opt_id(
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
-                    Type::Physical(implicits.inner()),
+                    Type::Physical,
                 );
                 scope.add(phys_type.into(), diagnostics);
 
@@ -804,7 +806,9 @@ impl<'a> AnalyzeContext<'a> {
                     AnyEntKind::PhysicalLiteral(phys_type),
                 );
 
-                implicits.push(primary);
+                unsafe {
+                    self.arena.add_implicit(phys_type.id(), primary);
+                }
                 scope.add(primary, diagnostics);
 
                 for (secondary_unit_name, value) in physical.secondary_units.iter_mut() {
@@ -827,13 +831,17 @@ impl<'a> AnalyzeContext<'a> {
                     let secondary_unit = self
                         .arena
                         .define(secondary_unit_name, AnyEntKind::PhysicalLiteral(phys_type));
-                    implicits.push(secondary_unit);
+                    unsafe {
+                        self.arena.add_implicit(phys_type.id(), secondary_unit);
+                    }
                     scope.add(secondary_unit, diagnostics)
                 }
 
                 if let Some(standard) = self.standard_package() {
                     for ent in standard.physical_implicits(phys_type) {
-                        implicits.push(ent);
+                        unsafe {
+                            self.arena.add_implicit(phys_type.id(), ent);
+                        }
                         scope.add(ent, diagnostics);
                     }
                 }
@@ -844,11 +852,10 @@ impl<'a> AnalyzeContext<'a> {
 
             TypeDefinition::Numeric(ref mut range) => {
                 self.analyze_range(scope, range, diagnostics)?;
-                let implicit = ImplicitVecBuilder::default();
                 let universal_type = integer_or_real_range(range);
                 let kind = match universal_type {
-                    UniversalType::Integer => Type::Integer(implicit.inner()),
-                    UniversalType::Real => Type::Real(implicit.inner()),
+                    UniversalType::Integer => Type::Integer,
+                    UniversalType::Real => Type::Real,
                 };
 
                 let type_ent = TypeEnt::define_with_opt_id(
@@ -861,20 +868,20 @@ impl<'a> AnalyzeContext<'a> {
 
                 if let Some(standard) = self.standard_package() {
                     for ent in standard.numeric_implicits(universal_type, type_ent) {
-                        implicit.push(ent);
+                        unsafe {
+                            self.arena.add_implicit(type_ent.id(), ent);
+                        }
                         scope.add(ent, diagnostics);
                     }
                 }
             }
 
             TypeDefinition::File(ref mut type_mark) => {
-                let implicit = ImplicitVecBuilder::default();
-
                 let file_type = TypeEnt::define_with_opt_id(
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
-                    Type::File(implicit.inner()),
+                    Type::File,
                 );
 
                 match self.resolve_type_mark_name(scope, type_mark) {
@@ -883,7 +890,9 @@ impl<'a> AnalyzeContext<'a> {
                             for ent in
                                 standard.create_implicit_file_type_subprograms(file_type, type_mark)
                             {
-                                implicit.push(ent);
+                                unsafe {
+                                    self.arena.add_implicit(file_type.id(), ent);
+                                }
                                 scope.add(ent, diagnostics);
                             }
                         }
@@ -1000,7 +1009,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 subpgm.define(
                     self.arena,
-                    AnyEntKind::Overloaded(Overloaded::Subprogram(signature?)),
+                    AnyEntKind::Overloaded(Overloaded::InterfaceSubprogram(signature?)),
                 )
             }
             InterfaceDeclaration::Package(ref mut instance) => {
@@ -1009,7 +1018,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 self.arena.define(
                     &mut instance.ident,
-                    AnyEntKind::Design(Design::LocalPackageInstance(package_region)),
+                    AnyEntKind::Design(Design::PackageInstance(package_region.clone())),
                 )
             }
         };
@@ -1215,9 +1224,7 @@ impl Diagnostic {
     fn should_not_have_signature(prefix: &str, pos: impl AsRef<SrcPos>) -> Diagnostic {
         Diagnostic::error(
             pos,
-            format!(
-                "{prefix} should only have a signature for subprograms and enum literals"
-            ),
+            format!("{prefix} should only have a signature for subprograms and enum literals"),
         )
     }
 

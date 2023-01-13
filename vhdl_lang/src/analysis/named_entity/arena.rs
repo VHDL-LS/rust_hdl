@@ -18,6 +18,7 @@ use crate::SrcPos;
 use super::AnyEnt;
 use super::AnyEntKind;
 use super::EntRef;
+use super::Related;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct ArenaId(u32);
@@ -150,13 +151,14 @@ impl Arena {
     pub fn alloc<'a>(
         &'a self,
         designator: Designator,
-        implicit_of: Option<EntRef<'a>>,
+        related: Related<'a>,
         kind: AnyEntKind<'a>,
         decl_pos: Option<SrcPos>,
     ) -> EntRef<'a> {
         let ent = AnyEnt {
             id: EntityId::undefined(),
-            implicit_of,
+            related,
+            implicits: Vec::new(),
             designator,
             kind,
             decl_pos,
@@ -168,27 +170,39 @@ impl Arena {
         }
     }
 
-    pub unsafe fn update<'a>(
+    pub(crate) unsafe fn update<'a>(
         &'a self,
         id: EntityId,
         designator: Designator,
-        implicit_of: Option<EntRef<'a>>,
+        related: Related<'a>,
         kind: AnyEntKind<'a>,
         decl_pos: Option<SrcPos>,
     ) -> EntRef<'a> {
         unsafe {
             let local = self.local.borrow_mut();
-            debug_assert_eq!(id.arena_id(), local.id);
+            assert_eq!(id.arena_id(), local.id);
             let p = &mut *self.local.as_ptr() as &mut LocalArena;
             let eref = p.get_mut(id.local_id());
             *eref = AnyEnt {
                 id,
-                implicit_of,
+                related,
+                implicits: Vec::new(),
                 designator,
                 kind,
                 decl_pos,
             };
             &*eref as EntRef<'a>
+        }
+    }
+
+    pub(crate) unsafe fn add_implicit<'a>(&'a self, id: EntityId, ent: EntRef<'a>) {
+        let local = self.local.borrow_mut();
+        assert_eq!(id.arena_id(), local.id);
+        let p = &mut *self.local.as_ptr() as &mut LocalArena;
+        let eref = p.get_mut(id.local_id());
+        unsafe {
+            let eref: &mut AnyEnt = &mut *eref as &mut AnyEnt;
+            eref.add_implicit(ent);
         }
     }
 

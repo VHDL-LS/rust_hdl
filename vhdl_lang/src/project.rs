@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::analysis::{AnyEnt, DesignRoot, EntRef, EntityId};
+use crate::analysis::{AnyEnt, DesignRoot, EntRef};
 use crate::ast::DesignFile;
 use crate::config::Config;
 use crate::data::*;
@@ -232,8 +232,8 @@ impl Project {
     }
 
     /// Search for all references to the declaration at decl_pos
-    pub fn find_all_references(&self, id: EntityId) -> Vec<SrcPos> {
-        self.root.find_all_references(id)
+    pub fn find_all_references(&self, ent: &AnyEnt) -> Vec<SrcPos> {
+        self.root.find_all_references(ent)
     }
 
     /// Get source positions that are not resolved to a declaration

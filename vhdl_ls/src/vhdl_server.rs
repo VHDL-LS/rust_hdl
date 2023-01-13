@@ -373,7 +373,7 @@ impl VHDLServer {
 
         if let Some(ent) = ent {
             self.project
-                .find_all_references(ent.id())
+                .find_all_references(ent)
                 .iter()
                 .map(srcpos_to_location)
                 .collect()

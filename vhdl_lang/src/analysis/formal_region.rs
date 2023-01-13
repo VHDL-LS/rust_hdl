@@ -80,8 +80,8 @@ impl<'a> std::ops::Deref for InterfaceEnt<'a> {
 /// The formal region is an ordered list of interface elements such as ports, generics and subprogram arguments
 #[derive(Clone)]
 pub struct FormalRegion<'a> {
-    pub typ: InterfaceListType,
-    entities: Vec<InterfaceEnt<'a>>,
+    pub(crate) typ: InterfaceListType,
+    pub(crate) entities: Vec<InterfaceEnt<'a>>,
 }
 
 impl<'a> FormalRegion<'a> {
@@ -152,7 +152,7 @@ impl<'a> FormalRegion<'a> {
 /// The formal region is an ordered list of interface elements such as ports, generics and subprogram arguments
 #[derive(Default, Clone)]
 pub struct RecordRegion<'a> {
-    elems: Vec<RecordElement<'a>>,
+    pub(crate) elems: Vec<RecordElement<'a>>,
 }
 
 impl<'a> RecordRegion<'a> {
@@ -195,7 +195,7 @@ pub struct RecordElement<'a> {
 }
 
 impl<'a> RecordElement<'a> {
-    pub fn from_any(ent: &'a AnyEnt) -> Option<Self> {
+    pub fn from_any(ent: EntRef<'a>) -> Option<Self> {
         if let AnyEntKind::ElementDeclaration(_) = ent.kind() {
             Some(RecordElement { ent })
         } else {
@@ -223,5 +223,76 @@ impl<'a> std::ops::Deref for RecordElement<'a> {
 impl<'a> From<RecordElement<'a>> for EntRef<'a> {
     fn from(value: RecordElement<'a>) -> Self {
         value.ent
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum GpkgInterfaceEnt<'a> {
+    Type(TypeEnt<'a>),
+    Constant(ObjectEnt<'a>),
+    Subprogram(OverloadedEnt<'a>),
+    Package(EntRef<'a>),
+}
+
+impl<'a> GpkgInterfaceEnt<'a> {
+    pub fn from_any(ent: EntRef<'a>) -> Option<Self> {
+        match ent.actual_kind() {
+            AnyEntKind::Type(Type::Interface) => {
+                Some(GpkgInterfaceEnt::Type(TypeEnt::from_any(ent).unwrap()))
+            }
+            AnyEntKind::Object(obj) if obj.mode.is_some() && obj.class == ObjectClass::Constant => {
+                Some(GpkgInterfaceEnt::Constant(
+                    ObjectEnt::from_any(ent).unwrap(),
+                ))
+            }
+            AnyEntKind::Overloaded(Overloaded::InterfaceSubprogram(_)) => Some(
+                GpkgInterfaceEnt::Subprogram(OverloadedEnt::from_any(ent).unwrap()),
+            ),
+            AnyEntKind::Design(Design::PackageInstance(_)) => Some(GpkgInterfaceEnt::Package(ent)),
+            _ => None,
+        }
+    }
+}
+
+impl<'a> std::ops::Deref for GpkgInterfaceEnt<'a> {
+    type Target = AnyEnt<'a>;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            GpkgInterfaceEnt::Type(typ) => typ.deref(),
+            GpkgInterfaceEnt::Constant(obj) => obj.deref(),
+            GpkgInterfaceEnt::Subprogram(subp) => subp.deref(),
+            GpkgInterfaceEnt::Package(ent) => ent.deref(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GpkgRegion<'a> {
+    entities: Vec<GpkgInterfaceEnt<'a>>,
+}
+
+impl<'a> GpkgRegion<'a> {
+    pub fn new(entities: Vec<GpkgInterfaceEnt<'a>>) -> Self {
+        Self { entities }
+    }
+
+    pub fn lookup(
+        &self,
+        pos: &SrcPos,
+        designator: &Designator,
+    ) -> Result<(usize, GpkgInterfaceEnt<'a>), Diagnostic> {
+        for (idx, ent) in self.entities.iter().enumerate() {
+            if ent.designator() == designator {
+                return Ok((idx, *ent));
+            }
+        }
+        Err(Diagnostic::error(
+            pos,
+            format!("No declaration of '{designator}'"),
+        ))
+    }
+
+    pub fn nth(&self, idx: usize) -> Option<GpkgInterfaceEnt<'a>> {
+        self.entities.get(idx).cloned()
     }
 }

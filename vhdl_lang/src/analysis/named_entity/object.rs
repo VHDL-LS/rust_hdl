@@ -22,9 +22,12 @@ pub struct ObjectEnt<'a> {
 }
 
 impl<'a> ObjectEnt<'a> {
-    pub fn new(ent: &'a AnyEnt) -> Self {
-        debug_assert!(matches!(ent.actual_kind(), AnyEntKind::Object(..)));
-        Self { ent }
+    pub fn from_any(ent: &'a AnyEnt) -> Option<Self> {
+        if matches!(ent.actual_kind(), AnyEntKind::Object(..)) {
+            Some(Self { ent })
+        } else {
+            None
+        }
     }
 
     pub fn kind(&self) -> &'a Object<'a> {

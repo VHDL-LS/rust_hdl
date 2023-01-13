@@ -24,7 +24,7 @@ impl<'a> AnalyzeContext<'a> {
             AnyPrimaryUnit::Configuration(unit) => self.analyze_configuration(unit, diagnostics),
             AnyPrimaryUnit::Package(unit) => self.analyze_package(id, unit, diagnostics),
             AnyPrimaryUnit::PackageInstance(unit) => {
-                self.analyze_package_instance(unit, diagnostics)
+                self.analyze_package_instance(id, unit, diagnostics)
             }
             AnyPrimaryUnit::Context(unit) => self.analyze_context(unit, diagnostics),
         }
@@ -169,27 +169,24 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_package_instance(
         &self,
+        id: EntityId,
         unit: &mut PackageInstantiation,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         let root_scope = Scope::default();
         self.add_implicit_context_clause(&root_scope)?;
+
         self.analyze_context_clause(&root_scope, &mut unit.context_clause, diagnostics)?;
 
-        match self.analyze_package_instance_name(&root_scope, &mut unit.package_name) {
-            Ok(package_region) => {
-                self.arena.define(
-                    &mut unit.ident,
-                    AnyEntKind::Design(Design::PackageInstance(package_region.clone())),
-                );
-                Ok(())
-            }
-            Err(AnalysisError::NotFatal(diagnostic)) => {
-                diagnostics.push(diagnostic);
-                Ok(())
-            }
-            Err(AnalysisError::Fatal(err)) => Err(err),
+        if let Some(pkg_region) = self.generic_package_instance(&root_scope, unit, diagnostics)? {
+            self.redefine(
+                id,
+                &mut unit.ident,
+                AnyEntKind::Design(Design::PackageInstance(pkg_region)),
+            );
         }
+
+        Ok(())
     }
 
     fn analyze_context(
@@ -554,8 +551,7 @@ impl<'a> AnalyzeContext<'a> {
                                 ));
                             }
                             Design::Package(_, ref primary_region)
-                            | Design::PackageInstance(ref primary_region)
-                            | Design::LocalPackageInstance(ref primary_region) => {
+                            | Design::PackageInstance(ref primary_region) => {
                                 scope.make_all_potentially_visible(Some(&name.pos), primary_region);
                             }
                             _ => {
@@ -583,18 +579,16 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         package_name: &mut WithPos<SelectedName>,
-    ) -> AnalysisResult<Region<'a>> {
+    ) -> AnalysisResult<&'a Region<'a>> {
         let decl = self.resolve_selected_name(scope, package_name)?;
 
         if let AnyEntKind::Design(Design::UninstPackage(_, ref package_region)) = decl.first_kind()
         {
-            Ok(package_region.clone())
+            Ok(package_region)
         } else {
             Err(AnalysisError::not_fatal_error(
                 &package_name.pos,
-                format!(
-                    "'{package_name}' is not an uninstantiated generic package"
-                ),
+                format!("'{package_name}' is not an uninstantiated generic package"),
             ))
         }
     }

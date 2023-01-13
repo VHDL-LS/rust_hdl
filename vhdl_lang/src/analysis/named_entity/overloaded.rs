@@ -16,6 +16,7 @@ use crate::ast::Designator;
 pub enum Overloaded<'a> {
     SubprogramDecl(Signature<'a>),
     Subprogram(Signature<'a>),
+    InterfaceSubprogram(Signature<'a>),
     EnumLiteral(Signature<'a>),
     Alias(OverloadedEnt<'a>),
 }
@@ -24,7 +25,7 @@ impl<'a> Overloaded<'a> {
     pub fn describe(&self) -> &'static str {
         use Overloaded::*;
         match self {
-            SubprogramDecl(signature) | Subprogram(signature) => {
+            SubprogramDecl(signature) | Subprogram(signature) | InterfaceSubprogram(signature) => {
                 if signature.return_type().is_some() {
                     "function"
                 } else {
@@ -38,7 +39,8 @@ impl<'a> Overloaded<'a> {
 
     pub fn signature(&'a self) -> &'a Signature<'a> {
         match self {
-            Overloaded::Subprogram(ref signature)
+            Overloaded::InterfaceSubprogram(ref signature)
+            | Overloaded::Subprogram(ref signature)
             | Overloaded::SubprogramDecl(ref signature)
             | Overloaded::EnumLiteral(ref signature) => signature,
             Overloaded::Alias(ref overloaded) => overloaded.signature(),
@@ -49,8 +51,8 @@ impl<'a> Overloaded<'a> {
 #[derive(Clone)]
 pub struct Signature<'a> {
     /// Vector of InterfaceObject or InterfaceFile
-    pub formals: FormalRegion<'a>,
-    return_type: Option<TypeEnt<'a>>,
+    pub(crate) formals: FormalRegion<'a>,
+    pub(crate) return_type: Option<TypeEnt<'a>>,
 }
 
 impl<'a> Signature<'a> {
@@ -183,19 +185,6 @@ impl<'a> OverloadedEnt<'a> {
 
     pub fn is_function(&self) -> bool {
         self.return_type().is_some()
-    }
-
-    // @TODO used to skip things from instantiated packages which we cannot handle yet
-    pub fn is_generic(&self) -> bool {
-        if let Some(return_type) = self.return_type() {
-            if return_type.is_generic() {
-                return true;
-            }
-        }
-
-        self.formals()
-            .iter()
-            .any(|typ| typ.type_mark().is_generic())
     }
 
     pub fn formals(&self) -> &'a FormalRegion<'a> {

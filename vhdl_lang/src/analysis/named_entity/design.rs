@@ -26,7 +26,6 @@ pub enum Design<'a> {
     UninstPackage(Visibility<'a>, Region<'a>),
     PackageInstance(Region<'a>),
     Context(Region<'a>),
-    LocalPackageInstance(Region<'a>),
 }
 
 impl<'a> Design<'a> {
@@ -39,7 +38,6 @@ impl<'a> Design<'a> {
             UninstPackage(..) => "uninstantiated package",
             PackageInstance(..) => "package instance",
             Context(..) => "context",
-            LocalPackageInstance(..) => "package instance",
         }
     }
 }
@@ -71,9 +69,7 @@ impl<'a> DesignEnt<'a> {
         suffix: &WithPos<WithRef<Designator>>,
     ) -> Result<NamedEntities<'a>, Diagnostic> {
         match self.kind() {
-            Design::Package(_, ref region)
-            | Design::PackageInstance(ref region)
-            | Design::LocalPackageInstance(ref region) => {
+            Design::Package(_, ref region) | Design::PackageInstance(ref region) => {
                 if let Some(decl) = region.lookup_immediate(suffix.designator()) {
                     Ok(decl.clone())
                 } else {

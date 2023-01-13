@@ -9,8 +9,10 @@
 #![allow(clippy::unneeded_field_pattern)]
 
 use super::*;
+use crate::analysis::DesignRoot;
 use crate::analysis::EntRef;
 pub use crate::analysis::HasEntityId;
+use crate::analysis::Related;
 
 #[must_use]
 pub enum SearchResult {
@@ -46,8 +48,11 @@ pub enum FoundDeclaration<'a> {
     ElementDeclaration(&'a mut ElementDeclaration),
     EnumerationLiteral(&'a mut Ident, &'a mut WithDecl<WithPos<EnumerationLiteral>>),
     InterfaceObject(&'a mut InterfaceObjectDeclaration),
+    InterfaceFile(&'a mut InterfaceFileDeclaration),
     File(&'a mut FileDeclaration),
     Type(&'a mut TypeDeclaration),
+    InterfaceType(&'a mut WithDecl<Ident>),
+    InterfacePackage(&'a mut InterfacePackageDeclaration),
     PhysicalTypePrimary(&'a mut WithDecl<Ident>),
     PhysicalTypeSecondary(&'a mut WithDecl<Ident>, &'a mut PhysicalLiteral),
     Component(&'a mut ComponentDeclaration),
@@ -993,8 +998,13 @@ impl Search for Declaration {
                 return_if_found!(file_name.search(searcher));
             }
 
-            // @TODO more
-            _ => {}
+            Declaration::Package(ref mut package_instance) => {
+                return_if_found!(package_instance.search(searcher));
+            }
+
+            Declaration::Configuration(_) => {
+                // @TODO
+            }
         }
         NotFound
     }
@@ -1010,10 +1020,52 @@ impl Search for InterfaceDeclaration {
                 return_if_found!(decl.subtype_indication.search(searcher));
                 return_if_found!(decl.expression.search(searcher));
             }
-            InterfaceDeclaration::Subprogram(ref mut decl, _) => {
-                return_if_found!(decl.search(searcher));
+            InterfaceDeclaration::Subprogram(ref mut decl, ref mut subpgm_default) => {
+                match decl {
+                    SubprogramDeclaration::Function(f) => {
+                        return_if_found!(searcher
+                            .search_decl(FoundDeclaration::Function(f))
+                            .or_not_found());
+                    }
+                    SubprogramDeclaration::Procedure(p) => {
+                        return_if_found!(searcher
+                            .search_decl(FoundDeclaration::Procedure(p))
+                            .or_not_found());
+                    }
+                }
+
+                if let Some(subpgm_default) = subpgm_default {
+                    match subpgm_default {
+                        SubprogramDefault::Name(selected_name) => {
+                            return_if_found!(selected_name.search(searcher));
+                        }
+                        SubprogramDefault::Box => {}
+                    }
+                }
             }
-            _ => {}
+            InterfaceDeclaration::Type(decl) => {
+                return_if_found!(searcher
+                    .search_decl(FoundDeclaration::InterfaceType(decl))
+                    .or_not_found());
+            }
+            InterfaceDeclaration::Package(package_instance) => {
+                return_if_found!(searcher
+                    .search_decl(FoundDeclaration::InterfacePackage(package_instance))
+                    .or_not_found());
+                return_if_found!(package_instance.package_name.search(searcher));
+                match package_instance.generic_map {
+                    InterfacePackageGenericMapAspect::Map(ref mut generic_map) => {
+                        return_if_found!(generic_map.search(searcher));
+                    }
+                    InterfacePackageGenericMapAspect::Box => {}
+                    InterfacePackageGenericMapAspect::Default => {}
+                }
+            }
+            InterfaceDeclaration::File(decl) => {
+                return_if_found!(searcher
+                    .search_decl(FoundDeclaration::InterfaceFile(decl))
+                    .or_not_found());
+            }
         };
         NotFound
     }
@@ -1153,6 +1205,7 @@ impl Search for PackageInstantiation {
         return_if_found!(searcher
             .search_decl(FoundDeclaration::PackageInstance(self))
             .or_not_found());
+        return_if_found!(self.generic_map.search(searcher));
         self.package_name.search(searcher)
     }
 }
@@ -1282,16 +1335,14 @@ impl<'a> Searcher for FormatDeclaration<'a> {
             return NotFinished;
         };
 
-        if let Some(implicit_of) = self.ent.implicit_of {
+        if is_implicit_of(self.ent, id) {
             // Implicit
-            if implicit_of.id() == id {
-                self.result = Some(format!(
-                    "-- {}\n\n-- Implicitly defined by:\n{}\n",
-                    self.ent.describe(),
-                    decl,
-                ));
-                return Finished(Found);
-            }
+            self.result = Some(format!(
+                "-- {}\n\n-- Implicitly defined by:\n{}\n",
+                self.ent.describe(),
+                decl,
+            ));
+            return Finished(Found);
         } else if self.ent.id() == id {
             // Explicit
             self.result = Some(decl.to_string());
@@ -1302,24 +1353,61 @@ impl<'a> Searcher for FormatDeclaration<'a> {
 }
 
 // Search for all references to declaration/definition
-pub struct FindAllReferences {
-    id: EntityId,
+pub struct FindAllReferences<'a> {
+    root: &'a DesignRoot,
+    ent: EntRef<'a>,
     pub references: Vec<SrcPos>,
 }
 
-impl FindAllReferences {
-    pub fn new(id: EntityId) -> FindAllReferences {
+fn is_instance_of(ent: EntRef, other: EntRef) -> bool {
+    if let Related::InstanceOf(ent) = ent.related {
+        if ent.id() == other.id() {
+            return true;
+        }
+
+        if is_instance_of(ent, other) {
+            return true;
+        }
+    }
+
+    false
+}
+
+fn is_implicit_of(ent: EntRef, id: EntityId) -> bool {
+    match ent.related {
+        Related::ImplicitOf(ent) => ent.id() == id,
+        Related::InstanceOf(ent) => is_implicit_of(ent, id),
+        Related::None => false,
+    }
+}
+
+fn is_reference(ent: EntRef, other: EntRef) -> bool {
+    if ent.id() == other.id() {
+        return true;
+    }
+
+    if is_instance_of(ent, other) || is_instance_of(other, ent) {
+        return true;
+    }
+
+    false
+}
+impl<'a> FindAllReferences<'a> {
+    pub fn new(root: &'a DesignRoot, ent: EntRef<'a>) -> FindAllReferences<'a> {
         FindAllReferences {
-            id,
+            root,
+            ent,
             references: Vec::new(),
         }
     }
 }
 
-impl Searcher for FindAllReferences {
+impl<'a> Searcher for FindAllReferences<'a> {
     fn search_decl(&mut self, decl: FoundDeclaration) -> SearchState {
         if let Some(id) = decl.ent_id() {
-            if self.id == id {
+            let other = self.root.get_ent(id);
+
+            if is_reference(self.ent, other) {
                 self.references.push(decl.pos().clone());
             }
         }
@@ -1328,7 +1416,8 @@ impl Searcher for FindAllReferences {
 
     fn search_pos_with_ref(&mut self, pos: &SrcPos, reference: &mut Reference) -> SearchState {
         if let Some(id) = reference.as_ref() {
-            if self.id == *id {
+            let other = self.root.get_ent(*id);
+            if is_reference(self.ent, other) {
                 self.references.push(pos.clone());
             }
         };
@@ -1349,6 +1438,9 @@ impl<'a> HasEntityId for FoundDeclaration<'a> {
             FoundDeclaration::EnumerationLiteral(_, elem) => elem.decl,
             FoundDeclaration::File(value) => value.ident.decl,
             FoundDeclaration::Type(value) => value.ident.decl,
+            FoundDeclaration::InterfaceType(value) => value.decl,
+            FoundDeclaration::InterfacePackage(value) => value.ident.decl,
+            FoundDeclaration::InterfaceFile(value) => value.ident.decl,
             FoundDeclaration::PhysicalTypePrimary(value) => value.decl,
             FoundDeclaration::PhysicalTypeSecondary(value, _) => value.decl,
             FoundDeclaration::Component(value) => value.ident.decl,
@@ -1379,6 +1471,9 @@ impl<'a> HasSrcPos for FoundDeclaration<'a> {
             FoundDeclaration::EnumerationLiteral(_, elem) => &elem.tree.pos,
             FoundDeclaration::File(value) => value.ident.pos(),
             FoundDeclaration::Type(value) => value.ident.pos(),
+            FoundDeclaration::InterfaceType(value) => value.pos(),
+            FoundDeclaration::InterfacePackage(value) => value.ident.pos(),
+            FoundDeclaration::InterfaceFile(value) => value.ident.pos(),
             FoundDeclaration::PhysicalTypePrimary(value) => value.pos(),
             FoundDeclaration::PhysicalTypeSecondary(value, _) => value.as_ref(),
             FoundDeclaration::Component(value) => value.ident.pos(),
@@ -1436,6 +1531,15 @@ impl std::fmt::Display for FoundDeclaration<'_> {
                 write!(f, "{literal}")
             }
             FoundDeclaration::Type(ref value) => {
+                write!(f, "{value}")
+            }
+            FoundDeclaration::InterfaceType(ref value) => {
+                write!(f, "type {value}")
+            }
+            FoundDeclaration::InterfacePackage(value) => {
+                write!(f, "{value}")
+            }
+            FoundDeclaration::InterfaceFile(value) => {
                 write!(f, "{value}")
             }
             FoundDeclaration::Component(ref value) => {

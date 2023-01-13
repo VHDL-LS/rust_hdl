@@ -1,4 +1,6 @@
 use super::formal_region::FormalRegion;
+use super::formal_region::GpkgInterfaceEnt;
+use super::formal_region::GpkgRegion;
 use super::formal_region::InterfaceEnt;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -37,9 +39,9 @@ impl<'a> OverloadedName<'a> {
         OverloadedName { entities: map }
     }
 
-    pub fn first(&self) -> &OverloadedEnt<'a> {
+    pub fn first(&self) -> OverloadedEnt<'a> {
         let first_key = self.entities.keys().next().unwrap();
-        self.entities.get(first_key).unwrap()
+        *self.entities.get(first_key).unwrap()
     }
 
     pub fn designator(&self) -> &Designator {
@@ -184,11 +186,11 @@ impl<'a> NamedEntities<'a> {
     pub fn first(&self) -> EntRef<'a> {
         match self {
             Self::Single(ent) => ent,
-            Self::Overloaded(overloaded) => (*overloaded.first()).into(),
+            Self::Overloaded(overloaded) => overloaded.first().into(),
         }
     }
 
-    pub fn first_kind(&self) -> &AnyEntKind<'a> {
+    pub fn first_kind(&self) -> &'a AnyEntKind<'a> {
         self.first().kind()
     }
 
@@ -207,7 +209,7 @@ impl<'a> NamedEntities<'a> {
 }
 
 #[derive(Copy, Clone, PartialEq)]
-enum RegionKind {
+pub(crate) enum RegionKind {
     PackageDeclaration,
     PackageBody,
     Other,
@@ -534,8 +536,8 @@ impl<'a> Scope<'a> {
 #[derive(Clone)]
 pub struct Region<'a> {
     visibility: Visibility<'a>,
-    entities: FnvHashMap<Designator, NamedEntities<'a>>,
-    kind: RegionKind,
+    pub(crate) entities: FnvHashMap<Designator, NamedEntities<'a>>,
+    pub(crate) kind: RegionKind,
 }
 
 impl<'a> Default for Region<'a> {
@@ -584,6 +586,38 @@ impl<'a> Region<'a> {
             FormalRegion::new_with(InterfaceListType::Generic, generics),
             FormalRegion::new_with(InterfaceListType::Port, ports),
         )
+    }
+
+    pub fn to_package_generic(&self) -> (GpkgRegion<'a>, Vec<EntRef<'a>>) {
+        // @TODO separate generics and ports
+        let mut generics = Vec::with_capacity(self.entities.len());
+        let mut other = Vec::with_capacity(self.entities.len());
+
+        for ent in self.entities.values() {
+            match ent {
+                NamedEntities::Single(ent) => {
+                    if let Some(ent) = GpkgInterfaceEnt::from_any(ent) {
+                        generics.push(ent);
+                        continue;
+                    }
+                    other.push(*ent);
+                }
+                NamedEntities::Overloaded(overloaded) => {
+                    if overloaded.len() == 1 {
+                        if let Some(ent) = GpkgInterfaceEnt::from_any(overloaded.first().into()) {
+                            generics.push(ent);
+                            continue;
+                        }
+                    }
+                    other.extend(overloaded.entities().map(EntRef::from));
+                    // @TODO What about multiple overloaded interface subprograms?
+                }
+            }
+        }
+        // Sorting by source file position gives declaration order
+        generics.sort_by_key(|ent| ent.decl_pos().map(|pos| pos.range().start));
+        other.sort_by_key(|ent| ent.decl_pos().map(|pos| pos.range().start));
+        (GpkgRegion::new(generics), other)
     }
 
     fn check_deferred_constant_pairs(&self, diagnostics: &mut dyn DiagnosticHandler) {

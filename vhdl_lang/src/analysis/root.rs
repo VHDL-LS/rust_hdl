@@ -354,6 +354,12 @@ impl DesignRoot {
         if let AnyEntKind::Library = ent.kind() {
             Some(format!("library {};", ent.designator()))
         } else {
+            let ent = if let Related::InstanceOf(ent) = ent.related {
+                ent
+            } else {
+                ent
+            };
+
             let mut searcher = FormatDeclaration::new(ent);
             let _ = self.search(&mut searcher);
             searcher.result
@@ -361,8 +367,8 @@ impl DesignRoot {
     }
 
     /// Search for all references to the declaration at decl_pos
-    pub fn find_all_references(&self, id: EntityId) -> Vec<SrcPos> {
-        let mut searcher = FindAllReferences::new(id);
+    pub fn find_all_references(&self, ent: EntRef) -> Vec<SrcPos> {
+        let mut searcher = FindAllReferences::new(self, ent);
         let _ = self.search(&mut searcher);
         searcher.references
     }
@@ -376,7 +382,7 @@ impl DesignRoot {
     #[cfg(test)]
     pub fn find_all_references_pos(&self, decl_pos: &SrcPos) -> Vec<SrcPos> {
         if let Some(ent) = self.search_reference(decl_pos.source(), decl_pos.start()) {
-            self.find_all_references(ent.id())
+            self.find_all_references(ent)
         } else {
             Vec::new()
         }
