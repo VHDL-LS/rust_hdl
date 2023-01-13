@@ -34,11 +34,11 @@ impl<'a> AnalyzeContext<'a> {
                 } = conditionals;
                 for conditional in conditionals {
                     let Conditional { condition, item } = conditional;
-                    self.analyze_expression(scope, item, diagnostics)?;
+                    self.analyze_expression_for_target(scope, ttyp.as_ref(), item, diagnostics)?;
                     self.analyze_expression(scope, condition, diagnostics)?;
                 }
                 if let Some(expr) = else_item {
-                    self.analyze_expression(scope, expr, diagnostics)?;
+                    self.analyze_expression_for_target(scope, ttyp.as_ref(), expr, diagnostics)?;
                 }
             }
             AssignmentRightHand::Selected(selection) => {
@@ -48,7 +48,7 @@ impl<'a> AnalyzeContext<'a> {
                 } = selection;
                 self.analyze_expression(scope, expression, diagnostics)?;
                 for Alternative { choices, item } in alternatives.iter_mut() {
-                    self.analyze_expression(scope, item, diagnostics)?;
+                    self.analyze_expression_for_target(scope, ttyp.as_ref(), item, diagnostics)?;
                     self.analyze_choices(scope, choices, diagnostics)?;
                 }
             }
