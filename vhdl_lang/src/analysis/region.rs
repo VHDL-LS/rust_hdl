@@ -128,6 +128,14 @@ impl OverloadedName {
         }
         self
     }
+
+    pub fn describe(&self) -> String {
+        if self.len() == 1 {
+            self.first().describe()
+        } else {
+            format!("overloaded name {}", self.designator().describe())
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

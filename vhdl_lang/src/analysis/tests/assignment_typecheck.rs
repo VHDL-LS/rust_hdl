@@ -473,7 +473,7 @@ architecture a of ent is
     alias a2 is c1(0);
     alias a3 is a2.elem;
 begin
-    a1(0) <= 1;
+    a1(0) <= (elem => 0);
     a2.elem <= 1;
     a3 <= 1;    
 end architecture;

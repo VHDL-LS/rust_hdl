@@ -170,6 +170,17 @@ impl TypeEnt {
         }
     }
 
+    pub fn can_be_sliced(&self) -> bool {
+        let base_type = self.base_type();
+        let base_type = if let Type::Access(ref subtype, ..) = base_type.kind() {
+            subtype.base_type()
+        } else {
+            base_type
+        };
+
+        matches!(base_type.kind(), Type::Array { .. })
+    }
+
     /// Lookup a selected name prefix.suffix
     /// where prefix has this type
     pub fn selected(

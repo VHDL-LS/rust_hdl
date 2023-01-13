@@ -171,6 +171,17 @@ impl ResolvedName {
 
         Ok(name)
     }
+
+    fn describe(&self) -> String {
+        match self {
+            ResolvedName::Library(sym) => format!("library {}", sym),
+            ResolvedName::Design(ent) => ent.describe(),
+            ResolvedName::Type(ent) => ent.describe(),
+            ResolvedName::Overloaded(name) => name.describe(),
+            ResolvedName::ObjectSelection { type_mark, .. } => type_mark.describe(),
+            ResolvedName::Final(ent) => ent.describe(),
+        }
+    }
 }
 
 impl<'a> AnalyzeContext<'a> {
@@ -321,12 +332,25 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics,
                 ));
 
-                if let ResolvedName::ObjectSelection { ref type_mark, .. } = resolved {
-                    self.analyze_sliced_name(prefix.suffix_pos(), type_mark, diagnostics)?;
-                }
-
                 self.analyze_discrete_range(scope, drange.as_mut(), diagnostics)?;
-                Ok(Some(resolved))
+
+                if let ResolvedName::ObjectSelection { ref type_mark, .. } = resolved {
+                    if !type_mark.can_be_sliced() {
+                        return Err(Diagnostic::error(
+                            prefix.suffix_pos(),
+                            format!("{} cannot be sliced", type_mark.describe()),
+                        )
+                        .into());
+                    } else {
+                        Ok(Some(resolved))
+                    }
+                } else {
+                    Err(Diagnostic::error(
+                        prefix.suffix_pos(),
+                        format!("{} cannot be sliced", resolved.describe()),
+                    )
+                    .into())
+                }
             }
             Name::Attribute(..) => Err(Diagnostic::error(name_pos, err_msg).into()),
 

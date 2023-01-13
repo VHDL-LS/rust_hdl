@@ -835,31 +835,6 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    pub fn analyze_sliced_name(
-        &self,
-        suffix_pos: &SrcPos,
-        type_mark: &TypeEnt,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
-        let base_type = type_mark.base_type();
-
-        let base_type = if let Type::Access(ref subtype, ..) = base_type.kind() {
-            subtype.base_type()
-        } else {
-            base_type
-        };
-
-        if let Type::Array { .. } = base_type.kind() {
-        } else {
-            diagnostics.error(
-                suffix_pos,
-                format!("{} cannot be sliced", type_mark.describe()),
-            );
-        }
-
-        Ok(())
-    }
-
     /// Function call cannot be distinguished from indexed names when parsing
     /// Use the named entity kind to disambiguate
     pub fn analyze_function_call_or_indexed_name(
@@ -1125,7 +1100,12 @@ impl<'a> AnalyzeContext<'a> {
                     self.resolve_name(scope, &prefix.pos, &mut prefix.item, diagnostics)?
                 {
                     if let Some(type_mark) = type_mark_of_sliced_or_indexed(named_entity) {
-                        self.analyze_sliced_name(prefix.suffix_pos(), type_mark, diagnostics)?;
+                        if !type_mark.can_be_sliced() {
+                            diagnostics.error(
+                                prefix.suffix_pos(),
+                                format!("{} cannot be sliced", type_mark.describe()),
+                            );
+                        }
                     } else {
                         diagnostics.error(
                             prefix.suffix_pos(),
