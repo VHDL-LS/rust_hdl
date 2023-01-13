@@ -636,12 +636,39 @@ impl<'a> StandardRegion<'a> {
         }
 
         for name in ["BOOLEAN_VECTOR", "BIT_VECTOR"] {
-            let typ = self.lookup_type(name);
-            let return_typ = self.lookup_type(name.strip_suffix("_VECTOR").unwrap());
-            let implicits = [self.unary(Operator::Not, typ.clone(), return_typ.clone())];
+            let atyp = self.lookup_type(name);
+            let styp = self.lookup_type(name.strip_suffix("_VECTOR").unwrap());
+            let ops = [
+                Operator::And,
+                Operator::Or,
+                Operator::Nand,
+                Operator::Nor,
+                Operator::Xor,
+                Operator::Xnor,
+            ];
+
+            let implicits = ops.iter().flat_map(|op| {
+                let op = *op;
+                [
+                    // A op A -> A
+                    self.symmetric_binary(op, atyp.clone()),
+                    if op == Operator::Not {
+                        // op A -> A
+                        self.unary(op, atyp.clone(), atyp.clone())
+                    } else {
+                        // op A -> S
+                        self.unary(op, atyp.clone(), styp.clone())
+                    },
+                    // A op S -> A
+                    self.binary(op, atyp.clone(), atyp.clone(), styp.clone(), atyp.clone()),
+                    // S op A -> A
+                    self.binary(op, atyp.clone(), atyp.clone(), atyp.clone(), styp.clone()),
+                ]
+                .into_iter()
+            });
 
             for ent in implicits {
-                if let Some(implicit) = typ.kind().implicits() {
+                if let Some(implicit) = atyp.kind().implicits() {
                     // This is safe because the standard package is analyzed in a single thread
                     unsafe { implicit.push(&ent) };
                 }
