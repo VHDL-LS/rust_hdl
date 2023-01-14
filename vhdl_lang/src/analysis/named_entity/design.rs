@@ -5,37 +5,36 @@
 //! Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
 use std::ops::Deref;
-use std::sync::Arc;
 
+use super::AnyEnt;
+use super::AnyEntKind;
+use super::EntRef;
 use crate::analysis::region::NamedEntities;
 use crate::analysis::region::Region;
+use crate::analysis::visibility::Visibility;
 use crate::ast::Designator;
 use crate::ast::HasDesignator;
 use crate::ast::WithRef;
 use crate::data::WithPos;
 use crate::Diagnostic;
 use crate::SrcPos;
-use std::borrow::Borrow;
 
-use super::AnyEnt;
-use super::AnyEntKind;
-
-pub enum Design {
-    Entity(Arc<Region>),
-    Configuration(Arc<Region>),
-    Package(Arc<Region>),
-    UninstPackage(Arc<Region>),
-    PackageInstance(Arc<Region>),
-    Context(Arc<Region>),
-    LocalPackageInstance(Arc<Region>),
+pub enum Design<'a> {
+    Entity(Visibility<'a>, Region<'a>),
+    Configuration,
+    Package(Visibility<'a>, Region<'a>),
+    UninstPackage(Visibility<'a>, Region<'a>),
+    PackageInstance(Region<'a>),
+    Context(Region<'a>),
+    LocalPackageInstance(Region<'a>),
 }
 
-impl Design {
+impl<'a> Design<'a> {
     pub fn describe(&self) -> &'static str {
         use Design::*;
         match self {
             Entity(..) => "entity",
-            Configuration(..) => "configuration",
+            Configuration => "configuration",
             Package(..) => "package",
             UninstPackage(..) => "uninstantiated package",
             PackageInstance(..) => "package instance",
@@ -47,10 +46,10 @@ impl Design {
 
 // A named entity that is known to be a type
 #[derive(Clone, Debug)]
-pub struct DesignEnt(Arc<AnyEnt>);
+pub struct DesignEnt<'a>(pub EntRef<'a>);
 
-impl DesignEnt {
-    pub fn from_any(ent: Arc<AnyEnt>) -> Result<DesignEnt, Arc<AnyEnt>> {
+impl<'a> DesignEnt<'a> {
+    pub fn from_any(ent: &'a AnyEnt) -> Result<DesignEnt<'a>, EntRef<'a>> {
         if matches!(ent.kind(), AnyEntKind::Design(..)) {
             Ok(DesignEnt(ent))
         } else {
@@ -58,7 +57,7 @@ impl DesignEnt {
         }
     }
 
-    pub fn kind(&self) -> &Design {
+    pub fn kind(&self) -> &Design<'a> {
         if let AnyEntKind::Design(typ) = self.0.kind() {
             typ
         } else {
@@ -70,9 +69,9 @@ impl DesignEnt {
         &self,
         prefix_pos: &SrcPos,
         suffix: &WithPos<WithRef<Designator>>,
-    ) -> Result<NamedEntities, Diagnostic> {
+    ) -> Result<NamedEntities<'a>, Diagnostic> {
         match self.kind() {
-            Design::Package(ref region)
+            Design::Package(_, ref region)
             | Design::PackageInstance(ref region)
             | Design::LocalPackageInstance(ref region) => {
                 if let Some(decl) = region.lookup_immediate(suffix.designator()) {
@@ -90,28 +89,21 @@ impl DesignEnt {
     }
 }
 
-impl From<DesignEnt> for Arc<AnyEnt> {
-    fn from(ent: DesignEnt) -> Self {
+impl<'a> From<DesignEnt<'a>> for EntRef<'a> {
+    fn from(ent: DesignEnt<'a>) -> Self {
         ent.0
     }
 }
 
-impl std::cmp::PartialEq for DesignEnt {
+impl<'a> std::cmp::PartialEq for DesignEnt<'a> {
     fn eq(&self, other: &Self) -> bool {
         self.deref() == other.deref()
     }
 }
 
-impl AsRef<Arc<AnyEnt>> for DesignEnt {
-    fn as_ref(&self) -> &Arc<AnyEnt> {
-        &self.0
-    }
-}
-
-impl Deref for DesignEnt {
-    type Target = Arc<AnyEnt>;
-    fn deref(&self) -> &Arc<AnyEnt> {
-        let val: &Arc<AnyEnt> = self.0.borrow();
-        val
+impl<'a> Deref for DesignEnt<'a> {
+    type Target = AnyEnt<'a>;
+    fn deref(&self) -> EntRef<'a> {
+        self.0
     }
 }

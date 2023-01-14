@@ -4,29 +4,25 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use fnv::{FnvHashMap, FnvHashSet};
-use std::collections::hash_map::Entry;
-
 use super::analyze::*;
 use super::lock::*;
-use super::region::*;
+use super::named_entity::*;
 use super::standard::UniversalTypes;
-use crate::analysis::standard::StandardRegion;
+
 use crate::ast::search::*;
 use crate::ast::*;
 use crate::data::*;
 use crate::syntax::Symbols;
+use fnv::{FnvHashMap, FnvHashSet};
 use parking_lot::RwLock;
+use std::collections::hash_map::Entry;
 use std::sync::Arc;
 
 /// A design unit with design unit data
 pub(super) struct AnalysisData {
     pub diagnostics: Vec<Diagnostic>,
     pub has_circular_dependency: bool,
-
-    // Only for primary units
-    pub root_region: Arc<Region>,
-    pub region: Arc<Region>,
+    pub arena: FinalArena,
 }
 
 pub(super) type UnitReadGuard<'a> = ReadGuard<'a, AnyDesignUnit, AnalysisData>;
@@ -36,6 +32,7 @@ pub(super) type UnitWriteGuard<'a> = WriteGuard<'a, AnyDesignUnit, AnalysisData>
 /// r/w-lock for analysis.
 pub(super) struct LockedUnit {
     ident: Ident,
+    arena_id: ArenaId,
     unit_id: UnitId,
     pub unit: AnalysisLock<AnyDesignUnit, AnalysisData>,
 }
@@ -62,6 +59,7 @@ impl LockedUnit {
 
         LockedUnit {
             ident: unit.ident().clone(),
+            arena_id: ArenaId::default(),
             unit_id,
             unit: AnalysisLock::new(unit),
         }
@@ -80,8 +78,10 @@ impl HasIdent for LockedUnit {
 struct Library {
     name: Symbol,
 
-    /// Named entity corresponding to the library.
-    ent: Arc<AnyEnt>,
+    /// Arena is only used to store the AnyEnt for the library itself
+    /// as there is no other good place to store it
+    arena: FinalArena,
+    id: EntityId,
 
     units: FnvHashMap<UnitKey, LockedUnit>,
     units_by_source: FnvHashMap<Source, FnvHashSet<UnitId>>,
@@ -98,14 +98,18 @@ struct Library {
 
 impl Library {
     fn new(name: Symbol) -> Library {
-        let ent = Arc::new(AnyEnt::new(
+        let arena = Arena::new(ArenaId::default());
+
+        let ent = arena.explicit(
             Designator::Identifier(name.clone()),
             AnyEntKind::Library,
             None,
-        ));
+        );
+
         Library {
             name,
-            ent,
+            id: ent.id(),
+            arena: arena.finalize(),
             units: FnvHashMap::default(),
             units_by_source: FnvHashMap::default(),
             added: FnvHashSet::default(),
@@ -249,9 +253,13 @@ impl Library {
 /// dependencies between design units.
 pub struct DesignRoot {
     pub symbols: Arc<Symbols>,
-    pub standard_pkg: Option<Arc<AnyEnt>>,
+    pub standard_pkg_id: Option<EntityId>,
+    pub standard_arena: Option<FinalArena>,
     pub universal: Option<UniversalTypes>,
     libraries: FnvHashMap<Symbol, Library>,
+
+    // Arena storage of all declaration in the design
+    pub arenas: FinalArena,
 
     // Dependency tracking for incremental analysis.
     // user  =>  set(users)
@@ -269,8 +277,10 @@ impl DesignRoot {
     pub fn new(symbols: Arc<Symbols>) -> DesignRoot {
         DesignRoot {
             universal: None,
-            standard_pkg: None,
+            standard_pkg_id: None,
+            standard_arena: None,
             symbols,
+            arenas: FinalArena::default(),
             libraries: FnvHashMap::default(),
             users_of: RwLock::new(FnvHashMap::default()),
             missing_primary: RwLock::new(FnvHashMap::default()),
@@ -283,7 +293,8 @@ impl DesignRoot {
         match self.libraries.entry(name) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
-                let library = Library::new(entry.key().clone());
+                let name = entry.key().clone();
+                let library = Library::new(name);
                 entry.insert(library)
             }
         }
@@ -303,8 +314,13 @@ impl DesignRoot {
     }
 
     /// Get a named entity corresponding to the library
-    pub(super) fn get_library_ent(&self, library_name: &Symbol) -> Option<&Arc<AnyEnt>> {
-        self.libraries.get(library_name).map(|library| &library.ent)
+    pub(super) fn get_library_arena(
+        &self,
+        library_name: &Symbol,
+    ) -> Option<(&FinalArena, EntityId)> {
+        self.libraries
+            .get(library_name)
+            .map(|library| (&library.arena, library.id))
     }
 
     pub fn add_design_file(&mut self, library_name: Symbol, design_file: DesignFile) {
@@ -324,10 +340,11 @@ impl DesignRoot {
     ///
     /// If the character value is greater than the line length it defaults back to the
     /// line length.
-    pub fn search_reference(&self, source: &Source, cursor: Position) -> Option<Arc<AnyEnt>> {
+    pub fn search_reference<'a>(&'a self, source: &Source, cursor: Position) -> Option<EntRef<'a>> {
         let mut searcher = ItemAtCursor::new(source, cursor);
         let _ = self.search(&mut searcher);
-        searcher.result
+        let id = searcher.result?;
+        Some(self.get_ent(id))
     }
 
     #[cfg(test)]
@@ -336,15 +353,19 @@ impl DesignRoot {
             .and_then(|ent| ent.decl_pos().cloned())
     }
     /// Search for the declaration at decl_pos and format it
-    pub fn format_declaration(&self, ent: Arc<AnyEnt>) -> Option<String> {
-        let mut searcher = FormatDeclaration::new(ent);
-        let _ = self.search(&mut searcher);
-        searcher.result
+    pub fn format_declaration(&self, ent: &AnyEnt) -> Option<String> {
+        if let AnyEntKind::Library = ent.kind() {
+            Some(format!("library {};", ent.designator()))
+        } else {
+            let mut searcher = FormatDeclaration::new(ent);
+            let _ = self.search(&mut searcher);
+            searcher.result
+        }
     }
 
     /// Search for all references to the declaration at decl_pos
-    pub fn find_all_references(&self, ent: Arc<AnyEnt>) -> Vec<SrcPos> {
-        let mut searcher = FindAllReferences::new(ent);
+    pub fn find_all_references(&self, id: EntityId) -> Vec<SrcPos> {
+        let mut searcher = FindAllReferences::new(id);
         let _ = self.search(&mut searcher);
         searcher.references
     }
@@ -358,28 +379,27 @@ impl DesignRoot {
     #[cfg(test)]
     pub fn find_all_references_pos(&self, decl_pos: &SrcPos) -> Vec<SrcPos> {
         if let Some(ent) = self.search_reference(decl_pos.source(), decl_pos.start()) {
-            self.find_all_references(ent)
+            self.find_all_references(ent.id())
         } else {
             Vec::new()
         }
     }
 
     #[cfg(test)]
-    pub fn find_standard_symbol(&self, name: &str) -> Arc<AnyEnt> {
+    pub fn find_standard_symbol(&self, name: &str) -> &AnyEnt {
         let std_lib = self.libraries.get(&self.symbol_utf8("std")).unwrap();
         let unit = std_lib
             .get_unit(&UnitKey::Primary(self.symbol_utf8("standard")))
             .unwrap();
 
         if let AnyPrimaryUnit::Package(pkg) = unit.unit.write().as_primary_mut().unwrap() {
-            if let AnyEntKind::Design(Design::Package(region)) =
-                pkg.ident.decl.as_ref().unwrap().kind()
+            if let AnyEntKind::Design(Design::Package(_, region)) =
+                self.get_ent(pkg.ident.decl.unwrap()).kind()
             {
                 return region
                     .lookup_immediate(&Designator::Identifier(self.symbol_utf8(name)))
                     .unwrap()
                     .as_non_overloaded()
-                    .cloned()
                     .unwrap();
             }
         }
@@ -401,62 +421,47 @@ impl DesignRoot {
         self.symbols.symtab().insert_utf8(name)
     }
 
-    fn analyze_unit<'a>(&self, unit_id: &UnitId, unit: &mut UnitWriteGuard<'a>) {
-        let context = AnalyzeContext::new(self, unit_id);
+    fn analyze_unit<'a>(&self, arena_id: ArenaId, unit_id: &UnitId, unit: &mut UnitWriteGuard<'a>) {
+        // All units reference the standard arena
+        // @TODO keep the same ArenaId when re-using unit
+        let arena = Arena::new(arena_id);
+        let context = AnalyzeContext::new(self, unit_id, &arena);
+        use std::ops::DerefMut;
 
-        let entity_id = EntityId::new();
         let mut diagnostics = Vec::new();
-        let mut root_scope = Scope::new(Region::default());
-        let mut region = Region::default();
+        let mut has_circular_dependency = false;
 
-        let has_circular_dependency = if let Err(err) = context.analyze_design_unit(
-            entity_id,
-            unit,
-            &mut root_scope,
-            &mut region,
-            &mut diagnostics,
-        ) {
-            err.push_into(&mut diagnostics);
-            true
-        } else {
-            false
-        };
+        let result = match unit.deref_mut() {
+            AnyDesignUnit::Primary(unit) => {
+                // Pre-define entity and overwrite it later
+                let ent = arena.explicit(unit.name().clone(), AnyEntKind::Label, Some(unit.pos()));
 
-        let root_region = Arc::new(root_scope.into_region());
-        let region = Arc::new(region);
+                if let Err(err) = context.analyze_primary_unit(ent.id(), unit, &mut diagnostics) {
+                    has_circular_dependency = true;
+                    err.push_into(&mut diagnostics);
+                };
 
-        if let Some(primary_unit) = unit.as_primary_mut() {
-            let region = region.clone();
-            match primary_unit {
-                AnyPrimaryUnit::Entity(entity) => entity
-                    .ident
-                    .define_with_id(entity_id, AnyEntKind::Design(Design::Entity(region))),
-                AnyPrimaryUnit::Configuration(cfg) => cfg
-                    .ident
-                    .define_with_id(entity_id, AnyEntKind::Design(Design::Configuration(region))),
-                AnyPrimaryUnit::Package(package) => package.ident.define_with_id(
-                    entity_id,
-                    if package.generic_clause.is_some() {
-                        AnyEntKind::Design(Design::UninstPackage(region))
-                    } else {
-                        AnyEntKind::Design(Design::Package(region))
-                    },
-                ),
-                AnyPrimaryUnit::PackageInstance(inst) => inst.ident.define_with_id(
-                    entity_id,
-                    AnyEntKind::Design(Design::PackageInstance(region)),
-                ),
-                AnyPrimaryUnit::Context(ctx) => ctx
-                    .ident
-                    .define_with_id(entity_id, AnyEntKind::Design(Design::Context(region))),
-            };
-        };
+                AnalysisData {
+                    arena: arena.finalize(),
+                    diagnostics,
+                    has_circular_dependency,
+                }
+            }
 
-        let result = AnalysisData {
-            diagnostics,
-            root_region,
-            region,
-            has_circular_dependency,
+            AnyDesignUnit::Secondary(unit) => {
+                let mut diagnostics = Vec::new();
+
+                if let Err(err) = context.analyze_secondary_unit(unit, &mut diagnostics) {
+                    has_circular_dependency = true;
+                    err.push_into(&mut diagnostics);
+                };
+
+                AnalysisData {
+                    arena: arena.finalize(),
+                    diagnostics,
+                    has_circular_dependency,
+                }
+            }
         };
 
         unit.finish(result);
@@ -465,7 +470,7 @@ impl DesignRoot {
     pub(super) fn get_analysis<'a>(&self, locked_unit: &'a LockedUnit) -> UnitReadGuard<'a> {
         match locked_unit.unit.entry() {
             AnalysisEntry::Vacant(mut unit) => {
-                self.analyze_unit(locked_unit.unit_id(), &mut unit);
+                self.analyze_unit(locked_unit.arena_id, locked_unit.unit_id(), &mut unit);
                 unit.downgrade()
             }
             AnalysisEntry::Occupied(unit) => unit,
@@ -649,21 +654,30 @@ impl DesignRoot {
             {
                 if let AnalysisEntry::Vacant(mut unit) = standard_pkg.unit.entry() {
                     // Clear to ensure the analysis of standard package does not believe it has the standard package
-                    self.standard_pkg = None;
-                    self.universal = Some(UniversalTypes::new(unit.pos(), self.symbols.as_ref()));
+                    let arena = Arena::new_std();
+                    self.standard_pkg_id = None;
+                    self.standard_arena = None;
+                    self.universal = Some(UniversalTypes::new(
+                        &arena,
+                        unit.pos(),
+                        self.symbols.as_ref(),
+                    ));
 
-                    let context = AnalyzeContext::new(self, standard_pkg.unit_id());
+                    let context = AnalyzeContext::new(self, standard_pkg.unit_id(), &arena);
 
-                    let entity_id = EntityId::new();
+                    let ent = arena.explicit(
+                        self.symbol_utf8("standard"),
+                        AnyEntKind::Label,
+                        Some(unit.pos()),
+                    );
+                    let standard_pkg_id = ent.id();
+
                     let mut diagnostics = Vec::new();
-                    let mut root_scope = Scope::new(Region::default());
-                    let mut region = Region::default();
 
-                    let has_circular_dependency = if let Err(err) = context.analyze_design_unit(
-                        entity_id,
-                        &mut unit,
-                        &mut root_scope,
-                        &mut region,
+                    let has_circular_dependency = if let Err(err) = context.analyze_primary_unit(
+                        ent.id(),
+                        unit.as_primary_mut()
+                            .expect("Expected standard package is primary unit"),
                         &mut diagnostics,
                     ) {
                         err.push_into(&mut diagnostics);
@@ -671,33 +685,13 @@ impl DesignRoot {
                     } else {
                         false
                     };
-
-                    let standard = StandardRegion::new(self, &region);
-                    let implicits = standard.end_of_package_implicits();
-                    for imp in implicits.into_iter() {
-                        region.add(imp, &mut diagnostics);
-                    }
-
-                    let region = Arc::new(region);
-
-                    if let Some(AnyPrimaryUnit::Package(package)) = unit.as_primary_mut() {
-                        let ent = package.ident.define_with_id(
-                            entity_id,
-                            if package.generic_clause.is_some() {
-                                unreachable!("Expected std.standard to not be generic package");
-                            } else {
-                                AnyEntKind::Design(Design::Package(region.clone()))
-                            },
-                        );
-                        self.standard_pkg = Some(ent);
-                    } else {
-                        unreachable!("Expected std.standard to be a package");
-                    }
+                    let arena = arena.finalize();
+                    self.standard_pkg_id = Some(standard_pkg_id);
+                    self.standard_arena = Some(arena.clone());
 
                     let result = AnalysisData {
+                        arena,
                         diagnostics,
-                        root_region: Arc::new(root_scope.into_region()),
-                        region,
                         has_circular_dependency,
                     };
 
@@ -730,6 +724,17 @@ impl DesignRoot {
             self.get_analysis(unit);
         });
 
+        // Rebuild declaration arenas of named entities
+        self.arenas.clear();
+        for library in self.libraries.values() {
+            self.arenas.link(&library.arena);
+            for unit in library.units.values() {
+                if let Some(result) = unit.unit.get() {
+                    self.arenas.link(&result.result().arena);
+                }
+            }
+        }
+
         // Emit diagnostics sorted within a file
         for library in self.libraries.values() {
             for unit_id in library.sorted_unit_ids() {
@@ -737,6 +742,11 @@ impl DesignRoot {
                 diagnostics.append(unit.unit.expect_analyzed().result().diagnostics.clone());
             }
         }
+    }
+
+    /// Get the named entity
+    pub fn get_ent(&self, id: EntityId) -> &AnyEnt {
+        self.arenas.get(id)
     }
 }
 

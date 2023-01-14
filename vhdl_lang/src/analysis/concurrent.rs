@@ -7,6 +7,7 @@
 // These fields are better explicit than .. since we are forced to consider if new fields should be searched
 #![allow(clippy::unneeded_field_pattern)]
 
+use super::named_entity::*;
 use super::*;
 use crate::ast::*;
 use crate::data::*;
@@ -17,7 +18,7 @@ use target::AssignmentType;
 impl<'a> AnalyzeContext<'a> {
     pub fn analyze_concurrent_part(
         &self,
-        scope: &mut Scope<'_>,
+        scope: &mut Scope<'a>,
         statements: &mut [LabeledConcurrentStatement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -30,12 +31,12 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_concurrent_statement(
         &self,
-        scope: &mut Scope<'_>,
+        scope: &mut Scope<'a>,
         statement: &mut LabeledConcurrentStatement,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         if let Some(ref mut label) = statement.label {
-            scope.add(label.define(AnyEntKind::Label), diagnostics);
+            scope.add(label.define(self.arena, AnyEntKind::Label), diagnostics);
         }
 
         match statement.statement {
@@ -88,7 +89,10 @@ impl<'a> AnalyzeContext<'a> {
                 } = gen;
                 self.analyze_discrete_range(scope, discrete_range, diagnostics)?;
                 let mut nested = scope.nested();
-                nested.add(index_name.define(AnyEntKind::LoopParameter), diagnostics);
+                nested.add(
+                    index_name.define(self.arena, AnyEntKind::LoopParameter),
+                    diagnostics,
+                );
                 self.analyze_generate_body(&mut nested, body, diagnostics)?;
             }
             ConcurrentStatement::IfGenerate(ref mut gen) => {
@@ -155,7 +159,7 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_generate_body(
         &self,
-        scope: &mut Scope<'_>,
+        scope: &mut Scope<'a>,
         body: &mut GenerateBody,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -165,7 +169,7 @@ impl<'a> AnalyzeContext<'a> {
             statements,
         } = body;
         if let Some(label) = alternative_label {
-            scope.add(label.define(AnyEntKind::Label), diagnostics);
+            scope.add(label.define(self.arena, AnyEntKind::Label), diagnostics);
         }
         if let Some(ref mut decl) = decl {
             self.analyze_declarative_part(scope, decl, diagnostics)?;
@@ -177,7 +181,7 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_instance(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         instance: &mut InstantiationStatement,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -194,7 +198,7 @@ impl<'a> AnalyzeContext<'a> {
                                 expected,
                             )?;
 
-                            if let AnyEntKind::Design(Design::Entity(ent_region)) = ent.kind() {
+                            if let AnyEntKind::Design(Design::Entity(_, ent_region)) = ent.kind() {
                                 let (generic_region, port_region) = ent_region.to_entity_formal();
 
                                 self.analyze_assoc_elems_with_formal_region(
@@ -262,7 +266,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             InstantiatedUnit::Configuration(ref mut config_name) => {
                 fn is_configuration(kind: &AnyEntKind) -> bool {
-                    matches!(kind, AnyEntKind::Design(Design::Configuration(..)))
+                    matches!(kind, AnyEntKind::Design(Design::Configuration))
                 }
 
                 if let Err(err) =

@@ -9,7 +9,8 @@
 #![allow(clippy::unneeded_field_pattern)]
 
 use super::*;
-pub use crate::analysis::HasNamedEntity;
+use crate::analysis::EntRef;
+pub use crate::analysis::HasEntityId;
 
 #[must_use]
 pub enum SearchResult {
@@ -54,7 +55,6 @@ pub enum FoundDeclaration<'a> {
     Alias(&'a mut AliasDeclaration),
     Function(&'a mut FunctionSpecification),
     Procedure(&'a mut ProcedureSpecification),
-    Library(&'a Ident),
     Package(&'a mut PackageDeclaration),
     PackageInstance(&'a mut PackageInstantiation),
     Configuration(&'a mut ConfigurationDeclaration),
@@ -1034,7 +1034,7 @@ impl Search for LibraryClause {
     fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         for name in self.name_list.iter_mut() {
             return_if_found!(searcher
-                .search_decl(FoundDeclaration::Library(name))
+                .search_pos_with_ref(&name.item.pos, &mut name.reference)
                 .or_not_found());
         }
         NotFound
@@ -1173,7 +1173,7 @@ impl Search for CaseStatement {
 pub struct ItemAtCursor {
     source: Source,
     cursor: Position,
-    pub result: Option<Arc<AnyEnt>>,
+    pub result: Option<EntityId>,
 }
 
 impl ItemAtCursor {
@@ -1206,8 +1206,8 @@ impl Searcher for ItemAtCursor {
     fn search_decl(&mut self, decl: FoundDeclaration) -> SearchState {
         let pos = decl.pos();
         if self.is_inside(pos) {
-            if let Some(ent) = decl.named_entity() {
-                self.result = Some(ent.clone());
+            if let Some(id) = decl.ent_id() {
+                self.result = Some(id);
                 Finished(Found)
             } else {
                 Finished(NotFound)
@@ -1219,8 +1219,8 @@ impl Searcher for ItemAtCursor {
 
     fn search_pos_with_ref(&mut self, pos: &SrcPos, reference: &mut Reference) -> SearchState {
         if self.is_inside(pos) {
-            if let Some(ent) = reference {
-                self.result = Some(ent.clone());
+            if let Some(id) = reference {
+                self.result = Some(*id);
                 Finished(Found)
             } else {
                 Finished(NotFound)
@@ -1241,28 +1241,28 @@ impl Searcher for ItemAtCursor {
 }
 
 // Search for a declaration/definition and format it
-pub struct FormatDeclaration {
-    ent: Arc<AnyEnt>,
+pub struct FormatDeclaration<'a> {
+    ent: EntRef<'a>,
     pub result: Option<String>,
 }
 
-impl FormatDeclaration {
-    pub fn new(ent: Arc<AnyEnt>) -> FormatDeclaration {
+impl<'a> FormatDeclaration<'a> {
+    pub fn new(ent: EntRef<'a>) -> FormatDeclaration<'a> {
         FormatDeclaration { ent, result: None }
     }
 }
 
-impl Searcher for FormatDeclaration {
+impl<'a> Searcher for FormatDeclaration<'a> {
     fn search_decl(&mut self, decl: FoundDeclaration) -> SearchState {
-        let ent = if let Some(ent) = decl.named_entity() {
-            ent
+        let id = if let Some(id) = decl.ent_id() {
+            id
         } else {
             return NotFinished;
         };
 
-        if let Some(ref implicit_of) = self.ent.implicit_of {
+        if let Some(implicit_of) = self.ent.implicit_of {
             // Implicit
-            if implicit_of.id() == ent.id() {
+            if implicit_of.id() == id {
                 self.result = Some(format!(
                     "-- {}\n\n-- Implicitly defined by:\n{}\n",
                     self.ent.describe(),
@@ -1270,7 +1270,7 @@ impl Searcher for FormatDeclaration {
                 ));
                 return Finished(Found);
             }
-        } else if self.ent.id() == ent.id() {
+        } else if self.ent.id() == id {
             // Explicit
             self.result = Some(decl.to_string());
             return Finished(Found);
@@ -1281,14 +1281,14 @@ impl Searcher for FormatDeclaration {
 
 // Search for all references to declaration/definition
 pub struct FindAllReferences {
-    ent: Arc<AnyEnt>,
+    id: EntityId,
     pub references: Vec<SrcPos>,
 }
 
 impl FindAllReferences {
-    pub fn new(ent: Arc<AnyEnt>) -> FindAllReferences {
+    pub fn new(id: EntityId) -> FindAllReferences {
         FindAllReferences {
-            ent,
+            id,
             references: Vec::new(),
         }
     }
@@ -1296,8 +1296,8 @@ impl FindAllReferences {
 
 impl Searcher for FindAllReferences {
     fn search_decl(&mut self, decl: FoundDeclaration) -> SearchState {
-        if let Some(ent) = decl.named_entity() {
-            if self.ent.id() == ent.id() {
+        if let Some(id) = decl.ent_id() {
+            if self.id == id {
                 self.references.push(decl.pos().clone());
             }
         }
@@ -1305,8 +1305,8 @@ impl Searcher for FindAllReferences {
     }
 
     fn search_pos_with_ref(&mut self, pos: &SrcPos, reference: &mut Reference) -> SearchState {
-        if let Some(ent) = reference.as_ref() {
-            if self.ent.id() == ent.id() {
+        if let Some(id) = reference.as_ref() {
+            if self.id == *id {
                 self.references.push(pos.clone());
             }
         };
@@ -1314,32 +1314,31 @@ impl Searcher for FindAllReferences {
     }
 }
 
-impl<'a> HasNamedEntity for FoundDeclaration<'a> {
-    fn named_entity(&self) -> Option<&Arc<AnyEnt>> {
+impl<'a> HasEntityId for FoundDeclaration<'a> {
+    fn ent_id(&self) -> Option<EntityId> {
         match self {
-            FoundDeclaration::InterfaceObject(value) => value.ident.decl.as_ref(),
-            FoundDeclaration::ForIndex(ident, _) => ident.decl.as_ref(),
-            FoundDeclaration::ForGenerateIndex(_, value) => value.index_name.decl.as_ref(),
-            FoundDeclaration::Library(_) => None,
-            FoundDeclaration::Function(value) => value.designator.decl.as_ref(),
-            FoundDeclaration::Procedure(value) => value.designator.decl.as_ref(),
-            FoundDeclaration::Object(value) => value.ident.decl.as_ref(),
-            FoundDeclaration::ElementDeclaration(elem) => elem.ident.decl.as_ref(),
-            FoundDeclaration::EnumerationLiteral(_, elem) => elem.decl.as_ref(),
-            FoundDeclaration::File(value) => value.ident.decl.as_ref(),
-            FoundDeclaration::Type(value) => value.ident.decl.as_ref(),
-            FoundDeclaration::PhysicalTypePrimary(value) => value.decl.as_ref(),
-            FoundDeclaration::PhysicalTypeSecondary(value, _) => value.decl.as_ref(),
-            FoundDeclaration::Component(value) => value.ident.decl.as_ref(),
-            FoundDeclaration::Alias(value) => value.designator.decl.as_ref(),
-            FoundDeclaration::Package(value) => value.ident.decl.as_ref(),
-            FoundDeclaration::PackageInstance(value) => value.ident.decl.as_ref(),
-            FoundDeclaration::Configuration(value) => value.ident.decl.as_ref(),
-            FoundDeclaration::Entity(value) => value.ident.decl.as_ref(),
-            FoundDeclaration::Context(value) => value.ident.decl.as_ref(),
-            FoundDeclaration::GenerateBody(value) => value.decl.as_ref(),
-            FoundDeclaration::ConcurrentStatement(value) => value.decl.as_ref(),
-            FoundDeclaration::SequentialStatement(value) => value.decl.as_ref(),
+            FoundDeclaration::InterfaceObject(value) => value.ident.decl,
+            FoundDeclaration::ForIndex(ident, _) => ident.decl,
+            FoundDeclaration::ForGenerateIndex(_, value) => value.index_name.decl,
+            FoundDeclaration::Function(value) => value.designator.decl,
+            FoundDeclaration::Procedure(value) => value.designator.decl,
+            FoundDeclaration::Object(value) => value.ident.decl,
+            FoundDeclaration::ElementDeclaration(elem) => elem.ident.decl,
+            FoundDeclaration::EnumerationLiteral(_, elem) => elem.decl,
+            FoundDeclaration::File(value) => value.ident.decl,
+            FoundDeclaration::Type(value) => value.ident.decl,
+            FoundDeclaration::PhysicalTypePrimary(value) => value.decl,
+            FoundDeclaration::PhysicalTypeSecondary(value, _) => value.decl,
+            FoundDeclaration::Component(value) => value.ident.decl,
+            FoundDeclaration::Alias(value) => value.designator.decl,
+            FoundDeclaration::Package(value) => value.ident.decl,
+            FoundDeclaration::PackageInstance(value) => value.ident.decl,
+            FoundDeclaration::Configuration(value) => value.ident.decl,
+            FoundDeclaration::Entity(value) => value.ident.decl,
+            FoundDeclaration::Context(value) => value.ident.decl,
+            FoundDeclaration::GenerateBody(value) => value.decl,
+            FoundDeclaration::ConcurrentStatement(value) => value.decl,
+            FoundDeclaration::SequentialStatement(value) => value.decl,
         }
     }
 }
@@ -1350,7 +1349,6 @@ impl<'a> HasSrcPos for FoundDeclaration<'a> {
             FoundDeclaration::InterfaceObject(value) => value.ident.pos(),
             FoundDeclaration::ForIndex(ident, _) => ident.pos(),
             FoundDeclaration::ForGenerateIndex(_, value) => value.index_name.pos(),
-            FoundDeclaration::Library(value) => value.pos(),
             FoundDeclaration::Function(value) => &value.designator.tree.pos,
             FoundDeclaration::Procedure(value) => &value.designator.tree.pos,
             FoundDeclaration::Object(value) => value.ident.pos(),
@@ -1389,9 +1387,6 @@ impl std::fmt::Display for FoundDeclaration<'_> {
                 Some(ident) => write!(f, "{}: {}", ident, value),
                 None => write!(f, "{}", value),
             },
-            FoundDeclaration::Library(ref value) => {
-                write!(f, "library {};", value)
-            }
             FoundDeclaration::Function(ref value) => {
                 write!(f, "{};", value)
             }

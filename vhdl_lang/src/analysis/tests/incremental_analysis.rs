@@ -6,10 +6,12 @@
 
 use super::*;
 use crate::analysis::DesignRoot;
+use crate::analysis::EntityId;
 use crate::ast::search::*;
 use crate::ast::Reference;
 use crate::data::SrcPos;
 use fnv::FnvHashSet;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn incremental_analysis_of_use_within_package() {
@@ -317,8 +319,16 @@ fn check_analysis_equal(got: &mut DesignRoot, expected: &mut DesignRoot) -> Vec<
     let mut expected_searcher = FindAnyReferences::default();
     let _ = expected.search(&mut expected_searcher);
 
-    let got_refs: FnvHashSet<_> = got_searcher.references.into_iter().collect();
-    let expected_refs: FnvHashSet<_> = expected_searcher.references.into_iter().collect();
+    let got_refs: FnvHashSet<_> = got_searcher
+        .references
+        .into_iter()
+        .map(|id| got.get_ent(id).decl_pos())
+        .collect();
+    let expected_refs: FnvHashSet<_> = expected_searcher
+        .references
+        .into_iter()
+        .map(|id| expected.get_ent(id).decl_pos())
+        .collect();
     let diff: FnvHashSet<_> = got_refs.symmetric_difference(&expected_refs).collect();
     assert_eq!(diff, FnvHashSet::default());
 
@@ -329,16 +339,13 @@ fn check_analysis_equal(got: &mut DesignRoot, expected: &mut DesignRoot) -> Vec<
 /// Added to help ensure that there are no references to removed sources
 #[derive(Default)]
 struct FindAnyReferences {
-    references: Vec<SrcPos>,
+    references: Vec<EntityId>,
 }
 
 impl Searcher for FindAnyReferences {
     fn search_pos_with_ref(&mut self, _: &SrcPos, reference: &mut Reference) -> SearchState {
-        if let Some(pos) = reference
-            .as_ref()
-            .and_then(|reference| reference.decl_pos())
-        {
-            self.references.push(pos.clone());
+        if let Some(id) = reference {
+            self.references.push(*id);
         };
         NotFinished
     }

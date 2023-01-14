@@ -4,48 +4,40 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
+use super::named_entity::*;
+use super::standard::StandardRegion;
 use super::*;
 use crate::ast::*;
 use crate::data::*;
 use analyze::*;
 use region::*;
-use root::*;
-use std::ops::Deref;
-use std::sync::Arc;
 
 impl<'a> AnalyzeContext<'a> {
-    pub fn analyze_design_unit(
+    pub fn analyze_primary_unit(
         &self,
         id: EntityId,
-        unit: &mut AnyDesignUnit,
-        root_scope: &mut Scope<'_>,
-        region: &mut Region,
+        unit: &mut AnyPrimaryUnit,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         match unit {
-            AnyDesignUnit::Primary(unit) => match unit {
-                AnyPrimaryUnit::Entity(unit) => {
-                    self.analyze_entity(id, unit, root_scope, region, diagnostics)
-                }
-                AnyPrimaryUnit::Configuration(unit) => {
-                    self.analyze_configuration(unit, diagnostics)
-                }
-                AnyPrimaryUnit::Package(unit) => {
-                    self.analyze_package(id, unit, root_scope, region, diagnostics)
-                }
-                AnyPrimaryUnit::PackageInstance(unit) => {
-                    self.analyze_package_instance(unit, root_scope, region, diagnostics)
-                }
-                AnyPrimaryUnit::Context(unit) => {
-                    self.analyze_context(unit, root_scope, region, diagnostics)
-                }
-            },
-            AnyDesignUnit::Secondary(unit) => match unit {
-                AnySecondaryUnit::Architecture(unit) => {
-                    self.analyze_architecture(id, unit, diagnostics)
-                }
-                AnySecondaryUnit::PackageBody(unit) => self.analyze_package_body(unit, diagnostics),
-            },
+            AnyPrimaryUnit::Entity(unit) => self.analyze_entity(id, unit, diagnostics),
+            AnyPrimaryUnit::Configuration(unit) => self.analyze_configuration(unit, diagnostics),
+            AnyPrimaryUnit::Package(unit) => self.analyze_package(id, unit, diagnostics),
+            AnyPrimaryUnit::PackageInstance(unit) => {
+                self.analyze_package_instance(unit, diagnostics)
+            }
+            AnyPrimaryUnit::Context(unit) => self.analyze_context(unit, diagnostics),
+        }
+    }
+
+    pub fn analyze_secondary_unit(
+        &self,
+        unit: &mut AnySecondaryUnit,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalNullResult {
+        match unit {
+            AnySecondaryUnit::Architecture(unit) => self.analyze_architecture(unit, diagnostics),
+            AnySecondaryUnit::PackageBody(unit) => self.analyze_package_body(unit, diagnostics),
         }
     }
 
@@ -53,26 +45,16 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         id: EntityId,
         unit: &mut EntityDeclaration,
-        root_scope: &mut Scope<'_>,
-        region: &mut Region,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        *root_scope = Scope::default();
-        self.add_implicit_context_clause(root_scope)?;
-        self.analyze_context_clause(root_scope, &mut unit.context_clause, diagnostics)?;
+        let mut root_scope = Scope::default();
+        self.add_implicit_context_clause(&mut root_scope)?;
+        self.analyze_context_clause(&mut root_scope, &mut unit.context_clause, diagnostics)?;
 
         let mut primary_scope = root_scope.nested();
 
         // Entity name is visible
-        primary_scope.make_potentially_visible(
-            Some(unit.pos()),
-            Arc::new(AnyEnt::new_with_id(
-                id,
-                unit.name().into(),
-                AnyEntKind::Label,
-                Some(unit.pos().clone()),
-            )),
-        );
+        primary_scope.make_potentially_visible(Some(unit.pos()), self.arena.get(id));
 
         if let Some(ref mut list) = unit.generic_clause {
             self.analyze_interface_list(&mut primary_scope, list, diagnostics)?;
@@ -83,7 +65,14 @@ impl<'a> AnalyzeContext<'a> {
         self.analyze_declarative_part(&mut primary_scope, &mut unit.decl, diagnostics)?;
         self.analyze_concurrent_part(&mut primary_scope, &mut unit.statements, diagnostics)?;
 
-        *region = primary_scope.into_region();
+        let region = primary_scope.into_region();
+        let visibility = root_scope.into_visibility();
+
+        self.redefine(
+            id,
+            &mut unit.ident,
+            AnyEntKind::Design(Design::Entity(visibility, region)),
+        );
 
         Ok(())
     }
@@ -119,6 +108,10 @@ impl<'a> AnalyzeContext<'a> {
                 err.add_to(diagnostics)?;
             }
         };
+
+        self.arena
+            .define(&mut unit.ident, AnyEntKind::Design(Design::Configuration));
+
         Ok(())
     }
 
@@ -126,26 +119,16 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         id: EntityId,
         unit: &mut PackageDeclaration,
-        root_scope: &mut Scope<'_>,
-        region: &mut Region,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        *root_scope = Scope::default();
-        self.add_implicit_context_clause(root_scope)?;
-        self.analyze_context_clause(root_scope, &mut unit.context_clause, diagnostics)?;
+        let mut root_scope = Scope::default();
+        self.add_implicit_context_clause(&mut root_scope)?;
+        self.analyze_context_clause(&mut root_scope, &mut unit.context_clause, diagnostics)?;
 
         let mut scope = root_scope.nested().in_package_declaration();
 
         // Package name is visible
-        scope.make_potentially_visible(
-            Some(unit.pos()),
-            Arc::new(AnyEnt::new_with_id(
-                id,
-                unit.name().into(),
-                AnyEntKind::Label,
-                Some(unit.pos().clone()),
-            )),
-        );
+        scope.make_potentially_visible(Some(unit.pos()), self.arena.get(id));
 
         if let Some(ref mut list) = unit.generic_clause {
             self.analyze_interface_list(&mut scope, list, diagnostics)?;
@@ -156,7 +139,30 @@ impl<'a> AnalyzeContext<'a> {
             scope.close(diagnostics);
         }
 
-        *region = scope.into_region();
+        let mut region = scope.into_region();
+
+        if self.is_standard_package() {
+            let implicits = {
+                let standard = StandardRegion::new(self.root, self.arena, &region);
+                standard.end_of_package_implicits(self.arena)
+            };
+
+            for imp in implicits.into_iter() {
+                region.add(imp, diagnostics);
+            }
+        }
+
+        let visibility = root_scope.into_visibility();
+
+        self.redefine(
+            id,
+            &mut unit.ident,
+            if unit.generic_clause.is_some() {
+                AnyEntKind::Design(Design::UninstPackage(visibility, region))
+            } else {
+                AnyEntKind::Design(Design::Package(visibility, region))
+            },
+        );
 
         Ok(())
     }
@@ -164,17 +170,18 @@ impl<'a> AnalyzeContext<'a> {
     fn analyze_package_instance(
         &self,
         unit: &mut PackageInstantiation,
-        root_scope: &mut Scope<'_>,
-        region: &mut Region,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        *root_scope = Scope::default();
-        self.add_implicit_context_clause(root_scope)?;
-        self.analyze_context_clause(root_scope, &mut unit.context_clause, diagnostics)?;
+        let mut root_scope = Scope::default();
+        self.add_implicit_context_clause(&mut root_scope)?;
+        self.analyze_context_clause(&mut root_scope, &mut unit.context_clause, diagnostics)?;
 
-        match self.analyze_package_instance_name(root_scope, &mut unit.package_name) {
+        match self.analyze_package_instance_name(&root_scope, &mut unit.package_name) {
             Ok(package_region) => {
-                *region = (*package_region).clone();
+                self.arena.define(
+                    &mut unit.ident,
+                    AnyEntKind::Design(Design::PackageInstance(package_region.clone())),
+                );
                 Ok(())
             }
             Err(AnalysisError::NotFatal(diagnostic)) => {
@@ -188,60 +195,62 @@ impl<'a> AnalyzeContext<'a> {
     fn analyze_context(
         &self,
         unit: &mut ContextDeclaration,
-        root_scope: &mut Scope<'_>,
-        region: &mut Region,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        *root_scope = Scope::default();
-        self.add_implicit_context_clause(root_scope)?;
+        let mut root_scope = Scope::default();
+        self.add_implicit_context_clause(&mut root_scope)?;
         let mut scope = root_scope.nested();
         self.analyze_context_clause(&mut scope, &mut unit.items, diagnostics)?;
-        *region = scope.into_region();
+
+        self.arena.define(
+            &mut unit.ident,
+            AnyEntKind::Design(Design::Context(scope.into_region())),
+        );
+
         Ok(())
     }
 
     fn analyze_architecture(
         &self,
-        id: EntityId,
         unit: &mut ArchitectureBody,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        unit.entity_name.clear_reference();
-
-        let entity = self.lookup_primary_unit(
-            unit.primary_ident(),
-            PrimaryKind::Entity,
-            unit.pos(),
-            diagnostics,
-        )?;
-        // @TODO maybe add more fatal results
-        let entity = if let Some(entity) = entity {
-            entity
-        } else {
-            return Ok(());
-        };
-
-        // Set architecture entity name reference to named entity
-        if let AnyDesignUnit::Primary(primary) = entity.deref() {
-            if let Some(named_entity) = primary.named_entity() {
-                unit.entity_name.set_unique_reference(named_entity);
+        let primary = match self.lookup_in_library(
+            self.work_library_name(),
+            &unit.entity_name.item.pos,
+            &Designator::Identifier(unit.entity_name.item.item.clone()),
+            &mut unit.entity_name.reference,
+        ) {
+            Ok(primary) => primary,
+            Err(err) => {
+                diagnostics.push(err.into_non_fatal()?);
+                return Ok(());
             }
-        }
+        };
+        self.check_secondary_before_primary(&primary, unit.pos(), diagnostics);
 
-        let parent = Scope::new_borrowed(entity.result().root_region.as_ref());
-        let mut root_scope = Scope::default().with_parent(&parent);
+        let (visibility, region) =
+            if let Design::Entity(ref visibility, ref region) = primary.kind() {
+                (visibility, region)
+            } else {
+                let mut diagnostic = Diagnostic::error(unit.pos(), "Expected an entity");
+
+                if let Some(pos) = primary.decl_pos() {
+                    diagnostic.add_related(pos, format!("Found {}", primary.describe()))
+                }
+
+                return Ok(());
+            };
+
+        let mut root_scope = Scope::new(Region::with_visibility(visibility.clone()));
         self.analyze_context_clause(&mut root_scope, &mut unit.context_clause, diagnostics)?;
-        let mut scope = Scope::extend(&entity.result().region, Some(&root_scope));
+        let mut scope = Scope::extend(region, Some(&root_scope));
 
         // Architecture name is visible
         scope.make_potentially_visible(
             Some(unit.pos()),
-            Arc::new(AnyEnt::new_with_id(
-                id,
-                unit.name().into(),
-                AnyEntKind::Label,
-                Some(unit.pos().clone()),
-            )),
+            self.arena
+                .explicit(unit.name().clone(), AnyEntKind::Label, Some(unit.pos())),
         );
 
         self.analyze_declarative_part(&mut scope, &mut unit.decl, diagnostics)?;
@@ -255,89 +264,71 @@ impl<'a> AnalyzeContext<'a> {
         unit: &mut PackageBody,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
-        unit.ident.clear_reference();
+        let primary = match self.lookup_in_library(
+            self.work_library_name(),
+            &unit.ident.item.pos,
+            &Designator::Identifier(unit.ident.item.item.clone()),
+            &mut unit.ident.reference,
+        ) {
+            Ok(primary) => primary,
+            Err(err) => {
+                diagnostics.push(err.into_non_fatal()?);
+                return Ok(());
+            }
+        };
+        self.check_secondary_before_primary(&primary, unit.pos(), diagnostics);
 
-        let package = self.lookup_primary_unit(
-            unit.primary_ident(),
-            PrimaryKind::Package,
-            unit.pos(),
-            diagnostics,
-        )?;
-        // @TODO maybe add more fatal results
-        let package = if let Some(package) = package {
-            package
-        } else {
-            return Ok(());
+        let (visibility, region) = match primary.kind() {
+            Design::Package(ref visibility, ref region)
+            | Design::UninstPackage(ref visibility, ref region) => (visibility, region),
+            _ => {
+                let mut diagnostic = Diagnostic::error(unit.pos(), "Expected a package");
+
+                if let Some(pos) = primary.decl_pos() {
+                    diagnostic.add_related(pos, format!("Found {}", primary.describe()))
+                }
+
+                return Ok(());
+            }
         };
 
-        // Set package body package name reference to package named entity
-        if let AnyDesignUnit::Primary(primary) = package.deref() {
-            if let Some(named_entity) = primary.named_entity() {
-                unit.ident.set_unique_reference(named_entity);
-            }
-        }
-
         // @TODO make pattern of primary/secondary extension
-        let parent = Scope::new_borrowed(package.result().root_region.as_ref());
-        let mut root_scope = Scope::default().with_parent(&parent);
+        let mut root_scope = Scope::new(Region::with_visibility(visibility.clone()));
+
         self.analyze_context_clause(&mut root_scope, &mut unit.context_clause, diagnostics)?;
 
-        let mut scope = Scope::extend(&package.result().region, Some(&root_scope));
+        let mut scope = Scope::extend(region, Some(&root_scope));
 
         self.analyze_declarative_part(&mut scope, &mut unit.decl, diagnostics)?;
         scope.close(diagnostics);
         Ok(())
     }
 
-    fn lookup_primary_unit(
+    fn check_secondary_before_primary(
         &self,
-        primary_ident: &Ident,
-        primary_kind: PrimaryKind,
+        primary: &DesignEnt,
         secondary_pos: &SrcPos,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<UnitReadGuard<'a>>> {
-        let unit = {
-            if let Some(data) = self.get_primary_analysis(
-                primary_ident.pos(),
-                self.work_library_name(),
-                primary_ident.name(),
-                primary_kind,
-            ) {
-                data?
-            } else {
+    ) {
+        if let Some(primary_pos) = primary.decl_pos() {
+            if primary_pos.source == secondary_pos.source
+                && primary_pos.start() > secondary_pos.start()
+            {
                 diagnostics.push(Diagnostic::error(
-                    primary_ident.pos(),
+                    secondary_pos,
                     format!(
-                        "No {} '{}' within library '{}'",
-                        primary_kind.describe(),
-                        primary_ident.name(),
-                        self.work_library_name()
+                        "{} declared before {}",
+                        capitalize(&self.current_unit_id().describe()),
+                        primary.describe(),
                     ),
                 ));
-                return Ok(None);
             }
-        };
-
-        let primary_pos = unit.pos();
-        if primary_pos.source == secondary_pos.source && primary_pos.start() > secondary_pos.start()
-        {
-            diagnostics.push(Diagnostic::error(
-                secondary_pos,
-                format!(
-                    "{} declared before {} '{}'",
-                    capitalize(&self.current_unit_id().describe()),
-                    primary_kind.describe(),
-                    unit.name()
-                ),
-            ));
         }
-
-        Ok(Some(unit))
     }
 
     fn lookup_entity_for_configuration(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         config: &mut ConfigurationDeclaration,
     ) -> AnalysisResult<DesignEnt> {
         let ent_name = &mut config.entity_name;
@@ -399,9 +390,9 @@ impl<'a> AnalyzeContext<'a> {
 
     fn resolve_context_item_prefix(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         prefix: &mut WithPos<Name>,
-    ) -> AnalysisResult<Arc<AnyEnt>> {
+    ) -> AnalysisResult<EntRef<'a>> {
         match self.resolve_context_item_name(scope, prefix)? {
             UsedNames::Single(visible) => visible.into_non_overloaded().map_err(|_| {
                 AnalysisError::not_fatal_error(&prefix, "Invalid prefix of a selected name")
@@ -415,15 +406,15 @@ impl<'a> AnalyzeContext<'a> {
 
     fn resolve_context_item_name(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         name: &mut WithPos<Name>,
-    ) -> AnalysisResult<UsedNames> {
+    ) -> AnalysisResult<UsedNames<'a>> {
         match &mut name.item {
             Name::Selected(ref mut prefix, ref mut suffix) => {
                 suffix.clear_reference();
                 let prefix_ent = self.resolve_context_item_prefix(scope, prefix)?;
 
-                let visible = self.lookup_selected(&prefix.pos, &prefix_ent, suffix)?;
+                let visible = self.lookup_selected(&prefix.pos, prefix_ent, suffix)?;
                 suffix.set_reference(&visible);
                 Ok(UsedNames::Single(visible))
             }
@@ -438,6 +429,7 @@ impl<'a> AnalyzeContext<'a> {
                 designator.set_reference(&visible);
                 Ok(UsedNames::Single(visible))
             }
+
             Name::Indexed(..)
             | Name::Slice(..)
             | Name::Attribute(..)
@@ -451,24 +443,27 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_context_clause(
         &self,
-        scope: &mut Scope<'_>,
+        scope: &mut Scope<'a>,
         context_clause: &mut [WithPos<ContextItem>],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         for context_item in context_clause.iter_mut() {
             match context_item.item {
-                ContextItem::Library(LibraryClause { ref name_list }) => {
-                    for library_name in name_list.iter() {
-                        if self.work_sym == library_name.item {
+                ContextItem::Library(LibraryClause { ref mut name_list }) => {
+                    for library_name in name_list.iter_mut() {
+                        library_name.clear_reference();
+
+                        if self.work_sym == library_name.item.item {
                             diagnostics.push(Diagnostic::hint(
-                                library_name,
+                                &library_name.item,
                                 "Library clause not necessary for current working library",
                             ))
-                        } else if let Some(library) = self.get_library(&library_name.item) {
-                            scope.make_potentially_visible(Some(&library_name.pos), library);
+                        } else if let Some(library) = self.get_library(&library_name.item.item) {
+                            library_name.set_unique_reference(library);
+                            scope.make_potentially_visible(Some(&library_name.item.pos), library);
                         } else {
                             diagnostics.push(Diagnostic::error(
-                                library_name,
+                                &library_name.item,
                                 format!("No such library '{}'", library_name.item),
                             ));
                         }
@@ -531,7 +526,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_use_clause(
         &self,
-        scope: &mut Scope<'_>,
+        scope: &mut Scope<'a>,
         use_clause: &mut UseClause,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -561,11 +556,11 @@ impl<'a> AnalyzeContext<'a> {
                         AnyEntKind::Design(design) => match design {
                             Design::UninstPackage(..) => {
                                 diagnostics.push(Diagnostic::invalid_selected_name_prefix(
-                                    &named_entity,
+                                    named_entity,
                                     &visibility_pos,
                                 ));
                             }
-                            Design::Package(ref primary_region)
+                            Design::Package(_, ref primary_region)
                             | Design::PackageInstance(ref primary_region)
                             | Design::LocalPackageInstance(ref primary_region) => {
                                 scope.make_all_potentially_visible(Some(&name.pos), primary_region);
@@ -593,12 +588,13 @@ impl<'a> AnalyzeContext<'a> {
     /// Returns a reference to the the uninstantiated package
     pub fn analyze_package_instance_name(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         package_name: &mut WithPos<SelectedName>,
-    ) -> AnalysisResult<Arc<Region>> {
+    ) -> AnalysisResult<Region<'a>> {
         let decl = self.resolve_selected_name(scope, package_name)?;
 
-        if let AnyEntKind::Design(Design::UninstPackage(ref package_region)) = decl.first_kind() {
+        if let AnyEntKind::Design(Design::UninstPackage(_, ref package_region)) = decl.first_kind()
+        {
             Ok(package_region.clone())
         } else {
             Err(AnalysisError::not_fatal_error(
@@ -612,10 +608,10 @@ impl<'a> AnalyzeContext<'a> {
     }
 }
 
-pub enum UsedNames {
+pub enum UsedNames<'a> {
     /// A single name was used selected
-    Single(NamedEntities),
+    Single(NamedEntities<'a>),
     /// All names within was selected
     /// @TODO add pos for where declaration was made visible into VisibleDeclaration
-    AllWithin(SrcPos, Arc<AnyEnt>),
+    AllWithin(SrcPos, EntRef<'a>),
 }

@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::analysis::{AnyEnt, DesignRoot};
+use crate::analysis::{AnyEnt, DesignRoot, EntRef, EntityId};
 use crate::ast::DesignFile;
 use crate::config::Config;
 use crate::data::*;
@@ -12,7 +12,6 @@ use crate::syntax::VHDLParser;
 use fnv::{FnvHashMap, FnvHashSet};
 use std::collections::hash_map::Entry;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 pub struct Project {
     parser: VHDLParser,
@@ -223,18 +222,18 @@ impl Project {
     ///
     /// If the character value is greater than the line length it defaults back to the
     /// line length.
-    pub fn search_reference(&self, source: &Source, cursor: Position) -> Option<Arc<AnyEnt>> {
+    pub fn search_reference<'a>(&'a self, source: &Source, cursor: Position) -> Option<EntRef<'a>> {
         self.root.search_reference(source, cursor)
     }
 
     /// Search for the declaration at decl_pos and format it
-    pub fn format_declaration(&self, ent: Arc<AnyEnt>) -> Option<String> {
+    pub fn format_declaration(&self, ent: &AnyEnt) -> Option<String> {
         self.root.format_declaration(ent)
     }
 
     /// Search for all references to the declaration at decl_pos
-    pub fn find_all_references(&self, ent: Arc<AnyEnt>) -> Vec<SrcPos> {
-        self.root.find_all_references(ent)
+    pub fn find_all_references(&self, id: EntityId) -> Vec<SrcPos> {
+        self.root.find_all_references(id)
     }
 
     /// Get source positions that are not resolved to a declaration

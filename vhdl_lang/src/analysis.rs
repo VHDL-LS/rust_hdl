@@ -30,4 +30,4 @@ mod visibility;
 mod tests;
 
 pub use self::root::DesignRoot;
-pub use named_entity::{AnyEnt, AnyEntKind, HasNamedEntity};
+pub use named_entity::{AnyEnt, AnyEntKind, EntRef, EntityId, HasEntityId};

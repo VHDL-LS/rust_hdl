@@ -1,4 +1,5 @@
 use super::analyze::*;
+use super::named_entity::*;
 use super::names::*;
 use super::region::*;
 use crate::ast::*;
@@ -13,11 +14,11 @@ use crate::data::*;
 impl<'a> AnalyzeContext<'a> {
     pub fn resolve_target(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         target: &mut WithPos<Target>,
         assignment_type: AssignmentType,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<TypeEnt>> {
+    ) -> FatalResult<Option<TypeEnt<'a>>> {
         match target.item {
             Target::Name(ref mut name) => {
                 self.resolve_target_name(scope, name, &target.pos, assignment_type, diagnostics)
@@ -31,12 +32,12 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn resolve_target_name(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         target: &mut Name,
         target_pos: &SrcPos,
         assignment_type: AssignmentType,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<TypeEnt>> {
+    ) -> FatalResult<Option<TypeEnt<'a>>> {
         match self.resolve_object_prefix(
             scope,
             target_pos,
@@ -68,7 +69,7 @@ impl<'a> AnalyzeContext<'a> {
                             ),
                         ));
                     }
-                    Ok(Some(type_mark.clone()))
+                    Ok(Some(*type_mark))
                 } else {
                     diagnostics.push(Diagnostic::error(target_pos, "Invalid assignment target"));
                     Ok(None)

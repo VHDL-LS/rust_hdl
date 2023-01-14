@@ -6,6 +6,7 @@
 
 use super::analyze::*;
 use super::formal_region::FormalRegion;
+use super::named_entity::*;
 use super::region::*;
 use super::semantic::TypeCheck;
 use crate::ast::search::clear_references;
@@ -16,9 +17,9 @@ impl<'a> AnalyzeContext<'a> {
     #[allow(clippy::too_many_arguments)]
     pub fn resolve_overloaded_with_target_type(
         &self,
-        scope: &Scope<'_>,
-        overloaded: OverloadedName,
-        target_type: Option<&TypeEnt>,
+        scope: &Scope<'a>,
+        overloaded: OverloadedName<'a>,
+        target_type: Option<TypeEnt<'a>>,
         pos: &SrcPos,
         designator: &Designator,
         reference: &mut Reference,
@@ -83,7 +84,7 @@ impl<'a> AnalyzeContext<'a> {
             Ok(TypeCheck::Unknown)
         } else if let &[ent] = good.as_slice() {
             // Unique correct match
-            reference.set_unique_reference(ent.inner());
+            reference.set_unique_reference(&ent);
             self.analyze_parameters_with_formal_region(
                 pos,
                 ent.formals(),
@@ -94,7 +95,7 @@ impl<'a> AnalyzeContext<'a> {
             Ok(TypeCheck::Ok)
         } else if let &[ent] = bad.as_slice() {
             // Unique incorrect match
-            reference.set_unique_reference(ent.inner());
+            reference.set_unique_reference(&ent);
             if parameters.is_empty() && ent.formals().is_empty() {
                 // Typically enumeration literals such as character, boolean
                 // We provide a better diagnostic for those
@@ -136,8 +137,8 @@ impl<'a> AnalyzeContext<'a> {
     fn analyze_parameters_with_formal_region(
         &self,
         error_pos: &SrcPos, // The position of the instance/call-site
-        formal_region: &FormalRegion,
-        scope: &Scope<'_>,
+        formal_region: &'a FormalRegion<'a>,
+        scope: &Scope<'a>,
         parameters: &mut ParametersMut<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<TypeCheck> {
@@ -203,7 +204,7 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_parameters(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         parameters: &mut ParametersMut<'_>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {

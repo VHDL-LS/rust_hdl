@@ -155,13 +155,6 @@ macro_rules! delegate_any {
 }
 
 impl AnyKind {
-    pub fn kind_of(unit: &AnyDesignUnit) -> AnyKind {
-        match unit {
-            AnyDesignUnit::Primary(unit) => AnyKind::Primary(PrimaryKind::kind_of(unit)),
-            AnyDesignUnit::Secondary(unit) => AnyKind::Secondary(SecondaryKind::kind_of(unit)),
-        }
-    }
-
     pub fn describe(&self) -> &str {
         match self {
             AnyKind::Primary(kind) => kind.describe(),

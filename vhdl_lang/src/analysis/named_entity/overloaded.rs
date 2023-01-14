@@ -3,24 +3,22 @@
 //! You can obtain one at http://mozilla.org/MPL/2.0/.
 //!
 //! Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
-
-use std::sync::Arc;
-
 use crate::analysis::formal_region::FormalRegion;
 
 use super::AnyEnt;
 use super::AnyEntKind;
+use super::EntRef;
 use super::EntityId;
 use super::TypeEnt;
 
-pub enum Overloaded {
-    SubprogramDecl(Signature),
-    Subprogram(Signature),
-    EnumLiteral(Signature),
-    Alias(OverloadedEnt),
+pub enum Overloaded<'a> {
+    SubprogramDecl(Signature<'a>),
+    Subprogram(Signature<'a>),
+    EnumLiteral(Signature<'a>),
+    Alias(OverloadedEnt<'a>),
 }
 
-impl Overloaded {
+impl<'a> Overloaded<'a> {
     pub fn describe(&self) -> &'static str {
         use Overloaded::*;
         match self {
@@ -36,7 +34,7 @@ impl Overloaded {
         }
     }
 
-    pub fn signature(&self) -> &Signature {
+    pub fn signature(&'a self) -> &'a Signature<'a> {
         match self {
             Overloaded::Subprogram(ref signature)
             | Overloaded::SubprogramDecl(ref signature)
@@ -47,14 +45,14 @@ impl Overloaded {
 }
 
 #[derive(Clone)]
-pub struct Signature {
+pub struct Signature<'a> {
     /// Vector of InterfaceObject or InterfaceFile
-    pub formals: FormalRegion,
-    return_type: Option<TypeEnt>,
+    pub formals: FormalRegion<'a>,
+    return_type: Option<TypeEnt<'a>>,
 }
 
-impl Signature {
-    pub fn new(formals: FormalRegion, return_type: Option<TypeEnt>) -> Signature {
+impl<'a> Signature<'a> {
+    pub fn new(formals: FormalRegion<'a>, return_type: Option<TypeEnt<'a>>) -> Signature<'a> {
         Signature {
             formals,
             return_type: return_type.as_ref().map(TypeEnt::to_owned),
@@ -105,7 +103,7 @@ impl Signature {
         self.formals.iter().all(|formal| formal.has_default())
     }
 
-    pub fn can_be_called_with_single_parameter(&self, typ: &TypeEnt) -> bool {
+    pub fn can_be_called_with_single_parameter(&self, typ: TypeEnt<'a>) -> bool {
         let mut formals = self.formals.iter();
         if let Some(first) = formals.next() {
             if formals.all(|formal| formal.has_default()) {
@@ -115,11 +113,11 @@ impl Signature {
         false
     }
 
-    pub fn return_type(&self) -> Option<&TypeEnt> {
-        self.return_type.as_ref()
+    pub fn return_type(&self) -> Option<TypeEnt<'a>> {
+        self.return_type
     }
 
-    pub fn match_return_type(&self, typ: Option<&TypeEnt>) -> bool {
+    pub fn match_return_type(&self, typ: Option<TypeEnt<'a>>) -> bool {
         self.return_type().map(|ent| ent.base_type()) == typ.map(|ent| ent.base_type())
     }
 }
@@ -139,13 +137,13 @@ impl SignatureKey {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct OverloadedEnt {
-    ent: Arc<AnyEnt>,
+#[derive(Clone, Copy, Debug)]
+pub struct OverloadedEnt<'a> {
+    ent: EntRef<'a>,
 }
 
-impl OverloadedEnt {
-    pub fn from_any(ent: Arc<AnyEnt>) -> Result<Self, Arc<AnyEnt>> {
+impl<'a> OverloadedEnt<'a> {
+    pub fn from_any(ent: &'a AnyEnt) -> Result<Self, EntRef<'a>> {
         if let AnyEntKind::Overloaded(..) = ent.actual_kind() {
             Ok(OverloadedEnt { ent })
         } else {
@@ -153,7 +151,7 @@ impl OverloadedEnt {
         }
     }
 
-    pub fn kind(&self) -> &Overloaded {
+    pub fn kind(&self) -> &'a Overloaded<'a> {
         if let AnyEntKind::Overloaded(kind) = self.ent.actual_kind() {
             kind
         } else {
@@ -161,11 +159,11 @@ impl OverloadedEnt {
         }
     }
 
-    pub fn signature(&self) -> &Signature {
+    pub fn signature(&self) -> &'a Signature<'a> {
         self.kind().signature()
     }
 
-    pub fn return_type(&self) -> Option<&TypeEnt> {
+    pub fn return_type(&self) -> Option<TypeEnt<'a>> {
         self.signature().return_type()
     }
 
@@ -190,24 +188,20 @@ impl OverloadedEnt {
             .any(|typ| typ.type_mark().is_generic())
     }
 
-    pub fn formals(&self) -> &FormalRegion {
+    pub fn formals(&self) -> &'a FormalRegion<'a> {
         &self.signature().formals
     }
+}
 
-    pub fn inner(&self) -> &Arc<AnyEnt> {
-        &self.ent
+impl<'a> std::ops::Deref for OverloadedEnt<'a> {
+    type Target = AnyEnt<'a>;
+    fn deref(&self) -> EntRef<'a> {
+        self.ent
     }
 }
 
-impl std::ops::Deref for OverloadedEnt {
-    type Target = AnyEnt;
-    fn deref(&self) -> &AnyEnt {
-        &self.ent
-    }
-}
-
-impl From<OverloadedEnt> for Arc<AnyEnt> {
-    fn from(value: OverloadedEnt) -> Self {
+impl<'a> From<OverloadedEnt<'a>> for EntRef<'a> {
+    fn from(value: OverloadedEnt<'a>) -> Self {
         value.ent
     }
 }

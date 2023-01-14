@@ -6,6 +6,7 @@ use fnv::FnvHashSet;
 //
 // Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 use super::analyze::*;
+use super::named_entity::*;
 use super::region::*;
 use crate::ast::*;
 use crate::data::*;
@@ -15,8 +16,8 @@ impl<'a> AnalyzeContext<'a> {
     /// None if it was uncertain
     pub fn analyze_literal_with_target_type(
         &self,
-        scope: &Scope<'_>,
-        target_type: &TypeEnt,
+        scope: &Scope<'a>,
+        target_type: TypeEnt<'a>,
         pos: &SrcPos,
         literal: &mut Literal,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -171,7 +172,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn resolve_physical_unit(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         unit: &mut WithRef<Ident>,
     ) -> Result<TypeEnt, Diagnostic> {
         match scope.lookup(
@@ -179,9 +180,9 @@ impl<'a> AnalyzeContext<'a> {
             &Designator::Identifier(unit.item.item.clone()),
         )? {
             NamedEntities::Single(unit_ent) => {
-                unit.set_unique_reference(&unit_ent);
+                unit.set_unique_reference(unit_ent);
                 if let AnyEntKind::PhysicalLiteral(physical_ent) = unit_ent.actual_kind() {
-                    Ok(physical_ent.clone())
+                    Ok(*physical_ent)
                 } else {
                     Err(Diagnostic::error(
                         &unit.item.pos,
@@ -198,14 +199,14 @@ impl<'a> AnalyzeContext<'a> {
 }
 
 /// Must be an array type with a single index of enum type
-fn as_single_index_enum_array(typ: &TypeEnt) -> Option<(&TypeEnt, &FnvHashSet<Designator>)> {
+fn as_single_index_enum_array(typ: TypeEnt) -> Option<(TypeEnt, &FnvHashSet<Designator>)> {
     if let Type::Array {
         indexes, elem_type, ..
     } = typ.kind()
     {
         if indexes.len() == 1 {
             if let Type::Enum(_, literals) = elem_type.base_type().kind() {
-                return Some((elem_type, literals));
+                return Some((*elem_type, literals));
             }
         }
     }

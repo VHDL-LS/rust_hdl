@@ -151,7 +151,7 @@ end architecture;
         builder.analyze(),
         vec![Diagnostic::error(
             code.s("missing", 1),
-            "No entity 'missing' within library 'libname'",
+            "No primary unit 'missing' within library 'libname'",
         )],
     );
 }
@@ -196,7 +196,7 @@ end package body;
         builder.analyze(),
         vec![Diagnostic::error(
             code.s("missing", 1),
-            "No package 'missing' within library 'libname'",
+            "No primary unit 'missing' within library 'libname'",
         )],
     );
 }

@@ -5,10 +5,10 @@
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
 use super::analyze::*;
+use super::named_entity::*;
 use super::region::*;
 use crate::ast::*;
 use crate::data::*;
-use std::sync::Arc;
 
 macro_rules! try_unknown {
     ($expr:expr) => {
@@ -22,13 +22,13 @@ macro_rules! try_unknown {
 }
 
 #[derive(Debug)]
-pub enum ObjectBase {
-    Object(ObjectEnt),
+pub enum ObjectBase<'a> {
+    Object(ObjectEnt<'a>),
     DeferredConstant,
     ExternalName(ExternalObjectClass),
 }
 
-impl ObjectBase {
+impl<'a> ObjectBase<'a> {
     pub fn mode(&self) -> Option<Mode> {
         match self {
             ObjectBase::Object(object) => object.mode(),
@@ -59,22 +59,22 @@ impl ObjectBase {
 }
 
 #[derive(Debug)]
-pub enum ResolvedName {
+pub enum ResolvedName<'a> {
     Library(Symbol),
-    Design(DesignEnt),
-    Type(TypeEnt),
-    Overloaded(OverloadedName),
+    Design(DesignEnt<'a>),
+    Type(TypeEnt<'a>),
+    Overloaded(OverloadedName<'a>),
     ObjectSelection {
-        base: ObjectBase,
-        type_mark: TypeEnt,
+        base: ObjectBase<'a>,
+        type_mark: TypeEnt<'a>,
     },
     // Something that cannot be further selected
-    Final(Arc<AnyEnt>),
+    Final(EntRef<'a>),
 }
 
-impl ResolvedName {
+impl<'a> ResolvedName<'a> {
     /// The name was selected out of a design unit
-    fn from_design(ent: Arc<AnyEnt>) -> Result<Self, String> {
+    fn from_design(ent: &'a AnyEnt) -> Result<Self, String> {
         let name = match ent.kind() {
             AnyEntKind::Object(object) => {
                 let type_mark = object.subtype.type_mark().to_owned();
@@ -92,11 +92,11 @@ impl ResolvedName {
             },
             AnyEntKind::ExternalAlias { class, type_mark } => ResolvedName::ObjectSelection {
                 base: ObjectBase::ExternalName(*class),
-                type_mark: type_mark.clone(),
+                type_mark: *type_mark,
             },
             AnyEntKind::DeferredConstant(subtype) => ResolvedName::ObjectSelection {
                 base: ObjectBase::DeferredConstant,
-                type_mark: subtype.type_mark().clone(),
+                type_mark: subtype.type_mark(),
             },
             AnyEntKind::Type(_) => ResolvedName::Type(TypeEnt::from_any(ent).unwrap()),
             AnyEntKind::Overloaded(_) => ResolvedName::Overloaded(OverloadedName::single(
@@ -105,7 +105,7 @@ impl ResolvedName {
             AnyEntKind::File(_)
             | AnyEntKind::InterfaceFile(_)
             | AnyEntKind::Component(_)
-            | AnyEntKind::PhysicalLiteral(_) => ResolvedName::Final(ent.clone()),
+            | AnyEntKind::PhysicalLiteral(_) => ResolvedName::Final(ent),
             AnyEntKind::Design(_)
             | AnyEntKind::Library
             | AnyEntKind::Attribute
@@ -123,7 +123,7 @@ impl ResolvedName {
     }
 
     /// The name was looked up from the current scope
-    fn from_scope(ent: Arc<AnyEnt>) -> Result<Self, String> {
+    fn from_scope(ent: &'a AnyEnt) -> Result<Self, String> {
         let name = match ent.kind() {
             AnyEntKind::Object(object) => {
                 let type_mark = object.subtype.type_mark().to_owned();
@@ -141,11 +141,11 @@ impl ResolvedName {
             },
             AnyEntKind::ExternalAlias { class, type_mark } => ResolvedName::ObjectSelection {
                 base: ObjectBase::ExternalName(*class),
-                type_mark: type_mark.clone(),
+                type_mark: *type_mark,
             },
             AnyEntKind::DeferredConstant(subtype) => ResolvedName::ObjectSelection {
                 base: ObjectBase::DeferredConstant,
-                type_mark: subtype.type_mark().clone(),
+                type_mark: subtype.type_mark(),
             },
             AnyEntKind::Type(_) => ResolvedName::Type(TypeEnt::from_any(ent).unwrap()),
             AnyEntKind::Design(_) => ResolvedName::Design(DesignEnt::from_any(ent).unwrap()),
@@ -160,7 +160,7 @@ impl ResolvedName {
             | AnyEntKind::Component(_)
             | AnyEntKind::Label
             | AnyEntKind::LoopParameter
-            | AnyEntKind::PhysicalLiteral(_) => ResolvedName::Final(ent.clone()),
+            | AnyEntKind::PhysicalLiteral(_) => ResolvedName::Final(ent),
             AnyEntKind::Attribute | AnyEntKind::ElementDeclaration(_) => {
                 return Err(format!(
                     "{} should never be looked up from the current scope",
@@ -191,12 +191,12 @@ impl<'a> AnalyzeContext<'a> {
     // Takes an error message as an argument to be re-usable
     pub fn resolve_object_prefix(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         name_pos: &SrcPos,
         name: &mut Name,
         err_msg: &'static str,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<Option<ResolvedName>> {
+    ) -> AnalysisResult<Option<ResolvedName<'a>>> {
         match name {
             Name::Selected(prefix, suffix) => {
                 suffix.clear_reference();
@@ -236,7 +236,7 @@ impl<'a> AnalyzeContext<'a> {
                     ResolvedName::ObjectSelection { base, type_mark } => {
                         match type_mark.selected(&prefix.pos, suffix)? {
                             TypedSelection::RecordElement(elem) => {
-                                suffix.set_unique_reference(elem.as_ref());
+                                suffix.set_unique_reference(elem.into());
                                 Ok(Some(ResolvedName::ObjectSelection {
                                     base,
                                     type_mark: elem.type_mark().to_owned(),
@@ -267,10 +267,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 if let ResolvedName::ObjectSelection { base, type_mark } = resolved {
                     if let Some(type_mark) = type_mark.accessed_type() {
-                        return Ok(Some(ResolvedName::ObjectSelection {
-                            base,
-                            type_mark: type_mark.clone(),
-                        }));
+                        return Ok(Some(ResolvedName::ObjectSelection { base, type_mark }));
                     }
                 }
 
@@ -306,7 +303,7 @@ impl<'a> AnalyzeContext<'a> {
                         scope,
                         name_pos,
                         prefix.suffix_pos(),
-                        &type_mark,
+                        type_mark,
                         indexes,
                         diagnostics,
                     )?;

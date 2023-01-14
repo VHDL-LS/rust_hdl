@@ -6,12 +6,12 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 use super::analyze::*;
 use super::formal_region::RecordRegion;
+use super::named_entity::*;
 use super::overloaded::ParametersMut;
 use super::region::*;
 use crate::ast::Range;
 use crate::ast::*;
 use crate::data::*;
-use std::sync::Arc;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum TypeCheck {
@@ -52,9 +52,9 @@ impl<'a> AnalyzeContext<'a> {
     pub fn lookup_selected(
         &self,
         prefix_pos: &SrcPos,
-        prefix: &Arc<AnyEnt>,
+        prefix: EntRef<'a>,
         suffix: &mut WithPos<WithRef<Designator>>,
-    ) -> AnalysisResult<NamedEntities> {
+    ) -> AnalysisResult<NamedEntities<'a>> {
         match prefix.actual_kind() {
             AnyEntKind::Library => {
                 let library_name = prefix.designator().expect_identifier();
@@ -82,7 +82,7 @@ impl<'a> AnalyzeContext<'a> {
                 Ok(subtype.type_mark().selected(prefix_pos, suffix)?.into_any())
             }
             AnyEntKind::Design(_) => {
-                let design = DesignEnt::from_any(prefix.clone()).map_err(|ent| {
+                let design = DesignEnt::from_any(prefix).map_err(|ent| {
                     Diagnostic::error(
                         &suffix.pos,
                         format!(
@@ -102,9 +102,9 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn resolve_selected_name(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         name: &mut WithPos<SelectedName>,
-    ) -> AnalysisResult<NamedEntities> {
+    ) -> AnalysisResult<NamedEntities<'a>> {
         match name.item {
             SelectedName::Selected(ref mut prefix, ref mut suffix) => {
                 suffix.clear_reference();
@@ -113,7 +113,7 @@ impl<'a> AnalyzeContext<'a> {
                     .resolve_selected_name(scope, prefix)?
                     .into_non_overloaded();
                 if let Ok(prefix_ent) = prefix_ent {
-                    let visible = self.lookup_selected(&prefix.pos, &prefix_ent, suffix)?;
+                    let visible = self.lookup_selected(&prefix.pos, prefix_ent, suffix)?;
                     suffix.set_reference(&visible);
                     return Ok(visible);
                 };
@@ -134,17 +134,17 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn resolve_name(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         name_pos: &SrcPos,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<NamedEntities>> {
+    ) -> FatalResult<Option<NamedEntities<'a>>> {
         match name {
             Name::Selected(prefix, suffix) => {
                 suffix.clear_reference();
 
                 match self.resolve_name(scope, &prefix.pos, &mut prefix.item, diagnostics)? {
-                    Some(NamedEntities::Single(ref named_entity)) => {
+                    Some(NamedEntities::Single(named_entity)) => {
                         match self.lookup_selected(&prefix.pos, named_entity, suffix) {
                             Ok(visible) => {
                                 suffix.set_reference(&visible);
@@ -210,11 +210,11 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn resolve_non_overloaded_with_kind(
         &self,
-        named_entities: NamedEntities,
+        named_entities: NamedEntities<'a>,
         pos: &SrcPos,
         kind_ok: &impl Fn(&AnyEntKind) -> bool,
         expected: &str,
-    ) -> AnalysisResult<Arc<AnyEnt>> {
+    ) -> AnalysisResult<EntRef<'a>> {
         let ent = self.resolve_non_overloaded(named_entities, pos, expected)?;
         if kind_ok(ent.actual_kind()) {
             Ok(ent)
@@ -225,10 +225,10 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn resolve_non_overloaded(
         &self,
-        named_entities: NamedEntities,
+        named_entities: NamedEntities<'a>,
         pos: &SrcPos,
         expected: &str,
-    ) -> AnalysisResult<Arc<AnyEnt>> {
+    ) -> AnalysisResult<EntRef<'a>> {
         Ok(named_entities.expect_non_overloaded(pos, || {
             format!("Expected {}, got overloaded name", expected)
         })?)
@@ -236,22 +236,22 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn resolve_type_mark_name(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         type_mark: &mut WithPos<SelectedName>,
-    ) -> AnalysisResult<TypeEnt> {
+    ) -> AnalysisResult<TypeEnt<'a>> {
         let entities = self.resolve_selected_name(scope, type_mark)?;
 
         let pos = type_mark.suffix_pos();
         let expected = "type";
         let ent = self.resolve_non_overloaded(entities, pos, expected)?;
-        TypeEnt::from_any(ent).map_err(|ent| AnalysisError::NotFatal(ent.kind_error(pos, expected)))
+        TypeEnt::from_any(ent).ok_or_else(|| AnalysisError::NotFatal(ent.kind_error(pos, expected)))
     }
 
     pub fn resolve_type_mark(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         type_mark: &mut WithPos<TypeMark>,
-    ) -> AnalysisResult<TypeEnt> {
+    ) -> AnalysisResult<TypeEnt<'a>> {
         if !type_mark.item.subtype {
             self.resolve_type_mark_name(scope, &mut type_mark.item.name)
         } else {
@@ -263,7 +263,7 @@ impl<'a> AnalyzeContext<'a> {
 
             match named_entity.kind() {
                 AnyEntKind::Object(obj) => Ok(obj.subtype.type_mark().to_owned()),
-                AnyEntKind::ObjectAlias { type_mark, .. } => Ok(type_mark.clone()),
+                AnyEntKind::ObjectAlias { type_mark, .. } => Ok(*type_mark),
                 AnyEntKind::ElementDeclaration(subtype) => Ok(subtype.type_mark().to_owned()),
                 _ => Err(AnalysisError::NotFatal(
                     named_entity.kind_error(pos, expected),
@@ -274,7 +274,7 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_attribute_name(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         attr: &mut AttributeName,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -301,7 +301,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_range(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         range: &mut Range,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -319,8 +319,8 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_range_with_target_type(
         &self,
-        scope: &Scope<'_>,
-        target_type: &TypeEnt,
+        scope: &Scope<'a>,
+        target_type: TypeEnt<'a>,
         range: &mut Range,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<TypeCheck> {
@@ -349,7 +349,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_discrete_range(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         drange: &mut DiscreteRange,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -371,8 +371,8 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_discrete_range_with_target_type(
         &self,
-        scope: &Scope<'_>,
-        target_type: &TypeEnt,
+        scope: &Scope<'a>,
+        target_type: TypeEnt<'a>,
         drange: &mut DiscreteRange,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<TypeCheck> {
@@ -394,7 +394,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_choices(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         choices: &mut [Choice],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -414,7 +414,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_expression(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         expr: &mut WithPos<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -423,7 +423,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_assoc_elems(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         elems: &mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -440,7 +440,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_procedure_call(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         fcall: &mut FunctionCall,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -507,7 +507,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_aggregate(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         assocs: &mut [ElementAssociation],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -537,9 +537,9 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_record_aggregate(
         &self,
-        scope: &Scope<'_>,
-        record_type: &TypeEnt,
-        elems: &RecordRegion,
+        scope: &Scope<'a>,
+        record_type: TypeEnt<'a>,
+        elems: &RecordRegion<'a>,
         assocs: &mut [ElementAssociation],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<TypeCheck> {
@@ -553,11 +553,11 @@ impl<'a> AnalyzeContext<'a> {
                                     as_name_mut(&mut choice_expr.item).and_then(as_simple_name_mut)
                                 {
                                     if let Some(elem) = elems.lookup(&simple_name.item) {
-                                        simple_name.set_unique_reference(elem.as_ref());
+                                        simple_name.set_unique_reference(&elem);
                                         Some(elem)
                                     } else {
                                         diagnostics.push(Diagnostic::no_declaration_within(
-                                            record_type,
+                                            &record_type,
                                             &choice_expr.pos,
                                             &simple_name.item,
                                         ));
@@ -608,10 +608,10 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_1d_array_assoc_elem(
         &self,
-        scope: &Scope<'_>,
-        array_type: &TypeEnt,
-        index_type: Option<&TypeEnt>,
-        elem_type: &TypeEnt,
+        scope: &Scope<'a>,
+        array_type: TypeEnt<'a>,
+        index_type: Option<TypeEnt<'a>>,
+        elem_type: TypeEnt<'a>,
         assoc: &mut ElementAssociation,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<TypeCheck> {
@@ -706,17 +706,17 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_qualified_expression(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         qexpr: &mut QualifiedExpression,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<TypeEnt>> {
+    ) -> FatalResult<Option<TypeEnt<'a>>> {
         let QualifiedExpression { type_mark, expr } = qexpr;
 
         match self.resolve_type_mark(scope, type_mark) {
             Ok(target_type) => {
                 self.analyze_expression_with_target_type(
                     scope,
-                    &target_type,
+                    target_type,
                     &expr.pos,
                     &mut expr.item,
                     diagnostics,
@@ -733,7 +733,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_allocation(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         alloc: &mut WithPos<Allocator>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -750,7 +750,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_expression_pos(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         pos: &SrcPos,
         expr: &mut Expression,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -791,13 +791,13 @@ impl<'a> AnalyzeContext<'a> {
     /// Returns the type of the array element
     pub fn analyze_indexed_name(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         name_pos: &SrcPos,
         suffix_pos: &SrcPos,
-        type_mark: &TypeEnt,
+        type_mark: TypeEnt<'a>,
         indexes: &mut [WithPos<Expression>],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<TypeEnt> {
+    ) -> AnalysisResult<TypeEnt<'a>> {
         let base_type = type_mark.base_type();
 
         let base_type = if let Type::Access(ref subtype, ..) = base_type.kind() {
@@ -825,7 +825,7 @@ impl<'a> AnalyzeContext<'a> {
                 self.analyze_expression(scope, index, diagnostics)?;
             }
 
-            Ok(elem_type.clone())
+            Ok(*elem_type)
         } else {
             Err(Diagnostic::error(
                 suffix_pos,
@@ -839,7 +839,7 @@ impl<'a> AnalyzeContext<'a> {
     /// Use the named entity kind to disambiguate
     pub fn analyze_function_call_or_indexed_name(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         name_pos: &SrcPos,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -861,7 +861,7 @@ impl<'a> AnalyzeContext<'a> {
                             *name = Name::Indexed(prefix, indexes);
                             let Name::Indexed(ref mut prefix, ref mut indexes) = name else { unreachable!()};
 
-                            if let Some(type_mark) = type_mark_of_sliced_or_indexed(&ent) {
+                            if let Some(type_mark) = type_mark_of_sliced_or_indexed(ent) {
                                 if let Err(err) = self.analyze_indexed_name(
                                     scope,
                                     name_pos,
@@ -910,8 +910,8 @@ impl<'a> AnalyzeContext<'a> {
     /// None if it was uncertain
     pub fn analyze_name_with_target_type(
         &self,
-        scope: &Scope<'_>,
-        target_type: &TypeEnt,
+        scope: &Scope<'a>,
+        target_type: TypeEnt<'a>,
         name_pos: &SrcPos,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -928,11 +928,11 @@ impl<'a> AnalyzeContext<'a> {
 
                         match entities {
                             NamedEntities::Single(ent) => {
-                                designator.set_unique_reference(&ent);
+                                designator.set_unique_reference(ent);
                                 let is_correct = ent.match_with_target_type(target_type);
 
                                 if is_correct == TypeCheck::NotOk {
-                                    diagnostics.push(type_mismatch(name_pos, &ent, target_type));
+                                    diagnostics.push(type_mismatch(name_pos, ent, target_type));
                                 }
 
                                 Ok(is_correct)
@@ -960,7 +960,7 @@ impl<'a> AnalyzeContext<'a> {
             Name::Selected(prefix, designator) => {
                 designator.clear_reference();
 
-                if let Some(NamedEntities::Single(ref named_entity)) =
+                if let Some(NamedEntities::Single(named_entity)) =
                     self.resolve_name(scope, &prefix.pos, &mut prefix.item, diagnostics)?
                 {
                     match self.lookup_selected(&prefix.pos, named_entity, designator) {
@@ -970,13 +970,13 @@ impl<'a> AnalyzeContext<'a> {
                             designator.set_reference(&entities);
                             match entities {
                                 NamedEntities::Single(ent) => {
-                                    designator.set_unique_reference(&ent);
+                                    designator.set_unique_reference(ent);
                                     let is_correct = ent.match_with_target_type(target_type);
 
                                     if is_correct == TypeCheck::NotOk {
                                         diagnostics.push(type_mismatch(
                                             &designator.pos,
-                                            &ent,
+                                            ent,
                                             target_type,
                                         ));
                                     }
@@ -1020,7 +1020,7 @@ impl<'a> AnalyzeContext<'a> {
                             *name = Name::Indexed(prefix, indexes);
                             let Name::Indexed(ref mut prefix, ref mut indexes) = name else { unreachable!()};
 
-                            if let Some(type_mark) = type_mark_of_sliced_or_indexed(&ent) {
+                            if let Some(type_mark) = type_mark_of_sliced_or_indexed(ent) {
                                 if let Err(err) = self.analyze_indexed_name(
                                     scope,
                                     name_pos,
@@ -1096,7 +1096,7 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             Name::Slice(ref mut prefix, ref mut drange) => {
-                if let Some(NamedEntities::Single(ref named_entity)) =
+                if let Some(NamedEntities::Single(named_entity)) =
                     self.resolve_name(scope, &prefix.pos, &mut prefix.item, diagnostics)?
                 {
                     if let Some(type_mark) = type_mark_of_sliced_or_indexed(named_entity) {
@@ -1124,8 +1124,8 @@ impl<'a> AnalyzeContext<'a> {
     /// None if it was uncertain
     pub fn analyze_expression_with_target_type(
         &self,
-        scope: &Scope<'_>,
-        target_type: &TypeEnt,
+        scope: &Scope<'a>,
+        target_type: TypeEnt<'a>,
         expr_pos: &SrcPos,
         expr: &mut Expression,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -1238,8 +1238,8 @@ impl<'a> AnalyzeContext<'a> {
                             check.add(self.analyze_1d_array_assoc_elem(
                                 scope,
                                 target_base,
-                                index_type.as_ref(),
-                                elem_type,
+                                *index_type,
+                                *elem_type,
                                 assoc,
                                 diagnostics,
                             )?);
@@ -1279,12 +1279,12 @@ impl<'a> AnalyzeContext<'a> {
     }
 }
 
-pub fn type_mark_of_sliced_or_indexed(ent: &Arc<AnyEnt>) -> Option<&TypeEnt> {
+pub fn type_mark_of_sliced_or_indexed(ent: EntRef) -> Option<TypeEnt> {
     Some(match ent.kind() {
         AnyEntKind::Object(ref ent) => ent.subtype.type_mark(),
         AnyEntKind::DeferredConstant(ref subtype) => subtype.type_mark(),
         AnyEntKind::ElementDeclaration(ref subtype) => subtype.type_mark(),
-        AnyEntKind::ObjectAlias { type_mark, .. } => type_mark,
+        AnyEntKind::ObjectAlias { type_mark, .. } => *type_mark,
         _ => {
             return None;
         }
@@ -1292,8 +1292,8 @@ pub fn type_mark_of_sliced_or_indexed(ent: &Arc<AnyEnt>) -> Option<&TypeEnt> {
 }
 
 impl Diagnostic {
-    pub fn add_subprogram_candidates(&mut self, prefix: &str, candidates: &mut [&OverloadedEnt]) {
-        candidates.sort_by_key(|ent| ent.decl_pos());
+    pub fn add_subprogram_candidates(&mut self, prefix: &str, candidates: &mut [OverloadedEnt]) {
+        candidates.sort_by(|x, y| x.decl_pos().cmp(&y.decl_pos()));
 
         for ent in candidates {
             if let Some(decl_pos) = ent.decl_pos() {
@@ -1311,7 +1311,7 @@ impl Diagnostic {
     }
 }
 
-impl AnyEnt {
+impl<'a> AnyEnt<'a> {
     pub fn kind_error(&self, pos: &SrcPos, expected: &str) -> Diagnostic {
         let mut error = Diagnostic::error(
             pos,
@@ -1325,13 +1325,13 @@ impl AnyEnt {
 
     /// Match a named entity with a target type
     /// Returns a diagnostic in case of mismatch
-    fn match_with_target_type(&self, target_type: &TypeEnt) -> TypeCheck {
+    fn match_with_target_type(&self, target_type: TypeEnt) -> TypeCheck {
         let typ = match self.actual_kind() {
             AnyEntKind::ObjectAlias { ref type_mark, .. } => type_mark.base_type(),
             AnyEntKind::Object(ref ent) => ent.subtype.base_type(),
             AnyEntKind::DeferredConstant(ref subtype) => subtype.base_type(),
             AnyEntKind::ElementDeclaration(ref subtype) => subtype.base_type(),
-            AnyEntKind::PhysicalLiteral(ref base_type) => base_type,
+            AnyEntKind::PhysicalLiteral(ref base_type) => *base_type,
             AnyEntKind::InterfaceFile(ref file) => file.base_type(),
             AnyEntKind::File(ref file) => file.base_type(),
             // Ignore now to avoid false positives
@@ -1351,7 +1351,7 @@ impl AnyEnt {
     }
 }
 
-fn type_mismatch(pos: &SrcPos, ent: &AnyEnt, expected_type: &AnyEnt) -> Diagnostic {
+fn type_mismatch(pos: &SrcPos, ent: &AnyEnt, expected_type: TypeEnt) -> Diagnostic {
     Diagnostic::error(
         pos,
         format!(
@@ -1397,12 +1397,7 @@ fn plural(singular: &'static str, plural: &'static str, count: usize) -> &'stati
     }
 }
 
-fn dimension_mismatch(
-    pos: &SrcPos,
-    base_type: &TypeEnt,
-    got: usize,
-    expected: usize,
-) -> Diagnostic {
+fn dimension_mismatch(pos: &SrcPos, base_type: TypeEnt, got: usize, expected: usize) -> Diagnostic {
     let mut diag = Diagnostic::error(pos, "Number of indexes does not match array dimension");
 
     if let Some(decl_pos) = base_type.decl_pos() {

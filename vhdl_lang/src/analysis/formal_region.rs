@@ -4,30 +4,25 @@
 //
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
-use std::sync::Arc;
-
 use crate::{
     ast::{Designator, InterfaceListType, Mode, ObjectClass},
     Diagnostic, SrcPos,
 };
 
-use super::{
-    region::{AnyEntKind, Object, TypeEnt},
-    AnyEnt,
-};
+use super::named_entity::*;
 
-#[derive(Clone)]
-pub struct InterfaceEnt {
+#[derive(Copy, Clone)]
+pub struct InterfaceEnt<'a> {
     /// InterfaceObject or InterfaceFile
-    ent: Arc<AnyEnt>,
+    ent: EntRef<'a>,
 }
 
-impl InterfaceEnt {
-    pub fn inner(&self) -> &Arc<AnyEnt> {
-        &self.ent
+impl<'a> InterfaceEnt<'a> {
+    pub fn inner(&self) -> EntRef<'a> {
+        self.ent
     }
 
-    pub fn from_any(ent: Arc<AnyEnt>) -> Option<Self> {
+    pub fn from_any(ent: EntRef<'a>) -> Option<Self> {
         match ent.kind() {
             AnyEntKind::Object(Object { mode: Some(_), .. }) | AnyEntKind::InterfaceFile(..) => {
                 Some(InterfaceEnt { ent })
@@ -60,36 +55,36 @@ impl InterfaceEnt {
         }
     }
 
-    pub fn type_mark(&self) -> &TypeEnt {
+    pub fn type_mark(&self) -> TypeEnt<'a> {
         match self.ent.kind() {
             AnyEntKind::Object(obj) => obj.subtype.type_mark(),
-            AnyEntKind::InterfaceFile(file_type) => file_type,
+            AnyEntKind::InterfaceFile(file_type) => *file_type,
             _ => {
                 unreachable!();
             }
         }
     }
 
-    pub fn base_type(&self) -> &TypeEnt {
+    pub fn base_type(&self) -> TypeEnt<'a> {
         self.type_mark().base_type()
     }
 }
 
-impl std::ops::Deref for InterfaceEnt {
-    type Target = AnyEnt;
-    fn deref(&self) -> &AnyEnt {
-        &self.ent
+impl<'a> std::ops::Deref for InterfaceEnt<'a> {
+    type Target = AnyEnt<'a>;
+    fn deref(&self) -> EntRef<'a> {
+        self.ent
     }
 }
 
 /// The formal region is an ordered list of interface elements such as ports, generics and subprogram arguments
 #[derive(Clone)]
-pub struct FormalRegion {
+pub struct FormalRegion<'a> {
     pub typ: InterfaceListType,
-    entities: Vec<InterfaceEnt>,
+    entities: Vec<InterfaceEnt<'a>>,
 }
 
-impl FormalRegion {
+impl<'a> FormalRegion<'a> {
     pub fn new(typ: InterfaceListType) -> Self {
         Self {
             typ,
@@ -104,17 +99,17 @@ impl FormalRegion {
         }
     }
 
-    pub fn new_with(typ: InterfaceListType, entities: Vec<InterfaceEnt>) -> Self {
+    pub fn new_with(typ: InterfaceListType, entities: Vec<InterfaceEnt<'a>>) -> Self {
         Self { typ, entities }
     }
     pub fn lookup(
         &self,
         pos: &SrcPos,
         designator: &Designator,
-    ) -> Result<(usize, InterfaceEnt), Diagnostic> {
+    ) -> Result<(usize, InterfaceEnt<'a>), Diagnostic> {
         for (idx, ent) in self.entities.iter().enumerate() {
             if ent.designator() == designator {
-                return Ok((idx, ent.clone()));
+                return Ok((idx, *ent));
             }
         }
         Err(Diagnostic::error(
@@ -131,11 +126,11 @@ impl FormalRegion {
         self.entities.len()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &InterfaceEnt> {
-        self.entities.iter()
+    pub fn iter(&self) -> impl Iterator<Item = InterfaceEnt<'a>> + '_ {
+        self.entities.iter().cloned()
     }
 
-    pub fn add(&mut self, param: Arc<AnyEnt>) {
+    pub fn add(&mut self, param: EntRef<'a>) {
         if let Some(ent) = InterfaceEnt::from_any(param) {
             self.entities.push(ent);
         } else {
@@ -143,11 +138,11 @@ impl FormalRegion {
         }
     }
 
-    pub fn nth(&self, idx: usize) -> Option<&InterfaceEnt> {
-        self.entities.get(idx)
+    pub fn nth(&self, idx: usize) -> Option<InterfaceEnt<'a>> {
+        self.entities.get(idx).cloned()
     }
 
-    pub fn binary(&self) -> Option<(&InterfaceEnt, &InterfaceEnt)> {
+    pub fn binary(&self) -> Option<(InterfaceEnt, InterfaceEnt<'a>)> {
         let left = self.nth(0)?;
         let right = self.nth(1)?;
         Some((left, right))
@@ -156,13 +151,16 @@ impl FormalRegion {
 
 /// The formal region is an ordered list of interface elements such as ports, generics and subprogram arguments
 #[derive(Default, Clone)]
-pub struct RecordRegion {
-    elems: Vec<RecordElement>,
+pub struct RecordRegion<'a> {
+    elems: Vec<RecordElement<'a>>,
 }
 
-impl RecordRegion {
-    pub fn lookup(&self, designator: &Designator) -> Option<&RecordElement> {
-        self.elems.iter().find(|ent| ent.designator() == designator)
+impl<'a> RecordRegion<'a> {
+    pub fn lookup(&self, designator: &Designator) -> Option<RecordElement<'a>> {
+        self.elems
+            .iter()
+            .find(|ent| ent.designator() == designator)
+            .cloned()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -173,11 +171,11 @@ impl RecordRegion {
         self.elems.len()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &RecordElement> {
-        self.elems.iter()
+    pub fn iter(&self) -> impl Iterator<Item = RecordElement<'a>> + '_ {
+        self.elems.iter().cloned()
     }
 
-    pub fn add(&mut self, ent: Arc<AnyEnt>) {
+    pub fn add(&mut self, ent: &'a AnyEnt) {
         if let Some(elem) = RecordElement::from_any(ent) {
             self.elems.push(elem);
         } else {
@@ -185,19 +183,19 @@ impl RecordRegion {
         }
     }
 
-    pub fn nth(&self, idx: usize) -> Option<&RecordElement> {
+    pub fn nth(&self, idx: usize) -> Option<&RecordElement<'a>> {
         self.elems.get(idx)
     }
 }
 
-#[derive(Clone)]
-pub struct RecordElement {
+#[derive(Clone, Copy)]
+pub struct RecordElement<'a> {
     // A record element declaration
-    ent: Arc<AnyEnt>,
+    ent: EntRef<'a>,
 }
 
-impl RecordElement {
-    pub fn from_any(ent: Arc<AnyEnt>) -> Option<Self> {
+impl<'a> RecordElement<'a> {
+    pub fn from_any(ent: &'a AnyEnt) -> Option<Self> {
         if let AnyEntKind::ElementDeclaration(_) = ent.kind() {
             Some(RecordElement { ent })
         } else {
@@ -205,7 +203,7 @@ impl RecordElement {
         }
     }
 
-    pub fn type_mark(&self) -> &TypeEnt {
+    pub fn type_mark(&self) -> TypeEnt<'a> {
         match self.ent.kind() {
             AnyEntKind::ElementDeclaration(subtype) => subtype.type_mark(),
             _ => {
@@ -215,21 +213,15 @@ impl RecordElement {
     }
 }
 
-impl std::ops::Deref for RecordElement {
-    type Target = AnyEnt;
-    fn deref(&self) -> &AnyEnt {
-        &self.ent
+impl<'a> std::ops::Deref for RecordElement<'a> {
+    type Target = AnyEnt<'a>;
+    fn deref(&self) -> EntRef<'a> {
+        self.ent
     }
 }
 
-impl AsRef<Arc<AnyEnt>> for RecordElement {
-    fn as_ref(&self) -> &Arc<AnyEnt> {
-        &self.ent
-    }
-}
-
-impl From<RecordElement> for Arc<AnyEnt> {
-    fn from(value: RecordElement) -> Self {
+impl<'a> From<RecordElement<'a>> for EntRef<'a> {
+    fn from(value: RecordElement<'a>) -> Self {
         value.ent
     }
 }

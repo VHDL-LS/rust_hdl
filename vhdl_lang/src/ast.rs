@@ -9,7 +9,6 @@
 // Track here: https://github.com/rust-lang/rust/issues/29641
 #![allow(clippy::large_enum_variant)]
 
-use std::sync::Arc;
 mod display;
 mod util;
 
@@ -20,10 +19,10 @@ mod any_design_unit;
 pub mod search;
 
 pub use self::display::*;
-pub use self::util::*;
-pub use any_design_unit::*;
+pub(crate) use self::util::*;
+pub(crate) use any_design_unit::*;
 
-pub use crate::analysis::AnyEnt;
+use crate::analysis::EntityId;
 use crate::data::*;
 
 /// LRM 15.8 Bit string literals
@@ -378,7 +377,7 @@ pub enum Designator {
     Character(u8),
 }
 
-pub type Reference = Option<Arc<AnyEnt>>;
+pub type Reference = Option<EntityId>;
 
 /// An item which has a reference to a declaration
 #[derive(PartialEq, Debug, Clone)]
@@ -400,7 +399,7 @@ impl<T> WithRef<T> {
 #[derive(PartialEq, Debug, Clone)]
 pub struct WithDecl<T> {
     pub tree: T,
-    pub decl: Option<Arc<AnyEnt>>,
+    pub decl: Option<EntityId>,
 }
 
 impl<T> WithDecl<T> {
@@ -1020,9 +1019,9 @@ pub struct LabeledConcurrentStatement {
 }
 
 /// LRM 13. Design units and their analysis
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct LibraryClause {
-    pub name_list: Vec<Ident>,
+    pub name_list: Vec<WithRef<Ident>>,
 }
 
 /// LRM 12.4. Use clauses

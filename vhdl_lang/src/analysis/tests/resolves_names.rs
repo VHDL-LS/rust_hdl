@@ -1499,7 +1499,7 @@ constant the_time4 : time_t := 1000 big;
         .unwrap();
     assert_eq!(time_t.decl_pos().unwrap(), code.s1("time_t").pos().as_ref());
     assert_eq!(
-        root.find_all_references(time_t),
+        root.find_all_references(time_t.id()),
         vec![
             code.s("time_t", 1).pos(),
             code.s("time_t", 2).pos(),
@@ -1553,7 +1553,7 @@ constant bad : rec_t := (missing => 0);
         .unwrap();
     assert_eq!(field.decl_pos().unwrap(), code.s1("field").pos().as_ref());
     assert_eq!(
-        root.find_all_references(field.clone()),
+        root.find_all_references(field.id()),
         vec![code.s("field", 1).pos(), code.s("field", 2).pos(),]
     );
 

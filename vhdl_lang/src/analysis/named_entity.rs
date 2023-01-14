@@ -6,14 +6,12 @@
 
 use super::formal_region::FormalRegion;
 use super::region::Region;
+use crate::ast::ExternalObjectClass;
 use crate::ast::{
     AnyPrimaryUnit, Designator, HasIdent, Ident, ObjectClass, SubprogramDeclaration,
     SubprogramDesignator, WithDecl,
 };
-use crate::ast::{ExternalObjectClass, Mode};
 use crate::data::*;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 
 mod types;
 pub use types::{Subtype, Type, TypeEnt, TypedSelection, UniversalType};
@@ -22,45 +20,51 @@ mod overloaded;
 pub use overloaded::{Overloaded, OverloadedEnt, Signature, SignatureKey};
 
 mod object;
-pub use object::ObjectEnt;
+pub use object::{Object, ObjectEnt};
 
 mod design;
 pub use design::{Design, DesignEnt};
 
-pub enum AnyEntKind {
+mod arena;
+pub use arena::{Arena, ArenaId, EntityId, FinalArena};
+
+pub enum AnyEntKind<'a> {
     ExternalAlias {
         class: ExternalObjectClass,
-        type_mark: TypeEnt,
+        type_mark: TypeEnt<'a>,
     },
     ObjectAlias {
-        base_object: ObjectEnt,
-        type_mark: TypeEnt,
+        base_object: ObjectEnt<'a>,
+        type_mark: TypeEnt<'a>,
     },
-    File(Subtype),
-    InterfaceFile(TypeEnt),
-    Component(Region),
+    File(Subtype<'a>),
+    InterfaceFile(TypeEnt<'a>),
+    Component(Region<'a>),
     Attribute,
-    Overloaded(Overloaded),
-    Type(Type),
-    ElementDeclaration(Subtype),
+    Overloaded(Overloaded<'a>),
+    Type(Type<'a>),
+    ElementDeclaration(Subtype<'a>),
     Label,
-    Object(Object),
+    Object(Object<'a>),
     LoopParameter,
-    PhysicalLiteral(TypeEnt),
-    DeferredConstant(Subtype),
+    PhysicalLiteral(TypeEnt<'a>),
+    DeferredConstant(Subtype<'a>),
     Library,
-    Design(Design),
+    Design(Design<'a>),
 }
 
-impl AnyEntKind {
-    pub fn new_function_decl(formals: FormalRegion, return_type: TypeEnt) -> AnyEntKind {
+impl<'a> AnyEntKind<'a> {
+    pub fn new_function_decl(
+        formals: FormalRegion<'a>,
+        return_type: TypeEnt<'a>,
+    ) -> AnyEntKind<'a> {
         AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(
             formals,
             Some(return_type),
         )))
     }
 
-    pub fn new_procedure_decl(formals: FormalRegion) -> AnyEntKind {
+    pub fn new_procedure_decl(formals: FormalRegion<'a>) -> AnyEntKind<'a> {
         AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(formals, None)))
     }
 
@@ -87,7 +91,7 @@ impl AnyEntKind {
         matches!(self, AnyEntKind::Type(..))
     }
 
-    pub fn implicit_declarations(&self) -> impl Iterator<Item = Arc<AnyEnt>> + '_ {
+    pub fn implicit_declarations(&self) -> impl Iterator<Item = EntRef<'a>> + '_ {
         match self {
             AnyEntKind::Type(typ) => Some(typ.implicit_declarations()),
             _ => None,
@@ -119,95 +123,62 @@ impl AnyEntKind {
     }
 }
 
-impl std::fmt::Debug for AnyEntKind {
+impl<'a> std::fmt::Debug for AnyEntKind<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.describe())
     }
 }
 
-/// An object or an interface object,
-/// example signal, variable, constant
-/// Is either an object (mode = None) or an interface object (mode = Some)
-#[derive(Clone)]
-pub struct Object {
-    pub class: ObjectClass,
-    pub mode: Option<Mode>,
-    pub subtype: Subtype,
-    pub has_default: bool,
-}
-
-impl ObjectClass {
-    fn describe(&self) -> &str {
-        use ObjectClass::*;
-        match self {
-            Constant => "constant",
-            Variable => "variable",
-            Signal => "signal",
-            SharedVariable => "shared variable",
-        }
-    }
-}
-
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
-pub struct EntityId {
-    id: usize,
-}
+pub type EntRef<'a> = &'a AnyEnt<'a>;
 
 /// A named entity as defined in LRM 6.1.
 ///
 /// Every declaration creates one or more named entities.
 #[derive(Debug)]
-pub struct AnyEnt {
+pub struct AnyEnt<'a> {
     /// A unique id of the entity.
     /// Entities with the same id will be the same.
-    id: EntityId,
-    pub implicit_of: Option<Arc<AnyEnt>>,
+    pub id: EntityId,
+    pub implicit_of: Option<EntRef<'a>>,
     /// The location where the declaration was made.
     /// Builtin and implicit declaration will not have a source position.
-    designator: Designator,
-    kind: AnyEntKind,
-    decl_pos: Option<SrcPos>,
+    pub designator: Designator,
+    pub kind: AnyEntKind<'a>,
+    pub decl_pos: Option<SrcPos>,
 }
 
-impl AnyEnt {
-    pub fn new(
+impl Arena {
+    pub fn implicit<'a>(
+        &'a self,
+        of_ent: EntRef<'a>,
         designator: impl Into<Designator>,
-        kind: AnyEntKind,
+        kind: AnyEntKind<'a>,
         decl_pos: Option<&SrcPos>,
-    ) -> AnyEnt {
-        AnyEnt::new_with_id(EntityId::new(), designator.into(), kind, decl_pos.cloned())
+    ) -> EntRef<'a> {
+        self.alloc(designator.into(), Some(of_ent), kind, decl_pos.cloned())
     }
 
-    pub fn new_with_id(
-        id: EntityId,
-        designator: Designator,
-        kind: AnyEntKind,
-        decl_pos: Option<SrcPos>,
-    ) -> AnyEnt {
-        AnyEnt {
-            id,
-            implicit_of: None,
-            decl_pos,
-            designator,
-            kind,
-        }
+    pub fn define<'a, T: HasIdent>(
+        &'a self,
+        decl: &mut WithDecl<T>,
+        kind: AnyEntKind<'a>,
+    ) -> EntRef<'a> {
+        let ent = self.explicit(decl.tree.name().clone(), kind, Some(decl.tree.pos()));
+        decl.decl = Some(ent.id());
+        ent
     }
 
-    pub fn implicit(
-        of_ent: Arc<AnyEnt>,
+    pub fn explicit<'a>(
+        &'a self,
         designator: impl Into<Designator>,
-        kind: AnyEntKind,
+        kind: AnyEntKind<'a>,
         decl_pos: Option<&SrcPos>,
-    ) -> AnyEnt {
-        AnyEnt {
-            id: EntityId::new(),
-            implicit_of: Some(of_ent),
-            decl_pos: decl_pos.cloned(),
-            designator: designator.into(),
-            kind,
-        }
+    ) -> EntRef<'a> {
+        self.alloc(designator.into(), None, kind, decl_pos.cloned())
     }
+}
 
+impl<'a> AnyEnt<'a> {
     pub fn id(&self) -> EntityId {
         self.id
     }
@@ -317,96 +288,56 @@ impl AnyEnt {
     }
 }
 
-static UNIVERSAL_REAL_ID: EntityId = EntityId { id: 1 };
-static UNIVERSAL_INTEGER_ID: EntityId = EntityId { id: 2 };
-static COUNTER: AtomicUsize = AtomicUsize::new(3);
-
-impl EntityId {
-    // Using 64-bits we can create 5 * 10**9 ids per second for 100 years before wrapping
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        EntityId {
-            id: COUNTER.fetch_add(1, Ordering::Relaxed),
-        }
-    }
-
-    pub fn universal_integer() -> Self {
-        UNIVERSAL_INTEGER_ID
-    }
-
-    pub fn universal_real() -> Self {
-        UNIVERSAL_REAL_ID
-    }
-}
-
-impl std::cmp::PartialEq for AnyEnt {
+impl<'a> std::cmp::PartialEq for AnyEnt<'a> {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
 }
 
 /// This trait is implemented for Ast-nodes which declare named entities
-pub trait HasNamedEntity {
-    fn named_entity(&self) -> Option<&Arc<AnyEnt>>;
+pub trait HasEntityId {
+    fn ent_id(&self) -> Option<EntityId>;
 }
 
-impl HasNamedEntity for AnyPrimaryUnit {
-    fn named_entity(&self) -> Option<&Arc<AnyEnt>> {
-        delegate_primary!(self, unit, unit.ident.decl.as_ref())
+impl HasEntityId for AnyPrimaryUnit {
+    fn ent_id(&self) -> Option<EntityId> {
+        delegate_primary!(self, unit, unit.ident.decl)
     }
 }
 
 impl WithDecl<Ident> {
-    pub fn define(&mut self, kind: AnyEntKind) -> Arc<AnyEnt> {
-        let ent = Arc::new(AnyEnt::new(
-            self.tree.name().clone(),
-            kind,
-            Some(self.tree.pos()),
-        ));
-        self.decl = Some(ent.clone());
-        ent
-    }
-    pub fn define_with_id(&mut self, id: EntityId, kind: AnyEntKind) -> Arc<AnyEnt> {
-        let ent = Arc::new(AnyEnt::new_with_id(
-            id,
-            self.tree.name().clone().into(),
-            kind,
-            Some(self.tree.pos().clone()),
-        ));
-        self.decl = Some(ent.clone());
+    pub fn define<'a>(&mut self, arena: &'a Arena, kind: AnyEntKind<'a>) -> EntRef<'a> {
+        let ent = arena.explicit(self.tree.name().clone(), kind, Some(self.tree.pos()));
+        self.decl = Some(ent.id());
         ent
     }
 }
 
 impl WithDecl<WithPos<SubprogramDesignator>> {
-    pub fn define(&mut self, kind: AnyEntKind) -> Arc<AnyEnt> {
-        let ent = Arc::new(AnyEnt::new(
+    pub fn define<'a>(&mut self, arena: &'a Arena, kind: AnyEntKind<'a>) -> EntRef<'a> {
+        let ent = arena.explicit(
             self.tree.item.clone().into_designator(),
             kind,
             Some(&self.tree.pos),
-        ));
-        self.decl = Some(ent.clone());
+        );
+        self.decl = Some(ent.id());
         ent
     }
 }
 
 impl WithDecl<WithPos<Designator>> {
-    pub fn define(&mut self, kind: AnyEntKind) -> Arc<AnyEnt> {
-        let ent = Arc::new(AnyEnt::new(
-            self.tree.item.clone(),
-            kind,
-            Some(&self.tree.pos),
-        ));
-        self.decl = Some(ent.clone());
+    pub fn define<'a>(&mut self, arena: &'a Arena, kind: AnyEntKind<'a>) -> EntRef<'a> {
+        let ent = arena.explicit(self.tree.item.clone(), kind, Some(&self.tree.pos));
+        self.decl = Some(ent.id());
         ent
     }
 }
 
 impl SubprogramDeclaration {
-    pub fn define(&mut self, kind: AnyEntKind) -> Arc<AnyEnt> {
+    pub fn define<'a>(&mut self, arena: &'a Arena, kind: AnyEntKind<'a>) -> EntRef<'a> {
         match self {
-            SubprogramDeclaration::Function(f) => f.designator.define(kind),
-            SubprogramDeclaration::Procedure(p) => p.designator.define(kind),
+            SubprogramDeclaration::Function(f) => f.designator.define(arena, kind),
+            SubprogramDeclaration::Procedure(p) => p.designator.define(arena, kind),
         }
     }
 }

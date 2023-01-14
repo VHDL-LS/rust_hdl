@@ -6,6 +6,7 @@
 #![allow(clippy::only_used_in_recursion)]
 
 use super::analyze::*;
+use super::named_entity::*;
 use super::region::*;
 use super::target::AssignmentType;
 use crate::ast::*;
@@ -16,7 +17,7 @@ impl<'a> AnalyzeContext<'a> {
     // wait until type checking to see if it makes sense
     pub fn analyze_expr_assignment(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         target: &mut WithPos<Target>,
         assignment_type: AssignmentType,
         rhs: &mut AssignmentRightHand<WithPos<Expression>>,
@@ -25,7 +26,7 @@ impl<'a> AnalyzeContext<'a> {
         let ttyp = self.resolve_target(scope, target, assignment_type, diagnostics)?;
         match rhs {
             AssignmentRightHand::Simple(expr) => {
-                self.analyze_expression_for_target(scope, ttyp.as_ref(), expr, diagnostics)?;
+                self.analyze_expression_for_target(scope, ttyp, expr, diagnostics)?;
             }
             AssignmentRightHand::Conditional(conditionals) => {
                 let Conditionals {
@@ -34,11 +35,11 @@ impl<'a> AnalyzeContext<'a> {
                 } = conditionals;
                 for conditional in conditionals {
                     let Conditional { condition, item } = conditional;
-                    self.analyze_expression_for_target(scope, ttyp.as_ref(), item, diagnostics)?;
+                    self.analyze_expression_for_target(scope, ttyp, item, diagnostics)?;
                     self.analyze_expression(scope, condition, diagnostics)?;
                 }
                 if let Some(expr) = else_item {
-                    self.analyze_expression_for_target(scope, ttyp.as_ref(), expr, diagnostics)?;
+                    self.analyze_expression_for_target(scope, ttyp, expr, diagnostics)?;
                 }
             }
             AssignmentRightHand::Selected(selection) => {
@@ -48,7 +49,7 @@ impl<'a> AnalyzeContext<'a> {
                 } = selection;
                 self.analyze_expression(scope, expression, diagnostics)?;
                 for Alternative { choices, item } in alternatives.iter_mut() {
-                    self.analyze_expression_for_target(scope, ttyp.as_ref(), item, diagnostics)?;
+                    self.analyze_expression_for_target(scope, ttyp, item, diagnostics)?;
                     self.analyze_choices(scope, choices, diagnostics)?;
                 }
             }
@@ -58,7 +59,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_waveform_assignment(
         &self,
-        scope: &Scope<'_>,
+        scope: &Scope<'a>,
         target: &mut WithPos<Target>,
         assignment_type: AssignmentType,
         rhs: &mut AssignmentRightHand<Waveform>,
@@ -67,7 +68,7 @@ impl<'a> AnalyzeContext<'a> {
         let ttyp = self.resolve_target(scope, target, assignment_type, diagnostics)?;
         match rhs {
             AssignmentRightHand::Simple(wavf) => {
-                self.analyze_waveform(scope, ttyp.as_ref(), wavf, diagnostics)?;
+                self.analyze_waveform(scope, ttyp, wavf, diagnostics)?;
             }
             AssignmentRightHand::Conditional(conditionals) => {
                 let Conditionals {
@@ -76,11 +77,11 @@ impl<'a> AnalyzeContext<'a> {
                 } = conditionals;
                 for conditional in conditionals {
                     let Conditional { condition, item } = conditional;
-                    self.analyze_waveform(scope, ttyp.as_ref(), item, diagnostics)?;
+                    self.analyze_waveform(scope, ttyp, item, diagnostics)?;
                     self.analyze_expression(scope, condition, diagnostics)?;
                 }
                 if let Some(wavf) = else_item {
-                    self.analyze_waveform(scope, ttyp.as_ref(), wavf, diagnostics)?;
+                    self.analyze_waveform(scope, ttyp, wavf, diagnostics)?;
                 }
             }
             AssignmentRightHand::Selected(selection) => {
@@ -90,7 +91,7 @@ impl<'a> AnalyzeContext<'a> {
                 } = selection;
                 self.analyze_expression(scope, expression, diagnostics)?;
                 for Alternative { choices, item } in alternatives.iter_mut() {
-                    self.analyze_waveform(scope, ttyp.as_ref(), item, diagnostics)?;
+                    self.analyze_waveform(scope, ttyp, item, diagnostics)?;
                     self.analyze_choices(scope, choices, diagnostics)?;
                 }
             }
@@ -100,8 +101,8 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_waveform(
         &self,
-        scope: &Scope<'_>,
-        ttyp: Option<&TypeEnt>,
+        scope: &Scope<'a>,
+        ttyp: Option<TypeEnt<'a>>,
         wavf: &mut Waveform,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
@@ -114,7 +115,7 @@ impl<'a> AnalyzeContext<'a> {
                         let standard = self.standard_package().unwrap();
                         self.analyze_expression_with_target_type(
                             scope,
-                            &standard.time(),
+                            standard.time(),
                             &expr.pos,
                             &mut expr.item,
                             diagnostics,
@@ -129,8 +130,8 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_expression_for_target(
         &self,
-        scope: &Scope<'_>,
-        ttyp: Option<&TypeEnt>,
+        scope: &Scope<'a>,
+        ttyp: Option<TypeEnt<'a>>,
         expr: &mut WithPos<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {

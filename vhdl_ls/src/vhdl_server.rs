@@ -374,7 +374,7 @@ impl VHDLServer {
 
         if let Some(ent) = ent {
             self.project
-                .find_all_references(ent)
+                .find_all_references(ent.id())
                 .iter()
                 .map(srcpos_to_location)
                 .collect()
@@ -772,7 +772,7 @@ lib.files = [
                 code: None,
                 severity: Some(DiagnosticSeverity::ERROR),
                 source: Some("vhdl ls".to_owned()),
-                message: "No entity \'ent2\' within library \'lib\'".to_owned(),
+                message: "No primary unit \'ent2\' within library \'lib\'".to_owned(),
                 ..Default::default()
             }],
             version: None,
@@ -996,7 +996,7 @@ lib.files = [
                 code: None,
                 severity: Some(DiagnosticSeverity::ERROR),
                 source: Some("vhdl ls".to_owned()),
-                message: "No entity \'ent\' within library \'lib\'".to_owned(),
+                message: "No primary unit \'ent\' within library \'lib\'".to_owned(),
                 ..Default::default()
             }],
             version: None,

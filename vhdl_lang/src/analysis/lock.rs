@@ -34,7 +34,7 @@ impl<T, R> AnalysisLock<T, R> {
     }
 
     /// Returns an immutable reference to the data and result if it has already been analyzed.
-    fn get(&self) -> Option<ReadGuard<T, R>> {
+    pub fn get(&self) -> Option<ReadGuard<T, R>> {
         let guard = self.state.read();
         if guard.result.is_some() {
             Some(ReadGuard { guard })

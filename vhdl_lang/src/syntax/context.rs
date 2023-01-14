@@ -23,7 +23,7 @@ fn parse_library_clause_no_keyword(
 ) -> ParseResult<WithPos<LibraryClause>> {
     let mut name_list = Vec::with_capacity(1);
     loop {
-        name_list.push(stream.expect_ident()?);
+        name_list.push(WithRef::new(stream.expect_ident()?));
         if !stream.skip_if_kind(Comma)? {
             break;
         }
@@ -149,7 +149,7 @@ mod tests {
             code.with_stream(parse_library_clause),
             WithPos::new(
                 LibraryClause {
-                    name_list: vec![code.s1("foo").ident()]
+                    name_list: vec![WithRef::new(code.s1("foo").ident())]
                 },
                 code
             )
@@ -163,7 +163,10 @@ mod tests {
             code.with_stream(parse_library_clause),
             WithPos::new(
                 LibraryClause {
-                    name_list: vec![code.s1("foo").ident(), code.s1("bar").ident()]
+                    name_list: vec![
+                        WithRef::new(code.s1("foo").ident()),
+                        WithRef::new(code.s1("bar").ident())
+                    ]
                 },
                 code
             )
@@ -301,7 +304,7 @@ end context;
                 items: vec![
                     WithPos::new(
                         ContextItem::Library(LibraryClause {
-                            name_list: vec![code.s1("foo").ident()]
+                            name_list: vec![WithRef::new(code.s1("foo").ident())]
                         }),
                         code.s1("library foo;")
                     ),

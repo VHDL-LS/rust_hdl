@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
-use super::named_entity::HasNamedEntity;
+use super::named_entity::*;
 use super::region::*;
 use super::root::*;
 use super::standard::StandardRegion;
@@ -13,8 +13,6 @@ use crate::data::*;
 use fnv::FnvHashSet;
 use std::cell::RefCell;
 use std::ops::Deref;
-use std::sync::Arc;
-
 pub enum AnalysisError {
     Fatal(CircularDependencyError),
     NotFatal(Diagnostic),
@@ -99,19 +97,25 @@ pub(super) struct AnalyzeContext<'a> {
     //  - for example when doing 'use library.all' the file is sensitive to adding/removing
     //    anything from library
     current_unit: UnitId,
+    pub(super) arena: &'a Arena,
     uses: RefCell<FnvHashSet<UnitId>>,
     missing_primary: RefCell<FnvHashSet<(Symbol, Symbol)>>,
     uses_library_all: RefCell<FnvHashSet<Symbol>>,
 }
 
 impl<'a> AnalyzeContext<'a> {
-    pub fn new(root: &'a DesignRoot, current_unit: &UnitId) -> AnalyzeContext<'a> {
+    pub fn new(
+        root: &'a DesignRoot,
+        current_unit: &UnitId,
+        arena: &'a Arena,
+    ) -> AnalyzeContext<'a> {
         AnalyzeContext {
             work_sym: root.symbol_utf8("work"),
             std_sym: root.symbol_utf8("std"),
             standard_sym: root.symbol_utf8("standard"),
             root,
             current_unit: current_unit.clone(),
+            arena,
             uses: RefCell::new(FnvHashSet::default()),
             missing_primary: RefCell::new(FnvHashSet::default()),
             uses_library_all: RefCell::new(FnvHashSet::default()),
@@ -122,7 +126,7 @@ impl<'a> AnalyzeContext<'a> {
         self.current_unit.library_name()
     }
 
-    pub fn work_library(&self) -> Arc<AnyEnt> {
+    pub fn work_library(&self) -> EntRef<'a> {
         self.get_library(self.current_unit.library_name()).unwrap()
     }
 
@@ -165,7 +169,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         use_pos: &SrcPos,
         library_name: &Symbol,
-        scope: &mut Scope<'_>,
+        scope: &mut Scope<'a>,
     ) -> FatalNullResult {
         let units = self.root.get_library_units(library_name).unwrap();
 
@@ -174,8 +178,8 @@ impl<'a> AnalyzeContext<'a> {
                 AnyKind::Primary(..) => {
                     let data = self.get_analysis(Some(use_pos), unit)?;
                     if let AnyDesignUnit::Primary(primary) = data.deref() {
-                        if let Some(ent) = primary.named_entity() {
-                            scope.make_potentially_visible(Some(use_pos), ent.clone());
+                        if let Some(id) = primary.ent_id() {
+                            scope.make_potentially_visible(Some(use_pos), self.arena.get(id));
                         }
                     }
                 }
@@ -187,6 +191,24 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
+    pub fn redefine<T: HasIdent>(
+        &self,
+        id: EntityId,
+        decl: &mut WithDecl<T>,
+        kind: AnyEntKind<'a>,
+    ) -> EntRef<'a> {
+        decl.decl = Some(id);
+        unsafe {
+            self.arena.update(
+                id,
+                decl.tree.name().clone().into(),
+                None,
+                kind,
+                Some(decl.tree.pos().clone()),
+            )
+        }
+    }
+
     pub fn is_standard_package(&self) -> bool {
         *self.work_library_name() == self.std_sym
             && *self.current_unit.primary_name() == self.standard_sym
@@ -195,7 +217,7 @@ impl<'a> AnalyzeContext<'a> {
     /// Add implicit context clause for all packages except STD.STANDARD
     /// library STD, WORK;
     /// use STD.STANDARD.all;
-    pub fn add_implicit_context_clause(&self, scope: &mut Scope<'_>) -> FatalNullResult {
+    pub fn add_implicit_context_clause(&self, scope: &mut Scope<'a>) -> FatalNullResult {
         // work is not visible in context declarations
         if self.current_unit.kind() != AnyKind::Primary(PrimaryKind::Context) {
             scope.make_potentially_visible_with_name(
@@ -221,8 +243,10 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
-    pub fn get_library(&self, library_name: &Symbol) -> Option<Arc<AnyEnt>> {
-        self.root.get_library_ent(library_name).cloned()
+    pub fn get_library(&self, library_name: &Symbol) -> Option<EntRef<'a>> {
+        let (arena, id) = self.root.get_library_arena(library_name)?;
+        self.arena.link(arena);
+        Some(self.arena.get(id))
     }
 
     fn get_package_body(&self) -> Option<&'a LockedUnit> {
@@ -246,6 +270,9 @@ impl<'a> AnalyzeContext<'a> {
         self.make_use_of(use_pos, unit.unit_id())?;
         let data = self.root.get_analysis(unit);
 
+        // Add all referenced declaration arenas from other unit
+        self.arena.link(&data.result().arena);
+
         // Change circular dependency reference when used by another unit during analysis
         // The error is changed from within the used unit into the position of the use of the unit
         if data.result().has_circular_dependency {
@@ -267,37 +294,21 @@ impl<'a> AnalyzeContext<'a> {
         None
     }
 
-    fn get_primary_unit_kind(
-        &self,
-        library_name: &Symbol,
-        name: &Symbol,
-        kind: PrimaryKind,
-    ) -> Option<&'a LockedUnit> {
-        let unit = self.get_primary_unit(library_name, name)?;
-        if unit.kind() == AnyKind::Primary(kind) {
-            Some(unit)
-        } else {
-            // @TODO no test case for incremental analysis going from wrong primary kind to right
-            self.make_use_of_missing_primary(library_name, name);
-            None
-        }
-    }
-
     pub fn lookup_in_library(
         &self,
         library_name: &Symbol,
         pos: &SrcPos,
         primary_name: &Designator,
         reference: &mut Reference,
-    ) -> AnalysisResult<DesignEnt> {
+    ) -> AnalysisResult<DesignEnt<'a>> {
         reference.clear_reference();
 
         if let Designator::Identifier(ref primary_name) = primary_name {
             if let Some(unit) = self.get_primary_unit(library_name, primary_name) {
                 let data = self.get_analysis(Some(pos), unit)?;
                 if let AnyDesignUnit::Primary(primary) = data.deref() {
-                    if let Some(ent) = primary.named_entity() {
-                        let design = DesignEnt::from_any(ent.clone()).map_err(|ent| {
+                    if let Some(ent) = primary.ent_id() {
+                        let design = DesignEnt::from_any(self.arena.get(ent)).map_err(|ent| {
                             // Almost impossible but better not fail silently
                             Diagnostic::error(
                                 pos,
@@ -308,7 +319,7 @@ impl<'a> AnalyzeContext<'a> {
                                 ),
                             )
                         })?;
-                        reference.set_unique_reference(design.as_ref());
+                        reference.set_unique_reference(design.0);
                         return Ok(design);
                     }
                 }
@@ -325,13 +336,15 @@ impl<'a> AnalyzeContext<'a> {
     }
 
     // Returns None when analyzing the standard package itsel
-    fn standard_package_region(&self) -> Option<&Arc<Region>> {
-        if let Some(pkg) = self.root.standard_pkg.as_ref() {
+    fn standard_package_region(&self) -> Option<&'a Region<'a>> {
+        if let Some(pkg) = self.root.standard_pkg_id.as_ref() {
+            self.arena.link(self.root.standard_arena.as_ref().unwrap());
+
             // Ensure things that depend on the standard package are re-analyzed
             self.make_use_of(None, &UnitId::package(&self.std_sym, &self.standard_sym))
                 .unwrap();
 
-            if let AnyEntKind::Design(Design::Package(region)) = pkg.kind() {
+            if let AnyEntKind::Design(Design::Package(_, region)) = self.arena.get(*pkg).kind() {
                 Some(region)
             } else {
                 unreachable!("Standard package is not a package");
@@ -341,19 +354,8 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    pub fn standard_package(&'a self) -> Option<StandardRegion<'a>> {
+    pub fn standard_package(&self) -> Option<StandardRegion<'a, 'a>> {
         let region = self.standard_package_region()?;
-        Some(StandardRegion::new(self.root, region.as_ref()))
-    }
-
-    pub fn get_primary_analysis(
-        &self,
-        use_pos: &SrcPos,
-        library_name: &Symbol,
-        name: &Symbol,
-        kind: PrimaryKind,
-    ) -> Option<FatalResult<UnitReadGuard<'a>>> {
-        let unit = self.get_primary_unit_kind(library_name, name, kind)?;
-        Some(self.get_analysis(Some(use_pos), unit))
+        Some(StandardRegion::new(self.root, self.arena, region))
     }
 }

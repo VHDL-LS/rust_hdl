@@ -17,12 +17,12 @@ use target::AssignmentType;
 impl<'a> AnalyzeContext<'a> {
     fn analyze_sequential_statement(
         &self,
-        scope: &mut Scope<'_>,
+        scope: &mut Scope<'a>,
         statement: &mut LabeledSequentialStatement,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {
         if let Some(ref mut label) = statement.label {
-            scope.add(label.define(AnyEntKind::Label), diagnostics);
+            scope.add(self.arena.define(label, AnyEntKind::Label), diagnostics);
         }
 
         match statement.statement {
@@ -129,7 +129,10 @@ impl<'a> AnalyzeContext<'a> {
                     Some(IterationScheme::For(ref mut index, ref mut drange)) => {
                         self.analyze_discrete_range(scope, drange, diagnostics)?;
                         let mut region = scope.nested();
-                        region.add(index.define(AnyEntKind::LoopParameter), diagnostics);
+                        region.add(
+                            self.arena.define(index, AnyEntKind::LoopParameter),
+                            diagnostics,
+                        );
                         self.analyze_sequential_part(&mut region, statements, diagnostics)?;
                     }
                     Some(IterationScheme::While(ref mut expr)) => {
@@ -193,7 +196,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_sequential_part(
         &self,
-        scope: &mut Scope<'_>,
+        scope: &mut Scope<'a>,
         statements: &mut [LabeledSequentialStatement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalNullResult {

@@ -4,8 +4,9 @@
 //
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
+use super::named_entity::EntRef;
 use super::AnyEnt;
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
 
 /// Implicits typically contain self-references thus we use weak pointers
 /// Intialization is unsafe to be able to create the implicits after the type definition
@@ -13,8 +14,8 @@ use std::sync::{Arc, Weak};
 /// This happens immediately after creation in the same thread and so it is safe.
 #[derive(Clone, Default)]
 pub struct Implicits<T>(Arc<T>);
-pub type ImplicitVec = Implicits<Vec<Weak<AnyEnt>>>;
-pub type ImplicitVecBuilder = ImplicitsBuilder<Vec<Weak<AnyEnt>>>;
+pub type ImplicitVec<'a> = Implicits<Vec<EntRef<'a>>>;
+pub type ImplicitVecBuilder<'a> = ImplicitsBuilder<Vec<EntRef<'a>>>;
 
 impl<T: Default> Implicits<T> {
     pub fn build() -> ImplicitsBuilder<T> {
@@ -30,13 +31,13 @@ impl<T> std::ops::Deref for Implicits<T> {
     }
 }
 
-impl ImplicitVec {
-    pub fn iter(&self) -> impl Iterator<Item = Arc<AnyEnt>> + '_ {
-        self.0.iter().filter_map(|weak_ent| weak_ent.upgrade())
+impl<'a> ImplicitVec<'a> {
+    pub fn iter(&self) -> impl Iterator<Item = EntRef<'a>> + '_ {
+        self.0.iter().cloned()
     }
 
-    pub unsafe fn push(&self, ent: &Arc<AnyEnt>) {
-        raw_mut(&self.0).push(Arc::downgrade(ent));
+    pub unsafe fn push(&self, ent: &'a AnyEnt) {
+        raw_mut(&self.0).push(ent);
     }
 }
 
@@ -48,10 +49,10 @@ impl<T> ImplicitsBuilder<T> {
         Implicits(self.0.clone())
     }
 }
-impl ImplicitVecBuilder {
-    pub fn push(&self, ent: &Arc<AnyEnt>) {
+impl<'a> ImplicitVecBuilder<'a> {
+    pub fn push(&self, ent: &'a AnyEnt) {
         unsafe {
-            raw_mut(&self.0).push(Arc::downgrade(ent));
+            raw_mut(&self.0).push(ent);
         }
     }
 }
