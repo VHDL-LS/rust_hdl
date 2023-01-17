@@ -143,10 +143,9 @@ pub enum Name {
     Designator(WithRef<Designator>),
     Selected(Box<WithPos<Name>>, WithPos<WithRef<Designator>>),
     SelectedAll(Box<WithPos<Name>>),
-    Indexed(Box<WithPos<Name>>, Vec<WithPos<Expression>>),
     Slice(Box<WithPos<Name>>, Box<DiscreteRange>),
     Attribute(Box<AttributeName>),
-    FunctionCall(Box<FunctionCall>),
+    CallOrIndexed(Box<CallOrIndexed>),
     External(Box<ExternalName>),
 }
 
@@ -160,7 +159,7 @@ pub enum SelectedName {
 
 /// LRM 9.3.4 Function calls
 #[derive(PartialEq, Debug, Clone)]
-pub struct FunctionCall {
+pub struct CallOrIndexed {
     pub name: WithPos<Name>,
     pub parameters: Vec<AssociationElement>,
 }
@@ -887,7 +886,7 @@ pub enum SequentialStatement {
     SignalAssignment(SignalAssignment),
     SignalForceAssignment(SignalForceAssignment),
     SignalReleaseAssignment(SignalReleaseAssignment),
-    ProcedureCall(FunctionCall),
+    ProcedureCall(WithPos<CallOrIndexed>),
     If(IfStatement),
     Case(CaseStatement),
     Loop(LoopStatement),
@@ -941,7 +940,7 @@ pub struct ProcessStatement {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ConcurrentProcedureCall {
     pub postponed: bool,
-    pub call: FunctionCall,
+    pub call: WithPos<CallOrIndexed>,
 }
 
 /// LRM 11.5 Concurrent assertion statements

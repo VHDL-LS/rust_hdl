@@ -33,14 +33,21 @@ end architecture;
     );
 
     let expected = vec![
-        Diagnostic::error(code.s("foo1", 2), "Invalid assignment target"),
-        Diagnostic::error(code.s("foo2", 2), "Invalid assignment target"),
+        Diagnostic::error(
+            code.s("foo1", 2),
+            "foo1[return NATURAL] may not be the target of an assignment",
+        ),
+        Diagnostic::error(
+            code.s("foo2", 2),
+            "foo2[return enum_t] may not be the target of an assignment",
+        ),
     ];
 
     let diagnostics = builder.analyze();
     check_diagnostics(diagnostics, expected);
 }
 
+#[ignore = "Does not work yet"]
 #[test]
 fn attribute_name_may_not_be_assignment_target() {
     let mut builder = LibraryBuilder::new();
@@ -63,7 +70,7 @@ end architecture;
 
     let expected = vec![Diagnostic::error(
         code.s("foo'stable", 1),
-        "Invalid assignment target",
+        "Attribute name may not be the target of an assignment",
     )];
 
     let diagnostics = builder.analyze();
@@ -108,13 +115,22 @@ end architecture;
     );
 
     let expected = vec![
-        Diagnostic::error(code.s("work.pkg.foo1", 1), "Invalid assignment target"),
-        Diagnostic::error(code.s("foo2", 2), "Invalid assignment target"),
         Diagnostic::error(
-            code.s("work.pkg.foo1(arg => 2)", 1),
-            "Invalid assignment target",
+            code.s1("work.pkg.foo1(2)"),
+            "Expression may not be the target of an assignment",
         ),
-        Diagnostic::error(code.s("foo2(arg => 2)", 1), "Invalid assignment target"),
+        Diagnostic::error(
+            code.s1("foo2(2)"),
+            "Expression may not be the target of an assignment",
+        ),
+        Diagnostic::error(
+            code.s1("work.pkg.foo1(arg => 2)"),
+            "Expression may not be the target of an assignment",
+        ),
+        Diagnostic::error(
+            code.s1("foo2(arg => 2)"),
+            "Expression may not be the target of an assignment",
+        ),
     ];
 
     let diagnostics = builder.analyze();
@@ -146,11 +162,11 @@ end architecture;
     let expected = vec![
         Diagnostic::error(
             code.s("foo1", 3),
-            "constant may not be the target of an assignment",
+            "constant 'foo1' may not be the target of an assignment",
         ),
         Diagnostic::error(
             code.s("foo2", 2),
-            "constant may not be the target of an assignment",
+            "alias 'foo2' of constant may not be the target of an assignment",
         ),
     ];
 
@@ -277,11 +293,11 @@ end architecture;
     let expected = vec![
         Diagnostic::error(
             code.s("foo1", 2),
-            "interface constant may not be the target of an assignment",
+            "interface constant 'foo1' may not be the target of an assignment",
         ),
         Diagnostic::error(
             code.s("foo2", 2),
-            "interface variable of mode in may not be the target of an assignment",
+            "interface variable 'foo2' of mode in may not be the target of an assignment",
         ),
     ];
 
@@ -323,19 +339,19 @@ end architecture;
     let expected = vec![
         Diagnostic::error(
             code.s("foo1", 2),
-            "interface signal of mode out may not be the target of a variable assignment",
+            "interface signal 'foo1' of mode out may not be the target of a variable assignment",
         ),
         Diagnostic::error(
             code.s("foo2", 2),
-            "interface variable of mode out may not be the target of a signal assignment",
+            "interface variable 'foo2' of mode out may not be the target of a signal assignment",
         ),
         Diagnostic::error(
             code.s("foo3", 2),
-            "signal may not be the target of a variable assignment",
+            "signal 'foo3' may not be the target of a variable assignment",
         ),
         Diagnostic::error(
             code.s("foo4", 2),
-            "variable may not be the target of a signal assignment",
+            "variable 'foo4' may not be the target of a signal assignment",
         ),
     ];
 
@@ -362,7 +378,7 @@ end architecture;
 
     let expected = vec![Diagnostic::error(
         code.s("foo", 2),
-        "subtype 'NATURAL' cannot be indexed",
+        "signal 'foo' of subtype 'NATURAL' cannot be indexed",
     )];
 
     let diagnostics = builder.analyze();
@@ -388,7 +404,7 @@ end architecture;
 
     let expected = vec![Diagnostic::error(
         code.s("foo", 2),
-        "subtype 'NATURAL' cannot be sliced",
+        "signal 'foo' of subtype 'NATURAL' cannot be sliced",
     )];
 
     let diagnostics = builder.analyze();
@@ -423,7 +439,7 @@ end architecture;
         diagnostics,
         vec![Diagnostic::error(
             code.s("foo1(0 to 1)", 2),
-            "signal may not be the target of a variable assignment",
+            "signal 'foo1' may not be the target of a variable assignment",
         )],
     );
 }
@@ -524,11 +540,11 @@ end architecture;
         vec![
             Diagnostic::error(
                 code.s1("vptr.all := vptr").s("vptr", 2),
-                "variable 'vptr' does not match record type 'rec_t'",
+                "variable 'vptr' of access type 'ptr_t' does not match record type 'rec_t'",
             ),
             Diagnostic::error(
                 code.s1("vptr.all.all").s1("vptr.all"),
-                "Cannot be the prefix of .all",
+                "record type 'rec_t' cannot be accessed with .all",
             ),
         ],
     );

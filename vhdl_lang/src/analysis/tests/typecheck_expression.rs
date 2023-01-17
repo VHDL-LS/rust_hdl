@@ -206,11 +206,11 @@ constant bad_b : my_bool := rval.elem;
         vec![
             Diagnostic::error(
                 code.s("ival", 3),
-                "constant 'ival' does not match type 'BOOLEAN'",
+                "constant 'ival' of integer type 'INTEGER' does not match type 'BOOLEAN'",
             ),
             Diagnostic::error(
-                code.s("rval.elem", 2).s1("elem"),
-                "element declaration 'elem' does not match subtype 'my_bool'",
+                code.s("rval.elem", 2),
+                "subtype 'NATURAL' does not match subtype 'my_bool'",
             ),
         ],
     );
@@ -272,8 +272,14 @@ constant bad : character := fun1;
         diagnostics,
         vec![
             Diagnostic::error(code.s("fun1", 4), "Could not resolve 'fun1'")
-                .related(code.s("fun1", 1), "Does not match fun1[return NATURAL]")
-                .related(code.s("fun1", 2), "Does not match fun1[return BOOLEAN]"),
+                .related(
+                    code.s("fun1", 1),
+                    "Does not match return type of fun1[return NATURAL]",
+                )
+                .related(
+                    code.s("fun1", 2),
+                    "Does not match return type of fun1[return BOOLEAN]",
+                ),
         ],
     );
 
@@ -310,9 +316,12 @@ constant bad : character := fun1;
             Diagnostic::error(code.s("fun1", 4), "Could not resolve 'fun1'")
                 .related(
                     code.s("fun1", 1),
-                    "Does not match fun1[NATURAL return NATURAL]",
+                    "Does not match return type of fun1[NATURAL return NATURAL]",
                 )
-                .related(code.s("fun1", 2), "Does not match fun1[return BOOLEAN]"),
+                .related(
+                    code.s("fun1", 2),
+                    "Does not match return type of fun1[return BOOLEAN]",
+                ),
         ],
     );
 }
@@ -346,7 +355,7 @@ constant bad: integer := fun1;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s1(":= fun1").s1("fun1"), "Ambiguous use of 'fun1'")
+            Diagnostic::error(code.s1(":= fun1").s1("fun1"), "Ambiguous call to 'fun1'")
                 .related(code.s("fun1", 1), "Migth be fun1[NATURAL return NATURAL]")
                 .related(code.s("fun1", 2), "Migth be fun1[BOOLEAN return NATURAL]"),
         ],
@@ -368,7 +377,7 @@ constant bar : natural := foo(0);
         diagnostics,
         vec![Diagnostic::error(
             code.s("foo", 2),
-            "subtype 'NATURAL' cannot be indexed",
+            "constant 'foo' of subtype 'NATURAL' cannot be indexed",
         )],
     );
 }
@@ -388,7 +397,7 @@ constant bar : natural := foo(0 to 0);
         diagnostics,
         vec![Diagnostic::error(
             code.s("foo", 2),
-            "subtype 'NATURAL' cannot be sliced",
+            "constant 'foo' of subtype 'NATURAL' cannot be sliced",
         )],
     );
 }
@@ -407,6 +416,43 @@ procedure proc is
 begin
     foo := myvar(0);
 end procedure;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn function_result_can_be_indexed() {
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "
+function thefun(arg : natural) return integer_vector is
+begin
+   return (0, 1);
+end;
+
+constant good : natural := thefun(0)(0);
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[ignore = "Does not work yet"]
+#[test]
+fn function_result_can_be_indexed_no_arg() {
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "
+function thefun return integer_vector is
+begin
+   return (0, 1);
+end;
+
+constant good : natural := thefun(0);
         ",
     );
 
@@ -483,7 +529,7 @@ constant bar : natural := foo(arg => 0);
         diagnostics,
         vec![Diagnostic::error(
             code.s("foo", 2),
-            "constant 'foo' cannot be the prefix of a function call",
+            "constant 'foo' cannot be called as a function",
         )],
     );
 }
@@ -558,7 +604,7 @@ constant const : natural := thefun('c');
         vec![
             Diagnostic::error(
                 code.s1("theproc(arg)").s1("arg"),
-                "interface constant 'arg' does not match type 'CHARACTER'",
+                "constant 'arg' of integer type 'INTEGER' does not match type 'CHARACTER'",
             ),
             Diagnostic::error(
                 code.s1("thefun('c')").s1("'c'"),
@@ -848,7 +894,7 @@ constant bad : character := - i0;
         diagnostics,
         vec![Diagnostic::error(
             code.s1("character := -").s1("-"),
-            "Could not resolve operator \"-\"",
+            "Found no match for operator \"-\"",
         )
         .related(
             integer.decl_pos().unwrap(),
@@ -893,7 +939,7 @@ constant bad : character := i0 + i0;
         diagnostics,
         vec![Diagnostic::error(
             code.s1("character := i0 + i0").s1("+"),
-            "Could not resolve operator \"+\"",
+            "Found no match for operator \"+\"",
         )
         .related(
             integer.decl_pos().unwrap(),
@@ -908,4 +954,84 @@ constant bad : character := i0 + i0;
             "Does not match \"+\"[TIME, TIME return TIME]",
         )],
     );
+}
+
+#[test]
+fn overloading_nested_ambiguous_op_has_acceptable_performance() {
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "
+    constant const : integer_vector :=
+      (0, 0) & 0 &
+      (0, 0) & 0 &
+      (0, 0) & 0 &
+      (0, 0) & 0 &
+      (0, 0) & 0 &
+      (0, 0) & 0 &
+      (0, 0) & 0 &
+      (0, 0) & 0 &
+      (0, 0) & 0 &
+      (0, 0) & 0;",
+    );
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn overloading_nested_ambiguous_func_has_acceptable_performance() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "lib",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    function func(arg : integer_vector; arg2 : integer) return integer_vector is
+    begin
+      return (0, 1);
+    end;
+
+    function func(arg : integer; arg2 : integer_vector) return integer_vector is
+    begin
+      return (0, 1);
+    end;
+
+    function func(arg : integer_vector; arg2 : integer_vector) return integer_vector is
+    begin
+      return (0, 1);
+    end;
+
+    function func(arg : integer; arg2 : integer) return integer_vector is
+    begin
+      return (0, 1);
+    end;
+
+    constant const : integer_vector :=
+      func(func(
+      func(func(
+      func(func(
+      func(func(
+      func(func(
+      func(func(
+      func(func(
+      func(func(
+      func(func(
+      func(func(
+      func((3, 3), 0),
+      (0, 0)), 0),
+      (0, 0)), 0),
+      (0, 0)), 0),
+      (0, 0)), 0),
+      (0, 0)), 0),
+      (0, 0)), 0),
+      (0, 0)), 0),
+      (0, 0)), 0),
+      (0, 0)), 0),
+      (0, 0)), 0);
+begin
+end architecture;",
+    );
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
 }

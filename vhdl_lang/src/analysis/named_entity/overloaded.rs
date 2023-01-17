@@ -3,13 +3,15 @@
 //! You can obtain one at http://mozilla.org/MPL/2.0/.
 //!
 //! Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
-use crate::analysis::formal_region::FormalRegion;
-
 use super::AnyEnt;
 use super::AnyEntKind;
+use super::BaseType;
 use super::EntRef;
 use super::EntityId;
 use super::TypeEnt;
+use crate::analysis::formal_region::FormalRegion;
+use crate::analysis::formal_region::InterfaceEnt;
+use crate::ast::Designator;
 
 pub enum Overloaded<'a> {
     SubprogramDecl(Signature<'a>),
@@ -99,8 +101,12 @@ impl<'a> Signature<'a> {
 
     /// Returns true if the function has no arguments
     /// or all arguments have defaults
-    pub fn can_be_called_without_parameters(&self) -> bool {
+    pub fn can_be_called_without_actuals(&self) -> bool {
         self.formals.iter().all(|formal| formal.has_default())
+    }
+
+    pub fn formals_without_defaults(&self) -> impl Iterator<Item = InterfaceEnt<'a>> + '_ {
+        self.formals.iter().filter(|formal| !formal.has_default())
     }
 
     pub fn can_be_called_with_single_parameter(&self, typ: TypeEnt<'a>) -> bool {
@@ -137,7 +143,7 @@ impl SignatureKey {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct OverloadedEnt<'a> {
     ent: EntRef<'a>,
 }
@@ -157,6 +163,10 @@ impl<'a> OverloadedEnt<'a> {
         } else {
             unreachable!();
         }
+    }
+
+    pub fn designator(&self) -> &'a Designator {
+        self.ent.designator()
     }
 
     pub fn signature(&self) -> &'a Signature<'a> {
@@ -190,6 +200,12 @@ impl<'a> OverloadedEnt<'a> {
 
     pub fn formals(&self) -> &'a FormalRegion<'a> {
         &self.signature().formals
+    }
+
+    /// Base type of nth formal
+    pub fn nth_base(&self, idx: usize) -> Option<BaseType<'a>> {
+        let ent = self.formals().nth(idx)?;
+        Some(ent.type_mark().base())
     }
 }
 

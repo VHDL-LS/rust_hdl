@@ -11,7 +11,7 @@ use crate::{
 
 use super::named_entity::*;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct InterfaceEnt<'a> {
     /// InterfaceObject or InterfaceFile
     ent: EntRef<'a>,

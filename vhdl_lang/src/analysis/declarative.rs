@@ -24,10 +24,10 @@ use std::sync::Arc;
 impl<'a> AnalyzeContext<'a> {
     pub fn analyze_declarative_part(
         &self,
-        scope: &mut Scope<'a>,
+        scope: &Scope<'a>,
         declarations: &mut [Declaration],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         let mut incomplete_types: FnvHashMap<Symbol, (EntRef<'a>, SrcPos)> = FnvHashMap::default();
 
         for i in 0..declarations.len() {
@@ -38,8 +38,6 @@ impl<'a> AnalyzeContext<'a> {
             match decl {
                 Declaration::Type(type_decl) => match type_decl.def {
                     TypeDefinition::Incomplete(ref mut reference) => {
-                        reference.clear_reference();
-
                         match incomplete_types.entry(type_decl.ident.name().clone()) {
                             Entry::Vacant(entry) => {
                                 let full_definiton =
@@ -121,13 +119,7 @@ impl<'a> AnalyzeContext<'a> {
             signature,
         } = alias;
 
-        let resolved_name = self.resolve_object_prefix(
-            scope,
-            &name.pos,
-            &mut name.item,
-            "Invalid alias name",
-            diagnostics,
-        );
+        let resolved_name = self.name_resolve(scope, &name.pos, &mut name.item, diagnostics);
 
         if let Some(ref mut subtype_indication) = subtype_indication {
             // Object alias
@@ -147,36 +139,39 @@ impl<'a> AnalyzeContext<'a> {
 
         let kind = {
             match resolved_name {
-                ResolvedName::ObjectSelection { base, type_mark } => {
+                ResolvedName::ObjectName(oname) => {
                     if let Some(ref signature) = signature {
                         diagnostics.push(signature_error(signature));
                     }
-                    match base {
+                    match oname.base {
                         ObjectBase::Object(base_object) => AnyEntKind::ObjectAlias {
                             base_object,
-                            type_mark,
+                            type_mark: oname.type_mark(),
                         },
-                        ObjectBase::ExternalName(class) => {
-                            AnyEntKind::ExternalAlias { class, type_mark }
-                        }
-                        ObjectBase::DeferredConstant => {
+                        ObjectBase::ObjectAlias(base_object, _) => AnyEntKind::ObjectAlias {
+                            base_object,
+                            type_mark: oname.type_mark(),
+                        },
+                        ObjectBase::ExternalName(class) => AnyEntKind::ExternalAlias {
+                            class,
+                            type_mark: oname.type_mark(),
+                        },
+                        ObjectBase::DeferredConstant(_) => {
                             // @TODO handle
                             return Ok(None);
                         }
                     }
                 }
-                ResolvedName::Library(sym) => {
+                ResolvedName::Library(_)
+                | ResolvedName::Design(_)
+                | ResolvedName::Expression(_) => {
                     if let Some(ref signature) = signature {
                         diagnostics.push(signature_error(signature));
                     }
-                    diagnostics.error(&name.pos, format!("library {} cannot be aliased", sym));
-                    return Ok(None);
-                }
-                ResolvedName::Design(ent) => {
-                    if let Some(ref signature) = signature {
-                        diagnostics.push(signature_error(signature));
-                    }
-                    diagnostics.error(&name.pos, format!("{} cannot be aliased", ent.describe()));
+                    diagnostics.error(
+                        &name.pos,
+                        format!("{} cannot be aliased", resolved_name.describe_type()),
+                    );
                     return Ok(None);
                 }
                 ResolvedName::Type(typ) => {
@@ -185,7 +180,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     AnyEntKind::Type(Type::Alias(typ))
                 }
-                ResolvedName::Overloaded(overloaded) => {
+                ResolvedName::Overloaded(des, overloaded) => {
                     if let Some(ref mut signature) = signature {
                         match self.resolve_signature(scope, signature) {
                             Ok(signature_key) => {
@@ -197,7 +192,10 @@ impl<'a> AnalyzeContext<'a> {
                                 } else {
                                     let mut diagnostic = Diagnostic::error(
                                         name,
-                                        "Could not find declaration with given signature",
+                                        format!(
+                                            "Could not find declaration of {} with given signature",
+                                            des.item.describe()
+                                        ),
                                     );
                                     for ent in overloaded.entities() {
                                         if let Some(pos) = ent.decl_pos() {
@@ -236,10 +234,10 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_declaration(
         &self,
-        scope: &mut Scope<'a>,
+        scope: &Scope<'a>,
         decl: &mut Declaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         match decl {
             Declaration::Alias(alias) => {
                 if let Some(ent) = self.analyze_alias_declaration(scope, alias, diagnostics)? {
@@ -338,22 +336,14 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             Declaration::Component(ref mut component) => {
-                let mut component_region = scope.nested();
-                self.analyze_interface_list(
-                    &mut component_region,
-                    &mut component.generic_list,
-                    diagnostics,
-                )?;
-                self.analyze_interface_list(
-                    &mut component_region,
-                    &mut component.port_list,
-                    diagnostics,
-                )?;
-                component_region.close(diagnostics);
+                let nested = scope.nested();
+                self.analyze_interface_list(&nested, &mut component.generic_list, diagnostics)?;
+                self.analyze_interface_list(&nested, &mut component.port_list, diagnostics)?;
+                nested.close(diagnostics);
                 scope.add(
                     self.arena.define(
                         &mut component.ident,
-                        AnyEntKind::Component(component_region.into_region()),
+                        AnyEntKind::Component(nested.into_region()),
                     ),
                     diagnostics,
                 );
@@ -373,10 +363,10 @@ impl<'a> AnalyzeContext<'a> {
                 Attribute::Specification(..) => {}
             },
             Declaration::SubprogramBody(ref mut body) => {
-                let mut subpgm_region = scope.nested();
+                let subpgm_region = scope.nested();
 
                 let signature = self.analyze_subprogram_declaration(
-                    &mut subpgm_region,
+                    &subpgm_region,
                     &mut body.specification,
                     diagnostics,
                 );
@@ -395,25 +385,17 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     Err(err) => err.add_to(diagnostics)?,
                 }
-                let mut subpgm_region = subpgm_region.with_parent(scope);
+                let subpgm_region = subpgm_region.with_parent(scope);
 
-                self.analyze_declarative_part(
-                    &mut subpgm_region,
-                    &mut body.declarations,
-                    diagnostics,
-                )?;
+                self.analyze_declarative_part(&subpgm_region, &mut body.declarations, diagnostics)?;
                 subpgm_region.close(diagnostics);
 
-                self.analyze_sequential_part(
-                    &mut subpgm_region,
-                    &mut body.statements,
-                    diagnostics,
-                )?;
+                self.analyze_sequential_part(&subpgm_region, &mut body.statements, diagnostics)?;
             }
             Declaration::SubprogramDeclaration(ref mut subdecl) => {
-                let mut subpgm_region = scope.nested();
+                let subpgm_region = scope.nested();
                 let signature =
-                    self.analyze_subprogram_declaration(&mut subpgm_region, subdecl, diagnostics);
+                    self.analyze_subprogram_declaration(&subpgm_region, subdecl, diagnostics);
                 subpgm_region.close(diagnostics);
                 drop(subpgm_region);
 
@@ -456,13 +438,13 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_type_declaration(
         &self,
-        scope: &mut Scope<'a>,
+        scope: &Scope<'a>,
         type_decl: &mut TypeDeclaration,
         // Is the full type declaration of an incomplete type
         // Overwrite id when defining full type
         overwrite_id: Option<EntityId>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         match type_decl.def {
             TypeDefinition::Enumeration(ref mut enumeration) => {
                 let implicit = ImplicitVecBuilder::default();
@@ -505,8 +487,6 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             TypeDefinition::ProtectedBody(ref mut body) => {
-                body.type_reference.clear_reference();
-
                 match scope.lookup_immediate(&type_decl.ident.tree.item.clone().into()) {
                     Some(visible) => {
                         let is_ok = match visible.clone().into_non_overloaded() {
@@ -515,9 +495,9 @@ impl<'a> AnalyzeContext<'a> {
                                     ent.kind()
                                 {
                                     body.type_reference.set_unique_reference(ent);
-                                    let mut region = Scope::extend(ptype_region, Some(scope));
+                                    let region = Scope::extend(ptype_region, Some(scope));
                                     self.analyze_declarative_part(
-                                        &mut region,
+                                        &region,
                                         &mut body.decl,
                                         diagnostics,
                                     )?;
@@ -573,9 +553,9 @@ impl<'a> AnalyzeContext<'a> {
                 for item in prot_decl.items.iter_mut() {
                     match item {
                         ProtectedTypeDeclarativeItem::Subprogram(ref mut subprogram) => {
-                            let mut subpgm_region = region.nested();
+                            let subpgm_region = region.nested();
                             let signature = self.analyze_subprogram_declaration(
-                                &mut subpgm_region,
+                                &subpgm_region,
                                 subprogram,
                                 diagnostics,
                             );
@@ -936,9 +916,9 @@ impl<'a> AnalyzeContext<'a> {
                 self.arena.define(ident, AnyEntKind::Type(Type::Interface))
             }
             InterfaceDeclaration::Subprogram(ref mut subpgm, ..) => {
-                let mut subpgm_region = scope.nested();
+                let subpgm_region = scope.nested();
                 let signature =
-                    self.analyze_subprogram_declaration(&mut subpgm_region, subpgm, diagnostics);
+                    self.analyze_subprogram_declaration(&subpgm_region, subpgm, diagnostics);
                 subpgm_region.close(diagnostics);
                 drop(subpgm_region);
 
@@ -962,10 +942,10 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_interface_list(
         &self,
-        scope: &mut Scope<'a>,
+        scope: &Scope<'a>,
         declarations: &mut [InterfaceDeclaration],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         for decl in declarations.iter_mut() {
             match self.analyze_interface_declaration(scope, decl, diagnostics) {
                 Ok(ent) => {
@@ -981,7 +961,7 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_parameter_list(
         &self,
-        scope: &mut Scope<'a>,
+        scope: &Scope<'a>,
         declarations: &mut [InterfaceDeclaration],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<FormalRegion<'a>> {
@@ -1003,7 +983,7 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_array_index(
         &self,
-        scope: &mut Scope<'a>,
+        scope: &Scope<'a>,
         array_index: &mut ArrayIndex,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<Option<TypeEnt<'a>>> {
@@ -1029,7 +1009,7 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         constraint: &mut ElementConstraint,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         // @TODO more
         let ElementConstraint { constraint, .. } = constraint;
         self.analyze_subtype_constraint(scope, &mut constraint.item, diagnostics)
@@ -1040,7 +1020,7 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         constraint: &mut SubtypeConstraint,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         match constraint {
             SubtypeConstraint::Array(ref mut dranges, ref mut constraint) => {
                 for drange in dranges.iter_mut() {
@@ -1089,7 +1069,7 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         subtype_indication: &mut SubtypeIndication,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         if let Err(err) = self.resolve_subtype_indication(scope, subtype_indication, diagnostics) {
             err.add_to(diagnostics)?;
         }
@@ -1098,7 +1078,7 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_subprogram_declaration(
         &self,
-        scope: &mut Scope<'a>,
+        scope: &Scope<'a>,
         subprogram: &mut SubprogramDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> AnalysisResult<Signature<'a>> {

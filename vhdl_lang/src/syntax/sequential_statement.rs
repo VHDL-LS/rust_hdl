@@ -456,15 +456,15 @@ fn parse_assignment_or_procedure_call(
         },
         SemiColon => {
             match target.item {
-                Target::Name(Name::FunctionCall(call)) => {
-                    SequentialStatement::ProcedureCall(*call)
+                Target::Name(Name::CallOrIndexed(call)) => {
+                    SequentialStatement::ProcedureCall(WithPos::new(*call, target.pos))
                 }
                 Target::Name(name) => {
                     SequentialStatement::ProcedureCall(
-                        FunctionCall {
-                            name: WithPos::from(name, target.pos),
+                        WithPos::new(CallOrIndexed {
+                            name: WithPos::from(name, target.pos.clone()),
                             parameters: vec![]
-                        })
+                        }, target.pos))
                 }
                 Target::Aggregate(..) => {
                     return Err(Diagnostic::error(target, "Expected procedure call, got aggregate"));

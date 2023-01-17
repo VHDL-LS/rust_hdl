@@ -13,6 +13,8 @@ use crate::data::*;
 use fnv::FnvHashSet;
 use std::cell::RefCell;
 use std::ops::Deref;
+
+#[derive(Debug)]
 pub enum AnalysisError {
     Fatal(CircularDependencyError),
     NotFatal(Diagnostic),
@@ -46,7 +48,6 @@ impl CircularDependencyError {
 
 pub type AnalysisResult<T> = Result<T, AnalysisError>;
 pub type FatalResult<T = ()> = Result<T, CircularDependencyError>;
-pub type FatalNullResult = FatalResult<()>;
 
 impl From<CircularDependencyError> for AnalysisError {
     fn from(err: CircularDependencyError) -> AnalysisError {
@@ -62,7 +63,7 @@ impl From<Diagnostic> for AnalysisError {
 
 impl AnalysisError {
     // Add Non-fatal error to diagnostics or return fatal error
-    pub fn add_to(self, diagnostics: &mut dyn DiagnosticHandler) -> FatalNullResult {
+    pub fn add_to(self, diagnostics: &mut dyn DiagnosticHandler) -> FatalResult {
         let diag = self.into_non_fatal()?;
         diagnostics.push(diag);
         Ok(())
@@ -134,7 +135,7 @@ impl<'a> AnalyzeContext<'a> {
         &self.current_unit
     }
 
-    fn make_use_of(&self, use_pos: Option<&SrcPos>, unit_id: &UnitId) -> FatalNullResult {
+    fn make_use_of(&self, use_pos: Option<&SrcPos>, unit_id: &UnitId) -> FatalResult {
         // Check local cache before taking lock
         if self.uses.borrow_mut().insert(unit_id.clone()) {
             self.root.make_use_of(use_pos, &self.current_unit, unit_id)
@@ -169,8 +170,8 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         use_pos: &SrcPos,
         library_name: &Symbol,
-        scope: &mut Scope<'a>,
-    ) -> FatalNullResult {
+        scope: &Scope<'a>,
+    ) -> FatalResult {
         let units = self.root.get_library_units(library_name).unwrap();
 
         for unit in units.values() {
@@ -214,10 +215,27 @@ impl<'a> AnalyzeContext<'a> {
             && *self.current_unit.primary_name() == self.standard_sym
     }
 
+    pub fn universal_integer(&self) -> BaseType<'a> {
+        TypeEnt::from_any(
+            self.root
+                .get_ent(self.root.universal.as_ref().unwrap().integer),
+        )
+        .unwrap()
+        .base()
+    }
+
+    pub fn universal_real(&self) -> BaseType<'a> {
+        TypeEnt::from_any(
+            self.root
+                .get_ent(self.root.universal.as_ref().unwrap().real),
+        )
+        .unwrap()
+        .base()
+    }
     /// Add implicit context clause for all packages except STD.STANDARD
     /// library STD, WORK;
     /// use STD.STANDARD.all;
-    pub fn add_implicit_context_clause(&self, scope: &mut Scope<'a>) -> FatalNullResult {
+    pub fn add_implicit_context_clause(&self, scope: &Scope<'a>) -> FatalResult {
         // work is not visible in context declarations
         if self.current_unit.kind() != AnyKind::Primary(PrimaryKind::Context) {
             scope.make_potentially_visible_with_name(
@@ -301,8 +319,6 @@ impl<'a> AnalyzeContext<'a> {
         primary_name: &Designator,
         reference: &mut Reference,
     ) -> AnalysisResult<DesignEnt<'a>> {
-        reference.clear_reference();
-
         if let Designator::Identifier(ref primary_name) = primary_name {
             if let Some(unit) = self.get_primary_unit(library_name, primary_name) {
                 let data = self.get_analysis(Some(pos), unit)?;

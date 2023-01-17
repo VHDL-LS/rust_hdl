@@ -144,22 +144,9 @@ impl Display for Name {
             Name::Designator(designator) => write!(f, "{}", designator),
             Name::Selected(ref prefix, ref designator) => write!(f, "{}.{}", prefix, designator),
             Name::SelectedAll(ref prefix) => write!(f, "{}.all", prefix),
-            Name::Indexed(ref prefix, ref exprs) => {
-                write!(f, "{}(", prefix)?;
-                let mut first = true;
-                for expr in exprs {
-                    if first {
-                        write!(f, "{}", expr)?;
-                    } else {
-                        write!(f, ", {}", expr)?;
-                    }
-                    first = false;
-                }
-                write!(f, ")")
-            }
             Name::Slice(ref prefix, ref drange) => write!(f, "{}({})", prefix, drange),
             Name::Attribute(ref attr) => write!(f, "{}", attr),
-            Name::FunctionCall(ref fcall) => write!(f, "{}", fcall),
+            Name::CallOrIndexed(ref fcall) => write!(f, "{}", fcall),
             Name::External(ref ename) => write!(f, "{}", ename),
         }
     }
@@ -174,7 +161,7 @@ impl Display for SelectedName {
     }
 }
 
-impl Display for FunctionCall {
+impl Display for CallOrIndexed {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", self.name)?;
         let mut first = true;
@@ -1148,7 +1135,7 @@ mod tests {
     #[test]
     fn test_name_function_call_no_args() {
         assert_format("foo", |code| {
-            Name::FunctionCall(Box::new(code.function_call()))
+            Name::CallOrIndexed(Box::new(code.function_call().item))
         });
     }
 

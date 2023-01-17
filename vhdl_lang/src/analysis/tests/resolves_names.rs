@@ -292,7 +292,7 @@ end package;
 }
 
 #[test]
-fn resolves_names_in_inside_names() {
+fn resolves_names_inside_names() {
     check_missing(
         "
 package pkg is

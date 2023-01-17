@@ -538,13 +538,59 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
         .into_iter()
     }
 
+    fn concatenations(
+        &self,
+        array_type: TypeEnt<'a>,
+        elem_type: TypeEnt<'a>,
+    ) -> impl Iterator<Item = EntRef<'a>> {
+        [
+            self.binary(
+                Operator::Concat,
+                array_type,
+                array_type,
+                elem_type,
+                array_type,
+            ),
+            self.binary(
+                Operator::Concat,
+                array_type,
+                elem_type,
+                array_type,
+                array_type,
+            ),
+            self.symmetric_binary(Operator::Concat, array_type),
+            self.binary(
+                Operator::Concat,
+                array_type,
+                elem_type,
+                elem_type,
+                array_type,
+            ),
+        ]
+        .into_iter()
+    }
+
     pub fn array_implicits(&self, typ: TypeEnt<'a>) -> impl Iterator<Item = EntRef<'a>> {
+        let Type::Array{indexes, elem_type, ..}  = typ.kind() else {
+            unreachable!("Must be array type")
+        };
+
+        let is_one_dimensional = indexes.len() == 1;
         [
             self.create_to_string(typ),
             self.comparison(Operator::EQ, typ),
             self.comparison(Operator::NE, typ),
         ]
         .into_iter()
+        .chain(
+            (if is_one_dimensional {
+                Some(self.concatenations(typ, *elem_type))
+            } else {
+                None
+            })
+            .into_iter()
+            .flatten(),
+        )
     }
 
     pub fn access_implicits(&self, typ: TypeEnt<'a>) -> impl Iterator<Item = EntRef<'a>> {

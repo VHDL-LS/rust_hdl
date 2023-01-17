@@ -17,10 +17,10 @@ use target::AssignmentType;
 impl<'a> AnalyzeContext<'a> {
     fn analyze_sequential_statement(
         &self,
-        scope: &mut Scope<'a>,
+        scope: &Scope<'a>,
         statement: &mut LabeledSequentialStatement,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         if let Some(ref mut label) = statement.label {
             scope.add(self.arena.define(label, AnyEntKind::Label), diagnostics);
         }
@@ -38,9 +38,7 @@ impl<'a> AnalyzeContext<'a> {
                     condition_clause,
                     timeout_clause,
                 } = wait_stmt;
-                for name in sensitivity_clause.iter_mut() {
-                    self.resolve_name(scope, &name.pos, &mut name.item, diagnostics)?;
-                }
+                self.sensitivity_list_check(scope, sensitivity_clause, diagnostics)?;
                 if let Some(expr) = condition_clause {
                     self.analyze_expression(scope, expr, diagnostics)?;
                 }
@@ -128,12 +126,12 @@ impl<'a> AnalyzeContext<'a> {
                 match iteration_scheme {
                     Some(IterationScheme::For(ref mut index, ref mut drange)) => {
                         self.analyze_discrete_range(scope, drange, diagnostics)?;
-                        let mut region = scope.nested();
+                        let region = scope.nested();
                         region.add(
                             self.arena.define(index, AnyEntKind::LoopParameter),
                             diagnostics,
                         );
-                        self.analyze_sequential_part(&mut region, statements, diagnostics)?;
+                        self.analyze_sequential_part(&region, statements, diagnostics)?;
                     }
                     Some(IterationScheme::While(ref mut expr)) => {
                         self.analyze_expression(scope, expr, diagnostics)?;
@@ -196,10 +194,10 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_sequential_part(
         &self,
-        scope: &mut Scope<'a>,
+        scope: &Scope<'a>,
         statements: &mut [LabeledSequentialStatement],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         for statement in statements.iter_mut() {
             self.analyze_sequential_statement(scope, statement, diagnostics)?;
         }

@@ -38,42 +38,33 @@ impl<'a> AnalyzeContext<'a> {
         assignment_type: AssignmentType,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<Option<TypeEnt<'a>>> {
-        match self.resolve_object_prefix(
+        match self.resolve_object_name(
             scope,
             target_pos,
             target,
-            "Invalid assignment target",
+            "may not be the target of an assignment",
             diagnostics,
         ) {
-            Ok(Some(resolved_name)) => {
-                if let ResolvedName::ObjectSelection {
-                    ref base,
-                    ref type_mark,
-                } = resolved_name
-                {
-                    if !is_valid_assignment_target(base) {
-                        diagnostics.push(Diagnostic::error(
-                            target_pos,
-                            format!(
-                                "{} may not be the target of an assignment",
-                                base.describe_class()
-                            ),
-                        ));
-                    } else if !is_valid_assignment_type(base, assignment_type) {
-                        diagnostics.push(Diagnostic::error(
-                            target_pos,
-                            format!(
-                                "{} may not be the target of a {} assignment",
-                                base.describe_class(),
-                                assignment_type.to_str()
-                            ),
-                        ));
-                    }
-                    Ok(Some(*type_mark))
-                } else {
-                    diagnostics.push(Diagnostic::error(target_pos, "Invalid assignment target"));
-                    Ok(None)
+            Ok(Some(object_name)) => {
+                if !is_valid_assignment_target(&object_name.base) {
+                    diagnostics.push(Diagnostic::error(
+                        target_pos,
+                        format!(
+                            "{} may not be the target of an assignment",
+                            object_name.base.describe_class()
+                        ),
+                    ));
+                } else if !is_valid_assignment_type(&object_name.base, assignment_type) {
+                    diagnostics.push(Diagnostic::error(
+                        target_pos,
+                        format!(
+                            "{} may not be the target of a {} assignment",
+                            object_name.base.describe_class(),
+                            assignment_type.to_str()
+                        ),
+                    ));
                 }
+                Ok(Some(object_name.type_mark()))
             }
             Ok(None) => Ok(None),
             Err(err) => {

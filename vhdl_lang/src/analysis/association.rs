@@ -8,11 +8,12 @@ use fnv::FnvHashSet;
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 use super::analyze::*;
+use super::expression::TypeCheck;
 use super::formal_region::FormalRegion;
 use super::formal_region::InterfaceEnt;
 use super::named_entity::*;
+use super::names::ResolvedName;
 use super::region::*;
-use super::semantic::TypeCheck;
 use crate::ast::*;
 use crate::data::*;
 
@@ -79,8 +80,6 @@ impl<'a> AnalyzeContext<'a> {
     ) -> AnalysisResult<ResolvedFormal<'a>> {
         match name {
             Name::Selected(prefix, suffix) => {
-                suffix.clear_reference();
-
                 let resolved_prefix = self.resolve_formal(
                     formal_region,
                     scope,
@@ -104,36 +103,10 @@ impl<'a> AnalyzeContext<'a> {
 
             Name::SelectedAll(_) => Err(Diagnostic::error(name_pos, "Invalid formal").into()),
             Name::Designator(designator) => {
-                designator.clear_reference();
                 let (idx, ent) = formal_region.lookup(name_pos, designator.designator())?;
                 designator.set_unique_reference(ent.inner());
                 Ok(ResolvedFormal::Basic(idx, ent))
             }
-            Name::Indexed(ref mut prefix, ref mut indexes) => {
-                let resolved_prefix = self.resolve_formal(
-                    formal_region,
-                    scope,
-                    &prefix.pos,
-                    &mut prefix.item,
-                    diagnostics,
-                )?;
-
-                let new_typ = self.analyze_indexed_name(
-                    scope,
-                    name_pos,
-                    prefix.suffix_pos(),
-                    resolved_prefix.type_mark(),
-                    indexes,
-                    diagnostics,
-                )?;
-
-                if let Some(resolved_formal) = resolved_prefix.select(new_typ) {
-                    Ok(resolved_formal)
-                } else {
-                    Err(Diagnostic::error(name_pos, "Invalid formal").into())
-                }
-            }
-
             Name::Slice(ref mut prefix, ref mut drange) => {
                 let resolved_prefix = self.resolve_formal(
                     formal_region,
@@ -152,7 +125,7 @@ impl<'a> AnalyzeContext<'a> {
                 Ok(resolved_prefix)
             }
             Name::Attribute(..) => Err(Diagnostic::error(name_pos, "Invalid formal").into()),
-            Name::FunctionCall(ref mut fcall) => {
+            Name::CallOrIndexed(ref mut fcall) => {
                 let prefix = if let Some(prefix) = fcall.name.item.prefix() {
                     prefix
                 } else {
@@ -166,7 +139,6 @@ impl<'a> AnalyzeContext<'a> {
                     let (idx, formal_ent) = if let Some(designator) =
                         to_formal_conversion_argument(&mut fcall.parameters)
                     {
-                        designator.clear_reference();
                         let (idx, ent) = formal_region.lookup(name_pos, designator.designator())?;
                         designator.set_unique_reference(ent.inner());
                         (idx, ent)
@@ -174,22 +146,17 @@ impl<'a> AnalyzeContext<'a> {
                         return Err(Diagnostic::error(name_pos, "Invalid formal conversion").into());
                     };
 
-                    let converted_typ = match self.resolve_name(
+                    let converted_typ = match self.name_resolve(
                         scope,
                         &fcall.name.pos,
                         &mut fcall.name.item,
                         diagnostics,
                     )? {
-                        Some(NamedEntities::Single(ent)) => {
+                        Some(ResolvedName::Type(typ)) => {
                             // @TODO check type conversion is legal
-                            TypeEnt::from_any(ent).ok_or_else(|| {
-                                Diagnostic::error(
-                                    name_pos,
-                                    "Invalid formal conversion, expected function",
-                                )
-                            })?
+                            typ
                         }
-                        Some(NamedEntities::Overloaded(overloaded)) => {
+                        Some(ResolvedName::Overloaded(des, overloaded)) => {
                             let mut candidates = Vec::with_capacity(overloaded.len());
 
                             for ent in overloaded.entities() {
@@ -206,13 +173,14 @@ impl<'a> AnalyzeContext<'a> {
                                 // Ambiguous call
                                 let mut diagnostic = Diagnostic::error(
                                     &fcall.name.pos,
-                                    format!("Ambiguous call to function '{}'", fcall.name),
+                                    format!("Ambiguous call to function '{}'", des),
                                 );
 
-                                diagnostic.add_subprogram_candidates("migth be", &mut candidates);
+                                diagnostic.add_subprogram_candidates("migth be", &candidates);
 
                                 return Err(diagnostic.into());
                             } else if let Some(ent) = candidates.pop() {
+                                fcall.name.set_unique_reference(&ent);
                                 ent.return_type().unwrap()
                             } else {
                                 // No match
@@ -227,7 +195,7 @@ impl<'a> AnalyzeContext<'a> {
                                 .into());
                             }
                         }
-                        None => {
+                        _ => {
                             return Err(
                                 Diagnostic::error(name_pos, "Invalid formal conversion").into()
                             );
@@ -235,9 +203,29 @@ impl<'a> AnalyzeContext<'a> {
                     };
 
                     Ok(ResolvedFormal::Converted(idx, formal_ent, converted_typ))
-                } else if let Some((prefix, indexes)) = fcall.to_indexed() {
-                    *name = Name::Indexed(prefix, indexes);
-                    self.resolve_formal(formal_region, scope, name_pos, name, diagnostics)
+                } else if let Some(mut indexed_name) = fcall.as_indexed() {
+                    let resolved_prefix = self.resolve_formal(
+                        formal_region,
+                        scope,
+                        &indexed_name.name.pos,
+                        &mut indexed_name.name.item,
+                        diagnostics,
+                    )?;
+
+                    let new_typ = self.analyze_indexed_name(
+                        scope,
+                        name_pos,
+                        indexed_name.name.suffix_pos(),
+                        resolved_prefix.type_mark(),
+                        &mut indexed_name.indexes,
+                        diagnostics,
+                    )?;
+
+                    if let Some(resolved_formal) = resolved_prefix.select(new_typ) {
+                        Ok(resolved_formal)
+                    } else {
+                        Err(Diagnostic::error(name_pos, "Invalid formal").into())
+                    }
                 } else {
                     Err(Diagnostic::error(name_pos, "Invalid formal").into())
                 }
@@ -246,7 +234,7 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    fn resolve_associaton_formals<'e>(
+    pub fn resolve_association_formals<'e>(
         &self,
         error_pos: &SrcPos, // The position of the instance/call-site
         formal_region: &FormalRegion<'a>,
@@ -333,7 +321,7 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<TypeCheck> {
         if let Some(formals) =
-            self.resolve_associaton_formals(error_pos, formal_region, scope, elems, diagnostics)?
+            self.resolve_association_formals(error_pos, formal_region, scope, elems, diagnostics)?
         {
             let mut check = TypeCheck::Ok;
 
@@ -352,11 +340,6 @@ impl<'a> AnalyzeContext<'a> {
                         )?);
                     }
                     ActualPart::Open => {}
-                }
-
-                // To avoid combinatorial explosion when checking trees of overloaded subpograms
-                if check != TypeCheck::Ok {
-                    return Ok(check);
                 }
             }
 

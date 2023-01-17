@@ -11,6 +11,7 @@ mod association;
 mod concurrent;
 mod declarative;
 mod design_unit;
+mod expression;
 mod formal_region;
 mod implicits;
 mod literals;

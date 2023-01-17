@@ -22,7 +22,7 @@ impl<'a> AnalyzeContext<'a> {
         assignment_type: AssignmentType,
         rhs: &mut AssignmentRightHand<WithPos<Expression>>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         let ttyp = self.resolve_target(scope, target, assignment_type, diagnostics)?;
         match rhs {
             AssignmentRightHand::Simple(expr) => {
@@ -64,7 +64,7 @@ impl<'a> AnalyzeContext<'a> {
         assignment_type: AssignmentType,
         rhs: &mut AssignmentRightHand<Waveform>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         let ttyp = self.resolve_target(scope, target, assignment_type, diagnostics)?;
         match rhs {
             AssignmentRightHand::Simple(wavf) => {
@@ -105,7 +105,7 @@ impl<'a> AnalyzeContext<'a> {
         ttyp: Option<TypeEnt<'a>>,
         wavf: &mut Waveform,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         match wavf {
             Waveform::Elements(ref mut elems) => {
                 for elem in elems.iter_mut() {
@@ -134,7 +134,7 @@ impl<'a> AnalyzeContext<'a> {
         ttyp: Option<TypeEnt<'a>>,
         expr: &mut WithPos<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         if let Some(ttyp) = ttyp {
             self.analyze_expression_with_target_type(
                 scope,

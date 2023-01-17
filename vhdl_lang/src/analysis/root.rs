@@ -431,6 +431,9 @@ impl DesignRoot {
         let mut diagnostics = Vec::new();
         let mut has_circular_dependency = false;
 
+        // Ensure no remaining references from previous analysis
+        clear_references(unit.deref_mut());
+
         let result = match unit.deref_mut() {
             AnyDesignUnit::Primary(unit) => {
                 // Pre-define entity and overwrite it later
@@ -477,7 +480,7 @@ impl DesignRoot {
         }
     }
 
-    fn get_unit<'a>(&'a self, unit_id: &UnitId) -> Option<&'a LockedUnit> {
+    pub(super) fn get_unit<'a>(&'a self, unit_id: &UnitId) -> Option<&'a LockedUnit> {
         self.libraries
             .get(unit_id.library_name())
             .and_then(|library| library.units.get(unit_id.key()))
@@ -498,7 +501,7 @@ impl DesignRoot {
         use_pos: Option<&SrcPos>,
         user: &UnitId,
         unit_id: &UnitId,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         let mut users_of = self.users_of.write();
         match users_of.entry(unit_id.clone()) {
             Entry::Occupied(mut entry) => {
@@ -657,6 +660,10 @@ impl DesignRoot {
                     let arena = Arena::new_std();
                     self.standard_pkg_id = None;
                     self.standard_arena = None;
+
+                    // Ensure no remaining references from previous analysis
+                    clear_references(unit.as_primary_mut().unwrap());
+
                     self.universal = Some(UniversalTypes::new(
                         &arena,
                         unit.pos(),
@@ -708,7 +715,13 @@ impl DesignRoot {
             library.refresh(diagnostics);
         }
 
+        // Rebuild declaration arenas of named entities
+        self.arenas.clear();
         self.analyze_standard_package();
+        if let Some(std_arena) = self.standard_arena.as_ref() {
+            // @TODO some project.rs unit tests do not have the standard package
+            self.arenas.link(std_arena);
+        }
 
         use rayon::prelude::*;
         // @TODO run in parallel
@@ -724,8 +737,6 @@ impl DesignRoot {
             self.get_analysis(unit);
         });
 
-        // Rebuild declaration arenas of named entities
-        self.arenas.clear();
         for library in self.libraries.values() {
             self.arenas.link(&library.arena);
             for unit in library.units.values() {

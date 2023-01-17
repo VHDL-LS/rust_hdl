@@ -15,7 +15,7 @@ use std::cell::RefCell;
 use std::collections::hash_map::Entry;
 use std::rc::Rc;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 /// A non-emtpy collection of overloaded entites
 pub struct OverloadedName<'a> {
     entities: FnvHashMap<SignatureKey, OverloadedEnt<'a>>,
@@ -122,14 +122,6 @@ impl<'a> OverloadedName<'a> {
             }
         }
         self
-    }
-
-    pub fn describe(&self) -> String {
-        if self.len() == 1 {
-            self.first().describe()
-        } else {
-            format!("overloaded name {}", self.designator().describe())
-        }
     }
 }
 
@@ -531,7 +523,7 @@ impl<'a> Scope<'a> {
     }
 
     /// Used when using context clauses
-    pub fn add_context_visibility(&mut self, visible_pos: Option<&SrcPos>, region: &Region<'a>) {
+    pub fn add_context_visibility(&self, visible_pos: Option<&SrcPos>, region: &Region<'a>) {
         self.0
             .as_ref()
             .borrow_mut()
@@ -703,13 +695,10 @@ impl<'a> Region<'a> {
 
 pub trait SetReference {
     fn set_unique_reference(&mut self, ent: &AnyEnt);
-    fn clear_reference(&mut self);
 
     fn set_reference<'a>(&mut self, value: &'a impl AsUnique<'a>) {
         if let Some(ent) = value.as_unique() {
             self.set_unique_reference(ent);
-        } else {
-            self.clear_reference()
         }
     }
 }
@@ -741,19 +730,11 @@ impl<T> SetReference for WithRef<T> {
     fn set_unique_reference(&mut self, ent: &AnyEnt) {
         self.reference.set_unique_reference(ent);
     }
-
-    fn clear_reference(&mut self) {
-        self.reference.clear_reference();
-    }
 }
 
 impl<T: SetReference> SetReference for WithPos<T> {
     fn set_unique_reference(&mut self, ent: &AnyEnt) {
         self.item.set_unique_reference(ent);
-    }
-
-    fn clear_reference(&mut self) {
-        self.item.clear_reference();
     }
 }
 
@@ -761,8 +742,13 @@ impl SetReference for Reference {
     fn set_unique_reference(&mut self, ent: &AnyEnt) {
         *self = Some(ent.id());
     }
-    fn clear_reference(&mut self) {
-        *self = None;
+}
+
+impl SetReference for Name {
+    fn set_unique_reference(&mut self, ent: &AnyEnt) {
+        if let Some(r) = self.suffix_reference_mut() {
+            r.set_unique_reference(ent);
+        }
     }
 }
 

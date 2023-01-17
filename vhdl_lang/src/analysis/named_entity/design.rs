@@ -45,7 +45,7 @@ impl<'a> Design<'a> {
 }
 
 // A named entity that is known to be a type
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DesignEnt<'a>(pub EntRef<'a>);
 
 impl<'a> DesignEnt<'a> {
@@ -92,12 +92,6 @@ impl<'a> DesignEnt<'a> {
 impl<'a> From<DesignEnt<'a>> for EntRef<'a> {
     fn from(ent: DesignEnt<'a>) -> Self {
         ent.0
-    }
-}
-
-impl<'a> std::cmp::PartialEq for DesignEnt<'a> {
-    fn eq(&self, other: &Self) -> bool {
-        self.deref() == other.deref()
     }
 }
 

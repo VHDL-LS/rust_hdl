@@ -174,7 +174,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         unit: &mut WithRef<Ident>,
-    ) -> Result<TypeEnt, Diagnostic> {
+    ) -> Result<TypeEnt<'a>, Diagnostic> {
         match scope.lookup(
             &unit.item.pos,
             &Designator::Identifier(unit.item.item.clone()),

@@ -43,6 +43,11 @@ impl LibraryBuilder {
         code
     }
 
+    /// Just get a Code object using the same symbol table but without adding it to any library
+    pub fn snippet(&mut self, code: &str) -> Code {
+        self.code_builder.code(code)
+    }
+
     pub fn in_declarative_region(&mut self, code: &str) -> Code {
         self.code(
             "libname",

@@ -42,8 +42,7 @@ impl WithPos<Name> {
             Name::Selected(_, ref suffix) => &suffix.pos,
             // @TODO add pos of .all?
             Name::SelectedAll(ref prefix) => &prefix.pos,
-            Name::FunctionCall(ref fcall) => fcall.name.suffix_pos(),
-            Name::Indexed(ref prefix, ..) => prefix.suffix_pos(),
+            Name::CallOrIndexed(ref fcall) => fcall.name.suffix_pos(),
             Name::Slice(ref prefix, ..) => prefix.suffix_pos(),
             Name::Attribute(ref attr, ..) => attr.name.suffix_pos(),
             Name::External(..) => &self.pos,
@@ -336,10 +335,19 @@ impl Designator {
 }
 
 impl Name {
-    pub fn suffix_reference_mut(&mut self) -> Option<&mut WithRef<Designator>> {
+    pub fn suffix_reference_mut(&mut self) -> Option<&mut Reference> {
         match self {
-            Name::Designator(suffix) => Some(suffix),
-            Name::Selected(_, suffix) => Some(&mut suffix.item),
+            Name::Designator(suffix) => Some(&mut suffix.reference),
+            Name::Selected(_, suffix) => Some(&mut suffix.item.reference),
+            _ => None,
+        }
+    }
+
+    // Get an already set suffix reference such as when an ambiguous overloaded call has already been resolved
+    pub fn get_suffix_reference(&self) -> Option<EntityId> {
+        match self {
+            Name::Designator(suffix) => suffix.reference,
+            Name::Selected(_, suffix) => suffix.item.reference,
             _ => None,
         }
     }
@@ -349,8 +357,7 @@ impl Name {
             Self::Attribute(attr) => attr.name.item.prefix(),
             Self::Designator(d) => Some(d.designator()),
             Self::External(..) => None,
-            Self::FunctionCall(fcall) => fcall.name.item.prefix(),
-            Self::Indexed(name, ..) => name.item.prefix(),
+            Self::CallOrIndexed(fcall) => fcall.name.item.prefix(),
             Self::SelectedAll(name) => name.item.prefix(),
             Self::Selected(name, ..) => name.item.prefix(),
             Self::Slice(name, ..) => name.item.prefix(),
@@ -358,45 +365,48 @@ impl Name {
     }
 }
 
-impl FunctionCall {
+impl CallOrIndexed {
     // During parsing function calls and indexed names are ambiguous
     // Thus we convert function calls to indexed names during the analysis stage
-    #[allow(clippy::type_complexity)]
-    pub fn to_indexed(&self) -> Option<(Box<WithPos<Name>>, Vec<WithPos<Expression>>)> {
-        let FunctionCall {
-            ref name,
-            ref parameters,
-        } = self;
-
-        assoc_elems_to_indexes(parameters).map(|indexes| (Box::new(name.clone()), indexes))
-    }
-}
-
-fn assoc_elem_to_index(assoc_elem: &AssociationElement) -> Option<WithPos<Expression>> {
-    if assoc_elem.formal.is_some() {
-        return None;
-    }
-
-    match assoc_elem.actual.item {
-        ActualPart::Open => None,
-        ActualPart::Expression(ref expr) => {
-            Some(WithPos::new(expr.clone(), assoc_elem.actual.pos.clone()))
-        }
-    }
-}
-
-fn assoc_elems_to_indexes(assoc_elems: &[AssociationElement]) -> Option<Vec<WithPos<Expression>>> {
-    let mut result: Vec<WithPos<Expression>> = Vec::with_capacity(assoc_elems.len());
-
-    for elem in assoc_elems.iter() {
-        if let Some(expr) = assoc_elem_to_index(elem) {
-            result.push(expr);
-        } else {
+    pub fn as_indexed(&mut self) -> Option<IndexedName> {
+        if !self.could_be_indexed_name() {
             return None;
         }
+
+        let CallOrIndexed {
+            ref mut name,
+            ref mut parameters,
+        } = self;
+
+        let mut indexes: Vec<Index> = Vec::with_capacity(parameters.len());
+
+        for elem in parameters.iter_mut() {
+            if let ActualPart::Expression(ref mut expr) = &mut elem.actual.item {
+                indexes.push(Index {
+                    pos: &elem.actual.pos,
+                    expr,
+                });
+            }
+        }
+
+        Some(IndexedName { name, indexes })
     }
 
-    Some(result)
+    pub fn could_be_indexed_name(&self) -> bool {
+        self.parameters
+            .iter()
+            .all(|assoc| assoc.formal.is_none() && !matches!(assoc.actual.item, ActualPart::Open))
+    }
+}
+
+pub struct IndexedName<'a> {
+    pub name: &'a mut WithPos<Name>,
+    pub indexes: Vec<Index<'a>>,
+}
+
+pub struct Index<'a> {
+    pub pos: &'a SrcPos,
+    pub expr: &'a mut Expression,
 }
 
 impl AttributeName {

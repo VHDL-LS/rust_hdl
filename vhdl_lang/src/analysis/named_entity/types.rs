@@ -108,7 +108,7 @@ impl UniversalType {
 }
 
 // A named entity that is known to be a type
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct TypeEnt<'a>(EntRef<'a>);
 
 impl<'a> TypeEnt<'a> {
@@ -164,6 +164,10 @@ impl<'a> TypeEnt<'a> {
         }
     }
 
+    pub fn base(&self) -> BaseType<'a> {
+        BaseType::from(*self)
+    }
+
     pub fn accessed_type(&self) -> Option<TypeEnt<'a>> {
         if let Type::Access(subtype, _) = self.base_type().kind() {
             Some(subtype.type_mark())
@@ -172,15 +176,21 @@ impl<'a> TypeEnt<'a> {
         }
     }
 
-    pub fn can_be_sliced(&self) -> bool {
-        let base_type = self.base_type();
-        let base_type = if let Type::Access(ref subtype, ..) = base_type.kind() {
-            subtype.base_type()
+    pub fn array_type(&self) -> Option<(TypeEnt<'a>, usize)> {
+        if let Type::Array {
+            elem_type, indexes, ..
+        } = self.base_type().kind()
+        {
+            Some((*elem_type, indexes.len()))
+        } else if let Some(accessed_typ) = self.accessed_type() {
+            accessed_typ.array_type()
         } else {
-            base_type
-        };
+            None
+        }
+    }
 
-        matches!(base_type.kind(), Type::Array { .. })
+    pub fn sliced_as(&self) -> Option<TypeEnt<'a>> {
+        self.base().sliced_as()
     }
 
     /// Lookup a selected name prefix.suffix
@@ -254,13 +264,83 @@ impl<'a> From<TypeEnt<'a>> for EntRef<'a> {
     }
 }
 
-impl<'a> std::cmp::PartialEq for TypeEnt<'a> {
-    fn eq(&self, other: &Self) -> bool {
-        self.deref() == other.deref()
+impl<'a> Deref for TypeEnt<'a> {
+    type Target = AnyEnt<'a>;
+    fn deref(&self) -> &AnyEnt<'a> {
+        self.0
     }
 }
 
-impl<'a> Deref for TypeEnt<'a> {
+// A named entity that is known to be a base type
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct BaseType<'a>(EntRef<'a>);
+
+impl<'a> BaseType<'a> {
+    pub fn kind(&self) -> &'a Type<'a> {
+        if let AnyEntKind::Type(typ) = self.0.kind() {
+            typ
+        } else {
+            unreachable!("Must be a type");
+        }
+    }
+
+    pub fn is_access(&self) -> bool {
+        matches!(self.kind(), Type::Access { .. })
+    }
+
+    pub fn is_composite(&self) -> bool {
+        matches!(self.kind(), Type::Array { .. } | Type::Record { .. })
+    }
+
+    pub fn is_enum(&self) -> bool {
+        matches!(self.kind(), Type::Enum { .. })
+    }
+
+    pub fn is_compatible_with_string_literal(&self) -> bool {
+        if let Type::Array {
+            indexes, elem_type, ..
+        } = self.kind()
+        {
+            indexes.len() == 1 && elem_type.base().is_enum()
+        } else {
+            false
+        }
+    }
+
+    pub fn sliced_as(&self) -> Option<TypeEnt<'a>> {
+        let typ = if let Type::Access(ref subtype, ..) = self.kind() {
+            subtype.type_mark()
+        } else {
+            TypeEnt(self.0)
+        };
+
+        if matches!(typ.base().kind(), Type::Array { .. }) {
+            Some(typ)
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a> From<BaseType<'a>> for EntRef<'a> {
+    fn from(ent: BaseType<'a>) -> Self {
+        ent.0
+    }
+}
+
+impl<'a> From<TypeEnt<'a>> for BaseType<'a> {
+    fn from(ent: TypeEnt<'a>) -> Self {
+        BaseType(ent.base_type().0)
+    }
+}
+
+impl<'a> From<BaseType<'a>> for TypeEnt<'a> {
+    fn from(ent: BaseType<'a>) -> Self {
+        TypeEnt(ent.0)
+    }
+}
+
+impl<'a> Deref for BaseType<'a> {
     type Target = AnyEnt<'a>;
     fn deref(&self) -> &AnyEnt<'a> {
         self.0
@@ -283,6 +363,10 @@ impl<'a> Subtype<'a> {
 
     pub fn base_type(&self) -> TypeEnt<'a> {
         self.type_mark.base_type()
+    }
+
+    pub fn base(&self) -> BaseType<'a> {
+        self.type_mark.base()
     }
 }
 

@@ -18,10 +18,10 @@ use target::AssignmentType;
 impl<'a> AnalyzeContext<'a> {
     pub fn analyze_concurrent_part(
         &self,
-        scope: &mut Scope<'a>,
+        scope: &Scope<'a>,
         statements: &mut [LabeledConcurrentStatement],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         for statement in statements.iter_mut() {
             self.analyze_concurrent_statement(scope, statement, diagnostics)?;
         }
@@ -31,10 +31,10 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_concurrent_statement(
         &self,
-        scope: &mut Scope<'a>,
+        scope: &Scope<'a>,
         statement: &mut LabeledConcurrentStatement,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         if let Some(ref mut label) = statement.label {
             scope.add(label.define(self.arena, AnyEntKind::Label), diagnostics);
         }
@@ -44,21 +44,21 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(ref mut guard_condition) = block.guard_condition {
                     self.analyze_expression(scope, guard_condition, diagnostics)?;
                 }
-                let mut nested = scope.nested();
+                let nested = scope.nested();
                 if let Some(ref mut list) = block.header.generic_clause {
-                    self.analyze_interface_list(&mut nested, list, diagnostics)?;
+                    self.analyze_interface_list(&nested, list, diagnostics)?;
                 }
                 if let Some(ref mut list) = block.header.generic_map {
                     self.analyze_assoc_elems(scope, list, diagnostics)?;
                 }
                 if let Some(ref mut list) = block.header.port_clause {
-                    self.analyze_interface_list(&mut nested, list, diagnostics)?;
+                    self.analyze_interface_list(&nested, list, diagnostics)?;
                 }
                 if let Some(ref mut list) = block.header.port_map {
                     self.analyze_assoc_elems(scope, list, diagnostics)?;
                 }
-                self.analyze_declarative_part(&mut nested, &mut block.decl, diagnostics)?;
-                self.analyze_concurrent_part(&mut nested, &mut block.statements, diagnostics)?;
+                self.analyze_declarative_part(&nested, &mut block.decl, diagnostics)?;
+                self.analyze_concurrent_part(&nested, &mut block.statements, diagnostics)?;
             }
             ConcurrentStatement::Process(ref mut process) => {
                 let ProcessStatement {
@@ -70,16 +70,14 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(sensitivity_list) = sensitivity_list {
                     match sensitivity_list {
                         SensitivityList::Names(names) => {
-                            for name in names.iter_mut() {
-                                self.resolve_name(scope, &name.pos, &mut name.item, diagnostics)?;
-                            }
+                            self.sensitivity_list_check(scope, names, diagnostics)?;
                         }
                         SensitivityList::All => {}
                     }
                 }
-                let mut nested = scope.nested();
-                self.analyze_declarative_part(&mut nested, decl, diagnostics)?;
-                self.analyze_sequential_part(&mut nested, statements, diagnostics)?;
+                let nested = scope.nested();
+                self.analyze_declarative_part(&nested, decl, diagnostics)?;
+                self.analyze_sequential_part(&nested, statements, diagnostics)?;
             }
             ConcurrentStatement::ForGenerate(ref mut gen) => {
                 let ForGenerateStatement {
@@ -88,12 +86,12 @@ impl<'a> AnalyzeContext<'a> {
                     body,
                 } = gen;
                 self.analyze_discrete_range(scope, discrete_range, diagnostics)?;
-                let mut nested = scope.nested();
+                let nested = scope.nested();
                 nested.add(
                     index_name.define(self.arena, AnyEntKind::LoopParameter),
                     diagnostics,
                 );
-                self.analyze_generate_body(&mut nested, body, diagnostics)?;
+                self.analyze_generate_body(&nested, body, diagnostics)?;
             }
             ConcurrentStatement::IfGenerate(ref mut gen) => {
                 let Conditionals {
@@ -103,18 +101,18 @@ impl<'a> AnalyzeContext<'a> {
                 for conditional in conditionals.iter_mut() {
                     let Conditional { condition, item } = conditional;
                     self.analyze_expression(scope, condition, diagnostics)?;
-                    let mut nested = scope.nested();
-                    self.analyze_generate_body(&mut nested, item, diagnostics)?;
+                    let nested = scope.nested();
+                    self.analyze_generate_body(&nested, item, diagnostics)?;
                 }
                 if let Some(ref mut else_item) = else_item {
-                    let mut nested = scope.nested();
-                    self.analyze_generate_body(&mut nested, else_item, diagnostics)?;
+                    let nested = scope.nested();
+                    self.analyze_generate_body(&nested, else_item, diagnostics)?;
                 }
             }
             ConcurrentStatement::CaseGenerate(ref mut gen) => {
                 for alternative in gen.alternatives.iter_mut() {
-                    let mut nested = scope.nested();
-                    self.analyze_generate_body(&mut nested, &mut alternative.item, diagnostics)?;
+                    let nested = scope.nested();
+                    self.analyze_generate_body(&nested, &mut alternative.item, diagnostics)?;
                 }
             }
             ConcurrentStatement::Instance(ref mut instance) => {
@@ -159,10 +157,10 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_generate_body(
         &self,
-        scope: &mut Scope<'a>,
+        scope: &Scope<'a>,
         body: &mut GenerateBody,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         let GenerateBody {
             alternative_label,
             decl,
@@ -184,7 +182,7 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         instance: &mut InstantiationStatement,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         match instance.unit {
             // @TODO architecture
             InstantiatedUnit::Entity(ref mut entity_name, ..) => {
@@ -288,6 +286,48 @@ impl<'a> AnalyzeContext<'a> {
             }
         };
 
+        Ok(())
+    }
+
+    pub fn sensitivity_list_check(
+        &self,
+        scope: &Scope<'a>,
+        names: &mut [WithPos<Name>],
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult {
+        for name in names.iter_mut() {
+            match self.resolve_object_name(
+                scope,
+                &name.pos,
+                &mut name.item,
+                "is not a signal and cannot be in a sensitivity list",
+                diagnostics,
+            ) {
+                Ok(Some(object_name)) => {
+                    if object_name.base.class() != ObjectClass::Signal {
+                        diagnostics.error(
+                            &name.pos,
+                            format!(
+                                "{} is not a signal and cannot be in a sensitivity list",
+                                object_name.base.describe_class()
+                            ),
+                        )
+                    } else if object_name.base.mode() == Some(Mode::Out) {
+                        diagnostics.error(
+                            &name.pos,
+                            format!(
+                                "{} cannot be in a sensitivity list",
+                                object_name.base.describe_class()
+                            ),
+                        )
+                    }
+                }
+                Ok(None) => {}
+                Err(err) => {
+                    diagnostics.push(err.into_non_fatal()?);
+                }
+            }
+        }
         Ok(())
     }
 }

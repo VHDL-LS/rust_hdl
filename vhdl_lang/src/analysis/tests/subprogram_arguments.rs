@@ -23,11 +23,12 @@ signal bad : natural := subpgm;
     let diagnostics = builder.analyze();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
-            code.s1("subpgm;").s1("subpgm"),
-            "No association of interface constant 'arg'",
-        )
-        .related(code.s1("arg"), "Defined here")],
+        vec![
+            Diagnostic::error(code.s1("subpgm;").s1("subpgm"), "Invalid call to 'subpgm'").related(
+                code.s1("subpgm"),
+                "Missing association of interface constant 'arg'",
+            ),
+        ],
     );
 }
 
@@ -67,8 +68,10 @@ end architecture;
                 code.s("subpgm", 1),
                 "subpgm[NATURAL return NATURAL] is not a procedure",
             ),
-            Diagnostic::error(code.s("thesig", 2), "Invalid procedure call")
-                .related(code.s("thesig", 1), "signal 'thesig' is not a procedure"),
+            Diagnostic::error(
+                code.s("thesig", 2),
+                "signal 'thesig' of array type 'INTEGER_VECTOR' is not a procedure",
+            ),
         ],
     );
 }
@@ -122,7 +125,7 @@ constant bad : integer := subpgm(arg2 => 1);
         vec![
             Diagnostic::error(code.s1("arg2"), "No declaration of 'arg2'"),
             Diagnostic::error(
-                code.s1("subpgm(arg2").s1("subpgm"),
+                code.s1("subpgm(arg2 => 1)"),
                 "No association of interface constant 'arg1'",
             )
             .related(code.s1("arg1"), "Defined here"),
@@ -183,7 +186,7 @@ signal bad : natural := subpgm(0);
     check_diagnostics(
         diagnostics,
         vec![Diagnostic::error(
-            code.s1("subpgm(0)").s1("subpgm"),
+            code.s1("subpgm(0)"),
             "No association of interface constant 'arg2'",
         )
         .related(code.s1("arg2"), "Defined here")],

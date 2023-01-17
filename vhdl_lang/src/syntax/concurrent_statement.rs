@@ -221,16 +221,19 @@ fn to_procedure_call(
     postponed: bool,
 ) -> ParseResult<ConcurrentProcedureCall> {
     match target.item {
-        Target::Name(Name::FunctionCall(call)) => Ok(ConcurrentProcedureCall {
+        Target::Name(Name::CallOrIndexed(call)) => Ok(ConcurrentProcedureCall {
             postponed,
-            call: *call,
+            call: WithPos::new(*call, target.pos),
         }),
         Target::Name(name) => Ok(ConcurrentProcedureCall {
             postponed,
-            call: FunctionCall {
-                name: WithPos::from(name, target.pos),
-                parameters: vec![],
-            },
+            call: WithPos::from(
+                CallOrIndexed {
+                    name: WithPos::from(name, target.pos.clone()),
+                    parameters: vec![],
+                },
+                target.pos,
+            ),
         }),
         Target::Aggregate(..) => Err(Diagnostic::error(
             target,

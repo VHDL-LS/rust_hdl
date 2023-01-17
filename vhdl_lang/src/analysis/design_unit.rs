@@ -18,7 +18,7 @@ impl<'a> AnalyzeContext<'a> {
         id: EntityId,
         unit: &mut AnyPrimaryUnit,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         match unit {
             AnyPrimaryUnit::Entity(unit) => self.analyze_entity(id, unit, diagnostics),
             AnyPrimaryUnit::Configuration(unit) => self.analyze_configuration(unit, diagnostics),
@@ -34,7 +34,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         unit: &mut AnySecondaryUnit,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         match unit {
             AnySecondaryUnit::Architecture(unit) => self.analyze_architecture(unit, diagnostics),
             AnySecondaryUnit::PackageBody(unit) => self.analyze_package_body(unit, diagnostics),
@@ -46,24 +46,24 @@ impl<'a> AnalyzeContext<'a> {
         id: EntityId,
         unit: &mut EntityDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
-        let mut root_scope = Scope::default();
-        self.add_implicit_context_clause(&mut root_scope)?;
-        self.analyze_context_clause(&mut root_scope, &mut unit.context_clause, diagnostics)?;
+    ) -> FatalResult {
+        let root_scope = Scope::default();
+        self.add_implicit_context_clause(&root_scope)?;
+        self.analyze_context_clause(&root_scope, &mut unit.context_clause, diagnostics)?;
 
-        let mut primary_scope = root_scope.nested();
+        let primary_scope = root_scope.nested();
 
         // Entity name is visible
         primary_scope.make_potentially_visible(Some(unit.pos()), self.arena.get(id));
 
         if let Some(ref mut list) = unit.generic_clause {
-            self.analyze_interface_list(&mut primary_scope, list, diagnostics)?;
+            self.analyze_interface_list(&primary_scope, list, diagnostics)?;
         }
         if let Some(ref mut list) = unit.port_clause {
-            self.analyze_interface_list(&mut primary_scope, list, diagnostics)?;
+            self.analyze_interface_list(&primary_scope, list, diagnostics)?;
         }
-        self.analyze_declarative_part(&mut primary_scope, &mut unit.decl, diagnostics)?;
-        self.analyze_concurrent_part(&mut primary_scope, &mut unit.statements, diagnostics)?;
+        self.analyze_declarative_part(&primary_scope, &mut unit.decl, diagnostics)?;
+        self.analyze_concurrent_part(&primary_scope, &mut unit.statements, diagnostics)?;
 
         let region = primary_scope.into_region();
         let visibility = root_scope.into_visibility();
@@ -81,10 +81,10 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         unit: &mut ConfigurationDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
-        let mut root_region = Scope::default();
-        self.add_implicit_context_clause(&mut root_region)?;
-        self.analyze_context_clause(&mut root_region, &mut unit.context_clause, diagnostics)?;
+    ) -> FatalResult {
+        let root_region = Scope::default();
+        self.add_implicit_context_clause(&root_region)?;
+        self.analyze_context_clause(&root_region, &mut unit.context_clause, diagnostics)?;
 
         match self.lookup_entity_for_configuration(&root_region, unit) {
             Ok(named_entity) => {
@@ -120,20 +120,20 @@ impl<'a> AnalyzeContext<'a> {
         id: EntityId,
         unit: &mut PackageDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
-        let mut root_scope = Scope::default();
-        self.add_implicit_context_clause(&mut root_scope)?;
-        self.analyze_context_clause(&mut root_scope, &mut unit.context_clause, diagnostics)?;
+    ) -> FatalResult {
+        let root_scope = Scope::default();
+        self.add_implicit_context_clause(&root_scope)?;
+        self.analyze_context_clause(&root_scope, &mut unit.context_clause, diagnostics)?;
 
-        let mut scope = root_scope.nested().in_package_declaration();
+        let scope = root_scope.nested().in_package_declaration();
 
         // Package name is visible
         scope.make_potentially_visible(Some(unit.pos()), self.arena.get(id));
 
         if let Some(ref mut list) = unit.generic_clause {
-            self.analyze_interface_list(&mut scope, list, diagnostics)?;
+            self.analyze_interface_list(&scope, list, diagnostics)?;
         }
-        self.analyze_declarative_part(&mut scope, &mut unit.decl, diagnostics)?;
+        self.analyze_declarative_part(&scope, &mut unit.decl, diagnostics)?;
 
         if !self.has_package_body() {
             scope.close(diagnostics);
@@ -171,10 +171,10 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         unit: &mut PackageInstantiation,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
-        let mut root_scope = Scope::default();
-        self.add_implicit_context_clause(&mut root_scope)?;
-        self.analyze_context_clause(&mut root_scope, &mut unit.context_clause, diagnostics)?;
+    ) -> FatalResult {
+        let root_scope = Scope::default();
+        self.add_implicit_context_clause(&root_scope)?;
+        self.analyze_context_clause(&root_scope, &mut unit.context_clause, diagnostics)?;
 
         match self.analyze_package_instance_name(&root_scope, &mut unit.package_name) {
             Ok(package_region) => {
@@ -196,11 +196,11 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         unit: &mut ContextDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
-        let mut root_scope = Scope::default();
-        self.add_implicit_context_clause(&mut root_scope)?;
-        let mut scope = root_scope.nested();
-        self.analyze_context_clause(&mut scope, &mut unit.items, diagnostics)?;
+    ) -> FatalResult {
+        let root_scope = Scope::default();
+        self.add_implicit_context_clause(&root_scope)?;
+        let scope = root_scope.nested();
+        self.analyze_context_clause(&scope, &mut unit.items, diagnostics)?;
 
         self.arena.define(
             &mut unit.ident,
@@ -214,7 +214,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         unit: &mut ArchitectureBody,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         let primary = match self.lookup_in_library(
             self.work_library_name(),
             &unit.entity_name.item.pos,
@@ -242,9 +242,9 @@ impl<'a> AnalyzeContext<'a> {
                 return Ok(());
             };
 
-        let mut root_scope = Scope::new(Region::with_visibility(visibility.clone()));
-        self.analyze_context_clause(&mut root_scope, &mut unit.context_clause, diagnostics)?;
-        let mut scope = Scope::extend(region, Some(&root_scope));
+        let root_scope = Scope::new(Region::with_visibility(visibility.clone()));
+        self.analyze_context_clause(&root_scope, &mut unit.context_clause, diagnostics)?;
+        let scope = Scope::extend(region, Some(&root_scope));
 
         // Architecture name is visible
         scope.make_potentially_visible(
@@ -253,8 +253,8 @@ impl<'a> AnalyzeContext<'a> {
                 .explicit(unit.name().clone(), AnyEntKind::Label, Some(unit.pos())),
         );
 
-        self.analyze_declarative_part(&mut scope, &mut unit.decl, diagnostics)?;
-        self.analyze_concurrent_part(&mut scope, &mut unit.statements, diagnostics)?;
+        self.analyze_declarative_part(&scope, &mut unit.decl, diagnostics)?;
+        self.analyze_concurrent_part(&scope, &mut unit.statements, diagnostics)?;
         scope.close(diagnostics);
         Ok(())
     }
@@ -263,7 +263,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         unit: &mut PackageBody,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         let primary = match self.lookup_in_library(
             self.work_library_name(),
             &unit.ident.item.pos,
@@ -293,13 +293,13 @@ impl<'a> AnalyzeContext<'a> {
         };
 
         // @TODO make pattern of primary/secondary extension
-        let mut root_scope = Scope::new(Region::with_visibility(visibility.clone()));
+        let root_scope = Scope::new(Region::with_visibility(visibility.clone()));
 
-        self.analyze_context_clause(&mut root_scope, &mut unit.context_clause, diagnostics)?;
+        self.analyze_context_clause(&root_scope, &mut unit.context_clause, diagnostics)?;
 
-        let mut scope = Scope::extend(region, Some(&root_scope));
+        let scope = Scope::extend(region, Some(&root_scope));
 
-        self.analyze_declarative_part(&mut scope, &mut unit.decl, diagnostics)?;
+        self.analyze_declarative_part(&scope, &mut unit.decl, diagnostics)?;
         scope.close(diagnostics);
         Ok(())
     }
@@ -345,8 +345,6 @@ impl<'a> AnalyzeContext<'a> {
 
             // configuration cfg of lib.ent
             SelectedName::Selected(ref mut prefix, ref mut designator) => {
-                designator.clear_reference();
-
                 self.resolve_selected_name(scope, prefix)?
                     .into_non_overloaded()
                     .map_err(|ent|
@@ -411,7 +409,6 @@ impl<'a> AnalyzeContext<'a> {
     ) -> AnalysisResult<UsedNames<'a>> {
         match &mut name.item {
             Name::Selected(ref mut prefix, ref mut suffix) => {
-                suffix.clear_reference();
                 let prefix_ent = self.resolve_context_item_prefix(scope, prefix)?;
 
                 let visible = self.lookup_selected(&prefix.pos, prefix_ent, suffix)?;
@@ -424,16 +421,14 @@ impl<'a> AnalyzeContext<'a> {
                 Ok(UsedNames::AllWithin(prefix.pos.clone(), prefix_ent))
             }
             Name::Designator(designator) => {
-                designator.clear_reference();
                 let visible = scope.lookup(&name.pos, designator.designator())?;
                 designator.set_reference(&visible);
                 Ok(UsedNames::Single(visible))
             }
 
-            Name::Indexed(..)
-            | Name::Slice(..)
+            Name::Slice(..)
             | Name::Attribute(..)
-            | Name::FunctionCall(..)
+            | Name::CallOrIndexed(..)
             | Name::External(..) => Err(AnalysisError::not_fatal_error(
                 &name.pos,
                 "Invalid selected name",
@@ -443,16 +438,14 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_context_clause(
         &self,
-        scope: &mut Scope<'a>,
+        scope: &Scope<'a>,
         context_clause: &mut [WithPos<ContextItem>],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         for context_item in context_clause.iter_mut() {
             match context_item.item {
                 ContextItem::Library(LibraryClause { ref mut name_list }) => {
                     for library_name in name_list.iter_mut() {
-                        library_name.clear_reference();
-
                         if self.work_sym == library_name.item.item {
                             diagnostics.push(Diagnostic::hint(
                                 &library_name.item,
@@ -526,10 +519,10 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn analyze_use_clause(
         &self,
-        scope: &mut Scope<'a>,
+        scope: &Scope<'a>,
         use_clause: &mut UseClause,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalNullResult {
+    ) -> FatalResult {
         for name in use_clause.name_list.iter_mut() {
             match name.item {
                 Name::Selected(..) => {}

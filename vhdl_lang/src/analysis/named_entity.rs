@@ -14,7 +14,7 @@ use crate::ast::{
 use crate::data::*;
 
 mod types;
-pub use types::{Subtype, Type, TypeEnt, TypedSelection, UniversalType};
+pub use types::{BaseType, Subtype, Type, TypeEnt, TypedSelection, UniversalType};
 
 mod overloaded;
 pub use overloaded::{Overloaded, OverloadedEnt, Signature, SignatureKey};
@@ -293,6 +293,14 @@ impl<'a> std::cmp::PartialEq for AnyEnt<'a> {
         self.id == other.id
     }
 }
+
+impl<'a> std::hash::Hash for AnyEnt<'a> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id().hash(state)
+    }
+}
+
+impl<'a> Eq for AnyEnt<'a> {}
 
 /// This trait is implemented for Ast-nodes which declare named entities
 pub trait HasEntityId {

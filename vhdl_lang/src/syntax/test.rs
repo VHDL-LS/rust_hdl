@@ -388,14 +388,20 @@ impl Code {
         self.parse_ok(parse_parameter)
     }
 
-    pub fn function_call(&self) -> FunctionCall {
+    pub fn function_call(&self) -> WithPos<CallOrIndexed> {
         let name = self.name();
         match name.item {
-            Name::FunctionCall(call) => *call,
-            _ => FunctionCall {
-                name,
-                parameters: vec![],
-            },
+            Name::CallOrIndexed(call) => WithPos::new(*call, name.pos),
+            _ => {
+                let pos = name.pos.clone();
+                WithPos::new(
+                    CallOrIndexed {
+                        name,
+                        parameters: vec![],
+                    },
+                    pos,
+                )
+            }
         }
     }
 
@@ -531,6 +537,15 @@ fn diagnostics_to_map(diagnostics: Vec<Diagnostic>) -> HashMap<Diagnostic, usize
         }
     }
     map
+}
+
+// Drop releated info when we do not want to test for it
+pub fn without_releated(diagnostics: &[Diagnostic]) -> Vec<Diagnostic> {
+    let mut diagnostics = diagnostics.to_vec();
+    for diagnostic in diagnostics.iter_mut() {
+        diagnostic.related.clear();
+    }
+    diagnostics
 }
 
 /// Check diagnostics are equal without considering order

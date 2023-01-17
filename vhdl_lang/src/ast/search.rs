@@ -266,7 +266,8 @@ impl Search for LabeledSequentialStatement {
                 return_if_found!(expression.search(searcher));
             }
             SequentialStatement::ProcedureCall(ref mut pcall) => {
-                return_if_found!(pcall.search(searcher));
+                return_if_finished!(searcher.search_with_pos(&pcall.pos));
+                return_if_found!(pcall.item.search(searcher));
             }
             SequentialStatement::If(ref mut ifstmt) => {
                 return_if_found!(search_conditionals(ifstmt, false, searcher));
@@ -463,7 +464,8 @@ impl Search for LabeledConcurrentStatement {
                     postponed: _postponed,
                     call,
                 } = pcall;
-                return_if_found!(call.search(searcher));
+                return_if_finished!(searcher.search_with_pos(&call.pos));
+                return_if_found!(call.item.search(searcher));
                 NotFound
             }
             ConcurrentStatement::Assert(ref mut assert) => {
@@ -528,17 +530,12 @@ fn search_pos_name(
         Name::Designator(ref mut designator) => searcher
             .search_designator_ref(pos, designator)
             .or_not_found(),
-        Name::Indexed(ref mut prefix, ref mut indexes) => {
-            return_if_found!(prefix.search(searcher));
-            return_if_found!(indexes.search(searcher));
-            NotFound
-        }
         Name::Slice(ref mut prefix, ref mut dranges) => {
             return_if_found!(prefix.search(searcher));
             return_if_found!(dranges.search(searcher));
             NotFound
         }
-        Name::FunctionCall(ref mut fcall) => fcall.search(searcher),
+        Name::CallOrIndexed(ref mut fcall) => fcall.search(searcher),
         Name::Attribute(ref mut attr) => {
             // @TODO more
             let AttributeName { name, expr, .. } = attr.as_mut();
@@ -843,9 +840,9 @@ impl Search for AssociationElement {
     }
 }
 
-impl Search for FunctionCall {
+impl Search for CallOrIndexed {
     fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
-        let FunctionCall { name, parameters } = self;
+        let CallOrIndexed { name, parameters } = self;
         return_if_found!(name.search(searcher));
         return_if_found!(parameters.search(searcher));
         NotFound

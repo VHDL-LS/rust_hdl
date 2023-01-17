@@ -220,7 +220,7 @@ fn parse_function_call(
             RightPar => {
                 let pos = token.pos.combine_into(&prefix);
                 return Ok(WithPos {
-                    item: Name::FunctionCall(Box::new(FunctionCall {
+                    item: Name::CallOrIndexed(Box::new(CallOrIndexed {
                         name: prefix,
                         parameters: association_elements})),
                     pos,
@@ -435,7 +435,7 @@ pub fn parse_name_initial_token(
                         let pos = sep_token.pos.combine_into(&name);
                         let item = match into_range(assoc) {
                             Ok(range) => Name::Slice(Box::new(name), Box::new(DiscreteRange::Range(range))),
-                            Err(assoc) => Name::FunctionCall(Box::new(FunctionCall {
+                            Err(assoc) => Name::CallOrIndexed(Box::new(CallOrIndexed {
                                 name,
                                 parameters: vec![assoc],
                             })),
@@ -881,7 +881,7 @@ mod tests {
         };
 
         let foo_0 = WithPos {
-            item: Name::FunctionCall(Box::new(FunctionCall {
+            item: Name::CallOrIndexed(Box::new(CallOrIndexed {
                 name: foo,
                 parameters: vec![AssociationElement {
                     formal: None,
@@ -904,7 +904,7 @@ mod tests {
         };
 
         let prefix_index = WithPos {
-            item: Name::FunctionCall(Box::new(FunctionCall {
+            item: Name::CallOrIndexed(Box::new(CallOrIndexed {
                 name: prefix,
                 parameters: vec![
                     AssociationElement {
@@ -921,7 +921,7 @@ mod tests {
         };
 
         let prefix_index_3 = WithPos {
-            item: Name::FunctionCall(Box::new(FunctionCall {
+            item: Name::CallOrIndexed(Box::new(CallOrIndexed {
                 name: prefix_index,
                 parameters: vec![AssociationElement {
                     formal: None,
@@ -965,7 +965,7 @@ mod tests {
         };
 
         let foo_call = WithPos {
-            item: Name::FunctionCall(Box::new(FunctionCall {
+            item: Name::CallOrIndexed(Box::new(CallOrIndexed {
                 name: foo,
                 parameters: vec![assoc_elem],
             })),
