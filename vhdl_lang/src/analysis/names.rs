@@ -423,6 +423,42 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
+    /// An array type may be sliced with a type name
+    /// For the parser this looks like a call or indexed name
+    /// Example:
+    /// subtype sub_t is natural range 0 to 1;
+    /// arr(sub_t) := (others => 0);
+    fn could_be_slice_with_type_name(
+        &self,
+        scope: &Scope<'a>,
+        assocs: &mut [AssociationElement],
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> AnalysisResult<bool> {
+        if !could_be_indexed_name(assocs) {
+            return Ok(false);
+        }
+
+        if let [ref mut assoc] = assocs {
+            if let ActualPart::Expression(Expression::Name(name)) = &mut assoc.actual.item {
+                let resolved = self.name_resolve(scope, &assoc.actual.pos, name, diagnostics)?;
+
+                if let Some(ResolvedName::Type(typ)) = resolved {
+                    return if matches!(typ.base_type().kind(), Type::Enum { .. } | Type::Integer(_))
+                    {
+                        Ok(true)
+                    } else {
+                        Err(Diagnostic::error(
+                            &assoc.actual.pos,
+                            format!("{} cannot be used as a discrete range", typ.describe()),
+                        )
+                        .into())
+                    };
+                }
+            }
+        }
+        Ok(false)
+    }
+
     // Apply suffix when prefix is known to have a type
     // The prefix may be an object or a function return value
     fn resolve_typed_suffix(
@@ -459,6 +495,12 @@ impl<'a> AnalyzeContext<'a> {
             Suffix::Attribute(_) => Ok(None),
             // @TODO Prefix must non-overloaded
             Suffix::CallOrIndexed(assocs) => {
+                if let Some(typ) = prefix_typ.sliced_as() {
+                    if self.could_be_slice_with_type_name(scope, assocs, diagnostics)? {
+                        return Ok(Some(TypeOrMethod::Type(typ)));
+                    }
+                }
+
                 if could_be_indexed_name(assocs) {
                     // @TODO check types of indexes
                     self.analyze_assoc_elems(scope, assocs, diagnostics)?;
@@ -1491,6 +1533,58 @@ variable vptr : ptr_t;
         assert_matches!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(Some(ResolvedName::ObjectName(oname))) if oname.type_mark() == test.lookup_type("integer")
+        );
+    }
+
+    #[test]
+    fn slice_with_integer_discrete_range() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+subtype sub_t is integer range 0 to 3;
+variable c0 : integer_vector(0 to 6);
+",
+        );
+        let code = test.snippet("c0(sub_t)");
+        assert_matches!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(Some(ResolvedName::ObjectName(oname))) if oname.type_mark() == test.lookup_type("integer_vector")
+        );
+    }
+
+    #[test]
+    fn slice_with_enum_discrete_range() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+type enum_t is (a, b, c);
+type arr_t is array (enum_t) of character;
+subtype sub_t is enum_t range a to b;
+variable c0 : arr_t(a to c);
+",
+        );
+        let code = test.snippet("c0(sub_t)");
+        assert_matches!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(Some(ResolvedName::ObjectName(oname))) if oname.type_mark() == test.lookup_type("arr_t")
+        );
+    }
+
+    #[test]
+    fn slice_with_bad_type() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+variable c0 : integer_vector(0 to 6);
+",
+        );
+        let code = test.snippet("c0(real)");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Err(Diagnostic::error(
+                code.s1("real"),
+                "real type 'REAL' cannot be used as a discrete range"
+            ))
         );
     }
 }
