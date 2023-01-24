@@ -738,16 +738,33 @@ impl<'a> AnalyzeContext<'a> {
                 for choice in choices.iter_mut() {
                     match choice {
                         Choice::Expression(index_expr) => {
-                            if let Some(index_type) = index_type {
-                                check.add(self.analyze_expression_with_target_type(
-                                    scope,
-                                    index_type,
-                                    &index_expr.pos,
-                                    &mut index_expr.item,
-                                    diagnostics,
-                                )?);
+                            match self.expr_as_discrete_range_type(
+                                scope,
+                                &index_expr.pos,
+                                &mut index_expr.item,
+                                diagnostics,
+                            ) {
+                                Ok(Some(_)) => {
+                                    // @TODO check type matches index type
+                                    can_be_array = true;
+                                }
+                                Ok(None) => {
+                                    if let Some(index_type) = index_type {
+                                        check.add(self.analyze_expression_with_target_type(
+                                            scope,
+                                            index_type,
+                                            &index_expr.pos,
+                                            &mut index_expr.item,
+                                            diagnostics,
+                                        )?);
+                                    }
+                                    can_be_array = false;
+                                }
+                                Err(err) => {
+                                    diagnostics.push(err.into_non_fatal()?);
+                                    return Ok(TypeCheck::Unknown);
+                                }
                             }
-                            can_be_array = false;
                         }
                         Choice::DiscreteRange(ref mut drange) => {
                             if let Some(index_type) = index_type {

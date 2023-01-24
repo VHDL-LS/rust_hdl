@@ -363,6 +363,16 @@ impl Name {
             Self::Slice(name, ..) => name.item.prefix(),
         }
     }
+
+    /// Returns true if the name is purely a selected name
+    /// Example: a.b.c
+    pub fn is_selected_name(&self) -> bool {
+        match self {
+            Name::Designator(_) => true,
+            Name::Selected(prefix, _) => prefix.item.is_selected_name(),
+            _ => false,
+        }
+    }
 }
 
 impl CallOrIndexed {

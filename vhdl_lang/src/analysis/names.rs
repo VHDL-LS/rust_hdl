@@ -428,35 +428,58 @@ impl<'a> AnalyzeContext<'a> {
     /// Example:
     /// subtype sub_t is natural range 0 to 1;
     /// arr(sub_t) := (others => 0);
-    fn could_be_slice_with_type_name(
+    fn assoc_as_discrete_range_type(
         &self,
         scope: &Scope<'a>,
         assocs: &mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<bool> {
+    ) -> AnalysisResult<Option<TypeEnt<'a>>> {
         if !could_be_indexed_name(assocs) {
-            return Ok(false);
+            return Ok(None);
         }
 
         if let [ref mut assoc] = assocs {
-            if let ActualPart::Expression(Expression::Name(name)) = &mut assoc.actual.item {
-                let resolved = self.name_resolve(scope, &assoc.actual.pos, name, diagnostics)?;
-
-                if let Some(ResolvedName::Type(typ)) = resolved {
-                    return if matches!(typ.base_type().kind(), Type::Enum { .. } | Type::Integer(_))
-                    {
-                        Ok(true)
-                    } else {
-                        Err(Diagnostic::error(
-                            &assoc.actual.pos,
-                            format!("{} cannot be used as a discrete range", typ.describe()),
-                        )
-                        .into())
-                    };
-                }
+            if let ActualPart::Expression(expr) = &mut assoc.actual.item {
+                return self.expr_as_discrete_range_type(
+                    scope,
+                    &assoc.actual.pos,
+                    expr,
+                    diagnostics,
+                );
             }
         }
-        Ok(false)
+        Ok(None)
+    }
+
+    pub fn expr_as_discrete_range_type(
+        &self,
+        scope: &Scope<'a>,
+        expr_pos: &SrcPos,
+        expr: &mut Expression,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> AnalysisResult<Option<TypeEnt<'a>>> {
+        if let Expression::Name(name) = expr {
+            if !name.is_selected_name() {
+                // Early exit
+                return Ok(None);
+            }
+
+            let resolved = self.name_resolve(scope, expr_pos, name, diagnostics)?;
+
+            if let Some(ResolvedName::Type(typ)) = resolved {
+                return if matches!(typ.base_type().kind(), Type::Enum { .. } | Type::Integer(_)) {
+                    Ok(Some(typ))
+                } else {
+                    Err(Diagnostic::error(
+                        expr_pos,
+                        format!("{} cannot be used as a discrete range", typ.describe()),
+                    )
+                    .into())
+                };
+            }
+        }
+
+        Ok(None)
     }
 
     // Apply suffix when prefix is known to have a type
@@ -496,7 +519,10 @@ impl<'a> AnalyzeContext<'a> {
             // @TODO Prefix must non-overloaded
             Suffix::CallOrIndexed(assocs) => {
                 if let Some(typ) = prefix_typ.sliced_as() {
-                    if self.could_be_slice_with_type_name(scope, assocs, diagnostics)? {
+                    if self
+                        .assoc_as_discrete_range_type(scope, assocs, diagnostics)?
+                        .is_some()
+                    {
                         return Ok(Some(TypeOrMethod::Type(typ)));
                     }
                 }
