@@ -1354,6 +1354,7 @@ pub struct Tokenizer<'a> {
     reader: ContentReader<'a>,
     final_comments: Option<Vec<Comment>>,
     reverse_range_sym: Symbol,
+    element_sym: Symbol,
 }
 
 impl<'a> Tokenizer<'a> {
@@ -1365,6 +1366,7 @@ impl<'a> Tokenizer<'a> {
         let reverse_range_sym = symbols
             .symtab()
             .insert(&Latin1String::new(b"reverse_range"));
+        let element_sym = symbols.symtab().insert(&Latin1String::new(b"element"));
 
         Tokenizer {
             symbols,
@@ -1374,6 +1376,7 @@ impl<'a> Tokenizer<'a> {
             reader,
             final_comments: None,
             reverse_range_sym,
+            element_sym,
         }
     }
 
@@ -1401,6 +1404,10 @@ impl<'a> Tokenizer<'a> {
 
     pub fn reverse_range_sym(&self) -> &Symbol {
         &self.reverse_range_sym
+    }
+
+    pub fn element_sym(&self) -> &Symbol {
+        &self.element_sym
     }
 
     fn parse_token(&mut self) -> Result<Option<(Kind, Value)>, TokenError> {

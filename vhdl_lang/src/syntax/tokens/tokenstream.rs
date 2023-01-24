@@ -6,7 +6,7 @@
 
 use super::tokenizer::Kind::*;
 use super::tokenizer::*;
-use crate::ast::{AttributeDesignator, Ident};
+use crate::ast::{AttributeDesignator, Ident, RangeAttribute, TypeAttribute};
 use crate::data::{DiagnosticHandler, DiagnosticResult, Symbol, WithPos};
 
 pub struct TokenStream<'a> {
@@ -20,6 +20,10 @@ impl<'a> TokenStream<'a> {
 
     pub fn reverse_range_sym(&self) -> &Symbol {
         self.tokenizer.reverse_range_sym()
+    }
+
+    pub fn element_sym(&self) -> &Symbol {
+        self.tokenizer.element_sym()
     }
 
     pub fn state(&self) -> TokenState {
@@ -141,13 +145,15 @@ impl<'a> TokenStream<'a> {
             Identifier => {
                 let ident = token.expect_ident()?;
                 if &ident.item == self.reverse_range_sym() {
-                    ident.map_into(|_| AttributeDesignator::ReverseRange)
+                    ident.map_into(|_| AttributeDesignator::Range(RangeAttribute::ReverseRange))
+                } else if &ident.item == self.element_sym() {
+                        ident.map_into(|_| AttributeDesignator::Type(TypeAttribute::Element))
                 } else {
                     ident.map_into(AttributeDesignator::Ident)
                 }
             },
-            Subtype => WithPos::new(AttributeDesignator::Subtype, token.pos),
-            Range => WithPos::new(AttributeDesignator::Range, token.pos)
+            Subtype => WithPos::new(AttributeDesignator::Type(TypeAttribute::Subtype), token.pos),
+            Range => WithPos::new(AttributeDesignator::Range(RangeAttribute::Range), token.pos)
         );
         Ok(des)
     }

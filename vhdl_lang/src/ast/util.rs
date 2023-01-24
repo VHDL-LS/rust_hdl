@@ -410,10 +410,23 @@ pub struct Index<'a> {
 }
 
 impl AttributeName {
-    pub fn is_range(&self) -> bool {
-        matches!(
-            self.attr.item,
-            AttributeDesignator::Range | AttributeDesignator::ReverseRange,
-        )
+    pub fn as_range(&self) -> Option<RangeAttribute> {
+        if let AttributeDesignator::Range(r) = self.attr.item {
+            Some(r)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_type(&self) -> Option<TypeAttribute> {
+        if self.signature.is_none() && self.expr.is_none() {
+            if let AttributeDesignator::Type(t) = self.attr.item {
+                Some(t)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 }

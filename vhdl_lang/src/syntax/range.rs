@@ -52,7 +52,7 @@ fn parse_name_or_range(stream: &mut TokenStream) -> ParseResult<NameOrRange> {
     } = expr
     {
         if let Name::Attribute(attribute_name) = *name {
-            if attribute_name.is_range() {
+            if attribute_name.as_range().is_some() {
                 let range = ast::Range::Attribute(attribute_name);
                 Ok(NameOrRange::Range(WithPos::from(range, pos)))
             } else {

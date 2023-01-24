@@ -9,7 +9,7 @@ use super::common::ParseResult;
 use super::expression::{parse_expression, parse_expression_initial_token};
 use super::subprogram::parse_signature;
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{Kind::*, Token, TokenStream};
+use super::tokens::{Kind::*, Token, TokenStream, Value};
 use crate::ast;
 use crate::ast::*;
 use crate::data::{Diagnostic, WithPos};
@@ -50,7 +50,7 @@ pub fn parse_type_mark_starting_with_name(
 ) -> ParseResult<WithPos<TypeMark>> {
     let state = stream.state();
 
-    // Check if it is a type mark with a subtype attribute:
+    // Check if it is a type mark with a subtype or element attribute:
     // Example: signal sig0 : sig1'subtype;
     if stream.pop_if_kind(Tick)?.is_some() {
         let subtype_token = stream.expect()?;
@@ -59,19 +59,26 @@ pub fn parse_type_mark_starting_with_name(
                 pos: subtype_token.pos.combine_into(&name.pos),
                 item: TypeMark {
                     name,
-                    subtype: true,
+                    attr: Some(TypeAttribute::Subtype),
                 },
             });
-        };
+        } else if subtype_token.kind == Identifier
+            && matches!(subtype_token.value, Value::Identifier(ref sym) if sym == stream.element_sym())
+        {
+            return Ok(WithPos {
+                pos: subtype_token.pos.combine_into(&name.pos),
+                item: TypeMark {
+                    name,
+                    attr: Some(TypeAttribute::Element),
+                },
+            });
+        }
         stream.set_state(state);
     };
 
     Ok(WithPos {
         pos: name.pos.clone(),
-        item: TypeMark {
-            name,
-            subtype: false,
-        },
+        item: TypeMark { name, attr: None },
     })
 }
 
@@ -461,7 +468,7 @@ pub fn into_range(assoc: AssociationElement) -> Result<ast::Range, AssociationEl
 
     if let ActualPart::Expression(Expression::Name(ref name)) = &assoc.actual.item {
         if let Name::Attribute(attr) = name.as_ref() {
-            if attr.is_range() {
+            if attr.as_range().is_some() {
                 if let ActualPart::Expression(Expression::Name(name)) = assoc.actual.item {
                     if let Name::Attribute(attr) = *name {
                         return Ok(ast::Range::Attribute(attr));
@@ -734,7 +741,7 @@ mod tests {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
                 attr: WithPos {
-                    item: AttributeDesignator::Range,
+                    item: AttributeDesignator::Range(RangeAttribute::Range),
                     pos: code.s1("range").pos(),
                 },
                 signature: None,
@@ -756,13 +763,35 @@ mod tests {
             item: Name::Attribute(Box::new(AttributeName {
                 name: prefix,
                 attr: WithPos {
-                    item: AttributeDesignator::Subtype,
+                    item: AttributeDesignator::Type(TypeAttribute::Subtype),
                     pos: code.s1("subtype").pos(),
                 },
                 signature: None,
                 expr: None,
             })),
             pos: code.s1("prefix'subtype").pos(),
+        };
+        assert_eq!(code.with_stream(parse_name), attr);
+    }
+
+    #[test]
+    fn test_attribute_name_element() {
+        let code = Code::new("prefix'element");
+        let prefix = WithPos {
+            item: Name::Designator(Designator::Identifier(code.symbol("prefix")).into_ref()),
+            pos: code.s1("prefix").pos(),
+        };
+        let attr = WithPos {
+            item: Name::Attribute(Box::new(AttributeName {
+                name: prefix,
+                attr: WithPos {
+                    item: AttributeDesignator::Type(TypeAttribute::Element),
+                    pos: code.s1("element").pos(),
+                },
+                signature: None,
+                expr: None,
+            })),
+            pos: code.s1("prefix'element").pos(),
         };
         assert_eq!(code.with_stream(parse_name), attr);
     }
@@ -776,10 +805,7 @@ mod tests {
             code.with_stream(parse_type_mark),
             WithPos {
                 pos: name.pos.clone(),
-                item: TypeMark {
-                    name,
-                    subtype: false
-                },
+                item: TypeMark { name, attr: None },
             }
         );
     }
@@ -794,7 +820,23 @@ mod tests {
                 pos: code.pos(),
                 item: TypeMark {
                     name: code.s1("prefix").selected_name(),
-                    subtype: true
+                    attr: Some(TypeAttribute::Subtype)
+                },
+            }
+        );
+    }
+
+    #[test]
+    fn test_type_mark_with_element() {
+        let code = Code::new("prefix'element");
+
+        assert_eq!(
+            code.with_stream(parse_type_mark),
+            WithPos {
+                pos: code.pos(),
+                item: TypeMark {
+                    name: code.s1("prefix").selected_name(),
+                    attr: Some(TypeAttribute::Element)
                 },
             }
         );

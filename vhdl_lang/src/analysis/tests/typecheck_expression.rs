@@ -555,6 +555,53 @@ signal sig2 : sig0'subtype := (others => 0); -- ok
 }
 
 #[test]
+fn test_typechecks_expression_for_type_mark_with_element_attribute() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+subtype ivec_subtype_t is integer_vector(0 to 7);
+signal sig : integer_vector(0 to 7);
+
+signal bad1 : sig'element := (0, 0);
+signal bad2 : sig'element := 'a';
+
+signal good1 : sig'element := 0; -- ok
+
+subtype sub_from_object_t is sig'element;
+signal good2 : sub_from_object_t := 0; -- ok
+
+subtype sub_from_type_t is ivec_subtype_t'element;
+signal good3 : sub_from_type_t := 0; -- ok
+
+subtype bad1_t is good2'element;
+subtype bad2_t is integer'element;
+",
+    );
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s1("(0, 0)"),
+                "composite does not match integer type 'INTEGER'",
+            ),
+            Diagnostic::error(
+                code.s1("'a'"),
+                "character literal does not match integer type 'INTEGER'",
+            ),
+            Diagnostic::error(
+                code.s1("good2'element").s1("good2"),
+                "array type expected for 'element attribute",
+            ),
+            Diagnostic::error(
+                code.s1("integer'element").s1("integer"),
+                "array type expected for 'element attribute",
+            ),
+        ],
+    );
+}
+
+#[test]
 fn qualified_expression_type_mark() {
     let mut builder = LibraryBuilder::new();
     let code = builder.in_declarative_region(
@@ -745,7 +792,7 @@ constant bad1 : integer := (3, 4, 5);
         diagnostics,
         vec![Diagnostic::error(
             code.s1("(3, 4, 5)"),
-            "Composite does not match integer type 'INTEGER'",
+            "composite does not match integer type 'INTEGER'",
         )],
     );
 }

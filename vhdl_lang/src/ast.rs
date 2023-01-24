@@ -93,11 +93,22 @@ pub struct AttributeName {
     pub expr: Option<Box<WithPos<Expression>>>,
 }
 
-#[derive(PartialEq, Debug, Clone, Eq)]
-pub enum AttributeDesignator {
+#[derive(PartialEq, Debug, Copy, Clone, Eq)]
+pub enum TypeAttribute {
     Subtype,
+    Element,
+}
+
+#[derive(PartialEq, Debug, Copy, Clone, Eq)]
+pub enum RangeAttribute {
     Range,
     ReverseRange,
+}
+
+#[derive(PartialEq, Debug, Clone, Eq)]
+pub enum AttributeDesignator {
+    Type(TypeAttribute),
+    Range(RangeAttribute),
     Ident(Symbol),
 }
 
@@ -333,8 +344,7 @@ pub enum ResolutionIndication {
 #[derive(PartialEq, Debug, Clone)]
 pub struct TypeMark {
     pub name: WithPos<SelectedName>,
-    // Is the 'subtype attribute of the selected name
-    pub subtype: bool,
+    pub attr: Option<TypeAttribute>,
 }
 
 /// LRM 6.3 Subtype declarations

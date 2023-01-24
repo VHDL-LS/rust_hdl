@@ -608,7 +608,7 @@ impl<'a> AnalyzeContext<'a> {
 
                     diagnostics.error(
                         expr_pos,
-                        format!("Composite does not match {}", target_type.describe()),
+                        format!("composite does not match {}", target_type.describe()),
                     );
                     Ok(TypeCheck::Unknown)
                 }

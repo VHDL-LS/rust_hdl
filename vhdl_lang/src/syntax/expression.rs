@@ -286,13 +286,10 @@ fn name_to_type_mark(name: WithPos<Name>) -> ParseResult<WithPos<TypeMark>> {
     let type_mark = name
         .try_map_into(|name| match name {
             Name::Attribute(attr) => {
-                if attr.signature.is_none()
-                    && attr.expr.is_none()
-                    && attr.attr.item == AttributeDesignator::Subtype
-                {
+                if let Some(typattr) = attr.as_type() {
                     Some(TypeMark {
                         name: attr.name.try_map_into(name_to_selected_name)?,
-                        subtype: true,
+                        attr: Some(typattr),
                     })
                 } else {
                     None
@@ -300,7 +297,7 @@ fn name_to_type_mark(name: WithPos<Name>) -> ParseResult<WithPos<TypeMark>> {
             }
             _ => Some(TypeMark {
                 name: WithPos::from(name_to_selected_name(name)?, pos.clone()),
-                subtype: false,
+                attr: None,
             }),
         })
         .ok_or_else(|| Diagnostic::error(&pos, "Expected type mark"))?;

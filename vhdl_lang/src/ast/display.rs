@@ -99,9 +99,26 @@ impl Display for AttributeDesignator {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             AttributeDesignator::Ident(sym) => write!(f, "{}", sym),
-            AttributeDesignator::Range => write!(f, "range"),
-            AttributeDesignator::ReverseRange => write!(f, "reverse_range"),
-            AttributeDesignator::Subtype => write!(f, "subtype"),
+            AttributeDesignator::Range(r) => write!(f, "{}", r),
+            AttributeDesignator::Type(t) => write!(f, "{}", t),
+        }
+    }
+}
+
+impl Display for TypeAttribute {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self {
+            TypeAttribute::Subtype => write!(f, "subtype"),
+            TypeAttribute::Element => write!(f, "element"),
+        }
+    }
+}
+
+impl Display for RangeAttribute {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self {
+            RangeAttribute::Range => write!(f, "range"),
+            RangeAttribute::ReverseRange => write!(f, "reverse_range"),
         }
     }
 }
@@ -518,8 +535,8 @@ impl Display for SubtypeIndication {
 impl Display for TypeMark {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", self.name)?;
-        if self.subtype {
-            write!(f, "'subtype")?;
+        if let Some(attr) = self.attr {
+            write!(f, "'{}", attr)?;
         }
         Ok(())
     }

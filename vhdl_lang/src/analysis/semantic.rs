@@ -59,23 +59,49 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         type_mark: &mut WithPos<TypeMark>,
     ) -> AnalysisResult<TypeEnt<'a>> {
-        if !type_mark.item.subtype {
-            self.resolve_type_mark_name(scope, &mut type_mark.item.name)
-        } else {
+        if let Some(attr) = &type_mark.item.attr {
             let entities = self.resolve_selected_name(scope, &mut type_mark.item.name)?;
 
             let pos = type_mark.item.name.suffix_pos();
-            let expected = "object or alias";
+
+            let expected = if *attr == TypeAttribute::Element {
+                "type, object or alias"
+            } else {
+                "object or alias"
+            };
+
             let named_entity = self.resolve_non_overloaded(entities, pos, expected)?;
 
-            match named_entity.kind() {
-                AnyEntKind::Object(obj) => Ok(obj.subtype.type_mark().to_owned()),
-                AnyEntKind::ObjectAlias { type_mark, .. } => Ok(*type_mark),
-                AnyEntKind::ElementDeclaration(subtype) => Ok(subtype.type_mark().to_owned()),
-                _ => Err(AnalysisError::NotFatal(
-                    named_entity.kind_error(pos, expected),
-                )),
+            let typ = match named_entity.kind() {
+                AnyEntKind::Object(obj) => obj.subtype.type_mark(),
+                AnyEntKind::ObjectAlias { type_mark, .. } => *type_mark,
+                AnyEntKind::ElementDeclaration(subtype) => subtype.type_mark(),
+                AnyEntKind::Type(_) if *attr == TypeAttribute::Element => {
+                    TypeEnt::from_any(named_entity).unwrap()
+                }
+                _ => {
+                    return Err(AnalysisError::NotFatal(
+                        named_entity.kind_error(pos, expected),
+                    ))
+                }
+            };
+
+            match attr {
+                TypeAttribute::Subtype => Ok(typ),
+                TypeAttribute::Element => {
+                    if let Some((elem_type, _)) = typ.array_type() {
+                        Ok(elem_type)
+                    } else {
+                        Err(Diagnostic::error(
+                            pos,
+                            format!("array type expected for '{} attribute", attr,),
+                        )
+                        .into())
+                    }
+                }
             }
+        } else {
+            self.resolve_type_mark_name(scope, &mut type_mark.item.name)
         }
     }
 
