@@ -121,4 +121,8 @@ fn show_diagnostics(diagnostics: &[Diagnostic]) {
     for diagnostic in diagnostics {
         println!("{}", diagnostic.show());
     }
+
+    if !diagnostics.is_empty() {
+        println!("Found {} diagnostics", diagnostics.len());
+    }
 }
