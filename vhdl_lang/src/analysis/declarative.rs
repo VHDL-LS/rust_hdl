@@ -769,10 +769,10 @@ impl<'a> AnalyzeContext<'a> {
             TypeDefinition::Numeric(ref mut range) => {
                 self.analyze_range(scope, range, diagnostics)?;
                 let implicit = ImplicitVecBuilder::default();
-
-                let kind = match integer_or_real_range(range) {
-                    ScalarType::Integer => Type::Integer(implicit.inner()),
-                    ScalarType::Real => Type::Real(implicit.inner()),
+                let universal_type = integer_or_real_range(range);
+                let kind = match universal_type {
+                    UniversalType::Integer => Type::Integer(implicit.inner()),
+                    UniversalType::Real => Type::Real(implicit.inner()),
                 };
 
                 let type_ent = TypeEnt::define_with_opt_id(
@@ -784,7 +784,7 @@ impl<'a> AnalyzeContext<'a> {
                 scope.add(type_ent.into(), diagnostics);
 
                 if let Some(standard) = self.standard_package() {
-                    for ent in standard.numeric_implicits(type_ent) {
+                    for ent in standard.numeric_implicits(universal_type, type_ent) {
                         implicit.push(ent);
                         scope.add(ent, diagnostics);
                     }
@@ -1126,13 +1126,8 @@ fn signature_error(pos: impl AsRef<SrcPos>) -> Diagnostic {
     )
 }
 
-enum ScalarType {
-    Integer,
-    Real,
-}
-
 /// @TODO A simple and incomplete way to disambiguate integer and real in standard.vhd
-fn integer_or_real_range(range: &ast::Range) -> ScalarType {
+fn integer_or_real_range(range: &ast::Range) -> UniversalType {
     if let ast::Range::Range(RangeConstraint { left_expr, .. }) = range {
         let expr = if let Expression::Unary(_, ref expr) = left_expr.item {
             &expr.item
@@ -1141,9 +1136,9 @@ fn integer_or_real_range(range: &ast::Range) -> ScalarType {
         };
 
         if let Expression::Literal(Literal::AbstractLiteral(AbstractLiteral::Real(_))) = expr {
-            return ScalarType::Real;
+            return UniversalType::Real;
         }
     }
 
-    ScalarType::Integer
+    UniversalType::Integer
 }

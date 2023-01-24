@@ -48,7 +48,7 @@ pub enum Type<'a> {
     Universal(UniversalType, ImplicitVec<'a>),
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum UniversalType {
     Real,
     Integer,

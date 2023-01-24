@@ -857,23 +857,15 @@ impl TypeCheck {
 
 // @TODO skip operators we do not handle yet
 fn can_handle(op: Operator) -> bool {
-    matches!(
+    !matches!(
         op,
-        Operator::Plus
-            | Operator::Minus
-            | Operator::And
-            | Operator::Or
-            | Operator::Nand
-            | Operator::Nor
-            | Operator::Xor
-            | Operator::Xnor
-            | Operator::EQ
-            | Operator::NE
-            | Operator::LT
-            | Operator::LTE
-            | Operator::GT
-            | Operator::GTE
-            | Operator::Concat
+        Operator::QueEQ
+            | Operator::QueNE
+            | Operator::QueGT
+            | Operator::QueGTE
+            | Operator::QueLT
+            | Operator::QueLTE
+            | Operator::QueQue
     )
 }
 

@@ -232,6 +232,7 @@ impl<'a> AnalyzeContext<'a> {
         .unwrap()
         .base()
     }
+
     /// Add implicit context clause for all packages except STD.STANDARD
     /// library STD, WORK;
     /// use STD.STANDARD.all;

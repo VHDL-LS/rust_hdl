@@ -51,7 +51,7 @@ impl UniversalTypes {
 
 pub(super) struct StandardRegion<'a, 'r> {
     // Only for symbol table
-    symbols: &'r Symbols,
+    root: &'a DesignRoot,
     arena: &'a Arena,
     region: &'r Region<'a>,
 }
@@ -59,14 +59,14 @@ pub(super) struct StandardRegion<'a, 'r> {
 impl<'a, 'r> StandardRegion<'a, 'r> {
     pub(super) fn new(root: &'a DesignRoot, arena: &'a Arena, region: &'r Region<'a>) -> Self {
         Self {
-            symbols: &root.symbols,
+            root,
             arena,
             region,
         }
     }
 
     fn symbol(&self, name: &str) -> Symbol {
-        self.symbols.symtab().insert_utf8(name)
+        self.root.symbol_utf8(name)
     }
 
     fn lookup_type(&self, name: &str) -> TypeEnt<'a> {
@@ -91,6 +91,18 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
 
     fn natural(&self) -> TypeEnt<'a> {
         self.lookup_type("NATURAL")
+    }
+
+    pub fn universal_integer(&self) -> TypeEnt<'a> {
+        TypeEnt::from_any(
+            self.arena
+                .get(self.root.universal.as_ref().unwrap().integer),
+        )
+        .unwrap()
+    }
+
+    fn integer(&self) -> TypeEnt<'a> {
+        self.lookup_type("INTEGER")
     }
 
     fn real(&self) -> TypeEnt<'a> {
@@ -491,22 +503,51 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
         .into_iter()
     }
 
-    pub fn numeric_implicits(&self, typ: TypeEnt<'a>) -> impl Iterator<Item = EntRef<'a>> {
+    pub fn numeric_implicits(
+        &self,
+        kind: UniversalType,
+        typ: TypeEnt<'a>,
+    ) -> impl Iterator<Item = EntRef<'a>> {
+        let integer = self.integer();
+
         [
             self.minimum(typ),
             self.maximum(typ),
             self.create_to_string(typ),
             self.symmetric_unary(Operator::Minus, typ),
             self.symmetric_unary(Operator::Plus, typ),
-            self.symmetric_unary(Operator::Abs, typ),
             self.symmetric_binary(Operator::Plus, typ),
             self.symmetric_binary(Operator::Minus, typ),
+            // 9.2.7 Multiplying operators
+            self.symmetric_binary(Operator::Times, typ),
+            self.symmetric_binary(Operator::Div, typ),
+            // 9.2.8 Miscellaneous operators
+            self.symmetric_unary(Operator::Abs, typ),
+            self.binary(Operator::Pow, typ, typ, integer, typ),
         ]
         .into_iter()
+        .chain(
+            if kind == UniversalType::Integer {
+                Some(
+                    [
+                        self.symmetric_binary(Operator::Mod, typ),
+                        self.symmetric_binary(Operator::Rem, typ),
+                    ]
+                    .into_iter(),
+                )
+            } else {
+                None
+            }
+            .into_iter()
+            .flatten(),
+        )
         .chain(self.comparators(typ).into_iter())
     }
 
     pub fn physical_implicits(&self, typ: TypeEnt<'a>) -> impl Iterator<Item = EntRef<'a>> {
+        let integer = self.integer();
+        let real = self.real();
+
         [
             self.minimum(typ),
             self.maximum(typ),
@@ -515,6 +556,16 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
             self.symmetric_unary(Operator::Abs, typ),
             self.symmetric_binary(Operator::Plus, typ),
             self.symmetric_binary(Operator::Minus, typ),
+            // 9.2.7 Multiplying operators
+            self.binary(Operator::Times, typ, typ, integer, typ),
+            self.binary(Operator::Times, typ, typ, real, typ),
+            self.binary(Operator::Times, typ, integer, typ, typ),
+            self.binary(Operator::Times, typ, real, typ, typ),
+            self.binary(Operator::Div, typ, typ, integer, typ),
+            self.binary(Operator::Div, typ, typ, real, typ),
+            self.binary(Operator::Div, typ, typ, typ, self.universal_integer()),
+            self.symmetric_binary(Operator::Mod, typ),
+            self.symmetric_binary(Operator::Rem, typ),
         ]
         .into_iter()
         .chain(self.comparators(typ).into_iter())
@@ -606,8 +657,10 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
         match typ.kind() {
             Type::Access(..) => self.access_implicits(typ).collect(),
             Type::Enum(..) => self.enum_implicits(typ).collect(),
-            Type::Integer(..) => self.numeric_implicits(typ).collect(),
-            Type::Real(..) => self.numeric_implicits(typ).collect(),
+            Type::Integer(..) => self
+                .numeric_implicits(UniversalType::Integer, typ)
+                .collect(),
+            Type::Real(..) => self.numeric_implicits(UniversalType::Real, typ).collect(),
             Type::Record(..) => self.record_implicits(typ).collect(),
             Type::Physical(..) => self.physical_implicits(typ).collect(),
             Type::Array { .. } => self.array_implicits(typ).collect(),
@@ -620,8 +673,6 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
             | Type::Subtype(..) => Vec::new(),
         }
     }
-
-    // Return the
 
     // Return the implicit things defined at the end of the standard packge
     pub fn end_of_package_implicits(self, arena: &'a Arena) -> Vec<EntRef<'a>> {
