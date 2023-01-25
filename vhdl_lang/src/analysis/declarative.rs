@@ -141,7 +141,7 @@ impl<'a> AnalyzeContext<'a> {
             match resolved_name {
                 ResolvedName::ObjectName(oname) => {
                     if let Some(ref signature) = signature {
-                        diagnostics.push(signature_error(signature));
+                        diagnostics.push(Diagnostic::should_not_have_signature("Alias", signature));
                     }
                     match oname.base {
                         ObjectBase::Object(base_object) => AnyEntKind::ObjectAlias {
@@ -166,7 +166,7 @@ impl<'a> AnalyzeContext<'a> {
                 | ResolvedName::Design(_)
                 | ResolvedName::Expression(_) => {
                     if let Some(ref signature) = signature {
-                        diagnostics.push(signature_error(signature));
+                        diagnostics.push(Diagnostic::should_not_have_signature("Alias", signature));
                     }
                     diagnostics.error(
                         &name.pos,
@@ -176,7 +176,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 ResolvedName::Type(typ) => {
                     if let Some(ref signature) = signature {
-                        diagnostics.push(signature_error(signature));
+                        diagnostics.push(Diagnostic::should_not_have_signature("Alias", signature));
                     }
                     AnyEntKind::Type(Type::Alias(typ))
                 }
@@ -190,22 +190,11 @@ impl<'a> AnalyzeContext<'a> {
                                     }
                                     AnyEntKind::Overloaded(Overloaded::Alias(ent))
                                 } else {
-                                    let mut diagnostic = Diagnostic::error(
-                                        name,
-                                        format!(
-                                            "Could not find declaration of {} with given signature",
-                                            des.item.describe()
-                                        ),
-                                    );
-                                    for ent in overloaded.entities() {
-                                        if let Some(pos) = ent.decl_pos() {
-                                            diagnostic.add_related(
-                                                pos,
-                                                format!("Found {}", ent.describe()),
-                                            );
-                                        }
-                                    }
-                                    diagnostics.push(diagnostic);
+                                    diagnostics.push(Diagnostic::no_overloaded_with_signature(
+                                        &des.pos,
+                                        &des.item,
+                                        &overloaded,
+                                    ));
                                     return Ok(None);
                                 }
                             }
@@ -215,10 +204,7 @@ impl<'a> AnalyzeContext<'a> {
                             }
                         }
                     } else {
-                        diagnostics.error(
-                            name,
-                            "Signature required for alias of subprogram and enum literals",
-                        );
+                        diagnostics.push(Diagnostic::signature_required(name));
                         return Ok(None);
                     }
                 }
@@ -350,17 +336,107 @@ impl<'a> AnalyzeContext<'a> {
             }
             Declaration::Attribute(ref mut attr) => match attr {
                 Attribute::Declaration(ref mut attr_decl) => {
-                    if let Err(err) = self.resolve_type_mark(scope, &mut attr_decl.type_mark) {
-                        err.add_to(diagnostics)?;
+                    match self.resolve_type_mark(scope, &mut attr_decl.type_mark) {
+                        Ok(typ) => {
+                            scope.add(
+                                self.arena
+                                    .define(&mut attr_decl.ident, AnyEntKind::Attribute(typ)),
+                                diagnostics,
+                            );
+                        }
+                        Err(err) => {
+                            err.add_to(diagnostics)?;
+                        }
                     }
-                    scope.add(
-                        self.arena
-                            .define(&mut attr_decl.ident, AnyEntKind::Attribute),
-                        diagnostics,
-                    );
                 }
                 // @TODO Ignored for now
-                Attribute::Specification(..) => {}
+                Attribute::Specification(ref mut attr_spec) => {
+                    let AttributeSpecification {
+                        ident,
+                        entity_name,
+                        // @TODO also check the entity class
+                        entity_class: _,
+                        expr,
+                    } = attr_spec;
+
+                    match scope.lookup(
+                        &ident.item.pos,
+                        &Designator::Identifier(ident.item.name().clone()),
+                    ) {
+                        Ok(NamedEntities::Single(ent)) => {
+                            ident.set_unique_reference(ent);
+                            if let AnyEntKind::Attribute(typ) = ent.actual_kind() {
+                                self.analyze_expression_with_target_type(
+                                    scope,
+                                    *typ,
+                                    &expr.pos,
+                                    &mut expr.item,
+                                    diagnostics,
+                                )?;
+                            } else {
+                                diagnostics.error(
+                                    &ident.item.pos,
+                                    format!("{} is not an attribute", ent.describe()),
+                                );
+                            }
+                        }
+                        Ok(NamedEntities::Overloaded(_)) => {
+                            diagnostics.error(
+                                &ident.item.pos,
+                                format!("Overloaded name '{}' is not an attribute", ident.item),
+                            );
+                        }
+                        Err(err) => {
+                            diagnostics.push(err);
+                        }
+                    }
+
+                    if let EntityName::Name(EntityTag {
+                        designator,
+                        signature,
+                    }) = entity_name
+                    {
+                        match scope.lookup(&designator.pos, &designator.item.item) {
+                            Ok(NamedEntities::Single(ent)) => {
+                                designator.set_unique_reference(ent);
+
+                                if let Some(signature) = signature {
+                                    diagnostics.push(Diagnostic::should_not_have_signature(
+                                        "Attribute specification",
+                                        &signature.pos,
+                                    ));
+                                }
+                            }
+                            Ok(NamedEntities::Overloaded(overloaded)) => {
+                                if let Some(signature) = signature {
+                                    match self.resolve_signature(scope, signature) {
+                                        Ok(signature_key) => {
+                                            if let Some(ent) = overloaded.get(&signature_key) {
+                                                designator.set_unique_reference(&ent);
+                                            } else {
+                                                diagnostics.push(
+                                                    Diagnostic::no_overloaded_with_signature(
+                                                        &designator.pos,
+                                                        &designator.item.item,
+                                                        &overloaded,
+                                                    ),
+                                                );
+                                            }
+                                        }
+                                        Err(err) => {
+                                            err.add_to(diagnostics)?;
+                                        }
+                                    }
+                                } else {
+                                    diagnostics.push(Diagnostic::signature_required(designator));
+                                }
+                            }
+                            Err(err) => {
+                                diagnostics.push(err);
+                            }
+                        }
+                    }
+                }
             },
             Declaration::SubprogramBody(ref mut body) => {
                 let subpgm_region = scope.nested();
@@ -1119,11 +1195,39 @@ fn find_full_type_definition<'a>(
     None
 }
 
-fn signature_error(pos: impl AsRef<SrcPos>) -> Diagnostic {
-    Diagnostic::error(
-        pos,
-        "Alias should only have a signature for subprograms and enum literals",
-    )
+impl Diagnostic {
+    fn no_overloaded_with_signature(
+        pos: &SrcPos,
+        des: &Designator,
+        overloaded: &OverloadedName,
+    ) -> Diagnostic {
+        let mut diagnostic = Diagnostic::error(
+            pos,
+            format!(
+                "Could not find declaration of {} with given signature",
+                des.describe()
+            ),
+        );
+        diagnostic.add_subprogram_candidates("Found", overloaded.entities());
+        diagnostic
+    }
+
+    fn should_not_have_signature(prefix: &str, pos: impl AsRef<SrcPos>) -> Diagnostic {
+        Diagnostic::error(
+            pos,
+            format!(
+                "{} should only have a signature for subprograms and enum literals",
+                prefix
+            ),
+        )
+    }
+
+    fn signature_required(pos: impl AsRef<SrcPos>) -> Diagnostic {
+        Diagnostic::error(
+            pos,
+            "Signature required for alias of subprogram and enum literals",
+        )
+    }
 }
 
 /// @TODO A simple and incomplete way to disambiguate integer and real in standard.vhd

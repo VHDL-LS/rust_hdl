@@ -198,6 +198,12 @@ impl Display for CallOrIndexed {
     }
 }
 
+impl Display for AttributeDeclaration {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "attribute {} : {};", self.ident, self.type_mark)
+    }
+}
+
 impl Display for Choice {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {

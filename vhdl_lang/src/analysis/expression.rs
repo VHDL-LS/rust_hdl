@@ -168,7 +168,7 @@ impl<'a> AnalyzeContext<'a> {
                 format!("Found no match for {}", designator.describe()),
             );
 
-            diag.add_subprogram_candidates("Does not match", &overloaded);
+            diag.add_subprogram_candidates("Does not match", overloaded);
             diagnostics.push(diag);
             Ok(None)
         } else if type_candidates.len() == 1 {

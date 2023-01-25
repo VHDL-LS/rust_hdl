@@ -309,8 +309,12 @@ impl<'a> AnalyzeContext<'a> {
 }
 
 impl Diagnostic {
-    pub fn add_subprogram_candidates(&mut self, prefix: &str, candidates: &[OverloadedEnt]) {
-        let mut candidates = candidates.to_vec();
+    pub fn add_subprogram_candidates<'a>(
+        &mut self,
+        prefix: &str,
+        candidates: impl IntoIterator<Item = OverloadedEnt<'a>>,
+    ) {
+        let mut candidates: Vec<_> = candidates.into_iter().collect();
         candidates.sort_by(|x, y| x.decl_pos().cmp(&y.decl_pos()));
 
         for ent in candidates {

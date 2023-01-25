@@ -166,7 +166,7 @@ impl<'a> ResolvedName<'a> {
             | AnyEntKind::PhysicalLiteral(_) => ResolvedName::Final(ent),
             AnyEntKind::Design(_)
             | AnyEntKind::Library
-            | AnyEntKind::Attribute
+            | AnyEntKind::Attribute(_)
             | AnyEntKind::ElementDeclaration(_)
             | AnyEntKind::Label
             | AnyEntKind::LoopParameter => {
@@ -221,7 +221,7 @@ impl<'a> ResolvedName<'a> {
             | AnyEntKind::Label
             | AnyEntKind::LoopParameter
             | AnyEntKind::PhysicalLiteral(_) => ResolvedName::Final(ent),
-            AnyEntKind::Attribute | AnyEntKind::ElementDeclaration(_) => {
+            AnyEntKind::Attribute(_) | AnyEntKind::ElementDeclaration(_) => {
                 return Err(format!(
                     "{} should never be looked up from the current scope",
                     ent.kind().describe()
@@ -407,7 +407,7 @@ impl<'a> AnalyzeContext<'a> {
                             Ok(Some(ent.return_type().unwrap()))
                         }
                         Disambiguated::Ambiguous(overloaded) => {
-                            Err(Diagnostic::ambiguous_call(des, &overloaded))
+                            Err(Diagnostic::ambiguous_call(des, overloaded))
                         }
                     }
                 } else {
@@ -1214,7 +1214,10 @@ impl Diagnostic {
         )
     }
 
-    fn ambiguous_call(call_name: &WithPos<Designator>, candidates: &[OverloadedEnt]) -> Diagnostic {
+    fn ambiguous_call<'a>(
+        call_name: &WithPos<Designator>,
+        candidates: impl IntoIterator<Item = OverloadedEnt<'a>>,
+    ) -> Diagnostic {
         let mut diag = Diagnostic::error(
             &call_name.pos,
             format!("Ambiguous call to {}", call_name.item.describe()),

@@ -316,6 +316,9 @@ impl Code {
     pub fn decl_designator(&self) -> WithDecl<WithPos<Designator>> {
         WithDecl::new(self.parse_ok(parse_designator))
     }
+    pub fn ref_designator(&self) -> WithPos<WithRef<Designator>> {
+        self.parse_ok(parse_designator).map_into(WithRef::new)
+    }
 
     pub fn character(&self) -> WithPos<u8> {
         self.parse_ok(|stream: &mut TokenStream| stream.expect()?.expect_character())

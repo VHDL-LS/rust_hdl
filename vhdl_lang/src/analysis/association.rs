@@ -176,7 +176,7 @@ impl<'a> AnalyzeContext<'a> {
                                     format!("Ambiguous call to function '{}'", des),
                                 );
 
-                                diagnostic.add_subprogram_candidates("migth be", &candidates);
+                                diagnostic.add_subprogram_candidates("migth be", candidates);
 
                                 return Err(diagnostic.into());
                             } else if let Some(ent) = candidates.pop() {

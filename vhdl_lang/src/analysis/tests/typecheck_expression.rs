@@ -1096,3 +1096,66 @@ end architecture;",
     let diagnostics = builder.analyze();
     check_no_diagnostics(&diagnostics);
 }
+
+#[test]
+fn attribute_spec_typecheck() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+attribute ram_style : integer;
+signal good, bad : integer_vector(0 to 15);
+attribute ram_style of good : signal is 0;
+attribute ram_style of bad : signal is 'c';
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("'c'"),
+            "character literal does not match integer type 'INTEGER'",
+        )],
+    );
+}
+
+#[test]
+fn attribute_spec_signature() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+attribute ram_style : integer;
+
+signal good_sig : integer_vector(0 to 15);
+signal bad_sig : integer_vector(0 to 15);
+attribute ram_style of good_sig : signal is 0;
+attribute ram_style of bad_sig[return integer] : signal is 0;
+
+function good_fun return natural; 
+function bad_fun1 return natural; 
+function bad_fun2 return natural; 
+
+attribute ram_style of good_fun[return natural] : signal is 0;
+attribute ram_style of bad_fun1 : signal is 0;
+attribute ram_style of bad_fun2[return boolean] : signal is 0;
+
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("[return integer]"),
+            "Attribute specification should only have a signature for subprograms and enum literals",
+        ),
+        Diagnostic::error(
+            code.s1("bad_fun1 : signal").s1("bad_fun1"),
+            "Signature required for alias of subprogram and enum literals",
+        ),
+        Diagnostic::error(
+            code.s1("bad_fun2[return boolean]").s1("bad_fun2"),
+            "Could not find declaration of 'bad_fun2' with given signature",
+        ).related(code.s1("bad_fun2"), "Found bad_fun2[return NATURAL]")],
+    );
+}

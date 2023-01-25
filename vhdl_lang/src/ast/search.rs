@@ -51,7 +51,7 @@ pub enum FoundDeclaration<'a> {
     PhysicalTypePrimary(&'a mut WithDecl<Ident>),
     PhysicalTypeSecondary(&'a mut WithDecl<Ident>, &'a mut PhysicalLiteral),
     Component(&'a mut ComponentDeclaration),
-    //Attribute(&'a mut AttributeDeclaration),
+    Attribute(&'a mut AttributeDeclaration),
     Alias(&'a mut AliasDeclaration),
     Function(&'a mut FunctionSpecification),
     Procedure(&'a mut ProcedureSpecification),
@@ -917,7 +917,32 @@ impl Search for Declaration {
                 return_if_found!(decl.search(searcher));
             }
             Declaration::Attribute(Attribute::Declaration(decl)) => {
+                return_if_found!(searcher
+                    .search_decl(FoundDeclaration::Attribute(decl))
+                    .or_not_found());
                 return_if_found!(decl.type_mark.search(searcher));
+            }
+            Declaration::Attribute(Attribute::Specification(AttributeSpecification {
+                ident,
+                entity_name,
+                entity_class: _,
+                expr,
+            })) => {
+                return_if_found!(searcher.search_ident_ref(ident).or_not_found());
+                if let EntityName::Name(EntityTag {
+                    designator,
+                    signature,
+                }) = entity_name
+                {
+                    return_if_found!(searcher
+                        .search_pos_with_ref(&designator.pos, &mut designator.item.reference)
+                        .or_not_found());
+                    if let Some(signature) = signature {
+                        return_if_found!(signature.item.search(searcher));
+                    }
+                }
+
+                return_if_found!(expr.search(searcher));
             }
             Declaration::Alias(alias) => {
                 return_if_found!(searcher
@@ -1327,6 +1352,7 @@ impl<'a> HasEntityId for FoundDeclaration<'a> {
             FoundDeclaration::PhysicalTypePrimary(value) => value.decl,
             FoundDeclaration::PhysicalTypeSecondary(value, _) => value.decl,
             FoundDeclaration::Component(value) => value.ident.decl,
+            FoundDeclaration::Attribute(value) => value.ident.decl,
             FoundDeclaration::Alias(value) => value.designator.decl,
             FoundDeclaration::Package(value) => value.ident.decl,
             FoundDeclaration::PackageInstance(value) => value.ident.decl,
@@ -1357,6 +1383,7 @@ impl<'a> HasSrcPos for FoundDeclaration<'a> {
             FoundDeclaration::PhysicalTypeSecondary(value, _) => value.as_ref(),
             FoundDeclaration::Component(value) => value.ident.pos(),
             FoundDeclaration::Alias(value) => &value.designator.tree.pos,
+            FoundDeclaration::Attribute(value) => value.ident.pos(),
             FoundDeclaration::Package(value) => value.ident.pos(),
             FoundDeclaration::PackageInstance(value) => value.ident.pos(),
             FoundDeclaration::Configuration(value) => value.ident.pos(),
@@ -1415,6 +1442,9 @@ impl std::fmt::Display for FoundDeclaration<'_> {
                 write!(f, "{}", value)
             }
             FoundDeclaration::Alias(ref value) => {
+                write!(f, "{}", value)
+            }
+            FoundDeclaration::Attribute(ref value) => {
                 write!(f, "{}", value)
             }
             FoundDeclaration::Package(ref value) => {

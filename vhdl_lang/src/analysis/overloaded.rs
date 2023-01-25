@@ -222,7 +222,7 @@ impl<'a> AnalyzeContext<'a> {
                 &call_name.pos,
                 format!("Could not resolve call to '{}'", call_name.designator()),
             );
-            diag.add_subprogram_candidates("Does not match", &all_overloaded);
+            diag.add_subprogram_candidates("Does not match", all_overloaded);
             diagnostics.push(diag);
             return Ok(None);
         }
@@ -262,7 +262,7 @@ impl<'a> AnalyzeContext<'a> {
                     &call_name.pos,
                     format!("Could not resolve call to '{}'", call_name.designator()),
                 );
-                diag.add_subprogram_candidates("Does not match", &overloaded);
+                diag.add_subprogram_candidates("Does not match", overloaded);
                 diagnostics.push(diag);
                 Ok(None)
             };
@@ -313,7 +313,7 @@ impl<'a> AnalyzeContext<'a> {
                 &call_name.pos,
                 format!("Could not resolve call to '{}'", call_name.designator()),
             );
-            diag.add_subprogram_candidates("Does not match", &overloaded);
+            diag.add_subprogram_candidates("Does not match", overloaded);
             diagnostics.push(diag);
             Ok(None)
         } else {

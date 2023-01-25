@@ -1606,3 +1606,99 @@ constant good1 : integer := i0 + i0;
 
     check_no_diagnostics(&diagnostics);
 }
+
+#[test]
+fn attribute_happy_path() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+constant c0 : string := \"block\";
+attribute ram_style : string;
+signal ram : integer_vector(0 to 15);
+
+attribute ram_style of ram : signal is c0;
+        ",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    {
+        // References in the expression
+        let ref_pos = code.s1("signal is c0;").s1("c0");
+        let decl = root
+            .search_reference(code.source(), ref_pos.start())
+            .unwrap();
+        assert_eq!(code.s1("c0").pos(), decl.decl_pos().cloned().unwrap());
+    }
+    {
+        // References to the attribute itself
+        let ref_pos = code.s1("attribute ram_style of").s1("ram_style");
+        let decl = root
+            .search_reference(code.source(), ref_pos.start())
+            .unwrap();
+        assert_eq!(
+            code.s1("attribute ram_style").s1("ram_style").pos(),
+            decl.decl_pos().cloned().unwrap()
+        );
+    }
+
+    {
+        // References to the named entity
+        let ref_pos = code.s1("of ram").s1("ram");
+        let decl = root
+            .search_reference(code.source(), ref_pos.start())
+            .unwrap();
+        assert_eq!(
+            code.s1("signal ram").s1("ram").pos(),
+            decl.decl_pos().cloned().unwrap()
+        );
+    }
+}
+
+#[test]
+fn attribute_missing_names() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+constant c0 : string := \"block\";
+attribute ram_style : string;
+signal ram : integer_vector(0 to 15);
+
+attribute missing1 of ram : signal is c0;
+attribute ram_style of missing2 : signal is c0;
+attribute ram_style of ram : signal is missing3;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(code.s1("missing1"), "No declaration of 'missing1'"),
+            Diagnostic::error(code.s1("missing2"), "No declaration of 'missing2'"),
+            Diagnostic::error(code.s1("missing3"), "No declaration of 'missing3'"),
+        ],
+    );
+}
+
+#[test]
+fn attribute_spec_with_non_attribute() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+constant bad : natural := 0;
+signal ram : integer_vector(0 to 15);
+attribute bad of ram : signal is 0;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("attribute bad").s1("bad"),
+            "constant 'bad' is not an attribute",
+        )],
+    );
+}

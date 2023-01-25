@@ -11,7 +11,7 @@ use super::subprogram::parse_signature;
 use super::tokens::{Kind::*, TokenStream};
 use crate::ast::{
     Attribute, AttributeDeclaration, AttributeSpecification, Designator, EntityClass, EntityName,
-    EntityTag,
+    EntityTag, WithRef,
 };
 
 fn parse_entity_class(stream: &mut TokenStream) -> ParseResult<EntityClass> {
@@ -55,7 +55,7 @@ pub fn parse_entity_name_list(stream: &mut TokenStream) -> ParseResult<Vec<Entit
                 };
 
                 entity_name_list.push(EntityName::Name(EntityTag {
-                    designator,
+                    designator: designator.map_into(WithRef::new),
                     signature,
                 }));
 
@@ -111,7 +111,7 @@ pub fn parse_attribute(stream: &mut TokenStream) -> ParseResult<Vec<Attribute>> 
                 .into_iter()
                 .map(|entity_name| {
                     Attribute::Specification(AttributeSpecification {
-                        ident: ident.clone().into(),
+                        ident: WithRef::new(ident.clone()),
                         entity_name,
                         entity_class,
                         expr: expr.clone(),
@@ -144,9 +144,9 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
-                ident: code.s1("attr_name").decl_ident(),
+                ident: WithRef::new(code.s1("attr_name").ident()),
                 entity_name: EntityName::Name(EntityTag {
-                    designator: code.s1("foo").designator(),
+                    designator: code.s1("foo").ref_designator(),
                     signature: None
                 }),
                 entity_class: EntityClass::Signal,
@@ -161,9 +161,9 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
-                ident: code.s1("attr_name").decl_ident(),
+                ident: WithRef::new(code.s1("attr_name").ident()),
                 entity_name: EntityName::Name(EntityTag {
-                    designator: code.s1("\"**\"").designator(),
+                    designator: code.s1("\"**\"").ref_designator(),
                     signature: None
                 }),
                 entity_class: EntityClass::Function,
@@ -179,18 +179,18 @@ mod tests {
             code.with_stream(parse_attribute),
             vec![
                 Attribute::Specification(AttributeSpecification {
-                    ident: code.s1("attr_name").decl_ident(),
+                    ident: WithRef::new(code.s1("attr_name").ident()),
                     entity_name: EntityName::Name(EntityTag {
-                        designator: code.s1("foo").designator(),
+                        designator: code.s1("foo").ref_designator(),
                         signature: None
                     }),
                     entity_class: EntityClass::Signal,
                     expr: code.s1("0+1").expr()
                 }),
                 Attribute::Specification(AttributeSpecification {
-                    ident: code.s1("attr_name").decl_ident(),
+                    ident: WithRef::new(code.s1("attr_name").ident()),
                     entity_name: EntityName::Name(EntityTag {
-                        designator: code.s1("bar").designator(),
+                        designator: code.s1("bar").ref_designator(),
                         signature: None
                     }),
                     entity_class: EntityClass::Signal,
@@ -206,7 +206,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
-                ident: code.s1("attr_name").decl_ident(),
+                ident: WithRef::new(code.s1("attr_name").ident()),
                 entity_name: EntityName::All,
                 entity_class: EntityClass::Signal,
                 expr: code.s1("0+1").expr()
@@ -220,7 +220,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
-                ident: code.s1("attr_name").decl_ident(),
+                ident: WithRef::new(code.s1("attr_name").ident()),
                 entity_name: EntityName::Others,
                 entity_class: EntityClass::Signal,
                 expr: code.s1("0+1").expr()
@@ -234,9 +234,9 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_attribute),
             vec![Attribute::Specification(AttributeSpecification {
-                ident: code.s1("attr_name").decl_ident(),
+                ident: WithRef::new(code.s1("attr_name").ident()),
                 entity_name: EntityName::Name(EntityTag {
-                    designator: code.s1("foo").designator(),
+                    designator: code.s1("foo").ref_designator(),
                     signature: Some(code.s1("[return natural]").signature())
                 }),
                 entity_class: EntityClass::Function,

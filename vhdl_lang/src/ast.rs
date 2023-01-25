@@ -448,7 +448,7 @@ pub struct AttributeDeclaration {
 /// LRM 7.2 Attribute specification
 #[derive(PartialEq, Debug, Clone)]
 pub struct EntityTag {
-    pub designator: WithPos<Designator>,
+    pub designator: WithPos<WithRef<Designator>>,
     pub signature: Option<WithPos<Signature>>,
 }
 
@@ -481,7 +481,7 @@ pub enum EntityClass {
 /// LRM 7.2 Attribute specification
 #[derive(PartialEq, Debug, Clone)]
 pub struct AttributeSpecification {
-    pub ident: WithDecl<Ident>,
+    pub ident: WithRef<Ident>,
     pub entity_name: EntityName,
     pub entity_class: EntityClass,
     pub expr: WithPos<Expression>,
