@@ -523,10 +523,19 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics,
                     )? {
                         Some(Disambiguated::Unambiguous(overloaded)) => {
-                            Ok(TypeCheck::from_bool(self.can_be_target_type(
-                                overloaded.return_type().unwrap(),
-                                target_type.base(),
-                            )))
+                            let op_type = overloaded.return_type().unwrap();
+
+                            let is_correct = self.can_be_target_type(op_type, target_type.base());
+
+                            if !is_correct {
+                                diagnostics.push(Diagnostic::type_mismatch(
+                                    expr_pos,
+                                    &op_type.describe(),
+                                    target_type,
+                                ));
+                            }
+
+                            Ok(TypeCheck::from_bool(is_correct))
                         }
                         Some(Disambiguated::Ambiguous(_)) => {
                             // @TODO ambiguous error
@@ -558,10 +567,19 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics,
                 )? {
                     Some(Disambiguated::Unambiguous(overloaded)) => {
-                        Ok(TypeCheck::from_bool(self.can_be_target_type(
-                            overloaded.return_type().unwrap(),
-                            target_type.base(),
-                        )))
+                        let op_type = overloaded.return_type().unwrap();
+
+                        let is_correct = self.can_be_target_type(op_type, target_type.base());
+
+                        if !is_correct {
+                            diagnostics.push(Diagnostic::type_mismatch(
+                                expr_pos,
+                                &op_type.describe(),
+                                target_type,
+                            ));
+                        }
+
+                        Ok(TypeCheck::from_bool(is_correct))
                     }
                     Some(Disambiguated::Ambiguous(_)) => {
                         // @TODO ambiguous error
