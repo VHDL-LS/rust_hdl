@@ -113,7 +113,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.analyze_expression_for_target(scope, ttyp, value, diagnostics)?;
                     if let Some(expr) = after {
                         let standard = self.standard_package().unwrap();
-                        self.analyze_expression_with_target_type(
+                        self.expr_with_ttyp(
                             scope,
                             standard.time(),
                             &expr.pos,
@@ -136,13 +136,7 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         if let Some(ttyp) = ttyp {
-            self.analyze_expression_with_target_type(
-                scope,
-                ttyp,
-                &expr.pos,
-                &mut expr.item,
-                diagnostics,
-            )?;
+            self.expr_with_ttyp(scope, ttyp, &expr.pos, &mut expr.item, diagnostics)?;
         } else {
             self.analyze_expression_pos(scope, &expr.pos, &mut expr.item, diagnostics)?;
         }

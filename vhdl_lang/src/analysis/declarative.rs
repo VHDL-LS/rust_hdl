@@ -259,7 +259,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 if let Some(ref mut expr) = object_decl.expression {
                     if let Ok(ref subtype) = subtype {
-                        self.analyze_expression_with_target_type(
+                        self.expr_with_ttyp(
                             scope,
                             subtype.type_mark(),
                             &expr.pos,
@@ -366,7 +366,7 @@ impl<'a> AnalyzeContext<'a> {
                         Ok(NamedEntities::Single(ent)) => {
                             ident.set_unique_reference(ent);
                             if let AnyEntKind::Attribute(typ) = ent.actual_kind() {
-                                self.analyze_expression_with_target_type(
+                                self.expr_with_ttyp(
                                     scope,
                                     *typ,
                                     &expr.pos,
@@ -965,7 +965,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 if let Some(ref mut expression) = object_decl.expression {
                     if let Ok(ref subtype) = subtype {
-                        self.analyze_expression_with_target_type(
+                        self.expr_with_ttyp(
                             scope,
                             subtype.type_mark(),
                             &expression.pos,

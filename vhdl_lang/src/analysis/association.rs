@@ -331,7 +331,7 @@ impl<'a> AnalyzeContext<'a> {
             {
                 match &mut actual.item {
                     ActualPart::Expression(expr) => {
-                        check.add(self.analyze_expression_with_target_type(
+                        check.add(self.expr_with_ttyp(
                             scope,
                             formal.type_mark(),
                             &actual.pos,

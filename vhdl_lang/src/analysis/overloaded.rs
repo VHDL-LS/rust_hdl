@@ -31,8 +31,10 @@ pub enum DisambiguatedType<'a> {
 enum Rejection<'a> {
     // The return type of the subprogram is not correct
     ReturnType,
+
     // The subprogram is a procedure but we expected a function
     Procedure,
+
     // The amount of actuals or named actuals do not match formals
     MissingFormals(Vec<InterfaceEnt<'a>>),
 }

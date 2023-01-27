@@ -111,6 +111,56 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
+    pub fn disambiguate_op_by_arguments(
+        &self,
+        scope: &Scope<'a>,
+        overloaded: Vec<OverloadedEnt<'a>>,
+        exprs: &mut [&mut WithPos<Expression>],
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult<Option<Vec<OverloadedEnt<'a>>>> {
+        let mut expr_types = Vec::with_capacity(exprs.len());
+
+        let mut expr_diagnostics = Vec::new();
+        for expr in exprs.iter_mut() {
+            if let Some(expr_type) = self.expr_type(scope, expr, &mut expr_diagnostics)? {
+                expr_types.push(expr_type);
+            } else {
+                // bail if any operator argument is unknown
+                diagnostics.append(expr_diagnostics);
+                return Ok(None);
+            }
+        }
+
+        let candidates: Vec<_> = overloaded
+            .iter()
+            .cloned()
+            .filter(|ent| {
+                expr_types
+                    .iter()
+                    .enumerate()
+                    .all(|(idx, expr_type)| self.is_possible(expr_type, ent.nth_base(idx).unwrap()))
+            })
+            .collect();
+
+        Ok(Some(candidates))
+    }
+
+    pub fn check_op(
+        &self,
+        scope: &Scope<'a>,
+        op: &mut WithPos<WithRef<Operator>>,
+        overloaded: OverloadedEnt<'a>,
+        exprs: &mut [&mut WithPos<Expression>],
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult {
+        op.set_unique_reference(&overloaded);
+        for (idx, expr) in exprs.iter_mut().enumerate() {
+            let target_type = overloaded.formals().nth(idx).unwrap().type_mark();
+            self.expr_with_ttyp(scope, target_type, &expr.pos, &mut expr.item, diagnostics)?;
+        }
+        Ok(())
+    }
+
     pub fn disambiguate_op(
         &self,
         scope: &Scope<'a>,
@@ -128,41 +178,16 @@ impl<'a> AnalyzeContext<'a> {
         }
 
         let designator = Designator::OperatorSymbol(op.item.item);
-        let tbase = ttyp.map(|ttyp| ttyp.base());
 
-        let mut expr_types = Vec::with_capacity(exprs.len());
+        let candidates = if let Some(candidates) =
+            self.disambiguate_op_by_arguments(scope, overloaded.clone(), exprs, diagnostics)?
+        {
+            candidates
+        } else {
+            return Ok(None);
+        };
 
-        let mut expr_diagnostics = Vec::new();
-        for expr in exprs.iter_mut() {
-            if let Some(expr_type) = self.expr_type(scope, expr, &mut expr_diagnostics)? {
-                expr_types.push(expr_type);
-            } else {
-                // bail if any operator argument is unknown
-                diagnostics.append(expr_diagnostics);
-                return Ok(None);
-            }
-        }
-
-        let type_candidates: Vec<_> = overloaded
-            .iter()
-            .cloned()
-            .filter(|ent| {
-                expr_types
-                    .iter()
-                    .enumerate()
-                    .all(|(idx, expr_type)| self.is_possible(expr_type, ent.nth_base(idx).unwrap()))
-            })
-            .filter(|ent| {
-                // Do we have a target type constraint?
-                if let Some(tbase) = tbase {
-                    self.can_be_target_type(ent.return_type().unwrap(), tbase)
-                } else {
-                    true
-                }
-            })
-            .collect();
-
-        if type_candidates.is_empty() {
+        if candidates.is_empty() {
             let mut diag = Diagnostic::error(
                 &op.pos,
                 format!("Found no match for {}", designator.describe()),
@@ -170,70 +195,42 @@ impl<'a> AnalyzeContext<'a> {
 
             diag.add_subprogram_candidates("Does not match", overloaded);
             diagnostics.push(diag);
-            Ok(None)
-        } else if type_candidates.len() == 1 {
-            let ent = type_candidates[0];
-            op.set_unique_reference(&ent);
-            for (idx, expr) in exprs.iter_mut().enumerate() {
-                let target_type = ent.formals().nth(idx).unwrap().type_mark();
-                self.analyze_expression_with_target_type(
-                    scope,
-                    target_type,
-                    &expr.pos,
-                    &mut expr.item,
-                    diagnostics,
-                )?;
-            }
-
-            Ok(Some(Disambiguated::Unambiguous(ent)))
-        } else {
-            let return_types: FnvHashSet<_> = type_candidates
-                .iter()
-                .map(|c| c.return_type().unwrap().base())
-                .collect();
-
-            if return_types.len() == 1 {
-                let mut type_candidates = type_candidates;
-                type_candidates.sort_by(|x, y| x.decl_pos().cmp(&y.decl_pos()));
-
-                // one argument must be ambiguous
-                for (idx, expr_type) in expr_types.iter().enumerate() {
-                    let formal_types: FnvHashSet<_> = type_candidates
-                        .iter()
-                        .filter_map(|ent| {
-                            let base_type = ent.nth_base(idx).unwrap();
-                            if self.is_possible(expr_type, base_type) {
-                                Some(base_type)
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
-
-                    if formal_types.len() > 1 {
-                        let mut diag = Diagnostic::error(&exprs[idx].pos, "Ambiguous argument");
-
-                        for cand in type_candidates.iter() {
-                            let formal = cand.formals().nth(idx).unwrap();
-                            if self.is_possible(expr_type, formal.type_mark().base()) {
-                                if let Some(decl_pos) = formal.decl_pos() {
-                                    diag.add_related(
-                                        decl_pos,
-                                        format!("Could be {}", formal.type_mark().describe()),
-                                    )
-                                }
-                            }
-                        }
-                        diagnostics.push(diag);
-                    }
-                }
-
-                Ok(None)
-            } else {
-                Ok(Some(Disambiguated::Ambiguous(type_candidates)))
-            }
+            return Ok(None);
+        } else if candidates.len() == 1 {
+            let ent = candidates[0];
+            self.check_op(scope, op, ent, exprs, diagnostics)?;
+            return Ok(Some(Disambiguated::Unambiguous(ent)));
         }
+
+        // Still disambiguous, try including return type as well
+        let tbase = ttyp.map(|ttyp| ttyp.base());
+        let mut candidates = candidates;
+        candidates.retain(|ent| {
+            if let Some(tbase) = tbase {
+                self.can_be_target_type(ent.return_type().unwrap(), tbase)
+            } else {
+                true
+            }
+        });
+
+        if candidates.is_empty() {
+            let mut diag = Diagnostic::error(
+                &op.pos,
+                format!("Found no match for {}", designator.describe()),
+            );
+
+            diag.add_subprogram_candidates("Does not match", overloaded);
+            diagnostics.push(diag);
+            return Ok(None);
+        } else if candidates.len() == 1 {
+            let ent = candidates[0];
+            self.check_op(scope, op, ent, exprs, diagnostics)?;
+            return Ok(Some(Disambiguated::Unambiguous(ent)));
+        }
+
+        Ok(Some(Disambiguated::Ambiguous(candidates)))
     }
+
     pub fn operator_type(
         &self,
         scope: &Scope<'a>,
@@ -429,13 +426,7 @@ impl<'a> AnalyzeContext<'a> {
 
         match self.resolve_type_mark(scope, type_mark) {
             Ok(target_type) => {
-                self.analyze_expression_with_target_type(
-                    scope,
-                    target_type,
-                    &expr.pos,
-                    &mut expr.item,
-                    diagnostics,
-                )?;
+                self.expr_with_ttyp(scope, target_type, &expr.pos, &mut expr.item, diagnostics)?;
                 Ok(Some(target_type))
             }
             Err(e) => {
@@ -465,7 +456,7 @@ impl<'a> AnalyzeContext<'a> {
 
     /// Returns true if the name actually matches the target type
     /// None if it was uncertain
-    pub fn analyze_expression_with_target_type(
+    pub fn expr_with_ttyp(
         &self,
         scope: &Scope<'a>,
         target_type: TypeEnt<'a>,
@@ -537,8 +528,13 @@ impl<'a> AnalyzeContext<'a> {
 
                             Ok(TypeCheck::from_bool(is_correct))
                         }
-                        Some(Disambiguated::Ambiguous(_)) => {
-                            // @TODO ambiguous error
+                        Some(Disambiguated::Ambiguous(candidates)) => {
+                            diagnostics.push(Diagnostic::ambiguous_op(
+                                &op.pos,
+                                op.item.item,
+                                candidates,
+                            ));
+
                             Ok(TypeCheck::Unknown)
                         }
                         None => Ok(TypeCheck::Unknown),
@@ -581,8 +577,13 @@ impl<'a> AnalyzeContext<'a> {
 
                         Ok(TypeCheck::from_bool(is_correct))
                     }
-                    Some(Disambiguated::Ambiguous(_)) => {
-                        // @TODO ambiguous error
+                    Some(Disambiguated::Ambiguous(candidates)) => {
+                        diagnostics.push(Diagnostic::ambiguous_op(
+                            &op.pos,
+                            op.item.item,
+                            candidates,
+                        ));
+
                         Ok(TypeCheck::Unknown)
                     }
                     None => Ok(TypeCheck::Unknown),
@@ -720,7 +721,7 @@ impl<'a> AnalyzeContext<'a> {
                     };
 
                     if let Some(elem) = elem {
-                        self.analyze_expression_with_target_type(
+                        self.expr_with_ttyp(
                             scope,
                             elem.type_mark(),
                             &actual_expr.pos,
@@ -768,7 +769,7 @@ impl<'a> AnalyzeContext<'a> {
                                 }
                                 Ok(None) => {
                                     if let Some(index_type) = index_type {
-                                        check.add(self.analyze_expression_with_target_type(
+                                        check.add(self.expr_with_ttyp(
                                             scope,
                                             index_type,
                                             &index_expr.pos,
@@ -813,7 +814,7 @@ impl<'a> AnalyzeContext<'a> {
             // If the choice is only a range or positional the expression can be an array
             let mut elem_diagnostics = Vec::new();
 
-            let elem_check = self.analyze_expression_with_target_type(
+            let elem_check = self.expr_with_ttyp(
                 scope,
                 elem_type,
                 &expr.pos,
@@ -826,7 +827,7 @@ impl<'a> AnalyzeContext<'a> {
                 check.add(elem_check);
             } else {
                 let mut array_diagnostics = Vec::new();
-                let array_check = self.analyze_expression_with_target_type(
+                let array_check = self.expr_with_ttyp(
                     scope,
                     array_type,
                     &expr.pos,
@@ -843,7 +844,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             };
         } else {
-            check.add(self.analyze_expression_with_target_type(
+            check.add(self.expr_with_ttyp(
                 scope,
                 elem_type,
                 &expr.pos,
@@ -904,6 +905,24 @@ fn can_handle(op: Operator) -> bool {
     )
 }
 
+impl Diagnostic {
+    fn ambiguous_op<'a>(
+        pos: &SrcPos,
+        op: Operator,
+        candidates: impl IntoIterator<Item = OverloadedEnt<'a>>,
+    ) -> Diagnostic {
+        let mut diag = Diagnostic::error(
+            pos,
+            format!(
+                "ambiguous use of {}",
+                Designator::OperatorSymbol(op).describe()
+            ),
+        );
+        diag.add_subprogram_candidates("migth be", candidates);
+        diag
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -923,6 +942,18 @@ mod test {
             let mut expr = code.expr();
             self.ctx()
                 .expr_type(&self.scope, &mut expr, diagnostics)
+                .unwrap()
+        }
+
+        fn expr_with_ttyp(
+            &'a self,
+            code: &Code,
+            ttyp: TypeEnt<'a>,
+            diagnostics: &mut dyn DiagnosticHandler,
+        ) -> TypeCheck {
+            let mut expr = code.expr();
+            self.ctx()
+                .expr_with_ttyp(&self.scope, ttyp, &expr.pos, &mut expr.item, diagnostics)
                 .unwrap()
         }
     }
@@ -1140,18 +1171,20 @@ function \"-\"(arg : string) return integer;
 
         let code = test.snippet("- \"01\"");
         let mut diagnostics = Vec::new();
-        assert_eq!(test.expr_type(&code, &mut diagnostics), None);
+        assert_eq!(
+            test.expr_with_ttyp(&code, test.lookup_type("INTEGER"), &mut diagnostics),
+            TypeCheck::Unknown
+        );
         check_diagnostics(
             diagnostics,
-            vec![Diagnostic::error(code.s1("\"01\""), "Ambiguous argument")
-                .related(
-                    decls.s1("arg : bit_vector").s1("arg"),
-                    "Could be array type 'BIT_VECTOR'",
-                )
-                .related(
-                    decls.s1("arg : string").s1("arg"),
-                    "Could be array type 'STRING'",
-                )],
+            vec![
+                Diagnostic::error(code.s1("-"), "ambiguous use of operator \"-\"")
+                    .related(
+                        decls.s("\"-\"", 1),
+                        "migth be \"-\"[BIT_VECTOR return INTEGER]",
+                    )
+                    .related(decls.s("\"-\"", 2), "migth be \"-\"[STRING return INTEGER]"),
+            ],
         );
     }
 

@@ -942,7 +942,8 @@ constant good4 : integer := - i0;
 constant good5 : real := - r0;
 constant good6 : time := - t0;
 
-constant bad : character := - i0;
+constant bad1 : character := - i0;
+constant bad2 : character := - 'a';
         ",
     );
 
@@ -953,22 +954,29 @@ constant bad : character := - i0;
 
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
-            code.s1("character := -").s1("-"),
-            "Found no match for operator \"-\"",
-        )
-        .related(
-            integer.decl_pos().unwrap(),
-            "Does not match \"-\"[INTEGER return INTEGER]",
-        )
-        .related(
-            real.decl_pos().unwrap(),
-            "Does not match \"-\"[REAL return REAL]",
-        )
-        .related(
-            time.decl_pos().unwrap(),
-            "Does not match \"-\"[TIME return TIME]",
-        )],
+        vec![
+            // Prefer to complain on return type when operator arguments are unambiguous
+            Diagnostic::error(
+                code.s1("character := - i0").s1("- i0"),
+                "integer type 'INTEGER' does not match type 'CHARACTER'",
+            ),
+            Diagnostic::error(
+                code.s1("character := - 'a'").s1("-"),
+                "Found no match for operator \"-\"",
+            )
+            .related(
+                integer.decl_pos().unwrap(),
+                "Does not match \"-\"[INTEGER return INTEGER]",
+            )
+            .related(
+                real.decl_pos().unwrap(),
+                "Does not match \"-\"[REAL return REAL]",
+            )
+            .related(
+                time.decl_pos().unwrap(),
+                "Does not match \"-\"[TIME return TIME]",
+            ),
+        ],
     );
 }
 
@@ -987,7 +995,8 @@ constant good4 : integer := i0 + i0;
 constant good5 : real := r0 + r0;
 constant good6 : time := t0 + t0;
 
-constant bad : character := i0 + i0;
+constant bad1 : character := i0 + i0;
+constant bad2 : character := 'a' + 'b';
         ",
     );
 
@@ -998,22 +1007,29 @@ constant bad : character := i0 + i0;
 
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
-            code.s1("character := i0 + i0").s1("+"),
-            "Found no match for operator \"+\"",
-        )
-        .related(
-            integer.decl_pos().unwrap(),
-            "Does not match \"+\"[INTEGER, INTEGER return INTEGER]",
-        )
-        .related(
-            real.decl_pos().unwrap(),
-            "Does not match \"+\"[REAL, REAL return REAL]",
-        )
-        .related(
-            time.decl_pos().unwrap(),
-            "Does not match \"+\"[TIME, TIME return TIME]",
-        )],
+        vec![
+            // Prefer to complain on return type when operator arguments are unambiguous
+            Diagnostic::error(
+                code.s1("character := i0 + i0").s1("i0 + i0"),
+                "integer type 'INTEGER' does not match type 'CHARACTER'",
+            ),
+            Diagnostic::error(
+                code.s1("character := 'a' + 'b'").s1("+"),
+                "Found no match for operator \"+\"",
+            )
+            .related(
+                integer.decl_pos().unwrap(),
+                "Does not match \"+\"[INTEGER, INTEGER return INTEGER]",
+            )
+            .related(
+                real.decl_pos().unwrap(),
+                "Does not match \"+\"[REAL, REAL return REAL]",
+            )
+            .related(
+                time.decl_pos().unwrap(),
+                "Does not match \"+\"[TIME, TIME return TIME]",
+            ),
+        ],
     );
 }
 
