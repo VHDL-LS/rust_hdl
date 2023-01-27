@@ -5,7 +5,6 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 use super::analyze::*;
-use super::expression::TypeCheck;
 use super::named_entity::*;
 use super::names::ResolvedName;
 use super::overloaded::Disambiguated;
@@ -129,28 +128,29 @@ impl<'a> AnalyzeContext<'a> {
         target_type: TypeEnt<'a>,
         range: &mut Range,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<TypeCheck> {
+    ) -> FatalResult {
         match range {
-            Range::Range(ref mut constraint) => Ok(self
-                .expr_with_ttyp(
+            Range::Range(ref mut constraint) => {
+                self.expr_with_ttyp(
                     scope,
                     target_type,
                     &constraint.left_expr.pos,
                     &mut constraint.left_expr.item,
                     diagnostics,
-                )?
-                .combine(self.expr_with_ttyp(
+                )?;
+                self.expr_with_ttyp(
                     scope,
                     target_type,
                     &constraint.right_expr.pos,
                     &mut constraint.right_expr.item,
                     diagnostics,
-                )?)),
+                )?;
+            }
             Range::Attribute(ref mut attr) => {
                 self.analyze_attribute_name(scope, attr, diagnostics)?;
-                Ok(TypeCheck::Unknown)
             }
         }
+        Ok(())
     }
 
     pub fn analyze_discrete_range(
@@ -181,7 +181,7 @@ impl<'a> AnalyzeContext<'a> {
         target_type: TypeEnt<'a>,
         drange: &mut DiscreteRange,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<TypeCheck> {
+    ) -> FatalResult {
         match drange {
             DiscreteRange::Discrete(ref mut type_mark, ref mut range) => {
                 if let Err(err) = self.resolve_type_mark_name(scope, type_mark) {
@@ -190,12 +190,12 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(ref mut range) = range {
                     self.analyze_range_with_target_type(scope, target_type, range, diagnostics)?;
                 }
-                Ok(TypeCheck::Unknown)
             }
             DiscreteRange::Range(ref mut range) => {
-                self.analyze_range_with_target_type(scope, target_type, range, diagnostics)
+                self.analyze_range_with_target_type(scope, target_type, range, diagnostics)?;
             }
         }
+        Ok(())
     }
 
     pub fn analyze_choices(
@@ -326,7 +326,7 @@ impl Diagnostic {
 }
 
 impl<'a> AnyEnt<'a> {
-    pub fn kind_error(&self, pos: &SrcPos, expected: &str) -> Diagnostic {
+    pub(super) fn kind_error(&self, pos: &SrcPos, expected: &str) -> Diagnostic {
         let mut error = Diagnostic::error(
             pos,
             format!("Expected {}, got {}", expected, self.describe()),
@@ -336,44 +336,20 @@ impl<'a> AnyEnt<'a> {
         }
         error
     }
-
-    /// Match a named entity with a target type
-    /// Returns a diagnostic in case of mismatch
-    pub fn match_with_target_type(&self, target_type: TypeEnt) -> TypeCheck {
-        let typ = match self.actual_kind() {
-            AnyEntKind::ObjectAlias { ref type_mark, .. } => type_mark.base_type(),
-            AnyEntKind::Object(ref ent) => ent.subtype.base_type(),
-            AnyEntKind::DeferredConstant(ref subtype) => subtype.base_type(),
-            AnyEntKind::ElementDeclaration(ref subtype) => subtype.base_type(),
-            AnyEntKind::PhysicalLiteral(ref base_type) => *base_type,
-            AnyEntKind::InterfaceFile(ref file) => file.base_type(),
-            AnyEntKind::File(ref file) => file.base_type(),
-            // Ignore now to avoid false positives
-            _ => {
-                return TypeCheck::Unknown;
-            }
-        };
-
-        let target_base = target_type.base_type();
-
-        if matches!(typ.kind(), Type::Interface) || matches!(target_base.kind(), Type::Interface) {
-            // Flag interface types as uncertain for now
-            TypeCheck::Unknown
-        } else {
-            TypeCheck::from_bool(typ == target_base)
-        }
-    }
 }
 
 impl Diagnostic {
-    pub fn type_mismatch(pos: &SrcPos, desc: &str, expected_type: TypeEnt) -> Diagnostic {
+    pub(super) fn type_mismatch(pos: &SrcPos, desc: &str, expected_type: TypeEnt) -> Diagnostic {
         Diagnostic::error(
             pos,
             format!("{} does not match {}", desc, expected_type.describe()),
         )
     }
 
-    pub fn invalid_selected_name_prefix(named_entity: &AnyEnt, prefix: &SrcPos) -> Diagnostic {
+    pub(super) fn invalid_selected_name_prefix(
+        named_entity: &AnyEnt,
+        prefix: &SrcPos,
+    ) -> Diagnostic {
         Diagnostic::error(
             prefix,
             capitalize(&format!(
@@ -383,7 +359,7 @@ impl Diagnostic {
         )
     }
 
-    pub fn no_declaration_within(
+    pub(super) fn no_declaration_within(
         named_entity: &AnyEnt,
         pos: &SrcPos,
         suffix: &Designator,

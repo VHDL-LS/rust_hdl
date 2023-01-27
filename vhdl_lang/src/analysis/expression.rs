@@ -46,11 +46,12 @@ impl<'a> From<DisambiguatedType<'a>> for ExpressionType<'a> {
 }
 
 impl<'a> AnalyzeContext<'a> {
-    pub fn is_possible(&self, types: &ExpressionType<'a>, typ: BaseType<'a>) -> bool {
-        if types.match_type(typ) {
+    // Returns true if the expression types is possible given the target type
+    pub fn is_possible(&self, types: &ExpressionType<'a>, ttyp: BaseType<'a>) -> bool {
+        if types.match_type(ttyp) {
             true
         } else {
-            match typ.kind() {
+            match ttyp.kind() {
                 Type::Integer(_) => types.match_type(self.universal_integer()),
                 Type::Real(_) => types.match_type(self.universal_real()),
                 _ => false,
@@ -463,36 +464,35 @@ impl<'a> AnalyzeContext<'a> {
         expr_pos: &SrcPos,
         expr: &mut Expression,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<TypeCheck> {
+    ) -> FatalResult {
         let target_base = target_type.base_type();
         match expr {
-            Expression::Literal(ref mut lit) => self
-                .analyze_literal_with_target_type(scope, target_type, expr_pos, lit, diagnostics)
-                .map(TypeCheck::from_bool),
+            Expression::Literal(ref mut lit) => self.analyze_literal_with_target_type(
+                scope,
+                target_type,
+                expr_pos,
+                lit,
+                diagnostics,
+            )?,
             Expression::Name(ref mut name) => self.expression_name_with_ttyp(
                 scope,
                 expr_pos,
                 name.as_mut(),
                 target_type,
                 diagnostics,
-            ),
+            )?,
             Expression::Qualified(ref mut qexpr) => {
-                let is_correct = if let Some(type_mark) =
+                if let Some(type_mark) =
                     self.analyze_qualified_expression(scope, qexpr, diagnostics)?
                 {
-                    let is_correct = target_base == type_mark.base_type();
-                    if !is_correct {
+                    if target_base != type_mark.base_type() {
                         diagnostics.push(Diagnostic::type_mismatch(
                             expr_pos,
                             &type_mark.describe(),
                             target_type,
                         ));
                     }
-                    TypeCheck::from_bool(is_correct)
-                } else {
-                    TypeCheck::Unknown
-                };
-                Ok(is_correct)
+                }
             }
             Expression::Binary(ref mut op, ref mut left, ref mut right) => {
                 if can_handle(op.item.item) {
@@ -501,7 +501,7 @@ impl<'a> AnalyzeContext<'a> {
                         Ok(candidates) => candidates,
                         Err(err) => {
                             diagnostics.push(err.into_non_fatal()?);
-                            return Ok(TypeCheck::Unknown);
+                            return Ok(());
                         }
                     };
 
@@ -516,17 +516,13 @@ impl<'a> AnalyzeContext<'a> {
                         Some(Disambiguated::Unambiguous(overloaded)) => {
                             let op_type = overloaded.return_type().unwrap();
 
-                            let is_correct = self.can_be_target_type(op_type, target_type.base());
-
-                            if !is_correct {
+                            if !self.can_be_target_type(op_type, target_type.base()) {
                                 diagnostics.push(Diagnostic::type_mismatch(
                                     expr_pos,
                                     &op_type.describe(),
                                     target_type,
                                 ));
                             }
-
-                            Ok(TypeCheck::from_bool(is_correct))
                         }
                         Some(Disambiguated::Ambiguous(candidates)) => {
                             diagnostics.push(Diagnostic::ambiguous_op(
@@ -534,15 +530,12 @@ impl<'a> AnalyzeContext<'a> {
                                 op.item.item,
                                 candidates,
                             ));
-
-                            Ok(TypeCheck::Unknown)
                         }
-                        None => Ok(TypeCheck::Unknown),
+                        None => {}
                     }
                 } else {
                     self.analyze_expression(scope, left, diagnostics)?;
                     self.analyze_expression(scope, right, diagnostics)?;
-                    Ok(TypeCheck::Unknown)
                 }
             }
             Expression::Unary(ref mut op, ref mut expr) => {
@@ -550,7 +543,7 @@ impl<'a> AnalyzeContext<'a> {
                     Ok(candidates) => candidates,
                     Err(err) => {
                         diagnostics.push(err.into_non_fatal()?);
-                        return Ok(TypeCheck::Unknown);
+                        return Ok(());
                     }
                 };
 
@@ -565,17 +558,13 @@ impl<'a> AnalyzeContext<'a> {
                     Some(Disambiguated::Unambiguous(overloaded)) => {
                         let op_type = overloaded.return_type().unwrap();
 
-                        let is_correct = self.can_be_target_type(op_type, target_type.base());
-
-                        if !is_correct {
+                        if !self.can_be_target_type(op_type, target_type.base()) {
                             diagnostics.push(Diagnostic::type_mismatch(
                                 expr_pos,
                                 &op_type.describe(),
                                 target_type,
                             ));
                         }
-
-                        Ok(TypeCheck::from_bool(is_correct))
                     }
                     Some(Disambiguated::Ambiguous(candidates)) => {
                         diagnostics.push(Diagnostic::ambiguous_op(
@@ -583,34 +572,29 @@ impl<'a> AnalyzeContext<'a> {
                             op.item.item,
                             candidates,
                         ));
-
-                        Ok(TypeCheck::Unknown)
                     }
-                    None => Ok(TypeCheck::Unknown),
+                    None => {}
                 }
             }
             Expression::Aggregate(assocs) => match target_base.kind() {
                 Type::Array {
                     elem_type, indexes, ..
                 } => {
-                    let mut check = TypeCheck::Ok;
                     if let [index_type] = indexes.as_slice() {
                         for assoc in assocs.iter_mut() {
-                            check.add(self.analyze_1d_array_assoc_elem(
+                            self.analyze_1d_array_assoc_elem(
                                 scope,
                                 target_base,
                                 *index_type,
                                 *elem_type,
                                 assoc,
                                 diagnostics,
-                            )?);
+                            )?;
                         }
                     } else {
                         // @TODO multi dimensional array
                         self.analyze_aggregate(scope, assocs, diagnostics)?;
-                        check.add(TypeCheck::Unknown);
                     }
-                    Ok(check)
                 }
                 Type::Record(record_scope, _) => {
                     self.analyze_record_aggregate(
@@ -620,7 +604,6 @@ impl<'a> AnalyzeContext<'a> {
                         assocs,
                         diagnostics,
                     )?;
-                    Ok(TypeCheck::Unknown)
                 }
                 _ => {
                     self.analyze_aggregate(scope, assocs, diagnostics)?;
@@ -629,14 +612,14 @@ impl<'a> AnalyzeContext<'a> {
                         expr_pos,
                         format!("composite does not match {}", target_type.describe()),
                     );
-                    Ok(TypeCheck::Unknown)
                 }
             },
             Expression::New(ref mut alloc) => {
                 self.analyze_allocation(scope, alloc, diagnostics)?;
-                Ok(TypeCheck::Unknown)
             }
         }
+
+        Ok(())
     }
 
     pub fn analyze_aggregate(
@@ -676,7 +659,7 @@ impl<'a> AnalyzeContext<'a> {
         elems: &RecordRegion<'a>,
         assocs: &mut [ElementAssociation],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<TypeCheck> {
+    ) -> FatalResult {
         for assoc in assocs.iter_mut() {
             match assoc {
                 ElementAssociation::Named(ref mut choices, ref mut actual_expr) => {
@@ -737,7 +720,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
         }
-        Ok(TypeCheck::Unknown)
+        Ok(())
     }
 
     pub fn analyze_1d_array_assoc_elem(
@@ -748,9 +731,8 @@ impl<'a> AnalyzeContext<'a> {
         elem_type: TypeEnt<'a>,
         assoc: &mut ElementAssociation,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<TypeCheck> {
+    ) -> FatalResult {
         let mut can_be_array = true;
-        let mut check = TypeCheck::Ok;
 
         let expr = match assoc {
             ElementAssociation::Named(ref mut choices, ref mut expr) => {
@@ -769,38 +751,36 @@ impl<'a> AnalyzeContext<'a> {
                                 }
                                 Ok(None) => {
                                     if let Some(index_type) = index_type {
-                                        check.add(self.expr_with_ttyp(
+                                        self.expr_with_ttyp(
                                             scope,
                                             index_type,
                                             &index_expr.pos,
                                             &mut index_expr.item,
                                             diagnostics,
-                                        )?);
+                                        )?;
                                     }
                                     can_be_array = false;
                                 }
                                 Err(err) => {
                                     diagnostics.push(err.into_non_fatal()?);
-                                    return Ok(TypeCheck::Unknown);
+                                    return Ok(());
                                 }
                             }
                         }
                         Choice::DiscreteRange(ref mut drange) => {
                             if let Some(index_type) = index_type {
-                                check.add(self.analyze_discrete_range_with_target_type(
+                                self.analyze_discrete_range_with_target_type(
                                     scope,
                                     index_type,
                                     drange,
                                     diagnostics,
-                                )?);
+                                )?;
                             } else {
                                 self.analyze_discrete_range(scope, drange, diagnostics)?;
-                                check.add(TypeCheck::Unknown)
                             }
                         }
                         Choice::Others => {
                             // @TODO choice must be alone so cannot appear here
-                            check.add(TypeCheck::Unknown);
                             can_be_array = false;
                         }
                     }
@@ -812,82 +792,26 @@ impl<'a> AnalyzeContext<'a> {
 
         if can_be_array {
             // If the choice is only a range or positional the expression can be an array
-            let mut elem_diagnostics = Vec::new();
-
-            let elem_check = self.expr_with_ttyp(
-                scope,
-                elem_type,
-                &expr.pos,
-                &mut expr.item,
-                &mut elem_diagnostics,
-            )?;
-
-            if elem_check == TypeCheck::Ok {
-                diagnostics.append(elem_diagnostics);
-                check.add(elem_check);
+            let types = if let Some(types) = self.expr_type(scope, expr, diagnostics)? {
+                types
             } else {
-                let mut array_diagnostics = Vec::new();
-                let array_check = self.expr_with_ttyp(
-                    scope,
-                    array_type,
-                    &expr.pos,
-                    &mut expr.item,
-                    &mut array_diagnostics,
-                )?;
-
-                if array_check == TypeCheck::Ok {
-                    diagnostics.append(array_diagnostics);
-                    check.add(array_check);
-                } else {
-                    diagnostics.append(elem_diagnostics);
-                    check.add(elem_check);
-                }
+                return Ok(());
             };
-        } else {
-            check.add(self.expr_with_ttyp(
-                scope,
-                elem_type,
-                &expr.pos,
-                &mut expr.item,
-                diagnostics,
-            )?);
-        }
-        Ok(check)
-    }
-}
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum TypeCheck {
-    Ok,
-    NotOk,
-    Unknown,
-}
+            let is_array = self.is_possible(&types, array_type.base());
+            let is_elem = self.is_possible(&types, elem_type.base());
 
-impl TypeCheck {
-    pub fn from_bool(check: bool) -> Self {
-        if check {
-            TypeCheck::Ok
-        } else {
-            TypeCheck::NotOk
-        }
-    }
-
-    pub fn combine(&self, other: TypeCheck) -> Self {
-        match other {
-            TypeCheck::Ok => *self,
-            TypeCheck::NotOk => TypeCheck::NotOk,
-            TypeCheck::Unknown => {
-                if *self == TypeCheck::NotOk {
-                    TypeCheck::NotOk
-                } else {
-                    TypeCheck::Unknown
-                }
+            if is_elem || !is_array {
+                // Prefer element type in presence of ambiguity
+                self.expr_with_ttyp(scope, elem_type, &expr.pos, &mut expr.item, diagnostics)?;
+            } else if is_array {
+                self.expr_with_ttyp(scope, array_type, &expr.pos, &mut expr.item, diagnostics)?;
             }
+        } else {
+            self.expr_with_ttyp(scope, elem_type, &expr.pos, &mut expr.item, diagnostics)?;
         }
-    }
 
-    pub fn add(&mut self, other: TypeCheck) {
-        *self = self.combine(other);
+        Ok(())
     }
 }
 
@@ -950,7 +874,7 @@ mod test {
             code: &Code,
             ttyp: TypeEnt<'a>,
             diagnostics: &mut dyn DiagnosticHandler,
-        ) -> TypeCheck {
+        ) {
             let mut expr = code.expr();
             self.ctx()
                 .expr_with_ttyp(&self.scope, ttyp, &expr.pos, &mut expr.item, diagnostics)
@@ -1171,10 +1095,7 @@ function \"-\"(arg : string) return integer;
 
         let code = test.snippet("- \"01\"");
         let mut diagnostics = Vec::new();
-        assert_eq!(
-            test.expr_with_ttyp(&code, test.lookup_type("INTEGER"), &mut diagnostics),
-            TypeCheck::Unknown
-        );
+        test.expr_with_ttyp(&code, test.lookup_type("INTEGER"), &mut diagnostics);
         check_diagnostics(
             diagnostics,
             vec![

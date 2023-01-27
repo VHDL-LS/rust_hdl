@@ -8,7 +8,6 @@ use fnv::FnvHashSet;
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 use super::analyze::*;
-use super::expression::TypeCheck;
 use super::formal_region::FormalRegion;
 use super::formal_region::InterfaceEnt;
 use super::named_entity::*;
@@ -319,34 +318,29 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         elems: &mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<TypeCheck> {
+    ) -> FatalResult {
         if let Some(formals) =
             self.resolve_association_formals(error_pos, formal_region, scope, elems, diagnostics)?
         {
-            let mut check = TypeCheck::Ok;
-
             for (formal, actual) in formals
                 .iter()
                 .zip(elems.iter_mut().map(|assoc| &mut assoc.actual))
             {
                 match &mut actual.item {
                     ActualPart::Expression(expr) => {
-                        check.add(self.expr_with_ttyp(
+                        self.expr_with_ttyp(
                             scope,
                             formal.type_mark(),
                             &actual.pos,
                             expr,
                             diagnostics,
-                        )?);
+                        )?;
                     }
                     ActualPart::Open => {}
                 }
             }
-
-            Ok(check)
-        } else {
-            Ok(TypeCheck::NotOk)
         }
+        Ok(())
     }
 }
 

@@ -21,39 +21,31 @@ impl<'a> AnalyzeContext<'a> {
         pos: &SrcPos,
         literal: &mut Literal,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<bool> {
+    ) -> FatalResult {
         let target_base = target_type.base_type();
 
-        let is_correct = match literal {
+        match literal {
             Literal::AbstractLiteral(abst) => match abst {
                 AbstractLiteral::Integer(_) => {
-                    let is_correct = matches!(target_base.kind(), Type::Integer(..));
-
-                    if !is_correct {
+                    if !matches!(target_base.kind(), Type::Integer(..)) {
                         diagnostics.push(Diagnostic::error(
                             pos,
                             format!("integer literal does not match {}", target_type.describe()),
                         ));
                     }
-                    is_correct
                 }
                 AbstractLiteral::Real(_) => {
-                    let is_correct = matches!(target_base.kind(), Type::Real(..));
-
-                    if !is_correct {
+                    if !matches!(target_base.kind(), Type::Real(..)) {
                         diagnostics.push(Diagnostic::error(
                             pos,
                             format!("real literal does not match {}", target_type.describe()),
                         ));
                     }
-                    is_correct
                 }
             },
             Literal::Character(char) => match target_base.kind() {
                 Type::Enum(_, literals) => {
-                    if literals.contains(&Designator::Character(*char)) {
-                        true
-                    } else {
+                    if !literals.contains(&Designator::Character(*char)) {
                         diagnostics.push(Diagnostic::error(
                             pos,
                             format!(
@@ -61,7 +53,6 @@ impl<'a> AnalyzeContext<'a> {
                                 target_type.describe()
                             ),
                         ));
-                        false
                     }
                 }
                 _ => {
@@ -72,16 +63,13 @@ impl<'a> AnalyzeContext<'a> {
                             target_type.describe()
                         ),
                     ));
-                    false
                 }
             },
             Literal::String(string_lit) => {
                 if let Some((elem_type, literals)) = as_single_index_enum_array(target_base) {
-                    let mut is_correct = true;
                     for chr in string_lit.chars() {
                         let chr = Designator::Character(*chr);
                         if !literals.contains(&chr) {
-                            is_correct = false;
                             diagnostics.push(Diagnostic::error(
                                 pos,
                                 format!(
@@ -92,21 +80,26 @@ impl<'a> AnalyzeContext<'a> {
                             ))
                         }
                     }
-                    is_correct
                 } else {
                     diagnostics.push(Diagnostic::error(
                         pos,
                         format!("string literal does not match {}", target_type.describe()),
                     ));
-                    false
                 }
             }
             Literal::Physical(PhysicalLiteral { ref mut unit, .. }) => {
                 match self.resolve_physical_unit(scope, unit) {
-                    Ok(physical_type) => physical_type.base_type() == target_base,
+                    Ok(physical_type) => {
+                        if physical_type.base_type() != target_base {
+                            diagnostics.push(Diagnostic::type_mismatch(
+                                pos,
+                                &physical_type.describe(),
+                                target_type,
+                            ))
+                        }
+                    }
                     Err(diagnostic) => {
                         diagnostics.push(diagnostic);
-                        false
                     }
                 }
             }
@@ -116,9 +109,7 @@ impl<'a> AnalyzeContext<'a> {
                     let c0 = Designator::Character(b'0');
                     let c1 = Designator::Character(b'1');
 
-                    let mut is_correct = true;
                     if !literals.contains(&c0) {
-                        is_correct = false;
                         diagnostics.push(Diagnostic::error(
                             pos,
                             format!(
@@ -131,7 +122,6 @@ impl<'a> AnalyzeContext<'a> {
                     }
 
                     if needs_1 && !literals.contains(&c1) {
-                        is_correct = false;
                         diagnostics.push(Diagnostic::error(
                             pos,
                             format!(
@@ -142,7 +132,6 @@ impl<'a> AnalyzeContext<'a> {
                             ),
                         ))
                     }
-                    is_correct
                 } else {
                     diagnostics.push(Diagnostic::error(
                         pos,
@@ -151,23 +140,18 @@ impl<'a> AnalyzeContext<'a> {
                             target_type.describe()
                         ),
                     ));
-                    false
                 }
             }
             Literal::Null => {
-                if let Type::Access(_, _) = target_base.kind() {
-                    true
-                } else {
+                if !matches!(target_base.kind(), Type::Access(_, _)) {
                     diagnostics.push(Diagnostic::error(
                         pos,
                         format!("null literal does not match {}", target_base.describe()),
                     ));
-                    false
                 }
             }
         };
-
-        Ok(is_correct)
+        Ok(())
     }
 
     pub fn resolve_physical_unit(

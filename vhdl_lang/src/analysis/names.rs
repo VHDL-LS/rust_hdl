@@ -5,7 +5,6 @@
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
 use super::analyze::*;
-use super::expression::TypeCheck;
 use super::named_entity::*;
 use super::overloaded::Disambiguated;
 use super::overloaded::DisambiguatedType;
@@ -885,7 +884,7 @@ impl<'a> AnalyzeContext<'a> {
         name: &mut Name,
         ttyp: TypeEnt<'a>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<TypeCheck> {
+    ) -> FatalResult {
         match self.name_resolve_with_suffixes(scope, expr_pos, name, Some(ttyp), false, diagnostics)
         {
             Ok(Some(resolved)) => {
@@ -897,29 +896,26 @@ impl<'a> AnalyzeContext<'a> {
                     name.suffix_reference_mut(),
                 ) {
                     Ok(Some(type_mark)) => {
-                        let is_correct = self.can_be_target_type(type_mark, ttyp.base());
-                        if !is_correct {
+                        if !self.can_be_target_type(type_mark, ttyp.base()) {
                             diagnostics.push(Diagnostic::type_mismatch(
                                 expr_pos,
                                 &resolved.describe_type(),
                                 ttyp,
                             ));
                         }
-                        Ok(TypeCheck::from_bool(is_correct))
                     }
-                    Ok(None) => Ok(TypeCheck::Unknown),
+                    Ok(None) => {}
                     Err(diag) => {
                         diagnostics.push(diag);
-                        Ok(TypeCheck::Unknown)
                     }
                 }
             }
-            Ok(None) => Ok(TypeCheck::Unknown),
+            Ok(None) => {}
             Err(err) => {
                 diagnostics.push(err.into_non_fatal()?);
-                Ok(TypeCheck::Unknown)
             }
         }
+        Ok(())
     }
 
     /// Fallback solution that just lookups names
@@ -1262,7 +1258,7 @@ mod test {
             code: &Code,
             ttyp: TypeEnt<'a>,
             diagnostics: &mut dyn DiagnosticHandler,
-        ) -> TypeCheck {
+        ) {
             let mut name = code.name();
             self.ctx()
                 .expression_name_with_ttyp(
@@ -1398,13 +1394,10 @@ function fun(arg: natural) return integer;
 function fun(arg: natural) return character;
         ",
         );
-        assert_eq!(
-            test.expression_name_with_ttyp(
-                &test.snippet("fun(0)"),
-                test.lookup_type("integer"),
-                &mut NoDiagnostics,
-            ),
-            TypeCheck::Ok
+        test.expression_name_with_ttyp(
+            &test.snippet("fun(0)"),
+            test.lookup_type("integer"),
+            &mut NoDiagnostics,
         );
     }
 
@@ -1420,13 +1413,10 @@ end record;
 function foo return rec_t;
 ",
         );
-        assert_eq!(
-            test.expression_name_with_ttyp(
-                &test.snippet("foo.fld"),
-                test.lookup_type("natural"),
-                &mut NoDiagnostics,
-            ),
-            TypeCheck::Ok,
+        test.expression_name_with_ttyp(
+            &test.snippet("foo.fld"),
+            test.lookup_type("natural"),
+            &mut NoDiagnostics,
         );
     }
 
@@ -1477,10 +1467,7 @@ type enum2_t is (alpha, beta);
 ",
         );
         let code = test.snippet("alpha");
-        assert_eq!(
-            test.expression_name_with_ttyp(&code, test.lookup_type("enum2_t"), &mut NoDiagnostics),
-            TypeCheck::Ok,
-        )
+        test.expression_name_with_ttyp(&code, test.lookup_type("enum2_t"), &mut NoDiagnostics);
     }
 
     #[test]
@@ -1527,10 +1514,7 @@ type enum2_t is (alpha, beta);
 ",
         );
         let code = test.snippet("alpha");
-        assert_eq!(
-            test.expression_name_with_ttyp(&code, test.lookup_type("enum1_t"), &mut NoDiagnostics),
-            TypeCheck::Ok
-        );
+        test.expression_name_with_ttyp(&code, test.lookup_type("enum1_t"), &mut NoDiagnostics);
     }
 
     #[test]
