@@ -65,7 +65,7 @@ impl LibraryConfig {
                     };
                 } else {
                     messages.push(Message::warning(
-                        format! {"File {} does not exist", pattern},
+                        format! {"File {pattern} does not exist"},
                     ));
                 }
             } else {
@@ -94,15 +94,13 @@ impl LibraryConfig {
 
                         if empty_pattern {
                             messages.push(Message::warning(format!(
-                                "Pattern '{}' did not match any file",
-                                stripped_pattern
+                                "Pattern '{stripped_pattern}' did not match any file"
                             )));
                         }
                     }
                     Err(err) => {
                         messages.push(Message::error(format!(
-                            "Invalid pattern '{}' {}",
-                            pattern, err
+                            "Invalid pattern '{pattern}' {err}"
                         )));
                     }
                 }
@@ -144,20 +142,20 @@ impl Config {
         for (name, lib) in libs.iter() {
             let file_arr = lib
                 .get("files")
-                .ok_or_else(|| format!("missing field files for library {}", name))?
+                .ok_or_else(|| format!("missing field files for library {name}"))?
                 .as_array()
-                .ok_or_else(|| format!("files for library {} is not array", name))?;
+                .ok_or_else(|| format!("files for library {name} is not array"))?;
 
             let mut patterns = Vec::new();
             for file in file_arr.iter() {
                 let file = file
                     .as_str()
-                    .ok_or_else(|| format!("not a string {}", file))?;
+                    .ok_or_else(|| format!("not a string {file}"))?;
 
                 let path = parent.join(file);
                 let path = path
                     .to_str()
-                    .ok_or_else(|| format!("Could not convert {:?} to string", path))?
+                    .ok_or_else(|| format!("Could not convert {path:?} to string"))?
                     .to_owned();
                 patterns.push(path);
             }
@@ -280,8 +278,7 @@ impl Config {
             }
             Err(ref err) => {
                 messages.push(Message::error(format!(
-                    "Error while loading {} configuration file: {} ",
-                    desc, err
+                    "Error while loading {desc} configuration file: {err} "
                 )));
             }
         }

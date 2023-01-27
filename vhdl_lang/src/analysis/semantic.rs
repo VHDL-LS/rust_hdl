@@ -36,7 +36,7 @@ impl<'a> AnalyzeContext<'a> {
         expected: &str,
     ) -> AnalysisResult<EntRef<'a>> {
         Ok(named_entities.expect_non_overloaded(pos, || {
-            format!("Expected {}, got overloaded name", expected)
+            format!("Expected {expected}, got overloaded name")
         })?)
     }
 
@@ -93,7 +93,7 @@ impl<'a> AnalyzeContext<'a> {
                     } else {
                         Err(Diagnostic::error(
                             pos,
-                            format!("array type expected for '{} attribute", attr,),
+                            format!("array type expected for '{attr} attribute",),
                         )
                         .into())
                     }

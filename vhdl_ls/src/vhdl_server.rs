@@ -91,8 +91,7 @@ impl VHDLServer {
             }
             Err(ref err) => {
                 self.message(Message::error(format!(
-                    "Library mapping is unknown due to missing vhdl_ls.toml config file in the workspace root path: {}",
-                    err
+                    "Library mapping is unknown due to missing vhdl_ls.toml config file in the workspace root path: {err}"
                 )));
                 self.message(Message::warning(
                     "Without library mapping semantic analysis might be incorrect",
@@ -353,7 +352,7 @@ impl VHDLServer {
         Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
                 kind: MarkupKind::Markdown,
-                value: format!("```vhdl\n{}\n```", value),
+                value: format!("```vhdl\n{value}\n```"),
             }),
             range: None,
         })
@@ -585,8 +584,7 @@ mod tests {
             .unwrap()
             .to_owned();
         mock.expect_message_contains(format!(
-            "Loaded workspace root configuration file: {}",
-            file_name
+            "Loaded workspace root configuration file: {file_name}"
         ));
     }
 

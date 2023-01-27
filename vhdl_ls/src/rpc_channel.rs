@@ -137,7 +137,7 @@ pub mod test_support {
             if !std::thread::panicking() {
                 let expected = self.expected.replace(VecDeque::new());
                 if !expected.is_empty() {
-                    panic!("Not all expected data was consumed\n{:#?}", expected);
+                    panic!("Not all expected data was consumed\n{expected:#?}");
                 }
             }
         }
@@ -167,8 +167,7 @@ pub mod test_support {
                 .pop_front()
                 .ok_or_else(|| {
                     panic!(
-                        "No expected value, got notification method={} {:?}",
-                        method, notification
+                        "No expected value, got notification method={method} {notification:?}"
                     )
                 })
                 .unwrap();
@@ -191,14 +190,12 @@ pub mod test_support {
                     );
                     if !contains_string(&notification, &contains) {
                         panic!(
-                            "{:?} does not contain sub-string {:?}",
-                            notification, contains
+                            "{notification:?} does not contain sub-string {contains:?}"
                         );
                     }
                 }
                 _ => panic!(
-                    "Expected {:?}, got notification {} {:?}",
-                    expected, method, notification
+                    "Expected {expected:?}, got notification {method} {notification:?}"
                 ),
             }
         }
@@ -210,8 +207,7 @@ pub mod test_support {
                 .pop_front()
                 .ok_or_else(|| {
                     panic!(
-                        "No expected value, got request method={} {:?}",
-                        method, params
+                        "No expected value, got request method={method} {params:?}"
                     )
                 })
                 .unwrap();
@@ -224,8 +220,7 @@ pub mod test_support {
                     assert_eq!((method, params), (exp_method, exp_params));
                 }
                 _ => panic!(
-                    "Expected {:?}, got request {} {:?}",
-                    expected, method, params
+                    "Expected {expected:?}, got request {method} {params:?}"
                 ),
             }
         }

@@ -593,8 +593,7 @@ impl<'a> AnalyzeContext<'a> {
             Err(AnalysisError::not_fatal_error(
                 &package_name.pos,
                 format!(
-                    "'{}' is not an uninstantiated generic package",
-                    package_name
+                    "'{package_name}' is not an uninstantiated generic package"
                 ),
             ))
         }

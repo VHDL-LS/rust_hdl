@@ -76,7 +76,7 @@ impl Diagnostic {
         for (pos, msg) in related {
             diagnostics.push(Diagnostic::new(
                 pos,
-                format!("related: {}", msg),
+                format!("related: {msg}"),
                 Severity::Hint,
             ));
         }
@@ -86,7 +86,7 @@ impl Diagnostic {
     pub fn show(&self) -> String {
         let mut result = String::new();
         for (pos, message) in self.related.iter() {
-            result.push_str(&pos.show(&format!("related: {}", message)));
+            result.push_str(&pos.show(&format!("related: {message}")));
             result.push('\n');
         }
         let severity = match self.severity {

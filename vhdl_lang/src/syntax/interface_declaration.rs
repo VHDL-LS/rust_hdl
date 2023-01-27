@@ -489,7 +489,7 @@ mod tests {
     fn to_interface_object(interface_decl: InterfaceDeclaration) -> InterfaceObjectDeclaration {
         match interface_decl {
             InterfaceDeclaration::Object(object) => object,
-            _ => panic!("{:?}", interface_decl),
+            _ => panic!("{interface_decl:?}"),
         }
     }
 

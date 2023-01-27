@@ -84,11 +84,11 @@ impl Display for AttributeName {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", self.name)?;
         if let Some(ref signature) = self.signature {
-            write!(f, "{}", signature)?;
+            write!(f, "{signature}")?;
         }
         write!(f, "'{}", self.attr)?;
         if let Some(ref expr) = self.expr {
-            write!(f, "({})", expr)
+            write!(f, "({expr})")
         } else {
             Ok(())
         }
@@ -98,9 +98,9 @@ impl Display for AttributeName {
 impl Display for AttributeDesignator {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            AttributeDesignator::Ident(sym) => write!(f, "{}", sym),
-            AttributeDesignator::Range(r) => write!(f, "{}", r),
-            AttributeDesignator::Type(t) => write!(f, "{}", t),
+            AttributeDesignator::Ident(sym) => write!(f, "{sym}"),
+            AttributeDesignator::Range(r) => write!(f, "{r}"),
+            AttributeDesignator::Type(t) => write!(f, "{t}"),
         }
     }
 }
@@ -137,10 +137,10 @@ impl Display for ExternalPath {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             ExternalPath::Package(ref path) => {
-                write!(f, "@{}", path)
+                write!(f, "@{path}")
             }
             ExternalPath::Absolute(ref path) => {
-                write!(f, ".{}", path)
+                write!(f, ".{path}")
             }
             ExternalPath::Relative(ref path, ref up_levels) => {
                 write!(f, "{}{}", "^.".repeat(*up_levels), path)
@@ -158,13 +158,13 @@ impl Display for ExternalName {
 impl Display for Name {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            Name::Designator(designator) => write!(f, "{}", designator),
-            Name::Selected(ref prefix, ref designator) => write!(f, "{}.{}", prefix, designator),
-            Name::SelectedAll(ref prefix) => write!(f, "{}.all", prefix),
-            Name::Slice(ref prefix, ref drange) => write!(f, "{}({})", prefix, drange),
-            Name::Attribute(ref attr) => write!(f, "{}", attr),
-            Name::CallOrIndexed(ref fcall) => write!(f, "{}", fcall),
-            Name::External(ref ename) => write!(f, "{}", ename),
+            Name::Designator(designator) => write!(f, "{designator}"),
+            Name::Selected(ref prefix, ref designator) => write!(f, "{prefix}.{designator}"),
+            Name::SelectedAll(ref prefix) => write!(f, "{prefix}.all"),
+            Name::Slice(ref prefix, ref drange) => write!(f, "{prefix}({drange})"),
+            Name::Attribute(ref attr) => write!(f, "{attr}"),
+            Name::CallOrIndexed(ref fcall) => write!(f, "{fcall}"),
+            Name::External(ref ename) => write!(f, "{ename}"),
         }
     }
 }
@@ -184,9 +184,9 @@ impl Display for CallOrIndexed {
         let mut first = true;
         for param in &self.parameters {
             if first {
-                write!(f, "({}", param)?;
+                write!(f, "({param}")?;
             } else {
-                write!(f, ", {}", param)?;
+                write!(f, ", {param}")?;
             }
             first = false;
         }
@@ -207,8 +207,8 @@ impl Display for AttributeDeclaration {
 impl Display for Choice {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            Choice::Expression(ref expr) => write!(f, "{}", expr),
-            Choice::DiscreteRange(ref drange) => write!(f, "{}", drange),
+            Choice::Expression(ref expr) => write!(f, "{expr}"),
+            Choice::DiscreteRange(ref drange) => write!(f, "{drange}"),
             Choice::Others => write!(f, "others"),
         }
     }
@@ -218,19 +218,19 @@ impl Display for ElementAssociation {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             ElementAssociation::Positional(ref expr) => {
-                write!(f, "{}", expr)
+                write!(f, "{expr}")
             }
             ElementAssociation::Named(ref choices, ref expr) => {
                 let mut first = true;
                 for choice in choices {
                     if first {
-                        write!(f, "{}", choice)?;
+                        write!(f, "{choice}")?;
                     } else {
-                        write!(f, " | {}", choice)?;
+                        write!(f, " | {choice}")?;
                     }
                     first = false;
                 }
-                write!(f, " => {}", expr)
+                write!(f, " => {expr}")
             }
         }
     }
@@ -239,7 +239,7 @@ impl Display for ElementAssociation {
 impl Display for ActualPart {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            ActualPart::Expression(ref expr) => write!(f, "{}", expr),
+            ActualPart::Expression(ref expr) => write!(f, "{expr}"),
             ActualPart::Open => write!(f, "open"),
         }
     }
@@ -248,7 +248,7 @@ impl Display for ActualPart {
 impl Display for AssociationElement {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         if let Some(ref formal) = self.formal {
-            write!(f, "{} => ", formal)?;
+            write!(f, "{formal} => ")?;
         }
         write!(f, "{}", self.actual)
     }
@@ -257,8 +257,8 @@ impl Display for AssociationElement {
 impl Display for AbstractLiteral {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            AbstractLiteral::Integer(val) => write!(f, "{}", val),
-            AbstractLiteral::Real(val) => write!(f, "{}", val),
+            AbstractLiteral::Integer(val) => write!(f, "{val}"),
+            AbstractLiteral::Real(val) => write!(f, "{val}"),
         }
     }
 }
@@ -266,7 +266,7 @@ impl Display for AbstractLiteral {
 impl Display for BitString {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         if let Some(length) = self.length {
-            write!(f, "{}", length)?;
+            write!(f, "{length}")?;
         }
         write!(f, "{}\"{}\"", self.base, self.value)
     }
@@ -281,11 +281,11 @@ impl Display for PhysicalLiteral {
 impl Display for Literal {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            Literal::String(ref val) => write!(f, "\"{}\"", val),
-            Literal::BitString(ref val) => write!(f, "{}", val),
+            Literal::String(ref val) => write!(f, "\"{val}\""),
+            Literal::BitString(ref val) => write!(f, "{val}"),
             Literal::Character(byte) => write!(f, "'{}'", *byte as char),
-            Literal::AbstractLiteral(ref val) => write!(f, "{}", val),
-            Literal::Physical(ref val) => write!(f, "{}", val),
+            Literal::AbstractLiteral(ref val) => write!(f, "{val}"),
+            Literal::Physical(ref val) => write!(f, "{val}"),
             Literal::Null => write!(f, "null"),
         }
     }
@@ -294,8 +294,8 @@ impl Display for Literal {
 impl Display for Allocator {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            Allocator::Qualified(ref qexpr) => write!(f, "{}", qexpr),
-            Allocator::Subtype(ref subtype) => write!(f, "{}", subtype),
+            Allocator::Qualified(ref qexpr) => write!(f, "{qexpr}"),
+            Allocator::Subtype(ref subtype) => write!(f, "{subtype}"),
         }
     }
 }
@@ -318,66 +318,66 @@ impl Display for Expression {
                 match &lhs.item {
                     Expression::Binary(op, ..) => {
                         if precedence <= op.item.item.binary_precedence().unwrap() {
-                            write!(f, "{}", lhs)?;
+                            write!(f, "{lhs}")?;
                         } else {
-                            write!(f, "({})", lhs)?;
+                            write!(f, "({lhs})")?;
                         }
                     }
                     Expression::Unary(op, ..) => {
                         if precedence <= op.item.item.unary_precedence().unwrap() {
-                            write!(f, "{}", lhs)?;
+                            write!(f, "{lhs}")?;
                         } else {
-                            write!(f, "({})", lhs)?;
+                            write!(f, "({lhs})")?;
                         }
                     }
-                    _ => write!(f, "{}", lhs)?,
+                    _ => write!(f, "{lhs}")?,
                 }
-                write!(f, " {} ", op)?;
+                write!(f, " {op} ")?;
                 match &rhs.item {
                     Expression::Binary(op, ..) => {
                         if precedence < op.item.item.binary_precedence().unwrap() {
-                            write!(f, "{}", rhs)
+                            write!(f, "{rhs}")
                         } else {
-                            write!(f, "({})", rhs)
+                            write!(f, "({rhs})")
                         }
                     }
-                    _ => write!(f, "{}", rhs),
+                    _ => write!(f, "{rhs}"),
                 }
             }
             Expression::Unary(ref op, ref expr) => {
                 // Add parentheses as necessary to satisfy order of precedence.
                 let precedence = op.item.item.unary_precedence().unwrap();
                 if matches!(op.item.item, Operator::Minus | Operator::Plus) {
-                    write!(f, "{}", op)?;
+                    write!(f, "{op}")?;
                 } else {
-                    write!(f, "{} ", op)?;
+                    write!(f, "{op} ")?;
                 }
                 match &expr.item {
                     // Binary operators having precedence over unary ones is
                     // confusing, so always add parentheses.
                     Expression::Binary(..) => {
-                        write!(f, "({})", expr)
+                        write!(f, "({expr})")
                     }
                     // Chained unary operators are always left to right, but
                     // chained operators with the same precedence are
                     // parenthesized for clarity.
                     Expression::Unary(op, ..) => {
                         if precedence != op.item.item.unary_precedence().unwrap() {
-                            write!(f, "{}", expr)
+                            write!(f, "{expr}")
                         } else {
-                            write!(f, "({})", expr)
+                            write!(f, "({expr})")
                         }
                     }
-                    _ => write!(f, "{}", expr),
+                    _ => write!(f, "{expr}"),
                 }
             }
             Expression::Aggregate(ref assocs) => {
                 let mut first = true;
                 for assoc in assocs {
                     if first {
-                        write!(f, "({}", assoc)?;
+                        write!(f, "({assoc}")?;
                     } else {
-                        write!(f, ", {}", assoc)?;
+                        write!(f, ", {assoc}")?;
                     }
                     first = false;
                 }
@@ -387,10 +387,10 @@ impl Display for Expression {
                     Ok(())
                 }
             }
-            Expression::Qualified(ref qexpr) => write!(f, "{}", qexpr),
-            Expression::Name(ref name) => write!(f, "{}", name),
-            Expression::Literal(ref literal) => write!(f, "{}", literal),
-            Expression::New(ref alloc) => write!(f, "new {}", alloc),
+            Expression::Qualified(ref qexpr) => write!(f, "{qexpr}"),
+            Expression::Name(ref name) => write!(f, "{name}"),
+            Expression::Literal(ref literal) => write!(f, "{literal}"),
+            Expression::New(ref alloc) => write!(f, "new {alloc}"),
         }
     }
 }
@@ -408,14 +408,14 @@ impl Display for DiscreteRange {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             DiscreteRange::Discrete(ref name, ref range) => {
-                write!(f, "{}", name)?;
+                write!(f, "{name}")?;
                 match range {
-                    Some(ref range) => write!(f, " range {}", range),
+                    Some(ref range) => write!(f, " range {range}"),
                     None => Ok(()),
                 }
             }
             DiscreteRange::Range(ref range) => {
-                write!(f, "{}", range)
+                write!(f, "{range}")
             }
         }
     }
@@ -434,8 +434,8 @@ impl Display for RangeConstraint {
 impl Display for Range {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            Range::Range(ref constraint) => write!(f, "{}", constraint),
-            Range::Attribute(ref attr) => write!(f, "{}", attr),
+            Range::Range(ref constraint) => write!(f, "{constraint}"),
+            Range::Attribute(ref attr) => write!(f, "{attr}"),
         }
     }
 }
@@ -450,16 +450,16 @@ impl Display for SubtypeConstraint {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             SubtypeConstraint::Range(ref range) => {
-                write!(f, " range {}", range)
+                write!(f, " range {range}")
             }
             SubtypeConstraint::Array(ref dranges, ref constraint) => {
                 write!(f, "(")?;
                 let mut first = true;
                 for drange in dranges {
                     if first {
-                        write!(f, "{}", drange)?;
+                        write!(f, "{drange}")?;
                     } else {
-                        write!(f, ", {}", drange)?;
+                        write!(f, ", {drange}")?;
                     }
                     first = false;
                 }
@@ -467,7 +467,7 @@ impl Display for SubtypeConstraint {
                     write!(f, "open")?;
                 }
                 match constraint {
-                    Some(ref constraint) => write!(f, "){}", constraint),
+                    Some(ref constraint) => write!(f, "){constraint}"),
                     None => write!(f, ")"),
                 }
             }
@@ -476,9 +476,9 @@ impl Display for SubtypeConstraint {
                 let mut first = true;
                 for constraint in constraints {
                     if first {
-                        write!(f, "{}", constraint)?;
+                        write!(f, "{constraint}")?;
                     } else {
-                        write!(f, ", {}", constraint)?;
+                        write!(f, ", {constraint}")?;
                     }
                     first = false;
                 }
@@ -498,18 +498,18 @@ impl Display for ResolutionIndication {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             ResolutionIndication::FunctionName(ref name) => {
-                write!(f, "{}", name)
+                write!(f, "{name}")
             }
             ResolutionIndication::ArrayElement(ref name) => {
-                write!(f, "({})", name)
+                write!(f, "({name})")
             }
             ResolutionIndication::Record(elem_resolutions) => {
                 let mut first = true;
                 for elem_resolution in elem_resolutions {
                     if first {
-                        write!(f, "({}", elem_resolution)?;
+                        write!(f, "({elem_resolution}")?;
                     } else {
-                        write!(f, ", {}", elem_resolution)?;
+                        write!(f, ", {elem_resolution}")?;
                     }
                     first = false;
                 }
@@ -532,7 +532,7 @@ impl Display for SubtypeIndication {
         }
         write!(f, "{}", self.type_mark)?;
         match self.constraint {
-            Some(ref constraint) => write!(f, "{}", constraint),
+            Some(ref constraint) => write!(f, "{constraint}"),
             None => Ok(()),
         }
     }
@@ -542,7 +542,7 @@ impl Display for TypeMark {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", self.name)?;
         if let Some(attr) = self.attr {
-            write!(f, "'{}", attr)?;
+            write!(f, "'{attr}")?;
         }
         Ok(())
     }
@@ -552,10 +552,10 @@ impl Display for ArrayIndex {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
             ArrayIndex::IndexSubtypeDefintion(ref type_mark) => {
-                write!(f, "{} range <>", type_mark)
+                write!(f, "{type_mark} range <>")
             }
             ArrayIndex::Discrete(ref range) => {
-                write!(f, "{}", range)
+                write!(f, "{range}")
             }
         }
     }
@@ -570,8 +570,8 @@ impl Display for ElementDeclaration {
 impl Display for Designator {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            Designator::Identifier(ref sym) => write!(f, "{}", sym),
-            Designator::OperatorSymbol(ref op) => write!(f, "\"{}\"", op),
+            Designator::Identifier(ref sym) => write!(f, "{sym}"),
+            Designator::OperatorSymbol(ref op) => write!(f, "\"{op}\""),
             Designator::Character(byte) => write!(f, "'{}'", *byte as char),
         }
     }
@@ -587,11 +587,11 @@ impl Display for AliasDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "alias {}", self.designator)?;
         if let Some(ref subtype_indication) = self.subtype_indication {
-            write!(f, " : {}", subtype_indication)?;
+            write!(f, " : {subtype_indication}")?;
         }
         write!(f, " is {}", self.name)?;
         match self.signature {
-            Some(ref signature) => write!(f, "{};", signature),
+            Some(ref signature) => write!(f, "{signature};"),
             None => write!(f, ";"),
         }
     }
@@ -600,7 +600,7 @@ impl Display for AliasDeclaration {
 impl Display for EnumerationLiteral {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            EnumerationLiteral::Identifier(ref sym) => write!(f, "{}", sym),
+            EnumerationLiteral::Identifier(ref sym) => write!(f, "{sym}"),
             EnumerationLiteral::Character(byte) => write!(f, "'{}'", *byte as char),
         }
     }
@@ -614,16 +614,16 @@ impl Display for TypeDefinition {
                 let mut first = true;
                 for literal in enum_literals {
                     if first {
-                        write!(f, "{}", literal)?;
+                        write!(f, "{literal}")?;
                     } else {
-                        write!(f, ", {}", literal)?;
+                        write!(f, ", {literal}")?;
                     }
                     first = false;
                 }
                 write!(f, ");")
             }
             TypeDefinition::Numeric(ref constraint) => {
-                write!(f, " is range {};", constraint)
+                write!(f, " is range {constraint};")
             }
             TypeDefinition::Physical(ref physical) => {
                 writeln!(
@@ -632,7 +632,7 @@ impl Display for TypeDefinition {
                     physical.range, physical.primary_unit
                 )?;
                 for (ident, literal) in &physical.secondary_units {
-                    writeln!(f, "  {} = {};", ident, literal)?;
+                    writeln!(f, "  {ident} = {literal};")?;
                 }
                 write!(f, "end units;")
             }
@@ -641,29 +641,29 @@ impl Display for TypeDefinition {
                 let mut first = true;
                 for index in indexes {
                     if first {
-                        write!(f, "{}", index)?;
+                        write!(f, "{index}")?;
                     } else {
-                        write!(f, ", {}", index)?;
+                        write!(f, ", {index}")?;
                     }
                     first = false;
                 }
-                write!(f, ") of {};", subtype_indication)
+                write!(f, ") of {subtype_indication};")
             }
             TypeDefinition::Record(ref elements) => {
                 writeln!(f, " is record")?;
                 for element in elements {
-                    writeln!(f, "  {};", element)?;
+                    writeln!(f, "  {element};")?;
                 }
                 write!(f, "end record;")
             }
             TypeDefinition::Access(ref subtype_indication) => {
-                write!(f, " is access {};", subtype_indication)
+                write!(f, " is access {subtype_indication};")
             }
             TypeDefinition::Incomplete(..) => {
                 write!(f, ";")
             }
             TypeDefinition::File(ref type_mark) => {
-                write!(f, " is file of {};", type_mark)
+                write!(f, " is file of {type_mark};")
             }
             TypeDefinition::Protected(..) => {
                 // Not used: items
@@ -674,7 +674,7 @@ impl Display for TypeDefinition {
                 write!(f, " is protected body")
             }
             TypeDefinition::Subtype(ref subtype_indication) => {
-                write!(f, " is {};", subtype_indication)
+                write!(f, " is {subtype_indication};")
             }
         }
     }
@@ -709,7 +709,7 @@ impl Display for ObjectDeclaration {
             self.class, self.ident, self.subtype_indication,
         )?;
         match self.expression {
-            Some(ref expr) => write!(f, " := {};", expr),
+            Some(ref expr) => write!(f, " := {expr};"),
             None => write!(f, ";"),
         }
     }
@@ -719,10 +719,10 @@ impl Display for FileDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "file {} : {}", self.ident, self.subtype_indication)?;
         if let Some(ref expr) = self.open_info {
-            write!(f, " open {}", expr)?;
+            write!(f, " open {expr}")?;
         }
         match self.file_name {
-            Some(ref expr) => write!(f, " is {};", expr),
+            Some(ref expr) => write!(f, " is {expr};"),
             None => write!(f, ";"),
         }
     }
@@ -731,8 +731,8 @@ impl Display for FileDeclaration {
 impl Display for SubprogramDesignator {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            SubprogramDesignator::Identifier(ref sym) => write!(f, "{}", sym),
-            SubprogramDesignator::OperatorSymbol(ref latin1) => write!(f, "\"{}\"", latin1),
+            SubprogramDesignator::Identifier(ref sym) => write!(f, "{sym}"),
+            SubprogramDesignator::OperatorSymbol(ref latin1) => write!(f, "\"{latin1}\""),
         }
     }
 }
@@ -743,9 +743,9 @@ impl Display for ProcedureSpecification {
         let mut first = true;
         for param in &self.parameter_list {
             if first {
-                write!(f, "(\n  {}", param)?;
+                write!(f, "(\n  {param}")?;
             } else {
-                write!(f, ";\n  {}", param)?;
+                write!(f, ";\n  {param}")?;
             }
             first = false;
         }
@@ -766,9 +766,9 @@ impl Display for FunctionSpecification {
         let mut first = true;
         for param in &self.parameter_list {
             if first {
-                write!(f, "(\n  {}", param)?;
+                write!(f, "(\n  {param}")?;
             } else {
-                write!(f, ";\n  {}", param)?;
+                write!(f, ";\n  {param}")?;
             }
             first = false;
         }
@@ -787,16 +787,16 @@ impl Display for Signature {
                 let mut first = true;
                 for arg in args {
                     if first {
-                        write!(f, "{}", arg)?;
+                        write!(f, "{arg}")?;
                     } else {
-                        write!(f, ", {}", arg)?;
+                        write!(f, ", {arg}")?;
                     }
                     first = false;
                 }
                 if first {
-                    write!(f, "return {}]", ret)
+                    write!(f, "return {ret}]")
                 } else {
-                    write!(f, " return {}]", ret)
+                    write!(f, " return {ret}]")
                 }
             }
             Signature::Procedure(ref args) => {
@@ -804,9 +804,9 @@ impl Display for Signature {
                 let mut first = true;
                 for arg in args {
                     if first {
-                        write!(f, "{}", arg)?;
+                        write!(f, "{arg}")?;
                     } else {
-                        write!(f, ", {}", arg)?;
+                        write!(f, ", {arg}")?;
                     }
                     first = false;
                 }
@@ -819,8 +819,8 @@ impl Display for Signature {
 impl Display for SubprogramDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            SubprogramDeclaration::Procedure(ref procedure) => write!(f, "{}", procedure),
-            SubprogramDeclaration::Function(ref function) => write!(f, "{}", function),
+            SubprogramDeclaration::Procedure(ref procedure) => write!(f, "{procedure}"),
+            SubprogramDeclaration::Function(ref function) => write!(f, "{function}"),
         }
     }
 }
@@ -853,7 +853,7 @@ impl Display for InterfaceObjectDeclaration {
             }
         }
         match self.expression {
-            Some(ref expr) => write!(f, " := {}", expr),
+            Some(ref expr) => write!(f, " := {expr}"),
             None => Ok(()),
         }
     }
@@ -862,7 +862,7 @@ impl Display for InterfaceObjectDeclaration {
 impl Display for SubprogramDefault {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            SubprogramDefault::Name(ref name) => write!(f, "{}", name),
+            SubprogramDefault::Name(ref name) => write!(f, "{name}"),
             SubprogramDefault::Box => write!(f, "<>"),
         }
     }
@@ -880,9 +880,9 @@ impl Display for InterfacePackageDeclaration {
                 let mut first = true;
                 for assoc in assoc_list {
                     if first {
-                        write!(f, "\n    {}", assoc)?;
+                        write!(f, "\n    {assoc}")?;
                     } else {
-                        write!(f, ",\n    {}", assoc)?;
+                        write!(f, ",\n    {assoc}")?;
                     }
                     first = false;
                 }
@@ -897,17 +897,17 @@ impl Display for InterfacePackageDeclaration {
 impl Display for InterfaceDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            InterfaceDeclaration::Object(ref decl) => write!(f, "{}", decl),
-            InterfaceDeclaration::File(ref decl) => write!(f, "{}", decl),
-            InterfaceDeclaration::Type(ref ident) => write!(f, "type {}", ident),
+            InterfaceDeclaration::Object(ref decl) => write!(f, "{decl}"),
+            InterfaceDeclaration::File(ref decl) => write!(f, "{decl}"),
+            InterfaceDeclaration::Type(ref ident) => write!(f, "type {ident}"),
             InterfaceDeclaration::Subprogram(ref decl, ref default) => {
-                write!(f, "{}", decl)?;
+                write!(f, "{decl}")?;
                 match default {
-                    Some(ref default) => write!(f, " is {}", default),
+                    Some(ref default) => write!(f, " is {default}"),
                     None => Ok(()),
                 }
             }
-            InterfaceDeclaration::Package(ref decl) => write!(f, "{}", decl),
+            InterfaceDeclaration::Package(ref decl) => write!(f, "{decl}"),
         }
     }
 }
@@ -931,9 +931,9 @@ impl Display for ComponentDeclaration {
         let mut first = true;
         for generic in &self.generic_list {
             if first {
-                write!(f, "\n  generic (\n    {}", generic)?;
+                write!(f, "\n  generic (\n    {generic}")?;
             } else {
-                write!(f, ";\n    {}", generic)?;
+                write!(f, ";\n    {generic}")?;
             }
             first = false;
         }
@@ -944,9 +944,9 @@ impl Display for ComponentDeclaration {
         let mut first = true;
         for port in &self.port_list {
             if first {
-                write!(f, "\n  port (\n    {}", port)?;
+                write!(f, "\n  port (\n    {port}")?;
             } else {
-                write!(f, ";\n    {}", port)?;
+                write!(f, ";\n    {port}")?;
             }
             first = false;
         }
@@ -984,9 +984,9 @@ impl Display for PackageInstantiation {
             let mut first = true;
             for assoc in assoc_list {
                 if first {
-                    write!(f, "\n  generic map (\n    {}", assoc)?;
+                    write!(f, "\n  generic map (\n    {assoc}")?;
                 } else {
-                    write!(f, ",\n    {}", assoc)?;
+                    write!(f, ",\n    {assoc}")?;
                 }
                 first = false;
             }
@@ -1014,9 +1014,9 @@ impl Display for EntityDeclaration {
             let mut first = true;
             for generic in generic_clause {
                 if first {
-                    write!(f, "\n  generic (\n    {}", generic)?;
+                    write!(f, "\n  generic (\n    {generic}")?;
                 } else {
-                    write!(f, ";\n    {}", generic)?;
+                    write!(f, ";\n    {generic}")?;
                 }
                 first = false;
             }
@@ -1029,9 +1029,9 @@ impl Display for EntityDeclaration {
             let mut first = true;
             for port in port_clause {
                 if first {
-                    write!(f, "\n  port (\n    {}", port)?;
+                    write!(f, "\n  port (\n    {port}")?;
                 } else {
-                    write!(f, ";\n    {}", port)?;
+                    write!(f, ";\n    {port}")?;
                 }
                 first = false;
             }
@@ -1053,9 +1053,9 @@ impl Display for PackageDeclaration {
             let mut first = true;
             for generic in generic_clause {
                 if first {
-                    write!(f, "\n  generic (\n    {}", generic)?;
+                    write!(f, "\n  generic (\n    {generic}")?;
                 } else {
-                    write!(f, ";\n    {}", generic)?;
+                    write!(f, ";\n    {generic}")?;
                 }
                 first = false;
             }

@@ -975,7 +975,7 @@ fn parse_abstract_literal(
                     Err(TokenError::range(
                         state.pos(),
                         pos_after_initial,
-                        format!("Base must be at least 2 and at most 16, got {}", base),
+                        format!("Base must be at least 2 and at most 16, got {base}"),
                     ))
                 }
             } else {
@@ -2115,7 +2115,7 @@ end entity"
                         ("".to_owned(), None)
                     };
 
-                    let code = format!("{}{}\"{}\"", length_str, base_spec, value);
+                    let code = format!("{length_str}{base_spec}\"{value}\"");
 
                     let code = if upper_case {
                         code.to_ascii_uppercase()
@@ -2444,7 +2444,7 @@ comment
         );
 
         let exponent_str = ((i32::max_value() as i64) + 1).to_string();
-        let large_int = format!("1e{}", exponent_str);
+        let large_int = format!("1e{exponent_str}");
         let code = Code::new(&large_int);
         let (tokens, _) = code.tokenize_result();
         assert_eq!(
@@ -2456,7 +2456,7 @@ comment
         );
 
         let exponent_str = ((i32::min_value() as i64) - 1).to_string();
-        let large_int = format!("1.0e{}", exponent_str);
+        let large_int = format!("1.0e{exponent_str}");
         let code = Code::new(&large_int);
         let (tokens, _) = code.tokenize_result();
         assert_eq!(

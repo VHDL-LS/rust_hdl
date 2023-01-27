@@ -199,7 +199,7 @@ impl<'a> Visible<'a> {
             // Duplicate visible items hide each other
             let mut error = Diagnostic::error(
                 pos,
-                format!("Name '{}' is hidden by conflicting use clause", designator),
+                format!("Name '{designator}' is hidden by conflicting use clause"),
             );
 
             fn last_visible_pos(visible_entity: &VisibleEntity) -> u32 {
@@ -217,13 +217,13 @@ impl<'a> Visible<'a> {
                 for visible_pos in visible_entity.visible_pos.iter().rev().flatten() {
                     error.add_related(
                         visible_pos,
-                        format!("Conflicting name '{}' made visible here", designator),
+                        format!("Conflicting name '{designator}' made visible here"),
                     );
                 }
                 if let Some(pos) = visible_entity.entity.decl_pos() {
                     error.add_related(
                         pos,
-                        format!("Conflicting name '{}' declared here", designator),
+                        format!("Conflicting name '{designator}' declared here"),
                     );
                 }
             }

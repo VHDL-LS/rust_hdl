@@ -64,7 +64,7 @@ fn main() {
 
     let iterations = if args.bench {
         let iterations = 10;
-        println!("Running {} iterations for benchmarking", iterations);
+        println!("Running {iterations} iterations for benchmarking");
         for _ in 0..(iterations - 1) {
             let mut project = Project::from_config(&config, &mut NullMessages);
             project.analyse();
@@ -89,8 +89,7 @@ fn main() {
         let duration_per_line = duration.checked_div(num_lines as u32).unwrap();
 
         println!(
-            "Analyzed {} files with {} lines of code",
-            num_files, num_lines
+            "Analyzed {num_files} files with {num_lines} lines of code"
         );
         println!(
             "Total time to run was {} ms with an average of {} ns per line",

@@ -298,7 +298,7 @@ mod tests {
     fn to_single_entity(design_file: DesignFile) -> EntityDeclaration {
         match design_file.design_units.as_slice() {
             [AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(ref entity))] => entity.to_owned(),
-            _ => panic!("Expected single entity {:?}", design_file),
+            _ => panic!("Expected single entity {design_file:?}"),
         }
     }
 

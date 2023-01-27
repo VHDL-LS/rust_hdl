@@ -432,9 +432,9 @@ impl SrcPos {
             let overlaps = self.range.start.line <= *lineno && *lineno <= self.range.end.line;
 
             if overlaps {
-                write!(result, "{} --> ", lineno_str).unwrap();
+                write!(result, "{lineno_str} --> ").unwrap();
             } else {
-                write!(result, "{}  |  ", lineno_str).unwrap();
+                write!(result, "{lineno_str}  |  ").unwrap();
             }
 
             for chr in line.trim_end().chars() {

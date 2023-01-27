@@ -50,7 +50,7 @@ impl LocalArena {
         }
     }
 
-    unsafe fn alloc<'a>(&mut self, mut ent: AnyEnt<'a>) -> *const AnyEnt<'static> {
+    unsafe fn alloc(&mut self, mut ent: AnyEnt) -> *const AnyEnt<'static> {
         let idx = self.items.len();
 
         if idx > u32::MAX as usize {

@@ -367,13 +367,13 @@ impl<'a> ScopeInner<'a> {
                 pos,
                 match designator {
                     Designator::Identifier(ident) => {
-                        format!("No declaration of '{}'", ident)
+                        format!("No declaration of '{ident}'")
                     }
                     Designator::OperatorSymbol(operator) => {
-                        format!("No declaration of operator '{}'", operator)
+                        format!("No declaration of operator '{operator}'")
                     }
                     Designator::Character(chr) => {
-                        format!("No declaration of '{}'", chr)
+                        format!("No declaration of '{chr}'")
                     }
                 },
             )),
@@ -757,7 +757,7 @@ pub(super) fn duplicate_error(
     pos: &SrcPos,
     prev_pos: Option<&SrcPos>,
 ) -> Diagnostic {
-    let mut diagnostic = Diagnostic::error(pos, format!("Duplicate declaration of '{}'", name));
+    let mut diagnostic = Diagnostic::error(pos, format!("Duplicate declaration of '{name}'"));
 
     if let Some(prev_pos) = prev_pos {
         diagnostic.add_related(prev_pos, "Previously defined here");

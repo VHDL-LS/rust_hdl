@@ -172,7 +172,7 @@ impl<'a> AnalyzeContext<'a> {
                                 // Ambiguous call
                                 let mut diagnostic = Diagnostic::error(
                                     &fcall.name.pos,
-                                    format!("Ambiguous call to function '{}'", des),
+                                    format!("Ambiguous call to function '{des}'"),
                                 );
 
                                 diagnostic.add_subprogram_candidates("migth be", candidates);

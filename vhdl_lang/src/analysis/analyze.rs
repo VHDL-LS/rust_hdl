@@ -346,8 +346,7 @@ impl<'a> AnalyzeContext<'a> {
         Err(AnalysisError::NotFatal(Diagnostic::error(
             pos,
             format!(
-                "No primary unit '{}' within library '{}'",
-                primary_name, library_name
+                "No primary unit '{primary_name}' within library '{library_name}'"
             ),
         )))
     }

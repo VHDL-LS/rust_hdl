@@ -170,14 +170,11 @@ impl Library {
                 UnitKey::Secondary(ref primary_name, ref name) => match unit.kind() {
                     AnyKind::Secondary(SecondaryKind::Architecture) => Diagnostic::error(
                         unit.ident(),
-                        format!(
-                            "Duplicate architecture '{}' of entity '{}'",
-                            name, primary_name,
-                        ),
+                        format!("Duplicate architecture '{name}' of entity '{primary_name}'",),
                     ),
                     AnyKind::Secondary(SecondaryKind::PackageBody) => Diagnostic::error(
                         unit.pos(),
-                        format!("Duplicate package body of package '{}'", primary_name),
+                        format!("Duplicate package body of package '{primary_name}'"),
                     ),
                     AnyKind::Primary(_) => {
                         unreachable!();
@@ -421,7 +418,7 @@ impl DesignRoot {
         self.symbols.symtab().insert_utf8(name)
     }
 
-    fn analyze_unit<'a>(&self, arena_id: ArenaId, unit_id: &UnitId, unit: &mut UnitWriteGuard<'a>) {
+    fn analyze_unit(&self, arena_id: ArenaId, unit_id: &UnitId, unit: &mut UnitWriteGuard) {
         // All units reference the standard arena
         // @TODO keep the same ArenaId when re-using unit
         let arena = Arena::new(arena_id);

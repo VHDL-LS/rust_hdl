@@ -94,7 +94,7 @@ pub struct MessagePrinter {}
 
 impl MessageHandler for MessagePrinter {
     fn push(&mut self, message: Message) {
-        println!("{}", message);
+        println!("{message}");
     }
 }
 

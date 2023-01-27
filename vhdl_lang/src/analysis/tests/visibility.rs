@@ -510,19 +510,19 @@ pub fn hidden_error(
 ) -> Diagnostic {
     let mut error = Diagnostic::error(
         code.s(name, occ),
-        format!("Name '{}' is hidden by conflicting use clause", name),
+        format!("Name '{name}' is hidden by conflicting use clause"),
     );
 
     for (code, substr, occ, declared) in related.iter() {
         if *declared {
             error.add_related(
                 code.s(substr, *occ),
-                format!("Conflicting name '{}' declared here", name),
+                format!("Conflicting name '{name}' declared here"),
             )
         } else {
             error.add_related(
                 code.s(substr, *occ),
-                format!("Conflicting name '{}' made visible here", name),
+                format!("Conflicting name '{name}' made visible here"),
             )
         }
     }

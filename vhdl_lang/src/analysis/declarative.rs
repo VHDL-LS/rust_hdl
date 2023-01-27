@@ -1216,8 +1216,7 @@ impl Diagnostic {
         Diagnostic::error(
             pos,
             format!(
-                "{} should only have a signature for subprograms and enum literals",
-                prefix
+                "{prefix} should only have a signature for subprograms and enum literals"
             ),
         )
     }

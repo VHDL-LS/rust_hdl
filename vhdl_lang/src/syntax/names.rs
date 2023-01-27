@@ -1124,7 +1124,7 @@ mod tests {
             ("variable", ExternalObjectClass::Variable),
         ];
         for (string, class) in combinations.iter().cloned() {
-            let code = Code::new(&format!("<< {} dut.foo : std_logic >>", string));
+            let code = Code::new(&format!("<< {string} dut.foo : std_logic >>"));
             let external_name = ExternalName {
                 class,
                 path: WithPos::new(

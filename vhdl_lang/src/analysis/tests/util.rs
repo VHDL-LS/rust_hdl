@@ -57,10 +57,9 @@ entity ent is
 end entity;
 
 architecture a of ent is
-{}
+{code}
 begin
-end architecture;",
-                code
+end architecture;"
             ),
         )
     }
@@ -138,7 +137,7 @@ pub fn add_standard_library(symbols: Arc<Symbols>, root: &mut DesignRoot) {
 }
 
 pub fn missing(code: &Code, name: &str, occ: usize) -> Diagnostic {
-    Diagnostic::error(code.s(name, occ), format!("No declaration of '{}'", name))
+    Diagnostic::error(code.s(name, occ), format!("No declaration of '{name}'"))
 }
 
 pub fn duplicate(code: &Code, name: &str, occ1: usize, occ2: usize) -> Diagnostic {

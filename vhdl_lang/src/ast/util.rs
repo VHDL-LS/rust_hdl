@@ -327,9 +327,9 @@ impl Designator {
 
     pub fn describe(&self) -> String {
         match self {
-            Designator::Character(chr) => format!("'{}'", chr),
-            Designator::Identifier(ident) => format!("'{}'", ident),
-            Designator::OperatorSymbol(op) => format!("operator \"{}\"", op),
+            Designator::Character(chr) => format!("'{chr}'"),
+            Designator::Identifier(ident) => format!("'{ident}'"),
+            Designator::OperatorSymbol(op) => format!("operator \"{op}\""),
         }
     }
 }

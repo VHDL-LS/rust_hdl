@@ -106,7 +106,7 @@ impl<'a> Candidates<'a> {
                 "Could not resolve"
             };
 
-            let mut diag = Diagnostic::error(name, format!("{} '{}'", err_prefix, name));
+            let mut diag = Diagnostic::error(name, format!("{err_prefix} '{name}'"));
 
             rejected.sort_by(|x, y| x.ent.decl_pos().cmp(&y.ent.decl_pos()));
 

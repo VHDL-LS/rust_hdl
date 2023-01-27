@@ -1400,76 +1400,76 @@ impl std::fmt::Display for FoundDeclaration<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             FoundDeclaration::InterfaceObject(ref value) => match value.list_type {
-                InterfaceListType::Port => write!(f, "port {};", value),
-                InterfaceListType::Generic => write!(f, "generic {};", value),
-                InterfaceListType::Parameter => write!(f, "{};", value),
+                InterfaceListType::Port => write!(f, "port {value};"),
+                InterfaceListType::Generic => write!(f, "generic {value};"),
+                InterfaceListType::Parameter => write!(f, "{value};"),
             },
             FoundDeclaration::ForIndex(ref ident, ref drange) => {
-                write!(f, "for {} in {} loop", ident, drange)
+                write!(f, "for {ident} in {drange} loop")
             }
             FoundDeclaration::ForGenerateIndex(ref ident, ref value) => match ident {
-                Some(ident) => write!(f, "{}: {}", ident, value),
-                None => write!(f, "{}", value),
+                Some(ident) => write!(f, "{ident}: {value}"),
+                None => write!(f, "{value}"),
             },
             FoundDeclaration::Function(ref value) => {
-                write!(f, "{};", value)
+                write!(f, "{value};")
             }
             FoundDeclaration::Procedure(ref value) => {
-                write!(f, "{};", value)
+                write!(f, "{value};")
             }
             FoundDeclaration::Object(ref value) => {
-                write!(f, "{}", value)
+                write!(f, "{value}")
             }
             FoundDeclaration::ElementDeclaration(elem) => {
-                write!(f, "{}", elem)
+                write!(f, "{elem}")
             }
             FoundDeclaration::EnumerationLiteral(ident, elem) => {
-                write!(f, "{} : {}", elem, ident)
+                write!(f, "{elem} : {ident}")
             }
             FoundDeclaration::File(ref value) => {
-                write!(f, "{}", value)
+                write!(f, "{value}")
             }
             FoundDeclaration::PhysicalTypePrimary(ref value) => {
-                write!(f, "{}", value)
+                write!(f, "{value}")
             }
             FoundDeclaration::PhysicalTypeSecondary(_, ref literal) => {
-                write!(f, "{}", literal)
+                write!(f, "{literal}")
             }
             FoundDeclaration::Type(ref value) => {
-                write!(f, "{}", value)
+                write!(f, "{value}")
             }
             FoundDeclaration::Component(ref value) => {
-                write!(f, "{}", value)
+                write!(f, "{value}")
             }
             FoundDeclaration::Alias(ref value) => {
-                write!(f, "{}", value)
+                write!(f, "{value}")
             }
             FoundDeclaration::Attribute(ref value) => {
-                write!(f, "{}", value)
+                write!(f, "{value}")
             }
             FoundDeclaration::Package(ref value) => {
-                write!(f, "{}", value)
+                write!(f, "{value}")
             }
             FoundDeclaration::PackageInstance(ref value) => {
-                write!(f, "{}", value)
+                write!(f, "{value}")
             }
             FoundDeclaration::Configuration(ref value) => {
-                write!(f, "{}", value)
+                write!(f, "{value}")
             }
             FoundDeclaration::Entity(ref value) => {
-                write!(f, "{}", value)
+                write!(f, "{value}")
             }
             FoundDeclaration::Context(ref value) => {
-                write!(f, "{}", value)
+                write!(f, "{value}")
             }
             FoundDeclaration::GenerateBody(value) => {
-                write!(f, "{}", value)
+                write!(f, "{value}")
             }
             FoundDeclaration::ConcurrentStatement(value) => {
-                write!(f, "{}", value)
+                write!(f, "{value}")
             }
             FoundDeclaration::SequentialStatement(value) => {
-                write!(f, "{}", value)
+                write!(f, "{value}")
             }
         }
     }

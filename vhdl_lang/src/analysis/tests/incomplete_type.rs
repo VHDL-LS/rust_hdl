@@ -140,8 +140,7 @@ end package;
         assert_eq!(
             root.search_reference_pos(code.source(), code.s("rec_t", i).start()),
             Some(code.s("rec_t", 3).pos()),
-            "{}",
-            i
+            "{i}"
         );
     }
 

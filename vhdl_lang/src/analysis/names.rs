@@ -248,14 +248,14 @@ impl<'a> ResolvedName<'a> {
     /// Such as when assigning to a constant
     pub fn describe(&self) -> String {
         match self {
-            ResolvedName::Library(sym) => format!("library {}", sym),
+            ResolvedName::Library(sym) => format!("library {sym}"),
             ResolvedName::Design(ent) => ent.describe(),
             ResolvedName::Type(ent) => ent.describe(),
             ResolvedName::Overloaded(des, name) => {
                 if let Some(ent) = name.as_unique() {
                     ent.describe()
                 } else {
-                    format!("Overloaded name {}", des)
+                    format!("Overloaded name {des}")
                 }
             }
             ResolvedName::ObjectName(oname) => oname.base.describe(),
@@ -1173,7 +1173,7 @@ impl Diagnostic {
 
         Diagnostic::error(
             prefix_pos,
-            format!("{} cannot be {}", name_desc, suffix_desc),
+            format!("{name_desc} cannot be {suffix_desc}"),
         )
     }
 
@@ -1206,7 +1206,7 @@ impl Diagnostic {
     fn unreachable(pos: &SrcPos, expected: &str) -> Diagnostic {
         Diagnostic::warning(
             pos,
-            format!("Internal error, unreachable code {}", expected),
+            format!("Internal error, unreachable code {expected}"),
         )
     }
 

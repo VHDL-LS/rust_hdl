@@ -220,14 +220,14 @@ impl Code {
             let result = parse_fun(stream);
             match result {
                 Err(err) => {
-                    println!("{:#?}", err);
+                    println!("{err:#?}");
                     println!("{}", err.show());
                     panic!("Got Err()");
                 }
                 Ok(result) => {
                     if let Some(token) = stream.peek().unwrap() {
-                        println!("result = {:#?}", result);
-                        panic!("Expected EOF got {:?}", token);
+                        println!("result = {result:#?}");
+                        panic!("Expected EOF got {token:?}");
                     }
                     result
                 }
@@ -247,13 +247,13 @@ impl Code {
             match result {
                 Err(err) => {
                     if let Some(token) = stream.peek().unwrap() {
-                        println!("err = {:#?}", err);
-                        panic!("Expected EOF got {:?}", token);
+                        println!("err = {err:#?}");
+                        panic!("Expected EOF got {token:?}");
                     }
                     err
                 }
                 Ok(result) => {
-                    panic!("Expected error got {:?}", result);
+                    panic!("Expected error got {result:?}");
                 }
             }
         };
@@ -469,7 +469,7 @@ impl Code {
     pub fn attribute_name(&self) -> AttributeName {
         match self.parse_ok(parse_name).item {
             Name::Attribute(attr) => *attr,
-            name => panic!("Expected attribute got {:?}", name),
+            name => panic!("Expected attribute got {name:?}"),
         }
     }
 }
@@ -499,8 +499,7 @@ fn substr_range(source: &Source, range: Range, substr: &str, occurence: usize) -
     }
 
     panic!(
-        "Could not find occurence {} of substring {:?}",
-        occurence, substr
+        "Could not find occurence {occurence} of substring {substr:?}"
     );
 }
 
@@ -565,8 +564,7 @@ pub fn check_diagnostics(got: Vec<Diagnostic>, expected: Vec<Diagnostic>) {
                     found_errors = true;
                     println!("-------------------------------------------------------");
                     println!(
-                        "Got right diagnostic but wrong count {}, expected {}",
-                        got_count, count
+                        "Got right diagnostic but wrong count {got_count}, expected {count}"
                     );
                     println!("-------------------------------------------------------");
                     println!("{}", diagnostic.show());
@@ -575,7 +573,7 @@ pub fn check_diagnostics(got: Vec<Diagnostic>, expected: Vec<Diagnostic>) {
             None => {
                 found_errors = true;
                 println!("-------------------------------------------------------");
-                println!("Got no diagnostic, expected {}", count);
+                println!("Got no diagnostic, expected {count}");
                 println!("-------------------------------------------------------");
                 println!("{}", diagnostic.show());
             }

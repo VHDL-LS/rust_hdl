@@ -114,7 +114,7 @@ impl<'a> FormalRegion<'a> {
         }
         Err(Diagnostic::error(
             pos,
-            format!("No declaration of '{}'", designator),
+            format!("No declaration of '{designator}'"),
         ))
     }
 

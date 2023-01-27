@@ -457,7 +457,7 @@ mod tests {
     fn character_is_utf16_len() {
         // Bomb emojii requires 2 utf-16 codes
         let bomb = '\u{1F4A3}';
-        let contents = new(&format!("aä{}", bomb));
+        let contents = new(&format!("aä{bomb}"));
         assert_eq!(contents.end(), Position::new(0, 4));
         let mut reader = reader(&contents);
         assert_eq!(reader.pop_char(), Some('a'));

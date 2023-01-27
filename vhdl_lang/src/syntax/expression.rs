@@ -1204,8 +1204,8 @@ mod tests {
                 // @TODO quote and escape
                 Literal::String(val) => val.to_string(),
                 Literal::AbstractLiteral(val) => match val {
-                    AbstractLiteral::Integer(val) => format!("Integer({})", val),
-                    AbstractLiteral::Real(val) => format!("Real({})", val),
+                    AbstractLiteral::Integer(val) => format!("Integer({val})"),
+                    AbstractLiteral::Real(val) => format!("Real({val})"),
                 },
                 Literal::Character(val) => format!("'{}'", Latin1String::new(&[*val])),
                 Literal::Physical(ref physical) => match physical.value {
@@ -1218,12 +1218,12 @@ mod tests {
                 },
                 _ => {
                     println!("{}", expr.pos.code_context());
-                    panic!("Cannot format {:?}", lit);
+                    panic!("Cannot format {lit:?}");
                 }
             },
             _ => {
                 println!("{}", expr.pos.code_context());
-                panic!("Cannot format {:?}", expr);
+                panic!("Cannot format {expr:?}");
             }
         }
     }
