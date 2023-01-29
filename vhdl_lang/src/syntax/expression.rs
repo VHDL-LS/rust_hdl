@@ -281,7 +281,7 @@ fn parse_allocator(stream: &mut TokenStream) -> ParseResult<WithPos<Allocator>> 
     }
 }
 
-fn name_to_type_mark(name: WithPos<Name>) -> ParseResult<WithPos<TypeMark>> {
+pub fn name_to_type_mark(name: WithPos<Name>) -> ParseResult<WithPos<TypeMark>> {
     let pos = name.pos.clone();
     let type_mark = name
         .try_map_into(|name| match name {

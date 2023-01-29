@@ -293,7 +293,7 @@ pub enum Direction {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum DiscreteRange {
-    Discrete(WithPos<SelectedName>, Option<Range>),
+    Discrete(WithPos<TypeMark>, Option<Range>),
     Range(Range),
 }
 
@@ -360,7 +360,7 @@ pub struct SubtypeIndication {
 pub enum ArrayIndex {
     /// Unbounded
     /// {identifier} range <>
-    IndexSubtypeDefintion(WithPos<SelectedName>),
+    IndexSubtypeDefintion(WithPos<TypeMark>),
 
     /// Constraint
     Discrete(DiscreteRange),
@@ -544,7 +544,7 @@ pub enum TypeDefinition {
     /// LRM 5.4.2 Incomplete type declarations
     Incomplete(Reference),
     /// LRM 5.5 File types
-    File(WithPos<SelectedName>),
+    File(WithPos<TypeMark>),
     /// LRM 5.6 Protected types
     Protected(ProtectedTypeDeclaration),
     ProtectedBody(ProtectedTypeBody),
@@ -610,7 +610,7 @@ pub struct FunctionSpecification {
     pub pure: bool,
     pub designator: WithDecl<WithPos<SubprogramDesignator>>,
     pub parameter_list: Vec<InterfaceDeclaration>,
-    pub return_type: WithPos<SelectedName>,
+    pub return_type: WithPos<TypeMark>,
 }
 
 /// LRM 4.3 Subprogram bodies
@@ -624,8 +624,8 @@ pub struct SubprogramBody {
 /// LRM 4.5.3 Signatures
 #[derive(PartialEq, Debug, Clone)]
 pub enum Signature {
-    Function(Vec<WithPos<SelectedName>>, WithPos<SelectedName>),
-    Procedure(Vec<WithPos<SelectedName>>),
+    Function(Vec<WithPos<TypeMark>>, WithPos<TypeMark>),
+    Procedure(Vec<WithPos<TypeMark>>),
 }
 
 #[derive(PartialEq, Debug, Clone)]

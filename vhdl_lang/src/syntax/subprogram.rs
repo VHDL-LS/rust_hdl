@@ -7,7 +7,7 @@
 use super::common::ParseResult;
 use super::declarative_part::parse_declarative_part;
 use super::interface_declaration::parse_parameter_interface_list;
-use super::names::parse_selected_name;
+use super::names::parse_type_mark;
 use super::sequential_statement::parse_labeled_sequential_statements;
 use super::tokens::{kinds_error, Kind::*, TokenStream};
 use crate::ast::*;
@@ -24,7 +24,7 @@ pub fn parse_signature(stream: &mut TokenStream) -> ParseResult<WithPos<Signatur
         token,
         Return => {
             stream.move_after(&token);
-            return_mark = Some(parse_selected_name(stream)?);
+            return_mark = Some(parse_type_mark(stream)?);
             start_pos.combine(&stream.expect_kind(RightSquare)?)
         },
         RightSquare => {
@@ -37,7 +37,7 @@ pub fn parse_signature(stream: &mut TokenStream) -> ParseResult<WithPos<Signatur
 
                 match token.kind {
                     Identifier => {
-                        type_marks.push(parse_selected_name(stream)?);
+                        type_marks.push(parse_type_mark(stream)?);
                         let sep_token = stream.expect()?;
 
                         try_token_kind!(
@@ -47,7 +47,7 @@ pub fn parse_signature(stream: &mut TokenStream) -> ParseResult<WithPos<Signatur
                                 break start_pos.combine(&sep_token.pos);
                             },
                             Return => {
-                                return_mark = Some(parse_selected_name(stream)?);
+                                return_mark = Some(parse_type_mark(stream)?);
                                 break start_pos.combine(&stream.expect_kind(RightSquare)?);
                             }
                         )
@@ -112,7 +112,7 @@ pub fn parse_subprogram_declaration_no_semi(
 
     if is_function {
         stream.expect_kind(Return)?;
-        let return_type = parse_selected_name(stream)?;
+        let return_type = parse_type_mark(stream)?;
         Ok(SubprogramDeclaration::Function(FunctionSpecification {
             pure: is_pure,
             designator: designator.into(),
@@ -226,7 +226,7 @@ function foo return lib.foo.natural;
                     .map_into(SubprogramDesignator::Identifier)
                     .into(),
                 parameter_list: Vec::new(),
-                return_type: code.s1("lib.foo.natural").selected_name()
+                return_type: code.s1("lib.foo.natural").type_mark()
             })
         );
     }
@@ -248,7 +248,7 @@ function \"+\" return lib.foo.natural;
                 }
                 .into(),
                 parameter_list: Vec::new(),
-                return_type: code.s1("lib.foo.natural").selected_name()
+                return_type: code.s1("lib.foo.natural").type_mark()
             })
         );
     }
@@ -270,7 +270,7 @@ impure function foo return lib.foo.natural;
                     .map_into(SubprogramDesignator::Identifier)
                     .into(),
                 parameter_list: Vec::new(),
-                return_type: code.s1("lib.foo.natural").selected_name()
+                return_type: code.s1("lib.foo.natural").type_mark()
             })
         );
     }
@@ -291,7 +291,7 @@ pure function foo return lib.foo.natural;
                     .map_into(SubprogramDesignator::Identifier)
                     .into(),
                 parameter_list: Vec::new(),
-                return_type: code.s1("lib.foo.natural").selected_name()
+                return_type: code.s1("lib.foo.natural").type_mark()
             })
         );
     }
@@ -332,7 +332,7 @@ function foo(foo : natural) return lib.foo.natural;
                     .map_into(SubprogramDesignator::Identifier)
                     .into(),
                 parameter_list: vec![code.s1("foo : natural").parameter()],
-                return_type: code.s1("lib.foo.natural").selected_name()
+                return_type: code.s1("lib.foo.natural").type_mark()
             })
         );
     }
@@ -343,7 +343,7 @@ function foo(foo : natural) return lib.foo.natural;
         assert_eq!(
             code.with_stream(parse_signature),
             WithPos::new(
-                Signature::Function(vec![], code.s1("bar.type_mark").selected_name()),
+                Signature::Function(vec![], code.s1("bar.type_mark").type_mark()),
                 code.pos()
             )
         );
@@ -356,8 +356,8 @@ function foo(foo : natural) return lib.foo.natural;
             code.with_stream(parse_signature),
             WithPos::new(
                 Signature::Function(
-                    vec![code.s1("foo.type_mark").selected_name()],
-                    code.s1("bar.type_mark").selected_name()
+                    vec![code.s1("foo.type_mark").type_mark()],
+                    code.s1("bar.type_mark").type_mark()
                 ),
                 code.pos()
             )
@@ -379,7 +379,7 @@ function foo(foo : natural) return lib.foo.natural;
         assert_eq!(
             code.with_stream(parse_signature),
             WithPos::new(
-                Signature::Procedure(vec![code.s1("foo.type_mark").selected_name()]),
+                Signature::Procedure(vec![code.s1("foo.type_mark").type_mark()]),
                 code.pos()
             )
         );
@@ -393,10 +393,10 @@ function foo(foo : natural) return lib.foo.natural;
             WithPos::new(
                 Signature::Function(
                     vec![
-                        code.s1("foo.type_mark").selected_name(),
-                        code.s1("foo2.type_mark").selected_name()
+                        code.s1("foo.type_mark").type_mark(),
+                        code.s1("foo2.type_mark").type_mark()
                     ],
-                    code.s1("bar.type_mark").selected_name()
+                    code.s1("bar.type_mark").type_mark()
                 ),
                 code.pos()
             )

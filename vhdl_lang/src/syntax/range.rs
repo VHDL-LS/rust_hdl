@@ -6,8 +6,8 @@
 
 use super::common::parse_optional;
 use super::common::ParseResult;
+use super::expression::name_to_type_mark;
 use super::expression::parse_expression;
-use super::names::into_selected_name;
 use super::tokens::{Kind::*, TokenStream};
 use crate::ast;
 use crate::ast::*;
@@ -83,9 +83,9 @@ pub fn parse_discrete_range(stream: &mut TokenStream) -> ParseResult<DiscreteRan
     match parse_name_or_range(stream) {
         Ok(NameOrRange::Range(range)) => Ok(DiscreteRange::Range(range.item)),
         Ok(NameOrRange::Name(name)) => {
-            let selected_name = into_selected_name(name)?;
+            let type_mark = name_to_type_mark(name)?;
             let range = parse_optional(stream, Range, parse_range)?.map(|range| range.item);
-            Ok(DiscreteRange::Discrete(selected_name, range))
+            Ok(DiscreteRange::Discrete(type_mark, range))
         }
         Err(diagnostic) => Err(diagnostic.when("parsing discrete_range")),
     }
@@ -95,21 +95,20 @@ pub fn parse_array_index_constraint(stream: &mut TokenStream) -> ParseResult<Arr
     match parse_name_or_range(stream) {
         Ok(NameOrRange::Range(range)) => Ok(ArrayIndex::Discrete(DiscreteRange::Range(range.item))),
         Ok(NameOrRange::Name(name)) => {
-            let selected_name = into_selected_name(name)?;
+            let type_mark = name_to_type_mark(name)?;
 
             if stream.skip_if_kind(Range)? {
                 if stream.skip_if_kind(BOX)? {
-                    Ok(ArrayIndex::IndexSubtypeDefintion(selected_name))
+                    Ok(ArrayIndex::IndexSubtypeDefintion(type_mark))
                 } else {
                     Ok(ArrayIndex::Discrete(DiscreteRange::Discrete(
-                        selected_name,
+                        type_mark,
                         Some(parse_range(stream)?.item),
                     )))
                 }
             } else {
                 Ok(ArrayIndex::Discrete(DiscreteRange::Discrete(
-                    selected_name,
-                    None,
+                    type_mark, None,
                 )))
             }
         }
@@ -207,7 +206,7 @@ mod tests {
         let code = Code::new("foo.bar");
         assert_eq!(
             code.with_stream(parse_discrete_range),
-            DiscreteRange::Discrete(code.s1("foo.bar").selected_name(), None)
+            DiscreteRange::Discrete(code.s1("foo.bar").type_mark(), None)
         );
     }
 
@@ -217,7 +216,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_discrete_range),
             DiscreteRange::Discrete(
-                code.s1("foo.bar").selected_name(),
+                code.s1("foo.bar").type_mark(),
                 Some(code.s1("1 to 4").range())
             )
         );
@@ -228,7 +227,7 @@ mod tests {
         let code = Code::new("foo.bar range <>");
         assert_eq!(
             code.with_stream(parse_array_index_constraint),
-            ArrayIndex::IndexSubtypeDefintion(code.s1("foo.bar").selected_name())
+            ArrayIndex::IndexSubtypeDefintion(code.s1("foo.bar").type_mark())
         );
     }
 

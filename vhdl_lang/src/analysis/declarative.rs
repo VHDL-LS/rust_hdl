@@ -884,7 +884,7 @@ impl<'a> AnalyzeContext<'a> {
                     Type::File,
                 );
 
-                match self.resolve_type_mark_name(scope, type_mark) {
+                match self.resolve_type_mark(scope, type_mark) {
                     Ok(type_mark) => {
                         if let Some(standard) = self.standard_package() {
                             for ent in
@@ -918,15 +918,15 @@ impl<'a> AnalyzeContext<'a> {
             ast::Signature::Function(ref mut args, ref mut ret) => {
                 let args: Vec<_> = args
                     .iter_mut()
-                    .map(|arg| self.resolve_type_mark_name(scope, arg))
+                    .map(|arg| self.resolve_type_mark(scope, arg))
                     .collect();
-                let return_type = self.resolve_type_mark_name(scope, ret);
+                let return_type = self.resolve_type_mark(scope, ret);
                 (args, Some(return_type))
             }
             ast::Signature::Procedure(args) => {
                 let args: Vec<_> = args
                     .iter_mut()
-                    .map(|arg| self.resolve_type_mark_name(scope, arg))
+                    .map(|arg| self.resolve_type_mark(scope, arg))
                     .collect();
                 (args, None)
             }
@@ -1074,7 +1074,7 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalResult<Option<TypeEnt<'a>>> {
         match array_index {
             ArrayIndex::IndexSubtypeDefintion(ref mut type_mark) => {
-                match self.resolve_type_mark_name(scope, type_mark) {
+                match self.resolve_type_mark(scope, type_mark) {
                     Ok(typ) => Ok(Some(typ)),
                     Err(err) => {
                         err.add_to(diagnostics)?;
@@ -1171,7 +1171,7 @@ impl<'a> AnalyzeContext<'a> {
             SubprogramDeclaration::Function(fun) => {
                 let params =
                     self.analyze_parameter_list(scope, &mut fun.parameter_list, diagnostics);
-                let return_type = self.resolve_type_mark_name(scope, &mut fun.return_type);
+                let return_type = self.resolve_type_mark(scope, &mut fun.return_type);
                 Ok(Signature::new(params?, Some(return_type?)))
             }
             SubprogramDeclaration::Procedure(procedure) => {

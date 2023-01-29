@@ -7,7 +7,7 @@
 use super::common::error_on_end_identifier_mismatch;
 use super::common::ParseResult;
 use super::declarative_part::parse_declarative_part;
-use super::names::{parse_identifier_list, parse_selected_name};
+use super::names::parse_identifier_list;
 use super::range::{parse_array_index_constraint, parse_range};
 use super::subprogram::parse_subprogram_declaration;
 use super::subtype_indication::parse_subtype_indication;
@@ -15,6 +15,7 @@ use super::tokens::{Kind::*, TokenStream};
 use crate::ast::*;
 use crate::ast::{AbstractLiteral, Range};
 use crate::data::DiagnosticHandler;
+use crate::syntax::names::parse_type_mark;
 
 /// LRM 5.2.2 Enumeration types
 fn parse_enumeration_type_definition(stream: &mut TokenStream) -> ParseResult<TypeDefinition> {
@@ -266,9 +267,9 @@ pub fn parse_type_declaration(
         },
         File => {
             stream.expect_kind(Of)?;
-            let selected_name = parse_selected_name(stream)?;
+            let type_mark = parse_type_mark(stream)?;
             stream.expect_kind(SemiColon)?;
-            TypeDefinition::File(selected_name)
+            TypeDefinition::File(type_mark)
         },
         Array => parse_array_type_definition(stream)?,
         Record =>  {
@@ -384,7 +385,7 @@ mod tests {
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
                 vec![ArrayIndex::IndexSubtypeDefintion(
-                    code.s1("natural").selected_name(),
+                    code.s1("natural").type_mark(),
                 )],
                 code.s1("boolean").subtype_indication(),
             ),
@@ -404,7 +405,7 @@ mod tests {
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
                 vec![ArrayIndex::Discrete(DiscreteRange::Discrete(
-                    code.s1("natural").selected_name(),
+                    code.s1("natural").type_mark(),
                     None,
                 ))],
                 code.s1("boolean").subtype_indication(),
@@ -425,7 +426,7 @@ mod tests {
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
                 vec![ArrayIndex::Discrete(DiscreteRange::Discrete(
-                    code.s1("lib.pkg.foo").selected_name(),
+                    code.s1("lib.pkg.foo").type_mark(),
                     None,
                 ))],
                 code.s1("boolean").subtype_indication(),
@@ -481,7 +482,7 @@ mod tests {
 
         let index0 = ArrayIndex::Discrete(DiscreteRange::Range(code.s1("2-1 downto 0").range()));
 
-        let index1 = ArrayIndex::IndexSubtypeDefintion(code.s1("integer").selected_name());
+        let index1 = ArrayIndex::IndexSubtypeDefintion(code.s1("integer").type_mark());
 
         let type_decl = TypeDeclaration {
             ident: code.s1("foo").decl_ident(),
@@ -609,7 +610,7 @@ end foo;",
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
                 ident: code.s1("foo").decl_ident(),
-                def: TypeDefinition::File(code.s1("character").selected_name())
+                def: TypeDefinition::File(code.s1("character").type_mark())
             }
         );
     }

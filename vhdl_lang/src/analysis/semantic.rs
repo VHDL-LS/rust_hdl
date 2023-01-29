@@ -160,7 +160,7 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalResult {
         match drange {
             DiscreteRange::Discrete(ref mut type_mark, ref mut range) => {
-                if let Err(err) = self.resolve_type_mark_name(scope, type_mark) {
+                if let Err(err) = self.resolve_type_mark(scope, type_mark) {
                     err.add_to(diagnostics)?;
                 }
                 if let Some(ref mut range) = range {
@@ -183,7 +183,7 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalResult {
         match drange {
             DiscreteRange::Discrete(ref mut type_mark, ref mut range) => {
-                if let Err(err) = self.resolve_type_mark_name(scope, type_mark) {
+                if let Err(err) = self.resolve_type_mark(scope, type_mark) {
                     err.add_to(diagnostics)?;
                 }
                 if let Some(ref mut range) = range {
