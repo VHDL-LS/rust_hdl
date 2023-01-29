@@ -498,9 +498,7 @@ fn substr_range(source: &Source, range: Range, substr: &str, occurence: usize) -
         reader.skip();
     }
 
-    panic!(
-        "Could not find occurence {occurence} of substring {substr:?}"
-    );
+    panic!("Could not find occurence {occurence} of substring {substr:?}");
 }
 
 /// Fast forward tokenstream until position
@@ -563,9 +561,7 @@ pub fn check_diagnostics(got: Vec<Diagnostic>, expected: Vec<Diagnostic>) {
                 if count != got_count {
                     found_errors = true;
                     println!("-------------------------------------------------------");
-                    println!(
-                        "Got right diagnostic but wrong count {got_count}, expected {count}"
-                    );
+                    println!("Got right diagnostic but wrong count {got_count}, expected {count}");
                     println!("-------------------------------------------------------");
                     println!("{}", diagnostic.show());
                 }

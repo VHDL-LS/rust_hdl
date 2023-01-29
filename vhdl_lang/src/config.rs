@@ -64,9 +64,7 @@ impl LibraryConfig {
                         }
                     };
                 } else {
-                    messages.push(Message::warning(
-                        format! {"File {pattern} does not exist"},
-                    ));
+                    messages.push(Message::warning(format! {"File {pattern} does not exist"}));
                 }
             } else {
                 match glob::glob(stripped_pattern) {
@@ -99,9 +97,7 @@ impl LibraryConfig {
                         }
                     }
                     Err(err) => {
-                        messages.push(Message::error(format!(
-                            "Invalid pattern '{pattern}' {err}"
-                        )));
+                        messages.push(Message::error(format!("Invalid pattern '{pattern}' {err}")));
                     }
                 }
             }

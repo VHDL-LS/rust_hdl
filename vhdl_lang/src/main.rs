@@ -88,9 +88,7 @@ fn main() {
         }
         let duration_per_line = duration.checked_div(num_lines as u32).unwrap();
 
-        println!(
-            "Analyzed {num_files} files with {num_lines} lines of code"
-        );
+        println!("Analyzed {num_files} files with {num_lines} lines of code");
         println!(
             "Total time to run was {} ms with an average of {} ns per line",
             duration.as_millis(),

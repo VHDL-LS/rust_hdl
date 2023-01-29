@@ -35,9 +35,8 @@ impl<'a> AnalyzeContext<'a> {
         pos: &SrcPos,
         expected: &str,
     ) -> AnalysisResult<EntRef<'a>> {
-        Ok(named_entities.expect_non_overloaded(pos, || {
-            format!("Expected {expected}, got overloaded name")
-        })?)
+        Ok(named_entities
+            .expect_non_overloaded(pos, || format!("Expected {expected}, got overloaded name"))?)
     }
 
     pub fn resolve_type_mark_name(

@@ -478,9 +478,6 @@ pub fn kind_error(
     expected: &str,
     got: &str,
 ) -> Diagnostic {
-    Diagnostic::error(
-        code.s(name, occ),
-        format!("Expected {expected}, got {got}"),
-    )
-    .related(code.s(name, occ_decl), "Defined here")
+    Diagnostic::error(code.s(name, occ), format!("Expected {expected}, got {got}"))
+        .related(code.s(name, occ_decl), "Defined here")
 }
