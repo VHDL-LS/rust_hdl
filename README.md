@@ -15,12 +15,12 @@ I very much appreciate help from other people especially regarding semantic anal
 ### Goals
 - A complete VHDL language server protocol implementation with diagnostics, navigate to symbol, find all references etc.
 
-### Status
-- Publishes diagnosics based on parse errors and warnings as well as semantic analysis.
-- Usable today to get full live syntax error checking.
+### Features
+- Live syntax and type checking 
 - Checks for missing and duplicate declarations
-- Supports goto-definition/declaration for non-overloaded items
-- Supports find-references for non-overloaded items
+- Supports goto-definition/declaration (also in presence of overloading)
+- Supports find-references (also in presence of overloading)
+- Supports hovering symbols
 
 ## VHDL Language Frontend
 [![vhdl language frontend crate](https://img.shields.io/crates/v/vhdl_lang.svg)](https://crates.io/crates/vhdl_lang)
