@@ -8,6 +8,7 @@ use super::analyze::*;
 use super::lock::*;
 use super::named_entity::*;
 use super::region::Scope;
+use super::standard::ImplicitBuilder;
 use super::standard::StandardRegion;
 use super::standard::UniversalTypes;
 
@@ -391,25 +392,30 @@ impl DesignRoot {
     }
 
     #[cfg(test)]
-    pub fn find_standard_symbol(&self, name: &str) -> &AnyEnt {
+    pub fn find_standard_pkg(&self) -> &AnyEnt {
         let std_lib = self.libraries.get(&self.symbol_utf8("std")).unwrap();
         let unit = std_lib
             .get_unit(&UnitKey::Primary(self.symbol_utf8("standard")))
             .unwrap();
 
         if let AnyPrimaryUnit::Package(pkg) = unit.unit.write().as_primary_mut().unwrap() {
-            if let AnyEntKind::Design(Design::Package(_, region)) =
-                self.get_ent(pkg.ident.decl.unwrap()).kind()
-            {
-                return region
-                    .lookup_immediate(&Designator::Identifier(self.symbol_utf8(name)))
-                    .unwrap()
-                    .as_non_overloaded()
-                    .unwrap();
-            }
+            self.get_ent(pkg.ident.decl.unwrap())
+        } else {
+            panic!("Not a package");
         }
+    }
 
-        panic!("Not a package");
+    #[cfg(test)]
+    pub fn find_standard_symbol(&self, name: &str) -> &AnyEnt {
+        if let AnyEntKind::Design(Design::Package(_, region)) = self.find_standard_pkg().kind() {
+            region
+                .lookup_immediate(&Designator::Identifier(self.symbol_utf8(name)))
+                .unwrap()
+                .as_non_overloaded()
+                .unwrap()
+        } else {
+            panic!("Not a package");
+        }
     }
 
     pub fn search(&self, searcher: &mut impl Searcher) -> SearchResult {
@@ -694,6 +700,27 @@ impl DesignRoot {
 
                     let root_scope = Scope::default();
                     let scope = root_scope.nested().in_package_declaration();
+
+                    {
+                        let builder = ImplicitBuilder {
+                            symbols: &self.symbols,
+                            arena: &arena,
+                        };
+
+                        let univ_int_unary_minus = builder
+                            .symmetric_unary(Operator::Minus, context.universal_integer().into());
+                        let univ_real_unary_minus = builder
+                            .symmetric_unary(Operator::Minus, context.universal_real().into());
+
+                        // Add unary minus as it is used in the standard package definition
+                        unsafe {
+                            arena.add_implicit(universal.integer, univ_int_unary_minus);
+                            scope.add(univ_int_unary_minus, &mut diagnostics);
+                            arena.add_implicit(universal.real, univ_real_unary_minus);
+                            scope.add(univ_real_unary_minus, &mut diagnostics);
+                        };
+                    }
+
                     context
                         .analyze_declarative_part(&scope, &mut std_package.decl, &mut diagnostics)
                         .unwrap();

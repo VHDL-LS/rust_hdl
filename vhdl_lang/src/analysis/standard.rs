@@ -18,7 +18,7 @@ use super::region::*;
 use super::DesignRoot;
 use super::EntityId;
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct UniversalTypes {
     pub integer: EntityId,
     pub real: EntityId,

@@ -45,22 +45,83 @@ impl<'a> From<DisambiguatedType<'a>> for ExpressionType<'a> {
     }
 }
 
-impl<'a> AnalyzeContext<'a> {
+pub(crate) struct TypeMatcher<'c, 'a> {
+    // Allow implicit type conversion from universal real/integer to other integer types
+    implicit_type_conversion: bool,
+    context: &'c AnalyzeContext<'a>,
+}
+
+impl<'c, 'a> TypeMatcher<'c, 'a> {
     // Returns true if the expression types is possible given the target type
     pub fn is_possible(&self, types: &ExpressionType<'a>, ttyp: BaseType<'a>) -> bool {
         if types.match_type(ttyp) {
             true
-        } else {
+        } else if self.implicit_type_conversion {
             match ttyp.kind() {
-                Type::Integer => types.match_type(self.universal_integer()),
-                Type::Real => types.match_type(self.universal_real()),
+                Type::Integer => types.match_type(self.context.universal_integer()),
+                Type::Real => types.match_type(self.context.universal_real()),
                 _ => false,
             }
+        } else {
+            false
         }
     }
 
     pub fn can_be_target_type(&self, typ: TypeEnt<'a>, ttyp: BaseType<'a>) -> bool {
         self.is_possible(&ExpressionType::Unambiguous(typ), ttyp)
+    }
+
+    pub fn disambiguate_op_by_arguments(
+        &self,
+        candidates: &mut Vec<OverloadedEnt<'a>>,
+        operand_types: &[ExpressionType<'a>],
+    ) {
+        candidates.retain(|ent| {
+            operand_types
+                .iter()
+                .enumerate()
+                .all(|(idx, expr_type)| self.is_possible(expr_type, ent.nth_base(idx).unwrap()))
+        })
+    }
+
+    pub fn disambiguate_op_by_return_type(
+        &self,
+        candidates: &mut Vec<OverloadedEnt<'a>>,
+        ttyp: Option<TypeEnt<'a>>, // Optional target type constraint
+    ) {
+        let tbase = ttyp.map(|ttyp| ttyp.base());
+        candidates.retain(|ent| {
+            if let Some(tbase) = tbase {
+                self.can_be_target_type(ent.return_type().unwrap(), tbase)
+            } else {
+                true
+            }
+        });
+    }
+}
+
+impl<'a> AnalyzeContext<'a> {
+    pub fn matcher_no_implicit(&self) -> TypeMatcher<'_, 'a> {
+        TypeMatcher {
+            implicit_type_conversion: false,
+            context: self,
+        }
+    }
+
+    pub fn matcher(&self) -> TypeMatcher<'_, 'a> {
+        TypeMatcher {
+            implicit_type_conversion: true,
+            context: self,
+        }
+    }
+
+    // Returns true if the expression types is possible given the target type
+    pub fn is_possible(&self, types: &ExpressionType<'a>, ttyp: BaseType<'a>) -> bool {
+        self.matcher().is_possible(types, ttyp)
+    }
+
+    pub fn can_be_target_type(&self, typ: TypeEnt<'a>, ttyp: BaseType<'a>) -> bool {
+        self.matcher().can_be_target_type(typ, ttyp)
     }
 
     pub fn analyze_expression(
@@ -112,19 +173,18 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    pub fn disambiguate_op_by_arguments(
+    pub fn operand_types(
         &self,
         scope: &Scope<'a>,
-        overloaded: Vec<OverloadedEnt<'a>>,
-        exprs: &mut [&mut WithPos<Expression>],
+        operands: &mut [&mut WithPos<Expression>],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<Vec<OverloadedEnt<'a>>>> {
-        let mut expr_types = Vec::with_capacity(exprs.len());
+    ) -> FatalResult<Option<Vec<ExpressionType<'a>>>> {
+        let mut operand_types = Vec::with_capacity(operands.len());
 
         let mut expr_diagnostics = Vec::new();
-        for expr in exprs.iter_mut() {
-            if let Some(expr_type) = self.expr_type(scope, expr, &mut expr_diagnostics)? {
-                expr_types.push(expr_type);
+        for expr in operands.iter_mut() {
+            if let Some(types) = self.expr_type(scope, expr, &mut expr_diagnostics)? {
+                operand_types.push(types);
             } else {
                 // bail if any operator argument is unknown
                 diagnostics.append(expr_diagnostics);
@@ -132,18 +192,7 @@ impl<'a> AnalyzeContext<'a> {
             }
         }
 
-        let candidates: Vec<_> = overloaded
-            .iter()
-            .cloned()
-            .filter(|ent| {
-                expr_types
-                    .iter()
-                    .enumerate()
-                    .all(|(idx, expr_type)| self.is_possible(expr_type, ent.nth_base(idx).unwrap()))
-            })
-            .collect();
-
-        Ok(Some(candidates))
+        Ok(Some(operand_types))
     }
 
     pub fn check_op(
@@ -179,57 +228,48 @@ impl<'a> AnalyzeContext<'a> {
         }
 
         let designator = Designator::OperatorSymbol(op.item.item);
-
-        let candidates = if let Some(candidates) =
-            self.disambiguate_op_by_arguments(scope, overloaded.clone(), exprs, diagnostics)?
-        {
-            candidates
+        let operand_types = if let Some(types) = self.operand_types(scope, exprs, diagnostics)? {
+            types
         } else {
             return Ok(None);
         };
 
-        if candidates.is_empty() {
-            let mut diag = Diagnostic::error(
-                &op.pos,
-                format!("Found no match for {}", designator.describe()),
-            );
+        let mut candidates = overloaded.clone();
 
-            diag.add_subprogram_candidates("Does not match", overloaded);
-            diagnostics.push(diag);
-            return Ok(None);
-        } else if candidates.len() == 1 {
-            let ent = candidates[0];
-            self.check_op(scope, op, ent, exprs, diagnostics)?;
-            return Ok(Some(Disambiguated::Unambiguous(ent)));
-        }
+        if candidates.len() > 1 {
+            self.matcher()
+                .disambiguate_op_by_arguments(&mut candidates, &operand_types);
 
-        // Still disambiguous, try including return type as well
-        let tbase = ttyp.map(|ttyp| ttyp.base());
-        let mut candidates = candidates;
-        candidates.retain(|ent| {
-            if let Some(tbase) = tbase {
-                self.can_be_target_type(ent.return_type().unwrap(), tbase)
-            } else {
-                true
+            if candidates.len() > 1 && ttyp.is_some() {
+                self.matcher()
+                    .disambiguate_op_by_return_type(&mut candidates, ttyp);
+
+                if candidates.len() > 1 {
+                    self.matcher_no_implicit()
+                        .disambiguate_op_by_arguments(&mut candidates, &operand_types);
+
+                    if candidates.len() > 1 {
+                        self.matcher_no_implicit()
+                            .disambiguate_op_by_return_type(&mut candidates, ttyp);
+                    }
+                }
             }
-        });
+        }
 
         if candidates.is_empty() {
-            let mut diag = Diagnostic::error(
+            diagnostics.error(
                 &op.pos,
                 format!("Found no match for {}", designator.describe()),
             );
 
-            diag.add_subprogram_candidates("Does not match", overloaded);
-            diagnostics.push(diag);
-            return Ok(None);
+            Ok(None)
         } else if candidates.len() == 1 {
             let ent = candidates[0];
             self.check_op(scope, op, ent, exprs, diagnostics)?;
-            return Ok(Some(Disambiguated::Unambiguous(ent)));
+            Ok(Some(Disambiguated::Unambiguous(ent)))
+        } else {
+            Ok(Some(Disambiguated::Ambiguous(candidates)))
         }
-
-        Ok(Some(Disambiguated::Ambiguous(candidates)))
     }
 
     pub fn operator_type(
@@ -385,36 +425,8 @@ impl<'a> AnalyzeContext<'a> {
         expr: &mut Expression,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        match expr {
-            Expression::Binary(_, ref mut left, ref mut right) => {
-                self.analyze_expression(scope, left, diagnostics)?;
-                self.analyze_expression(scope, right, diagnostics)
-            }
-            Expression::Unary(_, ref mut inner) => {
-                self.analyze_expression(scope, inner, diagnostics)
-            }
-            Expression::Name(ref mut name) => {
-                self.resolve_name(scope, pos, name, diagnostics)?;
-                Ok(())
-            }
-            Expression::Aggregate(ref mut assocs) => {
-                self.analyze_aggregate(scope, assocs, diagnostics)
-            }
-            Expression::Qualified(ref mut qexpr) => {
-                self.analyze_qualified_expression(scope, qexpr, diagnostics)?;
-                Ok(())
-            }
-            Expression::New(ref mut alloc) => self.analyze_allocation(scope, alloc, diagnostics),
-            Expression::Literal(ref mut literal) => match literal {
-                Literal::Physical(PhysicalLiteral { ref mut unit, .. }) => {
-                    if let Err(diagnostic) = self.resolve_physical_unit(scope, unit) {
-                        diagnostics.push(diagnostic);
-                    }
-                    Ok(())
-                }
-                _ => Ok(()),
-            },
-        }
+        self.expr_pos_type(scope, pos, expr, diagnostics)?;
+        Ok(())
     }
 
     fn analyze_qualified_expression(

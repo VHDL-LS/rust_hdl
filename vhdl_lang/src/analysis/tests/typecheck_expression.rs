@@ -947,10 +947,7 @@ constant bad2 : character := - 'a';
         ",
     );
 
-    let (root, diagnostics) = builder.get_analyzed_root();
-    let integer = root.find_standard_symbol("INTEGER");
-    let real = root.find_standard_symbol("REAL");
-    let time = root.find_standard_symbol("TIME");
+    let (_, diagnostics) = builder.get_analyzed_root();
 
     check_diagnostics(
         diagnostics,
@@ -963,18 +960,6 @@ constant bad2 : character := - 'a';
             Diagnostic::error(
                 code.s1("character := - 'a'").s1("-"),
                 "Found no match for operator \"-\"",
-            )
-            .related(
-                integer.decl_pos().unwrap(),
-                "Does not match \"-\"[INTEGER return INTEGER]",
-            )
-            .related(
-                real.decl_pos().unwrap(),
-                "Does not match \"-\"[REAL return REAL]",
-            )
-            .related(
-                time.decl_pos().unwrap(),
-                "Does not match \"-\"[TIME return TIME]",
             ),
         ],
     );
@@ -1000,10 +985,7 @@ constant bad2 : character := 'a' + 'b';
         ",
     );
 
-    let (root, diagnostics) = builder.get_analyzed_root();
-    let integer = root.find_standard_symbol("INTEGER");
-    let real = root.find_standard_symbol("REAL");
-    let time = root.find_standard_symbol("TIME");
+    let (_, diagnostics) = builder.get_analyzed_root();
 
     check_diagnostics(
         diagnostics,
@@ -1016,18 +998,6 @@ constant bad2 : character := 'a' + 'b';
             Diagnostic::error(
                 code.s1("character := 'a' + 'b'").s1("+"),
                 "Found no match for operator \"+\"",
-            )
-            .related(
-                integer.decl_pos().unwrap(),
-                "Does not match \"+\"[INTEGER, INTEGER return INTEGER]",
-            )
-            .related(
-                real.decl_pos().unwrap(),
-                "Does not match \"+\"[REAL, REAL return REAL]",
-            )
-            .related(
-                time.decl_pos().unwrap(),
-                "Does not match \"+\"[TIME, TIME return TIME]",
             ),
         ],
     );

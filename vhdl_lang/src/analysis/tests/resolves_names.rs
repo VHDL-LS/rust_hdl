@@ -673,7 +673,7 @@ architecture a of ent is
 begin
   main : process is
   begin
-   (0 => decl) := (0 => decl);
+   (0 => decl) := (0 => 1);
   end process;
 end architecture;
 ",
@@ -901,7 +901,7 @@ end entity;
 architecture a of ent is
   constant decl : natural := 0;
 begin
- gen: for i in decl to decl+3 generate
+ gen: for i in decl to decl + 3 generate
  end generate;
 end architecture;
 ",

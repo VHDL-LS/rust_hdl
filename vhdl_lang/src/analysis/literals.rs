@@ -27,7 +27,8 @@ impl<'a> AnalyzeContext<'a> {
         match literal {
             Literal::AbstractLiteral(abst) => match abst {
                 AbstractLiteral::Integer(_) => {
-                    if !matches!(target_base.kind(), Type::Integer) {
+                    if !self.can_be_target_type(self.universal_integer().into(), target_type.base())
+                    {
                         diagnostics.push(Diagnostic::error(
                             pos,
                             format!("integer literal does not match {}", target_type.describe()),
@@ -35,7 +36,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
                 AbstractLiteral::Real(_) => {
-                    if !matches!(target_base.kind(), Type::Real) {
+                    if !self.can_be_target_type(self.universal_real().into(), target_type.base()) {
                         diagnostics.push(Diagnostic::error(
                             pos,
                             format!("real literal does not match {}", target_type.describe()),
