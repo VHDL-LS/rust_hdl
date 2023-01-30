@@ -49,6 +49,7 @@ pub(super) struct StandardRegion<'a, 'r> {
     // Only for symbol table
     root: &'a DesignRoot,
     arena: &'a Arena,
+    builder: ImplicitBuilder<'a>,
     region: &'r Region<'a>,
 }
 
@@ -58,6 +59,10 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
             root,
             arena,
             region,
+            builder: ImplicitBuilder {
+                symbols: &root.symbols,
+                arena,
+            },
         }
     }
 
@@ -345,125 +350,6 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
         )
     }
 
-    /// Create implicit MAXIMUM/MINIMUM
-    // function MINIMUM (L, R: T) return T;
-    // function MAXIMUM (L, R: T) return T;
-    fn create_min_or_maximum(&self, name: &str, type_ent: TypeEnt<'a>) -> EntRef<'a> {
-        let mut formals = FormalRegion::new_params();
-        formals.add(self.arena.explicit(
-            self.symbol("L"),
-            AnyEntKind::Object(Object {
-                class: ObjectClass::Constant,
-                mode: Some(Mode::In),
-                subtype: Subtype::new(type_ent),
-                has_default: false,
-            }),
-            type_ent.decl_pos(),
-        ));
-
-        formals.add(self.arena.explicit(
-            self.symbol("R"),
-            AnyEntKind::Object(Object {
-                class: ObjectClass::Constant,
-                mode: Some(Mode::In),
-                subtype: Subtype::new(type_ent),
-                has_default: false,
-            }),
-            type_ent.decl_pos(),
-        ));
-
-        self.arena.implicit(
-            type_ent.into(),
-            self.symbol(name),
-            AnyEntKind::new_function_decl(formals, type_ent),
-            type_ent.decl_pos(),
-        )
-    }
-
-    fn unary(&self, op: Operator, typ: TypeEnt<'a>, return_type: TypeEnt<'a>) -> EntRef<'a> {
-        let mut formals = FormalRegion::new_params();
-        formals.add(self.arena.explicit(
-            // @TODO anonymous
-            self.symbol("V"),
-            AnyEntKind::Object(Object {
-                class: ObjectClass::Constant,
-                mode: Some(Mode::In),
-                subtype: Subtype::new(typ.to_owned()),
-                has_default: false,
-            }),
-            typ.decl_pos(),
-        ));
-
-        self.arena.implicit(
-            typ.into(),
-            Designator::OperatorSymbol(op),
-            AnyEntKind::new_function_decl(formals, return_type),
-            typ.decl_pos(),
-        )
-    }
-
-    fn symmetric_unary(&self, op: Operator, typ: TypeEnt<'a>) -> EntRef<'a> {
-        self.unary(op, typ, typ)
-    }
-
-    fn binary(
-        &self,
-
-        op: Operator,
-        implicit_of: TypeEnt<'a>,
-        left: TypeEnt<'a>,
-        right: TypeEnt<'a>,
-        return_type: TypeEnt<'a>,
-    ) -> EntRef<'a> {
-        let mut formals = FormalRegion::new_params();
-        formals.add(self.arena.explicit(
-            // @TODO anonymous
-            self.symbol("L"),
-            AnyEntKind::Object(Object {
-                class: ObjectClass::Constant,
-                mode: Some(Mode::In),
-                subtype: Subtype::new(left),
-                has_default: false,
-            }),
-            implicit_of.decl_pos(),
-        ));
-
-        formals.add(self.arena.explicit(
-            // @TODO anonymous
-            self.symbol("R"),
-            AnyEntKind::Object(Object {
-                class: ObjectClass::Constant,
-                mode: Some(Mode::In),
-                subtype: Subtype::new(right),
-                has_default: false,
-            }),
-            implicit_of.decl_pos(),
-        ));
-
-        self.arena.implicit(
-            implicit_of.into(),
-            Designator::OperatorSymbol(op),
-            AnyEntKind::new_function_decl(formals, return_type),
-            implicit_of.decl_pos(),
-        )
-    }
-
-    fn symmetric_binary(&self, op: Operator, typ: TypeEnt<'a>) -> EntRef<'a> {
-        self.binary(op, typ, typ, typ, typ)
-    }
-
-    fn comparison(&self, op: Operator, typ: TypeEnt<'a>) -> EntRef<'a> {
-        self.binary(op, typ, typ, typ, self.boolean())
-    }
-
-    pub fn minimum(&self, type_ent: TypeEnt<'a>) -> EntRef<'a> {
-        self.create_min_or_maximum("MINIMUM", type_ent)
-    }
-
-    pub fn maximum(&self, type_ent: TypeEnt<'a>) -> EntRef<'a> {
-        self.create_min_or_maximum("MAXIMUM", type_ent)
-    }
-
     /// Create implicit DEALLOCATE
     /// procedure DEALLOCATE (P: inout AT);
     pub fn deallocate(&self, type_ent: TypeEnt<'a>) -> EntRef<'a> {
@@ -487,6 +373,10 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
         )
     }
 
+    fn comparison(&self, op: Operator, typ: TypeEnt<'a>) -> EntRef<'a> {
+        self.builder.binary(op, typ, typ, typ, self.boolean())
+    }
+
     pub fn comparators(&self, typ: TypeEnt<'a>) -> impl Iterator<Item = EntRef<'a>> {
         [
             self.comparison(Operator::EQ, typ),
@@ -507,27 +397,27 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
         let integer = self.integer();
 
         [
-            self.minimum(typ),
-            self.maximum(typ),
+            self.builder.minimum(typ),
+            self.builder.maximum(typ),
             self.create_to_string(typ),
-            self.symmetric_unary(Operator::Minus, typ),
-            self.symmetric_unary(Operator::Plus, typ),
-            self.symmetric_binary(Operator::Plus, typ),
-            self.symmetric_binary(Operator::Minus, typ),
+            self.builder.symmetric_unary(Operator::Minus, typ),
+            self.builder.symmetric_unary(Operator::Plus, typ),
+            self.builder.symmetric_binary(Operator::Plus, typ),
+            self.builder.symmetric_binary(Operator::Minus, typ),
             // 9.2.7 Multiplying operators
-            self.symmetric_binary(Operator::Times, typ),
-            self.symmetric_binary(Operator::Div, typ),
+            self.builder.symmetric_binary(Operator::Times, typ),
+            self.builder.symmetric_binary(Operator::Div, typ),
             // 9.2.8 Miscellaneous operators
-            self.symmetric_unary(Operator::Abs, typ),
-            self.binary(Operator::Pow, typ, typ, integer, typ),
+            self.builder.symmetric_unary(Operator::Abs, typ),
+            self.builder.binary(Operator::Pow, typ, typ, integer, typ),
         ]
         .into_iter()
         .chain(
             if kind == UniversalType::Integer {
                 Some(
                     [
-                        self.symmetric_binary(Operator::Mod, typ),
-                        self.symmetric_binary(Operator::Rem, typ),
+                        self.builder.symmetric_binary(Operator::Mod, typ),
+                        self.builder.symmetric_binary(Operator::Rem, typ),
                     ]
                     .into_iter(),
                 )
@@ -545,23 +435,24 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
         let real = self.real();
 
         [
-            self.minimum(typ),
-            self.maximum(typ),
-            self.symmetric_unary(Operator::Minus, typ),
-            self.symmetric_unary(Operator::Plus, typ),
-            self.symmetric_unary(Operator::Abs, typ),
-            self.symmetric_binary(Operator::Plus, typ),
-            self.symmetric_binary(Operator::Minus, typ),
+            self.builder.minimum(typ),
+            self.builder.maximum(typ),
+            self.builder.symmetric_unary(Operator::Minus, typ),
+            self.builder.symmetric_unary(Operator::Plus, typ),
+            self.builder.symmetric_unary(Operator::Abs, typ),
+            self.builder.symmetric_binary(Operator::Plus, typ),
+            self.builder.symmetric_binary(Operator::Minus, typ),
             // 9.2.7 Multiplying operators
-            self.binary(Operator::Times, typ, typ, integer, typ),
-            self.binary(Operator::Times, typ, typ, real, typ),
-            self.binary(Operator::Times, typ, integer, typ, typ),
-            self.binary(Operator::Times, typ, real, typ, typ),
-            self.binary(Operator::Div, typ, typ, integer, typ),
-            self.binary(Operator::Div, typ, typ, real, typ),
-            self.binary(Operator::Div, typ, typ, typ, self.universal_integer()),
-            self.symmetric_binary(Operator::Mod, typ),
-            self.symmetric_binary(Operator::Rem, typ),
+            self.builder.binary(Operator::Times, typ, typ, integer, typ),
+            self.builder.binary(Operator::Times, typ, typ, real, typ),
+            self.builder.binary(Operator::Times, typ, integer, typ, typ),
+            self.builder.binary(Operator::Times, typ, real, typ, typ),
+            self.builder.binary(Operator::Div, typ, typ, integer, typ),
+            self.builder.binary(Operator::Div, typ, typ, real, typ),
+            self.builder
+                .binary(Operator::Div, typ, typ, typ, self.universal_integer()),
+            self.builder.symmetric_binary(Operator::Mod, typ),
+            self.builder.symmetric_binary(Operator::Rem, typ),
         ]
         .into_iter()
         .chain(self.comparators(typ).into_iter())
@@ -570,8 +461,8 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
     pub fn enum_implicits(&self, typ: TypeEnt<'a>) -> impl Iterator<Item = EntRef<'a>> {
         [
             self.create_to_string(typ),
-            self.minimum(typ),
-            self.maximum(typ),
+            self.builder.minimum(typ),
+            self.builder.maximum(typ),
         ]
         .into_iter()
         .chain(self.comparators(typ).into_iter())
@@ -591,22 +482,22 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
         elem_type: TypeEnt<'a>,
     ) -> impl Iterator<Item = EntRef<'a>> {
         [
-            self.binary(
+            self.builder.binary(
                 Operator::Concat,
                 array_type,
                 array_type,
                 elem_type,
                 array_type,
             ),
-            self.binary(
+            self.builder.binary(
                 Operator::Concat,
                 array_type,
                 elem_type,
                 array_type,
                 array_type,
             ),
-            self.symmetric_binary(Operator::Concat, array_type),
-            self.binary(
+            self.builder.symmetric_binary(Operator::Concat, array_type),
+            self.builder.binary(
                 Operator::Concat,
                 array_type,
                 elem_type,
@@ -701,13 +592,13 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
         for name in ["BOOLEAN", "BIT"] {
             let typ = self.lookup_type(name);
             let implicits = [
-                self.symmetric_binary(Operator::And, typ),
-                self.symmetric_binary(Operator::Or, typ),
-                self.symmetric_binary(Operator::Nand, typ),
-                self.symmetric_binary(Operator::Nor, typ),
-                self.symmetric_binary(Operator::Xor, typ),
-                self.symmetric_binary(Operator::Xnor, typ),
-                self.symmetric_unary(Operator::Not, typ),
+                self.builder.symmetric_binary(Operator::And, typ),
+                self.builder.symmetric_binary(Operator::Or, typ),
+                self.builder.symmetric_binary(Operator::Nand, typ),
+                self.builder.symmetric_binary(Operator::Nor, typ),
+                self.builder.symmetric_binary(Operator::Xor, typ),
+                self.builder.symmetric_binary(Operator::Xnor, typ),
+                self.builder.symmetric_unary(Operator::Not, typ),
             ]
             .into_iter();
 
@@ -735,18 +626,18 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
                 let op = *op;
                 [
                     // A op A -> A
-                    self.symmetric_binary(op, atyp),
+                    self.builder.symmetric_binary(op, atyp),
                     if op == Operator::Not {
                         // op A -> A
-                        self.unary(op, atyp, atyp)
+                        self.builder.unary(op, atyp, atyp)
                     } else {
                         // op A -> S
-                        self.unary(op, atyp, styp)
+                        self.builder.unary(op, atyp, styp)
                     },
                     // A op S -> A
-                    self.binary(op, atyp, atyp, styp, atyp),
+                    self.builder.binary(op, atyp, atyp, styp, atyp),
                     // S op A -> A
-                    self.binary(op, atyp, atyp, atyp, styp),
+                    self.builder.binary(op, atyp, atyp, atyp, styp),
                 ]
                 .into_iter()
             });
@@ -887,5 +778,131 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
             res.push(ent);
         }
         res
+    }
+}
+
+pub(crate) struct ImplicitBuilder<'a> {
+    pub symbols: &'a Symbols,
+    pub arena: &'a Arena,
+}
+
+impl<'a> ImplicitBuilder<'a> {
+    fn symbol(&self, name: &str) -> Symbol {
+        self.symbols.symtab().insert_utf8(name)
+    }
+
+    /// Create implicit MAXIMUM/MINIMUM
+    // function MINIMUM (L, R: T) return T;
+    // function MAXIMUM (L, R: T) return T;
+    fn create_min_or_maximum(&self, name: &str, type_ent: TypeEnt<'a>) -> EntRef<'a> {
+        let mut formals = FormalRegion::new_params();
+        formals.add(self.arena.explicit(
+            self.symbol("L"),
+            AnyEntKind::Object(Object {
+                class: ObjectClass::Constant,
+                mode: Some(Mode::In),
+                subtype: Subtype::new(type_ent),
+                has_default: false,
+            }),
+            type_ent.decl_pos(),
+        ));
+
+        formals.add(self.arena.explicit(
+            self.symbol("R"),
+            AnyEntKind::Object(Object {
+                class: ObjectClass::Constant,
+                mode: Some(Mode::In),
+                subtype: Subtype::new(type_ent),
+                has_default: false,
+            }),
+            type_ent.decl_pos(),
+        ));
+
+        self.arena.implicit(
+            type_ent.into(),
+            self.symbol(name),
+            AnyEntKind::new_function_decl(formals, type_ent),
+            type_ent.decl_pos(),
+        )
+    }
+
+    fn unary(&self, op: Operator, typ: TypeEnt<'a>, return_type: TypeEnt<'a>) -> EntRef<'a> {
+        let mut formals = FormalRegion::new_params();
+        formals.add(self.arena.explicit(
+            // @TODO anonymous
+            self.symbol("V"),
+            AnyEntKind::Object(Object {
+                class: ObjectClass::Constant,
+                mode: Some(Mode::In),
+                subtype: Subtype::new(typ.to_owned()),
+                has_default: false,
+            }),
+            typ.decl_pos(),
+        ));
+
+        self.arena.implicit(
+            typ.into(),
+            Designator::OperatorSymbol(op),
+            AnyEntKind::new_function_decl(formals, return_type),
+            typ.decl_pos(),
+        )
+    }
+
+    pub(crate) fn symmetric_unary(&self, op: Operator, typ: TypeEnt<'a>) -> EntRef<'a> {
+        self.unary(op, typ, typ)
+    }
+
+    fn binary(
+        &self,
+
+        op: Operator,
+        implicit_of: TypeEnt<'a>,
+        left: TypeEnt<'a>,
+        right: TypeEnt<'a>,
+        return_type: TypeEnt<'a>,
+    ) -> EntRef<'a> {
+        let mut formals = FormalRegion::new_params();
+        formals.add(self.arena.explicit(
+            // @TODO anonymous
+            self.symbol("L"),
+            AnyEntKind::Object(Object {
+                class: ObjectClass::Constant,
+                mode: Some(Mode::In),
+                subtype: Subtype::new(left),
+                has_default: false,
+            }),
+            implicit_of.decl_pos(),
+        ));
+
+        formals.add(self.arena.explicit(
+            // @TODO anonymous
+            self.symbol("R"),
+            AnyEntKind::Object(Object {
+                class: ObjectClass::Constant,
+                mode: Some(Mode::In),
+                subtype: Subtype::new(right),
+                has_default: false,
+            }),
+            implicit_of.decl_pos(),
+        ));
+
+        self.arena.implicit(
+            implicit_of.into(),
+            Designator::OperatorSymbol(op),
+            AnyEntKind::new_function_decl(formals, return_type),
+            implicit_of.decl_pos(),
+        )
+    }
+
+    fn symmetric_binary(&self, op: Operator, typ: TypeEnt<'a>) -> EntRef<'a> {
+        self.binary(op, typ, typ, typ, typ)
+    }
+
+    pub fn minimum(&self, type_ent: TypeEnt<'a>) -> EntRef<'a> {
+        self.create_min_or_maximum("MINIMUM", type_ent)
+    }
+
+    pub fn maximum(&self, type_ent: TypeEnt<'a>) -> EntRef<'a> {
+        self.create_min_or_maximum("MAXIMUM", type_ent)
     }
 }

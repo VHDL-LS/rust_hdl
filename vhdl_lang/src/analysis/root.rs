@@ -677,11 +677,9 @@ impl DesignRoot {
                     // Ensure no remaining references from previous analysis
                     clear_references(std_package);
 
-                    self.universal = Some(UniversalTypes::new(
-                        &arena,
-                        std_package.pos(),
-                        self.symbols.as_ref(),
-                    ));
+                    let universal =
+                        UniversalTypes::new(&arena, std_package.pos(), self.symbols.as_ref());
+                    self.universal = Some(universal);
 
                     let context = AnalyzeContext::new(self, locked_unit.unit_id(), &arena);
 

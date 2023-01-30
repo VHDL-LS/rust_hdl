@@ -212,20 +212,17 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn universal_integer(&self) -> BaseType<'a> {
         TypeEnt::from_any(
-            self.root
-                .get_ent(self.root.universal.as_ref().unwrap().integer),
+            self.arena
+                .get(self.root.universal.as_ref().unwrap().integer),
         )
         .unwrap()
         .base()
     }
 
     pub fn universal_real(&self) -> BaseType<'a> {
-        TypeEnt::from_any(
-            self.root
-                .get_ent(self.root.universal.as_ref().unwrap().real),
-        )
-        .unwrap()
-        .base()
+        TypeEnt::from_any(self.arena.get(self.root.universal.as_ref().unwrap().real))
+            .unwrap()
+            .base()
     }
 
     /// Add implicit context clause for all packages except STD.STANDARD
