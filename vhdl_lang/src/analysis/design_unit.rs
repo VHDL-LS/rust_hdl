@@ -5,7 +5,6 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use super::named_entity::*;
-use super::standard::StandardRegion;
 use super::*;
 use crate::ast::*;
 use crate::data::*;
@@ -139,19 +138,7 @@ impl<'a> AnalyzeContext<'a> {
             scope.close(diagnostics);
         }
 
-        let mut region = scope.into_region();
-
-        if self.is_standard_package() {
-            let implicits = {
-                let standard = StandardRegion::new(self.root, self.arena, &region);
-                standard.end_of_package_implicits(self.arena)
-            };
-
-            for imp in implicits.into_iter() {
-                region.add(imp, diagnostics);
-            }
-        }
-
+        let region = scope.into_region();
         let visibility = root_scope.into_visibility();
 
         self.redefine(
@@ -433,7 +420,7 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    fn analyze_context_clause(
+    pub(crate) fn analyze_context_clause(
         &self,
         scope: &Scope<'a>,
         context_clause: &mut [WithPos<ContextItem>],

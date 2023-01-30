@@ -7,6 +7,8 @@
 use super::analyze::*;
 use super::lock::*;
 use super::named_entity::*;
+use super::region::Scope;
+use super::standard::StandardRegion;
 use super::standard::UniversalTypes;
 
 use crate::ast::search::*;
@@ -655,46 +657,69 @@ impl DesignRoot {
             .get(&self.symbol_utf8("std"))
             .map(|library| &library.units)
         {
-            if let Some(standard_pkg) =
+            if let Some(locked_unit) =
                 standard_units.get(&UnitKey::Primary(self.symbol_utf8("standard")))
             {
-                if let AnalysisEntry::Vacant(mut unit) = standard_pkg.unit.entry() {
+                if let AnalysisEntry::Vacant(mut unit) = locked_unit.unit.entry() {
                     // Clear to ensure the analysis of standard package does not believe it has the standard package
                     let arena = Arena::new_std();
                     self.standard_pkg_id = None;
                     self.standard_arena = None;
 
+                    let std_package =
+                        if let Some(AnyPrimaryUnit::Package(pkg)) = unit.as_primary_mut() {
+                            assert!(pkg.context_clause.is_empty());
+                            assert!(pkg.generic_clause.is_none());
+                            pkg
+                        } else {
+                            panic!("Expected standard package is primary unit");
+                        };
                     // Ensure no remaining references from previous analysis
-                    clear_references(unit.as_primary_mut().unwrap());
+                    clear_references(std_package);
 
                     self.universal = Some(UniversalTypes::new(
                         &arena,
-                        unit.pos(),
+                        std_package.pos(),
                         self.symbols.as_ref(),
                     ));
 
-                    let context = AnalyzeContext::new(self, standard_pkg.unit_id(), &arena);
+                    let context = AnalyzeContext::new(self, locked_unit.unit_id(), &arena);
 
                     let ent = arena.explicit(
                         self.symbol_utf8("standard"),
                         AnyEntKind::Label,
-                        Some(unit.pos()),
+                        Some(std_package.ident.pos()),
                     );
                     let standard_pkg_id = ent.id();
 
                     let mut diagnostics = Vec::new();
 
-                    let has_circular_dependency = if let Err(err) = context.analyze_primary_unit(
-                        ent.id(),
-                        unit.as_primary_mut()
-                            .expect("Expected standard package is primary unit"),
-                        &mut diagnostics,
-                    ) {
-                        err.push_into(&mut diagnostics);
-                        true
-                    } else {
-                        false
+                    let root_scope = Scope::default();
+                    let scope = root_scope.nested().in_package_declaration();
+                    context
+                        .analyze_declarative_part(&scope, &mut std_package.decl, &mut diagnostics)
+                        .unwrap();
+                    scope.close(&mut diagnostics);
+
+                    let mut region = scope.into_region();
+
+                    let implicits = {
+                        let standard = StandardRegion::new(self, &arena, &region);
+                        standard.end_of_package_implicits(&arena)
                     };
+
+                    for imp in implicits.into_iter() {
+                        region.add(imp, &mut diagnostics);
+                    }
+
+                    let visibility = root_scope.into_visibility();
+
+                    context.redefine(
+                        standard_pkg_id,
+                        &mut std_package.ident,
+                        AnyEntKind::Design(Design::Package(visibility, region)),
+                    );
+
                     let arena = arena.finalize();
                     self.standard_pkg_id = Some(standard_pkg_id);
                     self.standard_arena = Some(arena.clone());
@@ -702,7 +727,7 @@ impl DesignRoot {
                     let result = AnalysisData {
                         arena,
                         diagnostics,
-                        has_circular_dependency,
+                        has_circular_dependency: false,
                     };
 
                     unit.finish(result);

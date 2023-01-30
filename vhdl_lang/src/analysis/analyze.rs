@@ -210,11 +210,6 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    pub fn is_standard_package(&self) -> bool {
-        *self.work_library_name() == self.std_sym
-            && *self.current_unit.primary_name() == self.standard_sym
-    }
-
     pub fn universal_integer(&self) -> BaseType<'a> {
         TypeEnt::from_any(
             self.root
@@ -245,10 +240,6 @@ impl<'a> AnalyzeContext<'a> {
                 self.work_library(),
             );
         }
-
-        if self.is_standard_package() {
-            return Ok(());
-        };
 
         if let Some(std_library) = self.get_library(&self.std_sym) {
             scope.make_potentially_visible(None, std_library);
