@@ -165,7 +165,9 @@ impl<'a> AnalyzeContext<'a> {
 
         self.analyze_context_clause(&root_scope, &mut unit.context_clause, diagnostics)?;
 
-        if let Some(pkg_region) = self.generic_package_instance(&root_scope, unit, diagnostics)? {
+        if let Some(pkg_region) =
+            as_fatal(self.generic_package_instance(&root_scope, unit, diagnostics))?
+        {
             self.redefine(
                 id,
                 &mut unit.ident,

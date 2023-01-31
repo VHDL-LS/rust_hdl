@@ -46,7 +46,7 @@ impl<'a> AnalyzeContext<'a> {
         generics: GpkgRegion<'a>,
         generic_map: &mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<FnvHashMap<EntityId, EntRef<'a>>> {
+    ) -> EvalResult<FnvHashMap<EntityId, EntRef<'a>>> {
         let mut mapping = FnvHashMap::default();
 
         // @TODO check missing associations
@@ -104,12 +104,10 @@ impl<'a> AnalyzeContext<'a> {
                         } else {
                             diagnostics
                                 .error(&assoc.actual.pos, "Cannot map expression to type generic");
-                            None
+                            continue;
                         };
 
-                        if let Some(typ) = typ {
-                            mapping.insert(uninst_typ.id(), typ.into());
-                        }
+                        mapping.insert(uninst_typ.id(), typ.into());
                     }
                     GpkgInterfaceEnt::Constant(obj) => self.expr_with_ttyp(
                         scope,
@@ -120,11 +118,12 @@ impl<'a> AnalyzeContext<'a> {
                     )?,
                     GpkgInterfaceEnt::Subprogram(_) => match expr {
                         Expression::Name(name) => {
-                            if let Err(err) =
-                                self.name_resolve(scope, &assoc.actual.pos, name, diagnostics)
-                            {
-                                diagnostics.push(err.into_non_fatal()?);
-                            };
+                            as_fatal(self.name_resolve(
+                                scope,
+                                &assoc.actual.pos,
+                                name,
+                                diagnostics,
+                            ))?;
                         }
                         Expression::Literal(Literal::String(string)) => {
                             if Operator::from_latin1(string.clone()).is_none() {
@@ -138,11 +137,12 @@ impl<'a> AnalyzeContext<'a> {
                     },
                     GpkgInterfaceEnt::Package(_) => match expr {
                         Expression::Name(name) => {
-                            if let Err(err) =
-                                self.name_resolve(scope, &assoc.actual.pos, name, diagnostics)
-                            {
-                                diagnostics.push(err.into_non_fatal()?);
-                            };
+                            as_fatal(self.name_resolve(
+                                scope,
+                                &assoc.actual.pos,
+                                name,
+                                diagnostics,
+                            ))?;
                         }
                         _ => diagnostics.error(
                             &assoc.actual.pos,
@@ -163,7 +163,7 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         unit: &mut PackageInstantiation,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<Region<'a>>> {
+    ) -> EvalResult<Region<'a>> {
         let PackageInstantiation {
             package_name,
             generic_map,
@@ -198,11 +198,11 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
 
-                Ok(Some(nested.into_region()))
+                Ok(nested.into_region())
             }
             Err(err) => {
                 diagnostics.push(err.into_non_fatal()?);
-                Ok(None)
+                Err(EvalError::Unknown)
             }
         }
     }

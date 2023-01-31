@@ -14,7 +14,7 @@ use fnv::FnvHashSet;
 use std::cell::RefCell;
 use std::ops::Deref;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum AnalysisError {
     Fatal(CircularDependencyError),
     NotFatal(Diagnostic),
@@ -26,7 +26,7 @@ impl AnalysisError {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[must_use]
 pub struct CircularDependencyError {
     reference: Option<SrcPos>,
@@ -49,9 +49,62 @@ impl CircularDependencyError {
 pub type AnalysisResult<T> = Result<T, AnalysisError>;
 pub type FatalResult<T = ()> = Result<T, CircularDependencyError>;
 
+pub fn as_fatal<T>(res: EvalResult<T>) -> FatalResult<Option<T>> {
+    match res {
+        Ok(val) => Ok(Some(val)),
+        Err(EvalError::Unknown) => Ok(None),
+        Err(EvalError::Circular(circ)) => Err(circ),
+    }
+}
+
+pub fn catch_diagnostic<T>(
+    res: Result<T, Diagnostic>,
+    diagnostics: &mut dyn DiagnosticHandler,
+) -> EvalResult<T> {
+    match res {
+        Ok(val) => Ok(val),
+        Err(diag) => {
+            diagnostics.push(diag);
+            Err(EvalError::Unknown)
+        }
+    }
+}
+
+pub fn catch_analysis_err<T>(
+    res: AnalysisResult<T>,
+    diagnostics: &mut dyn DiagnosticHandler,
+) -> EvalResult<T> {
+    match res {
+        Ok(val) => Ok(val),
+        Err(AnalysisError::Fatal(err)) => Err(EvalError::Circular(err)),
+        Err(AnalysisError::NotFatal(diag)) => {
+            diagnostics.push(diag);
+            Err(EvalError::Unknown)
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum EvalError {
+    // A circular dependency was found
+    Circular(CircularDependencyError),
+    // Evaluation is no longer possible, for example if encountering illegal code
+    // Typically functions returning Unknown will have published diagnostics on the side-channel
+    // And the unknown is returned to stop further upstream analysis
+    Unknown,
+}
+
+pub type EvalResult<T = ()> = Result<T, EvalError>;
+
 impl From<CircularDependencyError> for AnalysisError {
     fn from(err: CircularDependencyError) -> AnalysisError {
         AnalysisError::Fatal(err)
+    }
+}
+
+impl From<CircularDependencyError> for EvalError {
+    fn from(err: CircularDependencyError) -> EvalError {
+        EvalError::Circular(err)
     }
 }
 

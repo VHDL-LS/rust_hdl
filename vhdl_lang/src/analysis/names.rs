@@ -12,17 +12,6 @@ use super::region::*;
 use crate::ast::*;
 use crate::data::*;
 
-macro_rules! try_unknown {
-    ($expr:expr) => {
-        if let Some(value) = $expr? {
-            value
-        } else {
-            // Unknown
-            return Ok(None);
-        }
-    };
-}
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ObjectBase<'a> {
     Object(ObjectEnt<'a>),
@@ -463,7 +452,7 @@ impl<'a> AnalyzeContext<'a> {
                 return Ok(None);
             }
 
-            let resolved = self.name_resolve(scope, expr_pos, name, diagnostics)?;
+            let resolved = as_fatal(self.name_resolve(scope, expr_pos, name, diagnostics))?;
 
             if let Some(ResolvedName::Type(typ)) = resolved {
                 return if matches!(typ.base_type().kind(), Type::Enum { .. } | Type::Integer) {
@@ -557,7 +546,7 @@ impl<'a> AnalyzeContext<'a> {
         name_pos: &SrcPos,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<Option<ResolvedName<'a>>> {
+    ) -> EvalResult<ResolvedName<'a>> {
         self.name_resolve_with_suffixes(scope, name_pos, name, None, false, diagnostics)
     }
 
@@ -569,41 +558,49 @@ impl<'a> AnalyzeContext<'a> {
         ttyp: Option<TypeEnt<'a>>,
         has_suffix: bool,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<Option<ResolvedName<'a>>> {
+    ) -> EvalResult<ResolvedName<'a>> {
         let mut suffix;
         let prefix;
         let mut resolved = match SplitName::from_name(name) {
             SplitName::Designator(designator) => {
-                let name = scope.lookup(name_pos, designator.designator())?;
-                return Ok(Some(match name {
+                let name =
+                    catch_diagnostic(scope.lookup(name_pos, designator.designator()), diagnostics)?;
+                return Ok(match name {
                     NamedEntities::Single(ent) => {
                         designator.set_unique_reference(ent);
-                        ResolvedName::from_scope_not_overloaded(ent)
-                            .map_err(|e| Diagnostic::error(name_pos, e))?
+
+                        catch_diagnostic(
+                            ResolvedName::from_scope_not_overloaded(ent)
+                                .map_err(|e| Diagnostic::error(name_pos, e)),
+                            diagnostics,
+                        )?
                     }
                     NamedEntities::Overloaded(overloaded) => ResolvedName::Overloaded(
                         WithPos::new(designator.item.clone(), name_pos.clone()),
                         overloaded,
                     ),
-                }));
+                });
             }
             SplitName::External(ename) => {
                 let ExternalName { subtype, class, .. } = ename;
-                let subtype = self.resolve_subtype_indication(scope, subtype, diagnostics)?;
-                return Ok(Some(ResolvedName::ObjectName(ObjectName {
+                let subtype = catch_analysis_err(
+                    self.resolve_subtype_indication(scope, subtype, diagnostics),
+                    diagnostics,
+                )?;
+                return Ok(ResolvedName::ObjectName(ObjectName {
                     base: ObjectBase::ExternalName(*class),
                     type_mark: Some(subtype.type_mark().to_owned()),
-                })));
+                }));
             }
             SplitName::Suffix(p, s) => {
-                let resolved = try_unknown!(self.name_resolve_with_suffixes(
+                let resolved = self.name_resolve_with_suffixes(
                     scope,
                     &p.pos,
                     &mut p.item,
                     None,
                     true,
-                    diagnostics
-                ));
+                    diagnostics,
+                )?;
                 prefix = p;
                 suffix = s;
                 resolved
@@ -613,20 +610,23 @@ impl<'a> AnalyzeContext<'a> {
         // Any other suffix must collapse overloaded
         if !matches!(suffix, Suffix::CallOrIndexed(_)) {
             if let ResolvedName::Overloaded(ref des, ref overloaded) = resolved {
-                let disambiguated = self.disambiguate_no_actuals(
-                    des,
-                    {
-                        // @TODO must be disambiguated with suffixes
-                        None
-                    },
-                    overloaded,
+                let disambiguated = catch_diagnostic(
+                    self.disambiguate_no_actuals(
+                        des,
+                        {
+                            // @TODO must be disambiguated with suffixes
+                            None
+                        },
+                        overloaded,
+                    ),
+                    diagnostics,
                 )?;
 
                 if let Some(disambiguated) = disambiguated {
                     match disambiguated {
                         Disambiguated::Ambiguous(_) => {
                             // @TODO ambiguous error
-                            return Ok(None);
+                            return Err(EvalError::Unknown);
                         }
                         Disambiguated::Unambiguous(ent) => {
                             if let Some(typ) = ent.return_type() {
@@ -637,7 +637,7 @@ impl<'a> AnalyzeContext<'a> {
                                     &prefix.pos,
                                     "Procedure calls are not valid in names and expressions",
                                 );
-                                return Ok(None);
+                                return Err(EvalError::Unknown);
                             }
                         }
                     }
@@ -656,7 +656,7 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             // @TODO not handled yet
-            return Ok(None);
+            return Err(EvalError::Unknown);
         }
 
         match resolved {
@@ -667,13 +667,13 @@ impl<'a> AnalyzeContext<'a> {
                     // @TODO lookup already set reference to get O(N) instead of O(N^2) when disambiguating deeply nested ambiguous calls
                     if let Some(id) = prefix.item.get_suffix_reference() {
                         if let Ok(ent) = OverloadedEnt::from_any(self.arena.get(id)) {
-                            return Ok(Some(ResolvedName::Expression(
-                                DisambiguatedType::Unambiguous(ent.return_type().unwrap()),
+                            return Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                                ent.return_type().unwrap(),
                             )));
                         }
                     }
 
-                    match self.disambiguate(
+                    match as_fatal(self.disambiguate(
                         scope,
                         name_pos,
                         des,
@@ -686,10 +686,10 @@ impl<'a> AnalyzeContext<'a> {
                         },
                         overloaded.entities().collect(),
                         diagnostics,
-                    )? {
+                    ))? {
                         Some(Disambiguated::Ambiguous(_)) => {
                             // @TODO ambiguous error
-                            return Ok(None);
+                            return Err(EvalError::Unknown);
                         }
                         Some(Disambiguated::Unambiguous(ent)) => {
                             prefix.set_unique_reference(&ent);
@@ -702,11 +702,11 @@ impl<'a> AnalyzeContext<'a> {
                                     &prefix.pos,
                                     "Procedure calls are not valid in names and expressions",
                                 );
-                                return Ok(None);
+                                return Err(EvalError::Unknown);
                             }
                         }
                         None => {
-                            return Ok(None);
+                            return Err(EvalError::Unknown);
                         }
                     }
                 } else {
@@ -714,16 +714,19 @@ impl<'a> AnalyzeContext<'a> {
                         name_pos,
                         "CallOrIndexed should already be handled",
                     ));
-                    return Ok(None);
+                    return Err(EvalError::Unknown);
                 }
             }
             ResolvedName::ObjectName(oname) => {
-                match self.resolve_typed_suffix(
-                    scope,
-                    &prefix.pos,
-                    name_pos,
-                    oname.type_mark(),
-                    &mut suffix,
+                match catch_analysis_err(
+                    self.resolve_typed_suffix(
+                        scope,
+                        &prefix.pos,
+                        name_pos,
+                        oname.type_mark(),
+                        &mut suffix,
+                        diagnostics,
+                    ),
                     diagnostics,
                 )? {
                     Some(TypeOrMethod::Type(typ)) => {
@@ -733,20 +736,26 @@ impl<'a> AnalyzeContext<'a> {
                         resolved = ResolvedName::Overloaded(des, name);
                     }
                     None => {
-                        return Err(
-                            Diagnostic::cannot_be_prefix(&prefix.pos, resolved, suffix).into()
-                        );
+                        diagnostics.push(Diagnostic::cannot_be_prefix(
+                            &prefix.pos,
+                            resolved,
+                            suffix,
+                        ));
+                        return Err(EvalError::Unknown);
                     }
                 }
             }
             ResolvedName::Expression(ref typ) => match typ {
                 DisambiguatedType::Unambiguous(typ) => {
-                    match self.resolve_typed_suffix(
-                        scope,
-                        &prefix.pos,
-                        name_pos,
-                        *typ,
-                        &mut suffix,
+                    match catch_analysis_err(
+                        self.resolve_typed_suffix(
+                            scope,
+                            &prefix.pos,
+                            name_pos,
+                            *typ,
+                            &mut suffix,
+                            diagnostics,
+                        ),
                         diagnostics,
                     )? {
                         Some(TypeOrMethod::Type(typ)) => {
@@ -757,42 +766,48 @@ impl<'a> AnalyzeContext<'a> {
                             resolved = ResolvedName::Overloaded(des, name);
                         }
                         None => {
-                            return Err(Diagnostic::cannot_be_prefix(
+                            diagnostics.push(Diagnostic::cannot_be_prefix(
                                 &prefix.pos,
                                 resolved,
                                 suffix,
-                            )
-                            .into());
+                            ));
+                            return Err(EvalError::Unknown);
                         }
                     }
                 }
                 DisambiguatedType::Ambiguous(_) => {
                     // @TODO ambiguous error
-                    return Ok(None);
+                    return Err(EvalError::Unknown);
                 }
             },
 
             ResolvedName::Library(ref library_name) => {
                 if let Suffix::Selected(ref mut designator) = suffix {
-                    resolved = ResolvedName::Design(self.lookup_in_library(
-                        library_name,
-                        &designator.pos,
-                        &designator.item.item,
-                        &mut designator.item.reference,
+                    resolved = ResolvedName::Design(catch_analysis_err(
+                        self.lookup_in_library(
+                            library_name,
+                            &designator.pos,
+                            &designator.item.item,
+                            &mut designator.item.reference,
+                        ),
+                        diagnostics,
                     )?);
                 } else {
-                    return Err(Diagnostic::cannot_be_prefix(name_pos, resolved, suffix).into());
+                    diagnostics.push(Diagnostic::cannot_be_prefix(name_pos, resolved, suffix));
+                    return Err(EvalError::Unknown);
                 }
             }
             ResolvedName::Design(ref ent) => {
                 if let Suffix::Selected(ref mut designator) = suffix {
-                    let name = ent.selected(&prefix.pos, designator)?;
+                    let name =
+                        catch_diagnostic(ent.selected(&prefix.pos, designator), diagnostics)?;
                     designator.set_reference(&name);
                     resolved = match name {
-                        NamedEntities::Single(named_entity) => {
+                        NamedEntities::Single(named_entity) => catch_diagnostic(
                             ResolvedName::from_design_not_overloaded(named_entity)
-                                .map_err(|e| Diagnostic::error(&designator.pos, e))?
-                        }
+                                .map_err(|e| Diagnostic::error(&designator.pos, e)),
+                            diagnostics,
+                        )?,
                         NamedEntities::Overloaded(overloaded) => {
                             // Could be used for an alias of a subprogram
                             ResolvedName::Overloaded(
@@ -802,26 +817,29 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     }
                 } else {
-                    return Err(Diagnostic::cannot_be_prefix(name_pos, resolved, suffix).into());
+                    diagnostics.push(Diagnostic::cannot_be_prefix(name_pos, resolved, suffix));
+                    return Err(EvalError::Unknown);
                 }
             }
             ResolvedName::Type(typ) => {
                 if let Suffix::CallOrIndexed(ref assocs) = suffix {
                     if assocs.len() == 1 && could_be_indexed_name(assocs) {
                         // @TODO Type conversion, check argument
-                        return Ok(Some(ResolvedName::Expression(
-                            DisambiguatedType::Unambiguous(typ),
+                        return Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                            typ,
                         )));
                     }
                 }
-                return Err(Diagnostic::cannot_be_prefix(name_pos, resolved, suffix).into());
+                diagnostics.push(Diagnostic::cannot_be_prefix(name_pos, resolved, suffix));
+                return Err(EvalError::Unknown);
             }
             ResolvedName::Final(_) => {
-                return Err(Diagnostic::cannot_be_prefix(name_pos, resolved, suffix).into());
+                diagnostics.push(Diagnostic::cannot_be_prefix(name_pos, resolved, suffix));
+                return Err(EvalError::Unknown);
             }
         }
 
-        Ok(Some(resolved))
+        Ok(resolved)
     }
     // Helper function:
     // Resolve a name that must be some kind of object selection, index or slice
@@ -834,20 +852,19 @@ impl<'a> AnalyzeContext<'a> {
         name: &mut Name,
         err_msg: &'static str,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<Option<ObjectName<'a>>> {
-        let resolved = try_unknown!(self.name_resolve(scope, name_pos, name, diagnostics));
+    ) -> EvalResult<ObjectName<'a>> {
+        let resolved = self.name_resolve(scope, name_pos, name, diagnostics)?;
         match resolved {
-            ResolvedName::ObjectName(oname) => Ok(Some(oname)),
+            ResolvedName::ObjectName(oname) => Ok(oname),
             ResolvedName::Library(_)
             | ResolvedName::Design(_)
             | ResolvedName::Type(_)
             | ResolvedName::Overloaded { .. }
             | ResolvedName::Expression(_)
-            | ResolvedName::Final(_) => Err(Diagnostic::error(
-                name_pos,
-                format!("{} {}", resolved.describe(), err_msg),
-            )
-            .into()),
+            | ResolvedName::Final(_) => {
+                diagnostics.error(name_pos, format!("{} {}", resolved.describe(), err_msg));
+                Err(EvalError::Unknown)
+            }
         }
     }
 
@@ -857,18 +874,10 @@ impl<'a> AnalyzeContext<'a> {
         name_pos: &SrcPos,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<TypeEnt<'a>>> {
-        let resolved = match self.name_resolve(scope, name_pos, name, diagnostics) {
-            Ok(Some(resolved)) => resolved,
-            Ok(None) => return Ok(None),
-            Err(err) => {
-                diagnostics.push(err.into_non_fatal()?);
-                return Ok(None);
-            }
-        };
-
+    ) -> EvalResult<TypeEnt<'a>> {
+        let resolved = self.name_resolve(scope, name_pos, name, diagnostics)?;
         match resolved {
-            ResolvedName::Type(typ) => Ok(Some(typ)),
+            ResolvedName::Type(typ) => Ok(typ),
             ResolvedName::Library(_)
             | ResolvedName::Design(_)
             | ResolvedName::ObjectName(_)
@@ -879,7 +888,7 @@ impl<'a> AnalyzeContext<'a> {
                     name_pos,
                     format!("Expected type name, got {}", resolved.describe()),
                 );
-                Ok(None)
+                Err(EvalError::Unknown)
             }
         }
     }
@@ -891,20 +900,15 @@ impl<'a> AnalyzeContext<'a> {
         expr_pos: &SrcPos,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<DisambiguatedType<'a>>> {
-        match self.name_resolve_with_suffixes(scope, expr_pos, name, None, false, diagnostics) {
-            Ok(Some(resolved)) => match self.name_to_type(expr_pos, resolved) {
-                Ok(Some(typ)) => Ok(Some(typ)),
-                Ok(None) => Ok(None),
-                Err(diag) => {
-                    diagnostics.push(diag);
-                    Ok(None)
-                }
-            },
-            Ok(None) => Ok(None),
-            Err(err) => {
-                diagnostics.push(err.into_non_fatal()?);
-                Ok(None)
+    ) -> EvalResult<DisambiguatedType<'a>> {
+        let resolved =
+            self.name_resolve_with_suffixes(scope, expr_pos, name, None, false, diagnostics)?;
+        match self.name_to_type(expr_pos, resolved) {
+            Ok(Some(typ)) => Ok(typ),
+            Ok(None) => Err(EvalError::Unknown),
+            Err(diag) => {
+                diagnostics.push(diag);
+                Err(EvalError::Unknown)
             }
         }
     }
@@ -918,34 +922,34 @@ impl<'a> AnalyzeContext<'a> {
         ttyp: TypeEnt<'a>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        match self.name_resolve_with_suffixes(scope, expr_pos, name, Some(ttyp), false, diagnostics)
-        {
-            Ok(Some(resolved)) => {
-                // @TODO target_type already used above, functions could probably be simplified
-                match self.name_to_unambiguous_type(
-                    expr_pos,
-                    &resolved,
-                    ttyp,
-                    name.suffix_reference_mut(),
-                ) {
-                    Ok(Some(type_mark)) => {
-                        if !self.can_be_target_type(type_mark, ttyp.base()) {
-                            diagnostics.push(Diagnostic::type_mismatch(
-                                expr_pos,
-                                &resolved.describe_type(),
-                                ttyp,
-                            ));
-                        }
-                    }
-                    Ok(None) => {}
-                    Err(diag) => {
-                        diagnostics.push(diag);
+        if let Some(resolved) = as_fatal(self.name_resolve_with_suffixes(
+            scope,
+            expr_pos,
+            name,
+            Some(ttyp),
+            false,
+            diagnostics,
+        ))? {
+            // @TODO target_type already used above, functions could probably be simplified
+            match self.name_to_unambiguous_type(
+                expr_pos,
+                &resolved,
+                ttyp,
+                name.suffix_reference_mut(),
+            ) {
+                Ok(Some(type_mark)) => {
+                    if !self.can_be_target_type(type_mark, ttyp.base()) {
+                        diagnostics.push(Diagnostic::type_mismatch(
+                            expr_pos,
+                            &resolved.describe_type(),
+                            ttyp,
+                        ));
                     }
                 }
-            }
-            Ok(None) => {}
-            Err(err) => {
-                diagnostics.push(err.into_non_fatal()?);
+                Ok(None) => {}
+                Err(diag) => {
+                    diagnostics.push(diag);
+                }
             }
         }
         Ok(())
@@ -958,60 +962,58 @@ impl<'a> AnalyzeContext<'a> {
         name_pos: &SrcPos,
         name: &mut Name,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<NamedEntities<'a>>> {
+    ) -> EvalResult<NamedEntities<'a>> {
         match name {
             Name::Selected(prefix, suffix) => {
                 match self.resolve_name(scope, &prefix.pos, &mut prefix.item, diagnostics)? {
-                    Some(NamedEntities::Single(named_entity)) => {
+                    NamedEntities::Single(named_entity) => {
                         match self.lookup_selected(&prefix.pos, named_entity, suffix) {
                             Ok(visible) => {
                                 suffix.set_reference(&visible);
-                                Ok(Some(visible))
+                                Ok(visible)
                             }
                             Err(err) => {
                                 err.add_to(diagnostics)?;
-                                Ok(None)
+                                Err(EvalError::Unknown)
                             }
                         }
                     }
-                    Some(NamedEntities::Overloaded(..)) => Ok(None),
-                    None => Ok(None),
+                    NamedEntities::Overloaded(..) => Err(EvalError::Unknown),
                 }
             }
 
             Name::SelectedAll(prefix) => {
                 self.resolve_name(scope, &prefix.pos, &mut prefix.item, diagnostics)?;
-
-                Ok(None)
+                Err(EvalError::Unknown)
             }
             Name::Designator(designator) => match scope.lookup(name_pos, designator.designator()) {
                 Ok(visible) => {
                     designator.set_reference(&visible);
-                    Ok(Some(visible))
+                    Ok(visible)
                 }
                 Err(diagnostic) => {
                     diagnostics.push(diagnostic);
-                    Ok(None)
+                    Err(EvalError::Unknown)
                 }
             },
             Name::Slice(ref mut prefix, ref mut drange) => {
                 self.resolve_name(scope, &prefix.pos, &mut prefix.item, diagnostics)?;
                 self.analyze_discrete_range(scope, drange.as_mut(), diagnostics)?;
-                Ok(None)
+                Err(EvalError::Unknown)
             }
             Name::Attribute(ref mut attr) => {
                 self.analyze_attribute_name(scope, attr, diagnostics)?;
-                Ok(None)
+                Err(EvalError::Unknown)
             }
             Name::CallOrIndexed(ref mut call) => {
                 self.resolve_name(scope, &call.name.pos, &mut call.name.item, diagnostics)?;
                 self.analyze_assoc_elems(scope, &mut call.parameters, diagnostics)?;
-                Ok(None)
+                Err(EvalError::Unknown)
             }
             Name::External(ref mut ename) => {
                 let ExternalName { subtype, .. } = ename.as_mut();
                 self.analyze_subtype_indication(scope, subtype, diagnostics)?;
-                Ok(None)
+                Err(EvalError::Unknown)
             }
         }
     }
@@ -1030,7 +1032,7 @@ impl<'a> AnalyzeContext<'a> {
             ..
         } = attr;
 
-        self.resolve_name(scope, &name.pos, &mut name.item, diagnostics)?;
+        as_fatal(self.resolve_name(scope, &name.pos, &mut name.item, diagnostics))?;
 
         if let Some(ref mut signature) = signature {
             if let Err(err) = self.resolve_signature(scope, signature) {
@@ -1266,18 +1268,16 @@ mod test {
             code: &Code,
             ttyp: Option<TypeEnt<'a>>,
             diagnostics: &mut dyn DiagnosticHandler,
-        ) -> Result<Option<ResolvedName<'a>>, Diagnostic> {
+        ) -> EvalResult<ResolvedName<'a>> {
             let mut name = code.name();
-            self.ctx()
-                .name_resolve_with_suffixes(
-                    &self.scope,
-                    &name.pos,
-                    &mut name.item,
-                    ttyp,
-                    false,
-                    diagnostics,
-                )
-                .map_err(|e| e.into_non_fatal().unwrap())
+            self.ctx().name_resolve_with_suffixes(
+                &self.scope,
+                &name.pos,
+                &mut name.item,
+                ttyp,
+                false,
+                diagnostics,
+            )
         }
 
         fn expression_name_with_ttyp(
@@ -1304,9 +1304,13 @@ mod test {
             diagnostics: &mut dyn DiagnosticHandler,
         ) -> Option<DisambiguatedType<'a>> {
             let mut name = code.name();
-            self.ctx()
-                .expression_name_types(&self.scope, &name.pos, &mut name.item, diagnostics)
-                .unwrap()
+            as_fatal(self.ctx().expression_name_types(
+                &self.scope,
+                &name.pos,
+                &mut name.item,
+                diagnostics,
+            ))
+            .unwrap()
         }
     }
 
@@ -1314,10 +1318,10 @@ mod test {
     fn object_name() {
         let test = TestSetup::new();
         test.declarative_part("constant c0 : natural := 0;");
-        let resolved = test
-            .name_resolve(&test.snippet("c0"), None, &mut NoDiagnostics)
-            .unwrap();
-        assert_matches!(resolved, Some(ResolvedName::ObjectName(_)));
+        assert_matches!(
+            test.name_resolve(&test.snippet("c0"), None, &mut NoDiagnostics),
+            Ok(ResolvedName::ObjectName(_))
+        );
     }
 
     #[test]
@@ -1331,10 +1335,9 @@ end record;
 constant c0 : rec_t := (others => 0);
 ",
         );
-        let resolved = test
-            .name_resolve(&test.snippet("c0.field"), None, &mut NoDiagnostics)
-            .unwrap();
-        assert_matches!(resolved, Some(ResolvedName::ObjectName(oname)) if oname.type_mark() == test.lookup_type("natural"));
+
+        assert_matches!(test.name_resolve(&test.snippet("c0.field"), None, &mut NoDiagnostics), 
+            Ok(ResolvedName::ObjectName(oname)) if oname.type_mark() == test.lookup_type("natural"));
     }
 
     #[test]
@@ -1346,10 +1349,8 @@ type ptr_t is access integer_vector;
 variable vptr : ptr_t;
 ",
         );
-        let resolved = test
-            .name_resolve(&test.snippet("vptr.all"), None, &mut NoDiagnostics)
-            .unwrap();
-        assert_matches!(resolved, Some(ResolvedName::ObjectName(oname)) if oname.type_mark() == test.lookup_type("integer_vector"));
+        let resolved = test.name_resolve(&test.snippet("vptr.all"), None, &mut NoDiagnostics);
+        assert_matches!(resolved, Ok(ResolvedName::ObjectName(oname)) if oname.type_mark() == test.lookup_type("integer_vector"));
     }
 
     #[test]
@@ -1360,10 +1361,8 @@ variable vptr : ptr_t;
 variable c0 : integer_vector(0 to 1);
 ",
         );
-        let resolved = test
-            .name_resolve(&test.snippet("c0(0)"), None, &mut NoDiagnostics)
-            .unwrap();
-        assert_matches!(resolved, Some(ResolvedName::ObjectName(oname)) if oname.type_mark() == test.lookup_type("integer"));
+        let resolved = test.name_resolve(&test.snippet("c0(0)"), None, &mut NoDiagnostics);
+        assert_matches!(resolved, Ok(ResolvedName::ObjectName(oname)) if oname.type_mark() == test.lookup_type("integer"));
     }
 
     #[test]
@@ -1375,23 +1374,28 @@ variable c0 : integer_vector(0 to 1);
 ",
         );
         let code = test.snippet("c0(open)");
-        let resolved = test.name_resolve(&test.snippet("c0(open)"), None, &mut NoDiagnostics);
+        let mut diagnostics = Vec::new();
         assert_eq!(
-            resolved,
-            Err(Diagnostic::error(
+            test.name_resolve(&test.snippet("c0(open)"), None, &mut diagnostics),
+            Err(EvalError::Unknown)
+        );
+
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
                 &code.s1("c0"),
-                "variable 'c0' cannot be called as a function"
-            ))
+                "variable 'c0' cannot be called as a function",
+            )],
         );
     }
 
     #[test]
     fn overloaded_name() {
         let test = TestSetup::new();
-        let resolved = test
-            .name_resolve(&test.snippet("true"), None, &mut NoDiagnostics)
-            .unwrap();
-        assert_matches!(resolved, Some(ResolvedName::Overloaded { .. }));
+        assert_matches!(
+            test.name_resolve(&test.snippet("true"), None, &mut NoDiagnostics),
+            Ok(ResolvedName::Overloaded { .. })
+        );
     }
 
     #[test]
@@ -1402,13 +1406,11 @@ variable c0 : integer_vector(0 to 1);
 function fun(arg: natural) return integer;
         ",
         );
-        let resolved = test
-            .name_resolve(&test.snippet("fun(0)"), None, &mut NoDiagnostics)
-            .unwrap()
-            .unwrap();
         assert_eq!(
-            resolved,
-            ResolvedName::Expression(DisambiguatedType::Unambiguous(test.lookup_type("integer"))),
+            test.name_resolve(&test.snippet("fun(0)"), None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.lookup_type("integer")
+            ))),
         );
     }
 
@@ -1457,8 +1459,10 @@ procedure proc(arg: natural);
         );
         let mut diagnostics = Vec::new();
         let code = test.snippet("proc(0)");
-        let resolved = test.name_resolve(&code, None, &mut diagnostics).unwrap();
-        assert_eq!(resolved, None);
+        assert_eq!(
+            test.name_resolve(&code, None, &mut diagnostics),
+            Err(EvalError::Unknown)
+        );
         check_diagnostics(
             diagnostics,
             vec![Diagnostic::error(
@@ -1508,9 +1512,9 @@ function myfun(arg : integer) return string;
         let code = test.snippet("myfun(0)(0 to 1)");
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
-            Ok(Some(ResolvedName::Expression(
-                DisambiguatedType::Unambiguous(test.lookup_type("string"))
-            ),))
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.lookup_type("string")
+            )))
         );
     }
 
@@ -1525,9 +1529,9 @@ function myfun return string;
         let code = test.snippet("myfun(0 to 1)");
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
-            Ok(Some(ResolvedName::Expression(
-                DisambiguatedType::Unambiguous(test.lookup_type("string"))
-            ),))
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.lookup_type("string")
+            )))
         );
     }
 
@@ -1556,7 +1560,7 @@ variable vptr : ptr_t;
         let code = test.snippet("vptr(0 to 1)");
         assert_matches!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
-            Ok(Some(ResolvedName::ObjectName(oname))) if oname.type_mark() == test.lookup_type("integer_vector")
+            Ok(ResolvedName::ObjectName(oname)) if oname.type_mark() == test.lookup_type("integer_vector")
         );
     }
 
@@ -1572,7 +1576,7 @@ variable vptr : ptr_t;
         let code = test.snippet("vptr(0)");
         assert_matches!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
-            Ok(Some(ResolvedName::ObjectName(oname))) if oname.type_mark() == test.lookup_type("integer")
+            Ok(ResolvedName::ObjectName(oname)) if oname.type_mark() == test.lookup_type("integer")
         );
     }
 
@@ -1588,7 +1592,7 @@ variable c0 : integer_vector(0 to 6);
         let code = test.snippet("c0(sub_t)");
         assert_matches!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
-            Ok(Some(ResolvedName::ObjectName(oname))) if oname.type_mark() == test.lookup_type("integer_vector")
+            Ok(ResolvedName::ObjectName(oname)) if oname.type_mark() == test.lookup_type("integer_vector")
         );
     }
 
@@ -1606,7 +1610,7 @@ variable c0 : arr_t(a to c);
         let code = test.snippet("c0(sub_t)");
         assert_matches!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
-            Ok(Some(ResolvedName::ObjectName(oname))) if oname.type_mark() == test.lookup_type("arr_t")
+            Ok(ResolvedName::ObjectName(oname)) if oname.type_mark() == test.lookup_type("arr_t")
         );
     }
 
@@ -1619,12 +1623,17 @@ variable c0 : integer_vector(0 to 6);
 ",
         );
         let code = test.snippet("c0(real)");
+        let mut diagnostics = Vec::new();
         assert_eq!(
-            test.name_resolve(&code, None, &mut NoDiagnostics),
-            Err(Diagnostic::error(
-                code.s1("real"),
-                "real type 'REAL' cannot be used as a discrete range"
-            ))
+            test.name_resolve(&code, None, &mut diagnostics),
+            Err(EvalError::Unknown)
         );
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("real"),
+                "real type 'REAL' cannot be used as a discrete range",
+            )],
+        )
     }
 }

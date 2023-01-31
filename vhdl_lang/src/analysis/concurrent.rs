@@ -296,35 +296,29 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for name in names.iter_mut() {
-            match self.resolve_object_name(
+            if let Some(object_name) = as_fatal(self.resolve_object_name(
                 scope,
                 &name.pos,
                 &mut name.item,
                 "is not a signal and cannot be in a sensitivity list",
                 diagnostics,
-            ) {
-                Ok(Some(object_name)) => {
-                    if object_name.base.class() != ObjectClass::Signal {
-                        diagnostics.error(
-                            &name.pos,
-                            format!(
-                                "{} is not a signal and cannot be in a sensitivity list",
-                                object_name.base.describe_class()
-                            ),
-                        )
-                    } else if object_name.base.mode() == Some(Mode::Out) {
-                        diagnostics.error(
-                            &name.pos,
-                            format!(
-                                "{} cannot be in a sensitivity list",
-                                object_name.base.describe_class()
-                            ),
-                        )
-                    }
-                }
-                Ok(None) => {}
-                Err(err) => {
-                    diagnostics.push(err.into_non_fatal()?);
+            ))? {
+                if object_name.base.class() != ObjectClass::Signal {
+                    diagnostics.error(
+                        &name.pos,
+                        format!(
+                            "{} is not a signal and cannot be in a sensitivity list",
+                            object_name.base.describe_class()
+                        ),
+                    )
+                } else if object_name.base.mode() == Some(Mode::Out) {
+                    diagnostics.error(
+                        &name.pos,
+                        format!(
+                            "{} cannot be in a sensitivity list",
+                            object_name.base.describe_class()
+                        ),
+                    )
                 }
             }
         }

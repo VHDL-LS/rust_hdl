@@ -188,7 +188,7 @@ impl<'a> AnalyzeContext<'a> {
         ttyp: Option<TypeEnt<'a>>,
         all_overloaded: Vec<OverloadedEnt<'a>>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<Disambiguated<'a>>> {
+    ) -> EvalResult<Disambiguated<'a>> {
         // Apply target type constraint if it exists
         let overloaded = if let Some(ttyp) = ttyp {
             let mut overloaded = all_overloaded.clone();
@@ -210,7 +210,7 @@ impl<'a> AnalyzeContext<'a> {
         if overloaded.len() == 1 {
             let ent = overloaded[0];
             self.check_call(scope, call_pos, ent, parameters, diagnostics)?;
-            return Ok(Some(Disambiguated::Unambiguous(ent)));
+            return Ok(Disambiguated::Unambiguous(ent));
         } else if overloaded.is_empty() {
             // No candidate
             let mut diag = Diagnostic::error(
@@ -219,18 +219,18 @@ impl<'a> AnalyzeContext<'a> {
             );
             diag.add_subprogram_candidates("Does not match", all_overloaded);
             diagnostics.push(diag);
-            return Ok(None);
+            return Err(EvalError::Unknown);
         }
 
         let mut candidates = Vec::with_capacity(overloaded.len());
         for ent in overloaded.iter() {
-            if let Some(resolved) = self.resolve_association_formals(
+            if let Some(resolved) = as_fatal(self.resolve_association_formals(
                 call_pos,
                 ent.formals(),
                 scope,
                 parameters,
                 &mut NullDiagnostics,
-            )? {
+            ))? {
                 candidates.push((ent, resolved));
             }
 
@@ -243,7 +243,7 @@ impl<'a> AnalyzeContext<'a> {
         if candidates.len() == 1 {
             let ent = *candidates[0].0;
             self.check_call(scope, call_pos, ent, parameters, diagnostics)?;
-            return Ok(Some(Disambiguated::Unambiguous(ent)));
+            return Ok(Disambiguated::Unambiguous(ent));
         }
 
         // No candidate matched actual/formal profile
@@ -251,7 +251,7 @@ impl<'a> AnalyzeContext<'a> {
             return if overloaded.len() == 1 {
                 let ent = overloaded[0];
                 self.check_call(scope, call_pos, ent, parameters, diagnostics)?;
-                return Ok(Some(Disambiguated::Unambiguous(ent)));
+                return Ok(Disambiguated::Unambiguous(ent));
             } else {
                 let mut diag = Diagnostic::error(
                     &call_name.pos,
@@ -259,7 +259,7 @@ impl<'a> AnalyzeContext<'a> {
                 );
                 diag.add_subprogram_candidates("Does not match", overloaded);
                 diagnostics.push(diag);
-                Ok(None)
+                Err(EvalError::Unknown)
             };
         }
 
@@ -268,14 +268,9 @@ impl<'a> AnalyzeContext<'a> {
         for assoc in parameters.iter_mut() {
             match &mut assoc.actual.item {
                 ActualPart::Expression(expr) => {
-                    if let Some(actual_type) =
-                        self.expr_pos_type(scope, &assoc.actual.pos, expr, diagnostics)?
-                    {
-                        actual_types.push(Some(actual_type));
-                    } else {
-                        // bail if any operator argument is unknown
-                        return Ok(None);
-                    }
+                    let actual_type =
+                        self.expr_pos_type(scope, &assoc.actual.pos, expr, diagnostics)?;
+                    actual_types.push(Some(actual_type));
                 }
                 ActualPart::Open => {
                     actual_types.push(None);
@@ -302,7 +297,7 @@ impl<'a> AnalyzeContext<'a> {
         if type_candidates.len() == 1 {
             let ent = type_candidates[0];
             self.check_call(scope, call_pos, ent, parameters, diagnostics)?;
-            return Ok(Some(Disambiguated::Unambiguous(ent)));
+            return Ok(Disambiguated::Unambiguous(ent));
         } else if type_candidates.is_empty() {
             let mut diag = Diagnostic::error(
                 &call_name.pos,
@@ -310,9 +305,9 @@ impl<'a> AnalyzeContext<'a> {
             );
             diag.add_subprogram_candidates("Does not match", overloaded);
             diagnostics.push(diag);
-            Ok(None)
+            Err(EvalError::Unknown)
         } else {
-            Ok(Some(Disambiguated::Ambiguous(type_candidates)))
+            Ok(Disambiguated::Ambiguous(type_candidates))
         }
     }
 
@@ -379,17 +374,16 @@ mod tests {
                 panic!("Expected overloaded")
             };
 
-            self.ctx()
-                .disambiguate(
-                    &self.scope,
-                    &fcall.pos,
-                    &des,
-                    &mut fcall.item.parameters,
-                    ttyp,
-                    overloaded.entities().collect(),
-                    diagnostics,
-                )
-                .unwrap()
+            as_fatal(self.ctx().disambiguate(
+                &self.scope,
+                &fcall.pos,
+                &des,
+                &mut fcall.item.parameters,
+                ttyp,
+                overloaded.entities().collect(),
+                diagnostics,
+            ))
+            .unwrap()
         }
     }
 

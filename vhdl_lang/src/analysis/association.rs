@@ -145,12 +145,12 @@ impl<'a> AnalyzeContext<'a> {
                         return Err(Diagnostic::error(name_pos, "Invalid formal conversion").into());
                     };
 
-                    let converted_typ = match self.name_resolve(
+                    let converted_typ = match as_fatal(self.name_resolve(
                         scope,
                         &fcall.name.pos,
                         &mut fcall.name.item,
                         diagnostics,
-                    )? {
+                    ))? {
                         Some(ResolvedName::Type(typ)) => {
                             // @TODO check type conversion is legal
                             typ
@@ -240,7 +240,7 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         elems: &'e mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<Vec<ResolvedFormal<'a>>>> {
+    ) -> EvalResult<Vec<ResolvedFormal<'a>>> {
         let mut result: Vec<ResolvedFormal> = Default::default();
 
         let mut missing = false;
@@ -282,7 +282,7 @@ impl<'a> AnalyzeContext<'a> {
         }
 
         if not_associated.is_empty() && extra_associations.is_empty() && !missing {
-            Ok(Some(result))
+            Ok(result)
         } else {
             // Only complain if nothing else is wrong
             for idx in not_associated {
@@ -307,7 +307,7 @@ impl<'a> AnalyzeContext<'a> {
             for pos in extra_associations.into_iter() {
                 diagnostics.error(pos, "Unexpected extra argument")
             }
-            Ok(None)
+            Err(EvalError::Unknown)
         }
     }
 
@@ -319,9 +319,13 @@ impl<'a> AnalyzeContext<'a> {
         elems: &mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        if let Some(formals) =
-            self.resolve_association_formals(error_pos, formal_region, scope, elems, diagnostics)?
-        {
+        if let Some(formals) = as_fatal(self.resolve_association_formals(
+            error_pos,
+            formal_region,
+            scope,
+            elems,
+            diagnostics,
+        ))? {
             for (formal, actual) in formals
                 .iter()
                 .zip(elems.iter_mut().map(|assoc| &mut assoc.actual))

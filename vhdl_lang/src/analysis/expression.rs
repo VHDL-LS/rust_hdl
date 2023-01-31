@@ -178,21 +178,21 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         operands: &mut [&mut WithPos<Expression>],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<Vec<ExpressionType<'a>>>> {
+    ) -> EvalResult<Vec<ExpressionType<'a>>> {
         let mut operand_types = Vec::with_capacity(operands.len());
 
         let mut expr_diagnostics = Vec::new();
         for expr in operands.iter_mut() {
-            if let Some(types) = self.expr_type(scope, expr, &mut expr_diagnostics)? {
+            if let Some(types) = as_fatal(self.expr_type(scope, expr, &mut expr_diagnostics))? {
                 operand_types.push(types);
             } else {
                 // bail if any operator argument is unknown
                 diagnostics.append(expr_diagnostics);
-                return Ok(None);
+                return Err(EvalError::Unknown);
             }
         }
 
-        Ok(Some(operand_types))
+        Ok(operand_types)
     }
 
     pub fn check_op(
@@ -219,20 +219,16 @@ impl<'a> AnalyzeContext<'a> {
         overloaded: Vec<OverloadedEnt<'a>>,
         exprs: &mut [&mut WithPos<Expression>],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<Disambiguated<'a>>> {
+    ) -> EvalResult<Disambiguated<'a>> {
         // @TODO lookup already set reference to get O(N) instead of O(N^2) when disambiguating deeply nested ambiguous operators
         if let Some(reference) = op.item.reference {
             if let Ok(ent) = OverloadedEnt::from_any(self.arena.get(reference)) {
-                return Ok(Some(Disambiguated::Unambiguous(ent)));
+                return Ok(Disambiguated::Unambiguous(ent));
             }
         }
 
         let designator = Designator::OperatorSymbol(op.item.item);
-        let operand_types = if let Some(types) = self.operand_types(scope, exprs, diagnostics)? {
-            types
-        } else {
-            return Ok(None);
-        };
+        let operand_types = self.operand_types(scope, exprs, diagnostics)?;
 
         let mut candidates = overloaded.clone();
 
@@ -262,13 +258,13 @@ impl<'a> AnalyzeContext<'a> {
                 format!("Found no match for {}", designator.describe()),
             );
 
-            Ok(None)
+            Err(EvalError::Unknown)
         } else if candidates.len() == 1 {
             let ent = candidates[0];
             self.check_op(scope, op, ent, exprs, diagnostics)?;
-            Ok(Some(Disambiguated::Unambiguous(ent)))
+            Ok(Disambiguated::Unambiguous(ent))
         } else {
-            Ok(Some(Disambiguated::Ambiguous(candidates)))
+            Ok(Disambiguated::Ambiguous(candidates))
         }
     }
 
@@ -278,30 +274,29 @@ impl<'a> AnalyzeContext<'a> {
         op: &mut WithPos<WithRef<Operator>>,
         exprs: &mut [&mut WithPos<Expression>],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<ExpressionType<'a>>> {
+    ) -> EvalResult<ExpressionType<'a>> {
         if !can_handle(op.item.item) {
-            return Ok(None);
+            return Err(EvalError::Unknown);
         }
 
         let op_candidates = match self.lookup_operator(scope, &op.pos, op.item.item, exprs.len()) {
             Ok(candidates) => candidates,
             Err(err) => {
                 diagnostics.push(err.into_non_fatal()?);
-                return Ok(None);
+                return Err(EvalError::Unknown);
             }
         };
 
         match self.disambiguate_op(scope, None, op, op_candidates, exprs, diagnostics)? {
-            Some(Disambiguated::Unambiguous(overloaded)) => Ok(Some(ExpressionType::Unambiguous(
+            Disambiguated::Unambiguous(overloaded) => Ok(ExpressionType::Unambiguous(
                 overloaded.return_type().unwrap(),
-            ))),
-            Some(Disambiguated::Ambiguous(overloaded)) => Ok(Some(ExpressionType::Ambiguous(
+            )),
+            Disambiguated::Ambiguous(overloaded) => Ok(ExpressionType::Ambiguous(
                 overloaded
                     .into_iter()
                     .map(|o| o.return_type().unwrap().base())
                     .collect(),
-            ))),
-            None => Ok(None),
+            )),
         }
     }
 
@@ -310,7 +305,7 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         expr: &mut WithPos<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<ExpressionType<'a>>> {
+    ) -> EvalResult<ExpressionType<'a>> {
         self.expr_pos_type(scope, &expr.pos, &mut expr.item, diagnostics)
     }
 
@@ -320,7 +315,7 @@ impl<'a> AnalyzeContext<'a> {
         expr_pos: &SrcPos,
         expr: &mut Expression,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<ExpressionType<'a>>> {
+    ) -> EvalResult<ExpressionType<'a>> {
         match expr {
             Expression::Binary(ref mut op, ref mut left, ref mut right) => {
                 self.operator_type(scope, op, &mut [left.as_mut(), right.as_mut()], diagnostics)
@@ -330,23 +325,23 @@ impl<'a> AnalyzeContext<'a> {
             }
             Expression::Name(ref mut name) => self
                 .expression_name_types(scope, expr_pos, name.as_mut(), diagnostics)
-                .map(|value| value.map(ExpressionType::from)),
-            Expression::Aggregate(_) => Ok(Some(ExpressionType::Aggregate)),
+                .map(ExpressionType::from),
+            Expression::Aggregate(_) => Ok(ExpressionType::Aggregate),
             Expression::Qualified(ref mut qexpr) => {
                 let typ = self.analyze_qualified_expression(scope, qexpr, diagnostics)?;
-                Ok(typ.map(ExpressionType::Unambiguous))
+                Ok(ExpressionType::Unambiguous(typ))
             }
             Expression::New(ref mut alloc) => match &mut alloc.item {
                 Allocator::Qualified(ref mut qexpr) => {
                     let typ = self.analyze_qualified_expression(scope, qexpr, diagnostics)?;
-                    Ok(typ.map(ExpressionType::Unambiguous))
+                    Ok(ExpressionType::Unambiguous(typ))
                 }
                 Allocator::Subtype(ref mut subtype) => {
                     match self.resolve_subtype_indication(scope, subtype, diagnostics) {
-                        Ok(typ) => Ok(Some(ExpressionType::Unambiguous(typ.type_mark()))),
+                        Ok(typ) => Ok(ExpressionType::Unambiguous(typ.type_mark())),
                         Err(err) => {
                             diagnostics.push(err.into_non_fatal()?);
-                            Ok(None)
+                            Err(EvalError::Unknown)
                         }
                     }
                 }
@@ -354,15 +349,15 @@ impl<'a> AnalyzeContext<'a> {
             Expression::Literal(ref mut literal) => match literal {
                 Literal::Physical(PhysicalLiteral { ref mut unit, .. }) => {
                     match self.resolve_physical_unit(scope, unit) {
-                        Ok(typ) => Ok(Some(ExpressionType::Unambiguous(typ))),
+                        Ok(typ) => Ok(ExpressionType::Unambiguous(typ)),
                         Err(err) => {
                             diagnostics.push(err);
-                            Ok(None)
+                            Err(EvalError::Unknown)
                         }
                     }
                 }
-                Literal::String(_) => Ok(Some(ExpressionType::String)),
-                Literal::BitString(_) => Ok(Some(ExpressionType::String)),
+                Literal::String(_) => Ok(ExpressionType::String),
+                Literal::BitString(_) => Ok(ExpressionType::String),
                 Literal::Character(chr) => {
                     match scope.lookup(expr_pos, &Designator::Character(*chr)) {
                         Ok(NamedEntities::Single(ent)) => {
@@ -374,13 +369,13 @@ impl<'a> AnalyzeContext<'a> {
                                     ent.describe(),
                                 ),
                             );
-                            Ok(None)
+                            Err(EvalError::Unknown)
                         }
                         Ok(NamedEntities::Overloaded(overloaded)) => {
                             if overloaded.len() == 1 {
                                 let ent = overloaded.first();
                                 if let Some(return_type) = ent.return_type() {
-                                    Ok(Some(ExpressionType::Unambiguous(return_type)))
+                                    Ok(ExpressionType::Unambiguous(return_type))
                                 } else {
                                     diagnostics.error(
                                         expr_pos,
@@ -389,31 +384,31 @@ impl<'a> AnalyzeContext<'a> {
                                             ent.describe(),
                                         ),
                                     );
-                                    Ok(None)
+                                    Err(EvalError::Unknown)
                                 }
                             } else {
-                                Ok(Some(ExpressionType::Ambiguous(
+                                Ok(ExpressionType::Ambiguous(
                                     overloaded
                                         .entities()
                                         .flat_map(|e| e.return_type())
                                         .map(BaseType::from)
                                         .collect(),
-                                )))
+                                ))
                             }
                         }
                         Err(e) => {
                             diagnostics.push(e);
-                            Ok(None)
+                            Err(EvalError::Unknown)
                         }
                     }
                 }
-                Literal::AbstractLiteral(AbstractLiteral::Integer(_)) => Ok(Some(
-                    ExpressionType::Unambiguous(self.universal_integer().into()),
-                )),
-                Literal::AbstractLiteral(AbstractLiteral::Real(_)) => Ok(Some(
-                    ExpressionType::Unambiguous(self.universal_real().into()),
-                )),
-                Literal::Null => Ok(Some(ExpressionType::Null)),
+                Literal::AbstractLiteral(AbstractLiteral::Integer(_)) => {
+                    Ok(ExpressionType::Unambiguous(self.universal_integer().into()))
+                }
+                Literal::AbstractLiteral(AbstractLiteral::Real(_)) => {
+                    Ok(ExpressionType::Unambiguous(self.universal_real().into()))
+                }
+                Literal::Null => Ok(ExpressionType::Null),
             },
         }
     }
@@ -425,7 +420,7 @@ impl<'a> AnalyzeContext<'a> {
         expr: &mut Expression,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        self.expr_pos_type(scope, pos, expr, diagnostics)?;
+        as_fatal(self.expr_pos_type(scope, pos, expr, diagnostics))?;
         Ok(())
     }
 
@@ -434,18 +429,18 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         qexpr: &mut QualifiedExpression,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<TypeEnt<'a>>> {
+    ) -> EvalResult<TypeEnt<'a>> {
         let QualifiedExpression { type_mark, expr } = qexpr;
 
         match self.resolve_type_mark(scope, type_mark) {
             Ok(target_type) => {
                 self.expr_with_ttyp(scope, target_type, &expr.pos, &mut expr.item, diagnostics)?;
-                Ok(Some(target_type))
+                Ok(target_type)
             }
             Err(e) => {
                 self.analyze_expression(scope, expr, diagnostics)?;
                 e.add_to(diagnostics)?;
-                Ok(None)
+                Err(EvalError::Unknown)
             }
         }
     }
@@ -458,7 +453,7 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalResult {
         match &mut alloc.item {
             Allocator::Qualified(ref mut qexpr) => {
-                self.analyze_qualified_expression(scope, qexpr, diagnostics)?;
+                as_fatal(self.analyze_qualified_expression(scope, qexpr, diagnostics))?;
             }
             Allocator::Subtype(ref mut subtype) => {
                 self.analyze_subtype_indication(scope, subtype, diagnostics)?;
@@ -495,7 +490,7 @@ impl<'a> AnalyzeContext<'a> {
             )?,
             Expression::Qualified(ref mut qexpr) => {
                 if let Some(type_mark) =
-                    self.analyze_qualified_expression(scope, qexpr, diagnostics)?
+                    as_fatal(self.analyze_qualified_expression(scope, qexpr, diagnostics))?
                 {
                     if target_base != type_mark.base_type() {
                         diagnostics.push(Diagnostic::type_mismatch(
@@ -517,14 +512,14 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     };
 
-                    match self.disambiguate_op(
+                    match as_fatal(self.disambiguate_op(
                         scope,
                         Some(target_type),
                         op,
                         op_candidates,
                         &mut [left.as_mut(), right.as_mut()],
                         diagnostics,
-                    )? {
+                    ))? {
                         Some(Disambiguated::Unambiguous(overloaded)) => {
                             let op_type = overloaded.return_type().unwrap();
 
@@ -559,14 +554,14 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 };
 
-                match self.disambiguate_op(
+                match as_fatal(self.disambiguate_op(
                     scope,
                     Some(target_type),
                     op,
                     op_candidates,
                     &mut [expr.as_mut()],
                     diagnostics,
-                )? {
+                ))? {
                     Some(Disambiguated::Unambiguous(overloaded)) => {
                         let op_type = overloaded.return_type().unwrap();
 
@@ -594,14 +589,14 @@ impl<'a> AnalyzeContext<'a> {
                 } => {
                     if let [index_type] = indexes.as_slice() {
                         for assoc in assocs.iter_mut() {
-                            self.analyze_1d_array_assoc_elem(
+                            as_fatal(self.analyze_1d_array_assoc_elem(
                                 scope,
                                 target_base,
                                 *index_type,
                                 *elem_type,
                                 assoc,
                                 diagnostics,
-                            )?;
+                            ))?;
                         }
                     } else {
                         // @TODO multi dimensional array
@@ -743,7 +738,7 @@ impl<'a> AnalyzeContext<'a> {
         elem_type: TypeEnt<'a>,
         assoc: &mut ElementAssociation,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult {
+    ) -> EvalResult {
         let mut can_be_array = true;
 
         let expr = match assoc {
@@ -804,12 +799,7 @@ impl<'a> AnalyzeContext<'a> {
 
         if can_be_array {
             // If the choice is only a range or positional the expression can be an array
-            let types = if let Some(types) = self.expr_type(scope, expr, diagnostics)? {
-                types
-            } else {
-                return Ok(());
-            };
-
+            let types = self.expr_type(scope, expr, diagnostics)?;
             let is_array = self.is_possible(&types, array_type.base());
             let is_elem = self.is_possible(&types, elem_type.base());
 
@@ -876,9 +866,7 @@ mod test {
             diagnostics: &mut dyn DiagnosticHandler,
         ) -> Option<ExpressionType<'a>> {
             let mut expr = code.expr();
-            self.ctx()
-                .expr_type(&self.scope, &mut expr, diagnostics)
-                .unwrap()
+            as_fatal(self.ctx().expr_type(&self.scope, &mut expr, diagnostics)).unwrap()
         }
 
         fn expr_with_ttyp(

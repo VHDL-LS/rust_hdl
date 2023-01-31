@@ -120,6 +120,29 @@ impl<'a> std::fmt::Debug for AnyEntKind<'a> {
     }
 }
 
+impl<'a> std::fmt::Debug for AnyEnt<'a> {
+    // We need a custom debug implementation for AnyEnt to avoid stack overflow on circular references
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let AnyEnt {
+            id,
+            related,
+            implicits,
+            designator,
+            kind,
+            decl_pos,
+        } = self;
+
+        let mut s = f.debug_struct(stringify!(AnyEnt));
+        s.field(stringify!(id), id);
+        s.field(stringify!(related), related);
+        s.field(stringify!(implicits), &implicits.len());
+        s.field(stringify!(designator), designator);
+        s.field(stringify!(kind), kind);
+        s.field(stringify!(decl_pos), decl_pos);
+        s.finish()
+    }
+}
+
 pub type EntRef<'a> = &'a AnyEnt<'a>;
 
 #[derive(Debug, Copy, Clone)]
@@ -132,7 +155,6 @@ pub enum Related<'a> {
 /// A named entity as defined in LRM 6.1.
 ///
 /// Every declaration creates one or more named entities.
-#[derive(Debug)]
 pub struct AnyEnt<'a> {
     /// A unique id of the entity.
     /// Entities with the same id will be the same.

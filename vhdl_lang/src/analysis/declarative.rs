@@ -110,7 +110,7 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         alias: &mut AliasDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<EntRef<'a>>> {
+    ) -> EvalResult<EntRef<'a>> {
         let AliasDeclaration {
             designator,
             name,
@@ -125,16 +125,7 @@ impl<'a> AnalyzeContext<'a> {
             self.analyze_subtype_indication(scope, subtype_indication, diagnostics)?;
         }
 
-        let resolved_name = match resolved_name {
-            Ok(Some(resolved_name)) => resolved_name,
-            Ok(None) => {
-                return Ok(None);
-            }
-            Err(err) => {
-                err.add_to(diagnostics)?;
-                return Ok(None);
-            }
-        };
+        let resolved_name = resolved_name?;
 
         let kind = {
             match resolved_name {
@@ -157,7 +148,7 @@ impl<'a> AnalyzeContext<'a> {
                         },
                         ObjectBase::DeferredConstant(_) => {
                             // @TODO handle
-                            return Ok(None);
+                            return Err(EvalError::Unknown);
                         }
                     }
                 }
@@ -171,7 +162,7 @@ impl<'a> AnalyzeContext<'a> {
                         &name.pos,
                         format!("{} cannot be aliased", resolved_name.describe_type()),
                     );
-                    return Ok(None);
+                    return Err(EvalError::Unknown);
                 }
                 ResolvedName::Type(typ) => {
                     if let Some(ref signature) = signature {
@@ -194,27 +185,27 @@ impl<'a> AnalyzeContext<'a> {
                                         &des.item,
                                         &overloaded,
                                     ));
-                                    return Ok(None);
+                                    return Err(EvalError::Unknown);
                                 }
                             }
                             Err(err) => {
                                 err.add_to(diagnostics)?;
-                                return Ok(None);
+                                return Err(EvalError::Unknown);
                             }
                         }
                     } else {
                         diagnostics.push(Diagnostic::signature_required(name));
-                        return Ok(None);
+                        return Err(EvalError::Unknown);
                     }
                 }
                 ResolvedName::Final(_) => {
                     // @TODO some of these can probably be aliased
-                    return Ok(None);
+                    return Err(EvalError::Unknown);
                 }
             }
         };
 
-        Ok(Some(designator.define(self.arena, kind)))
+        Ok(designator.define(self.arena, kind))
     }
 
     fn analyze_declaration(
@@ -225,7 +216,9 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalResult {
         match decl {
             Declaration::Alias(alias) => {
-                if let Some(ent) = self.analyze_alias_declaration(scope, alias, diagnostics)? {
+                if let Some(ent) =
+                    as_fatal(self.analyze_alias_declaration(scope, alias, diagnostics))?
+                {
                     scope.add(ent, diagnostics);
 
                     for implicit in ent.as_actual().implicits.iter() {
@@ -494,7 +487,7 @@ impl<'a> AnalyzeContext<'a> {
 
             Declaration::Package(ref mut instance) => {
                 if let Some(pkg_region) =
-                    self.generic_package_instance(scope, instance, diagnostics)?
+                    as_fatal(self.generic_package_instance(scope, instance, diagnostics))?
                 {
                     scope.add(
                         self.arena.define(
@@ -746,7 +739,11 @@ impl<'a> AnalyzeContext<'a> {
             TypeDefinition::Array(ref mut array_indexes, ref mut subtype_indication) => {
                 let mut indexes: Vec<Option<TypeEnt>> = Vec::with_capacity(array_indexes.len());
                 for index in array_indexes.iter_mut() {
-                    indexes.push(self.analyze_array_index(scope, index, diagnostics)?);
+                    indexes.push(as_fatal(self.analyze_array_index(
+                        scope,
+                        index,
+                        diagnostics,
+                    ))?);
                 }
 
                 let elem_type =
@@ -1089,20 +1086,20 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         array_index: &mut ArrayIndex,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<TypeEnt<'a>>> {
+    ) -> EvalResult<TypeEnt<'a>> {
         match array_index {
             ArrayIndex::IndexSubtypeDefintion(ref mut type_mark) => {
                 match self.resolve_type_mark(scope, type_mark) {
-                    Ok(typ) => Ok(Some(typ)),
+                    Ok(typ) => Ok(typ),
                     Err(err) => {
                         err.add_to(diagnostics)?;
-                        Ok(None)
+                        Err(EvalError::Unknown)
                     }
                 }
             }
             ArrayIndex::Discrete(ref mut drange) => {
                 self.analyze_discrete_range(scope, drange, diagnostics)?;
-                Ok(None)
+                Err(EvalError::Unknown)
             }
         }
     }

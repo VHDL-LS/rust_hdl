@@ -146,67 +146,64 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalResult {
         let CallOrIndexed { name, parameters } = &mut fcall.item;
 
-        let resolved = match self.name_resolve(scope, &name.pos, &mut name.item, diagnostics) {
-            Ok(resolved) => resolved,
-            Err(err) => {
-                diagnostics.push(err.into_non_fatal()?);
-                // Continue checking missing names even if procedure is not found
+        let resolved =
+            match as_fatal(self.name_resolve(scope, &name.pos, &mut name.item, diagnostics))? {
+                Some(resolved) => resolved,
+                None => {
+                    // Continue checking missing names even if procedure is not found
+                    self.analyze_assoc_elems(scope, parameters, diagnostics)?;
+                    return Ok(());
+                }
+            };
+
+        match resolved {
+            ResolvedName::Overloaded(ref des, names) => {
+                let procedures: Vec<_> = names
+                    .entities()
+                    .filter(|name| name.is_procedure())
+                    .collect();
+
+                if !procedures.is_empty() {
+                    match as_fatal(self.disambiguate(
+                        scope,
+                        &fcall.pos,
+                        des,
+                        &mut fcall.item.parameters,
+                        None,
+                        procedures,
+                        diagnostics,
+                    ))? {
+                        Some(Disambiguated::Ambiguous(_)) => {
+                            // @TODO ambiguous
+                        }
+                        Some(Disambiguated::Unambiguous(ent)) => {
+                            fcall.item.name.set_unique_reference(&ent);
+                        }
+                        None => {}
+                    }
+                } else {
+                    let mut diagnostic = Diagnostic::error(&name.pos, "Invalid procedure call");
+                    for ent in names.sorted_entities() {
+                        if let Some(decl_pos) = ent.decl_pos() {
+                            diagnostic.add_related(
+                                decl_pos,
+                                format!("{} is not a procedure", ent.describe()),
+                            );
+                        }
+                    }
+                    diagnostics.push(diagnostic);
+                    self.analyze_assoc_elems(scope, parameters, diagnostics)?;
+                }
+            }
+            resolved => {
+                diagnostics.push(Diagnostic::error(
+                    &name.pos,
+                    format!("{} is not a procedure", resolved.describe_type()),
+                ));
                 self.analyze_assoc_elems(scope, parameters, diagnostics)?;
-                return Ok(());
             }
         };
 
-        if let Some(entities) = resolved {
-            match entities {
-                ResolvedName::Overloaded(ref des, names) => {
-                    let procedures: Vec<_> = names
-                        .entities()
-                        .filter(|name| name.is_procedure())
-                        .collect();
-
-                    if !procedures.is_empty() {
-                        match self.disambiguate(
-                            scope,
-                            &fcall.pos,
-                            des,
-                            &mut fcall.item.parameters,
-                            None,
-                            procedures,
-                            diagnostics,
-                        )? {
-                            Some(Disambiguated::Ambiguous(_)) => {
-                                // @TODO ambiguous
-                            }
-                            Some(Disambiguated::Unambiguous(ent)) => {
-                                fcall.item.name.set_unique_reference(&ent);
-                            }
-                            None => {}
-                        }
-                    } else {
-                        let mut diagnostic = Diagnostic::error(&name.pos, "Invalid procedure call");
-                        for ent in names.sorted_entities() {
-                            if let Some(decl_pos) = ent.decl_pos() {
-                                diagnostic.add_related(
-                                    decl_pos,
-                                    format!("{} is not a procedure", ent.describe()),
-                                );
-                            }
-                        }
-                        diagnostics.push(diagnostic);
-                        self.analyze_assoc_elems(scope, parameters, diagnostics)?;
-                    }
-                }
-                resolved => {
-                    diagnostics.push(Diagnostic::error(
-                        &name.pos,
-                        format!("{} is not a procedure", resolved.describe_type()),
-                    ));
-                    self.analyze_assoc_elems(scope, parameters, diagnostics)?;
-                }
-            };
-        } else {
-            self.analyze_assoc_elems(scope, parameters, diagnostics)?;
-        }
         Ok(())
     }
 }

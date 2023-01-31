@@ -18,14 +18,14 @@ impl<'a> AnalyzeContext<'a> {
         target: &mut WithPos<Target>,
         assignment_type: AssignmentType,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<TypeEnt<'a>>> {
+    ) -> EvalResult<TypeEnt<'a>> {
         match target.item {
             Target::Name(ref mut name) => {
                 self.resolve_target_name(scope, name, &target.pos, assignment_type, diagnostics)
             }
             Target::Aggregate(ref mut assocs) => {
                 self.analyze_aggregate(scope, assocs, diagnostics)?;
-                Ok(None)
+                Err(EvalError::Unknown)
             }
         }
     }
@@ -37,41 +37,33 @@ impl<'a> AnalyzeContext<'a> {
         target_pos: &SrcPos,
         assignment_type: AssignmentType,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<Option<TypeEnt<'a>>> {
-        match self.resolve_object_name(
+    ) -> EvalResult<TypeEnt<'a>> {
+        let object_name = self.resolve_object_name(
             scope,
             target_pos,
             target,
             "may not be the target of an assignment",
             diagnostics,
-        ) {
-            Ok(Some(object_name)) => {
-                if !is_valid_assignment_target(&object_name.base) {
-                    diagnostics.push(Diagnostic::error(
-                        target_pos,
-                        format!(
-                            "{} may not be the target of an assignment",
-                            object_name.base.describe_class()
-                        ),
-                    ));
-                } else if !is_valid_assignment_type(&object_name.base, assignment_type) {
-                    diagnostics.push(Diagnostic::error(
-                        target_pos,
-                        format!(
-                            "{} may not be the target of a {} assignment",
-                            object_name.base.describe_class(),
-                            assignment_type.to_str()
-                        ),
-                    ));
-                }
-                Ok(Some(object_name.type_mark()))
-            }
-            Ok(None) => Ok(None),
-            Err(err) => {
-                err.add_to(diagnostics)?;
-                Ok(None)
-            }
+        )?;
+        if !is_valid_assignment_target(&object_name.base) {
+            diagnostics.push(Diagnostic::error(
+                target_pos,
+                format!(
+                    "{} may not be the target of an assignment",
+                    object_name.base.describe_class()
+                ),
+            ));
+        } else if !is_valid_assignment_type(&object_name.base, assignment_type) {
+            diagnostics.push(Diagnostic::error(
+                target_pos,
+                format!(
+                    "{} may not be the target of a {} assignment",
+                    object_name.base.describe_class(),
+                    assignment_type.to_str()
+                ),
+            ));
         }
+        Ok(object_name.type_mark())
     }
 }
 
