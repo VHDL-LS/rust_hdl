@@ -19,6 +19,7 @@ mod named_entity;
 mod names;
 mod overloaded;
 mod package_instance;
+mod range;
 mod region;
 mod root;
 mod semantic;
