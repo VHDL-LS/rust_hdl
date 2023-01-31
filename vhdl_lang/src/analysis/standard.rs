@@ -513,7 +513,13 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
             unreachable!("Must be array type")
         };
 
+        let is_scalar = matches!(
+            elem_type.base().kind(),
+            Type::Integer | Type::Real | Type::Physical | Type::Enum(_)
+        );
+
         let is_one_dimensional = indexes.len() == 1;
+
         [
             self.create_to_string(typ),
             self.comparison(Operator::EQ, typ),
@@ -523,6 +529,27 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
         .chain(
             (if is_one_dimensional {
                 Some(self.concatenations(typ, *elem_type))
+            } else {
+                None
+            })
+            .into_iter()
+            .flatten(),
+        )
+        .chain(
+            (if is_scalar {
+                Some(
+                    [
+                        self.comparison(Operator::GT, typ),
+                        self.comparison(Operator::GTE, typ),
+                        self.comparison(Operator::LT, typ),
+                        self.comparison(Operator::LTE, typ),
+                        self.builder
+                            .elementwise_min_or_maximum("MINIMUM", typ, *elem_type),
+                        self.builder
+                            .elementwise_min_or_maximum("MAXIMUM", typ, *elem_type),
+                    ]
+                    .into_iter(),
+                )
             } else {
                 None
             })
@@ -795,7 +822,7 @@ impl<'a> ImplicitBuilder<'a> {
     /// Create implicit MAXIMUM/MINIMUM
     // function MINIMUM (L, R: T) return T;
     // function MAXIMUM (L, R: T) return T;
-    fn create_min_or_maximum(&self, name: &str, type_ent: TypeEnt<'a>) -> EntRef<'a> {
+    fn min_or_maximum(&self, name: &str, type_ent: TypeEnt<'a>) -> EntRef<'a> {
         let mut formals = FormalRegion::new_params();
         formals.add(self.arena.explicit(
             self.symbol("L"),
@@ -824,6 +851,32 @@ impl<'a> ImplicitBuilder<'a> {
             self.symbol(name),
             AnyEntKind::new_function_decl(formals, type_ent),
             type_ent.decl_pos(),
+        )
+    }
+
+    fn elementwise_min_or_maximum(
+        &self,
+        name: &str,
+        arr_typ: TypeEnt<'a>,
+        elem_typ: TypeEnt<'a>,
+    ) -> EntRef<'a> {
+        let mut formals = FormalRegion::new_params();
+        formals.add(self.arena.explicit(
+            self.symbol("L"),
+            AnyEntKind::Object(Object {
+                class: ObjectClass::Constant,
+                mode: Some(Mode::In),
+                subtype: Subtype::new(arr_typ),
+                has_default: false,
+            }),
+            arr_typ.decl_pos(),
+        ));
+
+        self.arena.implicit(
+            arr_typ.into(),
+            self.symbol(name),
+            AnyEntKind::new_function_decl(formals, elem_typ),
+            arr_typ.decl_pos(),
         )
     }
 
@@ -900,10 +953,10 @@ impl<'a> ImplicitBuilder<'a> {
     }
 
     pub fn minimum(&self, type_ent: TypeEnt<'a>) -> EntRef<'a> {
-        self.create_min_or_maximum("MINIMUM", type_ent)
+        self.min_or_maximum("MINIMUM", type_ent)
     }
 
     pub fn maximum(&self, type_ent: TypeEnt<'a>) -> EntRef<'a> {
-        self.create_min_or_maximum("MAXIMUM", type_ent)
+        self.min_or_maximum("MAXIMUM", type_ent)
     }
 }
