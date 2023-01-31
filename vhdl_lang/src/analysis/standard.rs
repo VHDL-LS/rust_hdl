@@ -620,6 +620,7 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
                 Operator::Nor,
                 Operator::Xor,
                 Operator::Xnor,
+                Operator::Not,
             ];
 
             let implicits = ops.iter().flat_map(|op| {
