@@ -998,7 +998,25 @@ impl<'a> AnalyzeContext<'a> {
                 )
             }
             InterfaceDeclaration::Type(ref mut ident) => {
-                self.arena.define(ident, AnyEntKind::Type(Type::Interface))
+                let typ =
+                    TypeEnt::from_any(self.arena.define(ident, AnyEntKind::Type(Type::Interface)))
+                        .unwrap();
+
+                let standard_pkg = self.standard_package().unwrap();
+                let implicit = [
+                    standard_pkg.comparison(Operator::EQ, typ),
+                    standard_pkg.comparison(Operator::NE, typ),
+                ];
+
+                for ent in implicit {
+                    unsafe {
+                        self.arena.add_implicit(typ.id(), ent);
+                    }
+
+                    scope.add(ent, diagnostics);
+                }
+
+                typ.into()
             }
             InterfaceDeclaration::Subprogram(ref mut subpgm, ..) => {
                 let subpgm_region = scope.nested();

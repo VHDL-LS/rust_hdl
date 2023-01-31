@@ -396,7 +396,7 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
         )
     }
 
-    fn comparison(&self, op: Operator, typ: TypeEnt<'a>) -> EntRef<'a> {
+    pub fn comparison(&self, op: Operator, typ: TypeEnt<'a>) -> EntRef<'a> {
         self.builder.binary(op, typ, typ, typ, self.boolean())
     }
 

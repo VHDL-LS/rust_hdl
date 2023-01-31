@@ -184,7 +184,9 @@ impl<'a> AnalyzeContext<'a> {
                 for uninst in other {
                     match self.instantiate(&mapping, uninst) {
                         Ok(inst) => {
-                            nested.add(inst, diagnostics);
+                            // We ignore diagnostics here, for example when adding implicit operators EQ and NE for interface types
+                            // They can collide if there are more than one interface type that map to the same actual type
+                            nested.add(inst, &mut NullDiagnostics);
                         }
                         Err(err) => {
                             let mut diag = Diagnostic::error(&unit.ident.tree.pos, err);

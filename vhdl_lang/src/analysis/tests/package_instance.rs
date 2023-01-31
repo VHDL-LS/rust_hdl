@@ -385,6 +385,35 @@ end package;
 }
 
 #[test]
+fn interface_type_has_comparison_operations() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+package gpkg is
+  generic (
+    type type_t
+  );
+
+  procedure check(a, b : type_t);
+end package;
+
+package body gpkg is
+  procedure check(a, b : type_t) is
+      constant c0 : boolean := a = b;
+      constant c1 : boolean := a /= b;
+  begin
+  end;
+
+end package body;
+  ",
+    );
+
+    let (_, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
 fn hover_and_references_for_instantiated_entities() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(
