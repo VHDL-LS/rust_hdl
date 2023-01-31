@@ -350,6 +350,29 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
         )
     }
 
+    /// Create implicit TO_STRING
+    /// function TO_STRING (VALUE: T) return STRING;
+    pub fn to_x_string(&self, name: &str, type_ent: TypeEnt<'a>) -> EntRef<'a> {
+        let mut formals = FormalRegion::new_params();
+        formals.add(self.arena.explicit(
+            self.symbol("VALUE"),
+            AnyEntKind::Object(Object {
+                class: ObjectClass::Constant,
+                mode: Some(Mode::In),
+                subtype: Subtype::new(type_ent),
+                has_default: false,
+            }),
+            type_ent.decl_pos(),
+        ));
+
+        self.arena.implicit(
+            type_ent.into(),
+            self.symbol(name),
+            AnyEntKind::new_function_decl(formals, self.string()),
+            type_ent.decl_pos(),
+        )
+    }
+
     /// Create implicit DEALLOCATE
     /// procedure DEALLOCATE (P: inout AT);
     pub fn deallocate(&self, type_ent: TypeEnt<'a>) -> EntRef<'a> {
@@ -805,6 +828,69 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
             };
             res.push(ent);
         }
+
+        // Special TO_STRING variants for bit-vector
+        {
+            let typ = self.lookup_type("BIT_VECTOR");
+            let to_string = typ.implicits.iter().find(|ent| matches!(ent.designator(), Designator::Identifier(ident) if ident.name_utf8() == "TO_STRING")).unwrap();
+
+            let to_bstring = self.arena.alloc(
+                Designator::Identifier(self.symbol("TO_BSTRING")),
+                Related::ImplicitOf(typ.into()),
+                AnyEntKind::Overloaded(Overloaded::Alias(
+                    OverloadedEnt::from_any(to_string).unwrap(),
+                )),
+                to_string.decl_pos().cloned(),
+            );
+
+            let to_binary_string = self.arena.alloc(
+                Designator::Identifier(self.symbol("TO_BINARY_STRING")),
+                Related::ImplicitOf(typ.into()),
+                AnyEntKind::Overloaded(Overloaded::Alias(
+                    OverloadedEnt::from_any(to_string).unwrap(),
+                )),
+                to_string.decl_pos().cloned(),
+            );
+
+            let to_ostring = self.to_x_string("TO_OSTRING", typ);
+
+            let to_octal_string = self.arena.alloc(
+                Designator::Identifier(self.symbol("TO_OCTAL_STRING")),
+                Related::ImplicitOf(typ.into()),
+                AnyEntKind::Overloaded(Overloaded::Alias(
+                    OverloadedEnt::from_any(to_ostring).unwrap(),
+                )),
+                to_string.decl_pos().cloned(),
+            );
+
+            let to_hstring = self.to_x_string("TO_HSTRING", typ);
+            let to_hex_string = self.arena.alloc(
+                Designator::Identifier(self.symbol("TO_HEX_STRING")),
+                Related::ImplicitOf(typ.into()),
+                AnyEntKind::Overloaded(Overloaded::Alias(
+                    OverloadedEnt::from_any(to_hstring).unwrap(),
+                )),
+                to_string.decl_pos().cloned(),
+            );
+
+            let implicits = [
+                to_bstring,
+                to_binary_string,
+                to_ostring,
+                to_octal_string,
+                to_hstring,
+                to_hex_string,
+            ];
+
+            for ent in implicits {
+                // This is safe because the standard package is analyzed in a single thread
+                unsafe {
+                    arena.add_implicit(typ.id(), ent);
+                };
+                res.push(ent);
+            }
+        }
+
         res
     }
 }
