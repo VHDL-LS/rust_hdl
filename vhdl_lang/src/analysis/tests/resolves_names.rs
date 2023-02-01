@@ -188,8 +188,9 @@ fn resolves_names_in_discrete_ranges() {
         "
 package pkg is
   type arr_t is array (natural range missing to missing) of natural;
-  type arr2_t is array (missing to missing) of natural;
-  type arr3_t is array (missing'range) of natural;
+  type arr2_t is array (missing to 0) of natural;
+  type arr3_t is array (0 to missing) of natural;
+  type arr4_t is array (missing'range) of natural;
 end package;
 ",
     );
@@ -200,9 +201,9 @@ fn search_names_in_discrete_ranges() {
     check_search_reference(
         "
 package pkg is
-  constant decl : natural := 0;
-  type arr_t is array (natural range decl to decl) of natural;
-  type arr2_t is array (decl to decl) of natural;
+  constant decl : integer_vector(0 to 1) := (others => 0);
+  type arr_t is array (natural range decl(0) to decl(0)) of natural;
+  type arr2_t is array (decl(0) to decl(0)) of natural;
   type arr3_t is array (decl'range) of natural;
 end package;
 ",

@@ -883,15 +883,15 @@ constant bad2 : integer_vector := ('a' to 'z' => 0);
         vec![
             Diagnostic::error(
                 code.s1("'c'"),
-                "character literal does not match subtype 'NATURAL'",
+                "character literal does not match integer type 'INTEGER'",
             ),
             Diagnostic::error(
                 code.s1("'a'"),
-                "character literal does not match subtype 'NATURAL'",
+                "character literal does not match integer type 'INTEGER'",
             ),
             Diagnostic::error(
                 code.s1("'z'"),
-                "character literal does not match subtype 'NATURAL'",
+                "character literal does not match integer type 'INTEGER'",
             ),
         ],
     );

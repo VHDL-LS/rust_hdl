@@ -414,7 +414,7 @@ impl<'a> AnalyzeContext<'a> {
                 let mut mapped_indexes = Vec::with_capacity(indexes.len());
                 for index_typ in indexes.iter() {
                     mapped_indexes.push(if let Some(index_typ) = index_typ {
-                        Some(self.map_type_ent(mapping, *index_typ)?)
+                        Some(self.map_type_ent(mapping, (*index_typ).into())?.base())
                     } else {
                         None
                     })

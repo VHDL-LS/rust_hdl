@@ -120,6 +120,29 @@ impl<'a> AnalyzeContext<'a> {
         self.matcher().is_possible(types, ttyp)
     }
 
+    pub fn common_type(&self, typ1: BaseType<'a>, typ2: BaseType<'a>) -> Option<BaseType<'a>> {
+        if typ1.id() == typ2.id() {
+            Some(typ1)
+        } else if typ1.is_universal_of(typ2) {
+            Some(typ2)
+        } else if typ2.is_universal_of(typ1) {
+            Some(typ1)
+        } else {
+            None
+        }
+    }
+
+    pub fn common_types(
+        &self,
+        types: FnvHashSet<BaseType<'a>>,
+        typ: BaseType<'a>,
+    ) -> FnvHashSet<BaseType<'a>> {
+        types
+            .into_iter()
+            .filter_map(|t| self.common_type(t, typ))
+            .collect()
+    }
+
     pub fn can_be_target_type(&self, typ: TypeEnt<'a>, ttyp: BaseType<'a>) -> bool {
         self.matcher().can_be_target_type(typ, ttyp)
     }
@@ -235,20 +258,44 @@ impl<'a> AnalyzeContext<'a> {
         if candidates.len() > 1 {
             self.matcher()
                 .disambiguate_op_by_arguments(&mut candidates, &operand_types);
+        }
 
-            if candidates.len() > 1 && ttyp.is_some() {
-                self.matcher()
+        if candidates.len() > 1 && ttyp.is_some() {
+            self.matcher()
+                .disambiguate_op_by_return_type(&mut candidates, ttyp);
+        }
+
+        // Try to further disambiguate by removing implicit universal casts
+        if candidates.len() > 1 {
+            let return_types: FnvHashSet<_> = candidates
+                .iter()
+                .map(|c| c.return_type().unwrap().base())
+                .collect();
+
+            if return_types.len() == 1 {
+                self.matcher_no_implicit()
+                    .disambiguate_op_by_arguments(&mut candidates, &operand_types);
+            }
+        }
+
+        if candidates.len() > 1 {
+            if ttyp.is_some() {
+                self.matcher_no_implicit()
                     .disambiguate_op_by_return_type(&mut candidates, ttyp);
+            } else {
+                let return_types: FnvHashSet<_> = candidates
+                    .iter()
+                    .map(|c| c.return_type().unwrap().base())
+                    .collect();
 
-                if candidates.len() > 1 {
-                    self.matcher_no_implicit()
-                        .disambiguate_op_by_arguments(&mut candidates, &operand_types);
-
-                    if candidates.len() > 1 {
-                        self.matcher_no_implicit()
-                            .disambiguate_op_by_return_type(&mut candidates, ttyp);
+                // Remove INTEGER if universal integer is a candidate
+                candidates.retain(|cand| {
+                    if let Some(univ) = self.as_universal(cand.return_type().unwrap().base()) {
+                        !return_types.contains(&univ)
+                    } else {
+                        true
                     }
-                }
+                })
             }
         }
 
@@ -265,6 +312,14 @@ impl<'a> AnalyzeContext<'a> {
             Ok(Disambiguated::Unambiguous(ent))
         } else {
             Ok(Disambiguated::Ambiguous(candidates))
+        }
+    }
+
+    fn as_universal(&self, typ: BaseType<'a>) -> Option<BaseType<'a>> {
+        match typ.kind() {
+            Type::Integer => Some(self.universal_integer()),
+            Type::Real => Some(self.universal_real()),
+            _ => None,
         }
     }
 
@@ -734,7 +789,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         array_type: TypeEnt<'a>,
-        index_type: Option<TypeEnt<'a>>,
+        index_type: Option<BaseType<'a>>,
         elem_type: TypeEnt<'a>,
         assoc: &mut ElementAssociation,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -760,7 +815,7 @@ impl<'a> AnalyzeContext<'a> {
                                     if let Some(index_type) = index_type {
                                         self.expr_with_ttyp(
                                             scope,
-                                            index_type,
+                                            index_type.into(),
                                             &index_expr.pos,
                                             &mut index_expr.item,
                                             diagnostics,
@@ -778,7 +833,7 @@ impl<'a> AnalyzeContext<'a> {
                             if let Some(index_type) = index_type {
                                 self.analyze_discrete_range_with_target_type(
                                     scope,
-                                    index_type,
+                                    index_type.into(),
                                     drange,
                                     diagnostics,
                                 )?;
@@ -1143,6 +1198,42 @@ constant c0 : rec_t := (0, 1);
         assert_eq!(
             test.expr_type(&code, &mut NoDiagnostics),
             Some(ExpressionType::Unambiguous(test.lookup_type("boolean")))
+        );
+    }
+
+    #[test]
+    fn does_not_remove_universal_candidates_when_return_types_differ() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+function \"+\"(a : integer; b : character) return character;
+function \"+\"(a : integer; b : character) return integer;
+        ",
+        );
+
+        let code = test.snippet("0 + 'c'");
+        assert_eq!(
+            test.expr_type(&code, &mut NoDiagnostics),
+            Some(ExpressionType::Ambiguous(
+                vec![
+                    test.lookup_type("integer").base(),
+                    test.lookup_type("character").base()
+                ]
+                .into_iter()
+                .collect()
+            ))
+        );
+    }
+
+    #[test]
+    fn universal_expression_is_not_ambiguous() {
+        let test = TestSetup::new();
+        let code = test.snippet("-1");
+        assert_eq!(
+            test.expr_type(&code, &mut NoDiagnostics),
+            Some(ExpressionType::Unambiguous(
+                test.ctx().universal_integer().into()
+            ))
         );
     }
 }

@@ -317,6 +317,7 @@ impl<'a> AnyEnt<'a> {
                 format!("{}{}", self.designator, overloaded.signature().describe())
             }
 
+            AnyEntKind::Type(Type::Universal(typ)) => format!("type {}", typ.describe().to_owned()),
             _ => format!("{} '{}'", self.kind.describe(), self.designator),
         }
     }

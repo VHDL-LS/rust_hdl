@@ -26,7 +26,7 @@ pub enum Type<'a> {
     // Use Weak reference since implicit declaration typically reference the type itself
     Array {
         // Indexes are Option<> to handle unknown types
-        indexes: Vec<Option<TypeEnt<'a>>>,
+        indexes: Vec<Option<BaseType<'a>>>,
         elem_type: TypeEnt<'a>,
     },
     Enum(FnvHashSet<Designator>),
@@ -282,6 +282,16 @@ impl<'a> BaseType<'a> {
         }
     }
 
+    pub fn is_universal_of(&self, other: BaseType<'a>) -> bool {
+        let i = matches!(self.kind(), Type::Universal(UniversalType::Integer))
+            && matches!(other.kind(), Type::Integer);
+
+        let r = matches!(self.kind(), Type::Universal(UniversalType::Real))
+            && matches!(other.kind(), Type::Real);
+
+        i || r
+    }
+
     pub fn sliced_as(&self) -> Option<TypeEnt<'a>> {
         let typ = if let Type::Access(ref subtype, ..) = self.kind() {
             subtype.type_mark()
@@ -294,6 +304,13 @@ impl<'a> BaseType<'a> {
         } else {
             None
         }
+    }
+
+    pub fn is_discrete(&self) -> bool {
+        matches!(
+            self.kind(),
+            Type::Integer | Type::Enum(_) | Type::Universal(UniversalType::Integer)
+        )
     }
 }
 

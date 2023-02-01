@@ -440,3 +440,9 @@ impl AttributeName {
         }
     }
 }
+
+impl RangeConstraint {
+    pub fn pos(&self) -> SrcPos {
+        self.left_expr.pos.combine(&self.right_expr.pos)
+    }
+}

@@ -737,7 +737,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             TypeDefinition::Array(ref mut array_indexes, ref mut subtype_indication) => {
-                let mut indexes: Vec<Option<TypeEnt>> = Vec::with_capacity(array_indexes.len());
+                let mut indexes: Vec<Option<BaseType>> = Vec::with_capacity(array_indexes.len());
                 for index in array_indexes.iter_mut() {
                     indexes.push(as_fatal(self.analyze_array_index(
                         scope,
@@ -1086,11 +1086,11 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         array_index: &mut ArrayIndex,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<TypeEnt<'a>> {
+    ) -> EvalResult<BaseType<'a>> {
         match array_index {
             ArrayIndex::IndexSubtypeDefintion(ref mut type_mark) => {
                 match self.resolve_type_mark(scope, type_mark) {
-                    Ok(typ) => Ok(typ),
+                    Ok(typ) => Ok(typ.base()),
                     Err(err) => {
                         err.add_to(diagnostics)?;
                         Err(EvalError::Unknown)
@@ -1098,8 +1098,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             ArrayIndex::Discrete(ref mut drange) => {
-                self.analyze_discrete_range(scope, drange, diagnostics)?;
-                Err(EvalError::Unknown)
+                self.discrete_range_type(scope, drange, diagnostics)
             }
         }
     }
