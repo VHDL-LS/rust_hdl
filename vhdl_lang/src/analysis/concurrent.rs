@@ -8,6 +8,7 @@
 #![allow(clippy::unneeded_field_pattern)]
 
 use super::named_entity::*;
+use super::sequential::SequentialRoot;
 use super::*;
 use crate::ast::*;
 use crate::data::*;
@@ -77,7 +78,12 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 let nested = scope.nested();
                 self.analyze_declarative_part(&nested, decl, diagnostics)?;
-                self.analyze_sequential_part(&nested, statements, diagnostics)?;
+                self.analyze_sequential_part(
+                    &nested,
+                    &SequentialRoot::Process,
+                    statements,
+                    diagnostics,
+                )?;
             }
             ConcurrentStatement::ForGenerate(ref mut gen) => {
                 let ForGenerateStatement {

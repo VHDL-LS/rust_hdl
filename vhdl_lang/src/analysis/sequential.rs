@@ -7,6 +7,7 @@
 // These fields are better explicit than .. since we are forced to consider if new fields should be searched
 #![allow(clippy::unneeded_field_pattern)]
 
+use super::named_entity::TypeEnt;
 use super::*;
 use crate::ast::*;
 use crate::data::*;
@@ -18,6 +19,7 @@ impl<'a> AnalyzeContext<'a> {
     fn analyze_sequential_statement(
         &self,
         scope: &Scope<'a>,
+        sroot: &SequentialRoot<'a>,
         statement: &mut LabeledSequentialStatement,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
@@ -27,9 +29,29 @@ impl<'a> AnalyzeContext<'a> {
 
         match statement.statement {
             SequentialStatement::Return(ref mut ret) => {
-                let ReturnStatement { expression } = ret;
-                if let Some(ref mut expression) = expression {
-                    self.analyze_expression(scope, expression, diagnostics)?;
+                let ReturnStatement { ref mut expression } = ret.item;
+
+                match sroot {
+                    SequentialRoot::Function(ttyp) => {
+                        if let Some(ref mut expression) = expression {
+                            self.expr_with_ttyp(scope, *ttyp, expression, diagnostics)?;
+                        } else {
+                            diagnostics.error(&ret.pos, "Functions cannot return without a value");
+                        }
+                    }
+                    SequentialRoot::Procedure => {
+                        if expression.is_some() {
+                            diagnostics.error(&ret.pos, "Procedures cannot return a value");
+                        }
+                    }
+                    SequentialRoot::Process => {
+                        diagnostics.error(&ret.pos, "Cannot return from a process");
+                    }
+                    SequentialRoot::Unknown => {
+                        if let Some(ref mut expression) = expression {
+                            self.analyze_expression(scope, expression, diagnostics)?;
+                        }
+                    }
                 }
             }
             SequentialStatement::Wait(ref mut wait_stmt) => {
@@ -98,11 +120,11 @@ impl<'a> AnalyzeContext<'a> {
                 // @TODO write generic function for this
                 for conditional in conditionals {
                     let Conditional { condition, item } = conditional;
-                    self.analyze_sequential_part(scope, item, diagnostics)?;
+                    self.analyze_sequential_part(scope, sroot, item, diagnostics)?;
                     self.analyze_expression(scope, condition, diagnostics)?;
                 }
                 if let Some(else_item) = else_item {
-                    self.analyze_sequential_part(scope, else_item, diagnostics)?;
+                    self.analyze_sequential_part(scope, sroot, else_item, diagnostics)?;
                 }
             }
             SequentialStatement::Case(ref mut case_stmt) => {
@@ -115,7 +137,7 @@ impl<'a> AnalyzeContext<'a> {
                 for alternative in alternatives.iter_mut() {
                     let Alternative { choices, item } = alternative;
                     self.analyze_choices(scope, choices, diagnostics)?;
-                    self.analyze_sequential_part(scope, item, diagnostics)?;
+                    self.analyze_sequential_part(scope, sroot, item, diagnostics)?;
                 }
             }
             SequentialStatement::Loop(ref mut loop_stmt) => {
@@ -131,14 +153,14 @@ impl<'a> AnalyzeContext<'a> {
                             self.arena.define(index, AnyEntKind::LoopParameter(typ)),
                             diagnostics,
                         );
-                        self.analyze_sequential_part(&region, statements, diagnostics)?;
+                        self.analyze_sequential_part(&region, sroot, statements, diagnostics)?;
                     }
                     Some(IterationScheme::While(ref mut expr)) => {
                         self.analyze_expression(scope, expr, diagnostics)?;
-                        self.analyze_sequential_part(scope, statements, diagnostics)?;
+                        self.analyze_sequential_part(scope, sroot, statements, diagnostics)?;
                     }
                     None => {
-                        self.analyze_sequential_part(scope, statements, diagnostics)?;
+                        self.analyze_sequential_part(scope, sroot, statements, diagnostics)?;
                     }
                 }
             }
@@ -195,13 +217,21 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_sequential_part(
         &self,
         scope: &Scope<'a>,
+        sroot: &SequentialRoot<'a>,
         statements: &mut [LabeledSequentialStatement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for statement in statements.iter_mut() {
-            self.analyze_sequential_statement(scope, statement, diagnostics)?;
+            self.analyze_sequential_statement(scope, sroot, statement, diagnostics)?;
         }
 
         Ok(())
     }
+}
+
+pub enum SequentialRoot<'a> {
+    Process,
+    Procedure,
+    Function(TypeEnt<'a>),
+    Unknown,
 }

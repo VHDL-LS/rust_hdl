@@ -229,7 +229,7 @@ impl<'a> AnalyzeContext<'a> {
         op.set_unique_reference(&overloaded);
         for (idx, expr) in exprs.iter_mut().enumerate() {
             let target_type = overloaded.formals().nth(idx).unwrap().type_mark();
-            self.expr_with_ttyp(scope, target_type, &expr.pos, &mut expr.item, diagnostics)?;
+            self.expr_pos_with_ttyp(scope, target_type, &expr.pos, &mut expr.item, diagnostics)?;
         }
         Ok(())
     }
@@ -489,7 +489,13 @@ impl<'a> AnalyzeContext<'a> {
 
         match self.resolve_type_mark(scope, type_mark) {
             Ok(target_type) => {
-                self.expr_with_ttyp(scope, target_type, &expr.pos, &mut expr.item, diagnostics)?;
+                self.expr_pos_with_ttyp(
+                    scope,
+                    target_type,
+                    &expr.pos,
+                    &mut expr.item,
+                    diagnostics,
+                )?;
                 Ok(target_type)
             }
             Err(e) => {
@@ -517,9 +523,19 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
+    pub fn expr_with_ttyp(
+        &self,
+        scope: &Scope<'a>,
+        target_type: TypeEnt<'a>,
+        expr: &mut WithPos<Expression>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult {
+        self.expr_pos_with_ttyp(scope, target_type, &expr.pos, &mut expr.item, diagnostics)
+    }
+
     /// Returns true if the name actually matches the target type
     /// None if it was uncertain
-    pub fn expr_with_ttyp(
+    pub fn expr_pos_with_ttyp(
         &self,
         scope: &Scope<'a>,
         target_type: TypeEnt<'a>,
@@ -766,7 +782,7 @@ impl<'a> AnalyzeContext<'a> {
                     };
 
                     if let Some(elem) = elem {
-                        self.expr_with_ttyp(
+                        self.expr_pos_with_ttyp(
                             scope,
                             elem.type_mark(),
                             &actual_expr.pos,
@@ -813,7 +829,7 @@ impl<'a> AnalyzeContext<'a> {
                                 }
                                 Ok(None) => {
                                     if let Some(index_type) = index_type {
-                                        self.expr_with_ttyp(
+                                        self.expr_pos_with_ttyp(
                                             scope,
                                             index_type.into(),
                                             &index_expr.pos,
@@ -860,12 +876,12 @@ impl<'a> AnalyzeContext<'a> {
 
             if is_elem || !is_array {
                 // Prefer element type in presence of ambiguity
-                self.expr_with_ttyp(scope, elem_type, &expr.pos, &mut expr.item, diagnostics)?;
+                self.expr_pos_with_ttyp(scope, elem_type, &expr.pos, &mut expr.item, diagnostics)?;
             } else if is_array {
-                self.expr_with_ttyp(scope, array_type, &expr.pos, &mut expr.item, diagnostics)?;
+                self.expr_pos_with_ttyp(scope, array_type, &expr.pos, &mut expr.item, diagnostics)?;
             }
         } else {
-            self.expr_with_ttyp(scope, elem_type, &expr.pos, &mut expr.item, diagnostics)?;
+            self.expr_pos_with_ttyp(scope, elem_type, &expr.pos, &mut expr.item, diagnostics)?;
         }
 
         Ok(())
@@ -932,7 +948,7 @@ mod test {
         ) {
             let mut expr = code.expr();
             self.ctx()
-                .expr_with_ttyp(&self.scope, ttyp, &expr.pos, &mut expr.item, diagnostics)
+                .expr_pos_with_ttyp(&self.scope, ttyp, &expr.pos, &mut expr.item, diagnostics)
                 .unwrap()
         }
     }

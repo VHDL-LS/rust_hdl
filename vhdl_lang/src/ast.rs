@@ -907,7 +907,7 @@ pub enum SequentialStatement {
     Loop(LoopStatement),
     Next(NextStatement),
     Exit(ExitStatement),
-    Return(ReturnStatement),
+    Return(WithPos<ReturnStatement>),
     Null,
 }
 

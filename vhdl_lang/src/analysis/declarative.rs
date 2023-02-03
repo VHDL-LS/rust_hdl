@@ -8,6 +8,7 @@ use super::formal_region::FormalRegion;
 use super::formal_region::RecordRegion;
 use super::named_entity::*;
 use super::names::*;
+use super::sequential::SequentialRoot;
 use super::*;
 use crate::ast;
 use crate::ast::*;
@@ -251,7 +252,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 if let Some(ref mut expr) = object_decl.expression {
                     if let Ok(ref subtype) = subtype {
-                        self.expr_with_ttyp(
+                        self.expr_pos_with_ttyp(
                             scope,
                             subtype.type_mark(),
                             &expr.pos,
@@ -358,7 +359,7 @@ impl<'a> AnalyzeContext<'a> {
                         Ok(NamedEntities::Single(ent)) => {
                             ident.set_unique_reference(ent);
                             if let AnyEntKind::Attribute(typ) = ent.actual_kind() {
-                                self.expr_with_ttyp(
+                                self.expr_pos_with_ttyp(
                                     scope,
                                     *typ,
                                     &expr.pos,
@@ -443,22 +444,38 @@ impl<'a> AnalyzeContext<'a> {
                 let subpgm_region = Scope::new(subpgm_region.into_region());
 
                 // Overwrite subprogram definition with full signature
-                match signature {
+                let sroot = match signature {
                     Ok(signature) => {
+                        let sroot = if let Some(return_type) = signature.return_type() {
+                            SequentialRoot::Function(return_type)
+                        } else {
+                            SequentialRoot::Procedure
+                        };
+
                         let subpgm_ent = body.specification.define(
                             self.arena,
                             AnyEntKind::Overloaded(Overloaded::Subprogram(signature)),
                         );
                         scope.add(subpgm_ent, diagnostics);
+
+                        sroot
                     }
-                    Err(err) => err.add_to(diagnostics)?,
-                }
+                    Err(err) => {
+                        err.add_to(diagnostics)?;
+                        SequentialRoot::Unknown
+                    }
+                };
                 let subpgm_region = subpgm_region.with_parent(scope);
 
                 self.analyze_declarative_part(&subpgm_region, &mut body.declarations, diagnostics)?;
                 subpgm_region.close(diagnostics);
 
-                self.analyze_sequential_part(&subpgm_region, &mut body.statements, diagnostics)?;
+                self.analyze_sequential_part(
+                    &subpgm_region,
+                    &sroot,
+                    &mut body.statements,
+                    diagnostics,
+                )?;
             }
             Declaration::SubprogramDeclaration(ref mut subdecl) => {
                 let subpgm_region = scope.nested();
@@ -971,7 +988,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 if let Some(ref mut expression) = object_decl.expression {
                     if let Ok(ref subtype) = subtype {
-                        self.expr_with_ttyp(
+                        self.expr_pos_with_ttyp(
                             scope,
                             subtype.type_mark(),
                             &expression.pos,

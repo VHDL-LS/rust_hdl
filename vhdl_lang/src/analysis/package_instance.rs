@@ -109,7 +109,7 @@ impl<'a> AnalyzeContext<'a> {
 
                         mapping.insert(uninst_typ.id(), typ.into());
                     }
-                    GpkgInterfaceEnt::Constant(obj) => self.expr_with_ttyp(
+                    GpkgInterfaceEnt::Constant(obj) => self.expr_pos_with_ttyp(
                         scope,
                         obj.type_mark(),
                         &assoc.actual.pos,

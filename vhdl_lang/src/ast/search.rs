@@ -267,7 +267,8 @@ impl Search for LabeledSequentialStatement {
                 .or_not_found());
         }
         match self.statement {
-            SequentialStatement::Return(ReturnStatement { ref mut expression }) => {
+            SequentialStatement::Return(ref mut ret) => {
+                let ReturnStatement { ref mut expression } = ret.item;
                 return_if_found!(expression.search(searcher));
             }
             SequentialStatement::ProcedureCall(ref mut pcall) => {

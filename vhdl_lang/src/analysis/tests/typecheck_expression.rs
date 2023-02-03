@@ -259,7 +259,7 @@ end function;
 
 function fun1 return boolean is
 begin
-    return 0;
+    return false;
 end function;
 
 constant good : integer := fun1;
@@ -301,7 +301,7 @@ end function;
 
 function fun1 return boolean is
 begin
-    return 0;
+    return false;
 end function;
 
 constant good : integer := fun1;
@@ -1143,5 +1143,51 @@ attribute ram_style of bad_fun2[return boolean] : signal is 0;
             code.s1("bad_fun2[return boolean]").s1("bad_fun2"),
             "Could not find declaration of 'bad_fun2' with given signature",
         ).related(code.s1("bad_fun2"), "Found bad_fun2[return NATURAL]")],
+    );
+}
+
+#[test]
+fn typecheck_function_return_statement() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+function good return integer is
+begin
+  return 0;
+end;
+
+function bad1 return integer is
+begin
+  return 'c';
+end;
+
+
+function bad2 return integer is
+begin
+  return;
+end;
+
+procedure bad3 is
+begin
+  return 1;
+end;
+
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s1("'c'"),
+                "character literal does not match integer type 'INTEGER'",
+            ),
+            Diagnostic::error(
+                code.s1("return;"),
+                "Functions cannot return without a value",
+            ),
+            Diagnostic::error(code.s1("return 1;"), "Procedures cannot return a value"),
+        ],
     );
 }

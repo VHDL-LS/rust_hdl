@@ -483,7 +483,7 @@ end package;
 package body pkg is
     procedure proc2(c : natural) is
     begin
-      return c;
+      return;
     end;
 
     function f return natural is

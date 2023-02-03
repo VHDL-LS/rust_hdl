@@ -196,14 +196,14 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalResult {
         match range {
             Range::Range(ref mut constraint) => {
-                self.expr_with_ttyp(
+                self.expr_pos_with_ttyp(
                     scope,
                     target_type,
                     &constraint.left_expr.pos,
                     &mut constraint.left_expr.item,
                     diagnostics,
                 )?;
-                self.expr_with_ttyp(
+                self.expr_pos_with_ttyp(
                     scope,
                     target_type,
                     &constraint.right_expr.pos,

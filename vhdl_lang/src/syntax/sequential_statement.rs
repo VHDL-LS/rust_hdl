@@ -263,7 +263,10 @@ fn parse_exit_statement_known_keyword(stream: &mut TokenStream) -> ParseResult<E
 }
 
 /// LRM 10.13 Return statement
-fn parse_return_statement_known_keyword(stream: &mut TokenStream) -> ParseResult<ReturnStatement> {
+fn parse_return_statement_known_keyword(
+    initial: Token,
+    stream: &mut TokenStream,
+) -> ParseResult<WithPos<ReturnStatement>> {
     let expression = {
         if stream.peek_kind()? == Some(SemiColon) {
             None
@@ -271,8 +274,11 @@ fn parse_return_statement_known_keyword(stream: &mut TokenStream) -> ParseResult
             Some(parse_expression(stream)?)
         }
     };
-    stream.expect_kind(SemiColon)?;
-    Ok(ReturnStatement { expression })
+    let semi = stream.expect_kind(SemiColon)?;
+    Ok(WithPos::new(
+        ReturnStatement { expression },
+        initial.pos.combine_into(&semi.pos),
+    ))
 }
 
 /// LRM 10.5 Signal assignment statement
@@ -540,7 +546,7 @@ fn parse_unlabeled_sequential_statement(
             },
             Next => SequentialStatement::Next(parse_next_statement_known_keyword(stream)?),
             Exit => SequentialStatement::Exit(parse_exit_statement_known_keyword(stream)?),
-            Return => SequentialStatement::Return(parse_return_statement_known_keyword(stream)?),
+            Return => SequentialStatement::Return(parse_return_statement_known_keyword(token, stream)?),
             Null => {
                 stream.expect_kind(SemiColon)?;
                 SequentialStatement::Null
@@ -608,6 +614,10 @@ mod tests {
         let code = Code::new(code);
         let stmt = code.with_stream_no_diagnostics(parse_sequential_statement);
         (code, stmt)
+    }
+
+    fn parse_stmt(code: &Code) -> LabeledSequentialStatement {
+        code.with_stream_no_diagnostics(parse_sequential_statement)
     }
 
     fn with_label(
@@ -1650,26 +1660,35 @@ end loop;
 
     #[test]
     fn parse_return_statement() {
-        let (_, statement) = parse("return;");
+        let code = Code::new("return;");
+
+        let statement = parse_stmt(&code);
         assert_eq!(
             statement,
             with_label(
                 None,
-                SequentialStatement::Return(ReturnStatement { expression: None })
+                SequentialStatement::Return(WithPos::new(
+                    ReturnStatement { expression: None },
+                    code.pos()
+                ))
             )
         );
     }
 
     #[test]
     fn parse_return_statement_expression() {
-        let (code, statement) = parse("return 1 + 2;");
+        let code = Code::new("return 1 + 2;");
+        let statement = parse_stmt(&code);
         assert_eq!(
             statement,
             with_label(
                 None,
-                SequentialStatement::Return(ReturnStatement {
-                    expression: Some(code.s1("1 + 2").expr()),
-                })
+                SequentialStatement::Return(WithPos::new(
+                    ReturnStatement {
+                        expression: Some(code.s1("1 + 2").expr()),
+                    },
+                    code.pos()
+                ))
             )
         );
     }

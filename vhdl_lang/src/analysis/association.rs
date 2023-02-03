@@ -332,7 +332,7 @@ impl<'a> AnalyzeContext<'a> {
             {
                 match &mut actual.item {
                     ActualPart::Expression(expr) => {
-                        self.expr_with_ttyp(
+                        self.expr_pos_with_ttyp(
                             scope,
                             formal.type_mark(),
                             &actual.pos,
