@@ -4,7 +4,9 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::ast::{self, Operator};
+use fnv::FnvHashMap;
+
+use crate::ast::{self, AttributeDesignator, Operator};
 use crate::ast::{BaseSpecifier, Ident};
 use crate::data::*;
 
@@ -1211,6 +1213,7 @@ fn get_trailing_comment(reader: &mut ContentReader) -> Result<Option<Comment>, T
 pub struct Symbols {
     symtab: SymbolTable,
     keywords: Vec<Kind>,
+    attributes: FnvHashMap<Symbol, AttributeDesignator>,
 }
 
 impl Symbols {
@@ -1330,6 +1333,17 @@ impl std::default::Default for Symbols {
             ("vunit", Vunit),
         ];
 
+        let attributes = [
+            (
+                "reverse_range",
+                AttributeDesignator::Range(ast::RangeAttribute::ReverseRange),
+            ),
+            (
+                "element",
+                AttributeDesignator::Type(ast::TypeAttribute::Element),
+            ),
+        ];
+
         let symtab = SymbolTable::default();
         let mut keywords = Vec::with_capacity(keywords_init.len());
 
@@ -1342,7 +1356,16 @@ impl std::default::Default for Symbols {
             keywords.push(*kind);
         }
 
-        Symbols { symtab, keywords }
+        let attributes = attributes
+            .into_iter()
+            .map(|(name, des)| (symtab.insert_utf8(name), des))
+            .collect();
+
+        Symbols {
+            symtab,
+            keywords,
+            attributes,
+        }
     }
 }
 
@@ -1353,8 +1376,6 @@ pub struct Tokenizer<'a> {
     source: &'a Source,
     reader: ContentReader<'a>,
     final_comments: Option<Vec<Comment>>,
-    reverse_range_sym: Symbol,
-    element_sym: Symbol,
 }
 
 impl<'a> Tokenizer<'a> {
@@ -1363,11 +1384,6 @@ impl<'a> Tokenizer<'a> {
         source: &'a Source,
         reader: ContentReader<'a>,
     ) -> Tokenizer<'a> {
-        let reverse_range_sym = symbols
-            .symtab()
-            .insert(&Latin1String::new(b"reverse_range"));
-        let element_sym = symbols.symtab().insert(&Latin1String::new(b"element"));
-
         Tokenizer {
             symbols,
             state: TokenState::new(reader.state()),
@@ -1375,8 +1391,6 @@ impl<'a> Tokenizer<'a> {
             source,
             reader,
             final_comments: None,
-            reverse_range_sym,
-            element_sym,
         }
     }
 
@@ -1402,12 +1416,12 @@ impl<'a> Tokenizer<'a> {
         self.reader.set_state(self.state.start);
     }
 
-    pub fn reverse_range_sym(&self) -> &Symbol {
-        &self.reverse_range_sym
-    }
-
-    pub fn element_sym(&self) -> &Symbol {
-        &self.element_sym
+    pub fn attribute(&self, sym: Symbol) -> AttributeDesignator {
+        self.symbols
+            .attributes
+            .get(&sym)
+            .cloned()
+            .unwrap_or_else(|| AttributeDesignator::Ident(sym))
     }
 
     fn parse_token(&mut self) -> Result<Option<(Kind, Value)>, TokenError> {

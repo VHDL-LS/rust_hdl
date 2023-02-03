@@ -9,7 +9,7 @@ use super::common::ParseResult;
 use super::expression::{parse_expression, parse_expression_initial_token};
 use super::subprogram::parse_signature;
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{Kind::*, Token, TokenStream, Value};
+use super::tokens::{Kind::*, Token, TokenStream};
 use crate::ast;
 use crate::ast::*;
 use crate::data::{Diagnostic, WithPos};
@@ -53,26 +53,18 @@ pub fn parse_type_mark_starting_with_name(
     // Check if it is a type mark with a subtype or element attribute:
     // Example: signal sig0 : sig1'subtype;
     if stream.pop_if_kind(Tick)?.is_some() {
-        let subtype_token = stream.expect()?;
-        if subtype_token.kind == Subtype {
-            return Ok(WithPos {
-                pos: subtype_token.pos.combine_into(&name.pos),
-                item: TypeMark {
-                    name,
-                    attr: Some(TypeAttribute::Subtype),
-                },
-            });
-        } else if subtype_token.kind == Identifier
-            && matches!(subtype_token.value, Value::Identifier(ref sym) if sym == stream.element_sym())
-        {
-            return Ok(WithPos {
-                pos: subtype_token.pos.combine_into(&name.pos),
-                item: TypeMark {
-                    name,
-                    attr: Some(TypeAttribute::Element),
-                },
-            });
+        if let Ok(attr) = stream.expect_attribute_designator() {
+            if let AttributeDesignator::Type(typattr) = attr.item {
+                return Ok(WithPos {
+                    pos: attr.pos.combine_into(&name.pos),
+                    item: TypeMark {
+                        name,
+                        attr: Some(typattr),
+                    },
+                });
+            }
         }
+
         stream.set_state(state);
     };
 
