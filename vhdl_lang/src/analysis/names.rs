@@ -157,7 +157,7 @@ impl<'a> ResolvedName<'a> {
             | AnyEntKind::Attribute(_)
             | AnyEntKind::ElementDeclaration(_)
             | AnyEntKind::Label
-            | AnyEntKind::LoopParameter => {
+            | AnyEntKind::LoopParameter(_) => {
                 return Err(format!(
                     "{} cannot be selected from design unit",
                     ent.kind().describe()
@@ -207,7 +207,7 @@ impl<'a> ResolvedName<'a> {
             | AnyEntKind::InterfaceFile(_)
             | AnyEntKind::Component(_)
             | AnyEntKind::Label
-            | AnyEntKind::LoopParameter
+            | AnyEntKind::LoopParameter(_)
             | AnyEntKind::PhysicalLiteral(_) => ResolvedName::Final(ent),
             AnyEntKind::Attribute(_) | AnyEntKind::ElementDeclaration(_) => {
                 return Err(format!(
@@ -329,9 +329,8 @@ impl<'a> AnalyzeContext<'a> {
                 ))
             }
             ResolvedName::Final(ent) => match ent.actual_kind() {
-                AnyEntKind::LoopParameter => {
-                    // TODO cannot handle yet
-                    Ok(None)
+                AnyEntKind::LoopParameter(typ) => {
+                    Ok(typ.map(|typ| DisambiguatedType::Unambiguous(typ.into())))
                 }
                 AnyEntKind::PhysicalLiteral(typ) => Ok(Some(DisambiguatedType::Unambiguous(*typ))),
                 AnyEntKind::File(subtype) => {
@@ -373,10 +372,7 @@ impl<'a> AnalyzeContext<'a> {
                 ))
             }
             ResolvedName::Final(ent) => match ent.actual_kind() {
-                AnyEntKind::LoopParameter => {
-                    // TODO cannot handle yet
-                    Ok(None)
-                }
+                AnyEntKind::LoopParameter(typ) => Ok(typ.map(|typ| typ.into())),
                 AnyEntKind::PhysicalLiteral(typ) => Ok(Some(*typ)),
                 AnyEntKind::File(subtype) => Ok(Some(subtype.type_mark())),
                 AnyEntKind::InterfaceFile(typ) => Ok(Some(*typ)),
@@ -502,7 +498,7 @@ impl<'a> AnalyzeContext<'a> {
             } else {
                 None
             }),
-            // @TODO attribute not handled
+            // @TODO attribute is handled elesewhere
             Suffix::Attribute(_) => Ok(None),
             // @TODO Prefix must non-overloaded
             Suffix::CallOrIndexed(assocs) => {
@@ -518,7 +514,8 @@ impl<'a> AnalyzeContext<'a> {
                 if could_be_indexed_name(assocs) {
                     // @TODO check types of indexes
                     self.analyze_assoc_elems(scope, assocs, diagnostics)?;
-                    if let Some((elem_type, num_indexes)) = prefix_typ.array_type() {
+                    if let Some((elem_type, indexes)) = prefix_typ.array_type() {
+                        let num_indexes = indexes.len();
                         if assocs.len() != num_indexes {
                             Err(Diagnostic::dimension_mismatch(
                                 name_pos,
@@ -537,6 +534,46 @@ impl<'a> AnalyzeContext<'a> {
                     Ok(None)
                 }
             }
+        }
+    }
+
+    pub fn attribute_suffix(
+        &self,
+        typ: TypeEnt<'a>,
+        attr: &mut AttributeSuffix,
+    ) -> EvalResult<Option<BaseType<'a>>> {
+        match attr.attr.item {
+            // @TODO check that it is a scalar type
+            AttributeDesignator::Left
+            | AttributeDesignator::Right
+            | AttributeDesignator::High
+            | AttributeDesignator::Low => {
+                if let Some((_, indexes)) = typ.array_type() {
+                    if attr.expr.is_none() {
+                        // @TODO could also be 'left(2) for different dimensions
+                        Ok(Some(indexes.first().unwrap().unwrap()))
+                    } else {
+                        Err(EvalError::Unknown)
+                    }
+                } else {
+                    match typ.base().kind() {
+                        Type::Enum(_)
+                        | Type::Integer
+                        | Type::Real
+                        | Type::Physical
+                        | Type::Universal(_) => Ok(Some(typ.into())),
+                        _ => Ok(None),
+                    }
+                }
+            }
+            AttributeDesignator::Length => {
+                if typ.array_type().is_some() {
+                    Ok(Some(self.universal_integer()))
+                } else {
+                    Ok(None)
+                }
+            }
+            _ => Err(EvalError::Unknown),
         }
     }
 
@@ -645,18 +682,54 @@ impl<'a> AnalyzeContext<'a> {
             }
         }
 
-        if let Suffix::Attribute(attr) = suffix {
-            if let Some(signature) = attr.signature {
-                if let Err(e) = self.resolve_signature(scope, signature) {
-                    diagnostics.push(e.into_non_fatal()?);
-                }
-            }
-            if let Some(expr) = attr.expr {
-                self.analyze_expression(scope, expr, diagnostics)?;
-            }
+        // Attributes for non-types not handled yet
+        if let Suffix::Attribute(ref mut attr) = suffix {
+            let typ = match resolved {
+                ResolvedName::Type(typ) => typ,
+                ResolvedName::ObjectName(oname) => oname.type_mark(),
+                ResolvedName::Expression(DisambiguatedType::Unambiguous(typ)) => typ,
+                _ => {
+                    // @TODO ignore for now
+                    if let Some(signature) = attr.signature {
+                        if let Err(e) = self.resolve_signature(scope, signature) {
+                            diagnostics.push(e.into_non_fatal()?);
+                        }
+                    }
+                    if let Some(expr) = attr.expr {
+                        self.analyze_expression(scope, expr, diagnostics)?;
+                    }
 
-            // @TODO not handled yet
-            return Err(EvalError::Unknown);
+                    // @TODO not handled yet
+                    return Err(EvalError::Unknown);
+                }
+            };
+
+            return match self.attribute_suffix(typ, attr) {
+                Ok(Some(typ)) => Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                    typ.into(),
+                ))),
+                Ok(None) => {
+                    diagnostics.push(Diagnostic::cannot_be_prefix(name_pos, resolved, suffix));
+                    Err(EvalError::Unknown)
+                }
+                Err(EvalError::Unknown) => {
+                    // @TODO ignore for now
+                    if let Some(signature) = attr.signature {
+                        if let Err(e) = self.resolve_signature(scope, signature) {
+                            diagnostics.push(e.into_non_fatal()?);
+                        }
+                    }
+                    if let Some(expr) = attr.expr {
+                        self.analyze_expression(scope, expr, diagnostics)?;
+                    }
+
+                    // @TODO not handled yet
+                    return Err(EvalError::Unknown);
+                }
+                Err(err) => {
+                    return Err(err);
+                }
+            };
         }
 
         match resolved {
@@ -830,6 +903,7 @@ impl<'a> AnalyzeContext<'a> {
                         )));
                     }
                 }
+
                 diagnostics.push(Diagnostic::cannot_be_prefix(name_pos, resolved, suffix));
                 return Err(EvalError::Unknown);
             }
@@ -1635,5 +1709,94 @@ variable c0 : integer_vector(0 to 6);
                 "real type 'REAL' cannot be used as a discrete range",
             )],
         )
+    }
+
+    #[test]
+    fn scalar_type_attribute() {
+        let test = TestSetup::new();
+        let code = test.snippet("integer'left");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.lookup_type("integer")
+            )))
+        );
+        let code = test.snippet("integer'right");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.lookup_type("integer")
+            )))
+        );
+        let code = test.snippet("integer'high");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.lookup_type("integer")
+            )))
+        );
+        let code = test.snippet("integer'low");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.lookup_type("integer")
+            )))
+        );
+    }
+
+    #[test]
+    fn array_type_attribute() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+type arr_t is array (integer range 0 to 3) of integer;        
+        ",
+        );
+        let code = test.snippet("arr_t'left");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.lookup_type("integer")
+            )))
+        );
+    }
+
+    #[test]
+    fn length_attribute_of_array_type() {
+        let test = TestSetup::new();
+
+        test.declarative_part(
+            "
+type arr_t is array (integer range 0 to 3) of integer;        
+        ",
+        );
+
+        let code = test.snippet("arr_t'length");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().universal_integer().into()
+            )))
+        );
+    }
+
+    #[test]
+    fn length_attribute_of_array_object() {
+        let test = TestSetup::new();
+
+        test.declarative_part(
+            "
+type arr_t is array (integer range 0 to 3) of integer;        
+constant c0 : arr_t := (others => 0);
+        ",
+        );
+
+        let code = test.snippet("c0'length");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().universal_integer().into()
+            )))
+        );
     }
 }

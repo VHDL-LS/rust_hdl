@@ -85,10 +85,10 @@ impl<'a> AnalyzeContext<'a> {
                     discrete_range,
                     body,
                 } = gen;
-                self.analyze_discrete_range(scope, discrete_range, diagnostics)?;
+                let typ = as_fatal(self.discrete_range_type(scope, discrete_range, diagnostics))?;
                 let nested = scope.nested();
                 nested.add(
-                    index_name.define(self.arena, AnyEntKind::LoopParameter),
+                    index_name.define(self.arena, AnyEntKind::LoopParameter(typ)),
                     diagnostics,
                 );
                 self.analyze_generate_body(&nested, body, diagnostics)?;

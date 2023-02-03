@@ -509,10 +509,14 @@ package body pkg is
        end if;
 
        -- Loops
-       for i in missing to missing loop
+       for i in missing to 0 loop
+         for j in 0 to missing loop
+         end loop;
+
          proc2(i); -- Index is defined
          missing;
        end loop;
+       
 
        loop
          missing;

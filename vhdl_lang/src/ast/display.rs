@@ -101,6 +101,11 @@ impl Display for AttributeDesignator {
             AttributeDesignator::Ident(sym) => write!(f, "{sym}"),
             AttributeDesignator::Range(r) => write!(f, "{r}"),
             AttributeDesignator::Type(t) => write!(f, "{t}"),
+            AttributeDesignator::Left => write!(f, "left"),
+            AttributeDesignator::Right => write!(f, "right"),
+            AttributeDesignator::Low => write!(f, "low"),
+            AttributeDesignator::High => write!(f, "high"),
+            AttributeDesignator::Length => write!(f, "length"),
         }
     }
 }

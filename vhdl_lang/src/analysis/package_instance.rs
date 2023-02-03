@@ -274,7 +274,11 @@ impl<'a> AnalyzeContext<'a> {
             }
             AnyEntKind::Label => AnyEntKind::Label,
             AnyEntKind::Object(obj) => AnyEntKind::Object(self.map_object(mapping, obj)?),
-            AnyEntKind::LoopParameter => AnyEntKind::LoopParameter,
+            AnyEntKind::LoopParameter(typ) => AnyEntKind::LoopParameter(if let Some(typ) = typ {
+                Some(self.map_type_ent(mapping, (*typ).into())?.base())
+            } else {
+                None
+            }),
             AnyEntKind::PhysicalLiteral(typ) => {
                 AnyEntKind::PhysicalLiteral(self.map_type_ent(mapping, *typ)?)
             }

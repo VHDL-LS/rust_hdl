@@ -146,10 +146,17 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 };
 
-                if let Type::Array { indexes, .. } = typ.base().kind() {
+                if let Some((_, indexes)) = typ.array_type() {
                     Ok(indexes.first().unwrap().unwrap())
                 } else {
-                    todo!()
+                    diagnostics.error(
+                        &attr.name.pos,
+                        format!(
+                            "{} cannot be prefix of range attribute, array type or object is required",
+                            resolved.describe()
+                        ),
+                    );
+                    Err(EvalError::Unknown)
                 }
             }
         }
@@ -477,6 +484,25 @@ function myfun return arr_t;
                 code.s1("myfun"),
                 "myfun[return arr_t] cannot be prefix of range attribute, array type or object is required",
             )],
+        );
+    }
+
+    #[test]
+    fn range_attribute_name_of_access_type() {
+        let test = TestSetup::new();
+
+        test.declarative_part(
+            "
+type arr_t is array (integer range <>) of boolean;
+type ptr_t is access arr_t;
+variable v : ptr_t;
+            ",
+        );
+
+        let code = test.snippet("v'range");
+        assert_eq!(
+            test.range_type(&code, &mut NoDiagnostics),
+            Ok(test.lookup_type("integer").base())
         );
     }
 }

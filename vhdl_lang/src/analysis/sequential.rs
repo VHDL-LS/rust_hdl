@@ -125,10 +125,10 @@ impl<'a> AnalyzeContext<'a> {
                 } = loop_stmt;
                 match iteration_scheme {
                     Some(IterationScheme::For(ref mut index, ref mut drange)) => {
-                        self.analyze_discrete_range(scope, drange, diagnostics)?;
+                        let typ = as_fatal(self.discrete_range_type(scope, drange, diagnostics))?;
                         let region = scope.nested();
                         region.add(
-                            self.arena.define(index, AnyEntKind::LoopParameter),
+                            self.arena.define(index, AnyEntKind::LoopParameter(typ)),
                             diagnostics,
                         );
                         self.analyze_sequential_part(&region, statements, diagnostics)?;

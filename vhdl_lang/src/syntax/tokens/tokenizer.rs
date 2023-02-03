@@ -1342,6 +1342,11 @@ impl std::default::Default for Symbols {
                 "element",
                 AttributeDesignator::Type(ast::TypeAttribute::Element),
             ),
+            ("high", AttributeDesignator::High),
+            ("low", AttributeDesignator::Low),
+            ("left", AttributeDesignator::Left),
+            ("right", AttributeDesignator::Right),
+            ("length", AttributeDesignator::Length),
         ];
 
         let symtab = SymbolTable::default();

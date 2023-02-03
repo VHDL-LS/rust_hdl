@@ -110,6 +110,11 @@ pub enum AttributeDesignator {
     Type(TypeAttribute),
     Range(RangeAttribute),
     Ident(Symbol),
+    Left,
+    Right,
+    High,
+    Low,
+    Length,
 }
 
 /// LRM 8.7 External names

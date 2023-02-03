@@ -151,12 +151,12 @@ impl<'a> TypeEnt<'a> {
         }
     }
 
-    pub fn array_type(&self) -> Option<(TypeEnt<'a>, usize)> {
+    pub fn array_type(&self) -> Option<(TypeEnt<'a>, &'a Vec<Option<BaseType<'a>>>)> {
         if let Type::Array {
             elem_type, indexes, ..
         } = self.base_type().kind()
         {
-            Some((*elem_type, indexes.len()))
+            Some((*elem_type, indexes))
         } else if let Some(accessed_typ) = self.accessed_type() {
             accessed_typ.array_type()
         } else {
