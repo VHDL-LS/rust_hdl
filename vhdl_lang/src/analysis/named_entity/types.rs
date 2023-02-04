@@ -275,6 +275,13 @@ impl<'a> BaseType<'a> {
         matches!(self.kind(), Type::Enum { .. })
     }
 
+    pub fn is_any_integer(&self) -> bool {
+        matches!(
+            self.kind(),
+            Type::Integer | Type::Universal(UniversalType::Integer)
+        )
+    }
+
     pub fn is_scalar(&self) -> bool {
         matches!(
             self.kind(),

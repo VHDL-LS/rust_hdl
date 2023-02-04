@@ -34,6 +34,16 @@ impl<'a> ExpressionType<'a> {
             ExpressionType::Aggregate => other.is_composite(),
         }
     }
+
+    pub(crate) fn describe(&self) -> String {
+        match self {
+            ExpressionType::Unambiguous(typ) => format!("expression with {}", typ.describe()),
+            ExpressionType::Ambiguous(_) => "ambiguous expression".to_owned(),
+            ExpressionType::String => "string literal".to_owned(),
+            ExpressionType::Null => "null literal".to_owned(),
+            ExpressionType::Aggregate => "aggregate expression".to_owned(),
+        }
+    }
 }
 
 impl<'a> From<DisambiguatedType<'a>> for ExpressionType<'a> {
@@ -566,6 +576,40 @@ impl<'a> AnalyzeContext<'a> {
         } else {
             FnvHashSet::default()
         }
+    }
+
+    /// An expression of any integer type
+    pub fn integer_expr(
+        &self,
+        scope: &Scope<'a>,
+        expr: &mut WithPos<Expression>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult {
+        if let Some(types) = as_fatal(self.expr_type(scope, expr, diagnostics))? {
+            match types {
+                ExpressionType::Unambiguous(typ) => {
+                    if !typ.base().is_any_integer() {
+                        diagnostics.error(
+                            &expr.pos,
+                            format!("Expected integer type, got {}", typ.describe()),
+                        )
+                    }
+                }
+                ExpressionType::Ambiguous(types) => {
+                    // @TODO does not check if type is ambiguous
+                    if types.iter().any(|typ| !typ.is_any_integer()) {
+                        diagnostics.error(&expr.pos, "Expected integer type")
+                    }
+                }
+                ExpressionType::String | ExpressionType::Null | ExpressionType::Aggregate => {
+                    diagnostics.error(
+                        &expr.pos,
+                        format!("Expected integer type, got {}", types.describe()),
+                    )
+                }
+            }
+        }
+        Ok(())
     }
 
     /// An expression that is either boolean or implicitly boolean via ?? operator

@@ -110,6 +110,12 @@ impl Display for AttributeDesignator {
             AttributeDesignator::Length => write!(f, "length"),
             AttributeDesignator::Image => write!(f, "image"),
             AttributeDesignator::Value => write!(f, "value"),
+            AttributeDesignator::Pos => write!(f, "pos"),
+            AttributeDesignator::Val => write!(f, "val"),
+            AttributeDesignator::Succ => write!(f, "succ"),
+            AttributeDesignator::Pred => write!(f, "pred"),
+            AttributeDesignator::LeftOf => write!(f, "leftof"),
+            AttributeDesignator::RightOf => write!(f, "rightof"),
         }
     }
 }

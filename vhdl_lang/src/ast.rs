@@ -119,6 +119,12 @@ pub enum AttributeDesignator {
     Length,
     Image,
     Value,
+    Pos,
+    Val,
+    Succ,
+    Pred,
+    LeftOf,
+    RightOf,
 }
 
 /// LRM 8.7 External names

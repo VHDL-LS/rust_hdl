@@ -1351,6 +1351,12 @@ impl std::default::Default for Symbols {
             ("length", AttributeDesignator::Length),
             ("image", AttributeDesignator::Image),
             ("value", AttributeDesignator::Value),
+            ("pos", AttributeDesignator::Pos),
+            ("val", AttributeDesignator::Val),
+            ("succ", AttributeDesignator::Succ),
+            ("pred", AttributeDesignator::Pred),
+            ("leftof", AttributeDesignator::LeftOf),
+            ("rightof", AttributeDesignator::RightOf),
         ];
 
         let symtab = SymbolTable::default();

@@ -52,6 +52,7 @@ pub(crate) struct StandardTypes {
     pub boolean_vector: EntityId,
     pub bit: EntityId,
     pub bit_vector: EntityId,
+    pub character: EntityId,
     pub string: EntityId,
     pub integer: EntityId,
     pub natural: EntityId,
@@ -68,6 +69,7 @@ impl StandardTypes {
         let mut boolean_vector = None;
         let mut bit = None;
         let mut bit_vector = None;
+        let mut character = None;
         let mut string = None;
         let mut integer = None;
         let mut natural = None;
@@ -101,6 +103,9 @@ impl StandardTypes {
                     }
                     b"BIT_VECTOR" => {
                         bit_vector = Some(id);
+                    }
+                    b"CHARACTER" => {
+                        character = Some(id);
                     }
                     b"STRING" => {
                         string = Some(id);
@@ -139,6 +144,7 @@ impl StandardTypes {
             boolean_vector: boolean_vector.unwrap(),
             bit: bit.unwrap(),
             bit_vector: bit_vector.unwrap(),
+            character: character.unwrap(),
             string: string.unwrap(),
             integer: integer.unwrap(),
             natural: natural.unwrap(),
@@ -182,6 +188,11 @@ impl<'a> AnalyzeContext<'a> {
 
     pub(crate) fn natural(&self) -> TypeEnt<'a> {
         self.arena.get_type(self.standard_types().natural)
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn character(&self) -> TypeEnt<'a> {
+        self.arena.get_type(self.standard_types().character)
     }
 
     pub(crate) fn universal_integer(&self) -> BaseType<'a> {

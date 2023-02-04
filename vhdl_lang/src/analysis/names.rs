@@ -575,13 +575,8 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             AttributeDesignator::Image => {
-                if let Some(ref mut expr) = attr.expr {
+                if let Some(ref mut expr) = check_single_argument(pos, attr, diagnostics) {
                     self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
-                } else {
-                    diagnostics.error(
-                        pos,
-                        format!("'{} attribute requires a single argument", attr.attr),
-                    )
                 }
 
                 if typ.is_scalar() {
@@ -591,16 +586,44 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             AttributeDesignator::Value => {
-                if let Some(ref mut expr) = attr.expr {
+                if let Some(ref mut expr) = check_single_argument(pos, attr, diagnostics) {
                     self.expr_with_ttyp(scope, self.string(), expr, diagnostics)?;
-                } else {
-                    diagnostics.error(
-                        pos,
-                        format!("'{} attribute requires a single argument", attr.attr),
-                    )
                 }
 
                 if typ.is_scalar() {
+                    Ok(Some(typ.base()))
+                } else {
+                    Ok(None)
+                }
+            }
+            AttributeDesignator::Pos => {
+                if typ.base().is_discrete() {
+                    if let Some(ref mut expr) = check_single_argument(pos, attr, diagnostics) {
+                        self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
+                    }
+                    Ok(Some(self.universal_integer()))
+                } else {
+                    Ok(None)
+                }
+            }
+            AttributeDesignator::Val => {
+                if typ.base().is_discrete() {
+                    if let Some(ref mut expr) = check_single_argument(pos, attr, diagnostics) {
+                        self.integer_expr(scope, expr, diagnostics)?;
+                    }
+                    Ok(Some(typ.base()))
+                } else {
+                    Ok(None)
+                }
+            }
+            AttributeDesignator::Succ
+            | AttributeDesignator::Pred
+            | AttributeDesignator::LeftOf
+            | AttributeDesignator::RightOf => {
+                if typ.base().is_discrete() {
+                    if let Some(ref mut expr) = check_single_argument(pos, attr, diagnostics) {
+                        self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
+                    }
                     Ok(Some(typ.base()))
                 } else {
                     Ok(None)
@@ -1375,6 +1398,22 @@ fn check_no_attr_argument(suffix: &AttributeSuffix, diagnostics: &mut dyn Diagno
     }
 }
 
+fn check_single_argument<'a>(
+    pos: &SrcPos,
+    suffix: &'a mut AttributeSuffix,
+    diagnostics: &mut dyn DiagnosticHandler,
+) -> Option<&'a mut WithPos<Expression>> {
+    if let Some(ref mut expr) = suffix.expr {
+        Some(expr)
+    } else {
+        diagnostics.error(
+            pos,
+            format!("'{} attribute requires a single argument", suffix.attr),
+        );
+        None
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -1936,6 +1975,75 @@ constant c0 : arr_t := (others => 0);
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
                 test.ctx().integer()
+            )))
+        );
+    }
+
+    #[test]
+    fn discrete_attributes() {
+        let test = TestSetup::new();
+
+        let code = test.snippet("character'pos('a')");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().universal_integer().into()
+            )))
+        );
+
+        let code = test.snippet("character'val(0)");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().character()
+            )))
+        );
+
+        let code = test.snippet("character'val('a')");
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            test.name_resolve(&code, None, &mut diagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().character()
+            )))
+        );
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("'a'"),
+                "Expected integer type, got type 'CHARACTER'",
+            )],
+        );
+
+        let code = test.snippet("character'succ('a')");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().character()
+            )))
+        );
+
+        let code = test.snippet("character'pred('a')");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().character()
+            )))
+        );
+
+        let code = test.snippet("character'leftof('a')");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().character()
+            )))
+        );
+
+        let code = test.snippet("character'rightof('a')");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().character()
             )))
         );
     }
