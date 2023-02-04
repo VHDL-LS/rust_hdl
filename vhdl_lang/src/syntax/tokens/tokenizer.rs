@@ -1342,6 +1342,8 @@ impl std::default::Default for Symbols {
                 "element",
                 AttributeDesignator::Type(ast::TypeAttribute::Element),
             ),
+            ("ascending", AttributeDesignator::Ascending),
+            ("descending", AttributeDesignator::Descending),
             ("high", AttributeDesignator::High),
             ("low", AttributeDesignator::Low),
             ("left", AttributeDesignator::Left),

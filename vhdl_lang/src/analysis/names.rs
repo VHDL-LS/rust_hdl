@@ -543,7 +543,6 @@ impl<'a> AnalyzeContext<'a> {
         attr: &mut AttributeSuffix,
     ) -> EvalResult<Option<BaseType<'a>>> {
         match attr.attr.item {
-            // @TODO check that it is a scalar type
             AttributeDesignator::Left
             | AttributeDesignator::Right
             | AttributeDesignator::High
@@ -562,6 +561,20 @@ impl<'a> AnalyzeContext<'a> {
                         | Type::Real
                         | Type::Physical
                         | Type::Universal(_) => Ok(Some(typ.into())),
+                        _ => Ok(None),
+                    }
+                }
+            }
+            AttributeDesignator::Ascending | AttributeDesignator::Descending => {
+                if typ.array_type().is_some() {
+                    Ok(Some(self.boolean().base()))
+                } else {
+                    match typ.base().kind() {
+                        Type::Enum(_)
+                        | Type::Integer
+                        | Type::Real
+                        | Type::Physical
+                        | Type::Universal(_) => Ok(Some(self.boolean().base())),
                         _ => Ok(None),
                     }
                 }
@@ -1796,6 +1809,34 @@ constant c0 : arr_t := (others => 0);
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
                 test.ctx().universal_integer().into()
+            )))
+        );
+    }
+
+    #[test]
+    fn ascending_descending() {
+        let test = TestSetup::new();
+
+        test.declarative_part(
+            "
+type arr_t is array (integer range 0 to 3) of integer;        
+constant c0 : arr_t := (others => 0);
+        ",
+        );
+
+        let code = test.snippet("c0'ascending");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().boolean()
+            )))
+        );
+
+        let code = test.snippet("arr_t'descending");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().boolean()
             )))
         );
     }
