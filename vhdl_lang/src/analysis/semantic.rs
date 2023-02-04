@@ -110,7 +110,7 @@ impl<'a> AnalyzeContext<'a> {
         for choice in choices.iter_mut() {
             match choice {
                 Choice::Expression(ref mut expr) => {
-                    self.analyze_expression(scope, expr, diagnostics)?;
+                    self.expr_unknown_ttyp(scope, expr, diagnostics)?;
                 }
                 Choice::DiscreteRange(ref mut drange) => {
                     self.analyze_discrete_range(scope, drange, diagnostics)?;
@@ -130,7 +130,7 @@ impl<'a> AnalyzeContext<'a> {
         for AssociationElement { actual, .. } in elems.iter_mut() {
             match actual.item {
                 ActualPart::Expression(ref mut expr) => {
-                    self.analyze_expression_pos(scope, &actual.pos, expr, diagnostics)?;
+                    self.expr_pos_unknown_ttyp(scope, &actual.pos, expr, diagnostics)?;
                 }
                 ActualPart::Open => {}
             }

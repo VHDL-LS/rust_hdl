@@ -47,7 +47,7 @@ impl<'a> AnalyzeContext<'a> {
                     expression,
                     alternatives,
                 } = selection;
-                self.analyze_expression(scope, expression, diagnostics)?;
+                self.expr_unknown_ttyp(scope, expression, diagnostics)?;
                 for Alternative { choices, item } in alternatives.iter_mut() {
                     self.analyze_expression_for_target(scope, ttyp, item, diagnostics)?;
                     self.analyze_choices(scope, choices, diagnostics)?;
@@ -89,7 +89,7 @@ impl<'a> AnalyzeContext<'a> {
                     expression,
                     alternatives,
                 } = selection;
-                self.analyze_expression(scope, expression, diagnostics)?;
+                self.expr_unknown_ttyp(scope, expression, diagnostics)?;
                 for Alternative { choices, item } in alternatives.iter_mut() {
                     self.analyze_waveform(scope, ttyp, item, diagnostics)?;
                     self.analyze_choices(scope, choices, diagnostics)?;
@@ -131,7 +131,7 @@ impl<'a> AnalyzeContext<'a> {
         if let Some(ttyp) = ttyp {
             self.expr_with_ttyp(scope, ttyp, expr, diagnostics)?;
         } else {
-            self.analyze_expression_pos(scope, &expr.pos, &mut expr.item, diagnostics)?;
+            self.expr_unknown_ttyp(scope, expr, diagnostics)?;
         }
         Ok(())
     }

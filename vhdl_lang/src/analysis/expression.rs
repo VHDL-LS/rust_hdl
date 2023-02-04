@@ -147,13 +147,13 @@ impl<'a> AnalyzeContext<'a> {
         self.matcher().can_be_target_type(typ, ttyp)
     }
 
-    pub fn analyze_expression(
+    pub fn expr_unknown_ttyp(
         &self,
         scope: &Scope<'a>,
         expr: &mut WithPos<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        self.analyze_expression_pos(scope, &expr.pos, &mut expr.item, diagnostics)
+        self.expr_pos_unknown_ttyp(scope, &expr.pos, &mut expr.item, diagnostics)
     }
 
     pub fn lookup_operator(
@@ -468,7 +468,8 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    pub fn analyze_expression_pos(
+    // Fallback for analyzing an expression without a known target type
+    pub fn expr_pos_unknown_ttyp(
         &self,
         scope: &Scope<'a>,
         pos: &SrcPos,
@@ -499,7 +500,7 @@ impl<'a> AnalyzeContext<'a> {
                 Ok(target_type)
             }
             Err(e) => {
-                self.analyze_expression(scope, expr, diagnostics)?;
+                self.expr_unknown_ttyp(scope, expr, diagnostics)?;
                 e.add_to(diagnostics)?;
                 Err(EvalError::Unknown)
             }
@@ -699,8 +700,8 @@ impl<'a> AnalyzeContext<'a> {
                         None => {}
                     }
                 } else {
-                    self.analyze_expression(scope, left, diagnostics)?;
-                    self.analyze_expression(scope, right, diagnostics)?;
+                    self.expr_unknown_ttyp(scope, left, diagnostics)?;
+                    self.expr_unknown_ttyp(scope, right, diagnostics)?;
                 }
             }
             Expression::Unary(ref mut op, ref mut expr) => {
@@ -807,10 +808,10 @@ impl<'a> AnalyzeContext<'a> {
                             Choice::Others => {}
                         }
                     }
-                    self.analyze_expression(scope, expr, diagnostics)?;
+                    self.expr_unknown_ttyp(scope, expr, diagnostics)?;
                 }
                 ElementAssociation::Positional(ref mut expr) => {
-                    self.analyze_expression(scope, expr, diagnostics)?;
+                    self.expr_unknown_ttyp(scope, expr, diagnostics)?;
                 }
             }
         }
@@ -877,11 +878,11 @@ impl<'a> AnalyzeContext<'a> {
                             diagnostics,
                         )?;
                     } else {
-                        self.analyze_expression(scope, actual_expr, diagnostics)?;
+                        self.expr_unknown_ttyp(scope, actual_expr, diagnostics)?;
                     }
                 }
                 ElementAssociation::Positional(ref mut expr) => {
-                    self.analyze_expression(scope, expr, diagnostics)?;
+                    self.expr_unknown_ttyp(scope, expr, diagnostics)?;
                 }
             }
         }

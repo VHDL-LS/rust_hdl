@@ -23,8 +23,8 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalResult {
         match range {
             Range::Range(ref mut constraint) => {
-                self.analyze_expression(scope, &mut constraint.left_expr, diagnostics)?;
-                self.analyze_expression(scope, &mut constraint.right_expr, diagnostics)?;
+                self.expr_unknown_ttyp(scope, &mut constraint.left_expr, diagnostics)?;
+                self.expr_unknown_ttyp(scope, &mut constraint.right_expr, diagnostics)?;
             }
             Range::Attribute(ref mut attr) => {
                 self.analyze_attribute_name(scope, attr, diagnostics)?

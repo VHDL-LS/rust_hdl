@@ -260,7 +260,7 @@ impl<'a> AnalyzeContext<'a> {
                             diagnostics,
                         )?;
                     } else {
-                        self.analyze_expression(scope, expr, diagnostics)?;
+                        self.expr_unknown_ttyp(scope, expr, diagnostics)?;
                     }
                 }
 
@@ -301,10 +301,10 @@ impl<'a> AnalyzeContext<'a> {
                     };
 
                 if let Some(ref mut expr) = open_info {
-                    self.analyze_expression(scope, expr, diagnostics)?;
+                    self.expr_unknown_ttyp(scope, expr, diagnostics)?;
                 }
                 if let Some(ref mut expr) = file_name {
-                    self.analyze_expression(scope, expr, diagnostics)?;
+                    self.expr_unknown_ttyp(scope, expr, diagnostics)?;
                 }
 
                 if let Some(subtype) = subtype {
@@ -981,7 +981,7 @@ impl<'a> AnalyzeContext<'a> {
                             diagnostics,
                         )?;
                     } else {
-                        self.analyze_expression(scope, expression, diagnostics)?
+                        self.expr_unknown_ttyp(scope, expression, diagnostics)?
                     }
                 }
 

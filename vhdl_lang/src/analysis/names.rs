@@ -696,7 +696,7 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     }
                     if let Some(expr) = attr.expr {
-                        self.analyze_expression(scope, expr, diagnostics)?;
+                        self.expr_unknown_ttyp(scope, expr, diagnostics)?;
                     }
 
                     // @TODO not handled yet
@@ -720,7 +720,7 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     }
                     if let Some(expr) = attr.expr {
-                        self.analyze_expression(scope, expr, diagnostics)?;
+                        self.expr_unknown_ttyp(scope, expr, diagnostics)?;
                     }
 
                     // @TODO not handled yet
@@ -1114,7 +1114,7 @@ impl<'a> AnalyzeContext<'a> {
             }
         }
         if let Some(ref mut expr) = expr {
-            self.analyze_expression(scope, expr, diagnostics)?;
+            self.expr_unknown_ttyp(scope, expr, diagnostics)?;
         }
         Ok(())
     }
@@ -1154,7 +1154,7 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             for index in indexes.iter_mut() {
-                self.analyze_expression_pos(scope, index.pos, index.expr, diagnostics)?;
+                self.expr_pos_unknown_ttyp(scope, index.pos, index.expr, diagnostics)?;
             }
 
             Ok(*elem_type)

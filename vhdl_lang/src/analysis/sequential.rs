@@ -49,7 +49,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     SequentialRoot::Unknown => {
                         if let Some(ref mut expression) = expression {
-                            self.analyze_expression(scope, expression, diagnostics)?;
+                            self.expr_unknown_ttyp(scope, expression, diagnostics)?;
                         }
                     }
                 }
@@ -133,7 +133,7 @@ impl<'a> AnalyzeContext<'a> {
                     expression,
                     alternatives,
                 } = case_stmt;
-                self.analyze_expression(scope, expression, diagnostics)?;
+                self.expr_unknown_ttyp(scope, expression, diagnostics)?;
                 for alternative in alternatives.iter_mut() {
                     let Alternative { choices, item } = alternative;
                     self.analyze_choices(scope, choices, diagnostics)?;
