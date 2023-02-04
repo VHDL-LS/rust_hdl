@@ -1278,6 +1278,26 @@ end;
 }
 
 #[test]
+fn resolves_unambiguous_boolean_reference() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+procedure wrapper is
+begin
+   assert true;
+end;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    assert!(root
+        .search_reference(code.source(), code.s1("assert true;").s1("true").start())
+        .is_some());
+}
+
+#[test]
 fn ambiguous_boolean_conversion_favors_boolean() {
     let mut builder = LibraryBuilder::new();
     let code = builder.in_declarative_region(

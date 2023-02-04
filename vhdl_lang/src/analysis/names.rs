@@ -319,6 +319,8 @@ impl<'a> AnalyzeContext<'a> {
     fn name_to_type(
         &self,
         pos: &SrcPos,
+        // Reference to set if overloaded name was disambiguated
+        reference: Option<&mut Reference>,
         name: ResolvedName<'a>,
     ) -> Result<Option<DisambiguatedType<'a>>, Diagnostic> {
         match name {
@@ -344,6 +346,11 @@ impl<'a> AnalyzeContext<'a> {
             },
             ResolvedName::Overloaded(des, overloaded) => {
                 if let Some(disamb) = self.disambiguate_no_actuals(&des, None, &overloaded)? {
+                    if let Disambiguated::Unambiguous(ref ent) = disamb {
+                        if let Some(reference) = reference {
+                            *reference = Some(ent.id());
+                        }
+                    }
                     Ok(Some(disamb.into_type()))
                 } else {
                     Ok(None)
@@ -1157,7 +1164,7 @@ impl<'a> AnalyzeContext<'a> {
     ) -> EvalResult<DisambiguatedType<'a>> {
         let resolved =
             self.name_resolve_with_suffixes(scope, expr_pos, name, None, false, diagnostics)?;
-        match self.name_to_type(expr_pos, resolved) {
+        match self.name_to_type(expr_pos, name.suffix_reference_mut(), resolved) {
             Ok(Some(typ)) => Ok(typ),
             Ok(None) => Err(EvalError::Unknown),
             Err(diag) => {
