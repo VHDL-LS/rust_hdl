@@ -636,6 +636,13 @@ impl<'a> AnalyzeContext<'a> {
                     Ok(None)
                 }
             }
+            AttributeDesignator::SimpleName
+            | AttributeDesignator::InstanceName
+            | AttributeDesignator::PathName => {
+                check_no_attr_argument(attr, diagnostics);
+                Ok(Some(self.string().base()))
+            }
+
             _ => Err(EvalError::Unknown),
         }
     }
@@ -856,6 +863,13 @@ impl<'a> AnalyzeContext<'a> {
                         Err(EvalError::Unknown)
                     }
                     Err(EvalError::Unknown) => {
+                        if matches!(attr.attr.item, AttributeDesignator::Ident(_)) {
+                            diagnostics.error(
+                                &attr.attr.pos,
+                                format!("Unknown attribute '{}", attr.attr.item),
+                            )
+                        }
+
                         // @TODO ignore for now
                         if let Some(signature) = attr.signature {
                             if let Err(e) = self.resolve_signature(scope, signature) {
@@ -2274,6 +2288,61 @@ signal thesig : integer;
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
                 test.ctx().boolean()
+            )))
+        );
+    }
+
+    #[test]
+    fn missing_attribute() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+variable thevar : integer;
+        ",
+        );
+        let code = test.snippet("thevar'missing");
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            test.name_resolve(&code, None, &mut diagnostics),
+            Err(EvalError::Unknown)
+        );
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("missing"),
+                "Unknown attribute 'missing",
+            )],
+        )
+    }
+
+    #[test]
+    fn name_attributes() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+signal thesig : integer; 
+        ",
+        );
+
+        let code = test.snippet("thesig'simple_name");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().string()
+            )))
+        );
+        let code = test.snippet("thesig'instance_name");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().string()
+            )))
+        );
+        let code = test.snippet("thesig'path_name");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().string()
             )))
         );
     }

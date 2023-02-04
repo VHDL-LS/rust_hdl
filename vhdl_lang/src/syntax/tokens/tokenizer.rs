@@ -1397,6 +1397,9 @@ impl std::default::Default for Symbols {
                 "driving",
                 AttributeDesignator::Signal(ast::SignalAttribute::Driving),
             ),
+            ("simple_name", AttributeDesignator::SimpleName),
+            ("instance_name", AttributeDesignator::InstanceName),
+            ("path_name", AttributeDesignator::PathName),
         ];
 
         let symtab = SymbolTable::default();

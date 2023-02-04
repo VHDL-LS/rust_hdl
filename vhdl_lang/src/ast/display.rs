@@ -117,6 +117,9 @@ impl Display for AttributeDesignator {
             AttributeDesignator::LeftOf => write!(f, "leftof"),
             AttributeDesignator::RightOf => write!(f, "rightof"),
             AttributeDesignator::Signal(s) => write!(f, "{s}"),
+            AttributeDesignator::SimpleName => write!(f, "simple_name"),
+            AttributeDesignator::InstanceName => write!(f, "instance_name"),
+            AttributeDesignator::PathName => write!(f, "path_name"),
         }
     }
 }

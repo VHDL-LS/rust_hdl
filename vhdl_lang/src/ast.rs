@@ -126,6 +126,9 @@ pub enum AttributeDesignator {
     LeftOf,
     RightOf,
     Signal(SignalAttribute),
+    SimpleName,
+    InstanceName,
+    PathName,
 }
 
 #[derive(PartialEq, Debug, Copy, Clone, Eq)]
