@@ -50,8 +50,13 @@ impl<'a> TokenStream<'a> {
     }
 
     pub fn expect_kind(&mut self, kind: Kind) -> DiagnosticResult<Token> {
-        if let Some(token) = self.pop()? {
-            token.expect_kind(kind)
+        if let Some(token) = self.peek()? {
+            if token.kind == kind {
+                self.move_after(&token);
+                Ok(token)
+            } else {
+                Err(token.kinds_error_before(&[kind]))
+            }
         } else {
             Err(self
                 .tokenizer

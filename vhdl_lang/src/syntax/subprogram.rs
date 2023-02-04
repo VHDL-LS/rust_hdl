@@ -407,14 +407,14 @@ function foo(foo : natural) return lib.foo.natural;
     pub fn parses_function_signature_many_return_error() {
         let code = Code::new("[return bar.type_mark return");
         assert_eq!(
-            code.with_stream_err(parse_signature),
-            Diagnostic::error(code.s("return", 2), "Expected ']'")
+            code.with_partial_stream(parse_signature),
+            Err(Diagnostic::error(code.s("return", 2), "Expected ']'"))
         );
 
         let code = Code::new("[foo return bar.type_mark return");
         assert_eq!(
-            code.with_stream_err(parse_signature),
-            Diagnostic::error(code.s("return", 2), "Expected ']'")
+            code.with_partial_stream(parse_signature),
+            Err(Diagnostic::error(code.s("return", 2), "Expected ']'"))
         );
     }
 
