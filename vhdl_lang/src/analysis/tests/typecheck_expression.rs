@@ -928,6 +928,20 @@ constant good1 : integer_vector := (sub_t => 0);
 }
 
 #[test]
+fn array_element_association_may_be_range() {
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "
+constant rconst : integer_vector(0 to 3) := (others => 0);
+constant good1 : integer_vector := (rconst'range => 0);
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
 fn evaluates_unary_expressions() {
     let mut builder = LibraryBuilder::new();
     let code = builder.in_declarative_region(

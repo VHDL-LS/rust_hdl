@@ -443,6 +443,18 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> AnalysisResult<Option<TypeEnt<'a>>> {
         if let Expression::Name(name) = expr {
+            if let Name::Attribute(ref mut attr) = name.as_mut() {
+                if attr.as_range().is_some() {
+                    return if let Some(typ) =
+                        as_fatal(self.range_attribute_type(scope, attr.as_mut(), diagnostics))?
+                    {
+                        Ok(Some(typ.into()))
+                    } else {
+                        Ok(None)
+                    };
+                }
+            }
+
             if !name.is_selected_name() {
                 // Early exit
                 return Ok(None);
@@ -867,13 +879,19 @@ impl<'a> AnalyzeContext<'a> {
                         Err(EvalError::Unknown)
                     }
                     Err(EvalError::Unknown) => {
-                        if matches!(attr.attr.item, AttributeDesignator::Ident(_)) {
-                            diagnostics.error(
+                        match attr.attr.item {
+                            AttributeDesignator::Ident(_) => diagnostics.error(
                                 &attr.attr.pos,
                                 format!("Unknown attribute '{}", attr.attr.item),
-                            )
+                            ),
+                            AttributeDesignator::Range(_) => {
+                                diagnostics.error(name_pos, "Range cannot be used as an expression")
+                            }
+                            AttributeDesignator::Type(_) => {
+                                diagnostics.error(name_pos, "Type cannot be used as an expression")
+                            }
+                            _ => {}
                         }
-
                         // @TODO ignore for now
                         if let Some(signature) = attr.signature {
                             if let Err(e) = self.resolve_signature(scope, signature) {
@@ -2323,6 +2341,52 @@ variable thevar : integer;
             vec![Diagnostic::error(
                 code.s1("missing"),
                 "Unknown attribute 'missing",
+            )],
+        )
+    }
+
+    #[test]
+    fn range_attribute() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+variable thevar : integer_vector(0 to 1);
+        ",
+        );
+        let code = test.snippet("thevar'range");
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            test.name_resolve(&code, None, &mut diagnostics),
+            Err(EvalError::Unknown)
+        );
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code,
+                "Range cannot be used as an expression",
+            )],
+        )
+    }
+
+    #[test]
+    fn subtype_attribute() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+variable thevar : integer_vector(0 to 1);
+        ",
+        );
+        let code = test.snippet("thevar'subtype");
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            test.name_resolve(&code, None, &mut diagnostics),
+            Err(EvalError::Unknown)
+        );
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code,
+                "Type cannot be used as an expression",
             )],
         )
     }

@@ -67,6 +67,48 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
+    pub fn range_attribute_type(
+        &self,
+        scope: &Scope<'a>,
+        attr: &mut AttributeName,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<BaseType<'a>> {
+        let resolved =
+            self.name_resolve(scope, &attr.name.pos, &mut attr.name.item, diagnostics)?;
+
+        let typ = match resolved {
+            ResolvedName::Type(typ) => typ,
+            ResolvedName::ObjectName(oname) => oname.type_mark(),
+            ResolvedName::Overloaded(..)
+            | ResolvedName::Expression(_)
+            | ResolvedName::Final(_)
+            | ResolvedName::Library(_)
+            | ResolvedName::Design(_) => {
+                diagnostics.error(
+                    &attr.name.pos,
+                    format!(
+                        "{} cannot be prefix of range attribute, array type or object is required",
+                        resolved.describe()
+                    ),
+                );
+                return Err(EvalError::Unknown);
+            }
+        };
+
+        if let Some((_, indexes)) = typ.array_type() {
+            Ok(indexes.first().unwrap().unwrap())
+        } else {
+            diagnostics.error(
+                &attr.name.pos,
+                format!(
+                    "{} cannot be prefix of range attribute, array type or object is required",
+                    resolved.describe()
+                ),
+            );
+            Err(EvalError::Unknown)
+        }
+    }
+
     pub fn range_type(
         &self,
         scope: &Scope<'a>,
@@ -146,42 +188,7 @@ impl<'a> AnalyzeContext<'a> {
                     Err(EvalError::Unknown)
                 }
             }
-            Range::Attribute(ref mut attr) => {
-                let resolved =
-                    self.name_resolve(scope, &attr.name.pos, &mut attr.name.item, diagnostics)?;
-
-                let typ = match resolved {
-                    ResolvedName::Type(typ) => typ,
-                    ResolvedName::ObjectName(oname) => oname.type_mark(),
-                    ResolvedName::Overloaded(..)
-                    | ResolvedName::Expression(_)
-                    | ResolvedName::Final(_)
-                    | ResolvedName::Library(_)
-                    | ResolvedName::Design(_) => {
-                        diagnostics.error(
-                            &attr.name.pos,
-                            format!(
-                                "{} cannot be prefix of range attribute, array type or object is required",
-                                resolved.describe()
-                            ),
-                        );
-                        return Err(EvalError::Unknown);
-                    }
-                };
-
-                if let Some((_, indexes)) = typ.array_type() {
-                    Ok(indexes.first().unwrap().unwrap())
-                } else {
-                    diagnostics.error(
-                        &attr.name.pos,
-                        format!(
-                            "{} cannot be prefix of range attribute, array type or object is required",
-                            resolved.describe()
-                        ),
-                    );
-                    Err(EvalError::Unknown)
-                }
-            }
+            Range::Attribute(ref mut attr) => self.range_attribute_type(scope, attr, diagnostics),
         }
     }
 
