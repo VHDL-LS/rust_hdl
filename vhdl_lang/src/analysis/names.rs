@@ -590,6 +590,22 @@ impl<'a> AnalyzeContext<'a> {
                     Ok(None)
                 }
             }
+            AttributeDesignator::Value => {
+                if let Some(ref mut expr) = attr.expr {
+                    self.expr_with_ttyp(scope, self.string(), expr, diagnostics)?;
+                } else {
+                    diagnostics.error(
+                        pos,
+                        format!("'{} attribute requires a single argument", attr.attr),
+                    )
+                }
+
+                if typ.is_scalar() {
+                    Ok(Some(typ.base()))
+                } else {
+                    Ok(None)
+                }
+            }
             AttributeDesignator::Length => {
                 if typ.array_type().is_some() {
                     Ok(Some(self.universal_integer()))
@@ -1909,5 +1925,18 @@ constant c0 : arr_t := (others => 0);
                 "'low attribute does not take an argument",
             )],
         )
+    }
+
+    #[test]
+    fn value() {
+        let test = TestSetup::new();
+
+        let code = test.snippet("integer'value(\"0\")");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().integer()
+            )))
+        );
     }
 }

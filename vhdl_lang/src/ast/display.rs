@@ -109,6 +109,7 @@ impl Display for AttributeDesignator {
             AttributeDesignator::High => write!(f, "high"),
             AttributeDesignator::Length => write!(f, "length"),
             AttributeDesignator::Image => write!(f, "image"),
+            AttributeDesignator::Value => write!(f, "value"),
         }
     }
 }
