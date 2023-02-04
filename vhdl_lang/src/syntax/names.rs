@@ -480,8 +480,12 @@ pub fn into_range(assoc: AssociationElement) -> Result<ast::Range, AssociationEl
 }
 
 pub fn parse_name(stream: &mut TokenStream) -> ParseResult<WithPos<Name>> {
-    let initial_token = stream.expect()?;
-    parse_name_initial_token(stream, initial_token)
+    let state = stream.state();
+    let token = stream.expect()?;
+    parse_name_initial_token(stream, token).map_err(|err| {
+        stream.set_state(state);
+        err
+    })
 }
 
 #[cfg(test)]
