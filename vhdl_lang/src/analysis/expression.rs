@@ -898,7 +898,6 @@ fn can_handle(op: Operator) -> bool {
             | Operator::QueGTE
             | Operator::QueLT
             | Operator::QueLTE
-            | Operator::QueQue
     )
 }
 

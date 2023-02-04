@@ -1100,5 +1100,15 @@ impl<'a> AnalyzeContext<'a> {
                 region.add(ent, diagnostics);
             }
         }
+
+        // ?? for bit
+        {
+            let typ = self.bit();
+            let qq = self.unary(Operator::QueQue, typ, self.boolean());
+            unsafe {
+                self.arena.add_implicit(typ.id(), qq);
+            };
+            region.add(qq, diagnostics);
+        }
     }
 }
