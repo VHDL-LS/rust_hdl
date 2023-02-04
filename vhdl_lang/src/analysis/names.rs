@@ -772,7 +772,9 @@ impl<'a> AnalyzeContext<'a> {
                     typ.into(),
                 ))),
                 Ok(None) => {
-                    diagnostics.push(Diagnostic::cannot_be_prefix(name_pos, resolved, suffix));
+                    diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
+                        name_pos, resolved, attr,
+                    ));
                     Err(EvalError::Unknown)
                 }
                 Err(EvalError::Unknown) => {
@@ -1344,6 +1346,21 @@ impl Diagnostic {
         };
 
         Diagnostic::error(prefix_pos, format!("{name_desc} cannot be {suffix_desc}"))
+    }
+
+    fn cannot_be_prefix_of_attribute(
+        prefix_pos: &SrcPos,
+        resolved: ResolvedName,
+        attr: &AttributeSuffix,
+    ) -> Diagnostic {
+        Diagnostic::error(
+            prefix_pos,
+            format!(
+                "{} cannot be the the prefix of '{} attribute",
+                resolved.describe_type(),
+                attr.attr
+            ),
+        )
     }
 
     fn dimension_mismatch(
