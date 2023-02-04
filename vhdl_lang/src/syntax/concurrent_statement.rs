@@ -555,7 +555,7 @@ pub fn parse_concurrent_statement(
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ConcurrentStatement> {
     let statement = {
-        try_token_kind!(
+        try_init_token_kind!(
             token,
             Block => {
                 ConcurrentStatement::Block(parse_block_statement(stream, diagnostics)?)

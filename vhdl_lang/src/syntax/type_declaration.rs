@@ -124,7 +124,7 @@ pub fn parse_protected_type_declaration(
     loop {
         let token = stream.peek_expect()?;
 
-        try_token_kind!(
+        try_init_token_kind!(
             token,
             Impure | Function | Procedure => items.push(ProtectedTypeDeclarativeItem::Subprogram(
                 parse_subprogram_declaration(stream, diagnostics)?,

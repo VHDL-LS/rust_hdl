@@ -96,7 +96,7 @@ pub fn parse_context(
         let end_ident;
         loop {
             let token = stream.expect()?;
-            try_token_kind!(
+            try_init_token_kind!(
                 token,
                 Library => items.push(parse_library_clause_no_keyword(token, stream)?.map_into(ContextItem::Library)),
                 Use => items.push(parse_use_clause_no_keyword(token, stream)?.map_into(ContextItem::Use)),

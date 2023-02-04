@@ -46,7 +46,7 @@ fn parse_object_declaration_kind(
 
 pub fn parse_object_declaration(stream: &mut TokenStream) -> ParseResult<Vec<ObjectDeclaration>> {
     let token = stream.expect()?;
-    let result = try_token_kind!(
+    let result = try_init_token_kind!(
         token,
         Constant => parse_object_declaration_kind(stream, ObjectClass::Constant)?,
         Signal => parse_object_declaration_kind(stream, ObjectClass::Signal)?,

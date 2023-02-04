@@ -174,7 +174,7 @@ pub fn parse_design_file(
     let mut design_units = vec![];
 
     while let Some(token) = stream.peek()? {
-        try_token_kind!(
+        try_init_token_kind!(
             token,
             Library => {
                 match parse_library_clause(stream) {

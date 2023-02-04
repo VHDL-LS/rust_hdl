@@ -217,6 +217,40 @@ macro_rules! try_token_kind {
     }
 }
 
+/// Expect any number of token kind patterns, return on no match with
+/// error diagnostic based on expected kinds
+///
+/// Unlike the try_token_kind this macro gives errors always on the next token
+/// Example:
+///
+/// entity ent is
+/// end entity;
+///            ~ <- error should not be here
+///
+/// foo
+/// ~~~ <- error should be here
+#[macro_export]
+macro_rules! try_init_token_kind {
+    ($token:expr, $($($kind:ident)|+ => $result:expr),*) => {
+        match $token.kind {
+            $(
+                $($kind)|+ => $result
+            ),*,
+            _ => {
+                let kinds = vec![
+                    $(
+                        $(
+                            $kind,
+                        )*
+                    )*
+                ];
+
+                return Err($token.kinds_error(&kinds));
+            }
+        }
+    }
+}
+
 pub fn kind_str(kind: Kind) -> &'static str {
     match kind {
         // Keywords

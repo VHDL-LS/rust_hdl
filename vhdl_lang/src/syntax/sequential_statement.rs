@@ -534,7 +534,7 @@ fn parse_unlabeled_sequential_statement(
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SequentialStatement> {
     let statement = {
-        try_token_kind!(
+        try_init_token_kind!(
             token,
             Wait => SequentialStatement::Wait(parse_wait_statement_known_keyword(stream)?),
             Assert => SequentialStatement::Assert(parse_assert_statement_known_keyword(stream)?),

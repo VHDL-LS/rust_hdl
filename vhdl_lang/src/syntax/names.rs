@@ -281,7 +281,7 @@ fn to_suffix(token: Token) -> ParseResult<WithPos<DesignatorOrAll>> {
 /// Inside of << >>
 fn parse_inner_external_name(stream: &mut TokenStream) -> ParseResult<ExternalName> {
     let token = stream.expect()?;
-    let class = try_token_kind!(
+    let class = try_init_token_kind!(
         token,
         Signal => ExternalObjectClass::Signal,
         Constant => ExternalObjectClass::Constant,
