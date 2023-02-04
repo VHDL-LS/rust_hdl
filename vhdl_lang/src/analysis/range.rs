@@ -80,6 +80,9 @@ impl<'a> AnalyzeContext<'a> {
                 let right_types =
                     self.discrete_expr_type(scope, &mut constraint.right_expr, diagnostics)?;
 
+                let left_ambig = matches!(left_types, DisambiguatedType::Ambiguous(_));
+                let right_ambig = matches!(right_types, DisambiguatedType::Ambiguous(_));
+
                 let types = match (left_types, right_types) {
                     (DisambiguatedType::Unambiguous(l), DisambiguatedType::Unambiguous(r)) => {
                         if let Some(typ) = self.common_type(l.base(), r.base()) {
@@ -110,7 +113,27 @@ impl<'a> AnalyzeContext<'a> {
                 };
 
                 if types.len() == 1 {
-                    Ok(types.into_iter().next().unwrap())
+                    let typ = types.into_iter().next().unwrap();
+
+                    if left_ambig {
+                        self.expr_with_ttyp(
+                            scope,
+                            typ.into(),
+                            &mut constraint.left_expr,
+                            diagnostics,
+                        )?;
+                    }
+
+                    if right_ambig {
+                        self.expr_with_ttyp(
+                            scope,
+                            typ.into(),
+                            &mut constraint.right_expr,
+                            diagnostics,
+                        )?;
+                    }
+
+                    Ok(typ)
                 } else if types.is_empty() {
                     diagnostics.error(
                         constraint.pos(),
@@ -271,6 +294,8 @@ mod tests {
     use crate::analysis::named_entity::BaseType;
     use crate::analysis::tests::NoDiagnostics;
     use crate::analysis::tests::TestSetup;
+    use crate::ast::search::check_no_unresolved;
+    use crate::ast::Range;
     use crate::data::DiagnosticHandler;
     use crate::syntax::test::check_diagnostics;
     use crate::syntax::test::Code;
@@ -284,6 +309,14 @@ mod tests {
         ) -> EvalResult<BaseType<'a>> {
             self.ctx()
                 .range_type(&self.scope, &mut code.range(), diagnostics)
+        }
+
+        fn range_type_ast(
+            &'a self,
+            rng: &mut Range,
+            diagnostics: &mut dyn DiagnosticHandler,
+        ) -> EvalResult<BaseType<'a>> {
+            self.ctx().range_type(&self.scope, rng, diagnostics)
         }
     }
 
@@ -370,16 +403,20 @@ function f1 return integer;
         );
 
         let code = test.snippet("f1 to 'a'");
+        let mut rng = code.range();
         assert_eq!(
-            test.range_type(&code, &mut NoDiagnostics),
+            test.range_type_ast(&mut rng, &mut NoDiagnostics),
             Ok(test.lookup_type("CHARACTER").base())
         );
+        check_no_unresolved(&mut rng);
 
         let code = test.snippet("'a' to f1");
+        let mut rng = code.range();
         assert_eq!(
-            test.range_type(&code, &mut NoDiagnostics),
+            test.range_type_ast(&mut rng, &mut NoDiagnostics),
             Ok(test.lookup_type("CHARACTER").base())
         );
+        check_no_unresolved(&mut rng);
     }
 
     #[test]

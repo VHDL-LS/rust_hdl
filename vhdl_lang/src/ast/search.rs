@@ -1609,3 +1609,19 @@ pub fn clear_references(tree: &mut impl Search) {
     let mut searcher = ReferenceClearer;
     let _ = tree.search(&mut searcher);
 }
+
+#[cfg(test)]
+pub fn check_no_unresolved(tree: &mut impl Search) {
+    #[derive(Default)]
+    struct CheckNoUnresolved;
+
+    impl Searcher for CheckNoUnresolved {
+        fn search_pos_with_ref(&mut self, _pos: &SrcPos, reference: &mut Reference) -> SearchState {
+            assert!(reference.is_some());
+            NotFinished
+        }
+    }
+
+    let mut searcher = CheckNoUnresolved;
+    let _ = tree.search(&mut searcher);
+}
