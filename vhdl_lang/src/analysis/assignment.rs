@@ -47,10 +47,10 @@ impl<'a> AnalyzeContext<'a> {
                     expression,
                     alternatives,
                 } = selection;
-                self.expr_unknown_ttyp(scope, expression, diagnostics)?;
+                let ctyp = as_fatal(self.expr_unambiguous_type(scope, expression, diagnostics))?;
                 for Alternative { choices, item } in alternatives.iter_mut() {
                     self.analyze_expression_for_target(scope, ttyp, item, diagnostics)?;
-                    self.analyze_choices(scope, choices, diagnostics)?;
+                    self.choice_with_ttyp(scope, ctyp, choices, diagnostics)?;
                 }
             }
         }
@@ -89,10 +89,10 @@ impl<'a> AnalyzeContext<'a> {
                     expression,
                     alternatives,
                 } = selection;
-                self.expr_unknown_ttyp(scope, expression, diagnostics)?;
+                let ctyp = as_fatal(self.expr_unambiguous_type(scope, expression, diagnostics))?;
                 for Alternative { choices, item } in alternatives.iter_mut() {
                     self.analyze_waveform(scope, ttyp, item, diagnostics)?;
-                    self.analyze_choices(scope, choices, diagnostics)?;
+                    self.choice_with_ttyp(scope, ctyp, choices, diagnostics)?;
                 }
             }
         }

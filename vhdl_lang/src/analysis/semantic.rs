@@ -101,19 +101,28 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    pub fn analyze_choices(
+    pub fn choice_with_ttyp(
         &self,
         scope: &Scope<'a>,
+        ttyp: Option<TypeEnt<'a>>,
         choices: &mut [Choice],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for choice in choices.iter_mut() {
             match choice {
                 Choice::Expression(ref mut expr) => {
-                    self.expr_unknown_ttyp(scope, expr, diagnostics)?;
+                    if let Some(ttyp) = ttyp {
+                        self.expr_with_ttyp(scope, ttyp, expr, diagnostics)?;
+                    } else {
+                        self.expr_unknown_ttyp(scope, expr, diagnostics)?;
+                    }
                 }
                 Choice::DiscreteRange(ref mut drange) => {
-                    self.analyze_discrete_range(scope, drange, diagnostics)?;
+                    if let Some(ttyp) = ttyp {
+                        self.drange_with_ttyp(scope, ttyp, drange, diagnostics)?;
+                    } else {
+                        self.analyze_discrete_range(scope, drange, diagnostics)?;
+                    }
                 }
                 Choice::Others => {}
             }

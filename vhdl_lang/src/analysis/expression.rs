@@ -156,6 +156,27 @@ impl<'a> AnalyzeContext<'a> {
         self.expr_pos_unknown_ttyp(scope, &expr.pos, &mut expr.item, diagnostics)
     }
 
+    pub fn expr_unambiguous_type(
+        &self,
+        scope: &Scope<'a>,
+        expr: &mut WithPos<Expression>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<TypeEnt<'a>> {
+        match self.expr_type(scope, expr, diagnostics)? {
+            ExpressionType::Unambiguous(typ) => Ok(typ),
+            ExpressionType::Ambiguous(_)
+            | ExpressionType::String
+            | ExpressionType::Null
+            | ExpressionType::Aggregate => {
+                diagnostics.error(
+                &expr.pos,
+                "Ambiguous expression. You can use a qualified expression type'(expr) to disambiguate.",
+            );
+                Err(EvalError::Unknown)
+            }
+        }
+    }
+
     pub fn lookup_operator(
         &self,
         scope: &Scope<'a>,
@@ -935,7 +956,7 @@ impl<'a> AnalyzeContext<'a> {
                         }
                         Choice::DiscreteRange(ref mut drange) => {
                             if let Some(index_type) = index_type {
-                                self.analyze_discrete_range_with_target_type(
+                                self.drange_with_ttyp(
                                     scope,
                                     index_type.into(),
                                     drange,

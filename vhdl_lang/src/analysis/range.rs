@@ -240,7 +240,7 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
-    pub fn analyze_discrete_range_with_target_type(
+    pub fn drange_with_ttyp(
         &self,
         scope: &Scope<'a>,
         target_type: TypeEnt<'a>,
