@@ -54,7 +54,7 @@ pub enum AnyEntKind<'a> {
 }
 
 impl<'a> AnyEntKind<'a> {
-    pub fn new_function_decl(
+    pub(crate) fn new_function_decl(
         formals: FormalRegion<'a>,
         return_type: TypeEnt<'a>,
     ) -> AnyEntKind<'a> {
@@ -64,7 +64,7 @@ impl<'a> AnyEntKind<'a> {
         )))
     }
 
-    pub fn new_procedure_decl(formals: FormalRegion<'a>) -> AnyEntKind<'a> {
+    pub(crate) fn new_procedure_decl(formals: FormalRegion<'a>) -> AnyEntKind<'a> {
         AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(formals, None)))
     }
 

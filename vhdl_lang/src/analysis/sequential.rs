@@ -74,7 +74,7 @@ impl<'a> AnalyzeContext<'a> {
                     report,
                     severity,
                 } = assert_stmt;
-                self.analyze_expression(scope, condition, diagnostics)?;
+                self.boolean_expr(scope, condition, diagnostics)?;
                 if let Some(expr) = report {
                     self.expr_with_ttyp(scope, self.string(), expr, diagnostics)?;
                 }

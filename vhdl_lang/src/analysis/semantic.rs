@@ -223,6 +223,21 @@ impl Diagnostic {
             }
         }
     }
+
+    pub fn add_type_candididates<'a>(
+        &mut self,
+        prefix: &str,
+        candidates: impl IntoIterator<Item = BaseType<'a>>,
+    ) {
+        let mut candidates: Vec<_> = candidates.into_iter().collect();
+        candidates.sort_by(|x, y| x.decl_pos().cmp(&y.decl_pos()));
+
+        for ent in candidates {
+            if let Some(decl_pos) = ent.decl_pos() {
+                self.add_related(decl_pos, format!("{} {}", prefix, ent.describe()))
+            }
+        }
+    }
 }
 
 impl<'a> AnyEnt<'a> {

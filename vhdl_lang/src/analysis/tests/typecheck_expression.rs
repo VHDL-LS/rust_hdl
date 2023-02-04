@@ -1237,6 +1237,8 @@ begin
    assert true report 16#bad#;
    assert true report \"good\" severity error;
    assert true report \"good\" severity \"bad\";
+   assert 123;
+   assert bit'('0');
 end;
 ",
     );
@@ -1253,6 +1255,120 @@ end;
                 code.s1("\"bad\""),
                 "string literal does not match type 'SEVERITY_LEVEL'",
             ),
+            Diagnostic::error(
+                code.s1("123"),
+                "type universal_integer cannot be implictly converted to type 'BOOLEAN'. Operator ?? is not defined for this type.",
+            ),
         ],
+    );
+}
+
+#[test]
+fn ambiguous_boolean_conversion_favors_boolean() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+function myfun return boolean is
+begin
+  return true;
+end function;
+
+function myfun return bit is
+begin
+  return '0';
+end function;
+
+procedure wrapper is
+begin
+   assert myfun;
+end;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    let decl = root
+        .search_reference(code.source(), code.s1("assert myfun;").s1("myfun").start())
+        .unwrap();
+
+    // Favors boolean
+    assert_eq!(
+        decl.decl_pos().unwrap(),
+        &code
+            .s1("function myfun return boolean is")
+            .s1("myfun")
+            .pos(),
+    );
+}
+
+#[test]
+fn ambiguous_qq_conversion() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type typ1_t is (alpha, beta);
+type typ2_t is (alpha, beta);
+type typ3_t is (alpha, beta);
+
+function \"??\"(val : typ1_t) return boolean is
+begin
+  return true;
+end function;
+
+function \"??\"(val : typ2_t) return boolean is
+begin
+  return true;
+end function;
+
+procedure wrapper is
+begin
+   assert alpha;
+end;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("assert alpha").s1("alpha"),
+            "Ambiguous use of implicit boolean conversion ??",
+        )
+        .related(code.s1("typ1_t"), "Could be type 'typ1_t'")
+        .related(code.s1("typ2_t"), "Could be type 'typ2_t'")],
+    );
+}
+
+#[test]
+fn ambiguous_qq_conversion_no_candidates() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type typ1_t is (alpha, beta);
+type typ2_t is (alpha, beta);
+
+procedure wrapper is
+begin
+   assert alpha;
+end;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("assert alpha").s1("alpha"),
+            "Cannot disambiguate expression to type 'BOOLEAN'",
+        )
+        .related(
+            code.s1("typ1_t"),
+            "Implicit boolean conversion operator ?? is not defined for type 'typ1_t'",
+        )
+        .related(
+            code.s1("typ2_t"),
+            "Implicit boolean conversion operator ?? is not defined for type 'typ2_t'",
+        )],
     );
 }

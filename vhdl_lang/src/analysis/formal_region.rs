@@ -142,10 +142,12 @@ impl<'a> FormalRegion<'a> {
         self.entities.get(idx).cloned()
     }
 
-    pub fn binary(&self) -> Option<(InterfaceEnt, InterfaceEnt<'a>)> {
-        let left = self.nth(0)?;
-        let right = self.nth(1)?;
-        Some((left, right))
+    pub fn unary(&self) -> Option<InterfaceEnt<'a>> {
+        if self.len() == 1 {
+            self.nth(0)
+        } else {
+            None
+        }
     }
 }
 

@@ -533,6 +533,93 @@ impl<'a> AnalyzeContext<'a> {
         self.expr_pos_with_ttyp(scope, target_type, &expr.pos, &mut expr.item, diagnostics)
     }
 
+    fn implicit_bool_types(&self, scope: &Scope<'a>, pos: &SrcPos) -> FnvHashSet<BaseType<'a>> {
+        if let Ok(NamedEntities::Overloaded(overloaded)) =
+            scope.lookup(pos, &Designator::OperatorSymbol(Operator::QueQue))
+        {
+            overloaded
+                .entities()
+                .filter_map(|ent| ent.formals().nth(0).map(|typ| typ.type_mark().base()))
+                .collect()
+        } else {
+            FnvHashSet::default()
+        }
+    }
+
+    /// An expression that is either boolean or implicitly boolean via ?? operator
+    pub fn boolean_expr(
+        &self,
+        scope: &Scope<'a>,
+        expr: &mut WithPos<Expression>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult {
+        if let Some(types) = as_fatal(self.expr_type(scope, expr, diagnostics))? {
+            match types {
+                ExpressionType::Unambiguous(typ) => {
+                    if typ.base() != self.boolean().base() {
+                        let implicit_bools = self.implicit_bool_types(scope, &expr.pos);
+                        if !implicit_bools.contains(&typ.base()) {
+                            diagnostics.error(
+                                &expr.pos,
+                                format!(
+                                    "{} cannot be implictly converted to {}. Operator ?? is not defined for this type.",
+                                    typ.describe(),
+                                    self.boolean().describe()
+                                ),
+                            );
+                        }
+                    }
+                }
+                ExpressionType::Ambiguous(types) => {
+                    if types.contains(&self.boolean().base()) {
+                        self.expr_with_ttyp(scope, self.boolean(), expr, diagnostics)?;
+                    } else {
+                        let implicit_bool_types: FnvHashSet<_> = self
+                            .implicit_bool_types(scope, &expr.pos)
+                            .intersection(&types)
+                            .cloned()
+                            .collect();
+
+                        match implicit_bool_types.len().cmp(&1) {
+                            std::cmp::Ordering::Equal => {
+                                let typ: TypeEnt = types.into_iter().next().unwrap().into();
+                                self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
+                            }
+                            std::cmp::Ordering::Greater => {
+                                let mut diag = Diagnostic::error(
+                                    &expr.pos,
+                                    "Ambiguous use of implicit boolean conversion ??",
+                                );
+                                diag.add_type_candididates("Could be", implicit_bool_types);
+                                diagnostics.push(diag);
+                            }
+
+                            std::cmp::Ordering::Less => {
+                                let mut diag = Diagnostic::error(
+                                    &expr.pos,
+                                    format!(
+                                        "Cannot disambiguate expression to {}",
+                                        self.boolean().describe()
+                                    ),
+                                );
+                                diag.add_type_candididates(
+                                    "Implicit boolean conversion operator ?? is not defined for",
+                                    types,
+                                );
+                                diagnostics.push(diag);
+                            }
+                        }
+                    }
+                }
+                ExpressionType::String | ExpressionType::Null | ExpressionType::Aggregate => {
+                    self.expr_with_ttyp(scope, self.boolean(), expr, diagnostics)?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Returns true if the name actually matches the target type
     /// None if it was uncertain
     pub fn expr_pos_with_ttyp(
