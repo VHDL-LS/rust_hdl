@@ -137,6 +137,7 @@ impl Display for SignalAttribute {
             SignalAttribute::LastActive => write!(f, "last_active"),
             SignalAttribute::LastValue => write!(f, "last_value"),
             SignalAttribute::Driving => write!(f, "driving"),
+            SignalAttribute::DrivingValue => write!(f, "driving_value"),
         }
     }
 }

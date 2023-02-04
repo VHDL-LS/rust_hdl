@@ -1397,6 +1397,10 @@ impl std::default::Default for Symbols {
                 "driving",
                 AttributeDesignator::Signal(ast::SignalAttribute::Driving),
             ),
+            (
+                "driving_value",
+                AttributeDesignator::Signal(ast::SignalAttribute::DrivingValue),
+            ),
             ("simple_name", AttributeDesignator::SimpleName),
             ("instance_name", AttributeDesignator::InstanceName),
             ("path_name", AttributeDesignator::PathName),

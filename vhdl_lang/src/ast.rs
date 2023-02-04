@@ -143,6 +143,7 @@ pub enum SignalAttribute {
     LastActive,
     LastValue,
     Driving,
+    DrivingValue,
 }
 
 /// LRM 8.7 External names

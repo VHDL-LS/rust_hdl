@@ -696,6 +696,10 @@ impl<'a> AnalyzeContext<'a> {
                 check_no_sattr_argument(sattr, expr, diagnostics);
                 Ok(self.boolean().base())
             }
+            SignalAttribute::DrivingValue => {
+                check_no_sattr_argument(sattr, expr, diagnostics);
+                Ok(typ.base())
+            }
         }
     }
 
@@ -2288,6 +2292,14 @@ signal thesig : integer;
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
                 test.ctx().boolean()
+            )))
+        );
+
+        let code = test.snippet("thesig'driving_value");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().integer()
             )))
         );
     }
