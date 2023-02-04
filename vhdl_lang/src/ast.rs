@@ -136,6 +136,10 @@ pub enum SignalAttribute {
     Transaction,
     Event,
     Active,
+    LastEvent,
+    LastActive,
+    LastValue,
+    Driving,
 }
 
 /// LRM 8.7 External names

@@ -1381,6 +1381,22 @@ impl std::default::Default for Symbols {
                 "transaction",
                 AttributeDesignator::Signal(ast::SignalAttribute::Transaction),
             ),
+            (
+                "last_event",
+                AttributeDesignator::Signal(ast::SignalAttribute::LastEvent),
+            ),
+            (
+                "last_active",
+                AttributeDesignator::Signal(ast::SignalAttribute::LastActive),
+            ),
+            (
+                "last_value",
+                AttributeDesignator::Signal(ast::SignalAttribute::LastValue),
+            ),
+            (
+                "driving",
+                AttributeDesignator::Signal(ast::SignalAttribute::Driving),
+            ),
         ];
 
         let symtab = SymbolTable::default();

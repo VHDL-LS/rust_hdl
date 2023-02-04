@@ -130,6 +130,10 @@ impl Display for SignalAttribute {
             SignalAttribute::Transaction => write!(f, "transaction"),
             SignalAttribute::Event => write!(f, "event"),
             SignalAttribute::Active => write!(f, "active"),
+            SignalAttribute::LastEvent => write!(f, "last_event"),
+            SignalAttribute::LastActive => write!(f, "last_active"),
+            SignalAttribute::LastValue => write!(f, "last_value"),
+            SignalAttribute::Driving => write!(f, "driving"),
         }
     }
 }

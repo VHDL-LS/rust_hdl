@@ -673,6 +673,22 @@ impl<'a> AnalyzeContext<'a> {
                 check_no_sattr_argument(sattr, expr, diagnostics);
                 Ok(self.boolean().base())
             }
+            SignalAttribute::LastEvent => {
+                check_no_sattr_argument(sattr, expr, diagnostics);
+                Ok(self.time().base())
+            }
+            SignalAttribute::LastActive => {
+                check_no_sattr_argument(sattr, expr, diagnostics);
+                Ok(self.time().base())
+            }
+            SignalAttribute::LastValue => {
+                check_no_sattr_argument(sattr, expr, diagnostics);
+                Ok(typ.base())
+            }
+            SignalAttribute::Driving => {
+                check_no_sattr_argument(sattr, expr, diagnostics);
+                Ok(self.boolean().base())
+            }
         }
     }
 
@@ -2222,6 +2238,38 @@ signal thesig : integer;
         );
 
         let code = test.snippet("thesig'active");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().boolean()
+            )))
+        );
+
+        let code = test.snippet("thesig'last_event");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().time()
+            )))
+        );
+
+        let code = test.snippet("thesig'last_active");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().time()
+            )))
+        );
+
+        let code = test.snippet("thesig'last_value");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().integer()
+            )))
+        );
+
+        let code = test.snippet("thesig'driving");
         assert_eq!(
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
