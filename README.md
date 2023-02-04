@@ -22,43 +22,14 @@ I very much appreciate help from other people especially regarding semantic anal
 - Supports find-references (also in presence of overloading)
 - Supports hovering symbols
 
-## VHDL Language Frontend
-[![vhdl language frontend crate](https://img.shields.io/crates/v/vhdl_lang.svg)](https://crates.io/crates/vhdl_lang)
-### Goals
-- This project aims to provide a fully featured open source VHDL frontend that is easy to integrate into other tools.
-- A design goal of the frontend is to be able to recover from syntax errors such that it is useful for building a language server.
-- Analysis order must be automatically computed such that the user does not have to maintain a compile order.
-- Comments will be part of the AST to support document generation.
-- Separate parsing from semantic analysis to allow code formatting on non-semantically correct code.
-
 ## Trying it out
 A language server is never used directly by the end user and it is integrated into different editor plugins. The ones I know about are listed here.
 
 ## Use in VSCode
 https://github.com/Bochlin/rust_hdl_vscode
 
-## Use in Atom
-https://github.com/mbrobbel/atom-ide-vhdl
-
 ## Use in emacs
-### lsp-mode
 VHDL LS has built-in support by emacs `lsp-mode` since 2020-01-04.
-The only thing required is to configure the path to the `vhdl_ls` binary unless it is added to the `$PATH`.
-Just add the following to your `.emacs.el`:
-```elisp
-(require 'use-package)
-
-; Required unless vhdl_ls is on the $PATH
-(setq lsp-vhdl-server-path "${PATH_TO_RUST_HDL}/target/release/vhdl_ls")
-
-; Prefer vhdl_ls over other VHDL language servers
-(custom-set-variables
-  '(lsp-vhdl-server 'vhdl-ls))
-
-(use-package lsp-mode
-         :config
-         (add-hook 'vhdl-mode-hook 'lsp))
-```
 
 ### Configuration
 The language server needs to know your library mapping to perform full analysis of the code. For this it uses a configuration file in the [TOML](https://github.com/toml-lang/toml) format named `vhdl_ls.toml`.
@@ -83,4 +54,18 @@ lib1.files = [
   'tb_ent.vhd'
 ]
 ```
+
+## As an LSP-client developer how should I integrate VHDL-LS?
+I recommend that the `lsp-client` polls GitHub and downloads the [latest](https://github.com/VHDL-LS/rust_hdl/releases/latest) VHDL-LS release from GitHub.
+
+VHDL-LS has frequent releases and the automatic update ensures minimal maintenance for the `lsp-client` developer as well as ensuring the users are not running and outdated version.
+
+## VHDL Language Frontend
+[![vhdl language frontend crate](https://img.shields.io/crates/v/vhdl_lang.svg)](https://crates.io/crates/vhdl_lang)
+### Goals
+- This project aims to provide a fully featured open source VHDL frontend that is easy to integrate into other tools.
+- A design goal of the frontend is to be able to recover from syntax errors such that it is useful for building a language server.
+- Analysis order must be automatically computed such that the user does not have to maintain a compile order.
+- Comments will be part of the AST to support document generation.
+- Separate parsing from semantic analysis to allow code formatting on non-semantically correct code.
 
