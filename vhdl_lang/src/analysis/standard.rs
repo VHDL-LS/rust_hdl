@@ -59,6 +59,7 @@ pub(crate) struct StandardTypes {
     pub time: EntityId,
     pub file_open_kind: EntityId,
     pub file_open_status: EntityId,
+    pub severity_level: EntityId,
 }
 
 impl StandardTypes {
@@ -74,6 +75,7 @@ impl StandardTypes {
         let mut time = None;
         let mut file_open_status = None;
         let mut file_open_kind = None;
+        let mut severity_level = None;
 
         // Reserve space in the arena for the standard types
         for decl in decls.iter_mut() {
@@ -121,6 +123,9 @@ impl StandardTypes {
                     b"FILE_OPEN_STATUS" => {
                         file_open_status = Some(id);
                     }
+                    b"SEVERITY_LEVEL" => {
+                        severity_level = Some(id);
+                    }
                     _ => {
                         continue;
                     }
@@ -141,6 +146,7 @@ impl StandardTypes {
             time: time.unwrap(),
             file_open_kind: file_open_kind.unwrap(),
             file_open_status: file_open_status.unwrap(),
+            severity_level: severity_level.unwrap(),
         }
     }
 }
@@ -208,6 +214,10 @@ impl<'a> AnalyzeContext<'a> {
 
     fn file_open_status(&self) -> TypeEnt<'a> {
         self.arena.get_type(self.standard_types().file_open_status)
+    }
+
+    pub(crate) fn severity_level(&self) -> TypeEnt<'a> {
+        self.arena.get_type(self.standard_types().severity_level)
     }
 
     /// Create implicit MAXIMUM/MINIMUM

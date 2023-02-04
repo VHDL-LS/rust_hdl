@@ -84,9 +84,9 @@ impl<'a> AnalyzeContext<'a> {
             }
             SequentialStatement::Report(ref mut report_stmt) => {
                 let ReportStatement { report, severity } = report_stmt;
-                self.analyze_expression(scope, report, diagnostics)?;
+                self.expr_with_ttyp(scope, self.string(), report, diagnostics)?;
                 if let Some(expr) = severity {
-                    self.analyze_expression(scope, expr, diagnostics)?;
+                    self.expr_with_ttyp(scope, self.severity_level(), expr, diagnostics)?;
                 }
             }
             SequentialStatement::Exit(ref mut exit_stmt) => {
