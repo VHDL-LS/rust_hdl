@@ -9,7 +9,7 @@ use super::declarative_part::parse_declarative_part;
 use super::interface_declaration::parse_parameter_interface_list;
 use super::names::parse_type_mark;
 use super::sequential_statement::parse_labeled_sequential_statements;
-use super::tokens::{kinds_error, Kind::*, TokenStream};
+use super::tokens::{Kind::*, TokenStream};
 use crate::ast::*;
 use crate::data::*;
 
@@ -54,7 +54,7 @@ pub fn parse_signature(stream: &mut TokenStream) -> ParseResult<WithPos<Signatur
                     }
                     _ => {
                         stream.move_after(&token);
-                        return Err(kinds_error(token.pos, &[Identifier]))
+                        return Err(token.kinds_error_before(&[Identifier]))
                     }
                 };
             }

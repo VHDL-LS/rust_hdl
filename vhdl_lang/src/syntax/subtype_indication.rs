@@ -73,7 +73,7 @@ fn parse_composite_constraint(stream: &mut TokenStream) -> ParseResult<WithPos<S
             RightPar | Comma => {}
             _ => {
                 initial = Err(token
-                    .kinds_error(&[RightPar, Comma])
+                    .kinds_error_before(&[RightPar, Comma])
                     .when("parsing index constraint"));
             }
         }

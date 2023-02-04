@@ -244,7 +244,7 @@ impl Range {
 pub struct SrcPos {
     /// The referenced source file.
     pub source: Source,
-    range: Range,
+    pub range: Range,
 }
 
 impl Ord for SrcPos {

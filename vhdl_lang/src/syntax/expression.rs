@@ -156,14 +156,14 @@ pub fn parse_aggregate_initial_choices(
                     result.push(ElementAssociation::Positional(choice.clone()));
                     return Ok(WithPos::from(result, token))
                 } else {
-                    return Err(Diagnostic::error(&token, "Expected => after others"));
+                    return Err(Diagnostic::error(&token.pos_before(), "Expected => after others"));
                 }
             },
             Comma => {
                 if let [Choice::Expression(ref choice)] = *choices.as_slice() {
                     result.push(ElementAssociation::Positional(choice.clone()));
                 } else {
-                    return Err(Diagnostic::error(&token, "Expected => after others"));
+                    return Err(Diagnostic::error(&token.pos_before(), "Expected => after others"));
                 }
                 choices = parse_choices(stream)?;
             },
@@ -443,7 +443,10 @@ fn parse_primary_initial_token(
                     pos,
                 })
             } else {
-                Err(Diagnostic::error(&token, "Expected {expression}"))
+                Err(Diagnostic::error(
+                    &token.pos_before(),
+                    "Expected {expression}",
+                ))
             }
         }
     }

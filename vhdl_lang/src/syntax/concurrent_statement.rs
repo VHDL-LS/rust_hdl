@@ -265,11 +265,10 @@ fn parse_assignment_known_target(
 
 fn parse_assignment_or_procedure_call(
     stream: &mut TokenStream,
-    token: &Token,
     target: WithPos<Target>,
 ) -> ParseResult<ConcurrentStatement> {
     match_token_kind!(
-    token,
+    stream.expect()?,
     LTE => {
         parse_assignment_known_target(stream, target)
     },
@@ -613,8 +612,7 @@ pub fn parse_concurrent_statement(
                         ConcurrentStatement::Instance(parse_instantiation_statement(stream, unit)?)
                     }
                     _ => {
-                        stream.move_after(&token);
-                        parse_assignment_or_procedure_call(stream, &token, name.map_into(Target::Name))?
+                        parse_assignment_or_procedure_call(stream, name.map_into(Target::Name))?
                     }
                 }
             },
@@ -625,8 +623,7 @@ pub fn parse_concurrent_statement(
             },
             LeftPar => {
                 let target = parse_aggregate_leftpar_known(stream)?.map_into(Target::Aggregate);
-                let token = stream.expect()?;
-                parse_assignment_or_procedure_call(stream, &token, target)?
+                parse_assignment_or_procedure_call(stream, target)?
             }
         )
     };
@@ -670,15 +667,16 @@ pub fn parse_labeled_concurrent_statement_initial_token(
 ) -> ParseResult<LabeledConcurrentStatement> {
     if token.kind == Identifier {
         let name = parse_name_initial_token(stream, token)?;
-        let token = stream.expect()?;
+        let token = stream.peek_expect()?;
         if token.kind == Colon {
             let label = Some(WithDecl::new(to_simple_name(name)?));
+            stream.move_after(&token);
             let token = stream.expect()?;
             let statement = parse_concurrent_statement(stream, token, diagnostics)?;
             Ok(LabeledConcurrentStatement { label, statement })
         } else {
             let target = name.map_into(Target::Name);
-            let statement = parse_assignment_or_procedure_call(stream, &token, target)?;
+            let statement = parse_assignment_or_procedure_call(stream, target)?;
             Ok(LabeledConcurrentStatement {
                 label: None,
                 statement,

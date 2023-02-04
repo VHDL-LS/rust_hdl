@@ -245,16 +245,17 @@ fn parse_interface_declaration(
 /// Expect ; for all but the last item
 fn parse_semicolon_separator(stream: &mut TokenStream) -> ParseResult<()> {
     let token = stream.peek_expect()?;
-    try_token_kind!(token,
-                      SemiColon => {
-                          stream.move_after(&token);
-                          if stream.peek_expect()?.kind == RightPar {
-                              return Err(Diagnostic::error(&token,
-                                                        format!("Last interface element may not end with {}",
-                                                    kinds_str(&[SemiColon]))));
-                          }
-                      },
-                      RightPar => {}
+    try_token_kind!(
+    token,
+    SemiColon => {
+        stream.move_after(&token);
+        if stream.peek_expect()?.kind == RightPar {
+            return Err(Diagnostic::error(&token.pos_before(),
+                       format!("Last interface element may not end with {}",
+                       kinds_str(&[SemiColon]))));
+        }
+    },
+    RightPar => {}
     );
     Ok(())
 }
