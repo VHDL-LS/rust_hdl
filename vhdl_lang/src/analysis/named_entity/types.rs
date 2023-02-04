@@ -164,6 +164,10 @@ impl<'a> TypeEnt<'a> {
         }
     }
 
+    pub fn is_scalar(&self) -> bool {
+        self.base().is_scalar()
+    }
+
     pub fn sliced_as(&self) -> Option<TypeEnt<'a>> {
         self.base().sliced_as()
     }
@@ -269,6 +273,13 @@ impl<'a> BaseType<'a> {
 
     pub fn is_enum(&self) -> bool {
         matches!(self.kind(), Type::Enum { .. })
+    }
+
+    pub fn is_scalar(&self) -> bool {
+        matches!(
+            self.kind(),
+            Type::Enum(_) | Type::Integer | Type::Real | Type::Physical | Type::Universal(_)
+        )
     }
 
     pub fn is_compatible_with_string_literal(&self) -> bool {

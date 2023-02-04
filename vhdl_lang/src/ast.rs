@@ -117,6 +117,7 @@ pub enum AttributeDesignator {
     High,
     Low,
     Length,
+    Image,
 }
 
 /// LRM 8.7 External names

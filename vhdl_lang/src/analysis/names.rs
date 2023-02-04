@@ -539,8 +539,11 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn attribute_suffix(
         &self,
+        pos: &SrcPos,
+        scope: &Scope<'a>,
         typ: TypeEnt<'a>,
         attr: &mut AttributeSuffix,
+        diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<Option<BaseType<'a>>> {
         match attr.attr.item {
             AttributeDesignator::Left
@@ -554,29 +557,37 @@ impl<'a> AnalyzeContext<'a> {
                     } else {
                         Err(EvalError::Unknown)
                     }
+                } else if typ.is_scalar() {
+                    check_no_attr_argument(attr, diagnostics);
+                    Ok(Some(typ.into()))
                 } else {
-                    match typ.base().kind() {
-                        Type::Enum(_)
-                        | Type::Integer
-                        | Type::Real
-                        | Type::Physical
-                        | Type::Universal(_) => Ok(Some(typ.into())),
-                        _ => Ok(None),
-                    }
+                    Ok(None)
                 }
             }
             AttributeDesignator::Ascending | AttributeDesignator::Descending => {
                 if typ.array_type().is_some() {
                     Ok(Some(self.boolean().base()))
+                } else if typ.is_scalar() {
+                    check_no_attr_argument(attr, diagnostics);
+                    Ok(Some(self.boolean().base()))
                 } else {
-                    match typ.base().kind() {
-                        Type::Enum(_)
-                        | Type::Integer
-                        | Type::Real
-                        | Type::Physical
-                        | Type::Universal(_) => Ok(Some(self.boolean().base())),
-                        _ => Ok(None),
-                    }
+                    Ok(None)
+                }
+            }
+            AttributeDesignator::Image => {
+                if let Some(ref mut expr) = attr.expr {
+                    self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
+                } else {
+                    diagnostics.error(
+                        pos,
+                        format!("'{} attribute requires a single argument", attr.attr),
+                    )
+                }
+
+                if typ.is_scalar() {
+                    Ok(Some(self.string().base()))
+                } else {
+                    Ok(None)
                 }
             }
             AttributeDesignator::Length => {
@@ -717,7 +728,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             };
 
-            return match self.attribute_suffix(typ, attr) {
+            return match self.attribute_suffix(name_pos, scope, typ, attr, diagnostics) {
                 Ok(Some(typ)) => Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
                     typ.into(),
                 ))),
@@ -1339,6 +1350,15 @@ impl Diagnostic {
     }
 }
 
+fn check_no_attr_argument(suffix: &AttributeSuffix, diagnostics: &mut dyn DiagnosticHandler) {
+    if let Some(ref expr) = suffix.expr {
+        diagnostics.error(
+            &expr.pos,
+            format!("'{} attribute does not take an argument", suffix.attr),
+        )
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -1839,5 +1859,55 @@ constant c0 : arr_t := (others => 0);
                 test.ctx().boolean()
             )))
         );
+    }
+
+    #[test]
+    fn image() {
+        let test = TestSetup::new();
+
+        let code = test.snippet("natural'image(0)");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().string()
+            )))
+        );
+
+        let code = test.snippet("natural'image");
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            test.name_resolve(&code, None, &mut diagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().string()
+            )))
+        );
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.pos(),
+                "'image attribute requires a single argument",
+            )],
+        )
+    }
+
+    #[test]
+    fn attribute_no_arg() {
+        let test = TestSetup::new();
+
+        let code = test.snippet("integer'low(0)");
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            test.name_resolve(&code, None, &mut diagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().integer()
+            )))
+        );
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("0"),
+                "'low attribute does not take an argument",
+            )],
+        )
     }
 }
