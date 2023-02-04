@@ -1225,3 +1225,34 @@ end;
         ],
     );
 }
+
+#[test]
+fn typecheck_assert_statement() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+procedure wrapper is
+begin
+   assert true report \"good\";
+   assert true report 16#bad#;
+   assert true report \"good\" severity error;
+   assert true report \"good\" severity \"bad\";
+end;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s1("16#bad#"),
+                "integer literal does not match array type 'STRING'",
+            ),
+            Diagnostic::error(
+                code.s1("\"bad\""),
+                "string literal does not match type 'SEVERITY_LEVEL'",
+            ),
+        ],
+    );
+}

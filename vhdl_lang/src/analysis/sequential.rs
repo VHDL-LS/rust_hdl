@@ -76,10 +76,10 @@ impl<'a> AnalyzeContext<'a> {
                 } = assert_stmt;
                 self.analyze_expression(scope, condition, diagnostics)?;
                 if let Some(expr) = report {
-                    self.analyze_expression(scope, expr, diagnostics)?;
+                    self.expr_with_ttyp(scope, self.string(), expr, diagnostics)?;
                 }
                 if let Some(expr) = severity {
-                    self.analyze_expression(scope, expr, diagnostics)?;
+                    self.expr_with_ttyp(scope, self.severity_level(), expr, diagnostics)?;
                 }
             }
             SequentialStatement::Report(ref mut report_stmt) => {
