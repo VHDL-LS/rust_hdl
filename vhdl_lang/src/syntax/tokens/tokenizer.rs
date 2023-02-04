@@ -1357,6 +1357,30 @@ impl std::default::Default for Symbols {
             ("pred", AttributeDesignator::Pred),
             ("leftof", AttributeDesignator::LeftOf),
             ("rightof", AttributeDesignator::RightOf),
+            (
+                "delayed",
+                AttributeDesignator::Signal(ast::SignalAttribute::Delayed),
+            ),
+            (
+                "active",
+                AttributeDesignator::Signal(ast::SignalAttribute::Active),
+            ),
+            (
+                "event",
+                AttributeDesignator::Signal(ast::SignalAttribute::Event),
+            ),
+            (
+                "quiet",
+                AttributeDesignator::Signal(ast::SignalAttribute::Quiet),
+            ),
+            (
+                "stable",
+                AttributeDesignator::Signal(ast::SignalAttribute::Stable),
+            ),
+            (
+                "transaction",
+                AttributeDesignator::Signal(ast::SignalAttribute::Transaction),
+            ),
         ];
 
         let symtab = SymbolTable::default();

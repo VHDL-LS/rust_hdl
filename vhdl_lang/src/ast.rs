@@ -125,6 +125,17 @@ pub enum AttributeDesignator {
     Pred,
     LeftOf,
     RightOf,
+    Signal(SignalAttribute),
+}
+
+#[derive(PartialEq, Debug, Copy, Clone, Eq)]
+pub enum SignalAttribute {
+    Delayed,
+    Stable,
+    Quiet,
+    Transaction,
+    Event,
+    Active,
 }
 
 /// LRM 8.7 External names

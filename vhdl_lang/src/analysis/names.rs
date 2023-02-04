@@ -640,6 +640,42 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
+    pub fn signal_attribute_suffix(
+        &self,
+        scope: &Scope<'a>,
+        typ: TypeEnt<'a>,
+        sattr: SignalAttribute,
+        expr: Option<&mut WithPos<Expression>>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult<BaseType<'a>> {
+        match sattr {
+            SignalAttribute::Delayed => {
+                if let Some(expr) = expr {
+                    self.expr_with_ttyp(scope, self.time(), expr, diagnostics)?;
+                }
+                Ok(typ.base())
+            }
+            SignalAttribute::Stable | SignalAttribute::Quiet => {
+                if let Some(expr) = expr {
+                    self.expr_with_ttyp(scope, self.time(), expr, diagnostics)?;
+                }
+                Ok(self.boolean().base())
+            }
+            SignalAttribute::Transaction => {
+                check_no_sattr_argument(sattr, expr, diagnostics);
+                Ok(self.bit().base())
+            }
+            SignalAttribute::Event => {
+                check_no_sattr_argument(sattr, expr, diagnostics);
+                Ok(self.boolean().base())
+            }
+            SignalAttribute::Active => {
+                check_no_sattr_argument(sattr, expr, diagnostics);
+                Ok(self.boolean().base())
+            }
+        }
+    }
+
     pub fn name_resolve(
         &self,
         scope: &Scope<'a>,
@@ -747,54 +783,81 @@ impl<'a> AnalyzeContext<'a> {
 
         // Attributes for non-types not handled yet
         if let Suffix::Attribute(ref mut attr) = suffix {
-            let typ = match resolved {
-                ResolvedName::Type(typ) => typ,
-                ResolvedName::ObjectName(oname) => oname.type_mark(),
-                ResolvedName::Expression(DisambiguatedType::Unambiguous(typ)) => typ,
-                _ => {
-                    // @TODO ignore for now
-                    if let Some(signature) = attr.signature {
-                        if let Err(e) = self.resolve_signature(scope, signature) {
-                            diagnostics.push(e.into_non_fatal()?);
+            if let AttributeDesignator::Signal(ref sattr) = attr.attr.item {
+                if let ResolvedName::ObjectName(oname) = resolved {
+                    if matches!(oname.base.class(), ObjectClass::Signal) {
+                        return Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                            self.signal_attribute_suffix(
+                                scope,
+                                oname.type_mark(),
+                                *sattr,
+                                attr.expr.as_deref_mut(),
+                                diagnostics,
+                            )?
+                            .into(),
+                        )));
+                    }
+                }
+
+                diagnostics.error(
+                    &prefix.pos,
+                    format!(
+                        "Expected signal prefix for '{} attribute, got {}",
+                        sattr,
+                        resolved.describe()
+                    ),
+                );
+                return Err(EvalError::Unknown);
+            } else {
+                let typ = match resolved {
+                    ResolvedName::Type(typ) => typ,
+                    ResolvedName::ObjectName(oname) => oname.type_mark(),
+                    ResolvedName::Expression(DisambiguatedType::Unambiguous(typ)) => typ,
+                    _ => {
+                        // @TODO ignore for now
+                        if let Some(signature) = attr.signature {
+                            if let Err(e) = self.resolve_signature(scope, signature) {
+                                diagnostics.push(e.into_non_fatal()?);
+                            }
                         }
-                    }
-                    if let Some(expr) = attr.expr {
-                        self.expr_unknown_ttyp(scope, expr, diagnostics)?;
-                    }
-
-                    // @TODO not handled yet
-                    return Err(EvalError::Unknown);
-                }
-            };
-
-            return match self.attribute_suffix(name_pos, scope, typ, attr, diagnostics) {
-                Ok(Some(typ)) => Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                    typ.into(),
-                ))),
-                Ok(None) => {
-                    diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
-                        name_pos, resolved, attr,
-                    ));
-                    Err(EvalError::Unknown)
-                }
-                Err(EvalError::Unknown) => {
-                    // @TODO ignore for now
-                    if let Some(signature) = attr.signature {
-                        if let Err(e) = self.resolve_signature(scope, signature) {
-                            diagnostics.push(e.into_non_fatal()?);
+                        if let Some(expr) = attr.expr {
+                            self.expr_unknown_ttyp(scope, expr, diagnostics)?;
                         }
-                    }
-                    if let Some(expr) = attr.expr {
-                        self.expr_unknown_ttyp(scope, expr, diagnostics)?;
-                    }
 
-                    // @TODO not handled yet
-                    return Err(EvalError::Unknown);
-                }
-                Err(err) => {
-                    return Err(err);
-                }
-            };
+                        // @TODO not handled yet
+                        return Err(EvalError::Unknown);
+                    }
+                };
+
+                return match self.attribute_suffix(name_pos, scope, typ, attr, diagnostics) {
+                    Ok(Some(typ)) => Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                        typ.into(),
+                    ))),
+                    Ok(None) => {
+                        diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
+                            name_pos, resolved, attr,
+                        ));
+                        Err(EvalError::Unknown)
+                    }
+                    Err(EvalError::Unknown) => {
+                        // @TODO ignore for now
+                        if let Some(signature) = attr.signature {
+                            if let Err(e) = self.resolve_signature(scope, signature) {
+                                diagnostics.push(e.into_non_fatal()?);
+                            }
+                        }
+                        if let Some(expr) = attr.expr {
+                            self.expr_unknown_ttyp(scope, expr, diagnostics)?;
+                        }
+
+                        // @TODO not handled yet
+                        return Err(EvalError::Unknown);
+                    }
+                    Err(err) => {
+                        return Err(err);
+                    }
+                };
+            }
         }
 
         match resolved {
@@ -1411,6 +1474,19 @@ fn check_no_attr_argument(suffix: &AttributeSuffix, diagnostics: &mut dyn Diagno
         diagnostics.error(
             &expr.pos,
             format!("'{} attribute does not take an argument", suffix.attr),
+        )
+    }
+}
+
+fn check_no_sattr_argument(
+    attr: SignalAttribute,
+    expr: Option<&mut WithPos<Expression>>,
+    diagnostics: &mut dyn DiagnosticHandler,
+) {
+    if let Some(ref expr) = expr {
+        diagnostics.error(
+            &expr.pos,
+            format!("'{attr} attribute does not take an argument"),
         )
     }
 }
@@ -2061,6 +2137,95 @@ constant c0 : arr_t := (others => 0);
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
                 test.ctx().character()
+            )))
+        );
+    }
+
+    #[test]
+    fn signal_attributes_on_non_signal() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+variable thevar : integer;
+        ",
+        );
+        let code = test.snippet("thevar'delayed(0 ns)");
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            test.name_resolve(&code, None, &mut diagnostics),
+            Err(EvalError::Unknown)
+        );
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("thevar"),
+                "Expected signal prefix for 'delayed attribute, got variable 'thevar'",
+            )],
+        )
+    }
+
+    #[test]
+    fn signal_attributes() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+signal thesig : integer; 
+        ",
+        );
+
+        let code = test.snippet("thesig'delayed(0 ns)");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().integer()
+            )))
+        );
+
+        let code = test.snippet("thesig'delayed");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().integer()
+            )))
+        );
+
+        let code = test.snippet("thesig'stable(0 ns)");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().boolean()
+            )))
+        );
+
+        let code = test.snippet("thesig'quiet(0 ns)");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().boolean()
+            )))
+        );
+
+        let code = test.snippet("thesig'transaction");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().bit()
+            )))
+        );
+
+        let code = test.snippet("thesig'event");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().boolean()
+            )))
+        );
+
+        let code = test.snippet("thesig'active");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().boolean()
             )))
         );
     }

@@ -116,6 +116,20 @@ impl Display for AttributeDesignator {
             AttributeDesignator::Pred => write!(f, "pred"),
             AttributeDesignator::LeftOf => write!(f, "leftof"),
             AttributeDesignator::RightOf => write!(f, "rightof"),
+            AttributeDesignator::Signal(s) => write!(f, "{s}"),
+        }
+    }
+}
+
+impl Display for SignalAttribute {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self {
+            SignalAttribute::Delayed => write!(f, "delayed"),
+            SignalAttribute::Stable => write!(f, "stable"),
+            SignalAttribute::Quiet => write!(f, "quiet"),
+            SignalAttribute::Transaction => write!(f, "transaction"),
+            SignalAttribute::Event => write!(f, "event"),
+            SignalAttribute::Active => write!(f, "active"),
         }
     }
 }
