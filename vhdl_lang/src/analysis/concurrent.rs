@@ -43,7 +43,7 @@ impl<'a> AnalyzeContext<'a> {
         match statement.statement {
             ConcurrentStatement::Block(ref mut block) => {
                 if let Some(ref mut guard_condition) = block.guard_condition {
-                    self.analyze_expression(scope, guard_condition, diagnostics)?;
+                    self.boolean_expr(scope, guard_condition, diagnostics)?;
                 }
                 let nested = scope.nested();
                 if let Some(ref mut list) = block.header.generic_clause {
@@ -106,7 +106,7 @@ impl<'a> AnalyzeContext<'a> {
                 } = gen;
                 for conditional in conditionals.iter_mut() {
                     let Conditional { condition, item } = conditional;
-                    self.analyze_expression(scope, condition, diagnostics)?;
+                    self.boolean_expr(scope, condition, diagnostics)?;
                     let nested = scope.nested();
                     self.analyze_generate_body(&nested, item, diagnostics)?;
                 }
@@ -149,12 +149,12 @@ impl<'a> AnalyzeContext<'a> {
                             severity,
                         },
                 } = assert;
-                self.analyze_expression(scope, condition, diagnostics)?;
+                self.boolean_expr(scope, condition, diagnostics)?;
                 if let Some(expr) = report {
-                    self.analyze_expression(scope, expr, diagnostics)?;
+                    self.expr_with_ttyp(scope, self.string(), expr, diagnostics)?;
                 }
                 if let Some(expr) = severity {
-                    self.analyze_expression(scope, expr, diagnostics)?;
+                    self.expr_with_ttyp(scope, self.severity_level(), expr, diagnostics)?;
                 }
             }
         };

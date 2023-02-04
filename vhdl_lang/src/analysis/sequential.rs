@@ -62,10 +62,10 @@ impl<'a> AnalyzeContext<'a> {
                 } = wait_stmt;
                 self.sensitivity_list_check(scope, sensitivity_clause, diagnostics)?;
                 if let Some(expr) = condition_clause {
-                    self.analyze_expression(scope, expr, diagnostics)?;
+                    self.boolean_expr(scope, expr, diagnostics)?;
                 }
                 if let Some(expr) = timeout_clause {
-                    self.analyze_expression(scope, expr, diagnostics)?;
+                    self.expr_with_ttyp(scope, self.time(), expr, diagnostics)?;
                 }
             }
             SequentialStatement::Assert(ref mut assert_stmt) => {
@@ -97,7 +97,7 @@ impl<'a> AnalyzeContext<'a> {
                 } = exit_stmt;
 
                 if let Some(expr) = condition {
-                    self.analyze_expression(scope, expr, diagnostics)?;
+                    self.boolean_expr(scope, expr, diagnostics)?;
                 }
             }
             SequentialStatement::Next(ref mut next_stmt) => {
@@ -108,7 +108,7 @@ impl<'a> AnalyzeContext<'a> {
                 } = next_stmt;
 
                 if let Some(expr) = condition {
-                    self.analyze_expression(scope, expr, diagnostics)?;
+                    self.boolean_expr(scope, expr, diagnostics)?;
                 }
             }
             SequentialStatement::If(ref mut ifstmt) => {
@@ -120,8 +120,8 @@ impl<'a> AnalyzeContext<'a> {
                 // @TODO write generic function for this
                 for conditional in conditionals {
                     let Conditional { condition, item } = conditional;
+                    self.boolean_expr(scope, condition, diagnostics)?;
                     self.analyze_sequential_part(scope, sroot, item, diagnostics)?;
-                    self.analyze_expression(scope, condition, diagnostics)?;
                 }
                 if let Some(else_item) = else_item {
                     self.analyze_sequential_part(scope, sroot, else_item, diagnostics)?;
@@ -156,7 +156,7 @@ impl<'a> AnalyzeContext<'a> {
                         self.analyze_sequential_part(&region, sroot, statements, diagnostics)?;
                     }
                     Some(IterationScheme::While(ref mut expr)) => {
-                        self.analyze_expression(scope, expr, diagnostics)?;
+                        self.boolean_expr(scope, expr, diagnostics)?;
                         self.analyze_sequential_part(scope, sroot, statements, diagnostics)?;
                     }
                     None => {

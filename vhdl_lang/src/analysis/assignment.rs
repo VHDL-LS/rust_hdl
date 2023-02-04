@@ -36,7 +36,7 @@ impl<'a> AnalyzeContext<'a> {
                 for conditional in conditionals {
                     let Conditional { condition, item } = conditional;
                     self.analyze_expression_for_target(scope, ttyp, item, diagnostics)?;
-                    self.analyze_expression(scope, condition, diagnostics)?;
+                    self.boolean_expr(scope, condition, diagnostics)?;
                 }
                 if let Some(expr) = else_item {
                     self.analyze_expression_for_target(scope, ttyp, expr, diagnostics)?;
@@ -78,7 +78,7 @@ impl<'a> AnalyzeContext<'a> {
                 for conditional in conditionals {
                     let Conditional { condition, item } = conditional;
                     self.analyze_waveform(scope, ttyp, item, diagnostics)?;
-                    self.analyze_expression(scope, condition, diagnostics)?;
+                    self.boolean_expr(scope, condition, diagnostics)?;
                 }
                 if let Some(wavf) = else_item {
                     self.analyze_waveform(scope, ttyp, wavf, diagnostics)?;
@@ -112,13 +112,7 @@ impl<'a> AnalyzeContext<'a> {
                     let WaveformElement { value, after } = elem;
                     self.analyze_expression_for_target(scope, ttyp, value, diagnostics)?;
                     if let Some(expr) = after {
-                        self.expr_pos_with_ttyp(
-                            scope,
-                            self.time(),
-                            &expr.pos,
-                            &mut expr.item,
-                            diagnostics,
-                        )?;
+                        self.expr_with_ttyp(scope, self.time(), expr, diagnostics)?;
                     }
                 }
             }
@@ -135,7 +129,7 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         if let Some(ttyp) = ttyp {
-            self.expr_pos_with_ttyp(scope, ttyp, &expr.pos, &mut expr.item, diagnostics)?;
+            self.expr_with_ttyp(scope, ttyp, expr, diagnostics)?;
         } else {
             self.analyze_expression_pos(scope, &expr.pos, &mut expr.item, diagnostics)?;
         }
