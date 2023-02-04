@@ -209,7 +209,7 @@ impl<'a> AnalyzeContext<'a> {
         Ok(designator.define(self.arena, kind))
     }
 
-    fn analyze_declaration(
+    pub(crate) fn analyze_declaration(
         &self,
         scope: &Scope<'a>,
         decl: &mut Declaration,
@@ -522,7 +522,7 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
-    fn analyze_type_declaration(
+    pub(crate) fn analyze_type_declaration(
         &self,
         scope: &Scope<'a>,
         type_decl: &mut TypeDeclaration,
@@ -567,14 +567,12 @@ impl<'a> AnalyzeContext<'a> {
 
                 scope.add(enum_type.into(), diagnostics);
 
-                if let Some(standard) = self.standard_package() {
-                    for ent in standard.enum_implicits(enum_type) {
-                        unsafe {
-                            self.arena.add_implicit(enum_type.id(), ent);
-                        }
-
-                        scope.add(ent, diagnostics);
+                for ent in self.enum_implicits(enum_type) {
+                    unsafe {
+                        self.arena.add_implicit(enum_type.id(), ent);
                     }
+
+                    scope.add(ent, diagnostics);
                 }
             }
             TypeDefinition::ProtectedBody(ref mut body) => {
@@ -718,13 +716,11 @@ impl<'a> AnalyzeContext<'a> {
                 );
                 scope.add(type_ent.into(), diagnostics);
 
-                if let Some(standard) = self.standard_package() {
-                    for ent in standard.record_implicits(type_ent) {
-                        unsafe {
-                            self.arena.add_implicit(type_ent.id(), ent);
-                        }
-                        scope.add(ent, diagnostics);
+                for ent in self.record_implicits(type_ent) {
+                    unsafe {
+                        self.arena.add_implicit(type_ent.id(), ent);
                     }
+                    scope.add(ent, diagnostics);
                 }
             }
             TypeDefinition::Access(ref mut subtype_indication) => {
@@ -741,13 +737,11 @@ impl<'a> AnalyzeContext<'a> {
 
                         scope.add(type_ent.into(), diagnostics);
 
-                        if let Some(standard) = self.standard_package() {
-                            for ent in standard.access_implicits(type_ent) {
-                                unsafe {
-                                    self.arena.add_implicit(type_ent.id(), ent);
-                                }
-                                scope.add(ent, diagnostics);
+                        for ent in self.access_implicits(type_ent) {
+                            unsafe {
+                                self.arena.add_implicit(type_ent.id(), ent);
                             }
+                            scope.add(ent, diagnostics);
                         }
                     }
                     Err(err) => err.add_to(diagnostics)?,
@@ -781,13 +775,11 @@ impl<'a> AnalyzeContext<'a> {
 
                 scope.add(array_ent.into(), diagnostics);
 
-                if let Some(standard) = self.standard_package() {
-                    for ent in standard.array_implicits(array_ent) {
-                        unsafe {
-                            self.arena.add_implicit(array_ent.id(), ent);
-                        }
-                        scope.add(ent, diagnostics);
+                for ent in self.array_implicits(array_ent) {
+                    unsafe {
+                        self.arena.add_implicit(array_ent.id(), ent);
                     }
+                    scope.add(ent, diagnostics);
                 }
             }
             TypeDefinition::Subtype(ref mut subtype_indication) => {
@@ -851,13 +843,11 @@ impl<'a> AnalyzeContext<'a> {
                     scope.add(secondary_unit, diagnostics)
                 }
 
-                if let Some(standard) = self.standard_package() {
-                    for ent in standard.physical_implicits(phys_type) {
-                        unsafe {
-                            self.arena.add_implicit(phys_type.id(), ent);
-                        }
-                        scope.add(ent, diagnostics);
+                for ent in self.physical_implicits(phys_type) {
+                    unsafe {
+                        self.arena.add_implicit(phys_type.id(), ent);
                     }
+                    scope.add(ent, diagnostics);
                 }
             }
             TypeDefinition::Incomplete(..) => {
@@ -880,13 +870,11 @@ impl<'a> AnalyzeContext<'a> {
                 );
                 scope.add(type_ent.into(), diagnostics);
 
-                if let Some(standard) = self.standard_package() {
-                    for ent in standard.numeric_implicits(universal_type, type_ent) {
-                        unsafe {
-                            self.arena.add_implicit(type_ent.id(), ent);
-                        }
-                        scope.add(ent, diagnostics);
+                for ent in self.numeric_implicits(universal_type, type_ent) {
+                    unsafe {
+                        self.arena.add_implicit(type_ent.id(), ent);
                     }
+                    scope.add(ent, diagnostics);
                 }
             }
 
@@ -900,15 +888,12 @@ impl<'a> AnalyzeContext<'a> {
 
                 match self.resolve_type_mark(scope, type_mark) {
                     Ok(type_mark) => {
-                        if let Some(standard) = self.standard_package() {
-                            for ent in
-                                standard.create_implicit_file_type_subprograms(file_type, type_mark)
-                            {
-                                unsafe {
-                                    self.arena.add_implicit(file_type.id(), ent);
-                                }
-                                scope.add(ent, diagnostics);
+                        for ent in self.create_implicit_file_type_subprograms(file_type, type_mark)
+                        {
+                            unsafe {
+                                self.arena.add_implicit(file_type.id(), ent);
                             }
+                            scope.add(ent, diagnostics);
                         }
                     }
                     Err(err) => {
@@ -1016,10 +1001,9 @@ impl<'a> AnalyzeContext<'a> {
                     TypeEnt::from_any(self.arena.define(ident, AnyEntKind::Type(Type::Interface)))
                         .unwrap();
 
-                let standard_pkg = self.standard_package().unwrap();
                 let implicit = [
-                    standard_pkg.comparison(Operator::EQ, typ),
-                    standard_pkg.comparison(Operator::NE, typ),
+                    self.comparison(Operator::EQ, typ),
+                    self.comparison(Operator::NE, typ),
                 ];
 
                 for ent in implicit {

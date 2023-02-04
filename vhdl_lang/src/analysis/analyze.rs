@@ -7,7 +7,6 @@
 use super::named_entity::*;
 use super::region::*;
 use super::root::*;
-use super::standard::StandardRegion;
 use crate::ast::*;
 use crate::data::*;
 use fnv::FnvHashSet;
@@ -263,21 +262,6 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    pub fn universal_integer(&self) -> BaseType<'a> {
-        TypeEnt::from_any(
-            self.arena
-                .get(self.root.universal.as_ref().unwrap().integer),
-        )
-        .unwrap()
-        .base()
-    }
-
-    pub fn universal_real(&self) -> BaseType<'a> {
-        TypeEnt::from_any(self.arena.get(self.root.universal.as_ref().unwrap().real))
-            .unwrap()
-            .base()
-    }
-
     /// Add implicit context clause for all packages except STD.STANDARD
     /// library STD, WORK;
     /// use STD.STANDARD.all;
@@ -407,10 +391,5 @@ impl<'a> AnalyzeContext<'a> {
         } else {
             None
         }
-    }
-
-    pub fn standard_package(&self) -> Option<StandardRegion<'a, 'a>> {
-        let region = self.standard_package_region()?;
-        Some(StandardRegion::new(self.root, self.arena, region))
     }
 }

@@ -112,10 +112,9 @@ impl<'a> AnalyzeContext<'a> {
                     let WaveformElement { value, after } = elem;
                     self.analyze_expression_for_target(scope, ttyp, value, diagnostics)?;
                     if let Some(expr) = after {
-                        let standard = self.standard_package().unwrap();
                         self.expr_pos_with_ttyp(
                             scope,
-                            standard.time(),
+                            self.time(),
                             &expr.pos,
                             &mut expr.item,
                             diagnostics,

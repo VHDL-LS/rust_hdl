@@ -4,22 +4,24 @@
 //
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
+use crate::ast::Declaration;
 use crate::ast::Designator;
 use crate::ast::Mode;
 use crate::ast::ObjectClass;
 use crate::ast::Operator;
+use crate::data::DiagnosticHandler;
 use crate::data::Symbol;
 use crate::syntax::Symbols;
 use crate::SrcPos;
 
+use super::analyze::AnalyzeContext;
 use super::formal_region::FormalRegion;
 use super::named_entity::*;
 use super::region::*;
-use super::DesignRoot;
 use super::EntityId;
 
 #[derive(Clone, Copy)]
-pub struct UniversalTypes {
+pub(crate) struct UniversalTypes {
     pub integer: EntityId,
     pub real: EntityId,
 }
@@ -45,80 +47,308 @@ impl UniversalTypes {
     }
 }
 
-pub(super) struct StandardRegion<'a, 'r> {
-    // Only for symbol table
-    root: &'a DesignRoot,
-    arena: &'a Arena,
-    builder: ImplicitBuilder<'a>,
-    region: &'r Region<'a>,
+pub(crate) struct StandardTypes {
+    pub boolean: EntityId,
+    pub boolean_vector: EntityId,
+    pub bit: EntityId,
+    pub bit_vector: EntityId,
+    pub string: EntityId,
+    pub integer: EntityId,
+    pub natural: EntityId,
+    pub real: EntityId,
+    pub time: EntityId,
+    pub file_open_kind: EntityId,
+    pub file_open_status: EntityId,
 }
 
-impl<'a, 'r> StandardRegion<'a, 'r> {
-    pub(super) fn new(root: &'a DesignRoot, arena: &'a Arena, region: &'r Region<'a>) -> Self {
+impl StandardTypes {
+    pub fn new(arena: &Arena, decls: &mut [Declaration]) -> Self {
+        let mut boolean = None;
+        let mut boolean_vector = None;
+        let mut bit = None;
+        let mut bit_vector = None;
+        let mut string = None;
+        let mut integer = None;
+        let mut natural = None;
+        let mut real = None;
+        let mut time = None;
+        let mut file_open_status = None;
+        let mut file_open_kind = None;
+
+        // Reserve space in the arena for the standard types
+        for decl in decls.iter_mut() {
+            if let Declaration::Type(ref mut type_decl) = decl {
+                let id = arena
+                    .alloc(
+                        Designator::Identifier(type_decl.ident.tree.item.clone()),
+                        Related::None,
+                        AnyEntKind::Type(Type::Incomplete),
+                        Some(type_decl.ident.tree.pos.clone()),
+                    )
+                    .id();
+                let name = type_decl.ident.tree.item.name();
+                match name.bytes.as_slice() {
+                    b"BOOLEAN" => {
+                        boolean = Some(id);
+                    }
+                    b"BOOLEAN_VECTOR" => {
+                        boolean_vector = Some(id);
+                    }
+                    b"BIT" => {
+                        bit = Some(id);
+                    }
+                    b"BIT_VECTOR" => {
+                        bit_vector = Some(id);
+                    }
+                    b"STRING" => {
+                        string = Some(id);
+                    }
+                    b"INTEGER" => {
+                        integer = Some(id);
+                    }
+                    b"NATURAL" => {
+                        natural = Some(id);
+                    }
+                    b"REAL" => {
+                        real = Some(id);
+                    }
+                    b"TIME" => {
+                        time = Some(id);
+                    }
+                    b"FILE_OPEN_KIND" => {
+                        file_open_kind = Some(id);
+                    }
+                    b"FILE_OPEN_STATUS" => {
+                        file_open_status = Some(id);
+                    }
+                    _ => {
+                        continue;
+                    }
+                }
+                type_decl.ident.decl = Some(id);
+            }
+        }
+
         Self {
-            root,
-            arena,
-            region,
-            builder: ImplicitBuilder {
-                symbols: &root.symbols,
-                arena,
-            },
+            boolean: boolean.unwrap(),
+            boolean_vector: boolean_vector.unwrap(),
+            bit: bit.unwrap(),
+            bit_vector: bit_vector.unwrap(),
+            string: string.unwrap(),
+            integer: integer.unwrap(),
+            natural: natural.unwrap(),
+            real: real.unwrap(),
+            time: time.unwrap(),
+            file_open_kind: file_open_kind.unwrap(),
+            file_open_status: file_open_status.unwrap(),
         }
     }
+}
 
+impl<'a> AnalyzeContext<'a> {
     fn symbol(&self, name: &str) -> Symbol {
         self.root.symbol_utf8(name)
     }
 
-    fn lookup_type(&self, name: &str) -> TypeEnt<'a> {
-        TypeEnt::from_any(
-            self.region
-                .lookup_immediate(&self.symbol(name).into())
-                .unwrap()
-                .clone()
-                .into_non_overloaded()
-                .unwrap(),
-        )
-        .unwrap()
+    fn standard_types(&self) -> &StandardTypes {
+        self.root.standard_types.as_ref().unwrap()
     }
 
-    fn string(&self) -> TypeEnt<'a> {
-        self.lookup_type("STRING")
+    pub(crate) fn string(&self) -> TypeEnt<'a> {
+        self.arena.get_type(self.standard_types().string)
     }
 
-    fn boolean(&self) -> TypeEnt<'a> {
-        self.lookup_type("BOOLEAN")
+    pub(crate) fn boolean(&self) -> TypeEnt<'a> {
+        self.arena.get_type(self.standard_types().boolean)
     }
 
-    fn natural(&self) -> TypeEnt<'a> {
-        self.lookup_type("NATURAL")
+    pub(crate) fn boolean_vector(&self) -> TypeEnt<'a> {
+        self.arena.get_type(self.standard_types().boolean_vector)
     }
 
-    pub fn universal_integer(&self) -> TypeEnt<'a> {
-        TypeEnt::from_any(
-            self.arena
-                .get(self.root.universal.as_ref().unwrap().integer),
-        )
-        .unwrap()
+    pub(crate) fn bit(&self) -> TypeEnt<'a> {
+        self.arena.get_type(self.standard_types().bit)
     }
 
-    fn integer(&self) -> TypeEnt<'a> {
-        self.lookup_type("INTEGER")
+    pub(crate) fn bit_vector(&self) -> TypeEnt<'a> {
+        self.arena.get_type(self.standard_types().bit_vector)
     }
 
-    fn real(&self) -> TypeEnt<'a> {
-        self.lookup_type("REAL")
+    pub(crate) fn natural(&self) -> TypeEnt<'a> {
+        self.arena.get_type(self.standard_types().natural)
     }
 
-    pub fn time(&self) -> TypeEnt<'a> {
-        self.lookup_type("TIME")
+    pub(crate) fn universal_integer(&self) -> BaseType<'a> {
+        self.arena
+            .get_type(self.root.universal.as_ref().unwrap().integer)
+            .base()
+    }
+
+    pub(crate) fn universal_real(&self) -> BaseType<'a> {
+        self.arena
+            .get_type(self.root.universal.as_ref().unwrap().real)
+            .base()
+    }
+
+    pub(crate) fn integer(&self) -> TypeEnt<'a> {
+        self.arena.get_type(self.standard_types().integer)
+    }
+
+    pub(crate) fn real(&self) -> TypeEnt<'a> {
+        self.arena.get_type(self.standard_types().real)
+    }
+
+    pub(crate) fn time(&self) -> TypeEnt<'a> {
+        self.arena.get_type(self.standard_types().time)
     }
 
     fn file_open_kind(&self) -> TypeEnt<'a> {
-        self.lookup_type("FILE_OPEN_KIND")
+        self.arena.get_type(self.standard_types().file_open_kind)
     }
+
     fn file_open_status(&self) -> TypeEnt<'a> {
-        self.lookup_type("FILE_OPEN_STATUS")
+        self.arena.get_type(self.standard_types().file_open_status)
+    }
+
+    /// Create implicit MAXIMUM/MINIMUM
+    // function MINIMUM (L, R: T) return T;
+    // function MAXIMUM (L, R: T) return T;
+    fn min_or_maximum(&self, name: &str, type_ent: TypeEnt<'a>) -> EntRef<'a> {
+        let mut formals = FormalRegion::new_params();
+        formals.add(self.arena.explicit(
+            self.symbol("L"),
+            AnyEntKind::Object(Object {
+                class: ObjectClass::Constant,
+                mode: Some(Mode::In),
+                subtype: Subtype::new(type_ent),
+                has_default: false,
+            }),
+            type_ent.decl_pos(),
+        ));
+
+        formals.add(self.arena.explicit(
+            self.symbol("R"),
+            AnyEntKind::Object(Object {
+                class: ObjectClass::Constant,
+                mode: Some(Mode::In),
+                subtype: Subtype::new(type_ent),
+                has_default: false,
+            }),
+            type_ent.decl_pos(),
+        ));
+
+        self.arena.implicit(
+            type_ent.into(),
+            self.symbol(name),
+            AnyEntKind::new_function_decl(formals, type_ent),
+            type_ent.decl_pos(),
+        )
+    }
+
+    fn elementwise_min_or_maximum(
+        &self,
+        name: &str,
+        arr_typ: TypeEnt<'a>,
+        elem_typ: TypeEnt<'a>,
+    ) -> EntRef<'a> {
+        let mut formals = FormalRegion::new_params();
+        formals.add(self.arena.explicit(
+            self.symbol("L"),
+            AnyEntKind::Object(Object {
+                class: ObjectClass::Constant,
+                mode: Some(Mode::In),
+                subtype: Subtype::new(arr_typ),
+                has_default: false,
+            }),
+            arr_typ.decl_pos(),
+        ));
+
+        self.arena.implicit(
+            arr_typ.into(),
+            self.symbol(name),
+            AnyEntKind::new_function_decl(formals, elem_typ),
+            arr_typ.decl_pos(),
+        )
+    }
+
+    fn unary(&self, op: Operator, typ: TypeEnt<'a>, return_type: TypeEnt<'a>) -> EntRef<'a> {
+        let mut formals = FormalRegion::new_params();
+        formals.add(self.arena.explicit(
+            // @TODO anonymous
+            self.symbol("V"),
+            AnyEntKind::Object(Object {
+                class: ObjectClass::Constant,
+                mode: Some(Mode::In),
+                subtype: Subtype::new(typ.to_owned()),
+                has_default: false,
+            }),
+            typ.decl_pos(),
+        ));
+
+        self.arena.implicit(
+            typ.into(),
+            Designator::OperatorSymbol(op),
+            AnyEntKind::new_function_decl(formals, return_type),
+            typ.decl_pos(),
+        )
+    }
+
+    pub(crate) fn symmetric_unary(&self, op: Operator, typ: TypeEnt<'a>) -> EntRef<'a> {
+        self.unary(op, typ, typ)
+    }
+
+    fn binary(
+        &self,
+
+        op: Operator,
+        implicit_of: TypeEnt<'a>,
+        left: TypeEnt<'a>,
+        right: TypeEnt<'a>,
+        return_type: TypeEnt<'a>,
+    ) -> EntRef<'a> {
+        let mut formals = FormalRegion::new_params();
+        formals.add(self.arena.explicit(
+            // @TODO anonymous
+            self.symbol("L"),
+            AnyEntKind::Object(Object {
+                class: ObjectClass::Constant,
+                mode: Some(Mode::In),
+                subtype: Subtype::new(left),
+                has_default: false,
+            }),
+            implicit_of.decl_pos(),
+        ));
+
+        formals.add(self.arena.explicit(
+            // @TODO anonymous
+            self.symbol("R"),
+            AnyEntKind::Object(Object {
+                class: ObjectClass::Constant,
+                mode: Some(Mode::In),
+                subtype: Subtype::new(right),
+                has_default: false,
+            }),
+            implicit_of.decl_pos(),
+        ));
+
+        self.arena.implicit(
+            implicit_of.into(),
+            Designator::OperatorSymbol(op),
+            AnyEntKind::new_function_decl(formals, return_type),
+            implicit_of.decl_pos(),
+        )
+    }
+
+    fn symmetric_binary(&self, op: Operator, typ: TypeEnt<'a>) -> EntRef<'a> {
+        self.binary(op, typ, typ, typ, typ)
+    }
+
+    pub fn minimum(&self, type_ent: TypeEnt<'a>) -> EntRef<'a> {
+        self.min_or_maximum("MINIMUM", type_ent)
+    }
+
+    pub fn maximum(&self, type_ent: TypeEnt<'a>) -> EntRef<'a> {
+        self.min_or_maximum("MAXIMUM", type_ent)
     }
 
     pub fn create_implicit_file_type_subprograms(
@@ -397,7 +627,7 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
     }
 
     pub fn comparison(&self, op: Operator, typ: TypeEnt<'a>) -> EntRef<'a> {
-        self.builder.binary(op, typ, typ, typ, self.boolean())
+        self.binary(op, typ, typ, typ, self.boolean())
     }
 
     pub fn comparators(&self, typ: TypeEnt<'a>) -> impl Iterator<Item = EntRef<'a>> {
@@ -420,27 +650,27 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
         let integer = self.integer();
 
         [
-            self.builder.minimum(typ),
-            self.builder.maximum(typ),
+            self.minimum(typ),
+            self.maximum(typ),
             self.create_to_string(typ),
-            self.builder.symmetric_unary(Operator::Minus, typ),
-            self.builder.symmetric_unary(Operator::Plus, typ),
-            self.builder.symmetric_binary(Operator::Plus, typ),
-            self.builder.symmetric_binary(Operator::Minus, typ),
+            self.symmetric_unary(Operator::Minus, typ),
+            self.symmetric_unary(Operator::Plus, typ),
+            self.symmetric_binary(Operator::Plus, typ),
+            self.symmetric_binary(Operator::Minus, typ),
             // 9.2.7 Multiplying operators
-            self.builder.symmetric_binary(Operator::Times, typ),
-            self.builder.symmetric_binary(Operator::Div, typ),
+            self.symmetric_binary(Operator::Times, typ),
+            self.symmetric_binary(Operator::Div, typ),
             // 9.2.8 Miscellaneous operators
-            self.builder.symmetric_unary(Operator::Abs, typ),
-            self.builder.binary(Operator::Pow, typ, typ, integer, typ),
+            self.symmetric_unary(Operator::Abs, typ),
+            self.binary(Operator::Pow, typ, typ, integer, typ),
         ]
         .into_iter()
         .chain(
             if kind == UniversalType::Integer {
                 Some(
                     [
-                        self.builder.symmetric_binary(Operator::Mod, typ),
-                        self.builder.symmetric_binary(Operator::Rem, typ),
+                        self.symmetric_binary(Operator::Mod, typ),
+                        self.symmetric_binary(Operator::Rem, typ),
                     ]
                     .into_iter(),
                 )
@@ -458,24 +688,29 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
         let real = self.real();
 
         [
-            self.builder.minimum(typ),
-            self.builder.maximum(typ),
-            self.builder.symmetric_unary(Operator::Minus, typ),
-            self.builder.symmetric_unary(Operator::Plus, typ),
-            self.builder.symmetric_unary(Operator::Abs, typ),
-            self.builder.symmetric_binary(Operator::Plus, typ),
-            self.builder.symmetric_binary(Operator::Minus, typ),
+            self.minimum(typ),
+            self.maximum(typ),
+            self.symmetric_unary(Operator::Minus, typ),
+            self.symmetric_unary(Operator::Plus, typ),
+            self.symmetric_unary(Operator::Abs, typ),
+            self.symmetric_binary(Operator::Plus, typ),
+            self.symmetric_binary(Operator::Minus, typ),
             // 9.2.7 Multiplying operators
-            self.builder.binary(Operator::Times, typ, typ, integer, typ),
-            self.builder.binary(Operator::Times, typ, typ, real, typ),
-            self.builder.binary(Operator::Times, typ, integer, typ, typ),
-            self.builder.binary(Operator::Times, typ, real, typ, typ),
-            self.builder.binary(Operator::Div, typ, typ, integer, typ),
-            self.builder.binary(Operator::Div, typ, typ, real, typ),
-            self.builder
-                .binary(Operator::Div, typ, typ, typ, self.universal_integer()),
-            self.builder.symmetric_binary(Operator::Mod, typ),
-            self.builder.symmetric_binary(Operator::Rem, typ),
+            self.binary(Operator::Times, typ, typ, integer, typ),
+            self.binary(Operator::Times, typ, typ, real, typ),
+            self.binary(Operator::Times, typ, integer, typ, typ),
+            self.binary(Operator::Times, typ, real, typ, typ),
+            self.binary(Operator::Div, typ, typ, integer, typ),
+            self.binary(Operator::Div, typ, typ, real, typ),
+            self.binary(
+                Operator::Div,
+                typ,
+                typ,
+                typ,
+                self.universal_integer().into(),
+            ),
+            self.symmetric_binary(Operator::Mod, typ),
+            self.symmetric_binary(Operator::Rem, typ),
         ]
         .into_iter()
         .chain(self.comparators(typ).into_iter())
@@ -484,8 +719,8 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
     pub fn enum_implicits(&self, typ: TypeEnt<'a>) -> impl Iterator<Item = EntRef<'a>> {
         [
             self.create_to_string(typ),
-            self.builder.minimum(typ),
-            self.builder.maximum(typ),
+            self.minimum(typ),
+            self.maximum(typ),
         ]
         .into_iter()
         .chain(self.comparators(typ).into_iter())
@@ -505,22 +740,22 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
         elem_type: TypeEnt<'a>,
     ) -> impl Iterator<Item = EntRef<'a>> {
         [
-            self.builder.binary(
+            self.binary(
                 Operator::Concat,
                 array_type,
                 array_type,
                 elem_type,
                 array_type,
             ),
-            self.builder.binary(
+            self.binary(
                 Operator::Concat,
                 array_type,
                 elem_type,
                 array_type,
                 array_type,
             ),
-            self.builder.symmetric_binary(Operator::Concat, array_type),
-            self.builder.binary(
+            self.symmetric_binary(Operator::Concat, array_type),
+            self.binary(
                 Operator::Concat,
                 array_type,
                 elem_type,
@@ -566,10 +801,8 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
                         self.comparison(Operator::GTE, typ),
                         self.comparison(Operator::LT, typ),
                         self.comparison(Operator::LTE, typ),
-                        self.builder
-                            .elementwise_min_or_maximum("MINIMUM", typ, *elem_type),
-                        self.builder
-                            .elementwise_min_or_maximum("MAXIMUM", typ, *elem_type),
+                        self.elementwise_min_or_maximum("MINIMUM", typ, *elem_type),
+                        self.elementwise_min_or_maximum("MAXIMUM", typ, *elem_type),
                     ]
                     .into_iter(),
                 )
@@ -590,79 +823,46 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
         .into_iter()
     }
 
-    pub fn type_implicits(&self, typ: TypeEnt<'a>) -> Vec<EntRef<'a>> {
-        match typ.kind() {
-            Type::Access(..) => self.access_implicits(typ).collect(),
-            Type::Enum(..) => self.enum_implicits(typ).collect(),
-            Type::Integer => self
-                .numeric_implicits(UniversalType::Integer, typ)
-                .collect(),
-            Type::Real => self.numeric_implicits(UniversalType::Real, typ).collect(),
-            Type::Record(..) => self.record_implicits(typ).collect(),
-            Type::Physical => self.physical_implicits(typ).collect(),
-            Type::Array { .. } => self.array_implicits(typ).collect(),
-            Type::Universal(..) => Vec::new(), // Defined before the standard package
-            Type::Interface { .. }
-            | Type::Alias(..)
-            | Type::Protected(..)
-            | Type::Incomplete
-            | Type::File
-            | Type::Subtype(..) => Vec::new(),
-        }
-    }
-
     // Return the implicit things defined at the end of the standard packge
-    pub fn end_of_package_implicits(self, arena: &'a Arena) -> Vec<EntRef<'a>> {
-        let mut res = Vec::new();
-
-        for ent in self.region.immediates() {
-            if let NamedEntities::Single(ent) = ent {
-                if let Some(typ) = TypeEnt::from_any(ent) {
-                    for ent in self.type_implicits(typ) {
-                        // This is safe because the standard package is analyzed in a single thread
-                        unsafe {
-                            arena.add_implicit(typ.id(), ent);
-                        };
-                        res.push(ent);
-                    }
-                }
-            }
-        }
-
+    pub fn end_of_package_implicits(
+        &self,
+        region: &mut Region<'a>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
         {
             let time = self.time();
             let to_string = self.create_to_string(time);
 
             unsafe {
-                arena.add_implicit(time.id(), to_string);
+                self.arena.add_implicit(time.id(), to_string);
             };
-            res.push(to_string);
+            region.add(to_string, diagnostics);
         }
 
-        for name in ["BOOLEAN", "BIT"] {
-            let typ = self.lookup_type(name);
+        for typ in [self.bit(), self.boolean()] {
             let implicits = [
-                self.builder.symmetric_binary(Operator::And, typ),
-                self.builder.symmetric_binary(Operator::Or, typ),
-                self.builder.symmetric_binary(Operator::Nand, typ),
-                self.builder.symmetric_binary(Operator::Nor, typ),
-                self.builder.symmetric_binary(Operator::Xor, typ),
-                self.builder.symmetric_binary(Operator::Xnor, typ),
-                self.builder.symmetric_unary(Operator::Not, typ),
+                self.symmetric_binary(Operator::And, typ),
+                self.symmetric_binary(Operator::Or, typ),
+                self.symmetric_binary(Operator::Nand, typ),
+                self.symmetric_binary(Operator::Nor, typ),
+                self.symmetric_binary(Operator::Xor, typ),
+                self.symmetric_binary(Operator::Xnor, typ),
+                self.symmetric_unary(Operator::Not, typ),
             ]
             .into_iter();
 
             for ent in implicits {
                 unsafe {
-                    arena.add_implicit(typ.id(), ent);
+                    self.arena.add_implicit(typ.id(), ent);
                 };
-                res.push(ent);
+                region.add(ent, diagnostics);
             }
         }
 
-        for name in ["BOOLEAN_VECTOR", "BIT_VECTOR"] {
-            let atyp = self.lookup_type(name);
-            let styp = self.lookup_type(name.strip_suffix("_VECTOR").unwrap());
+        for (styp, atyp) in [
+            (self.boolean(), self.boolean_vector()),
+            (self.bit(), self.bit_vector()),
+        ] {
             let ops = [
                 Operator::And,
                 Operator::Or,
@@ -677,18 +877,18 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
                 let op = *op;
                 [
                     // A op A -> A
-                    self.builder.symmetric_binary(op, atyp),
+                    self.symmetric_binary(op, atyp),
                     if op == Operator::Not {
                         // op A -> A
-                        self.builder.unary(op, atyp, atyp)
+                        self.unary(op, atyp, atyp)
                     } else {
                         // op A -> S
-                        self.builder.unary(op, atyp, styp)
+                        self.unary(op, atyp, styp)
                     },
                     // A op S -> A
-                    self.builder.binary(op, atyp, atyp, styp, atyp),
+                    self.binary(op, atyp, atyp, styp, atyp),
                     // S op A -> A
-                    self.builder.binary(op, atyp, atyp, atyp, styp),
+                    self.binary(op, atyp, atyp, atyp, styp),
                 ]
                 .into_iter()
             });
@@ -696,9 +896,9 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
             for ent in implicits {
                 // This is safe because the standard package is analyzed in a single thread
                 unsafe {
-                    arena.add_implicit(atyp.id(), ent);
+                    self.arena.add_implicit(atyp.id(), ent);
                 };
-                res.push(ent);
+                region.add(ent, diagnostics);
             }
         }
 
@@ -732,7 +932,7 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
                 real.decl_pos(),
             ));
 
-            let ent = arena.implicit(
+            let ent = self.arena.implicit(
                 real.into(),
                 self.symbol("TO_STRING"),
                 AnyEntKind::new_function_decl(formals, string),
@@ -741,9 +941,9 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
 
             // This is safe because the standard package is analyzed in a single thread
             unsafe {
-                arena.add_implicit(real.id(), ent);
+                self.arena.add_implicit(real.id(), ent);
             };
-            res.push(ent);
+            region.add(ent, diagnostics);
         }
 
         // function TO_STRING (VALUE: REAL; FORMAT: STRING) return STRING;
@@ -774,7 +974,7 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
                 real.decl_pos(),
             ));
 
-            let ent = arena.implicit(
+            let ent = self.arena.implicit(
                 real.into(),
                 self.symbol("TO_STRING"),
                 AnyEntKind::new_function_decl(formals, string),
@@ -783,9 +983,9 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
 
             // This is safe because the standard package is analyzed in a single thread
             unsafe {
-                arena.add_implicit(real.id(), ent);
+                self.arena.add_implicit(real.id(), ent);
             };
-            res.push(ent);
+            region.add(ent, diagnostics);
         }
 
         // function TO_STRING (VALUE: TIME; UNIT: TIME) return STRING
@@ -815,7 +1015,7 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
                 time.decl_pos(),
             ));
 
-            let ent = arena.implicit(
+            let ent = self.arena.implicit(
                 time.into(),
                 self.symbol("TO_STRING"),
                 AnyEntKind::new_function_decl(formals, string),
@@ -824,14 +1024,14 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
 
             // This is safe because the standard package is analyzed in a single thread
             unsafe {
-                arena.add_implicit(time.id(), ent);
+                self.arena.add_implicit(time.id(), ent);
             };
-            res.push(ent);
+            region.add(ent, diagnostics);
         }
 
         // Special TO_STRING variants for bit-vector
         {
-            let typ = self.lookup_type("BIT_VECTOR");
+            let typ = self.bit_vector();
             let to_string = typ.implicits.iter().find(|ent| matches!(ent.designator(), Designator::Identifier(ident) if ident.name_utf8() == "TO_STRING")).unwrap();
 
             let to_bstring = self.arena.alloc(
@@ -885,164 +1085,10 @@ impl<'a, 'r> StandardRegion<'a, 'r> {
             for ent in implicits {
                 // This is safe because the standard package is analyzed in a single thread
                 unsafe {
-                    arena.add_implicit(typ.id(), ent);
+                    self.arena.add_implicit(typ.id(), ent);
                 };
-                res.push(ent);
+                region.add(ent, diagnostics);
             }
         }
-
-        res
-    }
-}
-
-pub(crate) struct ImplicitBuilder<'a> {
-    pub symbols: &'a Symbols,
-    pub arena: &'a Arena,
-}
-
-impl<'a> ImplicitBuilder<'a> {
-    fn symbol(&self, name: &str) -> Symbol {
-        self.symbols.symtab().insert_utf8(name)
-    }
-
-    /// Create implicit MAXIMUM/MINIMUM
-    // function MINIMUM (L, R: T) return T;
-    // function MAXIMUM (L, R: T) return T;
-    fn min_or_maximum(&self, name: &str, type_ent: TypeEnt<'a>) -> EntRef<'a> {
-        let mut formals = FormalRegion::new_params();
-        formals.add(self.arena.explicit(
-            self.symbol("L"),
-            AnyEntKind::Object(Object {
-                class: ObjectClass::Constant,
-                mode: Some(Mode::In),
-                subtype: Subtype::new(type_ent),
-                has_default: false,
-            }),
-            type_ent.decl_pos(),
-        ));
-
-        formals.add(self.arena.explicit(
-            self.symbol("R"),
-            AnyEntKind::Object(Object {
-                class: ObjectClass::Constant,
-                mode: Some(Mode::In),
-                subtype: Subtype::new(type_ent),
-                has_default: false,
-            }),
-            type_ent.decl_pos(),
-        ));
-
-        self.arena.implicit(
-            type_ent.into(),
-            self.symbol(name),
-            AnyEntKind::new_function_decl(formals, type_ent),
-            type_ent.decl_pos(),
-        )
-    }
-
-    fn elementwise_min_or_maximum(
-        &self,
-        name: &str,
-        arr_typ: TypeEnt<'a>,
-        elem_typ: TypeEnt<'a>,
-    ) -> EntRef<'a> {
-        let mut formals = FormalRegion::new_params();
-        formals.add(self.arena.explicit(
-            self.symbol("L"),
-            AnyEntKind::Object(Object {
-                class: ObjectClass::Constant,
-                mode: Some(Mode::In),
-                subtype: Subtype::new(arr_typ),
-                has_default: false,
-            }),
-            arr_typ.decl_pos(),
-        ));
-
-        self.arena.implicit(
-            arr_typ.into(),
-            self.symbol(name),
-            AnyEntKind::new_function_decl(formals, elem_typ),
-            arr_typ.decl_pos(),
-        )
-    }
-
-    fn unary(&self, op: Operator, typ: TypeEnt<'a>, return_type: TypeEnt<'a>) -> EntRef<'a> {
-        let mut formals = FormalRegion::new_params();
-        formals.add(self.arena.explicit(
-            // @TODO anonymous
-            self.symbol("V"),
-            AnyEntKind::Object(Object {
-                class: ObjectClass::Constant,
-                mode: Some(Mode::In),
-                subtype: Subtype::new(typ.to_owned()),
-                has_default: false,
-            }),
-            typ.decl_pos(),
-        ));
-
-        self.arena.implicit(
-            typ.into(),
-            Designator::OperatorSymbol(op),
-            AnyEntKind::new_function_decl(formals, return_type),
-            typ.decl_pos(),
-        )
-    }
-
-    pub(crate) fn symmetric_unary(&self, op: Operator, typ: TypeEnt<'a>) -> EntRef<'a> {
-        self.unary(op, typ, typ)
-    }
-
-    fn binary(
-        &self,
-
-        op: Operator,
-        implicit_of: TypeEnt<'a>,
-        left: TypeEnt<'a>,
-        right: TypeEnt<'a>,
-        return_type: TypeEnt<'a>,
-    ) -> EntRef<'a> {
-        let mut formals = FormalRegion::new_params();
-        formals.add(self.arena.explicit(
-            // @TODO anonymous
-            self.symbol("L"),
-            AnyEntKind::Object(Object {
-                class: ObjectClass::Constant,
-                mode: Some(Mode::In),
-                subtype: Subtype::new(left),
-                has_default: false,
-            }),
-            implicit_of.decl_pos(),
-        ));
-
-        formals.add(self.arena.explicit(
-            // @TODO anonymous
-            self.symbol("R"),
-            AnyEntKind::Object(Object {
-                class: ObjectClass::Constant,
-                mode: Some(Mode::In),
-                subtype: Subtype::new(right),
-                has_default: false,
-            }),
-            implicit_of.decl_pos(),
-        ));
-
-        self.arena.implicit(
-            implicit_of.into(),
-            Designator::OperatorSymbol(op),
-            AnyEntKind::new_function_decl(formals, return_type),
-            implicit_of.decl_pos(),
-        )
-    }
-
-    fn symmetric_binary(&self, op: Operator, typ: TypeEnt<'a>) -> EntRef<'a> {
-        self.binary(op, typ, typ, typ, typ)
-    }
-
-    pub fn minimum(&self, type_ent: TypeEnt<'a>) -> EntRef<'a> {
-        self.min_or_maximum("MINIMUM", type_ent)
-    }
-
-    pub fn maximum(&self, type_ent: TypeEnt<'a>) -> EntRef<'a> {
-        self.min_or_maximum("MAXIMUM", type_ent)
     }
 }

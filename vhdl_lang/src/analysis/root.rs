@@ -8,8 +8,7 @@ use super::analyze::*;
 use super::lock::*;
 use super::named_entity::*;
 use super::region::Scope;
-use super::standard::ImplicitBuilder;
-use super::standard::StandardRegion;
+use super::standard::StandardTypes;
 use super::standard::UniversalTypes;
 
 use crate::ast::search::*;
@@ -252,14 +251,15 @@ impl Library {
 /// Besides all loaded libraries and design units, `DesignRoot` also keeps track of
 /// dependencies between design units.
 pub struct DesignRoot {
-    pub symbols: Arc<Symbols>,
-    pub standard_pkg_id: Option<EntityId>,
-    pub standard_arena: Option<FinalArena>,
-    pub universal: Option<UniversalTypes>,
+    pub(super) symbols: Arc<Symbols>,
+    pub(super) standard_pkg_id: Option<EntityId>,
+    pub(super) standard_arena: Option<FinalArena>,
+    pub(super) universal: Option<UniversalTypes>,
+    pub(super) standard_types: Option<StandardTypes>,
     libraries: FnvHashMap<Symbol, Library>,
 
     // Arena storage of all declaration in the design
-    pub arenas: FinalArena,
+    pub(super) arenas: FinalArena,
 
     // Dependency tracking for incremental analysis.
     // user  =>  set(users)
@@ -279,6 +279,7 @@ impl DesignRoot {
             universal: None,
             standard_pkg_id: None,
             standard_arena: None,
+            standard_types: None,
             symbols,
             arenas: FinalArena::default(),
             libraries: FnvHashMap::default(),
@@ -687,8 +688,6 @@ impl DesignRoot {
                         UniversalTypes::new(&arena, std_package.pos(), self.symbols.as_ref());
                     self.universal = Some(universal);
 
-                    let context = AnalyzeContext::new(self, locked_unit.unit_id(), &arena);
-
                     let ent = arena.explicit(
                         self.symbol_utf8("standard"),
                         AnyEntKind::Label,
@@ -696,20 +695,18 @@ impl DesignRoot {
                     );
                     let standard_pkg_id = ent.id();
 
-                    let mut diagnostics = Vec::new();
+                    // Reserve space in the arena for the standard types
+                    self.standard_types = Some(StandardTypes::new(&arena, &mut std_package.decl));
+                    let context = AnalyzeContext::new(self, locked_unit.unit_id(), &arena);
 
+                    let mut diagnostics = Vec::new();
                     let root_scope = Scope::default();
                     let scope = root_scope.nested().in_package_declaration();
 
                     {
-                        let builder = ImplicitBuilder {
-                            symbols: &self.symbols,
-                            arena: &arena,
-                        };
-
-                        let univ_int_unary_minus = builder
+                        let univ_int_unary_minus = context
                             .symmetric_unary(Operator::Minus, context.universal_integer().into());
-                        let univ_real_unary_minus = builder
+                        let univ_real_unary_minus = context
                             .symmetric_unary(Operator::Minus, context.universal_real().into());
 
                         // Add unary minus as it is used in the standard package definition
@@ -721,22 +718,27 @@ impl DesignRoot {
                         };
                     }
 
-                    context
-                        .analyze_declarative_part(&scope, &mut std_package.decl, &mut diagnostics)
-                        .unwrap();
+                    for decl in std_package.decl.iter_mut() {
+                        if let Declaration::Type(ref mut type_decl) = decl {
+                            context
+                                .analyze_type_declaration(
+                                    &scope,
+                                    type_decl,
+                                    type_decl.ident.decl, // Set by standard types
+                                    &mut diagnostics,
+                                )
+                                .unwrap();
+                        } else {
+                            context
+                                .analyze_declaration(&scope, decl, &mut diagnostics)
+                                .unwrap();
+                        }
+                    }
                     scope.close(&mut diagnostics);
 
                     let mut region = scope.into_region();
 
-                    let implicits = {
-                        let standard = StandardRegion::new(self, &arena, &region);
-                        standard.end_of_package_implicits(&arena)
-                    };
-
-                    for imp in implicits.into_iter() {
-                        region.add(imp, &mut diagnostics);
-                    }
-
+                    context.end_of_package_implicits(&mut region, &mut diagnostics);
                     let visibility = root_scope.into_visibility();
 
                     context.redefine(

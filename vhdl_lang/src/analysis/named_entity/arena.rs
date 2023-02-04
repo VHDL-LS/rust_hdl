@@ -19,6 +19,7 @@ use super::AnyEnt;
 use super::AnyEntKind;
 use super::EntRef;
 use super::Related;
+use super::TypeEnt;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct ArenaId(u32);
@@ -230,6 +231,10 @@ impl Arena {
             let ent = p.get(id);
             ent as &'a AnyEnt
         }
+    }
+
+    pub fn get_type(&self, id: EntityId) -> TypeEnt {
+        TypeEnt::from_any(self.get(id)).unwrap()
     }
 
     pub fn finalize(self) -> FinalArena {
