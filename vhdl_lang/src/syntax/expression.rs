@@ -507,11 +507,15 @@ fn parse_expr_initial_token(
 ///   7. multiplying_operator: * | / | mod | rem
 ///   8. misc_operator: ** | abs | not
 pub fn parse_expression(stream: &mut TokenStream) -> ParseResult<WithPos<Expression>> {
+    let state = stream.state();
     let token = stream.expect()?;
-    parse_expression_initial_token(stream, token)
+    parse_expression_initial_token(stream, token).map_err(|err| {
+        stream.set_state(state);
+        err
+    })
 }
 
-pub fn parse_expression_initial_token(
+fn parse_expression_initial_token(
     stream: &mut TokenStream,
     token: Token,
 ) -> ParseResult<WithPos<Expression>> {

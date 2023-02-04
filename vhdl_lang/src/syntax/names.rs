@@ -6,7 +6,7 @@
 
 use super::common::ParseResult;
 /// LRM 8. Names
-use super::expression::{parse_expression, parse_expression_initial_token};
+use super::expression::parse_expression;
 use super::subprogram::parse_signature;
 use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, Token, TokenStream};
@@ -157,11 +157,12 @@ fn assoc_to_expression(assoc: AssociationElement) -> ParseResult<WithPos<Express
 }
 
 fn parse_actual_part(stream: &mut TokenStream) -> ParseResult<WithPos<ActualPart>> {
-    let token = stream.expect()?;
+    let token = stream.peek_expect()?;
     if token.kind == Open {
+        stream.move_after(&token);
         Ok(WithPos::from(ActualPart::Open, token))
     } else {
-        Ok(parse_expression_initial_token(stream, token)?.map_into(ActualPart::Expression))
+        Ok(parse_expression(stream)?.map_into(ActualPart::Expression))
     }
 }
 
