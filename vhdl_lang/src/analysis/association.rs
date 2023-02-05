@@ -293,7 +293,7 @@ impl<'a> AnalyzeContext<'a> {
 
         let mut not_associated = Vec::new();
         for (idx, formal) in formal_region.iter().enumerate() {
-            if !(associated_indexes.contains(&idx) 
+            if !(associated_indexes.contains(&idx)
                 // Default may be unconnected
                 || formal.has_default()
                 // Output ports are allowed to be unconnected
