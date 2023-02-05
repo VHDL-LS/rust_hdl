@@ -330,6 +330,10 @@ impl<'a> BaseType<'a> {
             Type::Integer | Type::Enum(_) | Type::Universal(UniversalType::Integer)
         )
     }
+
+    pub fn is_physical(&self) -> bool {
+        matches!(self.kind(), Type::Physical)
+    }
 }
 
 impl<'a> From<BaseType<'a>> for EntRef<'a> {

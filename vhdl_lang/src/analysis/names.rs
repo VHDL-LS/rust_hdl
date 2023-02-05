@@ -616,7 +616,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             AttributeDesignator::Pos => {
-                if typ.base().is_discrete() {
+                if typ.base().is_discrete() || typ.base().is_physical() {
                     if let Some(ref mut expr) = check_single_argument(pos, attr, diagnostics) {
                         self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
                     }
@@ -626,7 +626,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             AttributeDesignator::Val => {
-                if typ.base().is_discrete() {
+                if typ.base().is_discrete() || typ.base().is_physical() {
                     if let Some(ref mut expr) = check_single_argument(pos, attr, diagnostics) {
                         self.integer_expr(scope, expr, diagnostics)?;
                     }
@@ -639,7 +639,7 @@ impl<'a> AnalyzeContext<'a> {
             | AttributeDesignator::Pred
             | AttributeDesignator::LeftOf
             | AttributeDesignator::RightOf => {
-                if typ.base().is_discrete() {
+                if typ.base().is_discrete() || typ.base().is_physical() {
                     if let Some(ref mut expr) = check_single_argument(pos, attr, diagnostics) {
                         self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
                     }
