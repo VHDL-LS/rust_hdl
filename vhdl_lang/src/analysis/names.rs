@@ -521,8 +521,24 @@ impl<'a> AnalyzeContext<'a> {
             }
             Suffix::All => Ok(prefix_typ.accessed_type().map(TypeOrMethod::Type)),
             Suffix::Slice(drange) => Ok(if let Some(typ) = prefix_typ.sliced_as() {
-                // @TODO check drange type
-                self.drange_unknown_type(scope, drange, diagnostics)?;
+                if let Type::Array { indexes, .. } = typ.kind() {
+                    if let [idx_typ] = indexes.as_slice() {
+                        if let Some(idx_typ) = *idx_typ {
+                            self.drange_with_ttyp(scope, idx_typ.into(), drange, diagnostics)?;
+                        } else {
+                            self.drange_unknown_type(scope, drange, diagnostics)?;
+                        }
+                    } else {
+                        diagnostics.error(
+                            name_pos,
+                            format!(
+                                "Cannot slice {}-dimensional {}",
+                                indexes.len(),
+                                typ.describe()
+                            ),
+                        )
+                    }
+                }
                 Some(TypeOrMethod::Type(typ))
             } else {
                 None
@@ -2034,6 +2050,27 @@ variable c0 : integer_vector(0 to 6);
             vec![Diagnostic::error(
                 code.s1("real"),
                 "real type 'REAL' cannot be used as a discrete range",
+            )],
+        )
+    }
+
+    #[test]
+    fn cannot_slice_multi_dimensional_array() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+type arr_t is array (natural range 0 to 1, natural range 0 to 1) of character;
+variable c0 : arr_t;
+",
+        );
+        let code = test.snippet("c0(0 to 1)");
+        let mut diagnostics = Vec::new();
+        let _ = test.name_resolve(&code, None, &mut diagnostics);
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("c0(0 to 1)"),
+                "Cannot slice 2-dimensional array type 'arr_t'",
             )],
         )
     }
