@@ -541,9 +541,32 @@ impl<'a> AnalyzeContext<'a> {
                 }
 
                 if could_be_indexed_name(assocs) {
-                    // @TODO check types of indexes
-                    self.analyze_assoc_elems(scope, assocs, diagnostics)?;
                     if let Some((elem_type, indexes)) = prefix_typ.array_type() {
+                        for (idx, AssociationElement { actual, .. }) in
+                            assocs.iter_mut().enumerate()
+                        {
+                            if let ActualPart::Expression(ref mut expr) = actual.item {
+                                if let Some(ttyp) = indexes.get(idx) {
+                                    if let Some(ttyp) = *ttyp {
+                                        self.expr_pos_with_ttyp(
+                                            scope,
+                                            ttyp.into(),
+                                            &actual.pos,
+                                            expr,
+                                            diagnostics,
+                                        )?;
+                                    } else {
+                                        self.expr_pos_unknown_ttyp(
+                                            scope,
+                                            &actual.pos,
+                                            expr,
+                                            diagnostics,
+                                        )?;
+                                    }
+                                }
+                            }
+                        }
+
                         let num_indexes = indexes.len();
                         if assocs.len() != num_indexes {
                             Err(Diagnostic::dimension_mismatch(
@@ -1720,6 +1743,27 @@ variable c0 : integer_vector(0 to 1);
         );
         let resolved = test.name_resolve(&test.snippet("c0(0)"), None, &mut NoDiagnostics);
         assert_matches!(resolved, Ok(ResolvedName::ObjectName(oname)) if oname.type_mark() == test.lookup_type("integer"));
+    }
+
+    #[test]
+    fn indexed_name_type() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+variable c0 : integer_vector(0 to 1);
+",
+        );
+        let code = test.snippet("c0('a')");
+        let mut diagnostics = Vec::new();
+        let resolved = test.name_resolve(&code, None, &mut diagnostics);
+        assert_matches!(resolved, Ok(ResolvedName::ObjectName(oname)) if oname.type_mark() == test.lookup_type("integer"));
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("'a'"),
+                "character literal does not match integer type 'INTEGER'",
+            )],
+        )
     }
 
     #[test]
