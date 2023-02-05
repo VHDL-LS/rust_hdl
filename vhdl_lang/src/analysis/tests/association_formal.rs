@@ -382,7 +382,9 @@ end architecture;
 
 #[test]
 fn output_ports_may_be_left_open() {
-    check_code_with_no_diagnostics(
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
         "
 entity ent2 is
 port (
@@ -407,4 +409,11 @@ begin
 end architecture;
     ",
     );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+    // Still resolves references when missing output port
+    assert!(root
+        .search_reference(code.source(), code.s1("inport => sig").s1("sig").start())
+        .is_some())
 }

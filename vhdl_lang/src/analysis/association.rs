@@ -293,7 +293,12 @@ impl<'a> AnalyzeContext<'a> {
 
         let mut not_associated = Vec::new();
         for (idx, formal) in formal_region.iter().enumerate() {
-            if !associated_indexes.contains(&idx) && !formal.has_default() {
+            if !(associated_indexes.contains(&idx) 
+                // Default may be unconnected
+                || formal.has_default()
+                // Output ports are allowed to be unconnected
+                || (formal_region.typ == InterfaceListType::Port && formal.is_output_signal()))
+            {
                 not_associated.push(idx);
             }
         }
@@ -304,11 +309,6 @@ impl<'a> AnalyzeContext<'a> {
             // Only complain if nothing else is wrong
             for idx in not_associated {
                 if let Some(formal) = formal_region.nth(idx) {
-                    if formal_region.typ == InterfaceListType::Port && formal.is_output_signal() {
-                        // Output ports are allowed to be unconnected
-                        continue;
-                    }
-
                     let mut diagnostic = Diagnostic::error(
                         error_pos,
                         format!("No association of {}", formal.describe()),
