@@ -799,6 +799,13 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             TypeDefinition::Physical(ref mut physical) => {
+                self.range_with_ttyp(
+                    scope,
+                    self.universal_integer().into(),
+                    &mut physical.range,
+                    diagnostics,
+                )?;
+
                 let phys_type = TypeEnt::define_with_opt_id(
                     self.arena,
                     overwrite_id,

@@ -1572,3 +1572,37 @@ constant c1 : integer := c0(integer'(0));
     let diagnostics = builder.analyze();
     check_no_diagnostics(&diagnostics);
 }
+
+#[test]
+fn physical_type_range() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type phys_t is range 'a' to 'b'
+    units
+    phys_unit;
+end units;
+
+type phys2_t is range integer'(0) to integer'(0)
+    units
+    phys_unit2;
+end units;
+
+      ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s1("'a'"),
+                "character literal does not match type universal_integer",
+            ),
+            Diagnostic::error(
+                code.s1("'b'"),
+                "character literal does not match type universal_integer",
+            ),
+        ],
+    );
+}
