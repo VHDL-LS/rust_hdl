@@ -47,7 +47,6 @@ end architecture;
     check_diagnostics(diagnostics, expected);
 }
 
-#[ignore = "Does not work yet"]
 #[test]
 fn attribute_name_may_not_be_assignment_target() {
     let mut builder = LibraryBuilder::new();
@@ -70,7 +69,7 @@ end architecture;
 
     let expected = vec![Diagnostic::error(
         code.s("foo'stable", 1),
-        "Attribute name may not be the target of an assignment",
+        "Expression may not be the target of an assignment",
     )];
 
     let diagnostics = builder.analyze();
