@@ -909,7 +909,7 @@ impl<'a> AnalyzeContext<'a> {
                     // A op S -> A
                     self.binary(op, atyp, atyp, styp, atyp),
                     // S op A -> A
-                    self.binary(op, atyp, atyp, atyp, styp),
+                    self.binary(op, atyp, styp, atyp, atyp),
                 ]
                 .into_iter()
             });
