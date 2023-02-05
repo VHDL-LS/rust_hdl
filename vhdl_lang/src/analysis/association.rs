@@ -11,6 +11,7 @@ use super::analyze::*;
 use super::formal_region::FormalRegion;
 use super::formal_region::InterfaceEnt;
 use super::named_entity::*;
+use super::names::as_type_conversion;
 use super::names::ResolvedName;
 use super::region::*;
 use crate::ast::*;
@@ -152,8 +153,24 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics,
                     ))? {
                         Some(ResolvedName::Type(typ)) => {
-                            // @TODO check type conversion is legal
-                            typ
+                            if let Some((expr_pos, expr)) =
+                                as_type_conversion(&mut fcall.parameters)
+                            {
+                                self.check_type_conversion(
+                                    scope,
+                                    typ,
+                                    expr_pos,
+                                    expr,
+                                    diagnostics,
+                                )?;
+                                typ
+                            } else {
+                                return Err(Diagnostic::error(
+                                    name_pos,
+                                    "Invalid formal type conversion",
+                                )
+                                .into());
+                            }
                         }
                         Some(ResolvedName::Overloaded(des, overloaded)) => {
                             let mut candidates = Vec::with_capacity(overloaded.len());

@@ -282,6 +282,17 @@ impl<'a> BaseType<'a> {
         )
     }
 
+    pub fn is_any_real(&self) -> bool {
+        matches!(
+            self.kind(),
+            Type::Real | Type::Universal(UniversalType::Real)
+        )
+    }
+
+    pub fn is_abstract(&self) -> bool {
+        self.is_any_integer() || self.is_any_real()
+    }
+
     pub fn is_scalar(&self) -> bool {
         matches!(
             self.kind(),
@@ -333,6 +344,35 @@ impl<'a> BaseType<'a> {
 
     pub fn is_physical(&self) -> bool {
         matches!(self.kind(), Type::Physical)
+    }
+
+    pub fn is_closely_related(&self, other: BaseType<'a>) -> bool {
+        if self.id() == other.id() {
+            return true;
+        }
+
+        if self.is_abstract() && other.is_abstract() {
+            return true;
+        }
+
+        if let Type::Array {
+            indexes: my_indexes,
+            elem_type: my_elem_type,
+        } = self.kind()
+        {
+            if let Type::Array {
+                indexes: other_indexes,
+                elem_type: other_elem_type,
+            } = other.kind()
+            {
+                return my_indexes.len() == other_indexes.len()
+                    && my_elem_type
+                        .base()
+                        .is_closely_related(other_elem_type.base());
+            }
+        }
+
+        false
     }
 }
 

@@ -5,6 +5,7 @@
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
 use super::analyze::*;
+use super::expression::ExpressionType;
 use super::named_entity::*;
 use super::overloaded::Disambiguated;
 use super::overloaded::DisambiguatedType;
@@ -313,6 +314,15 @@ fn could_be_indexed_name(assocs: &[AssociationElement]) -> bool {
     assocs
         .iter()
         .all(|assoc| assoc.formal.is_none() && !matches!(assoc.actual.item, ActualPart::Open))
+}
+
+pub fn as_type_conversion(assocs: &mut [AssociationElement]) -> Option<(&SrcPos, &mut Expression)> {
+    if assocs.len() == 1 && could_be_indexed_name(assocs) {
+        if let ActualPart::Expression(ref mut expr) = assocs[0].actual.item {
+            return Some((&assocs[0].actual.pos, expr));
+        }
+    }
+    None
 }
 
 impl<'a> AnalyzeContext<'a> {
@@ -1082,9 +1092,9 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             ResolvedName::Type(typ) => {
-                if let Suffix::CallOrIndexed(ref assocs) = suffix {
-                    if assocs.len() == 1 && could_be_indexed_name(assocs) {
-                        // @TODO Type conversion, check argument
+                if let Suffix::CallOrIndexed(ref mut assocs) = suffix {
+                    if let Some((expr_pos, expr)) = as_type_conversion(assocs) {
+                        self.check_type_conversion(scope, typ, expr_pos, expr, diagnostics)?;
                         return Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
                             typ,
                         )));
@@ -1152,6 +1162,39 @@ impl<'a> AnalyzeContext<'a> {
                 Err(EvalError::Unknown)
             }
         }
+    }
+
+    pub fn check_type_conversion(
+        &self,
+        scope: &Scope<'a>,
+        typ: TypeEnt<'a>,
+        pos: &SrcPos,
+        expr: &mut Expression,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult {
+        if let Some(types) = as_fatal(self.expr_pos_type(scope, pos, expr, diagnostics))? {
+            match types {
+                ExpressionType::Unambiguous(ctyp) => {
+                    if !typ.base().is_closely_related(ctyp.base()) {
+                        diagnostics.error(
+                            pos,
+                            format!(
+                                "{} cannot be converted to {}",
+                                ctyp.describe(),
+                                typ.describe()
+                            ),
+                        )
+                    }
+                }
+                ExpressionType::String
+                | ExpressionType::Ambiguous(_)
+                | ExpressionType::Null
+                | ExpressionType::Aggregate => {
+                    diagnostics.error(pos, "{} cannot be the argument of type conversion")
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Analyze a name that is part of an expression that could be ambiguous
@@ -2426,6 +2469,163 @@ signal thesig : integer;
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
                 test.ctx().string()
+            )))
+        );
+    }
+
+    #[test]
+    fn integer_type_conversion() {
+        let test = TestSetup::new();
+        let code = test.snippet("integer(1.0)");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().integer()
+            )))
+        );
+
+        let code = test.snippet("real(1)");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().real()
+            )))
+        );
+    }
+
+    #[test]
+    fn integer_type_conversion_not_closely_related() {
+        let test = TestSetup::new();
+        let code = test.snippet("integer('a')");
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            test.name_resolve(&code, None, &mut diagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().integer()
+            )))
+        );
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("'a'"),
+                "type 'CHARACTER' cannot be converted to integer type 'INTEGER'",
+            )],
+        );
+
+        let code = test.snippet("real(false)");
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            test.name_resolve(&code, None, &mut diagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.ctx().real()
+            )))
+        );
+
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("false"),
+                "type 'BOOLEAN' cannot be converted to real type 'REAL'",
+            )],
+        );
+    }
+
+    #[test]
+    fn array_type_conversion() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+type character_vector is array (natural range 0 to 1) of character;
+        ",
+        );
+        let code = test.snippet("character_vector(string'(\"01\"))");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.lookup_type("character_vector")
+            )))
+        );
+    }
+
+    #[test]
+    fn array_type_conversion_not_closely_related() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+type character_vector_2d is array (natural range 0 to 1, natural range 0 to 2) of character;
+        ",
+        );
+
+        // Dimensionality mismatch
+        let code = test.snippet("character_vector_2d(string'(\"01\"))");
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            test.name_resolve(&code, None, &mut diagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.lookup_type("character_vector_2d")
+            )))
+        );
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("string'(\"01\")"),
+                "array type 'STRING' cannot be converted to array type 'character_vector_2d'",
+            )],
+        );
+
+        // Element type mismatch
+        let code = test.snippet("integer_vector(string'(\"01\"))");
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            test.name_resolve(&code, None, &mut diagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.lookup_type("integer_vector")
+            )))
+        );
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("string'(\"01\")"),
+                "array type 'STRING' cannot be converted to array type 'INTEGER_VECTOR'",
+            )],
+        );
+    }
+
+    #[test]
+    fn array_type_conversion_of_closely_related_elements() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+type character_vector1 is array (natural range 0 to 1) of character;
+type character_vector2 is array (natural range 0 to 1) of character;
+type character_matrix1 is array (natural range 0 to 1) of character_vector1;
+type character_matrix2 is array (natural range 0 to 1) of character_vector2;
+
+constant c0 : character_matrix1 := (others => (others => 'a'));
+            ",
+        );
+        let code = test.snippet("character_matrix2(c0)");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.lookup_type("character_matrix2")
+            )))
+        );
+    }
+
+    #[test]
+    fn identical_type_conversion() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+type enum_t is (alpha, beta);
+        ",
+        );
+        let code = test.snippet("enum_t(alpha)");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.lookup_type("enum_t")
             )))
         );
     }
