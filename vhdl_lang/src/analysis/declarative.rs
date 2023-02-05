@@ -855,7 +855,7 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             TypeDefinition::Numeric(ref mut range) => {
-                self.analyze_range(scope, range, diagnostics)?;
+                self.range_unknown_typ(scope, range, diagnostics)?;
                 let universal_type = integer_or_real_range(range);
                 let kind = match universal_type {
                     UniversalType::Integer => Type::Integer,
@@ -1098,44 +1098,113 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
             }
-            ArrayIndex::Discrete(ref mut drange) => {
-                self.discrete_range_type(scope, drange, diagnostics)
-            }
+            ArrayIndex::Discrete(ref mut drange) => self.drange_type(scope, drange, diagnostics),
         }
-    }
-
-    fn analyze_element_constraint(
-        &self,
-        scope: &Scope<'a>,
-        constraint: &mut ElementConstraint,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult {
-        // @TODO more
-        let ElementConstraint { constraint, .. } = constraint;
-        self.analyze_subtype_constraint(scope, &mut constraint.item, diagnostics)
     }
 
     fn analyze_subtype_constraint(
         &self,
         scope: &Scope<'a>,
+        pos: &SrcPos, // The position of the root type mark
+        base_type: BaseType<'a>,
         constraint: &mut SubtypeConstraint,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         match constraint {
             SubtypeConstraint::Array(ref mut dranges, ref mut constraint) => {
-                for drange in dranges.iter_mut() {
-                    self.analyze_discrete_range(scope, drange, diagnostics)?;
-                }
-                if let Some(constraint) = constraint {
-                    self.analyze_subtype_constraint(scope, &mut constraint.item, diagnostics)?;
+                if let Type::Array { indexes, elem_type } = base_type.kind() {
+                    for (idx, drange) in dranges.iter_mut().enumerate() {
+                        if let Some(index_typ) = indexes.get(idx) {
+                            if let Some(index_typ) = index_typ {
+                                self.drange_with_ttyp(
+                                    scope,
+                                    (*index_typ).into(),
+                                    drange,
+                                    diagnostics,
+                                )?;
+                            } else {
+                                self.drange_unknown_type(scope, drange, diagnostics)?;
+                            }
+                        } else {
+                            diagnostics.error(
+                                drange.pos(),
+                                format!("Got extra index constraint for {}", base_type.describe()),
+                            );
+                        }
+                    }
+
+                    // empty dranges means (open)
+                    if dranges.len() < indexes.len() && !dranges.is_empty() {
+                        diagnostics.error(
+                            pos,
+                            format!(
+                                "Too few index constraints for {}. Got {} but expected {}",
+                                base_type.describe(),
+                                dranges.len(),
+                                indexes.len()
+                            ),
+                        );
+                    }
+
+                    if let Some(constraint) = constraint {
+                        self.analyze_subtype_constraint(
+                            scope,
+                            &constraint.pos,
+                            elem_type.base(),
+                            &mut constraint.item,
+                            diagnostics,
+                        )?;
+                    }
+                } else {
+                    diagnostics.error(
+                        pos,
+                        format!(
+                            "Array constraint cannot be used for {}",
+                            base_type.describe()
+                        ),
+                    );
                 }
             }
             SubtypeConstraint::Range(ref mut range) => {
-                self.analyze_range(scope, range, diagnostics)?;
+                if base_type.is_scalar() {
+                    self.range_with_ttyp(scope, base_type.into(), range, diagnostics)?;
+                } else {
+                    diagnostics.error(
+                        pos,
+                        format!(
+                            "Scalar constraint cannot be used for {}",
+                            base_type.describe()
+                        ),
+                    );
+                }
             }
             SubtypeConstraint::Record(ref mut constraints) => {
-                for constraint in constraints.iter_mut() {
-                    self.analyze_element_constraint(scope, constraint, diagnostics)?;
+                if let Type::Record(region) = base_type.kind() {
+                    for constraint in constraints.iter_mut() {
+                        let ElementConstraint { ident, constraint } = constraint;
+                        let des = Designator::Identifier(ident.item.clone());
+                        if let Some(elem) = region.lookup(&des) {
+                            self.analyze_subtype_constraint(
+                                scope,
+                                &constraint.pos,
+                                elem.type_mark().base(),
+                                &mut constraint.item,
+                                diagnostics,
+                            )?;
+                        } else {
+                            diagnostics.push(Diagnostic::no_declaration_within(
+                                &base_type, &ident.pos, &des,
+                            ))
+                        }
+                    }
+                } else {
+                    diagnostics.error(
+                        pos,
+                        format!(
+                            "Record constraint cannot be used for {}",
+                            base_type.describe()
+                        ),
+                    );
                 }
             }
         }
@@ -1158,7 +1227,13 @@ impl<'a> AnalyzeContext<'a> {
         let base_type = self.resolve_type_mark(scope, type_mark)?;
 
         if let Some(constraint) = constraint {
-            self.analyze_subtype_constraint(scope, &mut constraint.item, diagnostics)?;
+            self.analyze_subtype_constraint(
+                scope,
+                &type_mark.pos,
+                base_type.base(),
+                &mut constraint.item,
+                diagnostics,
+            )?;
         }
 
         Ok(Subtype::new(base_type))

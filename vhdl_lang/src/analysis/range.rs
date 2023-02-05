@@ -8,6 +8,7 @@ use super::analyze::*;
 use super::expression::ExpressionType;
 use super::named_entity::*;
 use super::names::ResolvedName;
+use super::overloaded::Disambiguated;
 use super::overloaded::DisambiguatedType;
 use super::region::*;
 use crate::ast::Range;
@@ -15,25 +16,27 @@ use crate::ast::*;
 use crate::data::*;
 
 impl<'a> AnalyzeContext<'a> {
-    pub fn analyze_range(
+    pub fn range_unknown_typ(
         &self,
         scope: &Scope<'a>,
         range: &mut Range,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        match range {
-            Range::Range(ref mut constraint) => {
-                self.expr_unknown_ttyp(scope, &mut constraint.left_expr, diagnostics)?;
-                self.expr_unknown_ttyp(scope, &mut constraint.right_expr, diagnostics)?;
-            }
-            Range::Attribute(ref mut attr) => {
-                self.analyze_attribute_name(scope, attr, diagnostics)?
-            }
-        }
+        as_fatal(self.range_type(scope, range, diagnostics))?;
         Ok(())
     }
 
-    fn discrete_expr_type(
+    pub fn drange_unknown_type(
+        &self,
+        scope: &Scope<'a>,
+        drange: &mut DiscreteRange,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult {
+        as_fatal(self.drange_type(scope, drange, diagnostics))?;
+        Ok(())
+    }
+
+    fn range_expr_type(
         &self,
         scope: &Scope<'a>,
         expr: &mut WithPos<Expression>,
@@ -41,27 +44,21 @@ impl<'a> AnalyzeContext<'a> {
     ) -> EvalResult<DisambiguatedType<'a>> {
         match self.expr_type(scope, expr, diagnostics)? {
             ExpressionType::Unambiguous(typ) => {
-                if typ.base().is_discrete() {
+                if typ.base().is_scalar() {
                     Ok(DisambiguatedType::Unambiguous(typ))
                 } else {
                     diagnostics.error(
                         &expr.pos,
-                        format!(
-                            "Non-discrete {} cannot be used in discrete range",
-                            typ.describe()
-                        ),
+                        format!("Non-scalar {} cannot be used in a range", typ.describe()),
                     );
                     Err(EvalError::Unknown)
                 }
             }
             ExpressionType::Ambiguous(types) => Ok(DisambiguatedType::Ambiguous(
-                types.into_iter().filter(|typ| typ.is_discrete()).collect(),
+                types.into_iter().filter(|typ| typ.is_scalar()).collect(),
             )),
             ExpressionType::String | ExpressionType::Null | ExpressionType::Aggregate => {
-                diagnostics.error(
-                    &expr.pos,
-                    "Non-discrete expression cannot be used in discrete range",
-                );
+                diagnostics.error(&expr.pos, "Non-scalar expression cannot be used in a range");
                 Err(EvalError::Unknown)
             }
         }
@@ -75,12 +72,35 @@ impl<'a> AnalyzeContext<'a> {
     ) -> EvalResult<BaseType<'a>> {
         let resolved =
             self.name_resolve(scope, &attr.name.pos, &mut attr.name.item, diagnostics)?;
-
         let typ = match resolved {
             ResolvedName::Type(typ) => typ,
             ResolvedName::ObjectName(oname) => oname.type_mark(),
-            ResolvedName::Overloaded(..)
-            | ResolvedName::Expression(_)
+            ResolvedName::Overloaded(ref des, ref overloaded) => {
+                let disamb = catch_diagnostic(
+                    self.disambiguate_no_actuals(des, None, overloaded),
+                    diagnostics,
+                )?;
+
+                if let Some(disamb) = disamb {
+                    if let Disambiguated::Unambiguous(ref ent) = disamb {
+                        attr.name.set_unique_reference(ent);
+                        ent.return_type().unwrap()
+                    } else {
+                        diagnostics.error(
+                        &attr.name.pos,
+                        format!(
+                            "{} cannot be prefix of range attribute, array type or object is required",
+                            resolved.describe()
+                        ),
+                    );
+                        return Err(EvalError::Unknown);
+                    }
+                } else {
+                    return Err(EvalError::Unknown);
+                }
+            }
+            ResolvedName::Expression(DisambiguatedType::Unambiguous(typ)) => typ,
+            ResolvedName::Expression(_)
             | ResolvedName::Final(_)
             | ResolvedName::Library(_)
             | ResolvedName::Design(_) => {
@@ -118,9 +138,9 @@ impl<'a> AnalyzeContext<'a> {
         match range {
             Range::Range(ref mut constraint) => {
                 let left_types =
-                    self.discrete_expr_type(scope, &mut constraint.left_expr, diagnostics)?;
+                    self.range_expr_type(scope, &mut constraint.left_expr, diagnostics)?;
                 let right_types =
-                    self.discrete_expr_type(scope, &mut constraint.right_expr, diagnostics)?;
+                    self.range_expr_type(scope, &mut constraint.right_expr, diagnostics)?;
 
                 let left_ambig = matches!(left_types, DisambiguatedType::Ambiguous(_));
                 let right_ambig = matches!(right_types, DisambiguatedType::Ambiguous(_));
@@ -192,13 +212,13 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    pub fn discrete_range_type(
+    pub fn drange_type(
         &self,
         scope: &Scope<'a>,
         drange: &mut DiscreteRange,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<BaseType<'a>> {
-        match drange {
+        let typ = match drange {
             DiscreteRange::Discrete(ref mut type_mark, ref mut range) => {
                 let typ = match self.resolve_type_mark(scope, type_mark) {
                     Ok(typ) => typ.base(),
@@ -209,15 +229,28 @@ impl<'a> AnalyzeContext<'a> {
                 };
 
                 if let Some(ref mut range) = range {
-                    self.analyze_range_with_target_type(scope, typ.into(), range, diagnostics)?;
+                    self.range_with_ttyp(scope, typ.into(), range, diagnostics)?;
                 }
-                Ok(typ)
+                typ
             }
-            DiscreteRange::Range(ref mut range) => self.range_type(scope, range, diagnostics),
+            DiscreteRange::Range(ref mut range) => self.range_type(scope, range, diagnostics)?,
+        };
+
+        if typ.is_discrete() {
+            Ok(typ)
+        } else {
+            diagnostics.error(
+                &drange.pos(),
+                format!(
+                    "Non-discrete {} cannot be used in discrete range",
+                    typ.describe()
+                ),
+            );
+            Err(EvalError::Unknown)
         }
     }
 
-    pub fn analyze_range_with_target_type(
+    pub fn range_with_ttyp(
         &self,
         scope: &Scope<'a>,
         target_type: TypeEnt<'a>,
@@ -248,28 +281,6 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
-    pub fn analyze_discrete_range(
-        &self,
-        scope: &Scope<'a>,
-        drange: &mut DiscreteRange,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult {
-        match drange {
-            DiscreteRange::Discrete(ref mut type_mark, ref mut range) => {
-                if let Err(err) = self.resolve_type_mark(scope, type_mark) {
-                    err.add_to(diagnostics)?;
-                }
-                if let Some(ref mut range) = range {
-                    self.analyze_range(scope, range, diagnostics)?;
-                }
-            }
-            DiscreteRange::Range(ref mut range) => {
-                self.analyze_range(scope, range, diagnostics)?;
-            }
-        }
-        Ok(())
-    }
-
     pub fn drange_with_ttyp(
         &self,
         scope: &Scope<'a>,
@@ -283,11 +294,11 @@ impl<'a> AnalyzeContext<'a> {
                     err.add_to(diagnostics)?;
                 }
                 if let Some(ref mut range) = range {
-                    self.analyze_range_with_target_type(scope, target_type, range, diagnostics)?;
+                    self.range_with_ttyp(scope, target_type, range, diagnostics)?;
                 }
             }
             DiscreteRange::Range(ref mut range) => {
-                self.analyze_range_with_target_type(scope, target_type, range, diagnostics)?;
+                self.range_with_ttyp(scope, target_type, range, diagnostics)?;
             }
         }
         Ok(())
@@ -361,19 +372,20 @@ mod tests {
     }
 
     #[test]
-    fn range_not_discrete_type() {
+    fn discrete_range_not_discrete_type() {
         let test = TestSetup::new();
         let code = test.snippet("0.0 to 1.0");
         let mut diagnostics = Vec::new();
         assert_eq!(
-            test.range_type(&code, &mut diagnostics),
+            test.ctx()
+                .drange_type(&test.scope, &mut code.discrete_range(), &mut diagnostics),
             Err(crate::analysis::analyze::EvalError::Unknown)
         );
 
         check_diagnostics(
             diagnostics,
             vec![Diagnostic::error(
-                code.s1("0.0"),
+                code.s1("0.0 to 1.0"),
                 "Non-discrete type universal_real cannot be used in discrete range",
             )],
         )
@@ -393,7 +405,7 @@ mod tests {
             diagnostics,
             vec![Diagnostic::error(
                 code.s1("(0, 0)"),
-                "Non-discrete expression cannot be used in discrete range",
+                "Non-scalar expression cannot be used in a range",
             )],
         )
     }
@@ -517,16 +529,23 @@ function myfun return arr_t;
         );
 
         let code = test.snippet("myfun'range");
+        assert_eq!(
+            test.range_type(&code, &mut NoDiagnostics),
+            Ok(test.lookup_type("integer").base())
+        );
+
         let mut diagnostics = Vec::new();
+        let code = test.snippet("character'range");
         assert_eq!(
             test.range_type(&code, &mut diagnostics),
             Err(EvalError::Unknown)
         );
+
         check_diagnostics(
             diagnostics,
             vec![Diagnostic::error(
-                code.s1("myfun"),
-                "myfun[return arr_t] cannot be prefix of range attribute, array type or object is required",
+                code.s1("character"),
+                "type 'CHARACTER' cannot be prefix of range attribute, array type or object is required",
             )],
         );
     }

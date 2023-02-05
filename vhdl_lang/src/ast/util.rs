@@ -446,3 +446,15 @@ impl RangeConstraint {
         self.left_expr.pos.combine(&self.right_expr.pos)
     }
 }
+
+impl DiscreteRange {
+    pub fn pos(&self) -> SrcPos {
+        match self {
+            DiscreteRange::Discrete(type_mark, _) => type_mark.pos.clone(),
+            DiscreteRange::Range(crate::ast::Range::Range(constraint)) => constraint.pos(),
+            DiscreteRange::Range(crate::ast::Range::Attribute(attr)) => {
+                attr.name.pos.combine(&attr.attr.pos)
+            }
+        }
+    }
+}

@@ -338,7 +338,10 @@ impl<'a> BaseType<'a> {
     pub fn is_discrete(&self) -> bool {
         matches!(
             self.kind(),
-            Type::Integer | Type::Enum(_) | Type::Universal(UniversalType::Integer)
+            Type::Integer
+                | Type::Enum(_)
+                | Type::Universal(UniversalType::Integer)
+                | Type::Physical
         )
     }
 

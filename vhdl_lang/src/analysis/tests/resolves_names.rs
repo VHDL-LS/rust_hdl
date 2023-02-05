@@ -187,7 +187,8 @@ fn resolves_names_in_discrete_ranges() {
     check_missing(
         "
 package pkg is
-  type arr_t is array (natural range missing to missing) of natural;
+  type arr0_t is array (natural range missing to 0) of natural;
+  type arr1_t is array (natural range 0 to missing) of natural;
   type arr2_t is array (missing to 0) of natural;
   type arr3_t is array (0 to missing) of natural;
   type arr4_t is array (missing'range) of natural;
@@ -212,21 +213,20 @@ end package;
 
 #[test]
 fn resolves_names_in_subtype_constraints() {
-    // @TODO check for missing fields in record element constraints
     check_missing(
         "
 package pkg is
-  subtype sub1_t is integer_vector(missing to missing);
-  subtype sub2_t is integer range missing to missing;
+  subtype sub1_t is integer_vector(missing to 0);
+  subtype sub2_t is integer range 0 to missing;
 
   type rec_t is record
     field : integer_vector;
   end record;
 
-  subtype sub3_t is rec_t(field(missing to missing));
+  subtype sub3_t is rec_t(field(missing to 0));
 
   type uarr_t is array (natural range <>) of integer_vector;
-  subtype sub4_t is uarr_t(open)(missing to missing);
+  subtype sub4_t is uarr_t(0 to missing);
 
 end package;
 ",
@@ -249,7 +249,7 @@ package pkg is
   subtype sub3_t is rec_t(field(decl to decl));
 
   type uarr_t is array (natural range <>) of integer_vector;
-  subtype sub4_t is uarr_t(open)(decl to decl);
+  subtype sub4_t is uarr_t(decl to decl);
 
 end package;
 ",
@@ -319,7 +319,7 @@ package body pkg is
 
      -- Slice
      constant vec : integer_vector(0 to 1) := (0, 1);
-     constant c4 : integer_vector(0 to 1) := vec(missing to missing);
+     constant c4 : integer_vector(0 to 1) := vec(missing to 0);
 
      constant c5 : natural := missing'val(0);
      constant c6 : boolean := boolean'val(missing);
@@ -378,7 +378,7 @@ fn resolves_names_in_aggregates() {
 package pkg is
   -- Named
   constant c0 : integer_vector(0 to 0) := (0 => missing);
-  constant c1 : integer_vector(0 to 0) := (missing to missing => 0);
+  constant c1 : integer_vector(0 to 0) := (missing to 0 => 0);
 
   -- Positional
   constant c2 : integer_vector(0 to 1) := (missing, missing);
@@ -443,7 +443,7 @@ package body pkg is
        -- Qualified
        variable ptr0 : acc_t := new integer_vector'(missing, missing);
        -- Subtype
-       variable ptr1 : acc_t := new integer_vector(missing to missing);
+       variable ptr1 : acc_t := new integer_vector(0 to missing);
     begin
     end procedure;
 end package body;
@@ -532,7 +532,9 @@ package body pkg is
        case missing is
          when missing =>
            missing;
-         when missing to missing =>
+         when 0 to missing =>
+           missing;
+         when missing to 0 =>
            missing;
        end case;
 

@@ -868,7 +868,7 @@ impl<'a> AnalyzeContext<'a> {
                                 // @TODO could be record field so we cannot do more now
                             }
                             Choice::DiscreteRange(ref mut drange) => {
-                                self.analyze_discrete_range(scope, drange, diagnostics)?;
+                                self.drange_unknown_type(scope, drange, diagnostics)?;
                             }
                             Choice::Others => {}
                         }
@@ -1007,7 +1007,7 @@ impl<'a> AnalyzeContext<'a> {
                                     diagnostics,
                                 )?;
                             } else {
-                                self.analyze_discrete_range(scope, drange, diagnostics)?;
+                                self.drange_unknown_type(scope, drange, diagnostics)?;
                             }
                         }
                         Choice::Others => {

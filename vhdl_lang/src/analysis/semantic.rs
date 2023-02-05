@@ -121,7 +121,7 @@ impl<'a> AnalyzeContext<'a> {
                     if let Some(ttyp) = ttyp {
                         self.drange_with_ttyp(scope, ttyp, drange, diagnostics)?;
                     } else {
-                        self.analyze_discrete_range(scope, drange, diagnostics)?;
+                        self.drange_unknown_type(scope, drange, diagnostics)?;
                     }
                 }
                 Choice::Others => {}

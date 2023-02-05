@@ -121,7 +121,7 @@ impl<'a> AnalyzeContext<'a> {
                     return Err(Diagnostic::error(name_pos, "Invalid formal").into());
                 }
 
-                self.analyze_discrete_range(scope, drange.as_mut(), diagnostics)?;
+                self.drange_unknown_type(scope, drange.as_mut(), diagnostics)?;
                 Ok(resolved_prefix)
             }
             Name::Attribute(..) => Err(Diagnostic::error(name_pos, "Invalid formal").into()),

@@ -522,7 +522,7 @@ impl<'a> AnalyzeContext<'a> {
             Suffix::All => Ok(prefix_typ.accessed_type().map(TypeOrMethod::Type)),
             Suffix::Slice(drange) => Ok(if let Some(typ) = prefix_typ.sliced_as() {
                 // @TODO check drange type
-                self.analyze_discrete_range(scope, drange, diagnostics)?;
+                self.drange_unknown_type(scope, drange, diagnostics)?;
                 Some(TypeOrMethod::Type(typ))
             } else {
                 None
@@ -626,7 +626,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             AttributeDesignator::Pos => {
-                if typ.base().is_discrete() || typ.base().is_physical() {
+                if typ.base().is_discrete() {
                     if let Some(ref mut expr) = check_single_argument(pos, attr, diagnostics) {
                         self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
                     }
@@ -636,7 +636,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             AttributeDesignator::Val => {
-                if typ.base().is_discrete() || typ.base().is_physical() {
+                if typ.base().is_discrete() {
                     if let Some(ref mut expr) = check_single_argument(pos, attr, diagnostics) {
                         self.integer_expr(scope, expr, diagnostics)?;
                     }
@@ -649,7 +649,7 @@ impl<'a> AnalyzeContext<'a> {
             | AttributeDesignator::Pred
             | AttributeDesignator::LeftOf
             | AttributeDesignator::RightOf => {
-                if typ.base().is_discrete() || typ.base().is_physical() {
+                if typ.base().is_discrete() {
                     if let Some(ref mut expr) = check_single_argument(pos, attr, diagnostics) {
                         self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
                     }
@@ -1302,7 +1302,7 @@ impl<'a> AnalyzeContext<'a> {
             },
             Name::Slice(ref mut prefix, ref mut drange) => {
                 self.resolve_name(scope, &prefix.pos, &mut prefix.item, diagnostics)?;
-                self.analyze_discrete_range(scope, drange.as_mut(), diagnostics)?;
+                self.drange_unknown_type(scope, drange.as_mut(), diagnostics)?;
                 Err(EvalError::Unknown)
             }
             Name::Attribute(ref mut attr) => {

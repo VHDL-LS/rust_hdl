@@ -1406,3 +1406,154 @@ end;
         )],
     );
 }
+
+#[test]
+fn typecheck_scalar_constraint() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+subtype good_t is natural range 0 to 1;
+subtype bad_t is character range 2 to 3;
+subtype bad2_t is string range 2 to 3;
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s1("2"),
+                "integer literal does not match type 'CHARACTER'",
+            ),
+            Diagnostic::error(
+                code.s1("3"),
+                "integer literal does not match type 'CHARACTER'",
+            ),
+            Diagnostic::error(
+                code.s1("string"),
+                "Scalar constraint cannot be used for array type 'STRING'",
+            ),
+        ],
+    );
+}
+
+#[test]
+fn typecheck_array_index_constraint() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+subtype good_t is integer_vector(0 to 1);
+subtype bad_t is integer_vector('a' to 'b');
+subtype bad2_t is integer(2 to 3);
+subtype bad3_t is integer_vector(4 to 5, 6 to 7);
+
+type arr2d_t is array (natural range <>, natural range <>) of character;
+subtype bad4_t is arr2d_t(4 to 5);
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s1("'a'"),
+                "character literal does not match integer type 'INTEGER'",
+            ),
+            Diagnostic::error(
+                code.s1("'b'"),
+                "character literal does not match integer type 'INTEGER'",
+            ),
+            Diagnostic::error(
+                code.s1("integer(").s1("integer"),
+                "Array constraint cannot be used for integer type 'INTEGER'",
+            ),
+            Diagnostic::error(
+                code.s1("6 to 7"),
+                "Got extra index constraint for array type 'INTEGER_VECTOR'",
+            ),
+            Diagnostic::error(
+                code.s1("arr2d_t(").s1("arr2d_t"),
+                "Too few index constraints for array type 'arr2d_t'. Got 1 but expected 2",
+            ),
+        ],
+    );
+}
+
+#[test]
+fn typecheck_array_element_constraint() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type arr_t is array (character range <>) of integer_vector;
+subtype good_t is arr_t('a' to 'b')(2 to 3);
+subtype good2_t is arr_t(open)(2 to 3);
+subtype bad_t is arr_t('c' to 'd')('e' to 'f');
+
+type sarr_t is array (character range <>) of integer;
+subtype bad2_t is sarr_t('g' to 'h')('i' to 'j');
+
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s1("'e'"),
+                "character literal does not match integer type 'INTEGER'",
+            ),
+            Diagnostic::error(
+                code.s1("'f'"),
+                "character literal does not match integer type 'INTEGER'",
+            ),
+            Diagnostic::error(
+                code.s1("('i' to 'j')"),
+                "Array constraint cannot be used for integer type 'INTEGER'",
+            ),
+        ],
+    );
+}
+
+#[test]
+fn typecheck_record_element_constraint() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type rec_t is record
+    field : integer_vector;
+end record;
+
+subtype good_t is rec_t(field(0 to 1));
+subtype bad_t is rec_t(field('a' to 'b'));
+subtype bad2_t is rec_t(missing('a' to 'b'));
+subtype bad3_t is integer(bad('a' to 'b'));
+
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s1("'a'"),
+                "character literal does not match integer type 'INTEGER'",
+            ),
+            Diagnostic::error(
+                code.s1("'b'"),
+                "character literal does not match integer type 'INTEGER'",
+            ),
+            Diagnostic::error(
+                code.s1("missing"),
+                "No declaration of 'missing' within record type 'rec_t'",
+            ),
+            Diagnostic::error(
+                code.s1("integer(").s1("integer"),
+                "Record constraint cannot be used for integer type 'INTEGER'",
+            ),
+        ],
+    );
+}
