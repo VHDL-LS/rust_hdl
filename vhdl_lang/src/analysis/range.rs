@@ -203,7 +203,6 @@ impl<'a> AnalyzeContext<'a> {
                     );
                     Err(EvalError::Unknown)
                 } else {
-                    // @TODO unsure if this can ever happen
                     diagnostics.error(constraint.pos(), "Range is ambiguous");
                     Err(EvalError::Unknown)
                 }
