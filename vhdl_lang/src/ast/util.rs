@@ -447,14 +447,21 @@ impl RangeConstraint {
     }
 }
 
+impl crate::ast::Range {
+    pub fn pos(&self) -> SrcPos {
+        use crate::ast::Range::*;
+        match self {
+            Range(constraint) => constraint.pos(),
+            Attribute(attr) => attr.name.pos.combine(&attr.attr.pos),
+        }
+    }
+}
+
 impl DiscreteRange {
     pub fn pos(&self) -> SrcPos {
         match self {
             DiscreteRange::Discrete(type_mark, _) => type_mark.pos.clone(),
-            DiscreteRange::Range(crate::ast::Range::Range(constraint)) => constraint.pos(),
-            DiscreteRange::Range(crate::ast::Range::Attribute(attr)) => {
-                attr.name.pos.combine(&attr.attr.pos)
-            }
+            DiscreteRange::Range(range) => range.pos(),
         }
     }
 }

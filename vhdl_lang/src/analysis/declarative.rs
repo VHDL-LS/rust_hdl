@@ -863,17 +863,30 @@ impl<'a> AnalyzeContext<'a> {
 
             TypeDefinition::Numeric(ref mut range) => {
                 self.range_unknown_typ(scope, range, diagnostics)?;
-                let universal_type = integer_or_real_range(range);
-                let kind = match universal_type {
-                    UniversalType::Integer => Type::Integer,
-                    UniversalType::Real => Type::Real,
+
+                let universal_type = if let Some(range_typ) =
+                    as_fatal(self.range_type(scope, range, diagnostics))?
+                {
+                    if range_typ.is_any_integer() {
+                        UniversalType::Integer
+                    } else if range_typ.is_any_real() {
+                        UniversalType::Real
+                    } else {
+                        diagnostics.error(&range.pos(), "Expected real or integer range");
+                        return Ok(());
+                    }
+                } else {
+                    return Ok(());
                 };
 
                 let type_ent = TypeEnt::define_with_opt_id(
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
-                    kind,
+                    match universal_type {
+                        UniversalType::Integer => Type::Integer,
+                        UniversalType::Real => Type::Real,
+                    },
                 );
                 scope.add(type_ent.into(), diagnostics);
 
@@ -1331,21 +1344,4 @@ impl Diagnostic {
             "Signature required for alias of subprogram and enum literals",
         )
     }
-}
-
-/// @TODO A simple and incomplete way to disambiguate integer and real in standard.vhd
-fn integer_or_real_range(range: &ast::Range) -> UniversalType {
-    if let ast::Range::Range(RangeConstraint { left_expr, .. }) = range {
-        let expr = if let Expression::Unary(_, ref expr) = left_expr.item {
-            &expr.item
-        } else {
-            &left_expr.item
-        };
-
-        if let Expression::Literal(Literal::AbstractLiteral(AbstractLiteral::Real(_))) = expr {
-            return UniversalType::Real;
-        }
-    }
-
-    UniversalType::Integer
 }
