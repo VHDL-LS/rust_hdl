@@ -70,6 +70,18 @@ impl<'c, 'a> TypeMatcher<'c, 'a> {
             match ttyp.kind() {
                 Type::Integer => types.match_type(self.context.universal_integer()),
                 Type::Real => types.match_type(self.context.universal_real()),
+                Type::Universal(UniversalType::Integer) => match types {
+                    ExpressionType::Unambiguous(typ) => typ.base().is_any_integer(),
+                    ExpressionType::Ambiguous(types) => {
+                        types.iter().any(|typ| typ.is_any_integer())
+                    }
+                    _ => false,
+                },
+                Type::Universal(UniversalType::Real) => match types {
+                    ExpressionType::Unambiguous(typ) => typ.base().is_any_real(),
+                    ExpressionType::Ambiguous(types) => types.iter().any(|typ| typ.is_any_real()),
+                    _ => false,
+                },
                 _ => false,
             }
         } else {
@@ -327,6 +339,18 @@ impl<'a> AnalyzeContext<'a> {
                         true
                     }
                 })
+            }
+        }
+
+        if candidates.is_empty() {
+            // Try to disambiguate to a single candidate if return type ruled out all candidates
+            // But it is unambiguous without implicit argument cast
+            let mut cands = overloaded.clone();
+            self.matcher_no_implicit()
+                .disambiguate_op_by_arguments(&mut cands, &operand_types);
+
+            if cands.len() == 1 {
+                candidates = cands;
             }
         }
 
@@ -716,7 +740,7 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(type_mark) =
                     as_fatal(self.analyze_qualified_expression(scope, qexpr, diagnostics))?
                 {
-                    if target_base != type_mark.base_type() {
+                    if !self.can_be_target_type(type_mark, target_base.base()) {
                         diagnostics.push(Diagnostic::type_mismatch(
                             expr_pos,
                             &type_mark.describe(),

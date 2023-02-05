@@ -1557,3 +1557,18 @@ subtype bad3_t is integer(bad('a' to 'b'));
         ],
     );
 }
+
+#[test]
+fn integer_can_be_used_as_universal_integer() {
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "
+type arr_t is array (0 to 1) of integer;
+constant c0 : arr_t := (others => 0);
+constant c1 : integer := c0(integer'(0));
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
