@@ -274,8 +274,13 @@ PoC.files = [
 
 'PoC/src/sort/sortnet/*.vhdl',
 'PoC/src/sort/*.vhdl',
-'PoC/src/fifo/*.vhdl',
-
+'PoC/src/fifo/fifo.pkg.vhdl',
+'PoC/src/fifo/fifo_cc_got.vhdl',
+'PoC/src/fifo/fifo_cc_got_tempgot.vhdl',
+'PoC/src/fifo/fifo_cc_got_tempput.vhdl',
+'PoC/src/fifo/fifo_glue.vhdl',
+'PoC/src/fifo/fifo_ic_assembly.vhdl',
+'PoC/src/fifo/fifo_shift.vhdl',
 'PoC/src/xil/xil.pkg.vhdl',
 #'PoC/src/xil/xil_ICAP.vhdl',
 #'PoC/src/xil/reconfig/reconfig_icap_wrapper.vhdl',
