@@ -949,15 +949,25 @@ constant good2 : string(1 to 6) := (\"text\", others => ' ');
 #[test]
 fn array_element_association_may_be_type_denoting_discrete_range() {
     let mut builder = LibraryBuilder::new();
-    builder.in_declarative_region(
+    let code = builder.in_declarative_region(
         "
 subtype sub_t is natural range 1 to 3;
-constant good1 : integer_vector := (sub_t => 0);
+constant good : integer_vector := (sub_t => 0);
+
+subtype csub_t is character range 'a' to 'b';
+constant bad : integer_vector := (csub_t => 0);
+
         ",
     );
 
     let diagnostics = builder.analyze();
-    check_no_diagnostics(&diagnostics);
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("csub_t =>").s1("csub_t"),
+            "subtype 'csub_t' does not match integer type 'INTEGER'",
+        )],
+    );
 }
 
 #[test]

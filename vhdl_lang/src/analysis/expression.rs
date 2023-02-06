@@ -996,8 +996,17 @@ impl<'a> AnalyzeContext<'a> {
                                 &mut index_expr.item,
                                 diagnostics,
                             ) {
-                                Ok(Some(_)) => {
-                                    // @TODO check type matches index type
+                                Ok(Some(typ)) => {
+                                    if let Some(index_type) = index_type {
+                                        if !self.can_be_target_type(typ, index_type) {
+                                            diagnostics.push(Diagnostic::type_mismatch(
+                                                &index_expr.pos,
+                                                &typ.describe(),
+                                                index_type.into(),
+                                            ));
+                                        }
+                                    }
+
                                     can_be_array = true;
                                 }
                                 Ok(None) => {
