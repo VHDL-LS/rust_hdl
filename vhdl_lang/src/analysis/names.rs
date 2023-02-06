@@ -256,6 +256,54 @@ impl<'a> ResolvedName<'a> {
             ResolvedName::Expression(_) => "Ambiguous expression".to_owned(),
         }
     }
+
+    fn type_mark(&self) -> Option<TypeEnt<'a>> {
+        match self {
+            ResolvedName::Type(typ) => Some(*typ),
+            ResolvedName::ObjectName(oname) => Some(oname.type_mark()),
+            ResolvedName::Expression(DisambiguatedType::Unambiguous(typ)) => Some(*typ),
+            _ => None,
+        }
+    }
+
+    fn as_type_of_attr_prefix(
+        &self,
+        prefix_pos: &SrcPos,
+        attr: &AttributeSuffix,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<TypeEnt<'a>> {
+        if let Some(typ) = self.type_mark() {
+            Ok(typ)
+        } else {
+            diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
+                prefix_pos, self, attr,
+            ));
+            Err(EvalError::Unknown)
+        }
+    }
+
+    fn as_type_of_signal_attr_prefix(
+        &self,
+        prefix_pos: &SrcPos,
+        attr: &AttributeSuffix,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<TypeEnt<'a>> {
+        if let ResolvedName::ObjectName(oname) = self {
+            if matches!(oname.base.class(), ObjectClass::Signal) {
+                return Ok(oname.type_mark());
+            }
+        }
+
+        diagnostics.error(
+            prefix_pos,
+            format!(
+                "Expected signal prefix for '{} attribute, got {}",
+                attr.attr,
+                self.describe()
+            ),
+        );
+        Err(EvalError::Unknown)
+    }
 }
 #[derive(Debug)]
 pub struct AttributeSuffix<'a> {
@@ -609,166 +657,216 @@ impl<'a> AnalyzeContext<'a> {
 
     pub fn attribute_suffix(
         &self,
-        pos: &SrcPos,
+        name_pos: &SrcPos,
+        prefix_pos: &SrcPos,
         scope: &Scope<'a>,
-        typ: TypeEnt<'a>,
+        prefix: &ResolvedName<'a>,
         attr: &mut AttributeSuffix,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<Option<BaseType<'a>>> {
+    ) -> EvalResult<BaseType<'a>> {
         match attr.attr.item {
             AttributeDesignator::Left
             | AttributeDesignator::Right
             | AttributeDesignator::High
             | AttributeDesignator::Low => {
+                let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
+
                 if let Some((_, indexes)) = typ.array_type() {
                     if attr.expr.is_none() {
                         // @TODO could also be 'left(2) for different dimensions
-                        Ok(Some(indexes.first().unwrap().unwrap()))
+                        Ok(indexes.first().unwrap().unwrap())
                     } else {
                         Err(EvalError::Unknown)
                     }
                 } else if typ.is_scalar() {
                     check_no_attr_argument(attr, diagnostics);
-                    Ok(Some(typ.into()))
+                    Ok(typ.into())
                 } else {
-                    Ok(None)
+                    diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
+                        name_pos, prefix, attr,
+                    ));
+                    Err(EvalError::Unknown)
                 }
             }
             AttributeDesignator::Ascending | AttributeDesignator::Descending => {
+                let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
+
                 if typ.array_type().is_some() {
-                    Ok(Some(self.boolean().base()))
+                    Ok(self.boolean().base())
                 } else if typ.is_scalar() {
                     check_no_attr_argument(attr, diagnostics);
-                    Ok(Some(self.boolean().base()))
+                    Ok(self.boolean().base())
                 } else {
-                    Ok(None)
+                    diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
+                        name_pos, prefix, attr,
+                    ));
+                    Err(EvalError::Unknown)
                 }
             }
             AttributeDesignator::Image => {
-                if let Some(ref mut expr) = check_single_argument(pos, attr, diagnostics) {
+                let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
+
+                if let Some(ref mut expr) = check_single_argument(name_pos, attr, diagnostics) {
                     self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
                 }
 
                 if typ.is_scalar() {
-                    Ok(Some(self.string().base()))
+                    Ok(self.string().base())
                 } else {
-                    Ok(None)
+                    diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
+                        name_pos, prefix, attr,
+                    ));
+                    Err(EvalError::Unknown)
                 }
             }
             AttributeDesignator::Value => {
-                if let Some(ref mut expr) = check_single_argument(pos, attr, diagnostics) {
+                let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
+
+                if let Some(ref mut expr) = check_single_argument(name_pos, attr, diagnostics) {
                     self.expr_with_ttyp(scope, self.string(), expr, diagnostics)?;
                 }
 
                 if typ.is_scalar() {
-                    Ok(Some(typ.base()))
+                    Ok(typ.base())
                 } else {
-                    Ok(None)
+                    diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
+                        name_pos, prefix, attr,
+                    ));
+                    Err(EvalError::Unknown)
                 }
             }
             AttributeDesignator::Pos => {
+                let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
+
                 if typ.base().is_discrete() {
-                    if let Some(ref mut expr) = check_single_argument(pos, attr, diagnostics) {
+                    if let Some(ref mut expr) = check_single_argument(name_pos, attr, diagnostics) {
                         self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
                     }
-                    Ok(Some(self.universal_integer()))
+                    Ok(self.universal_integer())
                 } else {
-                    Ok(None)
+                    diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
+                        name_pos, prefix, attr,
+                    ));
+                    Err(EvalError::Unknown)
                 }
             }
             AttributeDesignator::Val => {
+                let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
+
                 if typ.base().is_discrete() {
-                    if let Some(ref mut expr) = check_single_argument(pos, attr, diagnostics) {
+                    if let Some(ref mut expr) = check_single_argument(name_pos, attr, diagnostics) {
                         self.integer_expr(scope, expr, diagnostics)?;
                     }
-                    Ok(Some(typ.base()))
+                    Ok(typ.base())
                 } else {
-                    Ok(None)
+                    diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
+                        name_pos, prefix, attr,
+                    ));
+                    Err(EvalError::Unknown)
                 }
             }
             AttributeDesignator::Succ
             | AttributeDesignator::Pred
             | AttributeDesignator::LeftOf
             | AttributeDesignator::RightOf => {
+                let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
+
                 if typ.base().is_discrete() {
-                    if let Some(ref mut expr) = check_single_argument(pos, attr, diagnostics) {
+                    if let Some(ref mut expr) = check_single_argument(name_pos, attr, diagnostics) {
                         self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
                     }
-                    Ok(Some(typ.base()))
+                    Ok(typ.base())
                 } else {
-                    Ok(None)
+                    diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
+                        name_pos, prefix, attr,
+                    ));
+                    Err(EvalError::Unknown)
                 }
             }
             AttributeDesignator::Length => {
+                let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
+
                 if typ.array_type().is_some() {
-                    Ok(Some(self.universal_integer()))
+                    Ok(self.universal_integer())
                 } else {
-                    Ok(None)
+                    diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
+                        name_pos, prefix, attr,
+                    ));
+                    Err(EvalError::Unknown)
                 }
             }
             AttributeDesignator::SimpleName
             | AttributeDesignator::InstanceName
             | AttributeDesignator::PathName => {
                 check_no_attr_argument(attr, diagnostics);
-                Ok(Some(self.string().base()))
+                Ok(self.string().base())
             }
 
-            _ => Err(EvalError::Unknown),
-        }
-    }
+            AttributeDesignator::Signal(sattr) => {
+                let typ = prefix.as_type_of_signal_attr_prefix(prefix_pos, attr, diagnostics)?;
+                let expr = attr.expr.as_mut().map(|expr| expr.as_mut());
+                match sattr {
+                    SignalAttribute::Delayed => {
+                        if let Some(expr) = attr.expr {
+                            self.expr_with_ttyp(scope, self.time(), expr, diagnostics)?;
+                        }
+                        Ok(typ.base())
+                    }
+                    SignalAttribute::Stable | SignalAttribute::Quiet => {
+                        if let Some(expr) = expr {
+                            self.expr_with_ttyp(scope, self.time(), expr, diagnostics)?;
+                        }
+                        Ok(self.boolean().base())
+                    }
+                    SignalAttribute::Transaction => {
+                        check_no_sattr_argument(sattr, expr, diagnostics);
+                        Ok(self.bit().base())
+                    }
+                    SignalAttribute::Event => {
+                        check_no_sattr_argument(sattr, expr, diagnostics);
+                        Ok(self.boolean().base())
+                    }
+                    SignalAttribute::Active => {
+                        check_no_sattr_argument(sattr, expr, diagnostics);
+                        Ok(self.boolean().base())
+                    }
+                    SignalAttribute::LastEvent => {
+                        check_no_sattr_argument(sattr, expr, diagnostics);
+                        Ok(self.time().base())
+                    }
+                    SignalAttribute::LastActive => {
+                        check_no_sattr_argument(sattr, expr, diagnostics);
+                        Ok(self.time().base())
+                    }
+                    SignalAttribute::LastValue => {
+                        check_no_sattr_argument(sattr, expr, diagnostics);
+                        Ok(typ.base())
+                    }
+                    SignalAttribute::Driving => {
+                        check_no_sattr_argument(sattr, expr, diagnostics);
+                        Ok(self.boolean().base())
+                    }
+                    SignalAttribute::DrivingValue => {
+                        check_no_sattr_argument(sattr, expr, diagnostics);
+                        Ok(typ.base())
+                    }
+                }
+            }
 
-    pub fn signal_attribute_suffix(
-        &self,
-        scope: &Scope<'a>,
-        typ: TypeEnt<'a>,
-        sattr: SignalAttribute,
-        expr: Option<&mut WithPos<Expression>>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult<BaseType<'a>> {
-        match sattr {
-            SignalAttribute::Delayed => {
-                if let Some(expr) = expr {
-                    self.expr_with_ttyp(scope, self.time(), expr, diagnostics)?;
-                }
-                Ok(typ.base())
+            AttributeDesignator::Ident(_) => {
+                diagnostics.error(
+                    &attr.attr.pos,
+                    format!("Unknown attribute '{}", attr.attr.item),
+                );
+                Err(EvalError::Unknown)
             }
-            SignalAttribute::Stable | SignalAttribute::Quiet => {
-                if let Some(expr) = expr {
-                    self.expr_with_ttyp(scope, self.time(), expr, diagnostics)?;
-                }
-                Ok(self.boolean().base())
+            AttributeDesignator::Range(_) => {
+                diagnostics.error(name_pos, "Range cannot be used as an expression");
+                Err(EvalError::Unknown)
             }
-            SignalAttribute::Transaction => {
-                check_no_sattr_argument(sattr, expr, diagnostics);
-                Ok(self.bit().base())
-            }
-            SignalAttribute::Event => {
-                check_no_sattr_argument(sattr, expr, diagnostics);
-                Ok(self.boolean().base())
-            }
-            SignalAttribute::Active => {
-                check_no_sattr_argument(sattr, expr, diagnostics);
-                Ok(self.boolean().base())
-            }
-            SignalAttribute::LastEvent => {
-                check_no_sattr_argument(sattr, expr, diagnostics);
-                Ok(self.time().base())
-            }
-            SignalAttribute::LastActive => {
-                check_no_sattr_argument(sattr, expr, diagnostics);
-                Ok(self.time().base())
-            }
-            SignalAttribute::LastValue => {
-                check_no_sattr_argument(sattr, expr, diagnostics);
-                Ok(typ.base())
-            }
-            SignalAttribute::Driving => {
-                check_no_sattr_argument(sattr, expr, diagnostics);
-                Ok(self.boolean().base())
-            }
-            SignalAttribute::DrivingValue => {
-                check_no_sattr_argument(sattr, expr, diagnostics);
-                Ok(typ.base())
+            AttributeDesignator::Type(_) => {
+                diagnostics.error(name_pos, "Type cannot be used as an expression");
+                Err(EvalError::Unknown)
             }
         }
     }
@@ -889,94 +987,11 @@ impl<'a> AnalyzeContext<'a> {
 
         // Attributes for non-types not handled yet
         if let Suffix::Attribute(ref mut attr) = suffix {
-            if let AttributeDesignator::Signal(ref sattr) = attr.attr.item {
-                if let ResolvedName::ObjectName(oname) = resolved {
-                    if matches!(oname.base.class(), ObjectClass::Signal) {
-                        return Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                            self.signal_attribute_suffix(
-                                scope,
-                                oname.type_mark(),
-                                *sattr,
-                                attr.expr.as_deref_mut(),
-                                diagnostics,
-                            )?
-                            .into(),
-                        )));
-                    }
-                }
-
-                diagnostics.error(
-                    &prefix.pos,
-                    format!(
-                        "Expected signal prefix for '{} attribute, got {}",
-                        sattr,
-                        resolved.describe()
-                    ),
-                );
-                return Err(EvalError::Unknown);
-            } else {
-                let typ = match resolved {
-                    ResolvedName::Type(typ) => typ,
-                    ResolvedName::ObjectName(oname) => oname.type_mark(),
-                    ResolvedName::Expression(DisambiguatedType::Unambiguous(typ)) => typ,
-                    _ => {
-                        // @TODO ignore for now
-                        if let Some(signature) = attr.signature {
-                            if let Err(e) = self.resolve_signature(scope, signature) {
-                                diagnostics.push(e.into_non_fatal()?);
-                            }
-                        }
-                        if let Some(expr) = attr.expr {
-                            self.expr_unknown_ttyp(scope, expr, diagnostics)?;
-                        }
-
-                        // @TODO not handled yet
-                        return Err(EvalError::Unknown);
-                    }
-                };
-
-                return match self.attribute_suffix(name_pos, scope, typ, attr, diagnostics) {
-                    Ok(Some(typ)) => Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                        typ.into(),
-                    ))),
-                    Ok(None) => {
-                        diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
-                            name_pos, resolved, attr,
-                        ));
-                        Err(EvalError::Unknown)
-                    }
-                    Err(EvalError::Unknown) => {
-                        match attr.attr.item {
-                            AttributeDesignator::Ident(_) => diagnostics.error(
-                                &attr.attr.pos,
-                                format!("Unknown attribute '{}", attr.attr.item),
-                            ),
-                            AttributeDesignator::Range(_) => {
-                                diagnostics.error(name_pos, "Range cannot be used as an expression")
-                            }
-                            AttributeDesignator::Type(_) => {
-                                diagnostics.error(name_pos, "Type cannot be used as an expression")
-                            }
-                            _ => {}
-                        }
-                        // @TODO ignore for now
-                        if let Some(signature) = attr.signature {
-                            if let Err(e) = self.resolve_signature(scope, signature) {
-                                diagnostics.push(e.into_non_fatal()?);
-                            }
-                        }
-                        if let Some(expr) = attr.expr {
-                            self.expr_unknown_ttyp(scope, expr, diagnostics)?;
-                        }
-
-                        // @TODO not handled yet
-                        return Err(EvalError::Unknown);
-                    }
-                    Err(err) => {
-                        return Err(err);
-                    }
-                };
-            }
+            let typ =
+                self.attribute_suffix(name_pos, &prefix.pos, scope, &resolved, attr, diagnostics)?;
+            return Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                typ.into(),
+            )));
         }
 
         match resolved {
@@ -1578,7 +1593,7 @@ impl Diagnostic {
 
     fn cannot_be_prefix_of_attribute(
         prefix_pos: &SrcPos,
-        resolved: ResolvedName,
+        resolved: &ResolvedName,
         attr: &AttributeSuffix,
     ) -> Diagnostic {
         Diagnostic::error(
