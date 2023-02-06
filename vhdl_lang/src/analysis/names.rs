@@ -1228,9 +1228,13 @@ impl<'a> AnalyzeContext<'a> {
                 ExpressionType::String
                 | ExpressionType::Ambiguous(_)
                 | ExpressionType::Null
-                | ExpressionType::Aggregate => {
-                    diagnostics.error(pos, "{} cannot be the argument of type conversion")
-                }
+                | ExpressionType::Aggregate => diagnostics.error(
+                    pos,
+                    format!(
+                        "{} cannot be the argument of type conversion",
+                        types.describe()
+                    ),
+                ),
             }
         }
         Ok(())
