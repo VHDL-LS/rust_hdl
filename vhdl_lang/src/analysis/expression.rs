@@ -835,20 +835,15 @@ impl<'a> AnalyzeContext<'a> {
                 Type::Array {
                     elem_type, indexes, ..
                 } => {
-                    if let [index_type] = indexes.as_slice() {
-                        for assoc in assocs.iter_mut() {
-                            as_fatal(self.analyze_1d_array_assoc_elem(
-                                scope,
-                                target_base,
-                                *index_type,
-                                *elem_type,
-                                assoc,
-                                diagnostics,
-                            ))?;
-                        }
-                    } else {
-                        // @TODO multi dimensional array
-                        self.analyze_aggregate(scope, assocs, diagnostics)?;
+                    for assoc in assocs.iter_mut() {
+                        as_fatal(self.array_assoc_elem(
+                            scope,
+                            target_base,
+                            indexes,
+                            *elem_type,
+                            assoc,
+                            diagnostics,
+                        ))?;
                     }
                 }
                 Type::Record(record_scope) => {
@@ -978,15 +973,16 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
-    pub fn analyze_1d_array_assoc_elem(
+    pub fn array_assoc_elem(
         &self,
         scope: &Scope<'a>,
         array_type: TypeEnt<'a>,
-        index_type: Option<BaseType<'a>>,
+        index_types: &[Option<BaseType<'a>>],
         elem_type: TypeEnt<'a>,
         assoc: &mut ElementAssociation,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult {
+        let index_type = index_types.first().and_then(|x| *x);
         let mut can_be_array = true;
 
         let expr = match assoc {
@@ -1045,7 +1041,28 @@ impl<'a> AnalyzeContext<'a> {
             ElementAssociation::Positional(ref mut expr) => expr,
         };
 
-        if can_be_array {
+        if index_types.len() > 1 {
+            if let Expression::Aggregate(ref mut inner) = expr.item {
+                for assoc in inner.iter_mut() {
+                    as_fatal(self.array_assoc_elem(
+                        scope,
+                        array_type,
+                        &index_types[1..],
+                        elem_type,
+                        assoc,
+                        diagnostics,
+                    ))?;
+                }
+            } else {
+                diagnostics.error(
+                    &expr.pos,
+                    format!(
+                        "Expected sub-aggregate for target {}",
+                        array_type.describe()
+                    ),
+                );
+            }
+        } else if can_be_array {
             // If the choice is only a range or positional the expression can be an array
             let types = self.expr_type(scope, expr, diagnostics)?;
             let is_array = self.is_possible(&types, array_type.base());

@@ -798,6 +798,39 @@ constant bad1 : integer := (3, 4, 5);
 }
 
 #[test]
+fn typecheck_multi_dimensional_array_aggregate() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type arr2_t is array (0 to 1, 2 to 3) of integer;
+type arr1_t is array (0 to 1) of integer;
+constant good1 : arr2_t := (others => (0, 1));
+constant good2 : arr2_t := (others => (others => 0));
+constant good3 : arr2_t := ((others => 0), (others => 0));
+
+constant a1 : arr1_t := (0, 1);
+constant bad1 : arr2_t := (others => 1 & 1);
+constant bad2 : arr2_t := (others => a1);
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s1("1 & 1"),
+                "Expected sub-aggregate for target array type 'arr2_t'",
+            ),
+            Diagnostic::error(
+                code.s1("=> a1").s1("a1"),
+                "Expected sub-aggregate for target array type 'arr2_t'",
+            ),
+        ],
+    );
+}
+
+#[test]
 fn record_aggregate_must_be_simple_name() {
     let mut builder = LibraryBuilder::new();
     let code = builder.in_declarative_region(
