@@ -4,6 +4,8 @@
 //
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
+use fnv::FnvHashSet;
+
 use super::analyze::*;
 use super::expression::ExpressionType;
 use super::named_entity::*;
@@ -855,9 +857,18 @@ impl<'a> AnalyzeContext<'a> {
 
                 if let Some(disambiguated) = disambiguated {
                     match disambiguated {
-                        Disambiguated::Ambiguous(_) => {
+                        Disambiguated::Ambiguous(ents) => {
                             // @TODO ambiguous error
-                            return Err(EvalError::Unknown);
+                            if let Some(types) = ambiguous_functions_to_types(ents) {
+                                resolved =
+                                    ResolvedName::Expression(DisambiguatedType::Ambiguous(types));
+                            } else {
+                                diagnostics.error(
+                                    &prefix.pos,
+                                    "Procedure calls are not valid in names and expressions",
+                                );
+                                return Err(EvalError::Unknown);
+                            }
                         }
                         Disambiguated::Unambiguous(ent) => {
                             if let Some(typ) = ent.return_type() {
@@ -996,9 +1007,18 @@ impl<'a> AnalyzeContext<'a> {
                         overloaded.entities().collect(),
                         diagnostics,
                     ))? {
-                        Some(Disambiguated::Ambiguous(_)) => {
+                        Some(Disambiguated::Ambiguous(ents)) => {
                             // @TODO ambiguous error
-                            return Err(EvalError::Unknown);
+                            if let Some(types) = ambiguous_functions_to_types(ents) {
+                                resolved =
+                                    ResolvedName::Expression(DisambiguatedType::Ambiguous(types));
+                            } else {
+                                diagnostics.error(
+                                    &prefix.pos,
+                                    "Procedure calls are not valid in names and expressions",
+                                );
+                                return Err(EvalError::Unknown);
+                            }
                         }
                         Some(Disambiguated::Unambiguous(ent)) => {
                             prefix.set_unique_reference(&ent);
@@ -1648,6 +1668,20 @@ fn check_single_argument<'a>(
             pos,
             format!("'{} attribute requires a single argument", suffix.attr),
         );
+        None
+    }
+}
+
+fn ambiguous_functions_to_types(overloaded: Vec<OverloadedEnt>) -> Option<FnvHashSet<BaseType>> {
+    let types: FnvHashSet<_> = overloaded
+        .iter()
+        .filter_map(|ent| ent.return_type())
+        .map(|typ| typ.base())
+        .collect();
+
+    if !types.is_empty() {
+        Some(types)
+    } else {
         None
     }
 }
@@ -2711,6 +2745,26 @@ type enum_t is (alpha, beta);
             test.name_resolve(&code, None, &mut NoDiagnostics),
             Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
                 test.lookup_type("enum_t")
+            )))
+        );
+    }
+
+    #[test]
+    fn ambiguous_function() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+        function myfun(arg: integer) return integer;
+        function myfun(arg: integer) return real;
+        ",
+        );
+        let code = test.snippet("myfun(0)");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Ambiguous(
+                vec![test.ctx().real().base(), test.ctx().integer().base()]
+                    .into_iter()
+                    .collect()
             )))
         );
     }
