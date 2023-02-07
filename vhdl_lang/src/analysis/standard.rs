@@ -704,6 +704,51 @@ impl<'a> AnalyzeContext<'a> {
         .chain(self.comparators(typ).into_iter())
     }
 
+    pub fn universal_implicits(
+        &self,
+        kind: UniversalType,
+        typ: TypeEnt<'a>,
+    ) -> impl Iterator<Item = EntRef<'a>> {
+        [
+            self.minimum(typ),
+            self.maximum(typ),
+            self.create_to_string(typ),
+            self.symmetric_unary(Operator::Minus, typ),
+            self.symmetric_unary(Operator::Plus, typ),
+            self.symmetric_binary(Operator::Plus, typ),
+            self.symmetric_binary(Operator::Minus, typ),
+            // 9.2.7 Multiplying operators
+            self.symmetric_binary(Operator::Times, typ),
+            self.symmetric_binary(Operator::Div, typ),
+            // 9.2.8 Miscellaneous operators
+            self.symmetric_unary(Operator::Abs, typ),
+            self.binary(
+                Operator::Pow,
+                typ,
+                typ,
+                self.universal_integer().into(),
+                typ,
+            ),
+        ]
+        .into_iter()
+        .chain(
+            if kind == UniversalType::Integer {
+                Some(
+                    [
+                        self.symmetric_binary(Operator::Mod, typ),
+                        self.symmetric_binary(Operator::Rem, typ),
+                    ]
+                    .into_iter(),
+                )
+            } else {
+                None
+            }
+            .into_iter()
+            .flatten(),
+        )
+        .chain(self.comparators(typ).into_iter())
+    }
+
     pub fn physical_implicits(&self, typ: TypeEnt<'a>) -> impl Iterator<Item = EntRef<'a>> {
         let integer = self.integer();
         let real = self.real();

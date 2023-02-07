@@ -165,9 +165,22 @@ impl<'a> Disambiguated<'a> {
     }
 }
 
+#[derive(Clone)]
 pub(super) struct ResolvedCall<'a> {
     pub subpgm: OverloadedEnt<'a>,
     pub formals: Vec<ResolvedFormal<'a>>,
+}
+
+impl<'a> AsRef<OverloadedEnt<'a>> for OverloadedEnt<'a> {
+    fn as_ref(&self) -> &OverloadedEnt<'a> {
+        self
+    }
+}
+
+impl<'a> AsRef<OverloadedEnt<'a>> for ResolvedCall<'a> {
+    fn as_ref(&self) -> &OverloadedEnt<'a> {
+        &self.subpgm
+    }
 }
 
 impl<'a> AnalyzeContext<'a> {
@@ -296,12 +309,12 @@ impl<'a> AnalyzeContext<'a> {
 
         let actual_types = self.actual_types(scope, assocs, diagnostics)?;
 
-        let ok_assoc_types = self
-            .implicit_matcher()
-            .disambiguate_by_assoc_types(&actual_types, &ok_formals);
+        let mut ok_assoc_types = ok_formals.clone();
+        self.implicit_matcher()
+            .disambiguate_by_assoc_types(&actual_types, &mut ok_assoc_types);
 
         if ok_assoc_types.len() == 1 {
-            let ent = ok_assoc_types[0];
+            let ent = ok_assoc_types[0].subpgm;
             self.check_call(scope, call_pos, ent, assocs, diagnostics)?;
             return Ok(Disambiguated::Unambiguous(ent));
         } else if ok_assoc_types.is_empty() {
@@ -312,24 +325,47 @@ impl<'a> AnalyzeContext<'a> {
             return Err(EvalError::Unknown);
         }
 
-        if let SubprogramKind::Function(rtyp) = kind {
+        let ok_return_type = if let SubprogramKind::Function(rtyp) = kind {
             let mut ok_return_type = ok_assoc_types.clone();
             self.implicit_matcher()
                 .disambiguate_op_by_return_type(&mut ok_return_type, rtyp);
 
             // Only one candidate matches type profile, check it
             if ok_return_type.len() == 1 {
-                let ent = ok_return_type[0];
+                let ent = ok_return_type[0].subpgm;
                 self.check_call(scope, call_pos, ent, assocs, diagnostics)?;
                 return Ok(Disambiguated::Unambiguous(ent));
             } else if ok_return_type.is_empty() {
-                diagnostics.push(Diagnostic::could_not_resolve(call_name, ok_assoc_types));
+                diagnostics.push(Diagnostic::could_not_resolve(
+                    call_name,
+                    ok_assoc_types.into_iter().map(|resolved| resolved.subpgm),
+                ));
                 return Err(EvalError::Unknown);
             }
-            Ok(Disambiguated::Ambiguous(ok_return_type))
+            ok_return_type
         } else {
-            Ok(Disambiguated::Ambiguous(ok_assoc_types))
+            ok_assoc_types
+        };
+
+        let mut strict_ok_assoc_types = ok_return_type.clone();
+        self.strict_matcher()
+            .disambiguate_by_assoc_types(&actual_types, &mut strict_ok_assoc_types);
+
+        if strict_ok_assoc_types.len() == 1 {
+            let ent = strict_ok_assoc_types[0].subpgm;
+            self.check_call(scope, call_pos, ent, assocs, diagnostics)?;
+            return Ok(Disambiguated::Unambiguous(ent));
+        } else if strict_ok_assoc_types.is_empty() {
+            // Do not disambiguate away to emtpy result
+            strict_ok_assoc_types = ok_return_type.clone();
         }
+
+        Ok(Disambiguated::Ambiguous(
+            strict_ok_assoc_types
+                .into_iter()
+                .map(|resolved| resolved.subpgm)
+                .collect(),
+        ))
     }
 
     pub fn disambiguate_no_actuals(
@@ -666,5 +702,32 @@ function myfun(arg1 : integer) return character;
                     ),
             ],
         )
+    }
+
+    #[test]
+    fn ambiguous_builtin_favors_non_implicit_conversion_unary() {
+        let test = TestSetup::new();
+        let code = test.snippet("to_string(0)");
+
+        let uint_to_string =
+            test.lookup_implicit_of(test.ctx().universal_integer().into(), "to_string");
+
+        assert_eq!(
+            test.disambiguate(&code, None, &mut NoDiagnostics),
+            Some(Disambiguated::Unambiguous(uint_to_string))
+        );
+    }
+
+    #[test]
+    fn ambiguous_builtin_favors_non_implicit_conversion_binary() {
+        let test = TestSetup::new();
+        let code = test.snippet("minimum(0, integer'(0))");
+
+        let minimum = test.lookup_implicit_of(test.ctx().integer(), "minimum");
+
+        assert_eq!(
+            test.disambiguate(&code, None, &mut NoDiagnostics),
+            Some(Disambiguated::Unambiguous(minimum))
+        );
     }
 }

@@ -61,6 +61,9 @@ impl<'a> From<DisambiguatedType<'a>> for ExpressionType<'a> {
 pub(super) struct TypeMatcher<'c, 'a> {
     // Allow implicit type conversion from universal real/integer to other integer types
     implicit_type_conversion: bool,
+
+    // Allow implicit type conversion from abstract types to universal real/integer
+    implicit_type_conversion_from_universal: bool,
     context: &'c AnalyzeContext<'a>,
 }
 
@@ -73,18 +76,28 @@ impl<'c, 'a> TypeMatcher<'c, 'a> {
             match ttyp.kind() {
                 Type::Integer => types.match_type(self.context.universal_integer()),
                 Type::Real => types.match_type(self.context.universal_real()),
-                Type::Universal(UniversalType::Integer) => match types {
-                    ExpressionType::Unambiguous(typ) => typ.base().is_any_integer(),
-                    ExpressionType::Ambiguous(types) => {
-                        types.iter().any(|typ| typ.is_any_integer())
+                Type::Universal(UniversalType::Integer)
+                    if self.implicit_type_conversion_from_universal =>
+                {
+                    match types {
+                        ExpressionType::Unambiguous(typ) => typ.base().is_any_integer(),
+                        ExpressionType::Ambiguous(types) => {
+                            types.iter().any(|typ| typ.is_any_integer())
+                        }
+                        _ => false,
                     }
-                    _ => false,
-                },
-                Type::Universal(UniversalType::Real) => match types {
-                    ExpressionType::Unambiguous(typ) => typ.base().is_any_real(),
-                    ExpressionType::Ambiguous(types) => types.iter().any(|typ| typ.is_any_real()),
-                    _ => false,
-                },
+                }
+                Type::Universal(UniversalType::Real)
+                    if self.implicit_type_conversion_from_universal =>
+                {
+                    match types {
+                        ExpressionType::Unambiguous(typ) => typ.base().is_any_real(),
+                        ExpressionType::Ambiguous(types) => {
+                            types.iter().any(|typ| typ.is_any_real())
+                        }
+                        _ => false,
+                    }
+                }
                 _ => false,
             }
         } else {
@@ -112,32 +125,28 @@ impl<'c, 'a> TypeMatcher<'c, 'a> {
     pub fn disambiguate_by_assoc_types(
         &self,
         actual_types: &[Option<ExpressionType<'a>>],
-        candidates: &[ResolvedCall<'a>],
-    ) -> Vec<OverloadedEnt<'a>> {
-        candidates
-            .iter()
-            .filter(|resolved| {
-                actual_types.iter().enumerate().all(|(idx, actual_type)| {
-                    if let Some(actual_type) = actual_type {
-                        self.is_possible(actual_type, resolved.formals[idx].type_mark().base())
-                    } else {
-                        true
-                    }
-                })
+        candidates: &mut Vec<ResolvedCall<'a>>,
+    ) {
+        candidates.retain(|resolved| {
+            actual_types.iter().enumerate().all(|(idx, actual_type)| {
+                if let Some(actual_type) = actual_type {
+                    self.is_possible(actual_type, resolved.formals[idx].type_mark().base())
+                } else {
+                    true
+                }
             })
-            .map(|resolved| resolved.subpgm)
-            .collect()
+        })
     }
 
     pub fn disambiguate_op_by_return_type(
         &self,
-        candidates: &mut Vec<OverloadedEnt<'a>>,
+        candidates: &mut Vec<impl AsRef<OverloadedEnt<'a>>>,
         ttyp: Option<TypeEnt<'a>>, // Optional target type constraint
     ) {
         let tbase = ttyp.map(|ttyp| ttyp.base());
         candidates.retain(|ent| {
             if let Some(tbase) = tbase {
-                self.can_be_target_type(ent.return_type().unwrap(), tbase)
+                self.can_be_target_type(ent.as_ref().return_type().unwrap(), tbase)
             } else {
                 true
             }
@@ -149,6 +158,15 @@ impl<'a> AnalyzeContext<'a> {
     pub fn strict_matcher(&self) -> TypeMatcher<'_, 'a> {
         TypeMatcher {
             implicit_type_conversion: false,
+            implicit_type_conversion_from_universal: false,
+            context: self,
+        }
+    }
+
+    pub fn any_matcher(&self) -> TypeMatcher<'_, 'a> {
+        TypeMatcher {
+            implicit_type_conversion: true,
+            implicit_type_conversion_from_universal: true,
             context: self,
         }
     }
@@ -156,13 +174,14 @@ impl<'a> AnalyzeContext<'a> {
     pub fn implicit_matcher(&self) -> TypeMatcher<'_, 'a> {
         TypeMatcher {
             implicit_type_conversion: true,
+            implicit_type_conversion_from_universal: false,
             context: self,
         }
     }
 
     // Returns true if the expression types is possible given the target type
     pub fn is_possible(&self, types: &ExpressionType<'a>, ttyp: BaseType<'a>) -> bool {
-        self.implicit_matcher().is_possible(types, ttyp)
+        self.any_matcher().is_possible(types, ttyp)
     }
 
     pub fn common_type(&self, typ1: BaseType<'a>, typ2: BaseType<'a>) -> Option<BaseType<'a>> {
@@ -189,7 +208,7 @@ impl<'a> AnalyzeContext<'a> {
     }
 
     pub fn can_be_target_type(&self, typ: TypeEnt<'a>, ttyp: BaseType<'a>) -> bool {
-        self.implicit_matcher().can_be_target_type(typ, ttyp)
+        self.any_matcher().can_be_target_type(typ, ttyp)
     }
 
     pub fn expr_unknown_ttyp(

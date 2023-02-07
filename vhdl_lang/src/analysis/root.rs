@@ -707,18 +707,25 @@ impl DesignRoot {
                     let scope = root_scope.nested().in_package_declaration();
 
                     {
-                        let univ_int_unary_minus = context
-                            .symmetric_unary(Operator::Minus, context.universal_integer().into());
-                        let univ_real_unary_minus = context
-                            .symmetric_unary(Operator::Minus, context.universal_real().into());
+                        for ent in context.universal_implicits(
+                            UniversalType::Integer,
+                            context.universal_integer().into(),
+                        ) {
+                            unsafe {
+                                arena.add_implicit(universal.integer, ent);
+                            };
+                            scope.add(ent, &mut diagnostics);
+                        }
 
-                        // Add unary minus as it is used in the standard package definition
-                        unsafe {
-                            arena.add_implicit(universal.integer, univ_int_unary_minus);
-                            scope.add(univ_int_unary_minus, &mut diagnostics);
-                            arena.add_implicit(universal.real, univ_real_unary_minus);
-                            scope.add(univ_real_unary_minus, &mut diagnostics);
-                        };
+                        for ent in context.universal_implicits(
+                            UniversalType::Real,
+                            context.universal_real().into(),
+                        ) {
+                            unsafe {
+                                arena.add_implicit(universal.real, ent);
+                            };
+                            scope.add(ent, &mut diagnostics);
+                        }
                     }
 
                     for decl in std_package.decl.iter_mut() {
