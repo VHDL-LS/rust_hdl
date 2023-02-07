@@ -105,16 +105,16 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         ttyp: Option<TypeEnt<'a>>,
-        choices: &mut [Choice],
+        choices: &mut [WithPos<Choice>],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for choice in choices.iter_mut() {
-            match choice {
+            match choice.item {
                 Choice::Expression(ref mut expr) => {
                     if let Some(ttyp) = ttyp {
-                        self.expr_with_ttyp(scope, ttyp, expr, diagnostics)?;
+                        self.expr_pos_with_ttyp(scope, ttyp, &choice.pos, expr, diagnostics)?;
                     } else {
-                        self.expr_unknown_ttyp(scope, expr, diagnostics)?;
+                        self.expr_pos_unknown_ttyp(scope, &choice.pos, expr, diagnostics)?;
                     }
                 }
                 Choice::DiscreteRange(ref mut drange) => {

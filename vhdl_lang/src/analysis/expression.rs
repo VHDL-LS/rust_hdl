@@ -4,9 +4,11 @@
 //!
 //! Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
+use fnv::FnvHashMap;
 use fnv::FnvHashSet;
 
 use super::analyze::*;
+use super::formal_region::RecordElement;
 use super::formal_region::RecordRegion;
 use super::named_entity::*;
 use super::overloaded::Disambiguated;
@@ -841,6 +843,7 @@ impl<'a> AnalyzeContext<'a> {
                         scope,
                         target_base,
                         record_scope,
+                        expr_pos,
                         assocs,
                         diagnostics,
                     )?;
@@ -872,9 +875,9 @@ impl<'a> AnalyzeContext<'a> {
             match assoc {
                 ElementAssociation::Named(ref mut choices, ref mut expr) => {
                     for choice in choices.iter_mut() {
-                        match choice {
+                        match choice.item {
                             Choice::Expression(..) => {
-                                // @TODO could be record field so we cannot do more now
+                                // @TODO could be record element so we cannot do more now
                             }
                             Choice::DiscreteRange(ref mut drange) => {
                                 self.drange_unknown_type(scope, drange, diagnostics)?;
@@ -897,56 +900,129 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         record_type: TypeEnt<'a>,
         elems: &RecordRegion<'a>,
+        full_pos: &SrcPos,
         assocs: &mut [ElementAssociation],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        for assoc in assocs.iter_mut() {
+        let mut associated = RecordAssociations::default();
+        let mut is_ok_so_far = true;
+
+        for (idx, assoc) in assocs.iter_mut().enumerate() {
             match assoc {
                 ElementAssociation::Named(ref mut choices, ref mut actual_expr) => {
-                    let elem = if let [choice] = choices.as_mut_slice() {
-                        match choice {
+                    let typ = if choices.len() == 1 {
+                        let choice = choices.first_mut().unwrap();
+                        match &mut choice.item {
                             Choice::Expression(choice_expr) => {
                                 if let Some(simple_name) =
-                                    as_name_mut(&mut choice_expr.item).and_then(as_simple_name_mut)
+                                    as_name_mut(choice_expr).and_then(as_simple_name_mut)
                                 {
                                     if let Some(elem) = elems.lookup(&simple_name.item) {
                                         simple_name.set_unique_reference(&elem);
-                                        Some(elem)
+                                        associated.associate(&elem, &choice.pos, diagnostics);
+                                        Some(elem.type_mark().base())
                                     } else {
+                                        is_ok_so_far = false;
                                         diagnostics.push(Diagnostic::no_declaration_within(
                                             &record_type,
-                                            &choice_expr.pos,
+                                            &choice.pos,
                                             &simple_name.item,
                                         ));
                                         None
                                     }
                                 } else {
+                                    is_ok_so_far = false;
                                     diagnostics.error(
-                                        &choice_expr.pos,
+                                        &choice.pos,
                                         "Record aggregate choice must be a simple name",
                                     );
                                     None
                                 }
                             }
-                            Choice::DiscreteRange(_decl) => {
-                                // @TODO not allowed for enum
+                            Choice::DiscreteRange(_) => {
+                                is_ok_so_far = false;
+                                diagnostics.error(
+                                    &choice.pos,
+                                    "Record aggregate choice must be a simple name",
+                                );
                                 None
                             }
                             Choice::Others => {
-                                // @TODO handle specially
-                                None
+                                // @TODO empty others
+                                let remaining_types: FnvHashSet<BaseType> = elems
+                                    .iter()
+                                    .filter_map(|elem| {
+                                        if !associated.is_associated(&elem) {
+                                            Some(elem.type_mark().base())
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .collect();
+
+                                if remaining_types.len() > 1 {
+                                    let mut diag = Diagnostic::error(&choice.pos, format!("Other elements of record '{}' are not of the same type", record_type.designator()));
+                                    for elem in elems.iter() {
+                                        if !associated.is_associated(&elem) {
+                                            if let Some(decl_pos) = elem.decl_pos() {
+                                                diag.add_related(
+                                                    decl_pos,
+                                                    format!(
+                                                        "Element '{}' has {}",
+                                                        elem.designator(),
+                                                        elem.type_mark().describe()
+                                                    ),
+                                                );
+                                            }
+                                        }
+                                    }
+                                    diagnostics.push(diag);
+                                } else if remaining_types.is_empty() {
+                                    diagnostics.push(
+                                        Diagnostic::error(
+                                            &choice.pos,
+                                            format!(
+                                            "All elements of record '{}' are already associated",
+                                            record_type.designator()
+                                        ),
+                                        )
+                                        .opt_related(
+                                            record_type.decl_pos(),
+                                            format!(
+                                                "Record '{}' defined here",
+                                                record_type.designator()
+                                            ),
+                                        ),
+                                    )
+                                }
+
+                                for elem in elems.iter() {
+                                    if !associated.is_associated(&elem) {
+                                        associated.associate(&elem, &choice.pos, diagnostics);
+                                    }
+                                }
+
+                                if remaining_types.len() == 1 {
+                                    remaining_types.into_iter().next()
+                                } else {
+                                    None
+                                }
                             }
                         }
                     } else {
-                        // @TODO not allowed for num
-                        // Record aggregate can only have a single choice
+                        if let (Some(first), Some(last)) = (choices.first(), choices.last()) {
+                            is_ok_so_far = false;
+                            let pos = first.pos.combine(&last.pos);
+                            diagnostics
+                                .error(&pos, "Record aggregate choice must be a simple name");
+                        }
                         None
                     };
 
-                    if let Some(elem) = elem {
+                    if let Some(typ) = typ {
                         self.expr_pos_with_ttyp(
                             scope,
-                            elem.type_mark(),
+                            typ.into(),
                             &actual_expr.pos,
                             &mut actual_expr.item,
                             diagnostics,
@@ -956,10 +1032,51 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
                 ElementAssociation::Positional(ref mut expr) => {
-                    self.expr_unknown_ttyp(scope, expr, diagnostics)?;
+                    if let Some(elem) = elems.nth(idx) {
+                        self.expr_with_ttyp(scope, elem.type_mark(), expr, diagnostics)?;
+                        associated.associate(elem, &expr.pos, diagnostics);
+                    } else {
+                        self.expr_unknown_ttyp(scope, expr, diagnostics)?;
+
+                        diagnostics.push(
+                            Diagnostic::error(
+                                &expr.pos,
+                                format!(
+                                    "Unexpected positional assoctiation for record '{}'",
+                                    record_type.designator()
+                                ),
+                            )
+                            .opt_related(
+                                record_type.decl_pos(),
+                                format!("Record '{}' defined here", record_type.designator()),
+                            ),
+                        )
+                    }
                 }
             }
         }
+
+        if is_ok_so_far {
+            // Do not complain about these when there are worse problems
+            for elem in elems.iter() {
+                if !associated.is_associated(&elem) {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            full_pos,
+                            format!(
+                                "Missing association of record element '{}'",
+                                elem.designator()
+                            ),
+                        )
+                        .opt_related(
+                            elem.decl_pos(),
+                            format!("Record element '{}' defined here", elem.designator()),
+                        ),
+                    )
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -978,19 +1095,19 @@ impl<'a> AnalyzeContext<'a> {
         let expr = match assoc {
             ElementAssociation::Named(ref mut choices, ref mut expr) => {
                 for choice in choices.iter_mut() {
-                    match choice {
+                    match &mut choice.item {
                         Choice::Expression(index_expr) => {
                             match self.expr_as_discrete_range_type(
                                 scope,
-                                &index_expr.pos,
-                                &mut index_expr.item,
+                                &choice.pos,
+                                index_expr,
                                 diagnostics,
                             ) {
                                 Ok(Some(typ)) => {
                                     if let Some(index_type) = index_type {
                                         if !self.can_be_target_type(typ, index_type) {
                                             diagnostics.push(Diagnostic::type_mismatch(
-                                                &index_expr.pos,
+                                                &choice.pos,
                                                 &typ.describe(),
                                                 index_type.into(),
                                             ));
@@ -1004,8 +1121,8 @@ impl<'a> AnalyzeContext<'a> {
                                         self.expr_pos_with_ttyp(
                                             scope,
                                             index_type.into(),
-                                            &index_expr.pos,
-                                            &mut index_expr.item,
+                                            &choice.pos,
+                                            index_expr,
                                             diagnostics,
                                         )?;
                                     }
@@ -1096,6 +1213,35 @@ impl Diagnostic {
         );
         diag.add_subprogram_candidates("migth be", candidates);
         diag
+    }
+}
+
+#[derive(Default)]
+struct RecordAssociations<'a>(FnvHashMap<EntityId, &'a SrcPos>);
+
+impl<'a> RecordAssociations<'a> {
+    fn associate(
+        &mut self,
+        elem: &RecordElement,
+        pos: &'a SrcPos,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        if let Some(prev_pos) = self.0.insert(elem.id(), pos) {
+            diagnostics.push(
+                Diagnostic::error(
+                    pos,
+                    format!(
+                        "Record element '{}' has already been associated",
+                        elem.designator()
+                    ),
+                )
+                .related(prev_pos, "Previously associated here"),
+            );
+        }
+    }
+
+    fn is_associated(&self, elem: &RecordElement) -> bool {
+        self.0.contains_key(&elem.id())
     }
 }
 

@@ -212,7 +212,7 @@ pub struct CallOrIndexed {
 /// LRM 9.3.3 Aggregates
 #[derive(PartialEq, Debug, Clone)]
 pub enum Choice {
-    Expression(WithPos<Expression>),
+    Expression(Expression),
     DiscreteRange(DiscreteRange),
     Others,
 }
@@ -221,7 +221,7 @@ pub enum Choice {
 #[derive(PartialEq, Debug, Clone)]
 pub enum ElementAssociation {
     Positional(WithPos<Expression>),
-    Named(Vec<Choice>, WithPos<Expression>),
+    Named(Vec<WithPos<Choice>>, WithPos<Expression>),
 }
 
 /// LRM 6.5.7 Association Lists
@@ -868,7 +868,7 @@ pub type IfStatement = Conditionals<Vec<LabeledSequentialStatement>>;
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Alternative<T> {
-    pub choices: Vec<Choice>,
+    pub choices: Vec<WithPos<Choice>>,
     pub item: T,
 }
 

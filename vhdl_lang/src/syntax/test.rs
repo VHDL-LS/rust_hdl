@@ -446,7 +446,7 @@ impl Code {
         self.parse_ok(parse_discrete_range)
     }
 
-    pub fn choices(&self) -> Vec<Choice> {
+    pub fn choices(&self) -> Vec<WithPos<Choice>> {
         self.parse_ok(parse_choices)
     }
 

@@ -235,14 +235,16 @@ fn search_assignment<T: Search>(
     }
 }
 
-impl Search for Choice {
+impl Search for WithPos<Choice> {
     fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
-        match self {
+        return_if_finished!(searcher.search_with_pos(&self.pos));
+
+        match self.item {
             Choice::DiscreteRange(ref mut drange) => {
                 return_if_found!(drange.search(searcher));
             }
             Choice::Expression(ref mut expr) => {
-                return_if_found!(expr.search(searcher));
+                return_if_found!(search_pos_expr(&mut self.pos, expr, searcher));
             }
             Choice::Others => {}
         }

@@ -839,7 +839,76 @@ type rec_t is record
     field : natural;
 end record;
 
-constant bad : rec_t := (field(0) => 0);
+constant bad1 : rec_t := (field(0) => 0);
+constant bad2 : rec_t := (0 to 1 => 0);
+constant bad3 : rec_t := (field | 0 => 0);
+
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s1("field(0)"),
+                "Record aggregate choice must be a simple name",
+            ),
+            Diagnostic::error(
+                code.s1("0 to 1"),
+                "Record aggregate choice must be a simple name",
+            ),
+            Diagnostic::error(
+                code.s1("field | 0"),
+                "Record aggregate choice must be a simple name",
+            ),
+        ],
+    );
+}
+
+#[test]
+fn record_aggregate_multiple_associations() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type rec_t is record
+    field : natural;
+end record;
+
+constant bad1 : rec_t := (0, field => 0);
+constant bad2 : rec_t := (0, 33);
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s1("field => 0").s1("field"),
+                "Record element 'field' has already been associated",
+            )
+            .related(code.s1("(0, ").s1("0"), "Previously associated here"),
+            Diagnostic::error(
+                code.s1("33"),
+                "Unexpected positional assoctiation for record 'rec_t'",
+            )
+            .related(code.s1("rec_t"), "Record 'rec_t' defined here"),
+        ],
+    );
+}
+
+#[test]
+fn record_aggregate_missing_associations() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type rec_t is record
+    field : natural;
+    missing: natural;
+end record;
+
+constant bad : rec_t := (field => 0);
         ",
     );
 
@@ -847,9 +916,53 @@ constant bad : rec_t := (field(0) => 0);
     check_diagnostics(
         diagnostics,
         vec![Diagnostic::error(
-            code.s1("field(0)"),
-            "Record aggregate choice must be a simple name",
-        )],
+            code.s1("(field => 0)"),
+            "Missing association of record element 'missing'",
+        )
+        .related(code.s1("missing"), "Record element 'missing' defined here")],
+    );
+}
+
+#[test]
+fn record_others() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+type rec_t is record
+    f1 : character;
+    f2 : integer;
+    f3 : integer;
+end record;
+
+constant good : rec_t := (f1 => 'a', others => 0);
+constant bad1 : rec_t := (f1 => 'a', others => 'c');
+constant bad2 : rec_t := (others => 0);
+constant bad3 : rec_t := ('a', 0, 0, others => 3);
+
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.s1("others => 'c'").s1("'c'"),
+                "character literal does not match integer type 'INTEGER'",
+            ),
+            Diagnostic::error(
+                code.s1("(others => 0)").s1("others"),
+                "Other elements of record 'rec_t' are not of the same type",
+            )
+            .related(code.s1("f1"), "Element 'f1' has type 'CHARACTER'")
+            .related(code.s1("f2"), "Element 'f2' has integer type 'INTEGER'")
+            .related(code.s1("f3"), "Element 'f3' has integer type 'INTEGER'"),
+            Diagnostic::error(
+                code.s1("others => 3)").s1("others"),
+                "All elements of record 'rec_t' are already associated",
+            )
+            .related(code.s1("rec_t"), "Record 'rec_t' defined here"),
+        ],
     );
 }
 

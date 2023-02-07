@@ -65,6 +65,18 @@ impl Diagnostic {
         diagnostic
     }
 
+    pub fn opt_related(
+        self,
+        item: Option<impl AsRef<SrcPos>>,
+        message: impl Into<String>,
+    ) -> Diagnostic {
+        let mut diagnostic = self;
+        if let Some(item) = item {
+            diagnostic.add_related(item, message);
+        }
+        diagnostic
+    }
+
     pub fn add_related(&mut self, item: impl AsRef<SrcPos>, message: impl Into<String>) {
         self.related
             .push((item.as_ref().to_owned(), message.into()));
