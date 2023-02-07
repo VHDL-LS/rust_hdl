@@ -64,6 +64,11 @@ end architecture;"
         )
     }
 
+    pub fn add_std_logic_1164(&mut self) {
+        let std_logic_1164 = self.code_builder.code_from_source(std_logic_1164_package());
+        self.add_code("ieee", std_logic_1164);
+    }
+
     pub fn get_analyzed_root(&self) -> (DesignRoot, Vec<Diagnostic>) {
         let mut root = DesignRoot::new(self.code_builder.symbols.clone());
         let mut diagnostics = Vec::new();
@@ -119,6 +124,16 @@ fn env_package() -> Source {
     Source::inline(
         Path::new("env.vhd"),
         &Latin1String::new(include_bytes!("../../../../vhdl_libraries/std/env.vhd")).to_string(),
+    )
+}
+
+fn std_logic_1164_package() -> Source {
+    Source::inline(
+        Path::new("std_logic_1164.vhd"),
+        &Latin1String::new(include_bytes!(
+            "../../../../vhdl_libraries/ieee2008/std_logic_1164.vhdl"
+        ))
+        .to_string(),
     )
 }
 

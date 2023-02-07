@@ -135,6 +135,7 @@ pub(super) struct AnalyzeContext<'a> {
     pub work_sym: Symbol,
     std_sym: Symbol,
     standard_sym: Symbol,
+    pub(super) is_std_logic_1164: bool,
 
     // Record dependencies and sensitivies when
     // analyzing design units
@@ -166,6 +167,11 @@ impl<'a> AnalyzeContext<'a> {
             work_sym: root.symbol_utf8("work"),
             std_sym: root.symbol_utf8("std"),
             standard_sym: root.symbol_utf8("standard"),
+            is_std_logic_1164: current_unit
+                == &UnitId::package(
+                    &root.symbol_utf8("ieee"),
+                    &root.symbol_utf8("std_logic_1164"),
+                ),
             root,
             current_unit: current_unit.clone(),
             arena,

@@ -385,10 +385,6 @@ impl<'a> AnalyzeContext<'a> {
         exprs: &mut [&mut WithPos<Expression>],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<ExpressionType<'a>> {
-        if !can_handle(op.item.item) {
-            return Err(EvalError::Unknown);
-        }
-
         let op_candidates = match self.lookup_operator(scope, &op.pos, op.item.item, exprs.len()) {
             Ok(candidates) => candidates,
             Err(err) => {
@@ -750,47 +746,41 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             Expression::Binary(ref mut op, ref mut left, ref mut right) => {
-                if can_handle(op.item.item) {
-                    let op_candidates = match self.lookup_operator(scope, &op.pos, op.item.item, 2)
-                    {
-                        Ok(candidates) => candidates,
-                        Err(err) => {
-                            diagnostics.push(err.into_non_fatal()?);
-                            return Ok(());
-                        }
-                    };
+                let op_candidates = match self.lookup_operator(scope, &op.pos, op.item.item, 2) {
+                    Ok(candidates) => candidates,
+                    Err(err) => {
+                        diagnostics.push(err.into_non_fatal()?);
+                        return Ok(());
+                    }
+                };
 
-                    match as_fatal(self.disambiguate_op(
-                        scope,
-                        Some(target_type),
-                        op,
-                        op_candidates,
-                        &mut [left.as_mut(), right.as_mut()],
-                        diagnostics,
-                    ))? {
-                        Some(Disambiguated::Unambiguous(overloaded)) => {
-                            let op_type = overloaded.return_type().unwrap();
+                match as_fatal(self.disambiguate_op(
+                    scope,
+                    Some(target_type),
+                    op,
+                    op_candidates,
+                    &mut [left.as_mut(), right.as_mut()],
+                    diagnostics,
+                ))? {
+                    Some(Disambiguated::Unambiguous(overloaded)) => {
+                        let op_type = overloaded.return_type().unwrap();
 
-                            if !self.can_be_target_type(op_type, target_type.base()) {
-                                diagnostics.push(Diagnostic::type_mismatch(
-                                    expr_pos,
-                                    &op_type.describe(),
-                                    target_type,
-                                ));
-                            }
-                        }
-                        Some(Disambiguated::Ambiguous(candidates)) => {
-                            diagnostics.push(Diagnostic::ambiguous_op(
-                                &op.pos,
-                                op.item.item,
-                                candidates,
+                        if !self.can_be_target_type(op_type, target_type.base()) {
+                            diagnostics.push(Diagnostic::type_mismatch(
+                                expr_pos,
+                                &op_type.describe(),
+                                target_type,
                             ));
                         }
-                        None => {}
                     }
-                } else {
-                    self.expr_unknown_ttyp(scope, left, diagnostics)?;
-                    self.expr_unknown_ttyp(scope, right, diagnostics)?;
+                    Some(Disambiguated::Ambiguous(candidates)) => {
+                        diagnostics.push(Diagnostic::ambiguous_op(
+                            &op.pos,
+                            op.item.item,
+                            candidates,
+                        ));
+                    }
+                    None => {}
                 }
             }
             Expression::Unary(ref mut op, ref mut expr) => {
@@ -1089,19 +1079,6 @@ impl<'a> AnalyzeContext<'a> {
 
         Ok(())
     }
-}
-
-// @TODO skip operators we do not handle yet
-fn can_handle(op: Operator) -> bool {
-    !matches!(
-        op,
-        Operator::QueEQ
-            | Operator::QueNE
-            | Operator::QueGT
-            | Operator::QueGTE
-            | Operator::QueLT
-            | Operator::QueLTE
-    )
 }
 
 impl Diagnostic {

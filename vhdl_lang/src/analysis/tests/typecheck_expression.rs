@@ -1649,3 +1649,71 @@ end units;
         ],
     );
 }
+
+#[test]
+fn scalar_bit_matching_operators() {
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "
+constant good1 : bit := '0' ?= '1';
+constant good2 : bit := '0' ?/= '1';
+constant good3 : bit := '0' ?< '1';
+constant good4 : bit := '0' ?<= '1';
+constant good5 : bit := '0' ?> '1';
+constant good6 : bit := '0' ?>= '1';
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn bit_vector_matching_operators() {
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "
+constant good1 : bit := \"01\" ?= \"10\";
+constant good2 : bit := \"01\" ?/= \"10\";
+constant good3 : bit := \"01\" ?< \"10\";
+constant good4 : bit := \"01\" ?<= \"10\";
+constant good5 : bit := \"01\" ?> \"10\";
+constant good6 : bit := \"01\" ?>= \"10\";
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+fn std_ulogic_matching_operators() {
+    let mut builder = LibraryBuilder::new();
+    builder.add_std_logic_1164();
+    builder.code(
+        "libname",
+        "
+library ieee;
+use ieee.std_logic_1164.all;
+
+package pkg is
+    constant good1s : std_ulogic := '0' ?= '1';
+    constant good2s : std_ulogic := '0' ?/= '1';
+    constant good3s : std_ulogic := '0' ?< '1';
+    constant good4s : std_ulogic := '0' ?<= '1';
+    constant good5s : std_ulogic := '0' ?> '1';
+    constant good6s : std_ulogic := '0' ?>= '1';
+
+    constant good1v : std_ulogic := \"10\" ?= \"10\";
+    constant good2v : std_ulogic := \"10\" ?/= \"10\";
+    constant good3v : std_ulogic := \"10\" ?< \"10\";
+    constant good4v : std_ulogic := \"10\" ?<= \"10\";
+    constant good5v : std_ulogic := \"10\" ?> \"10\";
+    constant good6v : std_ulogic := \"10\" ?>= \"10\";
+end package;        
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}

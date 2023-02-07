@@ -737,7 +737,11 @@ impl<'a> AnalyzeContext<'a> {
         .chain(self.comparators(typ).into_iter())
     }
 
-    pub fn enum_implicits(&self, typ: TypeEnt<'a>) -> impl Iterator<Item = EntRef<'a>> {
+    pub fn enum_implicits(
+        &self,
+        typ: TypeEnt<'a>,
+        matching_op: bool,
+    ) -> impl Iterator<Item = EntRef<'a>> {
         [
             self.create_to_string(typ),
             self.minimum(typ),
@@ -745,6 +749,25 @@ impl<'a> AnalyzeContext<'a> {
         ]
         .into_iter()
         .chain(self.comparators(typ).into_iter())
+        .chain(
+            if matching_op {
+                Some(
+                    [
+                        self.symmetric_binary(Operator::QueEQ, typ),
+                        self.symmetric_binary(Operator::QueNE, typ),
+                        self.symmetric_binary(Operator::QueGT, typ),
+                        self.symmetric_binary(Operator::QueGTE, typ),
+                        self.symmetric_binary(Operator::QueLT, typ),
+                        self.symmetric_binary(Operator::QueLTE, typ),
+                    ]
+                    .into_iter(),
+                )
+            } else {
+                None
+            }
+            .into_iter()
+            .flatten(),
+        )
     }
 
     pub fn record_implicits(&self, typ: TypeEnt<'a>) -> impl Iterator<Item = EntRef<'a>> {
@@ -787,7 +810,11 @@ impl<'a> AnalyzeContext<'a> {
         .into_iter()
     }
 
-    pub fn array_implicits(&self, typ: TypeEnt<'a>) -> impl Iterator<Item = EntRef<'a>> {
+    pub fn array_implicits(
+        &self,
+        typ: TypeEnt<'a>,
+        matching_op: bool,
+    ) -> impl Iterator<Item = EntRef<'a>> {
         let Type::Array{indexes, elem_type, ..}  = typ.kind() else {
             unreachable!("Must be array type")
         };
@@ -830,6 +857,25 @@ impl<'a> AnalyzeContext<'a> {
             } else {
                 None
             })
+            .into_iter()
+            .flatten(),
+        )
+        .chain(
+            if matching_op {
+                Some(
+                    [
+                        self.binary(Operator::QueEQ, typ, typ, typ, *elem_type),
+                        self.binary(Operator::QueNE, typ, typ, typ, *elem_type),
+                        self.binary(Operator::QueGT, typ, typ, typ, *elem_type),
+                        self.binary(Operator::QueGTE, typ, typ, typ, *elem_type),
+                        self.binary(Operator::QueLT, typ, typ, typ, *elem_type),
+                        self.binary(Operator::QueLTE, typ, typ, typ, *elem_type),
+                    ]
+                    .into_iter(),
+                )
+            } else {
+                None
+            }
             .into_iter()
             .flatten(),
         )
@@ -1112,10 +1158,11 @@ impl<'a> AnalyzeContext<'a> {
             }
         }
 
-        // ?? for bit
+        // ?? operator for bit
         {
             let typ = self.bit();
             let qq = self.unary(Operator::QueQue, typ, self.boolean());
+
             unsafe {
                 self.arena.add_implicit(typ.id(), qq);
             };

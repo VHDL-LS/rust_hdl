@@ -567,7 +567,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 scope.add(enum_type.into(), diagnostics);
 
-                for ent in self.enum_implicits(enum_type) {
+                for ent in self.enum_implicits(enum_type, self.has_matching_op(enum_type)) {
                     unsafe {
                         self.arena.add_implicit(enum_type.id(), ent);
                     }
@@ -766,6 +766,7 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     };
 
+                let is_1d = indexes.len() == 1;
                 let array_ent = TypeEnt::define_with_opt_id(
                     self.arena,
                     overwrite_id,
@@ -775,7 +776,8 @@ impl<'a> AnalyzeContext<'a> {
 
                 scope.add(array_ent.into(), diagnostics);
 
-                for ent in self.array_implicits(array_ent) {
+                for ent in self.array_implicits(array_ent, is_1d && self.has_matching_op(elem_type))
+                {
                     unsafe {
                         self.arena.add_implicit(array_ent.id(), ent);
                     }
@@ -926,6 +928,28 @@ impl<'a> AnalyzeContext<'a> {
         }
 
         Ok(())
+    }
+
+    /// The matching operators such as ?= are defined for 1d arrays of bit and std_ulogic element type
+    fn has_matching_op(&self, typ: TypeEnt<'a>) -> bool {
+        if self.is_std_logic_1164 {
+            // Within the std_logic_1164 we do not have efficient access to the types
+            typ.designator() == &Designator::Identifier(self.root.symbol_utf8("std_ulogic"))
+        } else {
+            if let Some(ref standard_types) = self.root.standard_types {
+                if typ.id() == standard_types.bit {
+                    return true;
+                }
+            }
+
+            if let Some(id) = self.root.std_ulogic {
+                if typ.id() == id {
+                    return true;
+                }
+            }
+
+            false
+        }
     }
 
     pub fn resolve_signature(
