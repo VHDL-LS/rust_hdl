@@ -7,6 +7,7 @@
 use super::analyze::*;
 use super::lock::*;
 use super::named_entity::*;
+use super::region::NamedEntities;
 use super::region::Scope;
 use super::standard::StandardTypes;
 use super::standard::UniversalTypes;
@@ -18,6 +19,7 @@ use crate::syntax::Symbols;
 use fnv::{FnvHashMap, FnvHashSet};
 use parking_lot::RwLock;
 use std::collections::hash_map::Entry;
+use std::ops::Deref;
 use std::sync::Arc;
 
 /// A design unit with design unit data
@@ -240,7 +242,6 @@ impl Library {
         result
     }
 
-    #[cfg(test)]
     fn get_unit(&self, key: &UnitKey) -> Option<&LockedUnit> {
         self.units.get(key)
     }
@@ -256,6 +257,7 @@ pub struct DesignRoot {
     pub(super) standard_arena: Option<FinalArena>,
     pub(super) universal: Option<UniversalTypes>,
     pub(super) standard_types: Option<StandardTypes>,
+    pub(super) std_ulogic: Option<EntityId>,
     libraries: FnvHashMap<Symbol, Library>,
 
     // Arena storage of all declaration in the design
@@ -280,6 +282,7 @@ impl DesignRoot {
             standard_pkg_id: None,
             standard_arena: None,
             standard_types: None,
+            std_ulogic: None,
             symbols,
             arenas: FinalArena::default(),
             libraries: FnvHashMap::default(),
@@ -763,6 +766,34 @@ impl DesignRoot {
         }
     }
 
+    /// Analyze ieee std_logic_1164 package library sequentially
+    /// The matching operators such as ?= are implicitly defined for arrays with std_ulogic element
+    /// So these types are blessed by the lanaguage and we need global access to them
+    fn analyze_std_logic_1164(&mut self) {
+        if let Some(lib) = self.libraries.get(&self.symbol_utf8("ieee")) {
+            if let Some(unit) = lib.get_unit(&UnitKey::Primary(self.symbol_utf8("std_logic_1164")))
+            {
+                let data = self.get_analysis(unit);
+                let std_logic_arena = &data.result().arena;
+                if let AnyDesignUnit::Primary(primary) = data.deref() {
+                    if let Some(ent) = primary.ent_id() {
+                        let AnyEntKind::Design(Design::Package(_, ref region)) = std_logic_arena.get(ent).kind() else {
+                            unreachable!()
+                        };
+
+                        if let Some(NamedEntities::Single(ent)) = region.lookup_immediate(
+                            &Designator::Identifier(self.symbol_utf8("std_ulogic")),
+                        ) {
+                            self.std_ulogic = Some(ent.id());
+                        }
+
+                        self.arenas.link(&data.result().arena);
+                    }
+                }
+            }
+        }
+    }
+
     pub fn analyze(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
         self.reset();
 
@@ -772,11 +803,16 @@ impl DesignRoot {
 
         // Rebuild declaration arenas of named entities
         self.arenas.clear();
+
+        // Analyze standard package first sequentially since everything else in the
+        // language depends on it and we want to save a reference to all types there
         self.analyze_standard_package();
         if let Some(std_arena) = self.standard_arena.as_ref() {
             // @TODO some project.rs unit tests do not have the standard package
             self.arenas.link(std_arena);
         }
+
+        self.analyze_std_logic_1164();
 
         use rayon::prelude::*;
         // @TODO run in parallel
