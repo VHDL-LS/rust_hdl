@@ -166,7 +166,7 @@ impl VHDLServer {
         if self.client_supports_did_change_watched_files() {
             let register_options = DidChangeWatchedFilesRegistrationOptions {
                 watchers: vec![FileSystemWatcher {
-                    glob_pattern: "**/vhdl_ls.toml".to_owned(),
+                    glob_pattern: GlobPattern::String("**/vhdl_ls.toml".to_owned()),
                     kind: None,
                 }],
             };
@@ -911,7 +911,7 @@ lib.files = [
 
         let register_options = DidChangeWatchedFilesRegistrationOptions {
             watchers: vec![FileSystemWatcher {
-                glob_pattern: "**/vhdl_ls.toml".to_owned(),
+                glob_pattern: GlobPattern::String("**/vhdl_ls.toml".to_owned()),
                 kind: None,
             }],
         };
@@ -928,8 +928,9 @@ lib.files = [
 
         let capabilities = ClientCapabilities {
             workspace: Some(WorkspaceClientCapabilities {
-                did_change_watched_files: Some(DynamicRegistrationClientCapabilities {
+                did_change_watched_files: Some(DidChangeWatchedFilesClientCapabilities {
                     dynamic_registration: Some(true),
+                    relative_pattern_support: Some(false),
                 }),
                 ..WorkspaceClientCapabilities::default()
             }),
