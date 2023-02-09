@@ -177,8 +177,8 @@ impl<'a> AnalyzeContext<'a> {
                     names.entities().collect(),
                     diagnostics,
                 ))? {
-                    Some(Disambiguated::Ambiguous(_)) => {
-                        // @TODO ambiguous
+                    Some(Disambiguated::Ambiguous(candidates)) => {
+                        diagnostics.push(Diagnostic::ambiguous_call(des, candidates))
                     }
                     Some(Disambiguated::Unambiguous(ent)) => {
                         name.set_unique_reference(&ent);

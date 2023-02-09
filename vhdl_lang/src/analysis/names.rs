@@ -469,7 +469,7 @@ impl<'a> AnalyzeContext<'a> {
             ResolvedName::ObjectName(oname) => Ok(Some(oname.type_mark())),
             ResolvedName::Expression(DisambiguatedType::Unambiguous(typ)) => Ok(Some(*typ)),
             ResolvedName::Expression(DisambiguatedType::Ambiguous(_)) => {
-                // @TODO show ambigous error
+                // Error reported elsewhere
                 Ok(None)
             }
         }
@@ -957,8 +957,10 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(disambiguated) = disambiguated {
                     match disambiguated {
                         Disambiguated::Ambiguous(ents) => {
-                            // @TODO ambiguous error
-                            if let Some(types) = ambiguous_functions_to_types(ents) {
+                            if let Some(types) = ambiguous_functions_to_types(&ents) {
+                                if has_suffix || ttyp.is_some() {
+                                    diagnostics.push(Diagnostic::ambiguous_call(des, ents));
+                                }
                                 resolved =
                                     ResolvedName::Expression(DisambiguatedType::Ambiguous(types));
                             } else {
@@ -1024,8 +1026,11 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics,
                     ))? {
                         Some(Disambiguated::Ambiguous(ents)) => {
-                            // @TODO ambiguous error
-                            if let Some(types) = ambiguous_functions_to_types(ents) {
+                            if let Some(types) = ambiguous_functions_to_types(&ents) {
+                                if has_suffix || ttyp.is_some() {
+                                    diagnostics.push(Diagnostic::ambiguous_call(des, ents));
+                                }
+
                                 resolved =
                                     ResolvedName::Expression(DisambiguatedType::Ambiguous(types));
                             } else {
@@ -1637,7 +1642,7 @@ impl Diagnostic {
         Diagnostic::warning(pos, format!("Internal error, unreachable code {expected}"))
     }
 
-    fn ambiguous_call<'a>(
+    pub fn ambiguous_call<'a>(
         call_name: &WithPos<Designator>,
         candidates: impl IntoIterator<Item = OverloadedEnt<'a>>,
     ) -> Diagnostic {
@@ -1688,7 +1693,9 @@ fn check_single_argument<'a>(
     }
 }
 
-fn ambiguous_functions_to_types(overloaded: Vec<OverloadedEnt>) -> Option<FnvHashSet<BaseType>> {
+fn ambiguous_functions_to_types<'a>(
+    overloaded: &[OverloadedEnt<'a>],
+) -> Option<FnvHashSet<BaseType<'a>>> {
     let types: FnvHashSet<_> = overloaded
         .iter()
         .filter_map(|ent| ent.return_type())
@@ -2783,5 +2790,70 @@ type enum_t is (alpha, beta);
                     .collect()
             )))
         );
+    }
+
+    #[test]
+    fn ambiguous_function_with_ttyp() {
+        let test = TestSetup::new();
+        let decl = test.declarative_part(
+            "
+        function f1 return integer;
+        function f1 return character;
+        function myfun(arg: integer) return integer;
+        function myfun(arg: character) return integer;
+        ",
+        );
+        let code = test.snippet("myfun(f1)");
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            test.name_resolve(&code, Some(test.ctx().integer()), &mut diagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Ambiguous(
+                vec![test.ctx().integer().base()].into_iter().collect()
+            )))
+        );
+        check_diagnostics(
+            diagnostics,
+            vec![
+                Diagnostic::error(code.s1("myfun"), "Ambiguous call to 'myfun'")
+                    .related(decl.s("myfun", 1), "Migth be myfun[INTEGER return INTEGER]")
+                    .related(
+                        decl.s("myfun", 2),
+                        "Migth be myfun[CHARACTER return INTEGER]",
+                    ),
+            ],
+        )
+    }
+
+    #[test]
+    fn ambiguous_function_with_suffix() {
+        let test = TestSetup::new();
+        let decl = test.declarative_part(
+            "
+        type rec1_t is record
+            elem1: natural;
+        end record;
+
+        type rec2_t is record
+            elem1: natural;
+        end record;
+
+        function myfun(arg: integer) return rec1_t;
+        function myfun(arg: integer) return rec2_t;
+        ",
+        );
+        let code = test.snippet("myfun(0).elem1");
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            test.name_resolve(&code, None, &mut diagnostics),
+            Err(EvalError::Unknown)
+        );
+        check_diagnostics(
+            diagnostics,
+            vec![
+                Diagnostic::error(code.s1("myfun"), "Ambiguous call to 'myfun'")
+                    .related(decl.s("myfun", 1), "Migth be myfun[INTEGER return rec1_t]")
+                    .related(decl.s("myfun", 2), "Migth be myfun[INTEGER return rec2_t]"),
+            ],
+        )
     }
 }
