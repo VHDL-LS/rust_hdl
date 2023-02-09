@@ -7,6 +7,8 @@
 use fnv::FnvHashSet;
 
 use super::analyze::*;
+use super::association::ResolvedFormal;
+use super::expression::ExpressionType;
 use super::formal_region::InterfaceEnt;
 use super::named_entity::*;
 use super::region::*;
@@ -24,6 +26,11 @@ pub enum Disambiguated<'a> {
 pub enum DisambiguatedType<'a> {
     Unambiguous(TypeEnt<'a>),
     Ambiguous(FnvHashSet<BaseType<'a>>),
+}
+#[derive(Copy, Clone)]
+pub enum SubprogramKind<'a> {
+    Function(Option<TypeEnt<'a>>),
+    Procedure,
 }
 
 // The reason a subprogram was rejected as a candidate of a call
@@ -158,6 +165,11 @@ impl<'a> Disambiguated<'a> {
     }
 }
 
+pub(super) struct ResolvedCall<'a> {
+    pub subpgm: OverloadedEnt<'a>,
+    pub formals: Vec<ResolvedFormal<'a>>,
+}
+
 impl<'a> AnalyzeContext<'a> {
     /// Typecheck one overloaded call where the exact subprogram is known
     pub fn check_call(
@@ -178,94 +190,52 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub fn disambiguate(
+    fn disambiguate_by_kind(candidates: &mut Vec<OverloadedEnt<'a>>, kind: SubprogramKind<'a>) {
+        match kind {
+            SubprogramKind::Function(_) => candidates.retain(|cand| cand.is_function()),
+            SubprogramKind::Procedure => candidates.retain(|cand| cand.is_procedure()),
+        };
+    }
+
+    fn disambiguate_by_assoc_formals(
         &self,
         scope: &Scope<'a>,
-        call_pos: &SrcPos,               // The position of the entire call
-        call_name: &WithPos<Designator>, // The position and name of the subprogram name in the call
-        parameters: &mut [AssociationElement],
-        ttyp: Option<TypeEnt<'a>>,
-        all_overloaded: Vec<OverloadedEnt<'a>>,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<Disambiguated<'a>> {
-        // Apply target type constraint if it exists
-        let overloaded = if let Some(ttyp) = ttyp {
-            let mut overloaded = all_overloaded.clone();
-            let tbase = ttyp.base();
-            overloaded.retain(|ent| {
-                if let Some(return_type) = ent.return_type() {
-                    self.can_be_target_type(return_type, tbase)
-                } else {
-                    false
-                }
-            });
-
-            overloaded
-        } else {
-            all_overloaded.clone()
-        };
-
-        // Does not need disambiguation
-        if overloaded.len() == 1 {
-            let ent = overloaded[0];
-            self.check_call(scope, call_pos, ent, parameters, diagnostics)?;
-            return Ok(Disambiguated::Unambiguous(ent));
-        } else if overloaded.is_empty() {
-            // No candidate
-            let mut diag = Diagnostic::error(
-                &call_name.pos,
-                format!("Could not resolve call to '{}'", call_name.designator()),
-            );
-            diag.add_subprogram_candidates("Does not match", all_overloaded);
-            diagnostics.push(diag);
-            return Err(EvalError::Unknown);
-        }
-
-        let mut candidates = Vec::with_capacity(overloaded.len());
-        for ent in overloaded.iter() {
+        call_pos: &SrcPos,
+        candidates: &[OverloadedEnt<'a>],
+        assocs: &mut [AssociationElement],
+    ) -> EvalResult<Vec<ResolvedCall<'a>>> {
+        let mut result = Vec::with_capacity(candidates.len());
+        for ent in candidates.iter() {
             if let Some(resolved) = as_fatal(self.resolve_association_formals(
                 call_pos,
                 ent.formals(),
                 scope,
-                parameters,
+                assocs,
                 &mut NullDiagnostics,
             ))? {
-                candidates.push((ent, resolved));
+                result.push(ResolvedCall {
+                    subpgm: *ent,
+                    formals: resolved,
+                });
             }
 
-            for elem in parameters.iter_mut() {
+            for elem in assocs.iter_mut() {
                 clear_references(elem);
             }
         }
 
-        // Only one candidate matched actual/formal profile
-        if candidates.len() == 1 {
-            let ent = *candidates[0].0;
-            self.check_call(scope, call_pos, ent, parameters, diagnostics)?;
-            return Ok(Disambiguated::Unambiguous(ent));
-        }
+        Ok(result)
+    }
 
-        // No candidate matched actual/formal profile
-        if candidates.is_empty() {
-            return if overloaded.len() == 1 {
-                let ent = overloaded[0];
-                self.check_call(scope, call_pos, ent, parameters, diagnostics)?;
-                return Ok(Disambiguated::Unambiguous(ent));
-            } else {
-                let mut diag = Diagnostic::error(
-                    &call_name.pos,
-                    format!("Could not resolve call to '{}'", call_name.designator()),
-                );
-                diag.add_subprogram_candidates("Does not match", overloaded);
-                diagnostics.push(diag);
-                Err(EvalError::Unknown)
-            };
-        }
+    fn actual_types(
+        &self,
+        scope: &Scope<'a>,
+        assocs: &mut [AssociationElement],
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<Vec<Option<ExpressionType<'a>>>> {
+        let mut actual_types = Vec::with_capacity(assocs.len());
 
-        let mut actual_types = Vec::with_capacity(parameters.len());
-
-        for assoc in parameters.iter_mut() {
+        for assoc in assocs.iter_mut() {
             match &mut assoc.actual.item {
                 ActualPart::Expression(expr) => {
                     let actual_type =
@@ -278,36 +248,87 @@ impl<'a> AnalyzeContext<'a> {
             }
         }
 
-        let type_candidates: Vec<_> = candidates
-            .iter()
-            .cloned()
-            .filter(|(_, formals)| {
-                actual_types.iter().enumerate().all(|(idx, actual_type)| {
-                    if let Some(actual_type) = actual_type {
-                        self.is_possible(actual_type, formals[idx].type_mark().base())
-                    } else {
-                        true
-                    }
-                })
-            })
-            .map(|(ent, _)| *ent)
-            .collect();
+        Ok(actual_types)
+    }
 
-        // Only one candidate matches type profile, check it
-        if type_candidates.len() == 1 {
-            let ent = type_candidates[0];
-            self.check_call(scope, call_pos, ent, parameters, diagnostics)?;
+    #[allow(clippy::too_many_arguments)]
+    pub fn disambiguate(
+        &self,
+        scope: &Scope<'a>,
+        call_pos: &SrcPos,               // The position of the entire call
+        call_name: &WithPos<Designator>, // The position and name of the subprogram name in the call
+        assocs: &mut [AssociationElement],
+        kind: SubprogramKind<'a>,
+        all_overloaded: Vec<OverloadedEnt<'a>>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<Disambiguated<'a>> {
+        if all_overloaded.len() == 1 {
+            let ent = all_overloaded[0];
+            self.check_call(scope, call_pos, ent, assocs, diagnostics)?;
             return Ok(Disambiguated::Unambiguous(ent));
-        } else if type_candidates.is_empty() {
-            let mut diag = Diagnostic::error(
-                &call_name.pos,
-                format!("Could not resolve call to '{}'", call_name.designator()),
-            );
-            diag.add_subprogram_candidates("Does not match", overloaded);
-            diagnostics.push(diag);
-            Err(EvalError::Unknown)
+        }
+
+        let mut ok_kind = all_overloaded.clone();
+        Self::disambiguate_by_kind(&mut ok_kind, kind);
+
+        // Does not need disambiguation
+        if ok_kind.len() == 1 {
+            let ent = ok_kind[0];
+            self.check_call(scope, call_pos, ent, assocs, diagnostics)?;
+            return Ok(Disambiguated::Unambiguous(ent));
+        } else if ok_kind.is_empty() {
+            diagnostics.push(Diagnostic::could_not_resolve(call_name, all_overloaded));
+            return Err(EvalError::Unknown);
+        }
+
+        let ok_formals = self.disambiguate_by_assoc_formals(scope, call_pos, &ok_kind, assocs)?;
+
+        // Only one candidate matched actual/formal profile
+        if ok_formals.len() == 1 {
+            let ent = ok_formals[0].subpgm;
+            self.check_call(scope, call_pos, ent, assocs, diagnostics)?;
+            return Ok(Disambiguated::Unambiguous(ent));
+        } else if ok_formals.is_empty() {
+            // No candidate matched actual/formal profile
+            diagnostics.push(Diagnostic::could_not_resolve(call_name, ok_kind));
+            return Err(EvalError::Unknown);
+        }
+
+        let actual_types = self.actual_types(scope, assocs, diagnostics)?;
+
+        let ok_assoc_types = self
+            .implicit_matcher()
+            .disambiguate_by_assoc_types(&actual_types, &ok_formals);
+
+        if ok_assoc_types.len() == 1 {
+            let ent = ok_assoc_types[0];
+            self.check_call(scope, call_pos, ent, assocs, diagnostics)?;
+            return Ok(Disambiguated::Unambiguous(ent));
+        } else if ok_assoc_types.is_empty() {
+            diagnostics.push(Diagnostic::could_not_resolve(
+                call_name,
+                ok_formals.into_iter().map(|resolved| resolved.subpgm),
+            ));
+            return Err(EvalError::Unknown);
+        }
+
+        if let SubprogramKind::Function(rtyp) = kind {
+            let mut ok_return_type = ok_assoc_types.clone();
+            self.implicit_matcher()
+                .disambiguate_op_by_return_type(&mut ok_return_type, rtyp);
+
+            // Only one candidate matches type profile, check it
+            if ok_return_type.len() == 1 {
+                let ent = ok_return_type[0];
+                self.check_call(scope, call_pos, ent, assocs, diagnostics)?;
+                return Ok(Disambiguated::Unambiguous(ent));
+            } else if ok_return_type.is_empty() {
+                diagnostics.push(Diagnostic::could_not_resolve(call_name, ok_assoc_types));
+                return Err(EvalError::Unknown);
+            }
+            Ok(Disambiguated::Ambiguous(ok_return_type))
         } else {
-            Ok(Disambiguated::Ambiguous(type_candidates))
+            Ok(Disambiguated::Ambiguous(ok_assoc_types))
         }
     }
 
@@ -338,6 +359,20 @@ impl<'a> AnalyzeContext<'a> {
         }
 
         Ok(Some(candidates.finish(name, ttyp)?))
+    }
+}
+
+impl Diagnostic {
+    fn could_not_resolve<'a>(
+        name: &WithPos<Designator>,
+        rejected: impl IntoIterator<Item = OverloadedEnt<'a>>,
+    ) -> Self {
+        let mut diag = Diagnostic::error(
+            &name.pos,
+            format!("Could not resolve call to '{}'", name.designator()),
+        );
+        diag.add_subprogram_candidates("Does not match", rejected);
+        diag
     }
 }
 
@@ -379,7 +414,7 @@ mod tests {
                 &fcall.pos,
                 &des,
                 &mut fcall.item.parameters,
-                ttyp,
+                SubprogramKind::Function(ttyp),
                 overloaded.entities().collect(),
                 diagnostics,
             ))

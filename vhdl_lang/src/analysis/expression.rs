@@ -13,6 +13,7 @@ use super::formal_region::RecordRegion;
 use super::named_entity::*;
 use super::overloaded::Disambiguated;
 use super::overloaded::DisambiguatedType;
+use super::overloaded::ResolvedCall;
 use super::region::*;
 use crate::ast::*;
 use crate::data::*;
@@ -57,7 +58,7 @@ impl<'a> From<DisambiguatedType<'a>> for ExpressionType<'a> {
     }
 }
 
-pub(crate) struct TypeMatcher<'c, 'a> {
+pub(super) struct TypeMatcher<'c, 'a> {
     // Allow implicit type conversion from universal real/integer to other integer types
     implicit_type_conversion: bool,
     context: &'c AnalyzeContext<'a>,
@@ -108,6 +109,26 @@ impl<'c, 'a> TypeMatcher<'c, 'a> {
         })
     }
 
+    pub fn disambiguate_by_assoc_types(
+        &self,
+        actual_types: &[Option<ExpressionType<'a>>],
+        candidates: &[ResolvedCall<'a>],
+    ) -> Vec<OverloadedEnt<'a>> {
+        candidates
+            .iter()
+            .filter(|resolved| {
+                actual_types.iter().enumerate().all(|(idx, actual_type)| {
+                    if let Some(actual_type) = actual_type {
+                        self.is_possible(actual_type, resolved.formals[idx].type_mark().base())
+                    } else {
+                        true
+                    }
+                })
+            })
+            .map(|resolved| resolved.subpgm)
+            .collect()
+    }
+
     pub fn disambiguate_op_by_return_type(
         &self,
         candidates: &mut Vec<OverloadedEnt<'a>>,
@@ -125,14 +146,14 @@ impl<'c, 'a> TypeMatcher<'c, 'a> {
 }
 
 impl<'a> AnalyzeContext<'a> {
-    pub fn matcher_no_implicit(&self) -> TypeMatcher<'_, 'a> {
+    pub fn strict_matcher(&self) -> TypeMatcher<'_, 'a> {
         TypeMatcher {
             implicit_type_conversion: false,
             context: self,
         }
     }
 
-    pub fn matcher(&self) -> TypeMatcher<'_, 'a> {
+    pub fn implicit_matcher(&self) -> TypeMatcher<'_, 'a> {
         TypeMatcher {
             implicit_type_conversion: true,
             context: self,
@@ -141,7 +162,7 @@ impl<'a> AnalyzeContext<'a> {
 
     // Returns true if the expression types is possible given the target type
     pub fn is_possible(&self, types: &ExpressionType<'a>, ttyp: BaseType<'a>) -> bool {
-        self.matcher().is_possible(types, ttyp)
+        self.implicit_matcher().is_possible(types, ttyp)
     }
 
     pub fn common_type(&self, typ1: BaseType<'a>, typ2: BaseType<'a>) -> Option<BaseType<'a>> {
@@ -168,7 +189,7 @@ impl<'a> AnalyzeContext<'a> {
     }
 
     pub fn can_be_target_type(&self, typ: TypeEnt<'a>, ttyp: BaseType<'a>) -> bool {
-        self.matcher().can_be_target_type(typ, ttyp)
+        self.implicit_matcher().can_be_target_type(typ, ttyp)
     }
 
     pub fn expr_unknown_ttyp(
@@ -301,12 +322,12 @@ impl<'a> AnalyzeContext<'a> {
         let mut candidates = overloaded.clone();
 
         if candidates.len() > 1 {
-            self.matcher()
+            self.implicit_matcher()
                 .disambiguate_op_by_arguments(&mut candidates, &operand_types);
         }
 
         if candidates.len() > 1 && ttyp.is_some() {
-            self.matcher()
+            self.implicit_matcher()
                 .disambiguate_op_by_return_type(&mut candidates, ttyp);
         }
 
@@ -318,14 +339,14 @@ impl<'a> AnalyzeContext<'a> {
                 .collect();
 
             if return_types.len() == 1 {
-                self.matcher_no_implicit()
+                self.strict_matcher()
                     .disambiguate_op_by_arguments(&mut candidates, &operand_types);
             }
         }
 
         if candidates.len() > 1 {
             if ttyp.is_some() {
-                self.matcher_no_implicit()
+                self.strict_matcher()
                     .disambiguate_op_by_return_type(&mut candidates, ttyp);
             } else {
                 let return_types: FnvHashSet<_> = candidates
@@ -348,7 +369,7 @@ impl<'a> AnalyzeContext<'a> {
             // Try to disambiguate to a single candidate if return type ruled out all candidates
             // But it is unambiguous without implicit argument cast
             let mut cands = overloaded.clone();
-            self.matcher_no_implicit()
+            self.strict_matcher()
                 .disambiguate_op_by_arguments(&mut cands, &operand_types);
 
             if cands.len() == 1 {

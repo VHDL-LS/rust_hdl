@@ -7,6 +7,7 @@ use super::analyze::*;
 use super::named_entity::*;
 use super::names::ResolvedName;
 use super::overloaded::Disambiguated;
+use super::overloaded::SubprogramKind;
 use super::region::*;
 use crate::ast::*;
 use crate::data::*;
@@ -167,41 +168,36 @@ impl<'a> AnalyzeContext<'a> {
 
         match resolved {
             ResolvedName::Overloaded(ref des, names) => {
-                let procedures: Vec<_> = names
-                    .entities()
-                    .filter(|name| name.is_procedure())
-                    .collect();
+                match as_fatal(self.disambiguate(
+                    scope,
+                    &fcall.pos,
+                    des,
+                    parameters,
+                    SubprogramKind::Procedure,
+                    names.entities().collect(),
+                    diagnostics,
+                ))? {
+                    Some(Disambiguated::Ambiguous(_)) => {
+                        // @TODO ambiguous
+                    }
+                    Some(Disambiguated::Unambiguous(ent)) => {
+                        name.set_unique_reference(&ent);
 
-                if !procedures.is_empty() {
-                    match as_fatal(self.disambiguate(
-                        scope,
-                        &fcall.pos,
-                        des,
-                        &mut fcall.item.parameters,
-                        None,
-                        procedures,
-                        diagnostics,
-                    ))? {
-                        Some(Disambiguated::Ambiguous(_)) => {
-                            // @TODO ambiguous
-                        }
-                        Some(Disambiguated::Unambiguous(ent)) => {
-                            fcall.item.name.set_unique_reference(&ent);
-                        }
-                        None => {}
-                    }
-                } else {
-                    let mut diagnostic = Diagnostic::error(&name.pos, "Invalid procedure call");
-                    for ent in names.sorted_entities() {
-                        if let Some(decl_pos) = ent.decl_pos() {
-                            diagnostic.add_related(
-                                decl_pos,
-                                format!("{} is not a procedure", ent.describe()),
-                            );
+                        if !ent.is_procedure() {
+                            let mut diagnostic =
+                                Diagnostic::error(&name.pos, "Invalid procedure call");
+                            for ent in names.sorted_entities() {
+                                if let Some(decl_pos) = ent.decl_pos() {
+                                    diagnostic.add_related(
+                                        decl_pos,
+                                        format!("{} is not a procedure", ent.describe()),
+                                    );
+                                }
+                            }
+                            diagnostics.push(diagnostic);
                         }
                     }
-                    diagnostics.push(diagnostic);
-                    self.analyze_assoc_elems(scope, parameters, diagnostics)?;
+                    None => {}
                 }
             }
             resolved => {

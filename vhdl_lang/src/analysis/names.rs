@@ -11,6 +11,7 @@ use super::expression::ExpressionType;
 use super::named_entity::*;
 use super::overloaded::Disambiguated;
 use super::overloaded::DisambiguatedType;
+use super::overloaded::SubprogramKind;
 use super::region::*;
 use crate::ast::*;
 use crate::data::*;
@@ -1013,12 +1014,12 @@ impl<'a> AnalyzeContext<'a> {
                         name_pos,
                         des,
                         assocs,
-                        if has_suffix {
+                        SubprogramKind::Function(if has_suffix {
                             // @TODO disambiguate based on suffixes
                             None
                         } else {
                             ttyp
-                        },
+                        }),
                         overloaded.entities().collect(),
                         diagnostics,
                     ))? {
