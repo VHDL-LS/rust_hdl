@@ -243,13 +243,14 @@ PoC.files = [
 #'PoC/src/net/ipv6/*.vhdl',
 #'PoC/src/net/*.vhdl',
 
-'PoC/src/bus/stream/stream_Source.vhdl',
+#'PoC/src/bus/stream/stream_Source.vhdl',
 'PoC/src/bus/stream/stream_DeMux.vhdl',
 # Is this file broken, contains undefined types?
 #'PoC/src/bus/stream/stream_FrameGenerator.vhdl',
 'PoC/src/bus/stream/stream_Mirror.vhdl',
 'PoC/src/bus/stream/stream_Mux.vhdl',
-'PoC/src/bus/stream/stream.pkg.vhdl',
+# Ambiguous use of to string
+#'PoC/src/bus/stream/stream.pkg.vhdl',
 'PoC/src/bus/stream/stream_Buffer.vhdl',
 
 'PoC/src/bus/*.vhdl',
