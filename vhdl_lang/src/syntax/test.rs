@@ -114,6 +114,17 @@ impl Code {
         self.s(substr, 1)
     }
 
+    // Creates a code from the first occurence for before + substr at the
+    // position of substr
+    pub fn sa(&self, before: &str, substr: &str) -> Code {
+        let mut range = self.s1(&format!("{before}{substr}")).pos().range;
+        for _ in 0..before.len() {
+            range.start = range.start.next_char();
+        }
+
+        self.in_range(range)
+    }
+
     pub fn pos(&self) -> SrcPos {
         self.pos.clone()
     }

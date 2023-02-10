@@ -825,13 +825,19 @@ impl<'a> AnalyzeContext<'a> {
         );
 
         let is_one_dimensional = indexes.len() == 1;
+        let is_character_elem = matches!(elem_type.base().kind(), Type::Enum(designators) if designators.iter().all(|des| matches!(des, Designator::Character(_))));
 
         [
-            self.create_to_string(typ),
             self.comparison(Operator::EQ, typ),
             self.comparison(Operator::NE, typ),
         ]
         .into_iter()
+        .chain(if is_one_dimensional && is_character_elem {
+            // To string is only defined for 1d array types with character elements
+            Some(self.create_to_string(typ)).into_iter()
+        } else {
+            None.into_iter()
+        })
         .chain(
             (if is_one_dimensional {
                 Some(self.concatenations(typ, *elem_type))

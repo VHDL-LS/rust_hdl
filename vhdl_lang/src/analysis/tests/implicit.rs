@@ -60,14 +60,28 @@ end package;
 
 #[test]
 fn adds_to_string_for_array_types() {
-    check_code_with_no_diagnostics(
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "lib",
         "
 package pkg is
-  type type_t is array (natural range 0 to 1) of integer;
+  type type_t is array (natural range 0 to 1) of bit;
   alias my_to_string is to_string[type_t return string];
+
+  type bad_t is array (natural range 0 to 1) of integer;
+  alias bad_to_string is to_string[bad_t return string];
 end package;
 ",
     );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        without_releated(&diagnostics),
+        vec![Diagnostic::error(
+            code.sa("bad_to_string is ", "to_string"),
+            "Could not find declaration of 'to_string' with given signature",
+        )],
+    )
 }
 
 #[test]
