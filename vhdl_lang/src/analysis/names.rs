@@ -1151,13 +1151,16 @@ impl<'a> AnalyzeContext<'a> {
                 if let Suffix::Selected(ref mut designator) = suffix {
                     let name =
                         catch_diagnostic(ent.selected(&prefix.pos, designator), diagnostics)?;
-                    designator.set_reference(&name);
                     resolved = match name {
-                        NamedEntities::Single(named_entity) => catch_diagnostic(
-                            ResolvedName::from_design_not_overloaded(named_entity)
-                                .map_err(|e| Diagnostic::error(&designator.pos, e)),
-                            diagnostics,
-                        )?,
+                        NamedEntities::Single(named_entity) => {
+                            designator.set_reference(&name);
+
+                            catch_diagnostic(
+                                ResolvedName::from_design_not_overloaded(named_entity)
+                                    .map_err(|e| Diagnostic::error(&designator.pos, e)),
+                                diagnostics,
+                            )?
+                        }
                         NamedEntities::Overloaded(overloaded) => {
                             // Could be used for an alias of a subprogram
                             ResolvedName::Overloaded(

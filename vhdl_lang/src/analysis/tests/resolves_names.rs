@@ -1709,3 +1709,36 @@ attribute bad of ram : signal is 0;
         )],
     );
 }
+
+#[test]
+fn selected_function_is_resolved() {
+    // This test case exists because a bug was found
+    // where a the arguments of a selected name prefix
+    // were not resolved because the 'myfun' name already had a referenc set
+    // which cause the disambiguation not to run
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+   function myfun(arg : integer) return boolean;
+end package;
+
+entity ent is
+end entity;
+
+architecture a of ent is
+   constant c0 : integer := 0;
+   constant c1 : boolean := work.pkg.myfun(c0);
+begin
+end architecture;
+        ",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    assert!(root
+        .search_reference(code.source(), code.s1("myfun(c0)").s1("c0").start())
+        .is_some());
+}
