@@ -673,10 +673,33 @@ impl<'a> AnalyzeContext<'a> {
                 let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
 
                 if let Some((_, indexes)) = typ.array_type() {
-                    if attr.expr.is_none() {
-                        // @TODO could also be 'left(2) for different dimensions
-                        Ok(indexes.first().unwrap().unwrap())
+                    let idx = if let Some(expr) = attr.expr {
+                        if let Expression::Literal(Literal::AbstractLiteral(
+                            AbstractLiteral::Integer(idx),
+                        )) = expr.item
+                        {
+                            idx as usize
+                        } else {
+                            diagnostics.error(&expr.pos, "Expected an integer literal");
+                            return Err(EvalError::Unknown);
+                        }
                     } else {
+                        1
+                    };
+
+                    if let Some(idx_typ) = indexes.get(idx - 1) {
+                        if let Some(idx_typ) = idx_typ {
+                            Ok(*idx_typ)
+                        } else {
+                            // Array index was not analyzed
+                            Err(EvalError::Unknown)
+                        }
+                    } else {
+                        if let Some(expr) = attr.expr {
+                            let ndims = indexes.len();
+                            let dimensions = plural("dimension", "dimensions", ndims);
+                            diagnostics.error(&expr.pos, format!("Index {idx} out of range for array with {ndims} {dimensions}, expected 1 to {ndims}"));
+                        }
                         Err(EvalError::Unknown)
                     }
                 } else if typ.is_scalar() {
@@ -2187,6 +2210,59 @@ type arr_t is array (integer range 0 to 3) of integer;
                 test.lookup_type("integer")
             )))
         );
+    }
+
+    #[test]
+    fn array_2d_type_attribute() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+type arr_t is array (integer range 0 to 3, character range 'a' to 'c') of integer;        
+        ",
+        );
+        let code = test.snippet("arr_t'left(1)");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.lookup_type("integer")
+            )))
+        );
+
+        let code = test.snippet("arr_t'left(2)");
+        assert_eq!(
+            test.name_resolve(&code, None, &mut NoDiagnostics),
+            Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
+                test.lookup_type("character")
+            )))
+        );
+
+        let code = test.snippet("arr_t'left(3)");
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            test.name_resolve(&code, None, &mut diagnostics),
+            Err(EvalError::Unknown)
+        );
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("3"),
+                "Index 3 out of range for array with 2 dimensions, expected 1 to 2",
+            )],
+        );
+
+        let code = test.snippet("arr_t'left(1+1)");
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            test.name_resolve(&code, None, &mut diagnostics),
+            Err(EvalError::Unknown)
+        );
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("1+1"),
+                "Expected an integer literal",
+            )],
+        )
     }
 
     #[test]
