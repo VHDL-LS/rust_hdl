@@ -674,18 +674,12 @@ impl Search for DiscreteRange {
 
 impl Search for TypeDeclaration {
     fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
-        if !matches!(self.def, TypeDefinition::ProtectedBody(_)) {
-            return_if_found!(searcher
-                .search_decl(FoundDeclaration::Type(self))
-                .or_not_found());
-        }
+        return_if_found!(searcher
+            .search_decl(FoundDeclaration::Type(self))
+            .or_not_found());
 
         match self.def {
             TypeDefinition::ProtectedBody(ref mut body) => {
-                // Protected type body is not considered a declaration
-                return_if_found!(searcher
-                    .search_pos_with_ref(self.ident.pos(), &mut body.type_reference)
-                    .or_not_found());
                 return_if_found!(body.decl.search(searcher));
             }
             TypeDefinition::Protected(ref mut prot_decl) => {
@@ -1315,6 +1309,37 @@ impl Searcher for ItemAtCursor {
         } else {
             Finished(NotFound)
         }
+    }
+}
+
+// Search for reference to declaration/definition at cursor
+pub struct FindEnt<'a, T: Fn(EntRef<'a>) -> bool> {
+    root: &'a DesignRoot,
+    cond: T,
+    pub result: Option<EntRef<'a>>,
+}
+
+impl<'a, T: Fn(EntRef<'a>) -> bool> FindEnt<'a, T> {
+    pub fn new(root: &'a DesignRoot, cond: T) -> FindEnt<'a, T> {
+        FindEnt {
+            root,
+            cond,
+            result: None,
+        }
+    }
+}
+
+impl<'a, T: Fn(EntRef<'a>) -> bool> Searcher for FindEnt<'a, T> {
+    fn search_decl(&mut self, decl: FoundDeclaration) -> SearchState {
+        if let Some(id) = decl.ent_id() {
+            let ent = self.root.get_ent(id);
+            if (self.cond)(ent) {
+                self.result = Some(ent);
+                return SearchState::Finished(SearchResult::Found);
+            }
+        }
+
+        SearchState::NotFinished
     }
 }
 

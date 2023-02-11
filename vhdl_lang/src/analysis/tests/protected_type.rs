@@ -265,7 +265,7 @@ end package;",
 
     assert_eq!(
         root.search_reference_pos(code.source(), code.s("prot_t", 2).start()),
-        Some(code.s1("prot_t").pos())
+        Some(code.s("prot_t", 2).pos())
     );
 
     assert_eq!(
@@ -283,5 +283,10 @@ end package;",
             code.s("prot_t", 2).pos(),
             code.s("prot_t", 3).pos()
         ]
+    );
+
+    assert_eq!(
+        root.find_definition_of(ptype).unwrap().decl_pos(),
+        Some(&code.s("prot_t", 2).pos())
     );
 }

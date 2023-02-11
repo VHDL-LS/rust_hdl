@@ -1787,6 +1787,16 @@ end;
             code.s("myfun", 3).pos()
         ]
     );
+
+    assert_eq!(
+        root.find_definition_of(
+            root.search_reference(code.source(), code.s1("myfun").start())
+                .unwrap()
+        )
+        .unwrap()
+        .decl_pos(),
+        Some(&code.s("myfun", 2).pos())
+    );
 }
 
 #[test]
@@ -1819,5 +1829,15 @@ end package body;
     assert_eq_unordered(
         &root.find_all_references_pos(&code.s("c0", 2).pos()),
         &references,
+    );
+
+    assert_eq!(
+        root.find_definition_of(
+            root.search_reference(code.source(), code.s1("c0").start())
+                .unwrap()
+        )
+        .unwrap()
+        .decl_pos(),
+        Some(&code.s("c0", 2).pos())
     );
 }

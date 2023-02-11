@@ -640,7 +640,6 @@ impl<'a> AnalyzeContext<'a> {
                                 if let AnyEntKind::Type(Type::Protected(ptype_region, is_body)) =
                                     ent.kind()
                                 {
-                                    body.type_reference.set_unique_reference(ent);
                                     let region = Scope::extend(ptype_region, Some(scope));
                                     self.analyze_declarative_part(
                                         &region,

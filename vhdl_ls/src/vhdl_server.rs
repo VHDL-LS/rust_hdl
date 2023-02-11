@@ -327,7 +327,7 @@ impl VHDLServer {
 
         let ent = self
             .project
-            .search_reference(&source, from_lsp_pos(params.position))?;
+            .find_declaration(&source, from_lsp_pos(params.position))?;
         Some(srcpos_to_location(ent.decl_pos()?))
     }
 
@@ -336,7 +336,14 @@ impl VHDLServer {
         &mut self,
         params: &TextDocumentPositionParams,
     ) -> Option<Location> {
-        self.text_document_declaration(params)
+        let source = self
+            .project
+            .get_source(&uri_to_file_name(&params.text_document.uri))?;
+
+        let ent = self
+            .project
+            .find_definition(&source, from_lsp_pos(params.position))?;
+        Some(srcpos_to_location(ent.decl_pos()?))
     }
 
     pub fn text_document_hover(&mut self, params: &TextDocumentPositionParams) -> Option<Hover> {
@@ -345,7 +352,7 @@ impl VHDLServer {
             .get_source(&uri_to_file_name(&params.text_document.uri))?;
         let ent = self
             .project
-            .search_reference(&source, from_lsp_pos(params.position))?;
+            .find_declaration(&source, from_lsp_pos(params.position))?;
 
         let value = self.project.format_declaration(ent)?;
 
@@ -365,7 +372,7 @@ impl VHDLServer {
                 &params.text_document_position.text_document.uri,
             ))
             .and_then(|source| {
-                self.project.search_reference(
+                self.project.find_declaration(
                     &source,
                     from_lsp_pos(params.text_document_position.position),
                 )

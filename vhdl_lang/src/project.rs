@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::analysis::{AnyEnt, DesignRoot, EntRef};
+use crate::analysis::{AnyEnt, DesignRoot, EntRef, Related};
 use crate::ast::DesignFile;
 use crate::config::Config;
 use crate::data::*;
@@ -222,8 +222,19 @@ impl Project {
     ///
     /// If the character value is greater than the line length it defaults back to the
     /// line length.
-    pub fn search_reference<'a>(&'a self, source: &Source, cursor: Position) -> Option<EntRef<'a>> {
-        self.root.search_reference(source, cursor)
+    pub fn find_definition<'a>(&'a self, source: &Source, cursor: Position) -> Option<EntRef<'a>> {
+        let ent = self.root.search_reference(source, cursor)?;
+        self.root.find_definition_of(ent)
+    }
+
+    pub fn find_declaration<'a>(&'a self, source: &Source, cursor: Position) -> Option<EntRef<'a>> {
+        let ent = self.root.search_reference(source, cursor)?;
+
+        if let Related::DeclaredBy(other) = ent.related {
+            Some(other)
+        } else {
+            Some(ent)
+        }
     }
 
     /// Search for the declaration at decl_pos and format it

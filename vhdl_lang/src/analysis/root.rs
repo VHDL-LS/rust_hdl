@@ -351,6 +351,21 @@ impl DesignRoot {
         Some(self.get_ent(id))
     }
 
+    pub fn find_definition_of<'a>(&'a self, decl: EntRef<'a>) -> Option<EntRef<'a>> {
+        if decl.is_protected_type()
+            || decl.is_subprogram_decl()
+            || decl.kind().is_deferred_constant()
+        {
+            let mut searcher = FindEnt::new(self, |ent| ent.is_declared_by(decl));
+            let _ = self.search(&mut searcher);
+
+            Some(searcher.result.unwrap_or(decl))
+        } else {
+            // The definition is the same as the declaration
+            Some(decl)
+        }
+    }
+
     #[cfg(test)]
     pub fn search_reference_pos(&self, source: &Source, cursor: Position) -> Option<SrcPos> {
         self.search_reference(source, cursor)
