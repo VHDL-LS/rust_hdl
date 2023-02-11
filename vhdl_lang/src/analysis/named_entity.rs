@@ -321,6 +321,16 @@ impl<'a> AnyEnt<'a> {
             _ => format!("{} '{}'", self.kind.describe(), self.designator),
         }
     }
+
+    #[cfg(test)]
+    pub fn lookup_implicit_of(&self, name: &str) -> OverloadedEnt<'a> {
+        let ent = self
+            .implicits
+            .iter()
+            .find(|ent| matches!(ent.designator(), Designator::Identifier(ident) if ident.name_utf8() == name))
+            .unwrap();
+        OverloadedEnt::from_any(ent).unwrap()
+    }
 }
 
 impl<'a> std::cmp::PartialEq for AnyEnt<'a> {

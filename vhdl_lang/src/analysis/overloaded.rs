@@ -709,8 +709,10 @@ function myfun(arg1 : integer) return character;
         let test = TestSetup::new();
         let code = test.snippet("to_string(0)");
 
-        let uint_to_string =
-            test.lookup_implicit_of(test.ctx().universal_integer().into(), "to_string");
+        let uint_to_string = test
+            .ctx()
+            .universal_integer()
+            .lookup_implicit_of("TO_STRING");
 
         assert_eq!(
             test.disambiguate(&code, None, &mut NoDiagnostics),
@@ -723,7 +725,7 @@ function myfun(arg1 : integer) return character;
         let test = TestSetup::new();
         let code = test.snippet("minimum(0, integer'(0))");
 
-        let minimum = test.lookup_implicit_of(test.ctx().integer(), "minimum");
+        let minimum = test.ctx().integer().lookup_implicit_of("MINIMUM");
 
         assert_eq!(
             test.disambiguate(&code, None, &mut NoDiagnostics),

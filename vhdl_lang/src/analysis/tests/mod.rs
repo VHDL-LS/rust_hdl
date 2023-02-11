@@ -27,7 +27,6 @@ mod visibility;
 use std::cell::RefCell;
 
 pub use self::util::*;
-use crate::ast::Designator;
 use crate::ast::UnitId;
 pub use crate::data::Diagnostic;
 use crate::data::DiagnosticHandler;
@@ -114,16 +113,6 @@ impl<'a> TestSetup<'a> {
         } else {
             panic!("Expected overloaded name");
         }
-    }
-
-    pub fn lookup_implicit_of(&'a self, typ: TypeEnt<'a>, name: &str) -> OverloadedEnt<'a> {
-        let des = Designator::Identifier(self.root.symbol_utf8(name));
-        let ent = typ
-            .implicits
-            .iter()
-            .find(|ent| ent.designator() == &des)
-            .unwrap();
-        OverloadedEnt::from_any(ent).unwrap()
     }
 
     pub fn lookup_type(&'a self, sym: &str) -> TypeEnt<'a> {
