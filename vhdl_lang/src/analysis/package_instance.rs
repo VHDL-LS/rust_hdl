@@ -23,6 +23,7 @@ use super::named_entity::Signature;
 use super::named_entity::Subtype;
 use super::named_entity::Type;
 use super::named_entity::TypeEnt;
+use super::names::ResolvedName;
 use super::region::*;
 use super::AnyEntKind;
 use super::EntRef;
@@ -116,14 +117,45 @@ impl<'a> AnalyzeContext<'a> {
                         expr,
                         diagnostics,
                     )?,
-                    GpkgInterfaceEnt::Subprogram(_) => match expr {
+                    GpkgInterfaceEnt::Subprogram(target) => match expr {
                         Expression::Name(name) => {
-                            as_fatal(self.name_resolve(
-                                scope,
-                                &assoc.actual.pos,
-                                name,
-                                diagnostics,
-                            ))?;
+                            let resolved =
+                                self.name_resolve(scope, &assoc.actual.pos, name, diagnostics)?;
+                            if let ResolvedName::Overloaded(des, overloaded) = resolved {
+                                match self.map_signature(&mapping, target.signature()) {
+                                    Ok(signature) => {
+                                        if let Some(ent) = overloaded.get(&signature.key()) {
+                                            name.set_unique_reference(&ent);
+                                        } else {
+                                            let mut diag = Diagnostic::error(
+                                                &assoc.actual.pos,
+                                                format!(
+                                                    "Cannot map '{}' to subprogram generic {}{}",
+                                                    des,
+                                                    target.designator(),
+                                                    signature.describe()
+                                                ),
+                                            );
+
+                                            diag.add_subprogram_candidates(
+                                                "Does not match",
+                                                overloaded.entities(),
+                                            );
+
+                                            diagnostics.push(diag)
+                                        }
+                                    }
+                                    Err(msg) => diagnostics.error(&assoc.actual.pos, msg),
+                                }
+                            } else {
+                                diagnostics.error(
+                                    &assoc.actual.pos,
+                                    format!(
+                                        "Cannot map {} to subprogram generic",
+                                        resolved.describe()
+                                    ),
+                                )
+                            }
                         }
                         Expression::Literal(Literal::String(string)) => {
                             if Operator::from_latin1(string.clone()).is_none() {
@@ -137,12 +169,7 @@ impl<'a> AnalyzeContext<'a> {
                     },
                     GpkgInterfaceEnt::Package(_) => match expr {
                         Expression::Name(name) => {
-                            as_fatal(self.name_resolve(
-                                scope,
-                                &assoc.actual.pos,
-                                name,
-                                diagnostics,
-                            ))?;
+                            self.name_resolve(scope, &assoc.actual.pos, name, diagnostics)?;
                         }
                         _ => diagnostics.error(
                             &assoc.actual.pos,

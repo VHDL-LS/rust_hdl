@@ -240,6 +240,82 @@ end package;
         .unwrap();
     assert_eq!(typ.decl_pos(), Some(&code.s1("to_string").pos()));
     assert!(root.format_declaration(typ).is_some());
+
+    assert!(root
+        .search_reference(code.source(), code.sa("to_string => ", "to_string").start())
+        .is_some());
+}
+
+#[test]
+fn interface_subprogram_rhs_not_a_subprogram() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package gpkg is
+  generic (
+    type type_t;
+    function to_string(value : type_t) return string
+  );
+end package;
+
+package pkg is
+  package ipkg is new work.gpkg
+    generic map (
+      type_t => integer,
+      to_string => character);
+end package;
+
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("character"),
+            "Cannot map type 'CHARACTER' to subprogram generic",
+        )],
+    );
+}
+
+#[test]
+fn interface_subprogram_rhs_does_not_match_signature() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package gpkg is
+  generic (
+    type type_t;
+    function to_string(value : type_t) return string
+  );
+end package;
+
+package pkg is
+  function my_to_string(arg: real) return string;
+
+  package ipkg is new work.gpkg
+    generic map (
+      type_t => integer,
+      to_string => my_to_string);
+end package;
+
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.sa("to_string => ", "my_to_string"),
+            "Cannot map 'my_to_string' to subprogram generic to_string[INTEGER return STRING]",
+        )
+        .related(
+            code.s1("my_to_string"),
+            "Does not match my_to_string[REAL return STRING]",
+        )],
+    );
 }
 
 #[test]
