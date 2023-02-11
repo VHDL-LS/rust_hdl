@@ -1788,3 +1788,36 @@ end;
         ]
     );
 }
+
+#[test]
+fn find_all_references_of_deferred_constant() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+    constant c0 : natural;
+end package;
+
+
+package body pkg is
+  constant c0 : natural := 0;
+end package body;
+      ",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    let references = vec![code.s("c0", 1).pos(), code.s("c0", 2).pos()];
+
+    assert_eq_unordered(
+        &root.find_all_references_pos(&code.s("c0", 1).pos()),
+        &references,
+    );
+
+    assert_eq_unordered(
+        &root.find_all_references_pos(&code.s("c0", 2).pos()),
+        &references,
+    );
+}

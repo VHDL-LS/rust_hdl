@@ -276,7 +276,31 @@ impl<'a> AnalyzeContext<'a> {
                                 subtype,
                             })
                         };
-                        scope.add(self.arena.define(&mut object_decl.ident, kind), diagnostics);
+
+                        let declared_by = if object_decl.class == ObjectClass::Constant
+                            && object_decl.expression.is_some()
+                        {
+                            self.find_deferred_constant_declaration(
+                                scope,
+                                &object_decl.ident.tree.item,
+                            )
+                        } else {
+                            None
+                        };
+
+                        let object_ent = self.arena.alloc(
+                            object_decl.ident.tree.item.clone().into(),
+                            if let Some(declared_by) = declared_by {
+                                Related::DeclaredBy(declared_by)
+                            } else {
+                                Related::None
+                            },
+                            kind,
+                            Some(object_decl.ident.tree.pos().clone()),
+                        );
+                        object_decl.ident.decl = Some(object_ent.id());
+
+                        scope.add(object_ent, diagnostics);
                     }
                     Err(err) => err.add_to(diagnostics)?,
                 }
@@ -535,6 +559,19 @@ impl<'a> AnalyzeContext<'a> {
             let ent = overloaded.get(&signature.key())?;
 
             if ent.is_subprogram_decl() {
+                return Some(ent);
+            }
+        }
+        None
+    }
+
+    fn find_deferred_constant_declaration(
+        &self,
+        scope: &Scope<'a>,
+        ident: &Symbol,
+    ) -> Option<EntRef<'a>> {
+        if let Some(NamedEntities::Single(ent)) = scope.lookup_immediate(&ident.into()) {
+            if ent.kind().is_deferred_constant() {
                 return Some(ent);
             }
         }

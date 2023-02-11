@@ -668,20 +668,17 @@ impl<'a> Region<'a> {
                         if prev_ent.id() == ent.id() {
                             // Updated definition of previous entity
                             *prev_ent = ent;
-                        } else if prev_ent.kind().is_deferred_constant()
-                            && ent.kind().is_non_deferred_constant()
-                        {
-                            if self.kind == RegionKind::PackageBody {
-                                // Overwrite deferred constant
-                                *prev_ent = ent;
-                            } else {
+                        } else if ent.is_declared_by(prev_ent) {
+                            if self.kind != RegionKind::PackageBody
+                                && ent.kind().is_non_deferred_constant()
+                            {
                                 ent.error(
                                     diagnostics,
                                     "Full declaration of deferred constant is only allowed in a package body",
                                 );
+                            } else {
+                                *prev_ent = ent;
                             }
-                        } else if ent.is_declared_by(prev_ent) {
-                            *prev_ent = ent;
                         } else if let Some(pos) = ent.decl_pos() {
                             diagnostics.push(duplicate_error(
                                 prev_ent.designator(),
