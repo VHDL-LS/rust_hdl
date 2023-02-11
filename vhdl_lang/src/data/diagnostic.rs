@@ -168,6 +168,16 @@ impl DiagnosticHandler for NullDiagnostics {
 }
 
 #[cfg(test)]
+pub struct NoDiagnostics;
+
+#[cfg(test)]
+impl DiagnosticHandler for NoDiagnostics {
+    fn push(&mut self, diagnostic: crate::Diagnostic) {
+        panic!("{}", diagnostic.show())
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::syntax::test::Code;

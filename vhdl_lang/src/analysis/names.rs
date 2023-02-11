@@ -1740,7 +1740,6 @@ mod test {
     use super::*;
     use assert_matches::assert_matches;
 
-    use crate::analysis::tests::NoDiagnostics;
     use crate::analysis::tests::TestSetup;
     use crate::syntax::test::check_diagnostics;
     use crate::syntax::test::Code;

@@ -1288,7 +1288,6 @@ impl<'a> RecordAssociations<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::analysis::tests::NoDiagnostics;
     use crate::analysis::tests::TestSetup;
     use crate::data::DiagnosticHandler;
     use crate::syntax::test::check_diagnostics;

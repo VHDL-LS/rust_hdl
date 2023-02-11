@@ -29,7 +29,7 @@ use std::cell::RefCell;
 pub use self::util::*;
 use crate::ast::UnitId;
 pub use crate::data::Diagnostic;
-use crate::data::DiagnosticHandler;
+use crate::data::NoDiagnostics;
 pub use crate::syntax::test::*;
 
 use super::analyze::AnalyzeContext;
@@ -117,13 +117,5 @@ impl<'a> TestSetup<'a> {
 
     pub fn lookup_type(&'a self, sym: &str) -> TypeEnt<'a> {
         TypeEnt::from_any(self.lookup(sym)).unwrap()
-    }
-}
-
-pub struct NoDiagnostics;
-
-impl DiagnosticHandler for NoDiagnostics {
-    fn push(&mut self, diagnostic: crate::Diagnostic) {
-        panic!("{}", diagnostic.show())
     }
 }
