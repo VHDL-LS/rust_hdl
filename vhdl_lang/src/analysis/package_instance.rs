@@ -4,7 +4,6 @@
 //!
 //! Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
-use arc_swap::ArcSwapOption;
 use fnv::FnvHashMap;
 
 use super::analyze::*;
@@ -475,9 +474,8 @@ impl<'a> AnalyzeContext<'a> {
                 Type::Record(RecordRegion { elems })
             }
             Type::Subtype(subtype) => Type::Subtype(self.map_subtype(mapping, *subtype)?),
-            Type::Protected(region, _) => {
-                // @TODO the ArcSwapOption, is it relevant?
-                Type::Protected(self.map_region(mapping, region)?, ArcSwapOption::default())
+            Type::Protected(region, is_body) => {
+                Type::Protected(self.map_region(mapping, region)?, *is_body)
             }
             Type::File => Type::File,
             Type::Alias(typ) => Type::Alias(self.map_type_ent(mapping, *typ)?),

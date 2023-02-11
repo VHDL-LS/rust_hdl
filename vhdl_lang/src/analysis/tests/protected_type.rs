@@ -244,7 +244,7 @@ end package;",
 }
 
 #[test]
-fn protected_type_body_is_not_visible() {
+fn protected_type_body_reference() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(
         "libname",
@@ -263,15 +263,25 @@ end package;",
     let (root, diagnostics) = builder.get_analyzed_root();
     check_no_diagnostics(&diagnostics);
 
-    // Reference should go to protected type and not body of it
     assert_eq!(
         root.search_reference_pos(code.source(), code.s("prot_t", 2).start()),
         Some(code.s1("prot_t").pos())
     );
 
-    // Reference should go to protected type and not body of it
     assert_eq!(
         root.search_reference_pos(code.source(), code.s("prot_t", 3).start()),
-        Some(code.s1("prot_t").pos())
+        Some(code.s("prot_t", 2).pos())
+    );
+
+    let ptype = root
+        .search_reference(code.source(), code.s1("prot_t").start())
+        .unwrap();
+    assert_eq!(
+        root.find_all_references(ptype),
+        vec![
+            code.s("prot_t", 1).pos(),
+            code.s("prot_t", 2).pos(),
+            code.s("prot_t", 3).pos()
+        ]
     );
 }

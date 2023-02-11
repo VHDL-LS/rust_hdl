@@ -233,6 +233,30 @@ impl<'a> AnyEnt<'a> {
         )
     }
 
+    pub fn is_protected_type(&self) -> bool {
+        matches!(
+            self.kind,
+            AnyEntKind::Type(Type::Protected(_, is_body)) if !is_body
+        )
+    }
+
+    pub fn is_protected_type_body(&self) -> bool {
+        matches!(
+            self.kind,
+            AnyEntKind::Type(Type::Protected(_, is_body)) if is_body
+        )
+    }
+
+    pub fn is_declared_by(&self, other: EntRef) -> bool {
+        if let Related::DeclaredBy(ent) = self.related {
+            if ent.id() == other.id() {
+                return true;
+            }
+        }
+
+        false
+    }
+
     pub fn is_explicit(&self) -> bool {
         !self.is_implicit()
     }

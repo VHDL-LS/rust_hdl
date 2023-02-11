@@ -23,7 +23,6 @@ dirs = "4"
 rayon = "1"
 parking_lot = "0"
 dunce = "1"
-arc-swap = {version = "1"}
 pinned_vec = "0"
 
 [dev-dependencies]

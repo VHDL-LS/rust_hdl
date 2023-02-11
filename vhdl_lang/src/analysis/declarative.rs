@@ -14,12 +14,10 @@ use crate::ast;
 use crate::ast::*;
 use crate::data::*;
 use analyze::*;
-use arc_swap::ArcSwapOption;
 use fnv::FnvHashMap;
 use named_entity::Signature;
 use region::*;
 use std::collections::hash_map::Entry;
-use std::sync::Arc;
 
 impl<'a> AnalyzeContext<'a> {
     pub fn analyze_declarative_part(
@@ -318,7 +316,6 @@ impl<'a> AnalyzeContext<'a> {
                 let nested = scope.nested();
                 self.analyze_interface_list(&nested, &mut component.generic_list, diagnostics)?;
                 self.analyze_interface_list(&nested, &mut component.port_list, diagnostics)?;
-                nested.close(diagnostics);
                 scope.add(
                     self.arena.define(
                         &mut component.ident,
@@ -473,7 +470,6 @@ impl<'a> AnalyzeContext<'a> {
                 let subpgm_region = subpgm_region.with_parent(scope);
 
                 self.analyze_declarative_part(&subpgm_region, &mut body.declarations, diagnostics)?;
-                subpgm_region.close(diagnostics);
 
                 self.analyze_sequential_part(
                     &subpgm_region,
@@ -486,7 +482,6 @@ impl<'a> AnalyzeContext<'a> {
                 let subpgm_region = scope.nested();
                 let signature =
                     self.analyze_subprogram_declaration(&subpgm_region, subdecl, diagnostics);
-                subpgm_region.close(diagnostics);
                 drop(subpgm_region);
 
                 match signature {
@@ -561,6 +556,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
+                    None,
                     Type::Enum(
                         enumeration
                             .iter()
@@ -604,7 +600,7 @@ impl<'a> AnalyzeContext<'a> {
                     Some(visible) => {
                         let is_ok = match visible.clone().into_non_overloaded() {
                             Ok(ent) => {
-                                if let AnyEntKind::Type(Type::Protected(ptype_region, body_pos)) =
+                                if let AnyEntKind::Type(Type::Protected(ptype_region, is_body)) =
                                     ent.kind()
                                 {
                                     body.type_reference.set_unique_reference(ent);
@@ -615,14 +611,24 @@ impl<'a> AnalyzeContext<'a> {
                                         diagnostics,
                                     )?;
 
-                                    if let Some(prev_pos) = body_pos
-                                        .swap(Some(Arc::new(type_decl.ident.tree.pos.clone())))
-                                    {
-                                        diagnostics.push(duplicate_error(
-                                            &type_decl.ident.tree,
-                                            &type_decl.ident.tree.pos,
-                                            Some(&prev_pos),
-                                        ))
+                                    if *is_body {
+                                        if let Some(prev_pos) = ent.decl_pos() {
+                                            diagnostics.push(duplicate_error(
+                                                &type_decl.ident.tree,
+                                                &type_decl.ident.tree.pos,
+                                                Some(prev_pos),
+                                            ))
+                                        }
+                                    } else {
+                                        let ptype_body: &'a AnyEnt = TypeEnt::define_with_opt_id(
+                                            self.arena,
+                                            overwrite_id,
+                                            &mut type_decl.ident,
+                                            Some(ent),
+                                            Type::Protected(region.into_region(), true),
+                                        )
+                                        .into();
+                                        scope.add(ptype_body, diagnostics);
                                     }
 
                                     true
@@ -651,12 +657,12 @@ impl<'a> AnalyzeContext<'a> {
             TypeDefinition::Protected(ref mut prot_decl) => {
                 // Protected type name is visible inside its declarative region
                 // This will be overwritten later when the protected type region is finished
-                // @TODO mutate region
                 let ptype: &'a AnyEnt = TypeEnt::define_with_opt_id(
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
-                    Type::Protected(Region::default(), ArcSwapOption::default()),
+                    None,
+                    Type::Protected(Region::default(), false),
                 )
                 .into();
 
@@ -672,7 +678,6 @@ impl<'a> AnalyzeContext<'a> {
                                 subprogram,
                                 diagnostics,
                             );
-                            subpgm_region.close(diagnostics);
                             drop(subpgm_region);
 
                             match signature {
@@ -737,6 +742,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
+                    None,
                     Type::Record(elems),
                 );
                 scope.add(type_ent.into(), diagnostics);
@@ -757,6 +763,7 @@ impl<'a> AnalyzeContext<'a> {
                             self.arena,
                             overwrite_id,
                             &mut type_decl.ident,
+                            None,
                             Type::Access(subtype),
                         );
 
@@ -796,6 +803,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
+                    None,
                     Type::Array { indexes, elem_type },
                 );
 
@@ -816,6 +824,7 @@ impl<'a> AnalyzeContext<'a> {
                             self.arena,
                             overwrite_id,
                             &mut type_decl.ident,
+                            None,
                             Type::Subtype(subtype),
                         );
                         scope.add(type_ent.into(), diagnostics);
@@ -837,6 +846,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
+                    None,
                     Type::Physical,
                 );
                 scope.add(phys_type.into(), diagnostics);
@@ -910,6 +920,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
+                    None,
                     match universal_type {
                         UniversalType::Integer => Type::Integer,
                         UniversalType::Real => Type::Real,
@@ -930,6 +941,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
+                    None,
                     Type::File,
                 );
 
@@ -1089,7 +1101,6 @@ impl<'a> AnalyzeContext<'a> {
                 let subpgm_region = scope.nested();
                 let signature =
                     self.analyze_subprogram_declaration(&subpgm_region, subpgm, diagnostics);
-                subpgm_region.close(diagnostics);
                 drop(subpgm_region);
 
                 subpgm.define(

@@ -76,9 +76,7 @@ impl<'a> OverloadedName<'a> {
             Entry::Occupied(mut entry) => {
                 let old_ent = entry.get();
 
-                if (old_ent.is_implicit() && ent.is_explicit())
-                    || (old_ent.is_subprogram_decl() && ent.is_subprogram())
-                {
+                if (old_ent.is_implicit() && ent.is_explicit()) || (ent.is_declared_by(old_ent)) {
                     entry.insert(ent);
                     return Ok(());
                 } else if old_ent.is_implicit()
@@ -636,8 +634,8 @@ impl<'a> Region<'a> {
 
     fn check_protected_types_have_body(&self, diagnostics: &mut dyn DiagnosticHandler) {
         for ent in self.entities.values() {
-            if let AnyEntKind::Type(Type::Protected(_, body_pos)) = ent.first_kind() {
-                if body_pos.load().is_none() {
+            if let AnyEntKind::Type(Type::Protected(_, has_body)) = ent.first_kind() {
+                if !has_body {
                     ent.first().error(
                         diagnostics,
                         format!("Missing body for protected type '{}'", ent.designator()),
@@ -682,6 +680,8 @@ impl<'a> Region<'a> {
                                     "Full declaration of deferred constant is only allowed in a package body",
                                 );
                             }
+                        } else if ent.is_declared_by(prev_ent) {
+                            *prev_ent = ent;
                         } else if let Some(pos) = ent.decl_pos() {
                             diagnostics.push(duplicate_error(
                                 prev_ent.designator(),

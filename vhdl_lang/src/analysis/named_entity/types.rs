@@ -16,7 +16,6 @@ use crate::ast::{HasDesignator, Ident};
 use crate::data::WithPos;
 use crate::{Diagnostic, SrcPos};
 
-use arc_swap::ArcSwapOption;
 use fnv::FnvHashSet;
 
 use super::{Arena, EntRef, Related};
@@ -39,7 +38,7 @@ pub enum Type<'a> {
     Incomplete,
     Subtype(Subtype<'a>),
     // The region of the protected type which needs to be extendend by the body
-    Protected(Region<'a>, ArcSwapOption<SrcPos>),
+    Protected(Region<'a>, bool),
     File,
     Interface,
     Alias(TypeEnt<'a>),
@@ -91,23 +90,31 @@ impl<'a> TypeEnt<'a> {
         arena: &'a Arena,
         id: Option<EntityId>,
         ident: &mut WithDecl<Ident>,
+        declared_by: Option<EntRef<'a>>,
         kind: Type<'a>,
     ) -> TypeEnt<'a> {
+        let related = if let Some(declared_by) = declared_by {
+            Related::DeclaredBy(declared_by)
+        } else {
+            Related::None
+        };
+
         let ent = if let Some(id) = id {
             unsafe {
                 arena.update(
                     id,
                     ident.tree.item.clone().into(),
-                    Related::None,
+                    related,
                     AnyEntKind::Type(kind),
                     Some(ident.tree.pos.clone()),
                 )
             }
         } else {
-            arena.explicit(
-                &ident.tree.item,
+            arena.alloc(
+                ident.tree.item.clone().into(),
+                related,
                 AnyEntKind::Type(kind),
-                Some(&ident.tree.pos),
+                Some(ident.tree.pos.clone()),
             )
         };
 
