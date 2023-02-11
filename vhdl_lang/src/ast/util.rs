@@ -465,3 +465,12 @@ impl DiscreteRange {
         }
     }
 }
+
+impl SubprogramDeclaration {
+    pub fn subpgm_designator(&self) -> &WithPos<SubprogramDesignator> {
+        match self {
+            SubprogramDeclaration::Procedure(s) => &s.designator.tree,
+            SubprogramDeclaration::Function(s) => &s.designator.tree,
+        }
+    }
+}

@@ -149,6 +149,7 @@ pub type EntRef<'a> = &'a AnyEnt<'a>;
 pub enum Related<'a> {
     ImplicitOf(EntRef<'a>),
     InstanceOf(EntRef<'a>),
+    DeclaredBy(EntRef<'a>),
     None,
 }
 
@@ -213,6 +214,7 @@ impl<'a> AnyEnt<'a> {
         match self.related {
             Related::ImplicitOf(_) => true,
             Related::InstanceOf(ent) => ent.is_implicit(),
+            Related::DeclaredBy(_) => false,
             Related::None => false,
         }
     }
@@ -367,11 +369,21 @@ impl WithDecl<Ident> {
 }
 
 impl WithDecl<WithPos<SubprogramDesignator>> {
-    pub fn define<'a>(&mut self, arena: &'a Arena, kind: AnyEntKind<'a>) -> EntRef<'a> {
-        let ent = arena.explicit(
+    pub fn define<'a>(
+        &mut self,
+        arena: &'a Arena,
+        kind: AnyEntKind<'a>,
+        declared_by: Option<OverloadedEnt<'a>>,
+    ) -> EntRef<'a> {
+        let ent = arena.alloc(
             self.tree.item.clone().into_designator(),
+            if let Some(declared_by) = declared_by {
+                Related::DeclaredBy(declared_by.into())
+            } else {
+                Related::None
+            },
             kind,
-            Some(&self.tree.pos),
+            Some(self.tree.pos.clone()),
         );
         self.decl = Some(ent.id());
         ent
@@ -387,10 +399,15 @@ impl WithDecl<WithPos<Designator>> {
 }
 
 impl SubprogramDeclaration {
-    pub fn define<'a>(&mut self, arena: &'a Arena, kind: AnyEntKind<'a>) -> EntRef<'a> {
+    pub fn define<'a>(
+        &mut self,
+        arena: &'a Arena,
+        kind: AnyEntKind<'a>,
+        declared_by: Option<OverloadedEnt<'a>>,
+    ) -> EntRef<'a> {
         match self {
-            SubprogramDeclaration::Function(f) => f.designator.define(arena, kind),
-            SubprogramDeclaration::Procedure(p) => p.designator.define(arena, kind),
+            SubprogramDeclaration::Function(f) => f.designator.define(arena, kind, declared_by),
+            SubprogramDeclaration::Procedure(p) => p.designator.define(arena, kind, declared_by),
         }
     }
 }

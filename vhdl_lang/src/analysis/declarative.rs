@@ -452,10 +452,15 @@ impl<'a> AnalyzeContext<'a> {
                             SequentialRoot::Procedure
                         };
 
+                        let declared_by =
+                            self.find_subpgm_declaration(scope, &body.specification, &signature);
+
                         let subpgm_ent = body.specification.define(
                             self.arena,
                             AnyEntKind::Overloaded(Overloaded::Subprogram(signature)),
+                            declared_by,
                         );
+
                         scope.add(subpgm_ent, diagnostics);
 
                         sroot
@@ -490,6 +495,7 @@ impl<'a> AnalyzeContext<'a> {
                             subdecl.define(
                                 self.arena,
                                 AnyEntKind::Overloaded(Overloaded::SubprogramDecl(signature)),
+                                None,
                             ),
                             diagnostics,
                         );
@@ -520,6 +526,24 @@ impl<'a> AnalyzeContext<'a> {
         };
 
         Ok(())
+    }
+
+    fn find_subpgm_declaration(
+        &self,
+        scope: &Scope<'a>,
+        decl: &SubprogramDeclaration,
+        signature: &Signature,
+    ) -> Option<OverloadedEnt<'a>> {
+        let des = decl.subpgm_designator().item.clone().into_designator();
+
+        if let Some(NamedEntities::Overloaded(overloaded)) = scope.lookup_immediate(&des) {
+            let ent = overloaded.get(&signature.key())?;
+
+            if ent.is_subprogram_decl() {
+                return Some(ent);
+            }
+        }
+        None
     }
 
     pub(crate) fn analyze_type_declaration(
@@ -659,6 +683,7 @@ impl<'a> AnalyzeContext<'a> {
                                             AnyEntKind::Overloaded(Overloaded::SubprogramDecl(
                                                 signature,
                                             )),
+                                            None,
                                         ),
                                         diagnostics,
                                     );
@@ -1070,6 +1095,7 @@ impl<'a> AnalyzeContext<'a> {
                 subpgm.define(
                     self.arena,
                     AnyEntKind::Overloaded(Overloaded::InterfaceSubprogram(signature?)),
+                    None,
                 )
             }
             InterfaceDeclaration::Package(ref mut instance) => {

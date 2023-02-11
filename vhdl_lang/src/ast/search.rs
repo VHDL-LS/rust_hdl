@@ -1376,11 +1376,22 @@ fn is_instance_of(ent: EntRef, other: EntRef) -> bool {
     false
 }
 
+fn is_declared_by(ent: EntRef, other: EntRef) -> bool {
+    if let Related::DeclaredBy(ent) = ent.related {
+        if ent.id() == other.id() {
+            return true;
+        }
+    }
+
+    false
+}
+
 fn is_implicit_of(ent: EntRef, id: EntityId) -> bool {
     match ent.related {
         Related::ImplicitOf(ent) => ent.id() == id,
         Related::InstanceOf(ent) => is_implicit_of(ent, id),
         Related::None => false,
+        Related::DeclaredBy(_) => false,
     }
 }
 
@@ -1390,6 +1401,10 @@ fn is_reference(ent: EntRef, other: EntRef) -> bool {
     }
 
     if is_instance_of(ent, other) || is_instance_of(other, ent) {
+        return true;
+    }
+
+    if is_declared_by(ent, other) || is_declared_by(other, ent) {
         return true;
     }
 

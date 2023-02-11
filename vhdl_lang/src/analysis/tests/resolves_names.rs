@@ -5,6 +5,7 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use super::*;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn resolves_names_in_object_decl_init_expressions() {
@@ -1741,4 +1742,49 @@ end architecture;
     assert!(root
         .search_reference(code.source(), code.s1("myfun(c0)").s1("c0").start())
         .is_some());
+}
+
+#[test]
+fn subpgm_references_includes_both_definition_and_declaration() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+  package pkg is
+    function myfun(arg : integer) return integer;
+end package;
+
+package body pkg is
+    function myfun(arg : integer) return integer is
+    begin
+        return 0;
+    end;
+end package body;
+
+entity ent is
+    
+end entity;
+
+architecture a of ent is
+    constant c0 : natural := work.pkg.myfun(0);
+begin
+end;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    let decl = root
+        .search_reference(code.source(), code.sa("work.pkg.", "myfun").start())
+        .unwrap();
+
+    assert_eq!(
+        root.find_all_references(decl),
+        vec![
+            code.s("myfun", 1).pos(),
+            code.s("myfun", 2).pos(),
+            code.s("myfun", 3).pos()
+        ]
+    );
 }
