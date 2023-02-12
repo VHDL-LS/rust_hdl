@@ -84,12 +84,33 @@ impl<'a> AnalyzeContext<'a> {
                             match name.as_mut() {
                                 // Could be an array constraint such as integer_vector(0 to 3)
                                 // @TODO we ignore the suffix for now
-                                Name::Slice(prefix, _) => self.type_name(
-                                    scope,
-                                    &prefix.pos,
-                                    &mut prefix.item,
-                                    diagnostics,
-                                )?,
+                                Name::Slice(prefix, drange) => {
+                                    let typ = self.type_name(
+                                        scope,
+                                        &prefix.pos,
+                                        &mut prefix.item,
+                                        diagnostics,
+                                    )?;
+                                    if let Type::Array { indexes, .. } = typ.base().kind() {
+                                        if let Some(Some(idx_typ)) = indexes.get(0) {
+                                            self.drange_with_ttyp(
+                                                scope,
+                                                (*idx_typ).into(),
+                                                drange,
+                                                diagnostics,
+                                            )?;
+                                        }
+                                    } else {
+                                        diagnostics.error(
+                                            &assoc.actual.pos,
+                                            format!(
+                                                "Array constraint cannot be used for {}",
+                                                typ.describe()
+                                            ),
+                                        );
+                                    }
+                                    typ
+                                }
                                 // Could be a record constraint such as rec_t(field(0 to 3))
                                 // @TODO we ignore the suffix for now
                                 Name::CallOrIndexed(call) if call.could_be_indexed_name() => self
