@@ -238,23 +238,13 @@ impl<'a> AnalyzeContext<'a> {
         let mut formals = FormalRegion::new_params();
         formals.add(self.arena.explicit(
             self.symbol("L"),
-            AnyEntKind::Object(Object {
-                class: ObjectClass::Constant,
-                mode: Some(Mode::In),
-                subtype: Subtype::new(type_ent),
-                has_default: false,
-            }),
+            AnyEntKind::Object(Object::if_constant(Subtype::new(type_ent))),
             type_ent.decl_pos(),
         ));
 
         formals.add(self.arena.explicit(
             self.symbol("R"),
-            AnyEntKind::Object(Object {
-                class: ObjectClass::Constant,
-                mode: Some(Mode::In),
-                subtype: Subtype::new(type_ent),
-                has_default: false,
-            }),
+            AnyEntKind::Object(Object::if_constant(Subtype::new(type_ent))),
             type_ent.decl_pos(),
         ));
 
@@ -275,12 +265,7 @@ impl<'a> AnalyzeContext<'a> {
         let mut formals = FormalRegion::new_params();
         formals.add(self.arena.explicit(
             self.symbol("L"),
-            AnyEntKind::Object(Object {
-                class: ObjectClass::Constant,
-                mode: Some(Mode::In),
-                subtype: Subtype::new(arr_typ),
-                has_default: false,
-            }),
+            AnyEntKind::Object(Object::if_constant(Subtype::new(arr_typ))),
             arr_typ.decl_pos(),
         ));
 
@@ -297,12 +282,7 @@ impl<'a> AnalyzeContext<'a> {
         formals.add(self.arena.explicit(
             // @TODO anonymous
             self.symbol("V"),
-            AnyEntKind::Object(Object {
-                class: ObjectClass::Constant,
-                mode: Some(Mode::In),
-                subtype: Subtype::new(typ.to_owned()),
-                has_default: false,
-            }),
+            AnyEntKind::Object(Object::if_constant(Subtype::new(typ))),
             typ.decl_pos(),
         ));
 
@@ -331,24 +311,14 @@ impl<'a> AnalyzeContext<'a> {
         formals.add(self.arena.explicit(
             // @TODO anonymous
             self.symbol("L"),
-            AnyEntKind::Object(Object {
-                class: ObjectClass::Constant,
-                mode: Some(Mode::In),
-                subtype: Subtype::new(left),
-                has_default: false,
-            }),
+            AnyEntKind::Object(Object::if_constant(Subtype::new(left))),
             implicit_of.decl_pos(),
         ));
 
         formals.add(self.arena.explicit(
             // @TODO anonymous
             self.symbol("R"),
-            AnyEntKind::Object(Object {
-                class: ObjectClass::Constant,
-                mode: Some(Mode::In),
-                subtype: Subtype::new(right),
-                has_default: false,
-            }),
+            AnyEntKind::Object(Object::if_constant(Subtype::new(right))),
             implicit_of.decl_pos(),
         ));
 
@@ -394,23 +364,15 @@ impl<'a> AnalyzeContext<'a> {
             ));
             formals.add(self.arena.explicit(
                 self.symbol("External_Name"),
-                AnyEntKind::Object(Object {
-                    class: ObjectClass::Constant,
-                    mode: Some(Mode::In),
-                    subtype: Subtype::new(string),
-                    has_default: false,
-                }),
+                AnyEntKind::Object(Object::if_constant(Subtype::new(string))),
                 file_type.decl_pos(),
             ));
 
             formals.add(self.arena.explicit(
                 self.symbol("Open_Kind"),
-                AnyEntKind::Object(Object {
-                    class: ObjectClass::Constant,
-                    mode: Some(Mode::In),
-                    subtype: Subtype::new(file_open_kind),
-                    has_default: true,
-                }),
+                AnyEntKind::Object(
+                    Object::if_constant(Subtype::new(file_open_kind)).with_default(),
+                ),
                 file_type.decl_pos(),
             ));
             implicit.push(self.arena.implicit(
@@ -426,12 +388,7 @@ impl<'a> AnalyzeContext<'a> {
             let mut formals = FormalRegion::new_params();
             formals.add(self.arena.explicit(
                 self.symbol("Status"),
-                AnyEntKind::Object(Object {
-                    class: ObjectClass::Variable,
-                    mode: Some(Mode::Out),
-                    subtype: Subtype::new(file_open_status),
-                    has_default: false,
-                }),
+                AnyEntKind::Object(Object::if_constant(Subtype::new(file_open_status))),
                 file_type.decl_pos(),
             ));
             formals.add(self.arena.explicit(
@@ -441,23 +398,15 @@ impl<'a> AnalyzeContext<'a> {
             ));
             formals.add(self.arena.explicit(
                 self.symbol("External_Name"),
-                AnyEntKind::Object(Object {
-                    class: ObjectClass::Constant,
-                    mode: Some(Mode::In),
-                    subtype: Subtype::new(string),
-                    has_default: false,
-                }),
+                AnyEntKind::Object(Object::if_constant(Subtype::new(string))),
                 file_type.decl_pos(),
             ));
 
             formals.add(self.arena.explicit(
                 self.symbol("Open_Kind"),
-                AnyEntKind::Object(Object {
-                    class: ObjectClass::Constant,
-                    mode: Some(Mode::In),
-                    subtype: Subtype::new(file_open_kind),
-                    has_default: true,
-                }),
+                AnyEntKind::Object(
+                    Object::if_constant(Subtype::new(file_open_kind)).with_default(),
+                ),
                 file_type.decl_pos(),
             ));
             implicit.push(self.arena.implicit(
@@ -498,6 +447,7 @@ impl<'a> AnalyzeContext<'a> {
                 self.symbol("VALUE"),
                 AnyEntKind::Object(Object {
                     class: ObjectClass::Variable,
+                    is_port: false,
                     mode: Some(Mode::Out),
                     subtype: Subtype::new(type_mark),
                     has_default: false,
@@ -524,12 +474,7 @@ impl<'a> AnalyzeContext<'a> {
 
             formals.add(self.arena.explicit(
                 self.symbol("VALUE"),
-                AnyEntKind::Object(Object {
-                    class: ObjectClass::Constant,
-                    mode: Some(Mode::In),
-                    subtype: Subtype::new(type_mark),
-                    has_default: false,
-                }),
+                AnyEntKind::Object(Object::if_constant(Subtype::new(type_mark))),
                 file_type.decl_pos(),
             ));
 
@@ -584,12 +529,7 @@ impl<'a> AnalyzeContext<'a> {
         let mut formals = FormalRegion::new_params();
         formals.add(self.arena.explicit(
             self.symbol("VALUE"),
-            AnyEntKind::Object(Object {
-                class: ObjectClass::Constant,
-                mode: Some(Mode::In),
-                subtype: Subtype::new(type_ent),
-                has_default: false,
-            }),
+            AnyEntKind::Object(Object::if_constant(Subtype::new(type_ent))),
             type_ent.decl_pos(),
         ));
 
@@ -607,12 +547,7 @@ impl<'a> AnalyzeContext<'a> {
         let mut formals = FormalRegion::new_params();
         formals.add(self.arena.explicit(
             self.symbol("VALUE"),
-            AnyEntKind::Object(Object {
-                class: ObjectClass::Constant,
-                mode: Some(Mode::In),
-                subtype: Subtype::new(type_ent),
-                has_default: false,
-            }),
+            AnyEntKind::Object(Object::if_constant(Subtype::new(type_ent))),
             type_ent.decl_pos(),
         ));
 
@@ -632,6 +567,7 @@ impl<'a> AnalyzeContext<'a> {
             self.symbol("P"),
             AnyEntKind::Object(Object {
                 class: ObjectClass::Variable,
+                is_port: false,
                 mode: Some(Mode::InOut),
                 subtype: Subtype::new(type_ent.to_owned()),
                 has_default: false,
@@ -1032,6 +968,7 @@ impl<'a> AnalyzeContext<'a> {
                 self.symbol("VALUE"),
                 AnyEntKind::Object(Object {
                     class: ObjectClass::Constant,
+                    is_port: false,
                     mode: Some(Mode::In),
                     subtype: Subtype::new(real.to_owned()),
                     has_default: false,
@@ -1041,12 +978,7 @@ impl<'a> AnalyzeContext<'a> {
 
             formals.add(self.arena.explicit(
                 self.symbol("DIGITS"),
-                AnyEntKind::Object(Object {
-                    class: ObjectClass::Constant,
-                    mode: Some(Mode::In),
-                    subtype: Subtype::new(natural),
-                    has_default: false,
-                }),
+                AnyEntKind::Object(Object::if_constant(Subtype::new(natural))),
                 real.decl_pos(),
             ));
 
@@ -1072,23 +1004,13 @@ impl<'a> AnalyzeContext<'a> {
             let mut formals = FormalRegion::new_params();
             formals.add(self.arena.explicit(
                 self.symbol("VALUE"),
-                AnyEntKind::Object(Object {
-                    class: ObjectClass::Constant,
-                    mode: Some(Mode::In),
-                    subtype: Subtype::new(real.to_owned()),
-                    has_default: false,
-                }),
+                AnyEntKind::Object(Object::if_constant(Subtype::new(real))),
                 real.decl_pos(),
             ));
 
             formals.add(self.arena.explicit(
                 self.symbol("FORMAT"),
-                AnyEntKind::Object(Object {
-                    class: ObjectClass::Constant,
-                    mode: Some(Mode::In),
-                    subtype: Subtype::new(string.to_owned()),
-                    has_default: false,
-                }),
+                AnyEntKind::Object(Object::if_constant(Subtype::new(string))),
                 real.decl_pos(),
             ));
 
@@ -1113,23 +1035,13 @@ impl<'a> AnalyzeContext<'a> {
             let mut formals = FormalRegion::new_params();
             formals.add(self.arena.explicit(
                 self.symbol("VALUE"),
-                AnyEntKind::Object(Object {
-                    class: ObjectClass::Constant,
-                    mode: Some(Mode::In),
-                    subtype: Subtype::new(time.to_owned()),
-                    has_default: false,
-                }),
+                AnyEntKind::Object(Object::if_constant(Subtype::new(time))),
                 time.decl_pos(),
             ));
 
             formals.add(self.arena.explicit(
                 self.symbol("UNIT"),
-                AnyEntKind::Object(Object {
-                    class: ObjectClass::Constant,
-                    mode: Some(Mode::In),
-                    subtype: Subtype::new(time.to_owned()),
-                    has_default: false,
-                }),
+                AnyEntKind::Object(Object::if_constant(Subtype::new(time))),
                 time.decl_pos(),
             ));
 

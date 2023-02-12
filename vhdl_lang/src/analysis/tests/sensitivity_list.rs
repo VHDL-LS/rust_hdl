@@ -92,3 +92,26 @@ end package body;
         )],
     )
 }
+
+#[test]
+fn may_be_output_port() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+entity ent is
+  port (oport : out bit);
+end entity;
+
+architecture a of ent is
+begin
+  main: process (oport)
+  begin
+  end process main;
+end architecture;
+
+        ",
+    );
+    let (_, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+}

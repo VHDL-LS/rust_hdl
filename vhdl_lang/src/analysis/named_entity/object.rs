@@ -81,9 +81,27 @@ impl<'a> ObjectEnt<'a> {
 #[derive(Clone)]
 pub struct Object<'a> {
     pub class: ObjectClass,
+    pub is_port: bool,
     pub mode: Option<Mode>,
     pub subtype: Subtype<'a>,
     pub has_default: bool,
+}
+
+impl<'a> Object<'a> {
+    pub(crate) fn if_constant(subtype: Subtype<'a>) -> Object<'a> {
+        Object {
+            class: ObjectClass::Constant,
+            is_port: false,
+            mode: Some(Mode::In),
+            subtype,
+            has_default: false,
+        }
+    }
+
+    pub(crate) fn with_default(mut self) -> Self {
+        self.has_default = true;
+        self
+    }
 }
 
 impl ObjectClass {

@@ -513,6 +513,7 @@ impl<'a> AnalyzeContext<'a> {
     ) -> Result<Object<'a>, String> {
         let Object {
             class,
+            is_port,
             mode,
             subtype,
             has_default,
@@ -520,6 +521,7 @@ impl<'a> AnalyzeContext<'a> {
 
         Ok(Object {
             class: *class,
+            is_port: *is_port,
             mode: *mode,
             subtype: self.map_subtype(mapping, *subtype)?,
             has_default: *has_default,

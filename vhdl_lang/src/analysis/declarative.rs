@@ -271,6 +271,7 @@ impl<'a> AnalyzeContext<'a> {
                         } else {
                             AnyEntKind::Object(Object {
                                 class: object_decl.class,
+                                is_port: false,
                                 mode: None,
                                 has_default: object_decl.expression.is_some(),
                                 subtype,
@@ -1113,6 +1114,7 @@ impl<'a> AnalyzeContext<'a> {
                     &mut object_decl.ident,
                     AnyEntKind::Object(Object {
                         class: object_decl.class,
+                        is_port: object_decl.list_type == InterfaceListType::Port,
                         mode: Some(object_decl.mode),
                         subtype,
                         has_default: object_decl.expression.is_some(),

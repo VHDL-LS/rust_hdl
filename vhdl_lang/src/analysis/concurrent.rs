@@ -335,7 +335,8 @@ impl<'a> AnalyzeContext<'a> {
                             object_name.base.describe_class()
                         ),
                     )
-                } else if object_name.base.mode() == Some(Mode::Out) {
+                } else if object_name.base.mode() == Some(Mode::Out) && !object_name.base.is_port()
+                {
                     diagnostics.error(
                         &name.pos,
                         format!(
