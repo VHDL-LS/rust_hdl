@@ -433,6 +433,7 @@ impl<'a> AnalyzeContext<'a> {
                 ContextItem::Library(LibraryClause { ref mut name_list }) => {
                     for library_name in name_list.iter_mut() {
                         if self.work_sym == library_name.item.item {
+                            library_name.set_unique_reference(self.work_library());
                             diagnostics.push(Diagnostic::hint(
                                 &library_name.item,
                                 "Library clause not necessary for current working library",
