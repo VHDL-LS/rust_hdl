@@ -7,6 +7,7 @@
 use super::analyze::*;
 use super::expression::ExpressionType;
 use super::named_entity::*;
+use super::names::AttributeSuffix;
 use super::names::ResolvedName;
 use super::overloaded::Disambiguated;
 use super::overloaded::DisambiguatedType;
@@ -273,8 +274,55 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics,
                 )?;
             }
-            Range::Attribute(ref mut attr) => {
-                self.analyze_attribute_name(scope, attr, diagnostics)?;
+            Range::Attribute(ref mut name) => {
+                let AttributeName {
+                    name,
+                    signature,
+                    expr,
+                    attr, // Parser ensures this must be 'range or we would not end up here
+                } = name.as_mut();
+
+                let prefix_typ = as_fatal(
+                    self.name_resolve(scope, &name.pos, &mut name.item, diagnostics)
+                        .and_then(|prefix| {
+                            prefix.as_type_of_attr_prefix(
+                                &name.pos,
+                                &AttributeSuffix {
+                                    signature,
+                                    attr,
+                                    expr,
+                                },
+                                diagnostics,
+                            )
+                        }),
+                )?;
+
+                if let Some(ref mut signature) = signature {
+                    diagnostics.error(
+                        &signature.pos,
+                        format!("Did not expect signature for '{attr} attribute"),
+                    );
+                }
+
+                if let Some(prefix_typ) = prefix_typ {
+                    if let Some((_, indexes)) = prefix_typ.array_type() {
+                        if let Some(index_typ) =
+                            as_fatal(self.array_index_expression_in_attribute(
+                                indexes,
+                                expr.as_mut().map(|expr| expr.as_mut()),
+                                diagnostics,
+                            ))?
+                        {
+                            if !self.can_be_target_type(index_typ.into(), target_type.base()) {
+                                diagnostics.push(Diagnostic::type_mismatch(
+                                    &range.pos(),
+                                    &index_typ.describe(),
+                                    target_type,
+                                ))
+                            }
+                        }
+                    }
+                }
             }
         }
         Ok(())

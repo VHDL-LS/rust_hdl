@@ -151,24 +151,11 @@ impl<'a> TypeEnt<'a> {
     }
 
     pub fn accessed_type(&self) -> Option<TypeEnt<'a>> {
-        if let Type::Access(subtype) = self.base_type().kind() {
-            Some(subtype.type_mark())
-        } else {
-            None
-        }
+        self.base().accessed_type()
     }
 
     pub fn array_type(&self) -> Option<(TypeEnt<'a>, &'a Vec<Option<BaseType<'a>>>)> {
-        if let Type::Array {
-            elem_type, indexes, ..
-        } = self.base_type().kind()
-        {
-            Some((*elem_type, indexes))
-        } else if let Some(accessed_typ) = self.accessed_type() {
-            accessed_typ.array_type()
-        } else {
-            None
-        }
+        self.base().array_type()
     }
 
     pub fn is_scalar(&self) -> bool {
@@ -337,6 +324,27 @@ impl<'a> BaseType<'a> {
 
         if matches!(typ.base().kind(), Type::Array { .. }) {
             Some(typ)
+        } else {
+            None
+        }
+    }
+
+    pub fn array_type(&self) -> Option<(TypeEnt<'a>, &'a Vec<Option<BaseType<'a>>>)> {
+        if let Type::Array {
+            elem_type, indexes, ..
+        } = self.kind()
+        {
+            Some((*elem_type, indexes))
+        } else if let Some(accessed_typ) = self.accessed_type() {
+            accessed_typ.array_type()
+        } else {
+            None
+        }
+    }
+
+    pub fn accessed_type(&self) -> Option<TypeEnt<'a>> {
+        if let Type::Access(subtype) = self.kind() {
+            Some(subtype.type_mark())
         } else {
             None
         }

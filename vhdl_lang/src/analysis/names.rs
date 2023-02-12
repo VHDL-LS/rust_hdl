@@ -267,7 +267,7 @@ impl<'a> ResolvedName<'a> {
         }
     }
 
-    fn as_type_of_attr_prefix(
+    pub(crate) fn as_type_of_attr_prefix(
         &self,
         prefix_pos: &SrcPos,
         attr: &AttributeSuffix,
@@ -656,6 +656,43 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
+    // Resolve an index used in an array attribute such as arr_t'left(0) to an index type
+    pub(crate) fn array_index_expression_in_attribute(
+        &self,
+        indexes: &[Option<BaseType<'a>>],
+        mut expr: Option<&mut WithPos<Expression>>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<BaseType<'a>> {
+        let idx = if let Some(expr) = expr.as_mut() {
+            if let Expression::Literal(Literal::AbstractLiteral(AbstractLiteral::Integer(idx))) =
+                expr.item
+            {
+                idx as usize
+            } else {
+                diagnostics.error(&expr.pos, "Expected an integer literal");
+                return Err(EvalError::Unknown);
+            }
+        } else {
+            1
+        };
+
+        if let Some(idx_typ) = indexes.get(idx - 1) {
+            if let Some(idx_typ) = idx_typ {
+                Ok(*idx_typ)
+            } else {
+                // Array index was not analyzed
+                Err(EvalError::Unknown)
+            }
+        } else {
+            if let Some(expr) = expr {
+                let ndims = indexes.len();
+                let dimensions = plural("dimension", "dimensions", ndims);
+                diagnostics.error(&expr.pos, format!("Index {idx} out of range for array with {ndims} {dimensions}, expected 1 to {ndims}"));
+            }
+            Err(EvalError::Unknown)
+        }
+    }
+
     pub fn attribute_suffix(
         &self,
         name_pos: &SrcPos,
@@ -673,35 +710,11 @@ impl<'a> AnalyzeContext<'a> {
                 let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
 
                 if let Some((_, indexes)) = typ.array_type() {
-                    let idx = if let Some(expr) = attr.expr {
-                        if let Expression::Literal(Literal::AbstractLiteral(
-                            AbstractLiteral::Integer(idx),
-                        )) = expr.item
-                        {
-                            idx as usize
-                        } else {
-                            diagnostics.error(&expr.pos, "Expected an integer literal");
-                            return Err(EvalError::Unknown);
-                        }
-                    } else {
-                        1
-                    };
-
-                    if let Some(idx_typ) = indexes.get(idx - 1) {
-                        if let Some(idx_typ) = idx_typ {
-                            Ok(*idx_typ)
-                        } else {
-                            // Array index was not analyzed
-                            Err(EvalError::Unknown)
-                        }
-                    } else {
-                        if let Some(expr) = attr.expr {
-                            let ndims = indexes.len();
-                            let dimensions = plural("dimension", "dimensions", ndims);
-                            diagnostics.error(&expr.pos, format!("Index {idx} out of range for array with {ndims} {dimensions}, expected 1 to {ndims}"));
-                        }
-                        Err(EvalError::Unknown)
-                    }
+                    self.array_index_expression_in_attribute(
+                        indexes,
+                        attr.expr.as_mut().map(|expr| expr.as_mut()),
+                        diagnostics,
+                    )
                 } else if typ.is_scalar() {
                     check_no_attr_argument(attr, diagnostics);
                     Ok(typ.into())
@@ -1365,96 +1378,6 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics.push(diag);
                 }
             }
-        }
-        Ok(())
-    }
-
-    /// Fallback solution that just lookups names
-    pub fn resolve_name(
-        &self,
-        scope: &Scope<'a>,
-        name_pos: &SrcPos,
-        name: &mut Name,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<NamedEntities<'a>> {
-        match name {
-            Name::Selected(prefix, suffix) => {
-                match self.resolve_name(scope, &prefix.pos, &mut prefix.item, diagnostics)? {
-                    NamedEntities::Single(named_entity) => {
-                        match self.lookup_selected(&prefix.pos, named_entity, suffix) {
-                            Ok(visible) => {
-                                suffix.set_reference(&visible);
-                                Ok(visible)
-                            }
-                            Err(err) => {
-                                err.add_to(diagnostics)?;
-                                Err(EvalError::Unknown)
-                            }
-                        }
-                    }
-                    NamedEntities::Overloaded(..) => Err(EvalError::Unknown),
-                }
-            }
-
-            Name::SelectedAll(prefix) => {
-                self.resolve_name(scope, &prefix.pos, &mut prefix.item, diagnostics)?;
-                Err(EvalError::Unknown)
-            }
-            Name::Designator(designator) => match scope.lookup(name_pos, designator.designator()) {
-                Ok(visible) => {
-                    designator.set_reference(&visible);
-                    Ok(visible)
-                }
-                Err(diagnostic) => {
-                    diagnostics.push(diagnostic);
-                    Err(EvalError::Unknown)
-                }
-            },
-            Name::Slice(ref mut prefix, ref mut drange) => {
-                self.resolve_name(scope, &prefix.pos, &mut prefix.item, diagnostics)?;
-                self.drange_unknown_type(scope, drange.as_mut(), diagnostics)?;
-                Err(EvalError::Unknown)
-            }
-            Name::Attribute(ref mut attr) => {
-                self.analyze_attribute_name(scope, attr, diagnostics)?;
-                Err(EvalError::Unknown)
-            }
-            Name::CallOrIndexed(ref mut call) => {
-                self.resolve_name(scope, &call.name.pos, &mut call.name.item, diagnostics)?;
-                self.analyze_assoc_elems(scope, &mut call.parameters, diagnostics)?;
-                Err(EvalError::Unknown)
-            }
-            Name::External(ref mut ename) => {
-                let ExternalName { subtype, .. } = ename.as_mut();
-                self.analyze_subtype_indication(scope, subtype, diagnostics)?;
-                Err(EvalError::Unknown)
-            }
-        }
-    }
-
-    pub fn analyze_attribute_name(
-        &self,
-        scope: &Scope<'a>,
-        attr: &mut AttributeName,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult {
-        // @TODO more, attr must be checked inside the scope of attributes of prefix
-        let AttributeName {
-            name,
-            signature,
-            expr,
-            ..
-        } = attr;
-
-        as_fatal(self.resolve_name(scope, &name.pos, &mut name.item, diagnostics))?;
-
-        if let Some(ref mut signature) = signature {
-            if let Err(err) = self.resolve_signature(scope, signature) {
-                err.add_to(diagnostics)?;
-            }
-        }
-        if let Some(ref mut expr) = expr {
-            self.expr_unknown_ttyp(scope, expr, diagnostics)?;
         }
         Ok(())
     }
