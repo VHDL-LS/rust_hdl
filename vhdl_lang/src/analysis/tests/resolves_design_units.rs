@@ -502,3 +502,33 @@ end architecture;
         )],
     );
 }
+
+#[test]
+fn empty_component_instantiation() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+    component empty
+    end component;
+begin
+    inst: empty;
+end architecture;
+
+
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+    assert_eq!(
+        root.search_reference(code.source(), code.sa("inst: ", "empty").start())
+            .unwrap()
+            .decl_pos(),
+        Some(&code.s1("empty").pos())
+    );
+}

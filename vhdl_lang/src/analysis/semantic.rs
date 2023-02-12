@@ -200,6 +200,32 @@ impl<'a> AnalyzeContext<'a> {
                     None => {}
                 }
             }
+            ResolvedName::Final(ent) => {
+                if let AnyEntKind::Component(region) = ent.kind() {
+                    name.set_unique_reference(ent);
+                    let (generic_region, port_region) = region.to_entity_formal();
+                    self.analyze_assoc_elems_with_formal_region(
+                        &fcall.item.name.pos,
+                        &generic_region,
+                        scope,
+                        &mut [],
+                        diagnostics,
+                    )?;
+                    self.analyze_assoc_elems_with_formal_region(
+                        &fcall.item.name.pos,
+                        &port_region,
+                        scope,
+                        &mut [],
+                        diagnostics,
+                    )?;
+                } else {
+                    diagnostics.push(Diagnostic::error(
+                        &name.pos,
+                        format!("{} is not a procedure", resolved.describe_type()),
+                    ));
+                    self.analyze_assoc_elems(scope, parameters, diagnostics)?;
+                }
+            }
             resolved => {
                 diagnostics.push(Diagnostic::error(
                     &name.pos,
