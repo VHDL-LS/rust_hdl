@@ -850,7 +850,13 @@ end architecture;
     );
 
     let diagnostics = builder.analyze();
-    check_diagnostics(diagnostics, duplicates(&code, &["lab1", "lab2"]));
+    check_diagnostics(
+        diagnostics,
+        vec![
+            duplicate(&code, "lab1", 2, 1),
+            duplicate(&code, "lab2", 2, 1),
+        ],
+    );
 }
 
 #[test]

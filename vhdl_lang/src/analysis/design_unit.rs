@@ -61,6 +61,7 @@ impl<'a> AnalyzeContext<'a> {
         if let Some(ref mut list) = unit.port_clause {
             self.analyze_interface_list(&primary_scope, list, diagnostics)?;
         }
+        self.define_labels_for_concurrent_part(&primary_scope, &mut unit.statements, diagnostics)?;
         self.analyze_declarative_part(&primary_scope, &mut unit.decl, diagnostics)?;
         self.analyze_concurrent_part(&primary_scope, &mut unit.statements, diagnostics)?;
 
@@ -239,6 +240,7 @@ impl<'a> AnalyzeContext<'a> {
                 .explicit(unit.name().clone(), AnyEntKind::Label, Some(unit.pos())),
         );
 
+        self.define_labels_for_concurrent_part(&scope, &mut unit.statements, diagnostics)?;
         self.analyze_declarative_part(&scope, &mut unit.decl, diagnostics)?;
         self.analyze_concurrent_part(&scope, &mut unit.statements, diagnostics)?;
         scope.close(diagnostics);

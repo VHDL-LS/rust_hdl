@@ -16,6 +16,61 @@ use region::*;
 use target::AssignmentType;
 
 impl<'a> AnalyzeContext<'a> {
+    pub fn define_labels_for_sequential_part(
+        &self,
+        scope: &Scope<'a>,
+        statements: &mut [LabeledSequentialStatement],
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult {
+        for statement in statements.iter_mut() {
+            if let Some(ref mut label) = statement.label {
+                scope.add(label.define(self.arena, AnyEntKind::Label), diagnostics);
+            }
+
+            match statement.statement {
+                SequentialStatement::If(ref mut ifstmt) => {
+                    let IfStatement {
+                        conditionals,
+                        else_item,
+                    } = ifstmt;
+
+                    for conditional in conditionals {
+                        self.define_labels_for_sequential_part(
+                            scope,
+                            &mut conditional.item,
+                            diagnostics,
+                        )?;
+                    }
+                    if let Some(else_item) = else_item {
+                        self.define_labels_for_sequential_part(scope, else_item, diagnostics)?;
+                    }
+                }
+
+                SequentialStatement::Case(ref mut case_stmt) => {
+                    for alternative in case_stmt.alternatives.iter_mut() {
+                        self.define_labels_for_sequential_part(
+                            scope,
+                            &mut alternative.item,
+                            diagnostics,
+                        )?;
+                    }
+                }
+                SequentialStatement::Loop(ref mut loop_stmt) => {
+                    self.define_labels_for_sequential_part(
+                        scope,
+                        &mut loop_stmt.statements,
+                        diagnostics,
+                    )?;
+                }
+                _ => {
+                    // Does not have sequential part
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     fn analyze_sequential_statement(
         &self,
         scope: &Scope<'a>,
@@ -23,10 +78,6 @@ impl<'a> AnalyzeContext<'a> {
         statement: &mut LabeledSequentialStatement,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        if let Some(ref mut label) = statement.label {
-            scope.add(self.arena.define(label, AnyEntKind::Label), diagnostics);
-        }
-
         match statement.statement {
             SequentialStatement::Return(ref mut ret) => {
                 let ReturnStatement { ref mut expression } = ret.item;

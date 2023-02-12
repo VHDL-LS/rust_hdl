@@ -125,6 +125,12 @@ impl Code {
         self.in_range(range)
     }
 
+    // Creates a code from the first occurence for before + substr at the
+    // position of substr
+    pub fn sb(&self, substr: &str, after: &str) -> Code {
+        self.s1(&format!("{substr}{after}")).s1(substr)
+    }
+
     pub fn pos(&self) -> SrcPos {
         self.pos.clone()
     }

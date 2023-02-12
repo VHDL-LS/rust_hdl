@@ -30,16 +30,27 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
+    pub fn define_labels_for_concurrent_part(
+        &self,
+        scope: &Scope<'a>,
+        statements: &mut [LabeledConcurrentStatement],
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult {
+        for statement in statements.iter_mut() {
+            if let Some(ref mut label) = statement.label {
+                scope.add(label.define(self.arena, AnyEntKind::Label), diagnostics);
+            }
+        }
+
+        Ok(())
+    }
+
     fn analyze_concurrent_statement(
         &self,
         scope: &Scope<'a>,
         statement: &mut LabeledConcurrentStatement,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        if let Some(ref mut label) = statement.label {
-            scope.add(label.define(self.arena, AnyEntKind::Label), diagnostics);
-        }
-
         match statement.statement {
             ConcurrentStatement::Block(ref mut block) => {
                 if let Some(ref mut guard_condition) = block.guard_condition {
@@ -58,6 +69,8 @@ impl<'a> AnalyzeContext<'a> {
                 if let Some(ref mut list) = block.header.port_map {
                     self.analyze_assoc_elems(scope, list, diagnostics)?;
                 }
+
+                self.define_labels_for_concurrent_part(scope, &mut block.statements, diagnostics)?;
                 self.analyze_declarative_part(&nested, &mut block.decl, diagnostics)?;
                 self.analyze_concurrent_part(&nested, &mut block.statements, diagnostics)?;
             }
@@ -77,6 +90,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
                 let nested = scope.nested();
+                self.define_labels_for_sequential_part(scope, statements, diagnostics)?;
                 self.analyze_declarative_part(&nested, decl, diagnostics)?;
                 self.analyze_sequential_part(
                     &nested,
@@ -175,6 +189,10 @@ impl<'a> AnalyzeContext<'a> {
         if let Some(label) = alternative_label {
             scope.add(label.define(self.arena, AnyEntKind::Label), diagnostics);
         }
+
+        // Pre-declare labels
+        self.define_labels_for_concurrent_part(scope, statements, diagnostics)?;
+
         if let Some(ref mut decl) = decl {
             self.analyze_declarative_part(scope, decl, diagnostics)?;
         }

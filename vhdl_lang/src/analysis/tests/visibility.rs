@@ -698,3 +698,62 @@ end function;
         Some(code.s("theproc", 2).pos())
     );
 }
+
+#[test]
+fn labels_are_visible_in_declarative_region() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+  attribute debug : boolean;
+  attribute debug of main : label is true;
+begin
+  main: process
+  begin
+      wait;
+  end process;
+end architecture;
+
+",
+    );
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+    let label = root
+        .search_reference(code.source(), code.sa("debug of ", "main").start())
+        .unwrap();
+    assert_eq!(label.decl_pos(), Some(&code.sb("main", ": process").pos()));
+}
+
+#[test]
+fn sequential_labels_are_visible_in_declarative_region() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+begin
+  process
+    attribute debug : boolean;
+    attribute debug of main : label is true;
+  begin
+    main: for i in 0 to 1 loop
+    end loop;
+    wait;
+  end process;
+end architecture;
+",
+    );
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+    let label = root
+        .search_reference(code.source(), code.sa("debug of ", "main").start())
+        .unwrap();
+    assert_eq!(label.decl_pos(), Some(&code.sb("main", ": for i ").pos()));
+}

@@ -493,6 +493,11 @@ impl<'a> AnalyzeContext<'a> {
                 };
                 let subpgm_region = subpgm_region.with_parent(scope);
 
+                self.define_labels_for_sequential_part(
+                    &subpgm_region,
+                    &mut body.statements,
+                    diagnostics,
+                )?;
                 self.analyze_declarative_part(&subpgm_region, &mut body.declarations, diagnostics)?;
 
                 self.analyze_sequential_part(
