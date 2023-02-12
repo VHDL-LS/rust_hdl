@@ -459,5 +459,9 @@ PoC.files = [
 
 neorv32.files = [
 'neorv32/rtl/core/*.vhd',
+'neorv32/rtl/core/mem/*default*.vhd',
+'neorv32/rtl/processor_templates/*.vhd',
+'neorv32/rtl/system_integration/*.vhd',
+'neorv32/rtl/test_setups/*.vhd',
 'neorv32/sim/*.vhd',
 ]
