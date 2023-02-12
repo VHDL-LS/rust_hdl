@@ -198,24 +198,79 @@ uvvm_vvc_framework.files = [
 'UVVM/uvvm_vvc_framework/src/*.vhd',
 ]
 
-bitvis_vip_uart.files = [
+bitvis_vip_avalon_mm.files = [
 'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
-'UVVM/bitvis_vip_uart/src/*.vhd',
+'UVVM/bitvis_vip_avalon_mm/**/*.vhd',
+]
+
+bitvis_vip_avalon_st.files = [
+'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
+'UVVM/bitvis_vip_avalon_st/**/*.vhd',
+]
+
+bitvis_vip_axi.files = [
+'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
+'UVVM/bitvis_vip_axi/**/*.vhd',
 ]
 
 bitvis_vip_axilite.files = [
 'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
-'UVVM/bitvis_vip_axilite/src/*.vhd',
+'UVVM/bitvis_vip_axilite/**/*.vhd',
 ]
 
-bitvis_vip_i2c.files = [
+bitvis_vip_axistream.files = [
 'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
-'UVVM/bitvis_vip_i2c/src/*.vhd',
+'UVVM/bitvis_vip_axistream/**/*.vhd',
 ]
 
 bitvis_vip_clock_generator.files = [
 'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
-'UVVM/bitvis_vip_clock_generator/src/*.vhd',
+'UVVM/bitvis_vip_clock_generator/**/*.vhd',
+]
+
+# bitvis_vip_error_injection.files = [
+# 'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
+# 'UVVM/bitvis_vip_error_injection/**/*.vhd',
+# ]
+
+bitvis_vip_ethernet.files = [
+'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
+'UVVM/bitvis_vip_ethernet/**/*.vhd',
+]
+
+bitvis_vip_gmii.files = [
+'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
+'UVVM/bitvis_vip_gmii/**/*.vhd',
+]
+
+bitvis_vip_gpio.files = [
+'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
+#'UVVM/bitvis_vip_gpio/tb/*.vhd',
+'UVVM/bitvis_vip_gpio/src/*.vhd',
+]
+
+bitvis_vip_hvvc_to_vvc_bridge.files = [
+#'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
+'UVVM/bitvis_vip_hvvc_to_vvc_bridge/**/*.vhd',
+]
+
+bitvis_vip_i2c.files = [
+'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
+'UVVM/bitvis_vip_i2c/**/*.vhd',
+]
+
+bitvis_vip_rgmii.files = [
+'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
+'UVVM/bitvis_vip_rgmii/**/*.vhd',
+]
+
+bitvis_vip_sbi.files = [
+'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
+'UVVM/bitvis_vip_sbi/**/*.vhd',
+]
+
+bitvis_vip_spec_cov.files = [
+'UVVM/bitvis_vip_spec_cov/src/*.vhd',
 ]
 
 bitvis_vip_scoreboard.files = [
@@ -225,7 +280,12 @@ bitvis_vip_scoreboard.files = [
 
 bitvis_vip_spi.files = [
 'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
-'UVVM/bitvis_vip_spi/src/*.vhd',
+'UVVM/bitvis_vip_spi/**/*.vhd',
+]
+
+bitvis_vip_uart.files = [
+'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
+'UVVM/bitvis_vip_uart/**/*.vhd',
 ]
 
 bitvis_uart.files = [
@@ -237,28 +297,6 @@ bitvis_irqc.files = [
 'UVVM/bitvis_irqc/tb/*.vhd',
 'UVVM/bitvis_irqc/src/*.vhd',
 ]
-
-bitvis_vip_axistream.files = [
-'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
-'UVVM/bitvis_vip_axistream/src/*.vhd',
-]
-
-bitvis_vip_avalon_mm.files = [
-'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
-'UVVM/bitvis_vip_avalon_mm/src/*.vhd',
-]
-
-bitvis_vip_sbi.files = [
-'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
-'UVVM/bitvis_vip_sbi/src/*.vhd',
-]
-
-bitvis_vip_gpio.files = [
-'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
-#'UVVM/bitvis_vip_gpio/tb/*.vhd',
-'UVVM/bitvis_vip_gpio/src/*.vhd',
-]
-
 
 PoC.files = [
 'PoC/src/sim/sim_global.v08.vhdl',
