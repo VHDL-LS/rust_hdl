@@ -12,7 +12,7 @@
 use clap::Parser;
 use std::path::Path;
 use std::time::SystemTime;
-use vhdl_lang::{Config, Diagnostic, MessagePrinter, NullMessages, Project};
+use vhdl_lang::{Config, Diagnostic, MessagePrinter, NullMessages, Project, Severity};
 
 /// Run vhdl analysis
 #[derive(Parser, Debug)]
@@ -29,6 +29,10 @@ struct Args {
     /// Run repeatedly to get a reliable benchmark result
     #[arg(long, default_value_t = false)]
     bench: bool,
+
+    /// Hide hint diagnostics
+    #[arg(long, default_value_t = false)]
+    no_hint: bool,
 
     /// Config file in TOML format containing libraries and settings
     #[arg(short, long)]
@@ -75,8 +79,13 @@ fn main() {
     };
 
     let mut project = Project::from_config(&config, &mut msg_printer);
-    let diagnostics = project.analyse();
+    let mut diagnostics = project.analyse();
     let duration = start.elapsed().unwrap() / iterations;
+
+    if args.no_hint {
+        diagnostics.retain(|diag| diag.severity != Severity::Hint);
+    }
+
     show_diagnostics(&diagnostics);
 
     if args.perf || args.bench {
