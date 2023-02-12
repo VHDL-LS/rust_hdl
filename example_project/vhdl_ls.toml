@@ -456,3 +456,8 @@ PoC.files = [
 'PoC/src/misc/*.vhdl',
 'PoC/src/dstruct/*.vhdl',
 ]
+
+neorv32.files = [
+'neorv32/rtl/core/*.vhd',
+'neorv32/sim/*.vhd',
+]

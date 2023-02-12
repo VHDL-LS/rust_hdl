@@ -10,3 +10,6 @@
 [submodule "example_project/OSVVM"]
 	path = example_project/OSVVM
 	url = https://github.com/OSVVM/OSVVM.git
+[submodule "example_project/neorv32"]
+	path = example_project/neorv32
+	url = https://github.com/stnolting/neorv32.git
