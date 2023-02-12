@@ -46,10 +46,11 @@ impl<'a> InterfaceEnt<'a> {
         }
     }
 
-    pub fn is_output_signal(&self) -> bool {
+    pub fn is_out_or_inout_signal(&self) -> bool {
         match self.ent.kind() {
             AnyEntKind::Object(obj) => {
-                obj.class == ObjectClass::Signal && obj.mode == Some(Mode::Out)
+                obj.class == ObjectClass::Signal
+                    && matches!(obj.mode, Some(Mode::Out) | Some(Mode::InOut))
             }
             _ => false,
         }

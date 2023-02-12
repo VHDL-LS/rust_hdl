@@ -291,7 +291,7 @@ impl<'a> AnalyzeContext<'a> {
                 // Default may be unconnected
                 || formal.has_default()
                 // Output ports are allowed to be unconnected
-                || (formal_region.typ == InterfaceListType::Port && formal.is_output_signal()))
+                || (formal_region.typ == InterfaceListType::Port && formal.is_out_or_inout_signal()))
             {
                 not_associated.push(idx);
             }
