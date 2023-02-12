@@ -293,6 +293,44 @@ end architecture;
 }
 
 #[test]
+fn type_conversion_of_port_name() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+    port (
+        theport: out natural
+    );
+end entity;
+
+architecture a of ent is
+begin
+end architecture;
+
+entity ent2 is
+end entity;
+
+architecture a of ent2 is
+    signal sig : real;
+begin
+    inst: entity work.ent
+        port map (
+        real(theport) => sig);
+end architecture;
+        ",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s("theport", 2).end()),
+        Some(code.s1("theport").pos())
+    );
+}
+
+#[test]
 fn function_conversion_of_port_name_must_be_single_argument() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(

@@ -11,7 +11,6 @@ use super::analyze::*;
 use super::formal_region::FormalRegion;
 use super::formal_region::InterfaceEnt;
 use super::named_entity::*;
-use super::names::as_type_conversion;
 use super::names::ResolvedName;
 use super::region::*;
 use crate::ast::*;
@@ -136,12 +135,12 @@ impl<'a> AnalyzeContext<'a> {
                     // The prefix of the name was not found in the formal region
                     // it must be a type conversion or a single parameter function call
 
-                    let (idx, formal_ent) = if let Some(designator) =
+                    let (idx, pos, formal_ent) = if let Some((pos, designator)) =
                         to_formal_conversion_argument(&mut fcall.parameters)
                     {
                         let (idx, ent) = formal_region.lookup(name_pos, designator.designator())?;
                         designator.set_unique_reference(ent.inner());
-                        (idx, ent)
+                        (idx, pos, ent)
                     } else {
                         return Err(Diagnostic::error(name_pos, "Invalid formal conversion").into());
                     };
@@ -153,24 +152,19 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics,
                     ))? {
                         Some(ResolvedName::Type(typ)) => {
-                            if let Some((expr_pos, expr)) =
-                                as_type_conversion(&mut fcall.parameters)
-                            {
-                                self.check_type_conversion(
-                                    scope,
-                                    typ,
-                                    expr_pos,
-                                    expr,
-                                    diagnostics,
-                                )?;
-                                typ
-                            } else {
+                            let ctyp = formal_ent.type_mark().base();
+                            if !typ.base().is_closely_related(ctyp) {
                                 return Err(Diagnostic::error(
-                                    name_pos,
-                                    "Invalid formal type conversion",
+                                    pos,
+                                    format!(
+                                        "{} cannot be converted to {}",
+                                        ctyp.describe(),
+                                        typ.describe()
+                                    ),
                                 )
                                 .into());
                             }
+                            typ
                         }
                         Some(ResolvedName::Overloaded(des, overloaded)) => {
                             let mut candidates = Vec::with_capacity(overloaded.len());
@@ -367,7 +361,7 @@ impl<'a> AnalyzeContext<'a> {
 
 fn to_formal_conversion_argument(
     parameters: &mut [AssociationElement],
-) -> Option<&mut WithRef<Designator>> {
+) -> Option<(&SrcPos, &mut WithRef<Designator>)> {
     if let &mut [AssociationElement {
         ref formal,
         ref mut actual,
@@ -377,7 +371,7 @@ fn to_formal_conversion_argument(
             return None;
         } else if let ActualPart::Expression(Expression::Name(ref mut actual_name)) = actual.item {
             if let Name::Designator(designator) = actual_name.as_mut() {
-                return Some(designator);
+                return Some((&actual.pos, designator));
             }
         }
     }
