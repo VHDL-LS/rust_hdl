@@ -1287,11 +1287,14 @@ signal bad_sig : integer_vector(0 to 15);
 attribute ram_style of good_sig : signal is 0;
 attribute ram_style of bad_sig[return integer] : signal is 0;
 
-function good_fun return natural; 
-function bad_fun1 return natural; 
-function bad_fun2 return natural; 
+function good_fun1 return natural;
+function good_fun2 return natural;
+function bad_fun1 return natural;
+function bad_fun1 return character;
+function bad_fun2 return natural;
 
-attribute ram_style of good_fun[return natural] : signal is 0;
+attribute ram_style of good_fun1 : signal is 0;
+attribute ram_style of good_fun2[return natural] : signal is 0;
 attribute ram_style of bad_fun1 : signal is 0;
 attribute ram_style of bad_fun2[return boolean] : signal is 0;
 

@@ -363,7 +363,6 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     }
                 }
-                // @TODO Ignored for now
                 Attribute::Specification(ref mut attr_spec) => {
                     let AttributeSpecification {
                         ident,
@@ -441,6 +440,8 @@ impl<'a> AnalyzeContext<'a> {
                                             err.add_to(diagnostics)?;
                                         }
                                     }
+                                } else if let Some(ent) = overloaded.as_unique() {
+                                    designator.set_unique_reference(ent);
                                 } else {
                                     diagnostics.push(Diagnostic::signature_required(designator));
                                 }
