@@ -20,6 +20,9 @@ I very much appreciate help from other people especially regarding semantic anal
 - Checks for missing and duplicate declarations
 - Supports goto-definition/declaration (also in presence of overloading)
 - Supports find-references (also in presence of overloading)
+- Supports goto-implementation
+  - From component declaration to matching entity by default binding
+  - From entity to matching component declaration by default binding
 - Supports hovering symbols
 
 ## Trying it out
