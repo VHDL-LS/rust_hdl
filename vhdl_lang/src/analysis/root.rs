@@ -467,6 +467,20 @@ impl DesignRoot {
         NotFound
     }
 
+    pub fn search_library(
+        &self,
+        library_name: &Symbol,
+        searcher: &mut impl Searcher,
+    ) -> SearchResult {
+        if let Some(library) = self.libraries.get(library_name) {
+            for unit_id in library.sorted_unit_ids() {
+                let unit = library.units.get(unit_id.key()).unwrap();
+                return_if_found!(unit.unit.write().search(searcher));
+            }
+        }
+        NotFound
+    }
+
     pub fn symbol_utf8(&self, name: &str) -> Symbol {
         self.symbols.symtab().insert_utf8(name)
     }

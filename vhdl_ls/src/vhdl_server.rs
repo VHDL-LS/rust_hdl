@@ -349,16 +349,20 @@ impl VHDLServer {
     pub fn text_document_implementation(
         &mut self,
         params: &TextDocumentPositionParams,
-    ) -> Option<Location> {
+    ) -> Option<GotoDefinitionResponse> {
         let source = self
             .project
             .get_source(&uri_to_file_name(&params.text_document.uri))?;
 
-        let ent = self
+        let ents = self
             .project
             .find_implementation(&source, from_lsp_pos(params.position))?;
 
-        Some(srcpos_to_location(ent.decl_pos()?))
+        Some(GotoDefinitionResponse::Array(
+            ents.into_iter()
+                .filter_map(|ent| ent.decl_pos().map(srcpos_to_location))
+                .collect(),
+        ))
     }
 
     pub fn text_document_hover(&mut self, params: &TextDocumentPositionParams) -> Option<Hover> {

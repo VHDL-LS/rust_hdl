@@ -1343,6 +1343,35 @@ impl<'a, T: Fn(EntRef<'a>) -> bool> Searcher for FindEnt<'a, T> {
     }
 }
 
+pub struct FindAllEnt<'a, T: Fn(EntRef<'a>) -> bool> {
+    root: &'a DesignRoot,
+    cond: T,
+    pub result: Vec<EntRef<'a>>,
+}
+
+impl<'a, T: Fn(EntRef<'a>) -> bool> FindAllEnt<'a, T> {
+    pub fn new(root: &'a DesignRoot, cond: T) -> FindAllEnt<'a, T> {
+        FindAllEnt {
+            root,
+            cond,
+            result: Vec::default(),
+        }
+    }
+}
+
+impl<'a, T: Fn(EntRef<'a>) -> bool> Searcher for FindAllEnt<'a, T> {
+    fn search_decl(&mut self, decl: FoundDeclaration) -> SearchState {
+        if let Some(id) = decl.ent_id() {
+            let ent = self.root.get_ent(id);
+            if (self.cond)(ent) {
+                self.result.push(ent);
+            }
+        }
+
+        SearchState::NotFinished
+    }
+}
+
 // Search for a declaration/definition and format it
 pub struct FormatDeclaration<'a> {
     ent: EntRef<'a>,
