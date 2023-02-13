@@ -116,6 +116,7 @@ impl VHDLServer {
             definition_provider: Some(OneOf::Left(true)),
             hover_provider: Some(HoverProviderCapability::Simple(true)),
             references_provider: Some(OneOf::Left(true)),
+            implementation_provider: Some(ImplementationProviderCapability::Simple(true)),
             ..Default::default()
         };
 
@@ -331,7 +332,6 @@ impl VHDLServer {
         Some(srcpos_to_location(ent.decl_pos()?))
     }
 
-    // Copy goto-declaration for now
     pub fn text_document_definition(
         &mut self,
         params: &TextDocumentPositionParams,
@@ -343,6 +343,21 @@ impl VHDLServer {
         let ent = self
             .project
             .find_definition(&source, from_lsp_pos(params.position))?;
+        Some(srcpos_to_location(ent.decl_pos()?))
+    }
+
+    pub fn text_document_implementation(
+        &mut self,
+        params: &TextDocumentPositionParams,
+    ) -> Option<Location> {
+        let source = self
+            .project
+            .get_source(&uri_to_file_name(&params.text_document.uri))?;
+
+        let ent = self
+            .project
+            .find_implementation(&source, from_lsp_pos(params.position))?;
+
         Some(srcpos_to_location(ent.decl_pos()?))
     }
 

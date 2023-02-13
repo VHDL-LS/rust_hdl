@@ -355,8 +355,9 @@ impl<'a> AnalyzeContext<'a> {
             if let Some(unit) = self.get_primary_unit(library_name, primary_name) {
                 let data = self.get_analysis(Some(pos), unit)?;
                 if let AnyDesignUnit::Primary(primary) = data.deref() {
-                    if let Some(ent) = primary.ent_id() {
-                        let design = DesignEnt::from_any(self.arena.get(ent)).map_err(|ent| {
+                    if let Some(id) = primary.ent_id() {
+                        let ent = self.arena.get(id);
+                        let design = DesignEnt::from_any(ent).ok_or_else(|| {
                             // Almost impossible but better not fail silently
                             Diagnostic::error(
                                 pos,

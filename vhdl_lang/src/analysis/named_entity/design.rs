@@ -47,11 +47,11 @@ impl<'a> Design<'a> {
 pub struct DesignEnt<'a>(pub EntRef<'a>);
 
 impl<'a> DesignEnt<'a> {
-    pub fn from_any(ent: &'a AnyEnt) -> Result<DesignEnt<'a>, EntRef<'a>> {
+    pub fn from_any(ent: &'a AnyEnt) -> Option<DesignEnt<'a>> {
         if matches!(ent.kind(), AnyEntKind::Design(..)) {
-            Ok(DesignEnt(ent))
+            Some(DesignEnt(ent))
         } else {
-            Err(ent)
+            None
         }
     }
 

@@ -1472,12 +1472,12 @@ impl<'a> AnalyzeContext<'a> {
                 Ok(subtype.type_mark().selected(prefix_pos, suffix)?.into_any())
             }
             AnyEntKind::Design(_) => {
-                let design = DesignEnt::from_any(prefix).map_err(|ent| {
+                let design = DesignEnt::from_any(prefix).ok_or_else(|| {
                     Diagnostic::error(
                         &suffix.pos,
                         format!(
                             "Internal error when expecting design unit, got {}",
-                            ent.describe()
+                            prefix.describe()
                         ),
                     )
                 })?;

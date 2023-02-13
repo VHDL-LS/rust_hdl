@@ -4,8 +4,8 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::analysis::{AnyEnt, DesignRoot, EntRef, Related};
-use crate::ast::DesignFile;
+use crate::analysis::{AnyEnt, AnyEntKind, DesignRoot, EntRef, Related};
+use crate::ast::{DesignFile, Designator};
 use crate::config::Config;
 use crate::data::*;
 use crate::syntax::VHDLParser;
@@ -235,6 +235,34 @@ impl Project {
         } else {
             Some(ent)
         }
+    }
+
+    /// Find entity with same name as component in the library
+    pub fn find_implementation<'a>(
+        &'a self,
+        source: &Source,
+        cursor: Position,
+    ) -> Option<EntRef<'a>> {
+        let ent = self.find_declaration(source, cursor)?;
+        if !matches!(ent.kind(), AnyEntKind::Component(_)) {
+            return None;
+        }
+
+        let ident = if let Designator::Identifier(ident) = ent.designator() {
+            ident
+        } else {
+            return None;
+        };
+
+        let decl_pos = ent.decl_pos()?;
+
+        let file = self.files.get(decl_pos.source().file_name())?;
+        for library_name in file.library_names.iter() {
+            if let Some(design) = self.root.get_design_entity(library_name, ident) {
+                return Some(design.into());
+            }
+        }
+        None
     }
 
     /// Search for the declaration at decl_pos and format it

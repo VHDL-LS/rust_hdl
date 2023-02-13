@@ -317,6 +317,26 @@ impl DesignRoot {
             .map(|library| &library.units)
     }
 
+    pub(crate) fn get_design_entity<'a>(
+        &'a self,
+        library_name: &Symbol,
+        ident: &Symbol,
+    ) -> Option<DesignEnt<'a>> {
+        let units = self.get_library_units(library_name)?;
+        let unit = units.get(&UnitKey::Primary(ident.clone()))?;
+        let data = self.get_analysis(unit);
+
+        if let AnyDesignUnit::Primary(primary) = data.deref() {
+            if let Some(id) = primary.ent_id() {
+                let design = DesignEnt::from_any(self.arenas.get(id))?;
+                if matches!(design.kind(), Design::Entity(..)) {
+                    return Some(design);
+                }
+            }
+        }
+        None
+    }
+
     /// Get a named entity corresponding to the library
     pub(super) fn get_library_arena(
         &self,
