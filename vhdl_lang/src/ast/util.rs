@@ -167,7 +167,7 @@ impl HasIdent for PackageBody {
 
 impl HasIdent for ArchitectureBody {
     fn ident(&self) -> &Ident {
-        &self.ident
+        self.ident.ident()
     }
 }
 

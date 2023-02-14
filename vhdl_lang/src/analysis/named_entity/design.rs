@@ -15,12 +15,14 @@ use crate::analysis::visibility::Visibility;
 use crate::ast::Designator;
 use crate::ast::HasDesignator;
 use crate::ast::WithRef;
+use crate::data::Symbol;
 use crate::data::WithPos;
 use crate::Diagnostic;
 use crate::SrcPos;
 
 pub enum Design<'a> {
-    Entity(Visibility<'a>, Region<'a>),
+    Entity(Symbol, Visibility<'a>, Region<'a>),
+    Architecture(DesignEnt<'a>),
     Configuration,
     Package(Visibility<'a>, Region<'a>),
     UninstPackage(Visibility<'a>, Region<'a>),
@@ -33,6 +35,7 @@ impl<'a> Design<'a> {
         use Design::*;
         match self {
             Entity(..) => "entity",
+            Architecture(..) => "architecture",
             Configuration => "configuration",
             Package(..) => "package",
             UninstPackage(..) => "uninstantiated package",

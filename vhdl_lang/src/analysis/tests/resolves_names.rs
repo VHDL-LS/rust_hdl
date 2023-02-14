@@ -1841,3 +1841,62 @@ end package body;
         Some(&code.s("c0", 2).pos())
     );
 }
+
+#[test]
+fn find_architecture_references() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent1 is
+end entity;
+
+architecture a1 of ent1 is
+begin
+end architecture;
+
+architecture a2 of ent1 is
+begin
+end architecture;
+
+entity ent2 is
+end entity;
+
+architecture a of ent2 is
+begin
+    good_inst1 : entity work.ent1(a1);
+    good_inst2 : entity work.ent1(a2);
+    bad_inst : entity work.ent1(a3);
+end architecture;
+      ",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.sa("work.ent1(", "a3"),
+            "No architecture 'a3' for entity 'libname.ent1'",
+        )],
+    );
+
+    assert_eq_unordered(
+        &root.find_all_references_pos(&code.s("a1", 1).pos()),
+        &[code.s("a1", 1).pos(), code.s("a1", 2).pos()],
+    );
+
+    assert_eq_unordered(
+        &root.find_all_references_pos(&code.s("a1", 2).pos()),
+        &[code.s("a1", 1).pos(), code.s("a1", 2).pos()],
+    );
+
+    assert_eq!(
+        root.find_definition_of(
+            root.search_reference(code.source(), code.s("a2", 2).start())
+                .unwrap()
+        )
+        .unwrap()
+        .decl_pos(),
+        Some(&code.s("a2", 1).pos())
+    );
+}

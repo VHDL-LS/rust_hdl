@@ -208,8 +208,7 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         match instance.unit {
-            // @TODO architecture
-            InstantiatedUnit::Entity(ref mut entity_name, ..) => {
+            InstantiatedUnit::Entity(ref mut entity_name, ref mut architecture_name) => {
                 if let Err(err) =
                     self.resolve_selected_name(scope, entity_name)
                         .and_then(|entities| {
@@ -220,7 +219,27 @@ impl<'a> AnalyzeContext<'a> {
                                 expected,
                             )?;
 
-                            if let AnyEntKind::Design(Design::Entity(_, ent_region)) = ent.kind() {
+                            if let AnyEntKind::Design(Design::Entity(library_name, _, ent_region)) =
+                                ent.kind()
+                            {
+                                if let Designator::Identifier(entity_ident) = ent.designator() {
+                                    if let Some(ref mut architecture_name) = architecture_name {
+                                        match self.get_architecture(
+                                            library_name,
+                                            &architecture_name.item.pos,
+                                            entity_ident,
+                                            &architecture_name.item.item,
+                                        ) {
+                                            Ok(arch) => {
+                                                architecture_name.set_unique_reference(&arch);
+                                            }
+                                            Err(err) => {
+                                                diagnostics.push(err.into_non_fatal()?);
+                                            }
+                                        }
+                                    }
+                                }
+
                                 let (generic_region, port_region) = ent_region.to_entity_formal();
 
                                 self.analyze_assoc_elems_with_formal_region(

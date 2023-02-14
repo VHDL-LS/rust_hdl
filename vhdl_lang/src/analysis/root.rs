@@ -267,8 +267,9 @@ pub struct DesignRoot {
     // user  =>  set(users)
     users_of: RwLock<FnvHashMap<UnitId, FnvHashSet<UnitId>>>,
 
-    // missing primary name  =>  set(affected)
-    missing_primary: RwLock<FnvHashMap<(Symbol, Symbol), FnvHashSet<UnitId>>>,
+    // missing unit name  =>  set(affected)
+    #[allow(clippy::type_complexity)]
+    missing_unit: RwLock<FnvHashMap<(Symbol, Symbol, Option<Symbol>), FnvHashSet<UnitId>>>,
 
     // Tracks which units have a "use library.all;" clause.
     // library name  =>  set(affected)
@@ -287,7 +288,7 @@ impl DesignRoot {
             arenas: FinalArena::default(),
             libraries: FnvHashMap::default(),
             users_of: RwLock::new(FnvHashMap::default()),
-            missing_primary: RwLock::new(FnvHashMap::default()),
+            missing_unit: RwLock::new(FnvHashMap::default()),
             users_of_library_all: RwLock::new(FnvHashMap::default()),
         }
     }
@@ -607,16 +608,21 @@ impl DesignRoot {
         }
     }
 
-    /// Make use of a missing primary name. The library unit will be sensitive to adding such a primary unit in the future.
-    pub(super) fn make_use_of_missing_primary(
+    /// Make use of a missing unit name. The library unit will be sensitive to adding such a unit in the future.
+    pub(super) fn make_use_of_missing_unit(
         &self,
         user: &UnitId,
         library_name: &Symbol,
         primary_name: &Symbol,
+        secondary_name: Option<&Symbol>,
     ) {
-        let mut missing_primary = self.missing_primary.write();
-        let key = (library_name.clone(), primary_name.clone());
-        match missing_primary.entry(key) {
+        let mut missing_unit = self.missing_unit.write();
+        let key = (
+            library_name.clone(),
+            primary_name.clone(),
+            secondary_name.cloned(),
+        );
+        match missing_unit.entry(key) {
             Entry::Occupied(mut entry) => {
                 entry.get_mut().insert(user.clone());
             }
@@ -659,10 +665,12 @@ impl DesignRoot {
                 }
             }
         }
-        let missing_primary = self.missing_primary.read();
-        for ((library_name, primary_name), unit_ids) in missing_primary.iter() {
+        let missing_unit = self.missing_unit.read();
+        for ((library_name, primary_name, secondary_name), unit_ids) in missing_unit.iter() {
             let was_added = added.iter().any(|added_id| {
-                added_id.library_name() == library_name && added_id.primary_name() == primary_name
+                added_id.library_name() == library_name
+                    && added_id.primary_name() == primary_name
+                    && added_id.secondary_name() == secondary_name.as_ref()
             });
 
             if was_added {
@@ -686,11 +694,11 @@ impl DesignRoot {
         self.reset_affected(get_all_affected(&users_of, affected));
         drop(users_of);
         drop(users_of_library_all);
-        drop(missing_primary);
+        drop(missing_unit);
 
         let mut users_of = self.users_of.write();
         let mut users_of_library_all = self.users_of_library_all.write();
-        let mut missing_primary = self.missing_primary.write();
+        let mut missing_unit = self.missing_unit.write();
 
         // Clean-up after removed units
         for removed_unit in removed.iter() {
@@ -701,7 +709,7 @@ impl DesignRoot {
                 library_all_affected.remove(removed_unit);
             }
 
-            missing_primary.retain(|_, unit_ids| {
+            missing_unit.retain(|_, unit_ids| {
                 unit_ids.remove(removed_unit);
                 !unit_ids.is_empty()
             });

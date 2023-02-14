@@ -71,7 +71,11 @@ impl<'a> AnalyzeContext<'a> {
         self.redefine(
             id,
             &mut unit.ident,
-            AnyEntKind::Design(Design::Entity(visibility, region)),
+            AnyEntKind::Design(Design::Entity(
+                self.work_library_name().clone(),
+                visibility,
+                region,
+            )),
         );
 
         Ok(())
@@ -217,7 +221,7 @@ impl<'a> AnalyzeContext<'a> {
         self.check_secondary_before_primary(&primary, unit.pos(), diagnostics);
 
         let (visibility, region) =
-            if let Design::Entity(ref visibility, ref region) = primary.kind() {
+            if let Design::Entity(_, ref visibility, ref region) = primary.kind() {
                 (visibility, region)
             } else {
                 let mut diagnostic = Diagnostic::error(unit.pos(), "Expected an entity");
@@ -233,12 +237,13 @@ impl<'a> AnalyzeContext<'a> {
         self.analyze_context_clause(&root_scope, &mut unit.context_clause, diagnostics)?;
         let scope = Scope::extend(region, Some(&root_scope));
 
-        // Architecture name is visible
-        scope.make_potentially_visible(
-            Some(unit.pos()),
-            self.arena
-                .explicit(unit.name().clone(), AnyEntKind::Label, Some(unit.pos())),
+        let arch = self.arena.define(
+            &mut unit.ident,
+            AnyEntKind::Design(Design::Architecture(primary)),
         );
+
+        // Architecture name is visible
+        scope.make_potentially_visible(Some(unit.pos()), arch);
 
         self.define_labels_for_concurrent_part(&scope, &mut unit.statements, diagnostics)?;
         self.analyze_declarative_part(&scope, &mut unit.decl, diagnostics)?;

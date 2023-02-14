@@ -1007,7 +1007,7 @@ pub struct ConcurrentSignalAssignment {
 #[derive(PartialEq, Debug, Clone)]
 pub enum InstantiatedUnit {
     Component(WithPos<SelectedName>),
-    Entity(WithPos<SelectedName>, Option<Ident>),
+    Entity(WithPos<SelectedName>, Option<WithRef<Ident>>),
     Configuration(WithPos<SelectedName>),
 }
 
@@ -1204,7 +1204,7 @@ pub struct EntityDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ArchitectureBody {
     pub context_clause: ContextClause,
-    pub ident: Ident,
+    pub ident: WithDecl<Ident>,
     pub entity_name: WithRef<Ident>,
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledConcurrentStatement>,

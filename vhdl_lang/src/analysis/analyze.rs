@@ -153,7 +153,7 @@ pub(super) struct AnalyzeContext<'a> {
     current_unit: UnitId,
     pub(super) arena: &'a Arena,
     uses: RefCell<FnvHashSet<UnitId>>,
-    missing_primary: RefCell<FnvHashSet<(Symbol, Symbol)>>,
+    missing_unit: RefCell<FnvHashSet<(Symbol, Symbol, Option<Symbol>)>>,
     uses_library_all: RefCell<FnvHashSet<Symbol>>,
 }
 
@@ -176,7 +176,7 @@ impl<'a> AnalyzeContext<'a> {
             current_unit: current_unit.clone(),
             arena,
             uses: RefCell::new(FnvHashSet::default()),
-            missing_primary: RefCell::new(FnvHashSet::default()),
+            missing_unit: RefCell::new(FnvHashSet::default()),
             uses_library_all: RefCell::new(FnvHashSet::default()),
         }
     }
@@ -214,13 +214,26 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
-    fn make_use_of_missing_primary(&self, library_name: &Symbol, primary_name: &Symbol) {
-        let key = (library_name.clone(), primary_name.clone());
+    fn make_use_of_missing_unit(
+        &self,
+        library_name: &Symbol,
+        primary_name: &Symbol,
+        secondary_name: Option<&Symbol>,
+    ) {
+        let key = (
+            library_name.clone(),
+            primary_name.clone(),
+            secondary_name.cloned(),
+        );
 
         // Check local cache before taking lock
-        if self.missing_primary.borrow_mut().insert(key) {
-            self.root
-                .make_use_of_missing_primary(&self.current_unit, library_name, primary_name);
+        if self.missing_unit.borrow_mut().insert(key) {
+            self.root.make_use_of_missing_unit(
+                &self.current_unit,
+                library_name,
+                primary_name,
+                secondary_name,
+            );
         }
     }
 
@@ -334,14 +347,61 @@ impl<'a> AnalyzeContext<'a> {
 
     fn get_primary_unit(&self, library_name: &Symbol, name: &Symbol) -> Option<&'a LockedUnit> {
         let units = self.root.get_library_units(library_name)?;
-        // @TODO missing library
-
         if let Some(unit) = units.get(&UnitKey::Primary(name.clone())) {
             return Some(unit);
         }
-
-        self.make_use_of_missing_primary(library_name, name);
+        self.make_use_of_missing_unit(library_name, name, None);
         None
+    }
+
+    fn get_secondary_unit(
+        &self,
+        library_name: &Symbol,
+        primary: &Symbol,
+        name: &Symbol,
+    ) -> Option<&'a LockedUnit> {
+        let units = self.root.get_library_units(library_name)?;
+        if let Some(unit) = units.get(&UnitKey::Secondary(primary.clone(), name.clone())) {
+            return Some(unit);
+        }
+        self.make_use_of_missing_unit(library_name, primary, Some(name));
+        None
+    }
+
+    pub(super) fn get_architecture(
+        &self,
+        library_name: &Symbol,
+        pos: &SrcPos,
+        entity_name: &Symbol,
+        architecture_name: &Symbol,
+    ) -> AnalysisResult<DesignEnt<'a>> {
+        if let Some(unit) = self.get_secondary_unit(library_name, entity_name, architecture_name) {
+            let data = self.get_analysis(Some(pos), unit)?;
+            if let AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(arch)) = data.deref() {
+                if let Some(id) = arch.ident.decl {
+                    let ent = self.arena.get(id);
+                    let design = DesignEnt::from_any(ent).ok_or_else(|| {
+                        // Almost impossible but better not fail silently
+                        Diagnostic::error(
+                            pos,
+                            format!(
+                                "Found non-design {} unit within library {}",
+                                ent.describe(),
+                                library_name
+                            ),
+                        )
+                    })?;
+                    return Ok(design);
+                }
+            }
+        }
+
+        Err(AnalysisError::NotFatal(Diagnostic::error(
+            pos,
+            format!(
+                "No architecture '{architecture_name}' for entity '{library_name}.{entity_name}'"
+            ),
+        )))
     }
 
     pub fn lookup_in_library(

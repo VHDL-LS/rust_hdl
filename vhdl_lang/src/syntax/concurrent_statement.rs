@@ -582,7 +582,7 @@ pub fn parse_concurrent_statement(
                         None
                     }
                 };
-                let unit = InstantiatedUnit::Entity(name, arch);
+                let unit = InstantiatedUnit::Entity(name, arch.map(WithRef::new));
                 ConcurrentStatement::Instance(parse_instantiation_statement(stream, unit)?)
             },
             For => ConcurrentStatement::ForGenerate(parse_for_generate_statement(stream, diagnostics)?),
@@ -1267,7 +1267,7 @@ inst: entity lib.foo.bar(arch);
         let inst = InstantiationStatement {
             unit: InstantiatedUnit::Entity(
                 code.s1("lib.foo.bar").selected_name(),
-                Some(code.s1("arch").ident()),
+                Some(WithRef::new(code.s1("arch").ident())),
             ),
             generic_map: vec![],
             port_map: vec![],

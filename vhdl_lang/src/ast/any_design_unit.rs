@@ -84,6 +84,13 @@ impl UnitId {
             UnitKey::Secondary(ref name, _) => name,
         }
     }
+
+    pub fn secondary_name(&self) -> Option<&Symbol> {
+        match self.key {
+            UnitKey::Primary(_) => None,
+            UnitKey::Secondary(_, ref name) => Some(name),
+        }
+    }
 }
 
 pub trait HasUnitId {

@@ -84,7 +84,7 @@ pub fn parse_architecture_body(
 
     Ok(ArchitectureBody {
         context_clause: ContextClause::default(),
-        ident,
+        ident: WithDecl::new(ident),
         entity_name: entity_name.into_ref(),
         decl,
         statements,
@@ -512,7 +512,7 @@ end;
     fn simple_architecture(ident: Ident, entity_name: Ident) -> AnyDesignUnit {
         AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(ArchitectureBody {
             context_clause: ContextClause::default(),
-            ident,
+            ident: WithDecl::new(ident),
             entity_name: entity_name.into_ref(),
             decl: Vec::new(),
             statements: vec![],

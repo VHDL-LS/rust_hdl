@@ -64,6 +64,7 @@ pub enum FoundDeclaration<'a> {
     PackageInstance(&'a mut PackageInstantiation),
     Configuration(&'a mut ConfigurationDeclaration),
     Entity(&'a mut EntityDeclaration),
+    Architecture(&'a mut ArchitectureBody),
     Context(&'a mut ContextDeclaration),
     ForIndex(&'a mut WithDecl<Ident>, &'a mut DiscreteRange),
     ForGenerateIndex(Option<&'a Ident>, &'a mut ForGenerateStatement),
@@ -390,8 +391,16 @@ impl Search for GenerateBody {
 impl Search for InstantiationStatement {
     fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         match self.unit {
-            InstantiatedUnit::Entity(ref mut ent_name, _) => {
+            InstantiatedUnit::Entity(ref mut ent_name, ref mut architecture_name) => {
                 return_if_found!(ent_name.search(searcher));
+                if let Some(ref mut architecture_name) = architecture_name {
+                    return_if_found!(searcher
+                        .search_pos_with_ref(
+                            &architecture_name.item.pos,
+                            &mut architecture_name.reference
+                        )
+                        .or_not_found());
+                }
             }
             InstantiatedUnit::Component(ref mut component_name) => {
                 return_if_found!(component_name.search(searcher));
@@ -1169,6 +1178,9 @@ impl Search for ArchitectureBody {
         return_if_found!(searcher
             .search_ident_ref(&mut self.entity_name)
             .or_not_found());
+        return_if_found!(searcher
+            .search_decl(FoundDeclaration::Architecture(self))
+            .or_not_found());
         return_if_found!(self.decl.search(searcher));
         self.statements.search(searcher)
     }
@@ -1522,6 +1534,7 @@ impl<'a> HasEntityId for FoundDeclaration<'a> {
             FoundDeclaration::PackageInstance(value) => value.ident.decl,
             FoundDeclaration::Configuration(value) => value.ident.decl,
             FoundDeclaration::Entity(value) => value.ident.decl,
+            FoundDeclaration::Architecture(value) => value.ident.decl,
             FoundDeclaration::Context(value) => value.ident.decl,
             FoundDeclaration::GenerateBody(value) => value.decl,
             FoundDeclaration::ConcurrentStatement(value) => value.decl,
@@ -1555,6 +1568,7 @@ impl<'a> HasSrcPos for FoundDeclaration<'a> {
             FoundDeclaration::PackageInstance(value) => value.ident.pos(),
             FoundDeclaration::Configuration(value) => value.ident.pos(),
             FoundDeclaration::Entity(value) => value.ident.pos(),
+            FoundDeclaration::Architecture(value) => value.ident.pos(),
             FoundDeclaration::Context(value) => value.ident.pos(),
             FoundDeclaration::GenerateBody(value) => value.pos(),
             FoundDeclaration::ConcurrentStatement(value) => value.pos(),
@@ -1634,6 +1648,9 @@ impl std::fmt::Display for FoundDeclaration<'_> {
             }
             FoundDeclaration::Entity(ref value) => {
                 write!(f, "{value}")
+            }
+            FoundDeclaration::Architecture(value) => {
+                write!(f, "architecture {} of {}", value.ident(), value.entity_name)
             }
             FoundDeclaration::Context(ref value) => {
                 write!(f, "{value}")
