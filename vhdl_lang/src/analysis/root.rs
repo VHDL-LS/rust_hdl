@@ -365,11 +365,20 @@ impl DesignRoot {
     ///
     /// If the character value is greater than the line length it defaults back to the
     /// line length.
-    pub fn search_reference<'a>(&'a self, source: &Source, cursor: Position) -> Option<EntRef<'a>> {
+    pub fn item_at_cursor<'a>(
+        &'a self,
+        source: &Source,
+        cursor: Position,
+    ) -> Option<(SrcPos, EntRef<'a>)> {
         let mut searcher = ItemAtCursor::new(source, cursor);
         let _ = self.search(&mut searcher);
-        let id = searcher.result?;
+        let (pos, id) = searcher.result?;
         let ent = self.get_ent(id);
+        Some((pos, ent))
+    }
+
+    pub fn search_reference<'a>(&'a self, source: &Source, cursor: Position) -> Option<EntRef<'a>> {
+        let (_, ent) = self.item_at_cursor(source, cursor)?;
         Some(ent)
     }
 

@@ -233,6 +233,14 @@ impl Project {
         Some(ent.declaration())
     }
 
+    pub fn item_at_cursor<'a>(
+        &'a self,
+        source: &Source,
+        cursor: Position,
+    ) -> Option<(SrcPos, EntRef<'a>)> {
+        self.root.item_at_cursor(source, cursor)
+    }
+
     fn get_library(&self, source: &Source) -> Option<Symbol> {
         let file = self.files.get(source.file_name())?;
         file.library_names.iter().next().cloned()

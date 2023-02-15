@@ -1315,7 +1315,7 @@ impl Search for CaseStatement {
 pub struct ItemAtCursor {
     source: Source,
     cursor: Position,
-    pub result: Option<EntityId>,
+    pub result: Option<(SrcPos, EntityId)>,
 }
 
 impl ItemAtCursor {
@@ -1333,11 +1333,16 @@ impl ItemAtCursor {
         pos.start() <= self.cursor && self.cursor <= pos.end()
     }
 
-    fn is_inside_opt(&self, pos: Option<&SrcPos>) -> bool {
-        if let Some(pos) = pos {
-            self.is_inside(pos)
+    fn search_decl_pos(&mut self, pos: &SrcPos, decl: &FoundDeclaration) -> SearchState {
+        if self.is_inside(pos) {
+            if let Some(id) = decl.ent_id() {
+                self.result = Some((pos.clone(), id));
+                Finished(Found)
+            } else {
+                Finished(NotFound)
+            }
         } else {
-            false
+            NotFinished
         }
     }
 }
@@ -1355,13 +1360,12 @@ impl Searcher for ItemAtCursor {
 
     fn search_decl(&mut self, decl: FoundDeclaration) -> SearchState {
         let pos = decl.pos();
-        if self.is_inside(pos) || self.is_inside_opt(decl.end_ident_pos()) {
-            if let Some(id) = decl.ent_id() {
-                self.result = Some(id);
-                Finished(Found)
-            } else {
-                Finished(NotFound)
-            }
+        if let Finished(res) = self.search_decl_pos(pos, &decl) {
+            return Finished(res);
+        }
+
+        if let Some(end_pos) = decl.end_ident_pos() {
+            self.search_decl_pos(end_pos, &decl)
         } else {
             NotFinished
         }
@@ -1370,7 +1374,7 @@ impl Searcher for ItemAtCursor {
     fn search_pos_with_ref(&mut self, pos: &SrcPos, reference: &mut Reference) -> SearchState {
         if self.is_inside(pos) {
             if let Some(id) = reference {
-                self.result = Some(*id);
+                self.result = Some((pos.clone(), *id));
                 Finished(Found)
             } else {
                 Finished(NotFound)
