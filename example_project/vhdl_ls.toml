@@ -191,7 +191,7 @@ osvvm.files = [
 ]
 
 uvvm_util.files = [
-'UVVM/uvvm_util/src/*.vhd',
+'UVVM/uvvm_util/**/*.vhd',
 ]
 
 uvvm_vvc_framework.files = [
@@ -228,10 +228,9 @@ bitvis_vip_clock_generator.files = [
 'UVVM/bitvis_vip_clock_generator/**/*.vhd',
 ]
 
-# bitvis_vip_error_injection.files = [
-# 'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
-# 'UVVM/bitvis_vip_error_injection/**/*.vhd',
-# ]
+bitvis_vip_error_injection.files = [
+ 'UVVM/bitvis_vip_error_injection/**/*.vhd',
+]
 
 bitvis_vip_ethernet.files = [
 'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
@@ -245,12 +244,10 @@ bitvis_vip_gmii.files = [
 
 bitvis_vip_gpio.files = [
 'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
-#'UVVM/bitvis_vip_gpio/tb/*.vhd',
-'UVVM/bitvis_vip_gpio/src/*.vhd',
+'UVVM/bitvis_vip_gpio/**/*.vhd',
 ]
 
 bitvis_vip_hvvc_to_vvc_bridge.files = [
-#'UVVM/uvvm_vvc_framework/src_target_dependent/*.vhd',
 'UVVM/bitvis_vip_hvvc_to_vvc_bridge/**/*.vhd',
 ]
 
@@ -274,8 +271,7 @@ bitvis_vip_spec_cov.files = [
 ]
 
 bitvis_vip_scoreboard.files = [
-#'UVVM/bitvis_vip_scoreboard/demo/*.vhd',
-'UVVM/bitvis_vip_scoreboard/src/*.vhd',
+'UVVM/bitvis_vip_scoreboard/**/*.vhd',
 ]
 
 bitvis_vip_spi.files = [
@@ -289,13 +285,11 @@ bitvis_vip_uart.files = [
 ]
 
 bitvis_uart.files = [
-'UVVM/bitvis_uart/tb/*.vhd',
-'UVVM/bitvis_uart/src/*.vhd',
+'UVVM/bitvis_uart/**/*.vhd',
 ]
 
 bitvis_irqc.files = [
-'UVVM/bitvis_irqc/tb/*.vhd',
-'UVVM/bitvis_irqc/src/*.vhd',
+'UVVM/bitvis_irqc/**/*.vhd',
 ]
 
 PoC.files = [
