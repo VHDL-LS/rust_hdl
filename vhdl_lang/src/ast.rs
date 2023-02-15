@@ -590,6 +590,7 @@ pub enum TypeDefinition {
 pub struct TypeDeclaration {
     pub ident: WithDecl<Ident>,
     pub def: TypeDefinition,
+    pub end_ident_pos: Option<SrcPos>,
 }
 
 /// LRM 6.4.2 Object Declarations
@@ -652,6 +653,7 @@ pub struct SubprogramBody {
     pub specification: SubprogramDeclaration,
     pub declarations: Vec<Declaration>,
     pub statements: Vec<LabeledSequentialStatement>,
+    pub end_ident_pos: Option<SrcPos>,
 }
 
 /// LRM 4.5.3 Signatures
@@ -736,6 +738,7 @@ pub struct ComponentDeclaration {
     pub ident: WithDecl<Ident>,
     pub generic_list: Vec<InterfaceDeclaration>,
     pub port_list: Vec<InterfaceDeclaration>,
+    pub end_ident_pos: Option<SrcPos>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -859,11 +862,12 @@ pub struct Conditionals<T> {
     pub else_item: Option<T>,
 }
 
-pub type ConditionalExpression = Conditional<WithPos<Expression>>;
-pub type ConditionalExpressions = Conditionals<WithPos<Expression>>;
-
 /// LRM 10.8 If statement
-pub type IfStatement = Conditionals<Vec<LabeledSequentialStatement>>;
+#[derive(PartialEq, Debug, Clone)]
+pub struct IfStatement {
+    pub conds: Conditionals<Vec<LabeledSequentialStatement>>,
+    pub end_label_pos: Option<SrcPos>,
+}
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Alternative<T> {
@@ -883,6 +887,7 @@ pub struct CaseStatement {
     pub is_matching: bool,
     pub expression: WithPos<Expression>,
     pub alternatives: Vec<Alternative<Vec<LabeledSequentialStatement>>>,
+    pub end_label_pos: Option<SrcPos>,
 }
 
 /// LRM 10.10 Loop statement
@@ -897,19 +902,20 @@ pub enum IterationScheme {
 pub struct LoopStatement {
     pub iteration_scheme: Option<IterationScheme>,
     pub statements: Vec<LabeledSequentialStatement>,
+    pub end_label_pos: Option<SrcPos>,
 }
 
 /// LRM 10.11 Next statement
 #[derive(PartialEq, Debug, Clone)]
 pub struct NextStatement {
-    pub loop_label: Option<Ident>,
+    pub loop_label: Option<WithRef<Ident>>,
     pub condition: Option<WithPos<Expression>>,
 }
 
 /// LRM 10.12 Exit statement
 #[derive(PartialEq, Debug, Clone)]
 pub struct ExitStatement {
-    pub loop_label: Option<Ident>,
+    pub loop_label: Option<WithRef<Ident>>,
     pub condition: Option<WithPos<Expression>>,
 }
 
@@ -953,6 +959,7 @@ pub struct BlockStatement {
     pub header: BlockHeader,
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledConcurrentStatement>,
+    pub end_label_pos: Option<SrcPos>,
 }
 
 /// LRM 11.2 Block statement
@@ -977,6 +984,7 @@ pub struct ProcessStatement {
     pub sensitivity_list: Option<SensitivityList>,
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledSequentialStatement>,
+    pub end_label_pos: Option<SrcPos>,
 }
 
 /// LRM 11.4 Concurrent procedure call statements
@@ -1025,6 +1033,7 @@ pub struct GenerateBody {
     pub alternative_label: Option<WithDecl<Ident>>,
     pub decl: Option<Vec<Declaration>>,
     pub statements: Vec<LabeledConcurrentStatement>,
+    pub end_label_pos: Option<SrcPos>,
 }
 
 /// 11.8 Generate statements
@@ -1033,11 +1042,20 @@ pub struct ForGenerateStatement {
     pub index_name: WithDecl<Ident>,
     pub discrete_range: DiscreteRange,
     pub body: GenerateBody,
+    pub end_label_pos: Option<SrcPos>,
 }
 
 /// 11.8 Generate statements
-pub type IfGenerateStatement = Conditionals<GenerateBody>;
-pub type CaseGenerateStatement = Selection<GenerateBody>;
+#[derive(PartialEq, Debug, Clone)]
+pub struct IfGenerateStatement {
+    pub conds: Conditionals<GenerateBody>,
+    pub end_label_pos: Option<SrcPos>,
+}
+#[derive(PartialEq, Debug, Clone)]
+pub struct CaseGenerateStatement {
+    pub sels: Selection<GenerateBody>,
+    pub end_label_pos: Option<SrcPos>,
+}
 
 /// LRM 11. Concurrent statements
 #[derive(PartialEq, Debug, Clone)]
@@ -1091,6 +1109,7 @@ pub enum ContextItem {
 pub struct ContextDeclaration {
     pub ident: WithDecl<Ident>,
     pub items: ContextClause,
+    pub end_ident_pos: Option<SrcPos>,
 }
 
 /// LRM 4.9 Package instatiation declaration
@@ -1187,6 +1206,7 @@ pub struct ConfigurationDeclaration {
     pub decl: Vec<ConfigurationDeclarativeItem>,
     pub vunit_bind_inds: Vec<VUnitBindingIndication>,
     pub block_config: BlockConfiguration,
+    pub end_ident_pos: Option<SrcPos>,
 }
 
 /// LRM 3.2 Entity declarations
@@ -1198,6 +1218,7 @@ pub struct EntityDeclaration {
     pub port_clause: Option<Vec<InterfaceDeclaration>>,
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledConcurrentStatement>,
+    pub end_ident_pos: Option<SrcPos>,
 }
 
 /// LRM 3.3 Architecture bodies
@@ -1208,6 +1229,7 @@ pub struct ArchitectureBody {
     pub entity_name: WithRef<Ident>,
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledConcurrentStatement>,
+    pub end_ident_pos: Option<SrcPos>,
 }
 
 /// LRM 4.7 Package declarations
@@ -1217,6 +1239,7 @@ pub struct PackageDeclaration {
     pub ident: WithDecl<Ident>,
     pub generic_clause: Option<Vec<InterfaceDeclaration>>,
     pub decl: Vec<Declaration>,
+    pub end_ident_pos: Option<SrcPos>,
 }
 
 /// LRM 4.8 Package bodies
@@ -1225,6 +1248,7 @@ pub struct PackageBody {
     pub context_clause: ContextClause,
     pub ident: WithRef<Ident>,
     pub decl: Vec<Declaration>,
+    pub end_ident_pos: Option<SrcPos>,
 }
 
 /// LRM 13.1 Design units

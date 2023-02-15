@@ -80,6 +80,7 @@ impl<'a> AnalyzeContext<'a> {
                     sensitivity_list,
                     decl,
                     statements,
+                    end_label_pos: _,
                 } = process;
                 if let Some(sensitivity_list) = sensitivity_list {
                     match sensitivity_list {
@@ -104,6 +105,7 @@ impl<'a> AnalyzeContext<'a> {
                     index_name,
                     discrete_range,
                     body,
+                    end_label_pos: _,
                 } = gen;
                 let typ = as_fatal(self.drange_type(scope, discrete_range, diagnostics))?;
                 let nested = scope.nested();
@@ -117,7 +119,7 @@ impl<'a> AnalyzeContext<'a> {
                 let Conditionals {
                     conditionals,
                     else_item,
-                } = gen;
+                } = &mut gen.conds;
                 for conditional in conditionals.iter_mut() {
                     let Conditional { condition, item } = conditional;
                     self.boolean_expr(scope, condition, diagnostics)?;
@@ -130,7 +132,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             ConcurrentStatement::CaseGenerate(ref mut gen) => {
-                for alternative in gen.alternatives.iter_mut() {
+                for alternative in gen.sels.alternatives.iter_mut() {
                     let nested = scope.nested();
                     self.analyze_generate_body(&nested, &mut alternative.item, diagnostics)?;
                 }
@@ -185,6 +187,7 @@ impl<'a> AnalyzeContext<'a> {
             alternative_label,
             decl,
             statements,
+            end_label_pos: _,
         } = body;
         if let Some(label) = alternative_label {
             scope.add(label.define(self.arena, AnyEntKind::Label), diagnostics);

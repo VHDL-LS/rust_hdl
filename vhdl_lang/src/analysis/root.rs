@@ -369,7 +369,8 @@ impl DesignRoot {
         let mut searcher = ItemAtCursor::new(source, cursor);
         let _ = self.search(&mut searcher);
         let id = searcher.result?;
-        Some(self.get_ent(id))
+        let ent = self.get_ent(id);
+        Some(ent)
     }
 
     pub fn find_definition_of<'a>(&'a self, decl: EntRef<'a>) -> Option<EntRef<'a>> {

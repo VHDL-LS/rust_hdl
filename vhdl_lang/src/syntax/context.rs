@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use super::common::error_on_end_identifier_mismatch;
+use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;
 use super::names::parse_name;
 use super::tokens::{Kind::*, Token, TokenStream};
@@ -110,12 +110,10 @@ pub fn parse_context(
             )
         }
 
-        let ident = to_simple_name(name)?;
-
-        diagnostics.push_some(error_on_end_identifier_mismatch(&ident, &end_ident));
-
+        let ident = WithDecl::new(to_simple_name(name)?);
         Ok(DeclarationOrReference::Declaration(ContextDeclaration {
-            ident: ident.into(),
+            end_ident_pos: check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics),
+            ident,
             items,
         }))
     } else {
@@ -249,13 +247,19 @@ context ident is
 end context ident;
 ",
         ];
-        for variant in variants {
+        for (idx, variant) in variants.iter().enumerate() {
+            let has_end_ident = idx >= 2;
             let code = Code::new(variant);
             assert_eq!(
                 code.with_stream_no_diagnostics(parse_context),
                 DeclarationOrReference::Declaration(ContextDeclaration {
                     ident: code.s1("ident").decl_ident(),
-                    items: vec![]
+                    items: vec![],
+                    end_ident_pos: if has_end_ident {
+                        Some(code.s("ident", 2).pos())
+                    } else {
+                        None
+                    }
                 })
             );
         }
@@ -281,7 +285,8 @@ end context ident2;
             context,
             DeclarationOrReference::Declaration(ContextDeclaration {
                 ident: code.s1("ident").decl_ident(),
-                items: vec![]
+                items: vec![],
+                end_ident_pos: None
             })
         );
     }
@@ -320,7 +325,8 @@ end context;
                         }),
                         code.s1("context foo.ctx;")
                     ),
-                ]
+                ],
+                end_ident_pos: None
             })
         )
     }

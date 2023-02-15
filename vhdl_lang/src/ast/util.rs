@@ -474,3 +474,50 @@ impl SubprogramDeclaration {
         }
     }
 }
+
+impl SubprogramDeclaration {
+    pub fn reference_mut(&mut self) -> &mut Reference {
+        match self {
+            SubprogramDeclaration::Function(ref mut function) => &mut function.designator.decl,
+            SubprogramDeclaration::Procedure(ref mut procedure) => &mut procedure.designator.decl,
+        }
+    }
+}
+
+impl ConcurrentStatement {
+    pub fn end_label_pos(&self) -> Option<&SrcPos> {
+        match self {
+            ConcurrentStatement::ProcedureCall(_) => None,
+            ConcurrentStatement::Block(value) => value.end_label_pos.as_ref(),
+            ConcurrentStatement::Process(value) => value.end_label_pos.as_ref(),
+            ConcurrentStatement::Assert(_) => None,
+            ConcurrentStatement::Assignment(_) => None,
+            ConcurrentStatement::Instance(_) => None,
+            ConcurrentStatement::ForGenerate(value) => value.end_label_pos.as_ref(),
+            ConcurrentStatement::IfGenerate(value) => value.end_label_pos.as_ref(),
+            ConcurrentStatement::CaseGenerate(value) => value.end_label_pos.as_ref(),
+        }
+    }
+}
+
+impl SequentialStatement {
+    pub fn end_label_pos(&self) -> Option<&SrcPos> {
+        match self {
+            SequentialStatement::Wait(_) => None,
+            SequentialStatement::Assert(_) => None,
+            SequentialStatement::Report(_) => None,
+            SequentialStatement::VariableAssignment(_) => None,
+            SequentialStatement::SignalAssignment(_) => None,
+            SequentialStatement::SignalForceAssignment(_) => None,
+            SequentialStatement::SignalReleaseAssignment(_) => None,
+            SequentialStatement::ProcedureCall(_) => None,
+            SequentialStatement::If(value) => value.end_label_pos.as_ref(),
+            SequentialStatement::Case(value) => value.end_label_pos.as_ref(),
+            SequentialStatement::Loop(value) => value.end_label_pos.as_ref(),
+            SequentialStatement::Next(_) => None,
+            SequentialStatement::Exit(_) => None,
+            SequentialStatement::Return(_) => None,
+            SequentialStatement::Null => None,
+        }
+    }
+}

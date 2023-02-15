@@ -7,6 +7,9 @@
 use super::tokens::{Kind, TokenStream};
 use crate::ast::Ident;
 use crate::data::Diagnostic;
+use crate::data::DiagnosticHandler;
+use crate::data::WithPos;
+use crate::SrcPos;
 
 /// Parse optional part followed by optional keyword
 pub fn parse_optional<F, R>(
@@ -28,17 +31,48 @@ where
     Ok(optional)
 }
 
-pub fn error_on_end_identifier_mismatch(
-    ident: &Ident,
-    end_ident: &Option<Ident>,
-) -> Option<Diagnostic> {
+pub fn check_end_identifier_mismatch<T: std::fmt::Display + std::cmp::PartialEq>(
+    ident: &WithPos<T>,
+    end_ident: Option<WithPos<T>>,
+    diagnostics: &mut dyn DiagnosticHandler,
+) -> Option<SrcPos> {
     if let Some(end_ident) = end_ident {
-        if ident.item != end_ident.item {
-            return Some(Diagnostic::error(
+        if ident.item == end_ident.item {
+            return Some(end_ident.pos);
+        } else {
+            diagnostics.error(
                 &end_ident.pos,
-                format!("End identifier mismatch, expected {}", ident.item.name()),
-            ));
+                format!("End identifier mismatch, expected {}", ident.item),
+            );
         }
+    }
+    None
+}
+
+pub fn check_label_identifier_mismatch(
+    label: Option<&Ident>,
+    end_ident: Option<Ident>,
+    diagnostics: &mut dyn DiagnosticHandler,
+) -> Option<SrcPos> {
+    if let Some(ident) = label {
+        if let Some(end_ident) = end_ident {
+            if ident.item == end_ident.item {
+                return Some(end_ident.pos);
+            } else {
+                diagnostics.error(
+                    &end_ident.pos,
+                    format!("End label mismatch, expected {}", ident.item),
+                );
+            }
+        }
+    } else if let Some(end_ident) = end_ident {
+        diagnostics.error(
+            &end_ident.pos,
+            format!(
+                "End label '{}' found for unlabeled statement",
+                end_ident.item
+            ),
+        );
     }
     None
 }

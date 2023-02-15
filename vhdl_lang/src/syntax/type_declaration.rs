@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use super::common::error_on_end_identifier_mismatch;
+use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;
 use super::declarative_part::parse_declarative_part;
 use super::names::parse_identifier_list;
@@ -111,6 +111,7 @@ pub fn parse_subtype_declaration(stream: &mut TokenStream) -> ParseResult<TypeDe
     Ok(TypeDeclaration {
         ident: ident.into(),
         def: TypeDefinition::Subtype(subtype_indication),
+        end_ident_pos: None,
     })
 }
 
@@ -214,15 +215,17 @@ pub fn parse_type_declaration(
         }
     );
 
-    let ident = stream.expect_ident()?;
+    let ident = WithDecl::new(stream.expect_ident()?);
+    let mut end_ident_pos = None;
 
     try_token_kind!(
         stream.expect()?,
         Is => {},
         SemiColon => {
             return Ok(TypeDeclaration {
-                ident: ident.into(),
+                ident,
                 def: TypeDefinition::Incomplete(Reference::default()),
+                end_ident_pos
             });
         }
     );
@@ -237,7 +240,7 @@ pub fn parse_type_declaration(
                 SemiColon => TypeDefinition::Numeric(constraint),
                 Units => {
                     let (def, end_ident) = parse_physical_type_definition(stream, constraint)?;
-                    diagnostics.push_some(error_on_end_identifier_mismatch(&ident, &end_ident));
+                    end_ident_pos = check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics);
                     def
                 }
             )
@@ -254,13 +257,14 @@ pub fn parse_type_declaration(
                 let decl = parse_declarative_part(stream, diagnostics, false)?;
                 stream.expect_kind(Protected)?;
                 stream.expect_kind(Body)?;
-                // @TODO check name
-                stream.pop_if_kind(Identifier)?;
+                let end_ident = stream.pop_optional_ident()?;
                 stream.expect_kind(SemiColon)?;
+                end_ident_pos = check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics);
+
                 TypeDefinition::ProtectedBody(ProtectedTypeBody {decl})
             } else {
                 let (protected_type_decl, end_ident) = parse_protected_type_declaration(stream, diagnostics)?;
-                diagnostics.push_some(error_on_end_identifier_mismatch(&ident, &end_ident));
+                end_ident_pos = check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics);
                 stream.expect_kind(SemiColon)?;
                 TypeDefinition::Protected(protected_type_decl)
             }
@@ -274,7 +278,7 @@ pub fn parse_type_declaration(
         Array => parse_array_type_definition(stream)?,
         Record =>  {
             let (def, end_ident) = parse_record_type_definition(stream)?;
-            diagnostics.push_some(error_on_end_identifier_mismatch(&ident, &end_ident));
+            end_ident_pos = check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics);
             def
         },
         // Enumeration
@@ -282,8 +286,9 @@ pub fn parse_type_declaration(
     );
 
     Ok(TypeDeclaration {
-        ident: ident.into(),
+        ident,
         def,
+        end_ident_pos,
     })
 }
 
@@ -293,6 +298,7 @@ mod tests {
 
     use crate::ast::{DiscreteRange, Ident};
     use crate::syntax::test::Code;
+    use crate::SrcPos;
 
     #[test]
     fn parse_integer_scalar_type_definition() {
@@ -301,6 +307,7 @@ mod tests {
         let type_decl = TypeDeclaration {
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Numeric(code.s1("0 to 1").range()),
+            end_ident_pos: None,
         };
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
@@ -324,6 +331,7 @@ mod tests {
                     .map_into(EnumerationLiteral::Identifier)
                     .into(),
             ]),
+            end_ident_pos: None,
         };
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
@@ -347,6 +355,7 @@ mod tests {
                     .map_into(EnumerationLiteral::Character)
                     .into(),
             ]),
+            end_ident_pos: None,
         };
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
@@ -370,6 +379,7 @@ mod tests {
                     .map_into(EnumerationLiteral::Character)
                     .into(),
             ]),
+            end_ident_pos: None,
         };
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
@@ -389,6 +399,7 @@ mod tests {
                 )],
                 code.s1("boolean").subtype_indication(),
             ),
+            end_ident_pos: None,
         };
 
         assert_eq!(
@@ -410,6 +421,7 @@ mod tests {
                 ))],
                 code.s1("boolean").subtype_indication(),
             ),
+            end_ident_pos: None,
         };
 
         assert_eq!(
@@ -431,6 +443,7 @@ mod tests {
                 ))],
                 code.s1("boolean").subtype_indication(),
             ),
+            end_ident_pos: None,
         };
 
         assert_eq!(
@@ -451,6 +464,7 @@ mod tests {
                 ))],
                 code.s1("boolean").subtype_indication(),
             ),
+            end_ident_pos: None,
         };
 
         assert_eq!(
@@ -468,6 +482,7 @@ mod tests {
         let type_decl = TypeDeclaration {
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(vec![index], code.s1("boolean").subtype_indication()),
+            end_ident_pos: None,
         };
 
         assert_eq!(
@@ -490,6 +505,7 @@ mod tests {
                 vec![index0, index1],
                 code.s1("boolean").subtype_indication(),
             ),
+            end_ident_pos: None,
         };
 
         assert_eq!(
@@ -502,7 +518,7 @@ mod tests {
     fn parse_record_type_definition() {
         let code = Code::new(
             "\
-            type foo is record
+type foo is record
   element : boolean;
 end record;",
         );
@@ -515,6 +531,7 @@ end record;",
         let type_decl = TypeDeclaration {
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Record(vec![elem_decl]),
+            end_ident_pos: None,
         };
 
         assert_eq!(
@@ -551,6 +568,7 @@ end foo;",
         let type_decl = TypeDeclaration {
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Record(vec![elem_decl0a, elem_decl0b, elem_decl1]),
+            end_ident_pos: Some(code.s("foo", 2).pos()),
         };
 
         assert_eq!(
@@ -569,7 +587,8 @@ end foo;",
                 ident: code.s1("vec_t").decl_ident(),
                 def: TypeDefinition::Subtype(
                     code.s1("integer_vector(2-1 downto 0)").subtype_indication()
-                )
+                ),
+                end_ident_pos: None,
             }
         );
     }
@@ -584,7 +603,8 @@ end foo;",
                 ident: code.s1("ptr_t").decl_ident(),
                 def: TypeDefinition::Access(
                     code.s1("integer_vector(2-1 downto 0)").subtype_indication()
-                )
+                ),
+                end_ident_pos: None,
             }
         );
     }
@@ -597,7 +617,8 @@ end foo;",
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
                 ident: code.s1("incomplete").decl_ident(),
-                def: TypeDefinition::Incomplete(Reference::default())
+                def: TypeDefinition::Incomplete(Reference::default()),
+                end_ident_pos: None,
             }
         );
     }
@@ -610,15 +631,21 @@ end foo;",
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
                 ident: code.s1("foo").decl_ident(),
-                def: TypeDefinition::File(code.s1("character").type_mark())
+                def: TypeDefinition::File(code.s1("character").type_mark()),
+                end_ident_pos: None,
             }
         );
     }
 
-    fn protected_decl(ident: Ident, items: Vec<ProtectedTypeDeclarativeItem>) -> TypeDeclaration {
+    fn protected_decl(
+        ident: Ident,
+        items: Vec<ProtectedTypeDeclarativeItem>,
+        end_ident_pos: Option<SrcPos>,
+    ) -> TypeDeclaration {
         TypeDeclaration {
             ident: ident.into(),
             def: TypeDefinition::Protected(ProtectedTypeDeclaration { items }),
+            end_ident_pos,
         }
     }
 
@@ -632,7 +659,7 @@ end protected;
         );
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
-            protected_decl(code.s1("foo").ident(), vec![])
+            protected_decl(code.s1("foo").ident(), vec![], None)
         )
     }
 
@@ -646,7 +673,7 @@ end protected foo;
         );
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
-            protected_decl(code.s1("foo").ident(), vec![])
+            protected_decl(code.s1("foo").ident(), vec![], Some(code.s("foo", 2).pos()))
         )
     }
 
@@ -669,7 +696,7 @@ end protected;
 
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
-            protected_decl(code.s1("foo").ident(), items)
+            protected_decl(code.s1("foo").ident(), items, None)
         )
     }
 
@@ -700,6 +727,7 @@ end protected body;
             TypeDeclaration {
                 ident,
                 def: TypeDefinition::ProtectedBody(ProtectedTypeBody { decl }),
+                end_ident_pos: None,
             }
         )
     }
@@ -722,7 +750,8 @@ end units phys;
                     range: code.s1("0 to 15").range(),
                     primary_unit: code.s1("primary_unit").decl_ident(),
                     secondary_units: vec![]
-                })
+                }),
+                end_ident_pos: Some(code.s("phys", 2).pos()),
             }
         )
     }
@@ -752,7 +781,8 @@ end units;
                             unit: code.s("primary_unit", 2).ident().into_ref()
                         }
                     ),]
-                })
+                }),
+                end_ident_pos: None,
             }
         )
     }
@@ -782,7 +812,8 @@ end units;
                             unit: code.s("primary_unit", 2).ident().into_ref()
                         }
                     ),]
-                })
+                }),
+                end_ident_pos: None,
             }
         )
     }

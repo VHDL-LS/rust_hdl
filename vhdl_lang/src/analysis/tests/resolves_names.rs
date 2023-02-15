@@ -516,6 +516,9 @@ package body pkg is
 
          proc2(i); -- Index is defined
          missing;
+
+         exit missing;
+         next missing;
        end loop;
        
 
@@ -1899,4 +1902,134 @@ end architecture;
         .decl_pos(),
         Some(&code.s("a2", 1).pos())
     );
+}
+
+#[test]
+fn find_end_identifier_references_of_declarations() {
+    for name in [
+        "ent1", "a1", "rec_t", "prot_t", "phys_t", "fun1", "proc1", "comp1", "pkg", "cfg1", "ctx1",
+    ] {
+        check_search_reference_with_name(
+            name,
+            "
+entity ent1 is
+end entity ent1;
+
+architecture a1 of ent1 is
+
+    type rec_t is record
+       field: natural;
+    end record rec_t;
+
+    type prot_t is protected
+    end protected prot_t;
+
+    type prot_t is protected body
+    end protected body prot_t;
+
+    type phys_t is range 0 to 10
+    units
+       bangs;
+       bugs = 10 bangs;
+    end units phys_t;
+
+    function fun1 return integer is
+    begin
+    end function fun1;
+
+    procedure proc1 is
+    begin
+    end procedure proc1;
+
+    component comp1 is
+    end component comp1;
+begin
+end architecture a1;
+
+package pkg is
+end package pkg;
+
+package body pkg is
+end package body pkg;
+
+configuration cfg1 of ent1 is
+  for rtl(0)
+  end for;
+end configuration cfg1;
+
+context ctx1 is
+end context ctx1;
+      ",
+        );
+    }
+}
+
+#[test]
+fn find_end_identifier_references_of_concurrent() {
+    for name in ["b1", "p1", "fg1", "ig1", "ialt1", "cg1", "cgalt1"] {
+        check_search_reference_with_name(
+            name,
+            "
+entity ent1 is
+end entity ent1;
+
+architecture a1 of ent1 is
+begin
+  b1: block
+  begin
+  end block b1;
+
+  p1: process
+  begin
+  end process p1;
+
+  fg1: for i in 0 to 10 generate
+  end generate fg1;
+
+  ig1: if true generate
+  else ialt1: generate
+  end ialt1;
+  end generate ig1;
+
+  cg1: case 0 generate
+    when cgalt1: 0 => 
+      assert false;
+    end cgalt1;
+  end generate cg1;
+
+end architecture;
+      ",
+        );
+    }
+}
+
+#[test]
+fn find_end_identifier_references_of_sequential() {
+    for name in ["if0", "loop0", "c0"] {
+        check_search_reference_with_name(
+            name,
+            "
+entity ent1 is
+end entity ent1;
+
+architecture a1 of ent1 is
+begin
+  process
+  begin
+    if0: if true then
+    end if if0;
+
+    loop0: for i in 0 to 1 loop
+      next loop0;
+      exit loop0;
+    end loop loop0;
+
+    c0: case 0 is
+      when others =>
+    end case c0;
+  end process;
+end architecture;
+      ",
+        );
+    }
 }

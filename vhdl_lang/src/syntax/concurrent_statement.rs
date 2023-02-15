@@ -2,9 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
+// Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
-use super::common::error_on_end_identifier_mismatch;
+use super::common::check_label_identifier_mismatch;
 use super::common::ParseResult;
 use super::declarative_part::{is_declarative_part, parse_declarative_part};
 use super::expression::parse_aggregate_leftpar_known;
@@ -27,6 +27,7 @@ use crate::data::*;
 /// LRM 11.2 Block statement
 pub fn parse_block_statement(
     stream: &mut TokenStream,
+    label: Option<&Ident>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<BlockStatement> {
     let token = stream.peek_expect()?;
@@ -46,14 +47,14 @@ pub fn parse_block_statement(
     let decl = parse_declarative_part(stream, diagnostics, true)?;
     let statements = parse_labeled_concurrent_statements(stream, diagnostics)?;
     stream.expect_kind(Block)?;
-    // @TODO check name
-    stream.pop_if_kind(Identifier)?;
+    let end_ident = stream.pop_optional_ident()?;
     stream.expect_kind(SemiColon)?;
     Ok(BlockStatement {
         guard_condition,
         header,
         decl,
         statements,
+        end_label_pos: check_label_identifier_mismatch(label, end_ident, diagnostics),
     })
 }
 
@@ -153,6 +154,7 @@ fn parse_block_header(
 /// LRM 11.3 Process statement
 pub fn parse_process_statement(
     stream: &mut TokenStream,
+    label: Option<&Ident>,
     postponed: bool,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ProcessStatement> {
@@ -205,14 +207,14 @@ pub fn parse_process_statement(
         }
     }
     stream.expect_kind(Process)?;
-    // @TODO check name
-    stream.pop_if_kind(Identifier)?;
+    let end_ident = stream.pop_optional_ident()?;
     stream.expect_kind(SemiColon)?;
     Ok(ProcessStatement {
         postponed,
         sensitivity_list,
         decl,
         statements,
+        end_label_pos: check_label_identifier_mismatch(label, end_ident, diagnostics),
     })
 }
 
@@ -370,6 +372,8 @@ fn parse_generate_body_end_token(
     let (statements, mut end_token) =
         parse_labeled_concurrent_statements_end_token(stream, diagnostics)?;
 
+    let mut end_label_pos = None;
+
     // Potential inner end [ alternative_label ];
     if end_token.kind == End {
         let token = stream.peek_expect()?;
@@ -387,9 +391,7 @@ fn parse_generate_body_end_token(
             stream.move_after(&token);
             // Inner with identifier
             let end_ident = token.expect_ident()?;
-            if let Some(ref ident) = alternative_label {
-                diagnostics.push_some(error_on_end_identifier_mismatch(&ident.tree, &Some(end_ident)));
-            };
+            end_label_pos = check_label_identifier_mismatch(alternative_label.as_ref().map(|label| &label.tree), Some(end_ident), diagnostics);
             stream.expect_kind(SemiColon)?;
             end_token = stream.expect()?;
         });
@@ -399,6 +401,7 @@ fn parse_generate_body_end_token(
         alternative_label,
         decl,
         statements,
+        end_label_pos,
     };
 
     Ok((body, end_token))
@@ -417,6 +420,7 @@ fn parse_generate_body(
 /// 11.8 Generate statements
 fn parse_for_generate_statement(
     stream: &mut TokenStream,
+    label: Option<&Ident>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ForGenerateStatement> {
     let index_name = WithDecl::new(stream.expect_ident()?);
@@ -425,20 +429,21 @@ fn parse_for_generate_statement(
     stream.expect_kind(Generate)?;
     let body = parse_generate_body(stream, None, diagnostics)?;
     stream.expect_kind(Generate)?;
-    // @TODO check identifier
-    stream.pop_if_kind(Identifier)?;
+    let end_ident = stream.pop_optional_ident()?;
     stream.expect_kind(SemiColon)?;
 
     Ok(ForGenerateStatement {
         index_name,
         discrete_range,
         body,
+        end_label_pos: check_label_identifier_mismatch(label, end_ident, diagnostics),
     })
 }
 
 /// 11.8 Generate statements
 fn parse_if_generate_statement(
     stream: &mut TokenStream,
+    label: Option<&Ident>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<IfGenerateStatement> {
     let mut conditionals = Vec::new();
@@ -492,19 +497,22 @@ fn parse_if_generate_statement(
     }
 
     stream.expect_kind(Generate)?;
-    // @TODO check identifier
-    stream.pop_if_kind(Identifier)?;
+    let end_ident = stream.pop_optional_ident()?;
     stream.expect_kind(SemiColon)?;
 
     Ok(IfGenerateStatement {
-        conditionals,
-        else_item: else_branch,
+        conds: Conditionals {
+            conditionals,
+            else_item: else_branch,
+        },
+        end_label_pos: check_label_identifier_mismatch(label, end_ident, diagnostics),
     })
 }
 
 /// 11.8 Generate statements
 fn parse_case_generate_statement(
     stream: &mut TokenStream,
+    label: Option<&Ident>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<CaseGenerateStatement> {
     let expression = parse_expression(stream)?;
@@ -539,18 +547,21 @@ fn parse_case_generate_statement(
     }
 
     stream.expect_kind(Generate)?;
-    // @TODO check identifier
-    stream.pop_if_kind(Identifier)?;
+    let end_ident = stream.pop_optional_ident()?;
     stream.expect_kind(SemiColon)?;
 
     Ok(CaseGenerateStatement {
-        expression,
-        alternatives,
+        sels: Selection {
+            expression,
+            alternatives,
+        },
+        end_label_pos: check_label_identifier_mismatch(label, end_ident, diagnostics),
     })
 }
 
 pub fn parse_concurrent_statement(
     stream: &mut TokenStream,
+    label: Option<&Ident>,
     token: Token,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ConcurrentStatement> {
@@ -558,10 +569,10 @@ pub fn parse_concurrent_statement(
         try_init_token_kind!(
             token,
             Block => {
-                ConcurrentStatement::Block(parse_block_statement(stream, diagnostics)?)
+                ConcurrentStatement::Block(parse_block_statement(stream, label, diagnostics)?)
             },
             Process => {
-                ConcurrentStatement::Process(parse_process_statement(stream, false, diagnostics)?)
+                ConcurrentStatement::Process(parse_process_statement(stream, label, false, diagnostics)?)
             },
             Component => {
                 let unit = InstantiatedUnit::Component(parse_selected_name(stream)?);
@@ -585,14 +596,14 @@ pub fn parse_concurrent_statement(
                 let unit = InstantiatedUnit::Entity(name, arch.map(WithRef::new));
                 ConcurrentStatement::Instance(parse_instantiation_statement(stream, unit)?)
             },
-            For => ConcurrentStatement::ForGenerate(parse_for_generate_statement(stream, diagnostics)?),
-            If => ConcurrentStatement::IfGenerate(parse_if_generate_statement(stream, diagnostics)?),
-            Case => ConcurrentStatement::CaseGenerate(parse_case_generate_statement(stream, diagnostics)?),
+            For => ConcurrentStatement::ForGenerate(parse_for_generate_statement(stream, label, diagnostics)?),
+            If => ConcurrentStatement::IfGenerate(parse_if_generate_statement(stream, label, diagnostics)?),
+            Case => ConcurrentStatement::CaseGenerate(parse_case_generate_statement(stream, label, diagnostics)?),
             Assert => ConcurrentStatement::Assert(parse_concurrent_assert_statement(stream, false)?),
             Postponed => {
                 let token = stream.expect()?;
                 match token.kind {
-                    Process => ConcurrentStatement::Process(parse_process_statement(stream, true, diagnostics)?),
+                    Process => ConcurrentStatement::Process(parse_process_statement(stream, label, true, diagnostics)?),
                     Assert => ConcurrentStatement::Assert(parse_concurrent_assert_statement(stream, true)?),
                     With => ConcurrentStatement::Assignment(parse_selected_signal_assignment(stream, true)?),
                     _ => {
@@ -669,11 +680,14 @@ pub fn parse_labeled_concurrent_statement_initial_token(
         let name = parse_name_initial_token(stream, token)?;
         let token = stream.peek_expect()?;
         if token.kind == Colon {
-            let label = Some(WithDecl::new(to_simple_name(name)?));
+            let label = Some(to_simple_name(name)?);
             stream.move_after(&token);
             let token = stream.expect()?;
-            let statement = parse_concurrent_statement(stream, token, diagnostics)?;
-            Ok(LabeledConcurrentStatement { label, statement })
+            let statement = parse_concurrent_statement(stream, label.as_ref(), token, diagnostics)?;
+            Ok(LabeledConcurrentStatement {
+                label: label.map(WithDecl::new),
+                statement,
+            })
         } else {
             let target = name.map_into(Target::Name);
             let statement = parse_assignment_or_procedure_call(stream, target)?;
@@ -683,7 +697,7 @@ pub fn parse_labeled_concurrent_statement_initial_token(
             })
         }
     } else {
-        let statement = parse_concurrent_statement(stream, token, diagnostics)?;
+        let statement = parse_concurrent_statement(stream, None, token, diagnostics)?;
         Ok(LabeledConcurrentStatement {
             label: None,
             statement,
@@ -800,6 +814,7 @@ end block;
                 label: Some(code.s1("name2").decl_ident()),
                 statement: ConcurrentStatement::ProcedureCall(call),
             }],
+            end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("name").decl_ident()));
@@ -825,6 +840,7 @@ end block name;
             },
             decl: vec![],
             statements: vec![],
+            end_label_pos: Some(code.s("name", 2).pos()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("name").decl_ident()));
@@ -850,6 +866,7 @@ end block;
             },
             decl: vec![],
             statements: vec![],
+            end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("name").decl_ident()));
@@ -875,6 +892,7 @@ end block;
             },
             decl: vec![],
             statements: vec![],
+            end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("name").decl_ident()));
@@ -904,6 +922,7 @@ end block;
             },
             decl: vec![],
             statements: vec![],
+            end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("name").decl_ident()));
@@ -924,6 +943,7 @@ end process;
             sensitivity_list: None,
             decl: vec![],
             statements: vec![],
+            end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
@@ -944,6 +964,7 @@ end process name;
             sensitivity_list: None,
             decl: vec![],
             statements: vec![],
+            end_label_pos: Some(code.s("name", 2).pos()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("name").decl_ident()));
@@ -964,6 +985,7 @@ end process;
             sensitivity_list: None,
             decl: vec![],
             statements: vec![],
+            end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
@@ -984,6 +1006,7 @@ end postponed process;
             sensitivity_list: None,
             decl: vec![],
             statements: vec![],
+            end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
@@ -1005,6 +1028,7 @@ end postponed process;
             sensitivity_list: None,
             decl: Vec::new(),
             statements: Vec::new(),
+            end_label_pos: None,
         };
         assert_eq!(
             diagnostics,
@@ -1033,6 +1057,7 @@ end process;
             ])),
             decl: vec![],
             statements: vec![],
+            end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
@@ -1054,6 +1079,7 @@ end process;
             sensitivity_list: Some(SensitivityList::Names(Vec::new())),
             decl: Vec::new(),
             statements: Vec::new(),
+            end_label_pos: None,
         };
         assert_eq!(
             diagnostics,
@@ -1085,6 +1111,7 @@ end process;
                 code.s1("foo <= true;").sequential_statement(),
                 code.s1("wait;").sequential_statement(),
             ],
+            end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, None);
@@ -1374,7 +1401,9 @@ end generate;
                 alternative_label: None,
                 decl: None,
                 statements: vec![],
+                end_label_pos: None,
             },
+            end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
@@ -1397,7 +1426,9 @@ end generate;
                 alternative_label: None,
                 decl: None,
                 statements: vec![code.s1("foo <= bar;").concurrent_statement()],
+                end_label_pos: None,
             },
+            end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
@@ -1414,7 +1445,9 @@ end generate;
                     alternative_label: None,
                     decl,
                     statements: vec![code.s1("foo <= bar;").concurrent_statement()],
+                    end_label_pos: None,
                 },
+                end_label_pos: None,
             };
             let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
             assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
@@ -1455,19 +1488,6 @@ end generate;
 ",
             ),
         );
-
-        test(
-            Some(vec![]),
-            Code::new(
-                "\
-gen: for idx in 0 to 1 generate
-begin
-  foo <= bar;
-end alt_label;
-end generate;
-",
-            ),
-        );
     }
 
     #[test]
@@ -1480,7 +1500,9 @@ end generate;
                     alternative_label: None,
                     decl: Some(code.s1("signal foo : natural;").declarative_part()),
                     statements: vec![code.s1("foo <= bar;").concurrent_statement()],
+                    end_label_pos: None,
                 },
+                end_label_pos: None,
             };
             let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
             assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
@@ -1507,17 +1529,6 @@ end;
 end generate;
 ",
         ));
-
-        test(Code::new(
-            "\
-gen: for idx in 0 to 1 generate
-  signal foo : natural;
-begin
-  foo <= bar;
-end alt_label;
-end generate;
-",
-        ));
     }
 
     #[test]
@@ -1529,15 +1540,19 @@ end generate;
 ",
         );
         let gen = IfGenerateStatement {
-            conditionals: vec![Conditional {
-                condition: code.s1("cond = true").expr(),
-                item: GenerateBody {
-                    alternative_label: None,
-                    decl: None,
-                    statements: vec![],
-                },
-            }],
-            else_item: None,
+            conds: Conditionals {
+                conditionals: vec![Conditional {
+                    condition: code.s1("cond = true").expr(),
+                    item: GenerateBody {
+                        alternative_label: None,
+                        decl: None,
+                        statements: vec![],
+                        end_label_pos: None,
+                    },
+                }],
+                else_item: None,
+            },
+            end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
@@ -1554,15 +1569,19 @@ end generate;
 ",
         );
         let gen = IfGenerateStatement {
-            conditionals: vec![Conditional {
-                condition: code.s1("cond = true").expr(),
-                item: GenerateBody {
-                    alternative_label: None,
-                    decl: Some(vec![]),
-                    statements: vec![],
-                },
-            }],
-            else_item: None,
+            conds: Conditionals {
+                conditionals: vec![Conditional {
+                    condition: code.s1("cond = true").expr(),
+                    item: GenerateBody {
+                        alternative_label: None,
+                        decl: Some(vec![]),
+                        statements: vec![],
+                        end_label_pos: None,
+                    },
+                }],
+                else_item: None,
+            },
+            end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
@@ -1580,29 +1599,35 @@ end generate;
 ",
         );
         let gen = IfGenerateStatement {
-            conditionals: vec![
-                Conditional {
-                    condition: code.s1("cond = true").expr(),
-                    item: GenerateBody {
-                        alternative_label: None,
-                        decl: None,
-                        statements: vec![],
+            conds: Conditionals {
+                conditionals: vec![
+                    Conditional {
+                        condition: code.s1("cond = true").expr(),
+                        item: GenerateBody {
+                            alternative_label: None,
+                            decl: None,
+                            statements: vec![],
+                            end_label_pos: None,
+                        },
                     },
-                },
-                Conditional {
-                    condition: code.s1("cond2 = true").expr(),
-                    item: GenerateBody {
-                        alternative_label: None,
-                        decl: None,
-                        statements: vec![],
+                    Conditional {
+                        condition: code.s1("cond2 = true").expr(),
+                        item: GenerateBody {
+                            alternative_label: None,
+                            decl: None,
+                            statements: vec![],
+                            end_label_pos: None,
+                        },
                     },
-                },
-            ],
-            else_item: Some(GenerateBody {
-                alternative_label: None,
-                decl: None,
-                statements: vec![],
-            }),
+                ],
+                else_item: Some(GenerateBody {
+                    alternative_label: None,
+                    decl: None,
+                    statements: vec![],
+                    end_label_pos: None,
+                }),
+            },
+            end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
@@ -1628,29 +1653,35 @@ end generate;
 ",
         );
         let gen = IfGenerateStatement {
-            conditionals: vec![
-                Conditional {
-                    condition: code.s1("cond = true").expr(),
-                    item: GenerateBody {
-                        alternative_label: None,
-                        decl: Some(code.s1("variable v1 : boolean;").declarative_part()),
-                        statements: vec![code.s1("foo1(clk);").concurrent_statement()],
+            conds: Conditionals {
+                conditionals: vec![
+                    Conditional {
+                        condition: code.s1("cond = true").expr(),
+                        item: GenerateBody {
+                            alternative_label: None,
+                            decl: Some(code.s1("variable v1 : boolean;").declarative_part()),
+                            statements: vec![code.s1("foo1(clk);").concurrent_statement()],
+                            end_label_pos: None,
+                        },
                     },
-                },
-                Conditional {
-                    condition: code.s1("cond2 = true").expr(),
-                    item: GenerateBody {
-                        alternative_label: None,
-                        decl: Some(code.s1("variable v2 : boolean;").declarative_part()),
-                        statements: vec![code.s1("foo2(clk);").concurrent_statement()],
+                    Conditional {
+                        condition: code.s1("cond2 = true").expr(),
+                        item: GenerateBody {
+                            alternative_label: None,
+                            decl: Some(code.s1("variable v2 : boolean;").declarative_part()),
+                            statements: vec![code.s1("foo2(clk);").concurrent_statement()],
+                            end_label_pos: None,
+                        },
                     },
-                },
-            ],
-            else_item: Some(GenerateBody {
-                alternative_label: None,
-                decl: Some(code.s1("variable v3 : boolean;").declarative_part()),
-                statements: vec![code.s1("foo3(clk);").concurrent_statement()],
-            }),
+                ],
+                else_item: Some(GenerateBody {
+                    alternative_label: None,
+                    decl: Some(code.s1("variable v3 : boolean;").declarative_part()),
+                    statements: vec![code.s1("foo3(clk);").concurrent_statement()],
+                    end_label_pos: None,
+                }),
+            },
+            end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
@@ -1662,46 +1693,56 @@ end generate;
         let code = Code::new(
             "\
 gen: if alt1: cond = true generate
-elsif alt2: cond2 = true generate
+elsif cond2 = true generate
+end alt2;
 else alt3: generate
 end alt4;
 end generate;
 ",
         );
         let gen = IfGenerateStatement {
-            conditionals: vec![
-                Conditional {
-                    condition: code.s1("cond = true").expr(),
-                    item: GenerateBody {
-                        alternative_label: Some(code.s1("alt1").decl_ident()),
-                        decl: None,
-                        statements: vec![],
+            conds: Conditionals {
+                conditionals: vec![
+                    Conditional {
+                        condition: code.s1("cond = true").expr(),
+                        item: GenerateBody {
+                            alternative_label: Some(code.s1("alt1").decl_ident()),
+                            decl: None,
+                            statements: vec![],
+                            end_label_pos: None,
+                        },
                     },
-                },
-                Conditional {
-                    condition: code.s1("cond2 = true").expr(),
-                    item: GenerateBody {
-                        alternative_label: Some(code.s1("alt2").decl_ident()),
-                        decl: None,
-                        statements: vec![],
+                    Conditional {
+                        condition: code.s1("cond2 = true").expr(),
+                        item: GenerateBody {
+                            alternative_label: None,
+                            decl: None,
+                            statements: vec![],
+                            end_label_pos: None,
+                        },
                     },
-                },
-            ],
-            else_item: Some(GenerateBody {
-                alternative_label: Some(code.s1("alt3").decl_ident()),
-                decl: None,
-                statements: vec![],
-            }),
+                ],
+                else_item: Some(GenerateBody {
+                    alternative_label: Some(code.s1("alt3").decl_ident()),
+                    decl: None,
+                    statements: vec![],
+                    end_label_pos: None,
+                }),
+            },
+            end_label_pos: None,
         };
         let (stmt, diagnostics) = code.with_stream_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
         assert_eq!(
             diagnostics,
-            vec![Diagnostic::error(
-                code.s1("alt4"),
-                "End identifier mismatch, expected alt3"
-            )]
+            vec![
+                Diagnostic::error(
+                    code.s1("alt2"),
+                    "End label 'alt2' found for unlabeled statement"
+                ),
+                Diagnostic::error(code.s1("alt4"), "End label mismatch, expected alt3")
+            ]
         );
     }
     #[test]
@@ -1718,29 +1759,35 @@ end generate;
 ",
         );
         let gen = IfGenerateStatement {
-            conditionals: vec![
-                Conditional {
-                    condition: code.s1("cond = true").expr(),
-                    item: GenerateBody {
-                        alternative_label: Some(code.s1("alt1").decl_ident()),
-                        decl: None,
-                        statements: vec![],
+            conds: Conditionals {
+                conditionals: vec![
+                    Conditional {
+                        condition: code.s1("cond = true").expr(),
+                        item: GenerateBody {
+                            alternative_label: Some(code.s1("alt1").decl_ident()),
+                            decl: None,
+                            statements: vec![],
+                            end_label_pos: Some(code.s("alt1", 2).pos()),
+                        },
                     },
-                },
-                Conditional {
-                    condition: code.s1("cond2 = true").expr(),
-                    item: GenerateBody {
-                        alternative_label: Some(code.s1("alt2").decl_ident()),
-                        decl: None,
-                        statements: vec![],
+                    Conditional {
+                        condition: code.s1("cond2 = true").expr(),
+                        item: GenerateBody {
+                            alternative_label: Some(code.s1("alt2").decl_ident()),
+                            decl: None,
+                            statements: vec![],
+                            end_label_pos: Some(code.s("alt2", 2).pos()),
+                        },
                     },
-                },
-            ],
-            else_item: Some(GenerateBody {
-                alternative_label: Some(code.s1("alt3").decl_ident()),
-                decl: None,
-                statements: vec![],
-            }),
+                ],
+                else_item: Some(GenerateBody {
+                    alternative_label: Some(code.s1("alt3").decl_ident()),
+                    decl: None,
+                    statements: vec![],
+                    end_label_pos: Some(code.s("alt3", 2).pos()),
+                }),
+            },
+            end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
@@ -1760,25 +1807,30 @@ end generate;
 ",
         );
         let gen = CaseGenerateStatement {
-            expression: code.s1("expr(0) + 2").expr(),
-            alternatives: vec![
-                Alternative {
-                    choices: code.s1("1 | 2").choices(),
-                    item: GenerateBody {
-                        alternative_label: None,
-                        decl: None,
-                        statements: vec![code.s1("sig <= value;").concurrent_statement()],
+            sels: Selection {
+                expression: code.s1("expr(0) + 2").expr(),
+                alternatives: vec![
+                    Alternative {
+                        choices: code.s1("1 | 2").choices(),
+                        item: GenerateBody {
+                            alternative_label: None,
+                            decl: None,
+                            statements: vec![code.s1("sig <= value;").concurrent_statement()],
+                            end_label_pos: None,
+                        },
                     },
-                },
-                Alternative {
-                    choices: code.s1("others").choices(),
-                    item: GenerateBody {
-                        alternative_label: None,
-                        decl: None,
-                        statements: vec![code.s1("foo(clk);").concurrent_statement()],
+                    Alternative {
+                        choices: code.s1("others").choices(),
+                        item: GenerateBody {
+                            alternative_label: None,
+                            decl: None,
+                            statements: vec![code.s1("foo(clk);").concurrent_statement()],
+                            end_label_pos: None,
+                        },
                     },
-                },
-            ],
+                ],
+            },
+            end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
@@ -1789,37 +1841,42 @@ end generate;
     fn test_case_alternative_label() {
         let code = Code::new(
             "\
-gen: case expr(0) + 2 generate
+gen1: case expr(0) + 2 generate
   when alt1: 1 | 2 =>
     sig <= value;
   when alt2: others =>
     foo(clk);
-end generate;
+end generate gen1;
 ",
         );
         let gen = CaseGenerateStatement {
-            expression: code.s1("expr(0) + 2").expr(),
-            alternatives: vec![
-                Alternative {
-                    choices: code.s1("1 | 2").choices(),
-                    item: GenerateBody {
-                        alternative_label: Some(code.s1("alt1").decl_ident()),
-                        decl: None,
-                        statements: vec![code.s1("sig <= value;").concurrent_statement()],
+            sels: Selection {
+                expression: code.s1("expr(0) + 2").expr(),
+                alternatives: vec![
+                    Alternative {
+                        choices: code.s1("1 | 2").choices(),
+                        item: GenerateBody {
+                            alternative_label: Some(code.s1("alt1").decl_ident()),
+                            decl: None,
+                            statements: vec![code.s1("sig <= value;").concurrent_statement()],
+                            end_label_pos: None,
+                        },
                     },
-                },
-                Alternative {
-                    choices: code.s1("others").choices(),
-                    item: GenerateBody {
-                        alternative_label: Some(code.s1("alt2").decl_ident()),
-                        decl: None,
-                        statements: vec![code.s1("foo(clk);").concurrent_statement()],
+                    Alternative {
+                        choices: code.s1("others").choices(),
+                        item: GenerateBody {
+                            alternative_label: Some(code.s1("alt2").decl_ident()),
+                            decl: None,
+                            statements: vec![code.s1("foo(clk);").concurrent_statement()],
+                            end_label_pos: None,
+                        },
                     },
-                },
-            ],
+                ],
+            },
+            end_label_pos: Some(code.s("gen1", 2).pos()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
+        assert_eq!(stmt.label, Some(code.s1("gen1").decl_ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::CaseGenerate(gen));
     }
 }

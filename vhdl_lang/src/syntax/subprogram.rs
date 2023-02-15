@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use super::common::ParseResult;
+use super::common::{check_end_identifier_mismatch, ParseResult};
 use super::declarative_part::parse_declarative_part;
 use super::interface_declaration::parse_parameter_interface_list;
 use super::names::parse_type_mark;
@@ -151,20 +151,26 @@ pub fn parse_subprogram_body(
     let declarations = parse_declarative_part(stream, diagnostics, true)?;
 
     let (statements, end_token) = parse_labeled_sequential_statements(stream, diagnostics)?;
-    try_token_kind!(
+    match_token_kind!(
         end_token,
         End => {
             stream.pop_if_kind(end_kind)?;
-            stream.pop_if_kind(Identifier)?;
-            stream.pop_if_kind(StringLiteral)?;
+
+            let end_ident = if matches!(stream.peek_kind()?, Some(Identifier | StringLiteral)) {
+                Some(parse_designator(stream)?)
+            } else {
+                None
+            };
             stream.expect_kind(SemiColon)?;
+
+            Ok(SubprogramBody {
+                end_ident_pos: check_end_identifier_mismatch(specification.subpgm_designator(), end_ident, diagnostics),
+                specification,
+                declarations,
+                statements,
+            })
         }
-    );
-    Ok(SubprogramBody {
-        specification,
-        declarations,
-        statements,
-    })
+    )
 }
 
 pub fn parse_subprogram(
@@ -438,6 +444,7 @@ end function;
             specification,
             declarations,
             statements,
+            end_ident_pos: None,
         };
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram),
@@ -458,6 +465,54 @@ function foo(arg : natural) return natural;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram),
             Declaration::SubprogramDeclaration(specification)
+        );
+    }
+
+    #[test]
+    pub fn parses_subprogram_body_end_ident() {
+        let code = Code::new(
+            "\
+function foo(arg : natural) return natural is
+begin
+end function foo;
+",
+        );
+        let specification = code
+            .s1("function foo(arg : natural) return natural")
+            .subprogram_decl();
+        let body = SubprogramBody {
+            specification,
+            declarations: vec![],
+            statements: vec![],
+            end_ident_pos: Some(code.s("foo", 2).pos()),
+        };
+        assert_eq!(
+            code.with_stream_no_diagnostics(parse_subprogram),
+            Declaration::SubprogramBody(body)
+        );
+    }
+
+    #[test]
+    pub fn parses_subprogram_body_end_operator_symbol() {
+        let code = Code::new(
+            "\
+function \"+\"(arg : natural) return natural is
+begin
+end function \"+\";
+",
+        );
+        let specification = code
+            .s1("function \"+\"(arg : natural) return natural")
+            .subprogram_decl();
+        let body = SubprogramBody {
+            specification,
+            declarations: vec![],
+            statements: vec![],
+            end_ident_pos: Some(code.s("\"+\"", 2).pos()),
+        };
+        assert_eq!(
+            code.with_stream_no_diagnostics(parse_subprogram),
+            Declaration::SubprogramBody(body)
         );
     }
 }

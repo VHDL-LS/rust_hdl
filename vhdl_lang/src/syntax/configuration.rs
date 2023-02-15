@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use super::common::error_on_end_identifier_mismatch;
+use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;
 use super::concurrent_statement::parse_generic_and_port_map;
 use super::context::parse_use_clause_no_keyword;
@@ -269,7 +269,7 @@ pub fn parse_configuration_declaration(
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ConfigurationDeclaration> {
     stream.expect_kind(Configuration)?;
-    let ident = stream.expect_ident()?;
+    let ident = WithDecl::new(stream.expect_ident()?);
     stream.expect_kind(Of)?;
     let entity_name = parse_selected_name(stream)?;
     stream.expect_kind(Is)?;
@@ -298,13 +298,12 @@ pub fn parse_configuration_declaration(
     stream.expect_kind(End)?;
     stream.pop_if_kind(Configuration)?;
     let end_ident = stream.pop_optional_ident()?;
-    if let Some(diagnostic) = error_on_end_identifier_mismatch(&ident, &end_ident) {
-        diagnostics.push(diagnostic)
-    }
     stream.expect_kind(SemiColon)?;
+
     Ok(ConfigurationDeclaration {
         context_clause: ContextClause::default(),
-        ident: ident.into(),
+        end_ident_pos: check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics),
+        ident,
         entity_name,
         decl,
         vunit_bind_inds,
@@ -375,7 +374,8 @@ end;
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![],
-                }
+                },
+                end_ident_pos: None,
             }
         );
     }
@@ -402,7 +402,8 @@ end configuration cfg;
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![],
-                }
+                },
+                end_ident_pos: Some(code.s("cfg", 2).pos())
             }
         );
     }
@@ -433,7 +434,8 @@ end configuration cfg;
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![],
-                }
+                },
+                end_ident_pos: Some(code.s("cfg", 2).pos())
             }
         );
     }
@@ -466,7 +468,8 @@ end configuration cfg;
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![],
-                }
+                },
+                end_ident_pos: Some(code.s("cfg", 2).pos())
             }
         );
     }
@@ -493,7 +496,8 @@ end configuration cfg;
                     block_spec: code.s1("rtl(0)").name(),
                     use_clauses: vec![],
                     items: vec![],
-                }
+                },
+                end_ident_pos: Some(code.s("cfg", 2).pos())
             }
         );
     }
@@ -535,7 +539,8 @@ end configuration cfg;
                             items: vec![],
                         })
                     ],
-                }
+                },
+                end_ident_pos: Some(code.s("cfg", 2).pos())
             }
         );
     }
@@ -580,7 +585,8 @@ end configuration cfg;
                             items: vec![],
                         }),
                     }),],
-                }
+                },
+                end_ident_pos: Some(code.s("cfg", 2).pos())
             }
         );
     }
@@ -636,7 +642,8 @@ end configuration cfg;
                             items: vec![],
                         }),
                     }),],
-                }
+                },
+                end_ident_pos: Some(code.s("cfg", 2).pos())
             }
         );
     }
@@ -683,7 +690,8 @@ end configuration cfg;
                         vunit_bind_inds: Vec::new(),
                         block_config: None,
                     }),],
-                }
+                },
+                end_ident_pos: Some(code.s("cfg", 2).pos())
             }
         );
     }
@@ -761,7 +769,8 @@ end configuration cfg;
                             block_config: None,
                         })
                     ],
-                }
+                },
+                end_ident_pos: Some(code.s("cfg", 2).pos())
             }
         );
     }

@@ -279,7 +279,7 @@ impl Search for LabeledSequentialStatement {
                 return_if_found!(pcall.item.search(searcher));
             }
             SequentialStatement::If(ref mut ifstmt) => {
-                return_if_found!(search_conditionals(ifstmt, false, searcher));
+                return_if_found!(search_conditionals(&mut ifstmt.conds, false, searcher));
             }
             SequentialStatement::Wait(ref mut wait_stmt) => {
                 let WaitStatement {
@@ -307,13 +307,27 @@ impl Search for LabeledSequentialStatement {
                 return_if_found!(severity.search(searcher));
             }
             SequentialStatement::Exit(ref mut exit_stmt) => {
-                // @TODO loop label
-                let ExitStatement { condition, .. } = exit_stmt;
+                let ExitStatement {
+                    condition,
+                    loop_label,
+                } = exit_stmt;
+                if let Some(loop_label) = loop_label {
+                    return_if_found!(searcher
+                        .search_pos_with_ref(&loop_label.item.pos, &mut loop_label.reference)
+                        .or_not_found());
+                }
                 return_if_found!(condition.search(searcher));
             }
             SequentialStatement::Next(ref mut next_stmt) => {
-                // @TODO loop label
-                let NextStatement { condition, .. } = next_stmt;
+                let NextStatement {
+                    condition,
+                    loop_label,
+                } = next_stmt;
+                if let Some(loop_label) = loop_label {
+                    return_if_found!(searcher
+                        .search_pos_with_ref(&loop_label.item.pos, &mut loop_label.reference)
+                        .or_not_found());
+                }
                 return_if_found!(condition.search(searcher));
             }
             SequentialStatement::Case(ref mut case_stmt) => {
@@ -323,6 +337,7 @@ impl Search for LabeledSequentialStatement {
                 let LoopStatement {
                     iteration_scheme,
                     statements,
+                    end_label_pos: _,
                 } = loop_stmt;
                 match iteration_scheme {
                     Some(IterationScheme::For(ref mut index, ref mut drange)) => {
@@ -367,6 +382,15 @@ impl Search for LabeledSequentialStatement {
             }
             SequentialStatement::Null => {}
         }
+
+        if let Some(ref mut label) = self.label {
+            if let Some(end_label_pos) = self.statement.end_label_pos() {
+                return_if_found!(searcher
+                    .search_pos_with_ref(end_label_pos, &mut label.decl)
+                    .or_not_found());
+            }
+        }
+
         NotFound
     }
 }
@@ -377,6 +401,7 @@ impl Search for GenerateBody {
             alternative_label,
             decl,
             statements,
+            end_label_pos,
         } = self;
         if let Some(ref mut label) = alternative_label {
             return_if_found!(searcher
@@ -384,7 +409,17 @@ impl Search for GenerateBody {
                 .or_not_found());
         }
         return_if_found!(decl.search(searcher));
-        statements.search(searcher)
+        return_if_found!(statements.search(searcher));
+
+        if let Some(ref mut label) = alternative_label {
+            if let Some(end_label_pos) = end_label_pos {
+                return_if_found!(searcher
+                    .search_pos_with_ref(end_label_pos, &mut label.decl)
+                    .or_not_found());
+            }
+        }
+
+        NotFound
     }
 }
 
@@ -436,7 +471,7 @@ impl Search for LabeledConcurrentStatement {
             ConcurrentStatement::Block(ref mut block) => {
                 // @TODO guard condition
                 return_if_found!(block.decl.search(searcher));
-                block.statements.search(searcher)
+                return_if_found!(block.statements.search(searcher));
             }
             ConcurrentStatement::Process(ref mut process) => {
                 let ProcessStatement {
@@ -444,10 +479,11 @@ impl Search for LabeledConcurrentStatement {
                     sensitivity_list,
                     decl,
                     statements,
+                    end_label_pos: _,
                 } = process;
                 return_if_found!(sensitivity_list.search(searcher));
                 return_if_found!(decl.search(searcher));
-                statements.search(searcher)
+                return_if_found!(statements.search(searcher));
             }
             ConcurrentStatement::ForGenerate(ref mut gen) => {
                 return_if_found!(searcher
@@ -460,21 +496,23 @@ impl Search for LabeledConcurrentStatement {
                     index_name: _,
                     discrete_range,
                     body,
+                    end_label_pos: _,
                 } = gen;
                 return_if_found!(discrete_range.search(searcher));
-                body.search(searcher)
+                return_if_found!(body.search(searcher));
             }
             ConcurrentStatement::IfGenerate(ref mut gen) => {
-                search_conditionals(gen, false, searcher)
+                return_if_found!(search_conditionals(&mut gen.conds, false, searcher));
             }
             ConcurrentStatement::CaseGenerate(ref mut gen) => {
-                search_selection(gen, false, searcher)
+                return_if_found!(search_selection(&mut gen.sels, false, searcher));
             }
-            ConcurrentStatement::Instance(ref mut inst) => inst.search(searcher),
+            ConcurrentStatement::Instance(ref mut inst) => {
+                return_if_found!(inst.search(searcher));
+            }
             ConcurrentStatement::Assignment(ref mut assign) => {
                 let ConcurrentSignalAssignment { target, rhs, .. } = assign;
                 return_if_found!(search_assignment(target, rhs, searcher));
-                NotFound
             }
             ConcurrentStatement::ProcedureCall(ref mut pcall) => {
                 let ConcurrentProcedureCall {
@@ -483,7 +521,6 @@ impl Search for LabeledConcurrentStatement {
                 } = pcall;
                 return_if_finished!(searcher.search_with_pos(&call.pos));
                 return_if_found!(call.item.search(searcher));
-                NotFound
             }
             ConcurrentStatement::Assert(ref mut assert) => {
                 let ConcurrentAssertStatement {
@@ -498,9 +535,18 @@ impl Search for LabeledConcurrentStatement {
                 return_if_found!(condition.search(searcher));
                 return_if_found!(report.search(searcher));
                 return_if_found!(severity.search(searcher));
-                NotFound
+            }
+        };
+
+        if let Some(ref mut label) = self.label {
+            if let Some(end_label_pos) = self.statement.end_label_pos() {
+                return_if_found!(searcher
+                    .search_pos_with_ref(end_label_pos, &mut label.decl)
+                    .or_not_found());
             }
         }
+
+        NotFound
     }
 }
 
@@ -923,6 +969,11 @@ impl Search for Declaration {
                 return_if_found!(body.specification.search(searcher));
                 return_if_found!(body.declarations.search(searcher));
                 return_if_found!(body.statements.search(searcher));
+                if let Some(ref end_ident_pos) = body.end_ident_pos {
+                    return_if_found!(searcher
+                        .search_pos_with_ref(end_ident_pos, body.specification.reference_mut())
+                        .or_not_found());
+                }
             }
             Declaration::SubprogramDeclaration(decl) => {
                 return_if_found!(decl.search(searcher));
@@ -984,6 +1035,7 @@ impl Search for Declaration {
                     ident: _,
                     generic_list,
                     port_list,
+                    end_ident_pos: _,
                 } = component;
                 return_if_found!(generic_list.search(searcher));
                 return_if_found!(port_list.search(searcher));
@@ -1203,6 +1255,11 @@ impl Search for PackageBody {
         return_if_finished!(searcher.search_source(self.source()));
         return_if_found!(self.context_clause.search(searcher));
         return_if_found!(searcher.search_ident_ref(&mut self.ident).or_not_found());
+        if let Some(ref end_ident_pos) = self.end_ident_pos {
+            return_if_found!(searcher
+                .search_pos_with_ref(end_ident_pos, &mut self.ident.reference)
+                .or_not_found());
+        }
         self.decl.search(searcher)
     }
 }
@@ -1246,6 +1303,7 @@ impl Search for CaseStatement {
             is_matching: _,
             expression,
             alternatives,
+            end_label_pos: _,
         } = self;
         return_if_found!(expression.search(searcher));
         return_if_found!(search_alternatives(alternatives, false, searcher));
@@ -1274,6 +1332,14 @@ impl ItemAtCursor {
         // Thus cursor will match character cursor and cursor + 1
         pos.start() <= self.cursor && self.cursor <= pos.end()
     }
+
+    fn is_inside_opt(&self, pos: Option<&SrcPos>) -> bool {
+        if let Some(pos) = pos {
+            self.is_inside(pos)
+        } else {
+            false
+        }
+    }
 }
 
 impl Searcher for ItemAtCursor {
@@ -1289,7 +1355,7 @@ impl Searcher for ItemAtCursor {
 
     fn search_decl(&mut self, decl: FoundDeclaration) -> SearchState {
         let pos = decl.pos();
-        if self.is_inside(pos) {
+        if self.is_inside(pos) || self.is_inside_opt(decl.end_ident_pos()) {
             if let Some(id) = decl.ent_id() {
                 self.result = Some(id);
                 Finished(Found)
@@ -1493,6 +1559,9 @@ impl<'a> Searcher for FindAllReferences<'a> {
 
             if is_reference(self.ent, other) {
                 self.references.push(decl.pos().clone());
+                if let Some(pos) = decl.end_ident_pos() {
+                    self.references.push(pos.clone());
+                }
             }
         }
         NotFinished
@@ -1506,6 +1575,40 @@ impl<'a> Searcher for FindAllReferences<'a> {
             }
         };
         NotFinished
+    }
+}
+
+impl<'a> FoundDeclaration<'a> {
+    fn end_ident_pos(&self) -> Option<&SrcPos> {
+        match self {
+            FoundDeclaration::InterfaceObject(_) => None,
+            FoundDeclaration::ForIndex(..) => None,
+            FoundDeclaration::ForGenerateIndex(..) => None,
+            FoundDeclaration::Function(..) => None,
+            FoundDeclaration::Procedure(..) => None,
+            FoundDeclaration::Object(..) => None,
+            FoundDeclaration::ElementDeclaration(..) => None,
+            FoundDeclaration::EnumerationLiteral(..) => None,
+            FoundDeclaration::File(..) => None,
+            FoundDeclaration::Type(value) => value.end_ident_pos.as_ref(),
+            FoundDeclaration::InterfaceType(..) => None,
+            FoundDeclaration::InterfacePackage(..) => None,
+            FoundDeclaration::InterfaceFile(..) => None,
+            FoundDeclaration::PhysicalTypePrimary(..) => None,
+            FoundDeclaration::PhysicalTypeSecondary(..) => None,
+            FoundDeclaration::Component(value) => value.end_ident_pos.as_ref(),
+            FoundDeclaration::Attribute(..) => None,
+            FoundDeclaration::Alias(..) => None,
+            FoundDeclaration::Package(value) => value.end_ident_pos.as_ref(),
+            FoundDeclaration::PackageInstance(..) => None,
+            FoundDeclaration::Configuration(value) => value.end_ident_pos.as_ref(),
+            FoundDeclaration::Entity(value) => value.end_ident_pos.as_ref(),
+            FoundDeclaration::Architecture(value) => value.end_ident_pos.as_ref(),
+            FoundDeclaration::Context(value) => value.end_ident_pos.as_ref(),
+            FoundDeclaration::GenerateBody(..) => None,
+            FoundDeclaration::ConcurrentStatement(..) => None,
+            FoundDeclaration::SequentialStatement(..) => None,
+        }
     }
 }
 

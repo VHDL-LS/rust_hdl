@@ -6,7 +6,7 @@
 
 use super::tokens::{Kind::*, TokenStream};
 
-use super::common::error_on_end_identifier_mismatch;
+use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;
 use super::component_declaration::{parse_optional_generic_list, parse_optional_port_list};
 use super::concurrent_statement::parse_labeled_concurrent_statements;
@@ -29,7 +29,7 @@ pub fn parse_entity_declaration(
 ) -> ParseResult<EntityDeclaration> {
     stream.expect_kind(Entity)?;
 
-    let ident = stream.expect_ident()?;
+    let ident = WithDecl::new(stream.expect_ident()?);
     stream.expect_kind(Is)?;
 
     let generic_clause = parse_optional_generic_list(stream, diagnostics)?;
@@ -45,13 +45,11 @@ pub fn parse_entity_declaration(
     );
     stream.pop_if_kind(Entity)?;
     let end_ident = stream.pop_optional_ident()?;
-    if let Some(diagnostic) = error_on_end_identifier_mismatch(&ident, &end_ident) {
-        diagnostics.push(diagnostic);
-    }
     stream.expect_kind(SemiColon)?;
     Ok(EntityDeclaration {
         context_clause: ContextClause::default(),
-        ident: ident.into(),
+        end_ident_pos: check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics),
+        ident,
         generic_clause,
         port_clause,
         decl,
@@ -65,7 +63,7 @@ pub fn parse_architecture_body(
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ArchitectureBody> {
     stream.expect_kind(Architecture)?;
-    let ident = stream.expect_ident()?;
+    let ident = WithDecl::new(stream.expect_ident()?);
     stream.expect_kind(Of)?;
     let entity_name = stream.expect_ident()?;
     stream.expect_kind(Is)?;
@@ -76,15 +74,12 @@ pub fn parse_architecture_body(
     stream.pop_if_kind(Architecture)?;
 
     let end_ident = stream.pop_optional_ident()?;
-    if let Some(diagnostic) = error_on_end_identifier_mismatch(&ident, &end_ident) {
-        diagnostics.push(diagnostic);
-    }
-
     stream.expect_kind(SemiColon)?;
 
     Ok(ArchitectureBody {
         context_clause: ContextClause::default(),
-        ident: WithDecl::new(ident),
+        end_ident_pos: check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics),
+        ident,
         entity_name: entity_name.into_ref(),
         decl,
         statements,
@@ -97,7 +92,7 @@ pub fn parse_package_declaration(
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<PackageDeclaration> {
     stream.expect_kind(Package)?;
-    let ident = stream.expect_ident()?;
+    let ident = WithDecl::new(stream.expect_ident()?);
 
     stream.expect_kind(Is)?;
     let generic_clause = {
@@ -112,14 +107,11 @@ pub fn parse_package_declaration(
     let decl = parse_declarative_part(stream, diagnostics, false)?;
     stream.pop_if_kind(Package)?;
     let end_ident = stream.pop_optional_ident()?;
-    if let Some(diagnostic) = error_on_end_identifier_mismatch(&ident, &end_ident) {
-        diagnostics.push(diagnostic);
-    }
-    stream.pop_if_kind(Identifier)?;
     stream.expect_kind(SemiColon)?;
     Ok(PackageDeclaration {
         context_clause: ContextClause::default(),
-        ident: ident.into(),
+        end_ident_pos: check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics),
+        ident,
         generic_clause,
         decl,
     })
@@ -140,15 +132,13 @@ pub fn parse_package_body(
         stream.expect_kind(Body)?;
     }
     let end_ident = stream.pop_optional_ident()?;
-    if let Some(diagnostic) = error_on_end_identifier_mismatch(&ident, &end_ident) {
-        diagnostics.push(diagnostic);
-    }
     stream.expect_kind(SemiColon)?;
 
     Ok(PackageBody {
         context_clause: ContextClause::default(),
-        ident: ident.into_ref(),
         decl,
+        end_ident_pos: check_end_identifier_mismatch(&ident, end_ident, diagnostics),
+        ident: ident.into_ref(),
     })
 }
 
@@ -309,7 +299,7 @@ mod tests {
     }
 
     /// An simple entity with only a name
-    fn simple_entity(ident: Ident) -> AnyDesignUnit {
+    fn simple_entity(ident: Ident, end_ident_pos: Option<SrcPos>) -> AnyDesignUnit {
         AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(EntityDeclaration {
             context_clause: ContextClause::default(),
             ident: ident.into(),
@@ -317,6 +307,7 @@ mod tests {
             port_clause: None,
             decl: vec![],
             statements: vec![],
+            end_ident_pos,
         }))
     }
 
@@ -330,7 +321,7 @@ end entity;
         );
         assert_eq!(
             design_file.design_units,
-            [simple_entity(code.s1("myent").ident())]
+            [simple_entity(code.s1("myent").ident(), None)]
         );
 
         let (code, design_file) = parse_ok(
@@ -341,7 +332,10 @@ end entity myent;
         );
         assert_eq!(
             design_file.design_units,
-            [simple_entity(code.s1("myent").ident())]
+            [simple_entity(
+                code.s1("myent").ident(),
+                Some(code.s("myent", 2).pos())
+            )]
         );
     }
 
@@ -363,6 +357,7 @@ end entity;
                 port_clause: None,
                 decl: vec![],
                 statements: vec![],
+                end_ident_pos: None,
             }
         );
     }
@@ -387,6 +382,7 @@ end entity;
                 port_clause: None,
                 decl: vec![],
                 statements: vec![],
+                end_ident_pos: None,
             }
         );
     }
@@ -409,6 +405,7 @@ end entity;
                 port_clause: Some(vec![]),
                 decl: vec![],
                 statements: vec![],
+                end_ident_pos: None,
             }
         );
     }
@@ -431,6 +428,7 @@ end entity;
                 port_clause: None,
                 decl: vec![],
                 statements: vec![],
+                end_ident_pos: None,
             }
         );
     }
@@ -453,6 +451,7 @@ end entity;
                 port_clause: None,
                 decl: code.s1("constant foo : natural := 0;").declarative_part(),
                 statements: vec![],
+                end_ident_pos: None,
             }
         );
     }
@@ -476,6 +475,7 @@ end entity;
                 port_clause: None,
                 decl: vec![],
                 statements: vec![code.s1("check(clk, valid);").concurrent_statement()],
+                end_ident_pos: None,
             }
         );
     }
@@ -500,22 +500,27 @@ end;
         assert_eq!(
             design_file.design_units,
             [
-                simple_entity(code.s1("myent").ident()),
-                simple_entity(code.s1("myent2").ident()),
-                simple_entity(code.s1("myent3").ident()),
-                simple_entity(code.s1("myent4").ident())
+                simple_entity(code.s1("myent").ident(), None),
+                simple_entity(code.s1("myent2").ident(), Some(code.s("myent2", 2).pos())),
+                simple_entity(code.s1("myent3").ident(), Some(code.s("myent3", 2).pos())),
+                simple_entity(code.s1("myent4").ident(), None)
             ]
         );
     }
 
     // An simple entity with only a name
-    fn simple_architecture(ident: Ident, entity_name: Ident) -> AnyDesignUnit {
+    fn simple_architecture(
+        ident: WithDecl<Ident>,
+        entity_name: Ident,
+        end_ident_pos: Option<SrcPos>,
+    ) -> AnyDesignUnit {
         AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(ArchitectureBody {
             context_clause: ContextClause::default(),
-            ident: WithDecl::new(ident),
+            ident,
             entity_name: entity_name.into_ref(),
             decl: Vec::new(),
             statements: vec![],
+            end_ident_pos,
         }))
     }
 
@@ -531,8 +536,9 @@ end architecture;
         assert_eq!(
             design_file.design_units,
             [simple_architecture(
-                code.s1("arch_name").ident(),
-                code.s1("myent").ident()
+                WithDecl::new(code.s1("arch_name").ident()),
+                code.s1("myent").ident(),
+                None,
             )]
         );
     }
@@ -549,8 +555,9 @@ end architecture arch_name;
         assert_eq!(
             design_file.design_units,
             [simple_architecture(
-                code.s1("arch_name").ident(),
-                code.s1("myent").ident()
+                WithDecl::new(code.s1("arch_name").ident()),
+                code.s1("myent").ident(),
+                Some(code.s("arch_name", 2).pos())
             )]
         );
     }
@@ -567,8 +574,9 @@ end;
         assert_eq!(
             design_file.design_units,
             [simple_architecture(
-                code.s1("arch_name").ident(),
-                code.s1("myent").ident()
+                WithDecl::new(code.s1("arch_name").ident()),
+                code.s1("myent").ident(),
+                None
             )]
         );
     }
@@ -588,6 +596,7 @@ end package;
                 ident: code.s1("pkg_name").decl_ident(),
                 generic_clause: None,
                 decl: vec![],
+                end_ident_pos: None
             }
         );
     }
@@ -614,6 +623,7 @@ end package;
   constant bar : natural := 0;
 ")
                     .declarative_part(),
+                end_ident_pos: None
             }
         );
     }
@@ -639,7 +649,8 @@ end package;
                     code.s1("type foo").generic(),
                     code.s1("type bar").generic()
                 ]),
-                decl: vec![]
+                decl: vec![],
+                end_ident_pos: None
             }
         );
     }
@@ -673,6 +684,7 @@ end entity;
                         port_clause: None,
                         decl: vec![],
                         statements: vec![],
+                        end_ident_pos: None
                     }
                 ))]
             }

@@ -224,9 +224,10 @@ pub fn check_search_reference_with_name(decl_name: &str, contents: &str) {
     let mut references = Vec::new();
     for idx in 1..=occurences {
         assert_eq!(
-            root.search_reference_pos(code.source(), code.s(decl_name, idx).end()),
+            root.search_reference(code.source(), code.s(decl_name, idx).end())
+                .and_then(|ent| ent.declaration().decl_pos().cloned()),
             Some(code.s(decl_name, 1).pos()),
-            "{}",
+            "{decl_name}, occurence {}",
             idx
         );
         references.push(code.s(decl_name, idx).pos());

@@ -210,6 +210,14 @@ impl<'a> AnyEnt<'a> {
         self.id
     }
 
+    pub fn declaration(&'a self) -> EntRef<'a> {
+        if let Related::DeclaredBy(other) = self.related {
+            other
+        } else {
+            self
+        }
+    }
+
     pub fn is_implicit(&self) -> bool {
         match self.related {
             Related::ImplicitOf(_) => true,

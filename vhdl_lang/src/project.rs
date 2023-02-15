@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::analysis::{AnyEnt, AnyEntKind, Design, DesignRoot, EntRef, Related};
+use crate::analysis::{AnyEnt, AnyEntKind, Design, DesignRoot, EntRef};
 use crate::ast::search::FindAllEnt;
 use crate::ast::{DesignFile, Designator};
 use crate::config::Config;
@@ -230,12 +230,7 @@ impl Project {
 
     pub fn find_declaration<'a>(&'a self, source: &Source, cursor: Position) -> Option<EntRef<'a>> {
         let ent = self.root.search_reference(source, cursor)?;
-
-        if let Related::DeclaredBy(other) = ent.related {
-            Some(other)
-        } else {
-            Some(ent)
-        }
+        Some(ent.declaration())
     }
 
     fn get_library(&self, source: &Source) -> Option<Symbol> {

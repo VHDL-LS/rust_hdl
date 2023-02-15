@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 //
-// Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
+// Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
 use super::common::parse_optional;
 use super::common::ParseResult;
@@ -13,6 +13,7 @@ use super::tokens::{Kind::*, Token, TokenStream};
 use super::waveform::{parse_delay_mechanism, parse_waveform};
 use crate::ast::*;
 use crate::data::*;
+use crate::syntax::common::check_label_identifier_mismatch;
 
 /// LRM 10.2 Wait statement
 fn parse_wait_statement_known_keyword(stream: &mut TokenStream) -> ParseResult<WaitStatement> {
@@ -87,11 +88,11 @@ pub fn parse_labeled_sequential_statements(
 /// LRM 10.8 If statement
 fn parse_if_statement_known_keyword(
     stream: &mut TokenStream,
+    label: Option<&Ident>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<IfStatement> {
     let mut conditionals = Vec::new();
     let mut else_branch = None;
-
     loop {
         let condition = parse_expression(stream)?;
         stream.expect_kind(Then)?;
@@ -117,8 +118,6 @@ fn parse_if_statement_known_keyword(
                     end_token,
                     End => {
                         stream.expect_kind(If)?;
-                        // @TODO check end label
-                        stream.pop_if_kind(Identifier)?;
                         else_branch = Some(statements);
                         break;
                     }
@@ -126,23 +125,28 @@ fn parse_if_statement_known_keyword(
             },
             End => {
                 stream.expect_kind(If)?;
-                stream.pop_if_kind(Identifier)?;
                 conditionals.push(conditional);
                 break;
             }
         );
     }
 
+    let end_label_pos =
+        check_label_identifier_mismatch(label, stream.pop_optional_ident()?, diagnostics);
     stream.expect_kind(SemiColon)?;
     Ok(IfStatement {
-        conditionals,
-        else_item: else_branch,
+        conds: Conditionals {
+            conditionals,
+            else_item: else_branch,
+        },
+        end_label_pos,
     })
 }
 
 /// LRM 10.9 Case statement
 fn parse_case_statement_known_keyword(
     stream: &mut TokenStream,
+    label: Option<&Ident>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<CaseStatement> {
     let is_matching = stream.pop_if_kind(Que)?.is_some();
@@ -170,25 +174,24 @@ fn parse_case_statement_known_keyword(
                 if is_matching {
                     stream.expect_kind(Que)?;
                 }
-                // @TODO check end label
-                stream.pop_if_kind(Identifier)?;
+                let end_label_pos = check_label_identifier_mismatch(label, stream.pop_optional_ident()?, diagnostics);
                 alternatives.push(alternative);
-                break;
+                stream.expect_kind(SemiColon)?;
+                return Ok(CaseStatement {
+                    is_matching,
+                    expression,
+                    alternatives,
+                    end_label_pos
+                });
             }
         );
     }
-
-    stream.expect_kind(SemiColon)?;
-    Ok(CaseStatement {
-        is_matching,
-        expression,
-        alternatives,
-    })
 }
 
 /// LRM 10.10 Loop statement
 fn parse_loop_statement_initial_token(
     stream: &mut TokenStream,
+    label: Option<&Ident>,
     token: &Token,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<LoopStatement> {
@@ -212,52 +215,39 @@ fn parse_loop_statement_initial_token(
     };
 
     let (statements, end_token) = parse_labeled_sequential_statements(stream, diagnostics)?;
-    try_token_kind!(
+    match_token_kind!(
         end_token,
         End => {
             stream.expect_kind(Loop)?;
-            // @TODO check end label
-            stream.pop_if_kind(Identifier)?;
+            let end_label_pos = check_label_identifier_mismatch(label, stream.pop_optional_ident()?, diagnostics);
+            stream.expect_kind(SemiColon)?;
+            Ok(LoopStatement {
+                iteration_scheme,
+                statements,
+                end_label_pos,
+            })
         }
-    );
-
-    stream.expect_kind(SemiColon)?;
-    Ok(LoopStatement {
-        iteration_scheme,
-        statements,
-    })
+    )
 }
 
 /// LRM 10.11 Next statement
 fn parse_next_statement_known_keyword(stream: &mut TokenStream) -> ParseResult<NextStatement> {
-    let loop_label = {
-        if stream.peek_kind()? == Some(Identifier) {
-            Some(stream.expect_ident()?)
-        } else {
-            None
-        }
-    };
+    let loop_label = stream.pop_optional_ident()?;
     let condition = parse_optional(stream, When, parse_expression)?;
     stream.expect_kind(SemiColon)?;
     Ok(NextStatement {
-        loop_label,
+        loop_label: loop_label.map(WithRef::new),
         condition,
     })
 }
 
 /// LRM 10.12 Exit statement
 fn parse_exit_statement_known_keyword(stream: &mut TokenStream) -> ParseResult<ExitStatement> {
-    let loop_label = {
-        if stream.peek_kind()? == Some(Identifier) {
-            Some(stream.expect_ident()?)
-        } else {
-            None
-        }
-    };
+    let loop_label = stream.pop_optional_ident()?;
     let condition = parse_optional(stream, When, parse_expression)?;
     stream.expect_kind(SemiColon)?;
     Ok(ExitStatement {
-        loop_label,
+        loop_label: loop_label.map(WithRef::new),
         condition,
     })
 }
@@ -530,6 +520,7 @@ fn parse_selected_assignment(stream: &mut TokenStream) -> ParseResult<Sequential
 
 fn parse_unlabeled_sequential_statement(
     stream: &mut TokenStream,
+    label: Option<&Ident>,
     token: Token,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SequentialStatement> {
@@ -539,10 +530,10 @@ fn parse_unlabeled_sequential_statement(
             Wait => SequentialStatement::Wait(parse_wait_statement_known_keyword(stream)?),
             Assert => SequentialStatement::Assert(parse_assert_statement_known_keyword(stream)?),
             Report => SequentialStatement::Report(parse_report_statement_known_keyword(stream)?),
-            If => SequentialStatement::If(parse_if_statement_known_keyword(stream, diagnostics)?),
-            Case => SequentialStatement::Case(parse_case_statement_known_keyword(stream, diagnostics)?),
+            If => SequentialStatement::If(parse_if_statement_known_keyword(stream, label, diagnostics)?),
+            Case => SequentialStatement::Case(parse_case_statement_known_keyword(stream, label, diagnostics)?),
             For | Loop | While => {
-                SequentialStatement::Loop(parse_loop_statement_initial_token(stream, &token, diagnostics)?)
+                SequentialStatement::Loop(parse_loop_statement_initial_token(stream, label, &token, diagnostics)?)
             },
             Next => SequentialStatement::Next(parse_next_statement_known_keyword(stream)?),
             Exit => SequentialStatement::Exit(parse_exit_statement_known_keyword(stream)?),
@@ -582,10 +573,14 @@ pub fn parse_sequential_statement_initial_token(
         let name = parse_name_initial_token(stream, token)?;
         let token = stream.expect()?;
         if token.kind == Colon {
-            let label = Some(WithDecl::new(to_simple_name(name)?));
+            let label = Some(to_simple_name(name)?);
             let token = stream.expect()?;
-            let statement = parse_unlabeled_sequential_statement(stream, token, diagnostics)?;
-            Ok(LabeledSequentialStatement { label, statement })
+            let statement =
+                parse_unlabeled_sequential_statement(stream, label.as_ref(), token, diagnostics)?;
+            Ok(LabeledSequentialStatement {
+                label: label.map(WithDecl::new),
+                statement,
+            })
         } else {
             let target = name.map_into(Target::Name);
             let statement = parse_assignment_or_procedure_call(stream, &token, target)?;
@@ -595,7 +590,7 @@ pub fn parse_sequential_statement_initial_token(
             })
         }
     } else {
-        let statement = parse_unlabeled_sequential_statement(stream, token, diagnostics)?;
+        let statement = parse_unlabeled_sequential_statement(stream, None, token, diagnostics)?;
         Ok(LabeledSequentialStatement {
             label: None,
             statement,
@@ -607,6 +602,7 @@ pub fn parse_sequential_statement_initial_token(
 mod tests {
     use super::*;
     use crate::ast::{DelayMechanism, Ident};
+    use pretty_assertions::assert_eq;
 
     use crate::syntax::test::Code;
 
@@ -1237,14 +1233,17 @@ end if;
             with_label(
                 None,
                 SequentialStatement::If(IfStatement {
-                    conditionals: vec![Conditional {
-                        condition: code.s1("cond = true").expr(),
-                        item: vec![
-                            code.s1("foo(1,2);").sequential_statement(),
-                            code.s1("x := 1;").sequential_statement()
-                        ]
-                    }],
-                    else_item: None
+                    conds: Conditionals {
+                        conditionals: vec![Conditional {
+                            condition: code.s1("cond = true").expr(),
+                            item: vec![
+                                code.s1("foo(1,2);").sequential_statement(),
+                                code.s1("x := 1;").sequential_statement()
+                            ]
+                        }],
+                        else_item: None
+                    },
+                    end_label_pos: None
                 })
             )
         );
@@ -1264,14 +1263,17 @@ end if mylabel;
             with_label(
                 Some(code.s1("mylabel").decl_ident()),
                 SequentialStatement::If(IfStatement {
-                    conditionals: vec![Conditional {
-                        condition: code.s1("cond = true").expr(),
-                        item: vec![
-                            code.s1("foo(1,2);").sequential_statement(),
-                            code.s1("x := 1;").sequential_statement()
-                        ]
-                    }],
-                    else_item: None
+                    conds: Conditionals {
+                        conditionals: vec![Conditional {
+                            condition: code.s1("cond = true").expr(),
+                            item: vec![
+                                code.s1("foo(1,2);").sequential_statement(),
+                                code.s1("x := 1;").sequential_statement()
+                            ]
+                        }],
+                        else_item: None
+                    },
+                    end_label_pos: Some(code.s("mylabel", 2).pos())
                 })
             )
         );
@@ -1293,11 +1295,14 @@ end if;
             with_label(
                 None,
                 SequentialStatement::If(IfStatement {
-                    conditionals: vec![Conditional {
-                        condition: code.s1("cond = true").expr(),
-                        item: vec![code.s1("foo(1,2);").sequential_statement()]
-                    }],
-                    else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                    conds: Conditionals {
+                        conditionals: vec![Conditional {
+                            condition: code.s1("cond = true").expr(),
+                            item: vec![code.s1("foo(1,2);").sequential_statement()]
+                        }],
+                        else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                    },
+                    end_label_pos: None
                 })
             )
         );
@@ -1319,11 +1324,14 @@ end if mylabel;
             with_label(
                 Some(code.s1("mylabel").decl_ident()),
                 SequentialStatement::If(IfStatement {
-                    conditionals: vec![Conditional {
-                        condition: code.s1("cond = true").expr(),
-                        item: vec![code.s1("foo(1,2);").sequential_statement()]
-                    }],
-                    else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                    conds: Conditionals {
+                        conditionals: vec![Conditional {
+                            condition: code.s1("cond = true").expr(),
+                            item: vec![code.s1("foo(1,2);").sequential_statement()]
+                        }],
+                        else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                    },
+                    end_label_pos: Some(code.s("mylabel", 2).pos())
                 })
             )
         );
@@ -1346,17 +1354,20 @@ end if;
             with_label(
                 None,
                 SequentialStatement::If(IfStatement {
-                    conditionals: vec![
-                        Conditional {
-                            condition: code.s1("cond = true").expr(),
-                            item: vec![code.s1("foo(1,2);").sequential_statement()]
-                        },
-                        Conditional {
-                            condition: code.s1("cond2 = false").expr(),
-                            item: vec![code.s1("y := 2;").sequential_statement()]
-                        }
-                    ],
-                    else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                    conds: Conditionals {
+                        conditionals: vec![
+                            Conditional {
+                                condition: code.s1("cond = true").expr(),
+                                item: vec![code.s1("foo(1,2);").sequential_statement()]
+                            },
+                            Conditional {
+                                condition: code.s1("cond2 = false").expr(),
+                                item: vec![code.s1("y := 2;").sequential_statement()]
+                            }
+                        ],
+                        else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                    },
+                    end_label_pos: None,
                 })
             )
         );
@@ -1379,17 +1390,20 @@ end if mylabel;
             with_label(
                 Some(code.s1("mylabel").decl_ident()),
                 SequentialStatement::If(IfStatement {
-                    conditionals: vec![
-                        Conditional {
-                            condition: code.s1("cond = true").expr(),
-                            item: vec![code.s1("foo(1,2);").sequential_statement()]
-                        },
-                        Conditional {
-                            condition: code.s1("cond2 = false").expr(),
-                            item: vec![code.s1("y := 2;").sequential_statement()]
-                        }
-                    ],
-                    else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                    conds: Conditionals {
+                        conditionals: vec![
+                            Conditional {
+                                condition: code.s1("cond = true").expr(),
+                                item: vec![code.s1("foo(1,2);").sequential_statement()]
+                            },
+                            Conditional {
+                                condition: code.s1("cond2 = false").expr(),
+                                item: vec![code.s1("y := 2;").sequential_statement()]
+                            }
+                        ],
+                        else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                    },
+                    end_label_pos: Some(code.s("mylabel", 2).pos())
                 })
             )
         );
@@ -1431,6 +1445,7 @@ end case;
                             ]
                         }
                     ],
+                    end_label_pos: None
                 })
             )
         );
@@ -1456,6 +1471,7 @@ end case?;
                         choices: code.s1("others").choices(),
                         item: vec![code.s1("null;").sequential_statement(),]
                     }],
+                    end_label_pos: None,
                 })
             )
         );
@@ -1465,22 +1481,23 @@ end case?;
     fn parse_loop_statement() {
         let (code, statement) = parse(
             "\
-loop
+lbl: loop
   stmt1;
   stmt2;
-end loop;
+end loop lbl;
 ",
         );
         assert_eq!(
             statement,
             with_label(
-                None,
+                Some(code.s1("lbl").decl_ident()),
                 SequentialStatement::Loop(LoopStatement {
                     iteration_scheme: None,
                     statements: vec![
                         code.s1("stmt1;").sequential_statement(),
                         code.s1("stmt2;").sequential_statement()
                     ],
+                    end_label_pos: Some(code.s("lbl", 2).pos()),
                 })
             )
         );
@@ -1506,6 +1523,7 @@ end loop;
                         code.s1("stmt1;").sequential_statement(),
                         code.s1("stmt2;").sequential_statement()
                     ],
+                    end_label_pos: None,
                 })
             )
         );
@@ -1533,6 +1551,7 @@ end loop;
                         code.s1("stmt1;").sequential_statement(),
                         code.s1("stmt2;").sequential_statement()
                     ],
+                    end_label_pos: None,
                 })
             )
         );
@@ -1561,7 +1580,7 @@ end loop;
             with_label(
                 None,
                 SequentialStatement::Next(NextStatement {
-                    loop_label: Some(code.s1("foo").ident()),
+                    loop_label: Some(code.s1("foo").ident().into_ref()),
                     condition: None,
                 })
             )
@@ -1591,7 +1610,7 @@ end loop;
             with_label(
                 None,
                 SequentialStatement::Next(NextStatement {
-                    loop_label: Some(code.s1("foo").ident()),
+                    loop_label: Some(code.s1("foo").ident().into_ref()),
                     condition: Some(code.s1("condition").expr()),
                 })
             )
@@ -1621,7 +1640,7 @@ end loop;
             with_label(
                 None,
                 SequentialStatement::Exit(ExitStatement {
-                    loop_label: Some(code.s1("foo").ident()),
+                    loop_label: Some(code.s1("foo").ident().into_ref()),
                     condition: None,
                 })
             )
@@ -1651,7 +1670,7 @@ end loop;
             with_label(
                 None,
                 SequentialStatement::Exit(ExitStatement {
-                    loop_label: Some(code.s1("foo").ident()),
+                    loop_label: Some(code.s1("foo").ident().into_ref()),
                     condition: Some(code.s1("condition").expr()),
                 })
             )

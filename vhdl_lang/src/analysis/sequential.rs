@@ -29,10 +29,10 @@ impl<'a> AnalyzeContext<'a> {
 
             match statement.statement {
                 SequentialStatement::If(ref mut ifstmt) => {
-                    let IfStatement {
+                    let Conditionals {
                         conditionals,
                         else_item,
-                    } = ifstmt;
+                    } = &mut ifstmt.conds;
 
                     for conditional in conditionals {
                         self.define_labels_for_sequential_part(
@@ -143,9 +143,12 @@ impl<'a> AnalyzeContext<'a> {
             SequentialStatement::Exit(ref mut exit_stmt) => {
                 let ExitStatement {
                     condition,
-                    // @TODO loop label
-                    ..
+                    loop_label,
                 } = exit_stmt;
+
+                if let Some(ref mut loop_label) = loop_label {
+                    self.check_loop_label(scope, loop_label, diagnostics);
+                }
 
                 if let Some(expr) = condition {
                     self.boolean_expr(scope, expr, diagnostics)?;
@@ -154,19 +157,22 @@ impl<'a> AnalyzeContext<'a> {
             SequentialStatement::Next(ref mut next_stmt) => {
                 let NextStatement {
                     condition,
-                    // @TODO loop label
-                    ..
+                    loop_label,
                 } = next_stmt;
+
+                if let Some(ref mut loop_label) = loop_label {
+                    self.check_loop_label(scope, loop_label, diagnostics);
+                }
 
                 if let Some(expr) = condition {
                     self.boolean_expr(scope, expr, diagnostics)?;
                 }
             }
             SequentialStatement::If(ref mut ifstmt) => {
-                let IfStatement {
+                let Conditionals {
                     conditionals,
                     else_item,
-                } = ifstmt;
+                } = &mut ifstmt.conds;
 
                 // @TODO write generic function for this
                 for conditional in conditionals {
@@ -183,6 +189,7 @@ impl<'a> AnalyzeContext<'a> {
                     is_matching: _,
                     expression,
                     alternatives,
+                    end_label_pos: _,
                 } = case_stmt;
                 let ctyp = as_fatal(self.expr_unambiguous_type(scope, expression, diagnostics))?;
                 for alternative in alternatives.iter_mut() {
@@ -195,6 +202,7 @@ impl<'a> AnalyzeContext<'a> {
                 let LoopStatement {
                     iteration_scheme,
                     statements,
+                    end_label_pos: _,
                 } = loop_stmt;
                 match iteration_scheme {
                     Some(IterationScheme::For(ref mut index, ref mut drange)) => {
@@ -263,6 +271,39 @@ impl<'a> AnalyzeContext<'a> {
             SequentialStatement::Null => {}
         }
         Ok(())
+    }
+
+    fn check_loop_label(
+        &self,
+        scope: &Scope<'a>,
+        label: &mut WithRef<Ident>,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        match scope.lookup(
+            &label.item.pos,
+            &Designator::Identifier(label.item.item.clone()),
+        ) {
+            Ok(NamedEntities::Single(ent)) => {
+                label.set_unique_reference(ent);
+                if !matches!(ent.kind(), AnyEntKind::Label) {
+                    // @TODO check that is actually a loop label and that we are inside the loop
+                    diagnostics.error(
+                        &label.item.pos,
+                        format!("Expected loop label, got {}", ent.describe()),
+                    );
+                }
+            }
+            Ok(NamedEntities::Overloaded(_)) => diagnostics.error(
+                &label.item.pos,
+                format!(
+                    "Expected loop label, got overloaded name {}",
+                    &label.item.item
+                ),
+            ),
+            Err(diag) => {
+                diagnostics.push(diag);
+            }
+        }
     }
 
     pub fn analyze_sequential_part(
