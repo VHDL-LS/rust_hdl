@@ -6,7 +6,7 @@ A 200.000 line VHDL project is analyzed in 160 ms on my Desktop using 8 cores an
 
 I very much appreciate help from other people especially regarding semantic analysis of VHDL. You do not need to be a programmer to help, it is even more helpful to interpret and clarify the VHDL standard and provide minimal examples and describe how they should work according to the standard. Further information about contributing can be found by reading the [Contributors Guide](https://github.com/kraigher/rust_hdl/wiki/Contributor-Guide) 
 
-[![Join the chat at https://gitter.im/rust_hdl/Lobby](https://badges.gitter.im/rust_hdl/Lobby.svg)](https://gitter.im/rust_hdl/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Chat](https://img.shields.io/matrix/VHDL-LS:matrix.org)](https://matrix.to/#/#VHDL-LS:matrix.org)
 [![Build Status](https://github.com/kraigher/rust_hdl/workflows/Build%20%26%20test%20all%20configs/badge.svg)](https://github.com/kraigher/rust_hdl/actions?query=workflow%3A%22Build+%26+test+all+configs%22)
 
 # Projects
