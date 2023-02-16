@@ -330,6 +330,7 @@ impl Designator {
             Designator::Character(chr) => format!("'{chr}'"),
             Designator::Identifier(ident) => format!("'{ident}'"),
             Designator::OperatorSymbol(op) => format!("operator \"{op}\""),
+            Designator::Anonymous(_) => "<anonymous>".to_owned(),
         }
     }
 }
@@ -485,23 +486,31 @@ impl SubprogramDeclaration {
 }
 
 impl ConcurrentStatement {
-    pub fn end_label_pos(&self) -> Option<&SrcPos> {
+    fn end_label(&self) -> Option<Option<&SrcPos>> {
         match self {
             ConcurrentStatement::ProcedureCall(_) => None,
-            ConcurrentStatement::Block(value) => value.end_label_pos.as_ref(),
-            ConcurrentStatement::Process(value) => value.end_label_pos.as_ref(),
+            ConcurrentStatement::Block(value) => Some(value.end_label_pos.as_ref()),
+            ConcurrentStatement::Process(value) => Some(value.end_label_pos.as_ref()),
             ConcurrentStatement::Assert(_) => None,
             ConcurrentStatement::Assignment(_) => None,
             ConcurrentStatement::Instance(_) => None,
-            ConcurrentStatement::ForGenerate(value) => value.end_label_pos.as_ref(),
-            ConcurrentStatement::IfGenerate(value) => value.end_label_pos.as_ref(),
-            ConcurrentStatement::CaseGenerate(value) => value.end_label_pos.as_ref(),
+            ConcurrentStatement::ForGenerate(value) => Some(value.end_label_pos.as_ref()),
+            ConcurrentStatement::IfGenerate(value) => Some(value.end_label_pos.as_ref()),
+            ConcurrentStatement::CaseGenerate(value) => Some(value.end_label_pos.as_ref()),
         }
+    }
+
+    pub fn end_label_pos(&self) -> Option<&SrcPos> {
+        self.end_label().flatten()
+    }
+
+    pub fn can_have_label(&self) -> bool {
+        self.end_label().is_some()
     }
 }
 
 impl SequentialStatement {
-    pub fn end_label_pos(&self) -> Option<&SrcPos> {
+    fn end_label(&self) -> Option<Option<&SrcPos>> {
         match self {
             SequentialStatement::Wait(_) => None,
             SequentialStatement::Assert(_) => None,
@@ -511,13 +520,21 @@ impl SequentialStatement {
             SequentialStatement::SignalForceAssignment(_) => None,
             SequentialStatement::SignalReleaseAssignment(_) => None,
             SequentialStatement::ProcedureCall(_) => None,
-            SequentialStatement::If(value) => value.end_label_pos.as_ref(),
-            SequentialStatement::Case(value) => value.end_label_pos.as_ref(),
-            SequentialStatement::Loop(value) => value.end_label_pos.as_ref(),
+            SequentialStatement::If(value) => Some(value.end_label_pos.as_ref()),
+            SequentialStatement::Case(value) => Some(value.end_label_pos.as_ref()),
+            SequentialStatement::Loop(value) => Some(value.end_label_pos.as_ref()),
             SequentialStatement::Next(_) => None,
             SequentialStatement::Exit(_) => None,
             SequentialStatement::Return(_) => None,
             SequentialStatement::Null => None,
         }
+    }
+
+    pub fn end_label_pos(&self) -> Option<&SrcPos> {
+        self.end_label().flatten()
+    }
+
+    pub fn can_have_label(&self) -> bool {
+        self.end_label().is_some()
     }
 }

@@ -90,7 +90,7 @@ impl<'a> TypeEnt<'a> {
         arena: &'a Arena,
         id: Option<EntityId>,
         ident: &mut WithDecl<Ident>,
-        parent: Option<EntRef<'a>>,
+        parent: EntRef<'a>,
         declared_by: Option<EntRef<'a>>,
         kind: Type<'a>,
     ) -> TypeEnt<'a> {
@@ -105,7 +105,7 @@ impl<'a> TypeEnt<'a> {
                 arena.update(
                     id,
                     ident.tree.item.clone().into(),
-                    parent,
+                    Some(parent),
                     related,
                     AnyEntKind::Type(kind),
                     Some(ident.tree.pos.clone()),
@@ -114,7 +114,7 @@ impl<'a> TypeEnt<'a> {
         } else {
             arena.alloc(
                 ident.tree.item.clone().into(),
-                parent,
+                Some(parent),
                 related,
                 AnyEntKind::Type(kind),
                 Some(ident.tree.pos.clone()),

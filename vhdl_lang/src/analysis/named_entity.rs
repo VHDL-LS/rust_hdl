@@ -191,7 +191,7 @@ impl Arena {
     pub fn define<'a, T: HasIdent>(
         &'a self,
         decl: &mut WithDecl<T>,
-        parent: Option<EntRef<'a>>,
+        parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
     ) -> EntRef<'a> {
         let ent = self.explicit(
@@ -207,13 +207,13 @@ impl Arena {
     pub fn explicit<'a>(
         &'a self,
         designator: impl Into<Designator>,
-        parent: Option<EntRef<'a>>,
+        parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
         decl_pos: Option<&SrcPos>,
     ) -> EntRef<'a> {
         self.alloc(
             designator.into(),
-            parent,
+            Some(parent),
             Related::None,
             kind,
             decl_pos.cloned(),
@@ -445,7 +445,7 @@ impl WithDecl<Ident> {
     pub fn define<'a>(
         &mut self,
         arena: &'a Arena,
-        parent: Option<EntRef<'a>>,
+        parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
     ) -> EntRef<'a> {
         let ent = arena.explicit(
@@ -463,7 +463,7 @@ impl WithDecl<WithPos<Designator>> {
     pub fn define<'a>(
         &mut self,
         arena: &'a Arena,
-        parent: Option<EntRef<'a>>,
+        parent: EntRef<'a>,
         kind: AnyEntKind<'a>,
     ) -> EntRef<'a> {
         let ent = arena.explicit(self.tree.item.clone(), parent, kind, Some(&self.tree.pos));

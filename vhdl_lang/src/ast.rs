@@ -418,6 +418,7 @@ pub enum Designator {
     Identifier(Symbol),
     OperatorSymbol(Operator),
     Character(u8),
+    Anonymous(usize),
 }
 
 pub type Reference = Option<EntityId>;

@@ -227,6 +227,7 @@ struct ScopeInner<'a> {
     parent: Option<Scope<'a>>,
     region: Region<'a>,
     cache: FnvHashMap<Designator, NamedEntities<'a>>,
+    anon_idx: usize,
 }
 
 impl<'a> ScopeInner<'a> {
@@ -375,6 +376,7 @@ impl<'a> ScopeInner<'a> {
                     Designator::Character(chr) => {
                         format!("No declaration of '{chr}'")
                     }
+                    Designator::Anonymous(_) => "No declaration of <anonymous>".to_owned(),
                 },
             )),
         }
@@ -404,6 +406,7 @@ impl<'a> Scope<'a> {
             parent: None,
             region,
             cache: Default::default(),
+            anon_idx: 0,
         })))
     }
 
@@ -412,6 +415,7 @@ impl<'a> Scope<'a> {
             region: Region::default(),
             parent: Some(self.clone()),
             cache: self.0.borrow().cache.clone(),
+            anon_idx: 0,
         })))
     }
 
@@ -420,6 +424,7 @@ impl<'a> Scope<'a> {
             parent: Some(scope.clone()),
             region: self.into_inner().region,
             cache: Default::default(),
+            anon_idx: 0,
         })))
     }
 
@@ -449,6 +454,7 @@ impl<'a> Scope<'a> {
             parent: inner.parent,
             region: inner.region.in_package_declaration(),
             cache: inner.cache,
+            anon_idx: inner.anon_idx,
         })))
     }
 
@@ -528,6 +534,13 @@ impl<'a> Scope<'a> {
             .as_ref()
             .borrow_mut()
             .add_context_visibility(visible_pos, region)
+    }
+
+    pub fn next_anonymous(&self) -> usize {
+        let mut inner = self.0.borrow_mut();
+        let idx = inner.anon_idx;
+        inner.anon_idx += 1;
+        idx
     }
 }
 

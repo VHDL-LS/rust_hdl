@@ -20,11 +20,28 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_concurrent_part(
         &self,
         scope: &Scope<'a>,
-        parent: Option<EntRef<'a>>,
+        parent: EntRef<'a>,
         statements: &mut [LabeledConcurrentStatement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for statement in statements.iter_mut() {
+            let parent = if statement.statement.can_have_label() {
+                if let Some(id) = statement.label.as_ref().and_then(|label| label.decl) {
+                    self.arena.get(id)
+                } else {
+                    // Generate an anonymous label if it is not explicitly defined
+                    self.arena.alloc(
+                        Designator::Anonymous(scope.next_anonymous()),
+                        Some(parent),
+                        Related::None,
+                        AnyEntKind::Label,
+                        None,
+                    )
+                }
+            } else {
+                parent
+            };
+
             self.analyze_concurrent_statement(scope, parent, statement, diagnostics)?;
         }
 
@@ -34,7 +51,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn define_labels_for_concurrent_part(
         &self,
         scope: &Scope<'a>,
-        parent: Option<EntRef<'a>>,
+        parent: EntRef<'a>,
         statements: &mut [LabeledConcurrentStatement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
@@ -53,17 +70,10 @@ impl<'a> AnalyzeContext<'a> {
     fn analyze_concurrent_statement(
         &self,
         scope: &Scope<'a>,
-        parent: Option<EntRef<'a>>,
+        parent: EntRef<'a>,
         statement: &mut LabeledConcurrentStatement,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        // @TODO without label use orginal parent, should unlabeled statements be implicitly declared?
-        let parent = if let Some(id) = statement.label.as_ref().and_then(|label| label.decl) {
-            Some(self.arena.get(id))
-        } else {
-            parent
-        };
-
         match statement.statement {
             ConcurrentStatement::Block(ref mut block) => {
                 if let Some(ref mut guard_condition) = block.guard_condition {
@@ -204,7 +214,7 @@ impl<'a> AnalyzeContext<'a> {
     fn analyze_generate_body(
         &self,
         scope: &Scope<'a>,
-        parent: Option<EntRef<'a>>,
+        parent: EntRef<'a>,
         body: &mut GenerateBody,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
@@ -219,7 +229,7 @@ impl<'a> AnalyzeContext<'a> {
         if let Some(label) = alternative_label {
             let ent = label.define(self.arena, parent, AnyEntKind::Label);
             scope.add(ent, diagnostics);
-            inner_parent = Some(ent);
+            inner_parent = ent;
         }
 
         // Pre-declare labels

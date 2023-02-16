@@ -23,7 +23,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_declarative_part(
         &self,
         scope: &Scope<'a>,
-        parent: Option<EntRef<'a>>,
+        parent: EntRef<'a>,
         declarations: &mut [Declaration],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
@@ -116,7 +116,7 @@ impl<'a> AnalyzeContext<'a> {
     fn analyze_alias_declaration(
         &self,
         scope: &Scope<'a>,
-        parent: Option<EntRef<'a>>,
+        parent: EntRef<'a>,
         alias: &mut AliasDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<EntRef<'a>> {
@@ -220,7 +220,7 @@ impl<'a> AnalyzeContext<'a> {
     pub(crate) fn analyze_declaration(
         &self,
         scope: &Scope<'a>,
-        parent: Option<EntRef<'a>>,
+        parent: EntRef<'a>,
         decl: &mut Declaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
@@ -302,7 +302,7 @@ impl<'a> AnalyzeContext<'a> {
 
                         let object_ent = self.arena.alloc(
                             object_decl.ident.tree.item.clone().into(),
-                            parent,
+                            Some(parent),
                             if let Some(declared_by) = declared_by {
                                 Related::DeclaredBy(declared_by)
                             } else {
@@ -358,16 +358,11 @@ impl<'a> AnalyzeContext<'a> {
                 );
                 self.analyze_interface_list(
                     &nested,
-                    Some(ent),
+                    ent,
                     &mut component.generic_list,
                     diagnostics,
                 )?;
-                self.analyze_interface_list(
-                    &nested,
-                    Some(ent),
-                    &mut component.port_list,
-                    diagnostics,
-                )?;
+                self.analyze_interface_list(&nested, ent, &mut component.port_list, diagnostics)?;
 
                 let kind = AnyEntKind::Component(nested.into_region());
                 unsafe {
@@ -509,20 +504,20 @@ impl<'a> AnalyzeContext<'a> {
 
                 self.define_labels_for_sequential_part(
                     &subpgm_region,
-                    Some(subpgm_ent.into()),
+                    subpgm_ent.into(),
                     &mut body.statements,
                     diagnostics,
                 )?;
                 self.analyze_declarative_part(
                     &subpgm_region,
-                    Some(subpgm_ent.into()),
+                    subpgm_ent.into(),
                     &mut body.declarations,
                     diagnostics,
                 )?;
 
                 self.analyze_sequential_part(
                     &subpgm_region,
-                    Some(subpgm_ent.into()),
+                    subpgm_ent.into(),
                     &sroot,
                     &mut body.statements,
                     diagnostics,
@@ -608,7 +603,7 @@ impl<'a> AnalyzeContext<'a> {
     pub(crate) fn analyze_type_declaration(
         &self,
         scope: &Scope<'a>,
-        parent: Option<EntRef<'a>>,
+        parent: EntRef<'a>,
         type_decl: &mut TypeDeclaration,
         // Is the full type declaration of an incomplete type
         // Overwrite id when defining full type
@@ -639,7 +634,7 @@ impl<'a> AnalyzeContext<'a> {
                 for literal in enumeration.iter_mut() {
                     let literal_ent = self.arena.explicit(
                         literal.tree.item.clone().into_designator(),
-                        Some(enum_type.into()),
+                        enum_type.into(),
                         AnyEntKind::Overloaded(Overloaded::EnumLiteral(signature.clone())),
                         Some(&literal.tree.pos),
                     );
@@ -692,7 +687,7 @@ impl<'a> AnalyzeContext<'a> {
                                         let region = Scope::extend(ptype_region, Some(scope));
                                         self.analyze_declarative_part(
                                             &region,
-                                            Some(ptype_body),
+                                            ptype_body,
                                             &mut body.decl,
                                             diagnostics,
                                         )?;
@@ -749,7 +744,7 @@ impl<'a> AnalyzeContext<'a> {
                         ProtectedTypeDeclarativeItem::Subprogram(ref mut subprogram) => {
                             match self.subprogram_declaration(
                                 scope,
-                                Some(ptype),
+                                ptype,
                                 subprogram,
                                 Overloaded::SubprogramDecl,
                                 diagnostics,
@@ -800,7 +795,7 @@ impl<'a> AnalyzeContext<'a> {
                         Ok(subtype) => {
                             let elem = self.arena.define(
                                 &mut elem_decl.ident,
-                                Some(type_ent.into()),
+                                type_ent.into(),
                                 AnyEntKind::ElementDeclaration(subtype),
                             );
                             region.add(elem, diagnostics);
@@ -1112,7 +1107,7 @@ impl<'a> AnalyzeContext<'a> {
     fn analyze_interface_declaration(
         &self,
         scope: &Scope<'a>,
-        parent: Option<EntRef<'a>>,
+        parent: EntRef<'a>,
         decl: &mut InterfaceDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> AnalysisResult<EntRef<'a>> {
@@ -1213,7 +1208,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_interface_list(
         &self,
         scope: &Scope<'a>,
-        parent: Option<EntRef<'a>>,
+        parent: EntRef<'a>,
         declarations: &mut [InterfaceDeclaration],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
@@ -1233,7 +1228,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_parameter_list(
         &self,
         scope: &Scope<'a>,
-        parent: Option<EntRef<'a>>,
+        parent: EntRef<'a>,
         declarations: &mut [InterfaceDeclaration],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<FormalRegion<'a>> {
@@ -1425,7 +1420,7 @@ impl<'a> AnalyzeContext<'a> {
     fn subprogram_declaration(
         &self,
         scope: &Scope<'a>,
-        parent: Option<EntRef<'a>>,
+        parent: EntRef<'a>,
         subprogram: &mut SubprogramDeclaration,
         to_kind: impl Fn(Signature<'a>) -> Overloaded<'a>,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -1446,7 +1441,7 @@ impl<'a> AnalyzeContext<'a> {
             SubprogramDeclaration::Function(fun) => {
                 let params = self.analyze_parameter_list(
                     &subpgm_region,
-                    Some(ent),
+                    ent,
                     &mut fun.parameter_list,
                     diagnostics,
                 );
@@ -1456,7 +1451,7 @@ impl<'a> AnalyzeContext<'a> {
             SubprogramDeclaration::Procedure(procedure) => {
                 let params = self.analyze_parameter_list(
                     &subpgm_region,
-                    Some(ent),
+                    ent,
                     &mut procedure.parameter_list,
                     diagnostics,
                 );

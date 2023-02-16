@@ -104,9 +104,10 @@ impl Library {
     fn new(name: Symbol) -> Library {
         let arena = Arena::new(ArenaId::default());
 
-        let ent = arena.explicit(
+        let ent = arena.alloc(
             Designator::Identifier(name.clone()),
             None,
+            Related::None,
             AnyEntKind::Library,
             None,
         );
@@ -545,7 +546,7 @@ impl DesignRoot {
                 // Pre-define entity and overwrite it later
                 let ent = arena.explicit(
                     unit.name().clone(),
-                    Some(context.work_library()),
+                    context.work_library(),
                     AnyEntKind::Label,
                     Some(unit.pos()),
                 );
@@ -797,7 +798,7 @@ impl DesignRoot {
 
                         arena.explicit(
                             self.symbol_utf8("standard"),
-                            Some(std_lib),
+                            std_lib,
                             AnyEntKind::Label,
                             Some(std_package.ident.pos()),
                         )
@@ -849,7 +850,7 @@ impl DesignRoot {
                             context
                                 .analyze_type_declaration(
                                     &scope,
-                                    Some(standard_pkg),
+                                    standard_pkg,
                                     type_decl,
                                     type_decl.ident.decl, // Set by standard types
                                     &mut diagnostics,
@@ -857,12 +858,7 @@ impl DesignRoot {
                                 .unwrap();
                         } else {
                             context
-                                .analyze_declaration(
-                                    &scope,
-                                    Some(standard_pkg),
-                                    decl,
-                                    &mut diagnostics,
-                                )
+                                .analyze_declaration(&scope, standard_pkg, decl, &mut diagnostics)
                                 .unwrap();
                         }
                     }

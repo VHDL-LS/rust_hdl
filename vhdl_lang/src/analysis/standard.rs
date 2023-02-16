@@ -10,7 +10,6 @@ use crate::ast::Mode;
 use crate::ast::ObjectClass;
 use crate::ast::Operator;
 use crate::data::DiagnosticHandler;
-use crate::data::Symbol;
 use crate::syntax::Symbols;
 
 use super::analyze::AnalyzeContext;
@@ -29,14 +28,14 @@ impl UniversalTypes {
     pub fn new<'a>(arena: &'a Arena, standard_pkg: EntRef<'a>, symbols: &Symbols) -> Self {
         let integer = arena.explicit(
             Designator::Identifier(symbols.symtab().insert_utf8("universal_integer")),
-            Some(standard_pkg),
+            standard_pkg,
             AnyEntKind::Type(Type::Universal(UniversalType::Integer)),
             standard_pkg.decl_pos(),
         );
 
         let real = arena.explicit(
             Designator::Identifier(symbols.symtab().insert_utf8("universal_real")),
-            Some(standard_pkg),
+            standard_pkg,
             AnyEntKind::Type(Type::Universal(UniversalType::Real)),
             standard_pkg.decl_pos(),
         );
@@ -160,8 +159,8 @@ impl StandardTypes {
 }
 
 impl<'a> AnalyzeContext<'a> {
-    fn symbol(&self, name: &str) -> Symbol {
-        self.root.symbol_utf8(name)
+    fn ident(&self, name: &str) -> Designator {
+        Designator::Identifier(self.root.symbol_utf8(name))
     }
 
     fn standard_types(&self) -> &StandardTypes {
@@ -239,14 +238,14 @@ impl<'a> AnalyzeContext<'a> {
     fn min_or_maximum(&self, name: &str, type_ent: TypeEnt<'a>) -> EntRef<'a> {
         self.implicit_subpgm(
             type_ent,
-            Designator::Identifier(self.symbol(name)),
+            self.ident(name),
             [
                 (
-                    self.symbol("L"),
+                    self.ident("L"),
                     AnyEntKind::Object(Object::if_constant(Subtype::new(type_ent))),
                 ),
                 (
-                    self.symbol("R"),
+                    self.ident("R"),
                     AnyEntKind::Object(Object::if_constant(Subtype::new(type_ent))),
                 ),
             ],
@@ -263,9 +262,9 @@ impl<'a> AnalyzeContext<'a> {
     ) -> EntRef<'a> {
         self.implicit_subpgm(
             arr_typ,
-            Designator::Identifier(self.symbol(name)),
+            self.ident(name),
             [(
-                self.symbol("L"),
+                self.ident("L"),
                 AnyEntKind::Object(Object::if_constant(Subtype::new(arr_typ))),
             )],
             Some(elem_typ),
@@ -278,8 +277,7 @@ impl<'a> AnalyzeContext<'a> {
             typ,
             Designator::OperatorSymbol(op),
             [(
-                // @TODO anonymous
-                self.symbol("V"),
+                Designator::Anonymous(0),
                 AnyEntKind::Object(Object::if_constant(Subtype::new(typ))),
             )],
             Some(return_type),
@@ -295,7 +293,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         implicit_of: TypeEnt<'a>,
         des: Designator,
-        formals: impl IntoIterator<Item = (Symbol, AnyEntKind<'a>)>,
+        formals: impl IntoIterator<Item = (Designator, AnyEntKind<'a>)>,
         return_type: Option<TypeEnt<'a>>,
     ) -> OverloadedEnt<'a> {
         let mut region = FormalRegion::new_params();
@@ -310,7 +308,7 @@ impl<'a> AnalyzeContext<'a> {
         for (name, kind) in formals.into_iter() {
             region.add(
                 self.arena
-                    .explicit(name, Some(subpgm_ent), kind, implicit_of.decl_pos()),
+                    .explicit(name, subpgm_ent, kind, implicit_of.decl_pos()),
             );
         }
 
@@ -340,13 +338,11 @@ impl<'a> AnalyzeContext<'a> {
             Designator::OperatorSymbol(op),
             [
                 (
-                    // @TODO anonymous
-                    self.symbol("L"),
+                    Designator::Anonymous(0),
                     AnyEntKind::Object(Object::if_constant(Subtype::new(left))),
                 ),
                 (
-                    // @TODO anonymous
-                    self.symbol("R"),
+                    Designator::Anonymous(1),
                     AnyEntKind::Object(Object::if_constant(Subtype::new(right))),
                 ),
             ],
@@ -383,15 +379,15 @@ impl<'a> AnalyzeContext<'a> {
         {
             let ent = self.implicit_subpgm(
                 file_type,
-                Designator::Identifier(self.symbol("FILE_OPEN")),
+                self.ident("FILE_OPEN"),
                 [
-                    (self.symbol("F"), AnyEntKind::InterfaceFile(file_type)),
+                    (self.ident("F"), AnyEntKind::InterfaceFile(file_type)),
                     (
-                        self.symbol("External_Name"),
+                        self.ident("External_Name"),
                         AnyEntKind::Object(Object::if_constant(Subtype::new(string))),
                     ),
                     (
-                        self.symbol("Open_Kind"),
+                        self.ident("Open_Kind"),
                         AnyEntKind::Object(
                             Object::if_constant(Subtype::new(file_open_kind)).with_default(),
                         ),
@@ -406,19 +402,19 @@ impl<'a> AnalyzeContext<'a> {
         {
             let ent = self.implicit_subpgm(
                 file_type,
-                Designator::Identifier(self.symbol("FILE_OPEN")),
+                self.ident("FILE_OPEN"),
                 [
                     (
-                        self.symbol("Status"),
+                        self.ident("Status"),
                         AnyEntKind::Object(Object::if_constant(Subtype::new(file_open_status))),
                     ),
-                    (self.symbol("F"), AnyEntKind::InterfaceFile(file_type)),
+                    (self.ident("F"), AnyEntKind::InterfaceFile(file_type)),
                     (
-                        self.symbol("External_Name"),
+                        self.ident("External_Name"),
                         AnyEntKind::Object(Object::if_constant(Subtype::new(string))),
                     ),
                     (
-                        self.symbol("Open_Kind"),
+                        self.ident("Open_Kind"),
                         AnyEntKind::Object(
                             Object::if_constant(Subtype::new(file_open_kind)).with_default(),
                         ),
@@ -433,8 +429,8 @@ impl<'a> AnalyzeContext<'a> {
         {
             let ent = self.implicit_subpgm(
                 file_type,
-                Designator::Identifier(self.symbol("FILE_CLOSE")),
-                [(self.symbol("F"), AnyEntKind::InterfaceFile(file_type))],
+                self.ident("FILE_CLOSE"),
+                [(self.ident("F"), AnyEntKind::InterfaceFile(file_type))],
                 None,
             );
             implicit.push(ent.into());
@@ -444,11 +440,11 @@ impl<'a> AnalyzeContext<'a> {
         {
             let ent = self.implicit_subpgm(
                 file_type,
-                Designator::Identifier(self.symbol("READ")),
+                self.ident("READ"),
                 [
-                    (self.symbol("F"), AnyEntKind::InterfaceFile(file_type)),
+                    (self.ident("F"), AnyEntKind::InterfaceFile(file_type)),
                     (
-                        self.symbol("VALUE"),
+                        self.ident("VALUE"),
                         AnyEntKind::Object(Object {
                             class: ObjectClass::Variable,
                             is_port: false,
@@ -467,11 +463,11 @@ impl<'a> AnalyzeContext<'a> {
         {
             let ent = self.implicit_subpgm(
                 file_type,
-                Designator::Identifier(self.symbol("WRITE")),
+                self.ident("WRITE"),
                 [
-                    (self.symbol("F"), AnyEntKind::InterfaceFile(file_type)),
+                    (self.ident("F"), AnyEntKind::InterfaceFile(file_type)),
                     (
-                        self.symbol("VALUE"),
+                        self.ident("VALUE"),
                         AnyEntKind::Object(Object::if_constant(Subtype::new(type_mark))),
                     ),
                 ],
@@ -484,8 +480,8 @@ impl<'a> AnalyzeContext<'a> {
         {
             let ent = self.implicit_subpgm(
                 file_type,
-                Designator::Identifier(self.symbol("FLUSH")),
-                [(self.symbol("F"), AnyEntKind::InterfaceFile(file_type))],
+                self.ident("FLUSH"),
+                [(self.ident("F"), AnyEntKind::InterfaceFile(file_type))],
                 None,
             );
             implicit.push(ent.into());
@@ -495,8 +491,8 @@ impl<'a> AnalyzeContext<'a> {
         {
             let ent = self.implicit_subpgm(
                 file_type,
-                Designator::Identifier(self.symbol("ENDFILE")),
-                [(self.symbol("F"), AnyEntKind::InterfaceFile(file_type))],
+                self.ident("ENDFILE"),
+                [(self.ident("F"), AnyEntKind::InterfaceFile(file_type))],
                 Some(boolean),
             );
             implicit.push(ent.into());
@@ -516,9 +512,9 @@ impl<'a> AnalyzeContext<'a> {
     pub fn to_x_string(&self, name: &str, type_ent: TypeEnt<'a>) -> EntRef<'a> {
         self.implicit_subpgm(
             type_ent,
-            Designator::Identifier(self.symbol(name)),
+            self.ident(name),
             [(
-                self.symbol("VALUE"),
+                self.ident("VALUE"),
                 AnyEntKind::Object(Object::if_constant(Subtype::new(type_ent))),
             )],
             Some(self.string()),
@@ -531,9 +527,9 @@ impl<'a> AnalyzeContext<'a> {
     pub fn deallocate(&self, type_ent: TypeEnt<'a>) -> EntRef<'a> {
         self.implicit_subpgm(
             type_ent,
-            Designator::Identifier(self.symbol("DEALLOCATE")),
+            self.ident("DEALLOCATE"),
             [(
-                self.symbol("P"),
+                self.ident("P"),
                 AnyEntKind::Object(Object {
                     class: ObjectClass::Variable,
                     is_port: false,
@@ -930,14 +926,14 @@ impl<'a> AnalyzeContext<'a> {
             let ent = self
                 .implicit_subpgm(
                     real,
-                    Designator::Identifier(self.symbol("TO_STRING")),
+                    self.ident("TO_STRING"),
                     [
                         (
-                            self.symbol("VALUE"),
+                            self.ident("VALUE"),
                             AnyEntKind::Object(Object::if_constant(Subtype::new(real))),
                         ),
                         (
-                            self.symbol("DIGITS"),
+                            self.ident("DIGITS"),
                             AnyEntKind::Object(Object::if_constant(Subtype::new(natural))),
                         ),
                     ],
@@ -960,14 +956,14 @@ impl<'a> AnalyzeContext<'a> {
             let ent = self
                 .implicit_subpgm(
                     real,
-                    Designator::Identifier(self.symbol("TO_STRING")),
+                    self.ident("TO_STRING"),
                     [
                         (
-                            self.symbol("VALUE"),
+                            self.ident("VALUE"),
                             AnyEntKind::Object(Object::if_constant(Subtype::new(real))),
                         ),
                         (
-                            self.symbol("FORMAT"),
+                            self.ident("FORMAT"),
                             AnyEntKind::Object(Object::if_constant(Subtype::new(string))),
                         ),
                     ],
@@ -990,14 +986,14 @@ impl<'a> AnalyzeContext<'a> {
             let ent = self
                 .implicit_subpgm(
                     time,
-                    Designator::Identifier(self.symbol("TO_STRING")),
+                    self.ident("TO_STRING"),
                     [
                         (
-                            self.symbol("VALUE"),
+                            self.ident("VALUE"),
                             AnyEntKind::Object(Object::if_constant(Subtype::new(time))),
                         ),
                         (
-                            self.symbol("UNIT"),
+                            self.ident("UNIT"),
                             AnyEntKind::Object(Object::if_constant(Subtype::new(time))),
                         ),
                     ],
@@ -1018,7 +1014,7 @@ impl<'a> AnalyzeContext<'a> {
             let to_string = typ.implicits.iter().find(|ent| matches!(ent.designator(), Designator::Identifier(ident) if ident.name_utf8() == "TO_STRING")).unwrap();
 
             let to_bstring = self.arena.alloc(
-                Designator::Identifier(self.symbol("TO_BSTRING")),
+                self.ident("TO_BSTRING"),
                 None,
                 Related::ImplicitOf(typ.into()),
                 AnyEntKind::Overloaded(Overloaded::Alias(
@@ -1028,7 +1024,7 @@ impl<'a> AnalyzeContext<'a> {
             );
 
             let to_binary_string = self.arena.alloc(
-                Designator::Identifier(self.symbol("TO_BINARY_STRING")),
+                self.ident("TO_BINARY_STRING"),
                 None,
                 Related::ImplicitOf(typ.into()),
                 AnyEntKind::Overloaded(Overloaded::Alias(
@@ -1040,7 +1036,7 @@ impl<'a> AnalyzeContext<'a> {
             let to_ostring = self.to_x_string("TO_OSTRING", typ);
 
             let to_octal_string = self.arena.alloc(
-                Designator::Identifier(self.symbol("TO_OCTAL_STRING")),
+                self.ident("TO_OCTAL_STRING"),
                 None,
                 Related::ImplicitOf(typ.into()),
                 AnyEntKind::Overloaded(Overloaded::Alias(
@@ -1051,7 +1047,7 @@ impl<'a> AnalyzeContext<'a> {
 
             let to_hstring = self.to_x_string("TO_HSTRING", typ);
             let to_hex_string = self.arena.alloc(
-                Designator::Identifier(self.symbol("TO_HEX_STRING")),
+                self.ident("TO_HEX_STRING"),
                 None,
                 Related::ImplicitOf(typ.into()),
                 AnyEntKind::Overloaded(Overloaded::Alias(

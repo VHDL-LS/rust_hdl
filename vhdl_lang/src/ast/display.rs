@@ -610,6 +610,7 @@ impl Display for Designator {
             Designator::Identifier(ref sym) => write!(f, "{sym}"),
             Designator::OperatorSymbol(ref op) => write!(f, "\"{op}\""),
             Designator::Character(byte) => write!(f, "'{}'", *byte as char),
+            Designator::Anonymous(_) => Ok(()),
         }
     }
 }

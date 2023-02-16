@@ -28,6 +28,7 @@ mod visibility;
 use std::cell::RefCell;
 
 pub use self::util::*;
+use crate::ast::Designator;
 use crate::ast::UnitId;
 pub use crate::data::Diagnostic;
 use crate::data::NoDiagnostics;
@@ -80,10 +81,17 @@ impl<'a> TestSetup<'a> {
 
     pub fn declarative_part(&'a self, code: &str) -> Code {
         let code = self.snippet(code);
+        let dummy_parent = self.arena.alloc(
+            Designator::Anonymous(0),
+            None,
+            Related::None,
+            AnyEntKind::Label,
+            None,
+        );
         self.ctx()
             .analyze_declarative_part(
                 &self.scope,
-                None,
+                dummy_parent,
                 code.declarative_part().as_mut(),
                 &mut NoDiagnostics,
             )

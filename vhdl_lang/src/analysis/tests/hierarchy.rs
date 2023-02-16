@@ -27,11 +27,14 @@ end entity;
 architecture a of ent is 
   signal s0 : natural;
 begin
-  main: process
+  process
     variable v0 : natural;
   begin
     loop0: loop
     end loop;
+
+    if false then
+    end if;
   end process;
 end architecture;
       ",
@@ -47,9 +50,9 @@ end architecture;
             "libname.ent.p0",
             "libname.ent.a",
             "libname.ent.a.s0",
-            "libname.ent.a.main",
-            "libname.ent.a.main.v0",
-            "libname.ent.a.main.loop0"
+            // Process is anonymous
+            "libname.ent.a..v0",
+            "libname.ent.a..loop0",
         ]
     );
 }

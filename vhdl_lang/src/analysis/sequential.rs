@@ -19,7 +19,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn define_labels_for_sequential_part(
         &self,
         scope: &Scope<'a>,
-        parent: Option<EntRef<'a>>,
+        parent: EntRef<'a>,
         statements: &mut [LabeledSequentialStatement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
@@ -86,18 +86,11 @@ impl<'a> AnalyzeContext<'a> {
     fn analyze_sequential_statement(
         &self,
         scope: &Scope<'a>,
-        parent: Option<EntRef<'a>>,
+        parent: EntRef<'a>,
         sroot: &SequentialRoot<'a>,
         statement: &mut LabeledSequentialStatement,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        // @TODO without label use orginal parent, should unlabeled statements be implicitly declared?
-        let parent = if let Some(id) = statement.label.as_ref().and_then(|label| label.decl) {
-            Some(self.arena.get(id))
-        } else {
-            parent
-        };
-
         match statement.statement {
             SequentialStatement::Return(ref mut ret) => {
                 let ReturnStatement { ref mut expression } = ret.item;
@@ -343,12 +336,29 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_sequential_part(
         &self,
         scope: &Scope<'a>,
-        parent: Option<EntRef<'a>>,
+        parent: EntRef<'a>,
         sroot: &SequentialRoot<'a>,
         statements: &mut [LabeledSequentialStatement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for statement in statements.iter_mut() {
+            let parent = if statement.statement.can_have_label() {
+                if let Some(id) = statement.label.as_ref().and_then(|label| label.decl) {
+                    self.arena.get(id)
+                } else {
+                    // Generate an anonymous label if it is not explicitly defined
+                    self.arena.alloc(
+                        Designator::Anonymous(scope.next_anonymous()),
+                        Some(parent),
+                        Related::None,
+                        AnyEntKind::Label,
+                        None,
+                    )
+                }
+            } else {
+                parent
+            };
+
             self.analyze_sequential_statement(scope, parent, sroot, statement, diagnostics)?;
         }
 
