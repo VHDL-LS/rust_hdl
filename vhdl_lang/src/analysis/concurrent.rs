@@ -261,22 +261,22 @@ impl<'a> AnalyzeContext<'a> {
                                 expected,
                             )?;
 
-                            if let AnyEntKind::Design(Design::Entity(library_name, _, ent_region)) =
-                                ent.kind()
-                            {
+                            if let AnyEntKind::Design(Design::Entity(_, ent_region)) = ent.kind() {
                                 if let Designator::Identifier(entity_ident) = ent.designator() {
-                                    if let Some(ref mut architecture_name) = architecture_name {
-                                        match self.get_architecture(
-                                            library_name,
-                                            &architecture_name.item.pos,
-                                            entity_ident,
-                                            &architecture_name.item.item,
-                                        ) {
-                                            Ok(arch) => {
-                                                architecture_name.set_unique_reference(&arch);
-                                            }
-                                            Err(err) => {
-                                                diagnostics.push(err.into_non_fatal()?);
+                                    if let Some(library_name) = ent.library_name() {
+                                        if let Some(ref mut architecture_name) = architecture_name {
+                                            match self.get_architecture(
+                                                library_name,
+                                                &architecture_name.item.pos,
+                                                entity_ident,
+                                                &architecture_name.item.item,
+                                            ) {
+                                                Ok(arch) => {
+                                                    architecture_name.set_unique_reference(&arch);
+                                                }
+                                                Err(err) => {
+                                                    diagnostics.push(err.into_non_fatal()?);
+                                                }
                                             }
                                         }
                                     }

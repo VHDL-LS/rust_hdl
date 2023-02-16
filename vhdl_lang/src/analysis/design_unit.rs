@@ -74,11 +74,7 @@ impl<'a> AnalyzeContext<'a> {
         let region = primary_scope.into_region();
         let visibility = root_scope.into_visibility();
 
-        let kind = AnyEntKind::Design(Design::Entity(
-            self.work_library_name().clone(),
-            visibility,
-            region,
-        ));
+        let kind = AnyEntKind::Design(Design::Entity(visibility, region));
         unsafe { ent.set_kind(kind) }
 
         Ok(())
@@ -231,7 +227,7 @@ impl<'a> AnalyzeContext<'a> {
         self.check_secondary_before_primary(&primary, unit.pos(), diagnostics);
 
         let (visibility, region) =
-            if let Design::Entity(_, ref visibility, ref region) = primary.kind() {
+            if let Design::Entity(ref visibility, ref region) = primary.kind() {
                 (visibility, region)
             } else {
                 let mut diagnostic = Diagnostic::error(unit.pos(), "Expected an entity");
