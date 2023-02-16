@@ -237,6 +237,12 @@ impl<'a> From<TypeEnt<'a>> for EntRef<'a> {
     }
 }
 
+impl<'a> From<BaseType<'a>> for EntRef<'a> {
+    fn from(ent: BaseType<'a>) -> Self {
+        ent.0
+    }
+}
+
 impl<'a> Deref for TypeEnt<'a> {
     type Target = AnyEnt<'a>;
     fn deref(&self) -> &AnyEnt<'a> {
@@ -391,12 +397,6 @@ impl<'a> BaseType<'a> {
         }
 
         false
-    }
-}
-
-impl<'a> From<BaseType<'a>> for EntRef<'a> {
-    fn from(ent: BaseType<'a>) -> Self {
-        ent.0
     }
 }
 

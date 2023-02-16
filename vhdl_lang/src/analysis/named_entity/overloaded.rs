@@ -73,27 +73,12 @@ impl<'a> Signature<'a> {
     }
 
     pub fn describe(&self) -> String {
-        let mut result = String::new();
-        result.push('[');
-        for (i, formal) in self.formals.iter().enumerate() {
-            result.push_str(&formal.type_mark().designator().to_string());
-
-            if i + 1 < self.formals.len() {
-                result.push_str(", ");
-            }
-        }
-
-        if !self.formals.is_empty() && self.return_type.is_some() {
-            result.push(' ');
-        }
-
-        if let Some(ref return_type) = self.return_type {
-            result.push_str("return ");
-            result.push_str(&return_type.designator().to_string());
-        }
-
-        result.push(']');
-        result
+        describe_signature(
+            self.formals
+                .iter()
+                .map(|formal| EntRef::from(formal.type_mark()).designator()),
+            self.return_type.map(|rt| EntRef::from(rt).designator()),
+        )
     }
 
     /// Returns true if the function has no arguments
@@ -125,10 +110,39 @@ impl<'a> Signature<'a> {
     }
 }
 
+pub fn describe_signature<'a>(
+    formals: impl ExactSizeIterator<Item = &'a Designator>,
+    return_type: Option<&'a Designator>,
+) -> String {
+    use std::fmt::Write;
+
+    let mut result = String::new();
+    result.push('[');
+    let num_formals = formals.len();
+    for (i, formal) in formals.enumerate() {
+        write!(result, "{}", &formal).unwrap();
+
+        if i + 1 < num_formals {
+            result.push_str(", ");
+        }
+    }
+
+    if num_formals > 0 && return_type.is_some() {
+        result.push(' ');
+    }
+
+    if let Some(ref return_type) = return_type {
+        write!(result, "return {}", &return_type).unwrap();
+    }
+
+    result.push(']');
+    result
+}
+
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct SignatureKey<'a> {
-    formals: Vec<BaseType<'a>>,
-    return_type: Option<BaseType<'a>>,
+    pub formals: Vec<BaseType<'a>>,
+    pub return_type: Option<BaseType<'a>>,
 }
 
 impl<'a> SignatureKey<'a> {
@@ -137,6 +151,25 @@ impl<'a> SignatureKey<'a> {
             formals,
             return_type,
         }
+    }
+
+    pub fn map(mut self, map: impl Fn(BaseType<'a>) -> BaseType<'a>) -> Self {
+        for formal in self.formals.iter_mut() {
+            *formal = map(*formal);
+        }
+        if let Some(ref mut return_type) = self.return_type {
+            *return_type = map(*return_type);
+        }
+        self
+    }
+
+    pub fn describe(&self) -> String {
+        describe_signature(
+            self.formals
+                .iter()
+                .map(|formal| EntRef::from(*formal).designator()),
+            self.return_type.map(|rt| EntRef::from(rt).designator()),
+        )
     }
 }
 

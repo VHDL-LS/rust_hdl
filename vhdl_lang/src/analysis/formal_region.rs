@@ -131,7 +131,7 @@ impl<'a> FormalRegion<'a> {
         self.entities.len()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = InterfaceEnt<'a>> + '_ {
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = InterfaceEnt<'a>> + '_ {
         self.entities.iter().cloned()
     }
 
