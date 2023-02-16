@@ -20,7 +20,7 @@ use std::rc::Rc;
 #[derive(Clone, Debug, PartialEq, Eq)]
 /// A non-emtpy collection of overloaded entites
 pub struct OverloadedName<'a> {
-    entities: FnvHashMap<SignatureKey, OverloadedEnt<'a>>,
+    entities: FnvHashMap<SignatureKey<'a>, OverloadedEnt<'a>>,
 }
 
 impl<'a> OverloadedName<'a> {

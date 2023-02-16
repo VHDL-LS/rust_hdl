@@ -1057,13 +1057,13 @@ impl<'a> AnalyzeContext<'a> {
 
         let mut params = Vec::with_capacity(args.len());
         for arg in args {
-            params.push(arg?.base_type().id());
+            params.push(arg?.base());
         }
 
         if let Some(return_type) = return_type {
             Ok(SignatureKey::new(
                 params,
-                Some(return_type?.base_type().id()),
+                Some(return_type?.base_type().base()),
             ))
         } else {
             Ok(SignatureKey::new(params, None))

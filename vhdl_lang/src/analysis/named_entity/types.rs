@@ -82,7 +82,7 @@ impl UniversalType {
 }
 
 // A named entity that is known to be a type
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TypeEnt<'a>(EntRef<'a>);
 
 impl<'a> TypeEnt<'a> {

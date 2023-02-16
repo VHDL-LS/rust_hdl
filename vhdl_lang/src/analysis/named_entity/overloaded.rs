@@ -7,7 +7,6 @@ use super::AnyEnt;
 use super::AnyEntKind;
 use super::BaseType;
 use super::EntRef;
-use super::EntityId;
 use super::TypeEnt;
 use crate::analysis::formal_region::FormalRegion;
 use crate::analysis::formal_region::InterfaceEnt;
@@ -63,13 +62,9 @@ impl<'a> Signature<'a> {
         }
     }
 
-    pub fn key(&self) -> SignatureKey {
-        let formals = self
-            .formals
-            .iter()
-            .map(|formal| formal.base_type().id())
-            .collect();
-        let return_type = self.return_type.as_ref().map(|ent| ent.base_type().id());
+    pub fn key(&self) -> SignatureKey<'a> {
+        let formals = self.formals.iter().map(|formal| formal.base()).collect();
+        let return_type = self.return_type.as_ref().map(|ent| ent.base());
 
         SignatureKey {
             formals,
@@ -131,13 +126,13 @@ impl<'a> Signature<'a> {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub struct SignatureKey {
-    formals: Vec<EntityId>,
-    return_type: Option<EntityId>,
+pub struct SignatureKey<'a> {
+    formals: Vec<BaseType<'a>>,
+    return_type: Option<BaseType<'a>>,
 }
 
-impl SignatureKey {
-    pub fn new(formals: Vec<EntityId>, return_type: Option<EntityId>) -> SignatureKey {
+impl<'a> SignatureKey<'a> {
+    pub fn new(formals: Vec<BaseType<'a>>, return_type: Option<BaseType<'a>>) -> SignatureKey<'a> {
         SignatureKey {
             formals,
             return_type,

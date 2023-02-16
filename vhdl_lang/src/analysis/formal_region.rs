@@ -69,6 +69,10 @@ impl<'a> InterfaceEnt<'a> {
     pub fn base_type(&self) -> TypeEnt<'a> {
         self.type_mark().base_type()
     }
+
+    pub fn base(&self) -> BaseType<'a> {
+        self.type_mark().base()
+    }
 }
 
 impl<'a> std::ops::Deref for InterfaceEnt<'a> {
