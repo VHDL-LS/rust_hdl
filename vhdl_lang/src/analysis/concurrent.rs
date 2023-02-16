@@ -24,19 +24,8 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for statement in statements.iter_mut() {
-            let parent = if statement.statement.can_have_label() {
-                if let Some(id) = statement.label.as_ref().and_then(|label| label.decl) {
-                    self.arena.get(id)
-                } else {
-                    // Generate an anonymous label if it is not explicitly defined
-                    self.arena.alloc(
-                        Designator::Anonymous(scope.next_anonymous()),
-                        Some(parent),
-                        Related::None,
-                        AnyEntKind::Label,
-                        None,
-                    )
-                }
+            let parent = if let Some(id) = statement.label.decl {
+                self.arena.get(id)
             } else {
                 parent
             };
@@ -55,11 +44,22 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for statement in statements.iter_mut() {
-            if let Some(ref mut label) = statement.label {
-                scope.add(
-                    label.define(self.arena, parent, AnyEntKind::Label),
-                    diagnostics,
+            if let Some(ref mut label) = statement.label.tree {
+                let ent =
+                    self.arena
+                        .explicit(label.name(), parent, AnyEntKind::Label, Some(label.pos()));
+                statement.label.decl = Some(ent.id());
+                scope.add(ent, diagnostics);
+            } else if statement.statement.can_have_label() {
+                // Generate an anonymous label if it is not explicitly defined
+                let ent = self.arena.alloc(
+                    Designator::Anonymous(scope.next_anonymous()),
+                    Some(parent),
+                    Related::None,
+                    AnyEntKind::Label,
+                    None,
                 );
+                statement.label.decl = Some(ent.id());
             }
         }
 

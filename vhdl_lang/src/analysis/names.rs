@@ -170,6 +170,7 @@ impl<'a> ResolvedName<'a> {
             | AnyEntKind::Attribute(_)
             | AnyEntKind::ElementDeclaration(_)
             | AnyEntKind::Label
+            | AnyEntKind::LoopLabel
             | AnyEntKind::LoopParameter(_) => {
                 return Err(format!(
                     "{} cannot be selected from design unit",
@@ -220,6 +221,7 @@ impl<'a> ResolvedName<'a> {
             | AnyEntKind::InterfaceFile(_)
             | AnyEntKind::Component(_)
             | AnyEntKind::Label
+            | AnyEntKind::LoopLabel
             | AnyEntKind::LoopParameter(_)
             | AnyEntKind::PhysicalLiteral(_) => ResolvedName::Final(ent),
             AnyEntKind::Attribute(_) | AnyEntKind::ElementDeclaration(_) => {

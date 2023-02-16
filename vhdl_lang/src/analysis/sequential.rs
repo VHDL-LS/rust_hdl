@@ -24,12 +24,38 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for statement in statements.iter_mut() {
-            if let Some(ref mut label) = statement.label {
-                scope.add(
-                    label.define(self.arena, parent, AnyEntKind::Label),
-                    diagnostics,
+            let parent = if let Some(ref mut label) = statement.label.tree {
+                let ent = self.arena.explicit(
+                    label.name(),
+                    parent,
+                    if statement.statement.is_loop() {
+                        AnyEntKind::LoopLabel
+                    } else {
+                        AnyEntKind::Label
+                    },
+                    Some(label.pos()),
                 );
-            }
+                statement.label.decl = Some(ent.id());
+                scope.add(ent, diagnostics);
+                ent
+            } else if statement.statement.can_have_label() {
+                // Generate an anonymous label if it is not explicitly defined
+                let ent = self.arena.alloc(
+                    Designator::Anonymous(scope.next_anonymous()),
+                    Some(parent),
+                    Related::None,
+                    if statement.statement.is_loop() {
+                        AnyEntKind::LoopLabel
+                    } else {
+                        AnyEntKind::Label
+                    },
+                    None,
+                );
+                statement.label.decl = Some(ent.id());
+                ent
+            } else {
+                parent
+            };
 
             match statement.statement {
                 SequentialStatement::If(ref mut ifstmt) => {
@@ -153,8 +179,10 @@ impl<'a> AnalyzeContext<'a> {
                     loop_label,
                 } = &mut exit_stmt.item;
 
-                if let Some(ref mut loop_label) = loop_label {
-                    self.check_loop_label(scope, loop_label, diagnostics);
+                if let Some(loop_label) = loop_label {
+                    self.check_loop_label(scope, parent, loop_label, diagnostics);
+                } else if !find_outer_loop(parent, None) {
+                    diagnostics.error(&exit_stmt.pos, "Exit can only be used inside a loop")
                 }
 
                 if let Some(expr) = condition {
@@ -167,8 +195,10 @@ impl<'a> AnalyzeContext<'a> {
                     loop_label,
                 } = &mut next_stmt.item;
 
-                if let Some(ref mut loop_label) = loop_label {
-                    self.check_loop_label(scope, loop_label, diagnostics);
+                if let Some(loop_label) = loop_label {
+                    self.check_loop_label(scope, parent, loop_label, diagnostics);
+                } else if !find_outer_loop(parent, None) {
+                    diagnostics.error(&next_stmt.pos, "Next can only be used inside a loop")
                 }
 
                 if let Some(expr) = condition {
@@ -284,6 +314,7 @@ impl<'a> AnalyzeContext<'a> {
     fn check_loop_label(
         &self,
         scope: &Scope<'a>,
+        parent: EntRef<'a>,
         label: &mut WithRef<Ident>,
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
@@ -293,8 +324,14 @@ impl<'a> AnalyzeContext<'a> {
         ) {
             Ok(NamedEntities::Single(ent)) => {
                 label.set_unique_reference(ent);
-                if !matches!(ent.kind(), AnyEntKind::Label) {
-                    // @TODO check that is actually a loop label and that we are inside the loop
+                if matches!(ent.kind(), AnyEntKind::LoopLabel) {
+                    if !find_outer_loop(parent, Some(label.item.name())) {
+                        diagnostics.error(
+                            &label.item.pos,
+                            format!("Cannot be used outside of loop '{}'", ent.designator()),
+                        );
+                    }
+                } else {
                     diagnostics.error(
                         &label.item.pos,
                         format!("Expected loop label, got {}", ent.describe()),
@@ -322,19 +359,8 @@ impl<'a> AnalyzeContext<'a> {
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for statement in statements.iter_mut() {
-            let parent = if statement.statement.can_have_label() {
-                if let Some(id) = statement.label.as_ref().and_then(|label| label.decl) {
-                    self.arena.get(id)
-                } else {
-                    // Generate an anonymous label if it is not explicitly defined
-                    self.arena.alloc(
-                        Designator::Anonymous(scope.next_anonymous()),
-                        Some(parent),
-                        Related::None,
-                        AnyEntKind::Label,
-                        None,
-                    )
-                }
+            let parent = if let Some(id) = statement.label.decl {
+                self.arena.get(id)
             } else {
                 parent
             };
@@ -352,6 +378,30 @@ enum SequentialRoot<'a> {
     Function(TypeEnt<'a>),
 }
 
+fn find_outer_loop(ent: EntRef, label: Option<&Symbol>) -> bool {
+    match ent.kind() {
+        AnyEntKind::LoopLabel => {
+            if let Some(label) = label {
+                if matches!(ent.designator(), Designator::Identifier(ident) if ident == label) {
+                    return true;
+                }
+            } else {
+                return true;
+            }
+        }
+        AnyEntKind::Label => {}
+        _ => {
+            return false;
+        }
+    }
+
+    if let Some(parent) = ent.parent {
+        find_outer_loop(parent, label)
+    } else {
+        false
+    }
+}
+
 impl<'a> From<EntRef<'a>> for SequentialRoot<'a> {
     fn from(value: EntRef<'a>) -> Self {
         match value.kind() {
@@ -362,7 +412,7 @@ impl<'a> From<EntRef<'a>> for SequentialRoot<'a> {
                     SequentialRoot::Procedure
                 }
             }
-            AnyEntKind::Label => {
+            AnyEntKind::Label | AnyEntKind::LoopLabel => {
                 if let Some(parent) = value.parent {
                     SequentialRoot::from(parent)
                 } else {

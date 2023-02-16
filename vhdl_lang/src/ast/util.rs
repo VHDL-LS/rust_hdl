@@ -537,4 +537,8 @@ impl SequentialStatement {
     pub fn can_have_label(&self) -> bool {
         self.end_label().is_some()
     }
+
+    pub fn is_loop(&self) -> bool {
+        matches!(self, SequentialStatement::Loop(_))
+    }
 }

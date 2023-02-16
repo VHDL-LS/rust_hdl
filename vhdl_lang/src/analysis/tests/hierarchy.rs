@@ -206,3 +206,92 @@ end architecture;
     assert_eq!(root.find_implementation(ent), vec![comp]);
     assert_eq!(root.find_implementation(comp), vec![ent]);
 }
+
+#[test]
+fn exit_and_next_outside_of_loop() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+begin
+  process
+  begin
+    exit;
+    next;
+
+    loop
+        exit;
+    end loop;
+
+    loop
+        next;
+    end loop;
+  end process;
+end architecture;
+      ",
+    );
+
+    let (_, diagnostics) = builder.get_analyzed_root();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(code.s1("exit;"), "Exit can only be used inside a loop"),
+            Diagnostic::error(code.s1("next;"), "Next can only be used inside a loop"),
+        ],
+    );
+}
+
+#[test]
+fn exit_and_next_label_outside_of_loop() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent is
+end entity;
+
+architecture a of ent is
+begin
+  main: process
+  begin
+    good0: loop
+        good1: loop
+            exit good0;
+        end loop;
+    end loop;
+
+    bad0: loop
+        exit;
+    end loop;
+
+    l1: loop
+        exit bad0;
+    end loop;
+
+    l0: loop
+        next bad0; 
+    end loop;
+  end process;
+end architecture;
+      ",
+    );
+
+    let (_, diagnostics) = builder.get_analyzed_root();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(
+                code.sa("exit ", "bad0"),
+                "Cannot be used outside of loop 'bad0'",
+            ),
+            Diagnostic::error(
+                code.sa("next ", "bad0"),
+                "Cannot be used outside of loop 'bad0'",
+            ),
+        ],
+    );
+}

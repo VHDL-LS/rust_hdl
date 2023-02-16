@@ -685,21 +685,21 @@ pub fn parse_labeled_concurrent_statement_initial_token(
             let token = stream.expect()?;
             let statement = parse_concurrent_statement(stream, label.as_ref(), token, diagnostics)?;
             Ok(LabeledConcurrentStatement {
-                label: label.map(WithDecl::new),
+                label: WithDecl::new(label),
                 statement,
             })
         } else {
             let target = name.map_into(Target::Name);
             let statement = parse_assignment_or_procedure_call(stream, target)?;
             Ok(LabeledConcurrentStatement {
-                label: None,
+                label: WithDecl::new(None),
                 statement,
             })
         }
     } else {
         let statement = parse_concurrent_statement(stream, None, token, diagnostics)?;
         Ok(LabeledConcurrentStatement {
-            label: None,
+            label: WithDecl::new(None),
             statement,
         })
     }
@@ -733,7 +733,7 @@ mod tests {
             call: code.s1("foo(clk)").function_call(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, None);
+        assert_eq!(stmt.label.tree, None);
         assert_eq!(stmt.statement, ConcurrentStatement::ProcedureCall(call));
     }
 
@@ -749,7 +749,7 @@ mod tests {
             call: code.s1("foo(clk)").function_call(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, None);
+        assert_eq!(stmt.label.tree, None);
         assert_eq!(stmt.statement, ConcurrentStatement::ProcedureCall(call));
     }
 
@@ -765,7 +765,7 @@ mod tests {
             call: code.s1("foo(clk)").function_call(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("name").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::ProcedureCall(call));
     }
 
@@ -781,7 +781,7 @@ mod tests {
             call: code.s1("foo").function_call(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, None);
+        assert_eq!(stmt.label.tree, None);
         assert_eq!(stmt.statement, ConcurrentStatement::ProcedureCall(call));
     }
 
@@ -811,13 +811,13 @@ end block;
             },
             decl: code.s1("constant const : natural := 0;").declarative_part(),
             statements: vec![LabeledConcurrentStatement {
-                label: Some(code.s1("name2").decl_ident()),
+                label: Some(code.s1("name2").ident()).into(),
                 statement: ConcurrentStatement::ProcedureCall(call),
             }],
             end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("name").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Block(block));
     }
 
@@ -843,7 +843,7 @@ end block name;
             end_label_pos: Some(code.s("name", 2).pos()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("name").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Block(block));
     }
 
@@ -869,7 +869,7 @@ end block;
             end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("name").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Block(block));
     }
 
@@ -895,7 +895,7 @@ end block;
             end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("name").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Block(block));
     }
 
@@ -925,7 +925,7 @@ end block;
             end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("name").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Block(block));
     }
 
@@ -946,7 +946,7 @@ end process;
             end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, None);
+        assert_eq!(stmt.label.tree, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
     }
 
@@ -967,7 +967,7 @@ end process name;
             end_label_pos: Some(code.s("name", 2).pos()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("name").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
     }
 
@@ -988,7 +988,7 @@ end process;
             end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, None);
+        assert_eq!(stmt.label.tree, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
     }
 
@@ -1009,7 +1009,7 @@ end postponed process;
             end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, None);
+        assert_eq!(stmt.label.tree, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
     }
 
@@ -1060,7 +1060,7 @@ end process;
             end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, None);
+        assert_eq!(stmt.label.tree, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
     }
 
@@ -1114,7 +1114,7 @@ end process;
             end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, None);
+        assert_eq!(stmt.label.tree, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
     }
 
@@ -1134,7 +1134,7 @@ assert cond = true;
             },
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, None);
+        assert_eq!(stmt.label.tree, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Assert(assert));
     }
 
@@ -1154,7 +1154,7 @@ postponed assert cond = true;
             },
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, None);
+        assert_eq!(stmt.label.tree, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Assert(assert));
     }
 
@@ -1173,7 +1173,7 @@ foo <= bar(2 to 3);
             rhs: AssignmentRightHand::Simple(code.s1("bar(2 to 3)").waveform()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, None);
+        assert_eq!(stmt.label.tree, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Assignment(assign));
     }
 
@@ -1195,7 +1195,7 @@ foo <= bar(2 to 3);
             rhs: AssignmentRightHand::Simple(code.s1("bar(2 to 3)").waveform()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, None);
+        assert_eq!(stmt.label.tree, None);
         assert_eq!(stmt.statement, ConcurrentStatement::Assignment(assign));
     }
 
@@ -1216,7 +1216,7 @@ with x(0) + 1 select
         };
 
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, None);
+        assert_eq!(stmt.label.tree, None);
         assert_eq!(
             stmt.statement,
             ConcurrentStatement::Assignment(ConcurrentSignalAssignment {
@@ -1243,7 +1243,7 @@ inst: component lib.foo.bar;
             port_map: vec![],
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("inst").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
 
@@ -1261,7 +1261,7 @@ inst: configuration lib.foo.bar;
             port_map: vec![],
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("inst").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
 
@@ -1279,7 +1279,7 @@ inst: entity lib.foo.bar;
             port_map: vec![],
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("inst").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
 
@@ -1300,7 +1300,7 @@ inst: entity lib.foo.bar(arch);
             port_map: vec![],
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("inst").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
 
@@ -1332,7 +1332,7 @@ inst: component lib.foo.bar
                 .association_list(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("inst").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
 
@@ -1357,7 +1357,7 @@ inst: lib.foo.bar
                 .association_list(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("inst").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
 
@@ -1382,7 +1382,7 @@ inst: lib.foo.bar
             port_map: vec![],
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("inst").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
     }
 
@@ -1406,7 +1406,7 @@ end generate;
             end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::ForGenerate(gen));
     }
 
@@ -1431,7 +1431,7 @@ end generate;
             end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::ForGenerate(gen));
     }
 
@@ -1450,7 +1450,7 @@ end generate;
                 end_label_pos: None,
             };
             let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-            assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
+            assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
             assert_eq!(stmt.statement, ConcurrentStatement::ForGenerate(gen));
         }
         test(
@@ -1505,7 +1505,7 @@ end generate;
                 end_label_pos: None,
             };
             let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-            assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
+            assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
             assert_eq!(stmt.statement, ConcurrentStatement::ForGenerate(gen));
         }
 
@@ -1555,7 +1555,7 @@ end generate;
             end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
     }
 
@@ -1584,7 +1584,7 @@ end generate;
             end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
     }
 
@@ -1630,7 +1630,7 @@ end generate;
             end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
     }
     #[test]
@@ -1684,7 +1684,7 @@ end generate;
             end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
     }
 
@@ -1732,7 +1732,7 @@ end generate;
             end_label_pos: None,
         };
         let (stmt, diagnostics) = code.with_stream_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
         assert_eq!(
             diagnostics,
@@ -1790,7 +1790,7 @@ end generate;
             end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
     }
 
@@ -1833,7 +1833,7 @@ end generate;
             end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("gen").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::CaseGenerate(gen));
     }
 
@@ -1876,7 +1876,7 @@ end generate gen1;
             end_label_pos: Some(code.s("gen1", 2).pos()),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
-        assert_eq!(stmt.label, Some(code.s1("gen1").decl_ident()));
+        assert_eq!(stmt.label.tree, Some(code.s1("gen1").ident()));
         assert_eq!(stmt.statement, ConcurrentStatement::CaseGenerate(gen));
     }
 }

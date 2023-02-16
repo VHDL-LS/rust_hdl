@@ -68,9 +68,9 @@ pub enum FoundDeclaration<'a> {
     Context(&'a mut ContextDeclaration),
     ForIndex(&'a mut WithDecl<Ident>, &'a mut DiscreteRange),
     ForGenerateIndex(Option<&'a Ident>, &'a mut ForGenerateStatement),
-    ConcurrentStatement(&'a mut WithDecl<Ident>),
     GenerateBody(&'a mut WithDecl<Ident>),
-    SequentialStatement(&'a mut WithDecl<Ident>),
+    ConcurrentStatement(&'a Ident, &'a mut Reference),
+    SequentialStatement(&'a Ident, &'a mut Reference),
 }
 
 pub trait Searcher {
@@ -264,9 +264,12 @@ impl Search for WithPos<Target> {
 
 impl Search for LabeledSequentialStatement {
     fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
-        if let Some(ref mut label) = self.label {
+        if let Some(ref ident) = self.label.tree {
             return_if_found!(searcher
-                .search_decl(FoundDeclaration::SequentialStatement(label))
+                .search_decl(FoundDeclaration::SequentialStatement(
+                    ident,
+                    &mut self.label.decl
+                ))
                 .or_not_found());
         }
         match self.statement {
@@ -383,12 +386,10 @@ impl Search for LabeledSequentialStatement {
             SequentialStatement::Null => {}
         }
 
-        if let Some(ref mut label) = self.label {
-            if let Some(end_label_pos) = self.statement.end_label_pos() {
-                return_if_found!(searcher
-                    .search_pos_with_ref(end_label_pos, &mut label.decl)
-                    .or_not_found());
-            }
+        if let Some(end_label_pos) = self.statement.end_label_pos() {
+            return_if_found!(searcher
+                .search_pos_with_ref(end_label_pos, &mut self.label.decl)
+                .or_not_found());
         }
 
         NotFound
@@ -462,9 +463,12 @@ impl Search for SensitivityList {
 
 impl Search for LabeledConcurrentStatement {
     fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
-        if let Some(ref mut label) = self.label {
+        if let Some(ref ident) = self.label.tree {
             return_if_found!(searcher
-                .search_decl(FoundDeclaration::ConcurrentStatement(label))
+                .search_decl(FoundDeclaration::ConcurrentStatement(
+                    ident,
+                    &mut self.label.decl
+                ))
                 .or_not_found());
         }
         match self.statement {
@@ -488,7 +492,7 @@ impl Search for LabeledConcurrentStatement {
             ConcurrentStatement::ForGenerate(ref mut gen) => {
                 return_if_found!(searcher
                     .search_decl(FoundDeclaration::ForGenerateIndex(
-                        self.label.as_ref().map(|l| &l.tree),
+                        self.label.tree.as_ref(),
                         gen
                     ))
                     .or_not_found());
@@ -538,12 +542,10 @@ impl Search for LabeledConcurrentStatement {
             }
         };
 
-        if let Some(ref mut label) = self.label {
-            if let Some(end_label_pos) = self.statement.end_label_pos() {
-                return_if_found!(searcher
-                    .search_pos_with_ref(end_label_pos, &mut label.decl)
-                    .or_not_found());
-            }
+        if let Some(end_label_pos) = self.statement.end_label_pos() {
+            return_if_found!(searcher
+                .search_pos_with_ref(end_label_pos, &mut self.label.decl)
+                .or_not_found());
         }
 
         NotFound
@@ -1644,8 +1646,8 @@ impl<'a> HasEntityId for FoundDeclaration<'a> {
             FoundDeclaration::Architecture(value) => value.ident.decl,
             FoundDeclaration::Context(value) => value.ident.decl,
             FoundDeclaration::GenerateBody(value) => value.decl,
-            FoundDeclaration::ConcurrentStatement(value) => value.decl,
-            FoundDeclaration::SequentialStatement(value) => value.decl,
+            FoundDeclaration::ConcurrentStatement(_, value) => **value,
+            FoundDeclaration::SequentialStatement(_, value) => **value,
         }
     }
 }
@@ -1678,8 +1680,8 @@ impl<'a> HasSrcPos for FoundDeclaration<'a> {
             FoundDeclaration::Architecture(value) => value.ident.pos(),
             FoundDeclaration::Context(value) => value.ident.pos(),
             FoundDeclaration::GenerateBody(value) => value.pos(),
-            FoundDeclaration::ConcurrentStatement(value) => value.pos(),
-            FoundDeclaration::SequentialStatement(value) => value.pos(),
+            FoundDeclaration::ConcurrentStatement(value, _) => value.pos(),
+            FoundDeclaration::SequentialStatement(value, _) => value.pos(),
         }
     }
 }
@@ -1765,10 +1767,10 @@ impl std::fmt::Display for FoundDeclaration<'_> {
             FoundDeclaration::GenerateBody(value) => {
                 write!(f, "{value}")
             }
-            FoundDeclaration::ConcurrentStatement(value) => {
+            FoundDeclaration::ConcurrentStatement(value, _) => {
                 write!(f, "{value}")
             }
-            FoundDeclaration::SequentialStatement(value) => {
+            FoundDeclaration::SequentialStatement(value, _) => {
                 write!(f, "{value}")
             }
         }

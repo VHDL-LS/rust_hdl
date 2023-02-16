@@ -332,6 +332,7 @@ impl<'a> AnalyzeContext<'a> {
                 AnyEntKind::ElementDeclaration(self.map_subtype(mapping, *subtype)?)
             }
             AnyEntKind::Label => AnyEntKind::Label,
+            AnyEntKind::LoopLabel => AnyEntKind::LoopLabel,
             AnyEntKind::Object(obj) => AnyEntKind::Object(self.map_object(mapping, obj)?),
             AnyEntKind::LoopParameter(typ) => AnyEntKind::LoopParameter(
                 typ.map(|typ| self.map_type_ent(mapping, typ.into()).base()),

@@ -590,21 +590,21 @@ pub fn parse_sequential_statement_initial_token(
             let statement =
                 parse_unlabeled_sequential_statement(stream, label.as_ref(), token, diagnostics)?;
             Ok(LabeledSequentialStatement {
-                label: label.map(WithDecl::new),
+                label: WithDecl::new(label),
                 statement,
             })
         } else {
             let target = name.map_into(Target::Name);
             let statement = parse_assignment_or_procedure_call(stream, &token, target)?;
             Ok(LabeledSequentialStatement {
-                label: None,
+                label: WithDecl::new(None),
                 statement,
             })
         }
     } else {
         let statement = parse_unlabeled_sequential_statement(stream, None, token, diagnostics)?;
         Ok(LabeledSequentialStatement {
-            label: None,
+            label: WithDecl::new(None),
             statement,
         })
     }
@@ -629,10 +629,13 @@ mod tests {
     }
 
     fn with_label(
-        label: Option<WithDecl<Ident>>,
+        label: Option<Ident>,
         statement: SequentialStatement,
     ) -> LabeledSequentialStatement {
-        LabeledSequentialStatement { label, statement }
+        LabeledSequentialStatement {
+            label: WithDecl::new(label),
+            statement,
+        }
     }
 
     #[test]
@@ -657,7 +660,7 @@ mod tests {
         assert_eq!(
             statement,
             with_label(
-                Some(code.s1("foo").decl_ident()),
+                Some(code.s1("foo").ident()),
                 SequentialStatement::Wait(WaitStatement {
                     sensitivity_clause: vec![],
                     condition_clause: None,
@@ -952,7 +955,7 @@ mod tests {
         assert_eq!(
             statement,
             with_label(
-                Some(code.s1("name").decl_ident()),
+                Some(code.s1("name").ident()),
                 SequentialStatement::VariableAssignment(VariableAssignment {
                     target: code
                         .s1("(foo, 1 => bar)")
@@ -970,7 +973,7 @@ mod tests {
         assert_eq!(
             statement,
             with_label(
-                Some(code.s1("name").decl_ident()),
+                Some(code.s1("name").ident()),
                 SequentialStatement::VariableAssignment(VariableAssignment {
                     target: code.s1("foo(0)").name().map_into(Target::Name),
                     rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
@@ -1273,7 +1276,7 @@ end if mylabel;
         assert_eq!(
             statement,
             with_label(
-                Some(code.s1("mylabel").decl_ident()),
+                Some(code.s1("mylabel").ident()),
                 SequentialStatement::If(IfStatement {
                     conds: Conditionals {
                         conditionals: vec![Conditional {
@@ -1334,7 +1337,7 @@ end if mylabel;
         assert_eq!(
             statement,
             with_label(
-                Some(code.s1("mylabel").decl_ident()),
+                Some(code.s1("mylabel").ident()),
                 SequentialStatement::If(IfStatement {
                     conds: Conditionals {
                         conditionals: vec![Conditional {
@@ -1400,7 +1403,7 @@ end if mylabel;
         assert_eq!(
             statement,
             with_label(
-                Some(code.s1("mylabel").decl_ident()),
+                Some(code.s1("mylabel").ident()),
                 SequentialStatement::If(IfStatement {
                     conds: Conditionals {
                         conditionals: vec![
@@ -1502,7 +1505,7 @@ end loop lbl;
         assert_eq!(
             statement,
             with_label(
-                Some(code.s1("lbl").decl_ident()),
+                Some(code.s1("lbl").ident()),
                 SequentialStatement::Loop(LoopStatement {
                     iteration_scheme: None,
                     statements: vec![

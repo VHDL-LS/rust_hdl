@@ -949,7 +949,7 @@ pub enum SequentialStatement {
 /// LRM 10. Sequential statements
 #[derive(PartialEq, Debug, Clone)]
 pub struct LabeledSequentialStatement {
-    pub label: Option<WithDecl<Ident>>,
+    pub label: WithDecl<Option<Ident>>,
     pub statement: SequentialStatement,
 }
 
@@ -1075,7 +1075,7 @@ pub enum ConcurrentStatement {
 /// LRM 11. Concurrent statements
 #[derive(PartialEq, Debug, Clone)]
 pub struct LabeledConcurrentStatement {
-    pub label: Option<WithDecl<Ident>>,
+    pub label: WithDecl<Option<Ident>>,
     pub statement: ConcurrentStatement,
 }
 
