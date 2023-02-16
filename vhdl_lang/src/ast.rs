@@ -940,8 +940,8 @@ pub enum SequentialStatement {
     If(IfStatement),
     Case(CaseStatement),
     Loop(LoopStatement),
-    Next(NextStatement),
-    Exit(ExitStatement),
+    Next(WithPos<NextStatement>),
+    Exit(WithPos<ExitStatement>),
     Return(WithPos<ReturnStatement>),
     Null,
 }

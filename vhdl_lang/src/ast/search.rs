@@ -310,7 +310,7 @@ impl Search for LabeledSequentialStatement {
                 let ExitStatement {
                     condition,
                     loop_label,
-                } = exit_stmt;
+                } = &mut exit_stmt.item;
                 if let Some(loop_label) = loop_label {
                     return_if_found!(searcher
                         .search_pos_with_ref(&loop_label.item.pos, &mut loop_label.reference)
@@ -322,7 +322,7 @@ impl Search for LabeledSequentialStatement {
                 let NextStatement {
                     condition,
                     loop_label,
-                } = next_stmt;
+                } = &mut next_stmt.item;
                 if let Some(loop_label) = loop_label {
                     return_if_found!(searcher
                         .search_pos_with_ref(&loop_label.item.pos, &mut loop_label.reference)

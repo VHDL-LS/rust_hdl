@@ -151,7 +151,7 @@ impl<'a> AnalyzeContext<'a> {
                 let ExitStatement {
                     condition,
                     loop_label,
-                } = exit_stmt;
+                } = &mut exit_stmt.item;
 
                 if let Some(ref mut loop_label) = loop_label {
                     self.check_loop_label(scope, loop_label, diagnostics);
@@ -165,7 +165,7 @@ impl<'a> AnalyzeContext<'a> {
                 let NextStatement {
                     condition,
                     loop_label,
-                } = next_stmt;
+                } = &mut next_stmt.item;
 
                 if let Some(ref mut loop_label) = loop_label {
                     self.check_loop_label(scope, loop_label, diagnostics);

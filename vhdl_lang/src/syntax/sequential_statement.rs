@@ -231,25 +231,37 @@ fn parse_loop_statement_initial_token(
 }
 
 /// LRM 10.11 Next statement
-fn parse_next_statement_known_keyword(stream: &mut TokenStream) -> ParseResult<NextStatement> {
+fn parse_next_statement_known_keyword(
+    initial: Token,
+    stream: &mut TokenStream,
+) -> ParseResult<WithPos<NextStatement>> {
     let loop_label = stream.pop_optional_ident()?;
     let condition = parse_optional(stream, When, parse_expression)?;
-    stream.expect_kind(SemiColon)?;
-    Ok(NextStatement {
-        loop_label: loop_label.map(WithRef::new),
-        condition,
-    })
+    let semi = stream.expect_kind(SemiColon)?;
+    Ok(WithPos::new(
+        NextStatement {
+            loop_label: loop_label.map(WithRef::new),
+            condition,
+        },
+        initial.pos.combine_into(&semi.pos),
+    ))
 }
 
 /// LRM 10.12 Exit statement
-fn parse_exit_statement_known_keyword(stream: &mut TokenStream) -> ParseResult<ExitStatement> {
+fn parse_exit_statement_known_keyword(
+    initial: Token,
+    stream: &mut TokenStream,
+) -> ParseResult<WithPos<ExitStatement>> {
     let loop_label = stream.pop_optional_ident()?;
     let condition = parse_optional(stream, When, parse_expression)?;
-    stream.expect_kind(SemiColon)?;
-    Ok(ExitStatement {
-        loop_label: loop_label.map(WithRef::new),
-        condition,
-    })
+    let semi = stream.expect_kind(SemiColon)?;
+    Ok(WithPos::new(
+        ExitStatement {
+            loop_label: loop_label.map(WithRef::new),
+            condition,
+        },
+        initial.pos.combine_into(&semi.pos),
+    ))
 }
 
 /// LRM 10.13 Return statement
@@ -535,8 +547,8 @@ fn parse_unlabeled_sequential_statement(
             For | Loop | While => {
                 SequentialStatement::Loop(parse_loop_statement_initial_token(stream, label, &token, diagnostics)?)
             },
-            Next => SequentialStatement::Next(parse_next_statement_known_keyword(stream)?),
-            Exit => SequentialStatement::Exit(parse_exit_statement_known_keyword(stream)?),
+            Next => SequentialStatement::Next(parse_next_statement_known_keyword(token, stream)?),
+            Exit => SequentialStatement::Exit(parse_exit_statement_known_keyword(token, stream)?),
             Return => SequentialStatement::Return(parse_return_statement_known_keyword(token, stream)?),
             Null => {
                 stream.expect_kind(SemiColon)?;
@@ -1559,15 +1571,18 @@ end loop;
 
     #[test]
     fn parse_next_statement() {
-        let (_, statement) = parse("next;");
+        let (code, statement) = parse("next;");
         assert_eq!(
             statement,
             with_label(
                 None,
-                SequentialStatement::Next(NextStatement {
-                    loop_label: None,
-                    condition: None,
-                })
+                SequentialStatement::Next(WithPos::new(
+                    NextStatement {
+                        loop_label: None,
+                        condition: None,
+                    },
+                    code.pos()
+                ),)
             )
         );
     }
@@ -1579,10 +1594,13 @@ end loop;
             statement,
             with_label(
                 None,
-                SequentialStatement::Next(NextStatement {
-                    loop_label: Some(code.s1("foo").ident().into_ref()),
-                    condition: None,
-                })
+                SequentialStatement::Next(WithPos::new(
+                    NextStatement {
+                        loop_label: Some(code.s1("foo").ident().into_ref()),
+                        condition: None,
+                    },
+                    code.pos()
+                ))
             )
         );
     }
@@ -1594,10 +1612,13 @@ end loop;
             statement,
             with_label(
                 None,
-                SequentialStatement::Next(NextStatement {
-                    loop_label: None,
-                    condition: Some(code.s1("condition").expr()),
-                })
+                SequentialStatement::Next(WithPos::new(
+                    NextStatement {
+                        loop_label: None,
+                        condition: Some(code.s1("condition").expr()),
+                    },
+                    code.pos()
+                ))
             )
         );
     }
@@ -1609,25 +1630,31 @@ end loop;
             statement,
             with_label(
                 None,
-                SequentialStatement::Next(NextStatement {
-                    loop_label: Some(code.s1("foo").ident().into_ref()),
-                    condition: Some(code.s1("condition").expr()),
-                })
+                SequentialStatement::Next(WithPos::new(
+                    NextStatement {
+                        loop_label: Some(code.s1("foo").ident().into_ref()),
+                        condition: Some(code.s1("condition").expr()),
+                    },
+                    code.pos()
+                ))
             )
         );
     }
 
     #[test]
     fn parse_exit_statement() {
-        let (_, statement) = parse("exit;");
+        let (code, statement) = parse("exit;");
         assert_eq!(
             statement,
             with_label(
                 None,
-                SequentialStatement::Exit(ExitStatement {
-                    loop_label: None,
-                    condition: None,
-                })
+                SequentialStatement::Exit(WithPos::new(
+                    ExitStatement {
+                        loop_label: None,
+                        condition: None,
+                    },
+                    code.pos()
+                ))
             )
         );
     }
@@ -1639,10 +1666,13 @@ end loop;
             statement,
             with_label(
                 None,
-                SequentialStatement::Exit(ExitStatement {
-                    loop_label: Some(code.s1("foo").ident().into_ref()),
-                    condition: None,
-                })
+                SequentialStatement::Exit(WithPos::new(
+                    ExitStatement {
+                        loop_label: Some(code.s1("foo").ident().into_ref()),
+                        condition: None,
+                    },
+                    code.pos()
+                ))
             )
         );
     }
@@ -1654,10 +1684,13 @@ end loop;
             statement,
             with_label(
                 None,
-                SequentialStatement::Exit(ExitStatement {
-                    loop_label: None,
-                    condition: Some(code.s1("condition").expr()),
-                })
+                SequentialStatement::Exit(WithPos::new(
+                    ExitStatement {
+                        loop_label: None,
+                        condition: Some(code.s1("condition").expr()),
+                    },
+                    code.pos()
+                ))
             )
         );
     }
@@ -1669,10 +1702,13 @@ end loop;
             statement,
             with_label(
                 None,
-                SequentialStatement::Exit(ExitStatement {
-                    loop_label: Some(code.s1("foo").ident().into_ref()),
-                    condition: Some(code.s1("condition").expr()),
-                })
+                SequentialStatement::Exit(WithPos::new(
+                    ExitStatement {
+                        loop_label: Some(code.s1("foo").ident().into_ref()),
+                        condition: Some(code.s1("condition").expr()),
+                    },
+                    code.pos()
+                ))
             )
         );
     }
