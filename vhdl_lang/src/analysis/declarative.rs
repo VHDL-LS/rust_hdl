@@ -8,7 +8,6 @@ use super::formal_region::FormalRegion;
 use super::formal_region::RecordRegion;
 use super::named_entity::*;
 use super::names::*;
-use super::sequential::SequentialRoot;
 use super::*;
 use crate::ast;
 use crate::ast::*;
@@ -494,12 +493,6 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 };
 
-                let sroot = if let Some(return_type) = subpgm_ent.signature().return_type() {
-                    SequentialRoot::Function(return_type)
-                } else {
-                    SequentialRoot::Procedure
-                };
-
                 scope.add(subpgm_ent.into(), diagnostics);
 
                 self.define_labels_for_sequential_part(
@@ -518,7 +511,6 @@ impl<'a> AnalyzeContext<'a> {
                 self.analyze_sequential_part(
                     &subpgm_region,
                     subpgm_ent.into(),
-                    &sroot,
                     &mut body.statements,
                     diagnostics,
                 )?;
