@@ -365,6 +365,14 @@ impl<'a> AnyEnt<'a> {
             .unwrap();
         OverloadedEnt::from_any(ent).unwrap()
     }
+
+    // Used to update the kind of pre-declared symbols that are visible before they have been fully analyzed
+    pub(crate) unsafe fn set_kind(&self, kind: AnyEntKind) {
+        unsafe {
+            let self_kind: *mut AnyEntKind = (&self.kind) as *const AnyEntKind as *mut AnyEntKind;
+            *self_kind = kind;
+        }
+    }
 }
 
 impl<'a> std::cmp::PartialEq for AnyEnt<'a> {

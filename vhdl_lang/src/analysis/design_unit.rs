@@ -14,16 +14,16 @@ use region::*;
 impl<'a> AnalyzeContext<'a> {
     pub fn analyze_primary_unit(
         &self,
-        id: EntityId,
+        ent: EntRef<'a>,
         unit: &mut AnyPrimaryUnit,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         match unit {
-            AnyPrimaryUnit::Entity(unit) => self.analyze_entity(id, unit, diagnostics),
+            AnyPrimaryUnit::Entity(unit) => self.analyze_entity(ent, unit, diagnostics),
             AnyPrimaryUnit::Configuration(unit) => self.analyze_configuration(unit, diagnostics),
-            AnyPrimaryUnit::Package(unit) => self.analyze_package(id, unit, diagnostics),
+            AnyPrimaryUnit::Package(unit) => self.analyze_package(ent, unit, diagnostics),
             AnyPrimaryUnit::PackageInstance(unit) => {
-                self.analyze_package_instance(id, unit, diagnostics)
+                self.analyze_package_instance(ent, unit, diagnostics)
             }
             AnyPrimaryUnit::Context(unit) => self.analyze_context(unit, diagnostics),
         }
@@ -42,10 +42,11 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_entity(
         &self,
-        id: EntityId,
+        ent: EntRef<'a>,
         unit: &mut EntityDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
+        unit.ident.decl = Some(ent.id());
         let root_scope = Scope::default();
         self.add_implicit_context_clause(&root_scope)?;
         self.analyze_context_clause(&root_scope, &mut unit.context_clause, diagnostics)?;
@@ -53,7 +54,7 @@ impl<'a> AnalyzeContext<'a> {
         let primary_scope = root_scope.nested();
 
         // Entity name is visible
-        primary_scope.make_potentially_visible(Some(unit.pos()), self.arena.get(id));
+        primary_scope.make_potentially_visible(Some(unit.pos()), ent);
 
         if let Some(ref mut list) = unit.generic_clause {
             self.analyze_interface_list(&primary_scope, list, diagnostics)?;
@@ -68,15 +69,12 @@ impl<'a> AnalyzeContext<'a> {
         let region = primary_scope.into_region();
         let visibility = root_scope.into_visibility();
 
-        self.redefine(
-            id,
-            &mut unit.ident,
-            AnyEntKind::Design(Design::Entity(
-                self.work_library_name().clone(),
-                visibility,
-                region,
-            )),
-        );
+        let kind = AnyEntKind::Design(Design::Entity(
+            self.work_library_name().clone(),
+            visibility,
+            region,
+        ));
+        unsafe { ent.set_kind(kind) }
 
         Ok(())
     }
@@ -121,10 +119,12 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_package(
         &self,
-        id: EntityId,
+        ent: EntRef<'a>,
         unit: &mut PackageDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
+        unit.ident.decl = Some(ent.id());
+
         let root_scope = Scope::default();
         self.add_implicit_context_clause(&root_scope)?;
         self.analyze_context_clause(&root_scope, &mut unit.context_clause, diagnostics)?;
@@ -132,7 +132,7 @@ impl<'a> AnalyzeContext<'a> {
         let scope = root_scope.nested().in_package_declaration();
 
         // Package name is visible
-        scope.make_potentially_visible(Some(unit.pos()), self.arena.get(id));
+        scope.make_potentially_visible(Some(unit.pos()), ent);
 
         if let Some(ref mut list) = unit.generic_clause {
             self.analyze_interface_list(&scope, list, diagnostics)?;
@@ -146,25 +146,26 @@ impl<'a> AnalyzeContext<'a> {
         let region = scope.into_region();
         let visibility = root_scope.into_visibility();
 
-        self.redefine(
-            id,
-            &mut unit.ident,
-            if unit.generic_clause.is_some() {
-                AnyEntKind::Design(Design::UninstPackage(visibility, region))
-            } else {
-                AnyEntKind::Design(Design::Package(visibility, region))
-            },
-        );
+        let kind = if unit.generic_clause.is_some() {
+            AnyEntKind::Design(Design::UninstPackage(visibility, region))
+        } else {
+            AnyEntKind::Design(Design::Package(visibility, region))
+        };
+
+        unsafe {
+            ent.set_kind(kind);
+        }
 
         Ok(())
     }
 
     fn analyze_package_instance(
         &self,
-        id: EntityId,
+        ent: EntRef<'a>,
         unit: &mut PackageInstantiation,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
+        unit.ident.decl = Some(ent.id());
         let root_scope = Scope::default();
         self.add_implicit_context_clause(&root_scope)?;
 
@@ -173,11 +174,11 @@ impl<'a> AnalyzeContext<'a> {
         if let Some(pkg_region) =
             as_fatal(self.generic_package_instance(&root_scope, unit, diagnostics))?
         {
-            self.redefine(
-                id,
-                &mut unit.ident,
-                AnyEntKind::Design(Design::PackageInstance(pkg_region)),
-            );
+            let kind = AnyEntKind::Design(Design::PackageInstance(pkg_region));
+
+            unsafe {
+                ent.set_kind(kind);
+            }
         }
 
         Ok(())

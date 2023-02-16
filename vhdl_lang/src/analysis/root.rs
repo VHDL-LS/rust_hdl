@@ -514,7 +514,7 @@ impl DesignRoot {
                 // Pre-define entity and overwrite it later
                 let ent = arena.explicit(unit.name().clone(), AnyEntKind::Label, Some(unit.pos()));
 
-                if let Err(err) = context.analyze_primary_unit(ent.id(), unit, &mut diagnostics) {
+                if let Err(err) = context.analyze_primary_unit(ent, unit, &mut diagnostics) {
                     has_circular_dependency = true;
                     err.push_into(&mut diagnostics);
                 };
@@ -758,12 +758,12 @@ impl DesignRoot {
                         UniversalTypes::new(&arena, std_package.pos(), self.symbols.as_ref());
                     self.universal = Some(universal);
 
-                    let ent = arena.explicit(
+                    let standard_pkg = arena.explicit(
                         self.symbol_utf8("standard"),
                         AnyEntKind::Label,
                         Some(std_package.ident.pos()),
                     );
-                    let standard_pkg_id = ent.id();
+                    std_package.ident.decl = Some(standard_pkg.id());
 
                     // Reserve space in the arena for the standard types
                     self.standard_types = Some(StandardTypes::new(&arena, &mut std_package.decl));
@@ -818,14 +818,13 @@ impl DesignRoot {
                     context.end_of_package_implicits(&mut region, &mut diagnostics);
                     let visibility = root_scope.into_visibility();
 
-                    context.redefine(
-                        standard_pkg_id,
-                        &mut std_package.ident,
-                        AnyEntKind::Design(Design::Package(visibility, region)),
-                    );
+                    let kind = AnyEntKind::Design(Design::Package(visibility, region));
+                    unsafe {
+                        standard_pkg.set_kind(kind);
+                    }
 
+                    self.standard_pkg_id = Some(standard_pkg.id());
                     let arena = arena.finalize();
-                    self.standard_pkg_id = Some(standard_pkg_id);
                     self.standard_arena = Some(arena.clone());
 
                     let result = AnalysisData {

@@ -263,24 +263,6 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
-    pub fn redefine<T: HasIdent>(
-        &self,
-        id: EntityId,
-        decl: &mut WithDecl<T>,
-        kind: AnyEntKind<'a>,
-    ) -> EntRef<'a> {
-        decl.decl = Some(id);
-        unsafe {
-            self.arena.update(
-                id,
-                decl.tree.name().clone().into(),
-                Related::None,
-                kind,
-                Some(decl.tree.pos().clone()),
-            )
-        }
-    }
-
     /// Add implicit context clause for all packages except STD.STANDARD
     /// library STD, WORK;
     /// use STD.STANDARD.all;
