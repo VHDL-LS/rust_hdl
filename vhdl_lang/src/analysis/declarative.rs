@@ -23,6 +23,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_declarative_part(
         &self,
         scope: &Scope<'a>,
+        parent: Option<EntRef<'a>>,
         declarations: &mut [Declaration],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
@@ -63,6 +64,7 @@ impl<'a> AnalyzeContext<'a> {
                                 // Set incomplete type defintion to position of full declaration
                                 let ent = self.arena.explicit(
                                     designator,
+                                    parent,
                                     AnyEntKind::Type(Type::Incomplete),
                                     Some(decl_pos),
                                 );
@@ -87,17 +89,24 @@ impl<'a> AnalyzeContext<'a> {
                         if let Some((incomplete_type, _)) = incomplete_type {
                             self.analyze_type_declaration(
                                 scope,
+                                parent,
                                 type_decl,
                                 Some(incomplete_type.id()),
                                 diagnostics,
                             )?;
                         } else {
-                            self.analyze_type_declaration(scope, type_decl, None, diagnostics)?;
+                            self.analyze_type_declaration(
+                                scope,
+                                parent,
+                                type_decl,
+                                None,
+                                diagnostics,
+                            )?;
                         }
                     }
                 },
                 _ => {
-                    self.analyze_declaration(scope, &mut declarations[i], diagnostics)?;
+                    self.analyze_declaration(scope, parent, &mut declarations[i], diagnostics)?;
                 }
             }
         }
@@ -107,6 +116,7 @@ impl<'a> AnalyzeContext<'a> {
     fn analyze_alias_declaration(
         &self,
         scope: &Scope<'a>,
+        parent: Option<EntRef<'a>>,
         alias: &mut AliasDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<EntRef<'a>> {
@@ -204,19 +214,20 @@ impl<'a> AnalyzeContext<'a> {
             }
         };
 
-        Ok(designator.define(self.arena, kind))
+        Ok(designator.define(self.arena, parent, kind))
     }
 
     pub(crate) fn analyze_declaration(
         &self,
         scope: &Scope<'a>,
+        parent: Option<EntRef<'a>>,
         decl: &mut Declaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         match decl {
             Declaration::Alias(alias) => {
                 if let Some(ent) =
-                    as_fatal(self.analyze_alias_declaration(scope, alias, diagnostics))?
+                    as_fatal(self.analyze_alias_declaration(scope, parent, alias, diagnostics))?
                 {
                     scope.add(ent, diagnostics);
 
@@ -291,6 +302,7 @@ impl<'a> AnalyzeContext<'a> {
 
                         let object_ent = self.arena.alloc(
                             object_decl.ident.tree.item.clone().into(),
+                            parent,
                             if let Some(declared_by) = declared_by {
                                 Related::DeclaredBy(declared_by)
                             } else {
@@ -332,30 +344,48 @@ impl<'a> AnalyzeContext<'a> {
 
                 if let Some(subtype) = subtype {
                     scope.add(
-                        self.arena.define(ident, AnyEntKind::File(subtype)),
+                        self.arena.define(ident, parent, AnyEntKind::File(subtype)),
                         diagnostics,
                     );
                 }
             }
             Declaration::Component(ref mut component) => {
                 let nested = scope.nested();
-                self.analyze_interface_list(&nested, &mut component.generic_list, diagnostics)?;
-                self.analyze_interface_list(&nested, &mut component.port_list, diagnostics)?;
-                scope.add(
-                    self.arena.define(
-                        &mut component.ident,
-                        AnyEntKind::Component(nested.into_region()),
-                    ),
-                    diagnostics,
+                let ent = self.arena.define(
+                    &mut component.ident,
+                    parent,
+                    AnyEntKind::Component(Region::default()),
                 );
+                self.analyze_interface_list(
+                    &nested,
+                    Some(ent),
+                    &mut component.generic_list,
+                    diagnostics,
+                )?;
+                self.analyze_interface_list(
+                    &nested,
+                    Some(ent),
+                    &mut component.port_list,
+                    diagnostics,
+                )?;
+
+                let kind = AnyEntKind::Component(nested.into_region());
+                unsafe {
+                    ent.set_kind(kind);
+                }
+
+                scope.add(ent, diagnostics);
             }
             Declaration::Attribute(ref mut attr) => match attr {
                 Attribute::Declaration(ref mut attr_decl) => {
                     match self.resolve_type_mark(scope, &mut attr_decl.type_mark) {
                         Ok(typ) => {
                             scope.add(
-                                self.arena
-                                    .define(&mut attr_decl.ident, AnyEntKind::Attribute(typ)),
+                                self.arena.define(
+                                    &mut attr_decl.ident,
+                                    parent,
+                                    AnyEntKind::Attribute(typ),
+                                ),
                                 diagnostics,
                             );
                         }
@@ -455,78 +485,64 @@ impl<'a> AnalyzeContext<'a> {
                 }
             },
             Declaration::SubprogramBody(ref mut body) => {
-                let subpgm_region = scope.nested();
-
-                let signature = self.analyze_subprogram_declaration(
-                    &subpgm_region,
+                let (subpgm_region, subpgm_ent) = match self.subprogram_declaration(
+                    scope,
+                    parent,
                     &mut body.specification,
+                    Overloaded::Subprogram,
                     diagnostics,
-                );
-
-                // End mutable borrow of scope
-                let subpgm_region = Scope::new(subpgm_region.into_region());
-
-                // Overwrite subprogram definition with full signature
-                let sroot = match signature {
-                    Ok(signature) => {
-                        let sroot = if let Some(return_type) = signature.return_type() {
-                            SequentialRoot::Function(return_type)
-                        } else {
-                            SequentialRoot::Procedure
-                        };
-
-                        let declared_by =
-                            self.find_subpgm_declaration(scope, &body.specification, &signature);
-
-                        let subpgm_ent = body.specification.define(
-                            self.arena,
-                            AnyEntKind::Overloaded(Overloaded::Subprogram(signature)),
-                            declared_by,
-                        );
-
-                        scope.add(subpgm_ent, diagnostics);
-
-                        sroot
-                    }
+                ) {
+                    Ok(r) => r,
                     Err(err) => {
-                        err.add_to(diagnostics)?;
-                        SequentialRoot::Unknown
+                        diagnostics.push(err.into_non_fatal()?);
+                        return Ok(());
                     }
                 };
-                let subpgm_region = subpgm_region.with_parent(scope);
+
+                let sroot = if let Some(return_type) = subpgm_ent.signature().return_type() {
+                    SequentialRoot::Function(return_type)
+                } else {
+                    SequentialRoot::Procedure
+                };
+
+                scope.add(subpgm_ent.into(), diagnostics);
 
                 self.define_labels_for_sequential_part(
                     &subpgm_region,
+                    Some(subpgm_ent.into()),
                     &mut body.statements,
                     diagnostics,
                 )?;
-                self.analyze_declarative_part(&subpgm_region, &mut body.declarations, diagnostics)?;
+                self.analyze_declarative_part(
+                    &subpgm_region,
+                    Some(subpgm_ent.into()),
+                    &mut body.declarations,
+                    diagnostics,
+                )?;
 
                 self.analyze_sequential_part(
                     &subpgm_region,
+                    Some(subpgm_ent.into()),
                     &sroot,
                     &mut body.statements,
                     diagnostics,
                 )?;
             }
             Declaration::SubprogramDeclaration(ref mut subdecl) => {
-                let subpgm_region = scope.nested();
-                let signature =
-                    self.analyze_subprogram_declaration(&subpgm_region, subdecl, diagnostics);
-                drop(subpgm_region);
-
-                match signature {
-                    Ok(signature) => {
-                        scope.add(
-                            subdecl.define(
-                                self.arena,
-                                AnyEntKind::Overloaded(Overloaded::SubprogramDecl(signature)),
-                                None,
-                            ),
-                            diagnostics,
-                        );
+                match self.subprogram_declaration(
+                    scope,
+                    parent,
+                    subdecl,
+                    Overloaded::SubprogramDecl,
+                    diagnostics,
+                ) {
+                    Ok((_, ent)) => {
+                        scope.add(ent.into(), diagnostics);
                     }
-                    Err(err) => err.add_to(diagnostics)?,
+                    Err(err) => {
+                        diagnostics.push(err.into_non_fatal()?);
+                        return Ok(());
+                    }
                 }
             }
 
@@ -535,16 +551,20 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             Declaration::Package(ref mut instance) => {
+                let ent = self.arena.define(
+                    &mut instance.ident,
+                    parent,
+                    AnyEntKind::Design(Design::PackageInstance(Region::default())),
+                );
+
                 if let Some(pkg_region) =
-                    as_fatal(self.generic_package_instance(scope, instance, diagnostics))?
+                    as_fatal(self.generic_package_instance(scope, ent, instance, diagnostics))?
                 {
-                    scope.add(
-                        self.arena.define(
-                            &mut instance.ident,
-                            AnyEntKind::Design(Design::PackageInstance(pkg_region)),
-                        ),
-                        diagnostics,
-                    );
+                    let kind = AnyEntKind::Design(Design::PackageInstance(pkg_region));
+                    unsafe {
+                        ent.set_kind(kind);
+                    }
+                    scope.add(ent, diagnostics);
                 }
             }
             Declaration::Configuration(..) => {}
@@ -588,6 +608,7 @@ impl<'a> AnalyzeContext<'a> {
     pub(crate) fn analyze_type_declaration(
         &self,
         scope: &Scope<'a>,
+        parent: Option<EntRef<'a>>,
         type_decl: &mut TypeDeclaration,
         // Is the full type declaration of an incomplete type
         // Overwrite id when defining full type
@@ -600,6 +621,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
+                    parent,
                     None,
                     Type::Enum(
                         enumeration
@@ -617,6 +639,7 @@ impl<'a> AnalyzeContext<'a> {
                 for literal in enumeration.iter_mut() {
                     let literal_ent = self.arena.explicit(
                         literal.tree.item.clone().into_designator(),
+                        Some(enum_type.into()),
                         AnyEntKind::Overloaded(Overloaded::EnumLiteral(signature.clone())),
                         Some(&literal.tree.pos),
                     );
@@ -647,13 +670,6 @@ impl<'a> AnalyzeContext<'a> {
                                 if let AnyEntKind::Type(Type::Protected(ptype_region, is_body)) =
                                     ent.kind()
                                 {
-                                    let region = Scope::extend(ptype_region, Some(scope));
-                                    self.analyze_declarative_part(
-                                        &region,
-                                        &mut body.decl,
-                                        diagnostics,
-                                    )?;
-
                                     if *is_body {
                                         if let Some(prev_pos) = ent.decl_pos() {
                                             diagnostics.push(duplicate_error(
@@ -667,10 +683,25 @@ impl<'a> AnalyzeContext<'a> {
                                             self.arena,
                                             overwrite_id,
                                             &mut type_decl.ident,
+                                            parent,
                                             Some(ent),
-                                            Type::Protected(region.into_region(), true),
+                                            Type::Protected(Region::default(), true),
                                         )
                                         .into();
+
+                                        let region = Scope::extend(ptype_region, Some(scope));
+                                        self.analyze_declarative_part(
+                                            &region,
+                                            Some(ptype_body),
+                                            &mut body.decl,
+                                            diagnostics,
+                                        )?;
+
+                                        let kind = Type::Protected(region.into_region(), true);
+                                        unsafe {
+                                            ptype_body.set_kind(AnyEntKind::Type(kind));
+                                        }
+
                                         scope.add(ptype_body, diagnostics);
                                     }
 
@@ -704,6 +735,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
+                    parent,
                     None,
                     Type::Protected(Region::default(), false),
                 )
@@ -715,29 +747,19 @@ impl<'a> AnalyzeContext<'a> {
                 for item in prot_decl.items.iter_mut() {
                     match item {
                         ProtectedTypeDeclarativeItem::Subprogram(ref mut subprogram) => {
-                            let subpgm_region = region.nested();
-                            let signature = self.analyze_subprogram_declaration(
-                                &subpgm_region,
+                            match self.subprogram_declaration(
+                                scope,
+                                Some(ptype),
                                 subprogram,
+                                Overloaded::SubprogramDecl,
                                 diagnostics,
-                            );
-                            drop(subpgm_region);
-
-                            match signature {
-                                Ok(signature) => {
-                                    region.add(
-                                        subprogram.define(
-                                            self.arena,
-                                            AnyEntKind::Overloaded(Overloaded::SubprogramDecl(
-                                                signature,
-                                            )),
-                                            None,
-                                        ),
-                                        diagnostics,
-                                    );
+                            ) {
+                                Ok((_, ent)) => {
+                                    region.add(ent.into(), diagnostics);
                                 }
                                 Err(err) => {
-                                    err.add_to(diagnostics)?;
+                                    diagnostics.push(err.into_non_fatal()?);
+                                    return Ok(());
                                 }
                             }
                         }
@@ -760,6 +782,15 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             TypeDefinition::Record(ref mut element_decls) => {
+                let type_ent = TypeEnt::define_with_opt_id(
+                    self.arena,
+                    overwrite_id,
+                    &mut type_decl.ident,
+                    parent,
+                    None,
+                    Type::Record(RecordRegion::default()),
+                );
+
                 let mut elems = RecordRegion::default();
                 let mut region = Region::default();
                 for elem_decl in element_decls.iter_mut() {
@@ -769,6 +800,7 @@ impl<'a> AnalyzeContext<'a> {
                         Ok(subtype) => {
                             let elem = self.arena.define(
                                 &mut elem_decl.ident,
+                                Some(type_ent.into()),
                                 AnyEntKind::ElementDeclaration(subtype),
                             );
                             region.add(elem, diagnostics);
@@ -781,13 +813,11 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 region.close(diagnostics);
 
-                let type_ent = TypeEnt::define_with_opt_id(
-                    self.arena,
-                    overwrite_id,
-                    &mut type_decl.ident,
-                    None,
-                    Type::Record(elems),
-                );
+                unsafe {
+                    let kind = AnyEntKind::Type(Type::Record(elems));
+                    type_ent.set_kind(kind)
+                }
+
                 scope.add(type_ent.into(), diagnostics);
 
                 for ent in self.record_implicits(type_ent) {
@@ -806,6 +836,7 @@ impl<'a> AnalyzeContext<'a> {
                             self.arena,
                             overwrite_id,
                             &mut type_decl.ident,
+                            parent,
                             None,
                             Type::Access(subtype),
                         );
@@ -846,6 +877,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
+                    parent,
                     None,
                     Type::Array { indexes, elem_type },
                 );
@@ -867,6 +899,7 @@ impl<'a> AnalyzeContext<'a> {
                             self.arena,
                             overwrite_id,
                             &mut type_decl.ident,
+                            parent,
                             None,
                             Type::Subtype(subtype),
                         );
@@ -889,6 +922,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
+                    parent,
                     None,
                     Type::Physical,
                 );
@@ -896,6 +930,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 let primary = self.arena.define(
                     &mut physical.primary_unit,
+                    parent,
                     AnyEntKind::PhysicalLiteral(phys_type),
                 );
 
@@ -921,9 +956,11 @@ impl<'a> AnalyzeContext<'a> {
                         Err(err) => diagnostics.push(err),
                     }
 
-                    let secondary_unit = self
-                        .arena
-                        .define(secondary_unit_name, AnyEntKind::PhysicalLiteral(phys_type));
+                    let secondary_unit = self.arena.define(
+                        secondary_unit_name,
+                        parent,
+                        AnyEntKind::PhysicalLiteral(phys_type),
+                    );
                     unsafe {
                         self.arena.add_implicit(phys_type.id(), secondary_unit);
                     }
@@ -963,6 +1000,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
+                    parent,
                     None,
                     match universal_type {
                         UniversalType::Integer => Type::Integer,
@@ -984,6 +1022,7 @@ impl<'a> AnalyzeContext<'a> {
                     self.arena,
                     overwrite_id,
                     &mut type_decl.ident,
+                    parent,
                     None,
                     Type::File,
                 );
@@ -1073,6 +1112,7 @@ impl<'a> AnalyzeContext<'a> {
     fn analyze_interface_declaration(
         &self,
         scope: &Scope<'a>,
+        parent: Option<EntRef<'a>>,
         decl: &mut InterfaceDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> AnalysisResult<EntRef<'a>> {
@@ -1085,6 +1125,7 @@ impl<'a> AnalyzeContext<'a> {
                 )?;
                 self.arena.define(
                     &mut file_decl.ident,
+                    parent,
                     AnyEntKind::InterfaceFile(file_type.type_mark().to_owned()),
                 )
             }
@@ -1112,6 +1153,7 @@ impl<'a> AnalyzeContext<'a> {
                 let subtype = subtype?;
                 self.arena.define(
                     &mut object_decl.ident,
+                    parent,
                     AnyEntKind::Object(Object {
                         class: object_decl.class,
                         is_port: object_decl.list_type == InterfaceListType::Port,
@@ -1122,9 +1164,12 @@ impl<'a> AnalyzeContext<'a> {
                 )
             }
             InterfaceDeclaration::Type(ref mut ident) => {
-                let typ =
-                    TypeEnt::from_any(self.arena.define(ident, AnyEntKind::Type(Type::Interface)))
-                        .unwrap();
+                let typ = TypeEnt::from_any(self.arena.define(
+                    ident,
+                    parent,
+                    AnyEntKind::Type(Type::Interface),
+                ))
+                .unwrap();
 
                 let implicit = [
                     self.comparison(Operator::EQ, typ),
@@ -1142,16 +1187,14 @@ impl<'a> AnalyzeContext<'a> {
                 typ.into()
             }
             InterfaceDeclaration::Subprogram(ref mut subpgm, ..) => {
-                let subpgm_region = scope.nested();
-                let signature =
-                    self.analyze_subprogram_declaration(&subpgm_region, subpgm, diagnostics);
-                drop(subpgm_region);
-
-                subpgm.define(
-                    self.arena,
-                    AnyEntKind::Overloaded(Overloaded::InterfaceSubprogram(signature?)),
-                    None,
-                )
+                let (_, ent) = self.subprogram_declaration(
+                    scope,
+                    parent,
+                    subpgm,
+                    Overloaded::InterfaceSubprogram,
+                    diagnostics,
+                )?;
+                ent.into()
             }
             InterfaceDeclaration::Package(ref mut instance) => {
                 let package_region =
@@ -1159,6 +1202,7 @@ impl<'a> AnalyzeContext<'a> {
 
                 self.arena.define(
                     &mut instance.ident,
+                    parent,
                     AnyEntKind::Design(Design::PackageInstance(package_region.clone())),
                 )
             }
@@ -1169,11 +1213,12 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_interface_list(
         &self,
         scope: &Scope<'a>,
+        parent: Option<EntRef<'a>>,
         declarations: &mut [InterfaceDeclaration],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for decl in declarations.iter_mut() {
-            match self.analyze_interface_declaration(scope, decl, diagnostics) {
+            match self.analyze_interface_declaration(scope, parent, decl, diagnostics) {
                 Ok(ent) => {
                     scope.add(ent, diagnostics);
                 }
@@ -1188,13 +1233,14 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_parameter_list(
         &self,
         scope: &Scope<'a>,
+        parent: Option<EntRef<'a>>,
         declarations: &mut [InterfaceDeclaration],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<FormalRegion<'a>> {
         let mut params = FormalRegion::new(InterfaceListType::Parameter);
 
         for decl in declarations.iter_mut() {
-            match self.analyze_interface_declaration(scope, decl, diagnostics) {
+            match self.analyze_interface_declaration(scope, parent, decl, diagnostics) {
                 Ok(ent) => {
                     scope.add(ent, diagnostics);
                     params.add(ent);
@@ -1376,25 +1422,65 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
-    fn analyze_subprogram_declaration(
+    fn subprogram_declaration(
         &self,
         scope: &Scope<'a>,
+        parent: Option<EntRef<'a>>,
         subprogram: &mut SubprogramDeclaration,
+        to_kind: impl Fn(Signature<'a>) -> Overloaded<'a>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> AnalysisResult<Signature<'a>> {
-        match subprogram {
+    ) -> AnalysisResult<(Scope<'a>, OverloadedEnt<'a>)> {
+        let subpgm_region = scope.nested();
+        let ent = self.arena.explicit(
+            subprogram
+                .subpgm_designator()
+                .item
+                .clone()
+                .into_designator(),
+            parent,
+            AnyEntKind::Label,
+            Some(&subprogram.subpgm_designator().pos),
+        );
+
+        let signature = match subprogram {
             SubprogramDeclaration::Function(fun) => {
-                let params =
-                    self.analyze_parameter_list(scope, &mut fun.parameter_list, diagnostics);
+                let params = self.analyze_parameter_list(
+                    &subpgm_region,
+                    Some(ent),
+                    &mut fun.parameter_list,
+                    diagnostics,
+                );
                 let return_type = self.resolve_type_mark(scope, &mut fun.return_type);
-                Ok(Signature::new(params?, Some(return_type?)))
+                Signature::new(params?, Some(return_type?))
             }
             SubprogramDeclaration::Procedure(procedure) => {
-                let params =
-                    self.analyze_parameter_list(scope, &mut procedure.parameter_list, diagnostics);
-                Ok(Signature::new(params?, None))
+                let params = self.analyze_parameter_list(
+                    &subpgm_region,
+                    Some(ent),
+                    &mut procedure.parameter_list,
+                    diagnostics,
+                );
+                Signature::new(params?, None)
+            }
+        };
+
+        let kind = to_kind(signature);
+
+        if matches!(kind, Overloaded::Subprogram(_)) {
+            let declared_by = self.find_subpgm_declaration(scope, subprogram, kind.signature());
+
+            if let Some(declared_by) = declared_by {
+                unsafe {
+                    ent.set_declared_by(declared_by.into());
+                }
             }
         }
+
+        unsafe {
+            ent.set_kind(AnyEntKind::Overloaded(kind));
+        }
+        subprogram.set_decl_id(ent.id());
+        Ok((subpgm_region, OverloadedEnt::from_any(ent).unwrap()))
     }
 }
 

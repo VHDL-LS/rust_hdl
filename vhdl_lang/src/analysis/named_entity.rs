@@ -8,8 +8,7 @@ use super::formal_region::FormalRegion;
 use super::region::Region;
 use crate::ast::ExternalObjectClass;
 use crate::ast::{
-    AnyPrimaryUnit, Designator, HasIdent, Ident, ObjectClass, SubprogramDeclaration,
-    SubprogramDesignator, WithDecl,
+    AnyPrimaryUnit, Designator, HasIdent, Ident, ObjectClass, SubprogramDeclaration, WithDecl,
 };
 use crate::data::*;
 
@@ -125,6 +124,7 @@ impl<'a> std::fmt::Debug for AnyEnt<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let AnyEnt {
             id,
+            parent,
             related,
             implicits,
             designator,
@@ -134,6 +134,7 @@ impl<'a> std::fmt::Debug for AnyEnt<'a> {
 
         let mut s = f.debug_struct(stringify!(AnyEnt));
         s.field(stringify!(id), id);
+        s.field(stringify!(parent), &parent.is_some());
         s.field(stringify!(related), related);
         s.field(stringify!(implicits), &implicits.len());
         s.field(stringify!(designator), designator);
@@ -160,6 +161,7 @@ pub struct AnyEnt<'a> {
     /// A unique id of the entity.
     /// Entities with the same id will be the same.
     pub id: EntityId,
+    pub parent: Option<EntRef<'a>>,
     pub related: Related<'a>,
     pub implicits: Vec<EntRef<'a>>,
     /// The location where the declaration was made.
@@ -179,6 +181,7 @@ impl Arena {
     ) -> EntRef<'a> {
         self.alloc(
             designator.into(),
+            of_ent.parent,
             Related::ImplicitOf(of_ent),
             kind,
             decl_pos.cloned(),
@@ -188,9 +191,15 @@ impl Arena {
     pub fn define<'a, T: HasIdent>(
         &'a self,
         decl: &mut WithDecl<T>,
+        parent: Option<EntRef<'a>>,
         kind: AnyEntKind<'a>,
     ) -> EntRef<'a> {
-        let ent = self.explicit(decl.tree.name().clone(), kind, Some(decl.tree.pos()));
+        let ent = self.explicit(
+            decl.tree.name().clone(),
+            parent,
+            kind,
+            Some(decl.tree.pos()),
+        );
         decl.decl = Some(ent.id());
         ent
     }
@@ -198,10 +207,17 @@ impl Arena {
     pub fn explicit<'a>(
         &'a self,
         designator: impl Into<Designator>,
+        parent: Option<EntRef<'a>>,
         kind: AnyEntKind<'a>,
         decl_pos: Option<&SrcPos>,
     ) -> EntRef<'a> {
-        self.alloc(designator.into(), Related::None, kind, decl_pos.cloned())
+        self.alloc(
+            designator.into(),
+            parent,
+            Related::None,
+            kind,
+            decl_pos.cloned(),
+        )
     }
 }
 
@@ -366,11 +382,22 @@ impl<'a> AnyEnt<'a> {
         OverloadedEnt::from_any(ent).unwrap()
     }
 
+    #[allow(clippy::mut_from_ref)]
+    unsafe fn unsafe_ref_mut(&self) -> &mut Self {
+        let mut_self: *mut AnyEnt = self as *const AnyEnt as *mut AnyEnt;
+        &mut *mut_self
+    }
+
     // Used to update the kind of pre-declared symbols that are visible before they have been fully analyzed
     pub(crate) unsafe fn set_kind(&self, kind: AnyEntKind) {
         unsafe {
-            let self_kind: *mut AnyEntKind = (&self.kind) as *const AnyEntKind as *mut AnyEntKind;
-            *self_kind = kind;
+            self.unsafe_ref_mut().kind = kind;
+        }
+    }
+
+    pub(crate) unsafe fn set_declared_by(&self, ent: EntRef<'a>) {
+        unsafe {
+            self.unsafe_ref_mut().related = Related::DeclaredBy(ent);
         }
     }
 }
@@ -401,29 +428,17 @@ impl HasEntityId for AnyPrimaryUnit {
 }
 
 impl WithDecl<Ident> {
-    pub fn define<'a>(&mut self, arena: &'a Arena, kind: AnyEntKind<'a>) -> EntRef<'a> {
-        let ent = arena.explicit(self.tree.name().clone(), kind, Some(self.tree.pos()));
-        self.decl = Some(ent.id());
-        ent
-    }
-}
-
-impl WithDecl<WithPos<SubprogramDesignator>> {
     pub fn define<'a>(
         &mut self,
         arena: &'a Arena,
+        parent: Option<EntRef<'a>>,
         kind: AnyEntKind<'a>,
-        declared_by: Option<OverloadedEnt<'a>>,
     ) -> EntRef<'a> {
-        let ent = arena.alloc(
-            self.tree.item.clone().into_designator(),
-            if let Some(declared_by) = declared_by {
-                Related::DeclaredBy(declared_by.into())
-            } else {
-                Related::None
-            },
+        let ent = arena.explicit(
+            self.tree.name().clone(),
+            parent,
             kind,
-            Some(self.tree.pos.clone()),
+            Some(self.tree.pos()),
         );
         self.decl = Some(ent.id());
         ent
@@ -431,23 +446,23 @@ impl WithDecl<WithPos<SubprogramDesignator>> {
 }
 
 impl WithDecl<WithPos<Designator>> {
-    pub fn define<'a>(&mut self, arena: &'a Arena, kind: AnyEntKind<'a>) -> EntRef<'a> {
-        let ent = arena.explicit(self.tree.item.clone(), kind, Some(&self.tree.pos));
+    pub fn define<'a>(
+        &mut self,
+        arena: &'a Arena,
+        parent: Option<EntRef<'a>>,
+        kind: AnyEntKind<'a>,
+    ) -> EntRef<'a> {
+        let ent = arena.explicit(self.tree.item.clone(), parent, kind, Some(&self.tree.pos));
         self.decl = Some(ent.id());
         ent
     }
 }
 
 impl SubprogramDeclaration {
-    pub fn define<'a>(
-        &mut self,
-        arena: &'a Arena,
-        kind: AnyEntKind<'a>,
-        declared_by: Option<OverloadedEnt<'a>>,
-    ) -> EntRef<'a> {
+    pub fn set_decl_id(&mut self, id: EntityId) {
         match self {
-            SubprogramDeclaration::Function(f) => f.designator.define(arena, kind, declared_by),
-            SubprogramDeclaration::Procedure(p) => p.designator.define(arena, kind, declared_by),
+            SubprogramDeclaration::Function(f) => f.designator.decl = Some(id),
+            SubprogramDeclaration::Procedure(p) => p.designator.decl = Some(id),
         }
     }
 }

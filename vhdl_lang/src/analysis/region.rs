@@ -719,8 +719,25 @@ impl<'a> Region<'a> {
         self.entities.get(designator)
     }
 
-    pub fn immediates(&self) -> impl Iterator<Item = &NamedEntities<'a>> {
-        self.entities.values()
+    #[cfg(test)]
+    pub fn immediates(&self) -> Vec<EntRef<'a>> {
+        let mut result = Vec::new();
+        for ent in self.entities.values() {
+            match ent {
+                NamedEntities::Single(single) => {
+                    result.push(*single);
+                }
+                NamedEntities::Overloaded(overloaded) => {
+                    for name in overloaded.entities() {
+                        if matches!(name.designator(), Designator::Identifier(_)) {
+                            result.push(name.into());
+                        }
+                    }
+                }
+            }
+        }
+        result.sort_by_key(|ent| ent.decl_pos());
+        result
     }
 }
 

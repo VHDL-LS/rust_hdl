@@ -46,7 +46,7 @@ impl<'a> Design<'a> {
 }
 
 // A named entity that is known to be a type
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DesignEnt<'a>(pub EntRef<'a>);
 
 impl<'a> DesignEnt<'a> {

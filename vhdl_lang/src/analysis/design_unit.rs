@@ -57,14 +57,19 @@ impl<'a> AnalyzeContext<'a> {
         primary_scope.make_potentially_visible(Some(unit.pos()), ent);
 
         if let Some(ref mut list) = unit.generic_clause {
-            self.analyze_interface_list(&primary_scope, list, diagnostics)?;
+            self.analyze_interface_list(&primary_scope, Some(ent), list, diagnostics)?;
         }
         if let Some(ref mut list) = unit.port_clause {
-            self.analyze_interface_list(&primary_scope, list, diagnostics)?;
+            self.analyze_interface_list(&primary_scope, Some(ent), list, diagnostics)?;
         }
-        self.define_labels_for_concurrent_part(&primary_scope, &mut unit.statements, diagnostics)?;
-        self.analyze_declarative_part(&primary_scope, &mut unit.decl, diagnostics)?;
-        self.analyze_concurrent_part(&primary_scope, &mut unit.statements, diagnostics)?;
+        self.define_labels_for_concurrent_part(
+            &primary_scope,
+            Some(ent),
+            &mut unit.statements,
+            diagnostics,
+        )?;
+        self.analyze_declarative_part(&primary_scope, Some(ent), &mut unit.decl, diagnostics)?;
+        self.analyze_concurrent_part(&primary_scope, Some(ent), &mut unit.statements, diagnostics)?;
 
         let region = primary_scope.into_region();
         let visibility = root_scope.into_visibility();
@@ -111,8 +116,11 @@ impl<'a> AnalyzeContext<'a> {
             }
         };
 
-        self.arena
-            .define(&mut unit.ident, AnyEntKind::Design(Design::Configuration));
+        self.arena.define(
+            &mut unit.ident,
+            Some(self.work_library()),
+            AnyEntKind::Design(Design::Configuration),
+        );
 
         Ok(())
     }
@@ -135,9 +143,9 @@ impl<'a> AnalyzeContext<'a> {
         scope.make_potentially_visible(Some(unit.pos()), ent);
 
         if let Some(ref mut list) = unit.generic_clause {
-            self.analyze_interface_list(&scope, list, diagnostics)?;
+            self.analyze_interface_list(&scope, Some(ent), list, diagnostics)?;
         }
-        self.analyze_declarative_part(&scope, &mut unit.decl, diagnostics)?;
+        self.analyze_declarative_part(&scope, Some(ent), &mut unit.decl, diagnostics)?;
 
         if !self.has_package_body() {
             scope.close(diagnostics);
@@ -172,7 +180,7 @@ impl<'a> AnalyzeContext<'a> {
         self.analyze_context_clause(&root_scope, &mut unit.context_clause, diagnostics)?;
 
         if let Some(pkg_region) =
-            as_fatal(self.generic_package_instance(&root_scope, unit, diagnostics))?
+            as_fatal(self.generic_package_instance(&root_scope, ent, unit, diagnostics))?
         {
             let kind = AnyEntKind::Design(Design::PackageInstance(pkg_region));
 
@@ -196,6 +204,7 @@ impl<'a> AnalyzeContext<'a> {
 
         self.arena.define(
             &mut unit.ident,
+            Some(self.work_library()),
             AnyEntKind::Design(Design::Context(scope.into_region())),
         );
 
@@ -240,15 +249,21 @@ impl<'a> AnalyzeContext<'a> {
 
         let arch = self.arena.define(
             &mut unit.ident,
+            Some(primary.into()),
             AnyEntKind::Design(Design::Architecture(primary)),
         );
 
         // Architecture name is visible
         scope.make_potentially_visible(Some(unit.pos()), arch);
 
-        self.define_labels_for_concurrent_part(&scope, &mut unit.statements, diagnostics)?;
-        self.analyze_declarative_part(&scope, &mut unit.decl, diagnostics)?;
-        self.analyze_concurrent_part(&scope, &mut unit.statements, diagnostics)?;
+        self.define_labels_for_concurrent_part(
+            &scope,
+            Some(arch),
+            &mut unit.statements,
+            diagnostics,
+        )?;
+        self.analyze_declarative_part(&scope, Some(arch), &mut unit.decl, diagnostics)?;
+        self.analyze_concurrent_part(&scope, Some(arch), &mut unit.statements, diagnostics)?;
         scope.close(diagnostics);
         Ok(())
     }
@@ -293,7 +308,7 @@ impl<'a> AnalyzeContext<'a> {
 
         let scope = Scope::extend(region, Some(&root_scope));
 
-        self.analyze_declarative_part(&scope, &mut unit.decl, diagnostics)?;
+        self.analyze_declarative_part(&scope, Some(primary.into()), &mut unit.decl, diagnostics)?;
         scope.close(diagnostics);
         Ok(())
     }

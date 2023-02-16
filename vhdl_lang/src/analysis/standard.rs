@@ -12,7 +12,6 @@ use crate::ast::Operator;
 use crate::data::DiagnosticHandler;
 use crate::data::Symbol;
 use crate::syntax::Symbols;
-use crate::SrcPos;
 
 use super::analyze::AnalyzeContext;
 use super::formal_region::FormalRegion;
@@ -27,17 +26,19 @@ pub(crate) struct UniversalTypes {
 }
 
 impl UniversalTypes {
-    pub fn new(arena: &Arena, pos: &SrcPos, symbols: &Symbols) -> Self {
+    pub fn new<'a>(arena: &'a Arena, standard_pkg: EntRef<'a>, symbols: &Symbols) -> Self {
         let integer = arena.explicit(
             Designator::Identifier(symbols.symtab().insert_utf8("universal_integer")),
+            Some(standard_pkg),
             AnyEntKind::Type(Type::Universal(UniversalType::Integer)),
-            Some(pos),
+            standard_pkg.decl_pos(),
         );
 
         let real = arena.explicit(
             Designator::Identifier(symbols.symtab().insert_utf8("universal_real")),
+            Some(standard_pkg),
             AnyEntKind::Type(Type::Universal(UniversalType::Real)),
-            Some(pos),
+            standard_pkg.decl_pos(),
         );
 
         Self {
@@ -64,7 +65,7 @@ pub(crate) struct StandardTypes {
 }
 
 impl StandardTypes {
-    pub fn new(arena: &Arena, decls: &mut [Declaration]) -> Self {
+    pub fn new<'a>(arena: &'a Arena, standard_pkg: EntRef<'a>, decls: &mut [Declaration]) -> Self {
         let mut boolean = None;
         let mut boolean_vector = None;
         let mut bit = None;
@@ -85,6 +86,7 @@ impl StandardTypes {
                 let id = arena
                     .alloc(
                         Designator::Identifier(type_decl.ident.tree.item.clone()),
+                        Some(standard_pkg),
                         Related::None,
                         AnyEntKind::Type(Type::Incomplete),
                         Some(type_decl.ident.tree.pos.clone()),
@@ -235,25 +237,22 @@ impl<'a> AnalyzeContext<'a> {
     // function MINIMUM (L, R: T) return T;
     // function MAXIMUM (L, R: T) return T;
     fn min_or_maximum(&self, name: &str, type_ent: TypeEnt<'a>) -> EntRef<'a> {
-        let mut formals = FormalRegion::new_params();
-        formals.add(self.arena.explicit(
-            self.symbol("L"),
-            AnyEntKind::Object(Object::if_constant(Subtype::new(type_ent))),
-            type_ent.decl_pos(),
-        ));
-
-        formals.add(self.arena.explicit(
-            self.symbol("R"),
-            AnyEntKind::Object(Object::if_constant(Subtype::new(type_ent))),
-            type_ent.decl_pos(),
-        ));
-
-        self.arena.implicit(
-            type_ent.into(),
-            self.symbol(name),
-            AnyEntKind::new_function_decl(formals, type_ent),
-            type_ent.decl_pos(),
+        self.implicit_subpgm(
+            type_ent,
+            Designator::Identifier(self.symbol(name)),
+            [
+                (
+                    self.symbol("L"),
+                    AnyEntKind::Object(Object::if_constant(Subtype::new(type_ent))),
+                ),
+                (
+                    self.symbol("R"),
+                    AnyEntKind::Object(Object::if_constant(Subtype::new(type_ent))),
+                ),
+            ],
+            Some(type_ent),
         )
+        .into()
     }
 
     fn elementwise_min_or_maximum(
@@ -262,40 +261,69 @@ impl<'a> AnalyzeContext<'a> {
         arr_typ: TypeEnt<'a>,
         elem_typ: TypeEnt<'a>,
     ) -> EntRef<'a> {
-        let mut formals = FormalRegion::new_params();
-        formals.add(self.arena.explicit(
-            self.symbol("L"),
-            AnyEntKind::Object(Object::if_constant(Subtype::new(arr_typ))),
-            arr_typ.decl_pos(),
-        ));
-
-        self.arena.implicit(
-            arr_typ.into(),
-            self.symbol(name),
-            AnyEntKind::new_function_decl(formals, elem_typ),
-            arr_typ.decl_pos(),
+        self.implicit_subpgm(
+            arr_typ,
+            Designator::Identifier(self.symbol(name)),
+            [(
+                self.symbol("L"),
+                AnyEntKind::Object(Object::if_constant(Subtype::new(arr_typ))),
+            )],
+            Some(elem_typ),
         )
+        .into()
     }
 
     fn unary(&self, op: Operator, typ: TypeEnt<'a>, return_type: TypeEnt<'a>) -> EntRef<'a> {
-        let mut formals = FormalRegion::new_params();
-        formals.add(self.arena.explicit(
-            // @TODO anonymous
-            self.symbol("V"),
-            AnyEntKind::Object(Object::if_constant(Subtype::new(typ))),
-            typ.decl_pos(),
-        ));
-
-        self.arena.implicit(
-            typ.into(),
+        self.implicit_subpgm(
+            typ,
             Designator::OperatorSymbol(op),
-            AnyEntKind::new_function_decl(formals, return_type),
-            typ.decl_pos(),
+            [(
+                // @TODO anonymous
+                self.symbol("V"),
+                AnyEntKind::Object(Object::if_constant(Subtype::new(typ))),
+            )],
+            Some(return_type),
         )
+        .into()
     }
 
     pub(crate) fn symmetric_unary(&self, op: Operator, typ: TypeEnt<'a>) -> EntRef<'a> {
         self.unary(op, typ, typ)
+    }
+
+    fn implicit_subpgm(
+        &self,
+        implicit_of: TypeEnt<'a>,
+        des: Designator,
+        formals: impl IntoIterator<Item = (Symbol, AnyEntKind<'a>)>,
+        return_type: Option<TypeEnt<'a>>,
+    ) -> OverloadedEnt<'a> {
+        let mut region = FormalRegion::new_params();
+
+        let subpgm_ent = self.arena.implicit(
+            implicit_of.into(),
+            des,
+            AnyEntKind::Label,
+            implicit_of.decl_pos(),
+        );
+
+        for (name, kind) in formals.into_iter() {
+            region.add(
+                self.arena
+                    .explicit(name, Some(subpgm_ent), kind, implicit_of.decl_pos()),
+            );
+        }
+
+        let kind = if let Some(return_type) = return_type {
+            AnyEntKind::new_function_decl(region, return_type)
+        } else {
+            AnyEntKind::new_procedure_decl(region)
+        };
+
+        unsafe {
+            subpgm_ent.set_kind(kind);
+        }
+        OverloadedEnt::from_any(subpgm_ent).unwrap()
     }
 
     fn binary(
@@ -307,27 +335,24 @@ impl<'a> AnalyzeContext<'a> {
         right: TypeEnt<'a>,
         return_type: TypeEnt<'a>,
     ) -> EntRef<'a> {
-        let mut formals = FormalRegion::new_params();
-        formals.add(self.arena.explicit(
-            // @TODO anonymous
-            self.symbol("L"),
-            AnyEntKind::Object(Object::if_constant(Subtype::new(left))),
-            implicit_of.decl_pos(),
-        ));
-
-        formals.add(self.arena.explicit(
-            // @TODO anonymous
-            self.symbol("R"),
-            AnyEntKind::Object(Object::if_constant(Subtype::new(right))),
-            implicit_of.decl_pos(),
-        ));
-
-        self.arena.implicit(
-            implicit_of.into(),
+        self.implicit_subpgm(
+            implicit_of,
             Designator::OperatorSymbol(op),
-            AnyEntKind::new_function_decl(formals, return_type),
-            implicit_of.decl_pos(),
+            [
+                (
+                    // @TODO anonymous
+                    self.symbol("L"),
+                    AnyEntKind::Object(Object::if_constant(Subtype::new(left))),
+                ),
+                (
+                    // @TODO anonymous
+                    self.symbol("R"),
+                    AnyEntKind::Object(Object::if_constant(Subtype::new(right))),
+                ),
+            ],
+            Some(return_type),
         )
+        .into()
     }
 
     fn symmetric_binary(&self, op: Operator, typ: TypeEnt<'a>) -> EntRef<'a> {
@@ -356,168 +381,125 @@ impl<'a> AnalyzeContext<'a> {
 
         // procedure FILE_OPEN (file F: FT; External_Name: in STRING; Open_Kind: in FILE_OPEN_KIND := READ_MODE);
         {
-            let mut formals = FormalRegion::new_params();
-            formals.add(self.arena.explicit(
-                self.symbol("F"),
-                AnyEntKind::InterfaceFile(file_type),
-                file_type.decl_pos(),
-            ));
-            formals.add(self.arena.explicit(
-                self.symbol("External_Name"),
-                AnyEntKind::Object(Object::if_constant(Subtype::new(string))),
-                file_type.decl_pos(),
-            ));
-
-            formals.add(self.arena.explicit(
-                self.symbol("Open_Kind"),
-                AnyEntKind::Object(
-                    Object::if_constant(Subtype::new(file_open_kind)).with_default(),
-                ),
-                file_type.decl_pos(),
-            ));
-            implicit.push(self.arena.implicit(
-                file_type.into(),
-                self.symbol("FILE_OPEN"),
-                AnyEntKind::new_procedure_decl(formals),
-                file_type.decl_pos(),
-            ));
+            let ent = self.implicit_subpgm(
+                file_type,
+                Designator::Identifier(self.symbol("FILE_OPEN")),
+                [
+                    (self.symbol("F"), AnyEntKind::InterfaceFile(file_type)),
+                    (
+                        self.symbol("External_Name"),
+                        AnyEntKind::Object(Object::if_constant(Subtype::new(string))),
+                    ),
+                    (
+                        self.symbol("Open_Kind"),
+                        AnyEntKind::Object(
+                            Object::if_constant(Subtype::new(file_open_kind)).with_default(),
+                        ),
+                    ),
+                ],
+                None,
+            );
+            implicit.push(ent.into());
         }
 
         // procedure FILE_OPEN (Status: out FILE_OPEN_STATUS; file F: FT; External_Name: in STRING; Open_Kind: in FILE_OPEN_KIND := READ_MODE);
         {
-            let mut formals = FormalRegion::new_params();
-            formals.add(self.arena.explicit(
-                self.symbol("Status"),
-                AnyEntKind::Object(Object::if_constant(Subtype::new(file_open_status))),
-                file_type.decl_pos(),
-            ));
-            formals.add(self.arena.explicit(
-                self.symbol("F"),
-                AnyEntKind::InterfaceFile(file_type.to_owned()),
-                file_type.decl_pos(),
-            ));
-            formals.add(self.arena.explicit(
-                self.symbol("External_Name"),
-                AnyEntKind::Object(Object::if_constant(Subtype::new(string))),
-                file_type.decl_pos(),
-            ));
-
-            formals.add(self.arena.explicit(
-                self.symbol("Open_Kind"),
-                AnyEntKind::Object(
-                    Object::if_constant(Subtype::new(file_open_kind)).with_default(),
-                ),
-                file_type.decl_pos(),
-            ));
-            implicit.push(self.arena.implicit(
-                file_type.into(),
-                self.symbol("FILE_OPEN"),
-                AnyEntKind::new_procedure_decl(formals),
-                file_type.decl_pos(),
-            ));
+            let ent = self.implicit_subpgm(
+                file_type,
+                Designator::Identifier(self.symbol("FILE_OPEN")),
+                [
+                    (
+                        self.symbol("Status"),
+                        AnyEntKind::Object(Object::if_constant(Subtype::new(file_open_status))),
+                    ),
+                    (self.symbol("F"), AnyEntKind::InterfaceFile(file_type)),
+                    (
+                        self.symbol("External_Name"),
+                        AnyEntKind::Object(Object::if_constant(Subtype::new(string))),
+                    ),
+                    (
+                        self.symbol("Open_Kind"),
+                        AnyEntKind::Object(
+                            Object::if_constant(Subtype::new(file_open_kind)).with_default(),
+                        ),
+                    ),
+                ],
+                None,
+            );
+            implicit.push(ent.into());
         }
 
         // procedure FILE_CLOSE (file F: FT);
         {
-            let mut formals = FormalRegion::new_params();
-            formals.add(self.arena.explicit(
-                self.symbol("F"),
-                AnyEntKind::InterfaceFile(file_type.to_owned()),
-                file_type.decl_pos(),
-            ));
-
-            implicit.push(self.arena.implicit(
-                file_type.into(),
-                self.symbol("FILE_CLOSE"),
-                AnyEntKind::new_procedure_decl(formals),
-                file_type.decl_pos(),
-            ));
+            let ent = self.implicit_subpgm(
+                file_type,
+                Designator::Identifier(self.symbol("FILE_CLOSE")),
+                [(self.symbol("F"), AnyEntKind::InterfaceFile(file_type))],
+                None,
+            );
+            implicit.push(ent.into());
         }
 
         // procedure READ (file F: FT; VALUE: out TM);
         {
-            let mut formals = FormalRegion::new_params();
-            formals.add(self.arena.explicit(
-                self.symbol("F"),
-                AnyEntKind::InterfaceFile(file_type.to_owned()),
-                file_type.decl_pos(),
-            ));
-
-            formals.add(self.arena.explicit(
-                self.symbol("VALUE"),
-                AnyEntKind::Object(Object {
-                    class: ObjectClass::Variable,
-                    is_port: false,
-                    mode: Some(Mode::Out),
-                    subtype: Subtype::new(type_mark),
-                    has_default: false,
-                }),
-                file_type.decl_pos(),
-            ));
-
-            implicit.push(self.arena.implicit(
-                file_type.into(),
-                self.symbol("READ"),
-                AnyEntKind::new_procedure_decl(formals),
-                file_type.decl_pos(),
-            ));
+            let ent = self.implicit_subpgm(
+                file_type,
+                Designator::Identifier(self.symbol("READ")),
+                [
+                    (self.symbol("F"), AnyEntKind::InterfaceFile(file_type)),
+                    (
+                        self.symbol("VALUE"),
+                        AnyEntKind::Object(Object {
+                            class: ObjectClass::Variable,
+                            is_port: false,
+                            mode: Some(Mode::Out),
+                            subtype: Subtype::new(type_mark),
+                            has_default: false,
+                        }),
+                    ),
+                ],
+                None,
+            );
+            implicit.push(ent.into());
         }
 
         // procedure WRITE (file F: FT; VALUE: in TM);
         {
-            let mut formals = FormalRegion::new_params();
-            formals.add(self.arena.explicit(
-                self.symbol("F"),
-                AnyEntKind::InterfaceFile(file_type.to_owned()),
-                file_type.decl_pos(),
-            ));
-
-            formals.add(self.arena.explicit(
-                self.symbol("VALUE"),
-                AnyEntKind::Object(Object::if_constant(Subtype::new(type_mark))),
-                file_type.decl_pos(),
-            ));
-
-            implicit.push(self.arena.implicit(
-                file_type.into(),
-                self.symbol("WRITE"),
-                AnyEntKind::new_procedure_decl(formals),
-                file_type.decl_pos(),
-            ));
+            let ent = self.implicit_subpgm(
+                file_type,
+                Designator::Identifier(self.symbol("WRITE")),
+                [
+                    (self.symbol("F"), AnyEntKind::InterfaceFile(file_type)),
+                    (
+                        self.symbol("VALUE"),
+                        AnyEntKind::Object(Object::if_constant(Subtype::new(type_mark))),
+                    ),
+                ],
+                None,
+            );
+            implicit.push(ent.into());
         }
 
         // procedure FLUSH (file F: FT);
         {
-            let mut formals = FormalRegion::new_params();
-            formals.add(self.arena.explicit(
-                self.symbol("F"),
-                AnyEntKind::InterfaceFile(file_type.to_owned()),
-                file_type.decl_pos(),
-            ));
-
-            implicit.push(self.arena.implicit(
-                file_type.into(),
-                self.symbol("FLUSH"),
-                AnyEntKind::new_procedure_decl(formals),
-                file_type.decl_pos(),
-            ));
+            let ent = self.implicit_subpgm(
+                file_type,
+                Designator::Identifier(self.symbol("FLUSH")),
+                [(self.symbol("F"), AnyEntKind::InterfaceFile(file_type))],
+                None,
+            );
+            implicit.push(ent.into());
         }
 
         // function ENDFILE (file F: FT) return BOOLEAN;
         {
-            let mut formals = FormalRegion::new_params();
-            formals.add(self.arena.explicit(
-                self.symbol("F"),
-                AnyEntKind::InterfaceFile(file_type.to_owned()),
-                file_type.decl_pos(),
-            ));
-
-            implicit.push(self.arena.implicit(
-                file_type.into(),
-                self.symbol("ENDFILE"),
-                AnyEntKind::new_function_decl(formals, boolean),
-                file_type.decl_pos(),
-            ));
+            let ent = self.implicit_subpgm(
+                file_type,
+                Designator::Identifier(self.symbol("ENDFILE")),
+                [(self.symbol("F"), AnyEntKind::InterfaceFile(file_type))],
+                Some(boolean),
+            );
+            implicit.push(ent.into());
         }
 
         implicit
@@ -526,61 +508,43 @@ impl<'a> AnalyzeContext<'a> {
     /// Create implicit TO_STRING
     /// function TO_STRING (VALUE: T) return STRING;
     pub fn create_to_string(&self, type_ent: TypeEnt<'a>) -> EntRef<'a> {
-        let mut formals = FormalRegion::new_params();
-        formals.add(self.arena.explicit(
-            self.symbol("VALUE"),
-            AnyEntKind::Object(Object::if_constant(Subtype::new(type_ent))),
-            type_ent.decl_pos(),
-        ));
-
-        self.arena.implicit(
-            type_ent.into(),
-            self.symbol("TO_STRING"),
-            AnyEntKind::new_function_decl(formals, self.string()),
-            type_ent.decl_pos(),
-        )
+        self.to_x_string("TO_STRING", type_ent)
     }
 
-    /// Create implicit TO_STRING
-    /// function TO_STRING (VALUE: T) return STRING;
+    /// Create implicit function returning string
+    /// function <name> (VALUE: T) return STRING;
     pub fn to_x_string(&self, name: &str, type_ent: TypeEnt<'a>) -> EntRef<'a> {
-        let mut formals = FormalRegion::new_params();
-        formals.add(self.arena.explicit(
-            self.symbol("VALUE"),
-            AnyEntKind::Object(Object::if_constant(Subtype::new(type_ent))),
-            type_ent.decl_pos(),
-        ));
-
-        self.arena.implicit(
-            type_ent.into(),
-            self.symbol(name),
-            AnyEntKind::new_function_decl(formals, self.string()),
-            type_ent.decl_pos(),
+        self.implicit_subpgm(
+            type_ent,
+            Designator::Identifier(self.symbol(name)),
+            [(
+                self.symbol("VALUE"),
+                AnyEntKind::Object(Object::if_constant(Subtype::new(type_ent))),
+            )],
+            Some(self.string()),
         )
+        .into()
     }
 
     /// Create implicit DEALLOCATE
     /// procedure DEALLOCATE (P: inout AT);
     pub fn deallocate(&self, type_ent: TypeEnt<'a>) -> EntRef<'a> {
-        let mut formals = FormalRegion::new_params();
-        formals.add(self.arena.explicit(
-            self.symbol("P"),
-            AnyEntKind::Object(Object {
-                class: ObjectClass::Variable,
-                is_port: false,
-                mode: Some(Mode::InOut),
-                subtype: Subtype::new(type_ent.to_owned()),
-                has_default: false,
-            }),
-            type_ent.decl_pos(),
-        ));
-
-        self.arena.implicit(
-            type_ent.into(),
-            self.symbol("DEALLOCATE"),
-            AnyEntKind::new_procedure_decl(formals),
-            type_ent.decl_pos(),
+        self.implicit_subpgm(
+            type_ent,
+            Designator::Identifier(self.symbol("DEALLOCATE")),
+            [(
+                self.symbol("P"),
+                AnyEntKind::Object(Object {
+                    class: ObjectClass::Variable,
+                    is_port: false,
+                    mode: Some(Mode::InOut),
+                    subtype: Subtype::new(type_ent.to_owned()),
+                    has_default: false,
+                }),
+            )],
+            None,
         )
+        .into()
     }
 
     pub fn comparison(&self, op: Operator, typ: TypeEnt<'a>) -> EntRef<'a> {
@@ -963,31 +927,23 @@ impl<'a> AnalyzeContext<'a> {
             let natural = self.natural();
             let string = self.string();
 
-            let mut formals = FormalRegion::new_params();
-            formals.add(self.arena.explicit(
-                self.symbol("VALUE"),
-                AnyEntKind::Object(Object {
-                    class: ObjectClass::Constant,
-                    is_port: false,
-                    mode: Some(Mode::In),
-                    subtype: Subtype::new(real.to_owned()),
-                    has_default: false,
-                }),
-                real.decl_pos(),
-            ));
-
-            formals.add(self.arena.explicit(
-                self.symbol("DIGITS"),
-                AnyEntKind::Object(Object::if_constant(Subtype::new(natural))),
-                real.decl_pos(),
-            ));
-
-            let ent = self.arena.implicit(
-                real.into(),
-                self.symbol("TO_STRING"),
-                AnyEntKind::new_function_decl(formals, string),
-                real.decl_pos(),
-            );
+            let ent = self
+                .implicit_subpgm(
+                    real,
+                    Designator::Identifier(self.symbol("TO_STRING")),
+                    [
+                        (
+                            self.symbol("VALUE"),
+                            AnyEntKind::Object(Object::if_constant(Subtype::new(real))),
+                        ),
+                        (
+                            self.symbol("DIGITS"),
+                            AnyEntKind::Object(Object::if_constant(Subtype::new(natural))),
+                        ),
+                    ],
+                    Some(string),
+                )
+                .into();
 
             // This is safe because the standard package is analyzed in a single thread
             unsafe {
@@ -1001,25 +957,23 @@ impl<'a> AnalyzeContext<'a> {
             let real = self.real();
             let string = self.string();
 
-            let mut formals = FormalRegion::new_params();
-            formals.add(self.arena.explicit(
-                self.symbol("VALUE"),
-                AnyEntKind::Object(Object::if_constant(Subtype::new(real))),
-                real.decl_pos(),
-            ));
-
-            formals.add(self.arena.explicit(
-                self.symbol("FORMAT"),
-                AnyEntKind::Object(Object::if_constant(Subtype::new(string))),
-                real.decl_pos(),
-            ));
-
-            let ent = self.arena.implicit(
-                real.into(),
-                self.symbol("TO_STRING"),
-                AnyEntKind::new_function_decl(formals, string),
-                real.decl_pos(),
-            );
+            let ent = self
+                .implicit_subpgm(
+                    real,
+                    Designator::Identifier(self.symbol("TO_STRING")),
+                    [
+                        (
+                            self.symbol("VALUE"),
+                            AnyEntKind::Object(Object::if_constant(Subtype::new(real))),
+                        ),
+                        (
+                            self.symbol("FORMAT"),
+                            AnyEntKind::Object(Object::if_constant(Subtype::new(string))),
+                        ),
+                    ],
+                    Some(string),
+                )
+                .into();
 
             // This is safe because the standard package is analyzed in a single thread
             unsafe {
@@ -1032,25 +986,24 @@ impl<'a> AnalyzeContext<'a> {
         {
             let time = self.time();
             let string = self.string();
-            let mut formals = FormalRegion::new_params();
-            formals.add(self.arena.explicit(
-                self.symbol("VALUE"),
-                AnyEntKind::Object(Object::if_constant(Subtype::new(time))),
-                time.decl_pos(),
-            ));
 
-            formals.add(self.arena.explicit(
-                self.symbol("UNIT"),
-                AnyEntKind::Object(Object::if_constant(Subtype::new(time))),
-                time.decl_pos(),
-            ));
-
-            let ent = self.arena.implicit(
-                time.into(),
-                self.symbol("TO_STRING"),
-                AnyEntKind::new_function_decl(formals, string),
-                time.decl_pos(),
-            );
+            let ent = self
+                .implicit_subpgm(
+                    time,
+                    Designator::Identifier(self.symbol("TO_STRING")),
+                    [
+                        (
+                            self.symbol("VALUE"),
+                            AnyEntKind::Object(Object::if_constant(Subtype::new(time))),
+                        ),
+                        (
+                            self.symbol("UNIT"),
+                            AnyEntKind::Object(Object::if_constant(Subtype::new(time))),
+                        ),
+                    ],
+                    Some(string),
+                )
+                .into();
 
             // This is safe because the standard package is analyzed in a single thread
             unsafe {
@@ -1066,6 +1019,7 @@ impl<'a> AnalyzeContext<'a> {
 
             let to_bstring = self.arena.alloc(
                 Designator::Identifier(self.symbol("TO_BSTRING")),
+                None,
                 Related::ImplicitOf(typ.into()),
                 AnyEntKind::Overloaded(Overloaded::Alias(
                     OverloadedEnt::from_any(to_string).unwrap(),
@@ -1075,6 +1029,7 @@ impl<'a> AnalyzeContext<'a> {
 
             let to_binary_string = self.arena.alloc(
                 Designator::Identifier(self.symbol("TO_BINARY_STRING")),
+                None,
                 Related::ImplicitOf(typ.into()),
                 AnyEntKind::Overloaded(Overloaded::Alias(
                     OverloadedEnt::from_any(to_string).unwrap(),
@@ -1086,6 +1041,7 @@ impl<'a> AnalyzeContext<'a> {
 
             let to_octal_string = self.arena.alloc(
                 Designator::Identifier(self.symbol("TO_OCTAL_STRING")),
+                None,
                 Related::ImplicitOf(typ.into()),
                 AnyEntKind::Overloaded(Overloaded::Alias(
                     OverloadedEnt::from_any(to_ostring).unwrap(),
@@ -1096,6 +1052,7 @@ impl<'a> AnalyzeContext<'a> {
             let to_hstring = self.to_x_string("TO_HSTRING", typ);
             let to_hex_string = self.arena.alloc(
                 Designator::Identifier(self.symbol("TO_HEX_STRING")),
+                None,
                 Related::ImplicitOf(typ.into()),
                 AnyEntKind::Overloaded(Overloaded::Alias(
                     OverloadedEnt::from_any(to_hstring).unwrap(),

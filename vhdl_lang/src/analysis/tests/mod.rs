@@ -9,6 +9,7 @@ mod association_formal;
 mod circular_dependencies;
 mod context_clause;
 mod deferred_constant;
+mod hierarchy;
 mod homographs;
 mod implicit;
 mod incomplete_type;
@@ -82,6 +83,7 @@ impl<'a> TestSetup<'a> {
         self.ctx()
             .analyze_declarative_part(
                 &self.scope,
+                None,
                 code.declarative_part().as_mut(),
                 &mut NoDiagnostics,
             )

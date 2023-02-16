@@ -209,6 +209,7 @@ impl<'a> AnalyzeContext<'a> {
     pub fn generic_package_instance(
         &self,
         scope: &Scope<'a>,
+        package_ent: EntRef<'a>,
         unit: &mut PackageInstantiation,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<Region<'a>> {
@@ -230,7 +231,7 @@ impl<'a> AnalyzeContext<'a> {
                 };
 
                 for uninst in other {
-                    match self.instantiate(&mapping, uninst) {
+                    match self.instantiate(Some(package_ent), &mapping, uninst) {
                         Ok(inst) => {
                             // We ignore diagnostics here, for example when adding implicit operators EQ and NE for interface types
                             // They can collide if there are more than one interface type that map to the same actual type
@@ -257,6 +258,7 @@ impl<'a> AnalyzeContext<'a> {
 
     fn instantiate(
         &self,
+        parent: Option<EntRef<'a>>,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         uninst: EntRef<'a>,
     ) -> Result<EntRef<'a>, String> {
@@ -264,16 +266,24 @@ impl<'a> AnalyzeContext<'a> {
 
         let decl_pos = uninst.decl_pos().cloned();
 
-        let kind = self.map_kind(mapping, uninst.kind())?;
-
-        let inst = self
-            .arena
-            .alloc(designator, Related::InstanceOf(uninst), kind, decl_pos);
+        let inst = self.arena.alloc(
+            designator,
+            parent.or(uninst.parent),
+            Related::InstanceOf(uninst),
+            AnyEntKind::Label,
+            decl_pos,
+        );
+        let kind = self.map_kind(Some(inst), mapping, uninst.kind())?;
+        unsafe {
+            inst.set_kind(kind);
+        }
 
         for implicit_uninst in uninst.implicits.iter() {
             unsafe {
-                self.arena
-                    .add_implicit(inst.id(), self.instantiate(mapping, implicit_uninst)?);
+                self.arena.add_implicit(
+                    inst.id(),
+                    self.instantiate(Some(inst), mapping, implicit_uninst)?,
+                );
             }
         }
 
@@ -282,6 +292,7 @@ impl<'a> AnalyzeContext<'a> {
 
     fn map_kind(
         &self,
+        parent: Option<EntRef<'a>>,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         kind: &'a AnyEntKind<'a>,
     ) -> Result<AnyEntKind<'a>, String> {
@@ -295,7 +306,7 @@ impl<'a> AnalyzeContext<'a> {
                 type_mark,
             } => AnyEntKind::ObjectAlias {
                 base_object: if let Some(obj) =
-                    ObjectEnt::from_any(self.instantiate(mapping, base_object)?)
+                    ObjectEnt::from_any(self.instantiate(None, mapping, base_object)?)
                 {
                     obj
                 } else {
@@ -310,13 +321,13 @@ impl<'a> AnalyzeContext<'a> {
                 AnyEntKind::InterfaceFile(self.map_type_ent(mapping, *typ))
             }
             AnyEntKind::Component(region) => {
-                AnyEntKind::Component(self.map_region(mapping, region)?)
+                AnyEntKind::Component(self.map_region(parent, mapping, region)?)
             }
             AnyEntKind::Attribute(typ) => AnyEntKind::Attribute(self.map_type_ent(mapping, *typ)),
             AnyEntKind::Overloaded(overloaded) => {
-                AnyEntKind::Overloaded(self.map_overloaded(mapping, overloaded)?)
+                AnyEntKind::Overloaded(self.map_overloaded(parent, mapping, overloaded)?)
             }
-            AnyEntKind::Type(typ) => AnyEntKind::Type(self.map_type(mapping, typ)?),
+            AnyEntKind::Type(typ) => AnyEntKind::Type(self.map_type(parent, mapping, typ)?),
             AnyEntKind::ElementDeclaration(subtype) => {
                 AnyEntKind::ElementDeclaration(self.map_subtype(mapping, *subtype)?)
             }
@@ -333,9 +344,9 @@ impl<'a> AnalyzeContext<'a> {
             }
             AnyEntKind::Library => AnyEntKind::Library,
             AnyEntKind::Design(design) => match design {
-                Design::PackageInstance(region) => {
-                    AnyEntKind::Design(Design::PackageInstance(self.map_region(mapping, region)?))
-                }
+                Design::PackageInstance(region) => AnyEntKind::Design(Design::PackageInstance(
+                    self.map_region(parent, mapping, region)?,
+                )),
                 _ => {
                     return Err(format!(
                         "Internal error, did not expect to instantiate {}",
@@ -348,24 +359,25 @@ impl<'a> AnalyzeContext<'a> {
 
     fn map_overloaded(
         &self,
+        parent: Option<EntRef<'a>>,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         overloaded: &'a Overloaded<'a>,
     ) -> Result<Overloaded<'a>, String> {
         Ok(match overloaded {
             Overloaded::SubprogramDecl(signature) => {
-                Overloaded::SubprogramDecl(self.map_signature(mapping, signature)?)
+                Overloaded::SubprogramDecl(self.map_signature(parent, mapping, signature)?)
             }
             Overloaded::Subprogram(signature) => {
-                Overloaded::Subprogram(self.map_signature(mapping, signature)?)
+                Overloaded::Subprogram(self.map_signature(parent, mapping, signature)?)
             }
             Overloaded::InterfaceSubprogram(signature) => {
-                Overloaded::InterfaceSubprogram(self.map_signature(mapping, signature)?)
+                Overloaded::InterfaceSubprogram(self.map_signature(parent, mapping, signature)?)
             }
             Overloaded::EnumLiteral(signature) => {
-                Overloaded::EnumLiteral(self.map_signature(mapping, signature)?)
+                Overloaded::EnumLiteral(self.map_signature(parent, mapping, signature)?)
             }
             Overloaded::Alias(alias) => {
-                let alias_inst = self.instantiate(mapping, alias)?;
+                let alias_inst = self.instantiate(parent, mapping, alias)?;
 
                 if let Ok(overloaded) = OverloadedEnt::from_any(alias_inst) {
                     Overloaded::Alias(overloaded)
@@ -381,6 +393,7 @@ impl<'a> AnalyzeContext<'a> {
 
     fn map_signature(
         &self,
+        parent: Option<EntRef<'a>>,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         signature: &'a Signature<'a>,
     ) -> Result<Signature<'a>, String> {
@@ -396,7 +409,7 @@ impl<'a> AnalyzeContext<'a> {
 
         let mut inst_entities = Vec::with_capacity(uninst_entities.len());
         for uninst in uninst_entities {
-            let inst = self.instantiate(mapping, uninst)?;
+            let inst = self.instantiate(parent, mapping, uninst)?;
 
             if let Some(inst) = InterfaceEnt::from_any(inst) {
                 inst_entities.push(inst);
@@ -418,6 +431,7 @@ impl<'a> AnalyzeContext<'a> {
 
     fn map_region(
         &self,
+        parent: Option<EntRef<'a>>,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         region: &'a Region<'a>,
     ) -> Result<Region<'a>, String> {
@@ -433,12 +447,12 @@ impl<'a> AnalyzeContext<'a> {
         for (_, uninst) in uninst_entities.iter() {
             match uninst {
                 NamedEntities::Single(uninst) => {
-                    let inst = self.instantiate(mapping, uninst)?;
+                    let inst = self.instantiate(parent, mapping, uninst)?;
                     inst_region.add(inst, &mut NullDiagnostics);
                 }
                 NamedEntities::Overloaded(overloaded) => {
                     for uninst in overloaded.entities() {
-                        let inst = self.instantiate(mapping, uninst.into())?;
+                        let inst = self.instantiate(parent, mapping, uninst.into())?;
                         inst_region.add(inst, &mut NullDiagnostics);
                     }
                 }
@@ -450,6 +464,7 @@ impl<'a> AnalyzeContext<'a> {
 
     fn map_type(
         &self,
+        parent: Option<EntRef<'a>>,
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         typ: &'a Type<'a>,
     ) -> Result<Type<'a>, String> {
@@ -476,7 +491,7 @@ impl<'a> AnalyzeContext<'a> {
             Type::Record(region) => {
                 let mut elems = Vec::with_capacity(region.elems.len());
                 for uninst in region.elems.iter() {
-                    let inst = self.instantiate(mapping, uninst)?;
+                    let inst = self.instantiate(parent, mapping, uninst)?;
 
                     if let Some(inst) = RecordElement::from_any(inst) {
                         elems.push(inst);
@@ -488,7 +503,7 @@ impl<'a> AnalyzeContext<'a> {
             }
             Type::Subtype(subtype) => Type::Subtype(self.map_subtype(mapping, *subtype)?),
             Type::Protected(region, is_body) => {
-                Type::Protected(self.map_region(mapping, region)?, *is_body)
+                Type::Protected(self.map_region(parent, mapping, region)?, *is_body)
             }
             Type::File => Type::File,
             Type::Alias(typ) => Type::Alias(self.map_type_ent(mapping, *typ)),

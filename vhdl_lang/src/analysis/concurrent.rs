@@ -20,11 +20,12 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_concurrent_part(
         &self,
         scope: &Scope<'a>,
+        parent: Option<EntRef<'a>>,
         statements: &mut [LabeledConcurrentStatement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for statement in statements.iter_mut() {
-            self.analyze_concurrent_statement(scope, statement, diagnostics)?;
+            self.analyze_concurrent_statement(scope, parent, statement, diagnostics)?;
         }
 
         Ok(())
@@ -33,12 +34,16 @@ impl<'a> AnalyzeContext<'a> {
     pub fn define_labels_for_concurrent_part(
         &self,
         scope: &Scope<'a>,
+        parent: Option<EntRef<'a>>,
         statements: &mut [LabeledConcurrentStatement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for statement in statements.iter_mut() {
             if let Some(ref mut label) = statement.label {
-                scope.add(label.define(self.arena, AnyEntKind::Label), diagnostics);
+                scope.add(
+                    label.define(self.arena, parent, AnyEntKind::Label),
+                    diagnostics,
+                );
             }
         }
 
@@ -48,9 +53,17 @@ impl<'a> AnalyzeContext<'a> {
     fn analyze_concurrent_statement(
         &self,
         scope: &Scope<'a>,
+        parent: Option<EntRef<'a>>,
         statement: &mut LabeledConcurrentStatement,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
+        // @TODO without label use orginal parent, should unlabeled statements be implicitly declared?
+        let parent = if let Some(id) = statement.label.as_ref().and_then(|label| label.decl) {
+            Some(self.arena.get(id))
+        } else {
+            parent
+        };
+
         match statement.statement {
             ConcurrentStatement::Block(ref mut block) => {
                 if let Some(ref mut guard_condition) = block.guard_condition {
@@ -58,21 +71,26 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 let nested = scope.nested();
                 if let Some(ref mut list) = block.header.generic_clause {
-                    self.analyze_interface_list(&nested, list, diagnostics)?;
+                    self.analyze_interface_list(&nested, parent, list, diagnostics)?;
                 }
                 if let Some(ref mut list) = block.header.generic_map {
                     self.analyze_assoc_elems(scope, list, diagnostics)?;
                 }
                 if let Some(ref mut list) = block.header.port_clause {
-                    self.analyze_interface_list(&nested, list, diagnostics)?;
+                    self.analyze_interface_list(&nested, parent, list, diagnostics)?;
                 }
                 if let Some(ref mut list) = block.header.port_map {
                     self.analyze_assoc_elems(scope, list, diagnostics)?;
                 }
 
-                self.define_labels_for_concurrent_part(scope, &mut block.statements, diagnostics)?;
-                self.analyze_declarative_part(&nested, &mut block.decl, diagnostics)?;
-                self.analyze_concurrent_part(&nested, &mut block.statements, diagnostics)?;
+                self.define_labels_for_concurrent_part(
+                    scope,
+                    parent,
+                    &mut block.statements,
+                    diagnostics,
+                )?;
+                self.analyze_declarative_part(&nested, parent, &mut block.decl, diagnostics)?;
+                self.analyze_concurrent_part(&nested, parent, &mut block.statements, diagnostics)?;
             }
             ConcurrentStatement::Process(ref mut process) => {
                 let ProcessStatement {
@@ -91,10 +109,11 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
                 let nested = scope.nested();
-                self.define_labels_for_sequential_part(scope, statements, diagnostics)?;
-                self.analyze_declarative_part(&nested, decl, diagnostics)?;
+                self.define_labels_for_sequential_part(scope, parent, statements, diagnostics)?;
+                self.analyze_declarative_part(&nested, parent, decl, diagnostics)?;
                 self.analyze_sequential_part(
                     &nested,
+                    parent,
                     &SequentialRoot::Process,
                     statements,
                     diagnostics,
@@ -110,10 +129,10 @@ impl<'a> AnalyzeContext<'a> {
                 let typ = as_fatal(self.drange_type(scope, discrete_range, diagnostics))?;
                 let nested = scope.nested();
                 nested.add(
-                    index_name.define(self.arena, AnyEntKind::LoopParameter(typ)),
+                    index_name.define(self.arena, parent, AnyEntKind::LoopParameter(typ)),
                     diagnostics,
                 );
-                self.analyze_generate_body(&nested, body, diagnostics)?;
+                self.analyze_generate_body(&nested, parent, body, diagnostics)?;
             }
             ConcurrentStatement::IfGenerate(ref mut gen) => {
                 let Conditionals {
@@ -124,17 +143,22 @@ impl<'a> AnalyzeContext<'a> {
                     let Conditional { condition, item } = conditional;
                     self.boolean_expr(scope, condition, diagnostics)?;
                     let nested = scope.nested();
-                    self.analyze_generate_body(&nested, item, diagnostics)?;
+                    self.analyze_generate_body(&nested, parent, item, diagnostics)?;
                 }
                 if let Some(ref mut else_item) = else_item {
                     let nested = scope.nested();
-                    self.analyze_generate_body(&nested, else_item, diagnostics)?;
+                    self.analyze_generate_body(&nested, parent, else_item, diagnostics)?;
                 }
             }
             ConcurrentStatement::CaseGenerate(ref mut gen) => {
                 for alternative in gen.sels.alternatives.iter_mut() {
                     let nested = scope.nested();
-                    self.analyze_generate_body(&nested, &mut alternative.item, diagnostics)?;
+                    self.analyze_generate_body(
+                        &nested,
+                        parent,
+                        &mut alternative.item,
+                        diagnostics,
+                    )?;
                 }
             }
             ConcurrentStatement::Instance(ref mut instance) => {
@@ -180,6 +204,7 @@ impl<'a> AnalyzeContext<'a> {
     fn analyze_generate_body(
         &self,
         scope: &Scope<'a>,
+        parent: Option<EntRef<'a>>,
         body: &mut GenerateBody,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
@@ -189,17 +214,21 @@ impl<'a> AnalyzeContext<'a> {
             statements,
             end_label_pos: _,
         } = body;
+
+        let mut inner_parent = parent;
         if let Some(label) = alternative_label {
-            scope.add(label.define(self.arena, AnyEntKind::Label), diagnostics);
+            let ent = label.define(self.arena, parent, AnyEntKind::Label);
+            scope.add(ent, diagnostics);
+            inner_parent = Some(ent);
         }
 
         // Pre-declare labels
-        self.define_labels_for_concurrent_part(scope, statements, diagnostics)?;
+        self.define_labels_for_concurrent_part(scope, parent, statements, diagnostics)?;
 
         if let Some(ref mut decl) = decl {
-            self.analyze_declarative_part(scope, decl, diagnostics)?;
+            self.analyze_declarative_part(scope, parent, decl, diagnostics)?;
         }
-        self.analyze_concurrent_part(scope, statements, diagnostics)?;
+        self.analyze_concurrent_part(scope, inner_parent, statements, diagnostics)?;
 
         Ok(())
     }

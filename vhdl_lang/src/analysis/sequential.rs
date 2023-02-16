@@ -19,12 +19,16 @@ impl<'a> AnalyzeContext<'a> {
     pub fn define_labels_for_sequential_part(
         &self,
         scope: &Scope<'a>,
+        parent: Option<EntRef<'a>>,
         statements: &mut [LabeledSequentialStatement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for statement in statements.iter_mut() {
             if let Some(ref mut label) = statement.label {
-                scope.add(label.define(self.arena, AnyEntKind::Label), diagnostics);
+                scope.add(
+                    label.define(self.arena, parent, AnyEntKind::Label),
+                    diagnostics,
+                );
             }
 
             match statement.statement {
@@ -37,12 +41,18 @@ impl<'a> AnalyzeContext<'a> {
                     for conditional in conditionals {
                         self.define_labels_for_sequential_part(
                             scope,
+                            parent,
                             &mut conditional.item,
                             diagnostics,
                         )?;
                     }
                     if let Some(else_item) = else_item {
-                        self.define_labels_for_sequential_part(scope, else_item, diagnostics)?;
+                        self.define_labels_for_sequential_part(
+                            scope,
+                            parent,
+                            else_item,
+                            diagnostics,
+                        )?;
                     }
                 }
 
@@ -50,6 +60,7 @@ impl<'a> AnalyzeContext<'a> {
                     for alternative in case_stmt.alternatives.iter_mut() {
                         self.define_labels_for_sequential_part(
                             scope,
+                            parent,
                             &mut alternative.item,
                             diagnostics,
                         )?;
@@ -58,6 +69,7 @@ impl<'a> AnalyzeContext<'a> {
                 SequentialStatement::Loop(ref mut loop_stmt) => {
                     self.define_labels_for_sequential_part(
                         scope,
+                        parent,
                         &mut loop_stmt.statements,
                         diagnostics,
                     )?;
@@ -74,10 +86,18 @@ impl<'a> AnalyzeContext<'a> {
     fn analyze_sequential_statement(
         &self,
         scope: &Scope<'a>,
+        parent: Option<EntRef<'a>>,
         sroot: &SequentialRoot<'a>,
         statement: &mut LabeledSequentialStatement,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
+        // @TODO without label use orginal parent, should unlabeled statements be implicitly declared?
+        let parent = if let Some(id) = statement.label.as_ref().and_then(|label| label.decl) {
+            Some(self.arena.get(id))
+        } else {
+            parent
+        };
+
         match statement.statement {
             SequentialStatement::Return(ref mut ret) => {
                 let ReturnStatement { ref mut expression } = ret.item;
@@ -97,11 +117,6 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     SequentialRoot::Process => {
                         diagnostics.error(&ret.pos, "Cannot return from a process");
-                    }
-                    SequentialRoot::Unknown => {
-                        if let Some(ref mut expression) = expression {
-                            self.expr_unknown_ttyp(scope, expression, diagnostics)?;
-                        }
                     }
                 }
             }
@@ -178,10 +193,10 @@ impl<'a> AnalyzeContext<'a> {
                 for conditional in conditionals {
                     let Conditional { condition, item } = conditional;
                     self.boolean_expr(scope, condition, diagnostics)?;
-                    self.analyze_sequential_part(scope, sroot, item, diagnostics)?;
+                    self.analyze_sequential_part(scope, parent, sroot, item, diagnostics)?;
                 }
                 if let Some(else_item) = else_item {
-                    self.analyze_sequential_part(scope, sroot, else_item, diagnostics)?;
+                    self.analyze_sequential_part(scope, parent, sroot, else_item, diagnostics)?;
                 }
             }
             SequentialStatement::Case(ref mut case_stmt) => {
@@ -195,7 +210,7 @@ impl<'a> AnalyzeContext<'a> {
                 for alternative in alternatives.iter_mut() {
                     let Alternative { choices, item } = alternative;
                     self.choice_with_ttyp(scope, ctyp, choices, diagnostics)?;
-                    self.analyze_sequential_part(scope, sroot, item, diagnostics)?;
+                    self.analyze_sequential_part(scope, parent, sroot, item, diagnostics)?;
                 }
             }
             SequentialStatement::Loop(ref mut loop_stmt) => {
@@ -209,17 +224,36 @@ impl<'a> AnalyzeContext<'a> {
                         let typ = as_fatal(self.drange_type(scope, drange, diagnostics))?;
                         let region = scope.nested();
                         region.add(
-                            self.arena.define(index, AnyEntKind::LoopParameter(typ)),
+                            self.arena
+                                .define(index, parent, AnyEntKind::LoopParameter(typ)),
                             diagnostics,
                         );
-                        self.analyze_sequential_part(&region, sroot, statements, diagnostics)?;
+                        self.analyze_sequential_part(
+                            &region,
+                            parent,
+                            sroot,
+                            statements,
+                            diagnostics,
+                        )?;
                     }
                     Some(IterationScheme::While(ref mut expr)) => {
                         self.boolean_expr(scope, expr, diagnostics)?;
-                        self.analyze_sequential_part(scope, sroot, statements, diagnostics)?;
+                        self.analyze_sequential_part(
+                            scope,
+                            parent,
+                            sroot,
+                            statements,
+                            diagnostics,
+                        )?;
                     }
                     None => {
-                        self.analyze_sequential_part(scope, sroot, statements, diagnostics)?;
+                        self.analyze_sequential_part(
+                            scope,
+                            parent,
+                            sroot,
+                            statements,
+                            diagnostics,
+                        )?;
                     }
                 }
             }
@@ -309,12 +343,13 @@ impl<'a> AnalyzeContext<'a> {
     pub fn analyze_sequential_part(
         &self,
         scope: &Scope<'a>,
+        parent: Option<EntRef<'a>>,
         sroot: &SequentialRoot<'a>,
         statements: &mut [LabeledSequentialStatement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for statement in statements.iter_mut() {
-            self.analyze_sequential_statement(scope, sroot, statement, diagnostics)?;
+            self.analyze_sequential_statement(scope, parent, sroot, statement, diagnostics)?;
         }
 
         Ok(())
@@ -325,5 +360,4 @@ pub enum SequentialRoot<'a> {
     Process,
     Procedure,
     Function(TypeEnt<'a>),
-    Unknown,
 }

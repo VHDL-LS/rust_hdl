@@ -106,6 +106,7 @@ impl Library {
 
         let ent = arena.explicit(
             Designator::Identifier(name.clone()),
+            None,
             AnyEntKind::Library,
             None,
         );
@@ -512,7 +513,12 @@ impl DesignRoot {
         let result = match unit.deref_mut() {
             AnyDesignUnit::Primary(unit) => {
                 // Pre-define entity and overwrite it later
-                let ent = arena.explicit(unit.name().clone(), AnyEntKind::Label, Some(unit.pos()));
+                let ent = arena.explicit(
+                    unit.name().clone(),
+                    Some(context.work_library()),
+                    AnyEntKind::Label,
+                    Some(unit.pos()),
+                );
 
                 if let Err(err) = context.analyze_primary_unit(ent, unit, &mut diagnostics) {
                     has_circular_dependency = true;
@@ -728,10 +734,10 @@ impl DesignRoot {
 
     fn analyze_standard_package(&mut self) {
         // Analyze standard package first if it exits
-
+        let std_lib_name = self.symbol_utf8("std");
         if let Some(standard_units) = self
             .libraries
-            .get(&self.symbol_utf8("std"))
+            .get(&std_lib_name)
             .map(|library| &library.units)
         {
             if let Some(locked_unit) =
@@ -754,19 +760,32 @@ impl DesignRoot {
                     // Ensure no remaining references from previous analysis
                     clear_references(std_package);
 
-                    let universal =
-                        UniversalTypes::new(&arena, std_package.pos(), self.symbols.as_ref());
-                    self.universal = Some(universal);
+                    let standard_pkg = {
+                        let (lib_arena, id) = self.get_library_arena(&std_lib_name).unwrap();
+                        arena.link(lib_arena);
+                        let std_lib = arena.get(id);
 
-                    let standard_pkg = arena.explicit(
-                        self.symbol_utf8("standard"),
-                        AnyEntKind::Label,
-                        Some(std_package.ident.pos()),
-                    );
+                        arena.explicit(
+                            self.symbol_utf8("standard"),
+                            Some(std_lib),
+                            AnyEntKind::Label,
+                            Some(std_package.ident.pos()),
+                        )
+                    };
+
                     std_package.ident.decl = Some(standard_pkg.id());
 
+                    let universal =
+                        UniversalTypes::new(&arena, standard_pkg, self.symbols.as_ref());
+                    self.universal = Some(universal);
+
                     // Reserve space in the arena for the standard types
-                    self.standard_types = Some(StandardTypes::new(&arena, &mut std_package.decl));
+                    self.standard_types = Some(StandardTypes::new(
+                        &arena,
+                        standard_pkg,
+                        &mut std_package.decl,
+                    ));
+
                     let context = AnalyzeContext::new(self, locked_unit.unit_id(), &arena);
 
                     let mut diagnostics = Vec::new();
@@ -800,6 +819,7 @@ impl DesignRoot {
                             context
                                 .analyze_type_declaration(
                                     &scope,
+                                    Some(standard_pkg),
                                     type_decl,
                                     type_decl.ident.decl, // Set by standard types
                                     &mut diagnostics,
@@ -807,7 +827,12 @@ impl DesignRoot {
                                 .unwrap();
                         } else {
                             context
-                                .analyze_declaration(&scope, decl, &mut diagnostics)
+                                .analyze_declaration(
+                                    &scope,
+                                    Some(standard_pkg),
+                                    decl,
+                                    &mut diagnostics,
+                                )
                                 .unwrap();
                         }
                     }

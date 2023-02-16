@@ -152,12 +152,14 @@ impl Arena {
     pub fn alloc<'a>(
         &'a self,
         designator: Designator,
+        parent: Option<EntRef<'a>>,
         related: Related<'a>,
         kind: AnyEntKind<'a>,
         decl_pos: Option<SrcPos>,
     ) -> EntRef<'a> {
         let ent = AnyEnt {
             id: EntityId::undefined(),
+            parent,
             related,
             implicits: Vec::new(),
             designator,
@@ -175,6 +177,7 @@ impl Arena {
         &'a self,
         id: EntityId,
         designator: Designator,
+        parent: Option<EntRef<'a>>,
         related: Related<'a>,
         kind: AnyEntKind<'a>,
         decl_pos: Option<SrcPos>,
@@ -186,6 +189,7 @@ impl Arena {
             let eref = p.get_mut(id.local_id());
             *eref = AnyEnt {
                 id,
+                parent,
                 related,
                 implicits: Vec::new(),
                 designator,
