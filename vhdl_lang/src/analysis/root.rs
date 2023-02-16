@@ -543,15 +543,7 @@ impl DesignRoot {
 
         let result = match unit.deref_mut() {
             AnyDesignUnit::Primary(unit) => {
-                // Pre-define entity and overwrite it later
-                let ent = arena.explicit(
-                    unit.name().clone(),
-                    context.work_library(),
-                    AnyEntKind::Label,
-                    Some(unit.pos()),
-                );
-
-                if let Err(err) = context.analyze_primary_unit(ent, unit, &mut diagnostics) {
+                if let Err(err) = context.analyze_primary_unit(unit, &mut diagnostics) {
                     has_circular_dependency = true;
                     err.push_into(&mut diagnostics);
                 };

@@ -5,6 +5,7 @@
 // Copyright (c) 2019, Olof Kraigher olof.kraigher@gmail.com
 
 use super::named_entity::*;
+use super::visibility::Visibility;
 use super::*;
 use crate::ast::*;
 use crate::data::*;
@@ -14,16 +15,15 @@ use region::*;
 impl<'a> AnalyzeContext<'a> {
     pub fn analyze_primary_unit(
         &self,
-        ent: EntRef<'a>,
         unit: &mut AnyPrimaryUnit,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         match unit {
-            AnyPrimaryUnit::Entity(unit) => self.analyze_entity(ent, unit, diagnostics),
+            AnyPrimaryUnit::Entity(unit) => self.analyze_entity(unit, diagnostics),
             AnyPrimaryUnit::Configuration(unit) => self.analyze_configuration(unit, diagnostics),
-            AnyPrimaryUnit::Package(unit) => self.analyze_package(ent, unit, diagnostics),
+            AnyPrimaryUnit::Package(unit) => self.analyze_package(unit, diagnostics),
             AnyPrimaryUnit::PackageInstance(unit) => {
-                self.analyze_package_instance(ent, unit, diagnostics)
+                self.analyze_package_instance(unit, diagnostics)
             }
             AnyPrimaryUnit::Context(unit) => self.analyze_context(unit, diagnostics),
         }
@@ -42,10 +42,17 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_entity(
         &self,
-        ent: EntRef<'a>,
         unit: &mut EntityDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
+        // Pre-define entity and overwrite it later
+        let ent = self.arena.explicit(
+            unit.name().clone(),
+            self.work_library(),
+            AnyEntKind::Design(Design::Entity(Visibility::default(), Region::default())),
+            Some(unit.pos()),
+        );
+
         unit.ident.decl = Some(ent.id());
         let root_scope = Scope::default();
         self.add_implicit_context_clause(&root_scope)?;
@@ -123,10 +130,16 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_package(
         &self,
-        ent: EntRef<'a>,
         unit: &mut PackageDeclaration,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
+        let ent = self.arena.explicit(
+            unit.name().clone(),
+            self.work_library(),
+            AnyEntKind::Design(Design::Package(Visibility::default(), Region::default())),
+            Some(unit.pos()),
+        );
+
         unit.ident.decl = Some(ent.id());
 
         let root_scope = Scope::default();
@@ -165,10 +178,16 @@ impl<'a> AnalyzeContext<'a> {
 
     fn analyze_package_instance(
         &self,
-        ent: EntRef<'a>,
         unit: &mut PackageInstantiation,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
+        let ent = self.arena.explicit(
+            unit.name().clone(),
+            self.work_library(),
+            AnyEntKind::Design(Design::PackageInstance(Region::default())),
+            Some(unit.pos()),
+        );
+
         unit.ident.decl = Some(ent.id());
         let root_scope = Scope::default();
         self.add_implicit_context_clause(&root_scope)?;

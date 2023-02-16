@@ -301,7 +301,10 @@ impl<'a> AnalyzeContext<'a> {
         let subpgm_ent = self.arena.implicit(
             implicit_of.into(),
             des,
-            AnyEntKind::Label,
+            AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(
+                FormalRegion::new_params(),
+                return_type,
+            ))),
             implicit_of.decl_pos(),
         );
 

@@ -1433,7 +1433,7 @@ impl<'a> AnalyzeContext<'a> {
                 .clone()
                 .into_designator(),
             parent,
-            AnyEntKind::Label,
+            AnyEntKind::Overloaded(to_kind(Signature::new(FormalRegion::new_params(), None))),
             Some(&subprogram.subpgm_designator().pos),
         );
 

@@ -270,7 +270,7 @@ impl<'a> AnalyzeContext<'a> {
             designator,
             parent.or(uninst.parent),
             Related::InstanceOf(uninst),
-            AnyEntKind::Label,
+            AnyEntKind::Label, // Will be immediately overwritten below
             decl_pos,
         );
         let kind = self.map_kind(Some(inst), mapping, uninst.kind())?;
