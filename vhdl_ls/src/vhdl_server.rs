@@ -362,7 +362,7 @@ impl VHDLServer {
 
         let ents = self
             .project
-            .find_implementation(&source, from_lsp_pos(params.position))?;
+            .find_implementation(&source, from_lsp_pos(params.position));
 
         Some(GotoDefinitionResponse::Array(
             ents.into_iter()

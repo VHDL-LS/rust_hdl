@@ -289,6 +289,20 @@ impl<'a> AnyEnt<'a> {
         self.decl_pos.as_ref()
     }
 
+    pub fn library_name(&self) -> Option<&Symbol> {
+        if let AnyEntKind::Library = self.kind() {
+            if let Designator::Identifier(symbol) = self.designator() {
+                return Some(symbol);
+            }
+        }
+
+        if let Some(parent) = self.parent {
+            parent.library_name()
+        } else {
+            None
+        }
+    }
+
     pub fn designator(&self) -> &Designator {
         &self.designator
     }

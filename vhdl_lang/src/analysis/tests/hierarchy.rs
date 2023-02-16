@@ -163,3 +163,43 @@ fn hierarchy(ent: EntRef) -> String {
         ent.designator().to_string()
     }
 }
+
+#[test]
+fn find_implementation_of_entity_vs_component() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity ent0 is
+end entity;
+
+architecture a of ent0 is
+begin
+end architecture;
+
+entity ent1 is
+end entity;
+
+architecture a of ent1 is
+  component ent0 is
+  end component;
+begin
+  inst: ent0;
+end architecture;
+
+      ",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    let ent = root
+        .search_reference(code.source(), code.s1("ent0").start())
+        .unwrap();
+    let comp = root
+        .search_reference(code.source(), code.sa("component ", "ent0").start())
+        .unwrap();
+
+    assert_eq!(root.find_implementation(ent), vec![comp]);
+    assert_eq!(root.find_implementation(comp), vec![ent]);
+}

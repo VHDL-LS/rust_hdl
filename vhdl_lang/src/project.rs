@@ -4,9 +4,8 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::analysis::{AnyEnt, AnyEntKind, Design, DesignRoot, EntRef};
-use crate::ast::search::FindAllEnt;
-use crate::ast::{DesignFile, Designator};
+use crate::analysis::{AnyEnt, DesignRoot, EntRef};
+use crate::ast::DesignFile;
 use crate::config::Config;
 use crate::data::*;
 use crate::syntax::VHDLParser;
@@ -241,49 +240,11 @@ impl Project {
         self.root.item_at_cursor(source, cursor)
     }
 
-    fn get_library(&self, source: &Source) -> Option<Symbol> {
-        let file = self.files.get(source.file_name())?;
-        file.library_names.iter().next().cloned()
-    }
-
-    pub fn find_implementation<'a>(
-        &'a self,
-        source: &Source,
-        cursor: Position,
-    ) -> Option<Vec<EntRef<'a>>> {
-        let ent = self.find_declaration(source, cursor)?;
-
-        let ident = if let Designator::Identifier(ident) = ent.designator() {
-            ident
+    pub fn find_implementation<'a>(&'a self, source: &Source, cursor: Position) -> Vec<EntRef<'a>> {
+        if let Some(ent) = self.find_declaration(source, cursor) {
+            self.root.find_implementation(ent)
         } else {
-            return None;
-        };
-
-        match ent.kind() {
-            // Find entity with same name as component in the library
-            AnyEntKind::Component(_) => {
-                let decl_pos = ent.decl_pos()?;
-                let library_name = self.get_library(decl_pos.source())?;
-                let design = self.root.get_design_entity(&library_name, ident)?;
-                Some(vec![design.into()])
-            }
-            // Find all components with same name as entity in the library
-            AnyEntKind::Design(Design::Entity(..)) => {
-                let decl_pos = ent.decl_pos()?;
-                let library_name = self.get_library(decl_pos.source())?;
-
-                let mut searcher = FindAllEnt::new(&self.root, |ent| {
-                    matches!(ent.kind(), AnyEntKind::Component(_))
-                        && matches!(
-                            ent.designator(),
-                            Designator::Identifier(comp_ident) if comp_ident == ident
-                        )
-                });
-
-                let _ = self.root.search_library(&library_name, &mut searcher);
-                Some(searcher.result)
-            }
-            _ => None,
+            Vec::default()
         }
     }
 

@@ -398,6 +398,36 @@ impl DesignRoot {
         }
     }
 
+    pub fn find_implementation<'a>(&'a self, ent: EntRef<'a>) -> Vec<EntRef<'a>> {
+        if let Designator::Identifier(ident) = ent.designator() {
+            if let Some(library_name) = ent.library_name() {
+                match ent.kind() {
+                    // Find entity with same name as component in the library
+                    AnyEntKind::Component(_) => {
+                        if let Some(design) = self.get_design_entity(library_name, ident) {
+                            return vec![design.into()];
+                        }
+                    }
+                    // Find all components with same name as entity in the library
+                    AnyEntKind::Design(Design::Entity(..)) => {
+                        let mut searcher = FindAllEnt::new(self, |ent| {
+                            matches!(ent.kind(), AnyEntKind::Component(_))
+                                && matches!(
+                                    ent.designator(),
+                                    Designator::Identifier(comp_ident) if comp_ident == ident
+                                )
+                        });
+
+                        let _ = self.search_library(library_name, &mut searcher);
+                        return searcher.result;
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Vec::default()
+    }
+
     #[cfg(test)]
     pub fn search_reference_pos(&self, source: &Source, cursor: Position) -> Option<SrcPos> {
         self.search_reference(source, cursor)
