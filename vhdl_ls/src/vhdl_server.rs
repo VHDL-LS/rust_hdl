@@ -9,12 +9,15 @@ use lsp_types::*;
 use fnv::FnvHashMap;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use vhdl_lang::ast::Designator;
+use vhdl_lang::ast::{Designator, ObjectClass};
 
 use crate::rpc_channel::SharedRpcChannel;
 use std::io;
 use std::path::{Path, PathBuf};
-use vhdl_lang::{Config, Diagnostic, Message, MessageHandler, Project, Severity, Source, SrcPos};
+use vhdl_lang::{
+    AnyEntKind, Config, Diagnostic, Message, MessageHandler, Overloaded, Project, Severity, Source,
+    SrcPos, Type,
+};
 
 #[derive(Default, Clone)]
 pub struct VHDLServerSettings {
@@ -123,6 +126,7 @@ impl VHDLServer {
                 prepare_provider: Some(true),
                 work_done_progress_options: Default::default(),
             })),
+            workspace_symbol_provider: Some(OneOf::Left(true)),
             ..Default::default()
         };
 
@@ -419,6 +423,28 @@ impl VHDLServer {
         })
     }
 
+    pub fn workspace_symbol(
+        &self,
+        params: &WorkspaceSymbolParams,
+    ) -> Option<WorkspaceSymbolResponse> {
+        let ents = self.project.find_public_symbols(&params.query);
+
+        Some(WorkspaceSymbolResponse::Nested(
+            ents.into_iter()
+                .filter_map(|ent| {
+                    let decl_pos = ent.decl_pos()?;
+                    Some(WorkspaceSymbol {
+                        name: ent.describe(),
+                        kind: to_symbol_kind(ent.kind()),
+                        tags: None,
+                        container_name: ent.parent.map(|ent| ent.path_name()),
+                        location: OneOf::Left(srcpos_to_location(decl_pos)),
+                        data: None,
+                    })
+                })
+                .collect(),
+        ))
+    }
     pub fn text_document_hover(&mut self, params: &TextDocumentPositionParams) -> Option<Hover> {
         let source = self
             .project
@@ -620,6 +646,74 @@ fn to_lsp_diagnostic(diagnostic: Diagnostic) -> lsp_types::Diagnostic {
         message: diagnostic.message,
         related_information,
         ..Default::default()
+    }
+}
+
+fn overloaded_kind(overloaded: &Overloaded) -> SymbolKind {
+    match overloaded {
+        Overloaded::SubprogramDecl(_) => SymbolKind::FUNCTION,
+        Overloaded::Subprogram(_) => SymbolKind::FUNCTION,
+        Overloaded::InterfaceSubprogram(_) => SymbolKind::FUNCTION,
+        Overloaded::EnumLiteral(_) => SymbolKind::ENUM_MEMBER,
+        Overloaded::Alias(o) => overloaded_kind(o.kind()),
+    }
+}
+
+fn object_kind(class: ObjectClass) -> SymbolKind {
+    match class {
+        ObjectClass::Signal => SymbolKind::EVENT,
+        ObjectClass::Constant => SymbolKind::CONSTANT,
+        ObjectClass::Variable => SymbolKind::VARIABLE,
+        ObjectClass::SharedVariable => SymbolKind::VARIABLE,
+    }
+}
+
+fn type_kind(t: &Type) -> SymbolKind {
+    match t {
+        vhdl_lang::Type::Array { .. } => SymbolKind::ARRAY,
+        vhdl_lang::Type::Enum(_) => SymbolKind::ENUM,
+        vhdl_lang::Type::Integer => SymbolKind::NUMBER,
+        vhdl_lang::Type::Real => SymbolKind::NUMBER,
+        vhdl_lang::Type::Physical => SymbolKind::NUMBER,
+        vhdl_lang::Type::Access(_) => SymbolKind::ENUM,
+        vhdl_lang::Type::Record(_) => SymbolKind::STRUCT,
+        vhdl_lang::Type::Incomplete => SymbolKind::NULL,
+        vhdl_lang::Type::Subtype(t) => type_kind(t.type_mark().kind()),
+        vhdl_lang::Type::Protected(_, _) => SymbolKind::CLASS,
+        vhdl_lang::Type::File => SymbolKind::FILE,
+        vhdl_lang::Type::Interface => SymbolKind::TYPE_PARAMETER,
+        vhdl_lang::Type::Alias(t) => type_kind(t.kind()),
+        vhdl_lang::Type::Universal(_) => SymbolKind::NUMBER,
+    }
+}
+
+fn to_symbol_kind(kind: &AnyEntKind) -> SymbolKind {
+    match kind {
+        AnyEntKind::ExternalAlias { class, .. } => object_kind(ObjectClass::from(*class)),
+        AnyEntKind::ObjectAlias { base_object, .. } => object_kind(base_object.class()),
+        AnyEntKind::Object(o) => object_kind(o.class),
+        AnyEntKind::LoopParameter(_) => SymbolKind::CONSTANT,
+        AnyEntKind::PhysicalLiteral(_) => SymbolKind::CONSTANT,
+        AnyEntKind::DeferredConstant(_) => SymbolKind::CONSTANT,
+        AnyEntKind::File { .. } => SymbolKind::FILE,
+        AnyEntKind::InterfaceFile { .. } => SymbolKind::INTERFACE,
+        AnyEntKind::Component(_) => SymbolKind::CLASS,
+        AnyEntKind::Attribute(_) => SymbolKind::PROPERTY,
+        AnyEntKind::Overloaded(o) => overloaded_kind(o),
+        AnyEntKind::Type(t) => type_kind(t),
+        AnyEntKind::ElementDeclaration(_) => SymbolKind::FIELD,
+        AnyEntKind::Label => SymbolKind::NAMESPACE,
+        AnyEntKind::LoopLabel => SymbolKind::NAMESPACE,
+        AnyEntKind::Library => SymbolKind::NAMESPACE,
+        AnyEntKind::Design(d) => match d {
+            vhdl_lang::Design::Entity(_, _) => SymbolKind::OBJECT,
+            vhdl_lang::Design::Architecture(_) => SymbolKind::OBJECT,
+            vhdl_lang::Design::Configuration => SymbolKind::OBJECT,
+            vhdl_lang::Design::Package(_, _) => SymbolKind::PACKAGE,
+            vhdl_lang::Design::UninstPackage(_, _) => SymbolKind::PACKAGE,
+            vhdl_lang::Design::PackageInstance(_) => SymbolKind::PACKAGE,
+            vhdl_lang::Design::Context(_) => SymbolKind::NAMESPACE,
+        },
     }
 }
 

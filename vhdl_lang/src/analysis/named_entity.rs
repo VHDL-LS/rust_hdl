@@ -308,6 +308,14 @@ impl<'a> AnyEnt<'a> {
         &self.designator
     }
 
+    pub fn path_name(&self) -> String {
+        if let Some(parent) = self.parent {
+            format!("{}.{}", parent.path_name(), self.designator())
+        } else {
+            self.designator().to_string()
+        }
+    }
+
     pub fn kind(&self) -> &AnyEntKind {
         &self.kind
     }

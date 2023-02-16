@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::analysis::{AnyEnt, DesignRoot, EntRef};
-use crate::ast::DesignFile;
+use crate::ast::{DesignFile, Designator};
 use crate::config::Config;
 use crate::data::*;
 use crate::syntax::VHDLParser;
@@ -238,6 +238,30 @@ impl Project {
         cursor: Position,
     ) -> Option<(SrcPos, EntRef<'a>)> {
         self.root.item_at_cursor(source, cursor)
+    }
+
+    // Find symbols that are public such as primary design units and their interfaces
+    pub fn find_public_symbols(&self, prefix: &str) -> Vec<EntRef> {
+        let prefix = if let Ok(mut prefix) = Latin1String::from_utf8(prefix) {
+            prefix.make_lowercase();
+            prefix
+        } else {
+            return vec![];
+        };
+
+        let mut temp = Latin1String::default();
+        let mut symbols = self.root.public_symbols();
+        symbols.retain(|ent| {
+            matches!(
+                ent.designator(),
+                Designator::Identifier(ident) if {
+                    temp.copy_from(ident.name());
+                    temp.make_lowercase();
+                    temp.starts_with(&prefix)
+                }
+            )
+        });
+        symbols
     }
 
     pub fn find_implementation<'a>(&'a self, source: &Source, cursor: Position) -> Vec<EntRef<'a>> {

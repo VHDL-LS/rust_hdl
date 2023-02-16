@@ -458,6 +458,36 @@ impl DesignRoot {
         searcher.references
     }
 
+    pub fn public_symbols(&self) -> Vec<EntRef> {
+        let mut result = Vec::new();
+        for library in self.libraries.values() {
+            result.push(self.arenas.get(library.id));
+            for unit in library.units.values() {
+                if matches!(unit.kind(), AnyKind::Primary(_)) {
+                    let data = self.get_analysis(unit);
+                    if let AnyDesignUnit::Primary(primary) = data.deref() {
+                        if let Some(id) = primary.ent_id() {
+                            let ent = self.arenas.get(id);
+                            result.push(ent);
+                            public_symbols(ent, &mut result);
+                        }
+                    }
+                } else if matches!(unit.kind(), AnyKind::Secondary(SecondaryKind::Architecture)) {
+                    let data = self.get_analysis(unit);
+                    if let AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(arch)) =
+                        data.deref()
+                    {
+                        if let Some(id) = arch.ident.decl {
+                            let ent = self.arenas.get(id);
+                            result.push(ent);
+                        }
+                    }
+                }
+            }
+        }
+        result
+    }
+
     pub fn find_all_unresolved(&self) -> (usize, Vec<SrcPos>) {
         let mut searcher = FindAllUnresolved::default();
         let _ = self.search(&mut searcher);
@@ -1146,4 +1176,27 @@ end configuration;
         assert_eq!(library.units.len(), 2);
         assert_eq!(library.duplicates.len(), 1);
     }
+}
+
+fn public_symbols<'a>(ent: EntRef<'a>, result: &mut Vec<EntRef<'a>>) {
+    match ent.kind() {
+        AnyEntKind::Design(d) => match d {
+            Design::Entity(_, region)
+            | Design::Package(_, region)
+            | Design::UninstPackage(_, region) => {
+                for ent in region.immediates() {
+                    result.push(ent);
+                    public_symbols(ent, result);
+                }
+            }
+            _ => {}
+        },
+        AnyEntKind::Type(t) => match t {
+            Type::Protected(region, is_body) if !is_body => {
+                result.extend(region.immediates());
+            }
+            _ => {}
+        },
+        _ => {}
+    };
 }

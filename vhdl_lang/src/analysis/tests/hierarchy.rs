@@ -142,7 +142,11 @@ package ipkg is new work.pkg generic map(type_t => integer, value => 0);
 
     let instances: Vec<String> =
         if let AnyEntKind::Design(Design::PackageInstance(region)) = ipkg.kind() {
-            region.immediates().into_iter().map(hierarchy).collect()
+            region
+                .immediates()
+                .into_iter()
+                .map(|ent| ent.path_name())
+                .collect()
         } else {
             panic!("Expected instantiated package");
         };
@@ -156,15 +160,11 @@ fn get_hierarchy(root: &DesignRoot, libname: &str) -> Vec<String> {
     });
 
     let _ = root.search_library(&root.symbol_utf8(libname), &mut searcher);
-    searcher.result.into_iter().map(hierarchy).collect()
-}
-
-fn hierarchy(ent: EntRef) -> String {
-    if let Some(parent) = ent.parent {
-        format!("{}.{}", hierarchy(parent), ent.designator())
-    } else {
-        ent.designator().to_string()
-    }
+    searcher
+        .result
+        .into_iter()
+        .map(|ent| ent.path_name())
+        .collect()
 }
 
 #[test]

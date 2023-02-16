@@ -74,6 +74,11 @@ impl Latin1String {
         Latin1String { bytes }
     }
 
+    pub fn copy_from(&mut self, other: &Latin1String) {
+        self.bytes.clear();
+        self.bytes.extend_from_slice(&other.bytes);
+    }
+
     pub fn len(&self) -> usize {
         self.bytes.len()
     }
@@ -102,6 +107,14 @@ impl Latin1String {
         };
         latin1.make_lowercase();
         latin1
+    }
+
+    pub fn starts_with(&self, other: &Latin1String) -> bool {
+        if other.len() <= self.len() {
+            self.bytes[0..other.len()] == other.bytes
+        } else {
+            false
+        }
     }
 
     #[cfg(test)]
@@ -160,6 +173,12 @@ impl Latin1String {
             }
         }
         Ok(Latin1String::from_vec(latin1_bytes))
+    }
+}
+
+impl Default for Latin1String {
+    fn default() -> Self {
+        Self::empty()
     }
 }
 

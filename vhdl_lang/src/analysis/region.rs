@@ -732,7 +732,6 @@ impl<'a> Region<'a> {
         self.entities.get(designator)
     }
 
-    #[cfg(test)]
     pub fn immediates(&self) -> Vec<EntRef<'a>> {
         let mut result = Vec::new();
         for ent in self.entities.values() {
