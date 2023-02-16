@@ -441,7 +441,8 @@ fn intantiate_items_with_correct_type() {
         "
 package gpkg is
   generic (
-    type type_t
+    type type_t;
+    value: type_t
   );
   subtype sub_t is type_t;
 end package;
@@ -449,7 +450,8 @@ end package;
 package pkg is
   package ipkg is new work.gpkg
   generic map (
-    type_t => integer);
+    type_t => integer,
+    value => 0);
 
   constant c1 : ipkg.sub_t := 0;
 end package;

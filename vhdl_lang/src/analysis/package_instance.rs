@@ -132,7 +132,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                     GpkgInterfaceEnt::Constant(obj) => self.expr_pos_with_ttyp(
                         scope,
-                        obj.type_mark(),
+                        self.map_type_ent(&mapping, obj.type_mark()),
                         &assoc.actual.pos,
                         expr,
                         diagnostics,
