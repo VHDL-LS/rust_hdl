@@ -25,6 +25,8 @@ I very much appreciate help from other people especially regarding semantic anal
   - From entity to matching component declaration by default binding
 - Supports hovering symbols
 - Rename symbol
+- Find workspace symbols
+
 
 ## Trying it out
 A language server is never used directly by the end user and it is integrated into different editor plugins. The ones I know about are listed here.
