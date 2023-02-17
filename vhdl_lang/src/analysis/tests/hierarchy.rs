@@ -93,7 +93,7 @@ end package body;
 }
 
 #[test]
-fn genric_package() {
+fn generic_package() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(
         "libname",
