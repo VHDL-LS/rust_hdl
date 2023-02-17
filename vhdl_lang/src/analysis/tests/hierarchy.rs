@@ -154,6 +154,80 @@ package ipkg is new work.pkg generic map(type_t => integer, value => 0);
     assert_eq!(instances, vec!["libname.ipkg.c0", "libname.ipkg.fun0"]);
 }
 
+#[test]
+fn public_symbols() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+package pkg is
+   type type_t is (alpha, beta);
+   constant const0 : type_t := alpha;
+   function fun0(arg: type_t) return boolean;
+   function \"+\"(arg: type_t) return boolean;
+
+   type prot_t is protected
+       procedure proc0(arg: type_t);
+   end protected;
+end package;
+
+package body pkg is
+    type prot_t is protected body
+        procedure proc0(arg: type_t) is
+        begin
+        end;
+    end protected body;
+end package body;
+
+entity ent is
+  generic (
+    g0 : natural
+  );
+  port (
+    p0 : natural
+  );
+end entity;
+
+architecture a of ent is
+  signal not_public : bit;
+begin
+  main: process
+  begin
+  end process;
+end architecture;
+      ",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+    let symbols: Vec<String> = root
+        .public_symbols()
+        .into_iter()
+        .filter(|ent| ent.library_name() == Some(&root.symbol_utf8("libname")))
+        .map(|ent| ent.path_name())
+        .collect();
+
+    assert_eq!(
+        symbols,
+        vec![
+            "libname",
+            "libname.pkg",
+            "libname.pkg.type_t",
+            "libname.pkg.type_t.alpha",
+            "libname.pkg.type_t.beta",
+            "libname.pkg.const0",
+            "libname.pkg.fun0",
+            "libname.pkg.\"+\"",
+            "libname.pkg.prot_t",
+            "libname.pkg.prot_t.proc0",
+            "libname.ent",
+            "libname.ent.g0",
+            "libname.ent.p0",
+            "libname.ent.a",
+        ]
+    );
+}
+
 fn get_hierarchy(root: &DesignRoot, libname: &str) -> Vec<String> {
     let mut searcher = FindAllEnt::new(root, |ent| {
         matches!(ent.designator(), Designator::Identifier(_))

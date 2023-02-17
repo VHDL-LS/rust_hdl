@@ -737,11 +737,13 @@ impl<'a> Region<'a> {
         for ent in self.entities.values() {
             match ent {
                 NamedEntities::Single(single) => {
-                    result.push(*single);
+                    if single.is_explicit() {
+                        result.push(*single);
+                    }
                 }
                 NamedEntities::Overloaded(overloaded) => {
                     for name in overloaded.entities() {
-                        if matches!(name.designator(), Designator::Identifier(_)) {
+                        if name.is_explicit() {
                             result.push(name.into());
                         }
                     }

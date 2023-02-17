@@ -485,6 +485,7 @@ impl DesignRoot {
                 }
             }
         }
+        result.sort_by_key(|ent| ent.decl_pos());
         result
     }
 
@@ -1185,8 +1186,10 @@ fn public_symbols<'a>(ent: EntRef<'a>, result: &mut Vec<EntRef<'a>>) {
             | Design::Package(_, region)
             | Design::UninstPackage(_, region) => {
                 for ent in region.immediates() {
-                    result.push(ent);
-                    public_symbols(ent, result);
+                    if ent.is_explicit() {
+                        result.push(ent);
+                        public_symbols(ent, result);
+                    }
                 }
             }
             _ => {}
