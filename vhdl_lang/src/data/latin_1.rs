@@ -8,7 +8,7 @@ use super::Position;
 use std::fmt;
 use std::str;
 
-fn iso_8859_1_to_utf8(bytes: &[u8]) -> String {
+pub fn iso_8859_1_to_utf8(bytes: &[u8]) -> String {
     let mut utf8_bytes = Vec::new();
     for byte in bytes.iter() {
         let byte = *byte;
@@ -72,11 +72,6 @@ impl Latin1String {
 
     pub fn from_vec(bytes: Vec<u8>) -> Latin1String {
         Latin1String { bytes }
-    }
-
-    pub fn copy_from(&mut self, other: &Latin1String) {
-        self.bytes.clear();
-        self.bytes.extend_from_slice(&other.bytes);
     }
 
     pub fn len(&self) -> usize {

@@ -242,24 +242,12 @@ impl Project {
 
     // Find symbols that are public such as primary design units and their interfaces
     pub fn find_public_symbols(&self, prefix: &str) -> Vec<EntRef> {
-        let prefix = if let Ok(mut prefix) = Latin1String::from_utf8(prefix) {
-            prefix.make_lowercase();
-            prefix
-        } else {
-            return vec![];
-        };
-
-        let mut temp = Latin1String::default();
         let mut symbols = self.root.public_symbols();
-        symbols.retain(|ent| {
-            matches!(
-                ent.designator(),
-                Designator::Identifier(ident) if {
-                    temp.copy_from(ident.name());
-                    temp.make_lowercase();
-                    temp.starts_with(&prefix)
-                }
-            )
+        symbols.retain(|ent| match ent.designator() {
+            Designator::Identifier(_)
+            | Designator::OperatorSymbol(_)
+            | Designator::Character(_) => ent.designator().to_string().starts_with(prefix),
+            Designator::Anonymous(_) => false,
         });
         symbols
     }
