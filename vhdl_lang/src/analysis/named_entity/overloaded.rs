@@ -224,6 +224,31 @@ impl<'a> OverloadedEnt<'a> {
         let ent = self.formals().nth(idx)?;
         Some(ent.type_mark().base())
     }
+
+    pub fn describe(&self) -> String {
+        let prefix = match self.kind() {
+            Overloaded::SubprogramDecl(_)
+            | Overloaded::Subprogram(_)
+            | Overloaded::InterfaceSubprogram(_) => {
+                if matches!(self.designator(), Designator::OperatorSymbol(_)) {
+                    "operator "
+                } else if self.is_function() {
+                    "function "
+                } else {
+                    "procedure "
+                }
+            }
+            Overloaded::EnumLiteral(_) => "",
+            Overloaded::Alias(o) => return o.describe(),
+        };
+
+        format!(
+            "{}{}{}",
+            prefix,
+            self.designator,
+            self.signature().describe()
+        )
+    }
 }
 
 impl<'a> std::ops::Deref for OverloadedEnt<'a> {

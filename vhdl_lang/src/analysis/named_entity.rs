@@ -386,9 +386,7 @@ impl<'a> AnyEnt<'a> {
                     )
                 }
             }
-            AnyEntKind::Overloaded(ref overloaded) => {
-                format!("{}{}", self.designator, overloaded.signature().describe())
-            }
+            AnyEntKind::Overloaded(_) => OverloadedEnt::from_any(self).unwrap().describe(),
 
             AnyEntKind::Type(Type::Universal(typ)) => format!("type {}", typ.describe().to_owned()),
             _ => format!("{} '{}'", self.kind.describe(), self.designator),

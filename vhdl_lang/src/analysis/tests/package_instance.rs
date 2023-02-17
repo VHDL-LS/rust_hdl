@@ -313,7 +313,7 @@ end package;
         )
         .related(
             code.s1("my_to_string"),
-            "Does not match my_to_string[REAL return STRING]",
+            "Does not match function my_to_string[REAL return STRING]",
         )],
     );
 }

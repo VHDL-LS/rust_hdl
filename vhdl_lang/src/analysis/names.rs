@@ -2827,10 +2827,13 @@ type enum_t is (alpha, beta);
             diagnostics,
             vec![
                 Diagnostic::error(code.s1("myfun"), "Ambiguous call to 'myfun'")
-                    .related(decl.s("myfun", 1), "Migth be myfun[INTEGER return INTEGER]")
+                    .related(
+                        decl.s("myfun", 1),
+                        "Migth be function myfun[INTEGER return INTEGER]",
+                    )
                     .related(
                         decl.s("myfun", 2),
-                        "Migth be myfun[CHARACTER return INTEGER]",
+                        "Migth be function myfun[CHARACTER return INTEGER]",
                     ),
             ],
         )
@@ -2863,8 +2866,14 @@ type enum_t is (alpha, beta);
             diagnostics,
             vec![
                 Diagnostic::error(code.s1("myfun"), "Ambiguous call to 'myfun'")
-                    .related(decl.s("myfun", 1), "Migth be myfun[INTEGER return rec1_t]")
-                    .related(decl.s("myfun", 2), "Migth be myfun[INTEGER return rec2_t]"),
+                    .related(
+                        decl.s("myfun", 1),
+                        "Migth be function myfun[INTEGER return rec1_t]",
+                    )
+                    .related(
+                        decl.s("myfun", 2),
+                        "Migth be function myfun[INTEGER return rec2_t]",
+                    ),
             ],
         )
     }

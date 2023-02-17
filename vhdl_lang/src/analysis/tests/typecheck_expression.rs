@@ -274,11 +274,11 @@ constant bad : character := fun1;
             Diagnostic::error(code.s("fun1", 4), "Could not resolve 'fun1'")
                 .related(
                     code.s("fun1", 1),
-                    "Does not match return type of fun1[return NATURAL]",
+                    "Does not match return type of function fun1[return NATURAL]",
                 )
                 .related(
                     code.s("fun1", 2),
-                    "Does not match return type of fun1[return BOOLEAN]",
+                    "Does not match return type of function fun1[return BOOLEAN]",
                 ),
         ],
     );
@@ -316,11 +316,11 @@ constant bad : character := fun1;
             Diagnostic::error(code.s("fun1", 4), "Could not resolve 'fun1'")
                 .related(
                     code.s("fun1", 1),
-                    "Does not match return type of fun1[NATURAL return NATURAL]",
+                    "Does not match return type of function fun1[NATURAL return NATURAL]",
                 )
                 .related(
                     code.s("fun1", 2),
-                    "Does not match return type of fun1[return BOOLEAN]",
+                    "Does not match return type of function fun1[return BOOLEAN]",
                 ),
         ],
     );
@@ -356,8 +356,14 @@ constant bad: integer := fun1;
         diagnostics,
         vec![
             Diagnostic::error(code.s1(":= fun1").s1("fun1"), "Ambiguous call to 'fun1'")
-                .related(code.s("fun1", 1), "Migth be fun1[NATURAL return NATURAL]")
-                .related(code.s("fun1", 2), "Migth be fun1[BOOLEAN return NATURAL]"),
+                .related(
+                    code.s("fun1", 1),
+                    "Migth be function fun1[NATURAL return NATURAL]",
+                )
+                .related(
+                    code.s("fun1", 2),
+                    "Migth be function fun1[BOOLEAN return NATURAL]",
+                ),
         ],
     );
 }
@@ -1315,7 +1321,7 @@ attribute ram_style of bad_fun2[return boolean] : signal is 0;
         Diagnostic::error(
             code.s1("bad_fun2[return boolean]").s1("bad_fun2"),
             "Could not find declaration of 'bad_fun2' with given signature",
-        ).related(code.s1("bad_fun2"), "Found bad_fun2[return NATURAL]")],
+        ).related(code.s1("bad_fun2"), "Found function bad_fun2[return NATURAL]")],
     );
 }
 

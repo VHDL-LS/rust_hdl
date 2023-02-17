@@ -30,7 +30,7 @@ end package body;
         diagnostics,
         vec![Diagnostic::error(
             code.s1("wait on proc").s1("proc"),
-            "proc[BIT] is not a signal and cannot be in a sensitivity list",
+            "procedure proc[BIT] is not a signal and cannot be in a sensitivity list",
         )],
     )
 }

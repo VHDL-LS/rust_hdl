@@ -35,7 +35,7 @@ end architecture;
     let expected = vec![
         Diagnostic::error(
             code.s("foo1", 2),
-            "foo1[return NATURAL] may not be the target of an assignment",
+            "function foo1[return NATURAL] may not be the target of an assignment",
         ),
         Diagnostic::error(
             code.s("foo2", 2),

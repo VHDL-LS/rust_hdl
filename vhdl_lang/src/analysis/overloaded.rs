@@ -565,11 +565,11 @@ function myfun(arg2 : integer) return character;
                 Diagnostic::error(fcall.s1("myfun"), "Could not resolve call to 'myfun'")
                     .related(
                         decl.s1("myfun"),
-                        "Does not match myfun[INTEGER return INTEGER]",
+                        "Does not match function myfun[INTEGER return INTEGER]",
                     )
                     .related(
                         decl.s("myfun", 2),
-                        "Does not match myfun[INTEGER return CHARACTER]",
+                        "Does not match function myfun[INTEGER return CHARACTER]",
                     ),
             ],
         );
@@ -638,11 +638,11 @@ function myfun(arg1 : character) return character;
                 Diagnostic::error(fcall.s1("myfun"), "Could not resolve call to 'myfun'")
                     .related(
                         decl.s1("myfun"),
-                        "Does not match myfun[CHARACTER return INTEGER]",
+                        "Does not match function myfun[CHARACTER return INTEGER]",
                     )
                     .related(
                         decl.s("myfun", 2),
-                        "Does not match myfun[CHARACTER return CHARACTER]",
+                        "Does not match function myfun[CHARACTER return CHARACTER]",
                     ),
             ],
         );
@@ -693,11 +693,11 @@ function myfun(arg1 : integer) return character;
                 Diagnostic::error(fcall.s1("myfun"), "Could not resolve call to 'myfun'")
                     .related(
                         decl.s1("myfun"),
-                        "Does not match myfun[INTEGER return INTEGER]",
+                        "Does not match function myfun[INTEGER return INTEGER]",
                     )
                     .related(
                         decl.s("myfun", 2),
-                        "Does not match myfun[INTEGER return CHARACTER]",
+                        "Does not match function myfun[INTEGER return CHARACTER]",
                     ),
             ],
         )

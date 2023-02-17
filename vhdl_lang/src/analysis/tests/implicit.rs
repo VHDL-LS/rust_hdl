@@ -212,7 +212,7 @@ end package;
         ),
         Some(
             "\
--- TO_STRING[enum_t return STRING]
+-- function TO_STRING[enum_t return STRING]
 
 -- Implicitly defined by:
 type enum_t is (alpha, beta);
