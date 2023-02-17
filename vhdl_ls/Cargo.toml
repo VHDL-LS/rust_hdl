@@ -6,7 +6,7 @@
 
 [package]
 name = "vhdl_ls"
-version = "0.61.0"
+version = "0.62.0"
 authors = ["Olof Kraigher <olof.kraigher@gmail.com>"]
 license = "MPL-2.0"
 description = "VHDL Language Server"
@@ -14,7 +14,7 @@ repository = "https://github.com/kraigher/rust_hdl"
 edition = "2021"
 
 [dependencies]
-vhdl_lang = { version = "^0.61.0", path = "../vhdl_lang"}
+vhdl_lang = { version = "^0.62.0", path = "../vhdl_lang"}
 serde_json = "1"
 serde = "1"
 lsp-types = "^0.94.0"
