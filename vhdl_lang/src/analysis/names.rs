@@ -1051,7 +1051,7 @@ impl<'a> AnalyzeContext<'a> {
 
                     // @TODO lookup already set reference to get O(N) instead of O(N^2) when disambiguating deeply nested ambiguous calls
                     if let Some(id) = prefix.item.get_suffix_reference() {
-                        if let Ok(ent) = OverloadedEnt::from_any(self.arena.get(id)) {
+                        if let Some(ent) = OverloadedEnt::from_any(self.arena.get(id)) {
                             return Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
                                 ent.return_type().unwrap(),
                             )));

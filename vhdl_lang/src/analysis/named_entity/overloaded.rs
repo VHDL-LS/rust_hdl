@@ -179,11 +179,11 @@ pub struct OverloadedEnt<'a> {
 }
 
 impl<'a> OverloadedEnt<'a> {
-    pub fn from_any(ent: &'a AnyEnt) -> Result<Self, EntRef<'a>> {
+    pub fn from_any(ent: &'a AnyEnt) -> Option<Self> {
         if let AnyEntKind::Overloaded(..) = ent.actual_kind() {
-            Ok(OverloadedEnt { ent })
+            Some(OverloadedEnt { ent })
         } else {
-            Err(ent)
+            None
         }
     }
 

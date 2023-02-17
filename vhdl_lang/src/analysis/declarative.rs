@@ -232,7 +232,7 @@ impl<'a> AnalyzeContext<'a> {
 
                     for implicit in ent.as_actual().implicits.iter() {
                         match OverloadedEnt::from_any(implicit) {
-                            Ok(implicit) => {
+                            Some(implicit) => {
                                 let impicit_alias = self.arena.implicit(
                                     ent,
                                     implicit.designator().clone(),
@@ -241,10 +241,10 @@ impl<'a> AnalyzeContext<'a> {
                                 );
                                 scope.add(impicit_alias, diagnostics);
                             }
-                            Err(ent) => {
+                            None => {
                                 eprintln!(
                                     "Expect implicit declaration to be overloaded, got: {}",
-                                    ent.describe()
+                                    implicit.describe()
                                 )
                             }
                         }

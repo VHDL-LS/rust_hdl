@@ -135,8 +135,8 @@ pub enum NamedEntities<'a> {
 impl<'a> NamedEntities<'a> {
     pub fn new(ent: EntRef<'a>) -> NamedEntities<'a> {
         match OverloadedEnt::from_any(ent) {
-            Ok(ent) => Self::Overloaded(OverloadedName::new(vec![ent])),
-            Err(ent) => Self::Single(ent),
+            Some(ent) => Self::Overloaded(OverloadedName::new(vec![ent])),
+            None => Self::Single(ent),
         }
     }
 
@@ -702,12 +702,12 @@ impl<'a> Region<'a> {
                     }
                     NamedEntities::Overloaded(ref mut overloaded) => {
                         match OverloadedEnt::from_any(ent) {
-                            Ok(ent) => {
+                            Some(ent) => {
                                 if let Err(err) = overloaded.insert(ent) {
                                     diagnostics.push(err);
                                 }
                             }
-                            Err(ent) => {
+                            None => {
                                 if let Some(pos) = ent.decl_pos() {
                                     diagnostics.push(duplicate_error(
                                         overloaded.first().designator(),

@@ -330,7 +330,7 @@ impl<'a> AnalyzeContext<'a> {
     ) -> EvalResult<Disambiguated<'a>> {
         // @TODO lookup already set reference to get O(N) instead of O(N^2) when disambiguating deeply nested ambiguous operators
         if let Some(reference) = op.item.reference {
-            if let Ok(ent) = OverloadedEnt::from_any(self.arena.get(reference)) {
+            if let Some(ent) = OverloadedEnt::from_any(self.arena.get(reference)) {
                 return Ok(Disambiguated::Unambiguous(ent));
             }
         }

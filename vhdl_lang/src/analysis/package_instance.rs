@@ -380,7 +380,7 @@ impl<'a> AnalyzeContext<'a> {
             Overloaded::Alias(alias) => {
                 let alias_inst = self.instantiate(parent, mapping, alias)?;
 
-                if let Ok(overloaded) = OverloadedEnt::from_any(alias_inst) {
+                if let Some(overloaded) = OverloadedEnt::from_any(alias_inst) {
                     Overloaded::Alias(overloaded)
                 } else {
                     return Err(
