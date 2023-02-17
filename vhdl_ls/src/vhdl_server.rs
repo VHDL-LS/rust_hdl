@@ -433,13 +433,14 @@ impl VHDLServer {
             .project
             .public_symbols()
             .filter(|ent| match ent.designator() {
-                Designator::Identifier(_)
-                | Designator::OperatorSymbol(_)
-                | Designator::Character(_) => ent
+                Designator::Identifier(_) | Designator::Character(_) => ent
                     .designator()
                     .to_string()
                     .to_ascii_lowercase()
                     .starts_with(&query),
+                Designator::OperatorSymbol(op) => {
+                    op.to_string().to_ascii_lowercase().starts_with(&query)
+                }
                 Designator::Anonymous(_) => false,
             })
             .take(trunc_limit)
