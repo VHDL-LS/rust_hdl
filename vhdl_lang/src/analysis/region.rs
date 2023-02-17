@@ -732,26 +732,16 @@ impl<'a> Region<'a> {
         self.entities.get(designator)
     }
 
-    pub fn immediates(&self) -> Vec<EntRef<'a>> {
-        let mut result = Vec::new();
-        for ent in self.entities.values() {
-            match ent {
-                NamedEntities::Single(single) => {
-                    if single.is_explicit() {
-                        result.push(*single);
-                    }
-                }
+    pub fn immediates(&self) -> impl Iterator<Item = EntRef<'a>> + '_ {
+        self.entities
+            .values()
+            .flat_map(|ent| match ent {
+                NamedEntities::Single(single) => itertools::Either::Left(std::iter::once(*single)),
                 NamedEntities::Overloaded(overloaded) => {
-                    for name in overloaded.entities() {
-                        if name.is_explicit() {
-                            result.push(name.into());
-                        }
-                    }
+                    itertools::Either::Right(overloaded.entities().map(EntRef::from))
                 }
-            }
-        }
-        result.sort_by_key(|ent| ent.decl_pos());
-        result
+            })
+            .filter(|ent| ent.is_explicit())
     }
 }
 

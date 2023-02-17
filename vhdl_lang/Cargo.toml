@@ -24,6 +24,7 @@ rayon = "1"
 parking_lot = "0"
 dunce = "1"
 pinned_vec = "0"
+itertools = "*"
 
 [dev-dependencies]
 tempfile = "3"

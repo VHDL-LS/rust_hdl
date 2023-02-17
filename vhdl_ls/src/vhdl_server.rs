@@ -427,10 +427,28 @@ impl VHDLServer {
         &self,
         params: &WorkspaceSymbolParams,
     ) -> Option<WorkspaceSymbolResponse> {
-        let ents = self.project.find_public_symbols(&params.query);
+        let trunc_limit = 200;
+        let query = params.query.to_ascii_lowercase();
+        let mut symbols: Vec<_> = self
+            .project
+            .public_symbols()
+            .filter(|ent| match ent.designator() {
+                Designator::Identifier(_)
+                | Designator::OperatorSymbol(_)
+                | Designator::Character(_) => ent
+                    .designator()
+                    .to_string()
+                    .to_ascii_lowercase()
+                    .starts_with(&query),
+                Designator::Anonymous(_) => false,
+            })
+            .take(trunc_limit)
+            .collect();
+        symbols.sort_by_key(|ent| ent.decl_pos());
 
         Some(WorkspaceSymbolResponse::Nested(
-            ents.into_iter()
+            symbols
+                .into_iter()
                 .filter_map(|ent| {
                     let decl_pos = ent.decl_pos()?;
                     Some(WorkspaceSymbol {

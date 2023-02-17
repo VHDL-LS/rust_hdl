@@ -140,16 +140,14 @@ package ipkg is new work.pkg generic map(type_t => integer, value => 0);
         .search_reference(code.source(), code.s1("ipkg").start())
         .unwrap();
 
-    let instances: Vec<String> =
-        if let AnyEntKind::Design(Design::PackageInstance(region)) = ipkg.kind() {
-            region
-                .immediates()
-                .into_iter()
-                .map(|ent| ent.path_name())
-                .collect()
-        } else {
-            panic!("Expected instantiated package");
-        };
+    let instances: Vec<_> = if let AnyEntKind::Design(Design::PackageInstance(region)) = ipkg.kind()
+    {
+        let mut symbols: Vec<_> = region.immediates().collect();
+        symbols.sort_by_key(|ent| ent.decl_pos());
+        symbols.into_iter().map(|ent| ent.path_name()).collect()
+    } else {
+        panic!("Expected instantiated package");
+    };
 
     assert_eq!(instances, vec!["libname.ipkg.c0", "libname.ipkg.fun0"]);
 }
@@ -200,15 +198,17 @@ end architecture;
 
     let (root, diagnostics) = builder.get_analyzed_root();
     check_no_diagnostics(&diagnostics);
-    let symbols: Vec<String> = root
+    let mut symbols: Vec<_> = root
         .public_symbols()
-        .into_iter()
         .filter(|ent| ent.library_name() == Some(&root.symbol_utf8("libname")))
-        .map(|ent| ent.path_name())
         .collect();
+    symbols.sort_by_key(|ent| ent.decl_pos());
 
     assert_eq!(
-        symbols,
+        symbols
+            .into_iter()
+            .map(|ent| ent.path_name())
+            .collect::<Vec<_>>(),
         vec![
             "libname",
             "libname.pkg",

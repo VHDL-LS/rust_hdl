@@ -458,35 +458,34 @@ impl DesignRoot {
         searcher.references
     }
 
-    pub fn public_symbols(&self) -> Vec<EntRef> {
-        let mut result = Vec::new();
-        for library in self.libraries.values() {
-            result.push(self.arenas.get(library.id));
-            for unit in library.units.values() {
-                if matches!(unit.kind(), AnyKind::Primary(_)) {
-                    let data = self.get_analysis(unit);
-                    if let AnyDesignUnit::Primary(primary) = data.deref() {
-                        if let Some(id) = primary.ent_id() {
-                            let ent = self.arenas.get(id);
-                            result.push(ent);
-                            public_symbols(ent, &mut result);
+    pub fn public_symbols<'a>(&'a self) -> Box<dyn Iterator<Item = EntRef<'a>> + 'a> {
+        Box::new(self.libraries.values().flat_map(|library| {
+            std::iter::once(self.arenas.get(library.id)).chain(library.units.values().flat_map(
+                |unit| -> Box<dyn Iterator<Item = EntRef<'a>>> {
+                    if matches!(unit.kind(), AnyKind::Primary(_)) {
+                        let data = self.get_analysis(unit);
+                        if let AnyDesignUnit::Primary(primary) = data.deref() {
+                            if let Some(id) = primary.ent_id() {
+                                let ent = self.arenas.get(id);
+                                return Box::new(std::iter::once(ent).chain(public_symbols(ent)));
+                            }
                         }
-                    }
-                } else if matches!(unit.kind(), AnyKind::Secondary(SecondaryKind::Architecture)) {
-                    let data = self.get_analysis(unit);
-                    if let AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(arch)) =
-                        data.deref()
+                    } else if matches!(unit.kind(), AnyKind::Secondary(SecondaryKind::Architecture))
                     {
-                        if let Some(id) = arch.ident.decl {
-                            let ent = self.arenas.get(id);
-                            result.push(ent);
+                        let data = self.get_analysis(unit);
+                        if let AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(arch)) =
+                            data.deref()
+                        {
+                            if let Some(id) = arch.ident.decl {
+                                let ent = self.arenas.get(id);
+                                return Box::new(std::iter::once(ent));
+                            }
                         }
                     }
-                }
-            }
-        }
-        result.sort_by_key(|ent| ent.decl_pos());
-        result
+                    Box::new(std::iter::empty())
+                },
+            ))
+        }))
     }
 
     pub fn find_all_unresolved(&self) -> (usize, Vec<SrcPos>) {
@@ -1179,27 +1178,22 @@ end configuration;
     }
 }
 
-fn public_symbols<'a>(ent: EntRef<'a>, result: &mut Vec<EntRef<'a>>) {
+fn public_symbols<'a>(ent: EntRef<'a>) -> Box<dyn Iterator<Item = EntRef<'a>> + 'a> {
     match ent.kind() {
         AnyEntKind::Design(d) => match d {
             Design::Entity(_, region)
             | Design::Package(_, region)
-            | Design::UninstPackage(_, region) => {
-                for ent in region.immediates() {
-                    if ent.is_explicit() {
-                        result.push(ent);
-                        public_symbols(ent, result);
-                    }
-                }
-            }
-            _ => {}
+            | Design::UninstPackage(_, region) => Box::new(
+                region
+                    .immediates()
+                    .flat_map(|ent| std::iter::once(ent).chain(public_symbols(ent))),
+            ),
+            _ => Box::new(std::iter::empty()),
         },
         AnyEntKind::Type(t) => match t {
-            Type::Protected(region, is_body) if !is_body => {
-                result.extend(region.immediates());
-            }
-            _ => {}
+            Type::Protected(region, is_body) if !is_body => Box::new(region.immediates()),
+            _ => Box::new(std::iter::empty()),
         },
-        _ => {}
-    };
+        _ => Box::new(std::iter::empty()),
+    }
 }
