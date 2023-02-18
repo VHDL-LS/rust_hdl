@@ -15,7 +15,7 @@ use crate::rpc_channel::SharedRpcChannel;
 use std::io;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
-    AnyEntKind, Concurrent, Config, Diagnostic, EntRef, EntityId, Message, MessageHandler, Object,
+    AnyEntKind, Concurrent, Config, Diagnostic, EntHierarchy, Message, MessageHandler, Object,
     Overloaded, Project, Severity, Source, SrcPos, Type,
 };
 
@@ -478,24 +478,8 @@ impl VHDLServer {
             .into_iter()
             .next()?;
 
-        let mut symbols = self.project.document_symbols(&library_name, &source);
-        let mut by_parent: FnvHashMap<EntityId, Vec<EntRef>> = Default::default();
-
-        symbols.retain(|ent| {
-            if let Some(parent) = ent.parent {
-                if let Some(pos) = parent.decl_pos() {
-                    if pos.source == source {
-                        by_parent.entry(parent.id()).or_default().push(ent);
-                        return false;
-                    }
-                }
-            }
-            true
-        });
-
         fn to_document_symbol(
-            ent: EntRef,
-            by_parent: &FnvHashMap<EntityId, Vec<EntRef>>,
+            EntHierarchy { ent, children }: EntHierarchy,
         ) -> Option<DocumentSymbol> {
             let decl_pos = ent.decl_pos()?;
             #[allow(deprecated)]
@@ -506,20 +490,25 @@ impl VHDLServer {
                 detail: None,
                 selection_range: to_lsp_range(decl_pos.range),
                 range: to_lsp_range(decl_pos.range),
-                children: by_parent.get(&ent.id()).map(|children| {
-                    children
-                        .iter()
-                        .filter_map(|child| to_document_symbol(child, by_parent))
-                        .collect::<Vec<DocumentSymbol>>()
-                }),
+                children: if !children.is_empty() {
+                    Some(
+                        children
+                            .into_iter()
+                            .filter_map(to_document_symbol)
+                            .collect(),
+                    )
+                } else {
+                    None
+                },
                 deprecated: None,
             })
         }
 
         Some(DocumentSymbolResponse::Nested(
-            symbols
+            self.project
+                .document_symbols(&library_name, &source)
                 .into_iter()
-                .filter_map(|ent| to_document_symbol(ent, &by_parent))
+                .filter_map(to_document_symbol)
                 .collect(),
         ))
     }

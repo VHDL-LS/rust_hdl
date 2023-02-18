@@ -7,8 +7,8 @@
 use crate::analysis::{AnyEnt, DesignRoot, EntRef};
 use crate::ast::DesignFile;
 use crate::config::Config;
-use crate::data::*;
 use crate::syntax::VHDLParser;
+use crate::{data::*, EntHierarchy};
 use fnv::{FnvHashMap, FnvHashSet};
 use std::collections::hash_map::Entry;
 use std::path::{Path, PathBuf};
@@ -261,7 +261,7 @@ impl Project {
         &'a self,
         library_name: &Symbol,
         source: &Source,
-    ) -> Vec<EntRef<'a>> {
+    ) -> Vec<EntHierarchy<'a>> {
         self.root.document_symbols(library_name, source)
     }
 

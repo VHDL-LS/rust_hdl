@@ -24,7 +24,8 @@ pub use crate::data::{
 };
 
 pub use crate::analysis::{
-    AnyEnt, AnyEntKind, Concurrent, Design, EntRef, EntityId, Object, Overloaded, Type,
+    AnyEnt, AnyEntKind, Concurrent, Design, EntHierarchy, EntRef, EntityId, Object, Overloaded,
+    Type,
 };
 pub use crate::project::{Project, SourceFile};
 pub use crate::syntax::{ParserResult, VHDLParser};

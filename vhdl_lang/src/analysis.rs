@@ -31,7 +31,7 @@ mod visibility;
 #[cfg(test)]
 mod tests;
 
-pub use self::root::DesignRoot;
+pub use self::root::{DesignRoot, EntHierarchy};
 pub use named_entity::{
     AnyEnt, AnyEntKind, Concurrent, Design, EntRef, EntityId, HasEntityId, Object, Overloaded,
     Related, Sequential, Type,

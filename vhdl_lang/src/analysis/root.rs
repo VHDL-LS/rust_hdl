@@ -494,7 +494,7 @@ impl DesignRoot {
         &'a self,
         library_name: &Symbol,
         source: &Source,
-    ) -> Vec<EntRef<'a>> {
+    ) -> Vec<EntHierarchy<'a>> {
         let mut searcher = FindAllEnt::new(self, |ent| ent.is_explicit());
 
         if let Some(library) = self.libraries.get(library_name) {
@@ -507,7 +507,7 @@ impl DesignRoot {
         }
 
         searcher.result.sort_by_key(|ent| ent.decl_pos());
-        searcher.result
+        EntHierarchy::from_vec(searcher.result, source)
     }
 
     pub fn find_all_unresolved(&self) -> (usize, Vec<SrcPos>) {
@@ -1047,6 +1047,49 @@ fn get_all_affected(
         affected = std::mem::replace(&mut next_affected, affected);
     }
     all_affected
+}
+
+pub struct EntHierarchy<'a> {
+    pub ent: EntRef<'a>,
+    pub children: Vec<EntHierarchy<'a>>,
+}
+
+impl<'a> EntHierarchy<'a> {
+    fn from_vec(mut symbols: Vec<EntRef<'a>>, source: &Source) -> Vec<EntHierarchy<'a>> {
+        let mut by_parent: FnvHashMap<EntityId, Vec<EntRef>> = Default::default();
+        symbols.retain(|ent| {
+            if let Some(parent) = ent.parent {
+                if let Some(pos) = parent.decl_pos() {
+                    if pos.source() == source {
+                        by_parent.entry(parent.id()).or_default().push(ent);
+                        return false;
+                    }
+                }
+            }
+            true
+        });
+        symbols
+            .into_iter()
+            .map(|ent| Self::from_ent(ent, &by_parent))
+            .collect()
+    }
+
+    fn from_ent(
+        ent: EntRef<'a>,
+        by_parent: &FnvHashMap<EntityId, Vec<EntRef<'a>>>,
+    ) -> EntHierarchy<'a> {
+        EntHierarchy {
+            ent,
+            children: if let Some(children) = by_parent.get(&ent.id()) {
+                children
+                    .iter()
+                    .map(|ent| Self::from_ent(ent, by_parent))
+                    .collect()
+            } else {
+                Vec::new()
+            },
+        }
+    }
 }
 
 #[cfg(test)]
