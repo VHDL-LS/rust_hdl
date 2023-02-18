@@ -281,8 +281,7 @@ impl<'a> AnalyzeContext<'a> {
                         } else {
                             AnyEntKind::Object(Object {
                                 class: object_decl.class,
-                                is_port: false,
-                                mode: None,
+                                iface: None,
                                 has_default: object_decl.expression.is_some(),
                                 subtype,
                             })
@@ -618,10 +617,8 @@ impl<'a> AnalyzeContext<'a> {
                     ),
                 );
 
-                let signature = Signature::new(
-                    FormalRegion::new(InterfaceListType::Parameter),
-                    Some(enum_type),
-                );
+                let signature =
+                    Signature::new(FormalRegion::new(InterfaceType::Parameter), Some(enum_type));
 
                 for literal in enumeration.iter_mut() {
                     let literal_ent = self.arena.explicit(
@@ -1143,8 +1140,10 @@ impl<'a> AnalyzeContext<'a> {
                     parent,
                     AnyEntKind::Object(Object {
                         class: object_decl.class,
-                        is_port: object_decl.list_type == InterfaceListType::Port,
-                        mode: Some(object_decl.mode),
+                        iface: Some(ObjectInterface::new(
+                            object_decl.list_type,
+                            object_decl.mode,
+                        )),
                         subtype,
                         has_default: object_decl.expression.is_some(),
                     }),
@@ -1224,7 +1223,7 @@ impl<'a> AnalyzeContext<'a> {
         declarations: &mut [InterfaceDeclaration],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult<FormalRegion<'a>> {
-        let mut params = FormalRegion::new(InterfaceListType::Parameter);
+        let mut params = FormalRegion::new(InterfaceType::Parameter);
 
         for decl in declarations.iter_mut() {
             match self.analyze_interface_declaration(scope, parent, decl, diagnostics) {

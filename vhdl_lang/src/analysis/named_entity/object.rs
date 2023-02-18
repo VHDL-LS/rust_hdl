@@ -7,6 +7,7 @@
 use std::ops::Deref;
 
 use crate::analysis::AnyEntKind;
+use crate::ast::InterfaceType;
 use crate::ast::Mode;
 use crate::ast::ObjectClass;
 
@@ -47,15 +48,15 @@ impl<'a> ObjectEnt<'a> {
     }
 
     pub fn mode(&self) -> Option<Mode> {
-        self.object().mode
+        self.object().mode()
     }
 
-    pub fn describe_class(&self) -> String {
+    pub fn describe(&self) -> String {
         if let Some(mode) = self.mode() {
             if self.class() == ObjectClass::Constant {
                 format!("interface {}", self.describe_name())
             } else {
-                format!("interface {} of mode {}", self.describe_name(), mode)
+                format!("interface {} : {}", self.describe_name(), mode)
             }
         } else {
             self.describe_name()
@@ -75,24 +76,55 @@ impl<'a> ObjectEnt<'a> {
     }
 }
 
+#[derive(Copy, Clone)]
+pub enum ObjectInterface {
+    Generic,
+    Port(Mode),
+    Parameter(Mode),
+}
+
+impl ObjectInterface {
+    pub fn new(typ: InterfaceType, mode: Mode) -> Self {
+        match typ {
+            // @TODO error on non-input mode
+            InterfaceType::Generic => ObjectInterface::Generic,
+            InterfaceType::Parameter => ObjectInterface::Parameter(mode),
+            InterfaceType::Port => ObjectInterface::Port(mode),
+        }
+    }
+
+    pub fn mode(&self) -> Mode {
+        match self {
+            ObjectInterface::Generic => Mode::In,
+            ObjectInterface::Parameter(m) | ObjectInterface::Port(m) => *m,
+        }
+    }
+
+    pub fn typ(&self) -> InterfaceType {
+        match self {
+            ObjectInterface::Generic => InterfaceType::Generic,
+            ObjectInterface::Parameter(..) => InterfaceType::Parameter,
+            ObjectInterface::Port(..) => InterfaceType::Port,
+        }
+    }
+}
+
 /// An object or an interface object,
 /// example signal, variable, constant
 /// Is either an object (mode = None) or an interface object (mode = Some)
 #[derive(Clone)]
 pub struct Object<'a> {
     pub class: ObjectClass,
-    pub is_port: bool,
-    pub mode: Option<Mode>,
+    pub iface: Option<ObjectInterface>,
     pub subtype: Subtype<'a>,
     pub has_default: bool,
 }
 
 impl<'a> Object<'a> {
-    pub(crate) fn if_constant(subtype: Subtype<'a>) -> Object<'a> {
+    pub(crate) fn const_param(subtype: Subtype<'a>) -> Object<'a> {
         Object {
             class: ObjectClass::Constant,
-            is_port: false,
-            mode: Some(Mode::In),
+            iface: Some(ObjectInterface::Parameter(Mode::In)),
             subtype,
             has_default: false,
         }
@@ -101,6 +133,18 @@ impl<'a> Object<'a> {
     pub(crate) fn with_default(mut self) -> Self {
         self.has_default = true;
         self
+    }
+
+    pub fn is_port(&self) -> bool {
+        matches!(self.iface, Some(ObjectInterface::Port(..)))
+    }
+
+    pub fn is_generic(&self) -> bool {
+        matches!(self.iface, Some(ObjectInterface::Generic))
+    }
+
+    pub fn mode(&self) -> Option<Mode> {
+        self.iface.map(|i| i.mode())
     }
 }
 

@@ -71,8 +71,8 @@ impl<'a> ObjectBase<'a> {
 
     pub fn is_port(&self) -> bool {
         match self {
-            ObjectBase::Object(obj) => obj.kind().is_port,
-            ObjectBase::ObjectAlias(obj, _) => obj.kind().is_port,
+            ObjectBase::Object(obj) => obj.kind().is_port(),
+            ObjectBase::ObjectAlias(obj, _) => obj.kind().is_port(),
             ObjectBase::DeferredConstant(_) => false,
             ObjectBase::ExternalName(_) => false,
         }

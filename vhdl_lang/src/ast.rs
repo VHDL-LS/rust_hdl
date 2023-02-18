@@ -604,7 +604,7 @@ pub enum ObjectClass {
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
-pub enum InterfaceListType {
+pub enum InterfaceType {
     Port,
     Generic,
     Parameter,
@@ -679,7 +679,7 @@ pub struct InterfaceFileDeclaration {
 /// LRM 6.5.2 Interface object declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfaceObjectDeclaration {
-    pub list_type: InterfaceListType,
+    pub list_type: InterfaceType,
     pub class: ObjectClass,
     pub ident: WithDecl<Ident>,
     pub mode: Mode,

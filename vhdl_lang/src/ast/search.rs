@@ -1690,9 +1690,9 @@ impl std::fmt::Display for FoundDeclaration<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             FoundDeclaration::InterfaceObject(ref value) => match value.list_type {
-                InterfaceListType::Port => write!(f, "port {value};"),
-                InterfaceListType::Generic => write!(f, "generic {value};"),
-                InterfaceListType::Parameter => write!(f, "{value};"),
+                InterfaceType::Port => write!(f, "port {value};"),
+                InterfaceType::Generic => write!(f, "generic {value};"),
+                InterfaceType::Parameter => write!(f, "{value};"),
             },
             FoundDeclaration::ForIndex(ref ident, ref drange) => {
                 write!(f, "for {ident} in {drange} loop")

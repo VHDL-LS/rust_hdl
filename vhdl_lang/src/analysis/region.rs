@@ -594,8 +594,8 @@ impl<'a> Region<'a> {
         generics.sort_by_key(|ent| ent.decl_pos().map(|pos| pos.range().start));
         ports.sort_by_key(|ent| ent.decl_pos().map(|pos| pos.range().start));
         (
-            FormalRegion::new_with(InterfaceListType::Generic, generics),
-            FormalRegion::new_with(InterfaceListType::Port, ports),
+            FormalRegion::new_with(InterfaceType::Generic, generics),
+            FormalRegion::new_with(InterfaceType::Port, ports),
         )
     }
 

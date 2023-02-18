@@ -521,16 +521,14 @@ impl<'a> AnalyzeContext<'a> {
     ) -> Result<Object<'a>, String> {
         let Object {
             class,
-            is_port,
-            mode,
+            iface,
             subtype,
             has_default,
         } = obj;
 
         Ok(Object {
             class: *class,
-            is_port: *is_port,
-            mode: *mode,
+            iface: *iface,
             subtype: self.map_subtype(mapping, *subtype)?,
             has_default: *has_default,
         })

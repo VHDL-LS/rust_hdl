@@ -19,7 +19,7 @@ mod overloaded;
 pub use overloaded::{Overloaded, OverloadedEnt, Signature, SignatureKey};
 
 mod object;
-pub use object::{Object, ObjectEnt};
+pub use object::{Object, ObjectEnt, ObjectInterface};
 
 mod design;
 pub use design::{Design, DesignEnt};
@@ -77,7 +77,7 @@ impl<'a> AnyEntKind<'a> {
             self,
             AnyEntKind::Object(Object {
                 class: ObjectClass::Constant,
-                mode: None,
+                iface: None,
                 ..
             })
         )
@@ -370,22 +370,7 @@ impl<'a> AnyEnt<'a> {
 
     pub fn describe(&self) -> String {
         match self.kind {
-            AnyEntKind::Object(Object {
-                ref class,
-                mode: Some(ref mode),
-                ..
-            }) => {
-                if *class == ObjectClass::Constant {
-                    format!("interface {} '{}'", class.describe(), self.designator,)
-                } else {
-                    format!(
-                        "interface {} '{}' : {}",
-                        class.describe(),
-                        self.designator,
-                        mode
-                    )
-                }
-            }
+            AnyEntKind::Object(_) => ObjectEnt::from_any(self).unwrap().describe(),
             AnyEntKind::Overloaded(_) => OverloadedEnt::from_any(self).unwrap().describe(),
 
             AnyEntKind::Type(Type::Universal(typ)) => format!("type {}", typ.describe().to_owned()),

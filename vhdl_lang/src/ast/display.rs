@@ -872,17 +872,17 @@ impl Display for InterfaceFileDeclaration {
 impl Display for InterfaceObjectDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self.list_type {
-            InterfaceListType::Port => {
+            InterfaceType::Port => {
                 write!(
                     f,
                     "{} : {} {}",
                     self.ident, self.mode, self.subtype_indication
                 )?;
             }
-            InterfaceListType::Generic => {
+            InterfaceType::Generic => {
                 write!(f, "{} : {}", self.ident, self.subtype_indication)?;
             }
-            InterfaceListType::Parameter => {
+            InterfaceType::Parameter => {
                 write!(
                     f,
                     "{} {} : {} {}",

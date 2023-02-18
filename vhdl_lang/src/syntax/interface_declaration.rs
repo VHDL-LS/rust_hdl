@@ -25,19 +25,17 @@ fn parse_optional_mode(stream: &mut TokenStream) -> ParseResult<Option<Mode>> {
     })
 }
 
-fn unexpected_object_class_kind(list_type: InterfaceListType, token: &Token) -> Diagnostic {
+fn unexpected_object_class_kind(list_type: InterfaceType, token: &Token) -> Diagnostic {
     match list_type {
-        InterfaceListType::Generic => token.kinds_error(&[Constant, Identifier]),
-        InterfaceListType::Port => token.kinds_error(&[Signal, Identifier]),
-        InterfaceListType::Parameter => {
-            token.kinds_error(&[Signal, Constant, Variable, Identifier])
-        }
+        InterfaceType::Generic => token.kinds_error(&[Constant, Identifier]),
+        InterfaceType::Port => token.kinds_error(&[Signal, Identifier]),
+        InterfaceType::Parameter => token.kinds_error(&[Signal, Constant, Variable, Identifier]),
     }
 }
 
 fn parse_optional_object_class(
     stream: &mut TokenStream,
-    list_type: InterfaceListType,
+    list_type: InterfaceType,
 ) -> ParseResult<Option<ObjectClass>> {
     let token = stream.peek_expect()?;
 
@@ -82,7 +80,7 @@ fn parse_interface_file_declaration(
 
 fn parse_interface_object_declaration(
     stream: &mut TokenStream,
-    list_type: InterfaceListType,
+    list_type: InterfaceType,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     let explicit_object_class = parse_optional_object_class(stream, list_type)?;
     let object_class_pos = match explicit_object_class {
@@ -104,10 +102,10 @@ fn parse_interface_object_declaration(
 
     let object_class = match (list_type, explicit_object_class, mode) {
         (_, Some(object_class), _) => object_class,
-        (InterfaceListType::Port, None, _) => ObjectClass::Signal,
-        (InterfaceListType::Generic, None, _) => ObjectClass::Constant,
-        (InterfaceListType::Parameter, None, Mode::In) => ObjectClass::Constant,
-        (InterfaceListType::Parameter, None, _) => ObjectClass::Variable,
+        (InterfaceType::Port, None, _) => ObjectClass::Signal,
+        (InterfaceType::Generic, None, _) => ObjectClass::Constant,
+        (InterfaceType::Parameter, None, Mode::In) => ObjectClass::Constant,
+        (InterfaceType::Parameter, None, _) => ObjectClass::Variable,
     };
 
     let subtype = parse_subtype_indication(stream)?;
@@ -123,7 +121,7 @@ fn parse_interface_object_declaration(
             ));
         };
 
-        if list_type == InterfaceListType::Port && object_class != ObjectClass::Signal {
+        if list_type == InterfaceType::Port && object_class != ObjectClass::Signal {
             let pos = object_class_pos.as_ref().unwrap_or(&ident.pos);
             return Err(Diagnostic::error(
                 pos,
@@ -131,7 +129,7 @@ fn parse_interface_object_declaration(
             ));
         };
 
-        if list_type == InterfaceListType::Generic && object_class != ObjectClass::Constant {
+        if list_type == InterfaceType::Generic && object_class != ObjectClass::Constant {
             let pos = object_class_pos.as_ref().unwrap_or(&ident.pos);
             return Err(Diagnostic::error(
                 pos,
@@ -213,7 +211,7 @@ fn parse_interface_package_declaration_known_keyword(
 fn parse_interface_declaration(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
-    list_type: InterfaceListType,
+    list_type: InterfaceType,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     let token = stream.peek_expect()?;
 
@@ -260,21 +258,21 @@ fn parse_semicolon_separator(stream: &mut TokenStream) -> ParseResult<()> {
     Ok(())
 }
 
-fn is_sync_kind(list_type: InterfaceListType, kind: Kind) -> bool {
+fn is_sync_kind(list_type: InterfaceType, kind: Kind) -> bool {
     matches!(
         (list_type, kind),
-        (InterfaceListType::Generic, Constant)
-            | (InterfaceListType::Port, Signal)
-            | (InterfaceListType::Parameter, Constant)
-            | (InterfaceListType::Parameter, Variable)
-            | (InterfaceListType::Parameter, Signal)
+        (InterfaceType::Generic, Constant)
+            | (InterfaceType::Port, Signal)
+            | (InterfaceType::Parameter, Constant)
+            | (InterfaceType::Parameter, Variable)
+            | (InterfaceType::Parameter, Signal)
     )
 }
 
 fn parse_interface_list(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
-    list_type: InterfaceListType,
+    list_type: InterfaceType,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     let mut interface_list = Vec::new();
 
@@ -341,27 +339,27 @@ pub fn parse_generic_interface_list(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
-    parse_interface_list(stream, diagnostics, InterfaceListType::Generic)
+    parse_interface_list(stream, diagnostics, InterfaceType::Generic)
 }
 
 pub fn parse_port_interface_list(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
-    parse_interface_list(stream, diagnostics, InterfaceListType::Port)
+    parse_interface_list(stream, diagnostics, InterfaceType::Port)
 }
 
 pub fn parse_parameter_interface_list(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
-    parse_interface_list(stream, diagnostics, InterfaceListType::Parameter)
+    parse_interface_list(stream, diagnostics, InterfaceType::Parameter)
 }
 
 #[cfg(test)]
 fn parse_one_interface_declaration(
     stream: &mut TokenStream,
-    list_type: InterfaceListType,
+    list_type: InterfaceType,
 ) -> ParseResult<InterfaceDeclaration> {
     let mut diagnostics = Vec::new();
     let result = parse_interface_declaration(stream, &mut diagnostics, list_type).map(|decls| {
@@ -374,17 +372,17 @@ fn parse_one_interface_declaration(
 
 #[cfg(test)]
 pub fn parse_parameter(stream: &mut TokenStream) -> ParseResult<InterfaceDeclaration> {
-    parse_one_interface_declaration(stream, InterfaceListType::Parameter)
+    parse_one_interface_declaration(stream, InterfaceType::Parameter)
 }
 
 #[cfg(test)]
 pub fn parse_port(stream: &mut TokenStream) -> ParseResult<InterfaceDeclaration> {
-    parse_one_interface_declaration(stream, InterfaceListType::Port)
+    parse_one_interface_declaration(stream, InterfaceType::Port)
 }
 
 #[cfg(test)]
 pub fn parse_generic(stream: &mut TokenStream) -> ParseResult<InterfaceDeclaration> {
-    parse_one_interface_declaration(stream, InterfaceListType::Generic)
+    parse_one_interface_declaration(stream, InterfaceType::Generic)
 }
 
 #[cfg(test)]
@@ -400,7 +398,7 @@ mod tests {
             code.with_stream_no_diagnostics(parse_generic_interface_list),
             vec![
                 InterfaceDeclaration::Object(InterfaceObjectDeclaration {
-                    list_type: InterfaceListType::Generic,
+                    list_type: InterfaceType::Generic,
                     mode: Mode::In,
                     class: ObjectClass::Constant,
                     ident: code.s1("foo").decl_ident(),
@@ -408,7 +406,7 @@ mod tests {
                     expression: None
                 }),
                 InterfaceDeclaration::Object(InterfaceObjectDeclaration {
-                    list_type: InterfaceListType::Generic,
+                    list_type: InterfaceType::Generic,
                     mode: Mode::In,
                     class: ObjectClass::Constant,
                     ident: code.s1("bar").decl_ident(),
@@ -425,7 +423,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_generic),
             InterfaceDeclaration::Object(InterfaceObjectDeclaration {
-                list_type: InterfaceListType::Generic,
+                list_type: InterfaceType::Generic,
                 mode: Mode::In,
                 class: ObjectClass::Constant,
                 ident: code.s1("foo").decl_ident(),
@@ -477,7 +475,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_port),
             InterfaceDeclaration::Object(InterfaceObjectDeclaration {
-                list_type: InterfaceListType::Port,
+                list_type: InterfaceType::Port,
                 mode: Mode::In,
                 class: ObjectClass::Signal,
                 ident: code.s1("foo").decl_ident(),
@@ -545,7 +543,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_generic),
             InterfaceDeclaration::Object(InterfaceObjectDeclaration {
-                list_type: InterfaceListType::Generic,
+                list_type: InterfaceType::Generic,
                 mode: Mode::In,
                 class: ObjectClass::Constant,
                 ident: code.s1("foo").decl_ident(),
@@ -561,7 +559,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_port),
             InterfaceDeclaration::Object(InterfaceObjectDeclaration {
-                list_type: InterfaceListType::Port,
+                list_type: InterfaceType::Port,
                 mode: Mode::In,
                 class: ObjectClass::Signal,
                 ident: code.s1("foo").decl_ident(),

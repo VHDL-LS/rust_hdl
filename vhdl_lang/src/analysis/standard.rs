@@ -242,11 +242,11 @@ impl<'a> AnalyzeContext<'a> {
             [
                 (
                     self.ident("L"),
-                    AnyEntKind::Object(Object::if_constant(Subtype::new(type_ent))),
+                    AnyEntKind::Object(Object::const_param(Subtype::new(type_ent))),
                 ),
                 (
                     self.ident("R"),
-                    AnyEntKind::Object(Object::if_constant(Subtype::new(type_ent))),
+                    AnyEntKind::Object(Object::const_param(Subtype::new(type_ent))),
                 ),
             ],
             Some(type_ent),
@@ -265,7 +265,7 @@ impl<'a> AnalyzeContext<'a> {
             self.ident(name),
             [(
                 self.ident("L"),
-                AnyEntKind::Object(Object::if_constant(Subtype::new(arr_typ))),
+                AnyEntKind::Object(Object::const_param(Subtype::new(arr_typ))),
             )],
             Some(elem_typ),
         )
@@ -278,7 +278,7 @@ impl<'a> AnalyzeContext<'a> {
             Designator::OperatorSymbol(op),
             [(
                 Designator::Anonymous(0),
-                AnyEntKind::Object(Object::if_constant(Subtype::new(typ))),
+                AnyEntKind::Object(Object::const_param(Subtype::new(typ))),
             )],
             Some(return_type),
         )
@@ -342,11 +342,11 @@ impl<'a> AnalyzeContext<'a> {
             [
                 (
                     Designator::Anonymous(0),
-                    AnyEntKind::Object(Object::if_constant(Subtype::new(left))),
+                    AnyEntKind::Object(Object::const_param(Subtype::new(left))),
                 ),
                 (
                     Designator::Anonymous(1),
-                    AnyEntKind::Object(Object::if_constant(Subtype::new(right))),
+                    AnyEntKind::Object(Object::const_param(Subtype::new(right))),
                 ),
             ],
             Some(return_type),
@@ -387,12 +387,12 @@ impl<'a> AnalyzeContext<'a> {
                     (self.ident("F"), AnyEntKind::InterfaceFile(file_type)),
                     (
                         self.ident("External_Name"),
-                        AnyEntKind::Object(Object::if_constant(Subtype::new(string))),
+                        AnyEntKind::Object(Object::const_param(Subtype::new(string))),
                     ),
                     (
                         self.ident("Open_Kind"),
                         AnyEntKind::Object(
-                            Object::if_constant(Subtype::new(file_open_kind)).with_default(),
+                            Object::const_param(Subtype::new(file_open_kind)).with_default(),
                         ),
                     ),
                 ],
@@ -409,17 +409,17 @@ impl<'a> AnalyzeContext<'a> {
                 [
                     (
                         self.ident("Status"),
-                        AnyEntKind::Object(Object::if_constant(Subtype::new(file_open_status))),
+                        AnyEntKind::Object(Object::const_param(Subtype::new(file_open_status))),
                     ),
                     (self.ident("F"), AnyEntKind::InterfaceFile(file_type)),
                     (
                         self.ident("External_Name"),
-                        AnyEntKind::Object(Object::if_constant(Subtype::new(string))),
+                        AnyEntKind::Object(Object::const_param(Subtype::new(string))),
                     ),
                     (
                         self.ident("Open_Kind"),
                         AnyEntKind::Object(
-                            Object::if_constant(Subtype::new(file_open_kind)).with_default(),
+                            Object::const_param(Subtype::new(file_open_kind)).with_default(),
                         ),
                     ),
                 ],
@@ -450,8 +450,7 @@ impl<'a> AnalyzeContext<'a> {
                         self.ident("VALUE"),
                         AnyEntKind::Object(Object {
                             class: ObjectClass::Variable,
-                            is_port: false,
-                            mode: Some(Mode::Out),
+                            iface: Some(ObjectInterface::Parameter(Mode::Out)),
                             subtype: Subtype::new(type_mark),
                             has_default: false,
                         }),
@@ -471,7 +470,7 @@ impl<'a> AnalyzeContext<'a> {
                     (self.ident("F"), AnyEntKind::InterfaceFile(file_type)),
                     (
                         self.ident("VALUE"),
-                        AnyEntKind::Object(Object::if_constant(Subtype::new(type_mark))),
+                        AnyEntKind::Object(Object::const_param(Subtype::new(type_mark))),
                     ),
                 ],
                 None,
@@ -518,7 +517,7 @@ impl<'a> AnalyzeContext<'a> {
             self.ident(name),
             [(
                 self.ident("VALUE"),
-                AnyEntKind::Object(Object::if_constant(Subtype::new(type_ent))),
+                AnyEntKind::Object(Object::const_param(Subtype::new(type_ent))),
             )],
             Some(self.string()),
         )
@@ -535,8 +534,7 @@ impl<'a> AnalyzeContext<'a> {
                 self.ident("P"),
                 AnyEntKind::Object(Object {
                     class: ObjectClass::Variable,
-                    is_port: false,
-                    mode: Some(Mode::InOut),
+                    iface: Some(ObjectInterface::Parameter(Mode::InOut)),
                     subtype: Subtype::new(type_ent.to_owned()),
                     has_default: false,
                 }),
@@ -933,11 +931,11 @@ impl<'a> AnalyzeContext<'a> {
                     [
                         (
                             self.ident("VALUE"),
-                            AnyEntKind::Object(Object::if_constant(Subtype::new(real))),
+                            AnyEntKind::Object(Object::const_param(Subtype::new(real))),
                         ),
                         (
                             self.ident("DIGITS"),
-                            AnyEntKind::Object(Object::if_constant(Subtype::new(natural))),
+                            AnyEntKind::Object(Object::const_param(Subtype::new(natural))),
                         ),
                     ],
                     Some(string),
@@ -963,11 +961,11 @@ impl<'a> AnalyzeContext<'a> {
                     [
                         (
                             self.ident("VALUE"),
-                            AnyEntKind::Object(Object::if_constant(Subtype::new(real))),
+                            AnyEntKind::Object(Object::const_param(Subtype::new(real))),
                         ),
                         (
                             self.ident("FORMAT"),
-                            AnyEntKind::Object(Object::if_constant(Subtype::new(string))),
+                            AnyEntKind::Object(Object::const_param(Subtype::new(string))),
                         ),
                     ],
                     Some(string),
@@ -993,11 +991,11 @@ impl<'a> AnalyzeContext<'a> {
                     [
                         (
                             self.ident("VALUE"),
-                            AnyEntKind::Object(Object::if_constant(Subtype::new(time))),
+                            AnyEntKind::Object(Object::const_param(Subtype::new(time))),
                         ),
                         (
                             self.ident("UNIT"),
-                            AnyEntKind::Object(Object::if_constant(Subtype::new(time))),
+                            AnyEntKind::Object(Object::const_param(Subtype::new(time))),
                         ),
                     ],
                     Some(string),

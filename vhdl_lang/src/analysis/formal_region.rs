@@ -5,7 +5,7 @@
 // Copyright (c) 2022, Olof Kraigher olof.kraigher@gmail.com
 
 use crate::{
-    ast::{Designator, InterfaceListType, Mode, ObjectClass},
+    ast::{Designator, InterfaceType, Mode, ObjectClass},
     Diagnostic, SrcPos,
 };
 
@@ -24,7 +24,7 @@ impl<'a> InterfaceEnt<'a> {
 
     pub fn from_any(ent: EntRef<'a>) -> Option<Self> {
         match ent.kind() {
-            AnyEntKind::Object(Object { mode: Some(_), .. }) | AnyEntKind::InterfaceFile(..) => {
+            AnyEntKind::Object(Object { iface: Some(_), .. }) | AnyEntKind::InterfaceFile(..) => {
                 Some(InterfaceEnt { ent })
             }
             _ => None,
@@ -50,7 +50,7 @@ impl<'a> InterfaceEnt<'a> {
         match self.ent.kind() {
             AnyEntKind::Object(obj) => {
                 obj.class == ObjectClass::Signal
-                    && matches!(obj.mode, Some(Mode::Out) | Some(Mode::InOut))
+                    && matches!(obj.mode(), Some(Mode::Out) | Some(Mode::InOut))
             }
             _ => false,
         }
@@ -85,12 +85,12 @@ impl<'a> std::ops::Deref for InterfaceEnt<'a> {
 /// The formal region is an ordered list of interface elements such as ports, generics and subprogram arguments
 #[derive(Clone)]
 pub struct FormalRegion<'a> {
-    pub(crate) typ: InterfaceListType,
+    pub(crate) typ: InterfaceType,
     pub(crate) entities: Vec<InterfaceEnt<'a>>,
 }
 
 impl<'a> FormalRegion<'a> {
-    pub fn new(typ: InterfaceListType) -> Self {
+    pub fn new(typ: InterfaceType) -> Self {
         Self {
             typ,
             entities: Default::default(),
@@ -99,12 +99,12 @@ impl<'a> FormalRegion<'a> {
 
     pub fn new_params() -> Self {
         Self {
-            typ: InterfaceListType::Parameter,
+            typ: InterfaceType::Parameter,
             entities: Default::default(),
         }
     }
 
-    pub fn new_with(typ: InterfaceListType, entities: Vec<InterfaceEnt<'a>>) -> Self {
+    pub fn new_with(typ: InterfaceType, entities: Vec<InterfaceEnt<'a>>) -> Self {
         Self { typ, entities }
     }
     pub fn lookup(
@@ -247,11 +247,9 @@ impl<'a> GpkgInterfaceEnt<'a> {
             AnyEntKind::Type(Type::Interface) => {
                 Some(GpkgInterfaceEnt::Type(TypeEnt::from_any(ent).unwrap()))
             }
-            AnyEntKind::Object(obj) if obj.mode.is_some() && obj.class == ObjectClass::Constant => {
-                Some(GpkgInterfaceEnt::Constant(
-                    ObjectEnt::from_any(ent).unwrap(),
-                ))
-            }
+            AnyEntKind::Object(obj) if obj.is_generic() => Some(GpkgInterfaceEnt::Constant(
+                ObjectEnt::from_any(ent).unwrap(),
+            )),
             AnyEntKind::Overloaded(Overloaded::InterfaceSubprogram(_)) => Some(
                 GpkgInterfaceEnt::Subprogram(OverloadedEnt::from_any(ent).unwrap()),
             ),
