@@ -27,15 +27,18 @@ end entity;
 architecture a of ent is 
   signal s0 : natural;
 begin
-  process
-    variable v0 : natural;
-  begin
-    loop0: loop
-    end loop;
+  block
+    begin
+    process
+        variable v0 : natural;
+    begin
+        loop0: loop
+        end loop;
 
-    if false then
-    end if;
-  end process;
+        if false then
+        end if;
+    end process;
+  end block;
 end architecture;
       ",
     );
@@ -53,7 +56,7 @@ end architecture;
                     "a",
                     vec![
                         single("s0"),
-                        // @TODO show anonymous process?
+                        // @TODO add tree for anonymous block and process
                         single("v0"),
                         single("loop0"),
                     ]

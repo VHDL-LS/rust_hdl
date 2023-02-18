@@ -1057,16 +1057,27 @@ pub struct EntHierarchy<'a> {
 impl<'a> EntHierarchy<'a> {
     fn from_vec(mut symbols: Vec<EntRef<'a>>, source: &Source) -> Vec<EntHierarchy<'a>> {
         let mut by_parent: FnvHashMap<EntityId, Vec<EntRef>> = Default::default();
-        symbols.retain(|ent| {
+
+        fn find_parent<'a>(ent: EntRef<'a>, source: &Source) -> Option<EntRef<'a>> {
             if let Some(parent) = ent.parent {
                 if let Some(pos) = parent.decl_pos() {
                     if pos.source() == source {
-                        by_parent.entry(parent.id()).or_default().push(ent);
-                        return false;
+                        return Some(parent);
                     }
+                } else {
+                    return find_parent(parent, source);
                 }
             }
-            true
+            None
+        }
+
+        symbols.retain(|ent| {
+            if let Some(parent) = find_parent(ent, source) {
+                by_parent.entry(parent.id()).or_default().push(ent);
+                false
+            } else {
+                true
+            }
         });
         symbols
             .into_iter()
