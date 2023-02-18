@@ -149,6 +149,10 @@ impl<'a> Object<'a> {
         matches!(self.iface, Some(ObjectInterface::Generic))
     }
 
+    pub fn is_param(&self) -> bool {
+        matches!(self.iface, Some(ObjectInterface::Parameter(_)))
+    }
+
     pub fn mode(&self) -> Option<Mode> {
         self.iface.map(|i| i.mode())
     }

@@ -33,6 +33,6 @@ mod tests;
 
 pub use self::root::DesignRoot;
 pub use named_entity::{
-    AnyEnt, AnyEntKind, Concurrent, Design, EntRef, EntityId, HasEntityId, Overloaded, Related,
-    Sequential, Type,
+    AnyEnt, AnyEntKind, Concurrent, Design, EntRef, EntityId, HasEntityId, Object, Overloaded,
+    Related, Sequential, Type,
 };

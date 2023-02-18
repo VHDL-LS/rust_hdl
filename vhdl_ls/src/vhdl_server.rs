@@ -15,8 +15,8 @@ use crate::rpc_channel::SharedRpcChannel;
 use std::io;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
-    AnyEntKind, Config, Diagnostic, EntRef, EntityId, Message, MessageHandler, Overloaded, Project,
-    Severity, Source, SrcPos, Type,
+    AnyEntKind, Concurrent, Config, Diagnostic, EntRef, EntityId, Message, MessageHandler, Object,
+    Overloaded, Project, Severity, Source, SrcPos, Type,
 };
 
 #[derive(Default, Clone)]
@@ -738,7 +738,16 @@ fn overloaded_kind(overloaded: &Overloaded) -> SymbolKind {
     }
 }
 
-fn object_kind(class: ObjectClass) -> SymbolKind {
+fn object_kind(object: &Object) -> SymbolKind {
+    if matches!(object.subtype.type_mark().kind(), Type::Protected(..)) {
+        SymbolKind::OBJECT
+    } else if object.iface.is_some() {
+        SymbolKind::INTERFACE
+    } else {
+        object_class_kind(object.class)
+    }
+}
+fn object_class_kind(class: ObjectClass) -> SymbolKind {
     match class {
         ObjectClass::Signal => SymbolKind::EVENT,
         ObjectClass::Constant => SymbolKind::CONSTANT,
@@ -768,9 +777,9 @@ fn type_kind(t: &Type) -> SymbolKind {
 
 fn to_symbol_kind(kind: &AnyEntKind) -> SymbolKind {
     match kind {
-        AnyEntKind::ExternalAlias { class, .. } => object_kind(ObjectClass::from(*class)),
-        AnyEntKind::ObjectAlias { base_object, .. } => object_kind(base_object.class()),
-        AnyEntKind::Object(o) => object_kind(o.class),
+        AnyEntKind::ExternalAlias { class, .. } => object_class_kind(ObjectClass::from(*class)),
+        AnyEntKind::ObjectAlias { base_object, .. } => object_kind(base_object.object()),
+        AnyEntKind::Object(o) => object_kind(o),
         AnyEntKind::LoopParameter(_) => SymbolKind::CONSTANT,
         AnyEntKind::PhysicalLiteral(_) => SymbolKind::CONSTANT,
         AnyEntKind::DeferredConstant(_) => SymbolKind::CONSTANT,
@@ -782,12 +791,13 @@ fn to_symbol_kind(kind: &AnyEntKind) -> SymbolKind {
         AnyEntKind::Type(t) => type_kind(t),
         AnyEntKind::ElementDeclaration(_) => SymbolKind::FIELD,
         AnyEntKind::Sequential(_) => SymbolKind::NAMESPACE,
+        AnyEntKind::Concurrent(Some(Concurrent::Instance)) => SymbolKind::MODULE,
         AnyEntKind::Concurrent(_) => SymbolKind::NAMESPACE,
         AnyEntKind::Library => SymbolKind::NAMESPACE,
         AnyEntKind::Design(d) => match d {
-            vhdl_lang::Design::Entity(_, _) => SymbolKind::OBJECT,
-            vhdl_lang::Design::Architecture(_) => SymbolKind::OBJECT,
-            vhdl_lang::Design::Configuration => SymbolKind::OBJECT,
+            vhdl_lang::Design::Entity(_, _) => SymbolKind::MODULE,
+            vhdl_lang::Design::Architecture(_) => SymbolKind::MODULE,
+            vhdl_lang::Design::Configuration => SymbolKind::MODULE,
             vhdl_lang::Design::Package(_, _) => SymbolKind::PACKAGE,
             vhdl_lang::Design::UninstPackage(_, _) => SymbolKind::PACKAGE,
             vhdl_lang::Design::PackageInstance(_) => SymbolKind::PACKAGE,
