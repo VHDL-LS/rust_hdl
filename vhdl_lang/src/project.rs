@@ -151,6 +151,17 @@ impl Project {
         }
     }
 
+    pub fn library_mapping_of(&self, source: &Source) -> Vec<Symbol> {
+        let file = if let Some(file) = self.files.get(source.file_name()) {
+            file
+        } else {
+            return Vec::new();
+        };
+        let mut libs: Vec<_> = file.library_names.iter().cloned().collect();
+        libs.sort_by_key(|lib| lib.name_utf8());
+        libs
+    }
+
     pub fn get_source(&self, file_name: &Path) -> Option<Source> {
         self.files.get(file_name).map(|file| file.source.clone())
     }
@@ -243,6 +254,15 @@ impl Project {
     // Find symbols that are public such as primary design units and their interfaces
     pub fn public_symbols<'a>(&'a self) -> Box<dyn Iterator<Item = EntRef<'a>> + 'a> {
         self.root.public_symbols()
+    }
+
+    // Find symbols that are public such as primary design units and their interfaces
+    pub fn document_symbols<'a>(
+        &'a self,
+        library_name: &Symbol,
+        source: &Source,
+    ) -> Vec<EntRef<'a>> {
+        self.root.document_symbols(library_name, source)
     }
 
     pub fn find_implementation<'a>(&'a self, source: &Source, cursor: Position) -> Vec<EntRef<'a>> {

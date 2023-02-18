@@ -488,6 +488,26 @@ impl DesignRoot {
         }))
     }
 
+    pub fn document_symbols<'a>(
+        &'a self,
+        library_name: &Symbol,
+        source: &Source,
+    ) -> Vec<EntRef<'a>> {
+        let mut searcher = FindAllEnt::new(self, |ent| ent.is_explicit());
+
+        if let Some(library) = self.libraries.get(library_name) {
+            if let Some(unit_ids) = library.units_by_source.get(source) {
+                for unit_id in unit_ids {
+                    let unit = library.units.get(unit_id.key()).unwrap();
+                    let _ = unit.unit.write().search(&mut searcher);
+                }
+            }
+        }
+
+        searcher.result.sort_by_key(|ent| ent.decl_pos());
+        searcher.result
+    }
+
     pub fn find_all_unresolved(&self) -> (usize, Vec<SrcPos>) {
         let mut searcher = FindAllUnresolved::default();
         let _ = self.search(&mut searcher);

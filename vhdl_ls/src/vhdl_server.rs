@@ -15,8 +15,8 @@ use crate::rpc_channel::SharedRpcChannel;
 use std::io;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
-    AnyEntKind, Config, Diagnostic, Message, MessageHandler, Overloaded, Project, Severity, Source,
-    SrcPos, Type,
+    AnyEntKind, Config, Diagnostic, EntRef, EntityId, Message, MessageHandler, Overloaded, Project,
+    Severity, Source, SrcPos, Type,
 };
 
 #[derive(Default, Clone)]
@@ -127,6 +127,7 @@ impl VHDLServer {
                 work_done_progress_options: Default::default(),
             })),
             workspace_symbol_provider: Some(OneOf::Left(true)),
+            document_symbol_provider: Some(OneOf::Left(true)),
             ..Default::default()
         };
 
@@ -464,6 +465,65 @@ impl VHDLServer {
                 .collect(),
         ))
     }
+
+    pub fn document_symbol(&self, params: &DocumentSymbolParams) -> Option<DocumentSymbolResponse> {
+        let source = self
+            .project
+            .get_source(&uri_to_file_name(&params.text_document.uri))?;
+
+        // Some files are mapped to multiple libraries, only use the first library for document symbols
+        let library_name = self
+            .project
+            .library_mapping_of(&source)
+            .into_iter()
+            .next()?;
+
+        let mut symbols = self.project.document_symbols(&library_name, &source);
+        let mut by_parent: FnvHashMap<EntityId, Vec<EntRef>> = Default::default();
+
+        symbols.retain(|ent| {
+            if let Some(parent) = ent.parent {
+                if let Some(pos) = parent.decl_pos() {
+                    if pos.source == source {
+                        by_parent.entry(parent.id()).or_default().push(ent);
+                        return false;
+                    }
+                }
+            }
+            true
+        });
+
+        fn to_document_symbol(
+            ent: EntRef,
+            by_parent: &FnvHashMap<EntityId, Vec<EntRef>>,
+        ) -> Option<DocumentSymbol> {
+            let decl_pos = ent.decl_pos()?;
+            #[allow(deprecated)]
+            Some(DocumentSymbol {
+                name: ent.describe(),
+                kind: to_symbol_kind(ent.kind()),
+                tags: None,
+                detail: None,
+                selection_range: to_lsp_range(decl_pos.range),
+                range: to_lsp_range(decl_pos.range),
+                children: by_parent.get(&ent.id()).map(|children| {
+                    children
+                        .iter()
+                        .filter_map(|child| to_document_symbol(child, by_parent))
+                        .collect::<Vec<DocumentSymbol>>()
+                }),
+                deprecated: None,
+            })
+        }
+
+        Some(DocumentSymbolResponse::Nested(
+            symbols
+                .into_iter()
+                .filter_map(|ent| to_document_symbol(ent, &by_parent))
+                .collect(),
+        ))
+    }
+
     pub fn text_document_hover(&mut self, params: &TextDocumentPositionParams) -> Option<Hover> {
         let source = self
             .project
