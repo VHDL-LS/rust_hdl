@@ -540,7 +540,7 @@ function myfun(arg1 : integer) return integer;
             diagnostics,
             vec![
                 Diagnostic::error(fcall.s1("missing"), "No declaration of 'missing'"),
-                Diagnostic::error(fcall, "No association of interface constant 'arg1'")
+                Diagnostic::error(fcall, "No association of parameter 'arg1'")
                     .related(decl.s1("arg1"), "Defined here"),
             ],
         );

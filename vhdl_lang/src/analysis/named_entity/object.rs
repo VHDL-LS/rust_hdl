@@ -52,11 +52,17 @@ impl<'a> ObjectEnt<'a> {
     }
 
     pub fn describe(&self) -> String {
-        if let Some(mode) = self.mode() {
-            if self.class() == ObjectClass::Constant {
-                format!("interface {}", self.describe_name())
-            } else {
-                format!("interface {} : {}", self.describe_name(), mode)
+        if let Some(iface) = self.object().iface {
+            match iface {
+                ObjectInterface::Generic => format!("generic '{}'", self.designator()),
+                ObjectInterface::Parameter(mode) => {
+                    if self.class() == ObjectClass::Constant {
+                        format!("parameter '{}'", self.designator())
+                    } else {
+                        format!("{} '{}' : {}", self.class(), self.designator(), mode)
+                    }
+                }
+                ObjectInterface::Port(mode) => format!("port '{}' : {}", self.designator(), mode),
             }
         } else {
             self.describe_name()

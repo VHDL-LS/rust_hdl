@@ -24,10 +24,8 @@ signal bad : natural := subpgm;
     check_diagnostics(
         diagnostics,
         vec![
-            Diagnostic::error(code.s1("subpgm;").s1("subpgm"), "Invalid call to 'subpgm'").related(
-                code.s1("subpgm"),
-                "Missing association of interface constant 'arg'",
-            ),
+            Diagnostic::error(code.s1("subpgm;").s1("subpgm"), "Invalid call to 'subpgm'")
+                .related(code.s1("subpgm"), "Missing association of parameter 'arg'"),
         ],
     );
 }
@@ -126,7 +124,7 @@ constant bad : integer := subpgm(arg2 => 1);
             Diagnostic::error(code.s1("arg2"), "No declaration of 'arg2'"),
             Diagnostic::error(
                 code.s1("subpgm(arg2 => 1)"),
-                "No association of interface constant 'arg1'",
+                "No association of parameter 'arg1'",
             )
             .related(code.s1("arg1"), "Defined here"),
         ],
@@ -185,11 +183,10 @@ signal bad : natural := subpgm(0);
     let (root, diagnostics) = builder.get_analyzed_root();
     check_diagnostics(
         diagnostics,
-        vec![Diagnostic::error(
-            code.s1("subpgm(0)"),
-            "No association of interface constant 'arg2'",
-        )
-        .related(code.s1("arg2"), "Defined here")],
+        vec![
+            Diagnostic::error(code.s1("subpgm(0)"), "No association of parameter 'arg2'")
+                .related(code.s1("arg2"), "Defined here"),
+        ],
     );
 
     assert_eq!(
