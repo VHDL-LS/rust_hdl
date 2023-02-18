@@ -28,11 +28,7 @@ impl<'a> AnalyzeContext<'a> {
                 let ent = self.arena.explicit(
                     label.name(),
                     parent,
-                    if statement.statement.is_loop() {
-                        AnyEntKind::LoopLabel
-                    } else {
-                        AnyEntKind::Label
-                    },
+                    AnyEntKind::Sequential(statement.statement.label_typ()),
                     Some(label.pos()),
                 );
                 statement.label.decl = Some(ent.id());
@@ -44,11 +40,7 @@ impl<'a> AnalyzeContext<'a> {
                     Designator::Anonymous(scope.next_anonymous()),
                     Some(parent),
                     Related::None,
-                    if statement.statement.is_loop() {
-                        AnyEntKind::LoopLabel
-                    } else {
-                        AnyEntKind::Label
-                    },
+                    AnyEntKind::Sequential(statement.statement.label_typ()),
                     None,
                 );
                 statement.label.decl = Some(ent.id());
@@ -324,7 +316,7 @@ impl<'a> AnalyzeContext<'a> {
         ) {
             Ok(NamedEntities::Single(ent)) => {
                 label.set_unique_reference(ent);
-                if matches!(ent.kind(), AnyEntKind::LoopLabel) {
+                if matches!(ent.kind(), AnyEntKind::Sequential(Some(Sequential::Loop))) {
                     if !find_outer_loop(parent, Some(label.item.name())) {
                         diagnostics.error(
                             &label.item.pos,
@@ -380,7 +372,7 @@ enum SequentialRoot<'a> {
 
 fn find_outer_loop(ent: EntRef, label: Option<&Symbol>) -> bool {
     match ent.kind() {
-        AnyEntKind::LoopLabel => {
+        AnyEntKind::Sequential(Some(Sequential::Loop)) => {
             if let Some(label) = label {
                 if matches!(ent.designator(), Designator::Identifier(ident) if ident == label) {
                     return true;
@@ -389,7 +381,7 @@ fn find_outer_loop(ent: EntRef, label: Option<&Symbol>) -> bool {
                 return true;
             }
         }
-        AnyEntKind::Label => {}
+        AnyEntKind::Sequential(_) => {}
         _ => {
             return false;
         }
@@ -412,13 +404,15 @@ impl<'a> From<EntRef<'a>> for SequentialRoot<'a> {
                     SequentialRoot::Procedure
                 }
             }
-            AnyEntKind::Label | AnyEntKind::LoopLabel => {
+            AnyEntKind::Sequential(_) => {
                 if let Some(parent) = value.parent {
                     SequentialRoot::from(parent)
                 } else {
+                    // A sequential statement must always have a parent this should never happen
                     SequentialRoot::Process
                 }
             }
+            AnyEntKind::Concurrent(Some(Concurrent::Process)) => SequentialRoot::Process,
             _ => SequentialRoot::Process,
         }
     }

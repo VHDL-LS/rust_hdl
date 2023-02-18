@@ -43,8 +43,8 @@ pub enum AnyEntKind<'a> {
     Overloaded(Overloaded<'a>),
     Type(Type<'a>),
     ElementDeclaration(Subtype<'a>),
-    Label,
-    LoopLabel,
+    Concurrent(Option<Concurrent>),
+    Sequential(Option<Sequential>),
     Object(Object<'a>),
     LoopParameter(Option<BaseType<'a>>),
     PhysicalLiteral(TypeEnt<'a>),
@@ -102,7 +102,10 @@ impl<'a> AnyEntKind<'a> {
             Component(..) => "component",
             Attribute(..) => "attribute",
             Overloaded(overloaded) => overloaded.describe(),
-            Label | LoopLabel => "label",
+            Concurrent(Some(c)) => c.describe(),
+            Concurrent(None) => "label",
+            Sequential(Some(s)) => s.describe(),
+            Sequential(None) => "label",
             LoopParameter(_) => "loop parameter",
             Object(object) => object.class.describe(),
             PhysicalLiteral(..) => "physical literal",
@@ -469,6 +472,42 @@ impl SubprogramDeclaration {
         match self {
             SubprogramDeclaration::Function(f) => f.designator.decl = Some(id),
             SubprogramDeclaration::Procedure(p) => p.designator.decl = Some(id),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum Concurrent {
+    Block,
+    Process,
+    Generate,
+    Instance,
+}
+
+impl Concurrent {
+    fn describe(&self) -> &'static str {
+        match self {
+            Concurrent::Block => "block",
+            Concurrent::Process => "process",
+            Concurrent::Generate => "generate",
+            Concurrent::Instance => "instance",
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum Sequential {
+    Loop,
+    If,
+    Case,
+}
+
+impl Sequential {
+    fn describe(&self) -> &'static str {
+        match self {
+            Sequential::Case => "case",
+            Sequential::If => "if",
+            Sequential::Loop => "loop",
         }
     }
 }

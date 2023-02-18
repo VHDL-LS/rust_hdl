@@ -85,7 +85,7 @@ impl<'a> TestSetup<'a> {
             Designator::Anonymous(0),
             None,
             Related::None,
-            AnyEntKind::Label,
+            AnyEntKind::Library,
             None,
         );
         self.ctx()

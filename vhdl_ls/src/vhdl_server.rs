@@ -781,8 +781,8 @@ fn to_symbol_kind(kind: &AnyEntKind) -> SymbolKind {
         AnyEntKind::Overloaded(o) => overloaded_kind(o),
         AnyEntKind::Type(t) => type_kind(t),
         AnyEntKind::ElementDeclaration(_) => SymbolKind::FIELD,
-        AnyEntKind::Label => SymbolKind::NAMESPACE,
-        AnyEntKind::LoopLabel => SymbolKind::NAMESPACE,
+        AnyEntKind::Sequential(_) => SymbolKind::NAMESPACE,
+        AnyEntKind::Concurrent(_) => SymbolKind::NAMESPACE,
         AnyEntKind::Library => SymbolKind::NAMESPACE,
         AnyEntKind::Design(d) => match d {
             vhdl_lang::Design::Entity(_, _) => SymbolKind::OBJECT,

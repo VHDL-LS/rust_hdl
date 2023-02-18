@@ -270,7 +270,7 @@ impl<'a> AnalyzeContext<'a> {
             designator,
             parent.or(uninst.parent),
             Related::InstanceOf(uninst),
-            AnyEntKind::Label, // Will be immediately overwritten below
+            AnyEntKind::Library, // Will be immediately overwritten below
             decl_pos,
         );
         let kind = self.map_kind(Some(inst), mapping, uninst.kind())?;
@@ -331,8 +331,8 @@ impl<'a> AnalyzeContext<'a> {
             AnyEntKind::ElementDeclaration(subtype) => {
                 AnyEntKind::ElementDeclaration(self.map_subtype(mapping, *subtype)?)
             }
-            AnyEntKind::Label => AnyEntKind::Label,
-            AnyEntKind::LoopLabel => AnyEntKind::LoopLabel,
+            AnyEntKind::Sequential(s) => AnyEntKind::Sequential(*s),
+            AnyEntKind::Concurrent(c) => AnyEntKind::Concurrent(*c),
             AnyEntKind::Object(obj) => AnyEntKind::Object(self.map_object(mapping, obj)?),
             AnyEntKind::LoopParameter(typ) => AnyEntKind::LoopParameter(
                 typ.map(|typ| self.map_type_ent(mapping, typ.into()).base()),

@@ -6,6 +6,7 @@
 
 //! Name conversions
 use super::*;
+use crate::analysis::{Concurrent, Sequential};
 use crate::data::*;
 
 impl From<WithPos<SelectedName>> for WithPos<Name> {
@@ -486,59 +487,84 @@ impl SubprogramDeclaration {
 }
 
 impl ConcurrentStatement {
-    fn end_label(&self) -> Option<Option<&SrcPos>> {
+    pub fn label_typ(&self) -> Option<Concurrent> {
+        use ConcurrentStatement::*;
         match self {
-            ConcurrentStatement::ProcedureCall(_) => None,
-            ConcurrentStatement::Block(value) => Some(value.end_label_pos.as_ref()),
-            ConcurrentStatement::Process(value) => Some(value.end_label_pos.as_ref()),
-            ConcurrentStatement::Assert(_) => None,
-            ConcurrentStatement::Assignment(_) => None,
-            ConcurrentStatement::Instance(_) => None,
-            ConcurrentStatement::ForGenerate(value) => Some(value.end_label_pos.as_ref()),
-            ConcurrentStatement::IfGenerate(value) => Some(value.end_label_pos.as_ref()),
-            ConcurrentStatement::CaseGenerate(value) => Some(value.end_label_pos.as_ref()),
+            ProcedureCall(_) => None,
+            Block(_) => Some(Concurrent::Block),
+            Process(_) => Some(Concurrent::Process),
+            Assert(_) => None,
+            Assignment(_) => None,
+            Instance(_) => Some(Concurrent::Instance),
+            ForGenerate(_) | IfGenerate(_) | CaseGenerate(_) => Some(Concurrent::Generate),
         }
     }
 
     pub fn end_label_pos(&self) -> Option<&SrcPos> {
-        self.end_label().flatten()
+        use ConcurrentStatement::*;
+
+        match self {
+            ProcedureCall(_) => None,
+            Block(value) => value.end_label_pos.as_ref(),
+            Process(value) => value.end_label_pos.as_ref(),
+            Assert(_) => None,
+            Assignment(_) => None,
+            Instance(_) => None,
+            ForGenerate(value) => value.end_label_pos.as_ref(),
+            IfGenerate(value) => value.end_label_pos.as_ref(),
+            CaseGenerate(value) => value.end_label_pos.as_ref(),
+        }
     }
 
     pub fn can_have_label(&self) -> bool {
-        self.end_label().is_some()
+        self.label_typ().is_some()
     }
 }
 
 impl SequentialStatement {
-    fn end_label(&self) -> Option<Option<&SrcPos>> {
+    pub fn label_typ(&self) -> Option<Sequential> {
+        use SequentialStatement::*;
         match self {
-            SequentialStatement::Wait(_) => None,
-            SequentialStatement::Assert(_) => None,
-            SequentialStatement::Report(_) => None,
-            SequentialStatement::VariableAssignment(_) => None,
-            SequentialStatement::SignalAssignment(_) => None,
-            SequentialStatement::SignalForceAssignment(_) => None,
-            SequentialStatement::SignalReleaseAssignment(_) => None,
-            SequentialStatement::ProcedureCall(_) => None,
-            SequentialStatement::If(value) => Some(value.end_label_pos.as_ref()),
-            SequentialStatement::Case(value) => Some(value.end_label_pos.as_ref()),
-            SequentialStatement::Loop(value) => Some(value.end_label_pos.as_ref()),
-            SequentialStatement::Next(_) => None,
-            SequentialStatement::Exit(_) => None,
-            SequentialStatement::Return(_) => None,
-            SequentialStatement::Null => None,
+            Wait(_) => None,
+            Assert(_) => None,
+            Report(_) => None,
+            VariableAssignment(_) => None,
+            SignalAssignment(_) => None,
+            SignalForceAssignment(_) => None,
+            SignalReleaseAssignment(_) => None,
+            ProcedureCall(_) => None,
+            If(_) => Some(Sequential::If),
+            Case(_) => Some(Sequential::Case),
+            Loop(_) => Some(Sequential::Loop),
+            Next(_) => None,
+            Exit(_) => None,
+            Return(_) => None,
+            Null => None,
         }
     }
 
     pub fn end_label_pos(&self) -> Option<&SrcPos> {
-        self.end_label().flatten()
+        use SequentialStatement::*;
+        match self {
+            Wait(_) => None,
+            Assert(_) => None,
+            Report(_) => None,
+            VariableAssignment(_) => None,
+            SignalAssignment(_) => None,
+            SignalForceAssignment(_) => None,
+            SignalReleaseAssignment(_) => None,
+            ProcedureCall(_) => None,
+            If(value) => value.end_label_pos.as_ref(),
+            Case(value) => value.end_label_pos.as_ref(),
+            Loop(value) => value.end_label_pos.as_ref(),
+            Next(_) => None,
+            Exit(_) => None,
+            Return(_) => None,
+            Null => None,
+        }
     }
 
     pub fn can_have_label(&self) -> bool {
-        self.end_label().is_some()
-    }
-
-    pub fn is_loop(&self) -> bool {
-        matches!(self, SequentialStatement::Loop(_))
+        self.label_typ().is_some()
     }
 }

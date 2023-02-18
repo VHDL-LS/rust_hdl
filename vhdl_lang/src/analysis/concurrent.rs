@@ -45,9 +45,12 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalResult {
         for statement in statements.iter_mut() {
             if let Some(ref mut label) = statement.label.tree {
-                let ent =
-                    self.arena
-                        .explicit(label.name(), parent, AnyEntKind::Label, Some(label.pos()));
+                let ent = self.arena.explicit(
+                    label.name(),
+                    parent,
+                    AnyEntKind::Concurrent(statement.statement.label_typ()),
+                    Some(label.pos()),
+                );
                 statement.label.decl = Some(ent.id());
                 scope.add(ent, diagnostics);
             } else if statement.statement.can_have_label() {
@@ -56,7 +59,7 @@ impl<'a> AnalyzeContext<'a> {
                     Designator::Anonymous(scope.next_anonymous()),
                     Some(parent),
                     Related::None,
-                    AnyEntKind::Label,
+                    AnyEntKind::Concurrent(statement.statement.label_typ()),
                     None,
                 );
                 statement.label.decl = Some(ent.id());
@@ -220,7 +223,11 @@ impl<'a> AnalyzeContext<'a> {
 
         let mut inner_parent = parent;
         if let Some(label) = alternative_label {
-            let ent = label.define(self.arena, parent, AnyEntKind::Label);
+            let ent = label.define(
+                self.arena,
+                parent,
+                AnyEntKind::Concurrent(Some(Concurrent::Generate)),
+            );
             scope.add(ent, diagnostics);
             inner_parent = ent;
         }

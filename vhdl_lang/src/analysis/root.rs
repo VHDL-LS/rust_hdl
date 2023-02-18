@@ -8,9 +8,11 @@ use super::analyze::*;
 use super::lock::*;
 use super::named_entity::*;
 use super::region::NamedEntities;
+use super::region::Region;
 use super::region::Scope;
 use super::standard::StandardTypes;
 use super::standard::UniversalTypes;
+use super::visibility::Visibility;
 
 use crate::ast::search::*;
 use crate::ast::*;
@@ -841,7 +843,11 @@ impl DesignRoot {
                         arena.explicit(
                             self.symbol_utf8("standard"),
                             std_lib,
-                            AnyEntKind::Label,
+                            // Will be overwritten below
+                            AnyEntKind::Design(Design::Package(
+                                Visibility::default(),
+                                Region::default(),
+                            )),
                             Some(std_package.ident.pos()),
                         )
                     };
