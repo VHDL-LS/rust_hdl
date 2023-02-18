@@ -162,7 +162,7 @@ impl HasIdent for PackageDeclaration {
 
 impl HasIdent for PackageBody {
     fn ident(&self) -> &Ident {
-        &self.ident.item
+        &self.ident.tree
     }
 }
 
@@ -246,7 +246,7 @@ impl HasPrimaryIdent for ArchitectureBody {
 
 impl HasPrimaryIdent for PackageBody {
     fn primary_ident(&self) -> &Ident {
-        &self.ident.item
+        &self.ident.tree
     }
 }
 

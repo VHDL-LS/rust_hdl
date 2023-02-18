@@ -1180,15 +1180,23 @@ impl<'a> AnalyzeContext<'a> {
 
             ResolvedName::Library(ref library_name) => {
                 if let Suffix::Selected(ref mut designator) = suffix {
-                    resolved = ResolvedName::Design(catch_analysis_err(
-                        self.lookup_in_library(
-                            library_name,
-                            &designator.pos,
-                            &designator.item.item,
-                            &mut designator.item.reference,
-                        ),
-                        diagnostics,
-                    )?);
+                    resolved = ResolvedName::Design(
+                        catch_analysis_err(
+                            self.lookup_in_library(
+                                library_name,
+                                &designator.pos,
+                                &designator.item.item,
+                            ),
+                            diagnostics,
+                        )
+                        .map(|design| {
+                            designator
+                                .item
+                                .reference
+                                .set_unique_reference(design.into());
+                            design
+                        })?,
+                    );
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix(name_pos, resolved, suffix));
                     return Err(EvalError::Unknown);
@@ -1450,13 +1458,12 @@ impl<'a> AnalyzeContext<'a> {
         match prefix.actual_kind() {
             AnyEntKind::Library => {
                 let library_name = prefix.designator().expect_identifier();
-                let named_entity = self.lookup_in_library(
-                    library_name,
-                    &suffix.pos,
-                    &suffix.item.item,
-                    &mut suffix.item.reference,
-                )?;
-
+                let named_entity =
+                    self.lookup_in_library(library_name, &suffix.pos, &suffix.item.item)?;
+                suffix
+                    .item
+                    .reference
+                    .set_unique_reference(named_entity.into());
                 Ok(NamedEntities::new(named_entity.into()))
             }
             AnyEntKind::Object(ref object) => Ok(object

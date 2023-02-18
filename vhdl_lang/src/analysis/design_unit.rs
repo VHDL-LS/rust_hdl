@@ -235,7 +235,6 @@ impl<'a> AnalyzeContext<'a> {
             self.work_library_name(),
             &unit.entity_name.item.pos,
             &Designator::Identifier(unit.entity_name.item.item.clone()),
-            &mut unit.entity_name.reference,
         ) {
             Ok(primary) => primary,
             Err(err) => {
@@ -243,6 +242,7 @@ impl<'a> AnalyzeContext<'a> {
                 return Ok(());
             }
         };
+        unit.entity_name.set_unique_reference(primary.into());
         self.check_secondary_before_primary(&primary, unit.pos(), diagnostics);
 
         let (visibility, region) =
@@ -285,9 +285,8 @@ impl<'a> AnalyzeContext<'a> {
     ) -> FatalResult {
         let primary = match self.lookup_in_library(
             self.work_library_name(),
-            &unit.ident.item.pos,
-            &Designator::Identifier(unit.ident.item.item.clone()),
-            &mut unit.ident.reference,
+            &unit.ident.tree.pos,
+            &Designator::Identifier(unit.ident.tree.item.clone()),
         ) {
             Ok(primary) => primary,
             Err(err) => {
@@ -295,7 +294,6 @@ impl<'a> AnalyzeContext<'a> {
                 return Ok(());
             }
         };
-        self.check_secondary_before_primary(&primary, unit.pos(), diagnostics);
 
         let (visibility, region) = match primary.kind() {
             Design::Package(ref visibility, ref region)
@@ -311,6 +309,17 @@ impl<'a> AnalyzeContext<'a> {
             }
         };
 
+        let body = self.arena.alloc(
+            unit.ident.name().clone().into(),
+            Some(self.work_library()),
+            Related::DeclaredBy(primary.into()),
+            AnyEntKind::Design(Design::PackageBody),
+            Some(unit.ident.tree.pos.clone()),
+        );
+        unit.ident.decl = Some(body.id());
+
+        self.check_secondary_before_primary(&primary, unit.pos(), diagnostics);
+
         // @TODO make pattern of primary/secondary extension
         let root_scope = Scope::new(Region::with_visibility(visibility.clone()));
 
@@ -318,7 +327,7 @@ impl<'a> AnalyzeContext<'a> {
 
         let scope = Scope::extend(region, Some(&root_scope));
 
-        self.analyze_declarative_part(&scope, primary.into(), &mut unit.decl, diagnostics)?;
+        self.analyze_declarative_part(&scope, body, &mut unit.decl, diagnostics)?;
         scope.close(diagnostics);
         Ok(())
     }
@@ -359,7 +368,10 @@ impl<'a> AnalyzeContext<'a> {
                 self.work_library_name(),
                 &ent_name.pos,
                 &designator.item,
-                &mut designator.reference,
+            ).map(|design| {
+                designator.reference.set_unique_reference(design.into());
+                design
+                }
             ),
 
             // configuration cfg of lib.ent
@@ -381,7 +393,8 @@ impl<'a> AnalyzeContext<'a> {
                                     format!("Configuration must be within the same library '{}' as the corresponding entity", self.work_library_name()),
                                 ))
                             } else {
-                                let primary_ent = self.lookup_in_library(library_name, &designator.pos, &designator.item.item, &mut designator.item.reference)?;
+                                let primary_ent = self.lookup_in_library(library_name, &designator.pos, &designator.item.item)?;
+                                designator.item.reference.set_unique_reference(primary_ent.into());
                                 match primary_ent.kind() {
                                     Design::Entity(..) => Ok(primary_ent),
                                     _ => {

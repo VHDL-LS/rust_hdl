@@ -61,6 +61,7 @@ pub enum FoundDeclaration<'a> {
     Function(&'a mut FunctionSpecification),
     Procedure(&'a mut ProcedureSpecification),
     Package(&'a mut PackageDeclaration),
+    PackageBody(&'a mut PackageBody),
     PackageInstance(&'a mut PackageInstantiation),
     Configuration(&'a mut ConfigurationDeclaration),
     Entity(&'a mut EntityDeclaration),
@@ -1256,12 +1257,9 @@ impl Search for PackageBody {
     fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         return_if_finished!(searcher.search_source(self.source()));
         return_if_found!(self.context_clause.search(searcher));
-        return_if_found!(searcher.search_ident_ref(&mut self.ident).or_not_found());
-        if let Some(ref end_ident_pos) = self.end_ident_pos {
-            return_if_found!(searcher
-                .search_pos_with_ref(end_ident_pos, &mut self.ident.reference)
-                .or_not_found());
-        }
+        return_if_found!(searcher
+            .search_decl(FoundDeclaration::PackageBody(self))
+            .or_not_found());
         self.decl.search(searcher)
     }
 }
@@ -1606,6 +1604,7 @@ impl<'a> FoundDeclaration<'a> {
             FoundDeclaration::Attribute(..) => None,
             FoundDeclaration::Alias(..) => None,
             FoundDeclaration::Package(value) => value.end_ident_pos.as_ref(),
+            FoundDeclaration::PackageBody(value) => value.end_ident_pos.as_ref(),
             FoundDeclaration::PackageInstance(..) => None,
             FoundDeclaration::Configuration(value) => value.end_ident_pos.as_ref(),
             FoundDeclaration::Entity(value) => value.end_ident_pos.as_ref(),
@@ -1640,6 +1639,7 @@ impl<'a> HasEntityId for FoundDeclaration<'a> {
             FoundDeclaration::Attribute(value) => value.ident.decl,
             FoundDeclaration::Alias(value) => value.designator.decl,
             FoundDeclaration::Package(value) => value.ident.decl,
+            FoundDeclaration::PackageBody(value) => value.ident.decl,
             FoundDeclaration::PackageInstance(value) => value.ident.decl,
             FoundDeclaration::Configuration(value) => value.ident.decl,
             FoundDeclaration::Entity(value) => value.ident.decl,
@@ -1674,6 +1674,7 @@ impl<'a> HasSrcPos for FoundDeclaration<'a> {
             FoundDeclaration::Alias(value) => &value.designator.tree.pos,
             FoundDeclaration::Attribute(value) => value.ident.pos(),
             FoundDeclaration::Package(value) => value.ident.pos(),
+            FoundDeclaration::PackageBody(value) => value.ident.pos(),
             FoundDeclaration::PackageInstance(value) => value.ident.pos(),
             FoundDeclaration::Configuration(value) => value.ident.pos(),
             FoundDeclaration::Entity(value) => value.ident.pos(),
@@ -1748,6 +1749,10 @@ impl std::fmt::Display for FoundDeclaration<'_> {
             }
             FoundDeclaration::Package(ref value) => {
                 write!(f, "{value}")
+            }
+            FoundDeclaration::PackageBody(ref value) => {
+                // Will never be shown has hover will goto the declaration
+                write!(f, "package body {}", value.name())
             }
             FoundDeclaration::PackageInstance(ref value) => {
                 write!(f, "{value}")

@@ -1247,7 +1247,7 @@ pub struct PackageDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct PackageBody {
     pub context_clause: ContextClause,
-    pub ident: WithRef<Ident>,
+    pub ident: WithDecl<Ident>,
     pub decl: Vec<Declaration>,
     pub end_ident_pos: Option<SrcPos>,
 }

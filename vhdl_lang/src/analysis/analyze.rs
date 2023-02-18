@@ -391,7 +391,6 @@ impl<'a> AnalyzeContext<'a> {
         library_name: &Symbol,
         pos: &SrcPos,
         primary_name: &Designator,
-        reference: &mut Reference,
     ) -> AnalysisResult<DesignEnt<'a>> {
         if let Designator::Identifier(ref primary_name) = primary_name {
             if let Some(unit) = self.get_primary_unit(library_name, primary_name) {
@@ -410,7 +409,6 @@ impl<'a> AnalyzeContext<'a> {
                                 ),
                             )
                         })?;
-                        reference.set_unique_reference(design.0);
                         return Ok(design);
                     }
                 }

@@ -138,7 +138,7 @@ pub fn parse_package_body(
         context_clause: ContextClause::default(),
         decl,
         end_ident_pos: check_end_identifier_mismatch(&ident, end_ident, diagnostics),
-        ident: ident.into_ref(),
+        ident: ident.into(),
     })
 }
 

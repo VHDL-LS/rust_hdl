@@ -788,6 +788,7 @@ fn to_symbol_kind(kind: &AnyEntKind) -> SymbolKind {
             vhdl_lang::Design::Architecture(_) => SymbolKind::MODULE,
             vhdl_lang::Design::Configuration => SymbolKind::MODULE,
             vhdl_lang::Design::Package(_, _) => SymbolKind::PACKAGE,
+            vhdl_lang::Design::PackageBody => SymbolKind::PACKAGE,
             vhdl_lang::Design::UninstPackage(_, _) => SymbolKind::PACKAGE,
             vhdl_lang::Design::PackageInstance(_) => SymbolKind::PACKAGE,
             vhdl_lang::Design::Context(_) => SymbolKind::NAMESPACE,

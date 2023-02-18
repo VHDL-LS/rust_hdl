@@ -396,13 +396,20 @@ end package body;
 
     // From reference position
     assert_eq!(
-        root.search_reference_pos(code.source(), code.s("pkg", 2).start()),
-        Some(code.s("pkg", 1).pos())
+        root.search_reference(code.source(), code.s("pkg", 2).start())
+            .unwrap()
+            .declaration()
+            .decl_pos(),
+        Some(&code.s("pkg", 1).pos())
     );
 
     // Find all references
     assert_eq_unordered(
         &root.find_all_references_pos(&code.s1("pkg").pos()),
+        &[code.s("pkg", 1).pos(), code.s("pkg", 2).pos()],
+    );
+    assert_eq_unordered(
+        &root.find_all_references_pos(&code.s("pkg", 2).pos()),
         &[code.s("pkg", 1).pos(), code.s("pkg", 2).pos()],
     );
 }

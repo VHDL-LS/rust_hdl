@@ -5,14 +5,14 @@
 //! Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
 use super::*;
-use crate::ast::search::FindAllEnt;
-use crate::ast::Designator;
+use crate::EntHierarchy;
+use crate::Source;
 use pretty_assertions::assert_eq;
 
 #[test]
 fn entity_architecture() {
     let mut builder = LibraryBuilder::new();
-    builder.code(
+    let code = builder.code(
         "libname",
         "
 entity ent is
@@ -43,24 +43,30 @@ end architecture;
     let (root, diagnostics) = builder.get_analyzed_root();
     check_no_diagnostics(&diagnostics);
     assert_eq!(
-        get_hierarchy(&root, "libname"),
-        vec![
-            "libname.ent",
-            "libname.ent.g0",
-            "libname.ent.p0",
-            "libname.ent.a",
-            "libname.ent.a.s0",
-            // Process is anonymous
-            "libname.ent.a..v0",
-            "libname.ent.a..loop0",
-        ]
+        get_hierarchy(&root, "libname", code.source()),
+        vec![nested(
+            "ent",
+            vec![
+                single("g0"),
+                single("p0"),
+                nested(
+                    "a",
+                    vec![
+                        single("s0"),
+                        // @TODO show anonymous process?
+                        single("v0"),
+                        single("loop0"),
+                    ]
+                ),
+            ]
+        )]
     );
 }
 
 #[test]
 fn package() {
     let mut builder = LibraryBuilder::new();
-    builder.code(
+    let code = builder.code(
         "libname",
         "
 package pkg is
@@ -79,15 +85,15 @@ end package body;
 
     let (root, diagnostics) = builder.get_analyzed_root();
     check_no_diagnostics(&diagnostics);
+
     assert_eq!(
-        get_hierarchy(&root, "libname"),
+        get_hierarchy(&root, "libname", code.source()),
         vec![
-            "libname.pkg",
-            "libname.pkg.fun0",
-            "libname.pkg.fun0.arg",
-            "libname.pkg.fun0",
-            "libname.pkg.fun0.arg",
-            "libname.pkg.fun0.v0",
+            nested("pkg", vec![nested("fun0", vec![single("arg"),]),]),
+            nested(
+                "pkg",
+                vec![nested("fun0", vec![single("arg"), single("v0")]),]
+            )
         ]
     );
 }
@@ -122,17 +128,19 @@ package ipkg is new work.pkg generic map(type_t => integer, value => 0);
     let (root, diagnostics) = builder.get_analyzed_root();
     check_no_diagnostics(&diagnostics);
     assert_eq!(
-        get_hierarchy(&root, "libname"),
+        get_hierarchy(&root, "libname", code.source()),
         vec![
-            "libname.pkg",
-            "libname.pkg.type_t",
-            "libname.pkg.value",
-            "libname.pkg.c0",
-            "libname.pkg.fun0",
-            "libname.pkg.fun0.arg",
-            "libname.pkg.fun0",
-            "libname.pkg.fun0.arg",
-            "libname.ipkg",
+            nested(
+                "pkg",
+                vec![
+                    single("type_t"),
+                    single("value"),
+                    single("c0"),
+                    nested("fun0", vec![single("arg"),]),
+                ]
+            ),
+            nested("pkg", vec![nested("fun0", vec![single("arg")]),]),
+            single("ipkg"),
         ]
     );
 
@@ -228,16 +236,40 @@ end architecture;
     );
 }
 
-fn get_hierarchy(root: &DesignRoot, libname: &str) -> Vec<String> {
-    let mut searcher = FindAllEnt::new(root, |ent| {
-        matches!(ent.designator(), Designator::Identifier(_))
-    });
+#[derive(PartialEq, Debug)]
+struct NameHierarchy {
+    name: String,
+    children: Vec<NameHierarchy>,
+}
 
-    let _ = root.search_library(&root.symbol_utf8(libname), &mut searcher);
-    searcher
-        .result
+/// For compact test data creation
+fn nested(name: &str, children: Vec<NameHierarchy>) -> NameHierarchy {
+    NameHierarchy {
+        name: name.to_owned(),
+        children,
+    }
+}
+/// For compact test data creation
+fn single(name: &str) -> NameHierarchy {
+    NameHierarchy {
+        name: name.to_owned(),
+        children: Vec::new(),
+    }
+}
+
+impl<'a> From<EntHierarchy<'a>> for NameHierarchy {
+    fn from(ent: EntHierarchy) -> Self {
+        NameHierarchy {
+            name: ent.ent.designator().to_string(),
+            children: ent.children.into_iter().map(NameHierarchy::from).collect(),
+        }
+    }
+}
+
+fn get_hierarchy(root: &DesignRoot, libname: &str, source: &Source) -> Vec<NameHierarchy> {
+    root.document_symbols(&root.symbol_utf8(libname), source)
         .into_iter()
-        .map(|ent| ent.path_name())
+        .map(NameHierarchy::from)
         .collect()
 }
 
