@@ -232,6 +232,14 @@ impl<'a> TypeEnt<'a> {
     pub fn is_generic(&self) -> bool {
         matches!(self.base_type().kind(), Type::Interface)
     }
+
+    pub fn describe(&self) -> String {
+        if matches!(self.kind(), Type::Universal(_)) {
+            format!("type {}", self.designator())
+        } else {
+            format!("{} '{}'", self.kind().describe(), self.designator())
+        }
+    }
 }
 
 impl<'a> From<TypeEnt<'a>> for EntRef<'a> {

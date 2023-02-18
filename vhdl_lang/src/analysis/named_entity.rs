@@ -373,7 +373,7 @@ impl<'a> AnyEnt<'a> {
             AnyEntKind::Object(_) => ObjectEnt::from_any(self).unwrap().describe(),
             AnyEntKind::Overloaded(_) => OverloadedEnt::from_any(self).unwrap().describe(),
 
-            AnyEntKind::Type(Type::Universal(typ)) => format!("type {}", typ.describe().to_owned()),
+            AnyEntKind::Type(_) => TypeEnt::from_any(self).unwrap().describe(),
             _ => format!("{} '{}'", self.kind.describe(), self.designator),
         }
     }
