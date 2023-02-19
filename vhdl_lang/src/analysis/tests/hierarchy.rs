@@ -231,6 +231,7 @@ end architecture;
             "libname.pkg.\"+\"",
             "libname.pkg.prot_t",
             "libname.pkg.prot_t.proc0",
+            "libname.pkg",
             "libname.ent",
             "libname.ent.g0",
             "libname.ent.p0",

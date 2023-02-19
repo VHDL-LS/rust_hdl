@@ -483,6 +483,17 @@ impl DesignRoot {
                                 return Box::new(std::iter::once(ent));
                             }
                         }
+                    } else if matches!(unit.kind(), AnyKind::Secondary(SecondaryKind::PackageBody))
+                    {
+                        let data = self.get_analysis(unit);
+                        if let AnyDesignUnit::Secondary(AnySecondaryUnit::PackageBody(body)) =
+                            data.deref()
+                        {
+                            if let Some(id) = body.ident.decl {
+                                let ent = self.arenas.get(id);
+                                return Box::new(std::iter::once(ent));
+                            }
+                        }
                     }
                     Box::new(std::iter::empty())
                 },
