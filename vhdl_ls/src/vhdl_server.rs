@@ -433,35 +433,34 @@ impl VHDLServer {
         let mut symbols: Vec<_> = self
             .project
             .public_symbols()
-            .filter(|ent| match ent.designator() {
-                Designator::Identifier(_) | Designator::Character(_) => ent
-                    .designator()
-                    .to_string()
-                    .to_ascii_lowercase()
-                    .starts_with(&query),
-                Designator::OperatorSymbol(op) => {
-                    op.to_string().to_ascii_lowercase().starts_with(&query)
+            .filter_map(|ent| match ent.designator() {
+                Designator::Identifier(_) | Designator::Character(_) => {
+                    Some((ent, ent.designator().to_string().to_ascii_lowercase()))
                 }
-                Designator::Anonymous(_) => false,
+                Designator::OperatorSymbol(op) => Some((ent, op.to_string().to_ascii_lowercase())),
+                Designator::Anonymous(_) => None,
             })
-            .take(trunc_limit)
             .collect();
-        symbols.sort_by_key(|ent| ent.decl_pos());
-
+        symbols.sort_by(|(_, n1), (_, n2)| n1.cmp(n2));
         Some(WorkspaceSymbolResponse::Nested(
             symbols
                 .into_iter()
-                .filter_map(|ent| {
+                .filter_map(|(ent, name)| {
                     let decl_pos = ent.decl_pos()?;
-                    Some(WorkspaceSymbol {
-                        name: ent.describe(),
-                        kind: to_symbol_kind(ent.kind()),
-                        tags: None,
-                        container_name: ent.parent.map(|ent| ent.path_name()),
-                        location: OneOf::Left(srcpos_to_location(decl_pos)),
-                        data: None,
-                    })
+                    if name.starts_with(&query) {
+                        Some(WorkspaceSymbol {
+                            name: ent.describe(),
+                            kind: to_symbol_kind(ent.kind()),
+                            tags: None,
+                            container_name: ent.parent.map(|ent| ent.path_name()),
+                            location: OneOf::Left(srcpos_to_location(decl_pos)),
+                            data: None,
+                        })
+                    } else {
+                        None
+                    }
                 })
+                .take(trunc_limit)
                 .collect(),
         ))
     }
