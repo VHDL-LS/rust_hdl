@@ -26,6 +26,8 @@ I very much appreciate help from other people especially regarding semantic anal
 - Supports hovering symbols
 - Rename symbol
 - Find workspace symbols
+- View/find document symbols
+
 
 
 ## Trying it out
