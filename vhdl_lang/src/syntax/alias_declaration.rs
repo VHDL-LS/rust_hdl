@@ -15,7 +15,7 @@ pub fn parse_alias_declaration(stream: &mut TokenStream) -> ParseResult<AliasDec
     stream.expect_kind(Alias)?;
     let designator = WithDecl::new(parse_designator(stream)?);
     let subtype_indication = {
-        if stream.skip_if_kind(Colon)? {
+        if stream.skip_if_kind(Colon) {
             Some(parse_subtype_indication(stream)?)
         } else {
             None
@@ -26,7 +26,7 @@ pub fn parse_alias_declaration(stream: &mut TokenStream) -> ParseResult<AliasDec
     let name = parse_name(stream)?;
 
     let signature = {
-        if stream.peek_kind()? == Some(LeftSquare) {
+        if stream.peek_kind() == Some(LeftSquare) {
             Some(parse_signature(stream)?)
         } else {
             None

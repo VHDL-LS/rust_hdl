@@ -103,7 +103,7 @@ pub fn parse_subprogram_declaration_no_semi(
     let designator = parse_designator(stream)?;
 
     let parameter_list = {
-        if stream.peek_kind()? == Some(LeftPar) {
+        if stream.peek_kind() == Some(LeftPar) {
             parse_parameter_interface_list(stream, diagnostics)?
         } else {
             Vec::new()
@@ -154,9 +154,9 @@ pub fn parse_subprogram_body(
     match_token_kind!(
         end_token,
         End => {
-            stream.pop_if_kind(end_kind)?;
+            stream.pop_if_kind(end_kind);
 
-            let end_ident = if matches!(stream.peek_kind()?, Some(Identifier | StringLiteral)) {
+            let end_ident = if matches!(stream.peek_kind(), Some(Identifier | StringLiteral)) {
                 Some(parse_designator(stream)?)
             } else {
                 None

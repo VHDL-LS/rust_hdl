@@ -199,7 +199,7 @@ impl Code {
         let contents = source.contents();
         let reader = ContentReader::new(&contents);
         let tokenizer = Tokenizer::new(&self.symbols, &source, reader);
-        let mut stream = TokenStream::new(tokenizer);
+        let mut stream = TokenStream::new(tokenizer, &mut NoDiagnostics);
         forward(&mut stream, self.pos.start());
         parse_fun(&mut stream)
     }
@@ -224,7 +224,7 @@ impl Code {
         let contents = self.pos.source.contents();
         let reader = ContentReader::new(&contents);
         let tokenizer = Tokenizer::new(&self.symbols, &self.pos.source, reader);
-        let mut stream = TokenStream::new(tokenizer);
+        let mut stream = TokenStream::new(tokenizer, &mut NoDiagnostics);
         parse_fun(&mut stream)
     }
 
@@ -242,7 +242,7 @@ impl Code {
                     panic!("Got Err()");
                 }
                 Ok(result) => {
-                    if let Some(token) = stream.peek().unwrap() {
+                    if let Some(token) = stream.peek() {
                         println!("result = {result:#?}");
                         panic!("Expected EOF got {token:?}");
                     }
@@ -263,7 +263,7 @@ impl Code {
             let result = parse_fun(stream);
             match result {
                 Err(err) => {
-                    if let Some(token) = stream.peek().unwrap() {
+                    if let Some(token) = stream.peek() {
                         println!("err = {err:#?}");
                         panic!("Expected EOF got {token:?}");
                     }

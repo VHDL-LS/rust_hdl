@@ -23,7 +23,7 @@ fn parse_entity_aspect(stream: &mut TokenStream) -> ParseResult<EntityAspect> {
         Entity => {
             let entity_name = parse_selected_name(stream)?;
             let arch_name = {
-                if stream.skip_if_kind(LeftPar)? {
+                if stream.skip_if_kind(LeftPar) {
                     let ident = stream.expect_ident()?;
                     stream.expect_kind(RightPar)?;
                     Some(ident)
@@ -53,7 +53,7 @@ fn parse_binding_indication_known_entity_aspect(
 
 /// LRM 7.3.2
 fn parse_binding_indication(stream: &mut TokenStream) -> ParseResult<BindingIndication> {
-    let entity_aspect = if stream.skip_if_kind(Use)? {
+    let entity_aspect = if stream.skip_if_kind(Use) {
         Some(parse_entity_aspect(stream)?)
     } else {
         None
@@ -73,14 +73,14 @@ fn parse_component_configuration_known_spec(
         For => (None, Vec::new()),
         Use => {
             stream.move_after(&token);
-            if stream.peek_kind()? == Some(Vunit) {
+            if stream.peek_kind() == Some(Vunit) {
                 let vunit_bind_inds = parse_vunit_binding_indication_list_known_keyword(stream)?;
                 (None, vunit_bind_inds)
             } else {
                 let aspect = parse_entity_aspect(stream)?;
                 let bind_ind = parse_binding_indication_known_entity_aspect(Some(aspect), stream)?;
 
-                if stream.skip_if_kind(Use)? {
+                if stream.skip_if_kind(Use) {
                     (Some(bind_ind), parse_vunit_binding_indication_list_known_keyword(stream)?)
                 } else {
                     (Some(bind_ind), Vec::new())
@@ -256,7 +256,7 @@ fn parse_vunit_binding_indication_list_known_keyword(
 
         indications.push(vunit_bind_ind);
 
-        if !stream.skip_if_kind(Use)? {
+        if !stream.skip_if_kind(Use) {
             break;
         }
     }
@@ -280,7 +280,7 @@ pub fn parse_configuration_declaration(
         match token.kind {
             Use => {
                 stream.move_after(&token);
-                if stream.peek_kind()? == Some(Vunit) {
+                if stream.peek_kind() == Some(Vunit) {
                     break parse_vunit_binding_indication_list_known_keyword(stream)?;
                 }
 
@@ -296,8 +296,8 @@ pub fn parse_configuration_declaration(
     let block_config = parse_block_configuration_known_keyword(stream, diagnostics)?;
 
     stream.expect_kind(End)?;
-    stream.pop_if_kind(Configuration)?;
-    let end_ident = stream.pop_optional_ident()?;
+    stream.pop_if_kind(Configuration);
+    let end_ident = stream.pop_optional_ident();
     stream.expect_kind(SemiColon)?;
 
     Ok(ConfigurationDeclaration {
@@ -319,7 +319,7 @@ pub fn parse_configuration_specification(
     match parse_component_specification_or_name(stream)? {
         ComponentSpecificationOrName::ComponentSpec(spec) => {
             let bind_ind = parse_binding_indication(stream)?;
-            if stream.skip_if_kind(Use)? {
+            if stream.skip_if_kind(Use) {
                 let vunit_bind_inds = parse_vunit_binding_indication_list_known_keyword(stream)?;
                 stream.expect_kind(End)?;
                 stream.expect_kind(For)?;
@@ -330,7 +330,7 @@ pub fn parse_configuration_specification(
                     vunit_bind_inds,
                 })
             } else {
-                if stream.skip_if_kind(End)? {
+                if stream.skip_if_kind(End) {
                     stream.expect_kind(For)?;
                     stream.expect_kind(SemiColon)?;
                 }

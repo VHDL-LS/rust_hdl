@@ -24,7 +24,7 @@ fn parse_library_clause_no_keyword(
     let mut name_list = Vec::with_capacity(1);
     loop {
         name_list.push(WithRef::new(stream.expect_ident()?));
-        if !stream.skip_if_kind(Comma)? {
+        if !stream.skip_if_kind(Comma) {
             break;
         }
     }
@@ -43,7 +43,7 @@ pub fn parse_use_clause_no_keyword(
     let mut name_list = Vec::with_capacity(1);
     loop {
         name_list.push(parse_name(stream)?);
-        if !stream.skip_if_kind(Comma)? {
+        if !stream.skip_if_kind(Comma) {
             break;
         }
     }
@@ -72,7 +72,7 @@ fn parse_context_reference_no_keyword(
     let name = parse_name(stream)?;
     let mut name_list = vec![name];
     loop {
-        if !stream.skip_if_kind(Comma)? {
+        if !stream.skip_if_kind(Comma) {
             break;
         }
         name_list.push(parse_name(stream)?);
@@ -91,7 +91,7 @@ pub fn parse_context(
 ) -> ParseResult<DeclarationOrReference> {
     let context_token = stream.expect_kind(Context)?;
     let name = parse_name(stream)?;
-    if stream.skip_if_kind(Is)? {
+    if stream.skip_if_kind(Is) {
         let mut items = Vec::with_capacity(16);
         let end_ident;
         loop {
@@ -102,8 +102,8 @@ pub fn parse_context(
                 Use => items.push(parse_use_clause_no_keyword(token, stream)?.map_into(ContextItem::Use)),
                 Context => items.push(parse_context_reference_no_keyword(token, stream)?.map_into(ContextItem::Context)),
                 End => {
-                    stream.pop_if_kind(Context)?;
-                    end_ident = stream.pop_optional_ident()?;
+                    stream.pop_if_kind(Context);
+                    end_ident = stream.pop_optional_ident();
                     stream.expect_kind(SemiColon)?;
                     break;
                 }
@@ -120,7 +120,7 @@ pub fn parse_context(
         // Context reference
         let mut name_list = vec![name];
         loop {
-            if !stream.skip_if_kind(Comma)? {
+            if !stream.skip_if_kind(Comma) {
                 break;
             }
             name_list.push(parse_name(stream)?);

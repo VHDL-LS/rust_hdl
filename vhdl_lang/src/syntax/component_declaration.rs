@@ -77,13 +77,13 @@ pub fn parse_component_declaration(
 ) -> ParseResult<ComponentDeclaration> {
     stream.expect_kind(Component)?;
     let ident = WithDecl::new(stream.expect_ident()?);
-    stream.pop_if_kind(Is)?;
+    stream.pop_if_kind(Is);
 
     let generic_list = parse_optional_generic_list(stream, diagnostics)?;
     let port_list = parse_optional_port_list(stream, diagnostics)?;
     stream.expect_kind(End)?;
     stream.expect_kind(Component)?;
-    let end_ident = stream.pop_optional_ident()?;
+    let end_ident = stream.pop_optional_ident();
     stream.expect_kind(SemiColon)?;
 
     Ok(ComponentDeclaration {

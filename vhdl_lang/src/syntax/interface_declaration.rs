@@ -15,7 +15,7 @@ use crate::ast::*;
 use crate::data::*;
 
 fn parse_optional_mode(stream: &mut TokenStream) -> ParseResult<Option<Mode>> {
-    Ok(match stream.peek_kind()? {
+    Ok(match stream.peek_kind() {
         Some(In) => Some(Mode::In),
         Some(Out) => Some(Mode::Out),
         Some(InOut) => Some(Mode::InOut),
@@ -84,7 +84,7 @@ fn parse_interface_object_declaration(
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     let explicit_object_class = parse_optional_object_class(stream, list_type)?;
     let object_class_pos = match explicit_object_class {
-        Some(_) => stream.pop()?.map(|tok| tok.pos),
+        Some(_) => stream.pop().map(|tok| tok.pos),
         None => None,
     };
     let idents = parse_identifier_list(stream)?;
@@ -94,7 +94,7 @@ fn parse_interface_object_declaration(
     let mode = parse_optional_mode(stream)?;
 
     let mode_pos = match mode {
-        Some(_) => stream.pop()?.map(|tok| tok.pos),
+        Some(_) => stream.pop().map(|tok| tok.pos),
         None => None,
     };
 
@@ -154,7 +154,7 @@ fn parse_interface_object_declaration(
 }
 
 fn parse_subprogram_default(stream: &mut TokenStream) -> ParseResult<Option<SubprogramDefault>> {
-    if stream.skip_if_kind(Is)? {
+    if stream.skip_if_kind(Is) {
         let token = stream.peek_expect()?;
         let default = {
             try_token_kind!(
@@ -295,14 +295,14 @@ fn parse_interface_list(
                     Err(err) => {
                         diagnostics.push(err);
                         stream.set_state(state);
-                        if let Some(token) = stream.peek()? {
+                        if let Some(token) = stream.peek() {
                             if is_sync_kind(list_type, token.kind) {
                                 stream.move_after(&token);
                             }
                         }
 
                         // Recover
-                        while let Some(token) = stream.peek()? {
+                        while let Some(token) = stream.peek() {
                             match token.kind {
                                 SemiColon => {
                                     stream.move_after(&token);
@@ -326,7 +326,7 @@ fn parse_interface_list(
                 if let Err(err) = parse_semicolon_separator(stream) {
                     diagnostics.push(err);
                     // Ignore comma when recovering from errors
-                    diagnostics.push_result(stream.pop_if_kind(Comma));
+                    stream.pop_if_kind(Comma);
                 }
             }
         }

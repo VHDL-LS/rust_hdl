@@ -29,7 +29,7 @@ pub fn parse_selected_name(stream: &mut TokenStream) -> ParseResult<WithPos<Sele
         .into_ref()
         .map_into(SelectedName::Designator);
     loop {
-        if !stream.skip_if_kind(Dot)? {
+        if !stream.skip_if_kind(Dot) {
             break;
         }
         let suffix = parse_designator(stream)?.into_ref();
@@ -52,7 +52,7 @@ pub fn parse_type_mark_starting_with_name(
 
     // Check if it is a type mark with a subtype or element attribute:
     // Example: signal sig0 : sig1'subtype;
-    if stream.pop_if_kind(Tick)?.is_some() {
+    if stream.pop_if_kind(Tick).is_some() {
         if let Ok(attr) = stream.expect_attribute_designator() {
             if let AttributeDesignator::Type(typattr) = attr.item {
                 return Ok(WithPos {
@@ -100,7 +100,7 @@ pub fn parse_identifier_list(stream: &mut TokenStream) -> ParseResult<Vec<Ident>
     let mut idents = Vec::new();
     loop {
         idents.push(stream.expect_ident()?);
-        if let Some(token) = stream.peek()? {
+        if let Some(token) = stream.peek() {
             if token.kind == Comma {
                 stream.move_after(&token);
                 continue;
@@ -168,7 +168,7 @@ fn parse_actual_part(stream: &mut TokenStream) -> ParseResult<WithPos<ActualPart
 
 fn parse_association_element(stream: &mut TokenStream) -> ParseResult<AssociationElement> {
     let actual = parse_actual_part(stream)?;
-    if stream.skip_if_kind(RightArrow)? {
+    if stream.skip_if_kind(RightArrow) {
         Ok(AssociationElement {
             formal: Some(actual_part_to_name(actual)?),
             actual: parse_actual_part(stream)?,
@@ -238,7 +238,7 @@ fn parse_attribute_name(
     let attr = stream.expect_attribute_designator()?;
 
     let (expression, pos) = {
-        if stream.skip_if_kind(LeftPar)? {
+        if stream.skip_if_kind(LeftPar) {
             let ret = Some(parse_expression(stream)?);
             let rpar_token = stream.expect_kind(RightPar)?;
             (ret, rpar_token.pos.combine_into(&name))
@@ -303,7 +303,7 @@ fn parse_inner_external_name(stream: &mut TokenStream) -> ParseResult<ExternalNa
         Circ => {
             stream.expect_kind(Dot)?;
             let mut up_levels = 1;
-            while stream.skip_if_kind(Circ)? {
+            while stream.skip_if_kind(Circ) {
                 stream.expect_kind(Dot)?;
                 up_levels += 1;
             }
@@ -355,7 +355,7 @@ pub fn parse_name_initial_token(
         }
     };
 
-    while let Some(token) = stream.peek()? {
+    while let Some(token) = stream.peek() {
         match token.kind {
             Dot => {
                 stream.move_after(&token);
@@ -384,7 +384,7 @@ pub fn parse_name_initial_token(
             LeftSquare => {
                 let state = stream.state();
                 let signature = Some(parse_signature(stream)?);
-                if !stream.skip_if_kind(Tick)? {
+                if !stream.skip_if_kind(Tick) {
                     // Alias may have prefix[signature] without tick
                     stream.set_state(state);
                     break;
@@ -392,7 +392,7 @@ pub fn parse_name_initial_token(
                 name = parse_attribute_name(stream, name, signature)?;
             }
             Tick => {
-                if stream.next_kinds_are(&[Tick, LeftPar])? {
+                if stream.next_kinds_are(&[Tick, LeftPar]) {
                     break;
                 }
                 stream.move_after(&token);

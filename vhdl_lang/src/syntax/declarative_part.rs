@@ -103,7 +103,7 @@ pub fn parse_declarative_part_leave_end_token(
         )
     }
 
-    while let Some(token) = stream.peek()? {
+    while let Some(token) = stream.peek() {
         match token.kind {
             Begin | End => break,
             Type | Subtype | Component | Impure | Pure | Function | Procedure | Package | For => {

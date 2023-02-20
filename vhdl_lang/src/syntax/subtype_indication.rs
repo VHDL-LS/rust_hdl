@@ -60,7 +60,7 @@ fn parse_composite_constraint(stream: &mut TokenStream) -> ParseResult<WithPos<S
     let state = stream.state();
 
     let mut initial = {
-        if stream.skip_if_kind(Open)? {
+        if stream.skip_if_kind(Open) {
             // Array constraint open
             Ok(None)
         } else {
@@ -68,7 +68,7 @@ fn parse_composite_constraint(stream: &mut TokenStream) -> ParseResult<WithPos<S
         }
     };
 
-    if let Some(token) = stream.peek()? {
+    if let Some(token) = stream.peek() {
         match token.kind {
             RightPar | Comma => {}
             _ => {
@@ -107,7 +107,7 @@ fn parse_composite_constraint(stream: &mut TokenStream) -> ParseResult<WithPos<S
 pub fn parse_subtype_constraint(
     stream: &mut TokenStream,
 ) -> ParseResult<Option<WithPos<SubtypeConstraint>>> {
-    if let Some(token) = stream.peek()? {
+    if let Some(token) = stream.peek() {
         let constraint = match token.kind {
             Range => {
                 stream.move_after(&token);
@@ -155,7 +155,7 @@ pub fn parse_element_resolution_indication(
                 };
 
                 let resolution = {
-                    if stream.peek_kind()? == Some(LeftPar) {
+                    if stream.peek_kind() == Some(LeftPar) {
                         parse_element_resolution_indication(stream)?
                     } else {
                         ResolutionIndication::FunctionName(parse_selected_name(stream)?)
@@ -183,13 +183,13 @@ pub fn parse_element_resolution_indication(
 
 pub fn parse_subtype_indication(stream: &mut TokenStream) -> ParseResult<SubtypeIndication> {
     let (resolution, type_mark) = {
-        if stream.peek_kind()? == Some(LeftPar) {
+        if stream.peek_kind() == Some(LeftPar) {
             let resolution = parse_element_resolution_indication(stream)?;
             let type_mark = parse_type_mark(stream)?;
             (resolution, type_mark)
         } else {
             let selected_name = parse_selected_name(stream)?;
-            match stream.peek_kind()? {
+            match stream.peek_kind() {
                 Some(Identifier) => (
                     ResolutionIndication::FunctionName(selected_name),
                     parse_type_mark(stream)?,

@@ -34,7 +34,7 @@ pub fn parse_delay_mechanism(stream: &mut TokenStream) -> ParseResult<Option<Del
 
 /// LRM 10.5 Signal assignment statement
 pub fn parse_waveform(stream: &mut TokenStream) -> ParseResult<Waveform> {
-    if stream.skip_if_kind(Unaffected)? {
+    if stream.skip_if_kind(Unaffected) {
         return Ok(Waveform::Unaffected);
     }
 
@@ -46,7 +46,7 @@ pub fn parse_waveform(stream: &mut TokenStream) -> ParseResult<Waveform> {
 
         elems.push(WaveformElement { value, after });
 
-        if !stream.skip_if_kind(Comma)? {
+        if !stream.skip_if_kind(Comma) {
             break;
         }
     }

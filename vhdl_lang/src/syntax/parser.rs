@@ -30,7 +30,7 @@ impl VHDLParser {
     ) -> DesignFile {
         let contents = source.contents();
         let tokenizer = Tokenizer::new(&self.symbols, source, ContentReader::new(&contents));
-        let mut stream = TokenStream::new(tokenizer);
+        let mut stream = TokenStream::new(tokenizer, diagnostics);
 
         match parse_design_file(&mut stream, diagnostics) {
             Ok(design_file) => design_file,

@@ -38,8 +38,7 @@ impl Contents {
         }
     }
 
-    #[cfg(test)]
-    fn end(&self) -> Position {
+    pub fn end(&self) -> Position {
         let line = self.num_lines().saturating_sub(1) as u32;
         let character = self
             .lines

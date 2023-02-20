@@ -21,7 +21,7 @@ where
     F: FnOnce(&mut TokenStream) -> ParseResult<R>,
 {
     let optional = {
-        if stream.skip_if_kind(keyword)? {
+        if stream.skip_if_kind(keyword) {
             Some(parse_fun(stream)?)
         } else {
             None

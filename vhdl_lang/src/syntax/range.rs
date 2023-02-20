@@ -29,7 +29,7 @@ enum NameOrRange {
 fn parse_name_or_range(stream: &mut TokenStream) -> ParseResult<NameOrRange> {
     let expr = parse_expression(stream)?;
 
-    match stream.peek_kind()? {
+    match stream.peek_kind() {
         Some(To) | Some(Downto) => {
             let direction = parse_direction(stream)?;
             let right_expr = parse_expression(stream)?;
@@ -97,8 +97,8 @@ pub fn parse_array_index_constraint(stream: &mut TokenStream) -> ParseResult<Arr
         Ok(NameOrRange::Name(name)) => {
             let type_mark = name_to_type_mark(name)?;
 
-            if stream.skip_if_kind(Range)? {
-                if stream.skip_if_kind(BOX)? {
+            if stream.skip_if_kind(Range) {
+                if stream.skip_if_kind(BOX) {
                     Ok(ArrayIndex::IndexSubtypeDefintion(type_mark))
                 } else {
                     Ok(ArrayIndex::Discrete(DiscreteRange::Discrete(

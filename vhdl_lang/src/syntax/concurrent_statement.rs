@@ -36,18 +36,18 @@ pub fn parse_block_statement(
             LeftPar => {
                 stream.move_after(&token);
                 let expr = parse_expression(stream)?;
-                stream.pop_if_kind(RightPar)?;
+                stream.pop_if_kind(RightPar);
                 Some(expr)
             }
             _ => None,
         }
     };
-    stream.pop_if_kind(Is)?;
+    stream.pop_if_kind(Is);
     let header = parse_block_header(stream, diagnostics)?;
     let decl = parse_declarative_part(stream, diagnostics, true)?;
     let statements = parse_labeled_concurrent_statements(stream, diagnostics)?;
     stream.expect_kind(Block)?;
-    let end_ident = stream.pop_optional_ident()?;
+    let end_ident = stream.pop_optional_ident();
     stream.expect_kind(SemiColon)?;
     Ok(BlockStatement {
         guard_condition,
@@ -72,7 +72,7 @@ fn parse_block_header(
         match token.kind {
             Generic => {
                 stream.move_after(&token);
-                if let Some(map_token) = stream.pop_if_kind(Map)? {
+                if let Some(map_token) = stream.pop_if_kind(Map) {
                     if port_clause.is_some() || port_map.is_some() {
                         diagnostics.push(Diagnostic::error(
                             map_token,
@@ -109,7 +109,7 @@ fn parse_block_header(
             }
             Port => {
                 stream.move_after(&token);
-                if let Some(map_token) = stream.pop_if_kind(Map)? {
+                if let Some(map_token) = stream.pop_if_kind(Map) {
                     if port_clause.is_none() {
                         diagnostics.push(Diagnostic::error(
                             map_token,
@@ -194,11 +194,11 @@ pub fn parse_process_statement(
             _ => None,
         }
     };
-    stream.pop_if_kind(Is)?;
+    stream.pop_if_kind(Is);
     let decl = parse_declarative_part(stream, diagnostics, true)?;
     let (statements, end_token) = parse_labeled_sequential_statements(stream, diagnostics)?;
     try_token_kind!(end_token, End => {});
-    if let Some(token) = stream.pop_if_kind(Postponed)? {
+    if let Some(token) = stream.pop_if_kind(Postponed) {
         if !postponed {
             diagnostics.push(Diagnostic::error(
                 token,
@@ -207,7 +207,7 @@ pub fn parse_process_statement(
         }
     }
     stream.expect_kind(Process)?;
-    let end_ident = stream.pop_optional_ident()?;
+    let end_ident = stream.pop_optional_ident();
     stream.expect_kind(SemiColon)?;
     Ok(ProcessStatement {
         postponed,
@@ -318,7 +318,7 @@ pub fn parse_generic_and_port_map(
     Option<Vec<AssociationElement>>,
 )> {
     let generic_map = {
-        if stream.skip_if_kind(Generic)? {
+        if stream.skip_if_kind(Generic) {
             stream.expect_kind(Map)?;
             Some(parse_association_list(stream)?)
         } else {
@@ -326,7 +326,7 @@ pub fn parse_generic_and_port_map(
         }
     };
     let port_map = {
-        if stream.skip_if_kind(Port)? {
+        if stream.skip_if_kind(Port) {
             stream.expect_kind(Map)?;
             Some(parse_association_list(stream)?)
         } else {
@@ -429,7 +429,7 @@ fn parse_for_generate_statement(
     stream.expect_kind(Generate)?;
     let body = parse_generate_body(stream, None, diagnostics)?;
     stream.expect_kind(Generate)?;
-    let end_ident = stream.pop_optional_ident()?;
+    let end_ident = stream.pop_optional_ident();
     stream.expect_kind(SemiColon)?;
 
     Ok(ForGenerateStatement {
@@ -452,7 +452,7 @@ fn parse_if_generate_statement(
     loop {
         let mut condition = parse_expression(stream)?;
         let mut alternative_label = None;
-        if stream.skip_if_kind(Colon)? {
+        if stream.skip_if_kind(Colon) {
             alternative_label = Some(WithDecl::new(expression_to_ident(condition)?));
             condition = parse_expression(stream)?;
         }
@@ -497,7 +497,7 @@ fn parse_if_generate_statement(
     }
 
     stream.expect_kind(Generate)?;
-    let end_ident = stream.pop_optional_ident()?;
+    let end_ident = stream.pop_optional_ident();
     stream.expect_kind(SemiColon)?;
 
     Ok(IfGenerateStatement {
@@ -522,7 +522,7 @@ fn parse_case_generate_statement(
     let mut alternatives = Vec::with_capacity(2);
     loop {
         let alternative_label = {
-            if stream.next_kinds_are(&[Identifier, Colon])? {
+            if stream.next_kinds_are(&[Identifier, Colon]) {
                 let ident = stream.expect_ident()?;
                 stream.expect_kind(Colon)?;
                 Some(WithDecl::new(ident))
@@ -547,7 +547,7 @@ fn parse_case_generate_statement(
     }
 
     stream.expect_kind(Generate)?;
-    let end_ident = stream.pop_optional_ident()?;
+    let end_ident = stream.pop_optional_ident();
     stream.expect_kind(SemiColon)?;
 
     Ok(CaseGenerateStatement {
@@ -585,7 +585,7 @@ pub fn parse_concurrent_statement(
             Entity => {
                 let name = parse_selected_name(stream)?;
                 let arch = {
-                    if stream.skip_if_kind(LeftPar)? {
+                    if stream.skip_if_kind(LeftPar) {
                         let ident = stream.expect_ident()?;
                         stream.expect_kind(RightPar)?;
                         Some(ident)

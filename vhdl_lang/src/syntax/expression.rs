@@ -198,7 +198,7 @@ pub fn parse_aggregate(stream: &mut TokenStream) -> ParseResult<WithPos<Vec<Elem
 pub fn parse_aggregate_leftpar_known(
     stream: &mut TokenStream,
 ) -> ParseResult<WithPos<Vec<ElementAssociation>>> {
-    if let Some(token) = stream.pop_if_kind(RightPar)? {
+    if let Some(token) = stream.pop_if_kind(RightPar) {
         return Ok(WithPos::from(Vec::new(), token));
     };
     let choices = parse_choices(stream)?;
@@ -223,15 +223,15 @@ fn parse_half_range(
 }
 
 fn parse_choice(stream: &mut TokenStream) -> ParseResult<WithPos<Choice>> {
-    if let Some(token) = stream.pop_if_kind(Others)? {
+    if let Some(token) = stream.pop_if_kind(Others) {
         return Ok(WithPos::new(Choice::Others, token.pos));
     }
     let left_expr = parse_expression(stream)?;
 
-    if stream.skip_if_kind(To)? {
+    if stream.skip_if_kind(To) {
         let range = parse_half_range(stream, left_expr, Direction::Ascending)?;
         Ok(range.map_into(Choice::DiscreteRange))
-    } else if stream.skip_if_kind(Downto)? {
+    } else if stream.skip_if_kind(Downto) {
         let range = parse_half_range(stream, left_expr, Direction::Descending)?;
         Ok(range.map_into(Choice::DiscreteRange))
     } else {
@@ -244,7 +244,7 @@ pub fn parse_choices(stream: &mut TokenStream) -> ParseResult<Vec<WithPos<Choice
     loop {
         choices.push(parse_choice(stream)?);
 
-        if !stream.skip_if_kind(Bar)? {
+        if !stream.skip_if_kind(Bar) {
             break;
         }
     }
@@ -255,7 +255,7 @@ pub fn parse_choices(stream: &mut TokenStream) -> ParseResult<Vec<WithPos<Choice
 fn parse_allocator(stream: &mut TokenStream) -> ParseResult<WithPos<Allocator>> {
     let type_mark = parse_type_mark(stream)?;
 
-    if stream.skip_if_kind(Tick)? {
+    if stream.skip_if_kind(Tick) {
         let expr = parse_expression(stream)?;
         let pos = type_mark.pos.clone().combine_into(&expr);
         Ok(WithPos {
@@ -381,7 +381,7 @@ fn parse_primary_initial_token(
     match token.kind {
         Identifier | LtLt => {
             let name = parse_name_initial_token(stream, token)?;
-            if stream.skip_if_kind(Tick)? {
+            if stream.skip_if_kind(Tick) {
                 let lpar = stream.expect_kind(LeftPar)?;
                 let expr = parse_expression_or_aggregate(stream)?.combine_pos_with(&lpar);
                 let pos = name.pos.combine(&expr);
@@ -403,7 +403,7 @@ fn parse_primary_initial_token(
             .expect_character()?
             .map_into(|chr| Expression::Literal(Literal::Character(chr)))),
         StringLiteral => {
-            if stream.peek_kind()? == Some(LeftPar) {
+            if stream.peek_kind() == Some(LeftPar) {
                 // Probably an function call via operator symbol "foo"()
                 parse_name_initial_token(stream, token)
                     .map(|name| name.map_into(|name| Expression::Name(Box::new(name))))
@@ -429,7 +429,7 @@ fn parse_primary_initial_token(
         AbstractLiteral => {
             let value = token.expect_abstract_literal()?;
             // Physical unit
-            if let Some(unit_token) = stream.pop_if_kind(Identifier)? {
+            if let Some(unit_token) = stream.pop_if_kind(Identifier) {
                 let unit = unit_token.expect_ident()?;
                 let pos = value.pos.combine_into(&unit);
                 let physical = PhysicalLiteral {
@@ -481,7 +481,7 @@ fn parse_expr_initial_token(
     min_precedence: usize,
 ) -> ParseResult<WithPos<Expression>> {
     let mut lhs = parse_primary_initial_token(stream, token)?;
-    while let Some(token) = stream.peek()? {
+    while let Some(token) = stream.peek() {
         if token.kind == RightPar {
             return Ok(lhs);
         };

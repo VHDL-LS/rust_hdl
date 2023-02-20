@@ -43,8 +43,8 @@ pub fn parse_entity_declaration(
         End => Vec::new(),
         Begin => parse_labeled_concurrent_statements(stream, diagnostics)?
     );
-    stream.pop_if_kind(Entity)?;
-    let end_ident = stream.pop_optional_ident()?;
+    stream.pop_if_kind(Entity);
+    let end_ident = stream.pop_optional_ident();
     stream.expect_kind(SemiColon)?;
     Ok(EntityDeclaration {
         context_clause: ContextClause::default(),
@@ -71,9 +71,9 @@ pub fn parse_architecture_body(
     let decl = parse_declarative_part(stream, diagnostics, true)?;
 
     let statements = parse_labeled_concurrent_statements(stream, diagnostics)?;
-    stream.pop_if_kind(Architecture)?;
+    stream.pop_if_kind(Architecture);
 
-    let end_ident = stream.pop_optional_ident()?;
+    let end_ident = stream.pop_optional_ident();
     stream.expect_kind(SemiColon)?;
 
     Ok(ArchitectureBody {
@@ -96,7 +96,7 @@ pub fn parse_package_declaration(
 
     stream.expect_kind(Is)?;
     let generic_clause = {
-        if stream.skip_if_kind(Generic)? {
+        if stream.skip_if_kind(Generic) {
             let decl = parse_generic_interface_list(stream, diagnostics)?;
             stream.expect_kind(SemiColon)?;
             Some(decl)
@@ -105,8 +105,8 @@ pub fn parse_package_declaration(
         }
     };
     let decl = parse_declarative_part(stream, diagnostics, false)?;
-    stream.pop_if_kind(Package)?;
-    let end_ident = stream.pop_optional_ident()?;
+    stream.pop_if_kind(Package);
+    let end_ident = stream.pop_optional_ident();
     stream.expect_kind(SemiColon)?;
     Ok(PackageDeclaration {
         context_clause: ContextClause::default(),
@@ -128,10 +128,10 @@ pub fn parse_package_body(
 
     stream.expect_kind(Is)?;
     let decl = parse_declarative_part(stream, diagnostics, false)?;
-    if stream.skip_if_kind(Package)? {
+    if stream.skip_if_kind(Package) {
         stream.expect_kind(Body)?;
     }
-    let end_ident = stream.pop_optional_ident()?;
+    let end_ident = stream.pop_optional_ident();
     stream.expect_kind(SemiColon)?;
 
     Ok(PackageBody {
@@ -163,7 +163,7 @@ pub fn parse_design_file(
     let mut context_clause = vec![];
     let mut design_units = vec![];
 
-    while let Some(token) = stream.peek()? {
+    while let Some(token) = stream.peek() {
         try_init_token_kind!(
             token,
             Library => {
@@ -226,7 +226,7 @@ pub fn parse_design_file(
                 Err(diagnostic) => diagnostics.push(diagnostic),
             },
             Package => {
-                if stream.next_kinds_are(&[Package, Body])? {
+                if stream.next_kinds_are(&[Package, Body]) {
                     match parse_package_body(stream, diagnostics) {
                         Ok(mut package_body) => {
                             package_body.context_clause = take_context_clause(&mut context_clause);
@@ -234,7 +234,7 @@ pub fn parse_design_file(
                         }
                         Err(diagnostic) => diagnostics.push(diagnostic),
                     };
-                } else if stream.next_kinds_are(&[Package, Identifier, Is, New])? {
+                } else if stream.next_kinds_are(&[Package, Identifier, Is, New]) {
                     match parse_package_instantiation(stream) {
                         Ok(mut inst) => {
                             inst.context_clause = take_context_clause(&mut context_clause);

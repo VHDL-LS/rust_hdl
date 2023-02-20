@@ -16,7 +16,7 @@ use crate::data::WithPos;
 pub fn parse_optional_assignment(
     stream: &mut TokenStream,
 ) -> ParseResult<Option<WithPos<Expression>>> {
-    if stream.pop_if_kind(ColonEq)?.is_some() {
+    if stream.pop_if_kind(ColonEq).is_some() {
         let expr = parse_expression(stream)?;
         Ok(Some(expr))
     } else {
@@ -69,7 +69,7 @@ pub fn parse_file_declaration_no_semi(
     let subtype = parse_subtype_indication(stream)?;
 
     let open_info = {
-        if stream.skip_if_kind(Open)? {
+        if stream.skip_if_kind(Open) {
             Some(parse_expression(stream)?)
         } else {
             None
@@ -77,7 +77,7 @@ pub fn parse_file_declaration_no_semi(
     };
 
     let file_name = {
-        if stream.skip_if_kind(Is)? {
+        if stream.skip_if_kind(Is) {
             Some(parse_expression(stream)?)
         } else {
             None

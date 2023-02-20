@@ -443,7 +443,7 @@ pub struct Token {
     pub value: Value,
     pub prev_pos: Position,
     pub pos: SrcPos,
-    pub next_state: ReaderState,
+    pub idx: usize,
     pub comments: Option<Box<TokenComments>>,
 }
 
@@ -795,12 +795,6 @@ impl TokenState {
             last_token_kind: None,
             start,
         }
-    }
-
-    /// Set state to after token
-    pub fn set_after(&mut self, token: &Token) {
-        self.last_token_kind = Some(token.kind);
-        self.start = token.next_state;
     }
 }
 
@@ -1492,9 +1486,10 @@ pub struct Tokenizer<'a> {
     symbols: &'a Symbols,
     buffer: Latin1String,
     state: TokenState,
-    source: &'a Source,
+    pub source: &'a Source,
     reader: ContentReader<'a>,
     final_comments: Option<Vec<Comment>>,
+    idx: usize,
 }
 
 impl<'a> Tokenizer<'a> {
@@ -1510,29 +1505,8 @@ impl<'a> Tokenizer<'a> {
             source,
             reader,
             final_comments: None,
+            idx: 0,
         }
-    }
-
-    pub fn state(&self) -> TokenState {
-        self.state
-    }
-
-    pub fn eof_error(&self) -> Diagnostic {
-        Diagnostic::error(
-            self.source
-                .pos(self.state.start.pos(), self.state.start.pos().next_char()),
-            "Unexpected EOF",
-        )
-    }
-
-    pub fn set_state(&mut self, state: TokenState) {
-        self.state = state;
-        self.reader.set_state(state.start);
-    }
-
-    pub fn move_after(&mut self, token: &Token) {
-        self.state.set_after(token);
-        self.reader.set_state(self.state.start);
     }
 
     pub fn attribute(&self, sym: Symbol) -> AttributeDesignator {
@@ -1787,10 +1761,11 @@ impl<'a> Tokenizer<'a> {
                     value,
                     prev_pos,
                     pos: self.source.pos(pos_start, pos_end),
-                    next_state: self.reader.state(),
+                    idx: self.idx,
                     comments: token_comments,
                 };
-                self.move_after(&token);
+                self.idx += 1;
+                self.state.last_token_kind = Some(token.kind);
                 Ok(Some(token))
             }
             None => {
@@ -1825,13 +1800,6 @@ mod tests {
     use super::*;
     use crate::syntax::test::Code;
     use pretty_assertions::assert_eq;
-
-    fn state_at_end(code: &Code) -> ReaderState {
-        let contents = code.source().contents();
-        let mut reader = ContentReader::new(&contents);
-        reader.seek_pos(code.end());
-        reader.state()
-    }
 
     fn kinds(tokens: &[Token]) -> Vec<Kind> {
         tokens.iter().map(|tok| tok.kind).collect()
@@ -1889,7 +1857,7 @@ end entity"
                 value: Value::NoValue,
                 prev_pos: code.start(),
                 pos: code.s1("entity").pos(),
-                next_state: state_at_end(&code.s1("entity")),
+                idx: 0,
                 comments: None,
             }
         );
@@ -1901,7 +1869,7 @@ end entity"
                 value: Value::Identifier(code.symbol("foo")),
                 prev_pos: code.s1("entity").end(),
                 pos: code.s1("foo").pos(),
-                next_state: state_at_end(&code),
+                idx: 1,
                 comments: None,
             }
         );
@@ -1926,7 +1894,7 @@ end entity"
                 value: Value::Identifier(code.symbol("my_ident")),
                 prev_pos: code.start(),
                 pos: code.pos(),
-                next_state: state_at_end(&code),
+                idx: 0,
                 comments: None,
             }]
         );
@@ -1945,7 +1913,7 @@ end entity"
                 prev_pos: code.start(),
 
                 pos: code.pos(),
-                next_state: state_at_end(&code),
+                idx: 0,
                 comments: None,
             }]
         );
@@ -1963,7 +1931,7 @@ end entity"
                 value: Value::Identifier(code.symbol("\\1$my_ident\\")),
                 prev_pos: code.start(),
                 pos: code.pos(),
-                next_state: state_at_end(&code),
+                idx: 0,
                 comments: None,
             }]
         );
@@ -1976,7 +1944,7 @@ end entity"
                 value: Value::Identifier(code.symbol("\\my\\_ident\\")),
                 prev_pos: code.start(),
                 pos: code.pos(),
-                next_state: state_at_end(&code),
+                idx: 0,
                 comments: None,
             }]
         );
@@ -1998,7 +1966,7 @@ my_other_ident",
                     value: Value::Identifier(code.symbol("my_ident")),
                     prev_pos: code.start(),
                     pos: code.s1("my_ident").pos(),
-                    next_state: state_at_end(&code.s1("my_ident")),
+                    idx: 0,
                     comments: None,
                 },
                 Token {
@@ -2006,7 +1974,7 @@ my_other_ident",
                     value: Value::Identifier(code.symbol("my_other_ident")),
                     prev_pos: code.s1("my_ident").end(),
                     pos: code.s1("my_other_ident").pos(),
-                    next_state: state_at_end(&code),
+                    idx: 1,
                     comments: None,
                 },
             ]
@@ -2161,7 +2129,7 @@ my_other_ident",
                 value: Value::String(Latin1String::from_utf8_unchecked("string")),
                 prev_pos: code.start(),
                 pos: code.pos(),
-                next_state: state_at_end(&code),
+                idx: 0,
                 comments: None,
             },]
         );
@@ -2178,7 +2146,7 @@ my_other_ident",
                 value: Value::String(Latin1String::from_utf8_unchecked("str\"ing")),
                 prev_pos: code.start(),
                 pos: code.pos(),
-                next_state: state_at_end(&code),
+                idx: 0,
                 comments: None,
             },]
         );
@@ -2196,7 +2164,7 @@ my_other_ident",
                     value: Value::String(Latin1String::from_utf8_unchecked("str")),
                     prev_pos: code.start(),
                     pos: code.s1("\"str\"").pos(),
-                    next_state: state_at_end(&code.s1("\"str\"")),
+                    idx: 0,
                     comments: None,
                 },
                 Token {
@@ -2204,7 +2172,7 @@ my_other_ident",
                     value: Value::String(Latin1String::from_utf8_unchecked("ing")),
                     prev_pos: code.s1("\"str\"").end(),
                     pos: code.s1("\"ing\"").pos(),
-                    next_state: state_at_end(&code),
+                    idx: 1,
                     comments: None,
                 },
             ]
@@ -2294,7 +2262,7 @@ my_other_ident",
                             }),
                             prev_pos: code.start(),
                             pos: code.pos(),
-                            next_state: state_at_end(&code),
+                            idx: 0,
                             comments: None,
                         },]
                     );
@@ -2641,7 +2609,7 @@ comment
                 value: Value::AbstractLiteral(ast::AbstractLiteral::Integer(u64::max_value())),
                 prev_pos: code.start(),
                 pos: code.pos(),
-                next_state: state_at_end(&code),
+                idx: 0,
                 comments: None,
             })]
         );
@@ -2659,7 +2627,7 @@ comment
                     value: Value::NoValue,
                     prev_pos: code.start(),
                     pos: code.s1("begin").pos(),
-                    next_state: state_at_end(&code.s1("begin")),
+                    idx: 0,
                     comments: None,
                 }),
                 Err(Diagnostic::error(&code.s1("!"), "Illegal token")),
@@ -2668,7 +2636,7 @@ comment
                     value: Value::NoValue,
                     prev_pos: code.s1("!").end(),
                     pos: code.s1("end").pos(),
-                    next_state: state_at_end(&code),
+                    idx: 1,
                     comments: None,
                 }),
             ]
@@ -2766,7 +2734,7 @@ comment
                     value: Value::NoValue,
                     prev_pos: code.start(),
                     pos: code.s1("+").pos(),
-                    next_state: state_at_end(&code.s1("+--this is still a plus")),
+                    idx: 0,
                     comments: Some(Box::new(TokenComments {
                         leading: vec![Comment {
                             value: "this is a plus".to_string(),
@@ -2785,7 +2753,7 @@ comment
                     value: Value::NoValue,
                     prev_pos: code.s1("+--this is still a plus").end(),
                     pos: minus_pos,
-                    next_state: state_at_end(&code.s1("-- this is a minus")),
+                    idx: 1,
                     comments: Some(Box::new(TokenComments {
                         leading: vec![
                             Comment {
@@ -2847,7 +2815,7 @@ bar*/
                 value: Value::AbstractLiteral(ast::AbstractLiteral::Integer(2)),
                 prev_pos: code.start(),
                 pos: code.s1("2").pos(),
-                next_state: state_at_end(&code.s1("2")),
+                idx: 0,
                 comments: Some(Box::new(TokenComments {
                     leading: vec![Comment {
                         value: "foo\ncom*ment\nbar".to_string(),
@@ -2885,7 +2853,7 @@ entity -- €
                 value: Value::NoValue,
                 prev_pos: code.start(),
                 pos: code.s1("entity").pos(),
-                next_state: state_at_end(&code.s1("entity -- €")),
+                idx: 0,
                 comments: Some(Box::new(TokenComments {
                     leading: vec![Comment {
                         value: " € ".to_string(),

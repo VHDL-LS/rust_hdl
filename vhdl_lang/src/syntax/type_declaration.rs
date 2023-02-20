@@ -83,8 +83,8 @@ fn parse_record_type_definition(
         let token = stream.peek_expect()?;
         if token.kind == End {
             stream.move_after(&token); // End
-            stream.pop_if_kind(Record)?;
-            let end_ident = stream.pop_optional_ident()?;
+            stream.pop_if_kind(Record);
+            let end_ident = stream.pop_optional_ident();
             stream.expect_kind(SemiColon)?;
             return Ok((TypeDefinition::Record(elem_decls), end_ident));
         };
@@ -137,7 +137,7 @@ pub fn parse_protected_type_declaration(
         );
     }
     stream.expect_kind(Protected)?;
-    let end_ident = stream.pop_optional_ident()?;
+    let end_ident = stream.pop_optional_ident();
     Ok((ProtectedTypeDeclaration { items }, end_ident))
 }
 
@@ -186,7 +186,7 @@ fn parse_physical_type_definition(
 
     stream.expect_kind(End)?;
     stream.expect_kind(Units)?;
-    let end_ident = stream.pop_optional_ident()?;
+    let end_ident = stream.pop_optional_ident();
     stream.expect_kind(SemiColon)?;
 
     Ok((
@@ -253,11 +253,11 @@ pub fn parse_type_declaration(
         },
 
         Protected => {
-            if stream.skip_if_kind(Body)? {
+            if stream.skip_if_kind(Body) {
                 let decl = parse_declarative_part(stream, diagnostics, false)?;
                 stream.expect_kind(Protected)?;
                 stream.expect_kind(Body)?;
-                let end_ident = stream.pop_optional_ident()?;
+                let end_ident = stream.pop_optional_ident();
                 stream.expect_kind(SemiColon)?;
                 end_ident_pos = check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics);
 

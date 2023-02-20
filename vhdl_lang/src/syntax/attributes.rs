@@ -47,7 +47,7 @@ pub fn parse_entity_name_list(stream: &mut TokenStream) -> ParseResult<Vec<Entit
                     StringLiteral => designator_token.expect_operator_symbol()?.map_into(Designator::OperatorSymbol));
 
                 let signature = {
-                    if stream.peek_kind()? == Some(LeftSquare) {
+                    if stream.peek_kind() == Some(LeftSquare) {
                         Some(parse_signature(stream)?)
                     } else {
                         None

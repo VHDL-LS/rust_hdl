@@ -18,10 +18,10 @@ use crate::syntax::common::check_label_identifier_mismatch;
 /// LRM 10.2 Wait statement
 fn parse_wait_statement_known_keyword(stream: &mut TokenStream) -> ParseResult<WaitStatement> {
     let mut sensitivity_clause = vec![];
-    if stream.skip_if_kind(On)? {
+    if stream.skip_if_kind(On) {
         loop {
             sensitivity_clause.push(parse_name(stream)?);
-            if !stream.skip_if_kind(Comma)? {
+            if !stream.skip_if_kind(Comma) {
                 break;
             }
         }
@@ -132,7 +132,7 @@ fn parse_if_statement_known_keyword(
     }
 
     let end_label_pos =
-        check_label_identifier_mismatch(label, stream.pop_optional_ident()?, diagnostics);
+        check_label_identifier_mismatch(label, stream.pop_optional_ident(), diagnostics);
     stream.expect_kind(SemiColon)?;
     Ok(IfStatement {
         conds: Conditionals {
@@ -149,7 +149,7 @@ fn parse_case_statement_known_keyword(
     label: Option<&Ident>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<CaseStatement> {
-    let is_matching = stream.pop_if_kind(Que)?.is_some();
+    let is_matching = stream.pop_if_kind(Que).is_some();
     let expression = parse_expression(stream)?;
     stream.expect_kind(Is)?;
     stream.expect_kind(When)?;
@@ -174,7 +174,7 @@ fn parse_case_statement_known_keyword(
                 if is_matching {
                     stream.expect_kind(Que)?;
                 }
-                let end_label_pos = check_label_identifier_mismatch(label, stream.pop_optional_ident()?, diagnostics);
+                let end_label_pos = check_label_identifier_mismatch(label, stream.pop_optional_ident(), diagnostics);
                 alternatives.push(alternative);
                 stream.expect_kind(SemiColon)?;
                 return Ok(CaseStatement {
@@ -219,7 +219,7 @@ fn parse_loop_statement_initial_token(
         end_token,
         End => {
             stream.expect_kind(Loop)?;
-            let end_label_pos = check_label_identifier_mismatch(label, stream.pop_optional_ident()?, diagnostics);
+            let end_label_pos = check_label_identifier_mismatch(label, stream.pop_optional_ident(), diagnostics);
             stream.expect_kind(SemiColon)?;
             Ok(LoopStatement {
                 iteration_scheme,
@@ -235,7 +235,7 @@ fn parse_next_statement_known_keyword(
     initial: Token,
     stream: &mut TokenStream,
 ) -> ParseResult<WithPos<NextStatement>> {
-    let loop_label = stream.pop_optional_ident()?;
+    let loop_label = stream.pop_optional_ident();
     let condition = parse_optional(stream, When, parse_expression)?;
     let semi = stream.expect_kind(SemiColon)?;
     Ok(WithPos::new(
@@ -252,7 +252,7 @@ fn parse_exit_statement_known_keyword(
     initial: Token,
     stream: &mut TokenStream,
 ) -> ParseResult<WithPos<ExitStatement>> {
-    let loop_label = stream.pop_optional_ident()?;
+    let loop_label = stream.pop_optional_ident();
     let condition = parse_optional(stream, When, parse_expression)?;
     let semi = stream.expect_kind(SemiColon)?;
     Ok(WithPos::new(
@@ -270,7 +270,7 @@ fn parse_return_statement_known_keyword(
     stream: &mut TokenStream,
 ) -> ParseResult<WithPos<ReturnStatement>> {
     let expression = {
-        if stream.peek_kind()? == Some(SemiColon) {
+        if stream.peek_kind() == Some(SemiColon) {
             None
         } else {
             Some(parse_expression(stream)?)
@@ -513,7 +513,7 @@ fn parse_selected_assignment(stream: &mut TokenStream) -> ParseResult<Sequential
             }))
         },
         LTE => {
-            if stream.skip_if_kind(Force)? {
+            if stream.skip_if_kind(Force) {
                 Ok(SequentialStatement::SignalForceAssignment(SignalForceAssignment {
                     target,
                     force_mode: parse_optional_force_mode(stream)?,
