@@ -10,6 +10,7 @@ use super::declarative_part::{is_declarative_part, parse_declarative_part};
 use super::expression::parse_aggregate_leftpar_known;
 use super::expression::{parse_choices, parse_expression};
 use super::interface_declaration::{parse_generic_interface_list, parse_port_interface_list};
+use super::names::parse_name;
 use super::names::{
     expression_to_ident, into_selected_name, parse_association_list, parse_name_initial_token,
     parse_selected_name,
@@ -160,42 +161,45 @@ pub fn parse_process_statement(
     postponed: bool,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ProcessStatement> {
-    let token = stream.peek_expect()?;
-    let sensitivity_list = {
-        match token.kind {
-            LeftPar => {
-                stream.move_after(&token);
-                let token = stream.expect()?;
+    let sensitivity_list = if stream.skip_if_kind(LeftPar) {
+        let token = stream.peek_expect()?;
+        try_token_kind!(token,
+        All => {
+            stream.move_after(&token);
+            stream.expect_kind(RightPar)?;
+            Some(SensitivityList::All)
+        },
+        RightPar => {
+            stream.move_after(&token);
+            diagnostics.push(
+                Diagnostic::error(token, "Processes with sensitivity lists must contain at least one element.")
+            );
+            Some(SensitivityList::Names(Vec::new()))
+        },
+        Identifier => {
+            let mut names = Vec::with_capacity(1);
+            loop {
+                names.push(parse_name(stream)?);
 
-                if token.kind == All {
-                    stream.expect_kind(RightPar)?;
-                    Some(SensitivityList::All)
-                } else {
-                    let mut names = Vec::with_capacity(1);
-                    let mut token = token;
-                    loop {
-                        match token.kind {
-                            RightPar => {
-                                if names.is_empty() {
-                                    diagnostics.push(
-                                        Diagnostic::error(token, "Processes with sensitivity lists must contain at least one element.")
-                                    );
-                                }
-                                break Some(SensitivityList::Names(names));
-                            }
-                            Comma => {}
-                            _ => {
-                                names.push(parse_name_initial_token(stream, token)?);
-                            }
-                        };
-
-                        token = stream.expect()?;
+                let token = stream.peek_expect()?;
+                try_token_kind!(token,
+                    RightPar => {
+                        stream.skip();
+                        break Some(SensitivityList::Names(names));
+                    },
+                    Comma => {
+                        stream.skip();
+                    },
+                    Identifier => {
                     }
-                }
+                );
+
             }
-            _ => None,
-        }
+        })
+    } else {
+        None
     };
+
     stream.pop_if_kind(Is);
     let decl = parse_declarative_part(stream, diagnostics)?;
     stream.expect_kind(Begin)?;
@@ -273,8 +277,7 @@ fn parse_assignment_or_procedure_call(
     stream: &mut TokenStream,
     target: WithPos<Target>,
 ) -> ParseResult<ConcurrentStatement> {
-    try_token_kind!(
-    stream.expect()?,
+    expect_token!(stream, token,
     LTE => {
         parse_assignment_known_target(stream, target)
     },
@@ -482,8 +485,8 @@ fn parse_if_generate_statement(
                 continue;
             },
             Else => {
-                let token = stream.expect()?;
-                let alternative_label = try_token_kind!(
+                let alternative_label = expect_token!(
+                    stream,
                     token,
                     Generate => {
                         None

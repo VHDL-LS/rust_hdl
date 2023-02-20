@@ -194,6 +194,38 @@ macro_rules! try_token_kind {
 /// Expect any number of token kind patterns, return on no match with
 /// error diagnostic based on expected kinds
 ///
+/// Note: never consumes a token it does not expect
+#[macro_export]
+macro_rules! expect_token {
+    ($tokens:expr, $token:ident, $($($kind:ident)|+ => $result:expr),*) => {
+        {
+            let $token = $tokens.peek_expect()?;
+            match $token.kind {
+                $(
+                    $($kind)|+ => {
+                        $tokens.move_after(&$token);
+                        $result
+                    }
+                ),*,
+                _ => {
+                    let kinds = vec![
+                        $(
+                            $(
+                                $kind,
+                            )*
+                        )*
+                    ];
+
+                    return Err($token.kinds_error_before(&kinds));
+                }
+            }
+        }
+    }
+}
+
+/// Expect any number of token kind patterns, return on no match with
+/// error diagnostic based on expected kinds
+///
 /// Unlike the try_token_kind this macro gives errors always on the next token
 /// Example:
 ///

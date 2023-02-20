@@ -15,8 +15,8 @@ use crate::data::*;
 
 /// LRM 7.3.2.2
 fn parse_entity_aspect(stream: &mut TokenStream) -> ParseResult<EntityAspect> {
-    let token = stream.expect()?;
-    let entity_aspect = try_token_kind!(
+    let entity_aspect = expect_token!(
+        stream,
         token,
         Open => EntityAspect::Open,
         Configuration => EntityAspect::Configuration(parse_selected_name(stream)?),
@@ -89,8 +89,8 @@ fn parse_component_configuration_known_spec(
         }
     );
 
-    let token = stream.expect()?;
-    let block_config = try_token_kind!(
+    let block_config = expect_token!(
+        stream,
         token,
         End => None,
         For => {
@@ -118,8 +118,8 @@ enum ComponentSpecificationOrName {
 fn parse_component_specification_or_name(
     stream: &mut TokenStream,
 ) -> ParseResult<ComponentSpecificationOrName> {
-    let name_token = stream.expect()?;
-    try_token_kind!(
+    expect_token!(
+        stream,
         name_token,
         All => {
             stream.expect_kind(Colon)?;
@@ -156,8 +156,8 @@ fn parse_component_specification_or_name(
                     let mut idents = vec![to_simple_name(name)?];
                     loop {
                         idents.push(stream.expect_ident()?);
-                        let next_token = stream.expect()?;
-                        try_token_kind!(
+                        expect_token!(
+                            stream,
                             next_token,
                             Comma => {},
                             Colon => break
@@ -202,8 +202,8 @@ fn parse_block_configuration_known_name(
     let mut items = Vec::new();
 
     loop {
-        let token = stream.expect()?;
-        try_token_kind!(
+        expect_token!(
+            stream,
             token,
             End => {
                 break;

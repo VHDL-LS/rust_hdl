@@ -25,8 +25,8 @@ pub fn parse_package_instantiation(stream: &mut TokenStream) -> ParseResult<Pack
     stream.expect_kind(New)?;
     let package_name = parse_selected_name(stream)?;
 
-    let token = stream.expect()?;
-    let generic_map = try_token_kind!(
+    let generic_map = expect_token!(
+        stream,
         token,
         Generic => {
             stream.expect_kind(Map)?;

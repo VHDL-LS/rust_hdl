@@ -21,20 +21,17 @@ use crate::syntax::names::parse_type_mark;
 fn parse_enumeration_type_definition(stream: &mut TokenStream) -> ParseResult<TypeDefinition> {
     let mut enum_literals = Vec::new();
     loop {
-        let literal_token = stream.expect()?;
-
-        try_token_kind!(
+        expect_token!(stream,
             literal_token,
             Identifier | Character => {
-                let enum_literal = try_token_kind!(
-                    literal_token,
+                let enum_literal = match literal_token.kind {
                     Identifier => literal_token.into_identifier_value()?.map_into(EnumerationLiteral::Identifier),
-                    Character => literal_token.into_character_value()?.map_into(EnumerationLiteral::Character)
-                );
+                    Character => literal_token.into_character_value()?.map_into(EnumerationLiteral::Character),
+                    _ => unreachable!()
+                };
                 enum_literals.push(WithDecl::new(enum_literal));
 
-                try_token_kind!(
-                    stream.expect()?,
+                expect_token!(stream, token,
                     RightPar => {
                         stream.expect_kind(SemiColon)?;
                         break;
@@ -54,8 +51,7 @@ fn parse_array_index_constraints(stream: &mut TokenStream) -> ParseResult<Vec<Ar
     loop {
         indexes.push(parse_array_index_constraint(stream)?);
 
-        try_token_kind!(
-            stream.expect()?,
+        expect_token!(stream, token,
             RightPar => {
                 return Ok(indexes);
             },
@@ -163,8 +159,7 @@ fn parse_physical_type_definition(
                 let ident = WithDecl::new(token.into_identifier_value()?);
                 stream.expect_kind(EQ)?;
                 let literal = {
-                    let value_token = stream.expect()?;
-                    try_token_kind!(
+                    expect_token!(stream,
                         value_token,
                         AbstractLiteral => {
                             let value = value_token.into_abstract_literal()?.item;
@@ -218,8 +213,8 @@ pub fn parse_type_declaration(
     let ident = WithDecl::new(stream.expect_ident()?);
     let mut end_ident_pos = None;
 
-    try_token_kind!(
-        stream.expect()?,
+    expect_token!(
+        stream, token,
         Is => {},
         SemiColon => {
             return Ok(TypeDeclaration {
@@ -230,13 +225,13 @@ pub fn parse_type_declaration(
         }
     );
 
-    let def = try_token_kind!(
-        stream.expect()?,
+    let def = expect_token!(
+        stream, token,
         // Integer
         Range => {
             let constraint = parse_range(stream)?.item;
-            try_token_kind!(
-                stream.expect()?,
+            expect_token!(
+                stream, token,
                 SemiColon => TypeDefinition::Numeric(constraint),
                 Units => {
                     let (def, end_ident) = parse_physical_type_definition(stream, constraint)?;

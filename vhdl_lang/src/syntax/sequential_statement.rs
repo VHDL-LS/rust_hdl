@@ -99,8 +99,8 @@ fn parse_if_statement_known_keyword(
             item: statements,
         };
 
-        let end_token = stream.expect()?;
-        try_token_kind!(
+        expect_token!(
+            stream,
             end_token,
             Elsif => {
                 conditionals.push(conditional);
@@ -111,8 +111,8 @@ fn parse_if_statement_known_keyword(
                 conditionals.push(conditional);
                 let statements = parse_labeled_sequential_statements(stream, diagnostics)?;
 
-                let end_token = stream.expect()?;
-                try_token_kind!(
+                expect_token!(
+                    stream,
                     end_token,
                     End => {
                         stream.expect_kind(If)?;
@@ -162,8 +162,8 @@ fn parse_case_statement_known_keyword(
             item: statements,
         };
 
-        let end_token = stream.expect()?;
-        try_token_kind!(
+        expect_token!(
+            stream,
             end_token,
             When => {
                 alternatives.push(alternative);
@@ -216,8 +216,8 @@ fn parse_loop_statement_initial_token(
 
     let statements = parse_labeled_sequential_statements(stream, diagnostics)?;
 
-    let end_token = stream.expect()?;
-    try_token_kind!(
+    expect_token!(
+        stream,
         end_token,
         End => {
             stream.expect_kind(Loop)?;
@@ -308,8 +308,8 @@ where
 {
     let item = parse_item(stream)?;
 
-    let token = stream.expect()?;
-    try_token_kind!(
+    expect_token!(
+        stream,
         token,
         When => {
             Ok(AssignmentRightHand::Conditional(parse_conditonals(stream, item, parse_item)?))
@@ -339,16 +339,16 @@ where
     let mut else_item = None;
 
     loop {
-        let token = stream.expect()?;
-        try_token_kind!(
+        expect_token!(
+            stream,
             token,
             SemiColon => {
                 break;
             },
             Else => {
                 let item = parse_item(stream)?;
-                let token = stream.expect()?;
-                try_token_kind!(
+                expect_token!(
+                    stream,
                     token,
                     SemiColon =>  {
                         else_item = Some(item);
@@ -389,8 +389,8 @@ where
         let choices = parse_choices(stream)?;
         alternatives.push(Alternative { choices, item });
 
-        let token = stream.expect()?;
-        try_token_kind!(
+        expect_token!(
+            stream,
             token,
             Comma => {},
             SemiColon => break
@@ -504,8 +504,8 @@ fn parse_selected_assignment(stream: &mut TokenStream) -> ParseResult<Sequential
     let expression = parse_expression(stream)?;
     stream.expect_kind(Select)?;
     let target = parse_target(stream)?;
-    let token = stream.expect()?;
-    try_token_kind!(
+    expect_token!(
+        stream,
         token,
         ColonEq => {
             let rhs = AssignmentRightHand::Selected(parse_selection(stream, expression, parse_expression)?);

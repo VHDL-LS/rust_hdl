@@ -148,8 +148,8 @@ pub fn parse_aggregate_initial_choices(
     let mut choices = choices;
     let mut result = Vec::new();
     loop {
-        let token = stream.expect()?;
-        try_token_kind!(
+        expect_token!(
+            stream,
             token,
             RightPar => {
                 if choices.len() == 1 {
@@ -174,8 +174,8 @@ pub fn parse_aggregate_initial_choices(
                 let rhs = parse_expression(stream)?;
                 result.push(ElementAssociation::Named(choices, rhs));
 
-                let token = stream.expect()?;
-                try_token_kind!(
+                expect_token!(
+                    stream,
                     token,
                     RightPar => {
                         return Ok(WithPos::from(result, token))

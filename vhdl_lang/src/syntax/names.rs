@@ -15,8 +15,8 @@ use crate::ast::*;
 use crate::data::{Diagnostic, WithPos};
 
 pub fn parse_designator(stream: &mut TokenStream) -> ParseResult<WithPos<Designator>> {
-    let token = stream.expect()?;
-    Ok(try_token_kind!(
+    Ok(expect_token!(
+        stream,
         token,
         Identifier => token.into_identifier_value()?.map_into(Designator::Identifier),
         StringLiteral => token.into_operator_symbol()?.map_into(Designator::OperatorSymbol),
@@ -192,8 +192,8 @@ pub fn parse_association_list_no_leftpar(
     let mut association_elements = Vec::with_capacity(1);
     loop {
         association_elements.push(parse_association_element(stream)?);
-        let token = stream.expect()?;
-        try_token_kind!(
+        expect_token!(
+            stream,
             token,
             Comma => {},
             RightPar => {
@@ -213,8 +213,8 @@ fn parse_function_call(
 
     loop {
         association_elements.push(parse_association_element(stream)?);
-        let token = stream.expect()?;
-        try_token_kind!(
+        expect_token!(
+            stream,
             token,
             Comma => {},
             RightPar => {
@@ -287,8 +287,8 @@ fn parse_inner_external_name(stream: &mut TokenStream) -> ParseResult<ExternalNa
         Constant => ExternalObjectClass::Constant,
         Variable => ExternalObjectClass::Variable);
 
-    let token = stream.expect()?;
-    let path = try_token_kind!(
+    let path = expect_token!(
+        stream,
         token,
         CommAt => {
             let path_name = parse_name(stream)?;
@@ -402,8 +402,8 @@ pub fn parse_name_initial_token(
             LeftPar => {
                 stream.move_after(&token);
                 let assoc = parse_association_element(stream)?;
-                let sep_token = stream.expect()?;
-                try_token_kind!(
+                expect_token!(
+                    stream,
                     sep_token,
                     Comma => {
                         name = parse_function_call(stream, name, assoc)?;

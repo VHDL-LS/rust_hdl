@@ -15,9 +15,7 @@ use crate::ast::{
 };
 
 fn parse_entity_class(stream: &mut TokenStream) -> ParseResult<EntityClass> {
-    let token = stream.expect()?;
-    Ok(try_token_kind!(
-        token,
+    Ok(expect_token!(stream, token,
         Entity => EntityClass::Entity,
         Architecture => EntityClass::Architecture,
         Configuration => EntityClass::Configuration,
@@ -34,17 +32,17 @@ fn parse_entity_class(stream: &mut TokenStream) -> ParseResult<EntityClass> {
 }
 
 pub fn parse_entity_name_list(stream: &mut TokenStream) -> ParseResult<Vec<EntityName>> {
-    let token = stream.peek_expect()?;
-    Ok(try_token_kind!(
-        token,
+    Ok(expect_token!(stream, token,
         Identifier | StringLiteral => {
             let mut entity_name_list = Vec::new();
+            let mut token = token;
             loop {
-                let designator_token = stream.expect()?;
-                let designator = try_token_kind!(
-                    designator_token,
-                    Identifier => designator_token.into_identifier_value()?.map_into(Designator::Identifier),
-                    StringLiteral => designator_token.into_operator_symbol()?.map_into(Designator::OperatorSymbol));
+
+                let designator = match token.kind {
+                    Identifier => token.into_identifier_value()?.map_into(Designator::Identifier),
+                    StringLiteral => token.into_operator_symbol()?.map_into(Designator::OperatorSymbol),
+                    _ => unreachable!(""),
+                };
 
                 let signature = {
                     if stream.peek_kind() == Some(LeftSquare) {
@@ -59,26 +57,17 @@ pub fn parse_entity_name_list(stream: &mut TokenStream) -> ParseResult<Vec<Entit
                     signature,
                 }));
 
-                let sep_token = stream.peek_expect()?;
-
-                try_token_kind!(
-                    sep_token,
-
-                    Comma => {
-                        stream.move_after(&sep_token);
-                    },
-                    Colon => {
-                        break entity_name_list;
-                    }
-                )
+                if stream.skip_if_kind(Comma) {
+                    token = expect_token!(stream, token, Identifier | StringLiteral => token);
+                } else {
+                    break entity_name_list;
+                }
             }
         },
         Others => {
-            stream.move_after(&token);
             vec![EntityName::Others]
         },
         All => {
-            stream.move_after(&token);
             vec![EntityName::All]
         }
     ))
@@ -87,10 +76,7 @@ pub fn parse_entity_name_list(stream: &mut TokenStream) -> ParseResult<Vec<Entit
 pub fn parse_attribute(stream: &mut TokenStream) -> ParseResult<Vec<Attribute>> {
     stream.expect_kind(Attribute)?;
     let ident = stream.expect_ident()?;
-    let token = stream.expect()?;
-
-    Ok(try_token_kind!(
-        token,
+    Ok(expect_token!(stream, token,
         Colon => {
             let type_mark = parse_type_mark(stream)?;
             stream.expect_kind(SemiColon)?;

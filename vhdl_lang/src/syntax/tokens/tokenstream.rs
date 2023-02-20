@@ -48,6 +48,10 @@ impl<'a> TokenStream<'a> {
         self.idx = token.idx + 1;
     }
 
+    pub fn skip(&mut self) {
+        self.idx += 1;
+    }
+
     pub fn pop(&mut self) -> Option<Token> {
         if let Some(token) = self.tokens.get(self.idx) {
             self.idx += 1;

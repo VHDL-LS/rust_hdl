@@ -27,9 +27,8 @@ fn parse_array_constraint(
     let mut discrete_ranges: Vec<_> = initial.into_iter().collect();
 
     let mut end_pos = loop {
-        let sep_token = stream.expect()?;
-        try_token_kind!(
-            sep_token,
+        expect_token!(
+            stream, sep_token,
             RightPar => break sep_token.pos,
             Comma => {}
         );
@@ -88,8 +87,8 @@ fn parse_composite_constraint(stream: &mut TokenStream) -> ParseResult<WithPos<S
         let mut constraints = vec![parse_record_element_constraint(stream)?];
 
         let rightpar_pos = loop {
-            let sep_token = stream.expect()?;
-            try_token_kind!(
+            expect_token!(
+                stream,
                 sep_token,
                 RightPar => break sep_token.pos,
                 Comma => {}
@@ -167,8 +166,8 @@ pub fn parse_element_resolution_indication(
                     resolution: Box::new(resolution),
                 });
 
-                let token = stream.expect()?;
-                try_token_kind!(
+                expect_token!(
+                    stream,
                     token,
                     RightPar => break,
                     Comma => {}

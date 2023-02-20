@@ -21,7 +21,7 @@ use super::range::{parse_discrete_range, parse_range};
 use super::sequential_statement::parse_sequential_statement;
 use super::subprogram::{parse_signature, parse_subprogram_declaration_no_semi};
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{Comment, Symbols, Token, TokenStream, Tokenizer};
+use super::tokens::{Comment, Kind, Symbols, Token, TokenStream, Tokenizer};
 use super::type_declaration::parse_type_declaration;
 use super::waveform::parse_waveform;
 use crate::ast;
@@ -337,7 +337,9 @@ impl Code {
     }
 
     pub fn character(&self) -> WithPos<u8> {
-        self.parse_ok(|stream: &mut TokenStream| stream.expect()?.into_character_value())
+        self.parse_ok(|stream: &mut TokenStream| {
+            stream.expect_kind(Kind::Character)?.into_character_value()
+        })
     }
 
     /// Helper method to create expression from first occurence of substr

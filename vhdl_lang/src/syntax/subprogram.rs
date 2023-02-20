@@ -38,9 +38,8 @@ pub fn parse_signature(stream: &mut TokenStream) -> ParseResult<WithPos<Signatur
                 match token.kind {
                     Identifier => {
                         type_marks.push(parse_type_mark(stream)?);
-                        let sep_token = stream.expect()?;
-
-                        try_token_kind!(
+                        expect_token!(
+                            stream,
                             sep_token,
                             Comma => {},
                             RightSquare => {
@@ -70,8 +69,8 @@ pub fn parse_signature(stream: &mut TokenStream) -> ParseResult<WithPos<Signatur
 }
 
 fn parse_designator(stream: &mut TokenStream) -> ParseResult<WithPos<SubprogramDesignator>> {
-    let token = stream.expect()?;
-    Ok(try_token_kind!(
+    Ok(expect_token!(
+        stream,
         token,
         Identifier => token.into_identifier_value()?.map_into(SubprogramDesignator::Identifier),
         StringLiteral => token.into_operator_symbol()?.map_into(SubprogramDesignator::OperatorSymbol)
@@ -82,10 +81,9 @@ pub fn parse_subprogram_declaration_no_semi(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SubprogramDeclaration> {
-    let token = stream.expect()?;
-
     let (is_function, is_pure) = {
-        try_token_kind!(
+        expect_token!(
+            stream,
             token,
             Procedure => (false, false),
             Function => (true, true),
@@ -152,8 +150,8 @@ pub fn parse_subprogram_body(
     stream.expect_kind(Begin)?;
 
     let statements = parse_labeled_sequential_statements(stream, diagnostics)?;
-    let end_token = stream.expect()?;
-    try_token_kind!(
+    expect_token!(
+        stream,
         end_token,
         End => {
             stream.pop_if_kind(end_kind);
@@ -180,8 +178,9 @@ pub fn parse_subprogram(
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Declaration> {
     let specification = parse_subprogram_declaration_no_semi(stream, diagnostics)?;
-    try_token_kind!(
-        stream.expect()?,
+    expect_token!(
+        stream,
+        token,
         Is => {
             Ok(Declaration::SubprogramBody(parse_subprogram_body(stream, specification, diagnostics)?))
         },
