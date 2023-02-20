@@ -390,7 +390,7 @@ fn parse_generate_body_end_token(
         Identifier => {
             stream.move_after(&token);
             // Inner with identifier
-            let end_ident = token.expect_ident()?;
+            let end_ident = token.into_identifier_value()?;
             end_label_pos = check_label_identifier_mismatch(alternative_label.as_ref().map(|label| &label.tree), Some(end_ident), diagnostics);
             stream.expect_kind(SemiColon)?;
             end_token = stream.expect()?;
@@ -486,7 +486,7 @@ fn parse_if_generate_statement(
                     Identifier => {
                         stream.expect_kind(Colon)?;
                         stream.expect_kind(Generate)?;
-                        Some(WithDecl::new(token.expect_ident()?))
+                        Some(WithDecl::new(token.into_identifier_value()?))
                     }
                 );
                 let body = parse_generate_body(stream, alternative_label, diagnostics)?;

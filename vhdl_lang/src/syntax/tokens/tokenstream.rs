@@ -147,12 +147,12 @@ impl<'a> TokenStream<'a> {
 
     pub fn pop_optional_ident(&mut self) -> Option<Ident> {
         self.pop_if_kind(Identifier)
-            .map(|token| token.expect_ident().unwrap())
+            .map(|token| token.into_identifier_value().unwrap())
     }
 
     pub fn expect_ident(&mut self) -> DiagnosticResult<Ident> {
         let token = self.expect()?;
-        token.expect_ident()
+        try_token_kind!(token, Identifier => token.into_identifier_value())
     }
 
     /// Expect identifier or subtype/range keywords
@@ -164,7 +164,7 @@ impl<'a> TokenStream<'a> {
         let des = try_token_kind!(
             token,
             Identifier => {
-                let ident = token.expect_ident()?;
+                let ident = token.into_identifier_value()?;
                 ident.map_into(|sym| self.tokenizer.attribute(sym))
             },
             Subtype => WithPos::new(AttributeDesignator::Type(TypeAttribute::Subtype), token.pos),

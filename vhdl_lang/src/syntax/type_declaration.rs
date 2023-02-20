@@ -28,8 +28,8 @@ fn parse_enumeration_type_definition(stream: &mut TokenStream) -> ParseResult<Ty
             Identifier | Character => {
                 let enum_literal = try_token_kind!(
                     literal_token,
-                    Identifier => literal_token.expect_ident()?.map_into(EnumerationLiteral::Identifier),
-                    Character => literal_token.expect_character()?.map_into(EnumerationLiteral::Character)
+                    Identifier => literal_token.into_identifier_value()?.map_into(EnumerationLiteral::Identifier),
+                    Character => literal_token.into_character_value()?.map_into(EnumerationLiteral::Character)
                 );
                 enum_literals.push(WithDecl::new(enum_literal));
 
@@ -160,19 +160,19 @@ fn parse_physical_type_definition(
             },
             Identifier => {
                 stream.move_after(&token);
-                let ident = WithDecl::new(token.expect_ident()?);
+                let ident = WithDecl::new(token.into_identifier_value()?);
                 stream.expect_kind(EQ)?;
                 let literal = {
                     let value_token = stream.expect()?;
                     try_token_kind!(
                         value_token,
                         AbstractLiteral => {
-                            let value = value_token.expect_abstract_literal()?.item;
+                            let value = value_token.into_abstract_literal()?.item;
                             let unit = stream.expect_ident()?;
                             PhysicalLiteral {value, unit: unit.into_ref()}
                         },
                         Identifier => {
-                            let unit = value_token.expect_ident()?;
+                            let unit = value_token.into_identifier_value()?;
                             PhysicalLiteral {value: AbstractLiteral::Integer(1), unit: unit.into_ref()}
                         }
                     )

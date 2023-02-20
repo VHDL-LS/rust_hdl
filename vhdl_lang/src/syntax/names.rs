@@ -18,9 +18,9 @@ pub fn parse_designator(stream: &mut TokenStream) -> ParseResult<WithPos<Designa
     let token = stream.expect()?;
     Ok(try_token_kind!(
         token,
-        Identifier => token.expect_ident()?.map_into(Designator::Identifier),
-        StringLiteral => token.expect_operator_symbol()?.map_into(Designator::OperatorSymbol),
-        Character => token.expect_character()?.map_into(Designator::Character)
+        Identifier => token.into_identifier_value()?.map_into(Designator::Identifier),
+        StringLiteral => token.into_operator_symbol()?.map_into(Designator::OperatorSymbol),
+        Character => token.into_character_value()?.map_into(Designator::Character)
     ))
 }
 
@@ -267,9 +267,9 @@ fn to_suffix(token: Token) -> ParseResult<WithPos<DesignatorOrAll>> {
     let name = {
         try_token_kind!(
             token,
-            Identifier => token.expect_ident()?.map_into(|ident| DesignatorOrAll::Designator(Designator::Identifier(ident))),
-            Character => token.expect_character()?.map_into(|byte| DesignatorOrAll::Designator(Designator::Character(byte))),
-            StringLiteral => token.expect_operator_symbol()?.map_into(|string| DesignatorOrAll::Designator(Designator::OperatorSymbol(string))),
+            Identifier => token.into_identifier_value()?.map_into(|ident| DesignatorOrAll::Designator(Designator::Identifier(ident))),
+            Character => token.into_character_value()?.map_into(|byte| DesignatorOrAll::Designator(Designator::Character(byte))),
+            StringLiteral => token.into_operator_symbol()?.map_into(|string| DesignatorOrAll::Designator(Designator::OperatorSymbol(string))),
             All => WithPos::from(DesignatorOrAll::All, token)
         )
     };

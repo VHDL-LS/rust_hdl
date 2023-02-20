@@ -73,8 +73,8 @@ fn parse_designator(stream: &mut TokenStream) -> ParseResult<WithPos<SubprogramD
     let token = stream.expect()?;
     Ok(try_token_kind!(
         token,
-        Identifier => token.expect_ident()?.map_into(SubprogramDesignator::Identifier),
-        StringLiteral => token.expect_operator_symbol()?.map_into(SubprogramDesignator::OperatorSymbol)
+        Identifier => token.into_identifier_value()?.map_into(SubprogramDesignator::Identifier),
+        StringLiteral => token.into_operator_symbol()?.map_into(SubprogramDesignator::OperatorSymbol)
     ))
 }
 

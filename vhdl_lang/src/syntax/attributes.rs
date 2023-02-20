@@ -43,8 +43,8 @@ pub fn parse_entity_name_list(stream: &mut TokenStream) -> ParseResult<Vec<Entit
                 let designator_token = stream.expect()?;
                 let designator = try_token_kind!(
                     designator_token,
-                    Identifier => designator_token.expect_ident()?.map_into(Designator::Identifier),
-                    StringLiteral => designator_token.expect_operator_symbol()?.map_into(Designator::OperatorSymbol));
+                    Identifier => designator_token.into_identifier_value()?.map_into(Designator::Identifier),
+                    StringLiteral => designator_token.into_operator_symbol()?.map_into(Designator::OperatorSymbol));
 
                 let signature = {
                     if stream.peek_kind() == Some(LeftSquare) {

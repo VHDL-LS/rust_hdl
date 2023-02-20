@@ -507,7 +507,7 @@ impl Token {
         kinds_error(self.pos_before(), kinds)
     }
 
-    pub fn expect_ident(self) -> DiagnosticResult<Ident> {
+    pub fn into_identifier_value(self) -> DiagnosticResult<Ident> {
         if let Token {
             kind: Identifier,
             value: Value::Identifier(value),
@@ -517,11 +517,11 @@ impl Token {
         {
             Ok(WithPos::from(value, pos))
         } else {
-            Err(self.kinds_error_before(&[Identifier]))
+            Err(self.kinds_error(&[Identifier]))
         }
     }
 
-    pub fn expect_character(self) -> DiagnosticResult<WithPos<u8>> {
+    pub fn into_character_value(self) -> DiagnosticResult<WithPos<u8>> {
         if let Token {
             kind: Character,
             value: Value::Character(value),
@@ -531,7 +531,7 @@ impl Token {
         {
             Ok(WithPos::from(value, pos))
         } else {
-            Err(self.kinds_error_before(&[Character]))
+            Err(self.kinds_error(&[Character]))
         }
     }
 
@@ -543,7 +543,7 @@ impl Token {
         }
     }
 
-    pub fn expect_bit_string(self) -> DiagnosticResult<WithPos<ast::BitString>> {
+    pub fn into_bit_string(self) -> DiagnosticResult<WithPos<ast::BitString>> {
         if let Token {
             kind: BitString,
             value: Value::BitString(value),
@@ -553,11 +553,11 @@ impl Token {
         {
             Ok(WithPos::from(value, pos))
         } else {
-            Err(self.kinds_error_before(&[BitString]))
+            Err(self.kinds_error(&[BitString]))
         }
     }
 
-    pub fn expect_abstract_literal(self) -> DiagnosticResult<WithPos<ast::AbstractLiteral>> {
+    pub fn into_abstract_literal(self) -> DiagnosticResult<WithPos<ast::AbstractLiteral>> {
         if let Token {
             kind: AbstractLiteral,
             value: Value::AbstractLiteral(value),
@@ -567,11 +567,11 @@ impl Token {
         {
             Ok(WithPos::from(value, pos))
         } else {
-            Err(self.kinds_error_before(&[AbstractLiteral]))
+            Err(self.kinds_error(&[AbstractLiteral]))
         }
     }
 
-    pub fn expect_string(self) -> DiagnosticResult<WithPos<Latin1String>> {
+    pub fn into_string_value(self) -> DiagnosticResult<WithPos<Latin1String>> {
         if let Token {
             kind: StringLiteral,
             value: Value::String(value),
@@ -581,12 +581,12 @@ impl Token {
         {
             Ok(WithPos::from(value, pos))
         } else {
-            Err(self.kinds_error_before(&[StringLiteral]))
+            Err(self.kinds_error(&[StringLiteral]))
         }
     }
 
-    pub fn expect_operator_symbol(self) -> DiagnosticResult<WithPos<Operator>> {
-        let string = self.expect_string()?;
+    pub fn into_operator_symbol(self) -> DiagnosticResult<WithPos<Operator>> {
+        let string = self.into_string_value()?;
         if let Some(op) = Operator::from_latin1(string.item) {
             Ok(WithPos::new(op, string.pos))
         } else {

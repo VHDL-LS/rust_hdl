@@ -338,7 +338,7 @@ impl Code {
     }
 
     pub fn character(&self) -> WithPos<u8> {
-        self.parse_ok(|stream: &mut TokenStream| stream.expect()?.expect_character())
+        self.parse_ok(|stream: &mut TokenStream| stream.expect()?.into_character_value())
     }
 
     /// Helper method to create expression from first occurence of substr

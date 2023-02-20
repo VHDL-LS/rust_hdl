@@ -397,10 +397,10 @@ fn parse_primary_initial_token(
             }
         }
         BitString => Ok(token
-            .expect_bit_string()?
+            .into_bit_string()?
             .map_into(|bs| Expression::Literal(Literal::BitString(bs)))),
         Character => Ok(token
-            .expect_character()?
+            .into_character_value()?
             .map_into(|chr| Expression::Literal(Literal::Character(chr)))),
         StringLiteral => {
             if stream.peek_kind() == Some(LeftPar) {
@@ -409,7 +409,7 @@ fn parse_primary_initial_token(
                     .map(|name| name.map_into(|name| Expression::Name(Box::new(name))))
             } else {
                 Ok(token
-                    .expect_string()?
+                    .into_string_value()?
                     .map_into(|string| Expression::Literal(Literal::String(string))))
             }
         }
@@ -427,10 +427,10 @@ fn parse_primary_initial_token(
             })
         }
         AbstractLiteral => {
-            let value = token.expect_abstract_literal()?;
+            let value = token.into_abstract_literal()?;
             // Physical unit
             if let Some(unit_token) = stream.pop_if_kind(Identifier) {
-                let unit = unit_token.expect_ident()?;
+                let unit = unit_token.into_identifier_value()?;
                 let pos = value.pos.combine_into(&unit);
                 let physical = PhysicalLiteral {
                     value: value.item,
