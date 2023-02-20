@@ -9,7 +9,7 @@ use super::common::ParseResult;
 use super::component_declaration::parse_component_declaration;
 use super::concurrent_statement::parse_labeled_concurrent_statement;
 use super::context::{parse_library_clause, parse_use_clause};
-use super::declarative_part::parse_declarative_part_leave_end_token;
+use super::declarative_part::parse_declarative_part;
 use super::design_unit::{parse_design_file, parse_entity_declaration};
 use super::expression::{parse_aggregate, parse_choices, parse_expression};
 use super::interface_declaration::{parse_generic, parse_parameter, parse_port};
@@ -312,8 +312,7 @@ impl Code {
 
     pub fn declarative_part(&self) -> Vec<Declaration> {
         let mut diagnostics = Vec::new();
-        let res = self
-            .parse_ok(|stream| parse_declarative_part_leave_end_token(stream, &mut diagnostics));
+        let res = self.parse_ok(|stream| parse_declarative_part(stream, &mut diagnostics));
         check_no_diagnostics(&diagnostics);
         res
     }

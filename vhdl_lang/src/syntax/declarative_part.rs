@@ -63,19 +63,8 @@ fn check_declarative_part(token: &Token, may_end: bool, may_begin: bool) -> Pars
         }
     }
 }
+
 pub fn parse_declarative_part(
-    stream: &mut TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
-    begin_is_end: bool,
-) -> ParseResult<Vec<Declaration>> {
-    let end_token = if begin_is_end { Begin } else { End };
-    let decl = parse_declarative_part_leave_end_token(stream, diagnostics)?;
-
-    stream.expect_kind(end_token).log(diagnostics);
-    Ok(decl)
-}
-
-pub fn parse_declarative_part_leave_end_token(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Vec<Declaration>> {
@@ -230,8 +219,7 @@ var invalid: broken;
 constant x: natural := 5;
 ",
         );
-        let (decls, msgs) =
-            code.with_partial_stream_diagnostics(parse_declarative_part_leave_end_token);
+        let (decls, msgs) = code.with_partial_stream_diagnostics(parse_declarative_part);
         assert_eq!(
             decls,
             Ok(vec![Declaration::Object(ObjectDeclaration {
@@ -258,8 +246,7 @@ constant x: natural := 5;
     fn parse_declarative_part_error() {
         // Just checking that there is not an infinite loop
         let code = Code::new("invalid");
-        let (decl, _) =
-            code.with_partial_stream_diagnostics(parse_declarative_part_leave_end_token);
+        let (decl, _) = code.with_partial_stream_diagnostics(parse_declarative_part);
         assert!(decl.is_err());
     }
 }

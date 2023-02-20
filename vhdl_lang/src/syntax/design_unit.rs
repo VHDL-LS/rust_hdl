@@ -14,9 +14,7 @@ use super::configuration::parse_configuration_declaration;
 use super::context::{
     parse_context, parse_library_clause, parse_use_clause, DeclarationOrReference,
 };
-use super::declarative_part::{
-    parse_declarative_part, parse_declarative_part_leave_end_token, parse_package_instantiation,
-};
+use super::declarative_part::{parse_declarative_part, parse_package_instantiation};
 use super::interface_declaration::parse_generic_interface_list;
 use crate::ast::*;
 use crate::data::*;
@@ -35,7 +33,7 @@ pub fn parse_entity_declaration(
     let generic_clause = parse_optional_generic_list(stream, diagnostics)?;
     let port_clause = parse_optional_port_list(stream, diagnostics)?;
 
-    let decl = parse_declarative_part_leave_end_token(stream, diagnostics)?;
+    let decl = parse_declarative_part(stream, diagnostics)?;
 
     let statements = if stream.skip_if_kind(Begin) {
         parse_labeled_concurrent_statements(stream, diagnostics)?
@@ -68,7 +66,8 @@ pub fn parse_architecture_body(
     let entity_name = stream.expect_ident()?;
     stream.expect_kind(Is)?;
 
-    let decl = parse_declarative_part(stream, diagnostics, true)?;
+    let decl = parse_declarative_part(stream, diagnostics)?;
+    stream.expect_kind(Begin)?;
 
     let statements = parse_labeled_concurrent_statements(stream, diagnostics)?;
     stream.expect_kind(End)?;
@@ -105,7 +104,8 @@ pub fn parse_package_declaration(
             None
         }
     };
-    let decl = parse_declarative_part(stream, diagnostics, false)?;
+    let decl = parse_declarative_part(stream, diagnostics)?;
+    stream.expect_kind(End)?;
     stream.pop_if_kind(Package);
     let end_ident = stream.pop_optional_ident();
     stream.expect_kind(SemiColon)?;
@@ -128,7 +128,8 @@ pub fn parse_package_body(
     let ident = stream.expect_ident()?;
 
     stream.expect_kind(Is)?;
-    let decl = parse_declarative_part(stream, diagnostics, false)?;
+    let decl = parse_declarative_part(stream, diagnostics)?;
+    stream.expect_kind(End)?;
     if stream.skip_if_kind(Package) {
         stream.expect_kind(Body)?;
     }

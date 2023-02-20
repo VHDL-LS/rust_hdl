@@ -254,7 +254,8 @@ pub fn parse_type_declaration(
 
         Protected => {
             if stream.skip_if_kind(Body) {
-                let decl = parse_declarative_part(stream, diagnostics, false)?;
+                let decl = parse_declarative_part(stream, diagnostics)?;
+                stream.expect_kind(End)?;
                 stream.expect_kind(Protected)?;
                 stream.expect_kind(Body)?;
                 let end_ident = stream.pop_optional_ident();

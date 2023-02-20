@@ -148,7 +148,8 @@ pub fn parse_subprogram_body(
             SubprogramDeclaration::Function(..) => Function,
         }
     };
-    let declarations = parse_declarative_part(stream, diagnostics, true)?;
+    let declarations = parse_declarative_part(stream, diagnostics)?;
+    stream.expect_kind(Begin)?;
 
     let (statements, end_token) = parse_labeled_sequential_statements(stream, diagnostics)?;
     match_token_kind!(

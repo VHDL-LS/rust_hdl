@@ -44,7 +44,8 @@ pub fn parse_block_statement(
     };
     stream.pop_if_kind(Is);
     let header = parse_block_header(stream, diagnostics)?;
-    let decl = parse_declarative_part(stream, diagnostics, true)?;
+    let decl = parse_declarative_part(stream, diagnostics)?;
+    stream.expect_kind(Begin)?;
     let statements = parse_labeled_concurrent_statements(stream, diagnostics)?;
     stream.expect_kind(End)?;
     stream.expect_kind(Block)?;
@@ -196,7 +197,8 @@ pub fn parse_process_statement(
         }
     };
     stream.pop_if_kind(Is);
-    let decl = parse_declarative_part(stream, diagnostics, true)?;
+    let decl = parse_declarative_part(stream, diagnostics)?;
+    stream.expect_kind(Begin)?;
     let (statements, end_token) = parse_labeled_sequential_statements(stream, diagnostics)?;
     try_token_kind!(end_token, End => {});
     if let Some(token) = stream.pop_if_kind(Postponed) {
@@ -358,7 +360,9 @@ fn parse_optional_declarative_part(
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Option<Vec<Declaration>>> {
     if is_declarative_part(stream, true)? {
-        Ok(Some(parse_declarative_part(stream, diagnostics, true)?))
+        let decls = parse_declarative_part(stream, diagnostics)?;
+        stream.expect_kind(Begin)?;
+        Ok(Some(decls))
     } else {
         Ok(None)
     }
