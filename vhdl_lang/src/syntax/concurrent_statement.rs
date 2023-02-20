@@ -199,8 +199,9 @@ pub fn parse_process_statement(
     stream.pop_if_kind(Is);
     let decl = parse_declarative_part(stream, diagnostics)?;
     stream.expect_kind(Begin)?;
-    let (statements, end_token) = parse_labeled_sequential_statements(stream, diagnostics)?;
-    try_token_kind!(end_token, End => {});
+    let statements = parse_labeled_sequential_statements(stream, diagnostics)?;
+    stream.expect_kind(End)?;
+
     if let Some(token) = stream.pop_if_kind(Postponed) {
         if !postponed {
             diagnostics.push(Diagnostic::error(

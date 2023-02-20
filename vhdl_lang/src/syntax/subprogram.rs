@@ -151,7 +151,8 @@ pub fn parse_subprogram_body(
     let declarations = parse_declarative_part(stream, diagnostics)?;
     stream.expect_kind(Begin)?;
 
-    let (statements, end_token) = parse_labeled_sequential_statements(stream, diagnostics)?;
+    let statements = parse_labeled_sequential_statements(stream, diagnostics)?;
+    let end_token = stream.expect()?;
     match_token_kind!(
         end_token,
         End => {
