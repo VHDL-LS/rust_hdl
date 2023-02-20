@@ -273,7 +273,7 @@ fn parse_assignment_or_procedure_call(
     stream: &mut TokenStream,
     target: WithPos<Target>,
 ) -> ParseResult<ConcurrentStatement> {
-    match_token_kind!(
+    try_token_kind!(
     stream.expect()?,
     LTE => {
         parse_assignment_known_target(stream, target)

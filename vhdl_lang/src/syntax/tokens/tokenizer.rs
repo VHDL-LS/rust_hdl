@@ -167,32 +167,6 @@ pub enum Kind {
 }
 use self::Kind::*;
 
-/// Expect any number of token kind patterns, returns Ok variant when
-/// match else Err variant
-#[macro_export]
-macro_rules! match_token_kind {
-    ($token:expr, $($($kind:ident)|+ => $result:expr),*) => {
-        {
-            match $token.kind {
-                $(
-                    $($kind)|+ => $result
-                ),*,
-                _ => {
-                    let kinds = vec![
-                        $(
-                            $(
-                                $kind,
-                            )*
-                        )*
-                    ];
-
-                    Err($token.kinds_error_before(&kinds))
-                }
-            }
-        }
-    }
-}
-
 /// Expect any number of token kind patterns, return on no match with
 /// error diagnostic based on expected kinds
 #[macro_export]
@@ -2644,37 +2618,43 @@ comment
     }
 
     #[test]
-    fn test_match_token_kind() {
+    fn test_try_token_kind() {
         let tokens = Code::new("entity").tokenize();
-        let result = match_token_kind!(
-            tokens[0],
+        let result = |token: &Token| {
+            try_token_kind!(
+            token,
             Identifier => Ok(1),
-            Entity => Ok(2));
-        assert_eq!(result, Ok(2));
+            Entity => Ok(2))
+        };
+        assert_eq!(result(&tokens[0]), Ok(2));
     }
 
     #[test]
-    fn test_match_token_kind_error() {
+    fn test_try_token_kind_error() {
         let tokens = Code::new("+").tokenize();
-        let result = match_token_kind!(
-            tokens[0],
+        let result = |token: &Token| {
+            try_token_kind!(
+            token,
             Identifier => Ok(1),
-            Entity => Ok(2));
+            Entity => Ok(2))
+        };
         assert_eq!(
-            result,
+            result(&tokens[0]),
             Err(tokens[0].kinds_error_before(&[Identifier, Entity]))
         );
     }
 
     #[test]
-    fn test_match_token_kind_pattern_error() {
+    fn test_try_token_kind_pattern_error() {
         let tokens = Code::new("+").tokenize();
-        let result = match_token_kind!(
-            tokens[0],
+        let result = |token: &Token| {
+            try_token_kind!(
+            token,
             Identifier | StringLiteral => Ok(1),
-            Entity => Ok(2));
+            Entity => Ok(2))
+        };
         assert_eq!(
-            result,
+            result(&tokens[0]),
             Err(tokens[0].kinds_error_before(&[Identifier, StringLiteral, Entity]))
         );
     }

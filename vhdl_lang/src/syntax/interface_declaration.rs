@@ -215,7 +215,7 @@ fn parse_interface_declaration(
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     let token = stream.peek_expect()?;
 
-    match_token_kind!(
+    try_token_kind!(
         token,
         Signal | Constant | Variable | Identifier => {
             parse_interface_object_declaration(stream, list_type)

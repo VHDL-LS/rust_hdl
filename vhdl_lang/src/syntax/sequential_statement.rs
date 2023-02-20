@@ -217,7 +217,7 @@ fn parse_loop_statement_initial_token(
     let statements = parse_labeled_sequential_statements(stream, diagnostics)?;
 
     let end_token = stream.expect()?;
-    match_token_kind!(
+    try_token_kind!(
         end_token,
         End => {
             stream.expect_kind(Loop)?;
@@ -309,7 +309,7 @@ where
     let item = parse_item(stream)?;
 
     let token = stream.expect()?;
-    match_token_kind!(
+    try_token_kind!(
         token,
         When => {
             Ok(AssignmentRightHand::Conditional(parse_conditonals(stream, item, parse_item)?))
@@ -505,7 +505,7 @@ fn parse_selected_assignment(stream: &mut TokenStream) -> ParseResult<Sequential
     stream.expect_kind(Select)?;
     let target = parse_target(stream)?;
     let token = stream.expect()?;
-    match_token_kind!(
+    try_token_kind!(
         token,
         ColonEq => {
             let rhs = AssignmentRightHand::Selected(parse_selection(stream, expression, parse_expression)?);

@@ -153,7 +153,7 @@ pub fn parse_subprogram_body(
 
     let statements = parse_labeled_sequential_statements(stream, diagnostics)?;
     let end_token = stream.expect()?;
-    match_token_kind!(
+    try_token_kind!(
         end_token,
         End => {
             stream.pop_if_kind(end_kind);
@@ -180,7 +180,7 @@ pub fn parse_subprogram(
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Declaration> {
     let specification = parse_subprogram_declaration_no_semi(stream, diagnostics)?;
-    match_token_kind!(
+    try_token_kind!(
         stream.expect()?,
         Is => {
             Ok(Declaration::SubprogramBody(parse_subprogram_body(stream, specification, diagnostics)?))

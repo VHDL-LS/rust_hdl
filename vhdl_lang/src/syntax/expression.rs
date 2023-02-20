@@ -342,7 +342,7 @@ fn parse_expression_or_aggregate(stream: &mut TokenStream) -> ParseResult<WithPo
         };
 
         let sep_token = stream.peek_expect()?;
-        match_token_kind!(
+        try_token_kind!(
             sep_token,
 
             // Was aggregate
