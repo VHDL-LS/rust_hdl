@@ -89,6 +89,8 @@ pub fn parse_declarative_part(
                 | Attribute
                 | Use
                 | Alias
+                | Begin
+                | End
         )
     }
 
