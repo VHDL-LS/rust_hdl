@@ -46,6 +46,7 @@ pub fn parse_block_statement(
     let header = parse_block_header(stream, diagnostics)?;
     let decl = parse_declarative_part(stream, diagnostics, true)?;
     let statements = parse_labeled_concurrent_statements(stream, diagnostics)?;
+    stream.expect_kind(End)?;
     stream.expect_kind(Block)?;
     let end_ident = stream.pop_optional_ident();
     stream.expect_kind(SemiColon)?;
@@ -369,9 +370,8 @@ fn parse_generate_body_end_token(
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<(GenerateBody, Token)> {
     let decl = parse_optional_declarative_part(stream, diagnostics)?;
-    let (statements, mut end_token) =
-        parse_labeled_concurrent_statements_end_token(stream, diagnostics)?;
-
+    let statements = parse_labeled_concurrent_statements(stream, diagnostics)?;
+    let mut end_token = stream.expect()?;
     let mut end_label_pos = None;
 
     // Potential inner end [ alternative_label ];
@@ -562,9 +562,9 @@ fn parse_case_generate_statement(
 pub fn parse_concurrent_statement(
     stream: &mut TokenStream,
     label: Option<&Ident>,
-    token: Token,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ConcurrentStatement> {
+    let token = stream.expect()?;
     let statement = {
         try_init_token_kind!(
             token,
@@ -641,49 +641,35 @@ pub fn parse_concurrent_statement(
     Ok(statement)
 }
 
-pub fn parse_labeled_concurrent_statements_end_token(
+pub fn parse_labeled_concurrent_statements(
     stream: &mut TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
-) -> ParseResult<(Vec<LabeledConcurrentStatement>, Token)> {
+) -> ParseResult<Vec<LabeledConcurrentStatement>> {
     let mut statements = Vec::new();
     loop {
-        let token = stream.expect()?;
+        let token = stream.peek_expect()?;
         match token.kind {
             End | Elsif | Else | When => {
-                break Ok((statements, token));
+                break Ok(statements);
             }
             _ => {
-                statements.push(parse_labeled_concurrent_statement_initial_token(
-                    stream,
-                    token,
-                    diagnostics,
-                )?);
+                statements.push(parse_labeled_concurrent_statement(stream, diagnostics)?);
             }
         }
     }
 }
 
-pub fn parse_labeled_concurrent_statements(
+pub fn parse_labeled_concurrent_statement(
     stream: &mut TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
-) -> ParseResult<Vec<LabeledConcurrentStatement>> {
-    let (statement, _) = parse_labeled_concurrent_statements_end_token(stream, diagnostics)?;
-    Ok(statement)
-}
-
-pub fn parse_labeled_concurrent_statement_initial_token(
-    stream: &mut TokenStream,
-    token: Token,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<LabeledConcurrentStatement> {
-    if token.kind == Identifier {
+    if let Some(token) = stream.pop_if_kind(Identifier) {
         let name = parse_name_initial_token(stream, token)?;
         let token = stream.peek_expect()?;
         if token.kind == Colon {
             let label = Some(to_simple_name(name)?);
             stream.move_after(&token);
-            let token = stream.expect()?;
-            let statement = parse_concurrent_statement(stream, label.as_ref(), token, diagnostics)?;
+            let statement = parse_concurrent_statement(stream, label.as_ref(), diagnostics)?;
             Ok(LabeledConcurrentStatement {
                 label: WithDecl::new(label),
                 statement,
@@ -697,21 +683,12 @@ pub fn parse_labeled_concurrent_statement_initial_token(
             })
         }
     } else {
-        let statement = parse_concurrent_statement(stream, None, token, diagnostics)?;
+        let statement = parse_concurrent_statement(stream, None, diagnostics)?;
         Ok(LabeledConcurrentStatement {
             label: WithDecl::new(None),
             statement,
         })
     }
-}
-
-#[cfg(test)]
-pub fn parse_labeled_concurrent_statement(
-    stream: &mut TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler,
-) -> ParseResult<LabeledConcurrentStatement> {
-    let token = stream.expect()?;
-    parse_labeled_concurrent_statement_initial_token(stream, token, diagnostics)
 }
 
 #[cfg(test)]

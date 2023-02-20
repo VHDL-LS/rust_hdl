@@ -37,12 +37,12 @@ pub fn parse_entity_declaration(
 
     let decl = parse_declarative_part_leave_end_token(stream, diagnostics)?;
 
-    let token = stream.expect()?;
-    let statements = try_token_kind!(
-        token,
-        End => Vec::new(),
-        Begin => parse_labeled_concurrent_statements(stream, diagnostics)?
-    );
+    let statements = if stream.skip_if_kind(Begin) {
+        parse_labeled_concurrent_statements(stream, diagnostics)?
+    } else {
+        Vec::new()
+    };
+    stream.pop_if_kind(End);
     stream.pop_if_kind(Entity);
     let end_ident = stream.pop_optional_ident();
     stream.expect_kind(SemiColon)?;
@@ -71,6 +71,7 @@ pub fn parse_architecture_body(
     let decl = parse_declarative_part(stream, diagnostics, true)?;
 
     let statements = parse_labeled_concurrent_statements(stream, diagnostics)?;
+    stream.expect_kind(End)?;
     stream.pop_if_kind(Architecture);
 
     let end_ident = stream.pop_optional_ident();
