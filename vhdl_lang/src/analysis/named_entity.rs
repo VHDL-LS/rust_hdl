@@ -293,6 +293,23 @@ impl<'a> AnyEnt<'a> {
         self.decl_pos.as_ref()
     }
 
+    pub fn parent_in_same_source(&self) -> Option<EntRef<'a>> {
+        let source = self.decl_pos()?.source();
+        let mut ent = self;
+
+        while let Some(parent) = ent.parent {
+            if let Some(pos) = parent.decl_pos() {
+                if pos.source() == source {
+                    return Some(parent);
+                } else {
+                    return None;
+                }
+            }
+            ent = parent;
+        }
+        None
+    }
+
     pub fn library_name(&self) -> Option<&Symbol> {
         if let AnyEntKind::Library = self.kind() {
             if let Designator::Identifier(symbol) = self.designator() {

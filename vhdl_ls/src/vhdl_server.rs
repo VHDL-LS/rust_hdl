@@ -15,8 +15,8 @@ use crate::rpc_channel::SharedRpcChannel;
 use std::io;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
-    AnyEntKind, Concurrent, Config, Diagnostic, EntHierarchy, Message, MessageHandler, Object,
-    Overloaded, Project, Severity, Source, SrcPos, Type,
+    AnyEntKind, Concurrent, Config, Diagnostic, EntHierarchy, EntRef, Message, MessageHandler,
+    Object, Overloaded, Project, Severity, Source, SrcPos, Type,
 };
 
 #[derive(Default, Clone)]
@@ -280,6 +280,20 @@ impl VHDLServer {
         try_fun().unwrap_or(false)
     }
 
+    fn client_has_hierarchical_document_symbol_support(&self) -> bool {
+        let try_fun = || {
+            self.init_params
+                .as_ref()?
+                .capabilities
+                .text_document
+                .as_ref()?
+                .document_symbol
+                .as_ref()?
+                .hierarchical_document_symbol_support
+        };
+        try_fun().unwrap_or(false)
+    }
+
     fn publish_diagnostics(&mut self) {
         let diagnostics = self.project.analyse();
 
@@ -478,39 +492,63 @@ impl VHDLServer {
             .into_iter()
             .next()?;
 
-        fn to_document_symbol(
-            EntHierarchy { ent, children }: EntHierarchy,
-        ) -> Option<DocumentSymbol> {
-            let decl_pos = ent.decl_pos()?;
-            #[allow(deprecated)]
-            Some(DocumentSymbol {
-                name: ent.describe(),
-                kind: to_symbol_kind(ent.kind()),
-                tags: None,
-                detail: None,
-                selection_range: to_lsp_range(decl_pos.range),
-                range: to_lsp_range(decl_pos.range),
-                children: if !children.is_empty() {
-                    Some(
-                        children
-                            .into_iter()
-                            .filter_map(to_document_symbol)
-                            .collect(),
-                    )
-                } else {
-                    None
-                },
-                deprecated: None,
-            })
-        }
+        if self.client_has_hierarchical_document_symbol_support() {
+            fn to_document_symbol(
+                EntHierarchy { ent, children }: EntHierarchy,
+            ) -> Option<DocumentSymbol> {
+                let decl_pos = ent.decl_pos()?;
+                #[allow(deprecated)]
+                Some(DocumentSymbol {
+                    name: ent.describe(),
+                    kind: to_symbol_kind(ent.kind()),
+                    tags: None,
+                    detail: None,
+                    selection_range: to_lsp_range(decl_pos.range),
+                    range: to_lsp_range(decl_pos.range),
+                    children: if !children.is_empty() {
+                        Some(
+                            children
+                                .into_iter()
+                                .filter_map(to_document_symbol)
+                                .collect(),
+                        )
+                    } else {
+                        None
+                    },
+                    deprecated: None,
+                })
+            }
 
-        Some(DocumentSymbolResponse::Nested(
-            self.project
-                .document_symbols(&library_name, &source)
-                .into_iter()
-                .filter_map(to_document_symbol)
-                .collect(),
-        ))
+            Some(DocumentSymbolResponse::Nested(
+                self.project
+                    .document_symbols(&library_name, &source)
+                    .into_iter()
+                    .filter_map(to_document_symbol)
+                    .collect(),
+            ))
+        } else {
+            fn to_symbol_information(ent: EntRef) -> Option<SymbolInformation> {
+                let decl_pos = ent.decl_pos()?;
+                #[allow(deprecated)]
+                Some(SymbolInformation {
+                    name: ent.describe(),
+                    kind: to_symbol_kind(ent.kind()),
+                    tags: None,
+                    location: srcpos_to_location(decl_pos),
+                    deprecated: None,
+                    container_name: ent.parent_in_same_source().map(|ent| ent.describe()),
+                })
+            }
+
+            Some(DocumentSymbolResponse::Flat(
+                self.project
+                    .document_symbols(&library_name, &source)
+                    .into_iter()
+                    .flat_map(|ent| ent.into_flat())
+                    .filter_map(to_symbol_information)
+                    .collect(),
+            ))
+        }
     }
 
     pub fn text_document_hover(&mut self, params: &TextDocumentPositionParams) -> Option<Hover> {

@@ -518,7 +518,7 @@ impl DesignRoot {
         }
 
         searcher.result.sort_by_key(|ent| ent.decl_pos());
-        EntHierarchy::from_vec(searcher.result, source)
+        EntHierarchy::from_vec(searcher.result)
     }
 
     pub fn find_all_unresolved(&self) -> (usize, Vec<SrcPos>) {
@@ -1066,24 +1066,11 @@ pub struct EntHierarchy<'a> {
 }
 
 impl<'a> EntHierarchy<'a> {
-    fn from_vec(mut symbols: Vec<EntRef<'a>>, source: &Source) -> Vec<EntHierarchy<'a>> {
+    fn from_vec(mut symbols: Vec<EntRef<'a>>) -> Vec<EntHierarchy<'a>> {
         let mut by_parent: FnvHashMap<EntityId, Vec<EntRef>> = Default::default();
 
-        fn find_parent<'a>(ent: EntRef<'a>, source: &Source) -> Option<EntRef<'a>> {
-            if let Some(parent) = ent.parent {
-                if let Some(pos) = parent.decl_pos() {
-                    if pos.source() == source {
-                        return Some(parent);
-                    }
-                } else {
-                    return find_parent(parent, source);
-                }
-            }
-            None
-        }
-
         symbols.retain(|ent| {
-            if let Some(parent) = find_parent(ent, source) {
+            if let Some(parent) = ent.parent_in_same_source() {
                 by_parent.entry(parent.id()).or_default().push(ent);
                 false
             } else {
@@ -1111,6 +1098,16 @@ impl<'a> EntHierarchy<'a> {
                 Vec::new()
             },
         }
+    }
+
+    pub fn into_flat(self) -> Vec<EntRef<'a>> {
+        std::iter::once(self.ent)
+            .chain(
+                self.children
+                    .into_iter()
+                    .flat_map(|ent| ent.into_flat().into_iter()),
+            )
+            .collect()
     }
 }
 
