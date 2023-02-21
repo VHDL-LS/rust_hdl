@@ -281,12 +281,13 @@ impl VHDLServer {
     }
 
     fn publish_diagnostics(&mut self) {
+        let diagnostics = self.project.analyse();
+
         if self.settings.no_lint {
             return;
         }
 
         let supports_related_information = self.client_supports_related_information();
-        let diagnostics = self.project.analyse();
         let diagnostics = {
             if supports_related_information {
                 diagnostics
