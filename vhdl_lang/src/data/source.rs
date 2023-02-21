@@ -512,6 +512,13 @@ impl SrcPos {
         self.range.end
     }
 
+    pub fn pos_at_end(&self) -> SrcPos {
+        SrcPos {
+            source: self.source.clone(),
+            range: Range::new(self.range.end, self.range.end),
+        }
+    }
+
     pub fn range(&self) -> Range {
         self.range
     }

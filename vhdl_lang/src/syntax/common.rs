@@ -13,12 +13,12 @@ use crate::SrcPos;
 
 /// Parse optional part followed by optional keyword
 pub fn parse_optional<F, R>(
-    stream: &mut TokenStream,
+    stream: &TokenStream,
     keyword: Kind,
     parse_fun: F,
 ) -> ParseResult<Option<R>>
 where
-    F: FnOnce(&mut TokenStream) -> ParseResult<R>,
+    F: FnOnce(&TokenStream) -> ParseResult<R>,
 {
     let optional = {
         if stream.skip_if_kind(keyword) {

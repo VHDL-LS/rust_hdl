@@ -13,9 +13,9 @@ use crate::ast;
 use crate::ast::*;
 use crate::data::{Diagnostic, WithPos};
 
-pub fn parse_direction(stream: &mut TokenStream) -> ParseResult<Direction> {
-    Ok(try_token_kind!(
-        stream.expect()?,
+pub fn parse_direction(stream: &TokenStream) -> ParseResult<Direction> {
+    Ok(expect_token!(
+        stream, token,
         To => Direction::Ascending,
         Downto => Direction::Descending
     ))
@@ -26,7 +26,7 @@ enum NameOrRange {
     Range(WithPos<ast::Range>),
 }
 
-fn parse_name_or_range(stream: &mut TokenStream) -> ParseResult<NameOrRange> {
+fn parse_name_or_range(stream: &TokenStream) -> ParseResult<NameOrRange> {
     let expr = parse_expression(stream)?;
 
     match stream.peek_kind() {
@@ -72,14 +72,14 @@ fn parse_name_or_range(stream: &mut TokenStream) -> ParseResult<NameOrRange> {
 /// {selected_name}'range
 /// {selected_name}'reverse_range
 /// 2. {expr} to|downto {expr}
-pub fn parse_range(stream: &mut TokenStream) -> ParseResult<WithPos<ast::Range>> {
+pub fn parse_range(stream: &TokenStream) -> ParseResult<WithPos<ast::Range>> {
     match parse_name_or_range(stream)? {
         NameOrRange::Range(range) => Ok(range),
         NameOrRange::Name(name) => Err(Diagnostic::error(&name, "Expected range")),
     }
 }
 
-pub fn parse_discrete_range(stream: &mut TokenStream) -> ParseResult<DiscreteRange> {
+pub fn parse_discrete_range(stream: &TokenStream) -> ParseResult<DiscreteRange> {
     match parse_name_or_range(stream) {
         Ok(NameOrRange::Range(range)) => Ok(DiscreteRange::Range(range.item)),
         Ok(NameOrRange::Name(name)) => {
@@ -91,7 +91,7 @@ pub fn parse_discrete_range(stream: &mut TokenStream) -> ParseResult<DiscreteRan
     }
 }
 
-pub fn parse_array_index_constraint(stream: &mut TokenStream) -> ParseResult<ArrayIndex> {
+pub fn parse_array_index_constraint(stream: &TokenStream) -> ParseResult<ArrayIndex> {
     match parse_name_or_range(stream) {
         Ok(NameOrRange::Range(range)) => Ok(ArrayIndex::Discrete(DiscreteRange::Range(range.item))),
         Ok(NameOrRange::Name(name)) => {

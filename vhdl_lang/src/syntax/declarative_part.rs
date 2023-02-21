@@ -18,7 +18,7 @@ use super::type_declaration::parse_type_declaration;
 use crate::ast::{ContextClause, Declaration, PackageInstantiation};
 use crate::data::DiagnosticHandler;
 
-pub fn parse_package_instantiation(stream: &mut TokenStream) -> ParseResult<PackageInstantiation> {
+pub fn parse_package_instantiation(stream: &TokenStream) -> ParseResult<PackageInstantiation> {
     stream.expect_kind(Package)?;
     let ident = stream.expect_ident()?;
     stream.expect_kind(Is)?;
@@ -43,8 +43,8 @@ pub fn parse_package_instantiation(stream: &mut TokenStream) -> ParseResult<Pack
     })
 }
 
-pub fn is_declarative_part(stream: &mut TokenStream, begin_is_end: bool) -> ParseResult<bool> {
-    Ok(check_declarative_part(&stream.peek_expect()?, !begin_is_end, begin_is_end).is_ok())
+pub fn is_declarative_part(stream: &TokenStream, begin_is_end: bool) -> ParseResult<bool> {
+    Ok(check_declarative_part(stream.peek_expect()?, !begin_is_end, begin_is_end).is_ok())
 }
 
 fn check_declarative_part(token: &Token, may_end: bool, may_begin: bool) -> ParseResult<()> {
@@ -65,7 +65,7 @@ fn check_declarative_part(token: &Token, may_end: bool, may_begin: bool) -> Pars
 }
 
 pub fn parse_declarative_part(
-    stream: &mut TokenStream,
+    stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Vec<Declaration>> {
     let mut declarations: Vec<Declaration> = Vec::new();

@@ -4,15 +4,17 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
+use std::cell::Cell;
+
 use super::tokenizer::Kind::*;
 use super::tokenizer::*;
 use crate::ast::{AttributeDesignator, Ident, RangeAttribute, TypeAttribute};
 use crate::data::{DiagnosticHandler, DiagnosticResult, WithPos};
-use crate::Diagnostic;
+use crate::{Diagnostic, SrcPos};
 
 pub struct TokenStream<'a> {
     tokenizer: Tokenizer<'a>,
-    idx: usize,
+    idx: Cell<usize>,
     tokens: Vec<Token>,
 }
 
@@ -31,38 +33,33 @@ impl<'a> TokenStream<'a> {
         }
         TokenStream {
             tokenizer,
-            idx: 0,
+            idx: Cell::new(0),
             tokens,
         }
     }
 
     pub fn state(&self) -> usize {
-        self.idx
+        self.get_idx()
     }
 
-    pub fn set_state(&mut self, state: usize) {
-        self.idx = state;
+    pub fn set_state(&self, state: usize) {
+        self.set_idx(state);
     }
 
-    pub fn move_after(&mut self, token: &Token) {
-        self.idx = token.idx + 1;
+    pub fn skip(&self) {
+        self.set_idx(self.get_idx() + 1)
     }
 
-    pub fn skip(&mut self) {
-        self.idx += 1;
+    fn get_idx(&self) -> usize {
+        self.idx.get()
     }
 
-    pub fn pop(&mut self) -> Option<Token> {
-        if let Some(token) = self.tokens.get(self.idx) {
-            self.idx += 1;
-            Some(token.clone())
-        } else {
-            None
-        }
+    fn set_idx(&self, idx: usize) {
+        self.idx.replace(idx);
     }
 
-    pub fn peek(&mut self) -> Option<Token> {
-        self.tokens.get(self.idx).cloned()
+    pub fn peek(&self) -> Option<&Token> {
+        self.tokens.get(self.get_idx())
     }
 
     fn eof_error(&self) -> Diagnostic {
@@ -73,21 +70,49 @@ impl<'a> TokenStream<'a> {
         )
     }
 
-    pub fn expect(&mut self) -> DiagnosticResult<Token> {
-        if let Some(token) = self.pop() {
-            Ok(token)
+    fn idx_of(&self, token: &Token) -> Option<usize> {
+        let base = self.tokens.as_ptr() as usize;
+        let ptr = (token as *const Token) as usize;
+        let idx = ptr.checked_sub(base)? / std::mem::size_of::<Token>();
+
+        if idx < self.tokens.len() {
+            Some(idx)
         } else {
-            Err(self.eof_error())
+            None
         }
     }
 
-    pub fn expect_kind(&mut self, kind: Kind) -> DiagnosticResult<Token> {
+    fn token_before(&self, token: &Token) -> Option<&Token> {
+        let idx = self.idx_of(token)?;
+        self.tokens.get(idx.wrapping_sub(1))
+    }
+
+    /// A position that aligns with the previous token
+    ///
+    /// Example:
+    ///  signal sig : natural
+    ///                      ~ <- want semi colon error here
+    ///  signal
+    ///  ~~~~~~ <- not here
+    pub fn pos_before(&self, token: &Token) -> SrcPos {
+        if let Some(prev_token) = self.token_before(token) {
+            let prev_pos = prev_token.pos.end();
+
+            if prev_pos.line != token.pos.range.start.line {
+                return prev_token.pos.pos_at_end();
+            }
+        }
+
+        token.pos.clone()
+    }
+
+    pub fn expect_kind(&self, kind: Kind) -> DiagnosticResult<&Token> {
         if let Some(token) = self.peek() {
             if token.kind == kind {
-                self.move_after(&token);
+                self.skip();
                 Ok(token)
             } else {
-                Err(token.kinds_error_before(&[kind]))
+                Err(kinds_error(self.pos_before(token), &[kind]))
             }
         } else {
             Err(self
@@ -96,7 +121,7 @@ impl<'a> TokenStream<'a> {
         }
     }
 
-    pub fn peek_expect(&mut self) -> DiagnosticResult<Token> {
+    pub fn peek_expect(&self) -> DiagnosticResult<&Token> {
         if let Some(token) = self.peek() {
             Ok(token)
         } else {
@@ -104,75 +129,74 @@ impl<'a> TokenStream<'a> {
         }
     }
 
-    pub fn pop_kind(&mut self) -> Option<Kind> {
-        let token = self.pop();
-        token.map(|ref token| token.kind)
+    pub fn peek_kind(&self) -> Option<Kind> {
+        self.peek().map(|token| token.kind)
     }
 
-    pub fn peek_kind(&mut self) -> Option<Kind> {
-        self.peek().map(|ref token| token.kind)
+    pub fn next_kind_is(&self, kind: Kind) -> bool {
+        self.nth_kind_is(0, kind)
     }
 
-    pub fn next_kinds_are(&mut self, kinds: &[Kind]) -> bool {
-        let state = self.state();
-        for kind in kinds {
-            if self.pop_kind() != Some(*kind) {
-                self.set_state(state);
-                return false;
-            }
+    pub fn nth_kind_is(&self, idx: usize, kind: Kind) -> bool {
+        if let Some(token) = self.tokens.get(self.get_idx() + idx) {
+            token.kind == kind
+        } else {
+            false
         }
-        self.set_state(state);
-        true
     }
 
-    pub fn pop_if_kind(&mut self, kind: Kind) -> Option<Token> {
+    pub fn next_kinds_are(&self, kinds: &[Kind]) -> bool {
+        kinds
+            .iter()
+            .enumerate()
+            .all(|(idx, kind)| self.nth_kind_is(idx, *kind))
+    }
+
+    pub fn pop_if_kind(&self, kind: Kind) -> Option<&Token> {
         if let Some(token) = self.peek() {
             if token.kind == kind {
-                self.move_after(&token);
+                self.skip();
                 return Some(token);
             }
         }
         None
     }
 
-    pub fn skip_if_kind(&mut self, kind: Kind) -> bool {
+    pub fn skip_if_kind(&self, kind: Kind) -> bool {
         self.pop_if_kind(kind).is_some()
     }
 
-    pub fn skip_until(&mut self, cond: fn(Kind) -> bool) -> DiagnosticResult<()> {
+    pub fn skip_until(&self, cond: fn(Kind) -> bool) -> DiagnosticResult<()> {
         loop {
             let token = self.peek_expect()?;
             if cond(token.kind) {
                 return Ok(());
             }
-            self.pop();
+            self.skip();
         }
     }
 
-    pub fn pop_optional_ident(&mut self) -> Option<Ident> {
+    pub fn pop_optional_ident(&self) -> Option<Ident> {
         self.pop_if_kind(Identifier)
-            .map(|token| token.into_identifier_value().unwrap())
+            .map(|token| token.to_identifier_value().unwrap())
     }
 
-    pub fn expect_ident(&mut self) -> DiagnosticResult<Ident> {
-        let token = self.expect()?;
-        try_token_kind!(token, Identifier => token.into_identifier_value())
+    pub fn expect_ident(&self) -> DiagnosticResult<Ident> {
+        expect_token!(self, token, Identifier => token.to_identifier_value())
     }
 
     /// Expect identifier or subtype/range keywords
     /// foo'subtype or foo'range
-    pub fn expect_attribute_designator(
-        &mut self,
-    ) -> DiagnosticResult<WithPos<AttributeDesignator>> {
-        let token = self.expect()?;
-        let des = try_token_kind!(
+    pub fn expect_attribute_designator(&self) -> DiagnosticResult<WithPos<AttributeDesignator>> {
+        let des = expect_token!(
+            self,
             token,
             Identifier => {
-                let ident = token.into_identifier_value()?;
+                let ident = token.to_identifier_value()?;
                 ident.map_into(|sym| self.tokenizer.attribute(sym))
             },
-            Subtype => WithPos::new(AttributeDesignator::Type(TypeAttribute::Subtype), token.pos),
-            Range => WithPos::new(AttributeDesignator::Range(RangeAttribute::Range), token.pos)
+            Subtype => WithPos::new(AttributeDesignator::Type(TypeAttribute::Subtype), token.pos.clone()),
+            Range => WithPos::new(AttributeDesignator::Range(RangeAttribute::Range), token.pos.clone())
         );
         Ok(des)
     }
@@ -181,7 +205,7 @@ impl<'a> TokenStream<'a> {
 pub trait Recover<T> {
     fn or_recover_until(
         self,
-        stream: &mut TokenStream,
+        stream: &TokenStream,
         msgs: &mut dyn DiagnosticHandler,
         cond: fn(Kind) -> bool,
     ) -> DiagnosticResult<T>;
@@ -192,7 +216,7 @@ pub trait Recover<T> {
 impl<T: std::fmt::Debug> Recover<T> for DiagnosticResult<T> {
     fn or_recover_until(
         self,
-        stream: &mut TokenStream,
+        stream: &TokenStream,
         msgs: &mut dyn DiagnosticHandler,
         cond: fn(Kind) -> bool,
     ) -> DiagnosticResult<T> {
@@ -228,7 +252,7 @@ mod tests {
             let source = $code.source();
             let contents = source.contents();
             let tokenizer = Tokenizer::new(&$code.symbols, source, ContentReader::new(&contents));
-            let mut $stream = TokenStream::new(tokenizer, &mut NoDiagnostics);
+            let $stream = TokenStream::new(tokenizer, &mut NoDiagnostics);
         };
     }
 
@@ -238,16 +262,42 @@ mod tests {
         let tokens = code.tokenize();
         new_stream!(code, stream);
 
-        assert_eq!(stream.pop(), Some(tokens[0].clone()));
-        assert_eq!(stream.peek(), Some(tokens[1].clone()));
-        assert_eq!(stream.pop(), Some(tokens[1].clone()));
-        assert_eq!(stream.peek(), Some(tokens[2].clone()));
-        assert_eq!(stream.pop(), Some(tokens[2].clone()));
+        stream.skip();
+        assert_eq!(stream.peek(), Some(&tokens[1]));
+        stream.skip();
+        assert_eq!(stream.peek(), Some(&tokens[2]));
+        stream.skip();
         assert_eq!(stream.peek(), None);
-        assert_eq!(stream.pop(), None);
+        stream.skip();
         assert_eq!(stream.peek(), None);
-        assert_eq!(stream.pop(), None);
-        assert_eq!(stream.pop(), None);
+    }
+
+    #[test]
+    fn idx_of() {
+        let code = Code::new("hello world again");
+        new_stream!(code, stream);
+
+        let mut idx = 0;
+        while let Some(token) = stream.peek() {
+            assert_eq!(idx, stream.idx_of(token).unwrap());
+            idx += 1;
+            stream.skip();
+        }
+    }
+
+    #[test]
+    fn prev_token() {
+        let code = Code::new("hello world again");
+        new_stream!(code, stream);
+
+        let mut prev = None;
+        while let Some(token) = stream.peek() {
+            if let Some(prev) = prev {
+                assert_eq!(prev, stream.token_before(token).unwrap());
+            }
+            prev = Some(token);
+            stream.skip();
+        }
     }
 
     #[test]
@@ -268,14 +318,10 @@ mod tests {
         let tokens = code.tokenize();
         new_stream!(code, stream);
 
-        assert_eq!(stream.peek_expect(), Ok(tokens[0].clone()));
-        assert_eq!(stream.expect(), Ok(tokens[0].clone()));
+        assert_eq!(stream.peek_expect(), Ok(&tokens[0]));
+        stream.skip();
         assert_eq!(
             stream.peek_expect(),
-            Err(Diagnostic::error(code.eof_pos(), "Unexpected EOF"))
-        );
-        assert_eq!(
-            stream.expect(),
             Err(Diagnostic::error(code.eof_pos(), "Unexpected EOF"))
         );
     }
@@ -287,24 +333,11 @@ mod tests {
         new_stream!(code, stream);
 
         let state = stream.state();
-        assert_eq!(stream.peek(), Some(tokens[0].clone()));
-        assert_eq!(stream.pop(), Some(tokens[0].clone()));
-        assert_eq!(stream.peek(), Some(tokens[1].clone()));
+        assert_eq!(stream.peek(), Some(&tokens[0]));
+        stream.skip();
+        assert_eq!(stream.peek(), Some(&tokens[1]));
         stream.set_state(state);
-        assert_eq!(stream.peek(), Some(tokens[0].clone()));
-        assert_eq!(stream.pop(), Some(tokens[0].clone()));
-    }
-
-    #[test]
-    fn set_state_taken_after_peek() {
-        let code = Code::new("hello world");
-        let tokens = code.tokenize();
-        new_stream!(code, stream);
-
-        assert_eq!(stream.peek(), Some(tokens[0].clone()));
-        let state = stream.state();
-        stream.set_state(state);
-        assert_eq!(stream.pop(), Some(tokens[0].clone()));
+        assert_eq!(stream.peek(), Some(&tokens[0]));
     }
 
     #[test]
@@ -313,7 +346,7 @@ mod tests {
         new_stream!(code, stream);
 
         assert_eq!(
-            stream.expect(),
+            stream.peek_expect(),
             Err(Diagnostic::error(code.eof_pos(), "Unexpected EOF"))
         );
     }
@@ -323,9 +356,9 @@ mod tests {
         let code = Code::new("a  ");
         new_stream!(code, stream);
 
-        stream.expect().unwrap();
+        stream.skip();
         assert_eq!(
-            stream.expect(),
+            stream.peek_expect(),
             Err(Diagnostic::error(code.eof_pos(), "Unexpected EOF"))
         );
     }
@@ -335,19 +368,11 @@ mod tests {
         let code = Code::new("a  -- foo");
         new_stream!(code, stream);
 
-        stream.expect().unwrap();
+        stream.skip();
         assert_eq!(
-            stream.expect(),
+            stream.peek_expect(),
             Err(Diagnostic::error(code.eof_pos(), "Unexpected EOF"))
         );
-    }
-
-    #[test]
-    fn pop_kind() {
-        let code = Code::new("hello world again");
-        new_stream!(code, stream);
-
-        assert_eq!(stream.pop_kind(), Some(Identifier));
     }
 
     #[test]

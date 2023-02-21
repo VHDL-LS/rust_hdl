@@ -18,15 +18,15 @@ use crate::data::DiagnosticHandler;
 use crate::syntax::names::parse_type_mark;
 
 /// LRM 5.2.2 Enumeration types
-fn parse_enumeration_type_definition(stream: &mut TokenStream) -> ParseResult<TypeDefinition> {
+fn parse_enumeration_type_definition(stream: &TokenStream) -> ParseResult<TypeDefinition> {
     let mut enum_literals = Vec::new();
     loop {
         expect_token!(stream,
             literal_token,
             Identifier | Character => {
                 let enum_literal = match literal_token.kind {
-                    Identifier => literal_token.into_identifier_value()?.map_into(EnumerationLiteral::Identifier),
-                    Character => literal_token.into_character_value()?.map_into(EnumerationLiteral::Character),
+                    Identifier => literal_token.to_identifier_value()?.map_into(EnumerationLiteral::Identifier),
+                    Character => literal_token.to_character_value()?.map_into(EnumerationLiteral::Character),
                     _ => unreachable!()
                 };
                 enum_literals.push(WithDecl::new(enum_literal));
@@ -45,7 +45,7 @@ fn parse_enumeration_type_definition(stream: &mut TokenStream) -> ParseResult<Ty
     Ok(TypeDefinition::Enumeration(enum_literals))
 }
 
-fn parse_array_index_constraints(stream: &mut TokenStream) -> ParseResult<Vec<ArrayIndex>> {
+fn parse_array_index_constraints(stream: &TokenStream) -> ParseResult<Vec<ArrayIndex>> {
     stream.expect_kind(LeftPar)?;
     let mut indexes = Vec::new();
     loop {
@@ -61,7 +61,7 @@ fn parse_array_index_constraints(stream: &mut TokenStream) -> ParseResult<Vec<Ar
 }
 
 /// LRM 5.3.2 Array types
-fn parse_array_type_definition(stream: &mut TokenStream) -> ParseResult<TypeDefinition> {
+fn parse_array_type_definition(stream: &TokenStream) -> ParseResult<TypeDefinition> {
     let index_constraints = parse_array_index_constraints(stream)?;
     stream.expect_kind(Of)?;
     let element_subtype = parse_subtype_indication(stream)?;
@@ -71,14 +71,12 @@ fn parse_array_type_definition(stream: &mut TokenStream) -> ParseResult<TypeDefi
 
 /// LRM 5.3.3 Record types
 fn parse_record_type_definition(
-    stream: &mut TokenStream,
+    stream: &TokenStream,
 ) -> ParseResult<(TypeDefinition, Option<Ident>)> {
     let mut elem_decls = Vec::new();
 
     loop {
-        let token = stream.peek_expect()?;
-        if token.kind == End {
-            stream.move_after(&token); // End
+        if stream.skip_if_kind(End) {
             stream.pop_if_kind(Record);
             let end_ident = stream.pop_optional_ident();
             stream.expect_kind(SemiColon)?;
@@ -98,7 +96,7 @@ fn parse_record_type_definition(
     }
 }
 
-pub fn parse_subtype_declaration(stream: &mut TokenStream) -> ParseResult<TypeDeclaration> {
+pub fn parse_subtype_declaration(stream: &TokenStream) -> ParseResult<TypeDeclaration> {
     stream.expect_kind(Subtype)?;
     let ident = stream.expect_ident()?;
     stream.expect_kind(Is)?;
@@ -113,7 +111,7 @@ pub fn parse_subtype_declaration(stream: &mut TokenStream) -> ParseResult<TypeDe
 
 /// LRM 5.6.2 Protected type declarations
 pub fn parse_protected_type_declaration(
-    stream: &mut TokenStream,
+    stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<(ProtectedTypeDeclaration, Option<Ident>)> {
     let mut items = Vec::new();
@@ -127,7 +125,7 @@ pub fn parse_protected_type_declaration(
                 parse_subprogram_declaration(stream, diagnostics)?,
             )),
             End => {
-                stream.move_after(&token);
+                stream.skip();
                 break;
             }
         );
@@ -139,7 +137,7 @@ pub fn parse_protected_type_declaration(
 
 /// LRM 5.2.4 Physical types
 fn parse_physical_type_definition(
-    stream: &mut TokenStream,
+    stream: &TokenStream,
     range: Range,
 ) -> ParseResult<(TypeDefinition, Option<Ident>)> {
     let primary_unit = WithDecl::new(stream.expect_ident()?);
@@ -148,26 +146,25 @@ fn parse_physical_type_definition(
     let mut secondary_units = Vec::new();
 
     loop {
-        let token = stream.peek_expect()?;
-        try_token_kind!(
-            token,
+        peek_token!(
+            stream, token,
             End => {
                 break;
             },
             Identifier => {
-                stream.move_after(&token);
-                let ident = WithDecl::new(token.into_identifier_value()?);
+                stream.skip();
+                let ident = WithDecl::new(token.to_identifier_value()?);
                 stream.expect_kind(EQ)?;
                 let literal = {
                     expect_token!(stream,
                         value_token,
                         AbstractLiteral => {
-                            let value = value_token.into_abstract_literal()?.item;
+                            let value = value_token.to_abstract_literal()?.item;
                             let unit = stream.expect_ident()?;
                             PhysicalLiteral {value, unit: unit.into_ref()}
                         },
                         Identifier => {
-                            let unit = value_token.into_identifier_value()?;
+                            let unit = value_token.to_identifier_value()?;
                             PhysicalLiteral {value: AbstractLiteral::Integer(1), unit: unit.into_ref()}
                         }
                     )
@@ -196,17 +193,16 @@ fn parse_physical_type_definition(
 
 /// LRM 6.2
 pub fn parse_type_declaration(
-    stream: &mut TokenStream,
+    stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<TypeDeclaration> {
-    let token = stream.peek_expect()?;
-    try_token_kind!(
-        token,
+    peek_token!(
+        stream, token,
         Subtype => {
             return parse_subtype_declaration(stream);
         },
         Type => {
-            stream.move_after(&token);
+            stream.skip();
         }
     );
 

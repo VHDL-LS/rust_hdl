@@ -13,9 +13,7 @@ use super::tokens::{Kind::*, TokenStream};
 use crate::ast::*;
 use crate::data::WithPos;
 
-pub fn parse_optional_assignment(
-    stream: &mut TokenStream,
-) -> ParseResult<Option<WithPos<Expression>>> {
+pub fn parse_optional_assignment(stream: &TokenStream) -> ParseResult<Option<WithPos<Expression>>> {
     if stream.pop_if_kind(ColonEq).is_some() {
         let expr = parse_expression(stream)?;
         Ok(Some(expr))
@@ -25,9 +23,25 @@ pub fn parse_optional_assignment(
 }
 
 fn parse_object_declaration_kind(
-    stream: &mut TokenStream,
+    stream: &TokenStream,
     class: ObjectClass,
 ) -> ParseResult<Vec<ObjectDeclaration>> {
+    match class {
+        ObjectClass::Signal => {
+            stream.expect_kind(Signal)?;
+        }
+        ObjectClass::Constant => {
+            stream.expect_kind(Constant)?;
+        }
+        ObjectClass::Variable => {
+            stream.expect_kind(Variable)?;
+        }
+        ObjectClass::SharedVariable => {
+            stream.expect_kind(Shared)?;
+            stream.expect_kind(Variable)?;
+        }
+    }
+
     let idents = parse_identifier_list(stream)?;
     stream.expect_kind(Colon)?;
     let subtype = parse_subtype_indication(stream)?;
@@ -44,15 +58,14 @@ fn parse_object_declaration_kind(
         .collect())
 }
 
-pub fn parse_object_declaration(stream: &mut TokenStream) -> ParseResult<Vec<ObjectDeclaration>> {
-    let token = stream.expect()?;
+pub fn parse_object_declaration(stream: &TokenStream) -> ParseResult<Vec<ObjectDeclaration>> {
+    let token = stream.peek_expect()?;
     let result = try_init_token_kind!(
         token,
         Constant => parse_object_declaration_kind(stream, ObjectClass::Constant)?,
         Signal => parse_object_declaration_kind(stream, ObjectClass::Signal)?,
         Variable => parse_object_declaration_kind(stream, ObjectClass::Variable)?,
         Shared => {
-            stream.expect_kind(Variable)?;
             parse_object_declaration_kind(stream, ObjectClass::SharedVariable)?
         }
     );
@@ -60,9 +73,7 @@ pub fn parse_object_declaration(stream: &mut TokenStream) -> ParseResult<Vec<Obj
     Ok(result)
 }
 
-pub fn parse_file_declaration_no_semi(
-    stream: &mut TokenStream,
-) -> ParseResult<Vec<FileDeclaration>> {
+pub fn parse_file_declaration_no_semi(stream: &TokenStream) -> ParseResult<Vec<FileDeclaration>> {
     stream.expect_kind(File)?;
     let idents = parse_identifier_list(stream)?;
     stream.expect_kind(Colon)?;
@@ -95,7 +106,7 @@ pub fn parse_file_declaration_no_semi(
         .collect())
 }
 
-pub fn parse_file_declaration(stream: &mut TokenStream) -> ParseResult<Vec<FileDeclaration>> {
+pub fn parse_file_declaration(stream: &TokenStream) -> ParseResult<Vec<FileDeclaration>> {
     let result = parse_file_declaration_no_semi(stream)?;
     stream.expect_kind(SemiColon)?;
     Ok(result)

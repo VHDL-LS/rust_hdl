@@ -14,7 +14,7 @@ use crate::ast::{
     EntityTag, WithRef,
 };
 
-fn parse_entity_class(stream: &mut TokenStream) -> ParseResult<EntityClass> {
+fn parse_entity_class(stream: &TokenStream) -> ParseResult<EntityClass> {
     Ok(expect_token!(stream, token,
         Entity => EntityClass::Entity,
         Architecture => EntityClass::Architecture,
@@ -31,7 +31,7 @@ fn parse_entity_class(stream: &mut TokenStream) -> ParseResult<EntityClass> {
     ))
 }
 
-pub fn parse_entity_name_list(stream: &mut TokenStream) -> ParseResult<Vec<EntityName>> {
+pub fn parse_entity_name_list(stream: &TokenStream) -> ParseResult<Vec<EntityName>> {
     Ok(expect_token!(stream, token,
         Identifier | StringLiteral => {
             let mut entity_name_list = Vec::new();
@@ -39,8 +39,8 @@ pub fn parse_entity_name_list(stream: &mut TokenStream) -> ParseResult<Vec<Entit
             loop {
 
                 let designator = match token.kind {
-                    Identifier => token.into_identifier_value()?.map_into(Designator::Identifier),
-                    StringLiteral => token.into_operator_symbol()?.map_into(Designator::OperatorSymbol),
+                    Identifier => token.to_identifier_value()?.map_into(Designator::Identifier),
+                    StringLiteral => token.to_operator_symbol()?.map_into(Designator::OperatorSymbol),
                     _ => unreachable!(""),
                 };
 
@@ -73,7 +73,7 @@ pub fn parse_entity_name_list(stream: &mut TokenStream) -> ParseResult<Vec<Entit
     ))
 }
 
-pub fn parse_attribute(stream: &mut TokenStream) -> ParseResult<Vec<Attribute>> {
+pub fn parse_attribute(stream: &TokenStream) -> ParseResult<Vec<Attribute>> {
     stream.expect_kind(Attribute)?;
     let ident = stream.expect_ident()?;
     Ok(expect_token!(stream, token,

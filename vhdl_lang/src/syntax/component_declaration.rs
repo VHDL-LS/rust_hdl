@@ -13,7 +13,7 @@ use crate::ast::{ComponentDeclaration, InterfaceDeclaration};
 use crate::data::{Diagnostic, DiagnosticHandler};
 
 pub fn parse_optional_generic_list(
-    stream: &mut TokenStream,
+    stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
     let mut list = None;
@@ -21,7 +21,7 @@ pub fn parse_optional_generic_list(
         let token = stream.peek_expect()?;
         match token.kind {
             Generic => {
-                stream.move_after(&token);
+                stream.skip();
                 let new_list = parse_generic_interface_list(stream, diagnostics)?;
                 stream.expect_kind(SemiColon)?;
                 if list.is_some() {
@@ -38,7 +38,7 @@ pub fn parse_optional_generic_list(
 }
 
 pub fn parse_optional_port_list(
-    stream: &mut TokenStream,
+    stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
     let mut list = None;
@@ -46,7 +46,7 @@ pub fn parse_optional_port_list(
         let token = stream.peek_expect()?;
         match token.kind {
             Port => {
-                stream.move_after(&token);
+                stream.skip();
                 let new_list = parse_port_interface_list(stream, diagnostics)?;
                 stream.expect_kind(SemiColon)?;
                 if list.is_some() {
@@ -56,7 +56,7 @@ pub fn parse_optional_port_list(
                 }
             }
             Generic => {
-                stream.move_after(&token);
+                stream.skip();
                 parse_generic_interface_list(stream, diagnostics)?;
                 stream.expect_kind(SemiColon)?;
                 diagnostics.push(Diagnostic::error(
@@ -72,7 +72,7 @@ pub fn parse_optional_port_list(
 }
 
 pub fn parse_component_declaration(
-    stream: &mut TokenStream,
+    stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ComponentDeclaration> {
     stream.expect_kind(Component)?;

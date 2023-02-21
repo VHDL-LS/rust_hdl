@@ -510,10 +510,11 @@ package is
         ",
         );
         let diagnostics = project.analyse();
-        assert_eq!(diagnostics.len(), 2);
+        assert_eq!(diagnostics.len(), 3);
         // Syntax error comes first
         assert_eq!(diagnostics[0].pos.source, source1);
-        assert_eq!(diagnostics[1].pos.source, source2);
+        assert_eq!(diagnostics[1].pos.source, source1);
+        assert_eq!(diagnostics[2].pos.source, source2);
 
         // Make it good again
         update(

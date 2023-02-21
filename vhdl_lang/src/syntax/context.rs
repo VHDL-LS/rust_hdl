@@ -7,20 +7,13 @@
 use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;
 use super::names::parse_name;
-use super::tokens::{Kind::*, Token, TokenStream};
+use super::tokens::{Kind::*, TokenStream};
 use crate::ast::*;
 use crate::data::*;
 
 /// LRM 13. Design units and their analysis
-pub fn parse_library_clause(stream: &mut TokenStream) -> ParseResult<WithPos<LibraryClause>> {
-    let token = stream.expect_kind(Library)?;
-    parse_library_clause_no_keyword(token, stream)
-}
-
-fn parse_library_clause_no_keyword(
-    library_token: Token,
-    stream: &mut TokenStream,
-) -> ParseResult<WithPos<LibraryClause>> {
+pub fn parse_library_clause(stream: &TokenStream) -> ParseResult<WithPos<LibraryClause>> {
+    let library_token = stream.expect_kind(Library)?;
     let mut name_list = Vec::with_capacity(1);
     loop {
         name_list.push(WithRef::new(stream.expect_ident()?));
@@ -31,15 +24,14 @@ fn parse_library_clause_no_keyword(
     let semi_token = stream.expect_kind(SemiColon)?;
     Ok(WithPos::from(
         LibraryClause { name_list },
-        library_token.pos.combine_into(&semi_token),
+        library_token.pos.combine(&semi_token),
     ))
 }
 
 /// LRM 12.4. Use clauses
-pub fn parse_use_clause_no_keyword(
-    use_token: Token,
-    stream: &mut TokenStream,
-) -> ParseResult<WithPos<UseClause>> {
+pub fn parse_use_clause(stream: &TokenStream) -> ParseResult<WithPos<UseClause>> {
+    let use_token = stream.expect_kind(Use)?;
+
     let mut name_list = Vec::with_capacity(1);
     loop {
         name_list.push(parse_name(stream)?);
@@ -50,13 +42,8 @@ pub fn parse_use_clause_no_keyword(
     let semi_token = stream.expect_kind(SemiColon)?;
     Ok(WithPos::from(
         UseClause { name_list },
-        use_token.pos.combine_into(&semi_token),
+        use_token.pos.combine(&semi_token),
     ))
-}
-
-pub fn parse_use_clause(stream: &mut TokenStream) -> ParseResult<WithPos<UseClause>> {
-    let use_token = stream.expect_kind(Use)?;
-    parse_use_clause_no_keyword(use_token, stream)
 }
 
 #[derive(PartialEq, Debug)]
@@ -65,10 +52,9 @@ pub enum DeclarationOrReference {
     Reference(WithPos<ContextReference>),
 }
 
-fn parse_context_reference_no_keyword(
-    context_token: Token,
-    stream: &mut TokenStream,
-) -> ParseResult<WithPos<ContextReference>> {
+pub fn parse_context_reference(stream: &TokenStream) -> ParseResult<WithPos<ContextReference>> {
+    let context_token = stream.expect_kind(Context)?;
+
     let name = parse_name(stream)?;
     let mut name_list = vec![name];
     loop {
@@ -80,13 +66,13 @@ fn parse_context_reference_no_keyword(
     let semi_token = stream.expect_kind(SemiColon)?;
     Ok(WithPos::from(
         ContextReference { name_list },
-        context_token.pos.combine_into(&semi_token),
+        context_token.pos.combine(&semi_token),
     ))
 }
 
 /// LRM 13.4 Context clauses
 pub fn parse_context(
-    stream: &mut TokenStream,
+    stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<DeclarationOrReference> {
     let context_token = stream.expect_kind(Context)?;
@@ -95,13 +81,14 @@ pub fn parse_context(
         let mut items = Vec::with_capacity(16);
         let end_ident;
         loop {
-            let token = stream.expect()?;
+            let token = stream.peek_expect()?;
             try_init_token_kind!(
                 token,
-                Library => items.push(parse_library_clause_no_keyword(token, stream)?.map_into(ContextItem::Library)),
-                Use => items.push(parse_use_clause_no_keyword(token, stream)?.map_into(ContextItem::Use)),
-                Context => items.push(parse_context_reference_no_keyword(token, stream)?.map_into(ContextItem::Context)),
+                Library => items.push(parse_library_clause(stream)?.map_into(ContextItem::Library)),
+                Use => items.push(parse_use_clause(stream)?.map_into(ContextItem::Use)),
+                Context => items.push(parse_context_reference(stream)?.map_into(ContextItem::Context)),
                 End => {
+                    stream.skip();
                     stream.pop_if_kind(Context);
                     end_ident = stream.pop_optional_ident();
                     stream.expect_kind(SemiColon)?;
@@ -128,7 +115,7 @@ pub fn parse_context(
         let semi_token = stream.expect_kind(SemiColon)?;
         Ok(DeclarationOrReference::Reference(WithPos::from(
             ContextReference { name_list },
-            context_token.pos.combine_into(&semi_token),
+            context_token.pos.combine(&semi_token),
         )))
     }
 }

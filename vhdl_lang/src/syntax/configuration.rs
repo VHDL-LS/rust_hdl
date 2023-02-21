@@ -7,14 +7,14 @@
 use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;
 use super::concurrent_statement::parse_generic_and_port_map;
-use super::context::parse_use_clause_no_keyword;
-use super::names::{parse_name, parse_name_initial_token, parse_selected_name};
+use super::context::parse_use_clause;
+use super::names::{parse_name, parse_selected_name};
 use super::tokens::{Kind::*, TokenStream};
 use crate::ast::*;
 use crate::data::*;
 
 /// LRM 7.3.2.2
-fn parse_entity_aspect(stream: &mut TokenStream) -> ParseResult<EntityAspect> {
+fn parse_entity_aspect(stream: &TokenStream) -> ParseResult<EntityAspect> {
     let entity_aspect = expect_token!(
         stream,
         token,
@@ -39,7 +39,7 @@ fn parse_entity_aspect(stream: &mut TokenStream) -> ParseResult<EntityAspect> {
 
 fn parse_binding_indication_known_entity_aspect(
     entity_aspect: Option<EntityAspect>,
-    stream: &mut TokenStream,
+    stream: &TokenStream,
 ) -> ParseResult<BindingIndication> {
     let (generic_map, port_map) = parse_generic_and_port_map(stream)?;
 
@@ -52,7 +52,7 @@ fn parse_binding_indication_known_entity_aspect(
 }
 
 /// LRM 7.3.2
-fn parse_binding_indication(stream: &mut TokenStream) -> ParseResult<BindingIndication> {
+fn parse_binding_indication(stream: &TokenStream) -> ParseResult<BindingIndication> {
     let entity_aspect = if stream.skip_if_kind(Use) {
         Some(parse_entity_aspect(stream)?)
     } else {
@@ -62,17 +62,17 @@ fn parse_binding_indication(stream: &mut TokenStream) -> ParseResult<BindingIndi
 }
 
 fn parse_component_configuration_known_spec(
-    stream: &mut TokenStream,
+    stream: &TokenStream,
     spec: ComponentSpecification,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ComponentConfiguration> {
-    let token = stream.peek_expect()?;
-    let (bind_ind, vunit_bind_inds) = try_token_kind!(
+    let (bind_ind, vunit_bind_inds) = peek_token!(
+        stream,
         token,
         End => (None, Vec::new()),
         For => (None, Vec::new()),
         Use => {
-            stream.move_after(&token);
+            stream.skip();
             if stream.peek_kind() == Some(Vunit) {
                 let vunit_bind_inds = parse_vunit_binding_indication_list_known_keyword(stream)?;
                 (None, vunit_bind_inds)
@@ -116,12 +116,12 @@ enum ComponentSpecificationOrName {
 }
 
 fn parse_component_specification_or_name(
-    stream: &mut TokenStream,
+    stream: &TokenStream,
 ) -> ParseResult<ComponentSpecificationOrName> {
-    expect_token!(
-        stream,
-        name_token,
+    peek_token!(
+        stream, token,
         All => {
+            stream.skip();
             stream.expect_kind(Colon)?;
             let component_name = parse_selected_name(stream)?;
             Ok(ComponentSpecificationOrName::ComponentSpec(ComponentSpecification {
@@ -131,6 +131,7 @@ fn parse_component_specification_or_name(
 
         },
         Others => {
+            stream.skip();
             stream.expect_kind(Colon)?;
             let component_name = parse_selected_name(stream)?;
             Ok(ComponentSpecificationOrName::ComponentSpec(ComponentSpecification {
@@ -139,11 +140,11 @@ fn parse_component_specification_or_name(
             }))
         },
         Identifier => {
-            let name = parse_name_initial_token(stream, name_token)?;
+            let name = parse_name(stream)?;
             let sep_token = stream.peek_expect()?;
             match sep_token.kind {
                 Colon => {
-                    stream.move_after(&sep_token);
+                    stream.skip();
                     let ident = to_simple_name(name)?;
                     let component_name = parse_selected_name(stream)?;
                     Ok(ComponentSpecificationOrName::ComponentSpec(ComponentSpecification {
@@ -152,7 +153,7 @@ fn parse_component_specification_or_name(
                     }))
                 }
                 Comma => {
-                    stream.move_after(&sep_token);
+                    stream.skip();
                     let mut idents = vec![to_simple_name(name)?];
                     loop {
                         idents.push(stream.expect_ident()?);
@@ -176,7 +177,7 @@ fn parse_component_specification_or_name(
 }
 
 fn parse_configuration_item_known_keyword(
-    stream: &mut TokenStream,
+    stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ConfigurationItem> {
     match parse_component_specification_or_name(stream)? {
@@ -192,7 +193,7 @@ fn parse_configuration_item_known_keyword(
 }
 
 fn parse_block_configuration_known_name(
-    stream: &mut TokenStream,
+    stream: &TokenStream,
     name: WithPos<Name>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<BlockConfiguration> {
@@ -223,7 +224,7 @@ fn parse_block_configuration_known_name(
 }
 
 fn parse_block_configuration_known_keyword(
-    stream: &mut TokenStream,
+    stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<BlockConfiguration> {
     let name = parse_name(stream)?;
@@ -231,7 +232,7 @@ fn parse_block_configuration_known_keyword(
 }
 
 fn parse_vunit_binding_indication_list_known_keyword(
-    stream: &mut TokenStream,
+    stream: &TokenStream,
 ) -> ParseResult<Vec<VUnitBindingIndication>> {
     let mut indications = Vec::new();
     loop {
@@ -241,14 +242,13 @@ fn parse_vunit_binding_indication_list_known_keyword(
 
         let vunit_bind_ind = loop {
             vunit_list.push(parse_name(stream)?);
-            let token = stream.peek_expect()?;
-            try_token_kind!(
-                token,
+            peek_token!(
+                stream, token,
                 Comma => {
-                    stream.move_after(&token);
+                    stream.skip();
                 },
                 SemiColon => {
-                    stream.move_after(&token);
+                    stream.skip();
                     break VUnitBindingIndication { vunit_list };
                 }
             );
@@ -265,7 +265,7 @@ fn parse_vunit_binding_indication_list_known_keyword(
 
 /// LRM 3.4 Configuration declaration
 pub fn parse_configuration_declaration(
-    stream: &mut TokenStream,
+    stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ConfigurationDeclaration> {
     stream.expect_kind(Configuration)?;
@@ -279,14 +279,12 @@ pub fn parse_configuration_declaration(
         let token = stream.peek_expect()?;
         match token.kind {
             Use => {
-                stream.move_after(&token);
-                if stream.peek_kind() == Some(Vunit) {
+                if stream.nth_kind_is(1, Vunit) {
+                    stream.skip();
                     break parse_vunit_binding_indication_list_known_keyword(stream)?;
                 }
 
-                decl.push(ConfigurationDeclarativeItem::Use(
-                    parse_use_clause_no_keyword(token, stream)?,
-                ));
+                decl.push(ConfigurationDeclarativeItem::Use(parse_use_clause(stream)?));
             }
             _ => break Vec::new(),
         }
@@ -313,7 +311,7 @@ pub fn parse_configuration_declaration(
 
 /// LRM 7.3 Configuration Specification
 pub fn parse_configuration_specification(
-    stream: &mut TokenStream,
+    stream: &TokenStream,
 ) -> ParseResult<ConfigurationSpecification> {
     stream.expect_kind(For)?;
     match parse_component_specification_or_name(stream)? {

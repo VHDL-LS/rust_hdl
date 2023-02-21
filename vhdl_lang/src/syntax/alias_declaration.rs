@@ -11,7 +11,7 @@ use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, TokenStream};
 use crate::ast::{AliasDeclaration, WithDecl};
 
-pub fn parse_alias_declaration(stream: &mut TokenStream) -> ParseResult<AliasDeclaration> {
+pub fn parse_alias_declaration(stream: &TokenStream) -> ParseResult<AliasDeclaration> {
     stream.expect_kind(Alias)?;
     let designator = WithDecl::new(parse_designator(stream)?);
     let subtype_indication = {
