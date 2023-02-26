@@ -2044,7 +2044,7 @@ end generate;",
             "for idx in 0 to 1 generate",
             |code| {
                 assert_matches!(
-                    code.concurrent_statement().statement,
+                    code.concurrent_statement().statement.item,
                     ConcurrentStatement::ForGenerate(gen) => gen
                 )
             },

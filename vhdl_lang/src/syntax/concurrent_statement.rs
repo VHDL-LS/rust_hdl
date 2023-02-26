@@ -661,28 +661,37 @@ pub fn parse_labeled_concurrent_statement(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<LabeledConcurrentStatement> {
+    let start = stream.peek_expect()?;
     if stream.next_kind_is(Identifier) {
         let name = parse_name(stream)?;
         if stream.skip_if_kind(Colon) {
             let label = Some(to_simple_name(name)?);
+
+            let start = stream.peek_expect()?;
             let statement = parse_concurrent_statement(stream, label.as_ref(), diagnostics)?;
+            let end = stream.last().unwrap();
+
             Ok(LabeledConcurrentStatement {
                 label: WithDecl::new(label),
-                statement,
+                statement: WithPos::new(statement, start.pos.combine(&end.pos)),
             })
         } else {
             let target = name.map_into(Target::Name);
             let statement = parse_assignment_or_procedure_call(stream, target)?;
+            let end = stream.last().unwrap();
+
             Ok(LabeledConcurrentStatement {
                 label: WithDecl::new(None),
-                statement,
+                statement: WithPos::new(statement, start.pos.combine(&end.pos)),
             })
         }
     } else {
         let statement = parse_concurrent_statement(stream, None, diagnostics)?;
+        let end = stream.last().unwrap();
+
         Ok(LabeledConcurrentStatement {
             label: WithDecl::new(None),
-            statement,
+            statement: WithPos::new(statement, start.pos.combine(&end.pos)),
         })
     }
 }
@@ -696,66 +705,65 @@ mod tests {
 
     #[test]
     fn test_concurrent_procedure() {
-        let code = Code::new(
-            "\
-            foo(clk);
-",
-        );
+        let code = Code::new("foo(clk);");
         let call = ConcurrentProcedureCall {
             postponed: false,
             call: code.s1("foo(clk)").function_call(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, None);
-        assert_eq!(stmt.statement, ConcurrentStatement::ProcedureCall(call));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(ConcurrentStatement::ProcedureCall(call), code.pos())
+        );
     }
 
     #[test]
     fn test_postponed_concurrent_procedure() {
-        let code = Code::new(
-            "\
-            postponed foo(clk);
-",
-        );
+        let code = Code::new("postponed foo(clk);");
         let call = ConcurrentProcedureCall {
             postponed: true,
             call: code.s1("foo(clk)").function_call(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, None);
-        assert_eq!(stmt.statement, ConcurrentStatement::ProcedureCall(call));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(ConcurrentStatement::ProcedureCall(call), code.pos())
+        );
     }
 
     #[test]
     fn test_labeled_concurrent_procedure() {
-        let code = Code::new(
-            "\
-            name: foo(clk);
-",
-        );
+        let code = Code::new("name: foo(clk);");
         let call = ConcurrentProcedureCall {
             postponed: false,
             call: code.s1("foo(clk)").function_call(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::ProcedureCall(call));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(
+                ConcurrentStatement::ProcedureCall(call),
+                code.s1("foo(clk);")
+            )
+        );
     }
 
     #[test]
     fn test_concurrent_procedure_no_args() {
-        let code = Code::new(
-            "\
-            foo;
-",
-        );
+        let code = Code::new("foo;");
         let call = ConcurrentProcedureCall {
             postponed: false,
             call: code.s1("foo").function_call(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, None);
-        assert_eq!(stmt.statement, ConcurrentStatement::ProcedureCall(call));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(ConcurrentStatement::ProcedureCall(call), code.pos())
+        );
     }
 
     #[test]
@@ -766,8 +774,7 @@ name : block
   constant const : natural := 0;
 begin
   name2: foo(clk);
-end block;
-",
+end block;",
         );
         let call = ConcurrentProcedureCall {
             postponed: false,
@@ -785,13 +792,19 @@ end block;
             decl: code.s1("constant const : natural := 0;").declarative_part(),
             statements: vec![LabeledConcurrentStatement {
                 label: Some(code.s1("name2").ident()).into(),
-                statement: ConcurrentStatement::ProcedureCall(call),
+                statement: WithPos::new(
+                    ConcurrentStatement::ProcedureCall(call),
+                    code.s1("foo(clk);").pos(),
+                ),
             }],
             end_label_pos: None,
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::Block(block));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(ConcurrentStatement::Block(block), code.pos_after("name : "))
+        );
     }
 
     #[test]
@@ -800,8 +813,7 @@ end block;
             "\
 name : block is
 begin
-end block name;
-",
+end block name;",
         );
         let block = BlockStatement {
             guard_condition: None,
@@ -817,7 +829,10 @@ end block name;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::Block(block));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(ConcurrentStatement::Block(block), code.pos_after("name : "))
+        );
     }
 
     #[test]
@@ -826,8 +841,7 @@ end block name;
             "\
 name : block (cond = true)
 begin
-end block;
-",
+end block;",
         );
         let block = BlockStatement {
             guard_condition: Some(code.s1("cond = true").expr()),
@@ -843,7 +857,10 @@ end block;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::Block(block));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(ConcurrentStatement::Block(block), code.pos_after("name : "))
+        );
     }
 
     #[test]
@@ -852,8 +869,7 @@ end block;
             "\
 name : block (cond = true) is
 begin
-end block;
-",
+end block;",
         );
         let block = BlockStatement {
             guard_condition: Some(code.s1("cond = true").expr()),
@@ -869,7 +885,10 @@ end block;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::Block(block));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(ConcurrentStatement::Block(block), code.pos_after("name : "))
+        );
     }
 
     #[test]
@@ -882,8 +901,7 @@ name: block is
   port(prt: integer := 1);
   port map(prt => 2);
 begin
-end block;
-",
+end block;",
         );
         let block = BlockStatement {
             guard_condition: None,
@@ -899,7 +917,10 @@ end block;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::Block(block));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(ConcurrentStatement::Block(block), code.pos_after("name: "))
+        );
     }
 
     #[test]
@@ -908,8 +929,7 @@ end block;
             "\
 process
 begin
-end process;
-",
+end process;",
         );
         let process = ProcessStatement {
             postponed: false,
@@ -920,7 +940,10 @@ end process;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, None);
-        assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(ConcurrentStatement::Process(process), code.pos())
+        );
     }
 
     #[test]
@@ -929,8 +952,7 @@ end process;
             "\
 name : process is
 begin
-end process name;
-",
+end process name;",
         );
         let process = ProcessStatement {
             postponed: false,
@@ -941,7 +963,13 @@ end process name;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("name").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(
+                ConcurrentStatement::Process(process),
+                code.pos_after("name : ")
+            )
+        );
     }
 
     #[test]
@@ -950,8 +978,7 @@ end process name;
             "\
 postponed process
 begin
-end process;
-",
+end process;",
         );
         let process = ProcessStatement {
             postponed: true,
@@ -962,7 +989,10 @@ end process;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, None);
-        assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(ConcurrentStatement::Process(process), code.pos())
+        );
     }
 
     #[test]
@@ -971,8 +1001,7 @@ end process;
             "\
 postponed process
 begin
-end postponed process;
-",
+end postponed process;",
         );
         let process = ProcessStatement {
             postponed: true,
@@ -983,7 +1012,10 @@ end postponed process;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, None);
-        assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(ConcurrentStatement::Process(process), code.pos())
+        );
     }
 
     #[test]
@@ -992,8 +1024,7 @@ end postponed process;
             "\
 process is
 begin
-end postponed process;
-",
+end postponed process;",
         );
         let (stmt, diagnostics) = code.with_stream_diagnostics(parse_labeled_concurrent_statement);
         let process = ProcessStatement {
@@ -1010,7 +1041,10 @@ end postponed process;
                 "'postponed' at the end of non-postponed process."
             )]
         );
-        assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(ConcurrentStatement::Process(process), code.pos())
+        );
     }
 
     #[test]
@@ -1019,8 +1053,7 @@ end postponed process;
             "\
 process (clk, vec(1)) is
 begin
-end process;
-",
+end process;",
         );
         let process = ProcessStatement {
             postponed: false,
@@ -1034,7 +1067,10 @@ end process;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, None);
-        assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(ConcurrentStatement::Process(process), code.pos())
+        );
     }
 
     #[test]
@@ -1043,8 +1079,7 @@ end process;
             "\
 process () is
 begin
-end process;
-",
+end process;",
         );
         let (stmt, diagnostics) = code.with_stream_diagnostics(parse_labeled_concurrent_statement);
         let process = ProcessStatement {
@@ -1061,7 +1096,10 @@ end process;
                 "Processes with sensitivity lists must contain at least one element."
             )]
         );
-        assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(ConcurrentStatement::Process(process), code.pos())
+        );
     }
 
     #[test]
@@ -1073,8 +1111,7 @@ process (all) is
 begin
   foo <= true;
   wait;
-end process;
-",
+end process;",
         );
         let process = ProcessStatement {
             postponed: false,
@@ -1088,16 +1125,15 @@ end process;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, None);
-        assert_eq!(stmt.statement, ConcurrentStatement::Process(process));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(ConcurrentStatement::Process(process), code.pos())
+        );
     }
 
     #[test]
     fn test_concurrent_assert() {
-        let code = Code::new(
-            "\
-assert cond = true;
-",
-        );
+        let code = Code::new("assert cond = true;");
         let assert = ConcurrentAssertStatement {
             postponed: false,
             statement: AssertStatement {
@@ -1108,16 +1144,15 @@ assert cond = true;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, None);
-        assert_eq!(stmt.statement, ConcurrentStatement::Assert(assert));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(ConcurrentStatement::Assert(assert), code.pos())
+        );
     }
 
     #[test]
     fn test_postponed_concurrent_assert() {
-        let code = Code::new(
-            "\
-postponed assert cond = true;
-",
-        );
+        let code = Code::new("postponed assert cond = true;");
         let assert = ConcurrentAssertStatement {
             postponed: true,
             statement: AssertStatement {
@@ -1128,16 +1163,15 @@ postponed assert cond = true;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, None);
-        assert_eq!(stmt.statement, ConcurrentStatement::Assert(assert));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(ConcurrentStatement::Assert(assert), code.pos())
+        );
     }
 
     #[test]
     fn test_concurrent_signal_assignment() {
-        let code = Code::new(
-            "\
-foo <= bar(2 to 3);
-",
-        );
+        let code = Code::new("foo <= bar(2 to 3);");
         let assign = ConcurrentSignalAssignment {
             postponed: false,
             guarded: false,
@@ -1147,16 +1181,15 @@ foo <= bar(2 to 3);
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, None);
-        assert_eq!(stmt.statement, ConcurrentStatement::Assignment(assign));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(ConcurrentStatement::Assignment(assign), code.pos())
+        );
     }
 
     #[test]
     fn test_concurrent_signal_assignment_external_name() {
-        let code = Code::new(
-            "\
-<< signal dut.foo : std_logic >> <= bar(2 to 3);
-",
-        );
+        let code = Code::new("<< signal dut.foo : std_logic >> <= bar(2 to 3);");
         let assign = ConcurrentSignalAssignment {
             postponed: false,
             guarded: false,
@@ -1169,7 +1202,10 @@ foo <= bar(2 to 3);
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, None);
-        assert_eq!(stmt.statement, ConcurrentStatement::Assignment(assign));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(ConcurrentStatement::Assignment(assign), code.pos())
+        );
     }
 
     #[test]
@@ -1191,7 +1227,7 @@ with x(0) + 1 select
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, None);
         assert_eq!(
-            stmt.statement,
+            stmt.statement.item,
             ConcurrentStatement::Assignment(ConcurrentSignalAssignment {
                 postponed: false,
                 guarded: false,
@@ -1200,15 +1236,12 @@ with x(0) + 1 select
                 rhs: AssignmentRightHand::Selected(selection)
             })
         );
+        assert_eq!(stmt.statement.pos, code.pos());
     }
 
     #[test]
     fn test_component_instantiation() {
-        let code = Code::new(
-            "\
-inst: component lib.foo.bar;
-",
-        );
+        let code = Code::new("inst: component lib.foo.bar;");
 
         let inst = InstantiationStatement {
             unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").selected_name()),
@@ -1217,16 +1250,18 @@ inst: component lib.foo.bar;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(
+                ConcurrentStatement::Instance(inst),
+                code.pos_after("inst: ")
+            )
+        );
     }
 
     #[test]
     fn test_configuration_instantiation() {
-        let code = Code::new(
-            "\
-inst: configuration lib.foo.bar;
-",
-        );
+        let code = Code::new("inst: configuration lib.foo.bar;");
 
         let inst = InstantiationStatement {
             unit: InstantiatedUnit::Configuration(code.s1("lib.foo.bar").selected_name()),
@@ -1235,16 +1270,18 @@ inst: configuration lib.foo.bar;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(
+                ConcurrentStatement::Instance(inst),
+                code.pos_after("inst: ")
+            )
+        );
     }
 
     #[test]
     fn test_entity_instantiation() {
-        let code = Code::new(
-            "\
-inst: entity lib.foo.bar;
-",
-        );
+        let code = Code::new("inst: entity lib.foo.bar;");
 
         let inst = InstantiationStatement {
             unit: InstantiatedUnit::Entity(code.s1("lib.foo.bar").selected_name(), None),
@@ -1253,16 +1290,18 @@ inst: entity lib.foo.bar;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(
+                ConcurrentStatement::Instance(inst),
+                code.pos_after("inst: ")
+            )
+        );
     }
 
     #[test]
     fn test_entity_architecture_instantiation() {
-        let code = Code::new(
-            "\
-inst: entity lib.foo.bar(arch);
-",
-        );
+        let code = Code::new("inst: entity lib.foo.bar(arch);");
 
         let inst = InstantiationStatement {
             unit: InstantiatedUnit::Entity(
@@ -1274,7 +1313,13 @@ inst: entity lib.foo.bar(arch);
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(
+                ConcurrentStatement::Instance(inst),
+                code.pos_after("inst: ")
+            )
+        );
     }
 
     #[test]
@@ -1287,8 +1332,7 @@ inst: component lib.foo.bar
   )
   port map (
    clk => clk_foo
-  );
-",
+  );",
         );
 
         let inst = InstantiationStatement {
@@ -1306,7 +1350,13 @@ inst: component lib.foo.bar
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(
+                ConcurrentStatement::Instance(inst),
+                code.pos_after("inst: ")
+            )
+        );
     }
 
     #[test]
@@ -1316,8 +1366,7 @@ inst: component lib.foo.bar
 inst: lib.foo.bar
   port map (
    clk => clk_foo
-  );
-",
+  );",
         );
 
         let inst = InstantiationStatement {
@@ -1331,18 +1380,23 @@ inst: lib.foo.bar
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(
+                ConcurrentStatement::Instance(inst),
+                code.pos_after("inst: ")
+            )
+        );
     }
 
     #[test]
     fn test_component_no_keyword_generic_aspect_map() {
         let code = Code::new(
             "\
-            inst: lib.foo.bar
+inst: lib.foo.bar
   generic map (
    const => 1
-  );
-",
+  );",
         );
 
         let inst = InstantiationStatement {
@@ -1356,7 +1410,13 @@ inst: lib.foo.bar
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::Instance(inst));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(
+                ConcurrentStatement::Instance(inst),
+                code.pos_after("inst: ")
+            )
+        );
     }
 
     #[test]
@@ -1364,8 +1424,7 @@ inst: lib.foo.bar
         let code = Code::new(
             "\
 gen: for idx in 0 to 1 generate
-end generate;
-",
+end generate;",
         );
         let gen = ForGenerateStatement {
             index_name: code.s1("idx").decl_ident(),
@@ -1380,7 +1439,13 @@ end generate;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::ForGenerate(gen));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(
+                ConcurrentStatement::ForGenerate(gen),
+                code.pos_after("gen: ")
+            )
+        );
     }
 
     #[test]
@@ -1389,8 +1454,7 @@ end generate;
             "\
 gen: for idx in 0 to 1 generate
   foo <= bar;
-end generate;
-",
+end generate;",
         );
         let gen = ForGenerateStatement {
             index_name: code.s1("idx").decl_ident(),
@@ -1405,7 +1469,13 @@ end generate;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::ForGenerate(gen));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(
+                ConcurrentStatement::ForGenerate(gen),
+                code.pos_after("gen: ")
+            )
+        );
     }
 
     #[test]
@@ -1424,7 +1494,13 @@ end generate;
             };
             let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
             assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
-            assert_eq!(stmt.statement, ConcurrentStatement::ForGenerate(gen));
+            assert_eq!(
+                stmt.statement,
+                WithPos::new(
+                    ConcurrentStatement::ForGenerate(gen),
+                    code.pos_after("gen: ")
+                )
+            );
         }
         test(
             Some(vec![]),
@@ -1433,8 +1509,7 @@ end generate;
 gen: for idx in 0 to 1 generate
 begin
   foo <= bar;
-end generate;
-",
+end generate;",
             ),
         );
 
@@ -1444,8 +1519,7 @@ end generate;
                 "\
 gen: for idx in 0 to 1 generate
   foo <= bar;
-end generate;
-",
+end generate;",
             ),
         );
 
@@ -1457,8 +1531,7 @@ gen: for idx in 0 to 1 generate
 begin
   foo <= bar;
 end;
-end generate;
-",
+end generate;",
             ),
         );
     }
@@ -1479,7 +1552,13 @@ end generate;
             };
             let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
             assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
-            assert_eq!(stmt.statement, ConcurrentStatement::ForGenerate(gen));
+            assert_eq!(
+                stmt.statement,
+                WithPos::new(
+                    ConcurrentStatement::ForGenerate(gen),
+                    code.pos_after("gen: ")
+                )
+            );
         }
 
         test(Code::new(
@@ -1488,8 +1567,7 @@ gen: for idx in 0 to 1 generate
   signal foo : natural;
 begin
   foo <= bar;
-end generate;
-",
+end generate;",
         ));
 
         test(Code::new(
@@ -1499,8 +1577,7 @@ gen: for idx in 0 to 1 generate
 begin
   foo <= bar;
 end;
-end generate;
-",
+end generate;",
         ));
     }
 
@@ -1509,8 +1586,7 @@ end generate;
         let code = Code::new(
             "\
 gen: if cond = true generate
-end generate;
-",
+end generate;",
         );
         let gen = IfGenerateStatement {
             conds: Conditionals {
@@ -1529,7 +1605,13 @@ end generate;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(
+                ConcurrentStatement::IfGenerate(gen),
+                code.pos_after("gen: ")
+            )
+        );
     }
 
     #[test]
@@ -1538,8 +1620,7 @@ end generate;
             "\
 gen: if cond = true generate
 begin
-end generate;
-",
+end generate;",
         );
         let gen = IfGenerateStatement {
             conds: Conditionals {
@@ -1558,7 +1639,13 @@ end generate;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(
+                ConcurrentStatement::IfGenerate(gen),
+                code.pos_after("gen: ")
+            )
+        );
     }
 
     #[test]
@@ -1568,8 +1655,7 @@ end generate;
 gen: if cond = true generate
 elsif cond2 = true generate
 else generate
-end generate;
-",
+end generate;",
         );
         let gen = IfGenerateStatement {
             conds: Conditionals {
@@ -1604,7 +1690,13 @@ end generate;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(
+                ConcurrentStatement::IfGenerate(gen),
+                code.pos_after("gen: ")
+            )
+        );
     }
     #[test]
     fn test_if_elseif_else_generate() {
@@ -1622,8 +1714,7 @@ else generate
   variable v3 : boolean;
 begin
   foo3(clk);
-end generate;
-",
+end generate;",
         );
         let gen = IfGenerateStatement {
             conds: Conditionals {
@@ -1658,7 +1749,13 @@ end generate;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(
+                ConcurrentStatement::IfGenerate(gen),
+                code.pos_after("gen: ")
+            )
+        );
     }
 
     #[test]
@@ -1670,8 +1767,7 @@ elsif cond2 = true generate
 end alt2;
 else alt3: generate
 end alt4;
-end generate;
-",
+end generate;",
         );
         let gen = IfGenerateStatement {
             conds: Conditionals {
@@ -1706,7 +1802,13 @@ end generate;
         };
         let (stmt, diagnostics) = code.with_stream_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(
+                ConcurrentStatement::IfGenerate(gen),
+                code.pos_after("gen: ")
+            )
+        );
         assert_eq!(
             diagnostics,
             vec![
@@ -1728,8 +1830,7 @@ elsif alt2: cond2 = true generate
 end alt2;
 else alt3: generate
 end alt3;
-end generate;
-",
+end generate;",
         );
         let gen = IfGenerateStatement {
             conds: Conditionals {
@@ -1764,7 +1865,13 @@ end generate;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::IfGenerate(gen));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(
+                ConcurrentStatement::IfGenerate(gen),
+                code.pos_after("gen: ")
+            )
+        );
     }
 
     #[test]
@@ -1776,8 +1883,7 @@ gen: case expr(0) + 2 generate
     sig <= value;
   when others =>
     foo(clk);
-end generate;
-",
+end generate;",
         );
         let gen = CaseGenerateStatement {
             sels: Selection {
@@ -1807,7 +1913,13 @@ end generate;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("gen").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::CaseGenerate(gen));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(
+                ConcurrentStatement::CaseGenerate(gen),
+                code.pos_after("gen: ")
+            )
+        );
     }
 
     #[test]
@@ -1819,8 +1931,7 @@ gen1: case expr(0) + 2 generate
     sig <= value;
   when alt2: others =>
     foo(clk);
-end generate gen1;
-",
+end generate gen1;",
         );
         let gen = CaseGenerateStatement {
             sels: Selection {
@@ -1850,6 +1961,12 @@ end generate gen1;
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("gen1").ident()));
-        assert_eq!(stmt.statement, ConcurrentStatement::CaseGenerate(gen));
+        assert_eq!(
+            stmt.statement,
+            WithPos::new(
+                ConcurrentStatement::CaseGenerate(gen),
+                code.pos_after("gen1: ")
+            )
+        );
     }
 }

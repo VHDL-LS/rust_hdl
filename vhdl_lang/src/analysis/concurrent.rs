@@ -48,18 +48,18 @@ impl<'a> AnalyzeContext<'a> {
                 let ent = self.arena.explicit(
                     label.name(),
                     parent,
-                    AnyEntKind::Concurrent(statement.statement.label_typ()),
+                    AnyEntKind::Concurrent(statement.statement.item.label_typ()),
                     Some(label.pos()),
                 );
                 statement.label.decl = Some(ent.id());
                 scope.add(ent, diagnostics);
-            } else if statement.statement.can_have_label() {
+            } else if statement.statement.item.can_have_label() {
                 // Generate an anonymous label if it is not explicitly defined
                 let ent = self.arena.alloc(
                     Designator::Anonymous(scope.next_anonymous()),
                     Some(parent),
                     Related::None,
-                    AnyEntKind::Concurrent(statement.statement.label_typ()),
+                    AnyEntKind::Concurrent(statement.statement.item.label_typ()),
                     None,
                 );
                 statement.label.decl = Some(ent.id());
@@ -76,7 +76,7 @@ impl<'a> AnalyzeContext<'a> {
         statement: &mut LabeledConcurrentStatement,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        match statement.statement {
+        match statement.statement.item {
             ConcurrentStatement::Block(ref mut block) => {
                 if let Some(ref mut guard_condition) = block.guard_condition {
                     self.boolean_expr(scope, guard_condition, diagnostics)?;

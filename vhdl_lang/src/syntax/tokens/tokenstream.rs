@@ -62,6 +62,11 @@ impl<'a> TokenStream<'a> {
         self.tokens.get(self.get_idx())
     }
 
+    pub fn last(&self) -> Option<&Token> {
+        let last_idx = self.get_idx().checked_sub(1)?;
+        self.tokens.get(last_idx)
+    }
+
     fn eof_error(&self) -> Diagnostic {
         let end = self.tokenizer.source.contents().end();
         Diagnostic::error(

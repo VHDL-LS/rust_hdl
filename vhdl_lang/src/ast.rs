@@ -1076,7 +1076,7 @@ pub enum ConcurrentStatement {
 #[derive(PartialEq, Debug, Clone)]
 pub struct LabeledConcurrentStatement {
     pub label: WithDecl<Option<Ident>>,
-    pub statement: ConcurrentStatement,
+    pub statement: WithPos<ConcurrentStatement>,
 }
 
 /// LRM 13. Design units and their analysis

@@ -472,7 +472,7 @@ impl Search for LabeledConcurrentStatement {
                 ))
                 .or_not_found());
         }
-        match self.statement {
+        match self.statement.item {
             ConcurrentStatement::Block(ref mut block) => {
                 // @TODO guard condition
                 return_if_found!(block.decl.search(searcher));
@@ -543,7 +543,7 @@ impl Search for LabeledConcurrentStatement {
             }
         };
 
-        if let Some(end_label_pos) = self.statement.end_label_pos() {
+        if let Some(end_label_pos) = self.statement.item.end_label_pos() {
             return_if_found!(searcher
                 .search_pos_with_ref(end_label_pos, &mut self.label.decl)
                 .or_not_found());

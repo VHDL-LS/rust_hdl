@@ -135,6 +135,14 @@ impl Code {
         self.pos.clone()
     }
 
+    pub fn pos_after(&self, prefix: &str) -> Code {
+        let end = self.s1(prefix).pos().end();
+        self.in_range(Range {
+            start: end,
+            end: self.eof_pos().end().prev_char(),
+        })
+    }
+
     // Position after code
     pub fn eof_pos(&self) -> SrcPos {
         SrcPos::new(
