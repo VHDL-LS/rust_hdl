@@ -940,9 +940,9 @@ pub enum SequentialStatement {
     If(IfStatement),
     Case(CaseStatement),
     Loop(LoopStatement),
-    Next(WithPos<NextStatement>),
-    Exit(WithPos<ExitStatement>),
-    Return(WithPos<ReturnStatement>),
+    Next(NextStatement),
+    Exit(ExitStatement),
+    Return(ReturnStatement),
     Null,
 }
 
@@ -950,7 +950,7 @@ pub enum SequentialStatement {
 #[derive(PartialEq, Debug, Clone)]
 pub struct LabeledSequentialStatement {
     pub label: WithDecl<Option<Ident>>,
-    pub statement: SequentialStatement,
+    pub statement: WithPos<SequentialStatement>,
 }
 
 /// LRM 11.2 Block statement

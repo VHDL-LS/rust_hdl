@@ -273,9 +273,9 @@ impl Search for LabeledSequentialStatement {
                 ))
                 .or_not_found());
         }
-        match self.statement {
+        match self.statement.item {
             SequentialStatement::Return(ref mut ret) => {
-                let ReturnStatement { ref mut expression } = ret.item;
+                let ReturnStatement { ref mut expression } = ret;
                 return_if_found!(expression.search(searcher));
             }
             SequentialStatement::ProcedureCall(ref mut pcall) => {
@@ -314,7 +314,7 @@ impl Search for LabeledSequentialStatement {
                 let ExitStatement {
                     condition,
                     loop_label,
-                } = &mut exit_stmt.item;
+                } = exit_stmt;
                 if let Some(loop_label) = loop_label {
                     return_if_found!(searcher
                         .search_pos_with_ref(&loop_label.item.pos, &mut loop_label.reference)
@@ -326,7 +326,7 @@ impl Search for LabeledSequentialStatement {
                 let NextStatement {
                     condition,
                     loop_label,
-                } = &mut next_stmt.item;
+                } = next_stmt;
                 if let Some(loop_label) = loop_label {
                     return_if_found!(searcher
                         .search_pos_with_ref(&loop_label.item.pos, &mut loop_label.reference)
@@ -387,7 +387,7 @@ impl Search for LabeledSequentialStatement {
             SequentialStatement::Null => {}
         }
 
-        if let Some(end_label_pos) = self.statement.end_label_pos() {
+        if let Some(end_label_pos) = self.statement.item.end_label_pos() {
             return_if_found!(searcher
                 .search_pos_with_ref(end_label_pos, &mut self.label.decl)
                 .or_not_found());

@@ -28,19 +28,19 @@ impl<'a> AnalyzeContext<'a> {
                 let ent = self.arena.explicit(
                     label.name(),
                     parent,
-                    AnyEntKind::Sequential(statement.statement.label_typ()),
+                    AnyEntKind::Sequential(statement.statement.item.label_typ()),
                     Some(label.pos()),
                 );
                 statement.label.decl = Some(ent.id());
                 scope.add(ent, diagnostics);
                 ent
-            } else if statement.statement.can_have_label() {
+            } else if statement.statement.item.can_have_label() {
                 // Generate an anonymous label if it is not explicitly defined
                 let ent = self.arena.alloc(
                     Designator::Anonymous(scope.next_anonymous()),
                     Some(parent),
                     Related::None,
-                    AnyEntKind::Sequential(statement.statement.label_typ()),
+                    AnyEntKind::Sequential(statement.statement.item.label_typ()),
                     None,
                 );
                 statement.label.decl = Some(ent.id());
@@ -49,7 +49,7 @@ impl<'a> AnalyzeContext<'a> {
                 parent
             };
 
-            match statement.statement {
+            match statement.statement.item {
                 SequentialStatement::If(ref mut ifstmt) => {
                     let Conditionals {
                         conditionals,
@@ -108,25 +108,31 @@ impl<'a> AnalyzeContext<'a> {
         statement: &mut LabeledSequentialStatement,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        match statement.statement {
+        match statement.statement.item {
             SequentialStatement::Return(ref mut ret) => {
-                let ReturnStatement { ref mut expression } = ret.item;
+                let ReturnStatement { ref mut expression } = ret;
 
                 match SequentialRoot::from(parent) {
                     SequentialRoot::Function(ttyp) => {
                         if let Some(ref mut expression) = expression {
                             self.expr_with_ttyp(scope, ttyp, expression, diagnostics)?;
                         } else {
-                            diagnostics.error(&ret.pos, "Functions cannot return without a value");
+                            diagnostics.error(
+                                &statement.statement.pos,
+                                "Functions cannot return without a value",
+                            );
                         }
                     }
                     SequentialRoot::Procedure => {
                         if expression.is_some() {
-                            diagnostics.error(&ret.pos, "Procedures cannot return a value");
+                            diagnostics.error(
+                                &statement.statement.pos,
+                                "Procedures cannot return a value",
+                            );
                         }
                     }
                     SequentialRoot::Process => {
-                        diagnostics.error(&ret.pos, "Cannot return from a process");
+                        diagnostics.error(&statement.statement.pos, "Cannot return from a process");
                     }
                 }
             }
@@ -169,12 +175,15 @@ impl<'a> AnalyzeContext<'a> {
                 let ExitStatement {
                     condition,
                     loop_label,
-                } = &mut exit_stmt.item;
+                } = exit_stmt;
 
                 if let Some(loop_label) = loop_label {
                     self.check_loop_label(scope, parent, loop_label, diagnostics);
                 } else if !find_outer_loop(parent, None) {
-                    diagnostics.error(&exit_stmt.pos, "Exit can only be used inside a loop")
+                    diagnostics.error(
+                        &statement.statement.pos,
+                        "Exit can only be used inside a loop",
+                    )
                 }
 
                 if let Some(expr) = condition {
@@ -185,12 +194,15 @@ impl<'a> AnalyzeContext<'a> {
                 let NextStatement {
                     condition,
                     loop_label,
-                } = &mut next_stmt.item;
+                } = next_stmt;
 
                 if let Some(loop_label) = loop_label {
                     self.check_loop_label(scope, parent, loop_label, diagnostics);
                 } else if !find_outer_loop(parent, None) {
-                    diagnostics.error(&next_stmt.pos, "Next can only be used inside a loop")
+                    diagnostics.error(
+                        &statement.statement.pos,
+                        "Next can only be used inside a loop",
+                    )
                 }
 
                 if let Some(expr) = condition {

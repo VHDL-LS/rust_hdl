@@ -236,38 +236,32 @@ fn parse_loop_statement(
 }
 
 /// LRM 10.11 Next statement
-fn parse_next_statement(stream: &TokenStream) -> ParseResult<WithPos<NextStatement>> {
-    let initial = stream.expect_kind(Next)?;
+fn parse_next_statement(stream: &TokenStream) -> ParseResult<NextStatement> {
+    stream.expect_kind(Next)?;
     let loop_label = stream.pop_optional_ident();
     let condition = parse_optional(stream, When, parse_expression)?;
-    let semi = stream.expect_kind(SemiColon)?;
-    Ok(WithPos::new(
-        NextStatement {
-            loop_label: loop_label.map(WithRef::new),
-            condition,
-        },
-        initial.pos.combine(&semi.pos),
-    ))
+    stream.expect_kind(SemiColon)?;
+    Ok(NextStatement {
+        loop_label: loop_label.map(WithRef::new),
+        condition,
+    })
 }
 
 /// LRM 10.12 Exit statement
-fn parse_exit_statement(stream: &TokenStream) -> ParseResult<WithPos<ExitStatement>> {
-    let initial = stream.expect_kind(Exit)?;
+fn parse_exit_statement(stream: &TokenStream) -> ParseResult<ExitStatement> {
+    stream.expect_kind(Exit)?;
     let loop_label = stream.pop_optional_ident();
     let condition = parse_optional(stream, When, parse_expression)?;
-    let semi = stream.expect_kind(SemiColon)?;
-    Ok(WithPos::new(
-        ExitStatement {
-            loop_label: loop_label.map(WithRef::new),
-            condition,
-        },
-        initial.pos.combine(&semi.pos),
-    ))
+    stream.expect_kind(SemiColon)?;
+    Ok(ExitStatement {
+        loop_label: loop_label.map(WithRef::new),
+        condition,
+    })
 }
 
 /// LRM 10.13 Return statement
-fn parse_return_statement(stream: &TokenStream) -> ParseResult<WithPos<ReturnStatement>> {
-    let initial = stream.expect_kind(Return)?;
+fn parse_return_statement(stream: &TokenStream) -> ParseResult<ReturnStatement> {
+    stream.expect_kind(Return)?;
     let expression = {
         if stream.peek_kind() == Some(SemiColon) {
             None
@@ -275,11 +269,8 @@ fn parse_return_statement(stream: &TokenStream) -> ParseResult<WithPos<ReturnSta
             Some(parse_expression(stream)?)
         }
     };
-    let semi = stream.expect_kind(SemiColon)?;
-    Ok(WithPos::new(
-        ReturnStatement { expression },
-        initial.pos.combine(&semi.pos),
-    ))
+    stream.expect_kind(SemiColon)?;
+    Ok(ReturnStatement { expression })
 }
 
 /// LRM 10.5 Signal assignment statement
@@ -563,29 +554,35 @@ pub fn parse_sequential_statement(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<LabeledSequentialStatement> {
+    let start = stream.peek_expect()?;
+
     if stream.next_kind_is(Identifier) {
         let name = parse_name(stream)?;
         if stream.skip_if_kind(Colon) {
             let label = Some(to_simple_name(name)?);
+            let start = stream.peek_expect()?;
             let statement =
                 parse_unlabeled_sequential_statement(stream, label.as_ref(), diagnostics)?;
+            let end = stream.last().unwrap();
             Ok(LabeledSequentialStatement {
                 label: WithDecl::new(label),
-                statement,
+                statement: WithPos::new(statement, start.pos.combine(&end.pos)),
             })
         } else {
             let target = name.map_into(Target::Name);
             let statement = parse_assignment_or_procedure_call(stream, target)?;
+            let end = stream.last().unwrap();
             Ok(LabeledSequentialStatement {
                 label: WithDecl::new(None),
-                statement,
+                statement: WithPos::new(statement, start.pos.combine(&end.pos)),
             })
         }
     } else {
         let statement = parse_unlabeled_sequential_statement(stream, None, diagnostics)?;
+        let end = stream.last().unwrap();
         Ok(LabeledSequentialStatement {
             label: WithDecl::new(None),
-            statement,
+            statement: WithPos::new(statement, start.pos.combine(&end.pos)),
         })
     }
 }
@@ -610,7 +607,7 @@ mod tests {
 
     fn with_label(
         label: Option<Ident>,
-        statement: SequentialStatement,
+        statement: WithPos<SequentialStatement>,
     ) -> LabeledSequentialStatement {
         LabeledSequentialStatement {
             label: WithDecl::new(label),
@@ -620,16 +617,19 @@ mod tests {
 
     #[test]
     fn parse_simple_wait_statement() {
-        let (_, statement) = parse("wait;");
+        let (code, statement) = parse("wait;");
         assert_eq!(
             statement,
             with_label(
                 None,
-                SequentialStatement::Wait(WaitStatement {
-                    sensitivity_clause: vec![],
-                    condition_clause: None,
-                    timeout_clause: None
-                })
+                WithPos::new(
+                    SequentialStatement::Wait(WaitStatement {
+                        sensitivity_clause: vec![],
+                        condition_clause: None,
+                        timeout_clause: None
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -641,11 +641,14 @@ mod tests {
             statement,
             with_label(
                 Some(code.s1("foo").ident()),
-                SequentialStatement::Wait(WaitStatement {
-                    sensitivity_clause: vec![],
-                    condition_clause: None,
-                    timeout_clause: None
-                })
+                WithPos::new(
+                    SequentialStatement::Wait(WaitStatement {
+                        sensitivity_clause: vec![],
+                        condition_clause: None,
+                        timeout_clause: None
+                    }),
+                    code.pos_after("foo: ")
+                )
             )
         );
     }
@@ -657,11 +660,14 @@ mod tests {
             statement,
             with_label(
                 None,
-                SequentialStatement::Wait(WaitStatement {
-                    sensitivity_clause: vec![code.s1("foo").name(), code.s1("bar").name()],
-                    condition_clause: None,
-                    timeout_clause: None
-                })
+                WithPos::new(
+                    SequentialStatement::Wait(WaitStatement {
+                        sensitivity_clause: vec![code.s1("foo").name(), code.s1("bar").name()],
+                        condition_clause: None,
+                        timeout_clause: None
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -673,11 +679,14 @@ mod tests {
             statement,
             with_label(
                 None,
-                SequentialStatement::Wait(WaitStatement {
-                    sensitivity_clause: vec![],
-                    condition_clause: Some(code.s1("a = b").expr()),
-                    timeout_clause: None
-                })
+                WithPos::new(
+                    SequentialStatement::Wait(WaitStatement {
+                        sensitivity_clause: vec![],
+                        condition_clause: Some(code.s1("a = b").expr()),
+                        timeout_clause: None
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -689,11 +698,14 @@ mod tests {
             statement,
             with_label(
                 None,
-                SequentialStatement::Wait(WaitStatement {
-                    sensitivity_clause: vec![],
-                    condition_clause: None,
-                    timeout_clause: Some(code.s1("2 ns").expr())
-                })
+                WithPos::new(
+                    SequentialStatement::Wait(WaitStatement {
+                        sensitivity_clause: vec![],
+                        condition_clause: None,
+                        timeout_clause: Some(code.s1("2 ns").expr())
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -705,11 +717,14 @@ mod tests {
             statement,
             with_label(
                 None,
-                SequentialStatement::Wait(WaitStatement {
-                    sensitivity_clause: vec![code.s1("foo").name()],
-                    condition_clause: Some(code.s1("bar").expr()),
-                    timeout_clause: Some(code.s1("2 ns").expr())
-                })
+                WithPos::new(
+                    SequentialStatement::Wait(WaitStatement {
+                        sensitivity_clause: vec![code.s1("foo").name()],
+                        condition_clause: Some(code.s1("bar").expr()),
+                        timeout_clause: Some(code.s1("2 ns").expr())
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -721,11 +736,14 @@ mod tests {
             statement,
             with_label(
                 None,
-                SequentialStatement::Assert(AssertStatement {
-                    condition: code.s1("false").expr(),
-                    report: None,
-                    severity: None
-                })
+                WithPos::new(
+                    SequentialStatement::Assert(AssertStatement {
+                        condition: code.s1("false").expr(),
+                        report: None,
+                        severity: None
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -737,11 +755,14 @@ mod tests {
             statement,
             with_label(
                 None,
-                SequentialStatement::Assert(AssertStatement {
-                    condition: code.s1("false").expr(),
-                    report: Some(code.s1("\"message\"").expr()),
-                    severity: Some(code.s1("error").expr())
-                })
+                WithPos::new(
+                    SequentialStatement::Assert(AssertStatement {
+                        condition: code.s1("false").expr(),
+                        report: Some(code.s1("\"message\"").expr()),
+                        severity: Some(code.s1("error").expr())
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -753,10 +774,13 @@ mod tests {
             statement,
             with_label(
                 None,
-                SequentialStatement::Report(ReportStatement {
-                    report: code.s1("\"message\"").expr(),
-                    severity: Some(code.s1("error").expr())
-                })
+                WithPos::new(
+                    SequentialStatement::Report(ReportStatement {
+                        report: code.s1("\"message\"").expr(),
+                        severity: Some(code.s1("error").expr())
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -769,11 +793,14 @@ mod tests {
             statement,
             with_label(
                 None,
-                SequentialStatement::SignalAssignment(SignalAssignment {
-                    target: code.s1("foo(0)").name().map_into(Target::Name),
-                    delay_mechanism: None,
-                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2) after 2 ns").waveform())
-                })
+                WithPos::new(
+                    SequentialStatement::SignalAssignment(SignalAssignment {
+                        target: code.s1("foo(0)").name().map_into(Target::Name),
+                        delay_mechanism: None,
+                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2) after 2 ns").waveform())
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -786,11 +813,14 @@ mod tests {
             statement,
             with_label(
                 None,
-                SequentialStatement::SignalForceAssignment(SignalForceAssignment {
-                    target: code.s1("foo(0)").name().map_into(Target::Name),
-                    force_mode: None,
-                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
-                })
+                WithPos::new(
+                    SequentialStatement::SignalForceAssignment(SignalForceAssignment {
+                        target: code.s1("foo(0)").name().map_into(Target::Name),
+                        force_mode: None,
+                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
+                    }),
+                    code.pos()
+                )
             )
         );
 
@@ -801,11 +831,14 @@ mod tests {
             statement,
             with_label(
                 None,
-                SequentialStatement::SignalForceAssignment(SignalForceAssignment {
-                    target: code.s1("foo(0)").name().map_into(Target::Name),
-                    force_mode: Some(ForceMode::In),
-                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
-                })
+                WithPos::new(
+                    SequentialStatement::SignalForceAssignment(SignalForceAssignment {
+                        target: code.s1("foo(0)").name().map_into(Target::Name),
+                        force_mode: Some(ForceMode::In),
+                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
+                    }),
+                    code.pos()
+                )
             )
         );
 
@@ -816,11 +849,14 @@ mod tests {
             statement,
             with_label(
                 None,
-                SequentialStatement::SignalForceAssignment(SignalForceAssignment {
-                    target: code.s1("foo(0)").name().map_into(Target::Name),
-                    force_mode: Some(ForceMode::Out),
-                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
-                })
+                WithPos::new(
+                    SequentialStatement::SignalForceAssignment(SignalForceAssignment {
+                        target: code.s1("foo(0)").name().map_into(Target::Name),
+                        force_mode: Some(ForceMode::Out),
+                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -833,10 +869,13 @@ mod tests {
             statement,
             with_label(
                 None,
-                SequentialStatement::SignalReleaseAssignment(SignalReleaseAssignment {
-                    target: code.s1("foo(0)").name().map_into(Target::Name),
-                    force_mode: None
-                })
+                WithPos::new(
+                    SequentialStatement::SignalReleaseAssignment(SignalReleaseAssignment {
+                        target: code.s1("foo(0)").name().map_into(Target::Name),
+                        force_mode: None
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -849,14 +888,17 @@ mod tests {
             statement,
             with_label(
                 None,
-                SequentialStatement::SignalAssignment(SignalAssignment {
-                    target: code
-                        .s1("<< signal dut.foo : boolean  >>")
-                        .name()
-                        .map_into(Target::Name),
-                    delay_mechanism: None,
-                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").waveform())
-                })
+                WithPos::new(
+                    SequentialStatement::SignalAssignment(SignalAssignment {
+                        target: code
+                            .s1("<< signal dut.foo : boolean  >>")
+                            .name()
+                            .map_into(Target::Name),
+                        delay_mechanism: None,
+                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").waveform())
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -869,11 +911,14 @@ mod tests {
             statement,
             with_label(
                 None,
-                SequentialStatement::SignalAssignment(SignalAssignment {
-                    target: code.s1("foo(0)").name().map_into(Target::Name),
-                    delay_mechanism: Some(DelayMechanism::Transport),
-                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").waveform())
-                })
+                WithPos::new(
+                    SequentialStatement::SignalAssignment(SignalAssignment {
+                        target: code.s1("foo(0)").name().map_into(Target::Name),
+                        delay_mechanism: Some(DelayMechanism::Transport),
+                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").waveform())
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -885,10 +930,13 @@ mod tests {
             statement,
             with_label(
                 None,
-                SequentialStatement::VariableAssignment(VariableAssignment {
-                    target: code.s1("foo(0)").name().map_into(Target::Name),
-                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
-                })
+                WithPos::new(
+                    SequentialStatement::VariableAssignment(VariableAssignment {
+                        target: code.s1("foo(0)").name().map_into(Target::Name),
+                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -900,13 +948,16 @@ mod tests {
             statement,
             with_label(
                 None,
-                SequentialStatement::VariableAssignment(VariableAssignment {
-                    target: code
-                        .s1("<< variable dut.foo : boolean >>")
-                        .name()
-                        .map_into(Target::Name),
-                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
-                })
+                WithPos::new(
+                    SequentialStatement::VariableAssignment(VariableAssignment {
+                        target: code
+                            .s1("<< variable dut.foo : boolean >>")
+                            .name()
+                            .map_into(Target::Name),
+                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -918,13 +969,16 @@ mod tests {
             statement,
             with_label(
                 None,
-                SequentialStatement::VariableAssignment(VariableAssignment {
-                    target: code
-                        .s1("(foo, 1 => bar)")
-                        .aggregate()
-                        .map_into(Target::Aggregate),
-                    rhs: AssignmentRightHand::Simple(code.s1("integer_vector'(1, 2)").expr())
-                })
+                WithPos::new(
+                    SequentialStatement::VariableAssignment(VariableAssignment {
+                        target: code
+                            .s1("(foo, 1 => bar)")
+                            .aggregate()
+                            .map_into(Target::Aggregate),
+                        rhs: AssignmentRightHand::Simple(code.s1("integer_vector'(1, 2)").expr())
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -936,13 +990,16 @@ mod tests {
             statement,
             with_label(
                 Some(code.s1("name").ident()),
-                SequentialStatement::VariableAssignment(VariableAssignment {
-                    target: code
-                        .s1("(foo, 1 => bar)")
-                        .aggregate()
-                        .map_into(Target::Aggregate),
-                    rhs: AssignmentRightHand::Simple(code.s1("integer_vector'(1, 2)").expr())
-                })
+                WithPos::new(
+                    SequentialStatement::VariableAssignment(VariableAssignment {
+                        target: code
+                            .s1("(foo, 1 => bar)")
+                            .aggregate()
+                            .map_into(Target::Aggregate),
+                        rhs: AssignmentRightHand::Simple(code.s1("integer_vector'(1, 2)").expr())
+                    }),
+                    code.pos_after("name: ")
+                )
             )
         );
     }
@@ -954,10 +1011,13 @@ mod tests {
             statement,
             with_label(
                 Some(code.s1("name").ident()),
-                SequentialStatement::VariableAssignment(VariableAssignment {
-                    target: code.s1("foo(0)").name().map_into(Target::Name),
-                    rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
-                })
+                WithPos::new(
+                    SequentialStatement::VariableAssignment(VariableAssignment {
+                        target: code.s1("foo(0)").name().map_into(Target::Name),
+                        rhs: AssignmentRightHand::Simple(code.s1("bar(1,2)").expr())
+                    }),
+                    code.pos_after("name: ")
+                )
             )
         );
     }
@@ -969,16 +1029,19 @@ mod tests {
             statement,
             with_label(
                 None,
-                SequentialStatement::VariableAssignment(VariableAssignment {
-                    target: code.s1("foo(0)").name().map_into(Target::Name),
-                    rhs: AssignmentRightHand::Conditional(Conditionals {
-                        conditionals: vec![Conditional {
-                            condition: code.s1("cond = true").expr(),
-                            item: code.s1("bar(1,2)").expr()
-                        }],
-                        else_item: None
-                    })
-                })
+                WithPos::new(
+                    SequentialStatement::VariableAssignment(VariableAssignment {
+                        target: code.s1("foo(0)").name().map_into(Target::Name),
+                        rhs: AssignmentRightHand::Conditional(Conditionals {
+                            conditionals: vec![Conditional {
+                                condition: code.s1("cond = true").expr(),
+                                item: code.s1("bar(1,2)").expr()
+                            }],
+                            else_item: None
+                        })
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -1010,10 +1073,13 @@ with x(0) + 1 select
             statement,
             with_label(
                 None,
-                SequentialStatement::VariableAssignment(VariableAssignment {
-                    target: code.s1("foo(0)").name().map_into(Target::Name),
-                    rhs: AssignmentRightHand::Selected(selection)
-                })
+                WithPos::new(
+                    SequentialStatement::VariableAssignment(VariableAssignment {
+                        target: code.s1("foo(0)").name().map_into(Target::Name),
+                        rhs: AssignmentRightHand::Selected(selection)
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -1025,22 +1091,25 @@ with x(0) + 1 select
             statement,
             with_label(
                 None,
-                SequentialStatement::VariableAssignment(VariableAssignment {
-                    target: code.s1("foo(0)").name().map_into(Target::Name),
-                    rhs: AssignmentRightHand::Conditional(Conditionals {
-                        conditionals: vec![
-                            Conditional {
-                                condition: code.s1("cond = true").expr(),
-                                item: code.s1("bar(1,2)").expr()
-                            },
-                            Conditional {
-                                condition: code.s1("cond2").expr(),
-                                item: code.s1("expr2").expr()
-                            }
-                        ],
-                        else_item: None
-                    })
-                })
+                WithPos::new(
+                    SequentialStatement::VariableAssignment(VariableAssignment {
+                        target: code.s1("foo(0)").name().map_into(Target::Name),
+                        rhs: AssignmentRightHand::Conditional(Conditionals {
+                            conditionals: vec![
+                                Conditional {
+                                    condition: code.s1("cond = true").expr(),
+                                    item: code.s1("bar(1,2)").expr()
+                                },
+                                Conditional {
+                                    condition: code.s1("cond2").expr(),
+                                    item: code.s1("expr2").expr()
+                                }
+                            ],
+                            else_item: None
+                        })
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -1051,16 +1120,19 @@ with x(0) + 1 select
             statement,
             with_label(
                 None,
-                SequentialStatement::VariableAssignment(VariableAssignment {
-                    target: code.s1("foo(0)").name().map_into(Target::Name),
-                    rhs: AssignmentRightHand::Conditional(Conditionals {
-                        conditionals: vec![Conditional {
-                            condition: code.s1("cond = true").expr(),
-                            item: code.s1("bar(1,2)").expr()
-                        }],
-                        else_item: Some(code.s1("expr2").expr())
-                    })
-                })
+                WithPos::new(
+                    SequentialStatement::VariableAssignment(VariableAssignment {
+                        target: code.s1("foo(0)").name().map_into(Target::Name),
+                        rhs: AssignmentRightHand::Conditional(Conditionals {
+                            conditionals: vec![Conditional {
+                                condition: code.s1("cond = true").expr(),
+                                item: code.s1("bar(1,2)").expr()
+                            }],
+                            else_item: Some(code.s1("expr2").expr())
+                        })
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -1081,11 +1153,14 @@ with x(0) + 1 select
             statement,
             with_label(
                 None,
-                SequentialStatement::SignalAssignment(SignalAssignment {
-                    target: code.s1("foo(0)").name().map_into(Target::Name),
-                    delay_mechanism: None,
-                    rhs: AssignmentRightHand::Conditional(conditionals)
-                })
+                WithPos::new(
+                    SequentialStatement::SignalAssignment(SignalAssignment {
+                        target: code.s1("foo(0)").name().map_into(Target::Name),
+                        delay_mechanism: None,
+                        rhs: AssignmentRightHand::Conditional(conditionals)
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -1106,11 +1181,14 @@ with x(0) + 1 select
             statement,
             with_label(
                 None,
-                SequentialStatement::SignalForceAssignment(SignalForceAssignment {
-                    target: code.s1("foo(0)").name().map_into(Target::Name),
-                    force_mode: None,
-                    rhs: AssignmentRightHand::Conditional(conditionals)
-                })
+                WithPos::new(
+                    SequentialStatement::SignalForceAssignment(SignalForceAssignment {
+                        target: code.s1("foo(0)").name().map_into(Target::Name),
+                        force_mode: None,
+                        rhs: AssignmentRightHand::Conditional(conditionals)
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -1142,11 +1220,14 @@ with x(0) + 1 select
             statement,
             with_label(
                 None,
-                SequentialStatement::SignalAssignment(SignalAssignment {
-                    target: code.s1("foo(0)").name().map_into(Target::Name),
-                    delay_mechanism: Some(DelayMechanism::Transport),
-                    rhs: AssignmentRightHand::Selected(selection)
-                })
+                WithPos::new(
+                    SequentialStatement::SignalAssignment(SignalAssignment {
+                        target: code.s1("foo(0)").name().map_into(Target::Name),
+                        delay_mechanism: Some(DelayMechanism::Transport),
+                        rhs: AssignmentRightHand::Selected(selection)
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -1178,11 +1259,14 @@ with x(0) + 1 select
             statement,
             with_label(
                 None,
-                SequentialStatement::SignalForceAssignment(SignalForceAssignment {
-                    target: code.s1("foo(0)").name().map_into(Target::Name),
-                    force_mode: None,
-                    rhs: AssignmentRightHand::Selected(selection)
-                })
+                WithPos::new(
+                    SequentialStatement::SignalForceAssignment(SignalForceAssignment {
+                        target: code.s1("foo(0)").name().map_into(Target::Name),
+                        force_mode: None,
+                        rhs: AssignmentRightHand::Selected(selection)
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -1195,7 +1279,10 @@ with x(0) + 1 select
             statement,
             with_label(
                 None,
-                SequentialStatement::ProcedureCall(code.s1("foo(1,2)").function_call())
+                WithPos::new(
+                    SequentialStatement::ProcedureCall(code.s1("foo(1,2)").function_call()),
+                    code.pos()
+                )
             )
         );
     }
@@ -1208,7 +1295,10 @@ with x(0) + 1 select
             statement,
             with_label(
                 None,
-                SequentialStatement::ProcedureCall(code.s1("foo").function_call())
+                WithPos::new(
+                    SequentialStatement::ProcedureCall(code.s1("foo").function_call()),
+                    code.pos()
+                )
             )
         );
     }
@@ -1220,26 +1310,28 @@ with x(0) + 1 select
 if cond = true then
    foo(1,2);
    x := 1;
-end if;
-",
+end if;",
         );
         assert_eq!(
             statement,
             with_label(
                 None,
-                SequentialStatement::If(IfStatement {
-                    conds: Conditionals {
-                        conditionals: vec![Conditional {
-                            condition: code.s1("cond = true").expr(),
-                            item: vec![
-                                code.s1("foo(1,2);").sequential_statement(),
-                                code.s1("x := 1;").sequential_statement()
-                            ]
-                        }],
-                        else_item: None
-                    },
-                    end_label_pos: None
-                })
+                WithPos::new(
+                    SequentialStatement::If(IfStatement {
+                        conds: Conditionals {
+                            conditionals: vec![Conditional {
+                                condition: code.s1("cond = true").expr(),
+                                item: vec![
+                                    code.s1("foo(1,2);").sequential_statement(),
+                                    code.s1("x := 1;").sequential_statement()
+                                ]
+                            }],
+                            else_item: None
+                        },
+                        end_label_pos: None
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -1250,26 +1342,28 @@ end if;
 mylabel: if cond = true then
    foo(1,2);
    x := 1;
-end if mylabel;
-",
+end if mylabel;",
         );
         assert_eq!(
             statement,
             with_label(
                 Some(code.s1("mylabel").ident()),
-                SequentialStatement::If(IfStatement {
-                    conds: Conditionals {
-                        conditionals: vec![Conditional {
-                            condition: code.s1("cond = true").expr(),
-                            item: vec![
-                                code.s1("foo(1,2);").sequential_statement(),
-                                code.s1("x := 1;").sequential_statement()
-                            ]
-                        }],
-                        else_item: None
-                    },
-                    end_label_pos: Some(code.s("mylabel", 2).pos())
-                })
+                WithPos::new(
+                    SequentialStatement::If(IfStatement {
+                        conds: Conditionals {
+                            conditionals: vec![Conditional {
+                                condition: code.s1("cond = true").expr(),
+                                item: vec![
+                                    code.s1("foo(1,2);").sequential_statement(),
+                                    code.s1("x := 1;").sequential_statement()
+                                ]
+                            }],
+                            else_item: None
+                        },
+                        end_label_pos: Some(code.s("mylabel", 2).pos())
+                    }),
+                    code.pos_after("mylabel: ")
+                )
             )
         );
     }
@@ -1282,23 +1376,25 @@ if cond = true then
    foo(1,2);
 else
    x := 1;
-end if;
-",
+end if;",
         );
         assert_eq!(
             statement,
             with_label(
                 None,
-                SequentialStatement::If(IfStatement {
-                    conds: Conditionals {
-                        conditionals: vec![Conditional {
-                            condition: code.s1("cond = true").expr(),
-                            item: vec![code.s1("foo(1,2);").sequential_statement()]
-                        }],
-                        else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
-                    },
-                    end_label_pos: None
-                })
+                WithPos::new(
+                    SequentialStatement::If(IfStatement {
+                        conds: Conditionals {
+                            conditionals: vec![Conditional {
+                                condition: code.s1("cond = true").expr(),
+                                item: vec![code.s1("foo(1,2);").sequential_statement()]
+                            }],
+                            else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                        },
+                        end_label_pos: None
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -1311,23 +1407,25 @@ mylabel: if cond = true then
    foo(1,2);
 else
    x := 1;
-end if mylabel;
-",
+end if mylabel;",
         );
         assert_eq!(
             statement,
             with_label(
                 Some(code.s1("mylabel").ident()),
-                SequentialStatement::If(IfStatement {
-                    conds: Conditionals {
-                        conditionals: vec![Conditional {
-                            condition: code.s1("cond = true").expr(),
-                            item: vec![code.s1("foo(1,2);").sequential_statement()]
-                        }],
-                        else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
-                    },
-                    end_label_pos: Some(code.s("mylabel", 2).pos())
-                })
+                WithPos::new(
+                    SequentialStatement::If(IfStatement {
+                        conds: Conditionals {
+                            conditionals: vec![Conditional {
+                                condition: code.s1("cond = true").expr(),
+                                item: vec![code.s1("foo(1,2);").sequential_statement()]
+                            }],
+                            else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                        },
+                        end_label_pos: Some(code.s("mylabel", 2).pos())
+                    }),
+                    code.pos_after("mylabel: ")
+                )
             )
         );
     }
@@ -1341,29 +1439,31 @@ elsif cond2 = false then
    y := 2;
 else
    x := 1;
-end if;
-",
+end if;",
         );
         assert_eq!(
             statement,
             with_label(
                 None,
-                SequentialStatement::If(IfStatement {
-                    conds: Conditionals {
-                        conditionals: vec![
-                            Conditional {
-                                condition: code.s1("cond = true").expr(),
-                                item: vec![code.s1("foo(1,2);").sequential_statement()]
-                            },
-                            Conditional {
-                                condition: code.s1("cond2 = false").expr(),
-                                item: vec![code.s1("y := 2;").sequential_statement()]
-                            }
-                        ],
-                        else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
-                    },
-                    end_label_pos: None,
-                })
+                WithPos::new(
+                    SequentialStatement::If(IfStatement {
+                        conds: Conditionals {
+                            conditionals: vec![
+                                Conditional {
+                                    condition: code.s1("cond = true").expr(),
+                                    item: vec![code.s1("foo(1,2);").sequential_statement()]
+                                },
+                                Conditional {
+                                    condition: code.s1("cond2 = false").expr(),
+                                    item: vec![code.s1("y := 2;").sequential_statement()]
+                                }
+                            ],
+                            else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                        },
+                        end_label_pos: None,
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -1377,29 +1477,31 @@ elsif cond2 = false then
    y := 2;
 else
    x := 1;
-end if mylabel;
-",
+end if mylabel;",
         );
         assert_eq!(
             statement,
             with_label(
                 Some(code.s1("mylabel").ident()),
-                SequentialStatement::If(IfStatement {
-                    conds: Conditionals {
-                        conditionals: vec![
-                            Conditional {
-                                condition: code.s1("cond = true").expr(),
-                                item: vec![code.s1("foo(1,2);").sequential_statement()]
-                            },
-                            Conditional {
-                                condition: code.s1("cond2 = false").expr(),
-                                item: vec![code.s1("y := 2;").sequential_statement()]
-                            }
-                        ],
-                        else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
-                    },
-                    end_label_pos: Some(code.s("mylabel", 2).pos())
-                })
+                WithPos::new(
+                    SequentialStatement::If(IfStatement {
+                        conds: Conditionals {
+                            conditionals: vec![
+                                Conditional {
+                                    condition: code.s1("cond = true").expr(),
+                                    item: vec![code.s1("foo(1,2);").sequential_statement()]
+                                },
+                                Conditional {
+                                    condition: code.s1("cond2 = false").expr(),
+                                    item: vec![code.s1("y := 2;").sequential_statement()]
+                                }
+                            ],
+                            else_item: Some(vec![code.s1("x := 1;").sequential_statement()])
+                        },
+                        end_label_pos: Some(code.s("mylabel", 2).pos())
+                    }),
+                    code.pos_after("mylabel: ")
+                )
             )
         );
     }
@@ -1414,34 +1516,36 @@ case foo(1) is
   when others =>
     stmt3;
     stmt4;
-end case;
-",
+end case;",
         );
         assert_eq!(
             statement,
             with_label(
                 None,
-                SequentialStatement::Case(CaseStatement {
-                    is_matching: false,
-                    expression: code.s1("foo(1)").expr(),
-                    alternatives: vec![
-                        Alternative {
-                            choices: code.s1("1 | 2").choices(),
-                            item: vec![
-                                code.s1("stmt1;").sequential_statement(),
-                                code.s1("stmt2;").sequential_statement()
-                            ]
-                        },
-                        Alternative {
-                            choices: code.s1("others").choices(),
-                            item: vec![
-                                code.s1("stmt3;").sequential_statement(),
-                                code.s1("stmt4;").sequential_statement(),
-                            ]
-                        }
-                    ],
-                    end_label_pos: None
-                })
+                WithPos::new(
+                    SequentialStatement::Case(CaseStatement {
+                        is_matching: false,
+                        expression: code.s1("foo(1)").expr(),
+                        alternatives: vec![
+                            Alternative {
+                                choices: code.s1("1 | 2").choices(),
+                                item: vec![
+                                    code.s1("stmt1;").sequential_statement(),
+                                    code.s1("stmt2;").sequential_statement()
+                                ]
+                            },
+                            Alternative {
+                                choices: code.s1("others").choices(),
+                                item: vec![
+                                    code.s1("stmt3;").sequential_statement(),
+                                    code.s1("stmt4;").sequential_statement(),
+                                ]
+                            }
+                        ],
+                        end_label_pos: None
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -1452,22 +1556,24 @@ end case;
             "\
 case? foo(1) is
   when others => null;
-end case?;
-",
+end case?;",
         );
         assert_eq!(
             statement,
             with_label(
                 None,
-                SequentialStatement::Case(CaseStatement {
-                    is_matching: true,
-                    expression: code.s1("foo(1)").expr(),
-                    alternatives: vec![Alternative {
-                        choices: code.s1("others").choices(),
-                        item: vec![code.s1("null;").sequential_statement(),]
-                    }],
-                    end_label_pos: None,
-                })
+                WithPos::new(
+                    SequentialStatement::Case(CaseStatement {
+                        is_matching: true,
+                        expression: code.s1("foo(1)").expr(),
+                        alternatives: vec![Alternative {
+                            choices: code.s1("others").choices(),
+                            item: vec![code.s1("null;").sequential_statement(),]
+                        }],
+                        end_label_pos: None,
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -1479,21 +1585,23 @@ end case?;
 lbl: loop
   stmt1;
   stmt2;
-end loop lbl;
-",
+end loop lbl;",
         );
         assert_eq!(
             statement,
             with_label(
                 Some(code.s1("lbl").ident()),
-                SequentialStatement::Loop(LoopStatement {
-                    iteration_scheme: None,
-                    statements: vec![
-                        code.s1("stmt1;").sequential_statement(),
-                        code.s1("stmt2;").sequential_statement()
-                    ],
-                    end_label_pos: Some(code.s("lbl", 2).pos()),
-                })
+                WithPos::new(
+                    SequentialStatement::Loop(LoopStatement {
+                        iteration_scheme: None,
+                        statements: vec![
+                            code.s1("stmt1;").sequential_statement(),
+                            code.s1("stmt2;").sequential_statement()
+                        ],
+                        end_label_pos: Some(code.s("lbl", 2).pos()),
+                    }),
+                    code.pos_after("lbl: ")
+                )
             )
         );
     }
@@ -1505,21 +1613,25 @@ end loop lbl;
 while foo = true loop
   stmt1;
   stmt2;
-end loop;
-",
+end loop;",
         );
         assert_eq!(
             statement,
             with_label(
                 None,
-                SequentialStatement::Loop(LoopStatement {
-                    iteration_scheme: Some(IterationScheme::While(code.s1("foo = true").expr())),
-                    statements: vec![
-                        code.s1("stmt1;").sequential_statement(),
-                        code.s1("stmt2;").sequential_statement()
-                    ],
-                    end_label_pos: None,
-                })
+                WithPos::new(
+                    SequentialStatement::Loop(LoopStatement {
+                        iteration_scheme: Some(IterationScheme::While(
+                            code.s1("foo = true").expr()
+                        )),
+                        statements: vec![
+                            code.s1("stmt1;").sequential_statement(),
+                            code.s1("stmt2;").sequential_statement()
+                        ],
+                        end_label_pos: None,
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -1530,24 +1642,26 @@ end loop;
 for idx in 0 to 3 loop
   stmt1;
   stmt2;
-end loop;
-",
+end loop;",
         );
         assert_eq!(
             statement,
             with_label(
                 None,
-                SequentialStatement::Loop(LoopStatement {
-                    iteration_scheme: Some(IterationScheme::For(
-                        code.s1("idx").decl_ident(),
-                        code.s1("0 to 3").discrete_range()
-                    )),
-                    statements: vec![
-                        code.s1("stmt1;").sequential_statement(),
-                        code.s1("stmt2;").sequential_statement()
-                    ],
-                    end_label_pos: None,
-                })
+                WithPos::new(
+                    SequentialStatement::Loop(LoopStatement {
+                        iteration_scheme: Some(IterationScheme::For(
+                            code.s1("idx").decl_ident(),
+                            code.s1("0 to 3").discrete_range()
+                        )),
+                        statements: vec![
+                            code.s1("stmt1;").sequential_statement(),
+                            code.s1("stmt2;").sequential_statement()
+                        ],
+                        end_label_pos: None,
+                    }),
+                    code.pos()
+                )
             )
         );
     }
@@ -1559,13 +1673,13 @@ end loop;
             statement,
             with_label(
                 None,
-                SequentialStatement::Next(WithPos::new(
-                    NextStatement {
+                WithPos::new(
+                    SequentialStatement::Next(NextStatement {
                         loop_label: None,
                         condition: None,
-                    },
+                    }),
                     code.pos()
-                ),)
+                )
             )
         );
     }
@@ -1577,13 +1691,13 @@ end loop;
             statement,
             with_label(
                 None,
-                SequentialStatement::Next(WithPos::new(
-                    NextStatement {
+                WithPos::new(
+                    SequentialStatement::Next(NextStatement {
                         loop_label: Some(code.s1("foo").ident().into_ref()),
                         condition: None,
-                    },
+                    }),
                     code.pos()
-                ))
+                )
             )
         );
     }
@@ -1595,13 +1709,13 @@ end loop;
             statement,
             with_label(
                 None,
-                SequentialStatement::Next(WithPos::new(
-                    NextStatement {
+                WithPos::new(
+                    SequentialStatement::Next(NextStatement {
                         loop_label: None,
                         condition: Some(code.s1("condition").expr()),
-                    },
+                    }),
                     code.pos()
-                ))
+                )
             )
         );
     }
@@ -1613,13 +1727,13 @@ end loop;
             statement,
             with_label(
                 None,
-                SequentialStatement::Next(WithPos::new(
-                    NextStatement {
+                WithPos::new(
+                    SequentialStatement::Next(NextStatement {
                         loop_label: Some(code.s1("foo").ident().into_ref()),
                         condition: Some(code.s1("condition").expr()),
-                    },
+                    }),
                     code.pos()
-                ))
+                )
             )
         );
     }
@@ -1631,13 +1745,13 @@ end loop;
             statement,
             with_label(
                 None,
-                SequentialStatement::Exit(WithPos::new(
-                    ExitStatement {
+                WithPos::new(
+                    SequentialStatement::Exit(ExitStatement {
                         loop_label: None,
                         condition: None,
-                    },
+                    }),
                     code.pos()
-                ))
+                )
             )
         );
     }
@@ -1649,13 +1763,13 @@ end loop;
             statement,
             with_label(
                 None,
-                SequentialStatement::Exit(WithPos::new(
-                    ExitStatement {
+                WithPos::new(
+                    SequentialStatement::Exit(ExitStatement {
                         loop_label: Some(code.s1("foo").ident().into_ref()),
                         condition: None,
-                    },
+                    }),
                     code.pos()
-                ))
+                )
             )
         );
     }
@@ -1667,13 +1781,13 @@ end loop;
             statement,
             with_label(
                 None,
-                SequentialStatement::Exit(WithPos::new(
-                    ExitStatement {
+                WithPos::new(
+                    SequentialStatement::Exit(ExitStatement {
                         loop_label: None,
                         condition: Some(code.s1("condition").expr()),
-                    },
+                    }),
                     code.pos()
-                ))
+                )
             )
         );
     }
@@ -1685,13 +1799,13 @@ end loop;
             statement,
             with_label(
                 None,
-                SequentialStatement::Exit(WithPos::new(
-                    ExitStatement {
+                WithPos::new(
+                    SequentialStatement::Exit(ExitStatement {
                         loop_label: Some(code.s1("foo").ident().into_ref()),
                         condition: Some(code.s1("condition").expr()),
-                    },
+                    }),
                     code.pos()
-                ))
+                )
             )
         );
     }
@@ -1705,10 +1819,10 @@ end loop;
             statement,
             with_label(
                 None,
-                SequentialStatement::Return(WithPos::new(
-                    ReturnStatement { expression: None },
+                WithPos::new(
+                    SequentialStatement::Return(ReturnStatement { expression: None }),
                     code.pos()
-                ))
+                )
             )
         );
     }
@@ -1721,19 +1835,22 @@ end loop;
             statement,
             with_label(
                 None,
-                SequentialStatement::Return(WithPos::new(
-                    ReturnStatement {
+                WithPos::new(
+                    SequentialStatement::Return(ReturnStatement {
                         expression: Some(code.s1("1 + 2").expr()),
-                    },
+                    }),
                     code.pos()
-                ))
+                )
             )
         );
     }
 
     #[test]
     fn parse_null_statement() {
-        let (_, statement) = parse("null;");
-        assert_eq!(statement, with_label(None, SequentialStatement::Null));
+        let (code, statement) = parse("null;");
+        assert_eq!(
+            statement,
+            with_label(None, WithPos::new(SequentialStatement::Null, code.pos()))
+        );
     }
 }
