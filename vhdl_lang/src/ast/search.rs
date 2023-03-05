@@ -30,15 +30,11 @@ pub use SearchResult::*;
 pub use SearchState::*;
 
 impl SearchState {
-    fn or_else(self, nested_fun: impl FnOnce() -> SearchResult) -> SearchResult {
+    fn or_not_found(self) -> SearchResult {
         match self {
             Finished(result) => result,
-            NotFinished => nested_fun(),
+            NotFinished => NotFound,
         }
-    }
-
-    fn or_not_found(self) -> SearchResult {
-        self.or_else(|| NotFound)
     }
 }
 
@@ -1026,9 +1022,8 @@ impl Search for Declaration {
                 }
             }
             Declaration::Use(use_clause) => {
-                return_if_found!(searcher
-                    .search_with_pos(&use_clause.pos)
-                    .or_else(|| use_clause.item.name_list.search(searcher)));
+                return_if_found!(searcher.search_with_pos(&use_clause.pos).or_not_found());
+                return_if_found!(use_clause.item.name_list.search(searcher));
             }
             Declaration::Component(component) => {
                 return_if_found!(searcher
