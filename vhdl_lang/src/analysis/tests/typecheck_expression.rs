@@ -194,6 +194,7 @@ constant z: bit_vector := 8SX\"0FF\";
             Diagnostic::error(code.s1("D\"1AFFE\""), "Illegal digit 'A' for base 10"),
             Diagnostic::error(code.s1("D\"28446744073709551615\""), "Integer too large for 64-bit unsigned"),
             Diagnostic::error(code.s1("8SX\"0FF\""), "Truncating to 8 bit would loose information"),
+            Diagnostic::hint(code.s1("8SX\"0FF\""), "Expanded value is 000011111111"),
         ],
     )
 }

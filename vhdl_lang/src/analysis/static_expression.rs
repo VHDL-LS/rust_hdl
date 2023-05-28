@@ -1,5 +1,4 @@
 use std::iter;
-use assert_matches::assert_matches;
 use itertools::{enumerate, Itertools};
 use crate::ast::{BaseSpecifier, BitString};
 use crate::{Latin1String, SrcPos};
@@ -225,135 +224,142 @@ fn bit_string_to_string(bit_string: &BitString) -> Result<Latin1String, BitStrin
     }
 }
 
-impl BitString {
-    fn new(length: Option<u32>, base: BaseSpecifier, value: &str) -> BitString {
-        BitString {
-            length,
-            base,
-            value: Latin1String::from_utf8_unchecked(value),
+#[cfg(test)]
+mod test_mod {
+    use crate::analysis::static_expression::{bit_string_to_string, BitStringConversionError};
+    use crate::ast::{BaseSpecifier, BitString};
+    use crate::Latin1String;
+
+    impl BitString {
+        fn new(length: Option<u32>, base: BaseSpecifier, value: &str) -> BitString {
+            BitString {
+                length,
+                base,
+                value: Latin1String::from_utf8_unchecked(value),
+            }
         }
     }
-}
 
-#[test]
-fn an_empty_bit_string_converts_to_an_empty_string() {
-    let all_base_specifiers = [
-        BaseSpecifier::O,
-        BaseSpecifier::UO,
-        BaseSpecifier::SO,
-        BaseSpecifier::X,
-        BaseSpecifier::UX,
-        BaseSpecifier::SX,
-        BaseSpecifier::B,
-        BaseSpecifier::UB,
-        BaseSpecifier::SB,
-        BaseSpecifier::D
-    ];
-    for base_specifier in all_base_specifiers {
-        assert_eq!(
-            bit_string_to_string(&BitString::new(None, base_specifier, "")).unwrap(),
-            Latin1String::empty()
-        )
+    #[test]
+    fn an_empty_bit_string_converts_to_an_empty_string() {
+        let all_base_specifiers = [
+            BaseSpecifier::O,
+            BaseSpecifier::UO,
+            BaseSpecifier::SO,
+            BaseSpecifier::X,
+            BaseSpecifier::UX,
+            BaseSpecifier::SX,
+            BaseSpecifier::B,
+            BaseSpecifier::UB,
+            BaseSpecifier::SB,
+            BaseSpecifier::D
+        ];
+        for base_specifier in all_base_specifiers {
+            assert_eq!(
+                bit_string_to_string(&BitString::new(None, base_specifier, "")).unwrap(),
+                Latin1String::empty()
+            )
+        }
     }
-}
 
-#[test]
-fn test_illegal_decimal_character() {
-    assert_eq!(
-        bit_string_to_string(&BitString::new(None, BaseSpecifier::D, "12AFFE")),
-        Err(BitStringConversionError::IllegalDecimalCharacter(2))
-    );
-
-    assert_eq!(
-        bit_string_to_string(&BitString::new(None, BaseSpecifier::D, "?")),
-        Err(BitStringConversionError::IllegalDecimalCharacter(0))
-    );
-
-    assert_eq!(
-        bit_string_to_string(&BitString::new(None, BaseSpecifier::D, "78234+")),
-        Err(BitStringConversionError::IllegalDecimalCharacter(5))
-    );
-}
-
-#[test]
-fn test_decimal_conversion() {
-    let test_cases = [
-        (BitString::new(None, BaseSpecifier::D, ""), ""),
-        (BitString::new(None, BaseSpecifier::D, "0"), "0"),
-        (BitString::new(None, BaseSpecifier::D, "00"), "0"),
-        (BitString::new(None, BaseSpecifier::D, "000"), "0"),
-        (BitString::new(None, BaseSpecifier::D, "1"), "1"),
-        (BitString::new(None, BaseSpecifier::D, "01"), "1"),
-        (BitString::new(None, BaseSpecifier::D, "10"), "1010"),
-        (BitString::new(None, BaseSpecifier::D, "164824"), "101000001111011000"),
-    ];
-
-    for (bit_string, result_string) in test_cases {
+    #[test]
+    fn test_illegal_decimal_character() {
         assert_eq!(
-            bit_string_to_string(&bit_string).unwrap(),
-            Latin1String::from_utf8_unchecked(result_string)
-        )
-    }
-}
+            bit_string_to_string(&BitString::new(None, BaseSpecifier::D, "12AFFE")),
+            Err(BitStringConversionError::IllegalDecimalCharacter(2))
+        );
 
-#[test]
-fn test_illegal_truncate_position() {
-    assert_eq!(
-        bit_string_to_string(&BitString::new(Some(8), BaseSpecifier::SX, "0FF")),
-        Err(BitStringConversionError::IllegalTruncate(7, Latin1String::new(b"000011111111")))
-    );
+        assert_eq!(
+            bit_string_to_string(&BitString::new(None, BaseSpecifier::D, "?")),
+            Err(BitStringConversionError::IllegalDecimalCharacter(0))
+        );
 
-    assert_eq!(
-        bit_string_to_string(&BitString::new(Some(8), BaseSpecifier::SX, "1FF")),
-        Err(BitStringConversionError::IllegalTruncate(8, Latin1String::new(b"000111111111")))
-    );
-
-    assert_eq!(
-        bit_string_to_string(&BitString::new(Some(8), BaseSpecifier::SX, "3FF")),
-        Err(BitStringConversionError::IllegalTruncate(9, Latin1String::new(b"001111111111")))
-    );
-}
-
-// Examples defined in 15.8
-#[test]
-fn spec_examples() {
-    let test_cases = [
-        (BitString::new(None, BaseSpecifier::B, "1111_1111_1111"), "111111111111"),
-        (BitString::new(None, BaseSpecifier::X, "FFF"), "111111111111"),
-        (BitString::new(None, BaseSpecifier::O, "777"), "111111111"),
-        (BitString::new(None, BaseSpecifier::X, "777"), "011101110111"),
-        (BitString::new(None, BaseSpecifier::B, "XXXX_01LH"), "XXXX01LH"),
-        (BitString::new(None, BaseSpecifier::UO, "27"), "010111"),
-        // (BitString::new(None, BaseSpecifier::UO, "2C"), "011CCC"), // TODO: is this an error in the spec?
-        (BitString::new(None, BaseSpecifier::SX, "3W"), "0011WWWW"),
-        (BitString::new(None, BaseSpecifier::D, "35"), "100011"),
-        (BitString::new(Some(12), BaseSpecifier::UB, "X1"), "0000000000X1"),
-        (BitString::new(Some(12), BaseSpecifier::SB, "X1"), "XXXXXXXXXXX1"),
-        (BitString::new(Some(12), BaseSpecifier::UX, "F-"), "00001111----"),
-        (BitString::new(Some(12), BaseSpecifier::SX, "F-"), "11111111----"),
-        (BitString::new(Some(12), BaseSpecifier::UX, "000WWW"), "WWWWWWWWWWWW"),
-        (BitString::new(Some(12), BaseSpecifier::SX, "FFFC00"), "110000000000"),
-    ];
-
-    let error_cases = [
-        BitString::new(Some(8), BaseSpecifier::D, "511"),
-        BitString::new(Some(8), BaseSpecifier::UO, "477"),
-        BitString::new(Some(8), BaseSpecifier::SX, "0FF"),
-        BitString::new(Some(8), BaseSpecifier::SX, "FXX"),
-    ];
-
-    for bit_string in error_cases {
-        assert_matches!(
-            bit_string_to_string(&bit_string),
-            Err(BitStringConversionError::IllegalTruncate(_, _))
+        assert_eq!(
+            bit_string_to_string(&BitString::new(None, BaseSpecifier::D, "78234+")),
+            Err(BitStringConversionError::IllegalDecimalCharacter(5))
         );
     }
 
-    for (bit_string, result_string) in test_cases {
+    #[test]
+    fn test_decimal_conversion() {
+        let test_cases = [
+            (BitString::new(None, BaseSpecifier::D, ""), ""),
+            (BitString::new(None, BaseSpecifier::D, "0"), "0"),
+            (BitString::new(None, BaseSpecifier::D, "00"), "0"),
+            (BitString::new(None, BaseSpecifier::D, "000"), "0"),
+            (BitString::new(None, BaseSpecifier::D, "1"), "1"),
+            (BitString::new(None, BaseSpecifier::D, "01"), "1"),
+            (BitString::new(None, BaseSpecifier::D, "10"), "1010"),
+            (BitString::new(None, BaseSpecifier::D, "164824"), "101000001111011000"),
+        ];
+
+        for (bit_string, result_string) in test_cases {
+            assert_eq!(
+                bit_string_to_string(&bit_string).unwrap(),
+                Latin1String::from_utf8_unchecked(result_string)
+            )
+        }
+    }
+
+    #[test]
+    fn test_illegal_truncate_position() {
         assert_eq!(
-            bit_string_to_string(&bit_string).unwrap(),
-            Latin1String::from_utf8_unchecked(result_string)
-        )
+            bit_string_to_string(&BitString::new(Some(8), BaseSpecifier::SX, "0FF")),
+            Err(BitStringConversionError::IllegalTruncate(7, Latin1String::new(b"000011111111")))
+        );
+
+        assert_eq!(
+            bit_string_to_string(&BitString::new(Some(8), BaseSpecifier::SX, "1FF")),
+            Err(BitStringConversionError::IllegalTruncate(8, Latin1String::new(b"000111111111")))
+        );
+
+        assert_eq!(
+            bit_string_to_string(&BitString::new(Some(8), BaseSpecifier::SX, "3FF")),
+            Err(BitStringConversionError::IllegalTruncate(9, Latin1String::new(b"001111111111")))
+        );
+    }
+
+    // Examples defined in 15.8
+    #[test]
+    fn spec_examples() {
+        let test_cases = [
+            (BitString::new(None, BaseSpecifier::B, "1111_1111_1111"), "111111111111"),
+            (BitString::new(None, BaseSpecifier::X, "FFF"), "111111111111"),
+            (BitString::new(None, BaseSpecifier::O, "777"), "111111111"),
+            (BitString::new(None, BaseSpecifier::X, "777"), "011101110111"),
+            (BitString::new(None, BaseSpecifier::B, "XXXX_01LH"), "XXXX01LH"),
+            (BitString::new(None, BaseSpecifier::UO, "27"), "010111"),
+            // (BitString::new(None, BaseSpecifier::UO, "2C"), "011CCC"), // TODO: is this an error in the spec?
+            (BitString::new(None, BaseSpecifier::SX, "3W"), "0011WWWW"),
+            (BitString::new(None, BaseSpecifier::D, "35"), "100011"),
+            (BitString::new(Some(12), BaseSpecifier::UB, "X1"), "0000000000X1"),
+            (BitString::new(Some(12), BaseSpecifier::SB, "X1"), "XXXXXXXXXXX1"),
+            (BitString::new(Some(12), BaseSpecifier::UX, "F-"), "00001111----"),
+            (BitString::new(Some(12), BaseSpecifier::SX, "F-"), "11111111----"),
+            (BitString::new(Some(12), BaseSpecifier::UX, "000WWW"), "WWWWWWWWWWWW"),
+            (BitString::new(Some(12), BaseSpecifier::SX, "FFFC00"), "110000000000"),
+        ];
+
+        let error_cases = [
+            BitString::new(Some(8), BaseSpecifier::D, "511"),
+            BitString::new(Some(8), BaseSpecifier::UO, "477"),
+            BitString::new(Some(8), BaseSpecifier::SX, "0FF"),
+            BitString::new(Some(8), BaseSpecifier::SX, "FXX"),
+        ];
+
+        for bit_string in error_cases {
+            assert_eq!(
+                bit_string_to_string(&bit_string).err().is_some(),
+                true
+            );
+        }
+
+        for (bit_string, result_string) in test_cases {
+            assert_eq!(
+                bit_string_to_string(&bit_string).unwrap(),
+                Latin1String::from_utf8_unchecked(result_string)
+            )
+        }
     }
 }
 
@@ -363,9 +369,9 @@ impl<'a> AnalyzeContext<'a> {
         pos: &SrcPos,
         bit_string: &BitString,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) {
+    ) -> Result<Latin1String, ()> {
         match bit_string_to_string(bit_string) {
-            Ok(_) => {}
+            Ok(result) => Ok(result),
             Err(err) => {
                 match err {
                     BitStringConversionError::IllegalDecimalCharacter(rel_pos) =>
@@ -375,13 +381,21 @@ impl<'a> AnalyzeContext<'a> {
                         )),
                     BitStringConversionError::IntegerToLarge =>
                         diagnostics.error(pos, "Integer too large for 64-bit unsigned"),
-                    BitStringConversionError::IllegalTruncate(_, _) => {
+                    BitStringConversionError::IllegalTruncate(_, expanded_string) => {
                         diagnostics.error(pos, format!(
                             "Truncating to {} bit would loose information",
                             bit_string.length.unwrap()), // Safe as this error can only happen when there is a length
                         );
-                    },
+                        diagnostics.hint(
+                            pos,
+                            format!(
+                                "Expanded value is {}",
+                                expanded_string
+                            ),
+                        );
+                    }
                 }
+                Err(())
             }
         }
     }
