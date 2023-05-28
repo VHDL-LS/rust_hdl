@@ -107,32 +107,19 @@ impl<'a> AnalyzeContext<'a> {
             Literal::BitString(bitstring) => {
                 if let Ok(string) =  self.analyze_bit_string(pos, bitstring, diagnostics) {
                     if let Some((elem_type, literals)) = as_single_index_enum_array(target_base) {
-                        let needs_1 = string.chars().any(|c| *c != b'0');
-                        let c0 = Designator::Character(b'0');
-                        let c1 = Designator::Character(b'1');
-
-                        if !literals.contains(&c0) {
-                            diagnostics.push(Diagnostic::error(
-                                pos,
-                                format!(
-                                    "element {} of {} does not define character {}",
-                                    elem_type.describe(),
-                                    target_type.describe(),
-                                    c0
-                                ),
-                            ))
-                        }
-
-                        if needs_1 && !literals.contains(&c1) {
-                            diagnostics.push(Diagnostic::error(
-                                pos,
-                                format!(
-                                    "element {} of {} does not define character {}",
-                                    elem_type.describe(),
-                                    target_type.describe(),
-                                    c1
-                                ),
-                            ))
+                        for chr in string.chars() {
+                            let chr = Designator::Character(*chr);
+                            if !literals.contains(&chr) {
+                                diagnostics.push(Diagnostic::error(
+                                    pos,
+                                    format!(
+                                        "{} does not define character {}",
+                                        elem_type.describe(),
+                                        chr
+                                    ),
+                                ));
+                                break;
+                            }
                         }
                     } else {
                         diagnostics.push(Diagnostic::error(

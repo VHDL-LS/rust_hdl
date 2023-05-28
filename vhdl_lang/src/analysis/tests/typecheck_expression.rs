@@ -181,9 +181,11 @@ fn test_illegal_bit_strings() {
     let mut builder = LibraryBuilder::new();
     let code = builder.in_declarative_region(
         "
-constant x: bit_vector := D\"1AFFE\";
-constant y: bit_vector := D\"28446744073709551615\";
-constant z: bit_vector := 8SX\"0FF\";
+constant a: bit_vector := D\"1AFFE\";
+constant b: bit_vector := D\"28446744073709551615\";
+constant c: bit_vector := 8SX\"0FF\";
+constant d: bit_vector := X\"G\";
+constant e: bit_vector := X\"F\"; -- this is Ok
         ",
     );
 
@@ -195,6 +197,7 @@ constant z: bit_vector := 8SX\"0FF\";
             Diagnostic::error(code.s1("D\"28446744073709551615\""), "Integer too large for 64-bit unsigned"),
             Diagnostic::error(code.s1("8SX\"0FF\""), "Truncating to 8 bit would loose information"),
             Diagnostic::hint(code.s1("8SX\"0FF\""), "Expanded value is 000011111111"),
+            Diagnostic::error(code.s1("X\"G\""), "type 'BIT' does not define character 'G'"),
         ],
     )
 }
