@@ -222,14 +222,6 @@ impl Position {
     pub fn range_to(self, end: Position) -> Range {
         Range { start: self, end }
     }
-
-    /// Shift the position `count` values to the right on the same line
-    pub fn shifted_same_line(&self, count: u32) -> Position {
-        return Position {
-            line: self.line,
-            character: self.character + count,
-        }
-    }
 }
 
 /// A lexical range in a source.
@@ -244,14 +236,6 @@ pub struct Range {
 impl Range {
     pub fn new(start: Position, end: Position) -> Range {
         Range { start, end }
-    }
-
-    pub fn shifted_same_line(&self, count: u32) -> Range {
-        assert_eq!(self.start.line, self.end.line);
-        Range {
-            start: self.start.shifted_same_line(count),
-            end: self.end.shifted_same_line(count),
-        }
     }
 }
 
@@ -552,13 +536,6 @@ impl SrcPos {
 
     pub fn combine(&self, other: &dyn AsRef<Self>) -> Self {
         self.clone().combine_into(other)
-    }
-
-    pub fn shifted_on_same_line(&self, count: u32) -> SrcPos {
-        return SrcPos {
-            source: self.source.clone(),
-            range: self.range.shifted_same_line(count)
-        }
     }
 }
 
