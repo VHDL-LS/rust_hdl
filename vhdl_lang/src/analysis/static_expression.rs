@@ -2,8 +2,100 @@ use crate::analysis::analyze::AnalyzeContext;
 use crate::ast::{BaseSpecifier, BitString};
 use crate::data::DiagnosticHandler;
 use crate::{Latin1String, SrcPos};
-use itertools::{enumerate, Itertools};
+use itertools::Itertools;
 use std::iter;
+
+macro_rules! byte_is_odd_decimal {
+    ($byte: expr) => {
+        ($byte - b'0') % 2 == 1
+    };
+}
+
+/// Converts a decimal string (i.e. "123") to a binary string (i.e. "1111011").
+///
+/// When there are illegal characters in the string (i.e. non decimal characters),
+/// returns an `Err` with the position of the first character.
+///
+/// # Special cases
+/// - For an empty string, return a single string containing '0'
+/// - For a string with zeros, return a single string containing '0'
+/// - For a string that is padded with zeros, return a string without the padding. If the
+///   String without the padding is empty, rule 1 applies.
+fn decimal_str_to_binary_str(
+    value: &Latin1String,
+) -> Result<Latin1String, BitStringConversionError> {
+    /// Divides `value` by two where `value` is a vector of u8's representing decimals.
+    /// Returns an empty string when `value` is zero
+    fn str_divide_by_2(value: Vec<u8>) -> Vec<u8> {
+        let mut new_s: Vec<u8> = Vec::new();
+        let mut add_next = 0;
+
+        for ch in value {
+            let new_digit = (ch + b'0') / 2 + add_next;
+            new_s.push(new_digit);
+            add_next = if byte_is_odd_decimal!(ch) { 5 } else { 0 };
+        }
+
+        // remove the first element if it's '0'
+        if new_s.first() == Some(&b'0') {
+            new_s.drain(..1);
+        }
+
+        return new_s;
+    }
+
+    if let Some(idx) = value.bytes.iter().position(|b| *b < b'0' || *b > b'9') {
+        return Err(BitStringConversionError::IllegalDecimalCharacter(idx));
+    }
+
+    let mut num: Vec<u8> = value
+        .bytes
+        .clone()
+        .into_iter()
+        .skip_while(|el| *el == b'0')
+        .collect();
+
+    if num.is_empty() {
+        return Ok(Latin1String::new(b"0"));
+    }
+
+    let mut stack: Vec<u8> = Vec::new();
+
+    while !num.is_empty() {
+        if byte_is_odd_decimal!(*num.last().unwrap()) {
+            stack.push(b'1');
+        } else {
+            stack.push(b'0');
+        }
+        num = str_divide_by_2(num);
+    }
+    stack.reverse();
+
+    return Ok(Latin1String::from_vec(stack));
+}
+
+#[test]
+fn test_decimal_to_binary() {
+    let test_cases = [
+        ("", "0"),
+        ("0", "0"),
+        ("000", "0"),
+        ("001", "1"),
+        ("1", "1"),
+        ("12345", "11000000111001"),
+        (
+            "123456781234567812345678",
+            "11010001001001001101100000011011011101100011101100101101101011110111101001110",
+        ),
+    ];
+
+    for (dec, bin) in test_cases {
+        assert_eq!(
+            decimal_str_to_binary_str(&Latin1String::from_utf8_unchecked(dec)),
+            Ok(Latin1String::from_utf8_unchecked(bin))
+        );
+    }
+}
 
 impl BaseSpecifier {
     /// Returns whether this base specifier represents a signed value
@@ -89,8 +181,6 @@ enum BitStringConversionError {
     /// The `usize` argument represent the position for the first illegal character in the
     /// bit_string's `value` string, (i.e. 2 for the example above)
     IllegalDecimalCharacter(usize),
-    /// The converted integer is too large to fit into a 64-bit container.
-    IntegerToLarge,
     /// Signals that when converting a value and truncating, information would be lost.
     /// # Example
     /// 5B"111111" => The first '0' would be lost
@@ -132,33 +222,9 @@ fn bit_string_to_string(bit_string: &BitString) -> Result<Latin1String, BitStrin
     let mut extended_value = Vec::new();
 
     if bit_string.base == BaseSpecifier::D {
-        // special case for decimal bit strings: convert them directly.
-        let mut decimal_value = Some(0_u64);
-        for (i, element) in enumerate(simplified_value) {
-            if element < b'0' || element > b'9' {
-                return Err(BitStringConversionError::IllegalDecimalCharacter(i));
-            }
-            let digit = (element - b'0') as u64;
-            decimal_value = decimal_value
-                .and_then(|x| 10_u64.checked_mul(x))
-                .and_then(|x| x.checked_add(digit));
-        }
-        match decimal_value {
-            Some(mut value) => {
-                loop {
-                    if value % 2 == 0 {
-                        extended_value.push(b'0');
-                    } else {
-                        extended_value.push(b'1');
-                    }
-                    value /= 2;
-                    if value == 0 {
-                        break;
-                    }
-                }
-                extended_value.reverse();
-            }
-            None => return Err(BitStringConversionError::IntegerToLarge),
+        match decimal_str_to_binary_str(&bit_string.value) {
+            Err(e) => return Err(e),
+            Ok(binary_string) => extended_value = binary_string.bytes,
         }
     } else {
         for ch in simplified_value {
@@ -287,6 +353,10 @@ mod test_mod {
                 BitString::new(None, BaseSpecifier::D, "164824"),
                 "101000001111011000",
             ),
+            (
+                BitString::new(None, BaseSpecifier::D, "123456781234567812345678"),
+                "11010001001001001101100000011011011101100011101100101101101011110111101001110",
+            ),
         ];
 
         for (bit_string, result_string) in test_cases {
@@ -383,7 +453,7 @@ mod test_mod {
         ];
 
         for bit_string in error_cases {
-            assert_eq!(bit_string_to_string(&bit_string).err().is_some(), true);
+            assert!(bit_string_to_string(&bit_string).err().is_some());
         }
 
         for (bit_string, result_string) in test_cases {
@@ -414,9 +484,6 @@ impl<'a> AnalyzeContext<'a> {
                                 Latin1String::new(&[bit_string.value.bytes[rel_pos]]),
                             ),
                         ),
-                    BitStringConversionError::IntegerToLarge => {
-                        diagnostics.error(pos, "Integer too large for 64-bit unsigned")
-                    }
                     BitStringConversionError::IllegalTruncate(_, expanded_string) => {
                         diagnostics.error(
                             pos,
