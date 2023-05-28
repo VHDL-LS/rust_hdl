@@ -177,6 +177,28 @@ signal bad5 : enum_vec3_t(1 to 1) := \"a\";
 }
 
 #[test]
+fn test_illegal_bit_strings() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+constant x: bit_vector := D\"1AFFE\";
+constant y: bit_vector := D\"28446744073709551615\";
+constant z: bit_vector := 8SX\"0FF\";
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(code.s1("D\"1AFFE\""), "Illegal digit 'A' for base 10"),
+            Diagnostic::error(code.s1("D\"28446744073709551615\""), "Integer too large for 64-bit unsigned"),
+            Diagnostic::error(code.s1("8SX\"0FF\""), "Truncating to 8 bit would loose information"),
+        ],
+    )
+}
+
+#[test]
 fn test_integer_selected_name_expression_typecheck() {
     let mut builder = LibraryBuilder::new();
     let code = builder.in_declarative_region(

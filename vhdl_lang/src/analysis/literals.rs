@@ -105,6 +105,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             Literal::BitString(bitstring) => {
+                self.analyze_bit_string(pos, bitstring, diagnostics);
                 if let Some((elem_type, literals)) = as_single_index_enum_array(target_base) {
                     let needs_1 = bitstring.value.chars().any(|c| *c != b'0');
                     let c0 = Designator::Character(b'0');

@@ -27,6 +27,7 @@ mod sequential;
 mod standard;
 mod target;
 mod visibility;
+mod static_expression;
 
 #[cfg(test)]
 mod tests;
