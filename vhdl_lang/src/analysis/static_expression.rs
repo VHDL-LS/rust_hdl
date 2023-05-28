@@ -34,11 +34,13 @@ impl BaseSpecifier {
     ///
     /// # Example
     /// ```
-    /// let digits: &[u8] = BaseSpecifier::UX.get_extended_digits(b'C');
-    /// assert_eq!(digits, b"1100");
+    /// use vhdl_lang::ast::BaseSpecifier;
     ///
-    /// let digits: &[u8] = BaseSpecifier::O.get_extended_digits(b'F');
-    /// assert_eq!(digits, b"FFF")
+    /// let digits: Vec<u8> = BaseSpecifier::UX.get_extended_digits(b'C');
+    /// assert_eq!(digits, Vec::from("1100"));
+    ///
+    /// let digits: Vec<u8> = BaseSpecifier::O.get_extended_digits(b'F');
+    /// assert_eq!(digits, Vec::from("FFF"))
     /// ```
     pub fn get_extended_digits(&self, byte: u8) -> Vec<u8> {
         match self {
