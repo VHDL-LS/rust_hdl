@@ -3,8 +3,8 @@ use assert_matches::assert_matches;
 use itertools::{enumerate, Itertools};
 use crate::ast::{BaseSpecifier, BitString};
 use crate::{Latin1String, SrcPos};
-use crate::analysis::analyze::{AnalyzeContext, FatalResult};
-use crate::data::{DiagnosticHandler, WithPos};
+use crate::analysis::analyze::{AnalyzeContext};
+use crate::data::{DiagnosticHandler};
 
 impl BaseSpecifier {
     /// Returns whether this base specifier represents a signed value
@@ -234,7 +234,7 @@ impl BitString {
         }
     }
 }
-/*
+
 #[test]
 fn an_empty_bit_string_converts_to_an_empty_string() {
     let all_base_specifiers = [
@@ -290,7 +290,7 @@ fn test_decimal_conversion() {
 
     for (bit_string, result_string) in test_cases {
         assert_eq!(
-            bit_string_to_string(bit_string).unwrap(),
+            bit_string_to_string(&bit_string).unwrap(),
             Latin1String::from_utf8_unchecked(result_string)
         )
     }
@@ -299,17 +299,17 @@ fn test_decimal_conversion() {
 #[test]
 fn test_illegal_truncate_position() {
     assert_eq!(
-        bit_string_to_string(BitString::new(Some(8), BaseSpecifier::SX, "0FF")),
+        bit_string_to_string(&BitString::new(Some(8), BaseSpecifier::SX, "0FF")),
         Err(BitStringConversionError::IllegalTruncate(7, Latin1String::new(b"000011111111")))
     );
 
     assert_eq!(
-        bit_string_to_string(BitString::new(Some(8), BaseSpecifier::SX, "1FF")),
+        bit_string_to_string(&BitString::new(Some(8), BaseSpecifier::SX, "1FF")),
         Err(BitStringConversionError::IllegalTruncate(8, Latin1String::new(b"000111111111")))
     );
 
     assert_eq!(
-        bit_string_to_string(BitString::new(Some(8), BaseSpecifier::SX, "3FF")),
+        bit_string_to_string(&BitString::new(Some(8), BaseSpecifier::SX, "3FF")),
         Err(BitStringConversionError::IllegalTruncate(9, Latin1String::new(b"001111111111")))
     );
 }
@@ -344,19 +344,18 @@ fn spec_examples() {
 
     for bit_string in error_cases {
         assert_matches!(
-            bit_string_to_string(bit_string),
+            bit_string_to_string(&bit_string),
             Err(BitStringConversionError::IllegalTruncate(_, _))
         );
     }
 
     for (bit_string, result_string) in test_cases {
         assert_eq!(
-            bit_string_to_string(bit_string).unwrap(),
+            bit_string_to_string(&bit_string).unwrap(),
             Latin1String::from_utf8_unchecked(result_string)
         )
     }
 }
- */
 
 impl<'a> AnalyzeContext<'a> {
     pub fn analyze_bit_string(
