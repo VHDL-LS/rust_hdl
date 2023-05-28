@@ -1,9 +1,9 @@
-use std::iter;
-use itertools::{enumerate, Itertools};
+use crate::analysis::analyze::AnalyzeContext;
 use crate::ast::{BaseSpecifier, BitString};
+use crate::data::DiagnosticHandler;
 use crate::{Latin1String, SrcPos};
-use crate::analysis::analyze::{AnalyzeContext};
-use crate::data::{DiagnosticHandler};
+use itertools::{enumerate, Itertools};
+use std::iter;
 
 impl BaseSpecifier {
     /// Returns whether this base specifier represents a signed value
@@ -11,18 +11,14 @@ impl BaseSpecifier {
     /// (i.e. `UX` or `X` for unsigned hexadecimal)
     pub fn is_signed(&self) -> bool {
         match self {
-            | BaseSpecifier::SX
-            | BaseSpecifier::SO
-            | BaseSpecifier::SB
-            => true,
-            | BaseSpecifier::B
+            BaseSpecifier::SX | BaseSpecifier::SO | BaseSpecifier::SB => true,
+            BaseSpecifier::B
             | BaseSpecifier::UB
             | BaseSpecifier::O
             | BaseSpecifier::UO
             | BaseSpecifier::X
             | BaseSpecifier::UX
-            | BaseSpecifier::D
-            => false,
+            | BaseSpecifier::D => false,
         }
     }
 
@@ -46,51 +42,42 @@ impl BaseSpecifier {
         match self {
             // For O, UO and SO, the values 1-7 are replaced.
             // All other values are left as-is.
-            | BaseSpecifier::O
-            | BaseSpecifier::UO
-            | BaseSpecifier::SO => {
-                match byte {
-                    b'0' => Vec::from("000"),
-                    b'1' => Vec::from("001"),
-                    b'2' => Vec::from("010"),
-                    b'3' => Vec::from("011"),
-                    b'4' => Vec::from("100"),
-                    b'5' => Vec::from("101"),
-                    b'6' => Vec::from("110"),
-                    b'7' => Vec::from("111"),
-                    _ => vec![byte; 3]
-                }
-            }
+            BaseSpecifier::O | BaseSpecifier::UO | BaseSpecifier::SO => match byte {
+                b'0' => Vec::from("000"),
+                b'1' => Vec::from("001"),
+                b'2' => Vec::from("010"),
+                b'3' => Vec::from("011"),
+                b'4' => Vec::from("100"),
+                b'5' => Vec::from("101"),
+                b'6' => Vec::from("110"),
+                b'7' => Vec::from("111"),
+                _ => vec![byte; 3],
+            },
             // For U, UX and SX, the values 1-9 and A-F are replaced.
             // All other values are left as-is.
-            | BaseSpecifier::X
-            | BaseSpecifier::UX
-            | BaseSpecifier::SX => {
-                match byte {
-                    b'0' => Vec::from("0000"),
-                    b'1' => Vec::from("0001"),
-                    b'2' => Vec::from("0010"),
-                    b'3' => Vec::from("0011"),
-                    b'4' => Vec::from("0100"),
-                    b'5' => Vec::from("0101"),
-                    b'6' => Vec::from("0110"),
-                    b'7' => Vec::from("0111"),
-                    b'8' => Vec::from("1000"),
-                    b'9' => Vec::from("1001"),
-                    b'A' | b'a' => Vec::from("1010"),
-                    b'B' | b'b' => Vec::from("1011"),
-                    b'C' | b'c' => Vec::from("1100"),
-                    b'D' | b'd' => Vec::from("1101"),
-                    b'E' | b'e' => Vec::from("1110"),
-                    b'F' | b'f' => Vec::from("1111"),
-                    _ => vec![byte; 4]
-                }
-            }
+            BaseSpecifier::X | BaseSpecifier::UX | BaseSpecifier::SX => match byte {
+                b'0' => Vec::from("0000"),
+                b'1' => Vec::from("0001"),
+                b'2' => Vec::from("0010"),
+                b'3' => Vec::from("0011"),
+                b'4' => Vec::from("0100"),
+                b'5' => Vec::from("0101"),
+                b'6' => Vec::from("0110"),
+                b'7' => Vec::from("0111"),
+                b'8' => Vec::from("1000"),
+                b'9' => Vec::from("1001"),
+                b'A' | b'a' => Vec::from("1010"),
+                b'B' | b'b' => Vec::from("1011"),
+                b'C' | b'c' => Vec::from("1100"),
+                b'D' | b'd' => Vec::from("1101"),
+                b'E' | b'e' => Vec::from("1110"),
+                b'F' | b'f' => Vec::from("1111"),
+                _ => vec![byte; 4],
+            },
             // Binary values are simply the values left as they are.
-            | BaseSpecifier::B
-            | BaseSpecifier::UB
-            | BaseSpecifier::SB
-            | BaseSpecifier::D => vec![byte],
+            BaseSpecifier::B | BaseSpecifier::UB | BaseSpecifier::SB | BaseSpecifier::D => {
+                vec![byte]
+            }
         }
     }
 }
@@ -119,7 +106,9 @@ enum BitStringConversionError {
 fn bit_string_to_string(bit_string: &BitString) -> Result<Latin1String, BitStringConversionError> {
     // Simplifies the bit string by removing all occurrences of the underscore
     // character
-    let simplified_value: Vec<u8> = bit_string.value.bytes
+    let simplified_value: Vec<u8> = bit_string
+        .value
+        .bytes
         .clone()
         .into_iter()
         .filter(|&b| b != b'_')
@@ -133,10 +122,10 @@ fn bit_string_to_string(bit_string: &BitString) -> Result<Latin1String, BitStrin
     // but an empty string does not have a leftmost character.
     if simplified_value.len() == 0 {
         return match bit_string.length {
-            None =>
-                Ok(Latin1String::empty()),
-            Some(value) =>
-                Ok(Latin1String::from_vec(iter::repeat(b'0').take(value as usize).collect_vec()))
+            None => Ok(Latin1String::empty()),
+            Some(value) => Ok(Latin1String::from_vec(
+                iter::repeat(b'0').take(value as usize).collect_vec(),
+            )),
         };
     }
 
@@ -169,7 +158,7 @@ fn bit_string_to_string(bit_string: &BitString) -> Result<Latin1String, BitStrin
                 }
                 extended_value.reverse();
             }
-            None => return Err(BitStringConversionError::IntegerToLarge)
+            None => return Err(BitStringConversionError::IntegerToLarge),
         }
     } else {
         for ch in simplified_value {
@@ -204,10 +193,12 @@ fn bit_string_to_string(bit_string: &BitString) -> Result<Latin1String, BitStrin
                         Some(value) => {
                             let real_idx = last_elements.len() + value - 1;
                             let erroneous_string = Latin1String::from_vec(extended_value);
-                            Err(BitStringConversionError::IllegalTruncate(real_idx, erroneous_string))
+                            Err(BitStringConversionError::IllegalTruncate(
+                                real_idx,
+                                erroneous_string,
+                            ))
                         }
-                        None =>
-                            Ok(Latin1String::new(last_elements))
+                        None => Ok(Latin1String::new(last_elements)),
                     }
                 } else {
                     let pad_char = if bit_string.base.is_signed() {
@@ -254,7 +245,7 @@ mod test_mod {
             BaseSpecifier::B,
             BaseSpecifier::UB,
             BaseSpecifier::SB,
-            BaseSpecifier::D
+            BaseSpecifier::D,
         ];
         for base_specifier in all_base_specifiers {
             assert_eq!(
@@ -292,7 +283,10 @@ mod test_mod {
             (BitString::new(None, BaseSpecifier::D, "1"), "1"),
             (BitString::new(None, BaseSpecifier::D, "01"), "1"),
             (BitString::new(None, BaseSpecifier::D, "10"), "1010"),
-            (BitString::new(None, BaseSpecifier::D, "164824"), "101000001111011000"),
+            (
+                BitString::new(None, BaseSpecifier::D, "164824"),
+                "101000001111011000",
+            ),
         ];
 
         for (bit_string, result_string) in test_cases {
@@ -307,17 +301,26 @@ mod test_mod {
     fn test_illegal_truncate_position() {
         assert_eq!(
             bit_string_to_string(&BitString::new(Some(8), BaseSpecifier::SX, "0FF")),
-            Err(BitStringConversionError::IllegalTruncate(7, Latin1String::new(b"000011111111")))
+            Err(BitStringConversionError::IllegalTruncate(
+                7,
+                Latin1String::new(b"000011111111")
+            ))
         );
 
         assert_eq!(
             bit_string_to_string(&BitString::new(Some(8), BaseSpecifier::SX, "1FF")),
-            Err(BitStringConversionError::IllegalTruncate(8, Latin1String::new(b"000111111111")))
+            Err(BitStringConversionError::IllegalTruncate(
+                8,
+                Latin1String::new(b"000111111111")
+            ))
         );
 
         assert_eq!(
             bit_string_to_string(&BitString::new(Some(8), BaseSpecifier::SX, "3FF")),
-            Err(BitStringConversionError::IllegalTruncate(9, Latin1String::new(b"001111111111")))
+            Err(BitStringConversionError::IllegalTruncate(
+                9,
+                Latin1String::new(b"001111111111")
+            ))
         );
     }
 
@@ -325,21 +328,51 @@ mod test_mod {
     #[test]
     fn spec_examples() {
         let test_cases = [
-            (BitString::new(None, BaseSpecifier::B, "1111_1111_1111"), "111111111111"),
-            (BitString::new(None, BaseSpecifier::X, "FFF"), "111111111111"),
+            (
+                BitString::new(None, BaseSpecifier::B, "1111_1111_1111"),
+                "111111111111",
+            ),
+            (
+                BitString::new(None, BaseSpecifier::X, "FFF"),
+                "111111111111",
+            ),
             (BitString::new(None, BaseSpecifier::O, "777"), "111111111"),
-            (BitString::new(None, BaseSpecifier::X, "777"), "011101110111"),
-            (BitString::new(None, BaseSpecifier::B, "XXXX_01LH"), "XXXX01LH"),
+            (
+                BitString::new(None, BaseSpecifier::X, "777"),
+                "011101110111",
+            ),
+            (
+                BitString::new(None, BaseSpecifier::B, "XXXX_01LH"),
+                "XXXX01LH",
+            ),
             (BitString::new(None, BaseSpecifier::UO, "27"), "010111"),
             // (BitString::new(None, BaseSpecifier::UO, "2C"), "011CCC"), // TODO: is this an error in the spec?
             (BitString::new(None, BaseSpecifier::SX, "3W"), "0011WWWW"),
             (BitString::new(None, BaseSpecifier::D, "35"), "100011"),
-            (BitString::new(Some(12), BaseSpecifier::UB, "X1"), "0000000000X1"),
-            (BitString::new(Some(12), BaseSpecifier::SB, "X1"), "XXXXXXXXXXX1"),
-            (BitString::new(Some(12), BaseSpecifier::UX, "F-"), "00001111----"),
-            (BitString::new(Some(12), BaseSpecifier::SX, "F-"), "11111111----"),
-            (BitString::new(Some(12), BaseSpecifier::UX, "000WWW"), "WWWWWWWWWWWW"),
-            (BitString::new(Some(12), BaseSpecifier::SX, "FFFC00"), "110000000000"),
+            (
+                BitString::new(Some(12), BaseSpecifier::UB, "X1"),
+                "0000000000X1",
+            ),
+            (
+                BitString::new(Some(12), BaseSpecifier::SB, "X1"),
+                "XXXXXXXXXXX1",
+            ),
+            (
+                BitString::new(Some(12), BaseSpecifier::UX, "F-"),
+                "00001111----",
+            ),
+            (
+                BitString::new(Some(12), BaseSpecifier::SX, "F-"),
+                "11111111----",
+            ),
+            (
+                BitString::new(Some(12), BaseSpecifier::UX, "000WWW"),
+                "WWWWWWWWWWWW",
+            ),
+            (
+                BitString::new(Some(12), BaseSpecifier::SX, "FFFC00"),
+                "110000000000",
+            ),
         ];
 
         let error_cases = [
@@ -350,10 +383,7 @@ mod test_mod {
         ];
 
         for bit_string in error_cases {
-            assert_eq!(
-                bit_string_to_string(&bit_string).err().is_some(),
-                true
-            );
+            assert_eq!(bit_string_to_string(&bit_string).err().is_some(), true);
         }
 
         for (bit_string, result_string) in test_cases {
@@ -376,25 +406,26 @@ impl<'a> AnalyzeContext<'a> {
             Ok(result) => Ok(result),
             Err(err) => {
                 match err {
-                    BitStringConversionError::IllegalDecimalCharacter(rel_pos) =>
-                        diagnostics.error(pos, format!(
-                            "Illegal digit '{}' for base 10",
-                            Latin1String::new(&[bit_string.value.bytes[rel_pos]]),
-                        )),
-                    BitStringConversionError::IntegerToLarge =>
-                        diagnostics.error(pos, "Integer too large for 64-bit unsigned"),
-                    BitStringConversionError::IllegalTruncate(_, expanded_string) => {
-                        diagnostics.error(pos, format!(
-                            "Truncating to {} bit would loose information",
-                            bit_string.length.unwrap()), // Safe as this error can only happen when there is a length
-                        );
-                        diagnostics.hint(
+                    BitStringConversionError::IllegalDecimalCharacter(rel_pos) => diagnostics
+                        .error(
                             pos,
                             format!(
-                                "Expanded value is {}",
-                                expanded_string
+                                "Illegal digit '{}' for base 10",
+                                Latin1String::new(&[bit_string.value.bytes[rel_pos]]),
                             ),
+                        ),
+                    BitStringConversionError::IntegerToLarge => {
+                        diagnostics.error(pos, "Integer too large for 64-bit unsigned")
+                    }
+                    BitStringConversionError::IllegalTruncate(_, expanded_string) => {
+                        diagnostics.error(
+                            pos,
+                            format!(
+                                "Truncating to {} bit would loose information",
+                                bit_string.length.unwrap()
+                            ), // Safe as this error can only happen when there is a length
                         );
+                        diagnostics.hint(pos, format!("Expanded value is {}", expanded_string));
                     }
                 }
                 Err(())

@@ -194,10 +194,19 @@ constant e: bit_vector := X\"F\"; -- this is Ok
         diagnostics,
         vec![
             Diagnostic::error(code.s1("D\"1AFFE\""), "Illegal digit 'A' for base 10"),
-            Diagnostic::error(code.s1("D\"28446744073709551615\""), "Integer too large for 64-bit unsigned"),
-            Diagnostic::error(code.s1("8SX\"0FF\""), "Truncating to 8 bit would loose information"),
+            Diagnostic::error(
+                code.s1("D\"28446744073709551615\""),
+                "Integer too large for 64-bit unsigned",
+            ),
+            Diagnostic::error(
+                code.s1("8SX\"0FF\""),
+                "Truncating to 8 bit would loose information",
+            ),
             Diagnostic::hint(code.s1("8SX\"0FF\""), "Expanded value is 000011111111"),
-            Diagnostic::error(code.s1("X\"G\""), "type 'BIT' does not define character 'G'"),
+            Diagnostic::error(
+                code.s1("X\"G\""),
+                "type 'BIT' does not define character 'G'",
+            ),
         ],
     )
 }

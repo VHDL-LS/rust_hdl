@@ -25,9 +25,9 @@ mod root;
 mod semantic;
 mod sequential;
 mod standard;
+mod static_expression;
 mod target;
 mod visibility;
-mod static_expression;
 
 #[cfg(test)]
 mod tests;
