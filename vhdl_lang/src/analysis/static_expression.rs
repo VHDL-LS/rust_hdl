@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use crate::analysis::static_expression::BitStringConversionError::EmptySignedExpansion;
 use crate::ast::{BaseSpecifier, BitString};
 use crate::Latin1String;
@@ -40,7 +41,7 @@ pub(crate) fn decimal_str_to_binary_str(
             new_s.drain(..1);
         }
 
-        return new_s;
+        new_s
     }
 
     if let Some(idx) = value.bytes.iter().position(|b| *b < b'0' || *b > b'9') {
@@ -70,7 +71,7 @@ pub(crate) fn decimal_str_to_binary_str(
     }
     stack.reverse();
 
-    return Ok(Latin1String::from_vec(stack));
+    Ok(Latin1String::from_vec(stack))
 }
 
 #[test]
@@ -215,7 +216,7 @@ pub(crate) fn bit_string_to_string(
     // 2) An error
     // According to the standard, the padding value should be the leftmost character in the string
     // but an empty string does not have a leftmost character.
-    if simplified_value.len() == 0 {
+    if simplified_value.is_empty() {
         return match bit_string.length {
             None => Ok(Latin1String::empty()),
             Some(value) => {
@@ -248,10 +249,10 @@ pub(crate) fn bit_string_to_string(
         None => Ok(Latin1String::from_vec(extended_value)),
         Some(_length) => {
             let length = _length as usize;
-            if length == extended_value.len() {
-                Ok(Latin1String::from_vec(extended_value))
-            } else {
-                if length < extended_value.len() {
+            match length.cmp(&extended_value.len()) {
+                Ordering::Equal =>
+                    Ok(Latin1String::from_vec(extended_value)),
+                Ordering::Less => {
                     let pivot = extended_value.len() - length;
                     let first_elements = &extended_value[..pivot];
                     let last_elements = &extended_value[pivot..];
@@ -277,7 +278,8 @@ pub(crate) fn bit_string_to_string(
                         }
                         None => Ok(Latin1String::new(last_elements)),
                     }
-                } else {
+                },
+                Ordering::Greater => {
                     let pad_char = if bit_string.base.is_signed() {
                         extended_value[0]
                     } else {
@@ -288,7 +290,7 @@ pub(crate) fn bit_string_to_string(
                         .chain(extended_value)
                         .collect_vec();
                     Ok(Latin1String::from_vec(pad_vector))
-                }
+                },
             }
         }
     }

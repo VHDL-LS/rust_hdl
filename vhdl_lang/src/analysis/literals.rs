@@ -136,7 +136,7 @@ impl<'a> AnalyzeContext<'a> {
                             BitStringConversionError::EmptySignedExpansion => {
                                 diagnostics.error(
                                     pos,
-                                    format!("Cannot expand an empty signed bit string",),
+                                    "Cannot expand an empty signed bit string",
                                 );
                             }
                         }

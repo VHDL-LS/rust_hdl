@@ -598,7 +598,7 @@ impl<'a> AnalyzeContext<'a> {
             .into_iter()
             .flatten(),
         )
-        .chain(self.comparators(typ).into_iter())
+        .chain(self.comparators(typ))
     }
 
     pub fn universal_implicits(
@@ -643,7 +643,7 @@ impl<'a> AnalyzeContext<'a> {
             .into_iter()
             .flatten(),
         )
-        .chain(self.comparators(typ).into_iter())
+        .chain(self.comparators(typ))
     }
 
     pub fn physical_implicits(&self, typ: TypeEnt<'a>) -> impl Iterator<Item = EntRef<'a>> {
@@ -676,7 +676,7 @@ impl<'a> AnalyzeContext<'a> {
             self.symmetric_binary(Operator::Rem, typ),
         ]
         .into_iter()
-        .chain(self.comparators(typ).into_iter())
+        .chain(self.comparators(typ))
     }
 
     pub fn enum_implicits(
@@ -690,7 +690,7 @@ impl<'a> AnalyzeContext<'a> {
             self.maximum(typ),
         ]
         .into_iter()
-        .chain(self.comparators(typ).into_iter())
+        .chain(self.comparators(typ))
         .chain(
             if matching_op {
                 Some(

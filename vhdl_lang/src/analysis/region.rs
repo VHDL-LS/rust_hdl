@@ -206,17 +206,12 @@ impl<'a> NamedEntities<'a> {
     }
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Default)]
 pub(crate) enum RegionKind {
     PackageDeclaration,
     PackageBody,
+    #[default]
     Other,
-}
-
-impl Default for RegionKind {
-    fn default() -> RegionKind {
-        RegionKind::Other
-    }
 }
 
 #[derive(Default, Clone)]
