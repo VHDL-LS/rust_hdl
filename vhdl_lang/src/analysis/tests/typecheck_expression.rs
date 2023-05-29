@@ -185,6 +185,7 @@ constant a: bit_vector := D\"1AFFE\";
 constant c: bit_vector := 8SX\"0FF\";
 constant d: bit_vector := X\"G\";
 constant e: bit_vector := X\"F\"; -- this is Ok
+constant f: bit_vector := 2SX\"\";
         ",
     );
 
@@ -200,6 +201,10 @@ constant e: bit_vector := X\"F\"; -- this is Ok
             Diagnostic::error(
                 code.s1("X\"G\""),
                 "type 'BIT' does not define character 'G'",
+            ),
+            Diagnostic::error(
+                code.s1("2SX\"\""),
+                "Cannot expand an empty signed bit string",
             ),
         ],
     )

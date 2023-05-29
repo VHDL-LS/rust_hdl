@@ -1,3 +1,4 @@
+use crate::analysis::static_expression::BitStringConversionError::EmptySignedExpansion;
 use crate::ast::{BaseSpecifier, BitString};
 use crate::Latin1String;
 use itertools::Itertools;
@@ -186,6 +187,9 @@ pub(crate) enum BitStringConversionError {
     /// The `usize` argument is the index of the first character that cannot be truncated.
     /// The `Latin1String` argument is the expanded (erroneous) String
     IllegalTruncate(usize, Latin1String),
+    /// Trying to expand an empty signed expression, i.e.
+    /// SX""
+    EmptySignedExpansion,
 }
 
 /// Converts a `BitString` to a `Latin1String` respecting the replacement values defined in LRM
@@ -204,18 +208,26 @@ pub(crate) fn bit_string_to_string(
         .filter(|&b| b != b'_')
         .collect();
 
-    // TODO: For empty signed bit-strings it is unclear what the expanded value should be:
-    // For example, 2SB""
+    // For empty signed bit-strings it is unclear what the expanded value should be,
+    // according to the reference:
+    // For example, 2SB"" could be
     // 1) A string containing '0's, i.e. "00"
     // 2) An error
     // According to the standard, the padding value should be the leftmost character in the string
     // but an empty string does not have a leftmost character.
     if simplified_value.len() == 0 {
+        println!("");
         return match bit_string.length {
             None => Ok(Latin1String::empty()),
-            Some(value) => Ok(Latin1String::from_vec(
-                iter::repeat(b'0').take(value as usize).collect_vec(),
-            )),
+            Some(value) => {
+                if bit_string.base.is_signed() {
+                    Err(EmptySignedExpansion)
+                } else {
+                    Ok(Latin1String::from_vec(
+                        iter::repeat(b'0').take(value as usize).collect_vec(),
+                    ))
+                }
+            }
         };
     }
 
