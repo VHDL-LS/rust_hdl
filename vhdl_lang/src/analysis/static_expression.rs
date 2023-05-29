@@ -1,8 +1,8 @@
-use std::cmp::Ordering;
 use crate::analysis::static_expression::BitStringConversionError::EmptySignedExpansion;
 use crate::ast::{BaseSpecifier, BitString};
 use crate::Latin1String;
 use itertools::Itertools;
+use std::cmp::Ordering;
 use std::iter;
 
 /// returns whether `byte` is  an odd number when interpreted as decimal.
@@ -250,8 +250,7 @@ pub(crate) fn bit_string_to_string(
         Some(_length) => {
             let length = _length as usize;
             match length.cmp(&extended_value.len()) {
-                Ordering::Equal =>
-                    Ok(Latin1String::from_vec(extended_value)),
+                Ordering::Equal => Ok(Latin1String::from_vec(extended_value)),
                 Ordering::Less => {
                     let pivot = extended_value.len() - length;
                     let first_elements = &extended_value[..pivot];
@@ -278,7 +277,7 @@ pub(crate) fn bit_string_to_string(
                         }
                         None => Ok(Latin1String::new(last_elements)),
                     }
-                },
+                }
                 Ordering::Greater => {
                     let pad_char = if bit_string.base.is_signed() {
                         extended_value[0]
@@ -290,7 +289,7 @@ pub(crate) fn bit_string_to_string(
                         .chain(extended_value)
                         .collect_vec();
                     Ok(Latin1String::from_vec(pad_vector))
-                },
+                }
             }
         }
     }
