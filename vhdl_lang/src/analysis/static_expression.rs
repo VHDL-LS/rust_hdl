@@ -1,7 +1,5 @@
-use crate::analysis::analyze::AnalyzeContext;
 use crate::ast::{BaseSpecifier, BitString};
-use crate::data::DiagnosticHandler;
-use crate::{Latin1String, SrcPos};
+use crate::Latin1String;
 use itertools::Itertools;
 use std::iter;
 
@@ -21,7 +19,7 @@ macro_rules! byte_is_odd_decimal {
 /// - For a string with zeros, return a single string containing '0'
 /// - For a string that is padded with zeros, return a string without the padding. If the
 ///   String without the padding is empty, rule 1 applies.
-fn decimal_str_to_binary_str(
+pub(crate) fn decimal_str_to_binary_str(
     value: &Latin1String,
 ) -> Result<Latin1String, BitStringConversionError> {
     /// Divides `value` by two where `value` is a vector of u8's representing decimals.
@@ -176,7 +174,7 @@ impl BaseSpecifier {
 
 /// Represents errors that occur when converting a bit string to a regular string
 #[derive(PartialEq, Eq, Clone, Debug)]
-enum BitStringConversionError {
+pub(crate) enum BitStringConversionError {
     /// Illegal decimal character encountered while converting a decimal bit string (i.e. D"12AFFE")
     /// The `usize` argument represent the position for the first illegal character in the
     /// bit_string's `value` string, (i.e. 2 for the example above)
@@ -193,7 +191,9 @@ enum BitStringConversionError {
 /// Converts a `BitString` to a `Latin1String` respecting the replacement values defined in LRM
 /// Returns the string as Latin1String when successful and a `BitStringConversionError` else
 /// 15.8 Bit string literals
-fn bit_string_to_string(bit_string: &BitString) -> Result<Latin1String, BitStringConversionError> {
+pub(crate) fn bit_string_to_string(
+    bit_string: &BitString,
+) -> Result<Latin1String, BitStringConversionError> {
     // Simplifies the bit string by removing all occurrences of the underscore
     // character
     let simplified_value: Vec<u8> = bit_string
@@ -461,42 +461,6 @@ mod test_mod {
                 bit_string_to_string(&bit_string).unwrap(),
                 Latin1String::from_utf8_unchecked(result_string)
             )
-        }
-    }
-}
-
-impl<'a> AnalyzeContext<'a> {
-    pub fn analyze_bit_string(
-        &self,
-        pos: &SrcPos,
-        bit_string: &BitString,
-        diagnostics: &mut dyn DiagnosticHandler,
-    ) -> Result<Latin1String, ()> {
-        match bit_string_to_string(bit_string) {
-            Ok(result) => Ok(result),
-            Err(err) => {
-                match err {
-                    BitStringConversionError::IllegalDecimalCharacter(rel_pos) => diagnostics
-                        .error(
-                            pos,
-                            format!(
-                                "Illegal digit '{}' for base 10",
-                                Latin1String::new(&[bit_string.value.bytes[rel_pos]]),
-                            ),
-                        ),
-                    BitStringConversionError::IllegalTruncate(_, expanded_string) => {
-                        diagnostics.error(
-                            pos,
-                            format!(
-                                "Truncating to {} bit would loose information",
-                                bit_string.length.unwrap()
-                            ), // Safe as this error can only happen when there is a length
-                        );
-                        diagnostics.hint(pos, format!("Expanded value is {}", expanded_string));
-                    }
-                }
-                Err(())
-            }
         }
     }
 }

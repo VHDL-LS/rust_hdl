@@ -197,7 +197,6 @@ constant e: bit_vector := X\"F\"; -- this is Ok
                 code.s1("8SX\"0FF\""),
                 "Truncating to 8 bit would loose information",
             ),
-            Diagnostic::hint(code.s1("8SX\"0FF\""), "Expanded value is 000011111111"),
             Diagnostic::error(
                 code.s1("X\"G\""),
                 "type 'BIT' does not define character 'G'",
@@ -753,11 +752,11 @@ constant bad5 : arr0_t := x\"6\";
         vec![
             Diagnostic::error(
                 code.s1("x\"2\""),
-                "bit string literal does not match integer type 'INTEGER'",
+                "string literal does not match integer type 'INTEGER'",
             ),
             Diagnostic::error(
                 code.s1("x\"3\""),
-                "bit string literal does not match array type 'INTEGER_VECTOR'",
+                "string literal does not match array type 'INTEGER_VECTOR'",
             ),
             Diagnostic::error(
                 code.s1("x\"4\""),
