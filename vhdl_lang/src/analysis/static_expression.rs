@@ -4,10 +4,10 @@ use crate::Latin1String;
 use itertools::Itertools;
 use std::iter;
 
-macro_rules! byte_is_odd_decimal {
-    ($byte: expr) => {
-        ($byte - b'0') % 2 == 1
-    };
+/// returns whether `byte` is  an odd number when interpreted as decimal.
+/// byte must be between '0' and '9', but it is up to the caller to enforce this.
+fn byte_is_odd_decimal(byte: u8) -> bool {
+    (byte - b'0') % 2 == 1
 }
 
 /// Converts a decimal string (i.e. "123") to a binary string (i.e. "1111011").
@@ -32,7 +32,7 @@ pub(crate) fn decimal_str_to_binary_str(
         for ch in value {
             let new_digit = (ch + b'0') / 2 + add_next;
             new_s.push(new_digit);
-            add_next = if byte_is_odd_decimal!(ch) { 5 } else { 0 };
+            add_next = if byte_is_odd_decimal(ch) { 5 } else { 0 };
         }
 
         // remove the first element if it's '0'
@@ -61,7 +61,7 @@ pub(crate) fn decimal_str_to_binary_str(
     let mut stack: Vec<u8> = Vec::new();
 
     while !num.is_empty() {
-        if byte_is_odd_decimal!(*num.last().unwrap()) {
+        if byte_is_odd_decimal(*num.last().unwrap()) {
             stack.push(b'1');
         } else {
             stack.push(b'0');
@@ -216,7 +216,6 @@ pub(crate) fn bit_string_to_string(
     // According to the standard, the padding value should be the leftmost character in the string
     // but an empty string does not have a leftmost character.
     if simplified_value.len() == 0 {
-        println!("");
         return match bit_string.length {
             None => Ok(Latin1String::empty()),
             Some(value) => {
