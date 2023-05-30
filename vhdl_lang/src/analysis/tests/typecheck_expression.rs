@@ -177,6 +177,40 @@ signal bad5 : enum_vec3_t(1 to 1) := \"a\";
 }
 
 #[test]
+fn test_illegal_bit_strings() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+constant a: bit_vector := D\"1AFFE\";
+constant c: bit_vector := 8SX\"0FF\";
+constant d: bit_vector := X\"G\";
+constant e: bit_vector := X\"F\"; -- this is Ok
+constant f: bit_vector := 2SX\"\";
+        ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![
+            Diagnostic::error(code.s1("D\"1AFFE\""), "Illegal digit 'A' for base 10"),
+            Diagnostic::error(
+                code.s1("8SX\"0FF\""),
+                "Truncating to 8 bit would loose information",
+            ),
+            Diagnostic::error(
+                code.s1("X\"G\""),
+                "type 'BIT' does not define character 'G'",
+            ),
+            Diagnostic::error(
+                code.s1("2SX\"\""),
+                "Cannot expand an empty signed bit string",
+            ),
+        ],
+    )
+}
+
+#[test]
 fn test_integer_selected_name_expression_typecheck() {
     let mut builder = LibraryBuilder::new();
     let code = builder.in_declarative_region(
@@ -708,7 +742,7 @@ constant bad2 : integer_vector := x\"3\";
 type enum_t is (alpha, beta);
 type arr_t is array (natural range <>) of enum_t;
 constant bad3 : arr_t := x\"4\";
-constant bad4 : arr_t := x\"5\";
+constant bad4 : arr_t := x\"D\";
 
 type enum0_t is ('0', alpha);
 type arr0_t is array (natural range <>) of enum0_t;
@@ -723,31 +757,23 @@ constant bad5 : arr0_t := x\"6\";
         vec![
             Diagnostic::error(
                 code.s1("x\"2\""),
-                "bit string literal does not match integer type 'INTEGER'",
+                "string literal does not match integer type 'INTEGER'",
             ),
             Diagnostic::error(
                 code.s1("x\"3\""),
-                "bit string literal does not match array type 'INTEGER_VECTOR'",
+                "string literal does not match array type 'INTEGER_VECTOR'",
             ),
             Diagnostic::error(
                 code.s1("x\"4\""),
-                "element type 'enum_t' of array type 'arr_t' does not define character '0'",
+                "type 'enum_t' does not define character '0'",
             ),
             Diagnostic::error(
-                code.s1("x\"4\""),
-                "element type 'enum_t' of array type 'arr_t' does not define character '1'",
-            ),
-            Diagnostic::error(
-                code.s1("x\"5\""),
-                "element type 'enum_t' of array type 'arr_t' does not define character '0'",
-            ),
-            Diagnostic::error(
-                code.s1("x\"5\""),
-                "element type 'enum_t' of array type 'arr_t' does not define character '1'",
+                code.s1("x\"D\""),
+                "type 'enum_t' does not define character '1'",
             ),
             Diagnostic::error(
                 code.s1("x\"6\""),
-                "element type 'enum0_t' of array type 'arr0_t' does not define character '1'",
+                "type 'enum0_t' does not define character '1'",
             ),
         ],
     );

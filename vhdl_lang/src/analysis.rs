@@ -25,6 +25,7 @@ mod root;
 mod semantic;
 mod sequential;
 mod standard;
+mod static_expression;
 mod target;
 mod visibility;
 

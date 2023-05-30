@@ -8,10 +8,39 @@ use fnv::FnvHashSet;
 use super::analyze::*;
 use super::named_entity::*;
 use super::region::*;
+use crate::analysis::static_expression::{bit_string_to_string, BitStringConversionError};
 use crate::ast::*;
 use crate::data::*;
 
 impl<'a> AnalyzeContext<'a> {
+    /// Analyze a string literal or expanded bit-string literal for type-matching
+    fn analyze_string_literal(
+        &self,
+        pos: &SrcPos,
+        string_lit: Latin1String,
+        target_base: TypeEnt,
+        target_type: TypeEnt,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        if let Some((elem_type, literals)) = as_single_index_enum_array(target_base) {
+            for chr in string_lit.chars() {
+                let chr = Designator::Character(*chr);
+                if !literals.contains(&chr) {
+                    diagnostics.push(Diagnostic::error(
+                        pos,
+                        format!("{} does not define character {}", elem_type.describe(), chr),
+                    ));
+                    break;
+                }
+            }
+        } else {
+            diagnostics.push(Diagnostic::error(
+                pos,
+                format!("string literal does not match {}", target_type.describe()),
+            ));
+        }
+    }
+
     /// Returns true if the name actually matches the target type
     /// None if it was uncertain
     pub fn analyze_literal_with_target_type(
@@ -67,25 +96,48 @@ impl<'a> AnalyzeContext<'a> {
                 }
             },
             Literal::String(string_lit) => {
-                if let Some((elem_type, literals)) = as_single_index_enum_array(target_base) {
-                    for chr in string_lit.chars() {
-                        let chr = Designator::Character(*chr);
-                        if !literals.contains(&chr) {
-                            diagnostics.push(Diagnostic::error(
-                                pos,
-                                format!(
-                                    "{} does not define character {}",
-                                    elem_type.describe(),
-                                    chr
-                                ),
-                            ))
+                self.analyze_string_literal(
+                    pos,
+                    string_lit.to_owned(),
+                    target_base,
+                    target_type,
+                    diagnostics,
+                );
+            }
+            Literal::BitString(bit_string) => {
+                match bit_string_to_string(bit_string) {
+                    Ok(string_lit) => self.analyze_string_literal(
+                        pos,
+                        string_lit,
+                        target_base,
+                        target_type,
+                        diagnostics,
+                    ),
+                    Err(err) => {
+                        match err {
+                            BitStringConversionError::IllegalDecimalCharacter(rel_pos) => {
+                                diagnostics.error(
+                                    pos,
+                                    format!(
+                                        "Illegal digit '{}' for base 10",
+                                        bit_string.value.bytes[rel_pos] as char,
+                                    ),
+                                )
+                            }
+                            BitStringConversionError::IllegalTruncate(_, _) => {
+                                diagnostics.error(
+                                    pos,
+                                    format!(
+                                        "Truncating to {} bit would loose information",
+                                        bit_string.length.unwrap() // Safe as this error can only happen when there is a length
+                                    ),
+                                );
+                            }
+                            BitStringConversionError::EmptySignedExpansion => {
+                                diagnostics.error(pos, "Cannot expand an empty signed bit string");
+                            }
                         }
                     }
-                } else {
-                    diagnostics.push(Diagnostic::error(
-                        pos,
-                        format!("string literal does not match {}", target_type.describe()),
-                    ));
                 }
             }
             Literal::Physical(PhysicalLiteral { ref mut unit, .. }) => {
@@ -102,45 +154,6 @@ impl<'a> AnalyzeContext<'a> {
                     Err(diagnostic) => {
                         diagnostics.push(diagnostic);
                     }
-                }
-            }
-            Literal::BitString(bitstring) => {
-                if let Some((elem_type, literals)) = as_single_index_enum_array(target_base) {
-                    let needs_1 = bitstring.value.chars().any(|c| *c != b'0');
-                    let c0 = Designator::Character(b'0');
-                    let c1 = Designator::Character(b'1');
-
-                    if !literals.contains(&c0) {
-                        diagnostics.push(Diagnostic::error(
-                            pos,
-                            format!(
-                                "element {} of {} does not define character {}",
-                                elem_type.describe(),
-                                target_type.describe(),
-                                c0
-                            ),
-                        ))
-                    }
-
-                    if needs_1 && !literals.contains(&c1) {
-                        diagnostics.push(Diagnostic::error(
-                            pos,
-                            format!(
-                                "element {} of {} does not define character {}",
-                                elem_type.describe(),
-                                target_type.describe(),
-                                c1
-                            ),
-                        ))
-                    }
-                } else {
-                    diagnostics.push(Diagnostic::error(
-                        pos,
-                        format!(
-                            "bit string literal does not match {}",
-                            target_type.describe()
-                        ),
-                    ));
                 }
             }
             Literal::Null => {
