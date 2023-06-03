@@ -4,6 +4,7 @@
 //!
 //! Copyright (c) 2023, Olof Kraigher olof.kraigher@gmail.com
 
+use crate::analysis::static_expression::StaticValue;
 use fnv::FnvHashMap;
 use fnv::FnvHashSet;
 
@@ -623,7 +624,7 @@ impl<'a> AnalyzeContext<'a> {
         target_type: TypeEnt<'a>,
         expr: &mut WithPos<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult {
+    ) -> FatalResult<StaticValue> {
         self.expr_pos_with_ttyp(scope, target_type, &expr.pos, &mut expr.item, diagnostics)
     }
 
@@ -757,16 +758,19 @@ impl<'a> AnalyzeContext<'a> {
         expr_pos: &SrcPos,
         expr: &mut Expression,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult {
+    ) -> FatalResult<StaticValue> {
         let target_base = target_type.base_type();
         match expr {
-            Expression::Literal(ref mut lit) => self.analyze_literal_with_target_type(
-                scope,
-                target_type,
-                expr_pos,
-                lit,
-                diagnostics,
-            )?,
+            Expression::Literal(ref mut lit) => {
+                let res = self.analyze_literal_with_target_type(
+                    scope,
+                    target_type,
+                    expr_pos,
+                    lit,
+                    diagnostics,
+                )?;
+                return Ok(res);
+            }
             Expression::Name(ref mut name) => self.expression_name_with_ttyp(
                 scope,
                 expr_pos,
@@ -792,7 +796,7 @@ impl<'a> AnalyzeContext<'a> {
                     Ok(candidates) => candidates,
                     Err(err) => {
                         diagnostics.push(err.into_non_fatal()?);
-                        return Ok(());
+                        return Ok(StaticValue::Unimplemented);
                     }
                 };
 
@@ -830,7 +834,7 @@ impl<'a> AnalyzeContext<'a> {
                     Ok(candidates) => candidates,
                     Err(err) => {
                         diagnostics.push(err.into_non_fatal()?);
-                        return Ok(());
+                        return Ok(StaticValue::Unimplemented);
                     }
                 };
 
@@ -902,7 +906,7 @@ impl<'a> AnalyzeContext<'a> {
             }
         }
 
-        Ok(())
+        Ok(StaticValue::Unimplemented)
     }
 
     pub fn analyze_aggregate(
@@ -1309,7 +1313,7 @@ mod test {
             code: &Code,
             ttyp: TypeEnt<'a>,
             diagnostics: &mut dyn DiagnosticHandler,
-        ) {
+        ) -> StaticValue {
             let mut expr = code.expr();
             self.ctx()
                 .expr_pos_with_ttyp(&self.scope, ttyp, &expr.pos, &mut expr.item, diagnostics)

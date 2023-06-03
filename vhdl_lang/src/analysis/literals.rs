@@ -8,7 +8,9 @@ use fnv::FnvHashSet;
 use super::analyze::*;
 use super::named_entity::*;
 use super::region::*;
-use crate::analysis::static_expression::{bit_string_to_string, BitStringConversionError};
+use crate::analysis::static_expression::{
+    bit_string_to_string, BitStringConversionError, StaticValue,
+};
 use crate::ast::*;
 use crate::data::*;
 
@@ -50,12 +52,12 @@ impl<'a> AnalyzeContext<'a> {
         pos: &SrcPos,
         literal: &mut Literal,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult {
+    ) -> FatalResult<StaticValue> {
         let target_base = target_type.base_type();
 
         match literal {
             Literal::AbstractLiteral(abst) => match abst {
-                AbstractLiteral::Integer(_) => {
+                AbstractLiteral::Integer(int) => {
                     if !self.can_be_target_type(self.universal_integer().into(), target_type.base())
                     {
                         diagnostics.push(Diagnostic::error(
@@ -63,6 +65,7 @@ impl<'a> AnalyzeContext<'a> {
                             format!("integer literal does not match {}", target_type.describe()),
                         ));
                     }
+                    return Ok(StaticValue::Integer(*int as i64));
                 }
                 AbstractLiteral::Real(_) => {
                     if !self.can_be_target_type(self.universal_real().into(), target_type.base()) {
@@ -103,16 +106,20 @@ impl<'a> AnalyzeContext<'a> {
                     target_type,
                     diagnostics,
                 );
+                return Ok(StaticValue::String(string_lit.clone()));
             }
             Literal::BitString(bit_string) => {
                 match bit_string_to_string(bit_string) {
-                    Ok(string_lit) => self.analyze_string_literal(
-                        pos,
-                        string_lit,
-                        target_base,
-                        target_type,
-                        diagnostics,
-                    ),
+                    Ok(string_lit) => {
+                        self.analyze_string_literal(
+                            pos,
+                            string_lit.clone(),
+                            target_base,
+                            target_type,
+                            diagnostics,
+                        );
+                        return Ok(StaticValue::String(string_lit));
+                    }
                     Err(err) => {
                         match err {
                             BitStringConversionError::IllegalDecimalCharacter(rel_pos) => {
@@ -165,7 +172,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
         };
-        Ok(())
+        Ok(StaticValue::Unimplemented)
     }
 
     pub fn resolve_physical_unit(

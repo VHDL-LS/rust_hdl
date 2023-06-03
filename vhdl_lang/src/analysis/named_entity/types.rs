@@ -16,6 +16,7 @@ use crate::ast::{HasDesignator, Ident};
 use crate::data::WithPos;
 use crate::{Diagnostic, SrcPos};
 
+use crate::analysis::static_expression::StaticConstraint;
 use fnv::FnvHashSet;
 
 use super::{Arena, EntRef, Related};
@@ -433,11 +434,22 @@ impl<'a> Deref for BaseType<'a> {
 #[derive(Clone, Copy)]
 pub struct Subtype<'a> {
     pub(crate) type_mark: TypeEnt<'a>,
+    pub(crate) constraint: Option<StaticConstraint>,
 }
 
 impl<'a> Subtype<'a> {
     pub fn new(type_mark: TypeEnt<'a>) -> Subtype<'a> {
-        Subtype { type_mark }
+        Subtype {
+            type_mark,
+            constraint: None,
+        }
+    }
+
+    pub fn constrained(type_mark: TypeEnt<'a>, constraint: StaticConstraint) -> Subtype<'a> {
+        Subtype {
+            type_mark,
+            constraint: Some(constraint),
+        }
     }
 
     pub fn type_mark(&self) -> TypeEnt<'a> {

@@ -12,6 +12,8 @@ use super::names::ResolvedName;
 use super::overloaded::Disambiguated;
 use super::overloaded::DisambiguatedType;
 use super::region::*;
+use crate::analysis::static_expression::StaticConstraint;
+use crate::analysis::static_expression::StaticValue;
 use crate::ast::Range;
 use crate::ast::*;
 use crate::data::*;
@@ -88,12 +90,12 @@ impl<'a> AnalyzeContext<'a> {
                         ent.return_type().unwrap()
                     } else {
                         diagnostics.error(
-                        &attr.name.pos,
-                        format!(
-                            "{} cannot be prefix of range attribute, array type or object is required",
-                            resolved.describe()
-                        ),
-                    );
+                            &attr.name.pos,
+                            format!(
+                                "{} cannot be prefix of range attribute, array type or object is required",
+                                resolved.describe()
+                            ),
+                        );
                         return Err(EvalError::Unknown);
                     }
                 } else {
@@ -256,23 +258,33 @@ impl<'a> AnalyzeContext<'a> {
         target_type: TypeEnt<'a>,
         range: &mut Range,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult {
+    ) -> FatalResult<StaticValue> {
         match range {
             Range::Range(ref mut constraint) => {
-                self.expr_pos_with_ttyp(
+                let left_value = self.expr_pos_with_ttyp(
                     scope,
                     target_type,
                     &constraint.left_expr.pos,
                     &mut constraint.left_expr.item,
                     diagnostics,
                 )?;
-                self.expr_pos_with_ttyp(
+                let right_value = self.expr_pos_with_ttyp(
                     scope,
                     target_type,
                     &constraint.right_expr.pos,
                     &mut constraint.right_expr.item,
                     diagnostics,
                 )?;
+                return match (left_value, right_value) {
+                    (StaticValue::Integer(left), StaticValue::Integer(right)) => {
+                        Ok(StaticValue::Constraint(StaticConstraint::Range(
+                            left,
+                            right,
+                            constraint.direction,
+                        )))
+                    }
+                    _ => Ok(StaticValue::Unimplemented),
+                };
             }
             Range::Attribute(ref mut name) => {
                 let AttributeName {
@@ -325,7 +337,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
         }
-        Ok(())
+        Ok(StaticValue::Unimplemented)
     }
 
     pub fn drange_with_ttyp(
@@ -334,7 +346,7 @@ impl<'a> AnalyzeContext<'a> {
         target_type: TypeEnt<'a>,
         drange: &mut DiscreteRange,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult {
+    ) -> FatalResult<StaticValue> {
         match drange {
             DiscreteRange::Discrete(ref mut type_mark, ref mut range) => {
                 if let Err(err) = self.resolve_type_mark(scope, type_mark) {
@@ -345,10 +357,10 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             DiscreteRange::Range(ref mut range) => {
-                self.range_with_ttyp(scope, target_type, range, diagnostics)?;
+                return self.range_with_ttyp(scope, target_type, range, diagnostics);
             }
         }
-        Ok(())
+        Ok(StaticValue::Unimplemented)
     }
 }
 

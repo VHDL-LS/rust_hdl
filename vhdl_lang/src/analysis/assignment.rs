@@ -9,6 +9,7 @@ use super::analyze::*;
 use super::named_entity::*;
 use super::region::*;
 use super::target::AssignmentType;
+use crate::analysis::static_expression::StaticValue;
 use crate::ast::*;
 use crate::data::*;
 
@@ -127,12 +128,12 @@ impl<'a> AnalyzeContext<'a> {
         ttyp: Option<TypeEnt<'a>>,
         expr: &mut WithPos<Expression>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult {
+    ) -> FatalResult<StaticValue> {
         if let Some(ttyp) = ttyp {
-            self.expr_with_ttyp(scope, ttyp, expr, diagnostics)?;
+            self.expr_with_ttyp(scope, ttyp, expr, diagnostics)
         } else {
-            self.expr_unknown_ttyp(scope, expr, diagnostics)?;
+            self.expr_unknown_ttyp(scope, expr, diagnostics)
+                .and(Ok(StaticValue::Unimplemented))
         }
-        Ok(())
     }
 }

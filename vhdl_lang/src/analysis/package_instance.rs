@@ -130,13 +130,15 @@ impl<'a> AnalyzeContext<'a> {
 
                         mapping.insert(uninst_typ.id(), typ);
                     }
-                    GpkgInterfaceEnt::Constant(obj) => self.expr_pos_with_ttyp(
-                        scope,
-                        self.map_type_ent(&mapping, obj.type_mark()),
-                        &assoc.actual.pos,
-                        expr,
-                        diagnostics,
-                    )?,
+                    GpkgInterfaceEnt::Constant(obj) => self
+                        .expr_pos_with_ttyp(
+                            scope,
+                            self.map_type_ent(&mapping, obj.type_mark()),
+                            &assoc.actual.pos,
+                            expr,
+                            diagnostics,
+                        )
+                        .and(Ok(()))?,
                     GpkgInterfaceEnt::Subprogram(target) => match expr {
                         Expression::Name(name) => {
                             let resolved =
@@ -547,10 +549,14 @@ impl<'a> AnalyzeContext<'a> {
         mapping: &FnvHashMap<EntityId, TypeEnt<'a>>,
         subtype: Subtype<'a>,
     ) -> Result<Subtype<'a>, String> {
-        let Subtype { type_mark } = subtype;
+        let Subtype {
+            type_mark,
+            constraint,
+        } = subtype;
 
         Ok(Subtype {
             type_mark: self.map_type_ent(mapping, type_mark),
+            constraint,
         })
     }
 }

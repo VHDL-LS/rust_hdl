@@ -1,5 +1,5 @@
 use crate::analysis::static_expression::BitStringConversionError::EmptySignedExpansion;
-use crate::ast::{BaseSpecifier, BitString};
+use crate::ast::{BaseSpecifier, BitString, Direction};
 use crate::Latin1String;
 use itertools::Itertools;
 use std::cmp::Ordering;
@@ -475,4 +475,18 @@ mod test_mod {
             )
         }
     }
+}
+
+#[derive(PartialEq, Eq, Clone, Debug, Copy)]
+pub enum StaticConstraint {
+    Range(i64, i64, Direction),
+}
+
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub enum StaticValue {
+    NonStatic,
+    Unimplemented,
+    Integer(i64),
+    String(Latin1String),
+    Constraint(StaticConstraint),
 }

@@ -20,6 +20,7 @@ mod resolves_design_units;
 mod resolves_names;
 mod resolves_type_mark;
 mod sensitivity_list;
+mod static_array_size;
 mod subprogram_arguments;
 mod typecheck_expression;
 mod util;

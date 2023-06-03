@@ -9,6 +9,7 @@ use super::formal_region::RecordRegion;
 use super::named_entity::*;
 use super::names::*;
 use super::*;
+use crate::analysis::static_expression::{StaticConstraint, StaticValue};
 use crate::ast;
 use crate::ast::*;
 use crate::data::*;
@@ -47,9 +48,9 @@ impl<'a> AnalyzeContext<'a> {
                                         let mut error = Diagnostic::error(
                                             type_decl.ident.pos(),
                                             format!(
-                                            "Missing full type declaration of incomplete type '{}'",
-                                            type_decl.ident.name()
-                                        ),
+                                                "Missing full type declaration of incomplete type '{}'",
+                                                type_decl.ident.name()
+                                            ),
                                         );
                                         error.add_related(type_decl.ident.pos(), "The full type declaration shall occur immediately within the same declarative part");
                                         diagnostics.push(error);
@@ -260,13 +261,31 @@ impl<'a> AnalyzeContext<'a> {
 
                 if let Some(ref mut expr) = object_decl.expression {
                     if let Ok(ref subtype) = subtype {
-                        self.expr_pos_with_ttyp(
+                        let value = self.expr_pos_with_ttyp(
                             scope,
                             subtype.type_mark(),
                             &expr.pos,
                             &mut expr.item,
                             diagnostics,
                         )?;
+                        if let Some(constraint) = subtype.constraint {
+                            match constraint {
+                                StaticConstraint::Range(left, right, dir) => {
+                                    let size = match dir {
+                                        Direction::Ascending => right - left + 1,
+                                        Direction::Descending => left - right + 1,
+                                    };
+                                    match value {
+                                        StaticValue::String(string) => {
+                                            if size != string.len() as i64 {
+                                                diagnostics.error(expr.clone().pos, format!("Left hand side of expression has a size of {} but the right hand side has a size of {}", size, string.len()));
+                                            }
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            }
+                        }
                     } else {
                         self.expr_unknown_ttyp(scope, expr, diagnostics)?;
                     }
@@ -1266,19 +1285,19 @@ impl<'a> AnalyzeContext<'a> {
         base_type: BaseType<'a>,
         constraint: &mut SubtypeConstraint,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult {
+    ) -> FatalResult<StaticValue> {
         match constraint {
             SubtypeConstraint::Array(ref mut dranges, ref mut constraint) => {
                 if let Type::Array { indexes, elem_type } = base_type.kind() {
                     for (idx, drange) in dranges.iter_mut().enumerate() {
                         if let Some(index_typ) = indexes.get(idx) {
                             if let Some(index_typ) = index_typ {
-                                self.drange_with_ttyp(
+                                return self.drange_with_ttyp(
                                     scope,
                                     (*index_typ).into(),
                                     drange,
                                     diagnostics,
-                                )?;
+                                );
                             } else {
                                 self.drange_unknown_type(scope, drange, diagnostics)?;
                             }
@@ -1304,13 +1323,13 @@ impl<'a> AnalyzeContext<'a> {
                     }
 
                     if let Some(constraint) = constraint {
-                        self.analyze_subtype_constraint(
+                        return self.analyze_subtype_constraint(
                             scope,
                             &constraint.pos,
                             elem_type.base(),
                             &mut constraint.item,
                             diagnostics,
-                        )?;
+                        );
                     }
                 } else {
                     diagnostics.error(
@@ -1324,7 +1343,8 @@ impl<'a> AnalyzeContext<'a> {
             }
             SubtypeConstraint::Range(ref mut range) => {
                 if base_type.is_scalar() {
-                    self.range_with_ttyp(scope, base_type.into(), range, diagnostics)?;
+                    self.range_with_ttyp(scope, base_type.into(), range, diagnostics)
+                        .and(Ok(()))?;
                 } else {
                     diagnostics.error(
                         pos,
@@ -1365,7 +1385,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
         }
-        Ok(())
+        Ok(StaticValue::Unimplemented)
     }
 
     pub fn resolve_subtype_indication(
@@ -1384,13 +1404,16 @@ impl<'a> AnalyzeContext<'a> {
         let base_type = self.resolve_type_mark(scope, type_mark)?;
 
         if let Some(constraint) = constraint {
-            self.analyze_subtype_constraint(
+            let result = self.analyze_subtype_constraint(
                 scope,
                 &type_mark.pos,
                 base_type.base(),
                 &mut constraint.item,
                 diagnostics,
             )?;
+            if let StaticValue::Constraint(constraint) = result {
+                return Ok(Subtype::constrained(base_type, constraint));
+            }
         }
 
         Ok(Subtype::new(base_type))
