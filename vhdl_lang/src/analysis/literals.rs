@@ -23,7 +23,7 @@ impl<'a> AnalyzeContext<'a> {
         target_base: TypeEnt,
         target_type: TypeEnt,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) {
+    ) -> FatalResult<StaticValue> {
         if let Some((elem_type, literals)) = as_single_index_enum_array(target_base) {
             for chr in string_lit.chars() {
                 let chr = Designator::Character(*chr);
@@ -32,7 +32,7 @@ impl<'a> AnalyzeContext<'a> {
                         pos,
                         format!("{} does not define character {}", elem_type.describe(), chr),
                     ));
-                    break;
+                    return Ok(StaticValue::HasOtherError);
                 }
             }
         } else {
@@ -40,7 +40,9 @@ impl<'a> AnalyzeContext<'a> {
                 pos,
                 format!("string literal does not match {}", target_type.describe()),
             ));
+            return Ok(StaticValue::HasOtherError);
         }
+        Ok(StaticValue::String(string_lit))
     }
 
     /// Returns true if the name actually matches the target type
@@ -64,15 +66,20 @@ impl<'a> AnalyzeContext<'a> {
                             pos,
                             format!("integer literal does not match {}", target_type.describe()),
                         ));
+                        Ok(StaticValue::HasOtherError)
+                    } else {
+                        Ok(StaticValue::Integer(*int as i64))
                     }
-                    return Ok(StaticValue::Integer(*int as i64));
                 }
-                AbstractLiteral::Real(_) => {
+                AbstractLiteral::Real(real) => {
                     if !self.can_be_target_type(self.universal_real().into(), target_type.base()) {
                         diagnostics.push(Diagnostic::error(
                             pos,
                             format!("real literal does not match {}", target_type.describe()),
                         ));
+                        Ok(StaticValue::HasOtherError)
+                    } else {
+                        Ok(StaticValue::Real(*real))
                     }
                 }
             },
@@ -86,6 +93,9 @@ impl<'a> AnalyzeContext<'a> {
                                 target_type.describe()
                             ),
                         ));
+                        Ok(StaticValue::HasOtherError)
+                    } else {
+                        Ok(StaticValue::Character(*char))
                     }
                 }
                 _ => {
@@ -96,29 +106,26 @@ impl<'a> AnalyzeContext<'a> {
                             target_type.describe()
                         ),
                     ));
+                    Ok(StaticValue::HasOtherError)
                 }
-            },
-            Literal::String(string_lit) => {
-                self.analyze_string_literal(
-                    pos,
-                    string_lit.to_owned(),
-                    target_base,
-                    target_type,
-                    diagnostics,
-                );
-                return Ok(StaticValue::String(string_lit.clone()));
             }
+            Literal::String(string_lit) => self.analyze_string_literal(
+                pos,
+                string_lit.to_owned(),
+                target_base,
+                target_type,
+                diagnostics,
+            ),
             Literal::BitString(bit_string) => {
                 match bit_string_to_string(bit_string) {
                     Ok(string_lit) => {
                         self.analyze_string_literal(
                             pos,
-                            string_lit.clone(),
+                            string_lit,
                             target_base,
                             target_type,
                             diagnostics,
-                        );
-                        return Ok(StaticValue::String(string_lit));
+                        )
                     }
                     Err(err) => {
                         match err {
@@ -144,6 +151,7 @@ impl<'a> AnalyzeContext<'a> {
                                 diagnostics.error(pos, "Cannot expand an empty signed bit string");
                             }
                         }
+                        Ok(StaticValue::HasOtherError)
                     }
                 }
             }
@@ -162,6 +170,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics.push(diagnostic);
                     }
                 }
+                Ok(StaticValue::Unimplemented)
             }
             Literal::Null => {
                 if !matches!(target_base.kind(), Type::Access(_)) {
@@ -169,10 +178,12 @@ impl<'a> AnalyzeContext<'a> {
                         pos,
                         format!("null literal does not match {}", target_base.describe()),
                     ));
+                    return Ok(StaticValue::HasOtherError)
+                } else {
+                    Ok(StaticValue::Null)
                 }
             }
-        };
-        Ok(StaticValue::Unimplemented)
+        }
     }
 
     pub fn resolve_physical_unit(

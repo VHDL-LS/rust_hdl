@@ -482,11 +482,28 @@ pub enum StaticConstraint {
     Range(i64, i64, Direction),
 }
 
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum StaticValue {
+    /// The value is not static, e.g. a variable or signal
     NonStatic,
+    /// The case in unimplemented. This is to be treated as if there was no error.
+    /// This case should vanish when every possibility is explored.
     Unimplemented,
+    /// The static value is to be ignored (and also not returned) as a more severe error was found but was already reported. E.g.:
+    /// `constant x: bit_vector(2 downto 0) := "10F0";`
+    /// The length of the string literal is four, which does not match the length on the left.
+    /// However, there is the illegal character 'F' in the string literal which will be reported.
+    HasOtherError,
+    /// The value is an integer type.
     Integer(i64),
+    /// The value is a real type.
+    Real(f64),
+    /// The value is a character type.
+    Character(u8),
+    /// The value is a string type. This may also come from a bit-string literal
     String(Latin1String),
+    /// The value is null
+    Null,
+    /// The static value is a constraint.
     Constraint(StaticConstraint),
 }

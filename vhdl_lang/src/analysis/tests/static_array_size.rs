@@ -7,6 +7,8 @@ fn test_static_array_size() {
         "
 signal bad: bit_vector(2 downto 0) := \"1100\";
 constant good: bit_vector(2 downto 0) := \"100\";
+constant WIDTH: natural := 5;
+constant bad2: bit_vector(WIDTH - 1 downto 0) := \"000\";
         ",
     );
 
@@ -16,6 +18,9 @@ constant good: bit_vector(2 downto 0) := \"100\";
         vec![Diagnostic::error(
             code.s1("\"1100\""),
             "Left hand side of expression has a size of 3 but the right hand side has a size of 4",
+        ), Diagnostic::error(
+            code.s1("\"---\""),
+            "Left hand side of expression has a size of 4 but the right hand side has a size of 3",
         )],
     );
 }
