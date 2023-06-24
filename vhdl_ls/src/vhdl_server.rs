@@ -263,6 +263,9 @@ impl VHDLServer {
         }
     }
 
+    pub fn request_completion(&mut self, params: &CompletionParams) {
+    }
+
     fn client_supports_related_information(&self) -> bool {
         let try_fun = || {
             self.init_params
