@@ -263,7 +263,17 @@ impl VHDLServer {
         }
     }
 
-    pub fn request_completion(&mut self, params: &CompletionParams) {
+    pub fn request_completion(&mut self, params: &CompletionParams) -> CompletionList {
+        let binding = uri_to_file_name(&params.text_document_position.text_document.uri);
+        let file = binding.as_path();
+        let Some(source) = self.project.get_source(file) else {
+            // Do not enable completions for files that are not part of the project
+            return CompletionList {..Default::default()};
+        };
+        return CompletionList {
+            items: vec![],
+            is_incomplete: true
+        };
     }
 
     fn client_supports_related_information(&self) -> bool {
