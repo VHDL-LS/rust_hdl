@@ -431,6 +431,12 @@ impl DesignRoot {
         Vec::default()
     }
 
+    pub fn list_completion_options<'a>(&'a self, source: &Source, cursor: Position) -> Vec<String> {
+        let mut searcher = SuggestionSearcher::new(self, cursor, source);
+        let _ = self.search(&mut searcher);
+        searcher.result
+    }
+
     #[cfg(test)]
     pub fn search_reference_pos(&self, source: &Source, cursor: Position) -> Option<SrcPos> {
         self.search_reference(source, cursor)

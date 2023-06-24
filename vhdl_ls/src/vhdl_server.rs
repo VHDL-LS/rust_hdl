@@ -112,10 +112,7 @@ impl VHDLServer {
         let config = self.load_config();
         self.project = Project::from_config(&config, &mut self.message_filter());
         self.init_params = Some(init_params);
-        let trigger_chars: Vec<String> = r"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.\"
-            .chars()
-            .map(|ch| ch.to_string())
-            .collect();
+        let trigger_chars: Vec<String> = r".".chars().map(|ch| ch.to_string()).collect();
 
         let capabilities = ServerCapabilities {
             text_document_sync: Some(TextDocumentSyncCapability::Kind(
@@ -263,6 +260,8 @@ impl VHDLServer {
         }
     }
 
+    /// Called when the client requests a completion.
+    /// This function looks in the source code to find suitable options and then returns them
     pub fn request_completion(&mut self, params: &CompletionParams) -> CompletionList {
         let binding = uri_to_file_name(&params.text_document_position.text_document.uri);
         let file = binding.as_path();
@@ -270,10 +269,23 @@ impl VHDLServer {
             // Do not enable completions for files that are not part of the project
             return CompletionList {..Default::default()};
         };
-        return CompletionList {
-            items: vec![],
-            is_incomplete: true
-        };
+        let options = self
+            .project
+            .list_completion_options(
+                &source,
+                from_lsp_pos(params.text_document_position.position),
+            )
+            .into_iter()
+            .map(|option| CompletionItem {
+                label: option,
+                ..Default::default()
+            })
+            .collect();
+        self.message(Message::log(format!("{:?}", options)));
+        CompletionList {
+            items: options,
+            is_incomplete: true,
+        }
     }
 
     fn client_supports_related_information(&self) -> bool {

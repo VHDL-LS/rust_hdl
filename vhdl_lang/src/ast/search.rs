@@ -1782,6 +1782,59 @@ impl std::fmt::Display for FoundDeclaration<'_> {
     }
 }
 
+pub struct SuggestionSearcher<'a> {
+    pub root: &'a DesignRoot,
+    pub cursor: Position,
+    pub source: &'a Source,
+    pub result: Vec<String>,
+}
+
+impl<'a> SuggestionSearcher<'a> {
+    pub fn new(
+        root: &'a DesignRoot,
+        cursor: Position,
+        source: &'a Source,
+    ) -> SuggestionSearcher<'a> {
+        SuggestionSearcher {
+            root,
+            cursor,
+            source,
+            result: vec![],
+        }
+    }
+
+    fn cursor_inside_of(&self, pos: &SrcPos) -> bool {
+        pos.start() <= self.cursor && self.cursor <= pos.end()
+    }
+
+    fn search_entity(&mut self, entity: EntityId, pos: &SrcPos) -> SearchState {
+        let ent = self.root.get_ent(entity);
+        self.result.push(format!("{:?}: {:?}", ent.describe(), pos.range));
+        self.result.push(ent.describe());
+        NotFinished
+    }
+}
+
+impl<'a> Searcher for SuggestionSearcher<'a> {
+    fn search_pos_with_ref(&mut self, pos: &SrcPos, reference: &mut Reference) -> SearchState {
+        /* if !self.cursor_inside_of(pos) {
+            return Finished(NotFound);
+        } */
+        match reference {
+            Some(eid) => self.search_entity(eid.clone(), pos),
+            None => Finished(NotFound),
+        }
+    }
+
+    fn search_source(&mut self, source: &Source) -> SearchState {
+        if source == self.source {
+            NotFinished
+        } else {
+            Finished(NotFound)
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct FindAllUnresolved {
     pub count: usize,
