@@ -14,12 +14,10 @@ use vhdl_lang::ast::{Designator, ObjectClass};
 use crate::rpc_channel::SharedRpcChannel;
 use std::io;
 use std::path::{Path, PathBuf};
-use clap::builder::Str;
 use vhdl_lang::{
     AnyEntKind, Concurrent, Config, Diagnostic, EntHierarchy, EntRef, Message, MessageHandler,
     Object, Overloaded, Project, Severity, Source, SrcPos, Type,
 };
-use vhdl_lang::ast::InterfacePackageGenericMapAspect::Default;
 
 #[derive(Default, Clone)]
 pub struct VHDLServerSettings {
@@ -114,7 +112,10 @@ impl VHDLServer {
         let config = self.load_config();
         self.project = Project::from_config(&config, &mut self.message_filter());
         self.init_params = Some(init_params);
-        let trigger_chars: Vec<String> = r"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.\".chars().map(|ch| ch.to_string()).collect();
+        let trigger_chars: Vec<String> = r"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.\"
+            .chars()
+            .map(|ch| ch.to_string())
+            .collect();
 
         let capabilities = ServerCapabilities {
             text_document_sync: Some(TextDocumentSyncCapability::Kind(
@@ -136,7 +137,7 @@ impl VHDLServer {
                 trigger_characters: Some(trigger_chars),
                 all_commit_characters: None,
                 work_done_progress_options: Default::default(),
-                completion_item: Default::default()
+                completion_item: Default::default(),
             }),
             ..Default::default()
         };
