@@ -196,7 +196,7 @@ constant f: bit_vector := 2SX\"\";
             Diagnostic::error(code.s1("D\"1AFFE\""), "Illegal digit 'A' for base 10"),
             Diagnostic::error(
                 code.s1("8SX\"0FF\""),
-                "Truncating to 8 bit would loose information",
+                "Truncating vector to length 8 would lose information",
             ),
             Diagnostic::error(
                 code.s1("X\"G\""),
