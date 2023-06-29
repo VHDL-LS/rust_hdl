@@ -1251,7 +1251,7 @@ impl Diagnostic {
                 Designator::OperatorSymbol(op).describe()
             ),
         );
-        diag.add_subprogram_candidates("migth be", candidates);
+        diag.add_subprogram_candidates("might be", candidates);
         diag
     }
 }
@@ -1537,11 +1537,11 @@ function \"-\"(arg : string) return integer;
                 Diagnostic::error(code.s1("-"), "ambiguous use of operator \"-\"")
                     .related(
                         decls.s("\"-\"", 1),
-                        "migth be operator \"-\"[BIT_VECTOR return INTEGER]",
+                        "might be operator \"-\"[BIT_VECTOR return INTEGER]",
                     )
                     .related(
                         decls.s("\"-\"", 2),
-                        "migth be operator \"-\"[STRING return INTEGER]",
+                        "might be operator \"-\"[STRING return INTEGER]",
                     ),
             ],
         );
