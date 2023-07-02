@@ -548,3 +548,35 @@ end architecture;
         ],
     );
 }
+
+#[test]
+fn issue_177() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package Test is
+  type MyArray_t is array (0 to kConst) of integer;
+end Test;
+
+package body Test is
+  variable v : MyArray_t := (others => 0);
+  procedure Foo is
+  begin
+    -- v'range previously paniced due to MyArray_t having None as index
+    for i in v'range loop
+      v(i) := 1;
+    end loop;
+  end procedure Foo;
+end package body Test;",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("kConst"),
+            "No declaration of 'kConst'",
+        )],
+    )
+}

@@ -128,7 +128,7 @@ impl<'a> AnalyzeContext<'a> {
                                 diagnostics.error(
                                     pos,
                                     format!(
-                                        "Truncating to {} bit would loose information",
+                                        "Truncating vector to length {} would lose information",
                                         bit_string.length.unwrap() // Safe as this error can only happen when there is a length
                                     ),
                                 );

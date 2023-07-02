@@ -117,7 +117,12 @@ impl<'a> AnalyzeContext<'a> {
         };
 
         if let Some((_, indexes)) = typ.array_type() {
-            Ok(indexes.first().unwrap().unwrap())
+            if let Some(first) = indexes.first().unwrap() {
+                Ok(*first)
+            } else {
+                // There was probably an error in the type definition of this signal/variable
+                Err(EvalError::Unknown)
+            }
         } else {
             diagnostics.error(
                 &attr.name.pos,
