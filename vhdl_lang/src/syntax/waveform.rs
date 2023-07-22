@@ -8,10 +8,10 @@ use crate::ast::{DelayMechanism, Waveform, WaveformElement};
 
 use super::common::{parse_optional, ParseResult};
 use super::expression::parse_expression;
-use super::tokens::{Kind::*, TokenStream, _TokenStream};
+use super::tokens::{BaseTokenStream, Kind::*, _TokenStream};
 
 /// LRM 10.5 Signal assignment statement
-pub fn parse_delay_mechanism(stream: &TokenStream) -> ParseResult<Option<DelayMechanism>> {
+pub fn parse_delay_mechanism(stream: &BaseTokenStream) -> ParseResult<Option<DelayMechanism>> {
     let token = stream.peek_expect()?;
     match token.kind {
         Transport => {
@@ -33,7 +33,7 @@ pub fn parse_delay_mechanism(stream: &TokenStream) -> ParseResult<Option<DelayMe
 }
 
 /// LRM 10.5 Signal assignment statement
-pub fn parse_waveform(stream: &TokenStream) -> ParseResult<Waveform> {
+pub fn parse_waveform(stream: &BaseTokenStream) -> ParseResult<Waveform> {
     if stream.skip_if_kind(Unaffected) {
         return Ok(Waveform::Unaffected);
     }

@@ -7,13 +7,13 @@
 use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;
 use super::interface_declaration::{parse_generic_interface_list, parse_port_interface_list};
-use super::tokens::{Kind::*, TokenStream, _TokenStream};
+use super::tokens::{BaseTokenStream, Kind::*, _TokenStream};
 use crate::ast::WithDecl;
 use crate::ast::{ComponentDeclaration, InterfaceDeclaration};
 use crate::data::{Diagnostic, DiagnosticHandler};
 
 pub fn parse_optional_generic_list(
-    stream: &TokenStream,
+    stream: &BaseTokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
     let mut list = None;
@@ -38,7 +38,7 @@ pub fn parse_optional_generic_list(
 }
 
 pub fn parse_optional_port_list(
-    stream: &TokenStream,
+    stream: &BaseTokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
     let mut list = None;
@@ -72,7 +72,7 @@ pub fn parse_optional_port_list(
 }
 
 pub fn parse_component_declaration(
-    stream: &TokenStream,
+    stream: &BaseTokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ComponentDeclaration> {
     stream.expect_kind(Component)?;

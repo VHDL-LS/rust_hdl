@@ -5,7 +5,7 @@
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 use super::design_unit::parse_design_file;
-use super::tokens::{Symbols, TokenStream, Tokenizer};
+use super::tokens::{BaseTokenStream, Symbols, Tokenizer};
 use crate::ast::DesignFile;
 use crate::data::*;
 use std::io;
@@ -30,7 +30,7 @@ impl VHDLParser {
     ) -> DesignFile {
         let contents = source.contents();
         let tokenizer = Tokenizer::new(&self.symbols, source, ContentReader::new(&contents));
-        let stream = TokenStream::new(tokenizer, diagnostics);
+        let stream = BaseTokenStream::new(tokenizer, diagnostics);
 
         match parse_design_file(&stream, diagnostics) {
             Ok(design_file) => design_file,

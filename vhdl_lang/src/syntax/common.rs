@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use super::tokens::{Kind, TokenStream, _TokenStream};
+use super::tokens::{BaseTokenStream, Kind, _TokenStream};
 use crate::ast::Ident;
 use crate::data::Diagnostic;
 use crate::data::DiagnosticHandler;
@@ -13,12 +13,12 @@ use crate::SrcPos;
 
 /// Parse optional part followed by optional keyword
 pub fn parse_optional<F, R>(
-    stream: &TokenStream,
+    stream: &BaseTokenStream,
     keyword: Kind,
     parse_fun: F,
 ) -> ParseResult<Option<R>>
 where
-    F: FnOnce(&TokenStream) -> ParseResult<R>,
+    F: FnOnce(&BaseTokenStream) -> ParseResult<R>,
 {
     let optional = {
         if stream.skip_if_kind(keyword) {

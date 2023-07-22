@@ -8,12 +8,14 @@ use super::common::ParseResult;
 use super::expression::parse_expression;
 use super::names::parse_identifier_list;
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{Kind::*, TokenStream, _TokenStream};
+use super::tokens::{BaseTokenStream, Kind::*, _TokenStream};
 /// LRM 6.4.2 Object Declarations
 use crate::ast::*;
 use crate::data::WithPos;
 
-pub fn parse_optional_assignment(stream: &TokenStream) -> ParseResult<Option<WithPos<Expression>>> {
+pub fn parse_optional_assignment(
+    stream: &BaseTokenStream,
+) -> ParseResult<Option<WithPos<Expression>>> {
     if stream.pop_if_kind(ColonEq).is_some() {
         let expr = parse_expression(stream)?;
         Ok(Some(expr))
@@ -23,7 +25,7 @@ pub fn parse_optional_assignment(stream: &TokenStream) -> ParseResult<Option<Wit
 }
 
 fn parse_object_declaration_kind(
-    stream: &TokenStream,
+    stream: &BaseTokenStream,
     class: ObjectClass,
 ) -> ParseResult<Vec<ObjectDeclaration>> {
     match class {
@@ -58,7 +60,7 @@ fn parse_object_declaration_kind(
         .collect())
 }
 
-pub fn parse_object_declaration(stream: &TokenStream) -> ParseResult<Vec<ObjectDeclaration>> {
+pub fn parse_object_declaration(stream: &BaseTokenStream) -> ParseResult<Vec<ObjectDeclaration>> {
     let token = stream.peek_expect()?;
     let result = try_init_token_kind!(
         token,
@@ -73,7 +75,9 @@ pub fn parse_object_declaration(stream: &TokenStream) -> ParseResult<Vec<ObjectD
     Ok(result)
 }
 
-pub fn parse_file_declaration_no_semi(stream: &TokenStream) -> ParseResult<Vec<FileDeclaration>> {
+pub fn parse_file_declaration_no_semi(
+    stream: &BaseTokenStream,
+) -> ParseResult<Vec<FileDeclaration>> {
     stream.expect_kind(File)?;
     let idents = parse_identifier_list(stream)?;
     stream.expect_kind(Colon)?;
@@ -106,7 +110,7 @@ pub fn parse_file_declaration_no_semi(stream: &TokenStream) -> ParseResult<Vec<F
         .collect())
 }
 
-pub fn parse_file_declaration(stream: &TokenStream) -> ParseResult<Vec<FileDeclaration>> {
+pub fn parse_file_declaration(stream: &BaseTokenStream) -> ParseResult<Vec<FileDeclaration>> {
     let result = parse_file_declaration_no_semi(stream)?;
     stream.expect_kind(SemiColon)?;
     Ok(result)

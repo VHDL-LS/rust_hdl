@@ -12,12 +12,6 @@ use crate::ast::{AttributeDesignator, Ident, RangeAttribute, TypeAttribute};
 use crate::data::{DiagnosticHandler, DiagnosticResult, WithPos};
 use crate::{Diagnostic, SrcPos};
 
-pub struct TokenStream<'a> {
-    tokenizer: Tokenizer<'a>,
-    idx: Cell<usize>,
-    tokens: Vec<Token>,
-}
-
 /// A TokenStream is an immutable collection of tokens with a mutable state.
 /// The state points to a certain tokens. Methods exist to mutate that state and seek
 /// to another token, e.g. to skip a token or go to a previous one.
@@ -188,13 +182,19 @@ pub enum TokenizationException<'a> {
     EofError { expectations: Option<&'a [Kind]> },
 }
 
+pub struct BaseTokenStream<'a> {
+    tokenizer: Tokenizer<'a>,
+    idx: Cell<usize>,
+    tokens: Vec<Token>,
+}
+
 /// The token stream maintains a collection of tokens and a current state.
 /// The state is an index into the vector of tokens and
-impl<'a> TokenStream<'a> {
+impl<'a> BaseTokenStream<'a> {
     pub fn new(
         mut tokenizer: Tokenizer<'a>,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> TokenStream<'a> {
+    ) -> BaseTokenStream<'a> {
         let mut tokens = Vec::new();
         loop {
             match tokenizer.pop() {
@@ -203,7 +203,7 @@ impl<'a> TokenStream<'a> {
                 Err(err) => diagnostics.push(err),
             }
         }
-        TokenStream {
+        BaseTokenStream {
             tokenizer,
             idx: Cell::new(0),
             tokens,
@@ -219,7 +219,7 @@ impl<'a> TokenStream<'a> {
     }
 }
 
-impl<'a> _TokenStream for TokenStream<'a> {
+impl<'a> _TokenStream for BaseTokenStream<'a> {
     fn state(&self) -> usize {
         self.idx.get()
     }
@@ -277,7 +277,7 @@ impl<'a> _TokenStream for TokenStream<'a> {
 pub trait Recover<T> {
     fn or_recover_until(
         self,
-        stream: &TokenStream,
+        stream: &BaseTokenStream,
         msgs: &mut dyn DiagnosticHandler,
         cond: fn(Kind) -> bool,
     ) -> DiagnosticResult<T>;
@@ -288,7 +288,7 @@ pub trait Recover<T> {
 impl<T: std::fmt::Debug> Recover<T> for DiagnosticResult<T> {
     fn or_recover_until(
         self,
-        stream: &TokenStream,
+        stream: &BaseTokenStream,
         msgs: &mut dyn DiagnosticHandler,
         cond: fn(Kind) -> bool,
     ) -> DiagnosticResult<T> {

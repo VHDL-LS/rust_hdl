@@ -14,7 +14,7 @@ use super::tokens::{Kind::*, *};
 use crate::ast::*;
 use crate::data::*;
 
-fn parse_optional_mode(stream: &TokenStream) -> ParseResult<Option<WithPos<Mode>>> {
+fn parse_optional_mode(stream: &BaseTokenStream) -> ParseResult<Option<WithPos<Mode>>> {
     let token = stream.peek_expect()?;
     let mode = match token.kind {
         In => Mode::In,
@@ -37,7 +37,7 @@ fn unexpected_object_class_kind(list_type: InterfaceType, token: &Token) -> Diag
 }
 
 fn parse_optional_object_class(
-    stream: &TokenStream,
+    stream: &BaseTokenStream,
     list_type: InterfaceType,
 ) -> ParseResult<Option<WithPos<ObjectClass>>> {
     let token = stream.peek_expect()?;
@@ -54,7 +54,7 @@ fn parse_optional_object_class(
 }
 
 fn parse_interface_file_declaration(
-    stream: &TokenStream,
+    stream: &BaseTokenStream,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     let file_objects = parse_file_declaration_no_semi(stream)?;
     for file_object in file_objects.iter() {
@@ -84,7 +84,7 @@ fn parse_interface_file_declaration(
 }
 
 fn parse_interface_object_declaration(
-    stream: &TokenStream,
+    stream: &BaseTokenStream,
     list_type: InterfaceType,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     let explicit_object_class = parse_optional_object_class(stream, list_type)?;
@@ -158,7 +158,7 @@ fn parse_interface_object_declaration(
         .collect())
 }
 
-fn parse_subprogram_default(stream: &TokenStream) -> ParseResult<Option<SubprogramDefault>> {
+fn parse_subprogram_default(stream: &BaseTokenStream) -> ParseResult<Option<SubprogramDefault>> {
     if stream.skip_if_kind(Is) {
         let default = {
             peek_token!(
@@ -177,7 +177,7 @@ fn parse_subprogram_default(stream: &TokenStream) -> ParseResult<Option<Subprogr
     }
 }
 
-fn parse_interface_package(stream: &TokenStream) -> ParseResult<InterfacePackageDeclaration> {
+fn parse_interface_package(stream: &BaseTokenStream) -> ParseResult<InterfacePackageDeclaration> {
     stream.expect_kind(Package)?;
     let ident = stream.expect_ident()?;
     stream.expect_kind(Is)?;
@@ -212,7 +212,7 @@ fn parse_interface_package(stream: &TokenStream) -> ParseResult<InterfacePackage
 }
 
 fn parse_interface_declaration(
-    stream: &TokenStream,
+    stream: &BaseTokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
     list_type: InterfaceType,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
@@ -241,7 +241,7 @@ fn parse_interface_declaration(
 
 /// Parse ; separator in generic or port lists.
 /// Expect ; for all but the last item
-fn parse_semicolon_separator(stream: &TokenStream) -> ParseResult<()> {
+fn parse_semicolon_separator(stream: &BaseTokenStream) -> ParseResult<()> {
     peek_token!(
         stream, token,
         SemiColon => {
@@ -269,7 +269,7 @@ fn is_sync_kind(list_type: InterfaceType, kind: Kind) -> bool {
 }
 
 fn parse_interface_list(
-    stream: &TokenStream,
+    stream: &BaseTokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
     list_type: InterfaceType,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
@@ -335,21 +335,21 @@ fn parse_interface_list(
 }
 
 pub fn parse_generic_interface_list(
-    stream: &TokenStream,
+    stream: &BaseTokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     parse_interface_list(stream, diagnostics, InterfaceType::Generic)
 }
 
 pub fn parse_port_interface_list(
-    stream: &TokenStream,
+    stream: &BaseTokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     parse_interface_list(stream, diagnostics, InterfaceType::Port)
 }
 
 pub fn parse_parameter_interface_list(
-    stream: &TokenStream,
+    stream: &BaseTokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Vec<InterfaceDeclaration>> {
     parse_interface_list(stream, diagnostics, InterfaceType::Parameter)
@@ -357,7 +357,7 @@ pub fn parse_parameter_interface_list(
 
 #[cfg(test)]
 fn parse_one_interface_declaration(
-    stream: &TokenStream,
+    stream: &BaseTokenStream,
     list_type: InterfaceType,
 ) -> ParseResult<InterfaceDeclaration> {
     let mut diagnostics = Vec::new();
@@ -370,17 +370,17 @@ fn parse_one_interface_declaration(
 }
 
 #[cfg(test)]
-pub fn parse_parameter(stream: &TokenStream) -> ParseResult<InterfaceDeclaration> {
+pub fn parse_parameter(stream: &BaseTokenStream) -> ParseResult<InterfaceDeclaration> {
     parse_one_interface_declaration(stream, InterfaceType::Parameter)
 }
 
 #[cfg(test)]
-pub fn parse_port(stream: &TokenStream) -> ParseResult<InterfaceDeclaration> {
+pub fn parse_port(stream: &BaseTokenStream) -> ParseResult<InterfaceDeclaration> {
     parse_one_interface_declaration(stream, InterfaceType::Port)
 }
 
 #[cfg(test)]
-pub fn parse_generic(stream: &TokenStream) -> ParseResult<InterfaceDeclaration> {
+pub fn parse_generic(stream: &BaseTokenStream) -> ParseResult<InterfaceDeclaration> {
     parse_one_interface_declaration(stream, InterfaceType::Generic)
 }
 
