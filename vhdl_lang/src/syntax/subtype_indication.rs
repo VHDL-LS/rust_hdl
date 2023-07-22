@@ -7,19 +7,19 @@
 use super::common::ParseResult;
 use super::names::{parse_selected_name, parse_type_mark, parse_type_mark_starting_with_name};
 use super::range::{parse_discrete_range, parse_range};
-use super::tokens::{kinds_error, BaseTokenStream, Kind::*, TokenStream};
+use super::tokens::{kinds_error, Kind::*, TokenStream};
 /// LRM 6.3 Subtype declarations
 use crate::ast::*;
 use crate::data::{SrcPos, WithPos};
 
-fn parse_record_element_constraint(stream: &BaseTokenStream) -> ParseResult<ElementConstraint> {
+fn parse_record_element_constraint(stream: &dyn TokenStream) -> ParseResult<ElementConstraint> {
     let ident = stream.expect_ident()?;
     let constraint = Box::new(parse_composite_constraint(stream)?);
     Ok(ElementConstraint { ident, constraint })
 }
 
 fn parse_array_constraint(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
     leftpar_pos: SrcPos,
     // Open is None
     initial: Option<DiscreteRange>,
@@ -52,7 +52,7 @@ fn parse_array_constraint(
     ))
 }
 
-fn parse_composite_constraint(stream: &BaseTokenStream) -> ParseResult<WithPos<SubtypeConstraint>> {
+fn parse_composite_constraint(stream: &dyn TokenStream) -> ParseResult<WithPos<SubtypeConstraint>> {
     // There is no finite lookahead that can differentiate
     // between array and record element constraint
     let leftpar_pos = stream.expect_kind(LeftPar)?.pos.clone();
@@ -103,7 +103,7 @@ fn parse_composite_constraint(stream: &BaseTokenStream) -> ParseResult<WithPos<S
 }
 
 pub fn parse_subtype_constraint(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
 ) -> ParseResult<Option<WithPos<SubtypeConstraint>>> {
     if let Some(token) = stream.peek() {
         let constraint = match token.kind {
@@ -125,7 +125,7 @@ pub fn parse_subtype_constraint(
 }
 
 pub fn parse_element_resolution_indication(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
 ) -> ParseResult<ResolutionIndication> {
     stream.expect_kind(LeftPar)?;
 
@@ -178,7 +178,7 @@ pub fn parse_element_resolution_indication(
     ))
 }
 
-pub fn parse_subtype_indication(stream: &BaseTokenStream) -> ParseResult<SubtypeIndication> {
+pub fn parse_subtype_indication(stream: &dyn TokenStream) -> ParseResult<SubtypeIndication> {
     let (resolution, type_mark) = {
         if stream.peek_kind() == Some(LeftPar) {
             let resolution = parse_element_resolution_indication(stream)?;

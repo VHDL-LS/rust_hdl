@@ -11,14 +11,14 @@ use super::names::parse_identifier_list;
 use super::range::{parse_array_index_constraint, parse_range};
 use super::subprogram::parse_subprogram_declaration;
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{BaseTokenStream, Kind::*, TokenStream};
+use super::tokens::{Kind::*, TokenStream};
 use crate::ast::*;
 use crate::ast::{AbstractLiteral, Range};
 use crate::data::DiagnosticHandler;
 use crate::syntax::names::parse_type_mark;
 
 /// LRM 5.2.2 Enumeration types
-fn parse_enumeration_type_definition(stream: &BaseTokenStream) -> ParseResult<TypeDefinition> {
+fn parse_enumeration_type_definition(stream: &dyn TokenStream) -> ParseResult<TypeDefinition> {
     let mut enum_literals = Vec::new();
     loop {
         expect_token!(stream,
@@ -45,7 +45,7 @@ fn parse_enumeration_type_definition(stream: &BaseTokenStream) -> ParseResult<Ty
     Ok(TypeDefinition::Enumeration(enum_literals))
 }
 
-fn parse_array_index_constraints(stream: &BaseTokenStream) -> ParseResult<Vec<ArrayIndex>> {
+fn parse_array_index_constraints(stream: &dyn TokenStream) -> ParseResult<Vec<ArrayIndex>> {
     stream.expect_kind(LeftPar)?;
     let mut indexes = Vec::new();
     loop {
@@ -61,7 +61,7 @@ fn parse_array_index_constraints(stream: &BaseTokenStream) -> ParseResult<Vec<Ar
 }
 
 /// LRM 5.3.2 Array types
-fn parse_array_type_definition(stream: &BaseTokenStream) -> ParseResult<TypeDefinition> {
+fn parse_array_type_definition(stream: &dyn TokenStream) -> ParseResult<TypeDefinition> {
     let index_constraints = parse_array_index_constraints(stream)?;
     stream.expect_kind(Of)?;
     let element_subtype = parse_subtype_indication(stream)?;
@@ -71,7 +71,7 @@ fn parse_array_type_definition(stream: &BaseTokenStream) -> ParseResult<TypeDefi
 
 /// LRM 5.3.3 Record types
 fn parse_record_type_definition(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
 ) -> ParseResult<(TypeDefinition, Option<Ident>)> {
     let mut elem_decls = Vec::new();
 
@@ -96,7 +96,7 @@ fn parse_record_type_definition(
     }
 }
 
-pub fn parse_subtype_declaration(stream: &BaseTokenStream) -> ParseResult<TypeDeclaration> {
+pub fn parse_subtype_declaration(stream: &dyn TokenStream) -> ParseResult<TypeDeclaration> {
     stream.expect_kind(Subtype)?;
     let ident = stream.expect_ident()?;
     stream.expect_kind(Is)?;
@@ -111,7 +111,7 @@ pub fn parse_subtype_declaration(stream: &BaseTokenStream) -> ParseResult<TypeDe
 
 /// LRM 5.6.2 Protected type declarations
 pub fn parse_protected_type_declaration(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<(ProtectedTypeDeclaration, Option<Ident>)> {
     let mut items = Vec::new();
@@ -137,7 +137,7 @@ pub fn parse_protected_type_declaration(
 
 /// LRM 5.2.4 Physical types
 fn parse_physical_type_definition(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
     range: Range,
 ) -> ParseResult<(TypeDefinition, Option<Ident>)> {
     let primary_unit = WithDecl::new(stream.expect_ident()?);
@@ -193,7 +193,7 @@ fn parse_physical_type_definition(
 
 /// LRM 6.2
 pub fn parse_type_declaration(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<TypeDeclaration> {
     peek_token!(

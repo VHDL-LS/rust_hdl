@@ -8,10 +8,10 @@ use super::common::ParseResult;
 use super::names::{parse_designator, parse_name};
 use super::subprogram::parse_signature;
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{BaseTokenStream, Kind::*, TokenStream};
+use super::tokens::{Kind::*, TokenStream};
 use crate::ast::{AliasDeclaration, WithDecl};
 
-pub fn parse_alias_declaration(stream: &BaseTokenStream) -> ParseResult<AliasDeclaration> {
+pub fn parse_alias_declaration(stream: &dyn TokenStream) -> ParseResult<AliasDeclaration> {
     stream.expect_kind(Alias)?;
     let designator = WithDecl::new(parse_designator(stream)?);
     let subtype_indication = {

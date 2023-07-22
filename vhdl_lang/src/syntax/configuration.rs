@@ -9,12 +9,12 @@ use super::common::ParseResult;
 use super::concurrent_statement::parse_generic_and_port_map;
 use super::context::parse_use_clause;
 use super::names::{parse_name, parse_selected_name};
-use super::tokens::{BaseTokenStream, Kind::*, TokenStream};
+use super::tokens::{Kind::*, TokenStream};
 use crate::ast::*;
 use crate::data::*;
 
 /// LRM 7.3.2.2
-fn parse_entity_aspect(stream: &BaseTokenStream) -> ParseResult<EntityAspect> {
+fn parse_entity_aspect(stream: &dyn TokenStream) -> ParseResult<EntityAspect> {
     let entity_aspect = expect_token!(
         stream,
         token,
@@ -39,7 +39,7 @@ fn parse_entity_aspect(stream: &BaseTokenStream) -> ParseResult<EntityAspect> {
 
 fn parse_binding_indication_known_entity_aspect(
     entity_aspect: Option<EntityAspect>,
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
 ) -> ParseResult<BindingIndication> {
     let (generic_map, port_map) = parse_generic_and_port_map(stream)?;
 
@@ -52,7 +52,7 @@ fn parse_binding_indication_known_entity_aspect(
 }
 
 /// LRM 7.3.2
-fn parse_binding_indication(stream: &BaseTokenStream) -> ParseResult<BindingIndication> {
+fn parse_binding_indication(stream: &dyn TokenStream) -> ParseResult<BindingIndication> {
     let entity_aspect = if stream.skip_if_kind(Use) {
         Some(parse_entity_aspect(stream)?)
     } else {
@@ -62,7 +62,7 @@ fn parse_binding_indication(stream: &BaseTokenStream) -> ParseResult<BindingIndi
 }
 
 fn parse_component_configuration_known_spec(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
     spec: ComponentSpecification,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ComponentConfiguration> {
@@ -116,7 +116,7 @@ enum ComponentSpecificationOrName {
 }
 
 fn parse_component_specification_or_name(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
 ) -> ParseResult<ComponentSpecificationOrName> {
     peek_token!(
         stream, token,
@@ -177,7 +177,7 @@ fn parse_component_specification_or_name(
 }
 
 fn parse_configuration_item_known_keyword(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ConfigurationItem> {
     match parse_component_specification_or_name(stream)? {
@@ -193,7 +193,7 @@ fn parse_configuration_item_known_keyword(
 }
 
 fn parse_block_configuration_known_name(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
     name: WithPos<Name>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<BlockConfiguration> {
@@ -224,7 +224,7 @@ fn parse_block_configuration_known_name(
 }
 
 fn parse_block_configuration_known_keyword(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<BlockConfiguration> {
     let name = parse_name(stream)?;
@@ -232,7 +232,7 @@ fn parse_block_configuration_known_keyword(
 }
 
 fn parse_vunit_binding_indication_list_known_keyword(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
 ) -> ParseResult<Vec<VUnitBindingIndication>> {
     let mut indications = Vec::new();
     loop {
@@ -265,7 +265,7 @@ fn parse_vunit_binding_indication_list_known_keyword(
 
 /// LRM 3.4 Configuration declaration
 pub fn parse_configuration_declaration(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ConfigurationDeclaration> {
     stream.expect_kind(Configuration)?;
@@ -311,7 +311,7 @@ pub fn parse_configuration_declaration(
 
 /// LRM 7.3 Configuration Specification
 pub fn parse_configuration_specification(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
 ) -> ParseResult<ConfigurationSpecification> {
     stream.expect_kind(For)?;
     match parse_component_specification_or_name(stream)? {

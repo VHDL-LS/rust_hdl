@@ -9,11 +9,11 @@ use super::declarative_part::parse_declarative_part;
 use super::interface_declaration::parse_parameter_interface_list;
 use super::names::parse_type_mark;
 use super::sequential_statement::parse_labeled_sequential_statements;
-use super::tokens::{kinds_error, BaseTokenStream, Kind::*, TokenStream};
+use super::tokens::{kinds_error, Kind::*, TokenStream};
 use crate::ast::*;
 use crate::data::*;
 
-pub fn parse_signature(stream: &BaseTokenStream) -> ParseResult<WithPos<Signature>> {
+pub fn parse_signature(stream: &dyn TokenStream) -> ParseResult<WithPos<Signature>> {
     let left_square = stream.expect_kind(LeftSquare)?;
     let start_pos = &left_square.pos;
     let mut type_marks = Vec::new();
@@ -67,7 +67,7 @@ pub fn parse_signature(stream: &BaseTokenStream) -> ParseResult<WithPos<Signatur
     Ok(WithPos::new(signature, pos))
 }
 
-fn parse_designator(stream: &BaseTokenStream) -> ParseResult<WithPos<SubprogramDesignator>> {
+fn parse_designator(stream: &dyn TokenStream) -> ParseResult<WithPos<SubprogramDesignator>> {
     Ok(expect_token!(
         stream,
         token,
@@ -77,7 +77,7 @@ fn parse_designator(stream: &BaseTokenStream) -> ParseResult<WithPos<SubprogramD
 }
 
 pub fn parse_subprogram_declaration_no_semi(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SubprogramDeclaration> {
     let (is_function, is_pure) = {
@@ -125,7 +125,7 @@ pub fn parse_subprogram_declaration_no_semi(
 }
 
 pub fn parse_subprogram_declaration(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SubprogramDeclaration> {
     let res = parse_subprogram_declaration_no_semi(stream, diagnostics);
@@ -135,7 +135,7 @@ pub fn parse_subprogram_declaration(
 
 /// LRM 4.3 Subprogram bodies
 pub fn parse_subprogram_body(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
     specification: SubprogramDeclaration,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SubprogramBody> {
@@ -173,7 +173,7 @@ pub fn parse_subprogram_body(
 }
 
 pub fn parse_subprogram(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Declaration> {
     let specification = parse_subprogram_declaration_no_semi(stream, diagnostics)?;

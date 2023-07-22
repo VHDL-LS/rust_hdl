@@ -9,12 +9,12 @@ use super::common::ParseResult;
 use super::expression::parse_expression;
 use super::subprogram::parse_signature;
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{BaseTokenStream, Kind::*, TokenStream};
+use super::tokens::{Kind::*, TokenStream};
 use crate::ast;
 use crate::ast::*;
 use crate::data::{Diagnostic, WithPos};
 
-pub fn parse_designator(stream: &BaseTokenStream) -> ParseResult<WithPos<Designator>> {
+pub fn parse_designator(stream: &dyn TokenStream) -> ParseResult<WithPos<Designator>> {
     Ok(expect_token!(
         stream,
         token,
@@ -24,7 +24,7 @@ pub fn parse_designator(stream: &BaseTokenStream) -> ParseResult<WithPos<Designa
     ))
 }
 
-pub fn parse_selected_name(stream: &BaseTokenStream) -> ParseResult<WithPos<SelectedName>> {
+pub fn parse_selected_name(stream: &dyn TokenStream) -> ParseResult<WithPos<SelectedName>> {
     let mut name = parse_designator(stream)?
         .into_ref()
         .map_into(SelectedName::Designator);
@@ -39,13 +39,13 @@ pub fn parse_selected_name(stream: &BaseTokenStream) -> ParseResult<WithPos<Sele
     Ok(name)
 }
 
-pub fn parse_type_mark(stream: &BaseTokenStream) -> ParseResult<WithPos<TypeMark>> {
+pub fn parse_type_mark(stream: &dyn TokenStream) -> ParseResult<WithPos<TypeMark>> {
     let name = parse_selected_name(stream)?;
     parse_type_mark_starting_with_name(stream, name)
 }
 
 pub fn parse_type_mark_starting_with_name(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
     name: WithPos<SelectedName>,
 ) -> ParseResult<WithPos<TypeMark>> {
     let state = stream.state();
@@ -96,7 +96,7 @@ pub fn expression_to_ident(name: WithPos<Expression>) -> ParseResult<Ident> {
     to_simple_name(name)
 }
 
-pub fn parse_identifier_list(stream: &BaseTokenStream) -> ParseResult<Vec<Ident>> {
+pub fn parse_identifier_list(stream: &dyn TokenStream) -> ParseResult<Vec<Ident>> {
     let mut idents = Vec::new();
     loop {
         idents.push(stream.expect_ident()?);
@@ -152,7 +152,7 @@ fn assoc_to_expression(assoc: AssociationElement) -> ParseResult<WithPos<Express
     }
 }
 
-fn parse_actual_part(stream: &BaseTokenStream) -> ParseResult<WithPos<ActualPart>> {
+fn parse_actual_part(stream: &dyn TokenStream) -> ParseResult<WithPos<ActualPart>> {
     if let Some(token) = stream.pop_if_kind(Open) {
         Ok(WithPos::from(ActualPart::Open, token.pos.clone()))
     } else {
@@ -160,7 +160,7 @@ fn parse_actual_part(stream: &BaseTokenStream) -> ParseResult<WithPos<ActualPart
     }
 }
 
-fn parse_association_element(stream: &BaseTokenStream) -> ParseResult<AssociationElement> {
+fn parse_association_element(stream: &dyn TokenStream) -> ParseResult<AssociationElement> {
     let actual = parse_actual_part(stream)?;
     if stream.skip_if_kind(RightArrow) {
         Ok(AssociationElement {
@@ -175,13 +175,13 @@ fn parse_association_element(stream: &BaseTokenStream) -> ParseResult<Associatio
     }
 }
 
-pub fn parse_association_list(stream: &BaseTokenStream) -> ParseResult<Vec<AssociationElement>> {
+pub fn parse_association_list(stream: &dyn TokenStream) -> ParseResult<Vec<AssociationElement>> {
     stream.expect_kind(LeftPar)?;
     parse_association_list_no_leftpar(stream)
 }
 
 pub fn parse_association_list_no_leftpar(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
 ) -> ParseResult<Vec<AssociationElement>> {
     let mut association_elements = Vec::with_capacity(1);
     loop {
@@ -198,7 +198,7 @@ pub fn parse_association_list_no_leftpar(
 }
 
 fn parse_function_call(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
     prefix: WithPos<Name>,
     first: AssociationElement,
 ) -> ParseResult<WithPos<Name>> {
@@ -225,7 +225,7 @@ fn parse_function_call(
 }
 
 fn parse_attribute_name(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
     name: WithPos<Name>,
     signature: Option<WithPos<Signature>>,
 ) -> ParseResult<WithPos<Name>> {
@@ -257,7 +257,7 @@ enum DesignatorOrAll {
     All,
 }
 
-fn parse_suffix(stream: &BaseTokenStream) -> ParseResult<WithPos<DesignatorOrAll>> {
+fn parse_suffix(stream: &dyn TokenStream) -> ParseResult<WithPos<DesignatorOrAll>> {
     let name = {
         expect_token!(
             stream,
@@ -274,7 +274,7 @@ fn parse_suffix(stream: &BaseTokenStream) -> ParseResult<WithPos<DesignatorOrAll
 
 /// LRM 8.7 External names
 /// Inside of << >>
-fn parse_inner_external_name(stream: &BaseTokenStream) -> ParseResult<ExternalName> {
+fn parse_inner_external_name(stream: &dyn TokenStream) -> ParseResult<ExternalName> {
     let token = stream.peek_expect()?;
     let class = try_init_token_kind!(
         token,
@@ -327,7 +327,7 @@ fn parse_inner_external_name(stream: &BaseTokenStream) -> ParseResult<ExternalNa
 }
 
 /// LRM 8. Names
-fn _parse_name(stream: &BaseTokenStream) -> ParseResult<WithPos<Name>> {
+fn _parse_name(stream: &dyn TokenStream) -> ParseResult<WithPos<Name>> {
     let mut name = {
         if let Some(token) = stream.pop_if_kind(LtLt) {
             let external_name = Name::External(Box::new(parse_inner_external_name(stream)?));
@@ -472,7 +472,7 @@ pub fn into_range(assoc: AssociationElement) -> Result<ast::Range, AssociationEl
     }
 }
 
-pub fn parse_name(stream: &BaseTokenStream) -> ParseResult<WithPos<Name>> {
+pub fn parse_name(stream: &dyn TokenStream) -> ParseResult<WithPos<Name>> {
     let state = stream.state();
     _parse_name(stream).map_err(|err| {
         stream.set_state(state);

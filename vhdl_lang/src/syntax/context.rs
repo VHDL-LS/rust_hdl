@@ -7,12 +7,12 @@
 use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;
 use super::names::parse_name;
-use super::tokens::{BaseTokenStream, Kind::*, TokenStream};
+use super::tokens::{Kind::*, TokenStream};
 use crate::ast::*;
 use crate::data::*;
 
 /// LRM 13. Design units and their analysis
-pub fn parse_library_clause(stream: &BaseTokenStream) -> ParseResult<WithPos<LibraryClause>> {
+pub fn parse_library_clause(stream: &dyn TokenStream) -> ParseResult<WithPos<LibraryClause>> {
     let library_token = stream.expect_kind(Library)?;
     let mut name_list = Vec::with_capacity(1);
     loop {
@@ -29,7 +29,7 @@ pub fn parse_library_clause(stream: &BaseTokenStream) -> ParseResult<WithPos<Lib
 }
 
 /// LRM 12.4. Use clauses
-pub fn parse_use_clause(stream: &BaseTokenStream) -> ParseResult<WithPos<UseClause>> {
+pub fn parse_use_clause(stream: &dyn TokenStream) -> ParseResult<WithPos<UseClause>> {
     let use_token = stream.expect_kind(Use)?;
 
     let mut name_list = Vec::with_capacity(1);
@@ -52,7 +52,7 @@ pub enum DeclarationOrReference {
     Reference(WithPos<ContextReference>),
 }
 
-pub fn parse_context_reference(stream: &BaseTokenStream) -> ParseResult<WithPos<ContextReference>> {
+pub fn parse_context_reference(stream: &dyn TokenStream) -> ParseResult<WithPos<ContextReference>> {
     let context_token = stream.expect_kind(Context)?;
 
     let name = parse_name(stream)?;
@@ -72,7 +72,7 @@ pub fn parse_context_reference(stream: &BaseTokenStream) -> ParseResult<WithPos<
 
 /// LRM 13.4 Context clauses
 pub fn parse_context(
-    stream: &BaseTokenStream,
+    stream: &dyn TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<DeclarationOrReference> {
     let context_token = stream.expect_kind(Context)?;

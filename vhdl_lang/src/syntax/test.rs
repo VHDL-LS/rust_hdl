@@ -21,7 +21,7 @@ use super::range::{parse_discrete_range, parse_range};
 use super::sequential_statement::parse_sequential_statement;
 use super::subprogram::{parse_signature, parse_subprogram_declaration_no_semi};
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{BaseTokenStream, Comment, Kind, Symbols, Token, Tokenizer};
+use super::tokens::{TokenStream, Comment, Kind, Symbols, Token, Tokenizer};
 use super::type_declaration::parse_type_declaration;
 use super::waveform::parse_waveform;
 use crate::ast;
@@ -197,7 +197,7 @@ impl Code {
     /// Helper method to run lower level parsing function at specific substring
     pub fn parse<F, R>(&self, parse_fun: F) -> R
     where
-        F: FnOnce(&BaseTokenStream) -> R,
+        F: FnOnce(&dyn TokenStream) -> R,
     {
         let contents = self.pos.source.contents();
         let source = Source::from_contents(
@@ -215,7 +215,7 @@ impl Code {
     /// Expect Ok() value
     pub fn parse_ok<F, R>(&self, parse_fun: F) -> R
     where
-        F: FnOnce(&BaseTokenStream) -> ParseResult<R>,
+        F: FnOnce(&dyn TokenStream) -> ParseResult<R>,
     {
         match self.parse(parse_fun) {
             Ok(res) => res,
@@ -227,7 +227,7 @@ impl Code {
 
     pub fn with_partial_stream<F, R>(&self, parse_fun: F) -> R
     where
-        F: FnOnce(&BaseTokenStream) -> R,
+        F: FnOnce(&dyn TokenStream) -> R,
     {
         let contents = self.pos.source.contents();
         let reader = ContentReader::new(&contents);
@@ -239,9 +239,9 @@ impl Code {
     pub fn with_stream<F, R>(&self, parse_fun: F) -> R
     where
         R: Debug,
-        F: FnOnce(&BaseTokenStream) -> ParseResult<R>,
+        F: FnOnce(&dyn TokenStream) -> ParseResult<R>,
     {
-        let parse_fun_eof = |stream: &BaseTokenStream| {
+        let parse_fun_eof = |stream: &dyn TokenStream| {
             let result = parse_fun(stream);
             match result {
                 Err(err) => {
@@ -265,9 +265,9 @@ impl Code {
     pub fn with_stream_err<F, R>(&self, parse_fun: F) -> Diagnostic
     where
         R: Debug,
-        F: FnOnce(&BaseTokenStream) -> ParseResult<R>,
+        F: FnOnce(&dyn TokenStream) -> ParseResult<R>,
     {
-        let parse_fun_eof = |stream: &BaseTokenStream| {
+        let parse_fun_eof = |stream: &dyn TokenStream| {
             let result = parse_fun(stream);
             match result {
                 Err(err) => {
@@ -289,29 +289,29 @@ impl Code {
     pub fn with_partial_stream_diagnostics<F, R>(&self, parse_fun: F) -> (R, Vec<Diagnostic>)
     where
         R: Debug,
-        F: FnOnce(&BaseTokenStream, &mut dyn DiagnosticHandler) -> R,
+        F: FnOnce(&dyn TokenStream, &mut dyn DiagnosticHandler) -> R,
     {
         let mut diagnostics = Vec::new();
         let result = self
-            .with_partial_stream(|stream: &BaseTokenStream| parse_fun(stream, &mut diagnostics));
+            .with_partial_stream(|stream: &dyn TokenStream| parse_fun(stream, &mut diagnostics));
         (result, diagnostics)
     }
 
     pub fn with_stream_diagnostics<F, R>(&self, parse_fun: F) -> (R, Vec<Diagnostic>)
     where
         R: Debug,
-        F: FnOnce(&BaseTokenStream, &mut dyn DiagnosticHandler) -> ParseResult<R>,
+        F: FnOnce(&dyn TokenStream, &mut dyn DiagnosticHandler) -> ParseResult<R>,
     {
         let mut diagnostics = Vec::new();
         let result =
-            self.with_stream(|stream: &BaseTokenStream| parse_fun(stream, &mut diagnostics));
+            self.with_stream(|stream: &dyn TokenStream| parse_fun(stream, &mut diagnostics));
         (result, diagnostics)
     }
 
     pub fn with_stream_no_diagnostics<F, R>(&self, parse_fun: F) -> R
     where
         R: Debug,
-        F: FnOnce(&BaseTokenStream, &mut dyn DiagnosticHandler) -> ParseResult<R>,
+        F: FnOnce(&dyn TokenStream, &mut dyn DiagnosticHandler) -> ParseResult<R>,
     {
         let (result, diagnostics) = self.with_stream_diagnostics(parse_fun);
         check_no_diagnostics(&diagnostics);
@@ -326,11 +326,11 @@ impl Code {
     }
     /// Helper to create a identifier at first occurence of name
     pub fn ident(&self) -> Ident {
-        self.parse_ok(|stream: &BaseTokenStream| stream.expect_ident())
+        self.parse_ok(|stream: &dyn TokenStream| stream.expect_ident())
     }
 
     pub fn decl_ident(&self) -> WithDecl<Ident> {
-        WithDecl::new(self.parse_ok(|stream: &BaseTokenStream| stream.expect_ident()))
+        WithDecl::new(self.parse_ok(|stream: &dyn TokenStream| stream.expect_ident()))
     }
 
     pub fn designator(&self) -> WithPos<Designator> {
@@ -345,7 +345,7 @@ impl Code {
     }
 
     pub fn character(&self) -> WithPos<u8> {
-        self.parse_ok(|stream: &BaseTokenStream| {
+        self.parse_ok(|stream: &dyn TokenStream| {
             stream.expect_kind(Kind::Character)?.to_character_value()
         })
     }
@@ -436,7 +436,7 @@ impl Code {
 
     pub fn parse_ok_no_diagnostics<F, R>(&self, parse_fun: F) -> R
     where
-        F: FnOnce(&BaseTokenStream, &mut dyn DiagnosticHandler) -> ParseResult<R>,
+        F: FnOnce(&dyn TokenStream, &mut dyn DiagnosticHandler) -> ParseResult<R>,
     {
         let mut diagnostics = Vec::new();
         let res = self.parse_ok(|stream| parse_fun(stream, &mut diagnostics));
@@ -528,7 +528,7 @@ fn substr_range(source: &Source, range: Range, substr: &str, occurence: usize) -
 }
 
 /// Fast forward tokenstream until position
-fn forward(stream: &BaseTokenStream, start: Position) {
+fn forward(stream: &dyn TokenStream, start: Position) {
     loop {
         let token = stream.peek_expect().unwrap();
         if token.pos.start() >= start {

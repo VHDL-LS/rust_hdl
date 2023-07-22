@@ -8,13 +8,13 @@ use super::common::ParseResult;
 use super::expression::parse_expression;
 use super::names::parse_type_mark;
 use super::subprogram::parse_signature;
-use super::tokens::{BaseTokenStream, Kind::*, TokenStream};
+use super::tokens::{Kind::*, TokenStream};
 use crate::ast::{
     Attribute, AttributeDeclaration, AttributeSpecification, Designator, EntityClass, EntityName,
     EntityTag, WithRef,
 };
 
-fn parse_entity_class(stream: &BaseTokenStream) -> ParseResult<EntityClass> {
+fn parse_entity_class(stream: &dyn TokenStream) -> ParseResult<EntityClass> {
     Ok(expect_token!(stream, token,
         Entity => EntityClass::Entity,
         Architecture => EntityClass::Architecture,
@@ -31,7 +31,7 @@ fn parse_entity_class(stream: &BaseTokenStream) -> ParseResult<EntityClass> {
     ))
 }
 
-pub fn parse_entity_name_list(stream: &BaseTokenStream) -> ParseResult<Vec<EntityName>> {
+pub fn parse_entity_name_list(stream: &dyn TokenStream) -> ParseResult<Vec<EntityName>> {
     Ok(expect_token!(stream, token,
         Identifier | StringLiteral => {
             let mut entity_name_list = Vec::new();
@@ -73,7 +73,7 @@ pub fn parse_entity_name_list(stream: &BaseTokenStream) -> ParseResult<Vec<Entit
     ))
 }
 
-pub fn parse_attribute(stream: &BaseTokenStream) -> ParseResult<Vec<Attribute>> {
+pub fn parse_attribute(stream: &dyn TokenStream) -> ParseResult<Vec<Attribute>> {
     stream.expect_kind(Attribute)?;
     let ident = stream.expect_ident()?;
     Ok(expect_token!(stream, token,
