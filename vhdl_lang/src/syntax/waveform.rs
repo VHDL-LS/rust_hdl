@@ -8,7 +8,7 @@ use crate::ast::{DelayMechanism, Waveform, WaveformElement};
 
 use super::common::{parse_optional, ParseResult};
 use super::expression::parse_expression;
-use super::tokens::{BaseTokenStream, Kind::*, _TokenStream};
+use super::tokens::{BaseTokenStream, Kind::*, TokenStream};
 
 /// LRM 10.5 Signal assignment statement
 pub fn parse_delay_mechanism(stream: &BaseTokenStream) -> ParseResult<Option<DelayMechanism>> {

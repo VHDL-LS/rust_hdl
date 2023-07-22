@@ -15,7 +15,7 @@ use crate::{Diagnostic, SrcPos};
 /// A TokenStream is an immutable collection of tokens with a mutable state.
 /// The state points to a certain tokens. Methods exist to mutate that state and seek
 /// to another token, e.g. to skip a token or go to a previous one.
-pub trait _TokenStream {
+pub trait TokenStream {
     /// Returns the current state.
     /// `token_at(self.state())` must always return the current token, or `None` if the
     /// state is invalid
@@ -219,7 +219,7 @@ impl<'a> BaseTokenStream<'a> {
     }
 }
 
-impl<'a> _TokenStream for BaseTokenStream<'a> {
+impl<'a> TokenStream for BaseTokenStream<'a> {
     fn state(&self) -> usize {
         self.idx.get()
     }

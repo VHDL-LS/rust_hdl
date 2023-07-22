@@ -9,7 +9,7 @@ use super::declarative_part::parse_declarative_part;
 use super::interface_declaration::parse_parameter_interface_list;
 use super::names::parse_type_mark;
 use super::sequential_statement::parse_labeled_sequential_statements;
-use super::tokens::{kinds_error, BaseTokenStream, Kind::*, _TokenStream};
+use super::tokens::{kinds_error, BaseTokenStream, Kind::*, TokenStream};
 use crate::ast::*;
 use crate::data::*;
 

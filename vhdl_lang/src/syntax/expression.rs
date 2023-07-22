@@ -7,7 +7,7 @@
 use super::common::ParseResult;
 use super::names::{parse_name, parse_type_mark};
 use super::subtype_indication::parse_subtype_constraint;
-use super::tokens::{BaseTokenStream, Kind, Kind::*, _TokenStream};
+use super::tokens::{BaseTokenStream, Kind, Kind::*, TokenStream};
 use crate::ast;
 use crate::ast::*;
 use crate::data::{Diagnostic, WithPos};

@@ -7,7 +7,7 @@
 use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;
 use super::names::parse_name;
-use super::tokens::{BaseTokenStream, Kind::*, _TokenStream};
+use super::tokens::{BaseTokenStream, Kind::*, TokenStream};
 use crate::ast::*;
 use crate::data::*;
 

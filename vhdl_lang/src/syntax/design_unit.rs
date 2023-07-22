@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use super::tokens::{BaseTokenStream, Kind::*, _TokenStream};
+use super::tokens::{BaseTokenStream, Kind::*, TokenStream};
 
 use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;

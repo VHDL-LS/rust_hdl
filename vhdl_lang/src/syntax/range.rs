@@ -8,7 +8,7 @@ use super::common::parse_optional;
 use super::common::ParseResult;
 use super::expression::name_to_type_mark;
 use super::expression::parse_expression;
-use super::tokens::{BaseTokenStream, Kind::*, _TokenStream};
+use super::tokens::{BaseTokenStream, Kind::*, TokenStream};
 use crate::ast;
 use crate::ast::*;
 use crate::data::{Diagnostic, WithPos};
