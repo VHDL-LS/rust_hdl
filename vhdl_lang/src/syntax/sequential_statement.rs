@@ -10,7 +10,7 @@ use super::expression::parse_aggregate;
 use super::expression::{parse_choices, parse_expression};
 use super::names::parse_name;
 use super::range::parse_discrete_range;
-use super::tokens::{DiagnosticTokenStream, Kind::*, TokenStream, _TokenStream};
+use super::tokens::{Kind::*, TokenStream, _TokenStream};
 use super::waveform::{parse_delay_mechanism, parse_waveform};
 use crate::ast::*;
 use crate::data::*;

@@ -60,7 +60,7 @@ pub trait _TokenStream {
         self.token_at(state)
     }
 
-    /// Returns `true`, when the n'th next token is of kind `kind`
+    /// Returns `true`, when the nth next token is of kind `kind`
     fn nth_kind_is(&self, offset: usize, kind: Kind) -> bool {
         if let Some(token) = self.token_at(self.state() + offset) {
             token.kind == kind
@@ -134,15 +134,13 @@ pub trait _TokenStream {
 
         token.pos.clone()
     }
-}
 
-enum TokenizationException<'a> {
-    KindsError { pos: SrcPos, kinds: &'a [Kind] },
-    EofError { expectations: Option<&'a [Kind]> },
-}
+    // Diagnostic stuff
 
-pub trait DiagnosticTokenStream: _TokenStream {
-    fn create_diagnostic(&self, exception: TokenizationException) -> Diagnostic;
+    fn handle_diagnostic(&self, exception: TokenizationException) -> Diagnostic;
+
+    // TODO: this should not be an anonymous function (it's too specific)
+    fn expect_attribute_designator(&self) -> DiagnosticResult<WithPos<AttributeDesignator>>;
 
     fn expect_kind(&self, kind: Kind) -> DiagnosticResult<&Token> {
         if let Some(token) = self.peek() {
@@ -150,15 +148,15 @@ pub trait DiagnosticTokenStream: _TokenStream {
                 self.skip();
                 Ok(token)
             } else {
-                self.create_diagnostic(TokenizationException::KindsError {
+                Err(self.handle_diagnostic(TokenizationException::KindsError {
                     pos: self.pos_before(token),
                     kinds: &[kind],
-                })
+                }))
             }
         } else {
-            self.create_diagnostic(TokenizationException::EofError {
+            Err(self.handle_diagnostic(TokenizationException::EofError {
                 expectations: Some(&[kind]),
-            })
+            }))
         }
     }
 
@@ -166,7 +164,7 @@ pub trait DiagnosticTokenStream: _TokenStream {
         if let Some(token) = self.peek() {
             Ok(token)
         } else {
-            self.create_diagnostic(TokenizationException::EofError { expectations: None })
+            Err(self.handle_diagnostic(TokenizationException::EofError { expectations: None }))
         }
     }
 
@@ -185,20 +183,9 @@ pub trait DiagnosticTokenStream: _TokenStream {
     }
 }
 
-impl<'a> DiagnosticTokenStream for TokenStream<'a> {
-
-    fn create_diagnostic(&self, exception: TokenizationException) -> Diagnostic {
-        match exception {
-            TokenizationException::KindsError { pos, kinds } => kinds_error(pos, kinds),
-            TokenizationException::EofError { expectations } => {
-                let diagnostic = self.eof_error();
-                if let Some(kinds) = expectations {
-                    diagnostic.when(format!("expecting {}", kinds_str(kinds)))
-                }
-                diagnostic
-            }
-        }
-    }
+pub enum TokenizationException<'a> {
+    KindsError { pos: SrcPos, kinds: &'a [Kind] },
+    EofError { expectations: Option<&'a [Kind]> },
 }
 
 /// The token stream maintains a collection of tokens and a current state.
@@ -230,22 +217,6 @@ impl<'a> TokenStream<'a> {
             "Unexpected EOF",
         )
     }
-
-    /// Expect identifier or subtype/range keywords
-    /// foo'subtype or foo'range
-    pub fn expect_attribute_designator(&self) -> DiagnosticResult<WithPos<AttributeDesignator>> {
-        let des = expect_token!(
-            self,
-            token,
-            Identifier => {
-                let ident = token.to_identifier_value()?;
-                ident.map_into(|sym| self.tokenizer.attribute(sym))
-            },
-            Subtype => WithPos::new(AttributeDesignator::Type(TypeAttribute::Subtype), token.pos.clone()),
-            Range => WithPos::new(AttributeDesignator::Range(RangeAttribute::Range), token.pos.clone())
-        );
-        Ok(des)
-    }
 }
 
 impl<'a> _TokenStream for TokenStream<'a> {
@@ -271,6 +242,35 @@ impl<'a> _TokenStream for TokenStream<'a> {
         } else {
             None
         }
+    }
+
+    fn handle_diagnostic(&self, exception: TokenizationException) -> Diagnostic {
+        match exception {
+            TokenizationException::KindsError { pos, kinds } => kinds_error(pos, kinds),
+            TokenizationException::EofError { expectations } => {
+                let mut diagnostic = self.eof_error();
+                if let Some(kinds) = expectations {
+                    diagnostic = diagnostic.when(format!("expecting {}", kinds_str(kinds)));
+                }
+                diagnostic
+            }
+        }
+    }
+
+    /// Expect identifier or subtype/range keywords
+    /// foo'subtype or foo'range
+    fn expect_attribute_designator(&self) -> DiagnosticResult<WithPos<AttributeDesignator>> {
+        let des = expect_token!(
+            self,
+            token,
+            Identifier => {
+                let ident = token.to_identifier_value()?;
+                ident.map_into(|sym| self.tokenizer.attribute(sym))
+            },
+            Subtype => WithPos::new(AttributeDesignator::Type(TypeAttribute::Subtype), token.pos.clone()),
+            Range => WithPos::new(AttributeDesignator::Range(RangeAttribute::Range), token.pos.clone())
+        );
+        Ok(des)
     }
 }
 

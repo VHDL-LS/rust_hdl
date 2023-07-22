@@ -8,7 +8,7 @@ use super::common::ParseResult;
 use super::expression::parse_expression;
 use super::names::parse_identifier_list;
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{DiagnosticTokenStream, Kind::*, TokenStream, _TokenStream};
+use super::tokens::{Kind::*, TokenStream, _TokenStream};
 /// LRM 6.4.2 Object Declarations
 use crate::ast::*;
 use crate::data::WithPos;

@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use super::tokens::{DiagnosticTokenStream, Kind::*, TokenStream, _TokenStream};
+use super::tokens::{Kind::*, TokenStream, _TokenStream};
 
 use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;
