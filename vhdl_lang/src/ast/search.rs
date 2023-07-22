@@ -1804,7 +1804,8 @@ impl<'a> SuggestionSearcher<'a> {
 
     fn search_entity(&mut self, entity: EntityId, pos: &SrcPos) -> SearchState {
         let ent = self.root.get_ent(entity);
-        self.result.push(format!("{:?}: {:?}", ent.describe(), pos.range));
+        self.result
+            .push(format!("{:?}: {:?}", ent.describe(), pos.range));
         self.result.push(ent.describe());
         NotFinished
     }
@@ -1812,9 +1813,9 @@ impl<'a> SuggestionSearcher<'a> {
 
 impl<'a> Searcher for SuggestionSearcher<'a> {
     fn search_pos_with_ref(&mut self, pos: &SrcPos, reference: &mut Reference) -> SearchState {
-        /* if !self.cursor_inside_of(pos) {
+        if !self.cursor_inside_of(pos) {
             return Finished(NotFound);
-        } */
+        }
         match reference {
             Some(eid) => self.search_entity(eid.clone(), pos),
             None => Finished(NotFound),

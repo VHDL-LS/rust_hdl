@@ -18,6 +18,191 @@ pub struct TokenStream<'a> {
     tokens: Vec<Token>,
 }
 
+/// A TokenStream is an immutable collection of tokens with a mutable state.
+/// The state points to a certain tokens. Methods exist to mutate that state and seek
+/// to another token, e.g. to skip a token or go to a previous one.
+pub trait _TokenStream {
+    /// Returns the current state.
+    /// `token_at(self.state())` must always return the current token, or `None` if the
+    /// state is invalid
+    fn state(&self) -> usize;
+
+    /// Sets the current state.
+    /// An invalid state is OK but `token_at(invalid_state)` will return `None`
+    fn set_state(&self, state: usize);
+
+    /// Returns the token at an given state
+    fn token_at(&self, state: usize) -> Option<&Token>;
+
+    /// Returns the state of a token
+    fn state_of(&self, token: &Token) -> Option<usize>;
+
+    // Default implementations for common operations
+
+    /// Skips the current token, i.e. increments the current state
+    fn skip(&self) {
+        self.set_state(self.state() + 1)
+    }
+
+    /// Returns the token at the current state
+    fn peek(&self) -> Option<&Token> {
+        self.token_at(self.state())
+    }
+
+    /// Returns the token kind at the current state
+    fn peek_kind(&self) -> Option<Kind> {
+        self.peek().map(|token| token.kind)
+    }
+
+    /// returns the token at the previous state
+    fn last(&self) -> Option<&Token> {
+        let state = self.state().checked_sub(1)?;
+        self.token_at(state)
+    }
+
+    /// Returns `true`, when the n'th next token is of kind `kind`
+    fn nth_kind_is(&self, offset: usize, kind: Kind) -> bool {
+        if let Some(token) = self.token_at(self.state() + offset) {
+            token.kind == kind
+        } else {
+            false
+        }
+    }
+
+    /// returns true, when the next token is of a certain kind
+    fn next_kind_is(&self, kind: Kind) -> bool {
+        self.nth_kind_is(0, kind)
+    }
+
+    /// returns true when all next tokens are of a certain kind
+    fn next_kinds_are(&self, kinds: &[Kind]) -> bool {
+        kinds
+            .iter()
+            .enumerate()
+            .all(|(idx, kind)| self.nth_kind_is(idx, *kind))
+    }
+
+    /// advances (i.e. skips) if the next token is of a particular kind and returns the token
+    fn pop_if_kind(&self, kind: Kind) -> Option<&Token> {
+        if let Some(token) = self.peek() {
+            if token.kind == kind {
+                self.skip();
+                return Some(token);
+            }
+        }
+        None
+    }
+
+    /// advances (i.e. skips) if the next token is of a particular kind and returns true if successfully
+    fn skip_if_kind(&self, kind: Kind) -> bool {
+        self.pop_if_kind(kind).is_some()
+    }
+
+    /// skips if the current token is an identifier and returns that identifier, if found
+    fn pop_optional_ident(&self) -> Option<Ident> {
+        self.pop_if_kind(Identifier)
+            .map(|token| token.to_identifier_value().unwrap())
+    }
+
+    /// Returns the token right before the given token
+    ///
+    /// Example:
+    ///  entity my_entity is
+    ///         ^         ^
+    ///         |         | token 'is'
+    ///         token_before('is')
+    fn token_before(&self, token: &Token) -> Option<&Token> {
+        let state = self.state_of(token)?;
+        self.token_at(state.wrapping_sub(1))
+    }
+
+    /// A position that aligns with the previous token
+    ///
+    /// Example:
+    ///  signal sig : natural
+    ///                      ~ <- want semi colon error here
+    ///  signal
+    ///  ~~~~~~ <- not here
+    fn pos_before(&self, token: &Token) -> SrcPos {
+        if let Some(prev_token) = self.token_before(token) {
+            let prev_pos = prev_token.pos.end();
+
+            if prev_pos.line != token.pos.range.start.line {
+                return prev_token.pos.pos_at_end();
+            }
+        }
+
+        token.pos.clone()
+    }
+}
+
+enum TokenizationException<'a> {
+    KindsError { pos: SrcPos, kinds: &'a [Kind] },
+    EofError { expectations: Option<&'a [Kind]> },
+}
+
+pub trait DiagnosticTokenStream: _TokenStream {
+    fn create_diagnostic(&self, exception: TokenizationException) -> Diagnostic;
+
+    fn expect_kind(&self, kind: Kind) -> DiagnosticResult<&Token> {
+        if let Some(token) = self.peek() {
+            if token.kind == kind {
+                self.skip();
+                Ok(token)
+            } else {
+                self.create_diagnostic(TokenizationException::KindsError {
+                    pos: self.pos_before(token),
+                    kinds: &[kind],
+                })
+            }
+        } else {
+            self.create_diagnostic(TokenizationException::EofError {
+                expectations: Some(&[kind]),
+            })
+        }
+    }
+
+    fn peek_expect(&self) -> DiagnosticResult<&Token> {
+        if let Some(token) = self.peek() {
+            Ok(token)
+        } else {
+            self.create_diagnostic(TokenizationException::EofError { expectations: None })
+        }
+    }
+
+    fn expect_ident(&self) -> DiagnosticResult<Ident> {
+        expect_token!(self, token, Identifier => token.to_identifier_value())
+    }
+
+    fn skip_until(&self, cond: fn(Kind) -> bool) -> DiagnosticResult<()> {
+        loop {
+            let token = self.peek_expect()?;
+            if cond(token.kind) {
+                return Ok(());
+            }
+            self.skip();
+        }
+    }
+}
+
+impl<'a> DiagnosticTokenStream for TokenStream<'a> {
+
+    fn create_diagnostic(&self, exception: TokenizationException) -> Diagnostic {
+        match exception {
+            TokenizationException::KindsError { pos, kinds } => kinds_error(pos, kinds),
+            TokenizationException::EofError { expectations } => {
+                let diagnostic = self.eof_error();
+                if let Some(kinds) = expectations {
+                    diagnostic.when(format!("expecting {}", kinds_str(kinds)))
+                }
+                diagnostic
+            }
+        }
+    }
+}
+
+/// The token stream maintains a collection of tokens and a current state.
+/// The state is an index into the vector of tokens and
 impl<'a> TokenStream<'a> {
     pub fn new(
         mut tokenizer: Tokenizer<'a>,
@@ -38,156 +223,12 @@ impl<'a> TokenStream<'a> {
         }
     }
 
-    pub fn state(&self) -> usize {
-        self.get_idx()
-    }
-
-    pub fn set_state(&self, state: usize) {
-        self.set_idx(state);
-    }
-
-    pub fn skip(&self) {
-        self.set_idx(self.get_idx() + 1)
-    }
-
-    fn get_idx(&self) -> usize {
-        self.idx.get()
-    }
-
-    fn set_idx(&self, idx: usize) {
-        self.idx.replace(idx);
-    }
-
-    pub fn peek(&self) -> Option<&Token> {
-        self.tokens.get(self.get_idx())
-    }
-
-    pub fn last(&self) -> Option<&Token> {
-        let last_idx = self.get_idx().checked_sub(1)?;
-        self.tokens.get(last_idx)
-    }
-
     fn eof_error(&self) -> Diagnostic {
         let end = self.tokenizer.source.contents().end();
         Diagnostic::error(
             self.tokenizer.source.pos(end, end.next_char()),
             "Unexpected EOF",
         )
-    }
-
-    fn idx_of(&self, token: &Token) -> Option<usize> {
-        let base = self.tokens.as_ptr() as usize;
-        let ptr = (token as *const Token) as usize;
-        let idx = ptr.checked_sub(base)? / std::mem::size_of::<Token>();
-
-        if idx < self.tokens.len() {
-            Some(idx)
-        } else {
-            None
-        }
-    }
-
-    fn token_before(&self, token: &Token) -> Option<&Token> {
-        let idx = self.idx_of(token)?;
-        self.tokens.get(idx.wrapping_sub(1))
-    }
-
-    /// A position that aligns with the previous token
-    ///
-    /// Example:
-    ///  signal sig : natural
-    ///                      ~ <- want semi colon error here
-    ///  signal
-    ///  ~~~~~~ <- not here
-    pub fn pos_before(&self, token: &Token) -> SrcPos {
-        if let Some(prev_token) = self.token_before(token) {
-            let prev_pos = prev_token.pos.end();
-
-            if prev_pos.line != token.pos.range.start.line {
-                return prev_token.pos.pos_at_end();
-            }
-        }
-
-        token.pos.clone()
-    }
-
-    pub fn expect_kind(&self, kind: Kind) -> DiagnosticResult<&Token> {
-        if let Some(token) = self.peek() {
-            if token.kind == kind {
-                self.skip();
-                Ok(token)
-            } else {
-                Err(kinds_error(self.pos_before(token), &[kind]))
-            }
-        } else {
-            Err(self
-                .eof_error()
-                .when(format!("expecting {}", kinds_str(&[kind]))))
-        }
-    }
-
-    pub fn peek_expect(&self) -> DiagnosticResult<&Token> {
-        if let Some(token) = self.peek() {
-            Ok(token)
-        } else {
-            Err(self.eof_error())
-        }
-    }
-
-    pub fn peek_kind(&self) -> Option<Kind> {
-        self.peek().map(|token| token.kind)
-    }
-
-    pub fn next_kind_is(&self, kind: Kind) -> bool {
-        self.nth_kind_is(0, kind)
-    }
-
-    pub fn nth_kind_is(&self, idx: usize, kind: Kind) -> bool {
-        if let Some(token) = self.tokens.get(self.get_idx() + idx) {
-            token.kind == kind
-        } else {
-            false
-        }
-    }
-
-    pub fn next_kinds_are(&self, kinds: &[Kind]) -> bool {
-        kinds
-            .iter()
-            .enumerate()
-            .all(|(idx, kind)| self.nth_kind_is(idx, *kind))
-    }
-
-    pub fn pop_if_kind(&self, kind: Kind) -> Option<&Token> {
-        if let Some(token) = self.peek() {
-            if token.kind == kind {
-                self.skip();
-                return Some(token);
-            }
-        }
-        None
-    }
-
-    pub fn skip_if_kind(&self, kind: Kind) -> bool {
-        self.pop_if_kind(kind).is_some()
-    }
-
-    pub fn skip_until(&self, cond: fn(Kind) -> bool) -> DiagnosticResult<()> {
-        loop {
-            let token = self.peek_expect()?;
-            if cond(token.kind) {
-                return Ok(());
-            }
-            self.skip();
-        }
-    }
-
-    pub fn pop_optional_ident(&self) -> Option<Ident> {
-        self.pop_if_kind(Identifier)
-            .map(|token| token.to_identifier_value().unwrap())
-    }
-
-    pub fn expect_ident(&self) -> DiagnosticResult<Ident> {
-        expect_token!(self, token, Identifier => token.to_identifier_value())
     }
 
     /// Expect identifier or subtype/range keywords
@@ -204,6 +245,32 @@ impl<'a> TokenStream<'a> {
             Range => WithPos::new(AttributeDesignator::Range(RangeAttribute::Range), token.pos.clone())
         );
         Ok(des)
+    }
+}
+
+impl<'a> _TokenStream for TokenStream<'a> {
+    fn state(&self) -> usize {
+        self.idx.get()
+    }
+
+    fn set_state(&self, state: usize) {
+        self.idx.replace(state);
+    }
+
+    fn token_at(&self, state: usize) -> Option<&Token> {
+        self.tokens.get(state)
+    }
+
+    fn state_of(&self, token: &Token) -> Option<usize> {
+        let base = self.tokens.as_ptr() as usize;
+        let ptr = (token as *const Token) as usize;
+        let idx = ptr.checked_sub(base)? / std::mem::size_of::<Token>();
+
+        if idx < self.tokens.len() {
+            Some(idx)
+        } else {
+            None
+        }
     }
 }
 

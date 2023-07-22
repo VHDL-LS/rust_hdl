@@ -7,7 +7,7 @@
 use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;
 use super::interface_declaration::{parse_generic_interface_list, parse_port_interface_list};
-use super::tokens::{Kind::*, TokenStream};
+use super::tokens::{DiagnosticTokenStream, Kind::*, TokenStream, _TokenStream};
 use crate::ast::WithDecl;
 use crate::ast::{ComponentDeclaration, InterfaceDeclaration};
 use crate::data::{Diagnostic, DiagnosticHandler};

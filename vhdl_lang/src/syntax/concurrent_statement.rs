@@ -19,7 +19,7 @@ use super::sequential_statement::{
     parse_assert_statement, parse_labeled_sequential_statements, parse_selection,
     parse_signal_assignment_right_hand, parse_target,
 };
-use super::tokens::{Kind::*, TokenStream};
+use super::tokens::{DiagnosticTokenStream, Kind::*, TokenStream, _TokenStream};
 use super::waveform::{parse_delay_mechanism, parse_waveform};
 use crate::ast::*;
 use crate::data::*;

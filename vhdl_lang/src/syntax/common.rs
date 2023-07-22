@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use super::tokens::{Kind, TokenStream};
+use super::tokens::{Kind, TokenStream, _TokenStream};
 use crate::ast::Ident;
 use crate::data::Diagnostic;
 use crate::data::DiagnosticHandler;

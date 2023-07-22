@@ -7,7 +7,7 @@
 use super::common::ParseResult;
 use super::names::{parse_selected_name, parse_type_mark, parse_type_mark_starting_with_name};
 use super::range::{parse_discrete_range, parse_range};
-use super::tokens::{kinds_error, Kind::*, TokenStream};
+use super::tokens::{kinds_error, DiagnosticTokenStream, Kind::*, TokenStream, _TokenStream};
 /// LRM 6.3 Subtype declarations
 use crate::ast::*;
 use crate::data::{SrcPos, WithPos};

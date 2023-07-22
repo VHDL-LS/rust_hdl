@@ -9,7 +9,7 @@ use super::common::ParseResult;
 use super::concurrent_statement::parse_generic_and_port_map;
 use super::context::parse_use_clause;
 use super::names::{parse_name, parse_selected_name};
-use super::tokens::{Kind::*, TokenStream};
+use super::tokens::{DiagnosticTokenStream, Kind::*, TokenStream, _TokenStream};
 use crate::ast::*;
 use crate::data::*;
 

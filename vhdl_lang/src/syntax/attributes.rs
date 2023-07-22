@@ -8,7 +8,7 @@ use super::common::ParseResult;
 use super::expression::parse_expression;
 use super::names::parse_type_mark;
 use super::subprogram::parse_signature;
-use super::tokens::{Kind::*, TokenStream};
+use super::tokens::{DiagnosticTokenStream, Kind::*, TokenStream, _TokenStream};
 use crate::ast::{
     Attribute, AttributeDeclaration, AttributeSpecification, Designator, EntityClass, EntityName,
     EntityTag, WithRef,
