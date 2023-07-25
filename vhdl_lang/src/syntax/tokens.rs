@@ -8,6 +8,7 @@
 mod tokenizer;
 mod base_tokenstream;
 mod tokenstream;
+mod completion_tokenstream;
 
 pub use tokenizer::*;
 pub use tokenstream::*;

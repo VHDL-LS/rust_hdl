@@ -34,6 +34,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hasher;
 use std::sync::Arc;
+use crate::syntax::tokens::BaseTokenStream;
 
 pub struct CodeBuilder {
     pub symbols: Arc<Symbols>,
