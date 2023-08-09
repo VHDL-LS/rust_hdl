@@ -266,6 +266,8 @@ impl<'a> std::ops::Deref for GpkgInterfaceEnt<'a> {
             GpkgInterfaceEnt::Type(typ) => typ.deref(),
             GpkgInterfaceEnt::Constant(obj) => obj.deref(),
             GpkgInterfaceEnt::Subprogram(subp) => subp.deref(),
+            // `ent` is of type `&&AnyEnt`. `deref()` returns `&AnyEnt` which is what we want
+            #[allow(suspicious_double_ref_op)]
             GpkgInterfaceEnt::Package(ent) => ent.deref(),
         }
     }
