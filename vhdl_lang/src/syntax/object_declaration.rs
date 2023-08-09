@@ -13,9 +13,7 @@ use super::tokens::{Kind::*, TokenStream};
 use crate::ast::*;
 use crate::data::WithPos;
 
-pub fn parse_optional_assignment(
-    stream: &dyn TokenStream,
-) -> ParseResult<Option<WithPos<Expression>>> {
+pub fn parse_optional_assignment(stream: &TokenStream) -> ParseResult<Option<WithPos<Expression>>> {
     if stream.pop_if_kind(ColonEq).is_some() {
         let expr = parse_expression(stream)?;
         Ok(Some(expr))
@@ -25,7 +23,7 @@ pub fn parse_optional_assignment(
 }
 
 fn parse_object_declaration_kind(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     class: ObjectClass,
 ) -> ParseResult<Vec<ObjectDeclaration>> {
     match class {
@@ -60,7 +58,7 @@ fn parse_object_declaration_kind(
         .collect())
 }
 
-pub fn parse_object_declaration(stream: &dyn TokenStream) -> ParseResult<Vec<ObjectDeclaration>> {
+pub fn parse_object_declaration(stream: &TokenStream) -> ParseResult<Vec<ObjectDeclaration>> {
     let token = stream.peek_expect()?;
     let result = try_init_token_kind!(
         token,
@@ -75,9 +73,7 @@ pub fn parse_object_declaration(stream: &dyn TokenStream) -> ParseResult<Vec<Obj
     Ok(result)
 }
 
-pub fn parse_file_declaration_no_semi(
-    stream: &dyn TokenStream,
-) -> ParseResult<Vec<FileDeclaration>> {
+pub fn parse_file_declaration_no_semi(stream: &TokenStream) -> ParseResult<Vec<FileDeclaration>> {
     stream.expect_kind(File)?;
     let idents = parse_identifier_list(stream)?;
     stream.expect_kind(Colon)?;
@@ -110,7 +106,7 @@ pub fn parse_file_declaration_no_semi(
         .collect())
 }
 
-pub fn parse_file_declaration(stream: &dyn TokenStream) -> ParseResult<Vec<FileDeclaration>> {
+pub fn parse_file_declaration(stream: &TokenStream) -> ParseResult<Vec<FileDeclaration>> {
     let result = parse_file_declaration_no_semi(stream)?;
     stream.expect_kind(SemiColon)?;
     Ok(result)

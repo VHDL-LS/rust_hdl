@@ -271,16 +271,13 @@ impl VHDLServer {
             return CompletionList {..Default::default()};
         };
         let cursor = from_lsp_pos(params.text_document_position.position);
-        // 2) get "context", e.g. in entity declaration, in function declaration, e.t.c
-        //    (let's assume global context for now)
-
-        // 3) go to last recognizable token before the cursor. For global state:
+        // 2) Optimization chance: go to last recognizable token before the cursor. For example:
         //    - Any primary unit (e.g. entity declaration, package declaration, ...)
         //      => keyword `entity`, `package`, ...
         //    - Any secondary unit (e.g. package body, architecture)
         //      => keyword `architecture`, ...
 
-        // 4) Run the parser until the point of the cursor. Then exit with possible completions
+        // 3) Run the parser until the point of the cursor. Then exit with possible completions
         let options = self
             .project
             .list_completion_options(&source, cursor)
@@ -290,7 +287,7 @@ impl VHDLServer {
                 ..Default::default()
             })
             .collect();
-        self.message(Message::log(format!("{:?}", options)));
+
         CompletionList {
             items: options,
             is_incomplete: true,

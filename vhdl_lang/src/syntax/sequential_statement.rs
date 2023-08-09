@@ -17,7 +17,7 @@ use crate::data::*;
 use crate::syntax::common::check_label_identifier_mismatch;
 
 /// LRM 10.2 Wait statement
-fn parse_wait_statement(stream: &dyn TokenStream) -> ParseResult<WaitStatement> {
+fn parse_wait_statement(stream: &TokenStream) -> ParseResult<WaitStatement> {
     stream.expect_kind(Wait)?;
     let mut sensitivity_clause = vec![];
     if stream.skip_if_kind(On) {
@@ -41,7 +41,7 @@ fn parse_wait_statement(stream: &dyn TokenStream) -> ParseResult<WaitStatement> 
 }
 
 /// LRM 10.3 Assertion statement
-pub fn parse_assert_statement(stream: &dyn TokenStream) -> ParseResult<AssertStatement> {
+pub fn parse_assert_statement(stream: &TokenStream) -> ParseResult<AssertStatement> {
     stream.expect_kind(Assert)?;
     let condition = parse_expression(stream)?;
     let report = parse_optional(stream, Report, parse_expression)?;
@@ -56,7 +56,7 @@ pub fn parse_assert_statement(stream: &dyn TokenStream) -> ParseResult<AssertSta
 }
 
 /// LRM 10.4 Report statement
-fn parse_report_statement(stream: &dyn TokenStream) -> ParseResult<ReportStatement> {
+fn parse_report_statement(stream: &TokenStream) -> ParseResult<ReportStatement> {
     stream.expect_kind(Report)?;
     let report = parse_expression(stream)?;
     let severity = parse_optional(stream, Severity, parse_expression)?;
@@ -66,7 +66,7 @@ fn parse_report_statement(stream: &dyn TokenStream) -> ParseResult<ReportStateme
 }
 
 pub fn parse_labeled_sequential_statements(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Vec<LabeledSequentialStatement>> {
     let mut statements = Vec::new();
@@ -85,7 +85,7 @@ pub fn parse_labeled_sequential_statements(
 
 /// LRM 10.8 If statement
 fn parse_if_statement(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     label: Option<&Ident>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<IfStatement> {
@@ -146,7 +146,7 @@ fn parse_if_statement(
 
 /// LRM 10.9 Case statement
 fn parse_case_statement(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     label: Option<&Ident>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<CaseStatement> {
@@ -194,7 +194,7 @@ fn parse_case_statement(
 
 /// LRM 10.10 Loop statement
 fn parse_loop_statement(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     label: Option<&Ident>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<LoopStatement> {
@@ -236,7 +236,7 @@ fn parse_loop_statement(
 }
 
 /// LRM 10.11 Next statement
-fn parse_next_statement(stream: &dyn TokenStream) -> ParseResult<NextStatement> {
+fn parse_next_statement(stream: &TokenStream) -> ParseResult<NextStatement> {
     stream.expect_kind(Next)?;
     let loop_label = stream.pop_optional_ident();
     let condition = parse_optional(stream, When, parse_expression)?;
@@ -248,7 +248,7 @@ fn parse_next_statement(stream: &dyn TokenStream) -> ParseResult<NextStatement> 
 }
 
 /// LRM 10.12 Exit statement
-fn parse_exit_statement(stream: &dyn TokenStream) -> ParseResult<ExitStatement> {
+fn parse_exit_statement(stream: &TokenStream) -> ParseResult<ExitStatement> {
     stream.expect_kind(Exit)?;
     let loop_label = stream.pop_optional_ident();
     let condition = parse_optional(stream, When, parse_expression)?;
@@ -260,7 +260,7 @@ fn parse_exit_statement(stream: &dyn TokenStream) -> ParseResult<ExitStatement> 
 }
 
 /// LRM 10.13 Return statement
-fn parse_return_statement(stream: &dyn TokenStream) -> ParseResult<ReturnStatement> {
+fn parse_return_statement(stream: &TokenStream) -> ParseResult<ReturnStatement> {
     stream.expect_kind(Return)?;
     let expression = {
         if stream.peek_kind() == Some(SemiColon) {
@@ -275,24 +275,24 @@ fn parse_return_statement(stream: &dyn TokenStream) -> ParseResult<ReturnStateme
 
 /// LRM 10.5 Signal assignment statement
 pub fn parse_signal_assignment_right_hand(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
 ) -> ParseResult<AssignmentRightHand<Waveform>> {
     parse_assignment_right_hand(stream, parse_waveform)
 }
 
 /// LRM 10.6 Variable assignment statement
 fn parse_variable_assignment_right_hand(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
 ) -> ParseResult<AssignmentRightHand<WithPos<Expression>>> {
     parse_assignment_right_hand(stream, parse_expression)
 }
 
 fn parse_assignment_right_hand<T, F>(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     parse_item: F,
 ) -> ParseResult<AssignmentRightHand<T>>
 where
-    F: Fn(&dyn TokenStream) -> ParseResult<T>,
+    F: Fn(&TokenStream) -> ParseResult<T>,
 {
     let item = parse_item(stream)?;
 
@@ -310,12 +310,12 @@ where
 }
 
 fn parse_conditonals<T, F>(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     initial_item: T,
     parse_item: F,
 ) -> ParseResult<Conditionals<T>>
 where
-    F: Fn(&dyn TokenStream) -> ParseResult<T>,
+    F: Fn(&TokenStream) -> ParseResult<T>,
 {
     let condition = parse_expression(stream)?;
     let cond_expr = Conditional {
@@ -362,12 +362,12 @@ where
 }
 
 pub fn parse_selection<T, F>(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     expression: WithPos<Expression>,
     parse_item: F,
 ) -> ParseResult<Selection<T>>
 where
-    F: Fn(&dyn TokenStream) -> ParseResult<T>,
+    F: Fn(&TokenStream) -> ParseResult<T>,
 {
     let mut alternatives = Vec::with_capacity(2);
 
@@ -391,7 +391,7 @@ where
     })
 }
 
-fn parse_optional_force_mode(stream: &dyn TokenStream) -> ParseResult<Option<ForceMode>> {
+fn parse_optional_force_mode(stream: &TokenStream) -> ParseResult<Option<ForceMode>> {
     let token = stream.peek_expect()?;
     let optional_force_mode = match token.kind {
         In => {
@@ -409,7 +409,7 @@ fn parse_optional_force_mode(stream: &dyn TokenStream) -> ParseResult<Option<For
 }
 
 fn parse_assignment_or_procedure_call(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     target: WithPos<Target>,
 ) -> ParseResult<SequentialStatement> {
     Ok(expect_token!(
@@ -472,7 +472,7 @@ fn parse_assignment_or_procedure_call(
     ))
 }
 
-pub fn parse_target(stream: &dyn TokenStream) -> ParseResult<WithPos<Target>> {
+pub fn parse_target(stream: &TokenStream) -> ParseResult<WithPos<Target>> {
     if stream.next_kind_is(LeftPar) {
         Ok(parse_aggregate(stream)?.map_into(Target::Aggregate))
     } else {
@@ -480,7 +480,7 @@ pub fn parse_target(stream: &dyn TokenStream) -> ParseResult<WithPos<Target>> {
     }
 }
 
-fn parse_selected_assignment(stream: &dyn TokenStream) -> ParseResult<SequentialStatement> {
+fn parse_selected_assignment(stream: &TokenStream) -> ParseResult<SequentialStatement> {
     let expression = parse_expression(stream)?;
     stream.expect_kind(Select)?;
     let target = parse_target(stream)?;
@@ -513,7 +513,7 @@ fn parse_selected_assignment(stream: &dyn TokenStream) -> ParseResult<Sequential
 }
 
 fn parse_unlabeled_sequential_statement(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     label: Option<&Ident>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SequentialStatement> {
@@ -551,7 +551,7 @@ fn parse_unlabeled_sequential_statement(
 }
 
 pub fn parse_sequential_statement(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<LabeledSequentialStatement> {
     let start = stream.peek_expect()?;

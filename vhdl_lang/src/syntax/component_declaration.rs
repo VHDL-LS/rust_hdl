@@ -13,7 +13,7 @@ use crate::ast::{ComponentDeclaration, InterfaceDeclaration};
 use crate::data::{Diagnostic, DiagnosticHandler};
 
 pub fn parse_optional_generic_list(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
     let mut list = None;
@@ -38,7 +38,7 @@ pub fn parse_optional_generic_list(
 }
 
 pub fn parse_optional_port_list(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Option<Vec<InterfaceDeclaration>>> {
     let mut list = None;
@@ -72,7 +72,7 @@ pub fn parse_optional_port_list(
 }
 
 pub fn parse_component_declaration(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ComponentDeclaration> {
     stream.expect_kind(Component)?;

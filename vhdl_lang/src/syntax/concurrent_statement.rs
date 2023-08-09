@@ -26,7 +26,7 @@ use crate::data::*;
 
 /// LRM 11.2 Block statement
 pub fn parse_block_statement(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     label: Option<&Ident>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<BlockStatement> {
@@ -62,7 +62,7 @@ pub fn parse_block_statement(
 }
 
 fn parse_block_header(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<BlockHeader> {
     let mut generic_clause = None;
@@ -156,7 +156,7 @@ fn parse_block_header(
 
 /// LRM 11.3 Process statement
 pub fn parse_process_statement(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     label: Option<&Ident>,
     postponed: bool,
     diagnostics: &mut dyn DiagnosticHandler,
@@ -252,7 +252,7 @@ fn to_procedure_call(
 
 /// Assume target and <= is parsed already
 fn parse_assignment_known_target(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     target: WithPos<Target>,
 ) -> ParseResult<ConcurrentStatement> {
     // @TODO postponed
@@ -272,7 +272,7 @@ fn parse_assignment_known_target(
 }
 
 fn parse_assignment_or_procedure_call(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     target: WithPos<Target>,
 ) -> ParseResult<ConcurrentStatement> {
     expect_token!(stream, token,
@@ -285,7 +285,7 @@ fn parse_assignment_or_procedure_call(
 }
 
 fn parse_selected_signal_assignment(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     postponed: bool,
 ) -> ParseResult<ConcurrentSignalAssignment> {
     stream.expect_kind(With)?;
@@ -307,7 +307,7 @@ fn parse_selected_signal_assignment(
 }
 
 pub fn parse_concurrent_assert_statement(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     postponed: bool,
 ) -> ParseResult<ConcurrentAssertStatement> {
     Ok(ConcurrentAssertStatement {
@@ -318,7 +318,7 @@ pub fn parse_concurrent_assert_statement(
 
 #[allow(clippy::type_complexity)]
 pub fn parse_generic_and_port_map(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
 ) -> ParseResult<(
     Option<Vec<AssociationElement>>,
     Option<Vec<AssociationElement>>,
@@ -344,7 +344,7 @@ pub fn parse_generic_and_port_map(
 }
 
 pub fn parse_instantiation_statement(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     unit: InstantiatedUnit,
 ) -> ParseResult<InstantiationStatement> {
     let (generic_map, port_map) = parse_generic_and_port_map(stream)?;
@@ -359,7 +359,7 @@ pub fn parse_instantiation_statement(
 }
 
 fn parse_optional_declarative_part(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Option<Vec<Declaration>>> {
     if is_declarative_part(stream, true)? {
@@ -372,7 +372,7 @@ fn parse_optional_declarative_part(
 }
 
 fn parse_generate_body(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     alternative_label: Option<WithDecl<Ident>>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<GenerateBody> {
@@ -409,7 +409,7 @@ fn parse_generate_body(
 
 /// 11.8 Generate statements
 fn parse_for_generate_statement(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     label: Option<&Ident>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ForGenerateStatement> {
@@ -434,7 +434,7 @@ fn parse_for_generate_statement(
 
 /// 11.8 Generate statements
 fn parse_if_generate_statement(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     label: Option<&Ident>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<IfGenerateStatement> {
@@ -504,7 +504,7 @@ fn parse_if_generate_statement(
 
 /// 11.8 Generate statements
 fn parse_case_generate_statement(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     label: Option<&Ident>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<CaseGenerateStatement> {
@@ -554,7 +554,7 @@ fn parse_case_generate_statement(
 }
 
 pub fn parse_concurrent_statement(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     label: Option<&Ident>,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ConcurrentStatement> {
@@ -640,7 +640,7 @@ pub fn parse_concurrent_statement(
 }
 
 pub fn parse_labeled_concurrent_statements(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Vec<LabeledConcurrentStatement>> {
     let mut statements = Vec::new();
@@ -658,7 +658,7 @@ pub fn parse_labeled_concurrent_statements(
 }
 
 pub fn parse_labeled_concurrent_statement(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<LabeledConcurrentStatement> {
     let start = stream.peek_expect()?;

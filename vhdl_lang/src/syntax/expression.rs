@@ -142,7 +142,7 @@ fn kind_to_binary_op(kind: Kind) -> Option<(Operator, usize)> {
 }
 
 pub fn parse_aggregate_initial_choices(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     choices: Vec<WithPos<Choice>>,
 ) -> ParseResult<WithPos<Vec<ElementAssociation>>> {
     let mut choices = choices;
@@ -191,7 +191,7 @@ pub fn parse_aggregate_initial_choices(
     }
 }
 
-pub fn parse_aggregate(stream: &dyn TokenStream) -> ParseResult<WithPos<Vec<ElementAssociation>>> {
+pub fn parse_aggregate(stream: &TokenStream) -> ParseResult<WithPos<Vec<ElementAssociation>>> {
     stream.expect_kind(LeftPar)?;
     if let Some(token) = stream.pop_if_kind(RightPar) {
         return Ok(WithPos::from(Vec::new(), token.pos.clone()));
@@ -201,7 +201,7 @@ pub fn parse_aggregate(stream: &dyn TokenStream) -> ParseResult<WithPos<Vec<Elem
 }
 
 fn parse_half_range(
-    stream: &dyn TokenStream,
+    stream: &TokenStream,
     left_expr: WithPos<Expression>,
     direction: Direction,
 ) -> ParseResult<WithPos<DiscreteRange>> {
@@ -217,7 +217,7 @@ fn parse_half_range(
     Ok(WithPos::new(range, pos))
 }
 
-fn parse_choice(stream: &dyn TokenStream) -> ParseResult<WithPos<Choice>> {
+fn parse_choice(stream: &TokenStream) -> ParseResult<WithPos<Choice>> {
     if let Some(token) = stream.pop_if_kind(Others) {
         return Ok(WithPos::new(Choice::Others, token.pos.clone()));
     }
@@ -234,7 +234,7 @@ fn parse_choice(stream: &dyn TokenStream) -> ParseResult<WithPos<Choice>> {
     }
 }
 
-pub fn parse_choices(stream: &dyn TokenStream) -> ParseResult<Vec<WithPos<Choice>>> {
+pub fn parse_choices(stream: &TokenStream) -> ParseResult<Vec<WithPos<Choice>>> {
     let mut choices = Vec::new();
     loop {
         choices.push(parse_choice(stream)?);
@@ -247,7 +247,7 @@ pub fn parse_choices(stream: &dyn TokenStream) -> ParseResult<Vec<WithPos<Choice
 }
 
 /// LRM 9.3.7 Allocators
-fn parse_allocator(stream: &dyn TokenStream) -> ParseResult<WithPos<Allocator>> {
+fn parse_allocator(stream: &TokenStream) -> ParseResult<WithPos<Allocator>> {
     stream.expect_kind(New)?;
     let type_mark = parse_type_mark(stream)?;
 
@@ -318,7 +318,7 @@ fn name_to_selected_name(name: Name) -> Option<SelectedName> {
     }
 }
 
-fn parse_expression_or_aggregate(stream: &dyn TokenStream) -> ParseResult<WithPos<Expression>> {
+fn parse_expression_or_aggregate(stream: &TokenStream) -> ParseResult<WithPos<Expression>> {
     let mut choices = parse_choices(stream)?;
 
     if choices.len() == 1
@@ -369,7 +369,7 @@ fn parse_expression_or_aggregate(stream: &dyn TokenStream) -> ParseResult<WithPo
 /// 1. CHARACTER_LITERAL|INTEGER_LITERAL|IDENTIFIER|BOOLEAN_LITERAL
 /// 2. (expression)
 /// 3. PREFIX_UNARY_OP expression
-fn parse_primary(stream: &dyn TokenStream) -> ParseResult<WithPos<Expression>> {
+fn parse_primary(stream: &TokenStream) -> ParseResult<WithPos<Expression>> {
     let token = stream.peek_expect()?;
     match token.kind {
         Identifier | LtLt => {
@@ -479,7 +479,7 @@ fn parse_primary(stream: &dyn TokenStream) -> ParseResult<WithPos<Expression>> {
     }
 }
 
-fn parse_expr(stream: &dyn TokenStream, min_precedence: usize) -> ParseResult<WithPos<Expression>> {
+fn parse_expr(stream: &TokenStream, min_precedence: usize) -> ParseResult<WithPos<Expression>> {
     let mut lhs = parse_primary(stream)?;
     while let Some(token) = stream.peek() {
         if token.kind == RightPar {
@@ -524,7 +524,7 @@ fn parse_expr(stream: &dyn TokenStream, min_precedence: usize) -> ParseResult<Wi
 ///   6. sign: + | -
 ///   7. multiplying_operator: * | / | mod | rem
 ///   8. misc_operator: ** | abs | not
-pub fn parse_expression(stream: &dyn TokenStream) -> ParseResult<WithPos<Expression>> {
+pub fn parse_expression(stream: &TokenStream) -> ParseResult<WithPos<Expression>> {
     let state = stream.state();
     parse_expr(stream, 0).map_err(|err| {
         stream.set_state(state);

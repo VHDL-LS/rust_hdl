@@ -14,7 +14,7 @@ use crate::ast::{
     EntityTag, WithRef,
 };
 
-fn parse_entity_class(stream: &dyn TokenStream) -> ParseResult<EntityClass> {
+fn parse_entity_class(stream: &TokenStream) -> ParseResult<EntityClass> {
     Ok(expect_token!(stream, token,
         Entity => EntityClass::Entity,
         Architecture => EntityClass::Architecture,
@@ -31,7 +31,7 @@ fn parse_entity_class(stream: &dyn TokenStream) -> ParseResult<EntityClass> {
     ))
 }
 
-pub fn parse_entity_name_list(stream: &dyn TokenStream) -> ParseResult<Vec<EntityName>> {
+pub fn parse_entity_name_list(stream: &TokenStream) -> ParseResult<Vec<EntityName>> {
     Ok(expect_token!(stream, token,
         Identifier | StringLiteral => {
             let mut entity_name_list = Vec::new();
@@ -73,7 +73,7 @@ pub fn parse_entity_name_list(stream: &dyn TokenStream) -> ParseResult<Vec<Entit
     ))
 }
 
-pub fn parse_attribute(stream: &dyn TokenStream) -> ParseResult<Vec<Attribute>> {
+pub fn parse_attribute(stream: &TokenStream) -> ParseResult<Vec<Attribute>> {
     stream.expect_kind(Attribute)?;
     let ident = stream.expect_ident()?;
     Ok(expect_token!(stream, token,

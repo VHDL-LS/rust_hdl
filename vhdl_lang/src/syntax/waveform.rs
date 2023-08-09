@@ -11,7 +11,7 @@ use super::expression::parse_expression;
 use super::tokens::{Kind::*, TokenStream};
 
 /// LRM 10.5 Signal assignment statement
-pub fn parse_delay_mechanism(stream: &dyn TokenStream) -> ParseResult<Option<DelayMechanism>> {
+pub fn parse_delay_mechanism(stream: &TokenStream) -> ParseResult<Option<DelayMechanism>> {
     let token = stream.peek_expect()?;
     match token.kind {
         Transport => {
@@ -33,7 +33,7 @@ pub fn parse_delay_mechanism(stream: &dyn TokenStream) -> ParseResult<Option<Del
 }
 
 /// LRM 10.5 Signal assignment statement
-pub fn parse_waveform(stream: &dyn TokenStream) -> ParseResult<Waveform> {
+pub fn parse_waveform(stream: &TokenStream) -> ParseResult<Waveform> {
     if stream.skip_if_kind(Unaffected) {
         return Ok(Waveform::Unaffected);
     }

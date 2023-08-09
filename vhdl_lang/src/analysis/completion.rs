@@ -1,6 +1,6 @@
 use std::default::Default;
 use crate::analysis::DesignRoot;
-use crate::ast::{AnyDesignUnit, AnyPrimaryUnit, UnitKey};
+use crate::ast::{AnyDesignUnit, AnyPrimaryUnit, Declaration, UnitKey};
 use crate::data::{ContentReader, Symbol};
 use crate::syntax::Kind::*;
 use crate::syntax::{Symbols, Token, Tokenizer, Value};
@@ -22,6 +22,26 @@ macro_rules! ident {
         }
     };
 }
+
+fn declaration_to_string(decl: &Declaration) -> Option<String> {
+    match decl {
+        Declaration::Object(o) => Some(o.ident.tree.item.to_string()),
+        Declaration::File(f) => Some(f.ident.tree.item.to_string()),
+        Declaration::Type(t) => Some(t.ident.tree.item.to_string()),
+        Declaration::Component(c) => Some(c.ident.tree.item.to_string()),
+        Declaration::Attribute(a) => match a {
+            crate::ast::Attribute::Specification(spec) => Some(spec.ident.item.to_string()),
+            crate::ast::Attribute::Declaration(decl) => Some(decl.ident.tree.item.to_string()),
+        },
+        Declaration::Alias(a) => Some(a.designator.to_string()),
+        Declaration::SubprogramDeclaration(decl) => Some(decl.subpgm_designator().to_string()),
+        Declaration::SubprogramBody(_) => None,
+        Declaration::Use(_) => None,
+        Declaration::Package(p) => Some(p.ident.to_string()),
+        Declaration::Configuration(_) => None,
+    }
+}
+
 
 fn tokenize_input(symbols: &Symbols, source: &Source, cursor: Position) -> Vec<Token> {
     let contents = source.contents();
@@ -75,7 +95,7 @@ impl DesignRoot {
             AnyDesignUnit::Primary(AnyPrimaryUnit::Package(pkg)) => pkg
                 .decl
                 .iter()
-                .filter_map(|d| d.ident())
+                .filter_map(declaration_to_string)
                 .unique()
                 .chain(vec!["all".to_string()].into_iter())
                 .collect_vec(),
