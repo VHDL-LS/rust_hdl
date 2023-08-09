@@ -1,4 +1,3 @@
-use std::default::Default;
 use crate::analysis::DesignRoot;
 use crate::ast::{AnyDesignUnit, AnyPrimaryUnit, Declaration, UnitKey};
 use crate::data::{ContentReader, Symbol};
@@ -6,6 +5,7 @@ use crate::syntax::Kind::*;
 use crate::syntax::{Symbols, Token, Tokenizer, Value};
 use crate::{Position, Source};
 use itertools::Itertools;
+use std::default::Default;
 
 macro_rules! kind {
     ($kind: pat) => {
@@ -23,6 +23,12 @@ macro_rules! ident {
     };
 }
 
+/// Returns the completable string representation of a declaration
+/// for example:
+/// `let alias = parse_vhdl("alias my_alias is ...")`
+/// `declaration_to_string(Declaration::Alias(alias)) == "my_alias"`
+/// Returns `None` if the declaration has no string representation that can be used for completion
+/// purposes.
 fn declaration_to_string(decl: &Declaration) -> Option<String> {
     match decl {
         Declaration::Object(o) => Some(o.ident.tree.item.to_string()),
@@ -42,10 +48,29 @@ fn declaration_to_string(decl: &Declaration) -> Option<String> {
     }
 }
 
-
+/// Tokenizes `source` up to `cursor` but no further. The last token returned is the token
+/// where the cursor currently resides or the token right before the cursor.
+///
+/// Examples:
+///
+/// input = "use ieee.std_logic_1|164.a"
+///                              ^ cursor position
+/// `tokenize_input(input)` -> {USE, ieee, DOT, std_logic_1164}
+///
+/// input = "use ieee.std_logic_1164|.a"
+///                                 ^ cursor position
+/// `tokenize_input(input)` -> {USE, ieee, DOT, std_logic_1164}
+///
+/// input = "use ieee.std_logic_1164.|a"
+///                                  ^ cursor position
+/// `tokenize_input(input)` -> {USE, ieee, DOT, std_logic_1164, DOT}
+/// input = "use ieee.std_logic_1164.a|"
+///                                   ^ cursor position
+/// `tokenize_input(input)` -> {USE, ieee, DOT, std_logic_1164, DOT, a}
+///
+/// On error, or if the source is empty, returns an empty vector.
 fn tokenize_input(symbols: &Symbols, source: &Source, cursor: Position) -> Vec<Token> {
     let contents = source.contents();
-    // let symbols = Symbols::default();
     let mut tokenizer = Tokenizer::new(symbols, source, ContentReader::new(&contents));
     let mut tokens = Vec::new();
     loop {
@@ -64,7 +89,6 @@ fn tokenize_input(symbols: &Symbols, source: &Source, cursor: Position) -> Vec<T
 }
 
 impl DesignRoot {
-
     /// helper function to list the name of all available libraries
     fn list_all_libraries(&self) -> Vec<String> {
         self.available_libraries()
@@ -105,7 +129,10 @@ impl DesignRoot {
 
     pub fn list_completion_options(&self, source: &Source, cursor: Position) -> Vec<String> {
         let tokens = tokenize_input(&self.symbols, source, cursor);
-        let cursor_at_end = tokens.last().map(|tok| tok.pos.end() == cursor).unwrap_or(false);
+        let cursor_at_end = tokens
+            .last()
+            .map(|tok| tok.pos.end() == cursor)
+            .unwrap_or(false);
 
         match &tokens[..] {
             [.., kind!(Library)] | [.., kind!(Use)] | [.., kind!(Use), kind!(Identifier)] => {
@@ -118,21 +145,21 @@ impl DesignRoot {
             [.., kind!(Use), ident!(library), kind!(Dot), ident!(selected), kind!(Dot)]
             | [.., kind!(Use), ident!(library), kind!(Dot), ident!(selected), kind!(Dot), kind!(StringLiteral | Identifier)] => {
                 self.list_available_declarations(library, selected)
-            },
+            }
             [.., kind!(Entity), kind!(Identifier)] => {
                 if cursor_at_end {
                     vec![]
                 } else {
                     vec!["is".to_string()]
                 }
-            },
+            }
             [.., kind!(Architecture), kind!(Identifier)] => {
                 if cursor_at_end {
                     vec![]
                 } else {
                     vec!["of".to_string()]
                 }
-            },
+            }
             _ => vec![],
         }
     }
@@ -140,10 +167,10 @@ impl DesignRoot {
 
 #[cfg(test)]
 mod test {
-    use assert_matches::assert_matches;
     use super::*;
     use crate::analysis::completion::tokenize_input;
     use crate::syntax::test::Code;
+    use assert_matches::assert_matches;
 
     #[test]
     fn tokenizing_an_empty_input() {
@@ -154,22 +181,47 @@ mod test {
 
     #[test]
     fn tokenizing_stops_at_the_cursors_position() {
-        let input = Code::new("entity my_ent is");
+        let input = Code::new("use ieee.std_logic_1164.all");
         // mid of `my_ent`
-        let mut cursor = Position::new(0, 11);
+        let mut cursor = Position::new(0, 21);
         let tokens = tokenize_input(&input.symbols, input.source(), cursor);
-        assert_matches!(tokens[..], [kind!(Entity), kind!(Identifier)]);
+        assert_matches!(
+            tokens[..],
+            [kind!(Use), kind!(Identifier), kind!(Dot), kind!(Identifier)]
+        );
         // end of `my_ent`
-        cursor = Position::new(0, 13);
+        cursor = Position::new(0, 23);
         let tokens = tokenize_input(&input.symbols, input.source(), cursor);
-        assert_matches!(tokens[..], [kind!(Entity), kind!(Identifier)]);
+        assert_matches!(
+            tokens[..],
+            [kind!(Use), kind!(Identifier), kind!(Dot), kind!(Identifier)]
+        );
         // start of `is`
-        cursor = Position::new(0, 14);
+        cursor = Position::new(0, 24);
         let tokens = tokenize_input(&input.symbols, input.source(), cursor);
-        assert_matches!(tokens[..], [kind!(Entity), kind!(Identifier)]);
+        assert_matches!(
+            tokens[..],
+            [
+                kind!(Use),
+                kind!(Identifier),
+                kind!(Dot),
+                kind!(Identifier),
+                kind!(Dot)
+            ]
+        );
         // inside of `is`
-        cursor = Position::new(0, 15);
+        cursor = Position::new(0, 26);
         let tokens = tokenize_input(&input.symbols, input.source(), cursor);
-        assert_matches!(tokens[..], [kind!(Entity), kind!(Identifier), kind!(Is)]);
+        assert_matches!(
+            tokens[..],
+            [
+                kind!(Use),
+                kind!(Identifier),
+                kind!(Dot),
+                kind!(Identifier),
+                kind!(Dot),
+                kind!(All)
+            ]
+        );
     }
 }
