@@ -270,7 +270,7 @@ impl VHDLServer {
             // Do not enable completions for files that are not part of the project
             return CompletionList {..Default::default()};
         };
-        let source= from_lsp_pos(params.text_document_position.position);
+        let cursor = from_lsp_pos(params.text_document_position.position);
         // 2) get "context", e.g. in entity declaration, in function declaration, e.t.c
         //    (let's assume global context for now)
 
@@ -283,10 +283,7 @@ impl VHDLServer {
         // 4) Run the parser until the point of the cursor. Then exit with possible completions
         let options = self
             .project
-            .list_completion_options(
-                &source,
-                from_lsp_pos(params.text_document_position.position),
-            )
+            .list_completion_options(&source, cursor)
             .into_iter()
             .map(|option| CompletionItem {
                 label: option,

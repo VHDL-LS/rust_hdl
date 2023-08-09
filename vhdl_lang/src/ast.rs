@@ -757,6 +757,27 @@ pub enum Declaration {
     Configuration(ConfigurationSpecification),
 }
 
+impl Declaration {
+    pub fn ident(&self) -> Option<String> {
+        match self {
+            Declaration::Object(o) => Some(o.ident.tree.item.to_string()),
+            Declaration::File(f) => Some(f.ident.tree.item.to_string()),
+            Declaration::Type(t) => Some(t.ident.tree.item.to_string()),
+            Declaration::Component(c) => Some(c.ident.tree.item.to_string()),
+            Declaration::Attribute(a) => match a {
+                Attribute::Specification(spec) => Some(spec.ident.item.to_string()),
+                Attribute::Declaration(decl) => Some(decl.ident.tree.item.to_string()),
+            },
+            Declaration::Alias(a) => Some(a.designator.to_string()),
+            Declaration::SubprogramDeclaration(decl) => Some(decl.subpgm_designator().to_string()),
+            Declaration::SubprogramBody(_) => None,
+            Declaration::Use(_) => None,
+            Declaration::Package(p) => Some(p.ident.to_string()),
+            Declaration::Configuration(_) => None,
+        }
+    }
+}
+
 /// LRM 10.2 Wait statement
 #[derive(PartialEq, Debug, Clone)]
 pub struct WaitStatement {

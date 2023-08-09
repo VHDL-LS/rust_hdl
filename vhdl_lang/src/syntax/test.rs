@@ -21,20 +21,20 @@ use super::range::{parse_discrete_range, parse_range};
 use super::sequential_statement::parse_sequential_statement;
 use super::subprogram::{parse_signature, parse_subprogram_declaration_no_semi};
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{TokenStream, Comment, Kind, Symbols, Token, Tokenizer};
+use super::tokens::{Comment, Kind, Symbols, Token, TokenStream, Tokenizer};
 use super::type_declaration::parse_type_declaration;
 use super::waveform::parse_waveform;
 use crate::ast;
 use crate::ast::*;
 use crate::data::Range;
 use crate::data::*;
+use crate::syntax::tokens::BaseTokenStream;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hasher;
 use std::sync::Arc;
-use crate::syntax::tokens::BaseTokenStream;
 
 pub struct CodeBuilder {
     pub symbols: Arc<Symbols>,

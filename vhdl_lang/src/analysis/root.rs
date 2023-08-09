@@ -322,6 +322,11 @@ impl DesignRoot {
             .map(|library| &library.units)
     }
 
+    /// Iterates over all available library symbols.
+    pub fn available_libraries(&self) -> impl Iterator<Item = &Symbol> {
+        self.libraries.keys()
+    }
+
     pub(crate) fn get_design_entity<'a>(
         &'a self,
         library_name: &Symbol,
@@ -429,12 +434,6 @@ impl DesignRoot {
             }
         }
         Vec::default()
-    }
-
-    pub fn list_completion_options<'a>(&'a self, source: &Source, cursor: Position) -> Vec<String> {
-        let mut searcher = SuggestionSearcher::new(self, cursor, source);
-        let _ = self.search(&mut searcher);
-        searcher.result
     }
 
     #[cfg(test)]
@@ -1191,21 +1190,21 @@ package pkg is new gpkg generic map (const => foo);
             vec![
                 Diagnostic::error(
                     code.s("pkg", 2),
-                    "A primary unit has already been declared with name 'pkg' in library 'libname'"
+                    "A primary unit has already been declared with name 'pkg' in library 'libname'",
                 ).related(code.s("pkg", 1), "Previously defined here"),
                 Diagnostic::error(
                     code.s("entname", 2),
-                    "A primary unit has already been declared with name 'entname' in library 'libname'"
+                    "A primary unit has already been declared with name 'entname' in library 'libname'",
                 ).related(code.s("entname", 1), "Previously defined here"),
                 Diagnostic::error(
                     code.s("pkg", 3),
-                    "A primary unit has already been declared with name 'pkg' in library 'libname'"
+                    "A primary unit has already been declared with name 'pkg' in library 'libname'",
                 ).related(code.s("pkg", 1), "Previously defined here"),
                 Diagnostic::error(
                     code.s("pkg", 4),
-                    "A primary unit has already been declared with name 'pkg' in library 'libname'"
+                    "A primary unit has already been declared with name 'pkg' in library 'libname'",
                 ).related(code.s("pkg", 1), "Previously defined here"),
-            ]
+            ],
         );
     }
 
