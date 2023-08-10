@@ -252,16 +252,7 @@ fn completions_for_declarative_region() -> &'static [&'static str] {
 
 fn completions_for_sequential_region() -> &'static [&'static str] {
     &[
-        "wait",
-        "assert",
-        "report",
-        "if",
-        "case",
-        "loop",
-        "next",
-        "exit",
-        "return",
-        "null"
+        "wait", "assert", "report", "if", "case", "loop", "next", "exit", "return", "null",
     ]
 }
 
@@ -323,17 +314,16 @@ impl DesignRoot {
                 }
                 _ => vec![],
             },
-            Some(RegionCategory::SequentialStatements) => {
-                match &tokens[..] {
-                    [.., kind!(SemiColon | Begin)] | [.., kind!(SemiColon | Begin), kind!(Identifier)] => {
-                        completions_for_sequential_region()
-                            .iter()
-                            .map(|it| it.to_string())
-                            .collect_vec()
-                    }
-                    _ => vec![],
+            Some(RegionCategory::SequentialStatements) => match &tokens[..] {
+                [.., kind!(SemiColon | Begin)]
+                | [.., kind!(SemiColon | Begin), kind!(Identifier)] => {
+                    completions_for_sequential_region()
+                        .iter()
+                        .map(|it| it.to_string())
+                        .collect_vec()
                 }
-            }
+                _ => vec![],
+            },
             _ => match &tokens[..] {
                 [.., kind!(Library)] | [.., kind!(Use)] | [.., kind!(Use), kind!(Identifier)] => {
                     self.list_all_libraries()
