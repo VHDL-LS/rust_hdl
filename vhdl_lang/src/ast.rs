@@ -1210,13 +1210,18 @@ pub struct ConfigurationDeclaration {
     pub end_ident_pos: Option<SrcPos>,
 }
 
+#[derive(PartialEq, Debug, Clone, Default)]
+pub struct EntityHeader {
+    pub generic_clause: Option<Vec<InterfaceDeclaration>>,
+    pub port_clause: Option<Vec<InterfaceDeclaration>>,
+}
+
 /// LRM 3.2 Entity declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct EntityDeclaration {
     pub context_clause: ContextClause,
     pub ident: WithDecl<Ident>,
-    pub generic_clause: Option<Vec<InterfaceDeclaration>>,
-    pub port_clause: Option<Vec<InterfaceDeclaration>>,
+    pub header: EntityHeader,
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledConcurrentStatement>,
     pub end_ident_pos: Option<SrcPos>,

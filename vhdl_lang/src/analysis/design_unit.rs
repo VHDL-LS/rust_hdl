@@ -63,10 +63,10 @@ impl<'a> AnalyzeContext<'a> {
         // Entity name is visible
         primary_scope.make_potentially_visible(Some(unit.pos()), ent);
 
-        if let Some(ref mut list) = unit.generic_clause {
+        if let Some(ref mut list) = unit.header.generic_clause {
             self.analyze_interface_list(&primary_scope, ent, list, diagnostics)?;
         }
-        if let Some(ref mut list) = unit.port_clause {
+        if let Some(ref mut list) = unit.header.port_clause {
             self.analyze_interface_list(&primary_scope, ent, list, diagnostics)?;
         }
         self.define_labels_for_concurrent_part(

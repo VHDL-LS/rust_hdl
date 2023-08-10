@@ -7,6 +7,20 @@ use crate::{Position, Source};
 use itertools::Itertools;
 use std::default::Default;
 
+/// Defines region types to make completions more accurate
+pub enum RegionType {
+    /// The region of a file; not inside an entity, architecture, e.t.c.
+    Global,
+    /// Declarative region, i.e. entity declarative part, architecture declarative part, e.t.c.
+    Declarative,
+    /// Sequential Statements, i.e. inside a function
+    SequentialStatements,
+    /// Concurrent statements, i.e. inside an architecture statement part
+    ConcurrentStatements,
+    /// The header of an entity, defines ports and generics
+    EntityHeader,
+}
+
 macro_rules! kind {
     ($kind: pat) => {
         Token { kind: $kind, .. }

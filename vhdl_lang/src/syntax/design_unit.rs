@@ -33,6 +33,11 @@ pub fn parse_entity_declaration(
     let generic_clause = parse_optional_generic_list(stream, diagnostics)?;
     let port_clause = parse_optional_port_list(stream, diagnostics)?;
 
+    let header = EntityHeader {
+        generic_clause,
+        port_clause
+    };
+
     let decl = parse_declarative_part(stream, diagnostics)?;
 
     let statements = if stream.skip_if_kind(Begin) {
@@ -48,8 +53,7 @@ pub fn parse_entity_declaration(
         context_clause: ContextClause::default(),
         end_ident_pos: check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics),
         ident,
-        generic_clause,
-        port_clause,
+        header,
         decl,
         statements,
     })
@@ -272,6 +276,7 @@ mod tests {
     use super::*;
 
     use crate::data::Diagnostic;
+    use crate::syntax::interface_declaration::parse_generic;
     use crate::syntax::test::{check_diagnostics, check_no_diagnostics, Code};
 
     fn parse_str(code: &str) -> (Code, DesignFile, Vec<Diagnostic>) {
@@ -305,8 +310,7 @@ mod tests {
         AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(EntityDeclaration {
             context_clause: ContextClause::default(),
             ident: ident.into(),
-            generic_clause: None,
-            port_clause: None,
+            header: EntityHeader::default(),
             decl: vec![],
             statements: vec![],
             end_ident_pos,
@@ -355,8 +359,10 @@ end entity;
             EntityDeclaration {
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
-                generic_clause: Some(Vec::new()),
-                port_clause: None,
+                header: EntityHeader {
+                    generic_clause: Some(vec![]),
+                    port_clause: None,
+                },
                 decl: vec![],
                 statements: vec![],
                 end_ident_pos: None,
@@ -380,8 +386,10 @@ end entity;
             EntityDeclaration {
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
-                generic_clause: Some(vec![code.s1("runner_cfg : string").generic()]),
-                port_clause: None,
+                header: EntityHeader {
+                    generic_clause: Some(vec![code.s1("runner_cfg : string").generic()]),
+                    port_clause: None,
+                },
                 decl: vec![],
                 statements: vec![],
                 end_ident_pos: None,
@@ -403,8 +411,10 @@ end entity;
             EntityDeclaration {
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
-                generic_clause: None,
-                port_clause: Some(vec![]),
+                header: EntityHeader {
+                    generic_clause: None,
+                    port_clause: Some(vec![]),
+                },
                 decl: vec![],
                 statements: vec![],
                 end_ident_pos: None,
@@ -426,8 +436,7 @@ end entity;
             EntityDeclaration {
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
-                generic_clause: None,
-                port_clause: None,
+                header: EntityHeader::default(),
                 decl: vec![],
                 statements: vec![],
                 end_ident_pos: None,
@@ -449,8 +458,10 @@ end entity;
             EntityDeclaration {
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
-                generic_clause: None,
-                port_clause: None,
+                header: EntityHeader {
+                    port_clause: None,
+                    generic_clause: None,
+                },
                 decl: code.s1("constant foo : natural := 0;").declarative_part(),
                 statements: vec![],
                 end_ident_pos: None,
@@ -473,8 +484,7 @@ end entity;
             EntityDeclaration {
                 context_clause: ContextClause::default(),
                 ident: code.s1("myent").decl_ident(),
-                generic_clause: None,
-                port_clause: None,
+                header: EntityHeader::default(),
                 decl: vec![],
                 statements: vec![code.s1("check(clk, valid);").concurrent_statement()],
                 end_ident_pos: None,
@@ -682,8 +692,7 @@ end entity;
                                 .map_into(ContextItem::Use),
                         ],
                         ident: code.s1("myent").decl_ident(),
-                        generic_clause: None,
-                        port_clause: None,
+                        header: EntityHeader::default(),
                         decl: vec![],
                         statements: vec![],
                         end_ident_pos: None

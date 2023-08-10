@@ -1214,8 +1214,8 @@ impl Search for EntityDeclaration {
         return_if_found!(searcher
             .search_decl(FoundDeclaration::Entity(self))
             .or_not_found());
-        return_if_found!(self.generic_clause.search(searcher));
-        return_if_found!(self.port_clause.search(searcher));
+        return_if_found!(self.header.generic_clause.search(searcher));
+        return_if_found!(self.header.port_clause.search(searcher));
         return_if_found!(self.decl.search(searcher));
         self.statements.search(searcher)
     }
