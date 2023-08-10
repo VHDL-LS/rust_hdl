@@ -1227,13 +1227,21 @@ pub struct EntityDeclaration {
     pub end_ident_pos: Option<SrcPos>,
 }
 
+/// Represents a region in the AST.
+/// Additionally to some arbitrary payload, a region also knows the range it is in.
+#[derive(PartialEq, Debug, Clone)]
+pub struct WithRegion<T> {
+    pub range: crate::data::Range,
+    pub item: T
+}
+
 /// LRM 3.3 Architecture bodies
 #[derive(PartialEq, Debug, Clone)]
 pub struct ArchitectureBody {
     pub context_clause: ContextClause,
     pub ident: WithDecl<Ident>,
     pub entity_name: WithRef<Ident>,
-    pub decl: Vec<Declaration>,
+    pub decl: WithRegion<Vec<Declaration>>,
     pub statements: Vec<LabeledConcurrentStatement>,
     pub end_ident_pos: Option<SrcPos>,
 }

@@ -18,6 +18,7 @@ use super::declarative_part::{parse_declarative_part, parse_package_instantiatio
 use super::interface_declaration::parse_generic_interface_list;
 use crate::ast::*;
 use crate::data::*;
+use crate::syntax::{Kind, Token};
 
 /// Parse an entity declaration, token is initial entity token
 /// If a parse error occurs the stream is consumed until and end entity
@@ -68,10 +69,16 @@ pub fn parse_architecture_body(
     let ident = WithDecl::new(stream.expect_ident()?);
     stream.expect_kind(Of)?;
     let entity_name = stream.expect_ident()?;
-    stream.expect_kind(Is)?;
+    let is_tok = stream.expect_kind(Is)?;
 
     let decl = parse_declarative_part(stream, diagnostics)?;
-    stream.expect_kind(Begin)?;
+    let begin_tok = stream.expect_kind(Begin)?;
+
+    let decl_range = is_tok.pos.end().range_to(begin_tok.pos.start());
+    let decl_region = WithRegion {
+        range: decl_range,
+        item: decl,
+    };
 
     let statements = parse_labeled_concurrent_statements(stream, diagnostics)?;
     stream.expect_kind(End)?;
@@ -85,7 +92,7 @@ pub fn parse_architecture_body(
         end_ident_pos: check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics),
         ident,
         entity_name: entity_name.into_ref(),
-        decl,
+        decl: decl_region,
         statements,
     })
 }
@@ -273,6 +280,7 @@ pub fn parse_design_file(
 
 #[cfg(test)]
 mod tests {
+    use crate::ast::AttributeDesignator::Pos;
     use super::*;
 
     use crate::data::Diagnostic;
@@ -525,12 +533,16 @@ end;
         ident: WithDecl<Ident>,
         entity_name: Ident,
         end_ident_pos: Option<SrcPos>,
+        decl_range: crate::data::Range,
     ) -> AnyDesignUnit {
         AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(ArchitectureBody {
             context_clause: ContextClause::default(),
             ident,
             entity_name: entity_name.into_ref(),
-            decl: Vec::new(),
+            decl: WithRegion {
+                item: Vec::new(),
+                range: decl_range,
+            },
             statements: vec![],
             end_ident_pos,
         }))
@@ -551,6 +563,7 @@ end architecture;
                 WithDecl::new(code.s1("arch_name").ident()),
                 code.s1("myent").ident(),
                 None,
+                Position::new(1, 34).range_to(Position::new(2, 0)),
             )]
         );
     }
@@ -569,7 +582,8 @@ end architecture arch_name;
             [simple_architecture(
                 WithDecl::new(code.s1("arch_name").ident()),
                 code.s1("myent").ident(),
-                Some(code.s("arch_name", 2).pos())
+                Some(code.s("arch_name", 2).pos()),
+                Position::new(1, 34).range_to(Position::new(2, 0)),
             )]
         );
     }
@@ -588,7 +602,8 @@ end;
             [simple_architecture(
                 WithDecl::new(code.s1("arch_name").ident()),
                 code.s1("myent").ident(),
-                None
+                None,
+                Position::new(1, 34).range_to(Position::new(2, 0)),
             )]
         );
     }

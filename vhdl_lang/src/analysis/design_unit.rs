@@ -272,7 +272,7 @@ impl<'a> AnalyzeContext<'a> {
         scope.make_potentially_visible(Some(unit.pos()), arch);
 
         self.define_labels_for_concurrent_part(&scope, arch, &mut unit.statements, diagnostics)?;
-        self.analyze_declarative_part(&scope, arch, &mut unit.decl, diagnostics)?;
+        self.analyze_declarative_part(&scope, arch, &mut unit.decl.item, diagnostics)?;
         self.analyze_concurrent_part(&scope, arch, &mut unit.statements, diagnostics)?;
         scope.close(diagnostics);
         Ok(())

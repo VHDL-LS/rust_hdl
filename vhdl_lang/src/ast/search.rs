@@ -1231,7 +1231,7 @@ impl Search for ArchitectureBody {
         return_if_found!(searcher
             .search_decl(FoundDeclaration::Architecture(self))
             .or_not_found());
-        return_if_found!(self.decl.search(searcher));
+        return_if_found!(self.decl.item.search(searcher));
         self.statements.search(searcher)
     }
 }
