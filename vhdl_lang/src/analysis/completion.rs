@@ -1,5 +1,5 @@
 use crate::analysis::DesignRoot;
-use crate::ast::search::{NotFinished, RegionCategory, SearchState, Searcher, NotFound, Finished};
+use crate::ast::search::{Finished, NotFinished, NotFound, RegionCategory, SearchState, Searcher};
 use crate::ast::{AnyDesignUnit, AnyPrimaryUnit, Declaration, UnitKey};
 use crate::data::{ContentReader, Symbol};
 use crate::syntax::Kind::*;
@@ -14,12 +14,12 @@ struct RegionSearcher<'a> {
     source: &'a Source,
 }
 
-impl <'a> RegionSearcher<'a> {
+impl<'a> RegionSearcher<'a> {
     pub fn new(cursor: Position, source: &Source) -> RegionSearcher {
         RegionSearcher {
             region: None,
             cursor,
-            source
+            source,
         }
     }
 
@@ -28,7 +28,7 @@ impl <'a> RegionSearcher<'a> {
     }
 }
 
-impl <'a> Searcher for RegionSearcher<'a> {
+impl<'a> Searcher for RegionSearcher<'a> {
     fn search_region(&mut self, region: crate::Range, kind: RegionCategory) -> SearchState {
         if region.contains(self.cursor) {
             match &self.region {
@@ -55,13 +55,15 @@ impl <'a> Searcher for RegionSearcher<'a> {
 
 #[cfg(test)]
 mod region_searcher_test {
-    use crate::analysis::tests::LibraryBuilder;
     use super::*;
+    use crate::analysis::tests::LibraryBuilder;
 
     #[test]
     pub fn test_searcher_finds_region() {
         let mut builder = LibraryBuilder::new();
-        let code = builder.code("work", "\
+        let code = builder.code(
+            "work",
+            "\
 entity my_ent is
 end entity;
 
@@ -70,10 +72,11 @@ architecture arch of my_ent is
 begin
 
 end;
-        ");
+        ",
+        );
         let (root, _) = builder.get_analyzed_root();
         let mut searcher = RegionSearcher::new(Position::new(4, 12), code.source());
-        let _ = root.search(& mut searcher);
+        let _ = root.search(&mut searcher);
         assert_eq!(searcher.region(), Some(RegionCategory::Declarative));
         searcher = RegionSearcher::new(Position::new(6, 0), code.source());
         assert_eq!(searcher.region(), None);
@@ -82,7 +85,9 @@ end;
     #[test]
     pub fn test_searcher_finds_specific_region() {
         let mut builder = LibraryBuilder::new();
-        let code = builder.code("work", "\
+        let code = builder.code(
+            "work",
+            "\
 entity my_ent is
 end entity;
 
@@ -98,17 +103,24 @@ architecture arch of my_ent is
 begin
 
 end;
-        ");
+        ",
+        );
         let (root, _) = builder.get_analyzed_root();
         let mut searcher = RegionSearcher::new(Position::new(5, 10), code.source());
-        let _ = root.search(& mut searcher);
+        let _ = root.search(&mut searcher);
         assert_eq!(searcher.region(), Some(RegionCategory::Declarative));
         searcher = RegionSearcher::new(Position::new(7, 12), code.source());
-        let _ = root.search(& mut searcher);
-        assert_eq!(searcher.region(), Some(RegionCategory::SequentialStatements));
+        let _ = root.search(&mut searcher);
+        assert_eq!(
+            searcher.region(),
+            Some(RegionCategory::SequentialStatements)
+        );
         searcher = RegionSearcher::new(Position::new(8, 0), code.source());
-        let _ = root.search(& mut searcher);
-        assert_eq!(searcher.region(), Some(RegionCategory::SequentialStatements));
+        let _ = root.search(&mut searcher);
+        assert_eq!(
+            searcher.region(),
+            Some(RegionCategory::SequentialStatements)
+        );
     }
 }
 
