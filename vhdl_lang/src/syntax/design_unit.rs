@@ -18,7 +18,6 @@ use super::declarative_part::{parse_declarative_part, parse_package_instantiatio
 use super::interface_declaration::parse_generic_interface_list;
 use crate::ast::*;
 use crate::data::*;
-use crate::syntax::{Kind, Token};
 
 /// Parse an entity declaration, token is initial entity token
 /// If a parse error occurs the stream is consumed until and end entity
@@ -36,7 +35,7 @@ pub fn parse_entity_declaration(
 
     let header = EntityHeader {
         generic_clause,
-        port_clause
+        port_clause,
     };
 
     let decl = parse_declarative_part(stream, diagnostics)?;
@@ -280,8 +279,8 @@ pub fn parse_design_file(
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::AttributeDesignator::Pos;
     use super::*;
+    use crate::ast::AttributeDesignator::Pos;
 
     use crate::data::Diagnostic;
     use crate::syntax::interface_declaration::parse_generic;

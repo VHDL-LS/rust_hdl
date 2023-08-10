@@ -1,4 +1,5 @@
 use crate::analysis::DesignRoot;
+use crate::ast::search::{Finished, Found, NotFinished, RegionCategory, SearchState, Searcher};
 use crate::ast::{AnyDesignUnit, AnyPrimaryUnit, Declaration, UnitKey};
 use crate::data::{ContentReader, Symbol};
 use crate::syntax::Kind::*;
@@ -7,18 +8,29 @@ use crate::{Position, Source};
 use itertools::Itertools;
 use std::default::Default;
 
-/// Defines region types to make completions more accurate
-pub enum RegionType {
-    /// The region of a file; not inside an entity, architecture, e.t.c.
-    Global,
-    /// Declarative region, i.e. entity declarative part, architecture declarative part, e.t.c.
-    Declarative,
-    /// Sequential Statements, i.e. inside a function
-    SequentialStatements,
-    /// Concurrent statements, i.e. inside an architecture statement part
-    ConcurrentStatements,
-    /// The header of an entity, defines ports and generics
-    EntityHeader,
+struct RegionSearcher {
+    pub region: Option<RegionCategory>,
+    cursor: Position,
+}
+
+impl RegionSearcher {
+    pub fn new(cursor: Position) -> RegionSearcher {
+        RegionSearcher {
+            region: None,
+            cursor,
+        }
+    }
+}
+
+impl Searcher for RegionSearcher {
+    fn search_region(&mut self, region: crate::Range, kind: RegionCategory) -> SearchState {
+        if region.contains(self.cursor) {
+            self.region = Some(kind);
+            Finished(Found)
+        } else {
+            NotFinished
+        }
+    }
 }
 
 macro_rules! kind {
@@ -148,33 +160,63 @@ impl DesignRoot {
             .map(|tok| tok.pos.end() == cursor)
             .unwrap_or(false);
 
-        match &tokens[..] {
-            [.., kind!(Library)] | [.., kind!(Use)] | [.., kind!(Use), kind!(Identifier)] => {
-                self.list_all_libraries()
-            }
-            [.., kind!(Use), ident!(library), kind!(Dot)]
-            | [.., kind!(Use), ident!(library), kind!(Dot), kind!(Identifier)] => {
-                self.list_primaries_for_lib(library)
-            }
-            [.., kind!(Use), ident!(library), kind!(Dot), ident!(selected), kind!(Dot)]
-            | [.., kind!(Use), ident!(library), kind!(Dot), ident!(selected), kind!(Dot), kind!(StringLiteral | Identifier)] => {
-                self.list_available_declarations(library, selected)
-            }
-            [.., kind!(Entity), kind!(Identifier)] => {
-                if cursor_at_end {
-                    vec![]
-                } else {
-                    vec!["is".to_string()]
+        let mut region_searcher = RegionSearcher::new(cursor);
+        let _ = self.search(&mut region_searcher);
+        match region_searcher.region {
+            Some(RegionCategory::Declarative) => match &tokens[..] {
+                [.., kind!(SemiColon)] | [.., kind!(SemiColon), kind!(Identifier)] => {
+                    vec![
+                        "procedure".to_string(),
+                        "pure function".to_string(),
+                        "impure function".to_string(),
+                        "function".to_string(),
+                        "package".to_string(),
+                        "type".to_string(),
+                        "subtype".to_string(),
+                        "constant".to_string(),
+                        "signal".to_string(),
+                        "variable".to_string(),
+                        "shared variable".to_string(),
+                        "file".to_string(),
+                        "alias".to_string(),
+                        "attribute".to_string(),
+                        "component".to_string(),
+                        "group".to_string(),
+                        "configuration".to_string(),
+                        "disconnect".to_string(),
+                        "use".to_string(),
+                    ]
                 }
-            }
-            [.., kind!(Architecture), kind!(Identifier)] => {
-                if cursor_at_end {
-                    vec![]
-                } else {
-                    vec!["of".to_string()]
+                _ => vec![],
+            },
+            _ => match &tokens[..] {
+                [.., kind!(Library)] | [.., kind!(Use)] | [.., kind!(Use), kind!(Identifier)] => {
+                    self.list_all_libraries()
                 }
-            }
-            _ => vec![],
+                [.., kind!(Use), ident!(library), kind!(Dot)]
+                | [.., kind!(Use), ident!(library), kind!(Dot), kind!(Identifier)] => {
+                    self.list_primaries_for_lib(library)
+                }
+                [.., kind!(Use), ident!(library), kind!(Dot), ident!(selected), kind!(Dot)]
+                | [.., kind!(Use), ident!(library), kind!(Dot), ident!(selected), kind!(Dot), kind!(StringLiteral | Identifier)] => {
+                    self.list_available_declarations(library, selected)
+                }
+                [.., kind!(Entity), kind!(Identifier)] => {
+                    if cursor_at_end {
+                        vec![]
+                    } else {
+                        vec!["is".to_string()]
+                    }
+                }
+                [.., kind!(Architecture), kind!(Identifier)] => {
+                    if cursor_at_end {
+                        vec![]
+                    } else {
+                        vec!["of".to_string()]
+                    }
+                }
+                _ => vec![],
+            },
         }
     }
 }

@@ -70,9 +70,30 @@ pub enum FoundDeclaration<'a> {
     SequentialStatement(&'a Ident, &'a mut Reference),
 }
 
+#[derive(PartialEq)]
+/// Defines region types to make completions more accurate
+pub enum RegionCategory {
+    /// The region of a file; not inside an entity, architecture, e.t.c.
+    Global,
+    /// Declarative region, i.e. entity declarative part, architecture declarative part, e.t.c.
+    Declarative,
+    /// Sequential Statements, i.e. inside a function
+    SequentialStatements,
+    /// Concurrent statements, i.e. inside an architecture statement part
+    ConcurrentStatements,
+    /// The header of an entity, defines ports and generics
+    EntityHeader,
+    /// The region is unknown / erroneous
+    Unknown,
+}
+
 pub trait Searcher {
     /// Search an position that has a reference to a declaration
     fn search_pos_with_ref(&mut self, _pos: &SrcPos, _ref: &mut Reference) -> SearchState {
+        NotFinished
+    }
+
+    fn search_region(&mut self, _region: crate::data::Range, _kind: RegionCategory) -> SearchState {
         NotFinished
     }
 
@@ -98,6 +119,7 @@ pub trait Searcher {
     fn search_with_pos(&mut self, _pos: &SrcPos) -> SearchState {
         NotFinished
     }
+
     fn search_source(&mut self, _source: &Source) -> SearchState {
         NotFinished
     }
@@ -1230,6 +1252,9 @@ impl Search for ArchitectureBody {
             .or_not_found());
         return_if_found!(searcher
             .search_decl(FoundDeclaration::Architecture(self))
+            .or_not_found());
+        return_if_found!(searcher
+            .search_region(self.decl.range, RegionCategory::Declarative)
             .or_not_found());
         return_if_found!(self.decl.item.search(searcher));
         self.statements.search(searcher)

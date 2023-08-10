@@ -1232,7 +1232,7 @@ pub struct EntityDeclaration {
 #[derive(PartialEq, Debug, Clone)]
 pub struct WithRegion<T> {
     pub range: crate::data::Range,
-    pub item: T
+    pub item: T,
 }
 
 /// LRM 3.3 Architecture bodies
