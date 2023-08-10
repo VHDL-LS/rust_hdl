@@ -70,7 +70,7 @@ pub enum FoundDeclaration<'a> {
     SequentialStatement(&'a Ident, &'a mut Reference),
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Debug)]
 /// Defines region types to make completions more accurate
 pub enum RegionCategory {
     /// The region of a file; not inside an entity, architecture, e.t.c.
@@ -988,8 +988,14 @@ impl Search for Declaration {
             }
             Declaration::SubprogramBody(body) => {
                 return_if_found!(body.specification.search(searcher));
-                return_if_found!(body.declarations.search(searcher));
-                return_if_found!(body.statements.search(searcher));
+                return_if_found!(searcher
+                    .search_region(body.declarations.range, RegionCategory::Declarative)
+                    .or_not_found());
+                return_if_found!(body.declarations.item.search(searcher));
+                return_if_found!(searcher
+                    .search_region(body.statements.range, RegionCategory::SequentialStatements)
+                    .or_not_found());
+                return_if_found!(body.statements.item.search(searcher));
                 if let Some(ref end_ident_pos) = body.end_ident_pos {
                     return_if_found!(searcher
                         .search_pos_with_ref(end_ident_pos, body.specification.reference_mut())

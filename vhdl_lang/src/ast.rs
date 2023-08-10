@@ -652,8 +652,8 @@ pub struct FunctionSpecification {
 #[derive(PartialEq, Debug, Clone)]
 pub struct SubprogramBody {
     pub specification: SubprogramDeclaration,
-    pub declarations: Vec<Declaration>,
-    pub statements: Vec<LabeledSequentialStatement>,
+    pub declarations: WithRegion<Vec<Declaration>>,
+    pub statements: WithRegion<Vec<LabeledSequentialStatement>>,
     pub end_ident_pos: Option<SrcPos>,
 }
 

@@ -1,5 +1,5 @@
 use crate::analysis::DesignRoot;
-use crate::ast::search::{Finished, Found, NotFinished, RegionCategory, SearchState, Searcher};
+use crate::ast::search::{NotFinished, RegionCategory, SearchState, Searcher, NotFound, Finished};
 use crate::ast::{AnyDesignUnit, AnyPrimaryUnit, Declaration, UnitKey};
 use crate::data::{ContentReader, Symbol};
 use crate::syntax::Kind::*;
@@ -8,28 +8,107 @@ use crate::{Position, Source};
 use itertools::Itertools;
 use std::default::Default;
 
-struct RegionSearcher {
-    pub region: Option<RegionCategory>,
+struct RegionSearcher<'a> {
+    region: Option<(RegionCategory, crate::Range)>,
     cursor: Position,
+    source: &'a Source,
 }
 
-impl RegionSearcher {
-    pub fn new(cursor: Position) -> RegionSearcher {
+impl <'a> RegionSearcher<'a> {
+    pub fn new(cursor: Position, source: &Source) -> RegionSearcher {
         RegionSearcher {
             region: None,
             cursor,
+            source
+        }
+    }
+
+    pub fn region(&self) -> Option<RegionCategory> {
+        self.region.as_ref().map(|reg| reg.0.clone())
+    }
+}
+
+impl <'a> Searcher for RegionSearcher<'a> {
+    fn search_region(&mut self, region: crate::Range, kind: RegionCategory) -> SearchState {
+        if region.contains(self.cursor) {
+            match &self.region {
+                Some((_, old_region)) => {
+                    // The new region is more specific than the old region
+                    if region.start >= old_region.start && region.end <= old_region.end {
+                        self.region = Some((kind, region))
+                    }
+                }
+                None => self.region = Some((kind, region)),
+            }
+        }
+        NotFinished
+    }
+
+    fn search_source(&mut self, source: &Source) -> SearchState {
+        if source == self.source {
+            NotFinished
+        } else {
+            Finished(NotFound)
         }
     }
 }
 
-impl Searcher for RegionSearcher {
-    fn search_region(&mut self, region: crate::Range, kind: RegionCategory) -> SearchState {
-        if region.contains(self.cursor) {
-            self.region = Some(kind);
-            Finished(Found)
-        } else {
-            NotFinished
-        }
+#[cfg(test)]
+mod region_searcher_test {
+    use crate::analysis::tests::LibraryBuilder;
+    use super::*;
+
+    #[test]
+    pub fn test_searcher_finds_region() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code("work", "\
+entity my_ent is
+end entity;
+
+architecture arch of my_ent is
+    signal x: natural := 4;
+begin
+
+end;
+        ");
+        let (root, _) = builder.get_analyzed_root();
+        let mut searcher = RegionSearcher::new(Position::new(4, 12), code.source());
+        let _ = root.search(& mut searcher);
+        assert_eq!(searcher.region(), Some(RegionCategory::Declarative));
+        searcher = RegionSearcher::new(Position::new(6, 0), code.source());
+        assert_eq!(searcher.region(), None);
+    }
+
+    #[test]
+    pub fn test_searcher_finds_specific_region() {
+        let mut builder = LibraryBuilder::new();
+        let code = builder.code("work", "\
+entity my_ent is
+end entity;
+
+architecture arch of my_ent is
+    procedure my_proc is
+        variable x: bit := '0';
+    begin
+        x := '1';
+
+        x := '1';
+
+    end procedure;
+begin
+
+end;
+        ");
+        let (root, _) = builder.get_analyzed_root();
+        let mut searcher = RegionSearcher::new(Position::new(5, 10), code.source());
+        let _ = root.search(& mut searcher);
+        assert_eq!(searcher.region(), Some(RegionCategory::Declarative));
+        searcher = RegionSearcher::new(Position::new(7, 12), code.source());
+        let _ = root.search(& mut searcher);
+        assert_eq!(searcher.region(), Some(RegionCategory::SequentialStatements));
+        searcher = RegionSearcher::new(Position::new(8, 0), code.source());
+        let _ = root.search(& mut searcher);
+        assert_eq!(searcher.region(), Some(RegionCategory::SequentialStatements));
     }
 }
 
@@ -160,11 +239,11 @@ impl DesignRoot {
             .map(|tok| tok.pos.end() == cursor)
             .unwrap_or(false);
 
-        let mut region_searcher = RegionSearcher::new(cursor);
+        let mut region_searcher = RegionSearcher::new(cursor, source);
         let _ = self.search(&mut region_searcher);
-        match region_searcher.region {
+        match region_searcher.region() {
             Some(RegionCategory::Declarative) => match &tokens[..] {
-                [.., kind!(SemiColon)] | [.., kind!(SemiColon), kind!(Identifier)] => {
+                [.., kind!(SemiColon | Is)] | [.., kind!(SemiColon | Is), kind!(Identifier)] => {
                     vec![
                         "procedure".to_string(),
                         "pure function".to_string(),
@@ -189,6 +268,9 @@ impl DesignRoot {
                 }
                 _ => vec![],
             },
+            Some(RegionCategory::SequentialStatements) => {
+                vec![]
+            }
             _ => match &tokens[..] {
                 [.., kind!(Library)] | [.., kind!(Use)] | [.., kind!(Use), kind!(Identifier)] => {
                     self.list_all_libraries()

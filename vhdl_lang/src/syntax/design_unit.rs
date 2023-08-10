@@ -280,10 +280,8 @@ pub fn parse_design_file(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ast::AttributeDesignator::Pos;
 
     use crate::data::Diagnostic;
-    use crate::syntax::interface_declaration::parse_generic;
     use crate::syntax::test::{check_diagnostics, check_no_diagnostics, Code};
 
     fn parse_str(code: &str) -> (Code, DesignFile, Vec<Diagnostic>) {
