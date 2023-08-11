@@ -117,7 +117,7 @@ impl<'a> ObjectName<'a> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ResolvedName<'a> {
     Library(Symbol),
     Design(DesignEnt<'a>),
