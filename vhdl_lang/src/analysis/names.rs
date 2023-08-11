@@ -320,7 +320,7 @@ impl<'a> ResolvedName<'a> {
     /// Convenience function that returns `Some(name)` when self is an object name, else `None`
     fn as_object_name(&self) -> Option<ObjectName<'a>> {
         match self {
-            ResolvedName::ObjectName(oname) => Some(oname.clone()),
+            ResolvedName::ObjectName(oname) => Some(*oname),
             _ => None,
         }
     }
@@ -1811,7 +1811,6 @@ variable b: natural range 0 to a'subtype'high;
             Ok(ResolvedName::ObjectName(_))
         );
     }
-
 
     #[test]
     fn element_subtype_for_non_arrays() {
