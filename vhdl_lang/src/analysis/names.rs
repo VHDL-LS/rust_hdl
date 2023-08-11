@@ -117,7 +117,7 @@ impl<'a> ObjectName<'a> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ResolvedName<'a> {
     Library(Symbol),
     Design(DesignEnt<'a>),
@@ -316,7 +316,29 @@ impl<'a> ResolvedName<'a> {
         );
         Err(EvalError::Unknown)
     }
+
+    /// Convenience function that returns `Some(name)` when self is an object name, else `None`
+    fn as_object_name(&self) -> Option<ObjectName<'a>> {
+        match self {
+            ResolvedName::ObjectName(oname) => Some(oname.clone()),
+            _ => None,
+        }
+    }
 }
+
+/// Represents the result when resolving a result.
+/// This can either be a value (in the future, this case might also hold the value
+/// of the static expression of the attribute) or a type itself.
+///
+/// Values are returned for attributes such as `'low`, `'high`, `'val(..)`, e.t.c.
+/// Types are returned for attributes such as `'base`, `'subtype`, `'element`
+pub enum AttrResolveResult<'a> {
+    /// The result type is a type. E.g. `a'base`, `a'subtype`, `a'element`
+    Type(BaseType<'a>),
+    /// The result type is a value with type, e.g. `a'low`, `b'high`, `c'image(x)`
+    Value(BaseType<'a>),
+}
+
 #[derive(Debug)]
 pub struct AttributeSuffix<'a> {
     pub signature: &'a mut Option<WithPos<crate::ast::Signature>>,
@@ -712,7 +734,7 @@ impl<'a> AnalyzeContext<'a> {
         prefix: &ResolvedName<'a>,
         attr: &mut AttributeSuffix,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<BaseType<'a>> {
+    ) -> EvalResult<AttrResolveResult<'a>> {
         match attr.attr.item {
             AttributeDesignator::Left
             | AttributeDesignator::Right
@@ -726,9 +748,10 @@ impl<'a> AnalyzeContext<'a> {
                         attr.expr.as_mut().map(|expr| expr.as_mut()),
                         diagnostics,
                     )
+                    .map(AttrResolveResult::Value)
                 } else if typ.is_scalar() {
                     check_no_attr_argument(attr, diagnostics);
-                    Ok(typ.into())
+                    Ok(AttrResolveResult::Value(typ.into()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
                         name_pos, prefix, attr,
@@ -740,10 +763,10 @@ impl<'a> AnalyzeContext<'a> {
                 let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
 
                 if typ.array_type().is_some() {
-                    Ok(self.boolean().base())
+                    Ok(AttrResolveResult::Value(self.boolean().base()))
                 } else if typ.is_scalar() {
                     check_no_attr_argument(attr, diagnostics);
-                    Ok(self.boolean().base())
+                    Ok(AttrResolveResult::Value(self.boolean().base()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
                         name_pos, prefix, attr,
@@ -759,7 +782,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
 
                 if typ.is_scalar() {
-                    Ok(self.string().base())
+                    Ok(AttrResolveResult::Value(self.string().base()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
                         name_pos, prefix, attr,
@@ -775,7 +798,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
 
                 if typ.is_scalar() {
-                    Ok(typ.base())
+                    Ok(AttrResolveResult::Value(typ.base()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
                         name_pos, prefix, attr,
@@ -790,7 +813,7 @@ impl<'a> AnalyzeContext<'a> {
                     if let Some(ref mut expr) = check_single_argument(name_pos, attr, diagnostics) {
                         self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
                     }
-                    Ok(self.universal_integer())
+                    Ok(AttrResolveResult::Value(self.universal_integer()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
                         name_pos, prefix, attr,
@@ -805,7 +828,7 @@ impl<'a> AnalyzeContext<'a> {
                     if let Some(ref mut expr) = check_single_argument(name_pos, attr, diagnostics) {
                         self.integer_expr(scope, expr, diagnostics)?;
                     }
-                    Ok(typ.base())
+                    Ok(AttrResolveResult::Value(typ.base()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
                         name_pos, prefix, attr,
@@ -823,7 +846,7 @@ impl<'a> AnalyzeContext<'a> {
                     if let Some(ref mut expr) = check_single_argument(name_pos, attr, diagnostics) {
                         self.expr_with_ttyp(scope, typ, expr, diagnostics)?;
                     }
-                    Ok(typ.base())
+                    Ok(AttrResolveResult::Value(typ.base()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
                         name_pos, prefix, attr,
@@ -835,7 +858,7 @@ impl<'a> AnalyzeContext<'a> {
                 let typ = prefix.as_type_of_attr_prefix(prefix_pos, attr, diagnostics)?;
 
                 if typ.array_type().is_some() {
-                    Ok(self.universal_integer())
+                    Ok(AttrResolveResult::Value(self.universal_integer()))
                 } else {
                     diagnostics.push(Diagnostic::cannot_be_prefix_of_attribute(
                         name_pos, prefix, attr,
@@ -847,7 +870,7 @@ impl<'a> AnalyzeContext<'a> {
             | AttributeDesignator::InstanceName
             | AttributeDesignator::PathName => {
                 check_no_attr_argument(attr, diagnostics);
-                Ok(self.string().base())
+                Ok(AttrResolveResult::Value(self.string().base()))
             }
 
             AttributeDesignator::Signal(sattr) => {
@@ -858,45 +881,45 @@ impl<'a> AnalyzeContext<'a> {
                         if let Some(expr) = attr.expr {
                             self.expr_with_ttyp(scope, self.time(), expr, diagnostics)?;
                         }
-                        Ok(typ.base())
+                        Ok(AttrResolveResult::Value(typ.base()))
                     }
                     SignalAttribute::Stable | SignalAttribute::Quiet => {
                         if let Some(expr) = expr {
                             self.expr_with_ttyp(scope, self.time(), expr, diagnostics)?;
                         }
-                        Ok(self.boolean().base())
+                        Ok(AttrResolveResult::Value(self.boolean().base()))
                     }
                     SignalAttribute::Transaction => {
                         check_no_sattr_argument(sattr, expr, diagnostics);
-                        Ok(self.bit().base())
+                        Ok(AttrResolveResult::Value(self.bit().base()))
                     }
                     SignalAttribute::Event => {
                         check_no_sattr_argument(sattr, expr, diagnostics);
-                        Ok(self.boolean().base())
+                        Ok(AttrResolveResult::Value(self.boolean().base()))
                     }
                     SignalAttribute::Active => {
                         check_no_sattr_argument(sattr, expr, diagnostics);
-                        Ok(self.boolean().base())
+                        Ok(AttrResolveResult::Value(self.boolean().base()))
                     }
                     SignalAttribute::LastEvent => {
                         check_no_sattr_argument(sattr, expr, diagnostics);
-                        Ok(self.time().base())
+                        Ok(AttrResolveResult::Value(self.time().base()))
                     }
                     SignalAttribute::LastActive => {
                         check_no_sattr_argument(sattr, expr, diagnostics);
-                        Ok(self.time().base())
+                        Ok(AttrResolveResult::Value(self.time().base()))
                     }
                     SignalAttribute::LastValue => {
                         check_no_sattr_argument(sattr, expr, diagnostics);
-                        Ok(typ.base())
+                        Ok(AttrResolveResult::Value(typ.base()))
                     }
                     SignalAttribute::Driving => {
                         check_no_sattr_argument(sattr, expr, diagnostics);
-                        Ok(self.boolean().base())
+                        Ok(AttrResolveResult::Value(self.boolean().base()))
                     }
                     SignalAttribute::DrivingValue => {
                         check_no_sattr_argument(sattr, expr, diagnostics);
-                        Ok(typ.base())
+                        Ok(AttrResolveResult::Value(typ.base()))
                     }
                 }
             }
@@ -912,9 +935,44 @@ impl<'a> AnalyzeContext<'a> {
                 diagnostics.error(name_pos, "Range cannot be used as an expression");
                 Err(EvalError::Unknown)
             }
-            AttributeDesignator::Type(_) => {
-                diagnostics.error(name_pos, "Type cannot be used as an expression");
-                Err(EvalError::Unknown)
+            AttributeDesignator::Type(attr) => self
+                .resolve_type_attribute_suffix(prefix, &attr, name_pos, diagnostics)
+                .map(|typ| AttrResolveResult::Type(typ.base())),
+        }
+    }
+
+    /// Resolves any type attribute suffixes
+    ///
+    /// # Example
+    /// ```vhdl
+    /// variable x: std_logic_vector(2 downto 0);
+    /// x'subtype -> std_logic_vector(2 downto 0)
+    /// x'element -> std_logic
+    /// ```
+    fn resolve_type_attribute_suffix(
+        &self,
+        prefix: &ResolvedName<'a>,
+        suffix: &TypeAttribute,
+        pos: &SrcPos,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult<TypeEnt<'a>> {
+        // all type attribute suffixes require that the prefix be an object type
+        let Some(obj) = prefix.as_object_name() else {
+            diagnostics.error(pos,format!("The {} attribute can only be used on objects, not {}", suffix, prefix.describe()));
+            return Err(EvalError::Unknown)
+        };
+        match suffix {
+            TypeAttribute::Subtype => Ok(obj.type_mark()),
+            TypeAttribute::Element => {
+                if let Some((elem_type, _)) = obj.type_mark().array_type() {
+                    Ok(elem_type)
+                } else {
+                    diagnostics.error(
+                        pos,
+                        "The element attribute can only be used for array types",
+                    );
+                    Err(EvalError::Unknown)
+                }
             }
         }
     }
@@ -1035,13 +1093,15 @@ impl<'a> AnalyzeContext<'a> {
             }
         }
 
-        // Attributes for non-types not handled yet
         if let Suffix::Attribute(ref mut attr) = suffix {
             let typ =
                 self.attribute_suffix(name_pos, &prefix.pos, scope, &resolved, attr, diagnostics)?;
-            return Ok(ResolvedName::Expression(DisambiguatedType::Unambiguous(
-                typ.into(),
-            )));
+            return match typ {
+                AttrResolveResult::Type(base) => Ok(ResolvedName::Type(base.into())),
+                AttrResolveResult::Value(base) => Ok(ResolvedName::Expression(
+                    DisambiguatedType::Unambiguous(base.into()),
+                )),
+            };
         }
 
         match resolved {
@@ -1735,6 +1795,91 @@ mod test {
             ))
             .unwrap()
         }
+    }
+
+    #[test]
+    fn consecutive_name_attributes() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "\
+variable a: natural range 0 to 9 := 9;
+variable b: natural range 0 to a'subtype'high;
+        ",
+        );
+        assert_matches!(
+            test.name_resolve(&test.snippet("b"), None, &mut NoDiagnostics),
+            Ok(ResolvedName::ObjectName(_))
+        );
+    }
+
+
+    #[test]
+    fn element_subtype_for_non_arrays() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+variable thevar : integer;
+        ",
+        );
+        let code = test.snippet("thevar'element");
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            test.name_resolve(&code, None, &mut diagnostics),
+            Err(EvalError::Unknown)
+        );
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("thevar'element"),
+                "The element attribute can only be used for array types",
+            )],
+        )
+    }
+
+    #[test]
+    fn element_type_attributes_on_non_object_types() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+type my_type is array(natural range<>) of integer;
+        ",
+        );
+        let code = test.snippet("my_type'subtype");
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            test.name_resolve(&code, None, &mut diagnostics),
+            Err(EvalError::Unknown)
+        );
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("my_type'subtype"),
+                "The subtype attribute can only be used on objects, not array type 'my_type'",
+            )],
+        )
+    }
+
+    #[test]
+    fn consecutive_type_attributes() {
+        let test = TestSetup::new();
+        test.declarative_part(
+            "
+variable x: integer;
+        ",
+        );
+        let code = test.snippet("x'subtype'subtype'high");
+        let mut diagnostics = Vec::new();
+        assert_eq!(
+            test.name_resolve(&code, None, &mut diagnostics),
+            Err(EvalError::Unknown)
+        );
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("x'subtype'subtype"),
+                "The subtype attribute can only be used on objects, not integer type 'INTEGER'",
+            )],
+        )
     }
 
     #[test]
@@ -2575,29 +2720,6 @@ variable thevar : integer_vector(0 to 1);
             vec![Diagnostic::error(
                 code,
                 "Range cannot be used as an expression",
-            )],
-        )
-    }
-
-    #[test]
-    fn subtype_attribute() {
-        let test = TestSetup::new();
-        test.declarative_part(
-            "
-variable thevar : integer_vector(0 to 1);
-        ",
-        );
-        let code = test.snippet("thevar'subtype");
-        let mut diagnostics = Vec::new();
-        assert_eq!(
-            test.name_resolve(&code, None, &mut diagnostics),
-            Err(EvalError::Unknown)
-        );
-        check_diagnostics(
-            diagnostics,
-            vec![Diagnostic::error(
-                code,
-                "Type cannot be used as an expression",
             )],
         )
     }
