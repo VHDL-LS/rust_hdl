@@ -19,6 +19,39 @@ pub struct TokenStream<'a> {
 }
 
 impl<'a> TokenStream<'a> {
+    /// Special handling for a tool directive of the form
+    /// ```vhdl
+    /// `identifier { any chars until newline }
+    /// ```
+    /// Since what follows the identifier can be anything, this needs special handling.
+    ///
+    /// Returns the tokens that make up the tool directive for processing of the tool directive.
+    fn handle_tool_directive(
+        grave_accent: Token,
+        tokenizer: &mut Tokenizer,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        let start_pos = grave_accent.pos.clone();
+        match tokenizer.pop() {
+            Ok(Some(tok)) => {
+                if tok.kind != Identifier {
+                    diagnostics.error(tok, "Expecting identifier");
+                    let _ = tokenizer.text_until_newline(); // skip potentially invalid tokens
+                    return;
+                }
+            }
+            Err(err) => diagnostics.push(err),
+            Ok(None) => {
+                diagnostics.error(start_pos, "Expecting identifier");
+                return;
+            }
+        }
+        match tokenizer.text_until_newline() {
+            Ok(_) => {}
+            Err(err) => diagnostics.push(err),
+        }
+    }
+
     pub fn new(
         mut tokenizer: Tokenizer<'a>,
         diagnostics: &mut dyn DiagnosticHandler,
@@ -26,6 +59,9 @@ impl<'a> TokenStream<'a> {
         let mut tokens = Vec::new();
         loop {
             match tokenizer.pop() {
+                Ok(Some(token)) if token.kind == GraveAccent => {
+                    TokenStream::handle_tool_directive(token, &mut tokenizer, diagnostics)
+                }
                 Ok(Some(token)) => tokens.push(token),
                 Ok(None) => break,
                 Err(err) => diagnostics.push(err),
@@ -259,6 +295,12 @@ mod tests {
             let tokenizer = Tokenizer::new(&$code.symbols, source, ContentReader::new(&contents));
             let $stream = TokenStream::new(tokenizer, &mut NoDiagnostics);
         };
+        ($code:ident, $stream:ident, $diagnostics:ident) => {
+            let source = $code.source();
+            let contents = source.contents();
+            let tokenizer = Tokenizer::new(&$code.symbols, source, ContentReader::new(&contents));
+            let $stream = TokenStream::new(tokenizer, &mut $diagnostics);
+        };
     }
 
     #[test]
@@ -387,5 +429,39 @@ mod tests {
 
         assert!(stream.skip_until(|ref k| matches!(k, Plus)).is_ok());
         assert_eq!(stream.peek().map(|t| t.kind), Some(Plus));
+    }
+
+    #[test]
+    fn tokenize_simple_identifier_directive() {
+        let code = Code::new("`protect begin");
+        new_stream!(code, _stream);
+    }
+
+    #[test]
+    fn tokenize_extended_identifier_directive() {
+        let code = Code::new("`\\extended ident\\ begin other words");
+        new_stream!(code, _stream);
+    }
+
+    #[test]
+    fn tokenize_directive_illegal_identifier() {
+        let code = Code::new("`123 begin other words");
+        let mut diagnostics: Vec<Diagnostic> = vec![];
+        new_stream!(code, _stream, diagnostics);
+        assert_eq!(
+            diagnostics,
+            vec![Diagnostic::error(code.s1("123"), "Expecting identifier")]
+        )
+    }
+
+    #[test]
+    fn tokenize_directive_then_end_of_stream() {
+        let code = Code::new("`");
+        let mut diagnostics: Vec<Diagnostic> = vec![];
+        new_stream!(code, _stream, diagnostics);
+        assert_eq!(
+            diagnostics,
+            vec![Diagnostic::error(code.s1("`"), "Expecting identifier")]
+        )
     }
 }
