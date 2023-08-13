@@ -23,9 +23,7 @@ impl<'a> TokenStream<'a> {
     /// ```vhdl
     /// `identifier { any chars until newline }
     /// ```
-    /// Since what follows the identifier can be anything, this needs special handling.
-    ///
-    /// Returns the tokens that make up the tool directive for processing of the tool directive.
+    /// This needs special handling as the text that follows the identifier is arbitrary.
     fn handle_tool_directive(
         grave_accent: Token,
         tokenizer: &mut Tokenizer,
