@@ -326,9 +326,11 @@ impl<'a> ResolvedName<'a> {
     }
 }
 
-/// Represents the result when resolving a result.
-/// This can either be a value (in the future, this case might also hold the value
-/// of the static expression of the attribute) or a type itself.
+/// Represents the result when resolving an attribute.
+/// This can either be a value or a type.
+///
+/// in the future, the value case might also hold the value
+/// of the static expression of the attribute.
 ///
 /// Values are returned for attributes such as `'low`, `'high`, `'val(..)`, e.t.c.
 /// Types are returned for attributes such as `'base`, `'subtype`, `'element`
