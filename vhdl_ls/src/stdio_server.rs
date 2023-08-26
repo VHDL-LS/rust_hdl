@@ -86,7 +86,18 @@ impl ConnectionRpcChannel {
         while let Ok(message) = self.connection.receiver.recv() {
             trace!("Received message: {:?}", message);
             match message {
-                lsp_server::Message::Request(request) => self.handle_request(&mut server, request),
+                lsp_server::Message::Request(request) => {
+                    match self.connection.handle_shutdown(&request) {
+                        Ok(shutdown) => {
+                            if shutdown {
+                                server.shutdown_server();
+                            } else {
+                                self.handle_request(&mut server, request)
+                            }
+                        }
+                        Err(err) => panic!("{err:?}"),
+                    }
+                }
                 lsp_server::Message::Notification(notification) => {
                     self.handle_notification(&mut server, notification);
                 }
@@ -191,14 +202,6 @@ impl ConnectionRpcChannel {
             Ok((id, params)) => {
                 let result = server.text_document_references(&params);
                 self.send_response(lsp_server::Response::new_ok(id, result));
-                return;
-            }
-            Err(request) => request,
-        };
-        let request = match extract::<request::Shutdown>(request) {
-            Ok((id, _params)) => {
-                server.shutdown_server();
-                self.send_response(lsp_server::Response::new_ok(id, ()));
                 return;
             }
             Err(request) => request,
