@@ -115,6 +115,12 @@ impl Contents {
             }
         }
 
+        // New line should always be at the end of line, in case
+        // it's deleted by accident somehow, return it back.
+        if merged_content.chars().last().unwrap_or('\0') != '\n' {
+            merged_content.push('\n');
+        }
+
         let end_line = std::cmp::min(self.lines.len().saturating_sub(1), end_line);
         self.lines
             .splice(start_line..=end_line, split_lines(&merged_content))
