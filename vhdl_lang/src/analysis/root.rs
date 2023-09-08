@@ -960,7 +960,9 @@ impl DesignRoot {
                 let std_logic_arena = &data.result().arena;
                 if let AnyDesignUnit::Primary(primary) = data.deref() {
                     if let Some(ent) = primary.ent_id() {
-                        let AnyEntKind::Design(Design::Package(_, ref region)) = std_logic_arena.get(ent).kind() else {
+                        let AnyEntKind::Design(Design::Package(_, ref region)) =
+                            std_logic_arena.get(ent).kind()
+                        else {
                             unreachable!()
                         };
 
