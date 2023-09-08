@@ -1454,6 +1454,24 @@ mod test {
     }
 
     #[test]
+    fn type_attributes_cannot_be_used_as_an_expression() {
+        let test = TestSetup::new();
+        test.declarative_part("variable x : integer;");
+        let code = test.snippet("x'subtype");
+
+        let mut diagnostics = Vec::new();
+        assert_eq!(test.expr_type(&code, &mut diagnostics), None);
+
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("x'subtype"),
+                "integer type 'INTEGER' cannot be used in an expression",
+            )],
+        );
+    }
+
+    #[test]
     fn binary_expression_missing_names() {
         let test = TestSetup::new();
 
