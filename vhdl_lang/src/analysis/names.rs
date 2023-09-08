@@ -1617,7 +1617,7 @@ impl Diagnostic {
             &call_name.pos,
             format!("Ambiguous call to {}", call_name.item.describe()),
         );
-        diag.add_subprogram_candidates("Migth be", candidates);
+        diag.add_subprogram_candidates("Might be", candidates);
         diag
     }
 }
@@ -2836,11 +2836,11 @@ type enum_t is (alpha, beta);
                 Diagnostic::error(code.s1("myfun"), "Ambiguous call to 'myfun'")
                     .related(
                         decl.s("myfun", 1),
-                        "Migth be function myfun[INTEGER return INTEGER]",
+                        "Might be function myfun[INTEGER return INTEGER]",
                     )
                     .related(
                         decl.s("myfun", 2),
-                        "Migth be function myfun[CHARACTER return INTEGER]",
+                        "Might be function myfun[CHARACTER return INTEGER]",
                     ),
             ],
         )
@@ -2875,11 +2875,11 @@ type enum_t is (alpha, beta);
                 Diagnostic::error(code.s1("myfun"), "Ambiguous call to 'myfun'")
                     .related(
                         decl.s("myfun", 1),
-                        "Migth be function myfun[INTEGER return rec1_t]",
+                        "Might be function myfun[INTEGER return rec1_t]",
                     )
                     .related(
                         decl.s("myfun", 2),
-                        "Migth be function myfun[INTEGER return rec2_t]",
+                        "Might be function myfun[INTEGER return rec2_t]",
                     ),
             ],
         )
