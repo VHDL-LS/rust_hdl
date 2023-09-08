@@ -119,7 +119,7 @@ impl Contents {
         self.lines
             .splice(
                 start_line..=end_line,
-                split_lines(&merged_content).into_iter(),
+                split_lines(&merged_content),
             )
             .count();
     }
