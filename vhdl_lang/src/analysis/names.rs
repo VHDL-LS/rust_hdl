@@ -960,8 +960,15 @@ impl<'a> AnalyzeContext<'a> {
     ) -> EvalResult<TypeEnt<'a>> {
         // all type attribute suffixes require that the prefix be an object type
         let Some(obj) = prefix.as_object_name() else {
-            diagnostics.error(pos,format!("The {} attribute can only be used on objects, not {}", suffix, prefix.describe()));
-            return Err(EvalError::Unknown)
+            diagnostics.error(
+                pos,
+                format!(
+                    "The {} attribute can only be used on objects, not {}",
+                    suffix,
+                    prefix.describe()
+                ),
+            );
+            return Err(EvalError::Unknown);
         };
         match suffix {
             TypeAttribute::Subtype => Ok(obj.type_mark()),

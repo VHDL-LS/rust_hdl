@@ -216,7 +216,8 @@ mod tests {
 
     #[test]
     fn test_context_clause() {
-        let variants = [&"\
+        let variants = [
+            &"\
 context ident is
 end;
 ",
@@ -231,7 +232,8 @@ end ident;
             &"\
 context ident is
 end context ident;
-"];
+",
+        ];
         for (idx, variant) in variants.iter().enumerate() {
             let has_end_ident = idx >= 2;
             let code = Code::new(variant);
