@@ -96,7 +96,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
 
                 self.define_labels_for_concurrent_part(
-                    scope,
+                    &nested,
                     parent,
                     &mut block.statements,
                     diagnostics,
