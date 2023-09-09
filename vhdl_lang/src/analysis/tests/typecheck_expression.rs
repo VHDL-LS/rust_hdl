@@ -392,11 +392,11 @@ constant bad: integer := fun1;
             Diagnostic::error(code.s1(":= fun1").s1("fun1"), "Ambiguous call to 'fun1'")
                 .related(
                     code.s("fun1", 1),
-                    "Migth be function fun1[NATURAL return NATURAL]",
+                    "Might be function fun1[NATURAL return NATURAL]",
                 )
                 .related(
                     code.s("fun1", 2),
-                    "Migth be function fun1[BOOLEAN return NATURAL]",
+                    "Might be function fun1[BOOLEAN return NATURAL]",
                 ),
         ],
     );

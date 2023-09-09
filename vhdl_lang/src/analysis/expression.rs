@@ -1251,7 +1251,7 @@ impl Diagnostic {
                 Designator::OperatorSymbol(op).describe()
             ),
         );
-        diag.add_subprogram_candidates("migth be", candidates);
+        diag.add_subprogram_candidates("might be", candidates);
         diag
     }
 }
@@ -1454,6 +1454,24 @@ mod test {
     }
 
     #[test]
+    fn type_attributes_cannot_be_used_as_an_expression() {
+        let test = TestSetup::new();
+        test.declarative_part("variable x : integer;");
+        let code = test.snippet("x'subtype");
+
+        let mut diagnostics = Vec::new();
+        assert_eq!(test.expr_type(&code, &mut diagnostics), None);
+
+        check_diagnostics(
+            diagnostics,
+            vec![Diagnostic::error(
+                code.s1("x'subtype"),
+                "integer type 'INTEGER' cannot be used in an expression",
+            )],
+        );
+    }
+
+    #[test]
     fn binary_expression_missing_names() {
         let test = TestSetup::new();
 
@@ -1537,11 +1555,11 @@ function \"-\"(arg : string) return integer;
                 Diagnostic::error(code.s1("-"), "ambiguous use of operator \"-\"")
                     .related(
                         decls.s("\"-\"", 1),
-                        "migth be operator \"-\"[BIT_VECTOR return INTEGER]",
+                        "might be operator \"-\"[BIT_VECTOR return INTEGER]",
                     )
                     .related(
                         decls.s("\"-\"", 2),
-                        "migth be operator \"-\"[STRING return INTEGER]",
+                        "might be operator \"-\"[STRING return INTEGER]",
                     ),
             ],
         );

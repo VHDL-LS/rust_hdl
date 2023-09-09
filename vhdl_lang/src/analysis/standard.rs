@@ -757,7 +757,10 @@ impl<'a> AnalyzeContext<'a> {
         typ: TypeEnt<'a>,
         matching_op: bool,
     ) -> impl Iterator<Item = EntRef<'a>> {
-        let Type::Array{indexes, elem_type, ..}  = typ.kind() else {
+        let Type::Array {
+            indexes, elem_type, ..
+        } = typ.kind()
+        else {
             unreachable!("Must be array type")
         };
 
