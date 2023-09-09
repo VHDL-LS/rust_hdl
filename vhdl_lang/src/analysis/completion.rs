@@ -267,7 +267,9 @@ impl DesignRoot {
     /// List the name of all primary units for a given library.
     /// If the library is non-resolvable, list an empty vector
     fn list_primaries_for_lib(&self, lib: &Symbol) -> Vec<String> {
-        let Some(lib) = self.get_library_units(lib) else { return vec![]; };
+        let Some(lib) = self.get_library_units(lib) else {
+            return vec![];
+        };
         lib.keys()
             .filter_map(|key| match key {
                 UnitKey::Primary(prim) => Some(prim.name().to_string()),
@@ -280,8 +282,12 @@ impl DesignRoot {
     /// If the library does not exist or there is no primary unit with the given name for that library,
     /// return an empty vector
     fn list_available_declarations(&self, lib: &Symbol, primary_unit: &Symbol) -> Vec<String> {
-        let Some(lib) = self.get_library_units(lib) else { return vec![]; };
-        let Some(unit) = lib.get(&UnitKey::Primary(primary_unit.clone())) else { return vec![]; };
+        let Some(lib) = self.get_library_units(lib) else {
+            return vec![];
+        };
+        let Some(unit) = lib.get(&UnitKey::Primary(primary_unit.clone())) else {
+            return vec![];
+        };
         let unit = unit.unit.get();
         match unit.unwrap().to_owned() {
             AnyDesignUnit::Primary(AnyPrimaryUnit::Package(pkg)) => pkg
@@ -289,7 +295,7 @@ impl DesignRoot {
                 .iter()
                 .filter_map(declaration_to_string)
                 .unique()
-                .chain(vec!["all".to_string()].into_iter())
+                .chain(vec!["all".to_string()])
                 .collect_vec(),
             _ => Vec::default(),
         }

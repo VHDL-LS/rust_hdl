@@ -268,7 +268,9 @@ impl VHDLServer {
         // 1) get source position, and source file
         let Some(source) = self.project.get_source(file) else {
             // Do not enable completions for files that are not part of the project
-            return CompletionList {..Default::default()};
+            return CompletionList {
+                ..Default::default()
+            };
         };
         let cursor = from_lsp_pos(params.text_document_position.position);
         // 2) Optimization chance: go to last recognizable token before the cursor. For example:
