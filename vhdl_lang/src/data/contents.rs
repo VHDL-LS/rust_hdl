@@ -117,10 +117,7 @@ impl Contents {
 
         let end_line = std::cmp::min(self.lines.len().saturating_sub(1), end_line);
         self.lines
-            .splice(
-                start_line..=end_line,
-                split_lines(&merged_content).into_iter(),
-            )
+            .splice(start_line..=end_line, split_lines(&merged_content))
             .count();
     }
 }

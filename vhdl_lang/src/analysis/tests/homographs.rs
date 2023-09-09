@@ -25,6 +25,36 @@ end package;
 }
 
 #[test]
+fn allow_homographs_in_separate_blocks() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "
+entity A is
+end A;
+
+architecture arch of A is
+    component Z is end component;
+begin
+
+    First : block
+    begin
+        Z_inst : Z;
+    end block;
+
+    Second : block
+    begin
+        Z_inst : Z;
+    end block;
+end arch;
+",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
 fn forbid_homographs() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(

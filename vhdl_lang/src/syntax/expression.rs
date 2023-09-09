@@ -332,8 +332,9 @@ fn parse_expression_or_aggregate(stream: &TokenStream) -> ParseResult<WithPos<Ex
     {
         let WithPos {
             item: Choice::Expression(expr),
-            pos
-        } = choices.pop().unwrap() else {
+            pos,
+        } = choices.pop().unwrap()
+        else {
             unreachable!();
         };
 

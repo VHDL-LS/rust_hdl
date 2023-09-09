@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn test_context_clause() {
-        let variants = vec![
+        let variants = [
             &"\
 context ident is
 end;
