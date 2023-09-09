@@ -21,6 +21,7 @@ mod resolves_names;
 mod resolves_type_mark;
 mod sensitivity_list;
 mod subprogram_arguments;
+mod tool_directive;
 mod typecheck_expression;
 mod util;
 mod visibility;
