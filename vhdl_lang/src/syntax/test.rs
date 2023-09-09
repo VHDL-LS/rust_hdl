@@ -528,6 +528,11 @@ fn substr_range(source: &Source, range: Range, substr: &str, occurence: usize) -
 
 /// Fast forward tokenstream until position
 fn forward(stream: &TokenStream, start: Position) {
+    // short-circuit when start is zero.
+    // Also prevents the case where the token stream is empty
+    if start.line == 0 && start.character == 0 {
+        return;
+    }
     loop {
         let token = stream.peek_expect().unwrap();
         if token.pos.start() >= start {

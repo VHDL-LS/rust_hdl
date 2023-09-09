@@ -164,6 +164,8 @@ pub enum Kind {
     Comma,
     ColonEq,
     RightArrow,
+    GraveAccent, // `
+    Text,        // Raw text that is not processed (i.e. tokenized) further. Used in tool directives
 }
 use self::Kind::*;
 
@@ -413,6 +415,8 @@ pub fn kind_str(kind: Kind) -> &'static str {
         Comma => ",",
         ColonEq => ":=",
         RightArrow => "=>",
+        GraveAccent => "`",
+        Text => "{text}",
     }
 }
 
@@ -442,6 +446,8 @@ pub enum Value {
     BitString(ast::BitString),
     AbstractLiteral(ast::AbstractLiteral),
     Character(u8),
+    // Raw text that is not processed (i.e. tokenized) further. Used in tool directives
+    Text(Latin1String),
     NoValue,
 }
 
@@ -468,6 +474,7 @@ pub struct Comment {
 }
 
 use std::convert::AsRef;
+
 impl AsRef<SrcPos> for Token {
     fn as_ref(&self) -> &SrcPos {
         &self.pos
@@ -1149,6 +1156,25 @@ fn parse_character_literal(
     }
 }
 
+/// Reads into `buffer` until a newline character is observed.
+/// Does not consume the newline character.
+///
+/// Clears the buffer prior to reading
+fn read_until_newline(
+    buffer: &mut Latin1String,
+    reader: &mut ContentReader,
+) -> Result<(), TokenError> {
+    buffer.bytes.clear();
+    while let Some(b) = reader.peek()? {
+        if b == b'\n' {
+            break;
+        }
+        buffer.bytes.push(b);
+        reader.skip();
+    }
+    Ok(())
+}
+
 fn get_leading_comments(reader: &mut ContentReader) -> Result<Vec<Comment>, TokenError> {
     let mut comments: Vec<Comment> = Vec::new();
 
@@ -1703,6 +1729,10 @@ impl<'a> Tokenizer<'a> {
                 let result = Value::Identifier(self.symbols.symtab().insert_extended(&result));
                 (Identifier, result)
             }
+            b'`' => {
+                self.reader.skip();
+                (GraveAccent, Value::NoValue)
+            }
             _ => {
                 self.reader.skip();
                 illegal_token!();
@@ -1763,6 +1793,25 @@ impl<'a> Tokenizer<'a> {
     #[allow(dead_code)]
     pub fn get_final_comments(&self) -> Option<Vec<Comment>> {
         self.final_comments.clone()
+    }
+
+    pub fn text_until_newline(&mut self) -> DiagnosticResult<Token> {
+        let start_pos = self.reader.pos();
+        if let Err(err) = read_until_newline(&mut self.buffer, &mut self.reader) {
+            self.state.start = self.reader.state();
+            return Err(Diagnostic::error(
+                &self.source.pos(err.range.start, err.range.end),
+                err.message,
+            ));
+        }
+        let text = self.buffer.clone();
+        let end_pos = self.reader.pos();
+        Ok(Token {
+            kind: Text,
+            value: Value::Text(text),
+            pos: self.source.pos(start_pos, end_pos),
+            comments: None,
+        })
     }
 }
 
