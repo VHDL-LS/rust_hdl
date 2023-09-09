@@ -454,11 +454,11 @@ end function;
             specification,
             declarations: WithRegion {
                 item: declarations,
-                range: Position::new(0, 45).range_to(Position::new(2, 0)),
+                range: code.s1("\n  constant foo : natural := 0;\n").pos().range(),
             },
             statements: WithRegion {
                 item: statements,
-                range: Position::new(2, 5).range_to(Position::new(4, 0)),
+                range: code.s1("\n  return foo + arg;\n").pos().range(),
             },
             end_ident_pos: None,
         };
@@ -500,11 +500,11 @@ end function foo;
             specification,
             declarations: WithRegion {
                 item: vec![],
-                range: Position::new(0, 45).range_to(Position::new(1, 0)),
+                range: code.s1("\nbegin").s1("\n").pos().range,
             },
             statements: WithRegion {
                 item: vec![],
-                range: Position::new(1, 5).range_to(Position::new(2, 0)),
+                range: code.s1("begin\n").s1("\n").pos().range,
             },
             end_ident_pos: Some(code.s("foo", 2).pos()),
         };
@@ -530,11 +530,11 @@ end function \"+\";
             specification,
             declarations: WithRegion {
                 item: vec![],
-                range: Position::new(0, 45).range_to(Position::new(1, 0)),
+                range: code.s1("\nbegin").s1("\n").pos().range,
             },
             statements: WithRegion {
                 item: vec![],
-                range: Position::new(1, 5).range_to(Position::new(2, 0)),
+                range: code.s1("begin\n").s1("\n").pos().range,
             },
             end_ident_pos: Some(code.s("\"+\"", 2).pos()),
         };

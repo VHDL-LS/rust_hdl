@@ -560,7 +560,7 @@ end architecture;
                 WithDecl::new(code.s1("arch_name").ident()),
                 code.s1("myent").ident(),
                 None,
-                Position::new(1, 34).range_to(Position::new(2, 0)),
+                code.s1("\nbegin").s1("\n").pos().range(),
             )]
         );
     }
@@ -580,7 +580,7 @@ end architecture arch_name;
                 WithDecl::new(code.s1("arch_name").ident()),
                 code.s1("myent").ident(),
                 Some(code.s("arch_name", 2).pos()),
-                Position::new(1, 34).range_to(Position::new(2, 0)),
+                code.s1("\nbegin").s1("\n").pos().range(),
             )]
         );
     }
@@ -600,7 +600,7 @@ end;
                 WithDecl::new(code.s1("arch_name").ident()),
                 code.s1("myent").ident(),
                 None,
-                Position::new(1, 34).range_to(Position::new(2, 0)),
+                code.s1("\nbegin").s1("\n").pos().range(),
             )]
         );
     }
