@@ -35,20 +35,6 @@ struct RegionSearcher<'a> {
     source: &'a Source,
 }
 
-impl<'a> RegionSearcher<'a> {
-    pub fn new(cursor: Position, source: &Source) -> RegionSearcher {
-        RegionSearcher {
-            region: None,
-            cursor,
-            source,
-        }
-    }
-
-    pub fn region(&self) -> Option<RegionCategory> {
-        self.region.as_ref().map(|reg| reg.0.clone())
-    }
-}
-
 impl<'a> Searcher for RegionSearcher<'a> {
     fn search_region(&mut self, region: crate::Range, kind: RegionCategory) -> SearchState {
         if region.contains(self.cursor) {
@@ -273,24 +259,19 @@ impl DesignRoot {
 
     pub fn list_completion_options(&self, source: &Source, cursor: Position) -> Vec<String> {
         let tokens = tokenize_input(&self.symbols, source, cursor);
-
-        let mut region_searcher = RegionSearcher::new(cursor, source);
-        let _ = self.search(&mut region_searcher);
-        match region_searcher.region() {
-            _ => match &tokens[..] {
-                [.., kind!(Library)] | [.., kind!(Use)] | [.., kind!(Use), kind!(Identifier)] => {
-                    self.list_all_libraries()
-                }
-                [.., kind!(Use), ident!(library), kind!(Dot)]
-                | [.., kind!(Use), ident!(library), kind!(Dot), kind!(Identifier)] => {
-                    self.list_primaries_for_lib(library)
-                }
-                [.., kind!(Use), ident!(library), kind!(Dot), ident!(selected), kind!(Dot)]
-                | [.., kind!(Use), ident!(library), kind!(Dot), ident!(selected), kind!(Dot), kind!(StringLiteral | Identifier)] => {
-                    self.list_available_declarations(library, selected)
-                }
-                _ => vec![],
-            },
+        match &tokens[..] {
+            [.., kind!(Library)] | [.., kind!(Use)] | [.., kind!(Use), kind!(Identifier)] => {
+                self.list_all_libraries()
+            }
+            [.., kind!(Use), ident!(library), kind!(Dot)]
+            | [.., kind!(Use), ident!(library), kind!(Dot), kind!(Identifier)] => {
+                self.list_primaries_for_lib(library)
+            }
+            [.., kind!(Use), ident!(library), kind!(Dot), ident!(selected), kind!(Dot)]
+            | [.., kind!(Use), ident!(library), kind!(Dot), ident!(selected), kind!(Dot), kind!(StringLiteral | Identifier)] => {
+                self.list_available_declarations(library, selected)
+            }
+            _ => vec![],
         }
     }
 }
