@@ -226,36 +226,6 @@ fn tokenize_input(symbols: &Symbols, source: &Source, cursor: Position) -> Vec<T
     tokens
 }
 
-fn completions_for_declarative_region() -> &'static [&'static str] {
-    &[
-        "procedure",
-        "pure function",
-        "impure function",
-        "function",
-        "package",
-        "type",
-        "subtype",
-        "constant",
-        "signal",
-        "variable",
-        "shared variable",
-        "file",
-        "alias",
-        "attribute",
-        "component",
-        "group",
-        "configuration",
-        "disconnect",
-        "use",
-    ]
-}
-
-fn completions_for_sequential_region() -> &'static [&'static str] {
-    &[
-        "wait", "assert", "report", "if", "case", "loop", "next", "exit", "return", "null",
-    ]
-}
-
 impl DesignRoot {
     /// helper function to list the name of all available libraries
     fn list_all_libraries(&self) -> Vec<String> {
@@ -303,33 +273,10 @@ impl DesignRoot {
 
     pub fn list_completion_options(&self, source: &Source, cursor: Position) -> Vec<String> {
         let tokens = tokenize_input(&self.symbols, source, cursor);
-        let cursor_at_end = tokens
-            .last()
-            .map(|tok| tok.pos.end() == cursor)
-            .unwrap_or(false);
 
         let mut region_searcher = RegionSearcher::new(cursor, source);
         let _ = self.search(&mut region_searcher);
         match region_searcher.region() {
-            Some(RegionCategory::Declarative) => match &tokens[..] {
-                [.., kind!(SemiColon | Is)] | [.., kind!(SemiColon | Is), kind!(Identifier)] => {
-                    completions_for_declarative_region()
-                        .iter()
-                        .map(|it| it.to_string())
-                        .collect_vec()
-                }
-                _ => vec![],
-            },
-            Some(RegionCategory::SequentialStatements) => match &tokens[..] {
-                [.., kind!(SemiColon | Begin)]
-                | [.., kind!(SemiColon | Begin), kind!(Identifier)] => {
-                    completions_for_sequential_region()
-                        .iter()
-                        .map(|it| it.to_string())
-                        .collect_vec()
-                }
-                _ => vec![],
-            },
             _ => match &tokens[..] {
                 [.., kind!(Library)] | [.., kind!(Use)] | [.., kind!(Use), kind!(Identifier)] => {
                     self.list_all_libraries()
@@ -341,20 +288,6 @@ impl DesignRoot {
                 [.., kind!(Use), ident!(library), kind!(Dot), ident!(selected), kind!(Dot)]
                 | [.., kind!(Use), ident!(library), kind!(Dot), ident!(selected), kind!(Dot), kind!(StringLiteral | Identifier)] => {
                     self.list_available_declarations(library, selected)
-                }
-                [.., kind!(Entity), kind!(Identifier)] => {
-                    if cursor_at_end {
-                        vec![]
-                    } else {
-                        vec!["is".to_string()]
-                    }
-                }
-                [.., kind!(Architecture), kind!(Identifier)] => {
-                    if cursor_at_end {
-                        vec![]
-                    } else {
-                        vec!["of".to_string()]
-                    }
                 }
                 _ => vec![],
             },
