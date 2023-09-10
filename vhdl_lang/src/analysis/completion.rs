@@ -156,6 +156,7 @@ impl DesignRoot {
 mod test {
     use super::*;
     use crate::analysis::completion::tokenize_input;
+    use crate::analysis::tests::LibraryBuilder;
     use crate::syntax::test::Code;
     use assert_matches::assert_matches;
 
@@ -169,22 +170,19 @@ mod test {
     #[test]
     fn tokenizing_stops_at_the_cursors_position() {
         let input = Code::new("use ieee.std_logic_1164.all");
-        // mid of `my_ent`
-        let mut cursor = Position::new(0, 21);
+        let mut cursor = input.s1("std_logic_11").pos().end();
         let tokens = tokenize_input(&input.symbols, input.source(), cursor);
         assert_matches!(
             tokens[..],
             [kind!(Use), kind!(Identifier), kind!(Dot), kind!(Identifier)]
         );
-        // end of `my_ent`
-        cursor = Position::new(0, 23);
+        cursor = input.s1("std_logic_1164").pos().end();
         let tokens = tokenize_input(&input.symbols, input.source(), cursor);
         assert_matches!(
             tokens[..],
             [kind!(Use), kind!(Identifier), kind!(Dot), kind!(Identifier)]
         );
-        // start of `is`
-        cursor = Position::new(0, 24);
+        cursor = input.s1("std_logic_1164.").pos().end();
         let tokens = tokenize_input(&input.symbols, input.source(), cursor);
         assert_matches!(
             tokens[..],
@@ -196,8 +194,7 @@ mod test {
                 kind!(Dot)
             ]
         );
-        // inside of `is`
-        cursor = Position::new(0, 26);
+        cursor = input.s1("std_logic_1164.all").pos().end();
         let tokens = tokenize_input(&input.symbols, input.source(), cursor);
         assert_matches!(
             tokens[..],
@@ -210,5 +207,40 @@ mod test {
                 kind!(All)
             ]
         );
+    }
+
+    #[test]
+    pub fn completing_libraries() {
+        let input = LibraryBuilder::new();
+        let code = Code::new("library ");
+        let (root, _) = input.get_analyzed_root();
+        let cursor = code.s1("library ").pos().end();
+        let options = root.list_completion_options(code.source(), cursor);
+        assert_eq!(options, root.list_all_libraries())
+    }
+
+    #[test]
+    pub fn completing_primaries() {
+        let (root, _) = LibraryBuilder::new().get_analyzed_root();
+        let code = Code::new("use std.");
+        let cursor = code.pos().end();
+        let options = root.list_completion_options(code.source(), cursor);
+        assert_eq!(options, vec!["textio", "standard", "env"]);
+
+        let code = Code::new("use std.t");
+        let cursor = code.pos().end();
+        let options = root.list_completion_options(code.source(), cursor);
+        // Note that the filtering only happens at client side
+        assert_eq!(options, vec!["textio", "standard", "env"]);
+    }
+
+    #[test]
+    pub fn completing_declarations() {
+        let input = LibraryBuilder::new();
+        let code = Code::new("use std.env.");
+        let (root, _) = input.get_analyzed_root();
+        let cursor = code.pos().end();
+        let options = root.list_completion_options(code.source(), cursor);
+        assert_eq!(options, vec!["stop", "finish", "resolution_limit", "all"])
     }
 }
