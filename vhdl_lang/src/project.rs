@@ -292,6 +292,10 @@ impl Project {
     pub fn files(&self) -> impl Iterator<Item = &SourceFile> {
         self.files.values()
     }
+
+    pub fn list_completion_options(&self, source: &Source, cursor: Position) -> Vec<String> {
+        self.root.list_completion_options(source, cursor)
+    }
 }
 
 /// Multiply clonable value by cloning

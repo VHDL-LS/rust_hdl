@@ -112,6 +112,7 @@ impl VHDLServer {
         let config = self.load_config();
         self.project = Project::from_config(&config, &mut self.message_filter());
         self.init_params = Some(init_params);
+        let trigger_chars: Vec<String> = r".".chars().map(|ch| ch.to_string()).collect();
 
         let capabilities = ServerCapabilities {
             text_document_sync: Some(TextDocumentSyncCapability::Kind(
@@ -128,6 +129,13 @@ impl VHDLServer {
             })),
             workspace_symbol_provider: Some(OneOf::Left(true)),
             document_symbol_provider: Some(OneOf::Left(true)),
+            completion_provider: Some(CompletionOptions {
+                resolve_provider: Some(false),
+                trigger_characters: Some(trigger_chars),
+                all_commit_characters: None,
+                work_done_progress_options: Default::default(),
+                completion_item: Default::default(),
+            }),
             ..Default::default()
         };
 
@@ -249,6 +257,42 @@ impl VHDLServer {
                     .update_config(&config, &mut self.message_filter());
                 self.publish_diagnostics();
             }
+        }
+    }
+
+    /// Called when the client requests a completion.
+    /// This function looks in the source code to find suitable options and then returns them
+    pub fn request_completion(&mut self, params: &CompletionParams) -> CompletionList {
+        let binding = uri_to_file_name(&params.text_document_position.text_document.uri);
+        let file = binding.as_path();
+        // 1) get source position, and source file
+        let Some(source) = self.project.get_source(file) else {
+            // Do not enable completions for files that are not part of the project
+            return CompletionList {
+                ..Default::default()
+            };
+        };
+        let cursor = from_lsp_pos(params.text_document_position.position);
+        // 2) Optimization chance: go to last recognizable token before the cursor. For example:
+        //    - Any primary unit (e.g. entity declaration, package declaration, ...)
+        //      => keyword `entity`, `package`, ...
+        //    - Any secondary unit (e.g. package body, architecture)
+        //      => keyword `architecture`, ...
+
+        // 3) Run the parser until the point of the cursor. Then exit with possible completions
+        let options = self
+            .project
+            .list_completion_options(&source, cursor)
+            .into_iter()
+            .map(|option| CompletionItem {
+                label: option,
+                ..Default::default()
+            })
+            .collect();
+
+        CompletionList {
+            items: options,
+            is_incomplete: true,
         }
     }
 

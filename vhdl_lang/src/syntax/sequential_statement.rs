@@ -76,9 +76,13 @@ pub fn parse_labeled_sequential_statements(
             End | Else | Elsif | When => {
                 break Ok(statements);
             }
-            _ => {
-                statements.push(parse_sequential_statement(stream, diagnostics)?);
-            }
+            _ => match parse_sequential_statement(stream, diagnostics) {
+                Ok(stmt) => statements.push(stmt),
+                Err(diag) => {
+                    diagnostics.push(diag);
+                    let _ = stream.skip_until(|kind| matches!(kind, End | Else | Elsif | When));
+                }
+            },
         }
     }
 }

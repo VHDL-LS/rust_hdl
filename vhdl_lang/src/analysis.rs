@@ -29,6 +29,8 @@ mod static_expression;
 mod target;
 mod visibility;
 
+mod completion;
+
 #[cfg(test)]
 mod tests;
 

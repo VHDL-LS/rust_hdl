@@ -237,6 +237,10 @@ impl Range {
     pub fn new(start: Position, end: Position) -> Range {
         Range { start, end }
     }
+
+    pub fn contains(&self, position: Position) -> bool {
+        self.start <= position && self.end >= position
+    }
 }
 
 /// A lexical range within a specific source file.

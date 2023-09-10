@@ -322,6 +322,11 @@ impl DesignRoot {
             .map(|library| &library.units)
     }
 
+    /// Iterates over all available library symbols.
+    pub fn available_libraries(&self) -> impl Iterator<Item = &Symbol> {
+        self.libraries.keys()
+    }
+
     pub(crate) fn get_design_entity<'a>(
         &'a self,
         library_name: &Symbol,
