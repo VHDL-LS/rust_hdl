@@ -12,7 +12,6 @@ use super::sequential_statement::parse_labeled_sequential_statements;
 use super::tokens::{kinds_error, Kind::*, TokenStream};
 use crate::ast::*;
 use crate::data::*;
-use crate::syntax::Token;
 
 pub fn parse_signature(stream: &TokenStream) -> ParseResult<WithPos<Signature>> {
     let left_square = stream.expect_kind(LeftSquare)?;
@@ -137,7 +136,6 @@ pub fn parse_subprogram_declaration(
 /// LRM 4.3 Subprogram bodies
 pub fn parse_subprogram_body(
     stream: &TokenStream,
-    is_tok: &Token,
     specification: SubprogramDeclaration,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SubprogramBody> {
@@ -148,15 +146,13 @@ pub fn parse_subprogram_body(
         }
     };
     let declarations = parse_declarative_part(stream, diagnostics)?;
-    let begin_tok = stream.expect_kind(Begin)?;
-    let decl_range = is_tok.pos.end().range_to(begin_tok.pos.start());
+    stream.expect_kind(Begin)?;
 
     let statements = parse_labeled_sequential_statements(stream, diagnostics)?;
     expect_token!(
         stream,
-        end_tok,
+        end_token,
         End => {
-            let stmt_range = begin_tok.pos.end().range_to(end_tok.pos.start());
             stream.pop_if_kind(end_kind);
 
             let end_ident = if matches!(stream.peek_kind(), Some(Identifier | StringLiteral)) {
@@ -169,14 +165,8 @@ pub fn parse_subprogram_body(
             Ok(SubprogramBody {
                 end_ident_pos: check_end_identifier_mismatch(specification.subpgm_designator(), end_ident, diagnostics),
                 specification,
-                declarations: WithRegion {
-                    range: decl_range,
-                    item: declarations
-                },
-                statements: WithRegion {
-                    range: stmt_range,
-                    item: statements
-                },
+                declarations,
+                statements,
             })
         }
     )
@@ -191,7 +181,7 @@ pub fn parse_subprogram(
         stream,
         token,
         Is => {
-            Ok(Declaration::SubprogramBody(parse_subprogram_body(stream, token, specification, diagnostics)?))
+            Ok(Declaration::SubprogramBody(parse_subprogram_body(stream, specification, diagnostics)?))
         },
         SemiColon => {
             Ok(Declaration::SubprogramDeclaration(specification))
@@ -452,14 +442,8 @@ end function;
         let statements = vec![code.s1("return foo + arg;").sequential_statement()];
         let body = SubprogramBody {
             specification,
-            declarations: WithRegion {
-                item: declarations,
-                range: code.s1("\n  constant foo : natural := 0;\n").pos().range(),
-            },
-            statements: WithRegion {
-                item: statements,
-                range: code.s1("\n  return foo + arg;\n").pos().range(),
-            },
+            declarations,
+            statements,
             end_ident_pos: None,
         };
         assert_eq!(
@@ -498,14 +482,8 @@ end function foo;
             .subprogram_decl();
         let body = SubprogramBody {
             specification,
-            declarations: WithRegion {
-                item: vec![],
-                range: code.s1("\nbegin").s1("\n").pos().range,
-            },
-            statements: WithRegion {
-                item: vec![],
-                range: code.s1("begin\n").s1("\n").pos().range,
-            },
+            declarations: vec![],
+            statements: vec![],
             end_ident_pos: Some(code.s("foo", 2).pos()),
         };
         assert_eq!(
@@ -528,14 +506,8 @@ end function \"+\";
             .subprogram_decl();
         let body = SubprogramBody {
             specification,
-            declarations: WithRegion {
-                item: vec![],
-                range: code.s1("\nbegin").s1("\n").pos().range,
-            },
-            statements: WithRegion {
-                item: vec![],
-                range: code.s1("begin\n").s1("\n").pos().range,
-            },
+            declarations: vec![],
+            statements: vec![],
             end_ident_pos: Some(code.s("\"+\"", 2).pos()),
         };
         assert_eq!(

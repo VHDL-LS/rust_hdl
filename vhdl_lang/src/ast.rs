@@ -652,8 +652,8 @@ pub struct FunctionSpecification {
 #[derive(PartialEq, Debug, Clone)]
 pub struct SubprogramBody {
     pub specification: SubprogramDeclaration,
-    pub declarations: WithRegion<Vec<Declaration>>,
-    pub statements: WithRegion<Vec<LabeledSequentialStatement>>,
+    pub declarations: Vec<Declaration>,
+    pub statements: Vec<LabeledSequentialStatement>,
     pub end_ident_pos: Option<SrcPos>,
 }
 
@@ -1210,29 +1210,16 @@ pub struct ConfigurationDeclaration {
     pub end_ident_pos: Option<SrcPos>,
 }
 
-#[derive(PartialEq, Debug, Clone, Default)]
-pub struct EntityHeader {
-    pub generic_clause: Option<Vec<InterfaceDeclaration>>,
-    pub port_clause: Option<Vec<InterfaceDeclaration>>,
-}
-
 /// LRM 3.2 Entity declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct EntityDeclaration {
     pub context_clause: ContextClause,
     pub ident: WithDecl<Ident>,
-    pub header: EntityHeader,
+    pub generic_clause: Option<Vec<InterfaceDeclaration>>,
+    pub port_clause: Option<Vec<InterfaceDeclaration>>,
     pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledConcurrentStatement>,
     pub end_ident_pos: Option<SrcPos>,
-}
-
-/// Represents a region in the AST.
-/// Additionally to some arbitrary payload, a region also knows the range it is in.
-#[derive(PartialEq, Debug, Clone)]
-pub struct WithRegion<T> {
-    pub range: crate::data::Range,
-    pub item: T,
 }
 
 /// LRM 3.3 Architecture bodies
@@ -1241,7 +1228,7 @@ pub struct ArchitectureBody {
     pub context_clause: ContextClause,
     pub ident: WithDecl<Ident>,
     pub entity_name: WithRef<Ident>,
-    pub decl: WithRegion<Vec<Declaration>>,
+    pub decl: Vec<Declaration>,
     pub statements: Vec<LabeledConcurrentStatement>,
     pub end_ident_pos: Option<SrcPos>,
 }

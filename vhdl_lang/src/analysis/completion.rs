@@ -1,5 +1,4 @@
 use crate::analysis::DesignRoot;
-use crate::ast::search::{Finished, NotFinished, NotFound, RegionCategory, SearchState, Searcher};
 use crate::ast::{AnyDesignUnit, AnyPrimaryUnit, Declaration, UnitKey};
 use crate::data::{ContentReader, Symbol};
 use crate::syntax::Kind::*;
@@ -7,58 +6,6 @@ use crate::syntax::{Symbols, Token, Tokenizer, Value};
 use crate::{Position, Source};
 use itertools::Itertools;
 use std::default::Default;
-
-/// Finds the category of a region (i.e. whether the region is a declarative region,
-/// a region with statements, e.t.c) for a given source file and cursor position.
-/// Also takes nested regions into account and returns the most specific one.
-/// For example, for an architecture:
-/// ```vhdl
-/// architecture arch of some_ent is
-///     <a>
-///     procedure proc is
-///         <b>
-///     begin
-///         <c>
-///     end proc;
-///     <a>
-/// begin
-///
-/// end arch
-/// ```
-/// If the cursor is inside the lines labeled with
-/// - `<a>`, the region is `RegionCategory::DeclarativeRegion`
-/// - `<b>`, the region is also `RegionCategory::DeclarativeRegion`
-/// - `<c>`, the region is `RegionCategory::SequentialStatements`
-struct RegionSearcher<'a> {
-    region: Option<(RegionCategory, crate::Range)>,
-    cursor: Position,
-    source: &'a Source,
-}
-
-impl<'a> Searcher for RegionSearcher<'a> {
-    fn search_region(&mut self, region: crate::Range, kind: RegionCategory) -> SearchState {
-        if region.contains(self.cursor) {
-            match &self.region {
-                Some((_, old_region)) => {
-                    // The new region is more specific than the old region
-                    if region.start >= old_region.start && region.end <= old_region.end {
-                        self.region = Some((kind, region))
-                    }
-                }
-                None => self.region = Some((kind, region)),
-            }
-        }
-        NotFinished
-    }
-
-    fn search_source(&mut self, source: &Source) -> SearchState {
-        if source == self.source {
-            NotFinished
-        } else {
-            Finished(NotFound)
-        }
-    }
-}
 
 macro_rules! kind {
     ($kind: pat) => {

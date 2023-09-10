@@ -70,30 +70,9 @@ pub enum FoundDeclaration<'a> {
     SequentialStatement(&'a Ident, &'a mut Reference),
 }
 
-#[derive(PartialEq, Clone, Debug)]
-/// Defines region types to make completions more accurate
-pub enum RegionCategory {
-    /// The region of a file; not inside an entity, architecture, e.t.c.
-    Global,
-    /// Declarative region, i.e. entity declarative part, architecture declarative part, e.t.c.
-    Declarative,
-    /// Sequential Statements, i.e. inside a function
-    SequentialStatements,
-    /// Concurrent statements, i.e. inside an architecture statement part
-    ConcurrentStatements,
-    /// The header of an entity, defines ports and generics
-    EntityHeader,
-    /// The region is unknown / erroneous
-    Unknown,
-}
-
 pub trait Searcher {
     /// Search an position that has a reference to a declaration
     fn search_pos_with_ref(&mut self, _pos: &SrcPos, _ref: &mut Reference) -> SearchState {
-        NotFinished
-    }
-
-    fn search_region(&mut self, _region: crate::data::Range, _kind: RegionCategory) -> SearchState {
         NotFinished
     }
 
@@ -119,7 +98,6 @@ pub trait Searcher {
     fn search_with_pos(&mut self, _pos: &SrcPos) -> SearchState {
         NotFinished
     }
-
     fn search_source(&mut self, _source: &Source) -> SearchState {
         NotFinished
     }
@@ -988,14 +966,8 @@ impl Search for Declaration {
             }
             Declaration::SubprogramBody(body) => {
                 return_if_found!(body.specification.search(searcher));
-                return_if_found!(searcher
-                    .search_region(body.declarations.range, RegionCategory::Declarative)
-                    .or_not_found());
-                return_if_found!(body.declarations.item.search(searcher));
-                return_if_found!(searcher
-                    .search_region(body.statements.range, RegionCategory::SequentialStatements)
-                    .or_not_found());
-                return_if_found!(body.statements.item.search(searcher));
+                return_if_found!(body.declarations.search(searcher));
+                return_if_found!(body.statements.search(searcher));
                 if let Some(ref end_ident_pos) = body.end_ident_pos {
                     return_if_found!(searcher
                         .search_pos_with_ref(end_ident_pos, body.specification.reference_mut())
@@ -1242,8 +1214,8 @@ impl Search for EntityDeclaration {
         return_if_found!(searcher
             .search_decl(FoundDeclaration::Entity(self))
             .or_not_found());
-        return_if_found!(self.header.generic_clause.search(searcher));
-        return_if_found!(self.header.port_clause.search(searcher));
+        return_if_found!(self.generic_clause.search(searcher));
+        return_if_found!(self.port_clause.search(searcher));
         return_if_found!(self.decl.search(searcher));
         self.statements.search(searcher)
     }
@@ -1259,10 +1231,7 @@ impl Search for ArchitectureBody {
         return_if_found!(searcher
             .search_decl(FoundDeclaration::Architecture(self))
             .or_not_found());
-        return_if_found!(searcher
-            .search_region(self.decl.range, RegionCategory::Declarative)
-            .or_not_found());
-        return_if_found!(self.decl.item.search(searcher));
+        return_if_found!(self.decl.search(searcher));
         self.statements.search(searcher)
     }
 }

@@ -497,20 +497,20 @@ impl<'a> AnalyzeContext<'a> {
                 self.define_labels_for_sequential_part(
                     &subpgm_region,
                     subpgm_ent.into(),
-                    &mut body.statements.item,
+                    &mut body.statements,
                     diagnostics,
                 )?;
                 self.analyze_declarative_part(
                     &subpgm_region,
                     subpgm_ent.into(),
-                    &mut body.declarations.item,
+                    &mut body.declarations,
                     diagnostics,
                 )?;
 
                 self.analyze_sequential_part(
                     &subpgm_region,
                     subpgm_ent.into(),
-                    &mut body.statements.item,
+                    &mut body.statements,
                     diagnostics,
                 )?;
             }

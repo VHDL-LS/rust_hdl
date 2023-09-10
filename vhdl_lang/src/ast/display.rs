@@ -1043,8 +1043,11 @@ impl Display for ConfigurationDeclaration {
     }
 }
 
-impl Display for EntityHeader {
+impl Display for EntityDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        // Not used: context_clause, decl, statements
+        write!(f, "entity {} is", self.ident)?;
+
         if let Some(generic_clause) = &self.generic_clause {
             let mut first = true;
             for generic in generic_clause {
@@ -1074,16 +1077,6 @@ impl Display for EntityHeader {
                 write!(f, "\n  );")?;
             }
         }
-        Ok(())
-    }
-}
-
-impl Display for EntityDeclaration {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        // Not used: context_clause, decl, statements
-        write!(f, "entity {} is", self.ident)?;
-
-        write!(f, "{}", self.header)?;
 
         write!(f, "\nend entity;")
     }
