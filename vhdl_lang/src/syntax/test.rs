@@ -194,6 +194,20 @@ impl Code {
         tokens.into_iter().map(|tok| tok.unwrap()).collect()
     }
 
+    pub fn token(&self) -> Token {
+        let contents = self.pos.source.contents();
+        let source = Source::from_contents(
+            self.pos.file_name(),
+            contents.crop(Range::new(Position::default(), self.pos.end())),
+        );
+        let contents = source.contents();
+        let reader = ContentReader::new(&contents);
+        let tokenizer = Tokenizer::new(&self.symbols, &source, reader);
+        let stream = TokenStream::new(tokenizer, &mut NoDiagnostics);
+        forward(&stream, self.pos.start());
+        stream.peek().expect("No token found").clone()
+    }
+
     /// Helper method to run lower level parsing function at specific substring
     pub fn parse<F, R>(&self, parse_fun: F) -> R
     where
@@ -475,11 +489,11 @@ impl Code {
         self.parse_ok(parse_choices)
     }
 
-    pub fn use_clause(&self) -> WithPos<UseClause> {
+    pub fn use_clause(&self) -> UseClause {
         self.parse_ok(parse_use_clause)
     }
 
-    pub fn library_clause(&self) -> WithPos<LibraryClause> {
+    pub fn library_clause(&self) -> LibraryClause {
         self.parse_ok(parse_library_clause)
     }
 

@@ -24,6 +24,7 @@ pub(crate) use any_design_unit::*;
 
 use crate::analysis::EntityId;
 use crate::data::*;
+use crate::syntax::Token;
 
 /// LRM 15.8 Bit string literals
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
@@ -752,7 +753,7 @@ pub enum Declaration {
     Alias(AliasDeclaration),
     SubprogramDeclaration(SubprogramDeclaration),
     SubprogramBody(SubprogramBody),
-    Use(WithPos<UseClause>),
+    Use(UseClause),
     Package(PackageInstantiation),
     Configuration(ConfigurationSpecification),
 }
@@ -1082,19 +1083,43 @@ pub struct LabeledConcurrentStatement {
 /// LRM 13. Design units and their analysis
 #[derive(PartialEq, Debug, Clone)]
 pub struct LibraryClause {
+    pub library_token: Token,
     pub name_list: Vec<WithRef<Ident>>,
+    pub semi_token: Token,
+}
+
+impl LibraryClause {
+    pub fn pos(&self) -> SrcPos {
+        self.library_token.pos.combine(&self.semi_token.pos)
+    }
 }
 
 /// LRM 12.4. Use clauses
 #[derive(PartialEq, Debug, Clone)]
 pub struct UseClause {
+    pub use_token: Token,
     pub name_list: Vec<WithPos<Name>>,
+    pub semi_token: Token,
+}
+
+impl UseClause {
+    pub fn pos(&self) -> SrcPos {
+        self.use_token.pos.combine(&self.semi_token.pos)
+    }
 }
 
 /// LRM 13.4 Context clauses
 #[derive(PartialEq, Debug, Clone)]
 pub struct ContextReference {
+    pub context_token: Token,
     pub name_list: Vec<WithPos<Name>>,
+    pub semi_token: Token,
+}
+
+impl ContextReference {
+    pub fn pos(&self) -> SrcPos {
+        self.context_token.pos.combine(&self.semi_token.pos)
+    }
 }
 
 /// LRM 13.4 Context clauses
@@ -1103,6 +1128,16 @@ pub enum ContextItem {
     Use(UseClause),
     Library(LibraryClause),
     Context(ContextReference),
+}
+
+impl ContextItem {
+    pub fn pos(&self) -> SrcPos {
+        match self {
+            ContextItem::Use(use_clause) => use_clause.pos(),
+            ContextItem::Library(lib_clause) => lib_clause.pos(),
+            ContextItem::Context(ctx_clause) => ctx_clause.pos(),
+        }
+    }
 }
 
 /// LRM 13.4 Context clauses
@@ -1170,7 +1205,7 @@ pub struct ConfigurationSpecification {
 /// LRM 3.4 Configuration declarations
 #[derive(PartialEq, Debug, Clone)]
 pub enum ConfigurationDeclarativeItem {
-    Use(WithPos<UseClause>),
+    Use(UseClause),
     // @TODO attribute
     // @TODO group
 }
@@ -1281,7 +1316,7 @@ pub enum AnySecondaryUnit {
     PackageBody(PackageBody),
 }
 
-pub type ContextClause = Vec<WithPos<ContextItem>>;
+pub type ContextClause = Vec<ContextItem>;
 
 /// LRM 13.1 Design units
 #[derive(PartialEq, Debug, Clone)]

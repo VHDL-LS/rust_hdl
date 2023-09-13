@@ -171,7 +171,7 @@ pub fn parse_design_file(
             Library => {
                 match parse_library_clause(stream) {
                     Ok(library) => {
-                        context_clause.push(library.map_into(ContextItem::Library));
+                        context_clause.push(ContextItem::Library(library));
                     },
                     Err(diagnostic) => diagnostics.push(diagnostic),
                 }
@@ -179,7 +179,7 @@ pub fn parse_design_file(
             Use => {
                 match parse_use_clause(stream) {
                     Ok(use_clause) => {
-                        context_clause.push(use_clause.map_into(ContextItem::Use));
+                        context_clause.push(ContextItem::Use(use_clause));
                     },
                     Err(diagnostic) => diagnostics.push(diagnostic),
                 }
@@ -190,7 +190,7 @@ pub fn parse_design_file(
                         let mut diagnostic = Diagnostic::error(&context_decl.ident, "Context declaration may not be preceeded by a context clause");
 
                         for context_item in context_clause.iter() {
-                            diagnostic.add_related(context_item, context_item_message(&context_item.item, "may not come before context declaration"));
+                            diagnostic.add_related(context_item.pos(), context_item_message(context_item, "may not come before context declaration"));
                         }
 
                         diagnostics.push(diagnostic);
@@ -200,7 +200,7 @@ pub fn parse_design_file(
                     design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::Context(context_decl)));
                 }
                 Ok(DeclarationOrReference::Reference(context_ref)) => {
-                    context_clause.push(context_ref.map_into(ContextItem::Context));
+                    context_clause.push(ContextItem::Context(context_ref));
                 }
                 Err(diagnostic) => diagnostics.push(diagnostic),
             },
@@ -259,8 +259,8 @@ pub fn parse_design_file(
 
     for context_item in context_clause {
         diagnostics.push(Diagnostic::warning(
-            &context_item,
-            context_item_message(&context_item.item, "not associated with any design unit"),
+            &context_item.pos(),
+            context_item_message(&context_item, "not associated with any design unit"),
         ));
     }
 
@@ -674,12 +674,10 @@ end entity;
                 design_units: vec![AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(
                     EntityDeclaration {
                         context_clause: vec![
-                            code.s1("library lib;")
-                                .library_clause()
-                                .map_into(ContextItem::Library),
-                            code.s1("use lib.foo;")
-                                .use_clause()
-                                .map_into(ContextItem::Use),
+                            ContextItem::Library(code.s1("library lib;")
+                                .library_clause()),
+                            ContextItem::Use(code.s1("use lib.foo;")
+                                .use_clause())
                         ],
                         ident: code.s1("myent").decl_ident(),
                         generic_clause: None,

@@ -1022,8 +1022,8 @@ impl Search for Declaration {
                 }
             }
             Declaration::Use(use_clause) => {
-                return_if_found!(searcher.search_with_pos(&use_clause.pos).or_not_found());
-                return_if_found!(use_clause.item.name_list.search(searcher));
+                return_if_found!(searcher.search_with_pos(&use_clause.pos()).or_not_found());
+                return_if_found!(use_clause.name_list.search(searcher));
             }
             Declaration::Component(component) => {
                 return_if_found!(searcher
@@ -1171,10 +1171,10 @@ impl Search for LibraryClause {
     }
 }
 
-impl Search for WithPos<ContextItem> {
+impl Search for ContextItem {
     fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(&self.pos));
-        match self.item {
+        return_if_finished!(searcher.search_with_pos(&self.pos()));
+        match self {
             ContextItem::Use(ref mut use_clause) => {
                 return_if_found!(use_clause.name_list.search(searcher));
             }

@@ -471,12 +471,12 @@ impl<'a> AnalyzeContext<'a> {
     pub(crate) fn analyze_context_clause(
         &self,
         scope: &Scope<'a>,
-        context_clause: &mut [WithPos<ContextItem>],
+        context_clause: &mut [ContextItem],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
         for context_item in context_clause.iter_mut() {
-            match context_item.item {
-                ContextItem::Library(LibraryClause { ref mut name_list }) => {
+            match context_item {
+                ContextItem::Library(LibraryClause { ref mut name_list, .. }) => {
                     for library_name in name_list.iter_mut() {
                         if self.work_sym == library_name.item.item {
                             library_name.set_unique_reference(self.work_library());
@@ -498,7 +498,7 @@ impl<'a> AnalyzeContext<'a> {
                 ContextItem::Use(ref mut use_clause) => {
                     self.analyze_use_clause(scope, use_clause, diagnostics)?;
                 }
-                ContextItem::Context(ContextReference { ref mut name_list }) => {
+                ContextItem::Context(ContextReference { ref mut name_list, .. }) => {
                     for name in name_list.iter_mut() {
                         match name.item {
                             Name::Selected(..) => {}
