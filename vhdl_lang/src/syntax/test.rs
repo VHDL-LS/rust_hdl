@@ -18,6 +18,7 @@ use super::names::{
 };
 use super::object_declaration::{parse_file_declaration, parse_object_declaration};
 use super::range::{parse_discrete_range, parse_range};
+use super::separated_list::{parse_ident_list, parse_name_list};
 use super::sequential_statement::parse_sequential_statement;
 use super::subprogram::{parse_signature, parse_subprogram_declaration_no_semi};
 use super::subtype_indication::parse_subtype_indication;
@@ -28,7 +29,6 @@ use crate::ast;
 use crate::ast::*;
 use crate::data::Range;
 use crate::data::*;
-use super::separated_list::{parse_ident_list, parse_name_list};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;

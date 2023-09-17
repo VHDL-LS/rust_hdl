@@ -180,19 +180,6 @@ mod tests {
     }
 
     #[test]
-    fn test_context_reference_multiple_names() {
-        let code = Code::new("context work.foo, lib.bar.all;");
-        assert_eq!(
-            code.with_stream_no_diagnostics(parse_context),
-            DeclarationOrReference::Reference(ContextReference {
-                context_token: code.s1("context").token(),
-                name_list: code.s1("work.foo, lib.bar.all").name_list(),
-                semi_token: code.s1(";").token(),
-            })
-        )
-    }
-
-    #[test]
     fn test_context_clause() {
         let variants = [
             &"\

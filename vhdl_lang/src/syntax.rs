@@ -22,12 +22,12 @@ mod names;
 mod object_declaration;
 mod parser;
 mod range;
+mod separated_list;
 mod sequential_statement;
 mod subprogram;
 mod subtype_indication;
 mod type_declaration;
 mod waveform;
-mod separated_list;
 
 #[cfg(test)]
 pub mod test;

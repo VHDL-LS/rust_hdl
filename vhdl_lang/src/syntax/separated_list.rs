@@ -1,9 +1,9 @@
 use crate::ast::{IdentList, NameList, SeparatedList, WithRef};
-use crate::data::{DiagnosticResult};
-use crate::syntax::{Kind, TokenStream};
+use crate::data::DiagnosticResult;
 use crate::syntax::common::ParseResult;
-use crate::syntax::Kind::Comma;
 use crate::syntax::names::parse_name;
+use crate::syntax::Kind::Comma;
+use crate::syntax::{Kind, TokenStream};
 
 /// Parses a list of the form
 ///   `element { separator element }`
@@ -14,8 +14,8 @@ pub fn parse_list_with_separator<F, T>(
     separator: Kind,
     parse_fn: F,
 ) -> DiagnosticResult<SeparatedList<T>>
-    where
-        F: Fn(&TokenStream) -> ParseResult<T>,
+where
+    F: Fn(&TokenStream) -> ParseResult<T>,
 {
     let first = parse_fn(stream)?;
     let mut remainder = Vec::new();
@@ -37,10 +37,10 @@ pub fn parse_ident_list(stream: &TokenStream) -> DiagnosticResult<IdentList> {
 
 #[cfg(test)]
 mod test {
-    use assert_matches::assert_matches;
-    use crate::syntax::separated_list::{parse_ident_list};
+    use crate::ast::{IdentList, NameList};
+    use crate::syntax::separated_list::{parse_ident_list, parse_name_list};
     use crate::syntax::test::Code;
-    use crate::ast::{IdentList};
+    use assert_matches::assert_matches;
 
     #[test]
     pub fn test_error_on_empty_list() {
@@ -51,21 +51,39 @@ mod test {
     #[test]
     pub fn parse_single_element_list() {
         let code = Code::new("abc");
-        assert_eq!(code.parse(parse_ident_list), Ok(IdentList {
-            first: code.s1("abc").ident().into_ref(),
-            remainder: vec![]
-        }))
+        assert_eq!(
+            code.parse_ok(parse_ident_list),
+            IdentList {
+                first: code.s1("abc").ident().into_ref(),
+                remainder: vec![]
+            }
+        )
     }
 
     #[test]
     pub fn parse_list_with_multiple_elements() {
         let code = Code::new("abc, def, ghi");
-        assert_eq!(code.parse(parse_ident_list), Ok(IdentList {
-            first: code.s1("abc").ident().into_ref(),
-            remainder: vec![
-                (code.s(",", 1).token(), code.s1("def").ident().into_ref()),
-                (code.s(",", 2).token(), code.s1("ghi").ident().into_ref()),
-            ]
-        }))
+        assert_eq!(
+            code.parse_ok(parse_ident_list),
+            IdentList {
+                first: code.s1("abc").ident().into_ref(),
+                remainder: vec![
+                    (code.s(",", 1).token(), code.s1("def").ident().into_ref()),
+                    (code.s(",", 2).token(), code.s1("ghi").ident().into_ref()),
+                ]
+            }
+        )
+    }
+
+    #[test]
+    fn parse_list_with_many_names() {
+        let code = Code::new("work.foo, lib.bar.all");
+        assert_eq!(
+            code.parse_ok(parse_name_list),
+            NameList {
+                first: code.s1("work.foo").name(),
+                remainder: vec![(code.s1(",").token(), code.s1("lib.bar.all").name())]
+            }
+        )
     }
 }
