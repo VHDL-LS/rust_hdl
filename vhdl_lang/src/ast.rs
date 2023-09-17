@@ -21,6 +21,7 @@ pub mod search;
 pub use self::display::*;
 pub(crate) use self::util::*;
 pub(crate) use any_design_unit::*;
+use std::iter;
 
 use crate::analysis::EntityId;
 use crate::data::*;
@@ -1084,7 +1085,7 @@ pub struct LabeledConcurrentStatement {
 #[derive(PartialEq, Debug, Clone)]
 pub struct LibraryClause {
     pub library_token: Token,
-    pub name_list: Vec<WithRef<Ident>>,
+    pub name_list: SeparatedList<WithRef<Ident>>,
     pub semi_token: Token,
 }
 
@@ -1094,11 +1095,28 @@ impl LibraryClause {
     }
 }
 
+/// Represents a token-separated list of some generic type `T`
+#[derive(PartialEq, Debug, Clone)]
+pub struct SeparatedList<T> {
+    pub first: T,
+    pub remainder: Vec<(Token, T)>,
+}
+
+impl<T> SeparatedList<T> {
+    pub fn items(&self) -> impl Iterator<Item = &T> {
+        iter::once(&self.first).chain(self.remainder.iter().map(|it| &it.1))
+    }
+
+    pub fn items_mut(&mut self) -> impl Iterator<Item = &mut T> {
+        iter::once(&mut self.first).chain(self.remainder.iter_mut().map(|it| &mut it.1))
+    }
+}
+
 /// LRM 12.4. Use clauses
 #[derive(PartialEq, Debug, Clone)]
 pub struct UseClause {
     pub use_token: Token,
-    pub name_list: Vec<WithPos<Name>>,
+    pub name_list: SeparatedList<WithPos<Name>>,
     pub semi_token: Token,
 }
 
@@ -1112,7 +1130,7 @@ impl UseClause {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ContextReference {
     pub context_token: Token,
-    pub name_list: Vec<WithPos<Name>>,
+    pub name_list: SeparatedList<WithPos<Name>>,
     pub semi_token: Token,
 }
 

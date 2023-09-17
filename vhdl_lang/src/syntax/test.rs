@@ -28,6 +28,8 @@ use crate::ast;
 use crate::ast::*;
 use crate::data::Range;
 use crate::data::*;
+use crate::syntax::context::{parse_ident_list, parse_list_with_separator, parse_name_list};
+use crate::syntax::Kind::Comma;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -371,6 +373,14 @@ impl Code {
 
     pub fn name(&self) -> WithPos<Name> {
         self.parse_ok(parse_name)
+    }
+
+    pub fn name_list(&self) -> SeparatedList<WithPos<Name>> {
+        self.parse_ok(parse_name_list)
+    }
+
+    pub fn ident_list(&self) -> SeparatedList<WithRef<Ident>> {
+        self.parse_ok(parse_ident_list)
     }
 
     pub fn selected_name(&self) -> WithPos<SelectedName> {

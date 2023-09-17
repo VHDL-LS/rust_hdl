@@ -674,10 +674,8 @@ end entity;
                 design_units: vec![AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(
                     EntityDeclaration {
                         context_clause: vec![
-                            ContextItem::Library(code.s1("library lib;")
-                                .library_clause()),
-                            ContextItem::Use(code.s1("use lib.foo;")
-                                .use_clause())
+                            ContextItem::Library(code.s1("library lib;").library_clause()),
+                            ContextItem::Use(code.s1("use lib.foo;").use_clause())
                         ],
                         ident: code.s1("myent").decl_ident(),
                         generic_clause: None,

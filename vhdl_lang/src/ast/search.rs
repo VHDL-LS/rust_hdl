@@ -259,6 +259,15 @@ impl Search for WithPos<Target> {
     }
 }
 
+impl<T: Search> Search for SeparatedList<T> {
+    fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
+        for item in self.items_mut() {
+            return_if_found!(item.search(searcher));
+        }
+        NotFound
+    }
+}
+
 impl Search for LabeledSequentialStatement {
     fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
         if let Some(ref ident) = self.label.tree {
@@ -1162,7 +1171,7 @@ impl Search for FunctionSpecification {
 
 impl Search for LibraryClause {
     fn search(&mut self, searcher: &mut impl Searcher) -> SearchResult {
-        for name in self.name_list.iter_mut() {
+        for name in self.name_list.items_mut() {
             return_if_found!(searcher
                 .search_pos_with_ref(&name.item.pos, &mut name.reference)
                 .or_not_found());

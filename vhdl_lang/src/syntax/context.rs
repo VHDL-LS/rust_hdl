@@ -10,17 +10,12 @@ use super::names::parse_name;
 use super::tokens::{Kind::*, TokenStream};
 use crate::ast::*;
 use crate::data::*;
+use crate::syntax::Kind;
 
 /// LRM 13. Design units and their analysis
 pub fn parse_library_clause(stream: &TokenStream) -> ParseResult<LibraryClause> {
     let library_token = stream.expect_kind(Library)?.clone();
-    let mut name_list = Vec::with_capacity(1);
-    loop {
-        name_list.push(WithRef::new(stream.expect_ident()?));
-        if !stream.skip_if_kind(Comma) {
-            break;
-        }
-    }
+    let name_list = parse_ident_list(stream)?;
     let semi_token = stream.expect_kind(SemiColon)?.clone();
     Ok(LibraryClause {
         library_token,
@@ -33,13 +28,7 @@ pub fn parse_library_clause(stream: &TokenStream) -> ParseResult<LibraryClause> 
 pub fn parse_use_clause(stream: &TokenStream) -> ParseResult<UseClause> {
     let use_token = stream.expect_kind(Use)?.clone();
 
-    let mut name_list = Vec::with_capacity(1);
-    loop {
-        name_list.push(parse_name(stream)?);
-        if !stream.skip_if_kind(Comma) {
-            break;
-        }
-    }
+    let name_list = parse_name_list(stream)?;
     let semi_token = stream.expect_kind(SemiColon)?.clone();
     Ok(UseClause {
         use_token,
@@ -57,14 +46,7 @@ pub enum DeclarationOrReference {
 pub fn parse_context_reference(stream: &TokenStream) -> ParseResult<ContextReference> {
     let context_token = stream.expect_kind(Context)?.clone();
 
-    let name = parse_name(stream)?;
-    let mut name_list = vec![name];
-    loop {
-        if !stream.skip_if_kind(Comma) {
-            break;
-        }
-        name_list.push(parse_name(stream)?);
-    }
+    let name_list = parse_name_list(stream)?;
     let semi_token = stream.expect_kind(SemiColon)?.clone();
     Ok(ContextReference {
         context_token,
@@ -108,13 +90,7 @@ pub fn parse_context(
         }))
     } else {
         // Context reference
-        let mut name_list = vec![name];
-        loop {
-            if !stream.skip_if_kind(Comma) {
-                break;
-            }
-            name_list.push(parse_name(stream)?);
-        }
+        let name_list = parse_name_list(stream)?;
         let semi_token = stream.expect_kind(SemiColon)?.clone();
         Ok(DeclarationOrReference::Reference(ContextReference {
             context_token,
@@ -122,6 +98,36 @@ pub fn parse_context(
             semi_token,
         }))
     }
+}
+
+/// Parses a list of the form
+///   `element { separator element }`
+/// where `element` is an AST element and `separator` is a token of some kind.
+/// The returned list retains information of the whereabouts of the separator tokens.
+pub fn parse_list_with_separator<F, T>(
+    stream: &TokenStream,
+    separator: Kind,
+    parse_fn: F,
+) -> DiagnosticResult<SeparatedList<T>>
+where
+    F: Fn(&TokenStream) -> ParseResult<T>,
+{
+    let first = parse_fn(stream)?;
+    let mut remainder = Vec::new();
+    while let Some(separator) = stream.pop_if_kind(separator) {
+        remainder.push((separator.clone(), parse_fn(stream)?));
+    }
+    Ok(SeparatedList { first, remainder })
+}
+
+pub fn parse_name_list(stream: &TokenStream) -> DiagnosticResult<SeparatedList<WithPos<Name>>> {
+    parse_list_with_separator(stream, Comma, parse_name)
+}
+
+pub fn parse_ident_list(stream: &TokenStream) -> DiagnosticResult<SeparatedList<WithRef<Ident>>> {
+    parse_list_with_separator(stream, Comma, |stream| {
+        stream.expect_ident().map(WithRef::new)
+    })
 }
 
 #[cfg(test)]
@@ -136,12 +142,12 @@ mod tests {
         let code = Code::new("library foo;");
         assert_eq!(
             code.with_stream(parse_library_clause),
-                LibraryClause {
-                    library_token: code.s1("library").token(),
-                    name_list: vec![WithRef::new(code.s1("foo").ident())],
-                    semi_token: code.s1(";").token(),
-                }
-            )
+            LibraryClause {
+                library_token: code.s1("library").token(),
+                name_list: code.s1("foo").ident_list(),
+                semi_token: code.s1(";").token(),
+            }
+        )
     }
 
     #[test]
@@ -149,14 +155,11 @@ mod tests {
         let code = Code::new("library foo, bar;");
         assert_eq!(
             code.with_stream(parse_library_clause),
-                LibraryClause {
-                    library_token: code.s1("library").token(),
-                    name_list: vec![
-                        WithRef::new(code.s1("foo").ident()),
-                        WithRef::new(code.s1("bar").ident()),
-                    ],
-                    semi_token: code.s1(";").token(),
-                },
+            LibraryClause {
+                library_token: code.s1("library").token(),
+                name_list: code.s1("foo, bar").ident_list(),
+                semi_token: code.s1(";").token(),
+            },
         )
     }
 
@@ -165,11 +168,11 @@ mod tests {
         let code = Code::new("use lib.foo;");
         assert_eq!(
             code.with_stream(parse_use_clause),
-                UseClause {
-                    use_token: code.s1("use").token(),
-                    name_list: vec![code.s1("lib.foo").name()],
-                    semi_token: code.s1(";").token(),
-                },
+            UseClause {
+                use_token: code.s1("use").token(),
+                name_list: code.s1("lib.foo").name_list(),
+                semi_token: code.s1(";").token(),
+            },
         )
     }
 
@@ -178,11 +181,11 @@ mod tests {
         let code = Code::new("use foo.'a', lib.bar.all;");
         assert_eq!(
             code.with_stream(parse_use_clause),
-                UseClause {
-                    use_token: code.s1("use").token(),
-                    name_list: vec![code.s1("foo.'a'").name(), code.s1("lib.bar.all").name()],
-                    semi_token: code.s1(";").token(),
-                },
+            UseClause {
+                use_token: code.s1("use").token(),
+                name_list: code.s1("foo.'a', lib.bar.all").name_list(),
+                semi_token: code.s1(";").token(),
+            },
         )
     }
 
@@ -191,13 +194,11 @@ mod tests {
         let code = Code::new("context lib.foo;");
         assert_eq!(
             code.with_stream_no_diagnostics(parse_context),
-            DeclarationOrReference::Reference(
-                ContextReference {
-                    context_token: code.s1("context").token(),
-                    name_list: vec![code.s1("lib.foo").name()],
-                    semi_token: code.s1(";").token(),
-                },
-            )
+            DeclarationOrReference::Reference(ContextReference {
+                context_token: code.s1("context").token(),
+                name_list: code.s1("lib.foo").name_list(),
+                semi_token: code.s1(";").token(),
+            },)
         )
     }
 
@@ -206,13 +207,11 @@ mod tests {
         let code = Code::new("context work.foo, lib.bar.all;");
         assert_eq!(
             code.with_stream_no_diagnostics(parse_context),
-            DeclarationOrReference::Reference(
-                ContextReference {
-                    context_token: code.s1("context").token(),
-                    name_list: vec![code.s1("work.foo").name(), code.s1("lib.bar.all").name()],
-                    semi_token: code.s1(";").token(),
-                },
-            )
+            DeclarationOrReference::Reference(ContextReference {
+                context_token: code.s1("context").token(),
+                name_list: code.s1("work.foo, lib.bar.all").name_list(),
+                semi_token: code.s1(";").token(),
+            })
         )
     }
 
@@ -296,21 +295,21 @@ end context;
             DeclarationOrReference::Declaration(ContextDeclaration {
                 ident: code.s1("ident").decl_ident(),
                 items: vec![
-                        ContextItem::Library(LibraryClause {
-                            library_token: code.s1("library").token(),
-                            name_list: vec![WithRef::new(code.s1("foo").ident())],
-                            semi_token: code.s(";", 1).token()
-                        }),
-                        ContextItem::Use(UseClause {
-                            use_token: code.s1("use").token(),
-                            name_list: vec![code.s1("foo.bar").name()],
-                            semi_token: code.s(";", 2).token(),
-                        }),
-                        ContextItem::Context(ContextReference {
-                            context_token: code.s("context", 2).token(),
-                            name_list: vec![code.s1("foo.ctx").name()],
-                            semi_token: code.s(";", 3).token(),
-                        }),
+                    ContextItem::Library(LibraryClause {
+                        library_token: code.s1("library").token(),
+                        name_list: code.s1("foo").ident_list(),
+                        semi_token: code.s(";", 1).token(),
+                    }),
+                    ContextItem::Use(UseClause {
+                        use_token: code.s1("use").token(),
+                        name_list: code.s1("foo.bar").name_list(),
+                        semi_token: code.s(";", 2).token(),
+                    }),
+                    ContextItem::Context(ContextReference {
+                        context_token: code.s("context", 2).token(),
+                        name_list: code.s1("foo.ctx").name_list(),
+                        semi_token: code.s(";", 3).token(),
+                    }),
                 ],
                 end_ident_pos: None,
             })
