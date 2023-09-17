@@ -90,7 +90,14 @@ pub fn parse_context(
         }))
     } else {
         // Context reference
-        let name_list = parse_name_list(stream)?;
+        let mut name_list = Vec::new();
+        while let Some(comma) = stream.pop_if_kind(Comma) {
+            name_list.push((comma.clone(), parse_name(stream)?));
+        }
+        let name_list = SeparatedList {
+            first: name,
+            remainder: name_list,
+        };
         let semi_token = stream.expect_kind(SemiColon)?.clone();
         Ok(DeclarationOrReference::Reference(ContextReference {
             context_token,
@@ -102,7 +109,7 @@ pub fn parse_context(
 
 /// Parses a list of the form
 ///   `element { separator element }`
-/// where `element` is an AST element and `separator` is a token of some kind.
+/// where `element` is an AST element and `separator` is a token of some `ast::Kind`.
 /// The returned list retains information of the whereabouts of the separator tokens.
 pub fn parse_list_with_separator<F, T>(
     stream: &TokenStream,
