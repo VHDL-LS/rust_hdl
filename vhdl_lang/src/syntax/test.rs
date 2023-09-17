@@ -28,7 +28,7 @@ use crate::ast;
 use crate::ast::*;
 use crate::data::Range;
 use crate::data::*;
-use crate::syntax::context::{parse_ident_list, parse_name_list};
+use super::separated_list::{parse_ident_list, parse_name_list};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;

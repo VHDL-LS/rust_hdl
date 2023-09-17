@@ -1085,7 +1085,7 @@ pub struct LabeledConcurrentStatement {
 #[derive(PartialEq, Debug, Clone)]
 pub struct LibraryClause {
     pub library_token: Token,
-    pub name_list: SeparatedList<WithRef<Ident>>,
+    pub name_list: IdentList,
     pub semi_token: Token,
 }
 
@@ -1102,6 +1102,9 @@ pub struct SeparatedList<T> {
     pub remainder: Vec<(Token, T)>,
 }
 
+pub type IdentList = SeparatedList<WithRef<Ident>>;
+pub type NameList = SeparatedList<WithPos<Name>>;
+
 impl<T> SeparatedList<T> {
     pub fn items(&self) -> impl Iterator<Item = &T> {
         iter::once(&self.first).chain(self.remainder.iter().map(|it| &it.1))
@@ -1116,7 +1119,7 @@ impl<T> SeparatedList<T> {
 #[derive(PartialEq, Debug, Clone)]
 pub struct UseClause {
     pub use_token: Token,
-    pub name_list: SeparatedList<WithPos<Name>>,
+    pub name_list: NameList,
     pub semi_token: Token,
 }
 
@@ -1130,7 +1133,7 @@ impl UseClause {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ContextReference {
     pub context_token: Token,
-    pub name_list: SeparatedList<WithPos<Name>>,
+    pub name_list: NameList,
     pub semi_token: Token,
 }
 

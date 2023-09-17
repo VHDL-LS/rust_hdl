@@ -10,7 +10,7 @@ use super::names::parse_name;
 use super::tokens::{Kind::*, TokenStream};
 use crate::ast::*;
 use crate::data::*;
-use crate::syntax::Kind;
+use crate::syntax::separated_list::{parse_ident_list, parse_name_list};
 
 /// LRM 13. Design units and their analysis
 pub fn parse_library_clause(stream: &TokenStream) -> ParseResult<LibraryClause> {
@@ -105,36 +105,6 @@ pub fn parse_context(
             semi_token,
         }))
     }
-}
-
-/// Parses a list of the form
-///   `element { separator element }`
-/// where `element` is an AST element and `separator` is a token of some `ast::Kind`.
-/// The returned list retains information of the whereabouts of the separator tokens.
-pub fn parse_list_with_separator<F, T>(
-    stream: &TokenStream,
-    separator: Kind,
-    parse_fn: F,
-) -> DiagnosticResult<SeparatedList<T>>
-where
-    F: Fn(&TokenStream) -> ParseResult<T>,
-{
-    let first = parse_fn(stream)?;
-    let mut remainder = Vec::new();
-    while let Some(separator) = stream.pop_if_kind(separator) {
-        remainder.push((separator.clone(), parse_fn(stream)?));
-    }
-    Ok(SeparatedList { first, remainder })
-}
-
-pub fn parse_name_list(stream: &TokenStream) -> DiagnosticResult<SeparatedList<WithPos<Name>>> {
-    parse_list_with_separator(stream, Comma, parse_name)
-}
-
-pub fn parse_ident_list(stream: &TokenStream) -> DiagnosticResult<SeparatedList<WithRef<Ident>>> {
-    parse_list_with_separator(stream, Comma, |stream| {
-        stream.expect_ident().map(WithRef::new)
-    })
 }
 
 #[cfg(test)]

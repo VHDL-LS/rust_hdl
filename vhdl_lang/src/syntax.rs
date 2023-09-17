@@ -27,6 +27,7 @@ mod subprogram;
 mod subtype_indication;
 mod type_declaration;
 mod waveform;
+mod separated_list;
 
 #[cfg(test)]
 pub mod test;
