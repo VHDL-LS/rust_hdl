@@ -9,7 +9,7 @@ use super::common::ParseResult;
 use super::expression::parse_expression;
 use super::subprogram::parse_signature;
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{Kind::*, TokenStream, TokenAccess};
+use super::tokens::{Kind::*, TokenAccess, TokenStream};
 use crate::ast;
 use crate::ast::*;
 use crate::data::{Diagnostic, WithPos};
@@ -154,7 +154,10 @@ fn assoc_to_expression(assoc: AssociationElement) -> ParseResult<WithPos<Express
 
 fn parse_actual_part(stream: &TokenStream) -> ParseResult<WithPos<ActualPart>> {
     if let Some(token) = stream.pop_if_kind(Open) {
-        Ok(WithPos::from(ActualPart::Open, stream.get_pos(token).clone()))
+        Ok(WithPos::from(
+            ActualPart::Open,
+            stream.get_pos(token).clone(),
+        ))
     } else {
         Ok(parse_expression(stream)?.map_into(ActualPart::Expression))
     }

@@ -69,7 +69,7 @@ impl LockedUnit {
             arena_id: ArenaId::default(),
             unit_id,
             unit: AnalysisLock::new(unit),
-            tokens
+            tokens,
         }
     }
 }

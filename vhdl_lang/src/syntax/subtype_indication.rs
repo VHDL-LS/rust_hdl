@@ -7,10 +7,10 @@
 use super::common::ParseResult;
 use super::names::{parse_selected_name, parse_type_mark, parse_type_mark_starting_with_name};
 use super::range::{parse_discrete_range, parse_range};
-use super::tokens::{kinds_error, Kind::*, TokenStream, TokenAccess};
+use super::tokens::{kinds_error, Kind::*, TokenAccess, TokenStream};
 /// LRM 6.3 Subtype declarations
 use crate::ast::*;
-use crate::data::{WithPos};
+use crate::data::WithPos;
 use crate::syntax::TokenId;
 
 fn parse_record_element_constraint(stream: &TokenStream) -> ParseResult<ElementConstraint> {

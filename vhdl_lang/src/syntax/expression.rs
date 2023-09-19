@@ -378,7 +378,8 @@ fn parse_primary(stream: &TokenStream) -> ParseResult<WithPos<Expression>> {
             let name = parse_name(stream)?;
             if stream.skip_if_kind(Tick) {
                 let lpar = stream.expect_kind(LeftPar)?;
-                let expr = parse_expression_or_aggregate(stream)?.combine_pos_with(stream.get_pos(lpar));
+                let expr =
+                    parse_expression_or_aggregate(stream)?.combine_pos_with(stream.get_pos(lpar));
                 let pos = name.pos.combine(&expr);
                 Ok(WithPos {
                     item: Expression::Qualified(Box::new(QualifiedExpression {

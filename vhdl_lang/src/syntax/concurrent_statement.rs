@@ -88,7 +88,10 @@ fn parse_block_header(
                             "Generic map declared without preceeding generic clause",
                         ));
                     } else if generic_map.is_some() {
-                        diagnostics.push(Diagnostic::error(stream.get_token(map_token), "Duplicate generic map"));
+                        diagnostics.push(Diagnostic::error(
+                            stream.get_token(map_token),
+                            "Duplicate generic map",
+                        ));
                     }
                     let parsed_generic_map = Some(parse_association_list(stream)?);
                     stream.expect_kind(SemiColon)?;
@@ -120,7 +123,10 @@ fn parse_block_header(
                             "Port map declared without preceeding port clause",
                         ));
                     } else if port_map.is_some() {
-                        diagnostics.push(Diagnostic::error(stream.get_token(map_token), "Duplicate port map"));
+                        diagnostics.push(Diagnostic::error(
+                            stream.get_token(map_token),
+                            "Duplicate port map",
+                        ));
                     }
                     let parsed_port_map = Some(parse_association_list(stream)?);
                     stream.expect_kind(SemiColon)?;

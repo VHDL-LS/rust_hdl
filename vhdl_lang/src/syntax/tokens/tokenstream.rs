@@ -247,11 +247,11 @@ impl<'a> TokenStream<'a> {
     }
 
     pub fn slice_tokens(&self, start_state: usize, end_state: usize) -> Vec<Token> {
-        Vec::from(&self.tokens[start_state..end_state-1])
+        Vec::from(&self.tokens[start_state..end_state - 1])
     }
 }
 
-impl <'a> TokenAccess for TokenStream<'a> {
+impl<'a> TokenAccess for TokenStream<'a> {
     fn get_token(&self, id: TokenId) -> &Token {
         self.tokens.get_token(id)
     }

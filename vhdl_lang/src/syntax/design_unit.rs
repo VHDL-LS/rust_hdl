@@ -18,7 +18,6 @@ use super::declarative_part::{parse_declarative_part, parse_package_instantiatio
 use super::interface_declaration::parse_generic_interface_list;
 use crate::ast::*;
 use crate::data::*;
-use crate::syntax::Token;
 
 /// Parse an entity declaration, token is initial entity token
 /// If a parse error occurs the stream is consumed until and end entity
@@ -181,8 +180,6 @@ pub fn parse_design_file<'a>(
             Use => {
                 match parse_use_clause(stream) {
                     Ok(use_clause) => {
-                        let end = stream.state();
-                        let tokens = stream.slice_tokens(start, end);
                         context_clause.push(ContextItem::Use(use_clause));
                     },
                     Err(diagnostic) => diagnostics.push(diagnostic),

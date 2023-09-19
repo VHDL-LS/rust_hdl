@@ -29,13 +29,13 @@ use crate::ast;
 use crate::ast::*;
 use crate::data::Range;
 use crate::data::*;
+use crate::syntax::TokenId;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hasher;
 use std::sync::Arc;
-use crate::syntax::TokenId;
 
 pub struct CodeBuilder {
     pub symbols: Arc<Symbols>,

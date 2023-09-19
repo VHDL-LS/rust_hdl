@@ -1,13 +1,6 @@
 use crate::ast::{ContextItem, ContextReference, LibraryClause, UseClause};
+use crate::syntax::TokenAccess;
 use crate::SrcPos;
-use crate::syntax::{TokenAccess};
-
-/// holds references to information obtained while parsing
-/// that are not directly available in the AST.
-/// Currently, only holds access to the tokens of the stream
-pub struct ParseContext<'a> {
-    pub tokens: &'a dyn TokenAccess
-}
 
 impl UseClause {
     pub fn pos(&self, ctx: &dyn TokenAccess) -> SrcPos {

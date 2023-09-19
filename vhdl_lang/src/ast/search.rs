@@ -26,9 +26,9 @@ pub enum SearchState {
     NotFinished,
 }
 
+use crate::syntax::TokenAccess;
 pub use SearchResult::*;
 pub use SearchState::*;
-use crate::syntax::TokenAccess;
 
 impl SearchState {
     fn or_not_found(self) -> SearchResult {
@@ -73,7 +73,12 @@ pub enum FoundDeclaration<'a> {
 
 pub trait Searcher {
     /// Search an position that has a reference to a declaration
-    fn search_pos_with_ref(&mut self, _ctx: &dyn TokenAccess, _pos: &SrcPos, _ref: &mut Reference) -> SearchState {
+    fn search_pos_with_ref(
+        &mut self,
+        _ctx: &dyn TokenAccess,
+        _pos: &SrcPos,
+        _ref: &mut Reference,
+    ) -> SearchState {
         NotFinished
     }
 
@@ -88,7 +93,11 @@ pub trait Searcher {
     }
 
     /// Search an identifier that has a reference to a declaration
-    fn search_ident_ref(&mut self, ctx: &dyn TokenAccess, ident: &mut WithRef<Ident>) -> SearchState {
+    fn search_ident_ref(
+        &mut self,
+        ctx: &dyn TokenAccess,
+        ident: &mut WithRef<Ident>,
+    ) -> SearchState {
         self.search_pos_with_ref(ctx, &ident.item.pos, &mut ident.reference)
     }
 
@@ -279,10 +288,10 @@ impl Search for LabeledSequentialStatement {
     fn search(&mut self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         if let Some(ref ident) = self.label.tree {
             return_if_found!(searcher
-                .search_decl(ctx, FoundDeclaration::SequentialStatement(
-                    ident,
-                    &mut self.label.decl
-                ))
+                .search_decl(
+                    ctx,
+                    FoundDeclaration::SequentialStatement(ident, &mut self.label.decl)
+                )
                 .or_not_found());
         }
         match self.statement.item {
@@ -444,7 +453,8 @@ impl Search for InstantiationStatement {
                 return_if_found!(ent_name.search(ctx, searcher));
                 if let Some(ref mut architecture_name) = architecture_name {
                     return_if_found!(searcher
-                        .search_pos_with_ref(ctx, 
+                        .search_pos_with_ref(
+                            ctx,
                             &architecture_name.item.pos,
                             &mut architecture_name.reference
                         )
@@ -478,10 +488,10 @@ impl Search for LabeledConcurrentStatement {
     fn search(&mut self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         if let Some(ref ident) = self.label.tree {
             return_if_found!(searcher
-                .search_decl(ctx, FoundDeclaration::ConcurrentStatement(
-                    ident,
-                    &mut self.label.decl
-                ))
+                .search_decl(
+                    ctx,
+                    FoundDeclaration::ConcurrentStatement(ident, &mut self.label.decl)
+                )
                 .or_not_found());
         }
         match self.statement.item {
@@ -504,10 +514,10 @@ impl Search for LabeledConcurrentStatement {
             }
             ConcurrentStatement::ForGenerate(ref mut gen) => {
                 return_if_found!(searcher
-                    .search_decl(ctx, FoundDeclaration::ForGenerateIndex(
-                        self.label.tree.as_ref(),
-                        gen
-                    ))
+                    .search_decl(
+                        ctx,
+                        FoundDeclaration::ForGenerateIndex(self.label.tree.as_ref(), gen)
+                    )
                     .or_not_found());
                 let ForGenerateStatement {
                     index_name: _,
@@ -804,10 +814,10 @@ impl Search for TypeDeclaration {
             TypeDefinition::Enumeration(ref mut literals) => {
                 for literal in literals {
                     return_if_found!(searcher
-                        .search_decl(ctx, FoundDeclaration::EnumerationLiteral(
-                            &mut self.ident.tree,
-                            literal
-                        ))
+                        .search_decl(
+                            ctx,
+                            FoundDeclaration::EnumerationLiteral(&mut self.ident.tree, literal)
+                        )
                         .or_not_found());
                 }
             }
@@ -825,7 +835,9 @@ impl Search for TypeDeclaration {
                     return_if_found!(searcher
                         .search_decl(ctx, FoundDeclaration::PhysicalTypeSecondary(ident, literal))
                         .or_not_found());
-                    return_if_found!(searcher.search_ident_ref(ctx, &mut literal.unit).or_not_found());
+                    return_if_found!(searcher
+                        .search_ident_ref(ctx, &mut literal.unit)
+                        .or_not_found());
                 }
             }
         }
@@ -901,7 +913,12 @@ impl Search for AssociationElement {
     fn search(&mut self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
         let AssociationElement { formal, actual } = self;
         if let Some(formal) = formal {
-            return_if_found!(search_pos_name(&mut formal.pos, &mut formal.item, searcher, ctx));
+            return_if_found!(search_pos_name(
+                &mut formal.pos,
+                &mut formal.item,
+                searcher,
+                ctx
+            ));
         }
 
         match actual.item {
@@ -1040,7 +1057,9 @@ impl Search for Declaration {
                 }
             }
             Declaration::Use(use_clause) => {
-                return_if_found!(searcher.search_with_pos(ctx, &use_clause.pos(ctx)).or_not_found());
+                return_if_found!(searcher
+                    .search_with_pos(ctx, &use_clause.pos(ctx))
+                    .or_not_found());
                 return_if_found!(use_clause.name_list.search(ctx, searcher));
             }
             Declaration::Component(component) => {
@@ -1384,7 +1403,12 @@ impl Searcher for ItemAtCursor {
         }
     }
 
-    fn search_pos_with_ref(&mut self, _ctx: &dyn TokenAccess, pos: &SrcPos, reference: &mut Reference) -> SearchState {
+    fn search_pos_with_ref(
+        &mut self,
+        _ctx: &dyn TokenAccess,
+        pos: &SrcPos,
+        reference: &mut Reference,
+    ) -> SearchState {
         if self.is_inside(pos) {
             if let Some(id) = reference {
                 self.result = Some((pos.clone(), *id));
@@ -1584,7 +1608,12 @@ impl<'a> Searcher for FindAllReferences<'a> {
         NotFinished
     }
 
-    fn search_pos_with_ref(&mut self, _ctx: &dyn TokenAccess, pos: &SrcPos, reference: &mut Reference) -> SearchState {
+    fn search_pos_with_ref(
+        &mut self,
+        _ctx: &dyn TokenAccess,
+        pos: &SrcPos,
+        reference: &mut Reference,
+    ) -> SearchState {
         if let Some(id) = reference.as_ref() {
             let other = self.root.get_ent(*id);
             if is_reference(self.ent, other) {
@@ -1802,7 +1831,12 @@ pub struct FindAllUnresolved {
 }
 
 impl Searcher for FindAllUnresolved {
-    fn search_pos_with_ref(&mut self, _ctx: &dyn TokenAccess, pos: &SrcPos, reference: &mut Reference) -> SearchState {
+    fn search_pos_with_ref(
+        &mut self,
+        _ctx: &dyn TokenAccess,
+        pos: &SrcPos,
+        reference: &mut Reference,
+    ) -> SearchState {
         self.count += 1;
         if reference.is_none() {
             self.unresolved.push(pos.clone());
@@ -1815,7 +1849,12 @@ pub fn clear_references(tree: &mut impl Search) {
     struct ReferenceClearer;
 
     impl Searcher for ReferenceClearer {
-        fn search_pos_with_ref(&mut self, _ctx: &dyn TokenAccess, _pos: &SrcPos, reference: &mut Reference) -> SearchState {
+        fn search_pos_with_ref(
+            &mut self,
+            _ctx: &dyn TokenAccess,
+            _pos: &SrcPos,
+            reference: &mut Reference,
+        ) -> SearchState {
             *reference = None;
             NotFinished
         }
@@ -1833,7 +1872,12 @@ pub fn check_no_unresolved(tree: &mut impl Search) {
     struct CheckNoUnresolved;
 
     impl Searcher for CheckNoUnresolved {
-        fn search_pos_with_ref(&mut self, _ctx: &dyn TokenAccess, _pos: &SrcPos, reference: &mut Reference) -> SearchState {
+        fn search_pos_with_ref(
+            &mut self,
+            _ctx: &dyn TokenAccess,
+            _pos: &SrcPos,
+            reference: &mut Reference,
+        ) -> SearchState {
             assert!(reference.is_some());
             NotFinished
         }
