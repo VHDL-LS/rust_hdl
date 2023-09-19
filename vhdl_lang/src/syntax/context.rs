@@ -14,9 +14,9 @@ use crate::syntax::separated_list::{parse_ident_list, parse_name_list};
 
 /// LRM 13. Design units and their analysis
 pub fn parse_library_clause(stream: &TokenStream) -> ParseResult<LibraryClause> {
-    let library_token = stream.expect_kind(Library)?.clone();
+    let library_token = stream.expect_kind(Library)?;
     let name_list = parse_ident_list(stream)?;
-    let semi_token = stream.expect_kind(SemiColon)?.clone();
+    let semi_token = stream.expect_kind(SemiColon)?;
     Ok(LibraryClause {
         library_token,
         name_list,
@@ -92,7 +92,7 @@ pub fn parse_context(
         // Context reference
         let mut name_list = Vec::new();
         while let Some(comma) = stream.pop_if_kind(Comma) {
-            name_list.push((comma.clone(), parse_name(stream)?));
+            name_list.push((comma, parse_name(stream)?));
         }
         let name_list = SeparatedList {
             first: name,

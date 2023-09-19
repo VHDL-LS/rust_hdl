@@ -17,7 +17,7 @@ use super::visibility::Visibility;
 use crate::ast::search::*;
 use crate::ast::*;
 use crate::data::*;
-use crate::syntax::Symbols;
+use crate::syntax::{Symbols, Token};
 use fnv::{FnvHashMap, FnvHashSet};
 use parking_lot::RwLock;
 use std::collections::hash_map::Entry;
@@ -41,6 +41,7 @@ pub(super) struct LockedUnit {
     arena_id: ArenaId,
     unit_id: UnitId,
     pub unit: AnalysisLock<AnyDesignUnit, AnalysisData>,
+    pub tokens: Vec<Token>,
 }
 
 impl HasUnitId for LockedUnit {
@@ -50,7 +51,7 @@ impl HasUnitId for LockedUnit {
 }
 
 impl LockedUnit {
-    fn new(library_name: &Symbol, unit: AnyDesignUnit) -> LockedUnit {
+    fn new(library_name: &Symbol, unit: AnyDesignUnit, tokens: Vec<Token>) -> LockedUnit {
         let unit_id = match unit {
             AnyDesignUnit::Primary(ref unit) => {
                 UnitId::primary(library_name, PrimaryKind::kind_of(unit), unit.name())
@@ -68,6 +69,7 @@ impl LockedUnit {
             arena_id: ArenaId::default(),
             unit_id,
             unit: AnalysisLock::new(unit),
+            tokens
         }
     }
 }
@@ -155,8 +157,8 @@ impl Library {
     }
 
     fn add_design_file(&mut self, design_file: DesignFile) {
-        for design_unit in design_file.design_units {
-            self.add_design_unit(LockedUnit::new(self.name(), design_unit));
+        for (tokens, design_unit) in design_file.design_units {
+            self.add_design_unit(LockedUnit::new(self.name(), design_unit, tokens));
         }
     }
 
@@ -517,7 +519,7 @@ impl DesignRoot {
             if let Some(unit_ids) = library.units_by_source.get(source) {
                 for unit_id in unit_ids {
                     let unit = library.units.get(unit_id.key()).unwrap();
-                    let _ = unit.unit.write().search(&mut searcher);
+                    let _ = unit.unit.write().search(&unit.tokens, &mut searcher);
                 }
             }
         }
@@ -572,7 +574,7 @@ impl DesignRoot {
         for library in self.libraries.values() {
             for unit_id in library.sorted_unit_ids() {
                 let unit = library.units.get(unit_id.key()).unwrap();
-                return_if_found!(unit.unit.write().search(searcher));
+                return_if_found!(unit.unit.write().search(&unit.tokens, searcher));
             }
         }
         NotFound
@@ -586,7 +588,7 @@ impl DesignRoot {
         if let Some(library) = self.libraries.get(library_name) {
             for unit_id in library.sorted_unit_ids() {
                 let unit = library.units.get(unit_id.key()).unwrap();
-                return_if_found!(unit.unit.write().search(searcher));
+                return_if_found!(unit.unit.write().search(&unit.tokens, searcher));
             }
         }
         NotFound

@@ -9,13 +9,13 @@ use super::declarative_part::parse_declarative_part;
 use super::interface_declaration::parse_parameter_interface_list;
 use super::names::parse_type_mark;
 use super::sequential_statement::parse_labeled_sequential_statements;
-use super::tokens::{kinds_error, Kind::*, TokenStream};
+use super::tokens::{kinds_error, Kind::*, TokenStream, TokenAccess};
 use crate::ast::*;
 use crate::data::*;
 
 pub fn parse_signature(stream: &TokenStream) -> ParseResult<WithPos<Signature>> {
     let left_square = stream.expect_kind(LeftSquare)?;
-    let start_pos = &left_square.pos;
+    let start_pos = stream.get_pos(left_square);
     let mut type_marks = Vec::new();
     let mut return_mark = None;
 
@@ -24,7 +24,8 @@ pub fn parse_signature(stream: &TokenStream) -> ParseResult<WithPos<Signature>> 
         Return => {
             stream.skip();
             return_mark = Some(parse_type_mark(stream)?);
-            start_pos.combine(&stream.expect_kind(RightSquare)?)
+            let right_square = stream.expect_kind(RightSquare)?;
+            start_pos.combine(stream.get_pos(right_square))
         },
         RightSquare => {
             stream.skip();
@@ -46,7 +47,8 @@ pub fn parse_signature(stream: &TokenStream) -> ParseResult<WithPos<Signature>> 
                             },
                             Return => {
                                 return_mark = Some(parse_type_mark(stream)?);
-                                break start_pos.combine(&stream.expect_kind(RightSquare)?);
+                                let right_square = stream.expect_kind(RightSquare)?;
+                                break start_pos.combine(stream.get_pos(right_square));
                             }
                         )
                     }

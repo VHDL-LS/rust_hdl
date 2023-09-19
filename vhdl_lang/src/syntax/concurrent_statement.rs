@@ -23,6 +23,7 @@ use super::tokens::{Kind::*, TokenStream};
 use super::waveform::{parse_delay_mechanism, parse_waveform};
 use crate::ast::*;
 use crate::data::*;
+use crate::syntax::TokenAccess;
 
 /// LRM 11.2 Block statement
 pub fn parse_block_statement(
@@ -78,16 +79,16 @@ fn parse_block_header(
                 if let Some(map_token) = stream.pop_if_kind(Map) {
                     if port_clause.is_some() || port_map.is_some() {
                         diagnostics.push(Diagnostic::error(
-                            map_token,
+                            stream.get_token(map_token),
                             "Generic map must come before port clause and port map",
                         ));
                     } else if generic_clause.is_none() {
                         diagnostics.push(Diagnostic::error(
-                            map_token,
+                            stream.get_token(map_token),
                             "Generic map declared without preceeding generic clause",
                         ));
                     } else if generic_map.is_some() {
-                        diagnostics.push(Diagnostic::error(map_token, "Duplicate generic map"));
+                        diagnostics.push(Diagnostic::error(stream.get_token(map_token), "Duplicate generic map"));
                     }
                     let parsed_generic_map = Some(parse_association_list(stream)?);
                     stream.expect_kind(SemiColon)?;
@@ -115,11 +116,11 @@ fn parse_block_header(
                 if let Some(map_token) = stream.pop_if_kind(Map) {
                     if port_clause.is_none() {
                         diagnostics.push(Diagnostic::error(
-                            map_token,
+                            stream.get_token(map_token),
                             "Port map declared without preceeding port clause",
                         ));
                     } else if port_map.is_some() {
-                        diagnostics.push(Diagnostic::error(map_token, "Duplicate port map"));
+                        diagnostics.push(Diagnostic::error(stream.get_token(map_token), "Duplicate port map"));
                     }
                     let parsed_port_map = Some(parse_association_list(stream)?);
                     stream.expect_kind(SemiColon)?;
@@ -207,7 +208,7 @@ pub fn parse_process_statement(
     if let Some(token) = stream.pop_if_kind(Postponed) {
         if !postponed {
             diagnostics.push(Diagnostic::error(
-                token,
+                stream.get_token(token),
                 "'postponed' at the end of non-postponed process.",
             ));
         }

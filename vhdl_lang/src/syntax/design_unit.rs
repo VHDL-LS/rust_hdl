@@ -18,6 +18,7 @@ use super::declarative_part::{parse_declarative_part, parse_package_instantiatio
 use super::interface_declaration::parse_generic_interface_list;
 use crate::ast::*;
 use crate::data::*;
+use crate::syntax::Token;
 
 /// Parse an entity declaration, token is initial entity token
 /// If a parse error occurs the stream is consumed until and end entity
@@ -158,12 +159,13 @@ fn context_item_message(context_item: &ContextItem, message: impl AsRef<str>) ->
     format!("{} {}", prefix, message.as_ref())
 }
 
-pub fn parse_design_file(
+pub fn parse_design_file<'a>(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<DesignFile> {
     let mut context_clause = vec![];
     let mut design_units = vec![];
+    let mut start = stream.state();
 
     while let Some(token) = stream.peek() {
         try_init_token_kind!(
@@ -179,6 +181,8 @@ pub fn parse_design_file(
             Use => {
                 match parse_use_clause(stream) {
                     Ok(use_clause) => {
+                        let end = stream.state();
+                        let tokens = stream.slice_tokens(start, end);
                         context_clause.push(ContextItem::Use(use_clause));
                     },
                     Err(diagnostic) => diagnostics.push(diagnostic),
@@ -190,14 +194,18 @@ pub fn parse_design_file(
                         let mut diagnostic = Diagnostic::error(&context_decl.ident, "Context declaration may not be preceeded by a context clause");
 
                         for context_item in context_clause.iter() {
-                            diagnostic.add_related(context_item.pos(), context_item_message(context_item, "may not come before context declaration"));
+                            diagnostic.add_related(context_item.pos(stream), context_item_message(&context_item, "may not come before context declaration"));
                         }
 
                         diagnostics.push(diagnostic);
                         context_clause.clear();
                     }
 
-                    design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::Context(context_decl)));
+                    let end = stream.state();
+                    let tokens = stream.slice_tokens(start, end);
+
+                    design_units.push((tokens, AnyDesignUnit::Primary(AnyPrimaryUnit::Context(context_decl))));
+                    start = end;
                 }
                 Ok(DeclarationOrReference::Reference(context_ref)) => {
                     context_clause.push(ContextItem::Context(context_ref));
@@ -206,24 +214,33 @@ pub fn parse_design_file(
             },
             Entity => match parse_entity_declaration(stream, diagnostics) {
                 Ok(mut entity) => {
+                    let end = stream.state();
+                    let tokens = stream.slice_tokens(start, end);
                     entity.context_clause = take_context_clause(&mut context_clause);
-                    design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(entity)));
+                    design_units.push((tokens, AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(entity))));
+                    start = end;
                 }
                 Err(diagnostic) => diagnostics.push(diagnostic),
             },
 
             Architecture => match parse_architecture_body(stream, diagnostics) {
                 Ok(mut architecture) => {
+                    let end = stream.state();
+                    let tokens = stream.slice_tokens(start, end);
                     architecture.context_clause = take_context_clause(&mut context_clause);
-                    design_units.push(AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(architecture)));
+                    design_units.push((tokens, AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(architecture))));
+                    start = end;
                 }
                 Err(diagnostic) => diagnostics.push(diagnostic),
             },
 
             Configuration => match parse_configuration_declaration(stream, diagnostics) {
                 Ok(mut configuration) => {
+                    let end = stream.state();
+                    let tokens = stream.slice_tokens(start, end);
                     configuration.context_clause = take_context_clause(&mut context_clause);
-                    design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::Configuration(configuration)));
+                    design_units.push((tokens, AnyDesignUnit::Primary(AnyPrimaryUnit::Configuration(configuration))));
+                    start = end;
                 }
                 Err(diagnostic) => diagnostics.push(diagnostic),
             },
@@ -231,24 +248,32 @@ pub fn parse_design_file(
                 if stream.next_kinds_are(&[Package, Body]) {
                     match parse_package_body(stream, diagnostics) {
                         Ok(mut package_body) => {
+                            let end = stream.state();
+                            let tokens = stream.slice_tokens(start, end);
                             package_body.context_clause = take_context_clause(&mut context_clause);
-                            design_units.push(AnyDesignUnit::Secondary(AnySecondaryUnit::PackageBody(package_body)));
+                            design_units.push((tokens, AnyDesignUnit::Secondary(AnySecondaryUnit::PackageBody(package_body))));
+                            start = end;
                         }
                         Err(diagnostic) => diagnostics.push(diagnostic),
                     };
                 } else if stream.next_kinds_are(&[Package, Identifier, Is, New]) {
                     match parse_package_instantiation(stream) {
                         Ok(mut inst) => {
+                            let end = stream.state();
+                            let tokens = stream.slice_tokens(start, end);
                             inst.context_clause = take_context_clause(&mut context_clause);
-                            design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::PackageInstance(inst)))
+                            design_units.push((tokens, AnyDesignUnit::Primary(AnyPrimaryUnit::PackageInstance(inst))));
+                            start = end;
                         },
                         Err(diagnostic) => diagnostics.push(diagnostic),
                     }
                 } else {
                     match parse_package_declaration(stream, diagnostics) {
                         Ok(mut package) => {
+                            let end = stream.state();
+                            let tokens = stream.slice_tokens(start, end);
                             package.context_clause = take_context_clause(&mut context_clause);
-                            design_units.push(AnyDesignUnit::Primary(AnyPrimaryUnit::Package(package)))
+                            design_units.push((tokens, AnyDesignUnit::Primary(AnyPrimaryUnit::Package(package))))
                         }
                         Err(diagnostic) => diagnostics.push(diagnostic),
                     };
@@ -259,7 +284,7 @@ pub fn parse_design_file(
 
     for context_item in context_clause {
         diagnostics.push(Diagnostic::warning(
-            &context_item.pos(),
+            &context_item.pos(stream),
             context_item_message(&context_item, "not associated with any design unit"),
         ));
     }

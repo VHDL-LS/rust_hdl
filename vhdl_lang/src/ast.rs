@@ -25,7 +25,7 @@ use std::iter;
 
 use crate::analysis::EntityId;
 use crate::data::*;
-use crate::syntax::Token;
+use crate::syntax::{Token, TokenId};
 
 /// LRM 15.8 Bit string literals
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
@@ -1084,22 +1084,16 @@ pub struct LabeledConcurrentStatement {
 /// LRM 13. Design units and their analysis
 #[derive(PartialEq, Debug, Clone)]
 pub struct LibraryClause {
-    pub library_token: Token,
+    pub library_token: TokenId,
     pub name_list: IdentList,
-    pub semi_token: Token,
-}
-
-impl LibraryClause {
-    pub fn pos(&self) -> SrcPos {
-        self.library_token.pos.combine(&self.semi_token.pos)
-    }
+    pub semi_token: TokenId,
 }
 
 /// Represents a token-separated list of some generic type `T`
 #[derive(PartialEq, Debug, Clone)]
 pub struct SeparatedList<T> {
     pub first: T,
-    pub remainder: Vec<(Token, T)>,
+    pub remainder: Vec<(TokenId, T)>,
 }
 
 pub type IdentList = SeparatedList<WithRef<Ident>>;
@@ -1118,29 +1112,17 @@ impl<T> SeparatedList<T> {
 /// LRM 12.4. Use clauses
 #[derive(PartialEq, Debug, Clone)]
 pub struct UseClause {
-    pub use_token: Token,
+    pub use_token: TokenId,
     pub name_list: NameList,
-    pub semi_token: Token,
-}
-
-impl UseClause {
-    pub fn pos(&self) -> SrcPos {
-        self.use_token.pos.combine(&self.semi_token.pos)
-    }
+    pub semi_token: TokenId,
 }
 
 /// LRM 13.4 Context clauses
 #[derive(PartialEq, Debug, Clone)]
 pub struct ContextReference {
-    pub context_token: Token,
+    pub context_token: TokenId,
     pub name_list: NameList,
-    pub semi_token: Token,
-}
-
-impl ContextReference {
-    pub fn pos(&self) -> SrcPos {
-        self.context_token.pos.combine(&self.semi_token.pos)
-    }
+    pub semi_token: TokenId,
 }
 
 /// LRM 13.4 Context clauses
@@ -1149,16 +1131,6 @@ pub enum ContextItem {
     Use(UseClause),
     Library(LibraryClause),
     Context(ContextReference),
-}
-
-impl ContextItem {
-    pub fn pos(&self) -> SrcPos {
-        match self {
-            ContextItem::Use(use_clause) => use_clause.pos(),
-            ContextItem::Library(lib_clause) => lib_clause.pos(),
-            ContextItem::Context(ctx_clause) => ctx_clause.pos(),
-        }
-    }
 }
 
 /// LRM 13.4 Context clauses
@@ -1348,5 +1320,5 @@ pub enum AnyDesignUnit {
 
 #[derive(PartialEq, Debug, Clone, Default)]
 pub struct DesignFile {
-    pub design_units: Vec<AnyDesignUnit>,
+    pub design_units: Vec<(Vec<Token>, AnyDesignUnit)>,
 }

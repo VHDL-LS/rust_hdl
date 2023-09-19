@@ -96,6 +96,10 @@ impl<'a> TokenStream<'a> {
         self.tokens.get(self.get_idx())
     }
 
+    pub fn get_token_id(&self) -> TokenId {
+        TokenId::new(self.get_idx())
+    }
+
     pub fn last(&self) -> Option<&Token> {
         let last_idx = self.get_idx().checked_sub(1)?;
         self.tokens.get(last_idx)
@@ -145,11 +149,12 @@ impl<'a> TokenStream<'a> {
         token.pos.clone()
     }
 
-    pub fn expect_kind(&self, kind: Kind) -> DiagnosticResult<&Token> {
+    pub fn expect_kind(&self, kind: Kind) -> DiagnosticResult<TokenId> {
         if let Some(token) = self.peek() {
             if token.kind == kind {
+                let id = self.get_token_id();
                 self.skip();
-                Ok(token)
+                Ok(id)
             } else {
                 Err(kinds_error(self.pos_before(token), &[kind]))
             }
@@ -191,11 +196,12 @@ impl<'a> TokenStream<'a> {
             .all(|(idx, kind)| self.nth_kind_is(idx, *kind))
     }
 
-    pub fn pop_if_kind(&self, kind: Kind) -> Option<&Token> {
+    pub fn pop_if_kind(&self, kind: Kind) -> Option<TokenId> {
         if let Some(token) = self.peek() {
             if token.kind == kind {
+                let id = self.get_token_id();
                 self.skip();
-                return Some(token);
+                return Some(id);
             }
         }
         None
@@ -217,7 +223,7 @@ impl<'a> TokenStream<'a> {
 
     pub fn pop_optional_ident(&self) -> Option<Ident> {
         self.pop_if_kind(Identifier)
-            .map(|token| token.to_identifier_value().unwrap())
+            .map(|id| self.tokens.get_token(id).to_identifier_value().unwrap())
     }
 
     pub fn expect_ident(&self) -> DiagnosticResult<Ident> {
@@ -238,6 +244,16 @@ impl<'a> TokenStream<'a> {
             Range => WithPos::new(AttributeDesignator::Range(RangeAttribute::Range), token.pos.clone())
         );
         Ok(des)
+    }
+
+    pub fn slice_tokens(&self, start_state: usize, end_state: usize) -> Vec<Token> {
+        Vec::from(&self.tokens[start_state..end_state-1])
+    }
+}
+
+impl <'a> TokenAccess for TokenStream<'a> {
+    fn get_token(&self, id: TokenId) -> &Token {
+        self.tokens.get_token(id)
     }
 }
 

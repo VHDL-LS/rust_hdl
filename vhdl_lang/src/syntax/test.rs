@@ -35,6 +35,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hasher;
 use std::sync::Arc;
+use crate::syntax::TokenId;
 
 pub struct CodeBuilder {
     pub symbols: Arc<Symbols>,
@@ -195,7 +196,7 @@ impl Code {
         tokens.into_iter().map(|tok| tok.unwrap()).collect()
     }
 
-    pub fn token(&self) -> Token {
+    pub fn token(&self) -> TokenId {
         let contents = self.pos.source.contents();
         let source = Source::from_contents(
             self.pos.file_name(),
@@ -206,7 +207,8 @@ impl Code {
         let tokenizer = Tokenizer::new(&self.symbols, &source, reader);
         let stream = TokenStream::new(tokenizer, &mut NoDiagnostics);
         forward(&stream, self.pos.start());
-        stream.peek().expect("No token found").clone()
+        stream.peek().expect("No token found");
+        stream.get_token_id()
     }
 
     /// Helper method to run lower level parsing function at specific substring
