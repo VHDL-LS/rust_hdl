@@ -20,7 +20,7 @@ where
     let first = parse_fn(stream)?;
     let mut remainder = Vec::new();
     while let Some(separator) = stream.pop_if_kind(separator) {
-        remainder.push((separator.clone(), parse_fn(stream)?));
+        remainder.push((separator, parse_fn(stream)?));
     }
     Ok(SeparatedList { first, remainder })
 }

@@ -26,10 +26,10 @@ pub fn parse_library_clause(stream: &TokenStream) -> ParseResult<LibraryClause> 
 
 /// LRM 12.4. Use clauses
 pub fn parse_use_clause(stream: &TokenStream) -> ParseResult<UseClause> {
-    let use_token = stream.expect_kind(Use)?.clone();
+    let use_token = stream.expect_kind(Use)?;
 
     let name_list = parse_name_list(stream)?;
-    let semi_token = stream.expect_kind(SemiColon)?.clone();
+    let semi_token = stream.expect_kind(SemiColon)?;
     Ok(UseClause {
         use_token,
         name_list,
@@ -44,10 +44,10 @@ pub enum DeclarationOrReference {
 }
 
 pub fn parse_context_reference(stream: &TokenStream) -> ParseResult<ContextReference> {
-    let context_token = stream.expect_kind(Context)?.clone();
+    let context_token = stream.expect_kind(Context)?;
 
     let name_list = parse_name_list(stream)?;
-    let semi_token = stream.expect_kind(SemiColon)?.clone();
+    let semi_token = stream.expect_kind(SemiColon)?;
     Ok(ContextReference {
         context_token,
         name_list,
@@ -60,7 +60,7 @@ pub fn parse_context(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<DeclarationOrReference> {
-    let context_token = stream.expect_kind(Context)?.clone();
+    let context_token = stream.expect_kind(Context)?;
     let name = parse_name(stream)?;
     if stream.skip_if_kind(Is) {
         let mut items = Vec::with_capacity(16);
@@ -98,7 +98,7 @@ pub fn parse_context(
             first: name,
             remainder: name_list,
         };
-        let semi_token = stream.expect_kind(SemiColon)?.clone();
+        let semi_token = stream.expect_kind(SemiColon)?;
         Ok(DeclarationOrReference::Reference(ContextReference {
             context_token,
             name_list,

@@ -158,7 +158,7 @@ fn context_item_message(context_item: &ContextItem, message: impl AsRef<str>) ->
     format!("{} {}", prefix, message.as_ref())
 }
 
-pub fn parse_design_file<'a>(
+pub fn parse_design_file(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<DesignFile> {
@@ -191,7 +191,7 @@ pub fn parse_design_file<'a>(
                         let mut diagnostic = Diagnostic::error(&context_decl.ident, "Context declaration may not be preceeded by a context clause");
 
                         for context_item in context_clause.iter() {
-                            diagnostic.add_related(context_item.pos(stream), context_item_message(&context_item, "may not come before context declaration"));
+                            diagnostic.add_related(context_item.pos(stream), context_item_message(context_item, "may not come before context declaration"));
                         }
 
                         diagnostics.push(diagnostic);
