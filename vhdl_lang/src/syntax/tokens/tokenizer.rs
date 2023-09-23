@@ -494,6 +494,12 @@ impl TokenAccess for Vec<Token> {
     }
 }
 
+impl<'a> TokenAccess for [Token] {
+    fn get_token(&self, id: TokenId) -> &Token {
+        &self[id.0]
+    }
+}
+
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct TokenComments {
     pub leading: Vec<Comment>,

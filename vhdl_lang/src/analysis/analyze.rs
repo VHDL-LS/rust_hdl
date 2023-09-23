@@ -9,6 +9,7 @@ use super::region::*;
 use super::root::*;
 use crate::ast::*;
 use crate::data::*;
+use crate::syntax::TokenAccess;
 use fnv::FnvHashSet;
 use std::cell::RefCell;
 use std::ops::Deref;
@@ -155,6 +156,7 @@ pub(super) struct AnalyzeContext<'a> {
     uses: RefCell<FnvHashSet<UnitId>>,
     missing_unit: RefCell<FnvHashSet<(Symbol, Symbol, Option<Symbol>)>>,
     uses_library_all: RefCell<FnvHashSet<Symbol>>,
+    pub ctx: &'a dyn TokenAccess,
 }
 
 impl<'a> AnalyzeContext<'a> {
@@ -162,6 +164,7 @@ impl<'a> AnalyzeContext<'a> {
         root: &'a DesignRoot,
         current_unit: &UnitId,
         arena: &'a Arena,
+        ctx: &'a dyn TokenAccess,
     ) -> AnalyzeContext<'a> {
         AnalyzeContext {
             work_sym: root.symbol_utf8("work"),
@@ -178,6 +181,7 @@ impl<'a> AnalyzeContext<'a> {
             uses: RefCell::new(FnvHashSet::default()),
             missing_unit: RefCell::new(FnvHashSet::default()),
             uses_library_all: RefCell::new(FnvHashSet::default()),
+            ctx,
         }
     }
 

@@ -233,7 +233,7 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             for elem in assocs.iter_mut() {
-                clear_references(elem);
+                clear_references(elem, self.ctx);
             }
         }
 

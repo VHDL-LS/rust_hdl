@@ -34,6 +34,7 @@ use crate::ast::UnitId;
 pub use crate::data::Diagnostic;
 use crate::data::NoDiagnostics;
 pub use crate::syntax::test::*;
+use crate::syntax::Token;
 
 use super::analyze::AnalyzeContext;
 use super::named_entity::*;
@@ -46,6 +47,7 @@ pub(super) struct TestSetup<'a> {
     root: DesignRoot,
     arena: Arena,
     pub scope: Scope<'a>,
+    tokens: Vec<Token>,
 }
 
 impl<'a> TestSetup<'a> {
@@ -60,6 +62,7 @@ impl<'a> TestSetup<'a> {
             root,
             builder: RefCell::new(builder),
             scope: Scope::new(Region::default()),
+            tokens: vec![],
         }
     }
 
@@ -71,6 +74,7 @@ impl<'a> TestSetup<'a> {
                 &self.root.symbol_utf8("dummy"),
             ),
             &self.arena,
+            &self.tokens,
         );
         ctx.add_implicit_context_clause(&self.scope).unwrap();
         ctx
