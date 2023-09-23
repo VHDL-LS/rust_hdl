@@ -10,6 +10,7 @@ use crate::analysis::EntityId;
 use crate::ast::search::*;
 use crate::ast::Reference;
 use crate::data::SrcPos;
+use crate::syntax::TokenAccess;
 use fnv::FnvHashSet;
 use pretty_assertions::assert_eq;
 
@@ -343,7 +344,12 @@ struct FindAnyReferences {
 }
 
 impl Searcher for FindAnyReferences {
-    fn search_pos_with_ref(&mut self, _: &SrcPos, reference: &mut Reference) -> SearchState {
+    fn search_pos_with_ref(
+        &mut self,
+        _ctx: &dyn TokenAccess,
+        _: &SrcPos,
+        reference: &mut Reference,
+    ) -> SearchState {
         if let Some(id) = reference {
             self.references.push(*id);
         };

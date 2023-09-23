@@ -2060,7 +2060,7 @@ end context;",
             |code| {
                 assert_matches!(
                     code.design_file().design_units.remove(0),
-                    AnyDesignUnit::Primary(AnyPrimaryUnit::Context(context)) => context
+                    (_, AnyDesignUnit::Primary(AnyPrimaryUnit::Context(context))) => context
                 )
             },
         );
@@ -2071,7 +2071,7 @@ end context;",
         assert_format("package ident is new lib.foo.bar;", |code| {
             assert_matches!(
                 code.design_file().design_units.remove(0),
-                AnyDesignUnit::Primary(AnyPrimaryUnit::PackageInstance(instance)) => instance
+                (_, AnyDesignUnit::Primary(AnyPrimaryUnit::PackageInstance(instance))) => instance
             )
         });
     }
@@ -2087,7 +2087,7 @@ end context;",
             |code| {
                 assert_matches!(
                     code.design_file().design_units.remove(0),
-                    AnyDesignUnit::Primary(AnyPrimaryUnit::PackageInstance(instance)) => instance
+                    (_, AnyDesignUnit::Primary(AnyPrimaryUnit::PackageInstance(instance))) => instance
                 )
             },
         );
@@ -2104,7 +2104,7 @@ end;",
             |code| {
                 assert_matches!(
                     code.design_file().design_units.remove(0),
-                    AnyDesignUnit::Primary(AnyPrimaryUnit::Configuration(unit)) => unit
+                    (_, AnyDesignUnit::Primary(AnyPrimaryUnit::Configuration(unit))) => unit
                 )
             },
         );
@@ -2119,7 +2119,7 @@ end package;",
             |code| {
                 assert_matches!(
                     code.design_file().design_units.remove(0),
-                    AnyDesignUnit::Primary(AnyPrimaryUnit::Package(unit)) => unit
+                    (_, AnyDesignUnit::Primary(AnyPrimaryUnit::Package(unit))) => unit
                 )
             },
         );
@@ -2142,7 +2142,7 @@ end package;",
             |code| {
                 assert_matches!(
                     code.design_file().design_units.remove(0),
-                    AnyDesignUnit::Primary(AnyPrimaryUnit::Package(unit)) => unit
+                    (_, AnyDesignUnit::Primary(AnyPrimaryUnit::Package(unit))) => unit
                 )
             },
         );

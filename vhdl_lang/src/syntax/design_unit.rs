@@ -164,7 +164,6 @@ pub fn parse_design_file(
 ) -> ParseResult<DesignFile> {
     let mut context_clause = vec![];
     let mut design_units = vec![];
-    let mut start = stream.state();
 
     while let Some(token) = stream.peek() {
         try_init_token_kind!(
@@ -198,11 +197,9 @@ pub fn parse_design_file(
                         context_clause.clear();
                     }
 
-                    let end = stream.state();
-                    let tokens = stream.slice_tokens(start, end);
+                    let tokens = stream.slice_tokens();
 
                     design_units.push((tokens, AnyDesignUnit::Primary(AnyPrimaryUnit::Context(context_decl))));
-                    start = end;
                 }
                 Ok(DeclarationOrReference::Reference(context_ref)) => {
                     context_clause.push(ContextItem::Context(context_ref));
@@ -211,33 +208,27 @@ pub fn parse_design_file(
             },
             Entity => match parse_entity_declaration(stream, diagnostics) {
                 Ok(mut entity) => {
-                    let end = stream.state();
-                    let tokens = stream.slice_tokens(start, end);
+                    let tokens = stream.slice_tokens();
                     entity.context_clause = take_context_clause(&mut context_clause);
                     design_units.push((tokens, AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(entity))));
-                    start = end;
                 }
                 Err(diagnostic) => diagnostics.push(diagnostic),
             },
 
             Architecture => match parse_architecture_body(stream, diagnostics) {
                 Ok(mut architecture) => {
-                    let end = stream.state();
-                    let tokens = stream.slice_tokens(start, end);
+                    let tokens = stream.slice_tokens();
                     architecture.context_clause = take_context_clause(&mut context_clause);
                     design_units.push((tokens, AnyDesignUnit::Secondary(AnySecondaryUnit::Architecture(architecture))));
-                    start = end;
                 }
                 Err(diagnostic) => diagnostics.push(diagnostic),
             },
 
             Configuration => match parse_configuration_declaration(stream, diagnostics) {
                 Ok(mut configuration) => {
-                    let end = stream.state();
-                    let tokens = stream.slice_tokens(start, end);
+                    let tokens = stream.slice_tokens();
                     configuration.context_clause = take_context_clause(&mut context_clause);
                     design_units.push((tokens, AnyDesignUnit::Primary(AnyPrimaryUnit::Configuration(configuration))));
-                    start = end;
                 }
                 Err(diagnostic) => diagnostics.push(diagnostic),
             },
@@ -245,32 +236,27 @@ pub fn parse_design_file(
                 if stream.next_kinds_are(&[Package, Body]) {
                     match parse_package_body(stream, diagnostics) {
                         Ok(mut package_body) => {
-                            let end = stream.state();
-                            let tokens = stream.slice_tokens(start, end);
+                            let tokens = stream.slice_tokens();
                             package_body.context_clause = take_context_clause(&mut context_clause);
                             design_units.push((tokens, AnyDesignUnit::Secondary(AnySecondaryUnit::PackageBody(package_body))));
-                            start = end;
                         }
                         Err(diagnostic) => diagnostics.push(diagnostic),
                     };
                 } else if stream.next_kinds_are(&[Package, Identifier, Is, New]) {
                     match parse_package_instantiation(stream) {
                         Ok(mut inst) => {
-                            let end = stream.state();
-                            let tokens = stream.slice_tokens(start, end);
+                            let tokens = stream.slice_tokens();
                             inst.context_clause = take_context_clause(&mut context_clause);
                             design_units.push((tokens, AnyDesignUnit::Primary(AnyPrimaryUnit::PackageInstance(inst))));
-                            start = end;
                         },
                         Err(diagnostic) => diagnostics.push(diagnostic),
                     }
                 } else {
                     match parse_package_declaration(stream, diagnostics) {
                         Ok(mut package) => {
-                            let end = stream.state();
-                            let tokens = stream.slice_tokens(start, end);
+                            let tokens = stream.slice_tokens();
                             package.context_clause = take_context_clause(&mut context_clause);
-                            design_units.push((tokens, AnyDesignUnit::Primary(AnyPrimaryUnit::Package(package))))
+                            design_units.push((tokens, AnyDesignUnit::Primary(AnyPrimaryUnit::Package(package))));
                         }
                         Err(diagnostic) => diagnostics.push(diagnostic),
                     };
@@ -292,6 +278,7 @@ pub fn parse_design_file(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use itertools::Itertools;
 
     use crate::data::Diagnostic;
     use crate::syntax::test::{check_diagnostics, check_no_diagnostics, Code};
@@ -311,7 +298,7 @@ mod tests {
 
     fn to_single_entity(design_file: DesignFile) -> EntityDeclaration {
         match design_file.design_units.as_slice() {
-            [AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(ref entity))] => entity.to_owned(),
+            [(_, AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(ref entity)))] => entity.to_owned(),
             _ => panic!("Expected single entity {design_file:?}"),
         }
     }
@@ -343,9 +330,16 @@ entity myent is
 end entity;
 ",
         );
+        println!(
+            "tokens: {:?}",
+            code.tokenize().iter().map(|it| it.kind).collect_vec()
+        );
         assert_eq!(
             design_file.design_units,
-            [simple_entity(code.s1("myent").ident(), None)]
+            [(
+                code.tokenize(),
+                simple_entity(code.s1("myent").ident(), None)
+            )]
         );
 
         let (code, design_file) = parse_ok(
@@ -356,9 +350,9 @@ end entity myent;
         );
         assert_eq!(
             design_file.design_units,
-            [simple_entity(
-                code.s1("myent").ident(),
-                Some(code.s("myent", 2).pos())
+            [(
+                code.tokenize(),
+                simple_entity(code.s1("myent").ident(), Some(code.s("myent", 2).pos()),)
             )]
         );
     }
@@ -521,13 +515,46 @@ entity myent4 is
 end;
 ",
         );
+        let tokens = code.tokenize();
+        let substreams = tokens
+            .split_inclusive(|tok| tok.kind == SemiColon)
+            .map(|slice| Vec::from(slice))
+            .collect_vec();
+
+        let expected_streams = vec![
+            vec![Entity, Identifier, Is, End, Entity, SemiColon],
+            vec![Entity, Identifier, Is, End, Entity, Identifier, SemiColon],
+            vec![Entity, Identifier, Is, End, Identifier, SemiColon],
+            vec![Entity, Identifier, Is, End, SemiColon],
+        ];
+
+        assert_eq!(
+            substreams
+                .iter()
+                .map(|it| it.iter().map(|tok| tok.kind).collect_vec())
+                .collect_vec(),
+            expected_streams
+        );
+
         assert_eq!(
             design_file.design_units,
             [
-                simple_entity(code.s1("myent").ident(), None),
-                simple_entity(code.s1("myent2").ident(), Some(code.s("myent2", 2).pos())),
-                simple_entity(code.s1("myent3").ident(), Some(code.s("myent3", 2).pos())),
-                simple_entity(code.s1("myent4").ident(), None)
+                (
+                    substreams[0].clone(),
+                    simple_entity(code.s1("myent").ident(), None)
+                ),
+                (
+                    substreams[1].clone(),
+                    simple_entity(code.s1("myent2").ident(), Some(code.s("myent2", 2).pos()))
+                ),
+                (
+                    substreams[2].clone(),
+                    simple_entity(code.s1("myent3").ident(), Some(code.s("myent3", 2).pos()))
+                ),
+                (
+                    substreams[3].clone(),
+                    simple_entity(code.s1("myent4").ident(), None)
+                )
             ]
         );
     }
@@ -559,10 +586,13 @@ end architecture;
         );
         assert_eq!(
             design_file.design_units,
-            [simple_architecture(
-                WithDecl::new(code.s1("arch_name").ident()),
-                code.s1("myent").ident(),
-                None,
+            [(
+                code.tokenize(),
+                simple_architecture(
+                    WithDecl::new(code.s1("arch_name").ident()),
+                    code.s1("myent").ident(),
+                    None,
+                )
             )]
         );
     }
@@ -578,10 +608,13 @@ end architecture arch_name;
         );
         assert_eq!(
             design_file.design_units,
-            [simple_architecture(
-                WithDecl::new(code.s1("arch_name").ident()),
-                code.s1("myent").ident(),
-                Some(code.s("arch_name", 2).pos())
+            [(
+                code.tokenize(),
+                simple_architecture(
+                    WithDecl::new(code.s1("arch_name").ident()),
+                    code.s1("myent").ident(),
+                    Some(code.s("arch_name", 2).pos()),
+                )
             )]
         );
     }
@@ -597,10 +630,13 @@ end;
         );
         assert_eq!(
             design_file.design_units,
-            [simple_architecture(
-                WithDecl::new(code.s1("arch_name").ident()),
-                code.s1("myent").ident(),
-                None
+            [(
+                code.tokenize(),
+                simple_architecture(
+                    WithDecl::new(code.s1("arch_name").ident()),
+                    code.s1("myent").ident(),
+                    None,
+                )
             )]
         );
     }
@@ -620,7 +656,7 @@ end package;
                 ident: code.s1("pkg_name").decl_ident(),
                 generic_clause: None,
                 decl: vec![],
-                end_ident_pos: None
+                end_ident_pos: None,
             }
         );
     }
@@ -647,7 +683,7 @@ end package;
   constant bar : natural := 0;
 ")
                     .declarative_part(),
-                end_ident_pos: None
+                end_ident_pos: None,
             }
         );
     }
@@ -671,10 +707,10 @@ end package;
                 ident: code.s1("pkg_name").decl_ident(),
                 generic_clause: Some(vec![
                     code.s1("type foo").generic(),
-                    code.s1("type bar").generic()
+                    code.s1("type bar").generic(),
                 ]),
                 decl: vec![],
-                end_ident_pos: None
+                end_ident_pos: None,
             }
         );
     }
@@ -693,20 +729,21 @@ end entity;
         assert_eq!(
             design_file,
             DesignFile {
-                design_units: vec![AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(
-                    EntityDeclaration {
+                design_units: vec![(
+                    code.tokenize(),
+                    AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(EntityDeclaration {
                         context_clause: vec![
                             ContextItem::Library(code.s1("library lib;").library_clause()),
-                            ContextItem::Use(code.s1("use lib.foo;").use_clause())
+                            ContextItem::Use(code.s1("use lib.foo;").use_clause()),
                         ],
                         ident: code.s1("myent").decl_ident(),
                         generic_clause: None,
                         port_clause: None,
                         decl: vec![],
                         statements: vec![],
-                        end_ident_pos: None
-                    }
-                ))]
+                        end_ident_pos: None,
+                    }))
+                )]
             }
         );
     }
@@ -783,7 +820,7 @@ end entity;
         );
 
         match design_file.design_units.get(1).unwrap() {
-            AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(entity)) => {
+            (_, AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(entity))) => {
                 assert_eq!(entity.context_clause.len(), 0);
             }
             _ => panic!("Expected entity"),

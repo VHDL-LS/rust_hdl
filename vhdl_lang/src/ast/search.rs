@@ -1845,7 +1845,7 @@ impl Searcher for FindAllUnresolved {
     }
 }
 
-pub fn clear_references(tree: &mut impl Search) {
+pub fn clear_references(tree: &mut impl Search, ctx: &dyn TokenAccess) {
     struct ReferenceClearer;
 
     impl Searcher for ReferenceClearer {
@@ -1860,10 +1860,8 @@ pub fn clear_references(tree: &mut impl Search) {
         }
     }
 
-    let access: Vec<Token> = Vec::new();
-
     let mut searcher = ReferenceClearer;
-    let _ = tree.search(&access, &mut searcher);
+    let _ = tree.search(ctx, &mut searcher);
 }
 
 #[cfg(test)]
@@ -1884,5 +1882,6 @@ pub fn check_no_unresolved(tree: &mut impl Search) {
     }
 
     let mut searcher = CheckNoUnresolved;
-    let _ = tree.search(&mut searcher);
+    let tokens: Vec<Token> = Vec::new();
+    let _ = tree.search(&tokens, &mut searcher);
 }

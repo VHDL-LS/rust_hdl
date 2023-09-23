@@ -16,6 +16,7 @@ pub struct TokenStream<'a> {
     tokenizer: Tokenizer<'a>,
     idx: Cell<usize>,
     tokens: Vec<Token>,
+    token_offset: Cell<usize>,
 }
 
 impl<'a> TokenStream<'a> {
@@ -69,6 +70,7 @@ impl<'a> TokenStream<'a> {
             tokenizer,
             idx: Cell::new(0),
             tokens,
+            token_offset: Cell::new(0),
         }
     }
 
@@ -97,7 +99,7 @@ impl<'a> TokenStream<'a> {
     }
 
     pub fn get_token_id(&self) -> TokenId {
-        TokenId::new(self.get_idx())
+        TokenId::new(self.get_idx() - self.token_offset.get())
     }
 
     pub fn last(&self) -> Option<&Token> {
@@ -223,7 +225,7 @@ impl<'a> TokenStream<'a> {
 
     pub fn pop_optional_ident(&self) -> Option<Ident> {
         self.pop_if_kind(Identifier)
-            .map(|id| self.tokens.get_token(id).to_identifier_value().unwrap())
+            .map(|id| self.get_token(id).to_identifier_value().unwrap())
     }
 
     pub fn expect_ident(&self) -> DiagnosticResult<Ident> {
@@ -246,14 +248,16 @@ impl<'a> TokenStream<'a> {
         Ok(des)
     }
 
-    pub fn slice_tokens(&self, start_state: usize, end_state: usize) -> Vec<Token> {
-        Vec::from(&self.tokens[start_state..end_state - 1])
+    pub fn slice_tokens(&self) -> Vec<Token> {
+        let vec = Vec::from(&self.tokens[self.token_offset.get()..self.state()]);
+        self.token_offset.replace(self.state());
+        vec
     }
 }
 
 impl<'a> TokenAccess for TokenStream<'a> {
     fn get_token(&self, id: TokenId) -> &Token {
-        self.tokens.get_token(id)
+        self.tokens[self.token_offset.get()..].get_token(id)
     }
 }
 
@@ -301,6 +305,7 @@ mod tests {
     use super::*;
     use crate::data::{ContentReader, Diagnostic, NoDiagnostics};
     use crate::syntax::test::Code;
+    use itertools::Itertools;
 
     macro_rules! new_stream {
         ($code:ident, $stream:ident) => {
@@ -477,5 +482,38 @@ mod tests {
             diagnostics,
             vec![Diagnostic::error(code.s1("`"), "Expecting identifier")]
         )
+    }
+
+    #[test]
+    fn pop_tokens() {
+        let code = Code::new("\
+entity my_ent is
+end entity my_ent;
+
+architecture arch of my_ent is
+end arch;
+        ");
+        new_stream!(code, stream);
+        stream.skip_until(|it| it == SemiColon).expect("");
+        stream.skip();
+        assert_eq!(
+            stream.slice_tokens().iter().map(|it| it.kind).collect_vec(),
+            vec![Entity, Identifier, Is, End, Entity, Identifier, SemiColon]
+        );
+        stream.skip_until(|it| it == SemiColon).expect("");
+        stream.skip();
+        assert_eq!(
+            stream.slice_tokens().iter().map(|it| it.kind).collect_vec(),
+            vec![
+                Architecture,
+                Identifier,
+                Of,
+                Identifier,
+                Is,
+                End,
+                Identifier,
+                SemiColon
+            ]
+        );
     }
 }

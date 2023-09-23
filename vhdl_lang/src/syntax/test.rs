@@ -29,7 +29,7 @@ use crate::ast;
 use crate::ast::*;
 use crate::data::Range;
 use crate::data::*;
-use crate::syntax::TokenId;
+use crate::syntax::{TokenAccess, TokenId};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -362,7 +362,8 @@ impl Code {
 
     pub fn character(&self) -> WithPos<u8> {
         self.parse_ok(|stream: &TokenStream| {
-            stream.expect_kind(Kind::Character)?.to_character_value()
+            let id = stream.expect_kind(Kind::Character)?;
+            stream.get_token(id).to_character_value()
         })
     }
 
