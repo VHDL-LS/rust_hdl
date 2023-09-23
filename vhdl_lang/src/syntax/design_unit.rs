@@ -282,6 +282,7 @@ mod tests {
 
     use crate::data::Diagnostic;
     use crate::syntax::test::{check_diagnostics, check_no_diagnostics, Code};
+    use crate::syntax::TokenAccess;
 
     fn parse_str(code: &str) -> (Code, DesignFile, Vec<Diagnostic>) {
         let code = Code::new(code);
@@ -825,5 +826,46 @@ end entity;
             }
             _ => panic!("Expected entity"),
         }
+    }
+
+    #[test]
+    fn index_tokens_from_different_design_units() {
+        let code = Code::new(
+            "\
+library ieee;
+use ieee.std_logic_1164.all;
+
+entity my_ent is
+generic (
+    N : natural := 4
+);
+end my_ent;
+
+architecture arch of my_ent is
+begin
+
+end arch;
+
+context my_context;
+
+entity y is
+end entity y;
+        ",
+        );
+
+        let file = code.design_file();
+        let (tokens, unit) = &file.design_units[0];
+        let ent = unit.entity();
+        let lib = ent.context_clause[0].library_clause();
+        let tok = tokens.get_token(lib.library_token);
+        assert_eq!(tok.kind, Library);
+        assert_eq!(tok.pos, code.s1("library").pos());
+
+        let (tokens, unit) = &file.design_units[2];
+        let ent = unit.entity();
+        let ctx_ref = ent.context_clause[0].context_reference();
+        let tok = tokens.get_token(ctx_ref.context_token);
+        assert_eq!(tok.kind, Context);
+        assert_eq!(tok.pos, code.s1("context").pos());
     }
 }

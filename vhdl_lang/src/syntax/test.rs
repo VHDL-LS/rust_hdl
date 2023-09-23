@@ -29,6 +29,7 @@ use crate::ast;
 use crate::ast::*;
 use crate::data::Range;
 use crate::data::*;
+use crate::syntax::context::{parse_context, DeclarationOrReference};
 use crate::syntax::{TokenAccess, TokenId};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::hash_map::Entry;
@@ -39,6 +40,31 @@ use std::sync::Arc;
 
 pub struct CodeBuilder {
     pub symbols: Arc<Symbols>,
+}
+
+impl AnyDesignUnit {
+    pub fn entity(&self) -> &EntityDeclaration {
+        match self {
+            AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(ent)) => ent,
+            _ => unreachable!("Expected entity"),
+        }
+    }
+}
+
+impl ContextItem {
+    pub fn library_clause(&self) -> &LibraryClause {
+        match self {
+            ContextItem::Library(lib) => lib,
+            _ => unreachable!("Expected library clause"),
+        }
+    }
+
+    pub fn context_reference(&self) -> &ContextReference {
+        match self {
+            ContextItem::Context(ctx) => ctx,
+            _ => unreachable!("Expected context clause"),
+        }
+    }
 }
 
 impl CodeBuilder {
@@ -507,6 +533,13 @@ impl Code {
 
     pub fn library_clause(&self) -> LibraryClause {
         self.parse_ok(parse_library_clause)
+    }
+
+    pub fn context_declaration(&self) -> ContextDeclaration {
+        match self.parse_ok_no_diagnostics(parse_context) {
+            DeclarationOrReference::Declaration(decl) => decl,
+            DeclarationOrReference::Reference(_) => panic!("Expecting Context Declaration"),
+        }
     }
 
     pub fn design_file(&self) -> DesignFile {

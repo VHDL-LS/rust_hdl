@@ -16,6 +16,9 @@ pub struct TokenStream<'a> {
     tokenizer: Tokenizer<'a>,
     idx: Cell<usize>,
     tokens: Vec<Token>,
+    // This is the offset that a token's ID should be adapted
+    // when getting it via `TokenStream::get_token_id()`
+    // It is updated in the `slice_tokens` method
     token_offset: Cell<usize>,
 }
 
@@ -248,6 +251,28 @@ impl<'a> TokenStream<'a> {
         Ok(des)
     }
 
+    /// Slices the tokens until the current position.
+    /// The token at the current position is not included.
+    /// Subsequent calls to `slice_tokens` will start from the current position.
+    ///
+    /// Note that The function `TokenStream::get_token(TokenId)` only returns a token
+    /// for `TokenId`s that are obtained after `slice_tokens` was called.
+    ///
+    /// # Example
+    ///
+    /// ```vhdl
+    /// 1 2 abc; tok x
+    ///          ^
+    ///          current position
+    /// ```
+    /// After calling `slice_tokens`, the returned vec is `[1, 2, abc, ;]`.
+    ///
+    /// ```vhdl
+    /// 1 2 abc; tok x
+    ///                ^
+    ///                current position (EOF)
+    /// ```
+    /// After calling `slice_tokens` again, the returned vec is `[tok x]`
     pub fn slice_tokens(&self) -> Vec<Token> {
         let vec = Vec::from(&self.tokens[self.token_offset.get()..self.state()]);
         self.token_offset.replace(self.state());
@@ -517,5 +542,22 @@ end arch;
                 SemiColon
             ]
         );
+    }
+
+    #[test]
+    fn indexing_tokens_after_slicing() {
+        let code = Code::new("1 2 abc; () +");
+        new_stream!(code, stream);
+        let tokens = code.tokenize();
+        assert_eq!(tokens[0], stream.get_token(stream.get_token_id()).clone());
+        stream.skip();
+        assert_eq!(tokens[1], stream.get_token(stream.get_token_id()).clone());
+        stream
+            .skip_until(|kind| kind == SemiColon)
+            .expect("Unexpected EOF");
+        stream.slice_tokens();
+        assert_eq!(tokens[3], stream.get_token(stream.get_token_id()).clone());
+        stream.skip();
+        assert_eq!(tokens[4], stream.get_token(stream.get_token_id()).clone());
     }
 }
