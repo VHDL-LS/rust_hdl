@@ -518,7 +518,7 @@ end;
         let tokens = code.tokenize();
         let substreams = tokens
             .split_inclusive(|tok| tok.kind == SemiColon)
-            .map(|slice| Vec::from(slice))
+            .map(Vec::from)
             .collect_vec();
 
         let expected_streams = vec![
