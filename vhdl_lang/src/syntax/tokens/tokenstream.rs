@@ -486,13 +486,15 @@ mod tests {
 
     #[test]
     fn pop_tokens() {
-        let code = Code::new("\
+        let code = Code::new(
+            "\
 entity my_ent is
 end entity my_ent;
 
 architecture arch of my_ent is
 end arch;
-        ");
+        ",
+        );
         new_stream!(code, stream);
         stream.skip_until(|it| it == SemiColon).expect("");
         stream.skip();
