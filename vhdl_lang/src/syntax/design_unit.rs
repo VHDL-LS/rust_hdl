@@ -331,10 +331,6 @@ entity myent is
 end entity;
 ",
         );
-        println!(
-            "tokens: {:?}",
-            code.tokenize().iter().map(|it| it.kind).collect_vec()
-        );
         assert_eq!(
             design_file.design_units,
             [(
