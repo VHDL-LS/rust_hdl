@@ -43,26 +43,26 @@ pub struct CodeBuilder {
 }
 
 impl AnyDesignUnit {
-    pub fn entity(&self) -> &EntityDeclaration {
+    pub fn expect_entity(&self) -> &EntityDeclaration {
         match self {
             AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(ent)) => ent,
-            _ => unreachable!("Expected entity"),
+            _ => panic!("Expected entity"),
         }
     }
 }
 
 impl ContextItem {
-    pub fn library_clause(&self) -> &LibraryClause {
+    pub fn expect_library_clause(&self) -> &LibraryClause {
         match self {
             ContextItem::Library(lib) => lib,
-            _ => unreachable!("Expected library clause"),
+            _ => panic!("Expected library clause"),
         }
     }
 
-    pub fn context_reference(&self) -> &ContextReference {
+    pub fn expect_context_reference(&self) -> &ContextReference {
         match self {
             ContextItem::Context(ctx) => ctx,
-            _ => unreachable!("Expected context clause"),
+            _ => panic!("Expected context clause"),
         }
     }
 }

@@ -851,15 +851,15 @@ end entity y;
 
         let file = code.design_file();
         let (tokens, unit) = &file.design_units[0];
-        let ent = unit.entity();
-        let lib = ent.context_clause[0].library_clause();
+        let ent = unit.expect_entity();
+        let lib = ent.context_clause[0].expect_library_clause();
         let tok = tokens.get_token(lib.library_token);
         assert_eq!(tok.kind, Library);
         assert_eq!(tok.pos, code.s1("library").pos());
 
         let (tokens, unit) = &file.design_units[2];
-        let ent = unit.entity();
-        let ctx_ref = ent.context_clause[0].context_reference();
+        let ent = unit.expect_entity();
+        let ctx_ref = ent.context_clause[0].expect_context_reference();
         let tok = tokens.get_token(ctx_ref.context_token);
         assert_eq!(tok.kind, Context);
         assert_eq!(tok.pos, code.s1("context").pos());
