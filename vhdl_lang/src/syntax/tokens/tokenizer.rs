@@ -460,6 +460,55 @@ pub struct Token {
     pub comments: Option<Box<TokenComments>>,
 }
 
+/// A TokenId represents a unique value that is used to access a token.
+/// A token ID cannot be created directly by the user. Instead, the value must be taken
+/// from the AST.
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub struct TokenId(usize);
+
+/// The TokenId represents an index into an array of tokens.
+/// As access is restricted (only the token stream creates and raw access to the
+/// vector of tokens is done using the parse context), a `TokenId` is always guaranteed to
+/// point to a valid token.
+impl TokenId {
+    pub(crate) fn new(idx: usize) -> TokenId {
+        TokenId(idx)
+    }
+}
+
+/// A type that conforms to `TokenAccess` can be indexed using a `TokenId`.
+/// Convenience methods exist to directly get the `SrcPos` for a given `TokenId`
+/// or a span starting at a certain token and ending at another.
+///
+/// Types such as `Vec` and `array` implement `TokenAccess`
+pub trait TokenAccess {
+    /// Get a token by its ID
+    fn get_token(&self, id: TokenId) -> &Token;
+
+    /// Get a token's position by its ID
+    fn get_pos(&self, id: TokenId) -> &SrcPos {
+        &self.get_token(id).pos
+    }
+
+    /// Get a span where the beginning of that span is the beginning of the token indexed by
+    /// `start_id` and the end is the end of the token indexed by `end_id`
+    fn get_span(&self, start_id: TokenId, end_id: TokenId) -> SrcPos {
+        self.get_pos(start_id).combine(self.get_pos(end_id))
+    }
+}
+
+impl TokenAccess for Vec<Token> {
+    fn get_token(&self, id: TokenId) -> &Token {
+        &self[id.0]
+    }
+}
+
+impl TokenAccess for [Token] {
+    fn get_token(&self, id: TokenId) -> &Token {
+        &self[id.0]
+    }
+}
+
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct TokenComments {
     pub leading: Vec<Comment>,

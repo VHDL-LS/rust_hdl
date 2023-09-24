@@ -11,6 +11,7 @@ use super::tokens::{Kind, Kind::*, TokenStream};
 use crate::ast;
 use crate::ast::*;
 use crate::data::{Diagnostic, WithPos};
+use crate::syntax::TokenAccess;
 
 fn name_to_expression(name: WithPos<Name>) -> WithPos<Expression> {
     WithPos {
@@ -194,7 +195,7 @@ pub fn parse_aggregate_initial_choices(
 pub fn parse_aggregate(stream: &TokenStream) -> ParseResult<WithPos<Vec<ElementAssociation>>> {
     stream.expect_kind(LeftPar)?;
     if let Some(token) = stream.pop_if_kind(RightPar) {
-        return Ok(WithPos::from(Vec::new(), token.pos.clone()));
+        return Ok(WithPos::from(Vec::new(), stream.get_pos(token).clone()));
     };
     let choices = parse_choices(stream)?;
     parse_aggregate_initial_choices(stream, choices)
@@ -219,7 +220,7 @@ fn parse_half_range(
 
 fn parse_choice(stream: &TokenStream) -> ParseResult<WithPos<Choice>> {
     if let Some(token) = stream.pop_if_kind(Others) {
-        return Ok(WithPos::new(Choice::Others, token.pos.clone()));
+        return Ok(WithPos::new(Choice::Others, stream.get_pos(token).clone()));
     }
     let left_expr = parse_expression(stream)?;
 
@@ -377,7 +378,8 @@ fn parse_primary(stream: &TokenStream) -> ParseResult<WithPos<Expression>> {
             let name = parse_name(stream)?;
             if stream.skip_if_kind(Tick) {
                 let lpar = stream.expect_kind(LeftPar)?;
-                let expr = parse_expression_or_aggregate(stream)?.combine_pos_with(&lpar);
+                let expr =
+                    parse_expression_or_aggregate(stream)?.combine_pos_with(stream.get_pos(lpar));
                 let pos = name.pos.combine(&expr);
                 Ok(WithPos {
                     item: Expression::Qualified(Box::new(QualifiedExpression {
@@ -435,7 +437,7 @@ fn parse_primary(stream: &TokenStream) -> ParseResult<WithPos<Expression>> {
             let value = token.to_abstract_literal()?;
             // Physical unit
             if let Some(unit_token) = stream.pop_if_kind(Identifier) {
-                let unit = unit_token.to_identifier_value()?;
+                let unit = stream.get_token(unit_token).to_identifier_value()?;
                 let pos = value.pos.combine_into(&unit);
                 let physical = PhysicalLiteral {
                     value: value.item,

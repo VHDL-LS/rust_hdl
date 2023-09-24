@@ -17,7 +17,7 @@ use super::visibility::Visibility;
 use crate::ast::search::*;
 use crate::ast::*;
 use crate::data::*;
-use crate::syntax::Symbols;
+use crate::syntax::{Symbols, Token, TokenAccess};
 use fnv::{FnvHashMap, FnvHashSet};
 use parking_lot::RwLock;
 use std::collections::hash_map::Entry;
@@ -41,6 +41,7 @@ pub(super) struct LockedUnit {
     arena_id: ArenaId,
     unit_id: UnitId,
     pub unit: AnalysisLock<AnyDesignUnit, AnalysisData>,
+    pub tokens: Vec<Token>,
 }
 
 impl HasUnitId for LockedUnit {
@@ -50,7 +51,7 @@ impl HasUnitId for LockedUnit {
 }
 
 impl LockedUnit {
-    fn new(library_name: &Symbol, unit: AnyDesignUnit) -> LockedUnit {
+    fn new(library_name: &Symbol, unit: AnyDesignUnit, tokens: Vec<Token>) -> LockedUnit {
         let unit_id = match unit {
             AnyDesignUnit::Primary(ref unit) => {
                 UnitId::primary(library_name, PrimaryKind::kind_of(unit), unit.name())
@@ -68,6 +69,7 @@ impl LockedUnit {
             arena_id: ArenaId::default(),
             unit_id,
             unit: AnalysisLock::new(unit),
+            tokens,
         }
     }
 }
@@ -155,8 +157,8 @@ impl Library {
     }
 
     fn add_design_file(&mut self, design_file: DesignFile) {
-        for design_unit in design_file.design_units {
-            self.add_design_unit(LockedUnit::new(self.name(), design_unit));
+        for (tokens, design_unit) in design_file.design_units {
+            self.add_design_unit(LockedUnit::new(self.name(), design_unit, tokens));
         }
     }
 
@@ -517,7 +519,7 @@ impl DesignRoot {
             if let Some(unit_ids) = library.units_by_source.get(source) {
                 for unit_id in unit_ids {
                     let unit = library.units.get(unit_id.key()).unwrap();
-                    let _ = unit.unit.write().search(&mut searcher);
+                    let _ = unit.unit.write().search(&unit.tokens, &mut searcher);
                 }
             }
         }
@@ -572,7 +574,7 @@ impl DesignRoot {
         for library in self.libraries.values() {
             for unit_id in library.sorted_unit_ids() {
                 let unit = library.units.get(unit_id.key()).unwrap();
-                return_if_found!(unit.unit.write().search(searcher));
+                return_if_found!(unit.unit.write().search(&unit.tokens, searcher));
             }
         }
         NotFound
@@ -586,7 +588,7 @@ impl DesignRoot {
         if let Some(library) = self.libraries.get(library_name) {
             for unit_id in library.sorted_unit_ids() {
                 let unit = library.units.get(unit_id.key()).unwrap();
-                return_if_found!(unit.unit.write().search(searcher));
+                return_if_found!(unit.unit.write().search(&unit.tokens, searcher));
             }
         }
         NotFound
@@ -596,18 +598,24 @@ impl DesignRoot {
         self.symbols.symtab().insert_utf8(name)
     }
 
-    fn analyze_unit(&self, arena_id: ArenaId, unit_id: &UnitId, unit: &mut UnitWriteGuard) {
+    fn analyze_unit(
+        &self,
+        arena_id: ArenaId,
+        unit_id: &UnitId,
+        unit: &mut UnitWriteGuard,
+        ctx: &dyn TokenAccess,
+    ) {
         // All units reference the standard arena
         // @TODO keep the same ArenaId when re-using unit
         let arena = Arena::new(arena_id);
-        let context = AnalyzeContext::new(self, unit_id, &arena);
+        let context = AnalyzeContext::new(self, unit_id, &arena, ctx);
         use std::ops::DerefMut;
 
         let mut diagnostics = Vec::new();
         let mut has_circular_dependency = false;
 
         // Ensure no remaining references from previous analysis
-        clear_references(unit.deref_mut());
+        clear_references(unit.deref_mut(), ctx);
 
         let result = match unit.deref_mut() {
             AnyDesignUnit::Primary(unit) => {
@@ -645,7 +653,12 @@ impl DesignRoot {
     pub(super) fn get_analysis<'a>(&self, locked_unit: &'a LockedUnit) -> UnitReadGuard<'a> {
         match locked_unit.unit.entry() {
             AnalysisEntry::Vacant(mut unit) => {
-                self.analyze_unit(locked_unit.arena_id, locked_unit.unit_id(), &mut unit);
+                self.analyze_unit(
+                    locked_unit.arena_id,
+                    locked_unit.unit_id(),
+                    &mut unit,
+                    &locked_unit.tokens,
+                );
                 unit.downgrade()
             }
             AnalysisEntry::Occupied(unit) => unit,
@@ -826,132 +839,127 @@ impl DesignRoot {
     fn analyze_standard_package(&mut self) {
         // Analyze standard package first if it exits
         let std_lib_name = self.symbol_utf8("std");
-        if let Some(standard_units) = self
+        let Some(standard_units) = self
             .libraries
             .get(&std_lib_name)
             .map(|library| &library.units)
+        else {
+            return;
+        };
+        let Some(locked_unit) = standard_units.get(&UnitKey::Primary(self.symbol_utf8("standard")))
+        else {
+            return;
+        };
+        let AnalysisEntry::Vacant(mut unit) = locked_unit.unit.entry() else {
+            return;
+        };
+        // Clear to ensure the analysis of standard package does not believe it has the standard package
+        let arena = Arena::new_std();
+        self.standard_pkg_id = None;
+        self.standard_arena = None;
+
+        let std_package = if let Some(AnyPrimaryUnit::Package(pkg)) = unit.as_primary_mut() {
+            assert!(pkg.context_clause.is_empty());
+            assert!(pkg.generic_clause.is_none());
+            pkg
+        } else {
+            panic!("Expected standard package is primary unit");
+        };
+        // Ensure no remaining references from previous analysis
+        clear_references(std_package, &locked_unit.tokens);
+
+        let standard_pkg = {
+            let (lib_arena, id) = self.get_library_arena(&std_lib_name).unwrap();
+            arena.link(lib_arena);
+            let std_lib = arena.get(id);
+
+            arena.explicit(
+                self.symbol_utf8("standard"),
+                std_lib,
+                // Will be overwritten below
+                AnyEntKind::Design(Design::Package(Visibility::default(), Region::default())),
+                Some(std_package.ident.pos()),
+            )
+        };
+
+        std_package.ident.decl = Some(standard_pkg.id());
+
+        let universal = UniversalTypes::new(&arena, standard_pkg, self.symbols.as_ref());
+        self.universal = Some(universal);
+
+        // Reserve space in the arena for the standard types
+        self.standard_types = Some(StandardTypes::new(
+            &arena,
+            standard_pkg,
+            &mut std_package.decl,
+        ));
+
+        let context = AnalyzeContext::new(self, locked_unit.unit_id(), &arena, &locked_unit.tokens);
+
+        let mut diagnostics = Vec::new();
+        let root_scope = Scope::default();
+        let scope = root_scope.nested().in_package_declaration();
+
         {
-            if let Some(locked_unit) =
-                standard_units.get(&UnitKey::Primary(self.symbol_utf8("standard")))
+            for ent in context
+                .universal_implicits(UniversalType::Integer, context.universal_integer().into())
             {
-                if let AnalysisEntry::Vacant(mut unit) = locked_unit.unit.entry() {
-                    // Clear to ensure the analysis of standard package does not believe it has the standard package
-                    let arena = Arena::new_std();
-                    self.standard_pkg_id = None;
-                    self.standard_arena = None;
+                unsafe {
+                    arena.add_implicit(universal.integer, ent);
+                };
+                scope.add(ent, &mut diagnostics);
+            }
 
-                    let std_package =
-                        if let Some(AnyPrimaryUnit::Package(pkg)) = unit.as_primary_mut() {
-                            assert!(pkg.context_clause.is_empty());
-                            assert!(pkg.generic_clause.is_none());
-                            pkg
-                        } else {
-                            panic!("Expected standard package is primary unit");
-                        };
-                    // Ensure no remaining references from previous analysis
-                    clear_references(std_package);
-
-                    let standard_pkg = {
-                        let (lib_arena, id) = self.get_library_arena(&std_lib_name).unwrap();
-                        arena.link(lib_arena);
-                        let std_lib = arena.get(id);
-
-                        arena.explicit(
-                            self.symbol_utf8("standard"),
-                            std_lib,
-                            // Will be overwritten below
-                            AnyEntKind::Design(Design::Package(
-                                Visibility::default(),
-                                Region::default(),
-                            )),
-                            Some(std_package.ident.pos()),
-                        )
-                    };
-
-                    std_package.ident.decl = Some(standard_pkg.id());
-
-                    let universal =
-                        UniversalTypes::new(&arena, standard_pkg, self.symbols.as_ref());
-                    self.universal = Some(universal);
-
-                    // Reserve space in the arena for the standard types
-                    self.standard_types = Some(StandardTypes::new(
-                        &arena,
-                        standard_pkg,
-                        &mut std_package.decl,
-                    ));
-
-                    let context = AnalyzeContext::new(self, locked_unit.unit_id(), &arena);
-
-                    let mut diagnostics = Vec::new();
-                    let root_scope = Scope::default();
-                    let scope = root_scope.nested().in_package_declaration();
-
-                    {
-                        for ent in context.universal_implicits(
-                            UniversalType::Integer,
-                            context.universal_integer().into(),
-                        ) {
-                            unsafe {
-                                arena.add_implicit(universal.integer, ent);
-                            };
-                            scope.add(ent, &mut diagnostics);
-                        }
-
-                        for ent in context.universal_implicits(
-                            UniversalType::Real,
-                            context.universal_real().into(),
-                        ) {
-                            unsafe {
-                                arena.add_implicit(universal.real, ent);
-                            };
-                            scope.add(ent, &mut diagnostics);
-                        }
-                    }
-
-                    for decl in std_package.decl.iter_mut() {
-                        if let Declaration::Type(ref mut type_decl) = decl {
-                            context
-                                .analyze_type_declaration(
-                                    &scope,
-                                    standard_pkg,
-                                    type_decl,
-                                    type_decl.ident.decl, // Set by standard types
-                                    &mut diagnostics,
-                                )
-                                .unwrap();
-                        } else {
-                            context
-                                .analyze_declaration(&scope, standard_pkg, decl, &mut diagnostics)
-                                .unwrap();
-                        }
-                    }
-                    scope.close(&mut diagnostics);
-
-                    let mut region = scope.into_region();
-
-                    context.end_of_package_implicits(&mut region, &mut diagnostics);
-                    let visibility = root_scope.into_visibility();
-
-                    let kind = AnyEntKind::Design(Design::Package(visibility, region));
-                    unsafe {
-                        standard_pkg.set_kind(kind);
-                    }
-
-                    self.standard_pkg_id = Some(standard_pkg.id());
-                    let arena = arena.finalize();
-                    self.standard_arena = Some(arena.clone());
-
-                    let result = AnalysisData {
-                        arena,
-                        diagnostics,
-                        has_circular_dependency: false,
-                    };
-
-                    unit.finish(result);
-                }
+            for ent in
+                context.universal_implicits(UniversalType::Real, context.universal_real().into())
+            {
+                unsafe {
+                    arena.add_implicit(universal.real, ent);
+                };
+                scope.add(ent, &mut diagnostics);
             }
         }
+
+        for decl in std_package.decl.iter_mut() {
+            if let Declaration::Type(ref mut type_decl) = decl {
+                context
+                    .analyze_type_declaration(
+                        &scope,
+                        standard_pkg,
+                        type_decl,
+                        type_decl.ident.decl, // Set by standard types
+                        &mut diagnostics,
+                    )
+                    .unwrap();
+            } else {
+                context
+                    .analyze_declaration(&scope, standard_pkg, decl, &mut diagnostics)
+                    .unwrap();
+            }
+        }
+        scope.close(&mut diagnostics);
+
+        let mut region = scope.into_region();
+
+        context.end_of_package_implicits(&mut region, &mut diagnostics);
+        let visibility = root_scope.into_visibility();
+
+        let kind = AnyEntKind::Design(Design::Package(visibility, region));
+        unsafe {
+            standard_pkg.set_kind(kind);
+        }
+
+        self.standard_pkg_id = Some(standard_pkg.id());
+        let arena = arena.finalize();
+        self.standard_arena = Some(arena.clone());
+
+        let result = AnalysisData {
+            arena,
+            diagnostics,
+            has_circular_dependency: false,
+        };
+
+        unit.finish(result);
     }
 
     /// Analyze ieee std_logic_1164 package library sequentially

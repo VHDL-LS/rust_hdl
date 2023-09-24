@@ -16,6 +16,10 @@ pub struct TokenStream<'a> {
     tokenizer: Tokenizer<'a>,
     idx: Cell<usize>,
     tokens: Vec<Token>,
+    // This is the offset that a token's ID should be adapted
+    // when getting it via `TokenStream::get_token_id()`
+    // It is updated in the `slice_tokens` method
+    token_offset: Cell<usize>,
 }
 
 impl<'a> TokenStream<'a> {
@@ -69,6 +73,7 @@ impl<'a> TokenStream<'a> {
             tokenizer,
             idx: Cell::new(0),
             tokens,
+            token_offset: Cell::new(0),
         }
     }
 
@@ -94,6 +99,10 @@ impl<'a> TokenStream<'a> {
 
     pub fn peek(&self) -> Option<&Token> {
         self.tokens.get(self.get_idx())
+    }
+
+    pub fn get_token_id(&self) -> TokenId {
+        TokenId::new(self.get_idx() - self.token_offset.get())
     }
 
     pub fn last(&self) -> Option<&Token> {
@@ -145,11 +154,12 @@ impl<'a> TokenStream<'a> {
         token.pos.clone()
     }
 
-    pub fn expect_kind(&self, kind: Kind) -> DiagnosticResult<&Token> {
+    pub fn expect_kind(&self, kind: Kind) -> DiagnosticResult<TokenId> {
         if let Some(token) = self.peek() {
             if token.kind == kind {
+                let id = self.get_token_id();
                 self.skip();
-                Ok(token)
+                Ok(id)
             } else {
                 Err(kinds_error(self.pos_before(token), &[kind]))
             }
@@ -191,11 +201,12 @@ impl<'a> TokenStream<'a> {
             .all(|(idx, kind)| self.nth_kind_is(idx, *kind))
     }
 
-    pub fn pop_if_kind(&self, kind: Kind) -> Option<&Token> {
+    pub fn pop_if_kind(&self, kind: Kind) -> Option<TokenId> {
         if let Some(token) = self.peek() {
             if token.kind == kind {
+                let id = self.get_token_id();
                 self.skip();
-                return Some(token);
+                return Some(id);
             }
         }
         None
@@ -217,7 +228,7 @@ impl<'a> TokenStream<'a> {
 
     pub fn pop_optional_ident(&self) -> Option<Ident> {
         self.pop_if_kind(Identifier)
-            .map(|token| token.to_identifier_value().unwrap())
+            .map(|id| self.get_token(id).to_identifier_value().unwrap())
     }
 
     pub fn expect_ident(&self) -> DiagnosticResult<Ident> {
@@ -238,6 +249,40 @@ impl<'a> TokenStream<'a> {
             Range => WithPos::new(AttributeDesignator::Range(RangeAttribute::Range), token.pos.clone())
         );
         Ok(des)
+    }
+
+    /// Slices the tokens until the current position.
+    /// The token at the current position is not included.
+    /// Subsequent calls to `slice_tokens` will start from the current position.
+    ///
+    /// Note that The function `TokenStream::get_token(TokenId)` only returns a token
+    /// for `TokenId`s that are obtained after `slice_tokens` was called.
+    ///
+    /// # Example
+    ///
+    /// ```vhdl
+    /// 1 2 abc; tok x
+    ///          ^
+    ///          current position
+    /// ```
+    /// After calling `slice_tokens`, the returned vec is `[1, 2, abc, ;]`.
+    ///
+    /// ```vhdl
+    /// 1 2 abc; tok x
+    ///                ^
+    ///                current position (EOF)
+    /// ```
+    /// After calling `slice_tokens` again, the returned vec is `[tok x]`
+    pub fn slice_tokens(&self) -> Vec<Token> {
+        let vec = Vec::from(&self.tokens[self.token_offset.get()..self.state()]);
+        self.token_offset.replace(self.state());
+        vec
+    }
+}
+
+impl<'a> TokenAccess for TokenStream<'a> {
+    fn get_token(&self, id: TokenId) -> &Token {
+        self.tokens[self.token_offset.get()..].get_token(id)
     }
 }
 
@@ -285,6 +330,7 @@ mod tests {
     use super::*;
     use crate::data::{ContentReader, Diagnostic, NoDiagnostics};
     use crate::syntax::test::Code;
+    use itertools::Itertools;
 
     macro_rules! new_stream {
         ($code:ident, $stream:ident) => {
@@ -461,5 +507,57 @@ mod tests {
             diagnostics,
             vec![Diagnostic::error(code.s1("`"), "Expecting identifier")]
         )
+    }
+
+    #[test]
+    fn pop_tokens() {
+        let code = Code::new(
+            "\
+entity my_ent is
+end entity my_ent;
+
+architecture arch of my_ent is
+end arch;
+        ",
+        );
+        new_stream!(code, stream);
+        stream.skip_until(|it| it == SemiColon).expect("");
+        stream.skip();
+        assert_eq!(
+            stream.slice_tokens().iter().map(|it| it.kind).collect_vec(),
+            vec![Entity, Identifier, Is, End, Entity, Identifier, SemiColon]
+        );
+        stream.skip_until(|it| it == SemiColon).expect("");
+        stream.skip();
+        assert_eq!(
+            stream.slice_tokens().iter().map(|it| it.kind).collect_vec(),
+            vec![
+                Architecture,
+                Identifier,
+                Of,
+                Identifier,
+                Is,
+                End,
+                Identifier,
+                SemiColon
+            ]
+        );
+    }
+
+    #[test]
+    fn indexing_tokens_after_slicing() {
+        let code = Code::new("1 2 abc; () +");
+        new_stream!(code, stream);
+        let tokens = code.tokenize();
+        assert_eq!(tokens[0], stream.get_token(stream.get_token_id()).clone());
+        stream.skip();
+        assert_eq!(tokens[1], stream.get_token(stream.get_token_id()).clone());
+        stream
+            .skip_until(|kind| kind == SemiColon)
+            .expect("Unexpected EOF");
+        stream.slice_tokens();
+        assert_eq!(tokens[3], stream.get_token(stream.get_token_id()).clone());
+        stream.skip();
+        assert_eq!(tokens[4], stream.get_token(stream.get_token_id()).clone());
     }
 }

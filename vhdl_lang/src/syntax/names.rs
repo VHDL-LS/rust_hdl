@@ -9,7 +9,7 @@ use super::common::ParseResult;
 use super::expression::parse_expression;
 use super::subprogram::parse_signature;
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{Kind::*, TokenStream};
+use super::tokens::{Kind::*, TokenAccess, TokenStream};
 use crate::ast;
 use crate::ast::*;
 use crate::data::{Diagnostic, WithPos};
@@ -154,7 +154,10 @@ fn assoc_to_expression(assoc: AssociationElement) -> ParseResult<WithPos<Express
 
 fn parse_actual_part(stream: &TokenStream) -> ParseResult<WithPos<ActualPart>> {
     if let Some(token) = stream.pop_if_kind(Open) {
-        Ok(WithPos::from(ActualPart::Open, token.pos.clone()))
+        Ok(WithPos::from(
+            ActualPart::Open,
+            stream.get_pos(token).clone(),
+        ))
     } else {
         Ok(parse_expression(stream)?.map_into(ActualPart::Expression))
     }
@@ -235,7 +238,7 @@ fn parse_attribute_name(
         if stream.skip_if_kind(LeftPar) {
             let ret = Some(parse_expression(stream)?);
             let rpar_token = stream.expect_kind(RightPar)?;
-            (ret, rpar_token.pos.combine(&name))
+            (ret, stream.get_pos(rpar_token).combine(&name))
         } else {
             (None, attr.pos.combine(&name))
         }
@@ -332,7 +335,7 @@ fn _parse_name(stream: &TokenStream) -> ParseResult<WithPos<Name>> {
         if let Some(token) = stream.pop_if_kind(LtLt) {
             let external_name = Name::External(Box::new(parse_inner_external_name(stream)?));
             let end_token = stream.expect_kind(GtGt)?;
-            WithPos::from(external_name, token.pos.combine(&end_token))
+            WithPos::from(external_name, stream.get_span(token, end_token))
         } else {
             let suffix = parse_suffix(stream)?;
             match suffix.item {
@@ -411,7 +414,7 @@ fn _parse_name(stream: &TokenStream) -> ParseResult<WithPos<Name>> {
                             }
                         };
                         let rpar_token = stream.expect_kind(RightPar)?;
-                        let pos = rpar_token.pos.combine(&name);
+                        let pos = stream.get_pos(rpar_token).combine(&name);
                         let discrete_range =
                             DiscreteRange::Range(ast::Range::Range(RangeConstraint {
                                 left_expr: Box::new(assoc_to_expression(assoc)?),

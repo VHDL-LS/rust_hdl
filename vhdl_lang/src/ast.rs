@@ -21,9 +21,11 @@ pub mod search;
 pub use self::display::*;
 pub(crate) use self::util::*;
 pub(crate) use any_design_unit::*;
+use std::iter;
 
 use crate::analysis::EntityId;
 use crate::data::*;
+use crate::syntax::{Token, TokenId};
 
 /// LRM 15.8 Bit string literals
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
@@ -752,7 +754,7 @@ pub enum Declaration {
     Alias(AliasDeclaration),
     SubprogramDeclaration(SubprogramDeclaration),
     SubprogramBody(SubprogramBody),
-    Use(WithPos<UseClause>),
+    Use(UseClause),
     Package(PackageInstantiation),
     Configuration(ConfigurationSpecification),
 }
@@ -1082,19 +1084,45 @@ pub struct LabeledConcurrentStatement {
 /// LRM 13. Design units and their analysis
 #[derive(PartialEq, Debug, Clone)]
 pub struct LibraryClause {
-    pub name_list: Vec<WithRef<Ident>>,
+    pub library_token: TokenId,
+    pub name_list: IdentList,
+    pub semi_token: TokenId,
+}
+
+/// Represents a token-separated list of some generic type `T`
+#[derive(PartialEq, Debug, Clone)]
+pub struct SeparatedList<T> {
+    pub first: T,
+    pub remainder: Vec<(TokenId, T)>,
+}
+
+pub type IdentList = SeparatedList<WithRef<Ident>>;
+pub type NameList = SeparatedList<WithPos<Name>>;
+
+impl<T> SeparatedList<T> {
+    pub fn items(&self) -> impl Iterator<Item = &T> {
+        iter::once(&self.first).chain(self.remainder.iter().map(|it| &it.1))
+    }
+
+    pub fn items_mut(&mut self) -> impl Iterator<Item = &mut T> {
+        iter::once(&mut self.first).chain(self.remainder.iter_mut().map(|it| &mut it.1))
+    }
 }
 
 /// LRM 12.4. Use clauses
 #[derive(PartialEq, Debug, Clone)]
 pub struct UseClause {
-    pub name_list: Vec<WithPos<Name>>,
+    pub use_token: TokenId,
+    pub name_list: NameList,
+    pub semi_token: TokenId,
 }
 
 /// LRM 13.4 Context clauses
 #[derive(PartialEq, Debug, Clone)]
 pub struct ContextReference {
-    pub name_list: Vec<WithPos<Name>>,
+    pub context_token: TokenId,
+    pub name_list: NameList,
+    pub semi_token: TokenId,
 }
 
 /// LRM 13.4 Context clauses
@@ -1170,7 +1198,7 @@ pub struct ConfigurationSpecification {
 /// LRM 3.4 Configuration declarations
 #[derive(PartialEq, Debug, Clone)]
 pub enum ConfigurationDeclarativeItem {
-    Use(WithPos<UseClause>),
+    Use(UseClause),
     // @TODO attribute
     // @TODO group
 }
@@ -1281,7 +1309,7 @@ pub enum AnySecondaryUnit {
     PackageBody(PackageBody),
 }
 
-pub type ContextClause = Vec<WithPos<ContextItem>>;
+pub type ContextClause = Vec<ContextItem>;
 
 /// LRM 13.1 Design units
 #[derive(PartialEq, Debug, Clone)]
@@ -1292,5 +1320,5 @@ pub enum AnyDesignUnit {
 
 #[derive(PartialEq, Debug, Clone, Default)]
 pub struct DesignFile {
-    pub design_units: Vec<AnyDesignUnit>,
+    pub design_units: Vec<(Vec<Token>, AnyDesignUnit)>,
 }

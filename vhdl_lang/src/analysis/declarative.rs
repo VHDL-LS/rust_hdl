@@ -533,7 +533,7 @@ impl<'a> AnalyzeContext<'a> {
             }
 
             Declaration::Use(ref mut use_clause) => {
-                self.analyze_use_clause(scope, &mut use_clause.item, diagnostics)?;
+                self.analyze_use_clause(scope, use_clause, diagnostics)?;
             }
 
             Declaration::Package(ref mut instance) => {

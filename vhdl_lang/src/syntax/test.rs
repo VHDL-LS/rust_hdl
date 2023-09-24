@@ -18,6 +18,7 @@ use super::names::{
 };
 use super::object_declaration::{parse_file_declaration, parse_object_declaration};
 use super::range::{parse_discrete_range, parse_range};
+use super::separated_list::{parse_ident_list, parse_name_list};
 use super::sequential_statement::parse_sequential_statement;
 use super::subprogram::{parse_signature, parse_subprogram_declaration_no_semi};
 use super::subtype_indication::parse_subtype_indication;
@@ -28,6 +29,8 @@ use crate::ast;
 use crate::ast::*;
 use crate::data::Range;
 use crate::data::*;
+use crate::syntax::context::{parse_context, DeclarationOrReference};
+use crate::syntax::{TokenAccess, TokenId};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -37,6 +40,31 @@ use std::sync::Arc;
 
 pub struct CodeBuilder {
     pub symbols: Arc<Symbols>,
+}
+
+impl AnyDesignUnit {
+    pub fn expect_entity(&self) -> &EntityDeclaration {
+        match self {
+            AnyDesignUnit::Primary(AnyPrimaryUnit::Entity(ent)) => ent,
+            _ => panic!("Expected entity"),
+        }
+    }
+}
+
+impl ContextItem {
+    pub fn expect_library_clause(&self) -> &LibraryClause {
+        match self {
+            ContextItem::Library(lib) => lib,
+            _ => panic!("Expected library clause"),
+        }
+    }
+
+    pub fn expect_context_reference(&self) -> &ContextReference {
+        match self {
+            ContextItem::Context(ctx) => ctx,
+            _ => panic!("Expected context clause"),
+        }
+    }
 }
 
 impl CodeBuilder {
@@ -194,6 +222,21 @@ impl Code {
         tokens.into_iter().map(|tok| tok.unwrap()).collect()
     }
 
+    pub fn token(&self) -> TokenId {
+        let contents = self.pos.source.contents();
+        let source = Source::from_contents(
+            self.pos.file_name(),
+            contents.crop(Range::new(Position::default(), self.pos.end())),
+        );
+        let contents = source.contents();
+        let reader = ContentReader::new(&contents);
+        let tokenizer = Tokenizer::new(&self.symbols, &source, reader);
+        let stream = TokenStream::new(tokenizer, &mut NoDiagnostics);
+        forward(&stream, self.pos.start());
+        stream.peek().expect("No token found");
+        stream.get_token_id()
+    }
+
     /// Helper method to run lower level parsing function at specific substring
     pub fn parse<F, R>(&self, parse_fun: F) -> R
     where
@@ -345,7 +388,8 @@ impl Code {
 
     pub fn character(&self) -> WithPos<u8> {
         self.parse_ok(|stream: &TokenStream| {
-            stream.expect_kind(Kind::Character)?.to_character_value()
+            let id = stream.expect_kind(Kind::Character)?;
+            stream.get_token(id).to_character_value()
         })
     }
 
@@ -357,6 +401,14 @@ impl Code {
 
     pub fn name(&self) -> WithPos<Name> {
         self.parse_ok(parse_name)
+    }
+
+    pub fn name_list(&self) -> SeparatedList<WithPos<Name>> {
+        self.parse_ok(parse_name_list)
+    }
+
+    pub fn ident_list(&self) -> SeparatedList<WithRef<Ident>> {
+        self.parse_ok(parse_ident_list)
     }
 
     pub fn selected_name(&self) -> WithPos<SelectedName> {
@@ -475,12 +527,19 @@ impl Code {
         self.parse_ok(parse_choices)
     }
 
-    pub fn use_clause(&self) -> WithPos<UseClause> {
+    pub fn use_clause(&self) -> UseClause {
         self.parse_ok(parse_use_clause)
     }
 
-    pub fn library_clause(&self) -> WithPos<LibraryClause> {
+    pub fn library_clause(&self) -> LibraryClause {
         self.parse_ok(parse_library_clause)
+    }
+
+    pub fn context_declaration(&self) -> ContextDeclaration {
+        match self.parse_ok_no_diagnostics(parse_context) {
+            DeclarationOrReference::Declaration(decl) => decl,
+            DeclarationOrReference::Reference(_) => panic!("Expecting Context Declaration"),
+        }
     }
 
     pub fn design_file(&self) -> DesignFile {

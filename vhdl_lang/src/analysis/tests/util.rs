@@ -210,8 +210,8 @@ pub fn check_search_reference(contents: &str) {
     check_search_reference_with_name("decl", contents);
 }
 
-/// Check that all occurences of decl_name references the first occurence of if
-/// Also check that find all references returns all occurences of decl_name
+/// Check that all occurrences of decl_name references the first occurrence of if
+/// Also check that find all references returns all occurrences of decl_name
 pub fn check_search_reference_with_name(decl_name: &str, contents: &str) {
     let mut builder = LibraryBuilder::new();
     let code = builder.code("libname", contents);

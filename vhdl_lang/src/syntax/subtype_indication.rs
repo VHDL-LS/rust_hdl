@@ -7,10 +7,11 @@
 use super::common::ParseResult;
 use super::names::{parse_selected_name, parse_type_mark, parse_type_mark_starting_with_name};
 use super::range::{parse_discrete_range, parse_range};
-use super::tokens::{kinds_error, Kind::*, TokenStream};
+use super::tokens::{kinds_error, Kind::*, TokenAccess, TokenStream};
 /// LRM 6.3 Subtype declarations
 use crate::ast::*;
-use crate::data::{SrcPos, WithPos};
+use crate::data::WithPos;
+use crate::syntax::TokenId;
 
 fn parse_record_element_constraint(stream: &TokenStream) -> ParseResult<ElementConstraint> {
     let ident = stream.expect_ident()?;
@@ -20,7 +21,7 @@ fn parse_record_element_constraint(stream: &TokenStream) -> ParseResult<ElementC
 
 fn parse_array_constraint(
     stream: &TokenStream,
-    leftpar_pos: SrcPos,
+    leftpar: TokenId,
     // Open is None
     initial: Option<DiscreteRange>,
 ) -> ParseResult<WithPos<SubtypeConstraint>> {
@@ -46,16 +47,18 @@ fn parse_array_constraint(
         }
     };
 
+    let leftpar_pos = stream.get_pos(leftpar).clone();
+
     Ok(WithPos::from(
         SubtypeConstraint::Array(discrete_ranges, element_constraint),
-        leftpar_pos.combine_into(&end_pos),
+        leftpar_pos.combine_into(&end_pos).clone(),
     ))
 }
 
 fn parse_composite_constraint(stream: &TokenStream) -> ParseResult<WithPos<SubtypeConstraint>> {
     // There is no finite lookahead that can differentiate
     // between array and record element constraint
-    let leftpar_pos = stream.expect_kind(LeftPar)?.pos.clone();
+    let leftpar = stream.expect_kind(LeftPar)?;
     let state = stream.state();
 
     let mut initial = {
@@ -79,7 +82,7 @@ fn parse_composite_constraint(stream: &TokenStream) -> ParseResult<WithPos<Subty
 
     if let Ok(initial) = initial {
         // Array constraint
-        parse_array_constraint(stream, leftpar_pos, initial)
+        parse_array_constraint(stream, leftpar, initial)
     } else {
         // Record constraint
         stream.set_state(state);
@@ -94,6 +97,8 @@ fn parse_composite_constraint(stream: &TokenStream) -> ParseResult<WithPos<Subty
             );
             constraints.push(parse_record_element_constraint(stream)?);
         };
+
+        let leftpar_pos = stream.get_pos(leftpar).clone();
 
         Ok(WithPos::from(
             SubtypeConstraint::Record(constraints),
