@@ -24,11 +24,13 @@ where
     F: Fn(&TokenStream) -> ParseResult<T>,
 {
     let first = parse_fn(stream)?;
-    let mut remainder = Vec::new();
+    let mut items = vec![first];
+    let mut tokens = Vec::new();
     while let Some(separator) = stream.pop_if_kind(separator) {
-        remainder.push((separator, parse_fn(stream)?));
+        items.push(parse_fn(stream)?);
+        tokens.push(separator);
     }
-    Ok(SeparatedList { first, remainder })
+    Ok(SeparatedList { items, tokens })
 }
 
 pub fn parse_name_list(stream: &TokenStream) -> DiagnosticResult<NameList> {

@@ -23,7 +23,7 @@ use super::tokens::{Kind::*, TokenStream};
 use super::waveform::{parse_delay_mechanism, parse_waveform};
 use crate::ast::*;
 use crate::data::*;
-use crate::syntax::TokenAccess;
+use crate::syntax::{Kind, TokenAccess};
 
 /// LRM 11.2 Block statement
 pub fn parse_block_statement(
@@ -72,6 +72,7 @@ fn parse_block_header(
     let mut port_map = None;
 
     loop {
+        let token_id = stream.get_token_id();
         let token = stream.peek_expect()?;
         match token.kind {
             Generic => {
@@ -85,7 +86,7 @@ fn parse_block_header(
                     } else if generic_clause.is_none() {
                         diagnostics.push(Diagnostic::error(
                             stream.get_token(map_token),
-                            "Generic map declared without preceeding generic clause",
+                            "Generic map declared without preceding generic clause",
                         ));
                     } else if generic_map.is_some() {
                         diagnostics.push(Diagnostic::error(
@@ -93,10 +94,14 @@ fn parse_block_header(
                             "Duplicate generic map",
                         ));
                     }
-                    let parsed_generic_map = Some(parse_association_list(stream)?);
+                    let (list, closing_paren) = parse_association_list(stream)?;
                     stream.expect_kind(SemiColon)?;
                     if generic_map.is_none() {
-                        generic_map = parsed_generic_map;
+                        generic_map = Some(MapAspect {
+                            start: token_id,
+                            list,
+                            closing_paren
+                        });
                     }
                 } else {
                     if generic_map.is_some() {
@@ -128,10 +133,14 @@ fn parse_block_header(
                             "Duplicate port map",
                         ));
                     }
-                    let parsed_port_map = Some(parse_association_list(stream)?);
+                    let (list, closing_paren) = parse_association_list(stream)?;
                     stream.expect_kind(SemiColon)?;
                     if port_map.is_none() {
-                        port_map = parsed_port_map;
+                        port_map = Some(MapAspect {
+                            start: token_id,
+                            list,
+                            closing_paren
+                        });
                     }
                 } else {
                     if port_map.is_some() {
@@ -323,29 +332,29 @@ pub fn parse_concurrent_assert_statement(
     })
 }
 
+pub fn parse_generic_map_aspect(stream: &TokenStream, aspect_kind: Kind) -> ParseResult<Option<MapAspect>> {
+    if let Some(aspect) = stream.pop_if_kind(aspect_kind) {
+        stream.expect_kind(Map)?;
+        let (list, closing_paren) = parse_association_list(stream)?;
+        Ok(Some(MapAspect {
+            start: aspect,
+            list,
+            closing_paren,
+        }))
+    } else {
+        Ok(None)
+    }
+}
+
 #[allow(clippy::type_complexity)]
 pub fn parse_generic_and_port_map(
     stream: &TokenStream,
 ) -> ParseResult<(
-    Option<Vec<AssociationElement>>,
-    Option<Vec<AssociationElement>>,
+    Option<MapAspect>,
+    Option<MapAspect>,
 )> {
-    let generic_map = {
-        if stream.skip_if_kind(Generic) {
-            stream.expect_kind(Map)?;
-            Some(parse_association_list(stream)?)
-        } else {
-            None
-        }
-    };
-    let port_map = {
-        if stream.skip_if_kind(Port) {
-            stream.expect_kind(Map)?;
-            Some(parse_association_list(stream)?)
-        } else {
-            None
-        }
-    };
+    let generic_map = parse_generic_map_aspect(stream, Generic)?;
+    let port_map = parse_generic_map_aspect(stream, Port)?;
 
     Ok((generic_map, port_map))
 }
@@ -356,12 +365,14 @@ pub fn parse_instantiation_statement(
 ) -> ParseResult<InstantiationStatement> {
     let (generic_map, port_map) = parse_generic_and_port_map(stream)?;
 
+    let semi = stream.expect_kind(SemiColon)?;
+
     let inst = InstantiationStatement {
         unit,
-        generic_map: generic_map.unwrap_or_default(),
-        port_map: port_map.unwrap_or_default(),
+        generic_map,
+        port_map,
+        semicolon: semi
     };
-    stream.expect_kind(SemiColon)?;
     Ok(inst)
 }
 

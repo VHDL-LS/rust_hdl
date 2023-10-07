@@ -225,7 +225,7 @@ impl<'a> AnalyzeContext<'a> {
                 let (generics, other) = package_region.to_package_generic();
 
                 let mapping = if let Some(generic_map) = generic_map {
-                    self.package_generic_map(&nested, generics, generic_map, diagnostics)?
+                    self.package_generic_map(&nested, generics, generic_map.list.items.as_mut_slice(), diagnostics)?
                 } else {
                     FnvHashMap::default()
                 };

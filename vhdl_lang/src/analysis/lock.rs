@@ -111,6 +111,10 @@ impl<'a, T, R> ReadGuard<'a, T, R> {
     pub fn result(&self) -> &R {
         self.guard.result.as_ref().unwrap()
     }
+
+    pub fn data(&self) -> &T {
+        &self.guard.data
+    }
 }
 
 impl<'a, T, R> std::ops::Deref for ReadGuard<'a, T, R> {

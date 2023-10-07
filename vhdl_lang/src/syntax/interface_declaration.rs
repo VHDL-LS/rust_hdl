@@ -200,7 +200,10 @@ fn parse_interface_package(stream: &TokenStream) -> ParseResult<InterfacePackage
                 stream.expect_kind(RightPar)?;
                 InterfacePackageGenericMapAspect::Default
             }
-            _ => InterfacePackageGenericMapAspect::Map(parse_association_list_no_leftpar(stream)?),
+            _ => {
+                let (list, _) = parse_association_list_no_leftpar(stream)?;
+                InterfacePackageGenericMapAspect::Map(list)
+            },
         }
     };
 

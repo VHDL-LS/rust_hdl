@@ -277,7 +277,7 @@ impl Search for WithPos<Target> {
 
 impl<T: Search> Search for SeparatedList<T> {
     fn search(&mut self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        for item in self.items_mut() {
+        for item in self.items.iter_mut() {
             return_if_found!(item.search(ctx, searcher));
         }
         NotFound
@@ -1199,7 +1199,7 @@ impl Search for FunctionSpecification {
 
 impl Search for LibraryClause {
     fn search(&mut self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        for name in self.name_list.items_mut() {
+        for name in self.name_list.items.iter_mut() {
             return_if_found!(searcher
                 .search_pos_with_ref(ctx, &name.item.pos, &mut name.reference)
                 .or_not_found());
@@ -1340,6 +1340,12 @@ impl Search for CaseStatement {
         return_if_found!(expression.search(ctx, searcher));
         return_if_found!(search_alternatives(alternatives, false, searcher, ctx));
         NotFound
+    }
+}
+
+impl Search for MapAspect {
+    fn search(&mut self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
+        self.list.search(ctx, searcher)
     }
 }
 

@@ -13,6 +13,8 @@ use super::tokens::{Kind::*, TokenAccess, TokenStream};
 use crate::ast;
 use crate::ast::*;
 use crate::data::{Diagnostic, WithPos};
+use crate::syntax::separated_list::parse_list_with_separator;
+use crate::syntax::TokenId;
 
 pub fn parse_designator(stream: &TokenStream) -> ParseResult<WithPos<Designator>> {
     Ok(expect_token!(
@@ -178,26 +180,17 @@ fn parse_association_element(stream: &TokenStream) -> ParseResult<AssociationEle
     }
 }
 
-pub fn parse_association_list(stream: &TokenStream) -> ParseResult<Vec<AssociationElement>> {
+pub fn parse_association_list(stream: &TokenStream) -> ParseResult<(SeparatedList<AssociationElement>, TokenId)> {
     stream.expect_kind(LeftPar)?;
     parse_association_list_no_leftpar(stream)
 }
 
 pub fn parse_association_list_no_leftpar(
     stream: &TokenStream,
-) -> ParseResult<Vec<AssociationElement>> {
-    let mut association_elements = Vec::with_capacity(1);
-    loop {
-        association_elements.push(parse_association_element(stream)?);
-        expect_token!(
-            stream,
-            token,
-            Comma => {},
-            RightPar => {
-                return Ok(association_elements);
-            }
-        )
-    }
+) -> ParseResult<(SeparatedList<AssociationElement>, TokenId)> {
+    let list = parse_list_with_separator(stream, Comma, parse_association_element)?;
+    let comma = stream.expect_kind(RightPar)?;
+    Ok((list, comma))
 }
 
 fn parse_function_call(

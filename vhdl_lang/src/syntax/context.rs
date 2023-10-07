@@ -90,13 +90,15 @@ pub fn parse_context(
         }))
     } else {
         // Context reference
-        let mut name_list = Vec::new();
+        let mut items = vec![name];
+        let mut tokens = Vec::new();
         while let Some(comma) = stream.pop_if_kind(Comma) {
-            name_list.push((comma, parse_name(stream)?));
+            items.push(parse_name(stream)?);
+            tokens.push(comma);
         }
         let name_list = SeparatedList {
-            first: name,
-            remainder: name_list,
+            items,
+            tokens
         };
         let semi_token = stream.expect_kind(SemiColon)?;
         Ok(DeclarationOrReference::Reference(ContextReference {

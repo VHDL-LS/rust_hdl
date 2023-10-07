@@ -23,6 +23,7 @@ use parking_lot::RwLock;
 use std::collections::hash_map::Entry;
 use std::ops::Deref;
 use std::sync::Arc;
+use crate::ast::visitor::{Visitor, walk};
 
 /// A design unit with design unit data
 pub(super) struct AnalysisData {
@@ -180,7 +181,7 @@ impl Library {
                 UnitKey::Secondary(ref primary_name, ref name) => match unit.kind() {
                     AnyKind::Secondary(SecondaryKind::Architecture) => Diagnostic::error(
                         unit.ident(),
-                        format!("Duplicate architecture '{name}' of entity '{primary_name}'",),
+                        format!("Duplicate architecture '{name}' of entity '{primary_name}'", ),
                     ),
                     AnyKind::Secondary(SecondaryKind::PackageBody) => Diagnostic::error(
                         unit.pos(),
@@ -325,7 +326,7 @@ impl DesignRoot {
     }
 
     /// Iterates over all available library symbols.
-    pub fn available_libraries(&self) -> impl Iterator<Item = &Symbol> {
+    pub fn available_libraries(&self) -> impl Iterator<Item=&Symbol> {
         self.libraries.keys()
     }
 
@@ -467,10 +468,10 @@ impl DesignRoot {
         searcher.references
     }
 
-    pub fn public_symbols<'a>(&'a self) -> Box<dyn Iterator<Item = EntRef<'a>> + 'a> {
+    pub fn public_symbols<'a>(&'a self) -> Box<dyn Iterator<Item=EntRef<'a>> + 'a> {
         Box::new(self.libraries.values().flat_map(|library| {
             std::iter::once(self.arenas.get(library.id)).chain(library.units.values().flat_map(
-                |unit| -> Box<dyn Iterator<Item = EntRef<'a>>> {
+                |unit| -> Box<dyn Iterator<Item=EntRef<'a>>> {
                     if matches!(unit.kind(), AnyKind::Primary(_)) {
                         let data = self.get_analysis(unit);
                         if let AnyDesignUnit::Primary(primary) = data.deref() {
@@ -578,6 +579,18 @@ impl DesignRoot {
             }
         }
         NotFound
+    }
+
+    pub fn walk(&self, visitor: &mut impl Visitor) {
+        for library in self.libraries.values() {
+            for unit_id in library.sorted_unit_ids() {
+                let unit = library.units.get(unit_id.key()).unwrap();
+                let tokens = &unit.tokens;
+                if let Some(unit) = unit.unit.get() {
+                    walk(unit.data(), visitor, tokens);
+                }
+            }
+        }
     }
 
     pub fn search_library(
@@ -843,13 +856,13 @@ impl DesignRoot {
             .libraries
             .get(&std_lib_name)
             .map(|library| &library.units)
-        else {
-            return;
-        };
+            else {
+                return;
+            };
         let Some(locked_unit) = standard_units.get(&UnitKey::Primary(self.symbol_utf8("standard")))
-        else {
-            return;
-        };
+            else {
+                return;
+            };
         let AnalysisEntry::Vacant(mut unit) = locked_unit.unit.entry() else {
             return;
         };
@@ -911,7 +924,7 @@ impl DesignRoot {
             }
 
             for ent in
-                context.universal_implicits(UniversalType::Real, context.universal_real().into())
+            context.universal_implicits(UniversalType::Real, context.universal_real().into())
             {
                 unsafe {
                     arena.add_implicit(universal.real, ent);
@@ -975,9 +988,9 @@ impl DesignRoot {
                     if let Some(ent) = primary.ent_id() {
                         let AnyEntKind::Design(Design::Package(_, ref region)) =
                             std_logic_arena.get(ent).kind()
-                        else {
-                            unreachable!()
-                        };
+                            else {
+                                unreachable!()
+                            };
 
                         if let Some(NamedEntities::Single(ent)) = region.lookup_immediate(
                             &Designator::Identifier(self.symbol_utf8("std_ulogic")),
@@ -1200,21 +1213,21 @@ package pkg is new gpkg generic map (const => foo);
             vec![
                 Diagnostic::error(
                     code.s("pkg", 2),
-                    "A primary unit has already been declared with name 'pkg' in library 'libname'"
+                    "A primary unit has already been declared with name 'pkg' in library 'libname'",
                 ).related(code.s("pkg", 1), "Previously defined here"),
                 Diagnostic::error(
                     code.s("entname", 2),
-                    "A primary unit has already been declared with name 'entname' in library 'libname'"
+                    "A primary unit has already been declared with name 'entname' in library 'libname'",
                 ).related(code.s("entname", 1), "Previously defined here"),
                 Diagnostic::error(
                     code.s("pkg", 3),
-                    "A primary unit has already been declared with name 'pkg' in library 'libname'"
+                    "A primary unit has already been declared with name 'pkg' in library 'libname'",
                 ).related(code.s("pkg", 1), "Previously defined here"),
                 Diagnostic::error(
                     code.s("pkg", 4),
-                    "A primary unit has already been declared with name 'pkg' in library 'libname'"
+                    "A primary unit has already been declared with name 'pkg' in library 'libname'",
                 ).related(code.s("pkg", 1), "Previously defined here"),
-            ]
+            ],
         );
     }
 
@@ -1244,7 +1257,7 @@ end architecture;
                 code.s("rtl", 2),
                 "Duplicate architecture 'rtl' of entity 'ent'",
             )
-            .related(code.s("rtl", 1), "Previously defined here")],
+                .related(code.s("rtl", 1), "Previously defined here")],
         );
     }
 
@@ -1274,14 +1287,14 @@ end configuration;
                 code.s("cfg", 2),
                 "A primary unit has already been declared with name 'cfg' in library 'libname'",
             )
-            .related(code.s1("cfg"), "Previously defined here")],
+                .related(code.s1("cfg"), "Previously defined here")],
         );
         assert_eq!(library.units.len(), 2);
         assert_eq!(library.duplicates.len(), 1);
     }
 }
 
-fn public_symbols<'a>(ent: EntRef<'a>) -> Box<dyn Iterator<Item = EntRef<'a>> + 'a> {
+fn public_symbols<'a>(ent: EntRef<'a>) -> Box<dyn Iterator<Item=EntRef<'a>> + 'a> {
     match ent.kind() {
         AnyEntKind::Design(d) => match d {
             Design::Entity(_, region)

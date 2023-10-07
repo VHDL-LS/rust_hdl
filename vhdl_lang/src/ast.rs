@@ -17,11 +17,11 @@ mod any_design_unit;
 
 #[macro_use]
 pub mod search;
+pub mod visitor;
 
 pub use self::display::*;
 pub(crate) use self::util::*;
 pub(crate) use any_design_unit::*;
-use std::iter;
 
 use crate::analysis::EntityId;
 use crate::data::*;
@@ -697,7 +697,7 @@ pub enum SubprogramDefault {
 /// LRM 6.5.5 Interface package declaration
 #[derive(PartialEq, Debug, Clone)]
 pub enum InterfacePackageGenericMapAspect {
-    Map(Vec<AssociationElement>),
+    Map(SeparatedList<AssociationElement>),
     Box,
     Default,
 }
@@ -969,9 +969,9 @@ pub struct BlockStatement {
 #[derive(PartialEq, Debug, Clone)]
 pub struct BlockHeader {
     pub generic_clause: Option<Vec<InterfaceDeclaration>>,
-    pub generic_map: Option<Vec<AssociationElement>>,
+    pub generic_map: Option<MapAspect>,
     pub port_clause: Option<Vec<InterfaceDeclaration>>,
-    pub port_map: Option<Vec<AssociationElement>>,
+    pub port_map: Option<MapAspect>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -1022,12 +1022,20 @@ pub enum InstantiatedUnit {
     Configuration(WithPos<SelectedName>),
 }
 
+#[derive(PartialEq, Debug, Clone)]
+pub struct MapAspect {
+    pub start: TokenId, // `generic` or `map`
+    pub list: SeparatedList<AssociationElement>,
+    pub closing_paren: TokenId,
+}
+
 /// 11.7 Component instantiation statements
 #[derive(PartialEq, Debug, Clone)]
 pub struct InstantiationStatement {
     pub unit: InstantiatedUnit,
-    pub generic_map: Vec<AssociationElement>,
-    pub port_map: Vec<AssociationElement>,
+    pub generic_map: Option<MapAspect>,
+    pub port_map: Option<MapAspect>,
+    pub semicolon: TokenId,
 }
 
 /// 11.8 Generate statements
@@ -1092,22 +1100,12 @@ pub struct LibraryClause {
 /// Represents a token-separated list of some generic type `T`
 #[derive(PartialEq, Debug, Clone)]
 pub struct SeparatedList<T> {
-    pub first: T,
-    pub remainder: Vec<(TokenId, T)>,
+    pub items: Vec<T>,
+    pub tokens: Vec<TokenId>,
 }
 
 pub type IdentList = SeparatedList<WithRef<Ident>>;
 pub type NameList = SeparatedList<WithPos<Name>>;
-
-impl<T> SeparatedList<T> {
-    pub fn items(&self) -> impl Iterator<Item = &T> {
-        iter::once(&self.first).chain(self.remainder.iter().map(|it| &it.1))
-    }
-
-    pub fn items_mut(&mut self) -> impl Iterator<Item = &mut T> {
-        iter::once(&mut self.first).chain(self.remainder.iter_mut().map(|it| &mut it.1))
-    }
-}
 
 /// LRM 12.4. Use clauses
 #[derive(PartialEq, Debug, Clone)]
@@ -1147,7 +1145,7 @@ pub struct PackageInstantiation {
     pub context_clause: ContextClause,
     pub ident: WithDecl<Ident>,
     pub package_name: WithPos<SelectedName>,
-    pub generic_map: Option<Vec<AssociationElement>>,
+    pub generic_map: Option<MapAspect>,
 }
 
 /// LRM 7.3 Configuration specification
@@ -1170,8 +1168,8 @@ pub enum EntityAspect {
 #[derive(PartialEq, Debug, Clone)]
 pub struct BindingIndication {
     pub entity_aspect: Option<EntityAspect>,
-    pub generic_map: Option<Vec<AssociationElement>>,
-    pub port_map: Option<Vec<AssociationElement>>,
+    pub generic_map: Option<MapAspect>,
+    pub port_map: Option<MapAspect>,
 }
 
 /// LRM 7.3 Configuration specification

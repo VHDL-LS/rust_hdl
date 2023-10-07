@@ -86,13 +86,13 @@ impl<'a> AnalyzeContext<'a> {
                     self.analyze_interface_list(&nested, parent, list, diagnostics)?;
                 }
                 if let Some(ref mut list) = block.header.generic_map {
-                    self.analyze_assoc_elems(scope, list, diagnostics)?;
+                    self.analyze_assoc_elems(scope, &mut list.list.items[..], diagnostics)?;
                 }
                 if let Some(ref mut list) = block.header.port_clause {
                     self.analyze_interface_list(&nested, parent, list, diagnostics)?;
                 }
                 if let Some(ref mut list) = block.header.port_map {
-                    self.analyze_assoc_elems(scope, list, diagnostics)?;
+                    self.analyze_assoc_elems(scope, &mut list.list.items[..], diagnostics)?;
                 }
 
                 self.define_labels_for_concurrent_part(
@@ -288,14 +288,14 @@ impl<'a> AnalyzeContext<'a> {
                                     &entity_name.pos,
                                     &generic_region,
                                     scope,
-                                    &mut instance.generic_map,
+                                    &mut instance.generic_map.as_mut().map(|it| it.list.items.as_mut_slice()).unwrap_or(&mut []),
                                     diagnostics,
                                 )?;
                                 self.analyze_assoc_elems_with_formal_region(
                                     &entity_name.pos,
                                     &port_region,
                                     scope,
-                                    &mut instance.port_map,
+                                    &mut instance.port_map.as_mut().map(|it| it.list.items.as_mut_slice()).unwrap_or(&mut []),
                                     diagnostics,
                                 )?;
                                 Ok(())
@@ -326,14 +326,14 @@ impl<'a> AnalyzeContext<'a> {
                                     &component_name.pos,
                                     &generic_region,
                                     scope,
-                                    &mut instance.generic_map,
+                                    &mut instance.generic_map.as_mut().map(|it| it.list.items.as_mut_slice()).unwrap_or(&mut []),
                                     diagnostics,
                                 )?;
                                 self.analyze_assoc_elems_with_formal_region(
                                     &component_name.pos,
                                     &port_region,
                                     scope,
-                                    &mut instance.port_map,
+                                    &mut instance.port_map.as_mut().map(|it| it.list.items.as_mut_slice()).unwrap_or(&mut []),
                                     diagnostics,
                                 )?;
                                 Ok(())
@@ -366,12 +366,19 @@ impl<'a> AnalyzeContext<'a> {
                     err.add_to(diagnostics)?;
                 }
 
-                self.analyze_assoc_elems(scope, &mut instance.generic_map, diagnostics)?;
-                self.analyze_assoc_elems(scope, &mut instance.port_map, diagnostics)?;
+                self.analyze_map_aspect(scope, &mut instance.generic_map, diagnostics)?;
+                self.analyze_map_aspect(scope, &mut instance.port_map, diagnostics)?;
             }
         };
 
         Ok(())
+    }
+
+    pub fn analyze_map_aspect(&self, scope: & Scope<'a>, map: & mut Option<MapAspect>, diagnostics: &mut dyn DiagnosticHandler) -> FatalResult {
+        let Some(aspect) = map else {
+            return Ok(());
+        };
+        self.analyze_assoc_elems(scope, aspect.list.items.as_mut_slice(), diagnostics)
     }
 
     pub fn sensitivity_list_check(
