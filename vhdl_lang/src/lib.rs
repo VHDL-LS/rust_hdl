@@ -29,3 +29,4 @@ pub use crate::analysis::{
 };
 pub use crate::project::{Project, SourceFile};
 pub use crate::syntax::{ParserResult, VHDLParser};
+pub use crate::analysis::{CompletionItem, CompletionKind, CompletionItemMode};

@@ -2,16 +2,78 @@ use crate::analysis::DesignRoot;
 use crate::ast::visitor::{Visitor, VisitorResult};
 use crate::ast::{
     AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, ComponentDeclaration, Declaration,
-    EntityDeclaration, InstantiationStatement, InterfaceDeclaration, MapAspect, PackageDeclaration,
-    SubprogramDeclaration, UnitKey,
+    EntityDeclaration, HasUnitId, InstantiationStatement, InterfaceDeclaration, MapAspect,
+    PackageDeclaration, SubprogramDeclaration, UnitKey, WithDecl, WithRef,
 };
 use crate::data::{ContentReader, Symbol};
 use crate::syntax::Kind::*;
 use crate::syntax::{Symbols, Token, TokenAccess, Tokenizer, Value};
-use crate::{EntityId, Position, Source};
+use crate::{ast, EntityId, Position, Source};
 use itertools::Itertools;
 use std::collections::HashSet;
 use std::default::Default;
+
+pub enum CompletionKind {
+    Module,
+}
+
+pub enum CompletionItemMode {
+    Text,
+    Snippet,
+}
+
+pub struct CompletionItem {
+    pub label: String,
+    pub detail: String,
+    pub kind: CompletionKind,
+    pub mode: CompletionItemMode,
+}
+
+impl CompletionItem {
+    pub fn text(label: String, detail: String, kind: CompletionKind) -> CompletionItem {
+        CompletionItem {
+            label,
+            detail,
+            kind,
+            mode: CompletionItemMode::Text,
+        }
+    }
+
+    pub fn snippet(label: String, detail: String, kind: CompletionKind) -> CompletionItem {
+        CompletionItem {
+            label,
+            detail,
+            kind,
+            mode: CompletionItemMode::Snippet,
+        }
+    }
+
+    pub fn from_decl<T>(decl: &WithDecl<T>, root: &DesignRoot) -> CompletionItem
+    where
+        T: ToString,
+    {
+        CompletionItem::text(
+            decl.tree.to_string(),
+            decl.decl
+                .map(|id| root.get_ent(id).describe())
+                .unwrap_or_default(),
+            CompletionKind::Module,
+        )
+    }
+
+    pub fn from_ref<T>(decl: &WithRef<T>, root: &DesignRoot) -> CompletionItem
+    where
+        T: ToString,
+    {
+        CompletionItem::text(
+            decl.item.to_string(),
+            decl.reference
+                .map(|id| root.get_ent(id).describe())
+                .unwrap_or_default(),
+            CompletionKind::Module,
+        )
+    }
+}
 
 macro_rules! kind {
     ($kind: pat) => {
@@ -41,18 +103,24 @@ enum MapAspectKind {
 /// The `kind` member chooses whether to select ports or generics.
 struct PortsOrGenericsExtractor<'a> {
     id: EntityId,
-    items: &'a mut Vec<String>,
+    items: &'a mut Vec<CompletionItem>,
     kind: MapAspectKind,
+    root: &'a DesignRoot,
 }
 
 impl DesignRoot {
     fn extract_port_or_generic_names(
         &self,
         id: EntityId,
-        items: &mut Vec<String>,
+        items: &mut Vec<CompletionItem>,
         kind: MapAspectKind,
     ) {
-        let mut searcher = PortsOrGenericsExtractor { id, items, kind };
+        let mut searcher = PortsOrGenericsExtractor {
+            id,
+            items,
+            kind,
+            root: self,
+        };
         self.walk(&mut searcher);
     }
 }
@@ -68,12 +136,12 @@ impl<'a> Visitor for PortsOrGenericsExtractor<'a> {
         }
         if self.kind == MapAspectKind::Port {
             for port in &node.port_list {
-                self.items.push(port.completable_name())
+                self.items.push(port.completable_name(self.root))
             }
         }
         if self.kind == MapAspectKind::Generic {
             for generic in &node.generic_list {
-                self.items.push(generic.completable_name())
+                self.items.push(generic.completable_name(self.root))
             }
         }
         VisitorResult::Stop
@@ -90,14 +158,14 @@ impl<'a> Visitor for PortsOrGenericsExtractor<'a> {
         if self.kind == MapAspectKind::Port {
             if let Some(ports) = &node.port_clause {
                 for port in ports {
-                    self.items.push(port.completable_name())
+                    self.items.push(port.completable_name(self.root))
                 }
             }
         }
         if self.kind == MapAspectKind::Generic {
             if let Some(generics) = &node.generic_clause {
                 for generic in generics {
-                    self.items.push(generic.completable_name())
+                    self.items.push(generic.completable_name(self.root))
                 }
             }
         }
@@ -115,7 +183,7 @@ impl<'a> Visitor for PortsOrGenericsExtractor<'a> {
         if self.kind == MapAspectKind::Generic {
             if let Some(generics) = &node.generic_clause {
                 for generic in generics {
-                    self.items.push(generic.completable_name())
+                    self.items.push(generic.completable_name(self.root))
                 }
             }
         }
@@ -127,16 +195,17 @@ impl InterfaceDeclaration {
     /// Returns completable names for an interface declarations.
     /// Example:
     /// `signal my_signal : natural := 5` => `my_signal`
-    fn completable_name(&self) -> String {
+    fn completable_name(&self, root: &DesignRoot) -> CompletionItem {
         match self {
-            InterfaceDeclaration::Object(obj) => obj.ident.tree.to_string(),
-            InterfaceDeclaration::File(file) => file.ident.to_string(),
-            InterfaceDeclaration::Type(typ) => typ.tree.item.name().to_string(),
-            InterfaceDeclaration::Subprogram(decl, _) => match decl {
-                SubprogramDeclaration::Procedure(proc) => proc.designator.to_string(),
-                SubprogramDeclaration::Function(func) => func.designator.to_string(),
-            },
-            InterfaceDeclaration::Package(package) => package.package_name.to_string(),
+            InterfaceDeclaration::Object(obj) => CompletionItem::from_decl(&obj.ident, root),
+            InterfaceDeclaration::File(file) => CompletionItem::from_decl(&file.ident, root),
+            InterfaceDeclaration::Type(typ) => CompletionItem::from_decl(&typ, root),
+            InterfaceDeclaration::Subprogram(decl, _) => {
+                subprogram_declaration_to_completion_item(decl, root)
+            }
+            InterfaceDeclaration::Package(package) => {
+                CompletionItem::from_decl(&package.ident, root)
+            }
         }
     }
 }
@@ -145,7 +214,7 @@ impl InterfaceDeclaration {
 struct AutocompletionVisitor<'a> {
     root: &'a DesignRoot,
     cursor: Position,
-    completions: &'a mut Vec<String>,
+    completions: &'a mut Vec<CompletionItem>,
 }
 
 impl<'a> AutocompletionVisitor<'a> {
@@ -168,7 +237,7 @@ impl<'a> AutocompletionVisitor<'a> {
             self.root
                 .extract_port_or_generic_names(ent, self.completions, kind);
             self.completions
-                .retain(|name| !formals_in_map.contains(&name.to_lowercase()));
+                .retain(|item| !formals_in_map.contains(&item.label.to_lowercase()));
         }
         true
     }
@@ -222,22 +291,38 @@ impl<'a> Visitor for AutocompletionVisitor<'a> {
 /// `declaration_to_string(Declaration::Alias(alias)) == "my_alias"`
 /// Returns `None` if the declaration has no string representation that can be used for completion
 /// purposes.
-fn declaration_to_string(decl: &Declaration) -> Option<String> {
+fn subprogram_declaration_to_completion_item(
+    decl: &SubprogramDeclaration,
+    root: &DesignRoot,
+) -> CompletionItem {
     match decl {
-        Declaration::Object(o) => Some(o.ident.tree.item.to_string()),
-        Declaration::File(f) => Some(f.ident.tree.item.to_string()),
-        Declaration::Type(t) => Some(t.ident.tree.item.to_string()),
-        Declaration::Component(c) => Some(c.ident.tree.item.to_string()),
-        Declaration::Attribute(a) => match a {
-            crate::ast::Attribute::Specification(spec) => Some(spec.ident.item.to_string()),
-            crate::ast::Attribute::Declaration(decl) => Some(decl.ident.tree.item.to_string()),
+        SubprogramDeclaration::Procedure(proc) => CompletionItem::from_decl(&proc.designator, root),
+        SubprogramDeclaration::Function(func) => CompletionItem::from_decl(&func.designator, root),
+    }
+}
+
+fn declaration_to_completion_item(decl: &Declaration, root: &DesignRoot) -> Option<CompletionItem> {
+    match decl {
+        Declaration::Object(o) => Some(CompletionItem::from_decl(&o.ident, root)),
+        Declaration::File(file) => Some(CompletionItem::from_decl(&file.ident, root)),
+        Declaration::Type(typ) => Some(CompletionItem::from_decl(&typ.ident, root)),
+        Declaration::Component(comp) => Some(CompletionItem::from_decl(&comp.ident, root)),
+        Declaration::Attribute(attr) => match attr {
+            ast::Attribute::Specification(spec) => {
+                Some(CompletionItem::from_ref(&spec.ident, root))
+            }
+            ast::Attribute::Declaration(decl) => Some(CompletionItem::from_decl(&decl.ident, root)),
         },
-        Declaration::Alias(a) => Some(a.designator.to_string()),
-        Declaration::SubprogramDeclaration(decl) => Some(decl.subpgm_designator().to_string()),
-        Declaration::SubprogramBody(_) => None,
-        Declaration::Use(_) => None,
-        Declaration::Package(p) => Some(p.ident.to_string()),
-        Declaration::Configuration(_) => None,
+        Declaration::Alias(alias) => Some(CompletionItem::from_decl(&alias.designator, root)),
+        Declaration::SubprogramDeclaration(decl) => {
+            Some(subprogram_declaration_to_completion_item(decl, root))
+        }
+        Declaration::SubprogramBody(body) => Some(subprogram_declaration_to_completion_item(
+            &body.specification,
+            root,
+        )),
+        Declaration::Package(pkg) => Some(CompletionItem::from_decl(&pkg.ident, root)),
+        _ => None,
     }
 }
 
@@ -283,21 +368,31 @@ fn tokenize_input(symbols: &Symbols, source: &Source, cursor: Position) -> Vec<T
 
 impl DesignRoot {
     /// helper function to list the name of all available libraries
-    fn list_all_libraries(&self) -> Vec<String> {
+    fn list_all_libraries(&self) -> Vec<CompletionItem> {
         self.available_libraries()
-            .map(|k| k.name().to_string())
+            .map(|k| {
+                CompletionItem::text(
+                    k.name_utf8(),
+                    format!("library {}", k.name_utf8()),
+                    CompletionKind::Module,
+                )
+            })
             .collect()
     }
 
     /// List the name of all primary units for a given library.
     /// If the library is non-resolvable, list an empty vector
-    fn list_primaries_for_lib(&self, lib: &Symbol) -> Vec<String> {
+    fn list_primaries_for_lib(&self, lib: &Symbol) -> Vec<CompletionItem> {
         let Some(lib) = self.get_library_units(lib) else {
             return vec![];
         };
-        lib.keys()
-            .filter_map(|key| match key {
-                UnitKey::Primary(prim) => Some(prim.name().to_string()),
+        lib.iter()
+            .filter_map(|(key, unit)| match key {
+                UnitKey::Primary(prim) => Some(CompletionItem::text(
+                    prim.name_utf8(),
+                    unit.describe(),
+                    CompletionKind::Module,
+                )),
                 UnitKey::Secondary(_, _) => None,
             })
             .collect()
@@ -306,7 +401,11 @@ impl DesignRoot {
     /// Lists all available declarations for a primary unit inside a given library
     /// If the library does not exist or there is no primary unit with the given name for that library,
     /// return an empty vector
-    fn list_available_declarations(&self, lib: &Symbol, primary_unit: &Symbol) -> Vec<String> {
+    fn list_available_declarations(
+        &self,
+        lib: &Symbol,
+        primary_unit: &Symbol,
+    ) -> Vec<CompletionItem> {
         let Some(lib) = self.get_library_units(lib) else {
             return vec![];
         };
@@ -318,15 +417,22 @@ impl DesignRoot {
             AnyDesignUnit::Primary(AnyPrimaryUnit::Package(pkg)) => pkg
                 .decl
                 .iter()
-                .filter_map(declaration_to_string)
-                .unique()
-                .chain(vec!["all".to_string()])
+                .filter_map(|decl| declaration_to_completion_item(decl, self))
+                .chain(vec![CompletionItem::text(
+                    "all".to_string(),
+                    "all".to_string(),
+                    CompletionKind::Module,
+                )])
                 .collect_vec(),
             _ => Vec::default(),
         }
     }
 
-    pub fn list_completion_options(&self, source: &Source, cursor: Position) -> Vec<String> {
+    pub fn list_completion_options(
+        &self,
+        source: &Source,
+        cursor: Position,
+    ) -> Vec<CompletionItem> {
         let tokens = tokenize_input(&self.symbols, source, cursor);
         match &tokens[..] {
             [.., kind!(Library)] | [.., kind!(Use)] | [.., kind!(Use), kind!(Identifier)] => {

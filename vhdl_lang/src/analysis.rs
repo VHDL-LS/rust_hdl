@@ -39,3 +39,4 @@ pub use named_entity::{
     AnyEnt, AnyEntKind, Concurrent, Design, EntRef, EntityId, HasEntityId, Object, Overloaded,
     Related, Sequential, Type,
 };
+pub use completion::{CompletionItem, CompletionKind, CompletionItemMode};

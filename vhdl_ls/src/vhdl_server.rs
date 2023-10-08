@@ -14,10 +14,7 @@ use vhdl_lang::ast::{Designator, ObjectClass};
 use crate::rpc_channel::SharedRpcChannel;
 use std::io;
 use std::path::{Path, PathBuf};
-use vhdl_lang::{
-    AnyEntKind, Concurrent, Config, Diagnostic, EntHierarchy, EntRef, Message, MessageHandler,
-    Object, Overloaded, Project, Severity, Source, SrcPos, Type,
-};
+use vhdl_lang::{AnyEntKind, CompletionItemMode, CompletionKind, Concurrent, Config, Diagnostic, EntHierarchy, EntRef, Message, MessageHandler, Object, Overloaded, Project, Severity, Source, SrcPos, Type};
 
 #[derive(Default, Clone)]
 pub struct VHDLServerSettings {
@@ -284,10 +281,7 @@ impl VHDLServer {
             .project
             .list_completion_options(&source, cursor)
             .into_iter()
-            .map(|option| CompletionItem {
-                label: option,
-                ..Default::default()
-            })
+            .map(completion_item_to_lsp_item)
             .collect();
 
         CompletionList {
@@ -696,6 +690,26 @@ fn srcpos_to_location(pos: &SrcPos) -> Location {
     Location {
         uri,
         range: to_lsp_range(pos.range()),
+    }
+}
+
+fn completion_item_to_lsp_item(item: vhdl_lang::CompletionItem) -> lsp_types::CompletionItem {
+    let kind = match item.kind {
+        CompletionKind::Module => CompletionItemKind::MODULE,
+    };
+    let mode = match item.mode {
+        CompletionItemMode::Text => InsertTextFormat::PLAIN_TEXT,
+        CompletionItemMode::Snippet => InsertTextFormat::SNIPPET,
+    };
+    CompletionItem {
+        label: item.label,
+        label_details: Some(CompletionItemLabelDetails {
+            detail: None,
+            description: Some(item.detail),
+        }),
+        insert_text_format: Some(mode),
+        kind: Some(kind),
+        ..Default::default()
     }
 }
 

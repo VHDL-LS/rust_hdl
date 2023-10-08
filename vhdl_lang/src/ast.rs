@@ -682,6 +682,15 @@ pub enum SubprogramDeclaration {
     Function(FunctionSpecification),
 }
 
+impl SubprogramDeclaration {
+    pub fn decl(&self) -> Option<EntityId> {
+        match self {
+            SubprogramDeclaration::Procedure(proc) => proc.designator.decl,
+            SubprogramDeclaration::Function(func) => func.designator.decl,
+        }
+    }
+}
+
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfaceFileDeclaration {
     pub ident: WithDecl<Ident>,
@@ -767,6 +776,27 @@ pub enum Declaration {
     Use(UseClause),
     Package(PackageInstantiation),
     Configuration(ConfigurationSpecification),
+}
+
+impl Declaration {
+    pub fn decl(&self) -> Option<EntityId> {
+        match self {
+            Declaration::Object(obj) => obj.ident.decl,
+            Declaration::File(file) => file.ident.decl,
+            Declaration::Type(typ) => typ.ident.decl,
+            Declaration::Component(comp) => comp.ident.decl,
+            Declaration::Attribute(attr) => match attr {
+                Attribute::Specification(spec) => spec.ident.reference,
+                Attribute::Declaration(decl) => decl.ident.decl,
+            },
+            Declaration::Alias(alias) => alias.designator.decl,
+            Declaration::SubprogramDeclaration(subprogram) => subprogram.decl(),
+            Declaration::SubprogramBody(body) => body.specification.decl(),
+            Declaration::Use(_) => None,
+            Declaration::Package(pkg) => pkg.ident.decl,
+            Declaration::Configuration(_) => None,
+        }
+    }
 }
 
 /// LRM 10.2 Wait statement

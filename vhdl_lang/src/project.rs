@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::analysis::{AnyEnt, DesignRoot, EntRef};
+use crate::analysis::{AnyEnt, CompletionItem, DesignRoot, EntRef};
 use crate::ast::DesignFile;
 use crate::config::Config;
 use crate::syntax::VHDLParser;
@@ -293,7 +293,7 @@ impl Project {
         self.files.values()
     }
 
-    pub fn list_completion_options(&self, source: &Source, cursor: Position) -> Vec<String> {
+    pub fn list_completion_options(&self, source: &Source, cursor: Position) -> Vec<CompletionItem> {
         self.root.list_completion_options(source, cursor)
     }
 }
