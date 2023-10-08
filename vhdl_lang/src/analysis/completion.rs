@@ -1,11 +1,7 @@
-use crate::analysis::{DesignRoot, HasEntityId};
-use crate::ast::search::{FoundDeclaration, SearchResult, SearchState, Searcher};
+use crate::analysis::{DesignRoot};
 use crate::ast::visitor::{Visitor, VisitorResult};
-use crate::ast::{
-    AnyDesignUnit, AnyPrimaryUnit, Declaration, InstantiationStatement, InterfaceDeclaration,
-    MapAspect, SubprogramDeclaration, UnitKey,
-};
-use crate::data::{ContentReader, Symbol};
+use crate::ast::{AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, ComponentDeclaration, Declaration, EntityDeclaration, InstantiationStatement, InterfaceDeclaration, MapAspect, PackageDeclaration, SubprogramDeclaration, UnitKey};
+use crate::data::{ContentReader, HasSource, Symbol};
 use crate::syntax::Kind::*;
 use crate::syntax::{Symbols, Token, TokenAccess, Tokenizer, Value};
 use crate::{EntityId, Position, Source};
@@ -35,49 +31,90 @@ enum MapAspectKind {
     Generic,
 }
 
-struct EntityPortAndGenericsExtractor<'a> {
+struct PortAndGenericsExtractor<'a> {
     id: EntityId,
     items: &'a mut Vec<String>,
     kind: MapAspectKind,
+    source: &'a Source,
 }
 
 impl DesignRoot {
     fn extract_port_or_generic_names(
         &self,
+        source: &Source,
         id: EntityId,
         items: &mut Vec<String>,
         kind: MapAspectKind,
     ) {
-        let mut searcher = EntityPortAndGenericsExtractor { id, items, kind };
-        let _ = self.search(&mut searcher);
+        let mut searcher = PortAndGenericsExtractor {
+            id,
+            items,
+            kind,
+            source,
+        };
+        self.walk(&mut searcher);
     }
 }
 
-impl<'a> Searcher for EntityPortAndGenericsExtractor<'a> {
-    fn search_decl(&mut self, _ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
-        if decl.ent_id() != Some(self.id) {
-            return SearchState::NotFinished;
+impl<'a> Visitor for PortAndGenericsExtractor<'a> {
+    fn visit_entity_declaration(
+        &mut self,
+        node: &EntityDeclaration,
+        _ctx: &dyn TokenAccess,
+    ) -> VisitorResult {
+        if node.ident.decl != Some(self.id) {
+            return VisitorResult::Skip;
         }
-        match decl {
-            FoundDeclaration::Entity(ent) => {
-                if self.kind == MapAspectKind::Port {
-                    if let Some(ports) = &ent.port_clause {
-                        for port in ports {
-                            self.items.push(port.completable_name())
-                        }
-                    }
+        if self.kind == MapAspectKind::Port {
+            if let Some(ports) = &node.port_clause {
+                for port in ports {
+                    self.items.push(port.completable_name())
                 }
-                if self.kind == MapAspectKind::Generic {
-                    if let Some(generics) = &ent.generic_clause {
-                        for generic in generics {
-                            self.items.push(generic.completable_name())
-                        }
-                    }
-                }
-                SearchState::Finished(SearchResult::Found)
             }
-            _ => SearchState::NotFinished,
         }
+        if self.kind == MapAspectKind::Generic {
+            if let Some(generics) = &node.generic_clause {
+                for generic in generics {
+                    self.items.push(generic.completable_name())
+                }
+            }
+        }
+        VisitorResult::Stop
+    }
+
+    fn visit_component_declaration(
+        &mut self,
+        node: &ComponentDeclaration,
+        _ctx: &dyn TokenAccess,
+    ) -> VisitorResult {
+        if node.ident.decl != Some(self.id) {
+            return VisitorResult::Skip;
+        }
+        if self.kind == MapAspectKind::Port {
+            for port in &node.port_list {
+                self.items.push(port.completable_name())
+            }
+        }
+        if self.kind == MapAspectKind::Generic {
+            for generic in &node.generic_list {
+                self.items.push(generic.completable_name())
+            }
+        }
+        VisitorResult::Stop
+    }
+
+    fn visit_package_declaration(&mut self, node: &PackageDeclaration, _ctx: &dyn TokenAccess) -> VisitorResult {
+        if node.ident.decl != Some(self.id) {
+            return VisitorResult::Skip;
+        }
+        if self.kind == MapAspectKind::Generic {
+            if let Some(generics) = &node.generic_clause {
+                for generic in generics {
+                    self.items.push(generic.completable_name())
+                }
+            }
+        }
+        VisitorResult::Stop
     }
 }
 
@@ -107,7 +144,6 @@ struct AutocompletionVisitor<'a> {
 }
 
 impl<'a> AutocompletionVisitor<'a> {
-
     /// Loads completion options for the given map aspect.
     /// Returns `true`, when the cursor is inside the map aspect and the search should not continue.
     /// Returns `false` otherwise
@@ -124,8 +160,12 @@ impl<'a> AutocompletionVisitor<'a> {
         let formals_in_map: HashSet<String> =
             HashSet::from_iter(map.formals().map(|name| name.to_string().to_lowercase()));
         if let Some(ent) = node.entity_reference() {
-            self.root
-                .extract_port_or_generic_names(ent, self.completions, kind);
+            self.root.extract_port_or_generic_names(
+                ctx.get_pos(map.start).source(),
+                ent,
+                self.completions,
+                kind,
+            );
             self.completions
                 .retain(|name| !formals_in_map.contains(&name.to_lowercase()));
         }
@@ -151,6 +191,27 @@ impl<'a> Visitor for AutocompletionVisitor<'a> {
             }
         }
         VisitorResult::Skip
+    }
+
+    // preliminary optimizations: only visit architecture
+    fn visit_any_primary_unit(
+        &mut self,
+        _node: &AnyPrimaryUnit,
+        _ctx: &dyn TokenAccess,
+    ) -> VisitorResult {
+        VisitorResult::Skip
+    }
+
+    // preliminary optimizations: only visit architecture
+    fn visit_any_secondary_unit(
+        &mut self,
+        node: &AnySecondaryUnit,
+        _ctx: &dyn TokenAccess,
+    ) -> VisitorResult {
+        match node {
+            AnySecondaryUnit::Architecture(_) => VisitorResult::Continue,
+            AnySecondaryUnit::PackageBody(_) => VisitorResult::Skip,
+        }
     }
 }
 
@@ -382,5 +443,48 @@ mod test {
         let cursor = code.pos().end();
         let options = root.list_completion_options(code.source(), cursor);
         assert_eq!(options, vec!["stop", "finish", "resolution_limit", "all"])
+    }
+
+    #[test]
+    pub fn completing_instantiation_statement() {
+        let mut input = LibraryBuilder::new();
+        let code = input.code(
+            "libname",
+            "\
+entity my_ent is
+end entity my_ent;
+
+architecture arch of my_ent is
+    component comp is
+    generic (
+      A: natural := 5;
+      B: integer
+    );
+    port (
+      clk : in bit;
+      rst : in bit;
+      dout : out bit
+    );
+    end component comp;
+    signal clk, rst: bit;
+begin
+    comp_inst: comp
+    generic map (
+        A => 2
+    )
+    port map (
+        clk => clk
+    );
+end arch;
+        ",
+        );
+        let (root, _) = input.get_analyzed_root();
+        let cursor = code.s1("generic map (").pos().end();
+        let options = root.list_completion_options(code.source(), cursor);
+        assert_eq!(options, vec!["B"]);
+
+        let cursor = code.s1("port map (").pos().end();
+        let options = root.list_completion_options(code.source(), cursor);
+        assert_eq!(options, vec!["rst", "dout"]);
     }
 }
