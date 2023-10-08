@@ -96,10 +96,7 @@ pub fn parse_context(
             items.push(parse_name(stream)?);
             tokens.push(comma);
         }
-        let name_list = SeparatedList {
-            items,
-            tokens
-        };
+        let name_list = SeparatedList { items, tokens };
         let semi_token = stream.expect_kind(SemiColon)?;
         Ok(DeclarationOrReference::Reference(ContextReference {
             context_token,

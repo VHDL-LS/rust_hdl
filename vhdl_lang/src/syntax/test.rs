@@ -29,6 +29,7 @@ use crate::ast;
 use crate::ast::*;
 use crate::data::Range;
 use crate::data::*;
+use crate::syntax::concurrent_statement::parse_map_aspect;
 use crate::syntax::context::{parse_context, DeclarationOrReference};
 use crate::syntax::{TokenAccess, TokenId};
 use std::collections::hash_map::DefaultHasher;
@@ -37,7 +38,6 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hasher;
 use std::sync::Arc;
-use crate::syntax::concurrent_statement::parse_map_aspect;
 
 pub struct CodeBuilder {
     pub symbols: Arc<Symbols>,
@@ -106,7 +106,7 @@ impl CodeBuilder {
     }
 }
 
-impl <T> SeparatedList<T> {
+impl<T> SeparatedList<T> {
     pub fn single(item: T) -> SeparatedList<T> {
         SeparatedList {
             items: vec![item],
@@ -518,11 +518,13 @@ impl Code {
     }
 
     pub fn port_map_aspect(&self) -> MapAspect {
-        self.parse_ok(|stream| parse_map_aspect(stream, Kind::Port)).expect("Expecting port map aspect")
+        self.parse_ok(|stream| parse_map_aspect(stream, Kind::Port))
+            .expect("Expecting port map aspect")
     }
 
     pub fn generic_map_aspect(&self) -> MapAspect {
-        self.parse_ok(|stream| parse_map_aspect(stream, Kind::Generic)).expect("Expecting generic map aspect")
+        self.parse_ok(|stream| parse_map_aspect(stream, Kind::Generic))
+            .expect("Expecting generic map aspect")
     }
 
     pub fn waveform(&self) -> Waveform {

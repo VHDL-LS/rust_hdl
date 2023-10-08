@@ -100,7 +100,7 @@ fn parse_block_header(
                         generic_map = Some(MapAspect {
                             start: token_id,
                             list,
-                            closing_paren
+                            closing_paren,
                         });
                     }
                 } else {
@@ -139,7 +139,7 @@ fn parse_block_header(
                         port_map = Some(MapAspect {
                             start: token_id,
                             list,
-                            closing_paren
+                            closing_paren,
                         });
                     }
                 } else {
@@ -349,10 +349,7 @@ pub fn parse_map_aspect(stream: &TokenStream, aspect_kind: Kind) -> ParseResult<
 #[allow(clippy::type_complexity)]
 pub fn parse_generic_and_port_map(
     stream: &TokenStream,
-) -> ParseResult<(
-    Option<MapAspect>,
-    Option<MapAspect>,
-)> {
+) -> ParseResult<(Option<MapAspect>, Option<MapAspect>)> {
     let generic_map = parse_map_aspect(stream, Generic)?;
     let port_map = parse_map_aspect(stream, Port)?;
 
@@ -371,7 +368,7 @@ pub fn parse_instantiation_statement(
         unit,
         generic_map,
         port_map,
-        semicolon: semi
+        semicolon: semi,
     };
     Ok(inst)
 }
@@ -1286,7 +1283,7 @@ with x(0) + 1 select
             unit: InstantiatedUnit::Configuration(code.s1("lib.foo.bar").selected_name()),
             generic_map: None,
             port_map: None,
-            semicolon: code.s1(";").token()
+            semicolon: code.s1(";").token(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
@@ -1307,7 +1304,7 @@ with x(0) + 1 select
             unit: InstantiatedUnit::Entity(code.s1("lib.foo.bar").selected_name(), None),
             generic_map: None,
             port_map: None,
-            semicolon: code.s1(";").token()
+            semicolon: code.s1(";").token(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
@@ -1359,16 +1356,18 @@ inst: component lib.foo.bar
 
         let inst = InstantiationStatement {
             unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").selected_name()),
-            generic_map: Some(code
-                .s1("generic map (
+            generic_map: Some(
+                code.s1("generic map (
    const => 1
   )")
-                .generic_map_aspect()),
-            port_map: Some(code
-                .s1("port map (
+                    .generic_map_aspect(),
+            ),
+            port_map: Some(
+                code.s1("port map (
    clk => clk_foo
   )")
-                .port_map_aspect()),
+                    .port_map_aspect(),
+            ),
             semicolon: code.s1(";").token(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
@@ -1395,12 +1394,13 @@ inst: lib.foo.bar
         let inst = InstantiationStatement {
             unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").selected_name()),
             generic_map: None,
-            port_map: Some(code
-                .s1("port map (
+            port_map: Some(
+                code.s1("port map (
    clk => clk_foo
   )")
-                .port_map_aspect()),
-            semicolon: code.s1(";").token()
+                    .port_map_aspect(),
+            ),
+            semicolon: code.s1(";").token(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
@@ -1425,13 +1425,14 @@ inst: lib.foo.bar
 
         let inst = InstantiationStatement {
             unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").selected_name()),
-            generic_map: Some(code
-                .s1("generic map (
+            generic_map: Some(
+                code.s1("generic map (
    const => 1
   )")
-                .generic_map_aspect()),
+                    .generic_map_aspect(),
+            ),
             port_map: None,
-            semicolon: code.s1(";").token()
+            semicolon: code.s1(";").token(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));

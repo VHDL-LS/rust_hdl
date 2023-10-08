@@ -10,7 +10,7 @@ use super::common::ParseResult;
 use super::component_declaration::parse_component_declaration;
 use super::configuration::parse_configuration_specification;
 use super::context::parse_use_clause;
-use super::names::{parse_selected_name};
+use super::names::parse_selected_name;
 use super::object_declaration::{parse_file_declaration, parse_object_declaration};
 use super::subprogram::parse_subprogram;
 use super::tokens::{Kind::*, *};

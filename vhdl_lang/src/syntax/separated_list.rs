@@ -70,7 +70,11 @@ mod test {
         assert_eq!(
             code.parse_ok(parse_ident_list),
             IdentList {
-                items: vec![code.s1("abc").ident().into_ref(), code.s1("def").ident().into_ref(), code.s1("ghi").ident().into_ref()],
+                items: vec![
+                    code.s1("abc").ident().into_ref(),
+                    code.s1("def").ident().into_ref(),
+                    code.s1("ghi").ident().into_ref()
+                ],
                 tokens: vec![code.s(",", 1).token(), code.s(",", 2).token()]
             }
         )

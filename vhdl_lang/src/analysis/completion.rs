@@ -1,13 +1,17 @@
 use crate::analysis::{DesignRoot, HasEntityId};
-use crate::ast::{AnyDesignUnit, AnyPrimaryUnit, Declaration, InstantiatedUnit, InstantiationStatement, InterfaceDeclaration, MapAspect, Name, SelectedName, SubprogramDeclaration, UnitKey};
+use crate::ast::search::{FoundDeclaration, SearchResult, SearchState, Searcher};
+use crate::ast::visitor::{Visitor, VisitorResult};
+use crate::ast::{
+    AnyDesignUnit, AnyPrimaryUnit, Declaration, InstantiatedUnit, InstantiationStatement,
+    InterfaceDeclaration, MapAspect, Name, SelectedName, SubprogramDeclaration, UnitKey,
+};
 use crate::data::{ContentReader, Symbol};
 use crate::syntax::Kind::*;
 use crate::syntax::{Symbols, Token, TokenAccess, Tokenizer, Value};
 use crate::{EntityId, Position, Source};
 use itertools::Itertools;
+use std::collections::HashSet;
 use std::default::Default;
-use crate::ast::search::{FoundDeclaration, Searcher, SearchResult, SearchState};
-use crate::ast::visitor::{Visitor, VisitorResult};
 
 macro_rules! kind {
     ($kind: pat) => {
@@ -28,16 +32,16 @@ macro_rules! ident {
 #[derive(Eq, PartialEq, Debug)]
 enum MapAspectKind {
     Port,
-    Generic
+    Generic,
 }
 
 struct EntityPortAndGenericsExtractor<'a> {
     id: EntityId,
     items: &'a mut Vec<String>,
-    kind: MapAspectKind
+    kind: MapAspectKind,
 }
 
-impl <'a> Searcher for EntityPortAndGenericsExtractor<'a> {
+impl<'a> Searcher for EntityPortAndGenericsExtractor<'a> {
     fn search_decl(&mut self, _ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
         if decl.ent_id() == Some(self.id) {
             match decl {
@@ -60,8 +64,8 @@ impl <'a> Searcher for EntityPortAndGenericsExtractor<'a> {
                         }
                     }
                     SearchState::Finished(SearchResult::Found)
-                },
-                _ => SearchState::NotFinished
+                }
+                _ => SearchState::NotFinished,
             }
         } else {
             SearchState::NotFinished
@@ -78,46 +82,54 @@ impl InterfaceDeclaration {
             InterfaceDeclaration::Subprogram(decl, _) => match decl {
                 SubprogramDeclaration::Procedure(proc) => proc.designator.to_string(),
                 SubprogramDeclaration::Function(func) => func.designator.to_string(),
-            }
+            },
             InterfaceDeclaration::Package(package) => package.package_name.to_string(),
         }
     }
 }
 
-
 struct AutocompletionVisitor<'a> {
     root: &'a DesignRoot,
     cursor: Position,
-    completions: &'a mut Vec<String>
+    completions: &'a mut Vec<String>,
 }
 
-impl <'a> AutocompletionVisitor<'a> {
+impl<'a> AutocompletionVisitor<'a> {
     fn get_ent(&self, node: &InstantiationStatement) -> Option<EntityId> {
         match &node.unit {
             InstantiatedUnit::Entity(name, _) => {
                 let Some(ent_id) = (match &name.item {
-                    SelectedName::Designator(desi) => {desi.reference}
-                    SelectedName::Selected(_, desi) => {desi.item.reference}
+                    SelectedName::Designator(desi) => desi.reference,
+                    SelectedName::Selected(_, desi) => desi.item.reference,
                 }) else {
                     return None;
                 };
                 Some(ent_id)
             }
-            _ => None
+            _ => None,
         }
     }
 
-    fn process_map_aspect(&mut self, node: &InstantiationStatement, map: &MapAspect, ctx: &dyn TokenAccess, kind: MapAspectKind) {
-        if ctx.get_span(map.start, map.closing_paren).range().contains(self.cursor) {
-            let items_in_node = map.list.items.iter().filter_map(|el| {
-                match &el.formal {
+    fn process_map_aspect(
+        &mut self,
+        node: &InstantiationStatement,
+        map: &MapAspect,
+        ctx: &dyn TokenAccess,
+        kind: MapAspectKind,
+    ) {
+        if ctx
+            .get_span(map.start, map.closing_paren)
+            .range()
+            .contains(self.cursor)
+        {
+            let items_in_node: HashSet<String> =
+                HashSet::from_iter(map.list.items.iter().filter_map(|el| match &el.formal {
                     None => None,
                     Some(name) => match &name.item {
                         Name::Designator(desi) => Some(desi.item.to_string().to_lowercase()),
-                        _ => None
-                    }
-                }
-            }).collect_vec();
+                        _ => None,
+                    },
+                }));
             if let Some(ent) = self.get_ent(node) {
                 let mut searcher = EntityPortAndGenericsExtractor {
                     id: ent,
@@ -125,15 +137,19 @@ impl <'a> AutocompletionVisitor<'a> {
                     kind,
                 };
                 let _ = self.root.search(&mut searcher);
-                self.completions.retain(|name| !items_in_node.contains(&name.to_lowercase()));
+                self.completions
+                    .retain(|name| !items_in_node.contains(&name.to_lowercase()));
             }
         }
     }
 }
 
-impl <'a> Visitor for AutocompletionVisitor<'a> {
-
-    fn visit_instantiation_statement(&mut self, node: &InstantiationStatement, ctx: &dyn TokenAccess) -> VisitorResult {
+impl<'a> Visitor for AutocompletionVisitor<'a> {
+    fn visit_instantiation_statement(
+        &mut self,
+        node: &InstantiationStatement,
+        ctx: &dyn TokenAccess,
+    ) -> VisitorResult {
         if let Some(map) = &node.generic_map {
             self.process_map_aspect(node, map, ctx, MapAspectKind::Generic)
         }
@@ -273,11 +289,11 @@ impl DesignRoot {
                 let mut visitor = AutocompletionVisitor {
                     completions: &mut completions,
                     root: self,
-                    cursor
+                    cursor,
                 };
                 self.walk(&mut visitor);
                 completions
-            },
+            }
         }
     }
 }

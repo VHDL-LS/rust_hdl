@@ -203,7 +203,7 @@ fn parse_interface_package(stream: &TokenStream) -> ParseResult<InterfacePackage
             _ => {
                 let (list, _) = parse_association_list_no_leftpar(stream)?;
                 InterfacePackageGenericMapAspect::Map(list)
-            },
+            }
         }
     };
 
