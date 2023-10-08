@@ -2,8 +2,8 @@ use crate::analysis::{DesignRoot, HasEntityId};
 use crate::ast::search::{FoundDeclaration, SearchResult, SearchState, Searcher};
 use crate::ast::visitor::{Visitor, VisitorResult};
 use crate::ast::{
-    AnyDesignUnit, AnyPrimaryUnit, Declaration, InstantiatedUnit, InstantiationStatement,
-    InterfaceDeclaration, MapAspect, Name, SelectedName, SubprogramDeclaration, UnitKey,
+    AnyDesignUnit, AnyPrimaryUnit, Declaration, InstantiationStatement, InterfaceDeclaration,
+    MapAspect, SubprogramDeclaration, UnitKey,
 };
 use crate::data::{ContentReader, Symbol};
 use crate::syntax::Kind::*;
@@ -41,39 +41,50 @@ struct EntityPortAndGenericsExtractor<'a> {
     kind: MapAspectKind,
 }
 
+impl DesignRoot {
+    fn extract_port_or_generic_names(
+        &self,
+        id: EntityId,
+        items: &mut Vec<String>,
+        kind: MapAspectKind,
+    ) {
+        let mut searcher = EntityPortAndGenericsExtractor { id, items, kind };
+        let _ = self.search(&mut searcher);
+    }
+}
+
 impl<'a> Searcher for EntityPortAndGenericsExtractor<'a> {
     fn search_decl(&mut self, _ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
-        if decl.ent_id() == Some(self.id) {
-            match decl {
-                FoundDeclaration::Entity(ent) => {
-                    if ent.ident.decl != Some(self.id) {
-                        return SearchState::NotFinished;
-                    }
-                    if self.kind == MapAspectKind::Port {
-                        if let Some(ports) = &ent.port_clause {
-                            for port in ports {
-                                self.items.push(port.completable_name())
-                            }
+        if decl.ent_id() != Some(self.id) {
+            return SearchState::NotFinished;
+        }
+        match decl {
+            FoundDeclaration::Entity(ent) => {
+                if self.kind == MapAspectKind::Port {
+                    if let Some(ports) = &ent.port_clause {
+                        for port in ports {
+                            self.items.push(port.completable_name())
                         }
                     }
-                    if self.kind == MapAspectKind::Generic {
-                        if let Some(generics) = &ent.generic_clause {
-                            for generic in generics {
-                                self.items.push(generic.completable_name())
-                            }
-                        }
-                    }
-                    SearchState::Finished(SearchResult::Found)
                 }
-                _ => SearchState::NotFinished,
+                if self.kind == MapAspectKind::Generic {
+                    if let Some(generics) = &ent.generic_clause {
+                        for generic in generics {
+                            self.items.push(generic.completable_name())
+                        }
+                    }
+                }
+                SearchState::Finished(SearchResult::Found)
             }
-        } else {
-            SearchState::NotFinished
+            _ => SearchState::NotFinished,
         }
     }
 }
 
 impl InterfaceDeclaration {
+    /// Returns completable names for an interface declarations.
+    /// Example:
+    /// `signal my_signal : natural := 5` => `my_signal`
     fn completable_name(&self) -> String {
         match self {
             InterfaceDeclaration::Object(obj) => obj.ident.tree.to_string(),
@@ -88,6 +99,7 @@ impl InterfaceDeclaration {
     }
 }
 
+/// Visitor responsible for completions in selected AST elements
 struct AutocompletionVisitor<'a> {
     root: &'a DesignRoot,
     cursor: Position,
@@ -95,66 +107,48 @@ struct AutocompletionVisitor<'a> {
 }
 
 impl<'a> AutocompletionVisitor<'a> {
-    fn get_ent(&self, node: &InstantiationStatement) -> Option<EntityId> {
-        match &node.unit {
-            InstantiatedUnit::Entity(name, _) => {
-                let Some(ent_id) = (match &name.item {
-                    SelectedName::Designator(desi) => desi.reference,
-                    SelectedName::Selected(_, desi) => desi.item.reference,
-                }) else {
-                    return None;
-                };
-                Some(ent_id)
-            }
-            _ => None,
-        }
-    }
 
-    fn process_map_aspect(
+    /// Loads completion options for the given map aspect.
+    /// Returns `true`, when the cursor is inside the map aspect and the search should not continue.
+    /// Returns `false` otherwise
+    fn load_completions_for_map_aspect(
         &mut self,
         node: &InstantiationStatement,
         map: &MapAspect,
         ctx: &dyn TokenAccess,
         kind: MapAspectKind,
-    ) {
-        if ctx
-            .get_span(map.start, map.closing_paren)
-            .range()
-            .contains(self.cursor)
-        {
-            let items_in_node: HashSet<String> =
-                HashSet::from_iter(map.list.items.iter().filter_map(|el| match &el.formal {
-                    None => None,
-                    Some(name) => match &name.item {
-                        Name::Designator(desi) => Some(desi.item.to_string().to_lowercase()),
-                        _ => None,
-                    },
-                }));
-            if let Some(ent) = self.get_ent(node) {
-                let mut searcher = EntityPortAndGenericsExtractor {
-                    id: ent,
-                    items: self.completions,
-                    kind,
-                };
-                let _ = self.root.search(&mut searcher);
-                self.completions
-                    .retain(|name| !items_in_node.contains(&name.to_lowercase()));
-            }
+    ) -> bool {
+        if !map.span(ctx).contains(self.cursor) {
+            return false;
         }
+        let formals_in_map: HashSet<String> =
+            HashSet::from_iter(map.formals().map(|name| name.to_string().to_lowercase()));
+        if let Some(ent) = node.entity_reference() {
+            self.root
+                .extract_port_or_generic_names(ent, self.completions, kind);
+            self.completions
+                .retain(|name| !formals_in_map.contains(&name.to_lowercase()));
+        }
+        true
     }
 }
 
 impl<'a> Visitor for AutocompletionVisitor<'a> {
+    /// Visit an instantiation statement extracting completions for ports or generics.
     fn visit_instantiation_statement(
         &mut self,
         node: &InstantiationStatement,
         ctx: &dyn TokenAccess,
     ) -> VisitorResult {
         if let Some(map) = &node.generic_map {
-            self.process_map_aspect(node, map, ctx, MapAspectKind::Generic)
+            if self.load_completions_for_map_aspect(node, map, ctx, MapAspectKind::Generic) {
+                return VisitorResult::Stop;
+            }
         }
         if let Some(map) = &node.port_map {
-            self.process_map_aspect(node, map, ctx, MapAspectKind::Port)
+            if self.load_completions_for_map_aspect(node, map, ctx, MapAspectKind::Port) {
+                return VisitorResult::Stop;
+            }
         }
         VisitorResult::Skip
     }

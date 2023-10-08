@@ -25,7 +25,7 @@ pub(crate) use any_design_unit::*;
 
 use crate::analysis::EntityId;
 use crate::data::*;
-use crate::syntax::{Token, TokenId};
+use crate::syntax::{Token, TokenAccess, TokenId};
 
 /// LRM 15.8 Bit string literals
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
@@ -202,6 +202,16 @@ pub enum Name {
 pub enum SelectedName {
     Designator(WithRef<Designator>),
     Selected(Box<WithPos<SelectedName>>, WithPos<WithRef<Designator>>),
+}
+
+impl SelectedName {
+    /// Returns the reference that this name selects
+    pub fn reference(&self) -> Reference {
+        match &self {
+            SelectedName::Designator(desi) => desi.reference,
+            SelectedName::Selected(_, desi) => desi.item.reference,
+        }
+    }
 }
 
 /// LRM 9.3.4 Function calls
@@ -1022,11 +1032,34 @@ pub enum InstantiatedUnit {
     Configuration(WithPos<SelectedName>),
 }
 
+impl InstantiatedUnit {
+    /// Returns a reference to the unit that this instantiation declares
+    pub fn entity_reference(&self) -> Reference {
+        match &self {
+            InstantiatedUnit::Entity(name, _) => name.item.reference(),
+            InstantiatedUnit::Configuration(name) => name.item.reference(),
+            InstantiatedUnit::Component(name) => name.item.reference(),
+        }
+    }
+}
+
 #[derive(PartialEq, Debug, Clone)]
 pub struct MapAspect {
     pub start: TokenId, // `generic` or `map`
     pub list: SeparatedList<AssociationElement>,
     pub closing_paren: TokenId,
+}
+
+impl MapAspect {
+    /// Returns an iterator over the formal elements of this map
+    pub fn formals(&self) -> impl Iterator<Item = &Designator> {
+        self.list.formals()
+    }
+
+    /// Returns the span that this aspect encompasses
+    pub fn span(&self, ctx: &dyn TokenAccess) -> SrcPos {
+        ctx.get_span(self.start, self.closing_paren)
+    }
 }
 
 /// 11.7 Component instantiation statements
@@ -1036,6 +1069,13 @@ pub struct InstantiationStatement {
     pub generic_map: Option<MapAspect>,
     pub port_map: Option<MapAspect>,
     pub semicolon: TokenId,
+}
+
+impl InstantiationStatement {
+    /// Returns the reference to the entity declaring this instance
+    pub fn entity_reference(&self) -> Reference {
+        self.unit.entity_reference()
+    }
 }
 
 /// 11.8 Generate statements
@@ -1102,6 +1142,19 @@ pub struct LibraryClause {
 pub struct SeparatedList<T> {
     pub items: Vec<T>,
     pub tokens: Vec<TokenId>,
+}
+
+impl SeparatedList<AssociationElement> {
+    /// Returns an iterator over the formal elements of this list
+    pub fn formals(&self) -> impl Iterator<Item = &Designator> {
+        self.items.iter().filter_map(|el| match &el.formal {
+            None => None,
+            Some(name) => match &name.item {
+                Name::Designator(desi) => Some(&desi.item),
+                _ => None,
+            },
+        })
+    }
 }
 
 pub type IdentList = SeparatedList<WithRef<Ident>>;
