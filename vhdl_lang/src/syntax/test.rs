@@ -29,6 +29,7 @@ use crate::ast;
 use crate::ast::*;
 use crate::data::Range;
 use crate::data::*;
+use crate::syntax::concurrent_statement::parse_map_aspect;
 use crate::syntax::context::{parse_context, DeclarationOrReference};
 use crate::syntax::{TokenAccess, TokenId};
 use std::collections::hash_map::DefaultHasher;
@@ -102,6 +103,15 @@ impl CodeBuilder {
 
     pub fn symbol(&self, name: &str) -> Symbol {
         self.symbols.symtab().insert_utf8(name)
+    }
+}
+
+impl<T> SeparatedList<T> {
+    pub fn single(item: T) -> SeparatedList<T> {
+        SeparatedList {
+            items: vec![item],
+            tokens: vec![],
+        }
     }
 }
 
@@ -503,8 +513,18 @@ impl Code {
         self.parse_ok_no_diagnostics(parse_labeled_concurrent_statement)
     }
 
-    pub fn association_list(&self) -> Vec<AssociationElement> {
-        self.parse_ok(parse_association_list)
+    pub fn association_list(&self) -> SeparatedList<AssociationElement> {
+        self.parse_ok(parse_association_list).0
+    }
+
+    pub fn port_map_aspect(&self) -> MapAspect {
+        self.parse_ok(|stream| parse_map_aspect(stream, Kind::Port))
+            .expect("Expecting port map aspect")
+    }
+
+    pub fn generic_map_aspect(&self) -> MapAspect {
+        self.parse_ok(|stream| parse_map_aspect(stream, Kind::Generic))
+            .expect("Expecting generic map aspect")
     }
 
     pub fn waveform(&self) -> Waveform {

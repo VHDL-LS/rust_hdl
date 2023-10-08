@@ -916,7 +916,7 @@ impl Display for InterfacePackageDeclaration {
         match &self.generic_map {
             InterfacePackageGenericMapAspect::Map(assoc_list) => {
                 let mut first = true;
-                for assoc in assoc_list {
+                for assoc in &assoc_list.items {
                     if first {
                         write!(f, "\n    {assoc}")?;
                     } else {
@@ -1020,7 +1020,7 @@ impl Display for PackageInstantiation {
         write!(f, "package {} is new {}", self.ident, self.package_name)?;
         if let Some(assoc_list) = &self.generic_map {
             let mut first = true;
-            for assoc in assoc_list {
+            for assoc in &assoc_list.list.items {
                 if first {
                     write!(f, "\n  generic map (\n    {assoc}")?;
                 } else {

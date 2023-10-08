@@ -1056,7 +1056,7 @@ mod tests {
                 pos: code.s1("2").pos(),
             };
 
-            let range = DiscreteRange::Range(Range::Range(RangeConstraint {
+            let range = DiscreteRange::Range(ast::Range::Range(RangeConstraint {
                 direction: *direction,
                 left_expr: Box::new(one_expr),
                 right_expr: Box::new(zero_expr),

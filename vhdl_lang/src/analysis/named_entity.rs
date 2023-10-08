@@ -411,8 +411,9 @@ impl<'a> AnyEnt<'a> {
     #[allow(clippy::mut_from_ref)]
     unsafe fn unsafe_ref_mut(&self) -> &mut Self {
         // NOTE: Use read_volatile to prevent compiler to optimization away assignment to the returned reference
-        let mut_self: *mut AnyEnt = std::ptr::read_volatile(&self) as *const AnyEnt as *mut AnyEnt;
-        &mut *mut_self
+        let const_ptr = std::ptr::read_volatile(&self) as *const Self;
+        let mut_ptr = const_ptr as *mut Self;
+        &mut *mut_ptr
     }
 
     // Used to update the kind of pre-declared symbols that are visible before they have been fully analyzed

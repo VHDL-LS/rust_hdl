@@ -479,7 +479,7 @@ impl<'a> AnalyzeContext<'a> {
                 ContextItem::Library(LibraryClause {
                     ref mut name_list, ..
                 }) => {
-                    for library_name in name_list.items_mut() {
+                    for library_name in name_list.items.iter_mut() {
                         if self.work_sym == library_name.item.item {
                             library_name.set_unique_reference(self.work_library());
                             diagnostics.push(Diagnostic::hint(
@@ -503,7 +503,7 @@ impl<'a> AnalyzeContext<'a> {
                 ContextItem::Context(ContextReference {
                     ref mut name_list, ..
                 }) => {
-                    for name in name_list.items_mut() {
+                    for name in name_list.items.iter_mut() {
                         match name.item {
                             Name::Selected(..) => {}
                             _ => {
@@ -560,7 +560,7 @@ impl<'a> AnalyzeContext<'a> {
         use_clause: &mut UseClause,
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> FatalResult {
-        for name in use_clause.name_list.items_mut() {
+        for name in use_clause.name_list.items.iter_mut() {
             match name.item {
                 Name::Selected(..) => {}
                 Name::SelectedAll(..) => {}

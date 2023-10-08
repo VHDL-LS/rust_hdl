@@ -13,6 +13,8 @@ use super::tokens::{Kind::*, TokenAccess, TokenStream};
 use crate::ast;
 use crate::ast::*;
 use crate::data::{Diagnostic, WithPos};
+use crate::syntax::separated_list::parse_list_with_separator;
+use crate::syntax::TokenId;
 
 pub fn parse_designator(stream: &TokenStream) -> ParseResult<WithPos<Designator>> {
     Ok(expect_token!(
@@ -178,26 +180,25 @@ fn parse_association_element(stream: &TokenStream) -> ParseResult<AssociationEle
     }
 }
 
-pub fn parse_association_list(stream: &TokenStream) -> ParseResult<Vec<AssociationElement>> {
+pub fn parse_association_list(
+    stream: &TokenStream,
+) -> ParseResult<(SeparatedList<AssociationElement>, TokenId)> {
     stream.expect_kind(LeftPar)?;
     parse_association_list_no_leftpar(stream)
 }
 
 pub fn parse_association_list_no_leftpar(
     stream: &TokenStream,
-) -> ParseResult<Vec<AssociationElement>> {
-    let mut association_elements = Vec::with_capacity(1);
-    loop {
-        association_elements.push(parse_association_element(stream)?);
-        expect_token!(
-            stream,
-            token,
-            Comma => {},
-            RightPar => {
-                return Ok(association_elements);
-            }
-        )
+) -> ParseResult<(SeparatedList<AssociationElement>, TokenId)> {
+    if let Some(right_par) = stream.pop_if_kind(RightPar) {
+        return Err(Diagnostic::error(
+            stream.get_pos(right_par),
+            "Association list cannot be empty",
+        ));
     }
+    let list = parse_list_with_separator(stream, Comma, parse_association_element)?;
+    let comma = stream.expect_kind(RightPar)?;
+    Ok((list, comma))
 }
 
 fn parse_function_call(
@@ -1020,7 +1021,16 @@ mod tests {
             formal: Some(code.s1("arg").name()),
             actual: WithPos::new(ActualPart::Open, code.s("open", 2)),
         };
-        assert_eq!(code.with_stream(parse_association_list), vec![elem1, elem2]);
+        assert_eq!(
+            code.with_stream(parse_association_list),
+            (
+                SeparatedList {
+                    items: vec![elem1, elem2],
+                    tokens: vec![code.s1(",").token()]
+                },
+                code.s1(")").token()
+            )
+        );
     }
 
     #[test]
