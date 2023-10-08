@@ -10,6 +10,7 @@ use crate::ast::*;
 use crate::syntax::TokenAccess;
 use itertools::Itertools;
 use std::ops::Deref;
+use std::os::unix::raw::time_t;
 
 #[derive(PartialEq)]
 pub enum VisitorResult {
@@ -801,11 +802,18 @@ pub trait Visitor {
 /// An AST Node has two methods it needs to declare:
 /// - A `visit(Visitor, Context)` method.
 /// - A `children()` method.
-///
-/// The `visit` method
 pub trait ASTNode {
+
+    /// Called when traversing the AST.
+    /// Each node must call the respective method in the `Visitor` class.
+    /// If the node doesn't have a representation
+    /// (for example, for utility types such as `Box` or `Vec`),
+    /// simply return `Continue`.
     fn visit(&self, visitor: &mut dyn Visitor, _ctx: &dyn TokenAccess) -> VisitorResult;
 
+    /// Returns the Children of this Node.
+    /// Must return all children that are considered AST elements.
+    /// Doesn't return auxiliary information such as the Tokens.
     fn children(&self) -> Vec<&dyn ASTNode>;
 }
 
