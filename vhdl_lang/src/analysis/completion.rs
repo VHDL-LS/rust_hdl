@@ -1,7 +1,11 @@
-use crate::analysis::{DesignRoot};
+use crate::analysis::DesignRoot;
 use crate::ast::visitor::{Visitor, VisitorResult};
-use crate::ast::{AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, ComponentDeclaration, Declaration, EntityDeclaration, InstantiationStatement, InterfaceDeclaration, MapAspect, PackageDeclaration, SubprogramDeclaration, UnitKey};
-use crate::data::{ContentReader, HasSource, Symbol};
+use crate::ast::{
+    AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, ComponentDeclaration, Declaration,
+    EntityDeclaration, InstantiationStatement, InterfaceDeclaration, MapAspect, PackageDeclaration,
+    SubprogramDeclaration, UnitKey,
+};
+use crate::data::{ContentReader, Symbol};
 use crate::syntax::Kind::*;
 use crate::syntax::{Symbols, Token, TokenAccess, Tokenizer, Value};
 use crate::{EntityId, Position, Source};
@@ -38,7 +42,7 @@ enum MapAspectKind {
 struct PortsOrGenericsExtractor<'a> {
     id: EntityId,
     items: &'a mut Vec<String>,
-    kind: MapAspectKind
+    kind: MapAspectKind,
 }
 
 impl DesignRoot {
@@ -48,11 +52,7 @@ impl DesignRoot {
         items: &mut Vec<String>,
         kind: MapAspectKind,
     ) {
-        let mut searcher = PortsOrGenericsExtractor {
-            id,
-            items,
-            kind,
-        };
+        let mut searcher = PortsOrGenericsExtractor { id, items, kind };
         self.walk(&mut searcher);
     }
 }
@@ -104,7 +104,11 @@ impl<'a> Visitor for PortsOrGenericsExtractor<'a> {
         VisitorResult::Stop
     }
 
-    fn visit_package_declaration(&mut self, node: &PackageDeclaration, _ctx: &dyn TokenAccess) -> VisitorResult {
+    fn visit_package_declaration(
+        &mut self,
+        node: &PackageDeclaration,
+        _ctx: &dyn TokenAccess,
+    ) -> VisitorResult {
         if node.ident.decl != Some(self.id) {
             return VisitorResult::Skip;
         }
@@ -161,11 +165,8 @@ impl<'a> AutocompletionVisitor<'a> {
         let formals_in_map: HashSet<String> =
             HashSet::from_iter(map.formals().map(|name| name.to_string().to_lowercase()));
         if let Some(ent) = node.entity_reference() {
-            self.root.extract_port_or_generic_names(
-                ent,
-                self.completions,
-                kind,
-            );
+            self.root
+                .extract_port_or_generic_names(ent, self.completions, kind);
             self.completions
                 .retain(|name| !formals_in_map.contains(&name.to_lowercase()));
         }
