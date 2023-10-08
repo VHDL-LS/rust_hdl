@@ -10,7 +10,6 @@ use crate::ast::*;
 use crate::syntax::TokenAccess;
 use itertools::Itertools;
 use std::ops::Deref;
-use std::os::unix::raw::time_t;
 
 #[derive(PartialEq)]
 pub enum VisitorResult {
