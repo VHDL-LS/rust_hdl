@@ -31,32 +31,54 @@ enum MapAspectKind {
     Generic,
 }
 
-struct PortAndGenericsExtractor<'a> {
+/// Extracts the name of ports or generics from an AST for an entity with a certain ID.
+/// The entity can be an `Entity`, `Component` or `Package`.
+/// After walking the AST, the ports or generics are written to the `items` vector.
+/// The `kind` member chooses whether to select ports or generics.
+struct PortsOrGenericsExtractor<'a> {
     id: EntityId,
     items: &'a mut Vec<String>,
-    kind: MapAspectKind,
-    source: &'a Source,
+    kind: MapAspectKind
 }
 
 impl DesignRoot {
     fn extract_port_or_generic_names(
         &self,
-        source: &Source,
         id: EntityId,
         items: &mut Vec<String>,
         kind: MapAspectKind,
     ) {
-        let mut searcher = PortAndGenericsExtractor {
+        let mut searcher = PortsOrGenericsExtractor {
             id,
             items,
             kind,
-            source,
         };
         self.walk(&mut searcher);
     }
 }
 
-impl<'a> Visitor for PortAndGenericsExtractor<'a> {
+impl<'a> Visitor for PortsOrGenericsExtractor<'a> {
+    fn visit_component_declaration(
+        &mut self,
+        node: &ComponentDeclaration,
+        _ctx: &dyn TokenAccess,
+    ) -> VisitorResult {
+        if node.ident.decl != Some(self.id) {
+            return VisitorResult::Skip;
+        }
+        if self.kind == MapAspectKind::Port {
+            for port in &node.port_list {
+                self.items.push(port.completable_name())
+            }
+        }
+        if self.kind == MapAspectKind::Generic {
+            for generic in &node.generic_list {
+                self.items.push(generic.completable_name())
+            }
+        }
+        VisitorResult::Stop
+    }
+
     fn visit_entity_declaration(
         &mut self,
         node: &EntityDeclaration,
@@ -77,27 +99,6 @@ impl<'a> Visitor for PortAndGenericsExtractor<'a> {
                 for generic in generics {
                     self.items.push(generic.completable_name())
                 }
-            }
-        }
-        VisitorResult::Stop
-    }
-
-    fn visit_component_declaration(
-        &mut self,
-        node: &ComponentDeclaration,
-        _ctx: &dyn TokenAccess,
-    ) -> VisitorResult {
-        if node.ident.decl != Some(self.id) {
-            return VisitorResult::Skip;
-        }
-        if self.kind == MapAspectKind::Port {
-            for port in &node.port_list {
-                self.items.push(port.completable_name())
-            }
-        }
-        if self.kind == MapAspectKind::Generic {
-            for generic in &node.generic_list {
-                self.items.push(generic.completable_name())
             }
         }
         VisitorResult::Stop
@@ -161,7 +162,6 @@ impl<'a> AutocompletionVisitor<'a> {
             HashSet::from_iter(map.formals().map(|name| name.to_string().to_lowercase()));
         if let Some(ent) = node.entity_reference() {
             self.root.extract_port_or_generic_names(
-                ctx.get_pos(map.start).source(),
                 ent,
                 self.completions,
                 kind,
