@@ -17,7 +17,7 @@ use super::tokens::{Kind::*, *};
 use super::type_declaration::parse_type_declaration;
 use crate::ast::{ContextClause, Declaration, PackageInstantiation};
 use crate::data::DiagnosticHandler;
-use crate::syntax::concurrent_statement::parse_generic_map_aspect;
+use crate::syntax::concurrent_statement::parse_map_aspect;
 
 pub fn parse_package_instantiation(stream: &TokenStream) -> ParseResult<PackageInstantiation> {
     stream.expect_kind(Package)?;
@@ -25,7 +25,7 @@ pub fn parse_package_instantiation(stream: &TokenStream) -> ParseResult<PackageI
     stream.expect_kind(Is)?;
     stream.expect_kind(New)?;
     let package_name = parse_selected_name(stream)?;
-    let generic_map = parse_generic_map_aspect(stream, Generic)?;
+    let generic_map = parse_map_aspect(stream, Generic)?;
     stream.expect_kind(SemiColon)?;
 
     Ok(PackageInstantiation {
@@ -197,10 +197,10 @@ package ident is new lib.foo.bar
                 ident: code.s1("ident").decl_ident(),
                 package_name: code.s1("lib.foo.bar").selected_name(),
                 generic_map: Some(
-                    code.s1("(
+                    code.s1("generic map (
     foo => bar
   )")
-                        .association_list()
+                        .generic_map_aspect()
                 )
             }
         );

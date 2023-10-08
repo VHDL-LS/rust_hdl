@@ -332,7 +332,7 @@ pub fn parse_concurrent_assert_statement(
     })
 }
 
-pub fn parse_generic_map_aspect(stream: &TokenStream, aspect_kind: Kind) -> ParseResult<Option<MapAspect>> {
+pub fn parse_map_aspect(stream: &TokenStream, aspect_kind: Kind) -> ParseResult<Option<MapAspect>> {
     if let Some(aspect) = stream.pop_if_kind(aspect_kind) {
         stream.expect_kind(Map)?;
         let (list, closing_paren) = parse_association_list(stream)?;
@@ -353,8 +353,8 @@ pub fn parse_generic_and_port_map(
     Option<MapAspect>,
     Option<MapAspect>,
 )> {
-    let generic_map = parse_generic_map_aspect(stream, Generic)?;
-    let port_map = parse_generic_map_aspect(stream, Port)?;
+    let generic_map = parse_map_aspect(stream, Generic)?;
+    let port_map = parse_map_aspect(stream, Port)?;
 
     Ok((generic_map, port_map))
 }
@@ -925,9 +925,9 @@ end block;",
             guard_condition: None,
             header: BlockHeader {
                 generic_clause: Some(vec![code.s1("gen: integer := 1").generic()]),
-                generic_map: Some(code.s1("(gen => 1)").association_list()),
+                generic_map: Some(code.s1("generic map(gen => 1)").generic_map_aspect()),
                 port_clause: Some(vec![code.s1("prt: integer := 1").port()]),
-                port_map: Some(code.s1("(prt => 2)").association_list()),
+                port_map: Some(code.s1("port map(prt => 2)").port_map_aspect()),
             },
             decl: vec![],
             statements: vec![],
@@ -1263,8 +1263,9 @@ with x(0) + 1 select
 
         let inst = InstantiationStatement {
             unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").selected_name()),
-            generic_map: vec![],
-            port_map: vec![],
+            generic_map: None,
+            port_map: None,
+            semicolon: code.s1(";").token(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
@@ -1283,8 +1284,9 @@ with x(0) + 1 select
 
         let inst = InstantiationStatement {
             unit: InstantiatedUnit::Configuration(code.s1("lib.foo.bar").selected_name()),
-            generic_map: vec![],
-            port_map: vec![],
+            generic_map: None,
+            port_map: None,
+            semicolon: code.s1(";").token()
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
@@ -1303,8 +1305,9 @@ with x(0) + 1 select
 
         let inst = InstantiationStatement {
             unit: InstantiatedUnit::Entity(code.s1("lib.foo.bar").selected_name(), None),
-            generic_map: vec![],
-            port_map: vec![],
+            generic_map: None,
+            port_map: None,
+            semicolon: code.s1(";").token()
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
@@ -1326,8 +1329,9 @@ with x(0) + 1 select
                 code.s1("lib.foo.bar").selected_name(),
                 Some(WithRef::new(code.s1("arch").ident())),
             ),
-            generic_map: vec![],
-            port_map: vec![],
+            generic_map: None,
+            port_map: None,
+            semicolon: code.s1(";").token(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
@@ -1355,16 +1359,17 @@ inst: component lib.foo.bar
 
         let inst = InstantiationStatement {
             unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").selected_name()),
-            generic_map: code
-                .s1("(
+            generic_map: Some(code
+                .s1("generic map (
    const => 1
   )")
-                .association_list(),
-            port_map: code
-                .s1("(
+                .generic_map_aspect()),
+            port_map: Some(code
+                .s1("port map (
    clk => clk_foo
   )")
-                .association_list(),
+                .port_map_aspect()),
+            semicolon: code.s1(";").token(),
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
@@ -1389,12 +1394,13 @@ inst: lib.foo.bar
 
         let inst = InstantiationStatement {
             unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").selected_name()),
-            generic_map: vec![],
-            port_map: code
-                .s1("(
+            generic_map: None,
+            port_map: Some(code
+                .s1("port map (
    clk => clk_foo
   )")
-                .association_list(),
+                .port_map_aspect()),
+            semicolon: code.s1(";").token()
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));
@@ -1419,12 +1425,13 @@ inst: lib.foo.bar
 
         let inst = InstantiationStatement {
             unit: InstantiatedUnit::Component(code.s1("lib.foo.bar").selected_name()),
-            generic_map: code
-                .s1("(
+            generic_map: Some(code
+                .s1("generic map (
    const => 1
   )")
-                .association_list(),
-            port_map: vec![],
+                .generic_map_aspect()),
+            port_map: None,
+            semicolon: code.s1(";").token()
         };
         let stmt = code.with_stream_no_diagnostics(parse_labeled_concurrent_statement);
         assert_eq!(stmt.label.tree, Some(code.s1("inst").ident()));

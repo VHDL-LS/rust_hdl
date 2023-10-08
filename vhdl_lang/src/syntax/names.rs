@@ -188,6 +188,9 @@ pub fn parse_association_list(stream: &TokenStream) -> ParseResult<(SeparatedLis
 pub fn parse_association_list_no_leftpar(
     stream: &TokenStream,
 ) -> ParseResult<(SeparatedList<AssociationElement>, TokenId)> {
+    if let Some(right_par) = stream.pop_if_kind(RightPar) {
+        return Err(Diagnostic::error(stream.get_pos(right_par), "Association list cannot be empty"));
+    }
     let list = parse_list_with_separator(stream, Comma, parse_association_element)?;
     let comma = stream.expect_kind(RightPar)?;
     Ok((list, comma))
@@ -1013,7 +1016,10 @@ mod tests {
             formal: Some(code.s1("arg").name()),
             actual: WithPos::new(ActualPart::Open, code.s("open", 2)),
         };
-        assert_eq!(code.with_stream(parse_association_list), vec![elem1, elem2]);
+        assert_eq!(code.with_stream(parse_association_list), (SeparatedList {
+            items: vec![elem1, elem2],
+            tokens: vec![code.s1(",").token()]
+        }, code.s1(")").token()));
     }
 
     #[test]

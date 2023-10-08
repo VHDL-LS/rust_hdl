@@ -23,8 +23,7 @@ pub fn parse_list_with_separator<F, T>(
 where
     F: Fn(&TokenStream) -> ParseResult<T>,
 {
-    let first = parse_fn(stream)?;
-    let mut items = vec![first];
+    let mut items = vec![parse_fn(stream)?];
     let mut tokens = Vec::new();
     while let Some(separator) = stream.pop_if_kind(separator) {
         items.push(parse_fn(stream)?);
@@ -61,10 +60,7 @@ mod test {
         let code = Code::new("abc");
         assert_eq!(
             code.parse_ok(parse_ident_list),
-            IdentList {
-                first: code.s1("abc").ident().into_ref(),
-                remainder: vec![]
-            }
+            IdentList::single(code.s1("abc").ident().into_ref())
         )
     }
 
@@ -74,11 +70,8 @@ mod test {
         assert_eq!(
             code.parse_ok(parse_ident_list),
             IdentList {
-                first: code.s1("abc").ident().into_ref(),
-                remainder: vec![
-                    (code.s(",", 1).token(), code.s1("def").ident().into_ref()),
-                    (code.s(",", 2).token(), code.s1("ghi").ident().into_ref()),
-                ]
+                items: vec![code.s1("abc").ident().into_ref(), code.s1("def").ident().into_ref(), code.s1("ghi").ident().into_ref()],
+                tokens: vec![code.s(",", 1).token(), code.s(",", 2).token()]
             }
         )
     }
@@ -89,8 +82,8 @@ mod test {
         assert_eq!(
             code.parse_ok(parse_name_list),
             NameList {
-                first: code.s1("work.foo").name(),
-                remainder: vec![(code.s1(",").token(), code.s1("lib.bar.all").name())]
+                items: vec![code.s1("work.foo").name(), code.s1("lib.bar.all").name()],
+                tokens: vec![code.s1(",").token()],
             }
         )
     }
