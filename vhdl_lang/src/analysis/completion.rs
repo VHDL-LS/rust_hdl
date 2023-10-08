@@ -121,7 +121,7 @@ impl <'a> AutocompletionVisitor<'a> {
             if let Some(ent) = self.get_ent(node) {
                 let mut searcher = EntityPortAndGenericsExtractor {
                     id: ent,
-                    items: &mut self.completions,
+                    items: self.completions,
                     kind,
                 };
                 let _ = self.root.search(&mut searcher);

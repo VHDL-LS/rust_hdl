@@ -288,14 +288,14 @@ impl<'a> AnalyzeContext<'a> {
                                     &entity_name.pos,
                                     &generic_region,
                                     scope,
-                                    &mut instance.generic_map.as_mut().map(|it| it.list.items.as_mut_slice()).unwrap_or(&mut []),
+                                    instance.generic_map.as_mut().map(|it| it.list.items.as_mut_slice()).unwrap_or(&mut []),
                                     diagnostics,
                                 )?;
                                 self.analyze_assoc_elems_with_formal_region(
                                     &entity_name.pos,
                                     &port_region,
                                     scope,
-                                    &mut instance.port_map.as_mut().map(|it| it.list.items.as_mut_slice()).unwrap_or(&mut []),
+                                    instance.port_map.as_mut().map(|it| it.list.items.as_mut_slice()).unwrap_or(&mut []),
                                     diagnostics,
                                 )?;
                                 Ok(())
@@ -326,14 +326,14 @@ impl<'a> AnalyzeContext<'a> {
                                     &component_name.pos,
                                     &generic_region,
                                     scope,
-                                    &mut instance.generic_map.as_mut().map(|it| it.list.items.as_mut_slice()).unwrap_or(&mut []),
+                                    instance.generic_map.as_mut().map(|it| it.list.items.as_mut_slice()).unwrap_or(&mut []),
                                     diagnostics,
                                 )?;
                                 self.analyze_assoc_elems_with_formal_region(
                                     &component_name.pos,
                                     &port_region,
                                     scope,
-                                    &mut instance.port_map.as_mut().map(|it| it.list.items.as_mut_slice()).unwrap_or(&mut []),
+                                    instance.port_map.as_mut().map(|it| it.list.items.as_mut_slice()).unwrap_or(&mut []),
                                     diagnostics,
                                 )?;
                                 Ok(())
