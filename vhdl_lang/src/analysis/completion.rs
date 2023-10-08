@@ -268,6 +268,10 @@ impl<'a> AutocompletionVisitor<'a> {
                 .extract_port_or_generic_names(ent, self.completions, kind);
             self.completions
                 .retain(|item| !formals_in_map.contains(&item.label.to_lowercase()));
+            for completion in self.completions.iter_mut() {
+                completion.label = format!("{} => $1,", completion.label);
+                completion.mode = CompletionItemMode::Snippet
+            }
         }
         true
     }

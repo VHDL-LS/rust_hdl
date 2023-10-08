@@ -132,9 +132,10 @@ impl VHDLServer {
             completion_provider: Some(CompletionOptions {
                 resolve_provider: Some(false),
                 trigger_characters: Some(trigger_chars),
-                all_commit_characters: None,
-                work_done_progress_options: Default::default(),
-                completion_item: Default::default(),
+                completion_item: Some(CompletionOptionsCompletionItem {
+                    label_details_support: Some(true),
+                }),
+                ..Default::default()
             }),
             ..Default::default()
         };
@@ -700,7 +701,7 @@ fn completion_item_to_lsp_item(item: vhdl_lang::CompletionItem) -> lsp_types::Co
     let kind = match item.kind {
         CompletionKind::Module => CompletionItemKind::MODULE,
         CompletionKind::Constant => CompletionItemKind::CONSTANT,
-        CompletionKind::Signal => CompletionItemKind::VARIABLE,
+        CompletionKind::Signal => CompletionItemKind::EVENT,
         CompletionKind::Variable => CompletionItemKind::VARIABLE,
         CompletionKind::File => CompletionItemKind::FILE,
         CompletionKind::Type => CompletionItemKind::TYPE_PARAMETER,
@@ -714,11 +715,12 @@ fn completion_item_to_lsp_item(item: vhdl_lang::CompletionItem) -> lsp_types::Co
         CompletionItemMode::Snippet => InsertTextFormat::SNIPPET,
     };
     CompletionItem {
-        label: item.label,
+        label: item.label.clone(),
         label_details: Some(CompletionItemLabelDetails {
-            detail: None,
-            description: Some(item.detail),
+            detail: Some(item.detail.clone()),
+            description: Some(item.detail.clone()),
         }),
+        insert_text: Some(item.label),
         insert_text_format: Some(mode),
         kind: Some(kind),
         ..Default::default()
