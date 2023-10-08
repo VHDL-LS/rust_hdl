@@ -293,7 +293,11 @@ impl Project {
         self.files.values()
     }
 
-    pub fn list_completion_options(&self, source: &Source, cursor: Position) -> Vec<CompletionItem> {
+    pub fn list_completion_options(
+        &self,
+        source: &Source,
+        cursor: Position,
+    ) -> Vec<CompletionItem> {
         self.root.list_completion_options(source, cursor)
     }
 }

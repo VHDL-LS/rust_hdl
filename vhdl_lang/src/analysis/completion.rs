@@ -3,7 +3,8 @@ use crate::ast::visitor::{Visitor, VisitorResult};
 use crate::ast::{
     AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, ComponentDeclaration, Declaration,
     EntityDeclaration, HasUnitId, InstantiationStatement, InterfaceDeclaration, MapAspect,
-    PackageDeclaration, SubprogramDeclaration, UnitKey, WithDecl, WithRef,
+    ObjectClass, PackageDeclaration, SubprogramDeclaration, SubprogramDesignator, UnitKey,
+    WithDecl, WithRef,
 };
 use crate::data::{ContentReader, Symbol};
 use crate::syntax::Kind::*;
@@ -15,6 +16,15 @@ use std::default::Default;
 
 pub enum CompletionKind {
     Module,
+    Constant,
+    Signal,
+    Variable,
+    File,
+    Type,
+    Function,
+    Operator,
+    Attribute,
+    Alias,
 }
 
 pub enum CompletionItemMode {
@@ -48,7 +58,11 @@ impl CompletionItem {
         }
     }
 
-    pub fn from_decl<T>(decl: &WithDecl<T>, root: &DesignRoot) -> CompletionItem
+    pub fn from_decl<T>(
+        decl: &WithDecl<T>,
+        root: &DesignRoot,
+        kind: CompletionKind,
+    ) -> CompletionItem
     where
         T: ToString,
     {
@@ -57,11 +71,11 @@ impl CompletionItem {
             decl.decl
                 .map(|id| root.get_ent(id).describe())
                 .unwrap_or_default(),
-            CompletionKind::Module,
+            kind,
         )
     }
 
-    pub fn from_ref<T>(decl: &WithRef<T>, root: &DesignRoot) -> CompletionItem
+    pub fn from_ref<T>(decl: &WithRef<T>, root: &DesignRoot, kind: CompletionKind) -> CompletionItem
     where
         T: ToString,
     {
@@ -70,7 +84,7 @@ impl CompletionItem {
             decl.reference
                 .map(|id| root.get_ent(id).describe())
                 .unwrap_or_default(),
-            CompletionKind::Module,
+            kind,
         )
     }
 }
@@ -191,20 +205,36 @@ impl<'a> Visitor for PortsOrGenericsExtractor<'a> {
     }
 }
 
+fn object_class_to_completion_kind(class: ObjectClass) -> CompletionKind {
+    match class {
+        ObjectClass::Signal => CompletionKind::Signal,
+        ObjectClass::Constant => CompletionKind::Constant,
+        ObjectClass::Variable | ObjectClass::SharedVariable => CompletionKind::Variable,
+    }
+}
+
 impl InterfaceDeclaration {
     /// Returns completable names for an interface declarations.
     /// Example:
     /// `signal my_signal : natural := 5` => `my_signal`
     fn completable_name(&self, root: &DesignRoot) -> CompletionItem {
         match self {
-            InterfaceDeclaration::Object(obj) => CompletionItem::from_decl(&obj.ident, root),
-            InterfaceDeclaration::File(file) => CompletionItem::from_decl(&file.ident, root),
-            InterfaceDeclaration::Type(typ) => CompletionItem::from_decl(&typ, root),
+            InterfaceDeclaration::Object(obj) => CompletionItem::from_decl(
+                &obj.ident,
+                root,
+                object_class_to_completion_kind(obj.class),
+            ),
+            InterfaceDeclaration::File(file) => {
+                CompletionItem::from_decl(&file.ident, root, CompletionKind::File)
+            }
+            InterfaceDeclaration::Type(typ) => {
+                CompletionItem::from_decl(&typ, root, CompletionKind::Type)
+            }
             InterfaceDeclaration::Subprogram(decl, _) => {
                 subprogram_declaration_to_completion_item(decl, root)
             }
             InterfaceDeclaration::Package(package) => {
-                CompletionItem::from_decl(&package.ident, root)
+                CompletionItem::from_decl(&package.ident, root, CompletionKind::Module)
             }
         }
     }
@@ -285,6 +315,13 @@ impl<'a> Visitor for AutocompletionVisitor<'a> {
     }
 }
 
+fn subprogram_designator_to_completion_kind(desi: &SubprogramDesignator) -> CompletionKind {
+    match desi {
+        SubprogramDesignator::Identifier(_) => CompletionKind::Function,
+        SubprogramDesignator::OperatorSymbol(_) => CompletionKind::Operator,
+    }
+}
+
 /// Returns the completable string representation of a declaration
 /// for example:
 /// `let alias = parse_vhdl("alias my_alias is ...")`
@@ -296,24 +333,56 @@ fn subprogram_declaration_to_completion_item(
     root: &DesignRoot,
 ) -> CompletionItem {
     match decl {
-        SubprogramDeclaration::Procedure(proc) => CompletionItem::from_decl(&proc.designator, root),
-        SubprogramDeclaration::Function(func) => CompletionItem::from_decl(&func.designator, root),
+        SubprogramDeclaration::Procedure(proc) => {
+            CompletionItem::from_decl(&proc.designator, root, CompletionKind::Function)
+        }
+        SubprogramDeclaration::Function(func) => CompletionItem::from_decl(
+            &func.designator,
+            root,
+            subprogram_designator_to_completion_kind(&func.designator.tree.item),
+        ),
     }
 }
 
 fn declaration_to_completion_item(decl: &Declaration, root: &DesignRoot) -> Option<CompletionItem> {
     match decl {
-        Declaration::Object(o) => Some(CompletionItem::from_decl(&o.ident, root)),
-        Declaration::File(file) => Some(CompletionItem::from_decl(&file.ident, root)),
-        Declaration::Type(typ) => Some(CompletionItem::from_decl(&typ.ident, root)),
-        Declaration::Component(comp) => Some(CompletionItem::from_decl(&comp.ident, root)),
+        Declaration::Object(o) => Some(CompletionItem::from_decl(
+            &o.ident,
+            root,
+            object_class_to_completion_kind(o.class),
+        )),
+        Declaration::File(file) => Some(CompletionItem::from_decl(
+            &file.ident,
+            root,
+            CompletionKind::File,
+        )),
+        Declaration::Type(typ) => Some(CompletionItem::from_decl(
+            &typ.ident,
+            root,
+            CompletionKind::Type,
+        )),
+        Declaration::Component(comp) => Some(CompletionItem::from_decl(
+            &comp.ident,
+            root,
+            CompletionKind::Module,
+        )),
         Declaration::Attribute(attr) => match attr {
-            ast::Attribute::Specification(spec) => {
-                Some(CompletionItem::from_ref(&spec.ident, root))
-            }
-            ast::Attribute::Declaration(decl) => Some(CompletionItem::from_decl(&decl.ident, root)),
+            ast::Attribute::Specification(spec) => Some(CompletionItem::from_ref(
+                &spec.ident,
+                root,
+                CompletionKind::Attribute,
+            )),
+            ast::Attribute::Declaration(decl) => Some(CompletionItem::from_decl(
+                &decl.ident,
+                root,
+                CompletionKind::Attribute,
+            )),
         },
-        Declaration::Alias(alias) => Some(CompletionItem::from_decl(&alias.designator, root)),
+        Declaration::Alias(alias) => Some(CompletionItem::from_decl(
+            &alias.designator,
+            root,
+            CompletionKind::Alias,
+        )),
         Declaration::SubprogramDeclaration(decl) => {
             Some(subprogram_declaration_to_completion_item(decl, root))
         }
@@ -321,7 +390,11 @@ fn declaration_to_completion_item(decl: &Declaration, root: &DesignRoot) -> Opti
             &body.specification,
             root,
         )),
-        Declaration::Package(pkg) => Some(CompletionItem::from_decl(&pkg.ident, root)),
+        Declaration::Package(pkg) => Some(CompletionItem::from_decl(
+            &pkg.ident,
+            root,
+            CompletionKind::Module,
+        )),
         _ => None,
     }
 }

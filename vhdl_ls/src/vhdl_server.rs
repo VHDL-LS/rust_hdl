@@ -14,7 +14,10 @@ use vhdl_lang::ast::{Designator, ObjectClass};
 use crate::rpc_channel::SharedRpcChannel;
 use std::io;
 use std::path::{Path, PathBuf};
-use vhdl_lang::{AnyEntKind, CompletionItemMode, CompletionKind, Concurrent, Config, Diagnostic, EntHierarchy, EntRef, Message, MessageHandler, Object, Overloaded, Project, Severity, Source, SrcPos, Type};
+use vhdl_lang::{
+    AnyEntKind, CompletionItemMode, CompletionKind, Concurrent, Config, Diagnostic, EntHierarchy,
+    EntRef, Message, MessageHandler, Object, Overloaded, Project, Severity, Source, SrcPos, Type,
+};
 
 #[derive(Default, Clone)]
 pub struct VHDLServerSettings {
@@ -696,6 +699,15 @@ fn srcpos_to_location(pos: &SrcPos) -> Location {
 fn completion_item_to_lsp_item(item: vhdl_lang::CompletionItem) -> lsp_types::CompletionItem {
     let kind = match item.kind {
         CompletionKind::Module => CompletionItemKind::MODULE,
+        CompletionKind::Constant => CompletionItemKind::CONSTANT,
+        CompletionKind::Signal => CompletionItemKind::VARIABLE,
+        CompletionKind::Variable => CompletionItemKind::VARIABLE,
+        CompletionKind::File => CompletionItemKind::FILE,
+        CompletionKind::Type => CompletionItemKind::TYPE_PARAMETER,
+        CompletionKind::Function => CompletionItemKind::FUNCTION,
+        CompletionKind::Operator => CompletionItemKind::OPERATOR,
+        CompletionKind::Attribute => CompletionItemKind::PROPERTY,
+        CompletionKind::Alias => CompletionItemKind::MODULE,
     };
     let mode = match item.mode {
         CompletionItemMode::Text => InsertTextFormat::PLAIN_TEXT,
