@@ -802,7 +802,6 @@ pub trait Visitor {
 /// - A `visit(Visitor, Context)` method.
 /// - A `children()` method.
 pub trait ASTNode {
-
     /// Called when traversing the AST.
     /// Each node must call the respective method in the `Visitor` class.
     /// If the node doesn't have a representation

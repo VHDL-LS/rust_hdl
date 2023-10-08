@@ -127,7 +127,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_range),
             WithPos::new(
-                Range::Range(RangeConstraint {
+                ast::Range::Range(RangeConstraint {
                     direction: Direction::Ascending,
                     left_expr: Box::new(code.s1("foo.bar").expr()),
                     right_expr: Box::new(code.s1("1").expr())
@@ -143,7 +143,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_range),
             WithPos::new(
-                Range::Attribute(Box::new(code.s1("foo.bar'range").attribute_name())),
+                ast::Range::Attribute(Box::new(code.s1("foo.bar'range").attribute_name())),
                 code.pos()
             )
         );
@@ -155,7 +155,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_range),
             WithPos::new(
-                Range::Attribute(Box::new(code.s1("foo.bar'reverse_range").attribute_name())),
+                ast::Range::Attribute(Box::new(code.s1("foo.bar'reverse_range").attribute_name())),
                 code.pos()
             )
         );
@@ -167,7 +167,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_range),
             WithPos::new(
-                Range::Range(RangeConstraint {
+                ast::Range::Range(RangeConstraint {
                     direction: Direction::Descending,
                     left_expr: Box::new(code.s1("foo.bar'length").expr()),
                     right_expr: Box::new(code.s1("0").expr())
@@ -182,7 +182,7 @@ mod tests {
         let code = Code::new("foo.bar to 1");
         assert_eq!(
             code.with_stream(parse_discrete_range),
-            DiscreteRange::Range(Range::Range(RangeConstraint {
+            DiscreteRange::Range(ast::Range::Range(RangeConstraint {
                 direction: Direction::Ascending,
                 left_expr: Box::new(code.s1("foo.bar").expr()),
                 right_expr: Box::new(code.s1("1").expr())
@@ -195,7 +195,7 @@ mod tests {
         let code = Code::new("foo.bar'range");
         assert_eq!(
             code.with_stream(parse_discrete_range),
-            DiscreteRange::Range(Range::Attribute(Box::new(
+            DiscreteRange::Range(ast::Range::Attribute(Box::new(
                 code.s1("foo.bar'range").attribute_name()
             )))
         );
