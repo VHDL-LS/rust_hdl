@@ -228,7 +228,7 @@ impl InterfaceDeclaration {
                 CompletionItem::from_decl(&file.ident, root, CompletionKind::File)
             }
             InterfaceDeclaration::Type(typ) => {
-                CompletionItem::from_decl(&typ, root, CompletionKind::Type)
+                CompletionItem::from_decl(typ, root, CompletionKind::Type)
             }
             InterfaceDeclaration::Subprogram(decl, _) => {
                 subprogram_declaration_to_completion_item(decl, root)
