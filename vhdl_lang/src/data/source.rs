@@ -541,6 +541,10 @@ impl SrcPos {
     pub fn combine(&self, other: &dyn AsRef<Self>) -> Self {
         self.clone().combine_into(other)
     }
+
+    pub fn contains(&self, pos: Position) -> bool {
+        self.range.contains(pos)
+    }
 }
 
 /// Denotes an item with an associated source file.

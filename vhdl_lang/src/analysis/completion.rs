@@ -1,10 +1,16 @@
 use crate::analysis::DesignRoot;
-use crate::ast::{AnyDesignUnit, AnyPrimaryUnit, Declaration, UnitKey};
+use crate::ast::visitor::{Visitor, VisitorResult};
+use crate::ast::{
+    AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, ComponentDeclaration, Declaration,
+    EntityDeclaration, InstantiationStatement, InterfaceDeclaration, MapAspect, PackageDeclaration,
+    SubprogramDeclaration, UnitKey,
+};
 use crate::data::{ContentReader, Symbol};
 use crate::syntax::Kind::*;
-use crate::syntax::{Symbols, Token, Tokenizer, Value};
-use crate::{Position, Source};
+use crate::syntax::{Symbols, Token, TokenAccess, Tokenizer, Value};
+use crate::{EntityId, Position, Source};
 use itertools::Itertools;
+use std::collections::HashSet;
 use std::default::Default;
 
 macro_rules! kind {
@@ -21,6 +27,193 @@ macro_rules! ident {
             ..
         }
     };
+}
+
+#[derive(Eq, PartialEq, Debug)]
+enum MapAspectKind {
+    Port,
+    Generic,
+}
+
+/// Extracts the name of ports or generics from an AST for an entity with a certain ID.
+/// The entity can be an `Entity`, `Component` or `Package`.
+/// After walking the AST, the ports or generics are written to the `items` vector.
+/// The `kind` member chooses whether to select ports or generics.
+struct PortsOrGenericsExtractor<'a> {
+    id: EntityId,
+    items: &'a mut Vec<String>,
+    kind: MapAspectKind,
+}
+
+impl DesignRoot {
+    fn extract_port_or_generic_names(
+        &self,
+        id: EntityId,
+        items: &mut Vec<String>,
+        kind: MapAspectKind,
+    ) {
+        let mut searcher = PortsOrGenericsExtractor { id, items, kind };
+        self.walk(&mut searcher);
+    }
+}
+
+impl<'a> Visitor for PortsOrGenericsExtractor<'a> {
+    fn visit_component_declaration(
+        &mut self,
+        node: &ComponentDeclaration,
+        _ctx: &dyn TokenAccess,
+    ) -> VisitorResult {
+        if node.ident.decl != Some(self.id) {
+            return VisitorResult::Skip;
+        }
+        if self.kind == MapAspectKind::Port {
+            for port in &node.port_list {
+                self.items.push(port.completable_name())
+            }
+        }
+        if self.kind == MapAspectKind::Generic {
+            for generic in &node.generic_list {
+                self.items.push(generic.completable_name())
+            }
+        }
+        VisitorResult::Stop
+    }
+
+    fn visit_entity_declaration(
+        &mut self,
+        node: &EntityDeclaration,
+        _ctx: &dyn TokenAccess,
+    ) -> VisitorResult {
+        if node.ident.decl != Some(self.id) {
+            return VisitorResult::Skip;
+        }
+        if self.kind == MapAspectKind::Port {
+            if let Some(ports) = &node.port_clause {
+                for port in ports {
+                    self.items.push(port.completable_name())
+                }
+            }
+        }
+        if self.kind == MapAspectKind::Generic {
+            if let Some(generics) = &node.generic_clause {
+                for generic in generics {
+                    self.items.push(generic.completable_name())
+                }
+            }
+        }
+        VisitorResult::Stop
+    }
+
+    fn visit_package_declaration(
+        &mut self,
+        node: &PackageDeclaration,
+        _ctx: &dyn TokenAccess,
+    ) -> VisitorResult {
+        if node.ident.decl != Some(self.id) {
+            return VisitorResult::Skip;
+        }
+        if self.kind == MapAspectKind::Generic {
+            if let Some(generics) = &node.generic_clause {
+                for generic in generics {
+                    self.items.push(generic.completable_name())
+                }
+            }
+        }
+        VisitorResult::Stop
+    }
+}
+
+impl InterfaceDeclaration {
+    /// Returns completable names for an interface declarations.
+    /// Example:
+    /// `signal my_signal : natural := 5` => `my_signal`
+    fn completable_name(&self) -> String {
+        match self {
+            InterfaceDeclaration::Object(obj) => obj.ident.tree.to_string(),
+            InterfaceDeclaration::File(file) => file.ident.to_string(),
+            InterfaceDeclaration::Type(typ) => typ.tree.item.name().to_string(),
+            InterfaceDeclaration::Subprogram(decl, _) => match decl {
+                SubprogramDeclaration::Procedure(proc) => proc.designator.to_string(),
+                SubprogramDeclaration::Function(func) => func.designator.to_string(),
+            },
+            InterfaceDeclaration::Package(package) => package.package_name.to_string(),
+        }
+    }
+}
+
+/// Visitor responsible for completions in selected AST elements
+struct AutocompletionVisitor<'a> {
+    root: &'a DesignRoot,
+    cursor: Position,
+    completions: &'a mut Vec<String>,
+}
+
+impl<'a> AutocompletionVisitor<'a> {
+    /// Loads completion options for the given map aspect.
+    /// Returns `true`, when the cursor is inside the map aspect and the search should not continue.
+    /// Returns `false` otherwise
+    fn load_completions_for_map_aspect(
+        &mut self,
+        node: &InstantiationStatement,
+        map: &MapAspect,
+        ctx: &dyn TokenAccess,
+        kind: MapAspectKind,
+    ) -> bool {
+        if !map.span(ctx).contains(self.cursor) {
+            return false;
+        }
+        let formals_in_map: HashSet<String> =
+            HashSet::from_iter(map.formals().map(|name| name.to_string().to_lowercase()));
+        if let Some(ent) = node.entity_reference() {
+            self.root
+                .extract_port_or_generic_names(ent, self.completions, kind);
+            self.completions
+                .retain(|name| !formals_in_map.contains(&name.to_lowercase()));
+        }
+        true
+    }
+}
+
+impl<'a> Visitor for AutocompletionVisitor<'a> {
+    /// Visit an instantiation statement extracting completions for ports or generics.
+    fn visit_instantiation_statement(
+        &mut self,
+        node: &InstantiationStatement,
+        ctx: &dyn TokenAccess,
+    ) -> VisitorResult {
+        if let Some(map) = &node.generic_map {
+            if self.load_completions_for_map_aspect(node, map, ctx, MapAspectKind::Generic) {
+                return VisitorResult::Stop;
+            }
+        }
+        if let Some(map) = &node.port_map {
+            if self.load_completions_for_map_aspect(node, map, ctx, MapAspectKind::Port) {
+                return VisitorResult::Stop;
+            }
+        }
+        VisitorResult::Skip
+    }
+
+    // preliminary optimizations: only visit architecture
+    fn visit_any_primary_unit(
+        &mut self,
+        _node: &AnyPrimaryUnit,
+        _ctx: &dyn TokenAccess,
+    ) -> VisitorResult {
+        VisitorResult::Skip
+    }
+
+    // preliminary optimizations: only visit architecture
+    fn visit_any_secondary_unit(
+        &mut self,
+        node: &AnySecondaryUnit,
+        _ctx: &dyn TokenAccess,
+    ) -> VisitorResult {
+        match node {
+            AnySecondaryUnit::Architecture(_) => VisitorResult::Continue,
+            AnySecondaryUnit::PackageBody(_) => VisitorResult::Skip,
+        }
+    }
 }
 
 /// Returns the completable string representation of a declaration
@@ -147,7 +340,16 @@ impl DesignRoot {
             | [.., kind!(Use), ident!(library), kind!(Dot), ident!(selected), kind!(Dot), kind!(StringLiteral | Identifier)] => {
                 self.list_available_declarations(library, selected)
             }
-            _ => vec![],
+            _ => {
+                let mut completions = vec![];
+                let mut visitor = AutocompletionVisitor {
+                    completions: &mut completions,
+                    root: self,
+                    cursor,
+                };
+                self.walk(&mut visitor);
+                completions
+            }
         }
     }
 }
@@ -242,5 +444,48 @@ mod test {
         let cursor = code.pos().end();
         let options = root.list_completion_options(code.source(), cursor);
         assert_eq!(options, vec!["stop", "finish", "resolution_limit", "all"])
+    }
+
+    #[test]
+    pub fn completing_instantiation_statement() {
+        let mut input = LibraryBuilder::new();
+        let code = input.code(
+            "libname",
+            "\
+entity my_ent is
+end entity my_ent;
+
+architecture arch of my_ent is
+    component comp is
+    generic (
+      A: natural := 5;
+      B: integer
+    );
+    port (
+      clk : in bit;
+      rst : in bit;
+      dout : out bit
+    );
+    end component comp;
+    signal clk, rst: bit;
+begin
+    comp_inst: comp
+    generic map (
+        A => 2
+    )
+    port map (
+        clk => clk
+    );
+end arch;
+        ",
+        );
+        let (root, _) = input.get_analyzed_root();
+        let cursor = code.s1("generic map (").pos().end();
+        let options = root.list_completion_options(code.source(), cursor);
+        assert_eq!(options, vec!["B"]);
+
+        let cursor = code.s1("port map (").pos().end();
+        let options = root.list_completion_options(code.source(), cursor);
+        assert_eq!(options, vec!["rst", "dout"]);
     }
 }

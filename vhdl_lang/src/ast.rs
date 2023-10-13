@@ -17,6 +17,7 @@ mod any_design_unit;
 
 #[macro_use]
 pub mod search;
+pub mod visitor;
 
 pub use self::display::*;
 pub(crate) use self::util::*;
@@ -201,6 +202,16 @@ pub enum Name {
 pub enum SelectedName {
     Designator(WithRef<Designator>),
     Selected(Box<WithPos<SelectedName>>, WithPos<WithRef<Designator>>),
+}
+
+impl SelectedName {
+    /// Returns the reference that this name selects
+    pub fn reference(&self) -> Reference {
+        match &self {
+            SelectedName::Designator(desi) => desi.reference,
+            SelectedName::Selected(_, desi) => desi.item.reference,
+        }
+    }
 }
 
 /// LRM 9.3.4 Function calls
@@ -1021,6 +1032,17 @@ pub enum InstantiatedUnit {
     Configuration(WithPos<SelectedName>),
 }
 
+impl InstantiatedUnit {
+    /// Returns a reference to the unit that this instantiation declares
+    pub fn entity_reference(&self) -> Reference {
+        match &self {
+            InstantiatedUnit::Entity(name, _) => name.item.reference(),
+            InstantiatedUnit::Configuration(name) => name.item.reference(),
+            InstantiatedUnit::Component(name) => name.item.reference(),
+        }
+    }
+}
+
 #[derive(PartialEq, Debug, Clone)]
 pub struct MapAspect {
     pub start: TokenId, // `generic` or `map`
@@ -1047,6 +1069,13 @@ pub struct InstantiationStatement {
     pub generic_map: Option<MapAspect>,
     pub port_map: Option<MapAspect>,
     pub semicolon: TokenId,
+}
+
+impl InstantiationStatement {
+    /// Returns the reference to the entity declaring this instance
+    pub fn entity_reference(&self) -> Reference {
+        self.unit.entity_reference()
+    }
 }
 
 /// 11.8 Generate statements
