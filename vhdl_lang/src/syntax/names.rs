@@ -200,12 +200,7 @@ pub fn parse_association_list_no_leftpar(
         );
         return Ok((SeparatedList::default(), right_par));
     }
-    let list = parse_list_with_separator(
-        stream,
-        Comma,
-        diagnostics,
-        parse_association_element,
-    )?;
+    let list = parse_list_with_separator(stream, Comma, diagnostics, parse_association_element)?;
     let right_par = stream.expect_kind(RightPar)?;
     Ok((list, right_par))
 }
