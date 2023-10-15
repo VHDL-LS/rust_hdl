@@ -19,7 +19,10 @@ use crate::ast::{ContextClause, Declaration, PackageInstantiation};
 use crate::data::DiagnosticHandler;
 use crate::syntax::concurrent_statement::parse_map_aspect;
 
-pub fn parse_package_instantiation(stream: &TokenStream, diagnsotics: &mut dyn DiagnosticHandler) -> ParseResult<PackageInstantiation> {
+pub fn parse_package_instantiation(
+    stream: &TokenStream,
+    diagnsotics: &mut dyn DiagnosticHandler,
+) -> ParseResult<PackageInstantiation> {
     stream.expect_kind(Package)?;
     let ident = stream.expect_ident()?;
     stream.expect_kind(Is)?;
@@ -98,10 +101,10 @@ pub fn parse_declarative_part(
                     Component => parse_component_declaration(stream, diagnostics)
                         .map(Declaration::Component)?,
                     Impure | Pure | Function | Procedure => parse_subprogram(stream, diagnostics)?,
-                    Package => parse_package_instantiation(stream, diagnostics).map(Declaration::Package)?,
-                    For => {
-                        parse_configuration_specification(stream, diagnostics).map(Declaration::Configuration)?
-                    }
+                    Package => parse_package_instantiation(stream, diagnostics)
+                        .map(Declaration::Package)?,
+                    For => parse_configuration_specification(stream, diagnostics)
+                        .map(Declaration::Configuration)?,
                     _ => unreachable!(),
                 };
                 declarations.push(decl);
@@ -128,7 +131,7 @@ pub fn parse_declarative_part(
 
             Use | Alias => {
                 let decl: ParseResult<Declaration> = match token.kind {
-                    Use => parse_use_clause(stream).map(Declaration::Use),
+                    Use => parse_use_clause(stream, diagnostics).map(Declaration::Use),
                     Alias => parse_alias_declaration(stream).map(Declaration::Alias),
                     _ => unreachable!(),
                 };

@@ -1144,7 +1144,7 @@ pub struct SeparatedList<T> {
     pub tokens: Vec<TokenId>,
 }
 
-impl <T> Default for SeparatedList<T> {
+impl<T> Default for SeparatedList<T> {
     fn default() -> Self {
         SeparatedList {
             items: Vec::default(),

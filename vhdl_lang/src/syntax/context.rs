@@ -13,9 +13,12 @@ use crate::data::*;
 use crate::syntax::separated_list::{parse_ident_list, parse_name_list};
 
 /// LRM 13. Design units and their analysis
-pub fn parse_library_clause(stream: &TokenStream) -> ParseResult<LibraryClause> {
+pub fn parse_library_clause(
+    stream: &TokenStream,
+    diagnsotics: &mut dyn DiagnosticHandler,
+) -> ParseResult<LibraryClause> {
     let library_token = stream.expect_kind(Library)?;
-    let name_list = parse_ident_list(stream)?;
+    let name_list = parse_ident_list(stream, diagnsotics, SemiColon)?;
     let semi_token = stream.expect_kind(SemiColon)?;
     Ok(LibraryClause {
         library_token,
@@ -25,10 +28,13 @@ pub fn parse_library_clause(stream: &TokenStream) -> ParseResult<LibraryClause> 
 }
 
 /// LRM 12.4. Use clauses
-pub fn parse_use_clause(stream: &TokenStream) -> ParseResult<UseClause> {
+pub fn parse_use_clause(
+    stream: &TokenStream,
+    diagnsotics: &mut dyn DiagnosticHandler,
+) -> ParseResult<UseClause> {
     let use_token = stream.expect_kind(Use)?;
 
-    let name_list = parse_name_list(stream)?;
+    let name_list = parse_name_list(stream, diagnsotics, SemiColon)?;
     let semi_token = stream.expect_kind(SemiColon)?;
     Ok(UseClause {
         use_token,
@@ -43,10 +49,13 @@ pub enum DeclarationOrReference {
     Reference(ContextReference),
 }
 
-pub fn parse_context_reference(stream: &TokenStream) -> ParseResult<ContextReference> {
+pub fn parse_context_reference(
+    stream: &TokenStream,
+    diagnostics: &mut dyn DiagnosticHandler,
+) -> ParseResult<ContextReference> {
     let context_token = stream.expect_kind(Context)?;
 
-    let name_list = parse_name_list(stream)?;
+    let name_list = parse_name_list(stream, diagnostics, SemiColon)?;
     let semi_token = stream.expect_kind(SemiColon)?;
     Ok(ContextReference {
         context_token,
@@ -69,9 +78,9 @@ pub fn parse_context(
             let token = stream.peek_expect()?;
             try_init_token_kind!(
                 token,
-                Library => items.push(ContextItem::Library(parse_library_clause(stream)?)),
-                Use => items.push(ContextItem::Use(parse_use_clause(stream)?)),
-                Context => items.push(ContextItem::Context(parse_context_reference(stream)?)),
+                Library => items.push(ContextItem::Library(parse_library_clause(stream, diagnostics)?)),
+                Use => items.push(ContextItem::Use(parse_use_clause(stream, diagnostics)?)),
+                Context => items.push(ContextItem::Context(parse_context_reference(stream, diagnostics)?)),
                 End => {
                     stream.skip();
                     stream.pop_if_kind(Context);
@@ -117,10 +126,10 @@ mod tests {
     fn test_library_clause_single_name() {
         let code = Code::new("library foo;");
         assert_eq!(
-            code.with_stream(parse_library_clause),
+            code.with_stream_no_diagnostics(parse_library_clause),
             LibraryClause {
                 library_token: code.s1("library").token(),
-                name_list: code.s1("foo").ident_list(),
+                name_list: code.s1("foo").ident_list(SemiColon),
                 semi_token: code.s1(";").token(),
             }
         )
@@ -130,10 +139,10 @@ mod tests {
     fn test_library_clause_multiple_names() {
         let code = Code::new("library foo, bar;");
         assert_eq!(
-            code.with_stream(parse_library_clause),
+            code.with_stream_no_diagnostics(parse_library_clause),
             LibraryClause {
                 library_token: code.s1("library").token(),
-                name_list: code.s1("foo, bar").ident_list(),
+                name_list: code.s1("foo, bar").ident_list(SemiColon),
                 semi_token: code.s1(";").token(),
             },
         )
@@ -143,10 +152,10 @@ mod tests {
     fn test_use_clause_single_name() {
         let code = Code::new("use lib.foo;");
         assert_eq!(
-            code.with_stream(parse_use_clause),
+            code.with_stream_no_diagnostics(parse_use_clause),
             UseClause {
                 use_token: code.s1("use").token(),
-                name_list: code.s1("lib.foo").name_list(),
+                name_list: code.s1("lib.foo").name_list(SemiColon),
                 semi_token: code.s1(";").token(),
             },
         )
@@ -156,10 +165,10 @@ mod tests {
     fn test_use_clause_multiple_names() {
         let code = Code::new("use foo.'a', lib.bar.all;");
         assert_eq!(
-            code.with_stream(parse_use_clause),
+            code.with_stream_no_diagnostics(parse_use_clause),
             UseClause {
                 use_token: code.s1("use").token(),
-                name_list: code.s1("foo.'a', lib.bar.all").name_list(),
+                name_list: code.s1("foo.'a', lib.bar.all").name_list(SemiColon),
                 semi_token: code.s1(";").token(),
             },
         )
@@ -172,7 +181,7 @@ mod tests {
             code.with_stream_no_diagnostics(parse_context),
             DeclarationOrReference::Reference(ContextReference {
                 context_token: code.s1("context").token(),
-                name_list: code.s1("lib.foo").name_list(),
+                name_list: code.s1("lib.foo").name_list(SemiColon),
                 semi_token: code.s1(";").token(),
             },)
         )
@@ -260,17 +269,17 @@ end context;
                 items: vec![
                     ContextItem::Library(LibraryClause {
                         library_token: code.s1("library").token(),
-                        name_list: code.s1("foo").ident_list(),
+                        name_list: code.s1("foo").ident_list(SemiColon),
                         semi_token: code.s(";", 1).token(),
                     }),
                     ContextItem::Use(UseClause {
                         use_token: code.s1("use").token(),
-                        name_list: code.s1("foo.bar").name_list(),
+                        name_list: code.s1("foo.bar").name_list(SemiColon),
                         semi_token: code.s(";", 2).token(),
                     }),
                     ContextItem::Context(ContextReference {
                         context_token: code.s("context", 2).token(),
-                        name_list: code.s1("foo.ctx").name_list(),
+                        name_list: code.s1("foo.ctx").name_list(SemiColon),
                         semi_token: code.s(";", 3).token(),
                     }),
                 ],

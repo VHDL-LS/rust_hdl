@@ -165,7 +165,7 @@ fn parse_actual_part(stream: &TokenStream) -> ParseResult<WithPos<ActualPart>> {
     }
 }
 
-fn parse_association_element(stream: &TokenStream) -> ParseResult<AssociationElement> {
+pub fn parse_association_element(stream: &TokenStream) -> ParseResult<AssociationElement> {
     let actual = parse_actual_part(stream)?;
     if stream.skip_if_kind(RightArrow) {
         Ok(AssociationElement {
@@ -182,22 +182,31 @@ fn parse_association_element(stream: &TokenStream) -> ParseResult<AssociationEle
 
 pub fn parse_association_list(
     stream: &TokenStream,
-    diagnsotics: &mut dyn DiagnosticHandler
+    diagnsotics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<(SeparatedList<AssociationElement>, TokenId)> {
     let left_par = stream.expect_kind(LeftPar)?;
-    parse_association_list_no_leftpar(stream, left_par,diagnsotics)
+    parse_association_list_no_leftpar(stream, left_par, diagnsotics)
 }
 
 pub fn parse_association_list_no_leftpar(
     stream: &TokenStream,
-    left_par : TokenId,
-    diagnostics: &mut dyn DiagnosticHandler
+    left_par: TokenId,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<(SeparatedList<AssociationElement>, TokenId)> {
     if let Some(right_par) = stream.pop_if_kind(RightPar) {
-        diagnostics.error(stream.get_span(left_par, right_par), "Association list cannot be empty");
+        diagnostics.error(
+            stream.get_span(left_par, right_par),
+            "Association list cannot be empty",
+        );
         return Ok((SeparatedList::default(), right_par));
     }
-    let list = parse_list_with_separator(stream, Comma, parse_association_element)?;
+    let list = parse_list_with_separator(
+        stream,
+        Comma,
+        diagnostics,
+        RightPar,
+        parse_association_element,
+    )?;
     let right_par = stream.expect_kind(RightPar)?;
     Ok((list, right_par))
 }
@@ -1171,8 +1180,28 @@ mod tests {
     fn empty_association_list_diagnostic() {
         let code = Code::new("()");
         let (list, diag) = code.with_stream_diagnostics(parse_association_list);
-        assert_eq!(diag, vec![Diagnostic::error(code.pos(), "Association list cannot be empty")]);
+        assert_eq!(
+            diag,
+            vec![Diagnostic::error(
+                code.pos(),
+                "Association list cannot be empty"
+            )]
+        );
         assert!(list.0.tokens.is_empty());
         assert!(list.0.items.is_empty());
+    }
+
+    #[test]
+    fn trailing_comma_diagnostic() {
+        let code = Code::new("(a => b,)");
+        let (list, diag) = code.with_stream_diagnostics(parse_association_list);
+        assert_eq!(
+            diag,
+            vec![Diagnostic::error(
+                code.s1(",").pos(),
+                "Trailing comma not allowed"
+            )]
+        );
+        assert_eq!(list.0.items, vec![code.s1("a => b").association_element()]);
     }
 }

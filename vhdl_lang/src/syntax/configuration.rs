@@ -40,7 +40,7 @@ fn parse_entity_aspect(stream: &TokenStream) -> ParseResult<EntityAspect> {
 fn parse_binding_indication_known_entity_aspect(
     entity_aspect: Option<EntityAspect>,
     stream: &TokenStream,
-    diagnostics: &mut dyn DiagnosticHandler
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<BindingIndication> {
     let (generic_map, port_map) = parse_generic_and_port_map(stream, diagnostics)?;
 
@@ -53,7 +53,10 @@ fn parse_binding_indication_known_entity_aspect(
 }
 
 /// LRM 7.3.2
-fn parse_binding_indication(stream: &TokenStream, diagnostics: &mut dyn DiagnosticHandler) -> ParseResult<BindingIndication> {
+fn parse_binding_indication(
+    stream: &TokenStream,
+    diagnostics: &mut dyn DiagnosticHandler,
+) -> ParseResult<BindingIndication> {
     let entity_aspect = if stream.skip_if_kind(Use) {
         Some(parse_entity_aspect(stream)?)
     } else {
@@ -285,7 +288,10 @@ pub fn parse_configuration_declaration(
                     break parse_vunit_binding_indication_list_known_keyword(stream)?;
                 }
 
-                decl.push(ConfigurationDeclarativeItem::Use(parse_use_clause(stream)?));
+                decl.push(ConfigurationDeclarativeItem::Use(parse_use_clause(
+                    stream,
+                    diagnostics,
+                )?));
             }
             _ => break Vec::new(),
         }
@@ -313,7 +319,7 @@ pub fn parse_configuration_declaration(
 /// LRM 7.3 Configuration Specification
 pub fn parse_configuration_specification(
     stream: &TokenStream,
-    diagnsotics: &mut dyn DiagnosticHandler
+    diagnsotics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ConfigurationSpecification> {
     stream.expect_kind(For)?;
     match parse_component_specification_or_name(stream)? {

@@ -177,7 +177,10 @@ fn parse_subprogram_default(stream: &TokenStream) -> ParseResult<Option<Subprogr
     }
 }
 
-fn parse_interface_package(stream: &TokenStream, diagnsotics: &mut dyn DiagnosticHandler) -> ParseResult<InterfacePackageDeclaration> {
+fn parse_interface_package(
+    stream: &TokenStream,
+    diagnsotics: &mut dyn DiagnosticHandler,
+) -> ParseResult<InterfacePackageDeclaration> {
     stream.expect_kind(Package)?;
     let ident = stream.expect_ident()?;
     stream.expect_kind(Is)?;
