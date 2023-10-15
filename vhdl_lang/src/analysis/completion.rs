@@ -539,7 +539,7 @@ impl DesignRoot {
                     } else {
                         let item = CompletionItem::text(
                             key.clone(),
-                            format!("+{} overloaded", values.len() - 1),
+                            format!("{} overloads", values.len()),
                             values[0].kind.clone(),
                             None,
                         );
