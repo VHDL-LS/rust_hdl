@@ -414,12 +414,12 @@ impl Code {
         self.parse_ok(parse_name)
     }
 
-    pub fn name_list(&self, final_token: Kind) -> SeparatedList<WithPos<Name>> {
-        self.parse_ok_no_diagnostics(|stream, diag| parse_name_list(stream, diag, final_token))
+    pub fn name_list(&self) -> SeparatedList<WithPos<Name>> {
+        self.parse_ok_no_diagnostics(parse_name_list)
     }
 
-    pub fn ident_list(&self, final_token: Kind) -> SeparatedList<WithRef<Ident>> {
-        self.parse_ok_no_diagnostics(|stream, diag| parse_ident_list(stream, diag, final_token))
+    pub fn ident_list(&self) -> SeparatedList<WithRef<Ident>> {
+        self.parse_ok_no_diagnostics(parse_ident_list)
     }
 
     pub fn selected_name(&self) -> WithPos<SelectedName> {

@@ -204,7 +204,6 @@ pub fn parse_association_list_no_leftpar(
         stream,
         Comma,
         diagnostics,
-        RightPar,
         parse_association_element,
     )?;
     let right_par = stream.expect_kind(RightPar)?;
@@ -1198,8 +1197,8 @@ mod tests {
         assert_eq!(
             diag,
             vec![Diagnostic::error(
-                code.s1(",").pos(),
-                "Trailing comma not allowed"
+                code.s1(")").pos(),
+                "Expected {expression}"
             )]
         );
         assert_eq!(list.0.items, vec![code.s1("a => b").association_element()]);

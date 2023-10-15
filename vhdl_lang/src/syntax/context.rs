@@ -18,7 +18,7 @@ pub fn parse_library_clause(
     diagnsotics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<LibraryClause> {
     let library_token = stream.expect_kind(Library)?;
-    let name_list = parse_ident_list(stream, diagnsotics, SemiColon)?;
+    let name_list = parse_ident_list(stream, diagnsotics)?;
     let semi_token = stream.expect_kind(SemiColon)?;
     Ok(LibraryClause {
         library_token,
@@ -34,7 +34,7 @@ pub fn parse_use_clause(
 ) -> ParseResult<UseClause> {
     let use_token = stream.expect_kind(Use)?;
 
-    let name_list = parse_name_list(stream, diagnsotics, SemiColon)?;
+    let name_list = parse_name_list(stream, diagnsotics)?;
     let semi_token = stream.expect_kind(SemiColon)?;
     Ok(UseClause {
         use_token,
@@ -55,7 +55,7 @@ pub fn parse_context_reference(
 ) -> ParseResult<ContextReference> {
     let context_token = stream.expect_kind(Context)?;
 
-    let name_list = parse_name_list(stream, diagnostics, SemiColon)?;
+    let name_list = parse_name_list(stream, diagnostics)?;
     let semi_token = stream.expect_kind(SemiColon)?;
     Ok(ContextReference {
         context_token,
@@ -129,7 +129,7 @@ mod tests {
             code.with_stream_no_diagnostics(parse_library_clause),
             LibraryClause {
                 library_token: code.s1("library").token(),
-                name_list: code.s1("foo").ident_list(SemiColon),
+                name_list: code.s1("foo").ident_list(),
                 semi_token: code.s1(";").token(),
             }
         )
@@ -142,7 +142,7 @@ mod tests {
             code.with_stream_no_diagnostics(parse_library_clause),
             LibraryClause {
                 library_token: code.s1("library").token(),
-                name_list: code.s1("foo, bar").ident_list(SemiColon),
+                name_list: code.s1("foo, bar").ident_list(),
                 semi_token: code.s1(";").token(),
             },
         )
@@ -155,7 +155,7 @@ mod tests {
             code.with_stream_no_diagnostics(parse_use_clause),
             UseClause {
                 use_token: code.s1("use").token(),
-                name_list: code.s1("lib.foo").name_list(SemiColon),
+                name_list: code.s1("lib.foo").name_list(),
                 semi_token: code.s1(";").token(),
             },
         )
@@ -168,7 +168,7 @@ mod tests {
             code.with_stream_no_diagnostics(parse_use_clause),
             UseClause {
                 use_token: code.s1("use").token(),
-                name_list: code.s1("foo.'a', lib.bar.all").name_list(SemiColon),
+                name_list: code.s1("foo.'a', lib.bar.all").name_list(),
                 semi_token: code.s1(";").token(),
             },
         )
@@ -181,7 +181,7 @@ mod tests {
             code.with_stream_no_diagnostics(parse_context),
             DeclarationOrReference::Reference(ContextReference {
                 context_token: code.s1("context").token(),
-                name_list: code.s1("lib.foo").name_list(SemiColon),
+                name_list: code.s1("lib.foo").name_list(),
                 semi_token: code.s1(";").token(),
             },)
         )
@@ -269,17 +269,17 @@ end context;
                 items: vec![
                     ContextItem::Library(LibraryClause {
                         library_token: code.s1("library").token(),
-                        name_list: code.s1("foo").ident_list(SemiColon),
+                        name_list: code.s1("foo").ident_list(),
                         semi_token: code.s(";", 1).token(),
                     }),
                     ContextItem::Use(UseClause {
                         use_token: code.s1("use").token(),
-                        name_list: code.s1("foo.bar").name_list(SemiColon),
+                        name_list: code.s1("foo.bar").name_list(),
                         semi_token: code.s(";", 2).token(),
                     }),
                     ContextItem::Context(ContextReference {
                         context_token: code.s("context", 2).token(),
-                        name_list: code.s1("foo.ctx").name_list(SemiColon),
+                        name_list: code.s1("foo.ctx").name_list(),
                         semi_token: code.s(";", 3).token(),
                     }),
                 ],

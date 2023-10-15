@@ -9,7 +9,7 @@ use crate::data::{DiagnosticHandler, DiagnosticResult};
 use crate::syntax::common::ParseResult;
 use crate::syntax::names::parse_name;
 use crate::syntax::Kind::{Comma};
-use crate::syntax::{Kind, TokenAccess, TokenStream};
+use crate::syntax::{Kind, TokenStream};
 use std::fmt::Debug;
 
 /// Parses a list of the form
@@ -20,7 +20,6 @@ pub fn parse_list_with_separator<F, T: Debug>(
     stream: &TokenStream,
     separator: Kind,
     diagnostics: &mut dyn DiagnosticHandler,
-    final_token: Kind,
     parse_fn: F,
 ) -> DiagnosticResult<SeparatedList<T>>
 where
@@ -30,11 +29,10 @@ where
     let mut tokens = Vec::new();
     while let Some(separator) = stream.pop_if_kind(separator) {
         tokens.push(separator);
-        if stream.next_kind_is(final_token) {
-            diagnostics.error(stream.get_pos(separator), "Trailing comma not allowed");
-            break
+        match parse_fn(stream) {
+            Ok(item) => items.push(item),
+            Err(err) => diagnostics.push(err)
         }
-        items.push(parse_fn(stream)?);
     }
     Ok(SeparatedList { items, tokens })
 }
@@ -42,13 +40,11 @@ where
 pub fn parse_name_list(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
-    final_token: Kind
 ) -> DiagnosticResult<NameList> {
     parse_list_with_separator(
         stream,
         Comma,
         diagnostics,
-        final_token,
         parse_name,
     )
 }
@@ -56,13 +52,11 @@ pub fn parse_name_list(
 pub fn parse_ident_list(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
-    final_token: Kind
 ) -> DiagnosticResult<IdentList> {
     parse_list_with_separator(
         stream,
         Comma,
         diagnostics,
-        final_token,
         |stream| stream.expect_ident().map(WithRef::new),
     )
 }
@@ -73,12 +67,11 @@ mod test {
     use crate::syntax::separated_list::{parse_ident_list, parse_name_list};
     use crate::syntax::test::Code;
     use assert_matches::assert_matches;
-    use crate::syntax::Kind::SemiColon;
 
     #[test]
     pub fn test_error_on_empty_list() {
         let code = Code::new("");
-        let (res, diag) = code.with_partial_stream_diagnostics(|stream, diag| parse_ident_list(stream, diag, SemiColon));
+        let (res, _) = code.with_partial_stream_diagnostics(parse_ident_list);
         assert_matches!(res, Err(_))
     }
 
@@ -86,7 +79,7 @@ mod test {
     pub fn parse_single_element_list() {
         let code = Code::new("abc");
         assert_eq!(
-            code.parse_ok_no_diagnostics(|stream, diag| parse_ident_list(stream, diag, SemiColon)),
+            code.parse_ok_no_diagnostics(parse_ident_list),
             IdentList::single(code.s1("abc").ident().into_ref())
         )
     }
@@ -95,7 +88,7 @@ mod test {
     pub fn parse_list_with_multiple_elements() {
         let code = Code::new("abc, def, ghi");
         assert_eq!(
-            code.parse_ok_no_diagnostics(|stream, diag| parse_ident_list(stream, diag, SemiColon)),
+            code.parse_ok_no_diagnostics(parse_ident_list),
             IdentList {
                 items: vec![
                     code.s1("abc").ident().into_ref(),
@@ -111,7 +104,7 @@ mod test {
     fn parse_list_with_many_names() {
         let code = Code::new("work.foo, lib.bar.all");
         assert_eq!(
-            code.parse_ok_no_diagnostics(|stream, diag| parse_name_list(stream, diag, SemiColon)),
+            code.parse_ok_no_diagnostics(parse_name_list),
             NameList {
                 items: vec![code.s1("work.foo").name(), code.s1("lib.bar.all").name()],
                 tokens: vec![code.s1(",").token()],
