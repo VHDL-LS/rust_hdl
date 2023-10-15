@@ -184,12 +184,13 @@ pub fn parse_association_list(
     stream: &TokenStream,
     diagnsotics: &mut dyn DiagnosticHandler
 ) -> ParseResult<(SeparatedList<AssociationElement>, TokenId)> {
-    stream.expect_kind(LeftPar)?;
-    parse_association_list_no_leftpar(stream, diagnsotics)
+    let left_par = stream.expect_kind(LeftPar)?;
+    parse_association_list_no_leftpar(stream, left_par,diagnsotics)
 }
 
 pub fn parse_association_list_no_leftpar(
     stream: &TokenStream,
+    left_par : TokenId,
     diagnostics: &mut dyn DiagnosticHandler
 ) -> ParseResult<(SeparatedList<AssociationElement>, TokenId)> {
     if let Some(right_par) = stream.pop_if_kind(RightPar) {

@@ -187,7 +187,7 @@ fn parse_interface_package(stream: &TokenStream, diagnsotics: &mut dyn Diagnosti
     stream.expect_kind(Map)?;
 
     let generic_map = {
-        stream.expect_kind(LeftPar)?;
+        let left_par = stream.expect_kind(LeftPar)?;
         let map_token = stream.peek_expect()?;
         match map_token.kind {
             BOX => {
@@ -201,7 +201,7 @@ fn parse_interface_package(stream: &TokenStream, diagnsotics: &mut dyn Diagnosti
                 InterfacePackageGenericMapAspect::Default
             }
             _ => {
-                let (list, _) = parse_association_list_no_leftpar(stream, diagnsotics)?;
+                let (list, _) = parse_association_list_no_leftpar(stream, left_par, diagnsotics)?;
                 InterfacePackageGenericMapAspect::Map(list)
             }
         }
