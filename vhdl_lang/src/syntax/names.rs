@@ -194,14 +194,12 @@ pub fn parse_association_list_no_leftpar(
     diagnostics: &mut dyn DiagnosticHandler
 ) -> ParseResult<(SeparatedList<AssociationElement>, TokenId)> {
     if let Some(right_par) = stream.pop_if_kind(RightPar) {
-        return Err(Diagnostic::error(
-            stream.get_pos(right_par),
-            "Association list cannot be empty",
-        ));
+        diagnostics.error(stream.get_span(left_par, right_par), "Association list cannot be empty");
+        return Ok((SeparatedList::default(), right_par));
     }
     let list = parse_list_with_separator(stream, Comma, parse_association_element)?;
-    let comma = stream.expect_kind(RightPar)?;
-    Ok((list, comma))
+    let right_par = stream.expect_kind(RightPar)?;
+    Ok((list, right_par))
 }
 
 fn parse_function_call(
@@ -1167,5 +1165,14 @@ mod tests {
                 "Illegal prefix 'all' for name"
             ))
         );
+    }
+
+    #[test]
+    fn empty_association_list_diagnostic() {
+        let code = Code::new("()");
+        let (list, diag) = code.with_stream_diagnostics(parse_association_list);
+        assert_eq!(diag, vec![Diagnostic::error(code.pos(), "Association list cannot be empty")]);
+        assert!(list.0.tokens.is_empty());
+        assert!(list.0.items.is_empty());
     }
 }
