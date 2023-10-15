@@ -522,7 +522,7 @@ impl DesignRoot {
                 let mut overloaded_items: FnvHashMap<String, Vec<CompletionItem>> =
                     FnvHashMap::default();
                 for item in &pkg.decl {
-                    let Some(completion_item) = declaration_to_completion_item(&item, self) else {
+                    let Some(completion_item) = declaration_to_completion_item(item, self) else {
                         continue;
                     };
                     match overloaded_items.entry(completion_item.label.clone()) {
