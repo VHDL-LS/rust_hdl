@@ -1399,6 +1399,24 @@ pub enum AnyDesignUnit {
     Secondary(AnySecondaryUnit),
 }
 
+impl AnyDesignUnit {
+    pub fn entity_id(&self) -> Option<EntityId> {
+        match self {
+            AnyDesignUnit::Primary(primary) => match primary {
+                AnyPrimaryUnit::Entity(ent) => ent.ident.decl,
+                AnyPrimaryUnit::Configuration(config) => config.ident.decl,
+                AnyPrimaryUnit::Package(pkg) => pkg.ident.decl,
+                AnyPrimaryUnit::PackageInstance(inst) => inst.ident.decl,
+                AnyPrimaryUnit::Context(ctx) => ctx.ident.decl,
+            },
+            AnyDesignUnit::Secondary(secondary) => match secondary {
+                AnySecondaryUnit::Architecture(arch) => arch.ident.decl,
+                AnySecondaryUnit::PackageBody(bod) => bod.ident.decl,
+            },
+        }
+    }
+}
+
 #[derive(PartialEq, Debug, Clone, Default)]
 pub struct DesignFile {
     pub design_units: Vec<(Vec<Token>, AnyDesignUnit)>,

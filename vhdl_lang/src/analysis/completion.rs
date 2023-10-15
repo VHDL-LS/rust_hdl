@@ -10,10 +10,13 @@ use crate::data::{ContentReader, Symbol};
 use crate::syntax::Kind::*;
 use crate::syntax::{Symbols, Token, TokenAccess, Tokenizer, Value};
 use crate::{ast, EntityId, Position, Source};
+use fnv::FnvHashMap;
 use itertools::Itertools;
+use std::collections::hash_map::Entry;
 use std::collections::HashSet;
 use std::default::Default;
 
+#[derive(Debug, PartialEq, Clone)]
 pub enum CompletionKind {
     Module,
     Constant,
@@ -27,34 +30,49 @@ pub enum CompletionKind {
     Alias,
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub enum CompletionItemMode {
     Text,
     Snippet,
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct CompletionItem {
     pub label: String,
     pub detail: String,
     pub kind: CompletionKind,
     pub mode: CompletionItemMode,
+    pub entity: Option<EntityId>,
 }
 
 impl CompletionItem {
-    pub fn text(label: String, detail: String, kind: CompletionKind) -> CompletionItem {
+    pub fn text(
+        label: String,
+        detail: String,
+        kind: CompletionKind,
+        entity: Option<EntityId>,
+    ) -> CompletionItem {
         CompletionItem {
             label,
             detail,
             kind,
             mode: CompletionItemMode::Text,
+            entity,
         }
     }
 
-    pub fn snippet(label: String, detail: String, kind: CompletionKind) -> CompletionItem {
+    pub fn snippet(
+        label: String,
+        detail: String,
+        kind: CompletionKind,
+        entity: Option<EntityId>,
+    ) -> CompletionItem {
         CompletionItem {
             label,
             detail,
             kind,
             mode: CompletionItemMode::Snippet,
+            entity,
         }
     }
 
@@ -72,19 +90,26 @@ impl CompletionItem {
                 .map(|id| root.get_ent(id).describe())
                 .unwrap_or_default(),
             kind,
+            decl.decl,
         )
     }
 
-    pub fn from_ref<T>(decl: &WithRef<T>, root: &DesignRoot, kind: CompletionKind) -> CompletionItem
+    pub fn from_ref<T>(
+        reference: &WithRef<T>,
+        root: &DesignRoot,
+        kind: CompletionKind,
+    ) -> CompletionItem
     where
         T: ToString,
     {
         CompletionItem::text(
-            decl.item.to_string(),
-            decl.reference
+            reference.item.to_string(),
+            reference
+                .reference
                 .map(|id| root.get_ent(id).describe())
                 .unwrap_or_default(),
             kind,
+            reference.reference,
         )
     }
 }
@@ -452,6 +477,7 @@ impl DesignRoot {
                     k.name_utf8(),
                     format!("library {}", k.name_utf8()),
                     CompletionKind::Module,
+                    None,
                 )
             })
             .collect()
@@ -469,10 +495,11 @@ impl DesignRoot {
                     prim.name_utf8(),
                     unit.describe(),
                     CompletionKind::Module,
+                    unit.unit.get().and_then(|u| u.data().entity_id()),
                 )),
                 UnitKey::Secondary(_, _) => None,
             })
-            .collect()
+            .collect_vec()
     }
 
     /// Lists all available declarations for a primary unit inside a given library
@@ -491,16 +518,43 @@ impl DesignRoot {
         };
         let unit = unit.unit.get();
         match unit.unwrap().to_owned() {
-            AnyDesignUnit::Primary(AnyPrimaryUnit::Package(pkg)) => pkg
-                .decl
-                .iter()
-                .filter_map(|decl| declaration_to_completion_item(decl, self))
-                .chain(vec![CompletionItem::text(
+            AnyDesignUnit::Primary(AnyPrimaryUnit::Package(pkg)) => {
+                let mut overloaded_items: FnvHashMap<String, Vec<CompletionItem>> =
+                    FnvHashMap::default();
+                for item in &pkg.decl {
+                    let Some(completion_item) = declaration_to_completion_item(&item, self) else {
+                        continue;
+                    };
+                    match overloaded_items.entry(completion_item.label.clone()) {
+                        Entry::Occupied(mut entry) => entry.get_mut().push(completion_item),
+                        Entry::Vacant(entry) => {
+                            let _ = entry.insert(vec![completion_item]);
+                        }
+                    }
+                }
+                let mut items = Vec::new();
+                for (key, values) in overloaded_items.into_iter() {
+                    if values.len() == 1 {
+                        items.push(values[0].clone())
+                    } else {
+                        let item = CompletionItem::text(
+                            key.clone(),
+                            format!("+{} overloaded", values.len() - 1),
+                            values[0].kind.clone(),
+                            None,
+                        );
+                        items.push(item)
+                    }
+                }
+                items.push(CompletionItem::text(
                     "all".to_string(),
                     "all".to_string(),
                     CompletionKind::Module,
-                )])
-                .collect_vec(),
+                    None,
+                ));
+                items.sort_by(|a, b| a.label.cmp(&b.label));
+                items
+            }
             _ => Vec::default(),
         }
     }
@@ -610,13 +664,36 @@ mod test {
         let code = Code::new("use std.");
         let cursor = code.pos().end();
         let options = root.list_completion_options(code.source(), cursor);
-        assert_eq!(options, vec!["textio", "standard", "env"]);
+        let expected_items = vec![
+            CompletionItem {
+                label: "textio".to_string(),
+                entity: Some(root.find_textio_pkg().id),
+                detail: "package 'textio'".to_string(),
+                mode: CompletionItemMode::Text,
+                kind: CompletionKind::Module,
+            },
+            CompletionItem {
+                label: "standard".to_string(),
+                entity: Some(root.find_standard_pkg().id),
+                detail: "package 'standard'".to_string(),
+                mode: CompletionItemMode::Text,
+                kind: CompletionKind::Module,
+            },
+            CompletionItem {
+                label: "env".to_string(),
+                entity: Some(root.find_env_pkg().id),
+                detail: "package 'env'".to_string(),
+                mode: CompletionItemMode::Text,
+                kind: CompletionKind::Module,
+            },
+        ];
+        assert_eq!(options, expected_items);
 
         let code = Code::new("use std.t");
         let cursor = code.pos().end();
         let options = root.list_completion_options(code.source(), cursor);
         // Note that the filtering only happens at client side
-        assert_eq!(options, vec!["textio", "standard", "env"]);
+        assert_eq!(options, expected_items);
     }
 
     #[test]
@@ -626,7 +703,40 @@ mod test {
         let (root, _) = input.get_analyzed_root();
         let cursor = code.pos().end();
         let options = root.list_completion_options(code.source(), cursor);
-        assert_eq!(options, vec!["stop", "finish", "resolution_limit", "all"])
+
+        assert_eq!(
+            options,
+            [
+                CompletionItem {
+                    label: "all".to_string(),
+                    detail: "all".to_string(),
+                    entity: None,
+                    mode: CompletionItemMode::Text,
+                    kind: CompletionKind::Module
+                },
+                CompletionItem {
+                    label: "finish".to_string(),
+                    detail: "+1 overloaded".to_string(),
+                    entity: None,
+                    mode: CompletionItemMode::Text,
+                    kind: CompletionKind::Function
+                },
+                CompletionItem {
+                    label: "resolution_limit".to_string(),
+                    detail: "function resolution_limit[return DELAY_LENGTH]".to_string(),
+                    entity: Some(root.find_env_symbol("resolution_limit").id),
+                    mode: CompletionItemMode::Text,
+                    kind: CompletionKind::Function
+                },
+                CompletionItem {
+                    label: "stop".to_string(),
+                    detail: "+1 overloaded".to_string(),
+                    entity: None,
+                    mode: CompletionItemMode::Text,
+                    kind: CompletionKind::Function
+                },
+            ]
+        );
     }
 
     #[test]
@@ -665,10 +775,16 @@ end arch;
         let (root, _) = input.get_analyzed_root();
         let cursor = code.s1("generic map (").pos().end();
         let options = root.list_completion_options(code.source(), cursor);
-        assert_eq!(options, vec!["B"]);
+        assert_eq!(
+            options.iter().map(|it| &it.label).collect_vec(),
+            vec!["B => $1,"]
+        );
 
         let cursor = code.s1("port map (").pos().end();
         let options = root.list_completion_options(code.source(), cursor);
-        assert_eq!(options, vec!["rst", "dout"]);
+        assert_eq!(
+            options.iter().map(|it| &it.label).collect_vec(),
+            vec!["rst => $1,", "dout => $1,"]
+        );
     }
 }

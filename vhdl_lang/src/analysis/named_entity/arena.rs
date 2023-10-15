@@ -11,6 +11,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use fnv::FnvHashMap;
+use serde::{Deserialize, Serialize};
 
 use crate::ast::Designator;
 use crate::SrcPos;
@@ -39,9 +40,9 @@ pub struct LocalId(u32);
 /// Arena allocators used to store named entities
 
 /// Local arena used for single design unit in a separate thread
-struct LocalArena {
+pub struct LocalArena {
     pub id: ArenaId,
-    items: PinnedVec<AnyEnt<'static>>,
+    pub items: PinnedVec<AnyEnt<'static>>,
 }
 
 impl LocalArena {
@@ -119,6 +120,10 @@ impl<'a> FinalArena {
 
     pub fn clear(&mut self) {
         self.refs.clear();
+    }
+
+    pub fn items(&self) -> impl Iterator<Item = &Arc<LocalArena>> {
+        self.refs.values()
     }
 }
 
@@ -250,7 +255,7 @@ impl Arena {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct EntityId {
     id: usize,
 }

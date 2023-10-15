@@ -214,6 +214,14 @@ impl ConnectionRpcChannel {
             }
             Err(request) => request,
         };
+        let request = match extract::<request::ResolveCompletionItem>(request) {
+            Ok((id, params)) => {
+                let res = server.resolve_completion_item(&params);
+                self.send_response(lsp_server::Response::new_ok(id, res));
+                return;
+            }
+            Err(request) => request,
+        };
 
         debug!("Unhandled request: {:?}", request);
         self.send_response(lsp_server::Response::new_err(

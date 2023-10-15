@@ -84,7 +84,7 @@ impl HasIdent for LockedUnit {
 /// Represents a VHDL library containing zero or more design units.
 ///
 /// This struct also keeps track of which source file contained which design units.
-struct Library {
+pub struct Library {
     name: Symbol,
 
     /// Arena is only used to store the AnyEnt for the library itself
@@ -545,12 +545,11 @@ impl DesignRoot {
     }
 
     #[cfg(test)]
-    pub fn find_standard_pkg(&self) -> &AnyEnt {
+    fn find_std_package(&self, symbol: &str) -> &AnyEnt {
         let std_lib = self.libraries.get(&self.symbol_utf8("std")).unwrap();
         let unit = std_lib
-            .get_unit(&UnitKey::Primary(self.symbol_utf8("standard")))
+            .get_unit(&UnitKey::Primary(self.symbol_utf8(symbol)))
             .unwrap();
-
         if let AnyPrimaryUnit::Package(pkg) = unit.unit.write().as_primary_mut().unwrap() {
             self.get_ent(pkg.ident.decl.unwrap())
         } else {
@@ -559,13 +558,37 @@ impl DesignRoot {
     }
 
     #[cfg(test)]
+    pub fn find_standard_pkg(&self) -> &AnyEnt {
+        self.find_std_package("standard")
+    }
+
+    #[cfg(test)]
+    pub fn find_textio_pkg(&self) -> &AnyEnt {
+        self.find_std_package("textio")
+    }
+
+    #[cfg(test)]
+    pub fn find_env_pkg(&self) -> &AnyEnt {
+        self.find_std_package("env")
+    }
+
+    #[cfg(test)]
     pub fn find_standard_symbol(&self, name: &str) -> &AnyEnt {
-        if let AnyEntKind::Design(Design::Package(_, region)) = self.find_standard_pkg().kind() {
-            region
-                .lookup_immediate(&Designator::Identifier(self.symbol_utf8(name)))
-                .unwrap()
-                .as_non_overloaded()
-                .unwrap()
+        self.find_std_symbol("standard", name)
+    }
+
+    #[cfg(test)]
+    pub fn find_env_symbol(&self, name: &str) -> &AnyEnt {
+        self.find_std_symbol("env", name)
+    }
+
+    #[cfg(test)]
+    fn find_std_symbol(&self, package: &str, name: &str) -> &AnyEnt {
+        if let AnyEntKind::Design(Design::Package(_, region)) =
+            self.find_std_package(package).kind()
+        {
+            let sym = region.lookup_immediate(&Designator::Identifier(self.symbol_utf8(name)));
+            sym.unwrap().first()
         } else {
             panic!("Not a package");
         }

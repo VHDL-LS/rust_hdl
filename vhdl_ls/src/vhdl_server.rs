@@ -16,7 +16,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
     AnyEntKind, CompletionItemMode, CompletionKind, Concurrent, Config, Diagnostic, EntHierarchy,
-    EntRef, Message, MessageHandler, Object, Overloaded, Project, Severity, Source, SrcPos, Type,
+    EntRef, EntityId, Message, MessageHandler, Object, Overloaded, Project, Severity, Source,
+    SrcPos, Type,
 };
 
 #[derive(Default, Clone)]
@@ -130,7 +131,7 @@ impl VHDLServer {
             workspace_symbol_provider: Some(OneOf::Left(true)),
             document_symbol_provider: Some(OneOf::Left(true)),
             completion_provider: Some(CompletionOptions {
-                resolve_provider: Some(false),
+                resolve_provider: Some(true),
                 trigger_characters: Some(trigger_chars),
                 completion_item: Some(CompletionOptionsCompletionItem {
                     label_details_support: Some(true),
@@ -292,6 +293,23 @@ impl VHDLServer {
             items: options,
             is_incomplete: true,
         }
+    }
+
+    pub fn resolve_completion_item(&mut self, params: &CompletionItem) -> CompletionItem {
+        let mut params = params.clone();
+        let eid = params
+            .data
+            .clone()
+            .and_then(|val| serde_json::from_value::<EntityId>(val).ok());
+        if let Some(id) = eid {
+            if let Some(text) = self.project.format_entity(id) {
+                params.documentation = Some(Documentation::MarkupContent(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value: format!("```vhdl\n{text}\n```"),
+                }));
+            }
+        }
+        params
     }
 
     fn client_supports_related_information(&self) -> bool {
@@ -719,6 +737,7 @@ fn completion_item_to_lsp_item(item: vhdl_lang::CompletionItem) -> lsp_types::Co
         insert_text: Some(item.label),
         insert_text_format: Some(mode),
         kind: Some(kind),
+        data: item.entity.and_then(|e| serde_json::to_value(e).ok()),
         ..Default::default()
     }
 }

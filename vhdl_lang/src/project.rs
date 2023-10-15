@@ -8,7 +8,7 @@ use crate::analysis::{AnyEnt, CompletionItem, DesignRoot, EntRef};
 use crate::ast::DesignFile;
 use crate::config::Config;
 use crate::syntax::VHDLParser;
-use crate::{data::*, EntHierarchy};
+use crate::{data::*, EntHierarchy, EntityId};
 use fnv::{FnvHashMap, FnvHashSet};
 use std::collections::hash_map::Entry;
 use std::path::{Path, PathBuf};
@@ -276,6 +276,11 @@ impl Project {
     /// Search for the declaration at decl_pos and format it
     pub fn format_declaration(&self, ent: &AnyEnt) -> Option<String> {
         self.root.format_declaration(ent)
+    }
+
+    pub fn format_entity(&self, id: EntityId) -> Option<String> {
+        let ent = self.root.get_ent(id);
+        self.format_declaration(ent)
     }
 
     /// Search for all references to the declaration at decl_pos
