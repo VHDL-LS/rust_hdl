@@ -514,16 +514,16 @@ impl Code {
     }
 
     pub fn association_list(&self) -> SeparatedList<AssociationElement> {
-        self.parse_ok(parse_association_list).0
+        self.parse_ok_no_diagnostics(parse_association_list).0
     }
 
     pub fn port_map_aspect(&self) -> MapAspect {
-        self.parse_ok(|stream| parse_map_aspect(stream, Kind::Port))
+        self.parse_ok_no_diagnostics(|stream, diagnsotics| parse_map_aspect(stream, Kind::Port, diagnsotics))
             .expect("Expecting port map aspect")
     }
 
     pub fn generic_map_aspect(&self) -> MapAspect {
-        self.parse_ok(|stream| parse_map_aspect(stream, Kind::Generic))
+        self.parse_ok_no_diagnostics(|stream, diagnostics| parse_map_aspect(stream, Kind::Generic, diagnostics))
             .expect("Expecting generic map aspect")
     }
 

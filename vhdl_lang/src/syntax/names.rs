@@ -12,7 +12,7 @@ use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, TokenAccess, TokenStream};
 use crate::ast;
 use crate::ast::*;
-use crate::data::{Diagnostic, WithPos};
+use crate::data::{Diagnostic, DiagnosticHandler, WithPos};
 use crate::syntax::separated_list::parse_list_with_separator;
 use crate::syntax::TokenId;
 
@@ -182,13 +182,15 @@ fn parse_association_element(stream: &TokenStream) -> ParseResult<AssociationEle
 
 pub fn parse_association_list(
     stream: &TokenStream,
+    diagnsotics: &mut dyn DiagnosticHandler
 ) -> ParseResult<(SeparatedList<AssociationElement>, TokenId)> {
     stream.expect_kind(LeftPar)?;
-    parse_association_list_no_leftpar(stream)
+    parse_association_list_no_leftpar(stream, diagnsotics)
 }
 
 pub fn parse_association_list_no_leftpar(
     stream: &TokenStream,
+    diagnostics: &mut dyn DiagnosticHandler
 ) -> ParseResult<(SeparatedList<AssociationElement>, TokenId)> {
     if let Some(right_par) = stream.pop_if_kind(RightPar) {
         return Err(Diagnostic::error(
@@ -1022,7 +1024,7 @@ mod tests {
             actual: WithPos::new(ActualPart::Open, code.s("open", 2)),
         };
         assert_eq!(
-            code.with_stream(parse_association_list),
+            code.with_stream_no_diagnostics(parse_association_list),
             (
                 SeparatedList {
                     items: vec![elem1, elem2],

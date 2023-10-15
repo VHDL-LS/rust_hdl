@@ -243,7 +243,7 @@ pub fn parse_design_file(
                         Err(diagnostic) => diagnostics.push(diagnostic),
                     };
                 } else if stream.next_kinds_are(&[Package, Identifier, Is, New]) {
-                    match parse_package_instantiation(stream) {
+                    match parse_package_instantiation(stream, diagnostics) {
                         Ok(mut inst) => {
                             let tokens = stream.slice_tokens();
                             inst.context_clause = take_context_clause(&mut context_clause);

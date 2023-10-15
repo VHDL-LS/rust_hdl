@@ -177,7 +177,7 @@ fn parse_subprogram_default(stream: &TokenStream) -> ParseResult<Option<Subprogr
     }
 }
 
-fn parse_interface_package(stream: &TokenStream) -> ParseResult<InterfacePackageDeclaration> {
+fn parse_interface_package(stream: &TokenStream, diagnsotics: &mut dyn DiagnosticHandler) -> ParseResult<InterfacePackageDeclaration> {
     stream.expect_kind(Package)?;
     let ident = stream.expect_ident()?;
     stream.expect_kind(Is)?;
@@ -201,7 +201,7 @@ fn parse_interface_package(stream: &TokenStream) -> ParseResult<InterfacePackage
                 InterfacePackageGenericMapAspect::Default
             }
             _ => {
-                let (list, _) = parse_association_list_no_leftpar(stream)?;
+                let (list, _) = parse_association_list_no_leftpar(stream, diagnsotics)?;
                 InterfacePackageGenericMapAspect::Map(list)
             }
         }
@@ -237,7 +237,7 @@ fn parse_interface_declaration(
             Ok(vec![InterfaceDeclaration::Subprogram(decl, default)])
         },
         Package => {
-            Ok(vec![InterfaceDeclaration::Package (parse_interface_package(stream)?)])
+            Ok(vec![InterfaceDeclaration::Package (parse_interface_package(stream, diagnostics)?)])
         }
     )
 }
