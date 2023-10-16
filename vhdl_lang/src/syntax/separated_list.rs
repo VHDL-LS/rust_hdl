@@ -10,7 +10,6 @@ use crate::syntax::common::ParseResult;
 use crate::syntax::names::parse_name;
 use crate::syntax::Kind::Comma;
 use crate::syntax::{kind_str, Kind, TokenAccess, TokenStream};
-use std::fmt::Debug;
 
 /// Skip extraneous tokens of kind `separator`.
 /// When there are any extra tokens of that kind, mark all the positions of these tokens as erroneous
@@ -36,7 +35,7 @@ fn skip_extraneous_tokens(
 ///   `element { separator element }`
 /// where `element` is an AST element and `separator` is a token of some `ast::Kind`.
 /// The returned list retains information of the whereabouts of the separator tokens.
-pub fn parse_list_with_separator<F, T: Debug>(
+pub fn parse_list_with_separator<F, T>(
     stream: &TokenStream,
     separator: Kind,
     diagnostics: &mut dyn DiagnosticHandler,
