@@ -44,14 +44,18 @@ pub fn parse_list_with_separator<F, T>(
 where
     F: Fn(&TokenStream) -> ParseResult<T>,
 {
-    let mut items = vec![parse_fn(stream)?];
+    let mut items = vec![];
     let mut tokens = Vec::new();
-    while let Some(separator_tok) = stream.pop_if_kind(separator) {
-        skip_extraneous_tokens(stream, separator, diagnostics);
-        tokens.push(separator_tok);
+    loop {
         match parse_fn(stream) {
             Ok(item) => items.push(item),
             Err(err) => diagnostics.push(err),
+        }
+        if let Some(separator_tok) = stream.pop_if_kind(separator) {
+            skip_extraneous_tokens(stream, separator, diagnostics);
+            tokens.push(separator_tok);
+        } else {
+            break;
         }
     }
     Ok(SeparatedList { items, tokens })
@@ -79,13 +83,16 @@ mod test {
     use crate::syntax::separated_list::{parse_ident_list, parse_name_list};
     use crate::syntax::test::Code;
     use crate::Diagnostic;
-    use assert_matches::assert_matches;
 
     #[test]
     pub fn test_error_on_empty_list() {
         let code = Code::new("");
-        let (res, _) = code.with_partial_stream_diagnostics(parse_ident_list);
-        assert_matches!(res, Err(_))
+        let (res, diagnostics) = code.with_partial_stream_diagnostics(parse_ident_list);
+        assert_eq!(res, Ok(IdentList::default()));
+        assert_eq!(
+            diagnostics,
+            vec![Diagnostic::error(code.eof_pos(), "Unexpected EOF")]
+        );
     }
 
     #[test]
