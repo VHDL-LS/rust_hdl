@@ -216,7 +216,10 @@ impl<'a> TokenStream<'a> {
         self.pop_if_kind(kind).is_some()
     }
 
-    pub fn skip_until(&self, cond: fn(Kind) -> bool) -> DiagnosticResult<()> {
+    pub fn skip_until<F>(&self, cond: F) -> DiagnosticResult<()>
+    where
+        F: Fn(Kind) -> bool,
+    {
         loop {
             let token = self.peek_expect()?;
             if cond(token.kind) {
@@ -287,23 +290,28 @@ impl<'a> TokenAccess for TokenStream<'a> {
 }
 
 pub trait Recover<T> {
-    fn or_recover_until(
+    fn or_recover_until<F>(
         self,
         stream: &TokenStream,
         msgs: &mut dyn DiagnosticHandler,
-        cond: fn(Kind) -> bool,
-    ) -> DiagnosticResult<T>;
+        cond: F,
+    ) -> DiagnosticResult<T>
+    where
+        F: Fn(Kind) -> bool;
 
     fn log(self, msgs: &mut dyn DiagnosticHandler);
 }
 
 impl<T: std::fmt::Debug> Recover<T> for DiagnosticResult<T> {
-    fn or_recover_until(
+    fn or_recover_until<F>(
         self,
         stream: &TokenStream,
         msgs: &mut dyn DiagnosticHandler,
-        cond: fn(Kind) -> bool,
-    ) -> DiagnosticResult<T> {
+        cond: F,
+    ) -> DiagnosticResult<T>
+    where
+        F: Fn(Kind) -> bool,
+    {
         if self.is_ok() {
             return self;
         }
