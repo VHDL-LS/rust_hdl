@@ -302,7 +302,7 @@ pub trait Recover<T> {
     fn log(self, msgs: &mut dyn DiagnosticHandler);
 }
 
-impl<T: std::fmt::Debug> Recover<T> for DiagnosticResult<T> {
+impl<T> Recover<T> for DiagnosticResult<T> {
     fn or_recover_until<F>(
         self,
         stream: &TokenStream,
@@ -312,16 +312,17 @@ impl<T: std::fmt::Debug> Recover<T> for DiagnosticResult<T> {
     where
         F: Fn(Kind) -> bool,
     {
-        if self.is_ok() {
-            return self;
-        }
-
-        let res = stream.skip_until(cond);
-        match res {
-            Ok(_) => self,
-            Err(err) => {
-                msgs.push(self.unwrap_err());
-                Err(err)
+        match self {
+            Ok(res) => Ok(res),
+            Err(ref original_err) => {
+                let res = stream.skip_until(cond);
+                match res {
+                    Ok(_) => self,
+                    Err(err) => {
+                        msgs.push(original_err.clone());
+                        Err(err)
+                    }
+                }
             }
         }
     }
