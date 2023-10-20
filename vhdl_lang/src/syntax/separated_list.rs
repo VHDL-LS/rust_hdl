@@ -9,7 +9,7 @@ use crate::data::{DiagnosticHandler, DiagnosticResult};
 use crate::syntax::common::ParseResult;
 use crate::syntax::names::parse_name;
 use crate::syntax::Kind::Comma;
-use crate::syntax::{kind_str, Kind, Recover, TokenAccess, TokenStream};
+use crate::syntax::{kind_str, Kind, TokenAccess, TokenStream};
 
 /// Skip extraneous tokens of kind `separator`.
 /// When there are any extra tokens of that kind, mark all the positions of these tokens as erroneous
@@ -44,12 +44,35 @@ pub fn parse_list_with_separator<F, T>(
 where
     F: Fn(&TokenStream) -> ParseResult<T>,
 {
+    parse_list_with_separator_or_recover(stream, separator, diagnostics, parse_fn, None)
+}
+
+/// Same as `parse_list_with_separator`.
+/// However, when supplied with a `recover_token` will skip an element until either the separator
+/// or the recover token is met.
+pub fn parse_list_with_separator_or_recover<F, T>(
+    stream: &TokenStream,
+    separator: Kind,
+    diagnostics: &mut dyn DiagnosticHandler,
+    parse_fn: F,
+    recover_token: Option<Kind>,
+) -> DiagnosticResult<SeparatedList<T>>
+where
+    F: Fn(&TokenStream) -> ParseResult<T>,
+{
     let mut items = vec![];
-    let mut tokens = Vec::new();
+    let mut tokens = vec![];
     loop {
-        match parse_fn(stream).or_recover_until(stream, diagnostics, |kind| kind == separator) {
+        match parse_fn(stream) {
             Ok(item) => items.push(item),
-            Err(err) => diagnostics.push(err),
+            Err(err) => {
+                if let Some(tok) = recover_token {
+                    stream.skip_until(|kind| kind == separator || kind == tok)?;
+                    diagnostics.push(err);
+                } else {
+                    return Err(err);
+                }
+            }
         }
         if let Some(separator_tok) = stream.pop_if_kind(separator) {
             skip_extraneous_tokens(stream, separator, diagnostics);
@@ -82,21 +105,22 @@ mod test {
     use crate::ast::{IdentList, NameList, SeparatedList};
     use crate::syntax::names::parse_association_element;
     use crate::syntax::separated_list::{
-        parse_ident_list, parse_list_with_separator, parse_name_list,
+        parse_ident_list, parse_list_with_separator_or_recover, parse_name_list,
     };
     use crate::syntax::test::Code;
     use crate::syntax::Kind;
+    use crate::syntax::Kind::RightPar;
     use crate::Diagnostic;
 
     #[test]
     pub fn test_error_on_empty_list() {
         let code = Code::new("");
         let (res, diagnostics) = code.with_partial_stream_diagnostics(parse_ident_list);
-        assert_eq!(res, Ok(IdentList::default()));
         assert_eq!(
-            diagnostics,
-            vec![Diagnostic::error(code.eof_pos(), "Unexpected EOF")]
+            res,
+            Err(Diagnostic::error(code.eof_pos(), "Unexpected EOF"))
         );
+        assert!(diagnostics.is_empty());
     }
 
     #[test]
@@ -179,30 +203,18 @@ mod test {
     }
 
     #[test]
-    fn parse_list_with_erroneous_elements() {
-        let code = Code::new("1,c,d");
-        let (res, diag) = code.with_stream_diagnostics(parse_ident_list);
-        assert_eq!(
-            res,
-            IdentList {
-                items: vec![
-                    code.s1("c").ident().into_ref(),
-                    code.s1("d").ident().into_ref()
-                ],
-                tokens: vec![code.s(",", 1).token(), code.s(",", 2).token(),],
-            }
-        );
-        assert_eq!(
-            diag,
-            vec![Diagnostic::error(
-                code.s1("1").pos(),
-                "Expected '{identifier}'"
-            )]
-        );
-
-        let code = Code::new("a => b,c => d, e =>");
+    fn parse_recoverable_list() {
+        let code = Code::new("a => b,c => d, e =>)");
         let (res, diag) = code.with_stream_diagnostics(|stream, diag| {
-            parse_list_with_separator(stream, Kind::Comma, diag, parse_association_element)
+            let res = parse_list_with_separator_or_recover(
+                stream,
+                Kind::Comma,
+                diag,
+                parse_association_element,
+                Some(RightPar),
+            );
+            stream.skip();
+            res
         });
         assert_eq!(
             res,
@@ -216,7 +228,20 @@ mod test {
         );
         assert_eq!(
             diag,
-            vec![Diagnostic::error(code.eof_pos(), "Unexpected EOF")]
-        )
+            vec![Diagnostic::error(code.s1(")"), "Expected {expression}")]
+        );
+    }
+
+    #[test]
+    fn parse_list_with_erroneous_elements() {
+        let code = Code::new("1,c,d");
+        let mut diag: Vec<Diagnostic> = vec![];
+        let diag = code
+            .parse(|stream| parse_ident_list(stream, &mut diag))
+            .expect_err("Should not parse OK");
+        assert_eq!(
+            diag,
+            Diagnostic::error(code.s1("1"), "Expected '{identifier}'")
+        );
     }
 }
