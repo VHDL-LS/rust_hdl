@@ -10,7 +10,6 @@ use crate::syntax::common::ParseResult;
 use crate::syntax::names::parse_name;
 use crate::syntax::Kind::Comma;
 use crate::syntax::{kind_str, Kind, Recover, TokenAccess, TokenStream};
-use std::fmt::Debug;
 
 /// Skip extraneous tokens of kind `separator`.
 /// When there are any extra tokens of that kind, mark all the positions of these tokens as erroneous
