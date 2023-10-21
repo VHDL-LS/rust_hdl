@@ -48,8 +48,8 @@ where
 }
 
 /// Same as `parse_list_with_separator`.
-/// However, when supplied with a `recover_token` will skip an element until either the separator
-/// or the recover token is met.
+/// However, when supplied with a `recover_token` will skip until either the separator
+/// or the recover token is found.
 pub fn parse_list_with_separator_or_recover<F, T>(
     stream: &TokenStream,
     separator: Kind,
