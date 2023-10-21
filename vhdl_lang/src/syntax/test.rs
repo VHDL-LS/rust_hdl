@@ -31,6 +31,7 @@ use crate::data::Range;
 use crate::data::*;
 use crate::syntax::concurrent_statement::parse_map_aspect;
 use crate::syntax::context::{parse_context, DeclarationOrReference};
+use crate::syntax::names::parse_association_element;
 use crate::syntax::{TokenAccess, TokenId};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::hash_map::Entry;
@@ -414,11 +415,11 @@ impl Code {
     }
 
     pub fn name_list(&self) -> SeparatedList<WithPos<Name>> {
-        self.parse_ok(parse_name_list)
+        self.parse_ok_no_diagnostics(parse_name_list)
     }
 
     pub fn ident_list(&self) -> SeparatedList<WithRef<Ident>> {
-        self.parse_ok(parse_ident_list)
+        self.parse_ok_no_diagnostics(parse_ident_list)
     }
 
     pub fn selected_name(&self) -> WithPos<SelectedName> {
@@ -514,17 +515,21 @@ impl Code {
     }
 
     pub fn association_list(&self) -> SeparatedList<AssociationElement> {
-        self.parse_ok(parse_association_list).0
+        self.parse_ok_no_diagnostics(parse_association_list).0
     }
 
     pub fn port_map_aspect(&self) -> MapAspect {
-        self.parse_ok(|stream| parse_map_aspect(stream, Kind::Port))
-            .expect("Expecting port map aspect")
+        self.parse_ok_no_diagnostics(|stream, diagnsotics| {
+            parse_map_aspect(stream, Kind::Port, diagnsotics)
+        })
+        .expect("Expecting port map aspect")
     }
 
     pub fn generic_map_aspect(&self) -> MapAspect {
-        self.parse_ok(|stream| parse_map_aspect(stream, Kind::Generic))
-            .expect("Expecting generic map aspect")
+        self.parse_ok_no_diagnostics(|stream, diagnostics| {
+            parse_map_aspect(stream, Kind::Generic, diagnostics)
+        })
+        .expect("Expecting generic map aspect")
     }
 
     pub fn waveform(&self) -> Waveform {
@@ -548,11 +553,11 @@ impl Code {
     }
 
     pub fn use_clause(&self) -> UseClause {
-        self.parse_ok(parse_use_clause)
+        self.parse_ok_no_diagnostics(parse_use_clause)
     }
 
     pub fn library_clause(&self) -> LibraryClause {
-        self.parse_ok(parse_library_clause)
+        self.parse_ok_no_diagnostics(parse_library_clause)
     }
 
     pub fn context_declaration(&self) -> ContextDeclaration {
@@ -575,6 +580,10 @@ impl Code {
             Name::Attribute(attr) => *attr,
             name => panic!("Expected attribute got {name:?}"),
         }
+    }
+
+    pub fn association_element(&self) -> AssociationElement {
+        self.parse_ok(parse_association_element)
     }
 }
 

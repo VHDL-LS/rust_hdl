@@ -40,8 +40,9 @@ fn parse_entity_aspect(stream: &TokenStream) -> ParseResult<EntityAspect> {
 fn parse_binding_indication_known_entity_aspect(
     entity_aspect: Option<EntityAspect>,
     stream: &TokenStream,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<BindingIndication> {
-    let (generic_map, port_map) = parse_generic_and_port_map(stream)?;
+    let (generic_map, port_map) = parse_generic_and_port_map(stream, diagnostics)?;
 
     stream.expect_kind(SemiColon)?;
     Ok(BindingIndication {
@@ -52,13 +53,16 @@ fn parse_binding_indication_known_entity_aspect(
 }
 
 /// LRM 7.3.2
-fn parse_binding_indication(stream: &TokenStream) -> ParseResult<BindingIndication> {
+fn parse_binding_indication(
+    stream: &TokenStream,
+    diagnostics: &mut dyn DiagnosticHandler,
+) -> ParseResult<BindingIndication> {
     let entity_aspect = if stream.skip_if_kind(Use) {
         Some(parse_entity_aspect(stream)?)
     } else {
         None
     };
-    parse_binding_indication_known_entity_aspect(entity_aspect, stream)
+    parse_binding_indication_known_entity_aspect(entity_aspect, stream, diagnostics)
 }
 
 fn parse_component_configuration_known_spec(
@@ -78,7 +82,7 @@ fn parse_component_configuration_known_spec(
                 (None, vunit_bind_inds)
             } else {
                 let aspect = parse_entity_aspect(stream)?;
-                let bind_ind = parse_binding_indication_known_entity_aspect(Some(aspect), stream)?;
+                let bind_ind = parse_binding_indication_known_entity_aspect(Some(aspect), stream, diagnostics)?;
 
                 if stream.skip_if_kind(Use) {
                     (Some(bind_ind), parse_vunit_binding_indication_list_known_keyword(stream)?)
@@ -284,7 +288,10 @@ pub fn parse_configuration_declaration(
                     break parse_vunit_binding_indication_list_known_keyword(stream)?;
                 }
 
-                decl.push(ConfigurationDeclarativeItem::Use(parse_use_clause(stream)?));
+                decl.push(ConfigurationDeclarativeItem::Use(parse_use_clause(
+                    stream,
+                    diagnostics,
+                )?));
             }
             _ => break Vec::new(),
         }
@@ -312,11 +319,12 @@ pub fn parse_configuration_declaration(
 /// LRM 7.3 Configuration Specification
 pub fn parse_configuration_specification(
     stream: &TokenStream,
+    diagnsotics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<ConfigurationSpecification> {
     stream.expect_kind(For)?;
     match parse_component_specification_or_name(stream)? {
         ComponentSpecificationOrName::ComponentSpec(spec) => {
-            let bind_ind = parse_binding_indication(stream)?;
+            let bind_ind = parse_binding_indication(stream, diagnsotics)?;
             if stream.skip_if_kind(Use) {
                 let vunit_bind_inds = parse_vunit_binding_indication_list_known_keyword(stream)?;
                 stream.expect_kind(End)?;
@@ -814,7 +822,7 @@ end configuration cfg;
         let code = Code::new("for all : lib.pkg.comp use entity work.foo(rtl);");
 
         assert_eq!(
-            code.with_stream(parse_configuration_specification),
+            code.with_stream_no_diagnostics(parse_configuration_specification),
             ConfigurationSpecification {
                 spec: ComponentSpecification {
                     instantiation_list: InstantiationList::All,
@@ -838,7 +846,7 @@ end configuration cfg;
         let code = Code::new("for all : lib.pkg.comp use entity work.foo(rtl); end for;");
 
         assert_eq!(
-            code.with_stream(parse_configuration_specification),
+            code.with_stream_no_diagnostics(parse_configuration_specification),
             ConfigurationSpecification {
                 spec: ComponentSpecification {
                     instantiation_list: InstantiationList::All,
@@ -864,7 +872,7 @@ end configuration cfg;
         );
 
         assert_eq!(
-            code.with_stream(parse_configuration_specification),
+            code.with_stream_no_diagnostics(parse_configuration_specification),
             ConfigurationSpecification {
                 spec: ComponentSpecification {
                     instantiation_list: InstantiationList::All,

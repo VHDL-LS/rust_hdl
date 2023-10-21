@@ -1144,6 +1144,15 @@ pub struct SeparatedList<T> {
     pub tokens: Vec<TokenId>,
 }
 
+impl<T> Default for SeparatedList<T> {
+    fn default() -> Self {
+        SeparatedList {
+            items: Vec::default(),
+            tokens: Vec::default(),
+        }
+    }
+}
+
 impl SeparatedList<AssociationElement> {
     /// Returns an iterator over the formal elements of this list
     pub fn formals(&self) -> impl Iterator<Item = &Designator> {

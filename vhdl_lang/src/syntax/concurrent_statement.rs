@@ -94,7 +94,7 @@ fn parse_block_header(
                             "Duplicate generic map",
                         ));
                     }
-                    let (list, closing_paren) = parse_association_list(stream)?;
+                    let (list, closing_paren) = parse_association_list(stream, diagnostics)?;
                     stream.expect_kind(SemiColon)?;
                     if generic_map.is_none() {
                         generic_map = Some(MapAspect {
@@ -133,7 +133,7 @@ fn parse_block_header(
                             "Duplicate port map",
                         ));
                     }
-                    let (list, closing_paren) = parse_association_list(stream)?;
+                    let (list, closing_paren) = parse_association_list(stream, diagnostics)?;
                     stream.expect_kind(SemiColon)?;
                     if port_map.is_none() {
                         port_map = Some(MapAspect {
@@ -332,10 +332,14 @@ pub fn parse_concurrent_assert_statement(
     })
 }
 
-pub fn parse_map_aspect(stream: &TokenStream, aspect_kind: Kind) -> ParseResult<Option<MapAspect>> {
+pub fn parse_map_aspect(
+    stream: &TokenStream,
+    aspect_kind: Kind,
+    diagnostics: &mut dyn DiagnosticHandler,
+) -> ParseResult<Option<MapAspect>> {
     if let Some(aspect) = stream.pop_if_kind(aspect_kind) {
         stream.expect_kind(Map)?;
-        let (list, closing_paren) = parse_association_list(stream)?;
+        let (list, closing_paren) = parse_association_list(stream, diagnostics)?;
         Ok(Some(MapAspect {
             start: aspect,
             list,
@@ -349,9 +353,10 @@ pub fn parse_map_aspect(stream: &TokenStream, aspect_kind: Kind) -> ParseResult<
 #[allow(clippy::type_complexity)]
 pub fn parse_generic_and_port_map(
     stream: &TokenStream,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<(Option<MapAspect>, Option<MapAspect>)> {
-    let generic_map = parse_map_aspect(stream, Generic)?;
-    let port_map = parse_map_aspect(stream, Port)?;
+    let generic_map = parse_map_aspect(stream, Generic, diagnostics)?;
+    let port_map = parse_map_aspect(stream, Port, diagnostics)?;
 
     Ok((generic_map, port_map))
 }
@@ -359,8 +364,9 @@ pub fn parse_generic_and_port_map(
 pub fn parse_instantiation_statement(
     stream: &TokenStream,
     unit: InstantiatedUnit,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<InstantiationStatement> {
-    let (generic_map, port_map) = parse_generic_and_port_map(stream)?;
+    let (generic_map, port_map) = parse_generic_and_port_map(stream, diagnostics)?;
 
     let semi = stream.expect_kind(SemiColon)?;
 
@@ -586,12 +592,12 @@ pub fn parse_concurrent_statement(
             Component => {
                 stream.skip();
                 let unit = InstantiatedUnit::Component(parse_selected_name(stream)?);
-                ConcurrentStatement::Instance(parse_instantiation_statement(stream, unit)?)
+                ConcurrentStatement::Instance(parse_instantiation_statement(stream, unit, diagnostics)?)
             },
             Configuration => {
                 stream.skip();
                 let unit = InstantiatedUnit::Configuration(parse_selected_name(stream)?);
-                ConcurrentStatement::Instance(parse_instantiation_statement(stream, unit)?)
+                ConcurrentStatement::Instance(parse_instantiation_statement(stream, unit, diagnostics)?)
             },
             Entity => {
                 stream.skip();
@@ -606,7 +612,7 @@ pub fn parse_concurrent_statement(
                     }
                 };
                 let unit = InstantiatedUnit::Entity(name, arch.map(WithRef::new));
-                ConcurrentStatement::Instance(parse_instantiation_statement(stream, unit)?)
+                ConcurrentStatement::Instance(parse_instantiation_statement(stream, unit, diagnostics)?)
             },
             For => ConcurrentStatement::ForGenerate(parse_for_generate_statement(stream, label, diagnostics)?),
             If => ConcurrentStatement::IfGenerate(parse_if_generate_statement(stream, label, diagnostics)?),
@@ -633,7 +639,7 @@ pub fn parse_concurrent_statement(
                 match token.kind {
                     Generic|Port => {
                         let unit = InstantiatedUnit::Component(into_selected_name(name)?);
-                        ConcurrentStatement::Instance(parse_instantiation_statement(stream, unit)?)
+                        ConcurrentStatement::Instance(parse_instantiation_statement(stream, unit, diagnostics)?)
                     }
                     _ => {
                         parse_assignment_or_procedure_call(stream, name.map_into(Target::Name))?
