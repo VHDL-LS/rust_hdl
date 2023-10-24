@@ -734,6 +734,7 @@ fn completion_item_to_lsp_item(item: vhdl_lang::CompletionItem) -> lsp_types::Co
     };
     CompletionItem {
         label: item.label.clone(),
+        detail: Some(item.detail),
         insert_text: Some(item.label),
         insert_text_format: Some(mode),
         kind: Some(kind),
