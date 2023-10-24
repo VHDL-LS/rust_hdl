@@ -786,10 +786,7 @@ end arch;
         let (root, _) = input.get_analyzed_root();
         let cursor = code.s1("generic map (").pos().end();
         let options = root.list_completion_options(code.source(), cursor);
-        assert_eq!(
-            options.iter().map(|it| &it.label).collect_vec(),
-            vec!["B"]
-        );
+        assert_eq!(options.iter().map(|it| &it.label).collect_vec(), vec!["B"]);
         assert_eq!(
             options.iter().map(|it| &it.insertion_text).collect_vec(),
             vec!["B => $1"]
