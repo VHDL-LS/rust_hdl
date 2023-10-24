@@ -39,6 +39,7 @@ pub enum CompletionItemMode {
 #[derive(Debug, PartialEq, Clone)]
 pub struct CompletionItem {
     pub label: String,
+    pub insertion_text: String,
     pub detail: String,
     pub kind: CompletionKind,
     pub mode: CompletionItemMode,
@@ -53,7 +54,8 @@ impl CompletionItem {
         entity: Option<EntityId>,
     ) -> CompletionItem {
         CompletionItem {
-            label,
+            label: label.clone(),
+            insertion_text: label,
             detail,
             kind,
             mode: CompletionItemMode::Text,
@@ -63,12 +65,14 @@ impl CompletionItem {
 
     pub fn snippet(
         label: String,
+        insertion_text: String,
         detail: String,
         kind: CompletionKind,
         entity: Option<EntityId>,
     ) -> CompletionItem {
         CompletionItem {
             label,
+            insertion_text,
             detail,
             kind,
             mode: CompletionItemMode::Snippet,
@@ -294,7 +298,7 @@ impl<'a> AutocompletionVisitor<'a> {
             self.completions
                 .retain(|item| !formals_in_map.contains(&item.label.to_lowercase()));
             for completion in self.completions.iter_mut() {
-                completion.label = format!("{} => $1,", completion.label);
+                completion.insertion_text = format!("{} => $1,", completion.label);
                 completion.mode = CompletionItemMode::Snippet
             }
         }
@@ -667,6 +671,7 @@ mod test {
         let expected_items = vec![
             CompletionItem {
                 label: "textio".to_string(),
+                insertion_text: "textio".to_string(),
                 entity: Some(root.find_textio_pkg().id),
                 detail: "package 'textio'".to_string(),
                 mode: CompletionItemMode::Text,
@@ -674,6 +679,7 @@ mod test {
             },
             CompletionItem {
                 label: "standard".to_string(),
+                insertion_text: "standard".to_string(),
                 entity: Some(root.find_standard_pkg().id),
                 detail: "package 'standard'".to_string(),
                 mode: CompletionItemMode::Text,
@@ -681,6 +687,7 @@ mod test {
             },
             CompletionItem {
                 label: "env".to_string(),
+                insertion_text: "env".to_string(),
                 entity: Some(root.find_env_pkg().id),
                 detail: "package 'env'".to_string(),
                 mode: CompletionItemMode::Text,
@@ -709,6 +716,7 @@ mod test {
             [
                 CompletionItem {
                     label: "all".to_string(),
+                    insertion_text: "all".to_string(),
                     detail: "all".to_string(),
                     entity: None,
                     mode: CompletionItemMode::Text,
@@ -716,6 +724,7 @@ mod test {
                 },
                 CompletionItem {
                     label: "finish".to_string(),
+                    insertion_text: "finish".to_string(),
                     detail: "+1 overloaded".to_string(),
                     entity: None,
                     mode: CompletionItemMode::Text,
@@ -723,6 +732,7 @@ mod test {
                 },
                 CompletionItem {
                     label: "resolution_limit".to_string(),
+                    insertion_text: "resolution_limit".to_string(),
                     detail: "function resolution_limit[return DELAY_LENGTH]".to_string(),
                     entity: Some(root.find_env_symbol("resolution_limit").id),
                     mode: CompletionItemMode::Text,
@@ -730,6 +740,7 @@ mod test {
                 },
                 CompletionItem {
                     label: "stop".to_string(),
+                    insertion_text: "stop".to_string(),
                     detail: "+1 overloaded".to_string(),
                     entity: None,
                     mode: CompletionItemMode::Text,
@@ -777,13 +788,21 @@ end arch;
         let options = root.list_completion_options(code.source(), cursor);
         assert_eq!(
             options.iter().map(|it| &it.label).collect_vec(),
-            vec!["B => $1,"]
+            vec!["B"]
+        );
+        assert_eq!(
+            options.iter().map(|it| &it.insertion_text).collect_vec(),
+            vec!["B => $1"]
         );
 
         let cursor = code.s1("port map (").pos().end();
         let options = root.list_completion_options(code.source(), cursor);
         assert_eq!(
             options.iter().map(|it| &it.label).collect_vec(),
+            vec!["rst", "dout"]
+        );
+        assert_eq!(
+            options.iter().map(|it| &it.insertion_text).collect_vec(),
             vec!["rst => $1,", "dout => $1,"]
         );
     }
