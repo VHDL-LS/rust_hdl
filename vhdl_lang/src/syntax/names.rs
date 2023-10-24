@@ -12,8 +12,8 @@ use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, TokenAccess, TokenStream};
 use crate::ast;
 use crate::ast::*;
-use crate::data::{Diagnostic, WithPos};
-use crate::syntax::separated_list::parse_list_with_separator;
+use crate::data::{Diagnostic, DiagnosticHandler, WithPos};
+use crate::syntax::separated_list::parse_list_with_separator_or_recover;
 use crate::syntax::TokenId;
 
 pub fn parse_designator(stream: &TokenStream) -> ParseResult<WithPos<Designator>> {
@@ -165,7 +165,7 @@ fn parse_actual_part(stream: &TokenStream) -> ParseResult<WithPos<ActualPart>> {
     }
 }
 
-fn parse_association_element(stream: &TokenStream) -> ParseResult<AssociationElement> {
+pub fn parse_association_element(stream: &TokenStream) -> ParseResult<AssociationElement> {
     let actual = parse_actual_part(stream)?;
     if stream.skip_if_kind(RightArrow) {
         Ok(AssociationElement {
@@ -182,23 +182,33 @@ fn parse_association_element(stream: &TokenStream) -> ParseResult<AssociationEle
 
 pub fn parse_association_list(
     stream: &TokenStream,
+    diagnsotics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<(SeparatedList<AssociationElement>, TokenId)> {
-    stream.expect_kind(LeftPar)?;
-    parse_association_list_no_leftpar(stream)
+    let left_par = stream.expect_kind(LeftPar)?;
+    parse_association_list_no_leftpar(stream, left_par, diagnsotics)
 }
 
 pub fn parse_association_list_no_leftpar(
     stream: &TokenStream,
+    left_par: TokenId,
+    diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<(SeparatedList<AssociationElement>, TokenId)> {
     if let Some(right_par) = stream.pop_if_kind(RightPar) {
-        return Err(Diagnostic::error(
-            stream.get_pos(right_par),
+        diagnostics.error(
+            stream.get_span(left_par, right_par),
             "Association list cannot be empty",
-        ));
+        );
+        return Ok((SeparatedList::default(), right_par));
     }
-    let list = parse_list_with_separator(stream, Comma, parse_association_element)?;
-    let comma = stream.expect_kind(RightPar)?;
-    Ok((list, comma))
+    let list = parse_list_with_separator_or_recover(
+        stream,
+        Comma,
+        diagnostics,
+        parse_association_element,
+        Some(RightPar),
+    )?;
+    let right_par = stream.expect_kind(RightPar)?;
+    Ok((list, right_par))
 }
 
 fn parse_function_call(
@@ -1022,7 +1032,7 @@ mod tests {
             actual: WithPos::new(ActualPart::Open, code.s("open", 2)),
         };
         assert_eq!(
-            code.with_stream(parse_association_list),
+            code.with_stream_no_diagnostics(parse_association_list),
             (
                 SeparatedList {
                     items: vec![elem1, elem2],
@@ -1164,5 +1174,34 @@ mod tests {
                 "Illegal prefix 'all' for name"
             ))
         );
+    }
+
+    #[test]
+    fn empty_association_list_diagnostic() {
+        let code = Code::new("()");
+        let (list, diag) = code.with_stream_diagnostics(parse_association_list);
+        assert_eq!(
+            diag,
+            vec![Diagnostic::error(
+                code.pos(),
+                "Association list cannot be empty"
+            )]
+        );
+        assert!(list.0.tokens.is_empty());
+        assert!(list.0.items.is_empty());
+    }
+
+    #[test]
+    fn trailing_comma_diagnostic() {
+        let code = Code::new("(a => b,)");
+        let (list, diag) = code.with_stream_diagnostics(parse_association_list);
+        assert_eq!(
+            diag,
+            vec![Diagnostic::error(
+                code.s1(")").pos(),
+                "Expected {expression}"
+            )]
+        );
+        assert_eq!(list.0.items, vec![code.s1("a => b").association_element()]);
     }
 }

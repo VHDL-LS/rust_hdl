@@ -169,7 +169,7 @@ pub fn parse_design_file(
         try_init_token_kind!(
             token,
             Library => {
-                match parse_library_clause(stream) {
+                match parse_library_clause(stream, diagnostics) {
                     Ok(library) => {
                         context_clause.push(ContextItem::Library(library));
                     },
@@ -177,7 +177,7 @@ pub fn parse_design_file(
                 }
             },
             Use => {
-                match parse_use_clause(stream) {
+                match parse_use_clause(stream, diagnostics) {
                     Ok(use_clause) => {
                         context_clause.push(ContextItem::Use(use_clause));
                     },
@@ -243,7 +243,7 @@ pub fn parse_design_file(
                         Err(diagnostic) => diagnostics.push(diagnostic),
                     };
                 } else if stream.next_kinds_are(&[Package, Identifier, Is, New]) {
-                    match parse_package_instantiation(stream) {
+                    match parse_package_instantiation(stream, diagnostics) {
                         Ok(mut inst) => {
                             let tokens = stream.slice_tokens();
                             inst.context_clause = take_context_clause(&mut context_clause);
