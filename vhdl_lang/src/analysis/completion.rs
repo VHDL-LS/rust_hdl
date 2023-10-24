@@ -725,7 +725,7 @@ mod test {
                 CompletionItem {
                     label: "finish".to_string(),
                     insertion_text: "finish".to_string(),
-                    detail: "+1 overloaded".to_string(),
+                    detail: "2 overloads".to_string(),
                     entity: None,
                     mode: CompletionItemMode::Text,
                     kind: CompletionKind::Function
@@ -741,7 +741,7 @@ mod test {
                 CompletionItem {
                     label: "stop".to_string(),
                     insertion_text: "stop".to_string(),
-                    detail: "+1 overloaded".to_string(),
+                    detail: "2 overloads".to_string(),
                     entity: None,
                     mode: CompletionItemMode::Text,
                     kind: CompletionKind::Function
@@ -789,7 +789,7 @@ end arch;
         assert_eq!(options.iter().map(|it| &it.label).collect_vec(), vec!["B"]);
         assert_eq!(
             options.iter().map(|it| &it.insertion_text).collect_vec(),
-            vec!["B => $1"]
+            vec!["B => $1,"]
         );
 
         let cursor = code.s1("port map (").pos().end();
