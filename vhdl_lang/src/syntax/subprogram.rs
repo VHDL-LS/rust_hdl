@@ -747,4 +747,39 @@ end function;
             Declaration::SubprogramBody(body)
         );
     }
+
+    #[test]
+    pub fn swap_function() {
+        // From GitHub, Issue #154
+        let code = Code::new(
+            "\
+procedure swap
+  generic ( type T )
+  parameter (a, b : inout T) is
+  variable temp : T;
+begin
+  temp := a; a := b; b := temp;
+end procedure swap;
+        ",
+        );
+        let specification = code
+            .s1("procedure swap
+  generic ( type T )
+  parameter (a, b : inout T)")
+            .subprogram_decl();
+        let body = SubprogramBody {
+            specification,
+            declarations: code.s1("variable temp : T;").declarative_part(),
+            statements: vec![
+                code.s1("temp := a;").sequential_statement(),
+                code.s1("a := b;").sequential_statement(),
+                code.s1(" b := temp;").sequential_statement(),
+            ],
+            end_ident_pos: Some(code.s("swap", 2).pos()),
+        };
+        assert_eq!(
+            code.with_stream_no_diagnostics(parse_subprogram),
+            Declaration::SubprogramBody(body)
+        );
+    }
 }

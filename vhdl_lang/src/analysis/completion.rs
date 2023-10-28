@@ -426,14 +426,16 @@ mod test {
         let (root, _) = LibraryBuilder::new().get_analyzed_root();
         let code = Code::new("use std.");
         let cursor = code.pos().end();
-        let options = root.list_completion_options(code.source(), cursor);
-        assert_eq!(options, vec!["textio", "standard", "env"]);
+        let mut options = root.list_completion_options(code.source(), cursor);
+        options.sort();
+        assert_eq!(options, vec!["env", "standard", "textio"]);
 
         let code = Code::new("use std.t");
         let cursor = code.pos().end();
-        let options = root.list_completion_options(code.source(), cursor);
+        let mut options = root.list_completion_options(code.source(), cursor);
+        options.sort();
         // Note that the filtering only happens at client side
-        assert_eq!(options, vec!["textio", "standard", "env"]);
+        assert_eq!(options, vec!["env", "standard", "textio"]);
     }
 
     #[test]
