@@ -1183,6 +1183,7 @@ impl Search for ProcedureSpecification {
         return_if_found!(searcher
             .search_decl(ctx, FoundDeclaration::Procedure(self))
             .or_not_found());
+        return_if_found!(self.header.search(ctx, searcher));
         self.parameter_list.search(ctx, searcher)
     }
 }
@@ -1192,8 +1193,16 @@ impl Search for FunctionSpecification {
         return_if_found!(searcher
             .search_decl(ctx, FoundDeclaration::Function(self))
             .or_not_found());
+        return_if_found!(self.header.search(ctx, searcher));
         return_if_found!(self.parameter_list.search(ctx, searcher));
         self.return_type.search(ctx, searcher)
+    }
+}
+
+impl Search for SubprogramHeader {
+    fn search(&mut self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
+        return_if_found!(self.generic_list.search(ctx, searcher));
+        self.map_aspect.search(ctx, searcher)
     }
 }
 
