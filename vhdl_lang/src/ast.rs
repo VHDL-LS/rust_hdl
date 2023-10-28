@@ -648,6 +648,8 @@ pub enum SubprogramDesignator {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProcedureSpecification {
     pub designator: WithDecl<WithPos<SubprogramDesignator>>,
+    // The `parameter` token, if such a token exists
+    pub param_tok: Option<TokenId>,
     pub header: Option<SubprogramHeader>,
     pub parameter_list: Vec<InterfaceDeclaration>,
 }
@@ -656,6 +658,8 @@ pub struct ProcedureSpecification {
 #[derive(PartialEq, Debug, Clone)]
 pub struct FunctionSpecification {
     pub pure: bool,
+    // The `parameter` token, if such a token exists
+    pub param_tok: Option<TokenId>,
     pub designator: WithDecl<WithPos<SubprogramDesignator>>,
     pub header: Option<SubprogramHeader>,
     pub parameter_list: Vec<InterfaceDeclaration>,
