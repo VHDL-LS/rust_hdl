@@ -648,6 +648,7 @@ pub enum SubprogramDesignator {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProcedureSpecification {
     pub designator: WithDecl<WithPos<SubprogramDesignator>>,
+    pub header: Option<SubprogramHeader>,
     pub parameter_list: Vec<InterfaceDeclaration>,
 }
 
@@ -656,6 +657,7 @@ pub struct ProcedureSpecification {
 pub struct FunctionSpecification {
     pub pure: bool,
     pub designator: WithDecl<WithPos<SubprogramDesignator>>,
+    pub header: Option<SubprogramHeader>,
     pub parameter_list: Vec<InterfaceDeclaration>,
     pub return_type: WithPos<TypeMark>,
 }
