@@ -12,6 +12,8 @@ use super::sequential_statement::parse_labeled_sequential_statements;
 use super::tokens::{kinds_error, Kind::*, TokenAccess, TokenStream};
 use crate::ast::*;
 use crate::data::*;
+use crate::syntax::concurrent_statement::parse_map_aspect;
+use crate::syntax::interface_declaration::parse_generic_interface_list;
 
 pub fn parse_signature(stream: &TokenStream) -> ParseResult<WithPos<Signature>> {
     let left_square = stream.expect_kind(LeftSquare)?;
@@ -76,6 +78,27 @@ fn parse_designator(stream: &TokenStream) -> ParseResult<WithPos<SubprogramDesig
         Identifier => token.to_identifier_value()?.map_into(SubprogramDesignator::Identifier),
         StringLiteral => token.to_operator_symbol()?.map_into(SubprogramDesignator::OperatorSymbol)
     ))
+}
+
+/// Parses a subprogram header according of the form
+/// subprogram_header ::=
+///     [ generic ( generic_list )
+///     [ generic_map_aspect ] ]
+pub fn parse_optional_subprogram_header(
+    stream: &TokenStream,
+    diagnostics: &mut dyn DiagnosticHandler,
+) -> ParseResult<Option<SubprogramHeader>> {
+    let Some(generic) = stream.pop_if_kind(Generic) else {
+        return Ok(None);
+    };
+    let generic_list = parse_generic_interface_list(stream, diagnostics)?;
+    let map_aspect = parse_map_aspect(stream, Generic, diagnostics)?;
+
+    Ok(Some(SubprogramHeader {
+        generic_tok: generic,
+        generic_list,
+        map_aspect,
+    }))
 }
 
 pub fn parse_subprogram_declaration_no_semi(
@@ -516,5 +539,53 @@ end function \"+\";
             code.with_stream_no_diagnostics(parse_subprogram),
             Declaration::SubprogramBody(body)
         );
+    }
+
+    #[test]
+    pub fn parse_subprogram_header_no_aspect() {
+        let code = Code::new("generic (x: natural := 1; y: real)");
+        let header = code
+            .subprogram_header()
+            .expect("Expected subprogram header");
+        assert_eq!(
+            header,
+            SubprogramHeader {
+                generic_tok: code.s1("generic").token(),
+                map_aspect: None,
+                generic_list: vec![
+                    code.s1("x: natural := 1").generic(),
+                    code.s1("y: real").generic()
+                ]
+            }
+        )
+    }
+
+    #[test]
+    pub fn parse_subprogram_header_with_aspect() {
+        let code = Code::new("generic (x: natural := 1; y: real) generic map (x => 2, y => 0.4)");
+        let header = code
+            .subprogram_header()
+            .expect("Expected subprogram header");
+        assert_eq!(
+            header,
+            SubprogramHeader {
+                generic_tok: code.s1("generic").token(),
+                map_aspect: Some(MapAspect {
+                    start: code.s("generic", 2).token(),
+                    list: SeparatedList {
+                        items: vec![
+                            code.s1("x => 2").association_element(),
+                            code.s1("y => 0.4").association_element()
+                        ],
+                        tokens: vec![code.s1(",").token()]
+                    },
+                    closing_paren: code.s(")", 2).token()
+                }),
+                generic_list: vec![
+                    code.s1("x: natural := 1").generic(),
+                    code.s1("y: real").generic()
+                ]
+            }
+        )
     }
 }
