@@ -1408,6 +1408,17 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
+    fn subprogram_header(
+        &self,
+        scope: &Scope<'a>,
+        parent: EntRef<'a>,
+        header: &mut SubprogramHeader,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> FatalResult {
+        self.analyze_interface_list(scope, parent, &mut header.generic_list[..], diagnostics)?;
+        self.analyze_map_aspect(scope, &mut header.map_aspect, diagnostics)
+    }
+
     fn subprogram_declaration(
         &self,
         scope: &Scope<'a>,
@@ -1430,6 +1441,9 @@ impl<'a> AnalyzeContext<'a> {
 
         let signature = match subprogram {
             SubprogramDeclaration::Function(fun) => {
+                if let Some(header) = &mut fun.header {
+                    self.subprogram_header(&subpgm_region, ent, header, diagnostics)?;
+                }
                 let params = self.analyze_parameter_list(
                     &subpgm_region,
                     ent,
@@ -1440,6 +1454,9 @@ impl<'a> AnalyzeContext<'a> {
                 Signature::new(params?, Some(return_type?))
             }
             SubprogramDeclaration::Procedure(procedure) => {
+                if let Some(header) = &mut procedure.header {
+                    self.subprogram_header(&subpgm_region, ent, header, diagnostics)?;
+                }
                 let params = self.analyze_parameter_list(
                     &subpgm_region,
                     ent,

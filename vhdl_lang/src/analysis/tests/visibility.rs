@@ -757,3 +757,27 @@ end architecture;
         .unwrap();
     assert_eq!(label.decl_pos(), Some(&code.sb("main", ": for i ").pos()));
 }
+
+#[test]
+fn generics_are_visible_in_procedures_but_not_outside() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "\
+    procedure swap
+      generic ( type T )
+      parameter (a, b : inout T) is
+      variable temp : T;
+    begin
+      temp := a;
+      a := b;
+      b := temp;
+    end procedure swap;
+    variable temp2: T;
+    ",
+    );
+    let (_, diagnostics) = builder.get_analyzed_root();
+    assert_eq!(
+        diagnostics,
+        vec![Diagnostic::error(code.s("T", 4), "No declaration of 'T'")]
+    )
+}

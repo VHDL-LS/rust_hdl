@@ -12,6 +12,8 @@ use super::sequential_statement::parse_labeled_sequential_statements;
 use super::tokens::{kinds_error, Kind::*, TokenAccess, TokenStream};
 use crate::ast::*;
 use crate::data::*;
+use crate::syntax::concurrent_statement::parse_map_aspect;
+use crate::syntax::interface_declaration::parse_generic_interface_list;
 
 pub fn parse_signature(stream: &TokenStream) -> ParseResult<WithPos<Signature>> {
     let left_square = stream.expect_kind(LeftSquare)?;
@@ -78,6 +80,27 @@ fn parse_designator(stream: &TokenStream) -> ParseResult<WithPos<SubprogramDesig
     ))
 }
 
+/// Parses a subprogram header according of the form
+/// subprogram_header ::=
+///     [ generic ( generic_list )
+///     [ generic_map_aspect ] ]
+pub fn parse_optional_subprogram_header(
+    stream: &TokenStream,
+    diagnostics: &mut dyn DiagnosticHandler,
+) -> ParseResult<Option<SubprogramHeader>> {
+    let Some(generic) = stream.pop_if_kind(Generic) else {
+        return Ok(None);
+    };
+    let generic_list = parse_generic_interface_list(stream, diagnostics)?;
+    let map_aspect = parse_map_aspect(stream, Generic, diagnostics)?;
+
+    Ok(Some(SubprogramHeader {
+        generic_tok: generic,
+        generic_list,
+        map_aspect,
+    }))
+}
+
 pub fn parse_subprogram_declaration_no_semi(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
@@ -101,11 +124,18 @@ pub fn parse_subprogram_declaration_no_semi(
 
     let designator = parse_designator(stream)?;
 
-    let parameter_list = {
-        if stream.peek_kind() == Some(LeftPar) {
-            parse_parameter_interface_list(stream, diagnostics)?
+    let header = parse_optional_subprogram_header(stream, diagnostics)?;
+
+    let (parameter_list, param_tok) = {
+        if let Some(parameter) = stream.pop_if_kind(Parameter) {
+            (
+                parse_parameter_interface_list(stream, diagnostics)?,
+                Some(parameter),
+            )
+        } else if stream.peek_kind() == Some(LeftPar) {
+            (parse_parameter_interface_list(stream, diagnostics)?, None)
         } else {
-            Vec::new()
+            (Vec::new(), None)
         }
     };
 
@@ -114,13 +144,17 @@ pub fn parse_subprogram_declaration_no_semi(
         let return_type = parse_type_mark(stream)?;
         Ok(SubprogramDeclaration::Function(FunctionSpecification {
             pure: is_pure,
+            param_tok,
             designator: designator.into(),
+            header,
             parameter_list,
             return_type,
         }))
     } else {
         Ok(SubprogramDeclaration::Procedure(ProcedureSpecification {
             designator: designator.into(),
+            param_tok,
+            header,
             parameter_list,
         }))
     }
@@ -212,6 +246,8 @@ procedure foo;
                     .ident()
                     .map_into(SubprogramDesignator::Identifier)
                     .into(),
+                param_tok: None,
+                header: None,
                 parameter_list: Vec::new(),
             })
         );
@@ -233,6 +269,8 @@ function foo return lib.foo.natural;
                     .ident()
                     .map_into(SubprogramDesignator::Identifier)
                     .into(),
+                header: None,
+                param_tok: None,
                 parameter_list: Vec::new(),
                 return_type: code.s1("lib.foo.natural").type_mark()
             })
@@ -255,6 +293,8 @@ function \"+\" return lib.foo.natural;
                     pos: code.s1("\"+\"").pos()
                 }
                 .into(),
+                header: None,
+                param_tok: None,
                 parameter_list: Vec::new(),
                 return_type: code.s1("lib.foo.natural").type_mark()
             })
@@ -277,6 +317,8 @@ impure function foo return lib.foo.natural;
                     .ident()
                     .map_into(SubprogramDesignator::Identifier)
                     .into(),
+                header: None,
+                param_tok: None,
                 parameter_list: Vec::new(),
                 return_type: code.s1("lib.foo.natural").type_mark()
             })
@@ -298,6 +340,8 @@ pure function foo return lib.foo.natural;
                     .ident()
                     .map_into(SubprogramDesignator::Identifier)
                     .into(),
+                header: None,
+                param_tok: None,
                 parameter_list: Vec::new(),
                 return_type: code.s1("lib.foo.natural").type_mark()
             })
@@ -318,6 +362,8 @@ procedure foo(foo : natural);
                     .ident()
                     .map_into(SubprogramDesignator::Identifier)
                     .into(),
+                header: None,
+                param_tok: None,
                 parameter_list: vec![code.s1("foo : natural").parameter()],
             })
         );
@@ -339,6 +385,60 @@ function foo(foo : natural) return lib.foo.natural;
                     .ident()
                     .map_into(SubprogramDesignator::Identifier)
                     .into(),
+                header: None,
+                param_tok: None,
+                parameter_list: vec![code.s1("foo : natural").parameter()],
+                return_type: code.s1("lib.foo.natural").type_mark()
+            })
+        );
+    }
+
+    #[test]
+    pub fn parses_function_specification_with_parameters_and_keyword() {
+        let code = Code::new(
+            "\
+function foo parameter (foo : natural) return lib.foo.natural;
+",
+        );
+        assert_eq!(
+            code.with_stream_no_diagnostics(parse_subprogram_declaration),
+            SubprogramDeclaration::Function(FunctionSpecification {
+                pure: true,
+                designator: code
+                    .s1("foo")
+                    .ident()
+                    .map_into(SubprogramDesignator::Identifier)
+                    .into(),
+                header: None,
+                param_tok: Some(code.s1("parameter").token()),
+                parameter_list: vec![code.s1("foo : natural").parameter()],
+                return_type: code.s1("lib.foo.natural").type_mark()
+            })
+        );
+    }
+
+    #[test]
+    pub fn parses_function_specification_with_parameters_keyword_and_header() {
+        let code = Code::new(
+            "\
+function foo generic (abc_def: natural) parameter (foo : natural) return lib.foo.natural;
+",
+        );
+        assert_eq!(
+            code.with_stream_no_diagnostics(parse_subprogram_declaration),
+            SubprogramDeclaration::Function(FunctionSpecification {
+                pure: true,
+                designator: code
+                    .s1("foo")
+                    .ident()
+                    .map_into(SubprogramDesignator::Identifier)
+                    .into(),
+                header: Some(SubprogramHeader {
+                    generic_list: vec![code.s1("abc_def: natural").generic(),],
+                    map_aspect: None,
+                    generic_tok: code.s1("generic").token()
+                }),
+                param_tok: Some(code.s1("parameter").token()),
                 parameter_list: vec![code.s1("foo : natural").parameter()],
                 return_type: code.s1("lib.foo.natural").type_mark()
             })
@@ -511,6 +611,171 @@ end function \"+\";
             declarations: vec![],
             statements: vec![],
             end_ident_pos: Some(code.s("\"+\"", 2).pos()),
+        };
+        assert_eq!(
+            code.with_stream_no_diagnostics(parse_subprogram),
+            Declaration::SubprogramBody(body)
+        );
+    }
+
+    #[test]
+    pub fn parse_subprogram_header_no_aspect() {
+        let code = Code::new("generic (x: natural := 1; y: real)");
+        let header = code
+            .subprogram_header()
+            .expect("Expected subprogram header");
+        assert_eq!(
+            header,
+            SubprogramHeader {
+                generic_tok: code.s1("generic").token(),
+                map_aspect: None,
+                generic_list: vec![
+                    code.s1("x: natural := 1").generic(),
+                    code.s1("y: real").generic()
+                ]
+            }
+        )
+    }
+
+    #[test]
+    pub fn parse_subprogram_header_with_aspect() {
+        let code = Code::new("generic (x: natural := 1; y: real) generic map (x => 2, y => 0.4)");
+        let header = code
+            .subprogram_header()
+            .expect("Expected subprogram header");
+        assert_eq!(
+            header,
+            SubprogramHeader {
+                generic_tok: code.s1("generic").token(),
+                map_aspect: Some(MapAspect {
+                    start: code.s("generic", 2).token(),
+                    list: SeparatedList {
+                        items: vec![
+                            code.s1("x => 2").association_element(),
+                            code.s1("y => 0.4").association_element()
+                        ],
+                        tokens: vec![code.s1(",").token()]
+                    },
+                    closing_paren: code.s(")", 2).token()
+                }),
+                generic_list: vec![
+                    code.s1("x: natural := 1").generic(),
+                    code.s1("y: real").generic()
+                ]
+            }
+        )
+    }
+
+    #[test]
+    pub fn parse_function_spec_with_header_no_aspect() {
+        let code = Code::new(
+            "\
+procedure my_proc
+    generic (x: natural := 4; y: real := 4);
+        ",
+        );
+        let decl = code.subprogram_decl();
+        assert_eq!(
+            decl,
+            SubprogramDeclaration::Procedure(ProcedureSpecification {
+                designator: code
+                    .s1("my_proc")
+                    .ident()
+                    .map_into(SubprogramDesignator::Identifier)
+                    .into(),
+                header: code
+                    .s1("generic (x: natural := 4; y: real := 4)")
+                    .subprogram_header(),
+                param_tok: None,
+                parameter_list: vec![],
+            })
+        );
+    }
+
+    #[test]
+    pub fn parse_function_spec_with_header_aspect() {
+        let code = Code::new(
+            "\
+procedure my_proc
+    generic (x: natural := 4; y: real := 4)
+    generic map (x => 42);
+        ",
+        );
+        let decl = code.subprogram_decl();
+        assert_eq!(
+            decl,
+            SubprogramDeclaration::Procedure(ProcedureSpecification {
+                designator: code
+                    .s1("my_proc")
+                    .ident()
+                    .map_into(SubprogramDesignator::Identifier)
+                    .into(),
+                header: code
+                    .s1("generic (x: natural := 4; y: real := 4)
+    generic map (x => 42)")
+                    .subprogram_header(),
+                param_tok: None,
+                parameter_list: vec![],
+            })
+        );
+    }
+
+    #[test]
+    pub fn parse_function_with_header() {
+        let code = Code::new(
+            "\
+function foo generic (x: natural := 4) (arg : natural) return natural is
+  constant foo : natural := 0;
+begin
+  return foo + arg;
+end function;
+        ",
+        );
+        let specification = code
+            .s1("function foo generic (x: natural := 4) (arg : natural) return natural")
+            .subprogram_decl();
+        let declarations = code.s1("constant foo : natural := 0;").declarative_part();
+        let statements = vec![code.s1("return foo + arg;").sequential_statement()];
+        let body = SubprogramBody {
+            specification,
+            declarations,
+            statements,
+            end_ident_pos: None,
+        };
+        assert_eq!(
+            code.with_stream_no_diagnostics(parse_subprogram),
+            Declaration::SubprogramBody(body)
+        );
+    }
+
+    #[test]
+    pub fn swap_function() {
+        // From GitHub, Issue #154
+        let code = Code::new(
+            "\
+procedure swap
+  generic ( type T )
+  parameter (a, b : inout T) is
+  variable temp : T;
+begin
+  temp := a; a := b; b := temp;
+end procedure swap;
+        ",
+        );
+        let specification = code
+            .s1("procedure swap
+  generic ( type T )
+  parameter (a, b : inout T)")
+            .subprogram_decl();
+        let body = SubprogramBody {
+            specification,
+            declarations: code.s1("variable temp : T;").declarative_part(),
+            statements: vec![
+                code.s1("temp := a;").sequential_statement(),
+                code.s1("a := b;").sequential_statement(),
+                code.s1(" b := temp;").sequential_statement(),
+            ],
+            end_ident_pos: Some(code.s("swap", 2).pos()),
         };
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram),
