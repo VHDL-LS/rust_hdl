@@ -40,7 +40,7 @@ pub struct LocalId(u32);
 /// Arena allocators used to store named entities
 
 /// Local arena used for single design unit in a separate thread
-pub struct LocalArena {
+struct LocalArena {
     pub id: ArenaId,
     pub items: PinnedVec<AnyEnt<'static>>,
 }
@@ -120,10 +120,6 @@ impl<'a> FinalArena {
 
     pub fn clear(&mut self) {
         self.refs.clear();
-    }
-
-    pub fn items(&self) -> impl Iterator<Item = &Arc<LocalArena>> {
-        self.refs.values()
     }
 }
 
