@@ -175,14 +175,12 @@ impl<'a> AutocompletionVisitor<'a> {
         ctx: &dyn TokenAccess,
         kind: MapAspectKind,
     ) -> bool {
-        let Some(tok) = self.tokens.last() else {
-            return false;
-        };
-        if tok.kind != LeftPar && tok.kind != Comma {
-            return false;
-        }
         if !map.span(ctx).contains(self.cursor) {
             return false;
+        }
+        match self.tokens[..] {
+            [.., kind!(LeftPar | Comma)] | [.., kind!(LeftPar | Comma), kind!(Identifier)] => {}
+            _ => return false,
         }
         let formals_in_map: HashSet<EntityId> =
             HashSet::from_iter(map.formals().filter_map(|it| *it));
@@ -540,5 +538,19 @@ mod test {
         assert!(options.contains(&CompletionItem::Formal(rst)));
         assert!(options.contains(&CompletionItem::Formal(dout)));
         assert_eq!(options.len(), 2);
+        let cursor = code
+            .s1("port map (
+            clk =>")
+            .pos()
+            .end();
+        let options = root.list_completion_options(code.source(), cursor);
+        assert_eq!(options.len(), 0);
+        let cursor = code
+            .s1("port map (
+            clk => c")
+            .pos()
+            .end();
+        let options = root.list_completion_options(code.source(), cursor);
+        assert_eq!(options.len(), 0);
     }
 }
