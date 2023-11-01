@@ -148,14 +148,20 @@ struct AutocompletionVisitor<'a> {
     root: &'a DesignRoot,
     cursor: Position,
     completions: Vec<CompletionItem<'a>>,
+    tokens: Vec<Token>,
 }
 
 impl<'a> AutocompletionVisitor<'a> {
-    pub fn new(root: &'a DesignRoot, cursor: Position) -> AutocompletionVisitor {
+    pub fn new(
+        root: &'a DesignRoot,
+        cursor: Position,
+        tokens: Vec<Token>,
+    ) -> AutocompletionVisitor<'a> {
         AutocompletionVisitor {
             root,
             cursor,
             completions: Vec::new(),
+            tokens,
         }
     }
 
@@ -169,6 +175,12 @@ impl<'a> AutocompletionVisitor<'a> {
         ctx: &dyn TokenAccess,
         kind: MapAspectKind,
     ) -> bool {
+        let Some(tok) = self.tokens.last() else {
+            return false;
+        };
+        if tok.kind != LeftPar && tok.kind != Comma {
+            return false;
+        }
         if !map.span(ctx).contains(self.cursor) {
             return false;
         }
@@ -354,7 +366,7 @@ impl DesignRoot {
                 self.list_available_declarations(library, selected)
             }
             _ => {
-                let mut visitor = AutocompletionVisitor::new(self, cursor);
+                let mut visitor = AutocompletionVisitor::new(self, cursor, tokens);
                 self.walk(&mut visitor);
                 visitor.completions
             }
