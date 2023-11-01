@@ -331,7 +331,7 @@ impl VHDLServer {
                 label: "all".to_string(),
                 detail: Some("all".to_string()),
                 insert_text: Some("all".to_string()),
-                kind: Some(CompletionItemKind::MODULE),
+                kind: Some(CompletionItemKind::KEYWORD),
                 ..Default::default()
             },
         }
