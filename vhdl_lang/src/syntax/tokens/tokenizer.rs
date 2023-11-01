@@ -95,6 +95,7 @@ pub enum Kind {
     Function,
     Procedure,
     Vunit,
+    Parameter,
 
     // Unary operators
     Abs,
@@ -346,6 +347,7 @@ pub fn kind_str(kind: Kind) -> &'static str {
         Function => "function",
         Procedure => "procedure",
         Vunit => "vunit",
+        Parameter => "parameter",
 
         // Unary operators
         Abs => "abs",
@@ -1434,6 +1436,7 @@ impl std::default::Default for Symbols {
             ("mod", Mod),
             ("rem", Rem),
             ("vunit", Vunit),
+            ("parameter", Parameter),
         ];
 
         let attributes = [

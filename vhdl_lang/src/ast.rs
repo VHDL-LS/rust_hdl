@@ -648,6 +648,9 @@ pub enum SubprogramDesignator {
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProcedureSpecification {
     pub designator: WithDecl<WithPos<SubprogramDesignator>>,
+    pub header: Option<SubprogramHeader>,
+    // The `parameter` token, if such a token exists
+    pub param_tok: Option<TokenId>,
     pub parameter_list: Vec<InterfaceDeclaration>,
 }
 
@@ -656,6 +659,9 @@ pub struct ProcedureSpecification {
 pub struct FunctionSpecification {
     pub pure: bool,
     pub designator: WithDecl<WithPos<SubprogramDesignator>>,
+    pub header: Option<SubprogramHeader>,
+    // The `parameter` token, if such a token exists
+    pub param_tok: Option<TokenId>,
     pub parameter_list: Vec<InterfaceDeclaration>,
     pub return_type: WithPos<TypeMark>,
 }
@@ -667,6 +673,17 @@ pub struct SubprogramBody {
     pub declarations: Vec<Declaration>,
     pub statements: Vec<LabeledSequentialStatement>,
     pub end_ident_pos: Option<SrcPos>,
+}
+
+/// LRM 4.2.1 Subprogram Header
+/// Note that, as opposed to the standard, the header is not optional.
+/// Instead, the element that contains the header (e.g., procedure specifications)
+/// mark this element as optional.
+#[derive(PartialEq, Debug, Clone)]
+pub struct SubprogramHeader {
+    pub generic_tok: TokenId,
+    pub generic_list: Vec<InterfaceDeclaration>,
+    pub map_aspect: Option<MapAspect>,
 }
 
 /// LRM 4.5.3 Signatures

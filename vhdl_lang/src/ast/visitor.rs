@@ -309,6 +309,14 @@ pub trait Visitor {
     ) -> VisitorResult {
         Continue
     }
+
+    fn visit_subprogram_header(
+        &mut self,
+        _node: &SubprogramHeader,
+        _ctx: &dyn TokenAccess,
+    ) -> VisitorResult {
+        Continue
+    }
     fn visit_signature(&mut self, _node: &Signature, _ctx: &dyn TokenAccess) -> VisitorResult {
         Continue
     }
@@ -1255,6 +1263,16 @@ impl ASTNode for SubprogramBody {
     }
 }
 
+impl ASTNode for SubprogramHeader {
+    fn visit(&self, visitor: &mut dyn Visitor, ctx: &dyn TokenAccess) -> VisitorResult {
+        visitor.visit_subprogram_header(self, ctx)
+    }
+
+    fn children(&self) -> Vec<&dyn ASTNode> {
+        vec![&self.map_aspect, &self.generic_list]
+    }
+}
+
 impl ASTNode for LabeledSequentialStatement {
     fn visit(&self, visitor: &mut dyn Visitor, ctx: &dyn TokenAccess) -> VisitorResult {
         visitor.visit_labeled_sequential_statement(self, ctx)
@@ -1592,7 +1610,7 @@ impl ASTNode for FunctionSpecification {
     }
 
     fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.parameter_list, &self.return_type]
+        vec![&self.parameter_list, &self.header, &self.return_type]
     }
 }
 
@@ -1602,7 +1620,7 @@ impl ASTNode for ProcedureSpecification {
     }
 
     fn children(&self) -> Vec<&dyn ASTNode> {
-        vec![&self.designator, &self.parameter_list]
+        vec![&self.designator, &self.header, &self.parameter_list]
     }
 }
 
