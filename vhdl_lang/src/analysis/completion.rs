@@ -3,7 +3,7 @@ use crate::analysis::{DesignRoot, HasEntityId};
 use crate::ast::visitor::{Visitor, VisitorResult};
 use crate::ast::{
     AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, ComponentDeclaration, Designator,
-    EntityDeclaration, InstantiationStatement, MapAspect, PackageDeclaration,
+    EntityDeclaration, InstantiationStatement, InterfaceDeclaration, MapAspect, PackageDeclaration,
 };
 use crate::data::{ContentReader, Symbol};
 use crate::syntax::Kind::*;
@@ -73,6 +73,22 @@ impl DesignRoot {
     }
 }
 
+impl<'a> PortsOrGenericsExtractor<'a> {
+    fn add_map_aspect_items(&mut self, map_aspect: &Vec<InterfaceDeclaration>) {
+        for decl in map_aspect {
+            if let Some(id) = decl.ent_id() {
+                self.items.push(id)
+            }
+        }
+    }
+
+    fn add_optional_map_aspect_items(&mut self, map_aspect: &Option<Vec<InterfaceDeclaration>>) {
+        if let Some(map_aspect) = map_aspect {
+            self.add_map_aspect_items(map_aspect);
+        }
+    }
+}
+
 impl<'a> Visitor for PortsOrGenericsExtractor<'a> {
     fn visit_component_declaration(
         &mut self,
@@ -83,18 +99,10 @@ impl<'a> Visitor for PortsOrGenericsExtractor<'a> {
             return VisitorResult::Skip;
         }
         if self.kind == MapAspectKind::Port {
-            for port in &node.port_list {
-                if let Some(id) = port.ent_id() {
-                    self.items.push(id)
-                }
-            }
+            self.add_map_aspect_items(&node.port_list);
         }
         if self.kind == MapAspectKind::Generic {
-            for generic in &node.generic_list {
-                if let Some(id) = generic.ent_id() {
-                    self.items.push(id)
-                }
-            }
+            self.add_map_aspect_items(&node.generic_list);
         }
         VisitorResult::Stop
     }
@@ -108,22 +116,10 @@ impl<'a> Visitor for PortsOrGenericsExtractor<'a> {
             return VisitorResult::Skip;
         }
         if self.kind == MapAspectKind::Port {
-            if let Some(ports) = &node.port_clause {
-                for port in ports {
-                    if let Some(id) = port.ent_id() {
-                        self.items.push(id)
-                    }
-                }
-            }
+            self.add_optional_map_aspect_items(&node.port_clause);
         }
         if self.kind == MapAspectKind::Generic {
-            if let Some(generics) = &node.generic_clause {
-                for generic in generics {
-                    if let Some(id) = generic.ent_id() {
-                        self.items.push(id)
-                    }
-                }
-            }
+            self.add_optional_map_aspect_items(&node.generic_clause);
         }
         VisitorResult::Stop
     }
@@ -137,13 +133,7 @@ impl<'a> Visitor for PortsOrGenericsExtractor<'a> {
             return VisitorResult::Skip;
         }
         if self.kind == MapAspectKind::Generic {
-            if let Some(generics) = &node.generic_clause {
-                for generic in generics {
-                    if let Some(id) = generic.ent_id() {
-                        self.items.push(id)
-                    }
-                }
-            }
+            self.add_optional_map_aspect_items(&node.generic_clause);
         }
         VisitorResult::Stop
     }
