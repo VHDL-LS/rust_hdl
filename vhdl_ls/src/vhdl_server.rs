@@ -261,6 +261,83 @@ impl VHDLServer {
         }
     }
 
+    fn entity_kind_to_completion_kind(&self, kind: &AnyEntKind) -> CompletionItemKind {
+        match kind {
+            AnyEntKind::ExternalAlias { .. } | AnyEntKind::ObjectAlias { .. } => {
+                CompletionItemKind::FIELD
+            }
+            AnyEntKind::File(_) | AnyEntKind::InterfaceFile(_) => CompletionItemKind::FILE,
+            AnyEntKind::Component(_) => CompletionItemKind::MODULE,
+            AnyEntKind::Attribute(_) => CompletionItemKind::REFERENCE,
+            AnyEntKind::Overloaded(overloaded) => match overloaded {
+                Overloaded::SubprogramDecl(_)
+                | Overloaded::Subprogram(_)
+                | Overloaded::InterfaceSubprogram(_) => CompletionItemKind::FUNCTION,
+                Overloaded::EnumLiteral(_) => CompletionItemKind::ENUM_MEMBER,
+                Overloaded::Alias(_) => CompletionItemKind::FIELD,
+            },
+            AnyEntKind::Type(_) => CompletionItemKind::TYPE_PARAMETER,
+            AnyEntKind::ElementDeclaration(_) => CompletionItemKind::FIELD,
+            AnyEntKind::Concurrent(_) => CompletionItemKind::MODULE,
+            AnyEntKind::Sequential(_) => CompletionItemKind::MODULE,
+            AnyEntKind::Object(object) => match object.class {
+                ObjectClass::Signal => CompletionItemKind::EVENT,
+                ObjectClass::Constant => CompletionItemKind::CONSTANT,
+                ObjectClass::Variable | ObjectClass::SharedVariable => CompletionItemKind::VARIABLE,
+            },
+            AnyEntKind::LoopParameter(_) => CompletionItemKind::MODULE,
+            AnyEntKind::PhysicalLiteral(_) => CompletionItemKind::UNIT,
+            AnyEntKind::DeferredConstant(_) => CompletionItemKind::CONSTANT,
+            AnyEntKind::Library => CompletionItemKind::MODULE,
+            AnyEntKind::Design(_) => CompletionItemKind::MODULE,
+        }
+    }
+
+    fn entity_to_completion_item(&self, id: EntityId) -> CompletionItem {
+        let ent = self.project.get_ent(id);
+        CompletionItem {
+            label: ent.designator.to_string(),
+            detail: Some(ent.describe()),
+            kind: Some(self.entity_kind_to_completion_kind(ent.kind())),
+            data: serde_json::to_value(id).ok(),
+            insert_text: Some(ent.designator.to_string()),
+            ..Default::default()
+        }
+    }
+
+    fn completion_item_to_lsp_item(
+        &self,
+        item: vhdl_lang::CompletionItem,
+    ) -> lsp_types::CompletionItem {
+        match item {
+            vhdl_lang::CompletionItem::Simple(id) => self.entity_to_completion_item(id),
+            vhdl_lang::CompletionItem::Formal(id) => {
+                let mut item = self.entity_to_completion_item(id);
+                item.insert_text_format = Some(InsertTextFormat::SNIPPET);
+                item.insert_text = Some(format!("{} => $1,", item.insert_text.unwrap()));
+                item
+            }
+            vhdl_lang::CompletionItem::Overloaded(desi, count) => CompletionItem {
+                label: desi.to_string(),
+                detail: Some(format!("+{count} overloaded")),
+                kind: match desi {
+                    Designator::Identifier(_) => Some(CompletionItemKind::TEXT),
+                    Designator::OperatorSymbol(_) => Some(CompletionItemKind::OPERATOR),
+                    _ => None,
+                },
+                insert_text: Some(desi.to_string()),
+                ..Default::default()
+            },
+            vhdl_lang::CompletionItem::All => CompletionItem {
+                label: "all".to_string(),
+                detail: Some("all".to_string()),
+                insert_text: Some("all".to_string()),
+                kind: Some(CompletionItemKind::MODULE),
+                ..Default::default()
+            },
+        }
+    }
+
     /// Called when the client requests a completion.
     /// This function looks in the source code to find suitable options and then returns them
     pub fn request_completion(&mut self, params: &CompletionParams) -> CompletionList {
@@ -285,7 +362,7 @@ impl VHDLServer {
             .project
             .list_completion_options(&source, cursor)
             .into_iter()
-            .map(completion_item_to_lsp_item)
+            .map(|item| self.completion_item_to_lsp_item(item))
             .collect();
 
         CompletionList {
@@ -711,34 +788,6 @@ fn srcpos_to_location(pos: &SrcPos) -> Location {
     Location {
         uri,
         range: to_lsp_range(pos.range()),
-    }
-}
-
-fn completion_item_to_lsp_item(item: vhdl_lang::CompletionItem) -> lsp_types::CompletionItem {
-    let kind = match item.kind {
-        CompletionKind::Module => CompletionItemKind::MODULE,
-        CompletionKind::Constant => CompletionItemKind::CONSTANT,
-        CompletionKind::Signal => CompletionItemKind::EVENT,
-        CompletionKind::Variable => CompletionItemKind::VARIABLE,
-        CompletionKind::File => CompletionItemKind::FILE,
-        CompletionKind::Type => CompletionItemKind::TYPE_PARAMETER,
-        CompletionKind::Function => CompletionItemKind::FUNCTION,
-        CompletionKind::Operator => CompletionItemKind::OPERATOR,
-        CompletionKind::Attribute => CompletionItemKind::PROPERTY,
-        CompletionKind::Alias => CompletionItemKind::MODULE,
-    };
-    let mode = match item.mode {
-        CompletionItemMode::Text => InsertTextFormat::PLAIN_TEXT,
-        CompletionItemMode::Snippet => InsertTextFormat::SNIPPET,
-    };
-    CompletionItem {
-        label: item.label.clone(),
-        detail: Some(item.detail),
-        insert_text: Some(item.insertion_text),
-        insert_text_format: Some(mode),
-        kind: Some(kind),
-        data: item.entity.and_then(|e| serde_json::to_value(e).ok()),
-        ..Default::default()
     }
 }
 

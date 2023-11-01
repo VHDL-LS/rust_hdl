@@ -283,6 +283,10 @@ impl Project {
         self.format_declaration(ent)
     }
 
+    pub fn get_ent(&self, id: EntityId) -> &AnyEnt {
+        self.root.get_ent(id)
+    }
+
     /// Search for all references to the declaration at decl_pos
     pub fn find_all_references(&self, ent: &AnyEnt) -> Vec<SrcPos> {
         self.root.find_all_references(ent)
