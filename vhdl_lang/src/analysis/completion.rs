@@ -9,19 +9,19 @@ use crate::data::{ContentReader, Symbol};
 use crate::syntax::Kind::*;
 use crate::syntax::{Symbols, Token, TokenAccess, Tokenizer, Value};
 use crate::AnyEntKind::Design;
-use crate::{EntityId, Position, Source};
+use crate::{EntRef, EntityId, Position, Source};
 use std::collections::HashSet;
 use std::default::Default;
 use std::iter::once;
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum CompletionItem {
+pub enum CompletionItem<'a> {
     /// Simply complete the entities
     /// e.g., `use std.` should simply list all elements in the std library
-    Simple(EntityId),
+    Simple(EntRef<'a>),
     /// Formal parameter, e.g., in a port map
     /// `port map (` might choose to complete `<item> => $1`
-    Formal(EntityId),
+    Formal(EntRef<'a>),
     /// Multiple overloaded items are applicable.
     /// The argument is the count of overloaded items in total.
     Overloaded(Designator, usize),
@@ -153,10 +153,18 @@ impl<'a> Visitor for PortsOrGenericsExtractor<'a> {
 struct AutocompletionVisitor<'a> {
     root: &'a DesignRoot,
     cursor: Position,
-    completions: &'a mut Vec<CompletionItem>,
+    completions: Vec<CompletionItem<'a>>,
 }
 
 impl<'a> AutocompletionVisitor<'a> {
+    pub fn new(root: &'a DesignRoot, cursor: Position) -> AutocompletionVisitor {
+        AutocompletionVisitor {
+            root,
+            cursor,
+            completions: Vec::new(),
+        }
+    }
+
     /// Loads completion options for the given map aspect.
     /// Returns `true`, when the cursor is inside the map aspect and the search should not continue.
     /// Returns `false` otherwise
@@ -176,8 +184,10 @@ impl<'a> AutocompletionVisitor<'a> {
         if let Some(ent) = node.entity_reference() {
             self.root.extract_port_or_generic_names(ent, &mut ids, kind);
             ids.retain(|item| !formals_in_map.contains(item));
-            self.completions
-                .extend(ids.iter().map(|id| CompletionItem::Formal(*id)));
+            self.completions.extend(
+                ids.iter()
+                    .map(|id| CompletionItem::Formal(self.root.get_ent(*id))),
+            );
         }
         true
     }
@@ -269,7 +279,7 @@ impl DesignRoot {
     /// helper function to list the name of all available libraries
     fn list_all_libraries(&self) -> Vec<CompletionItem> {
         self.libraries()
-            .map(|lib| CompletionItem::Simple(lib.id()))
+            .map(|lib| CompletionItem::Simple(self.get_ent(lib.id())))
             .collect()
     }
 
@@ -281,7 +291,7 @@ impl DesignRoot {
         };
         lib.primary_units()
             .filter_map(|it| it.unit.get().and_then(|unit| unit.ent_id()))
-            .map(CompletionItem::Simple)
+            .map(|id| CompletionItem::Simple(self.get_ent(id)))
             .collect()
     }
 
@@ -312,13 +322,13 @@ impl DesignRoot {
                         .entities
                         .values()
                         .map(|named_ent| match named_ent {
-                            NamedEntities::Single(ent) => CompletionItem::Simple(ent.id),
+                            NamedEntities::Single(ent) => CompletionItem::Simple(ent),
                             NamedEntities::Overloaded(overloaded) => match overloaded.as_unique() {
                                 None => CompletionItem::Overloaded(
                                     overloaded.designator().clone(),
                                     overloaded.len(),
                                 ),
-                                Some(ent_ref) => CompletionItem::Simple(ent_ref.id),
+                                Some(ent_ref) => CompletionItem::Simple(ent_ref),
                             },
                         })
                         .chain(once(CompletionItem::All))
@@ -351,14 +361,9 @@ impl DesignRoot {
                 self.list_available_declarations(library, selected)
             }
             _ => {
-                let mut completions = vec![];
-                let mut visitor = AutocompletionVisitor {
-                    completions: &mut completions,
-                    root: self,
-                    cursor,
-                };
+                let mut visitor = AutocompletionVisitor::new(self, cursor);
                 self.walk(&mut visitor);
-                completions
+                visitor.completions
             }
         }
     }
@@ -438,9 +443,9 @@ mod test {
         let cursor = code.pos().end();
         let options = root.list_completion_options(code.source(), cursor);
         let expected_items = vec![
-            CompletionItem::Simple(root.find_textio_pkg().id),
-            CompletionItem::Simple(root.find_standard_pkg().id),
-            CompletionItem::Simple(root.find_env_pkg().id),
+            CompletionItem::Simple(root.find_textio_pkg()),
+            CompletionItem::Simple(root.find_standard_pkg()),
+            CompletionItem::Simple(root.find_env_pkg()),
         ];
         assert_eq!(options, expected_items);
 
@@ -469,7 +474,7 @@ mod test {
             2
         )));
         assert!(options.contains(&CompletionItem::Simple(
-            root.find_env_symbol("resolution_limit").id,
+            root.find_env_symbol("resolution_limit"),
         )));
         assert!(options.contains(&CompletionItem::All));
         assert_eq!(options.len(), 4);
@@ -511,21 +516,18 @@ mod test {
         let (root, _) = input.get_analyzed_root();
         let cursor = code.s1("generic map (").pos().end();
         let options = root.list_completion_options(code.source(), cursor);
-        let id = root
+        let ent = root
             .search_reference(code.source(), code.s1("B").start())
-            .unwrap()
-            .id;
-        assert_eq!(options, vec![CompletionItem::Formal(id)]);
+            .unwrap();
+        assert_eq!(options, vec![CompletionItem::Formal(ent)]);
 
         let rst = root
             .search_reference(code.source(), code.s1("rst").start())
-            .unwrap()
-            .id;
+            .unwrap();
 
         let dout = root
             .search_reference(code.source(), code.s1("dout").start())
-            .unwrap()
-            .id;
+            .unwrap();
 
         let cursor = code.s1("port map (").pos().end();
         let options = root.list_completion_options(code.source(), cursor);

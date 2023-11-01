@@ -293,13 +293,12 @@ impl VHDLServer {
         }
     }
 
-    fn entity_to_completion_item(&self, id: EntityId) -> CompletionItem {
-        let ent = self.project.get_ent(id);
+    fn entity_to_completion_item(&self, ent: EntRef) -> CompletionItem {
         CompletionItem {
             label: ent.designator.to_string(),
             detail: Some(ent.describe()),
             kind: Some(self.entity_kind_to_completion_kind(ent.kind())),
-            data: serde_json::to_value(id).ok(),
+            data: serde_json::to_value(ent.id).ok(),
             insert_text: Some(ent.designator.to_string()),
             ..Default::default()
         }
@@ -310,9 +309,9 @@ impl VHDLServer {
         item: vhdl_lang::CompletionItem,
     ) -> lsp_types::CompletionItem {
         match item {
-            vhdl_lang::CompletionItem::Simple(id) => self.entity_to_completion_item(id),
-            vhdl_lang::CompletionItem::Formal(id) => {
-                let mut item = self.entity_to_completion_item(id);
+            vhdl_lang::CompletionItem::Simple(ent) => self.entity_to_completion_item(ent),
+            vhdl_lang::CompletionItem::Formal(ent) => {
+                let mut item = self.entity_to_completion_item(ent);
                 item.insert_text_format = Some(InsertTextFormat::SNIPPET);
                 item.insert_text = Some(format!("{} => $1,", item.insert_text.unwrap()));
                 item
