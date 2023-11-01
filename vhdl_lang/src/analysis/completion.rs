@@ -442,18 +442,19 @@ mod test {
         let code = Code::new("use std.");
         let cursor = code.pos().end();
         let options = root.list_completion_options(code.source(), cursor);
-        let expected_items = vec![
-            CompletionItem::Simple(root.find_textio_pkg()),
-            CompletionItem::Simple(root.find_standard_pkg()),
-            CompletionItem::Simple(root.find_env_pkg()),
-        ];
-        assert_eq!(options, expected_items);
+        assert!(options.contains(&CompletionItem::Simple(root.find_textio_pkg())));
+        assert!(options.contains(&CompletionItem::Simple(root.find_standard_pkg())));
+        assert!(options.contains(&CompletionItem::Simple(root.find_env_pkg())));
+        assert_eq!(options.len(), 3);
 
         let code = Code::new("use std.t");
         let cursor = code.pos().end();
         let options = root.list_completion_options(code.source(), cursor);
         // Note that the filtering only happens at client side
-        assert_eq!(options, expected_items);
+        assert!(options.contains(&CompletionItem::Simple(root.find_textio_pkg())));
+        assert!(options.contains(&CompletionItem::Simple(root.find_standard_pkg())));
+        assert!(options.contains(&CompletionItem::Simple(root.find_env_pkg())));
+        assert_eq!(options.len(), 3);
     }
 
     #[test]
