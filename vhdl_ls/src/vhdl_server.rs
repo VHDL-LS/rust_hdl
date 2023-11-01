@@ -312,8 +312,10 @@ impl VHDLServer {
             vhdl_lang::CompletionItem::Simple(ent) => self.entity_to_completion_item(ent),
             vhdl_lang::CompletionItem::Formal(ent) => {
                 let mut item = self.entity_to_completion_item(ent);
-                item.insert_text_format = Some(InsertTextFormat::SNIPPET);
-                item.insert_text = Some(format!("{} => $1,", item.insert_text.unwrap()));
+                if self.client_supports_snippets() {
+                    item.insert_text_format = Some(InsertTextFormat::SNIPPET);
+                    item.insert_text = Some(format!("{} => $1,", item.insert_text.unwrap()));
+                }
                 item
             }
             vhdl_lang::CompletionItem::Overloaded(desi, count) => CompletionItem {
@@ -411,6 +413,22 @@ impl VHDLServer {
                 .did_change_watched_files
                 .as_ref()?
                 .dynamic_registration
+        };
+        try_fun().unwrap_or(false)
+    }
+
+    fn client_supports_snippets(&self) -> bool {
+        let try_fun = || {
+            self.init_params
+                .as_ref()?
+                .capabilities
+                .text_document
+                .as_ref()?
+                .completion
+                .as_ref()?
+                .completion_item
+                .as_ref()?
+                .snippet_support
         };
         try_fun().unwrap_or(false)
     }
