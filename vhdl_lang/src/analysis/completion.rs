@@ -55,25 +55,29 @@ enum MapAspectKind {
 /// The entity can be an `Entity`, `Component` or `Package`.
 /// After walking the AST, the ports or generics are written to the `items` vector.
 /// The `kind` member chooses whether to select ports or generics.
-struct PortsOrGenericsExtractor<'a> {
+struct PortsOrGenericsExtractor {
     id: EntityId,
-    items: &'a mut Vec<EntityId>,
+    items: Vec<EntityId>,
     kind: MapAspectKind,
 }
 
 impl DesignRoot {
-    fn extract_port_or_generic_names(
-        &self,
-        id: EntityId,
-        items: &mut Vec<EntityId>,
-        kind: MapAspectKind,
-    ) {
-        let mut searcher = PortsOrGenericsExtractor { id, items, kind };
+    fn extract_port_or_generic_names(&self, id: EntityId, kind: MapAspectKind) -> Vec<EntityId> {
+        let mut searcher = PortsOrGenericsExtractor::new(id, kind);
         self.walk(&mut searcher);
+        searcher.items
     }
 }
 
-impl<'a> PortsOrGenericsExtractor<'a> {
+impl PortsOrGenericsExtractor {
+    pub fn new(id: EntityId, kind: MapAspectKind) -> PortsOrGenericsExtractor {
+        PortsOrGenericsExtractor {
+            id,
+            items: vec![],
+            kind,
+        }
+    }
+
     fn add_map_aspect_items(&mut self, map_aspect: &Vec<InterfaceDeclaration>) {
         for decl in map_aspect {
             if let Some(id) = decl.ent_id() {
@@ -89,7 +93,7 @@ impl<'a> PortsOrGenericsExtractor<'a> {
     }
 }
 
-impl<'a> Visitor for PortsOrGenericsExtractor<'a> {
+impl Visitor for PortsOrGenericsExtractor {
     fn visit_component_declaration(
         &mut self,
         node: &ComponentDeclaration,
@@ -170,12 +174,11 @@ impl<'a> AutocompletionVisitor<'a> {
         }
         let formals_in_map: HashSet<EntityId> =
             HashSet::from_iter(map.formals().filter_map(|it| *it));
-        let mut ids: Vec<EntityId> = Vec::new();
         if let Some(ent) = node.entity_reference() {
-            self.root.extract_port_or_generic_names(ent, &mut ids, kind);
-            ids.retain(|item| !formals_in_map.contains(item));
+            let ids = self.root.extract_port_or_generic_names(ent, kind);
             self.completions.extend(
                 ids.iter()
+                    .filter(|id| !formals_in_map.contains(id))
                     .map(|id| CompletionItem::Formal(self.root.get_ent(*id))),
             );
         }
