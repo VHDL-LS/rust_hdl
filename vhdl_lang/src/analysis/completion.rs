@@ -12,6 +12,7 @@ use crate::AnyEntKind::Design;
 use crate::{EntityId, Position, Source};
 use std::collections::HashSet;
 use std::default::Default;
+use std::iter::once;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum CompletionItem {
@@ -320,6 +321,7 @@ impl DesignRoot {
                                 Some(ent_ref) => CompletionItem::Simple(ent_ref.id),
                             },
                         })
+                        .chain(once(CompletionItem::All))
                         .collect(),
                     _ => Vec::default(),
                 }
@@ -328,6 +330,8 @@ impl DesignRoot {
         }
     }
 
+    /// Main entry point for completion. Given a source-file and a cursor position,
+    /// lists available completion options at the cursor position.
     pub fn list_completion_options(
         &self,
         source: &Source,
@@ -467,7 +471,8 @@ mod test {
         assert!(options.contains(&CompletionItem::Simple(
             root.find_env_symbol("resolution_limit").id,
         )));
-        assert_eq!(options.len(), 3)
+        assert!(options.contains(&CompletionItem::All));
+        assert_eq!(options.len(), 4);
     }
 
     #[test]
