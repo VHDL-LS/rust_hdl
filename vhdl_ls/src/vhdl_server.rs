@@ -15,9 +15,8 @@ use crate::rpc_channel::SharedRpcChannel;
 use std::io;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
-    AnyEntKind, CompletionItemMode, CompletionKind, Concurrent, Config, Diagnostic, EntHierarchy,
-    EntRef, EntityId, Message, MessageHandler, Object, Overloaded, Project, Severity, Source,
-    SrcPos, Type,
+    AnyEntKind, Concurrent, Config, Diagnostic, EntHierarchy, EntRef, EntityId, Message,
+    MessageHandler, Object, Overloaded, Project, Severity, Source, SrcPos, Type,
 };
 
 #[derive(Default, Clone)]

@@ -23,7 +23,7 @@ pub use self::display::*;
 pub(crate) use self::util::*;
 pub(crate) use any_design_unit::*;
 
-use crate::analysis::EntityId;
+use crate::analysis::{EntityId, HasEntityId};
 use crate::data::*;
 use crate::syntax::{Token, TokenAccess, TokenId};
 
@@ -682,15 +682,6 @@ pub enum SubprogramDeclaration {
     Function(FunctionSpecification),
 }
 
-impl SubprogramDeclaration {
-    pub fn decl(&self) -> Option<EntityId> {
-        match self {
-            SubprogramDeclaration::Procedure(proc) => proc.designator.decl,
-            SubprogramDeclaration::Function(func) => func.designator.decl,
-        }
-    }
-}
-
 #[derive(PartialEq, Debug, Clone)]
 pub struct InterfaceFileDeclaration {
     pub ident: WithDecl<Ident>,
@@ -790,8 +781,8 @@ impl Declaration {
                 Attribute::Declaration(decl) => decl.ident.decl,
             },
             Declaration::Alias(alias) => alias.designator.decl,
-            Declaration::SubprogramDeclaration(subprogram) => subprogram.decl(),
-            Declaration::SubprogramBody(body) => body.specification.decl(),
+            Declaration::SubprogramDeclaration(subprogram) => subprogram.ent_id(),
+            Declaration::SubprogramBody(body) => body.specification.ent_id(),
             Declaration::Use(_) => None,
             Declaration::Package(pkg) => pkg.ident.decl,
             Declaration::Configuration(_) => None,
@@ -1082,7 +1073,7 @@ pub struct MapAspect {
 
 impl MapAspect {
     /// Returns an iterator over the formal elements of this map
-    pub fn formals(&self) -> impl Iterator<Item = &Designator> {
+    pub fn formals(&self) -> impl Iterator<Item = &Option<EntityId>> {
         self.list.formals()
     }
 
@@ -1185,11 +1176,11 @@ impl<T> Default for SeparatedList<T> {
 
 impl SeparatedList<AssociationElement> {
     /// Returns an iterator over the formal elements of this list
-    pub fn formals(&self) -> impl Iterator<Item = &Designator> {
+    pub fn formals(&self) -> impl Iterator<Item = &Option<EntityId>> {
         self.items.iter().filter_map(|el| match &el.formal {
             None => None,
             Some(name) => match &name.item {
-                Name::Designator(desi) => Some(&desi.item),
+                Name::Designator(desi) => Some(&desi.reference),
                 _ => None,
             },
         })
@@ -1406,24 +1397,6 @@ pub type ContextClause = Vec<ContextItem>;
 pub enum AnyDesignUnit {
     Primary(AnyPrimaryUnit),
     Secondary(AnySecondaryUnit),
-}
-
-impl AnyDesignUnit {
-    pub fn entity_id(&self) -> Option<EntityId> {
-        match self {
-            AnyDesignUnit::Primary(primary) => match primary {
-                AnyPrimaryUnit::Entity(ent) => ent.ident.decl,
-                AnyPrimaryUnit::Configuration(config) => config.ident.decl,
-                AnyPrimaryUnit::Package(pkg) => pkg.ident.decl,
-                AnyPrimaryUnit::PackageInstance(inst) => inst.ident.decl,
-                AnyPrimaryUnit::Context(ctx) => ctx.ident.decl,
-            },
-            AnyDesignUnit::Secondary(secondary) => match secondary {
-                AnySecondaryUnit::Architecture(arch) => arch.ident.decl,
-                AnySecondaryUnit::PackageBody(bod) => bod.ident.decl,
-            },
-        }
-    }
 }
 
 #[derive(PartialEq, Debug, Clone, Default)]

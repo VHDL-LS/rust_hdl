@@ -6,6 +6,7 @@
 
 use pinned_vec::PinnedVec;
 use std::cell::RefCell;
+use std::pin::Pin;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -51,6 +52,10 @@ impl LocalArena {
             id,
             items: PinnedVec::new(),
         }
+    }
+
+    pub fn items(&self) -> impl Iterator<Item = Pin<&AnyEnt<'static>>> {
+        (0..self.items.len()).map(|num| self.items.get(num).unwrap())
     }
 
     unsafe fn alloc(&mut self, mut ent: AnyEnt) -> *const AnyEnt<'static> {
@@ -116,6 +121,10 @@ impl<'a> FinalArena {
         for (id, arena) in referenced.refs.iter() {
             self.refs.entry(*id).or_insert_with(|| arena.clone());
         }
+    }
+
+    pub fn entities(&self) -> impl Iterator<Item = Pin<&AnyEnt<'static>>> {
+        self.refs.values().flat_map(|arena| arena.items())
     }
 
     pub fn clear(&mut self) {

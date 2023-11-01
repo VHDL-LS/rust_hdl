@@ -252,6 +252,21 @@ impl Library {
     fn get_unit(&self, key: &UnitKey) -> Option<&LockedUnit> {
         self.units.get(key)
     }
+
+    pub fn id(&self) -> EntityId {
+        self.id
+    }
+
+    pub(super) fn primary_units(&self) -> impl Iterator<Item = &LockedUnit> {
+        self.units.iter().filter_map(|(key, value)| match key {
+            UnitKey::Primary(_) => Some(value),
+            UnitKey::Secondary(_, _) => None,
+        })
+    }
+
+    pub(super) fn primary_unit(&self, symbol: &Symbol) -> Option<&LockedUnit> {
+        self.units.get(&UnitKey::Primary(symbol.clone()))
+    }
 }
 
 /// Contains the entire design state.
@@ -328,6 +343,14 @@ impl DesignRoot {
     /// Iterates over all available library symbols.
     pub fn available_libraries(&self) -> impl Iterator<Item = &Symbol> {
         self.libraries.keys()
+    }
+
+    pub fn libraries(&self) -> impl Iterator<Item = &Library> {
+        self.libraries.values()
+    }
+
+    pub fn get_lib(&self, sym: &Symbol) -> Option<&Library> {
+        self.libraries.get(sym)
     }
 
     pub(crate) fn get_design_entity<'a>(
@@ -583,12 +606,29 @@ impl DesignRoot {
     }
 
     #[cfg(test)]
+    pub fn find_overloaded_env_symbols(&self, name: &str) -> &NamedEntities {
+        self.find_std_symbols("env", name)
+    }
+
+    #[cfg(test)]
     fn find_std_symbol(&self, package: &str, name: &str) -> &AnyEnt {
         if let AnyEntKind::Design(Design::Package(_, region)) =
             self.find_std_package(package).kind()
         {
             let sym = region.lookup_immediate(&Designator::Identifier(self.symbol_utf8(name)));
             sym.unwrap().first()
+        } else {
+            panic!("Not a package");
+        }
+    }
+
+    #[cfg(test)]
+    fn find_std_symbols(&self, package: &str, name: &str) -> &NamedEntities {
+        if let AnyEntKind::Design(Design::Package(_, region)) =
+            self.find_std_package(package).kind()
+        {
+            let sym = region.lookup_immediate(&Designator::Identifier(self.symbol_utf8(name)));
+            sym.unwrap()
         } else {
             panic!("Not a package");
         }
