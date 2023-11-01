@@ -23,7 +23,7 @@ pub use self::display::*;
 pub(crate) use self::util::*;
 pub(crate) use any_design_unit::*;
 
-use crate::analysis::{EntityId, HasEntityId};
+use crate::analysis::EntityId;
 use crate::data::*;
 use crate::syntax::{Token, TokenAccess, TokenId};
 
@@ -784,27 +784,6 @@ pub enum Declaration {
     Use(UseClause),
     Package(PackageInstantiation),
     Configuration(ConfigurationSpecification),
-}
-
-impl Declaration {
-    pub fn decl(&self) -> Option<EntityId> {
-        match self {
-            Declaration::Object(obj) => obj.ident.decl,
-            Declaration::File(file) => file.ident.decl,
-            Declaration::Type(typ) => typ.ident.decl,
-            Declaration::Component(comp) => comp.ident.decl,
-            Declaration::Attribute(attr) => match attr {
-                Attribute::Specification(spec) => spec.ident.reference,
-                Attribute::Declaration(decl) => decl.ident.decl,
-            },
-            Declaration::Alias(alias) => alias.designator.decl,
-            Declaration::SubprogramDeclaration(subprogram) => subprogram.ent_id(),
-            Declaration::SubprogramBody(body) => body.specification.ent_id(),
-            Declaration::Use(_) => None,
-            Declaration::Package(pkg) => pkg.ident.decl,
-            Declaration::Configuration(_) => None,
-        }
-    }
 }
 
 /// LRM 10.2 Wait statement
