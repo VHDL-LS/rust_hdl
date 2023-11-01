@@ -15,7 +15,7 @@ use crate::rpc_channel::SharedRpcChannel;
 use std::io;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
-    AnyEntKind, Concurrent, Config, Diagnostic, EntHierarchy, EntRef, EntityId, Message,
+    kind_str, AnyEntKind, Concurrent, Config, Diagnostic, EntHierarchy, EntRef, EntityId, Message,
     MessageHandler, Object, Overloaded, Project, Severity, Source, SrcPos, Type,
 };
 
@@ -320,17 +320,17 @@ impl VHDLServer {
                 label: desi.to_string(),
                 detail: Some(format!("+{count} overloaded")),
                 kind: match desi {
-                    Designator::Identifier(_) => Some(CompletionItemKind::TEXT),
+                    Designator::Identifier(_) => Some(CompletionItemKind::FUNCTION),
                     Designator::OperatorSymbol(_) => Some(CompletionItemKind::OPERATOR),
                     _ => None,
                 },
                 insert_text: Some(desi.to_string()),
                 ..Default::default()
             },
-            vhdl_lang::CompletionItem::All => CompletionItem {
-                label: "all".to_string(),
-                detail: Some("all".to_string()),
-                insert_text: Some("all".to_string()),
+            vhdl_lang::CompletionItem::Keyword(kind) => CompletionItem {
+                label: kind_str(kind).to_string(),
+                detail: Some(kind_str(kind).to_string()),
+                insert_text: Some(kind_str(kind).to_string()),
                 kind: Some(CompletionItemKind::KEYWORD),
                 ..Default::default()
             },

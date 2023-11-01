@@ -7,7 +7,7 @@ use crate::ast::{
 };
 use crate::data::{ContentReader, Symbol};
 use crate::syntax::Kind::*;
-use crate::syntax::{Symbols, Token, TokenAccess, Tokenizer, Value};
+use crate::syntax::{Kind, Symbols, Token, TokenAccess, Tokenizer, Value};
 use crate::AnyEntKind::Design;
 use crate::{EntRef, EntityId, Position, Source};
 use std::collections::HashSet;
@@ -25,8 +25,8 @@ pub enum CompletionItem<'a> {
     /// Multiple overloaded items are applicable.
     /// The argument is the count of overloaded items in total.
     Overloaded(Designator, usize),
-    /// Complete the 'all' keyword
-    All,
+    /// Complete a keyword
+    Keyword(Kind),
 }
 
 macro_rules! kind {
@@ -324,7 +324,7 @@ impl DesignRoot {
                                 Some(ent_ref) => CompletionItem::Simple(ent_ref),
                             },
                         })
-                        .chain(once(CompletionItem::All))
+                        .chain(once(CompletionItem::Keyword(All)))
                         .collect(),
                     _ => Vec::default(),
                 }
@@ -470,7 +470,7 @@ mod test {
         assert!(options.contains(&CompletionItem::Simple(
             root.find_env_symbol("resolution_limit"),
         )));
-        assert!(options.contains(&CompletionItem::All));
+        assert!(options.contains(&CompletionItem::Keyword(All)));
         assert_eq!(options.len(), 4);
     }
 

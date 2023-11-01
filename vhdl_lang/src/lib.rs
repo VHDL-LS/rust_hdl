@@ -29,4 +29,4 @@ pub use crate::analysis::{
     Type,
 };
 pub use crate::project::{Project, SourceFile};
-pub use crate::syntax::{ParserResult, VHDLParser};
+pub use crate::syntax::{kind_str, ParserResult, VHDLParser};
