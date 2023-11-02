@@ -277,12 +277,12 @@ impl EntityId {
     }
 
     /// Returns an `EntityId` from a raw `usize` value
-    /// for serialization / deserialization purposes.
+    /// for deserialization purposes.
     pub fn from_raw(id: usize) -> EntityId {
         EntityId { id }
     }
 
-    /// Converts an `EntityId` to a raw `usize` representation
+    /// Converts an `EntityId` to a raw `usize` value
     /// for serialization purposes.
     pub fn to_raw(&self) -> usize {
         self.id
