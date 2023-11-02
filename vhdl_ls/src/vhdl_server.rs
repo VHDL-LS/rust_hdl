@@ -261,57 +261,14 @@ impl VHDLServer {
         }
     }
 
-    fn entity_kind_to_completion_kind(&self, kind: &AnyEntKind) -> CompletionItemKind {
-        match kind {
-            AnyEntKind::ExternalAlias { .. } | AnyEntKind::ObjectAlias { .. } => {
-                CompletionItemKind::FIELD
-            }
-            AnyEntKind::File(_) | AnyEntKind::InterfaceFile(_) => CompletionItemKind::FILE,
-            AnyEntKind::Component(_) => CompletionItemKind::MODULE,
-            AnyEntKind::Attribute(_) => CompletionItemKind::REFERENCE,
-            AnyEntKind::Overloaded(overloaded) => match overloaded {
-                Overloaded::SubprogramDecl(_)
-                | Overloaded::Subprogram(_)
-                | Overloaded::InterfaceSubprogram(_) => CompletionItemKind::FUNCTION,
-                Overloaded::EnumLiteral(_) => CompletionItemKind::ENUM_MEMBER,
-                Overloaded::Alias(_) => CompletionItemKind::FIELD,
-            },
-            AnyEntKind::Type(_) => CompletionItemKind::TYPE_PARAMETER,
-            AnyEntKind::ElementDeclaration(_) => CompletionItemKind::FIELD,
-            AnyEntKind::Concurrent(_) => CompletionItemKind::MODULE,
-            AnyEntKind::Sequential(_) => CompletionItemKind::MODULE,
-            AnyEntKind::Object(object) => match object.class {
-                ObjectClass::Signal => CompletionItemKind::EVENT,
-                ObjectClass::Constant => CompletionItemKind::CONSTANT,
-                ObjectClass::Variable | ObjectClass::SharedVariable => CompletionItemKind::VARIABLE,
-            },
-            AnyEntKind::LoopParameter(_) => CompletionItemKind::MODULE,
-            AnyEntKind::PhysicalLiteral(_) => CompletionItemKind::UNIT,
-            AnyEntKind::DeferredConstant(_) => CompletionItemKind::CONSTANT,
-            AnyEntKind::Library => CompletionItemKind::MODULE,
-            AnyEntKind::Design(_) => CompletionItemKind::MODULE,
-        }
-    }
-
-    fn entity_to_completion_item(&self, ent: EntRef) -> CompletionItem {
-        CompletionItem {
-            label: ent.designator.to_string(),
-            detail: Some(ent.describe()),
-            kind: Some(self.entity_kind_to_completion_kind(ent.kind())),
-            data: serde_json::to_value(ent.id).ok(),
-            insert_text: Some(ent.designator.to_string()),
-            ..Default::default()
-        }
-    }
-
     fn completion_item_to_lsp_item(
         &self,
         item: vhdl_lang::CompletionItem,
     ) -> lsp_types::CompletionItem {
         match item {
-            vhdl_lang::CompletionItem::Simple(ent) => self.entity_to_completion_item(ent),
+            vhdl_lang::CompletionItem::Simple(ent) => entity_to_completion_item(ent),
             vhdl_lang::CompletionItem::Formal(ent) => {
-                let mut item = self.entity_to_completion_item(ent);
+                let mut item = entity_to_completion_item(ent);
                 if self.client_supports_snippets() {
                     item.insert_text_format = Some(InsertTextFormat::SNIPPET);
                     item.insert_text = Some(format!("{} => $1,", item.insert_text.unwrap()));
@@ -756,6 +713,49 @@ impl VHDLServer {
 
     fn message(&self, msg: Message) {
         self.message_filter().push(msg);
+    }
+}
+
+fn entity_to_completion_item(ent: EntRef) -> CompletionItem {
+    CompletionItem {
+        label: ent.designator.to_string(),
+        detail: Some(ent.describe()),
+        kind: Some(entity_kind_to_completion_kind(ent.kind())),
+        data: serde_json::to_value(ent.id).ok(),
+        insert_text: Some(ent.designator.to_string()),
+        ..Default::default()
+    }
+}
+
+fn entity_kind_to_completion_kind(kind: &AnyEntKind) -> CompletionItemKind {
+    match kind {
+        AnyEntKind::ExternalAlias { .. } | AnyEntKind::ObjectAlias { .. } => {
+            CompletionItemKind::FIELD
+        }
+        AnyEntKind::File(_) | AnyEntKind::InterfaceFile(_) => CompletionItemKind::FILE,
+        AnyEntKind::Component(_) => CompletionItemKind::MODULE,
+        AnyEntKind::Attribute(_) => CompletionItemKind::REFERENCE,
+        AnyEntKind::Overloaded(overloaded) => match overloaded {
+            Overloaded::SubprogramDecl(_)
+            | Overloaded::Subprogram(_)
+            | Overloaded::InterfaceSubprogram(_) => CompletionItemKind::FUNCTION,
+            Overloaded::EnumLiteral(_) => CompletionItemKind::ENUM_MEMBER,
+            Overloaded::Alias(_) => CompletionItemKind::FIELD,
+        },
+        AnyEntKind::Type(_) => CompletionItemKind::TYPE_PARAMETER,
+        AnyEntKind::ElementDeclaration(_) => CompletionItemKind::FIELD,
+        AnyEntKind::Concurrent(_) => CompletionItemKind::MODULE,
+        AnyEntKind::Sequential(_) => CompletionItemKind::MODULE,
+        AnyEntKind::Object(object) => match object.class {
+            ObjectClass::Signal => CompletionItemKind::EVENT,
+            ObjectClass::Constant => CompletionItemKind::CONSTANT,
+            ObjectClass::Variable | ObjectClass::SharedVariable => CompletionItemKind::VARIABLE,
+        },
+        AnyEntKind::LoopParameter(_) => CompletionItemKind::MODULE,
+        AnyEntKind::PhysicalLiteral(_) => CompletionItemKind::UNIT,
+        AnyEntKind::DeferredConstant(_) => CompletionItemKind::CONSTANT,
+        AnyEntKind::Library => CompletionItemKind::MODULE,
+        AnyEntKind::Design(_) => CompletionItemKind::MODULE,
     }
 }
 
