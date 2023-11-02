@@ -901,5 +901,19 @@ end procedure swap;
                 semi: code.s1(";").token()
             }
         );
+
+        let code = Code::new("function my_func is new func;");
+        let inst = code.parse_ok_no_diagnostics(parse_subprogram);
+        assert_eq!(
+            inst,
+            Declaration::SubprogramInstantiation(SubprogramInstantiation {
+                kind: WithToken::new(SubprogramKind::Function, code.s1("function").token()),
+                ident: code.s1("my_func").decl_ident(),
+                subprogram_name: code.s1("new func").s1("func").name(),
+                signature: None,
+                generic_map: None,
+                semi: code.s1(";").token()
+            })
+        );
     }
 }
