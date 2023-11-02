@@ -335,7 +335,7 @@ impl VHDLServer {
             .data
             .clone()
             .and_then(|val| serde_json::from_value::<usize>(val).ok())
-            .map(|raw_id| EntityId::from_raw(raw_id));
+            .map(EntityId::from_raw);
         if let Some(id) = eid {
             if let Some(text) = self.project.format_entity(id) {
                 params.documentation = Some(Documentation::MarkupContent(MarkupContent {
