@@ -6,10 +6,14 @@
 
 use super::formal_region::FormalRegion;
 use super::region::Region;
-use crate::ast::ExternalObjectClass;
 use crate::ast::{
-    AnyPrimaryUnit, Designator, HasIdent, Ident, ObjectClass, SubprogramDeclaration, WithDecl,
+    AliasDeclaration, AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, Attribute,
+    AttributeDeclaration, AttributeSpecification, ComponentDeclaration, Declaration, Designator,
+    FileDeclaration, HasIdent, Ident, InterfaceFileDeclaration, InterfacePackageDeclaration,
+    ObjectClass, ObjectDeclaration, PackageInstantiation, SubprogramBody, SubprogramDeclaration,
+    TypeDeclaration, WithDecl,
 };
+use crate::ast::{ExternalObjectClass, InterfaceDeclaration, InterfaceObjectDeclaration};
 use crate::data::*;
 
 mod types;
@@ -452,6 +456,144 @@ pub trait HasEntityId {
 impl HasEntityId for AnyPrimaryUnit {
     fn ent_id(&self) -> Option<EntityId> {
         delegate_primary!(self, unit, unit.ident.decl)
+    }
+}
+
+impl HasEntityId for AnyDesignUnit {
+    fn ent_id(&self) -> Option<EntityId> {
+        match self {
+            AnyDesignUnit::Primary(primary) => match primary {
+                AnyPrimaryUnit::Entity(ent) => ent.ident.decl,
+                AnyPrimaryUnit::Configuration(config) => config.ident.decl,
+                AnyPrimaryUnit::Package(pkg) => pkg.ident.decl,
+                AnyPrimaryUnit::PackageInstance(inst) => inst.ident.decl,
+                AnyPrimaryUnit::Context(ctx) => ctx.ident.decl,
+            },
+            AnyDesignUnit::Secondary(secondary) => match secondary {
+                AnySecondaryUnit::Architecture(arch) => arch.ident.decl,
+                AnySecondaryUnit::PackageBody(bod) => bod.ident.decl,
+            },
+        }
+    }
+}
+
+impl HasEntityId for InterfaceDeclaration {
+    fn ent_id(&self) -> Option<EntityId> {
+        match self {
+            InterfaceDeclaration::Object(object) => object.ent_id(),
+            InterfaceDeclaration::File(file) => file.ent_id(),
+            InterfaceDeclaration::Type(typ) => typ.decl,
+            InterfaceDeclaration::Subprogram(decl, _) => decl.ent_id(),
+            InterfaceDeclaration::Package(pkg) => pkg.ent_id(),
+        }
+    }
+}
+
+impl HasEntityId for InterfaceObjectDeclaration {
+    fn ent_id(&self) -> Option<EntityId> {
+        self.ident.decl
+    }
+}
+
+impl HasEntityId for InterfaceFileDeclaration {
+    fn ent_id(&self) -> Option<EntityId> {
+        self.ident.decl
+    }
+}
+
+impl HasEntityId for SubprogramDeclaration {
+    fn ent_id(&self) -> Option<EntityId> {
+        match self {
+            SubprogramDeclaration::Procedure(proc) => proc.designator.decl,
+            SubprogramDeclaration::Function(func) => func.designator.decl,
+        }
+    }
+}
+
+impl HasEntityId for InterfacePackageDeclaration {
+    fn ent_id(&self) -> Option<EntityId> {
+        self.ident.decl
+    }
+}
+
+impl HasEntityId for Declaration {
+    fn ent_id(&self) -> Option<EntityId> {
+        match self {
+            Declaration::Object(object) => object.ent_id(),
+            Declaration::File(file) => file.ent_id(),
+            Declaration::Type(typ) => typ.ent_id(),
+            Declaration::Component(comp) => comp.ent_id(),
+            Declaration::Attribute(attr) => attr.ent_id(),
+            Declaration::Alias(alias) => alias.ent_id(),
+            Declaration::SubprogramDeclaration(decl) => decl.ent_id(),
+            Declaration::SubprogramBody(body) => body.ent_id(),
+            Declaration::Package(pkg) => pkg.ent_id(),
+            Declaration::Use(_) => None,
+            Declaration::Configuration(_) => None,
+        }
+    }
+}
+
+impl HasEntityId for PackageInstantiation {
+    fn ent_id(&self) -> Option<EntityId> {
+        self.ident.decl
+    }
+}
+
+impl HasEntityId for SubprogramBody {
+    fn ent_id(&self) -> Option<EntityId> {
+        self.specification.ent_id()
+    }
+}
+
+impl HasEntityId for AliasDeclaration {
+    fn ent_id(&self) -> Option<EntityId> {
+        self.designator.decl
+    }
+}
+
+impl HasEntityId for ObjectDeclaration {
+    fn ent_id(&self) -> Option<EntityId> {
+        self.ident.decl
+    }
+}
+
+impl HasEntityId for FileDeclaration {
+    fn ent_id(&self) -> Option<EntityId> {
+        self.ident.decl
+    }
+}
+
+impl HasEntityId for TypeDeclaration {
+    fn ent_id(&self) -> Option<EntityId> {
+        self.ident.decl
+    }
+}
+
+impl HasEntityId for ComponentDeclaration {
+    fn ent_id(&self) -> Option<EntityId> {
+        self.ident.decl
+    }
+}
+
+impl HasEntityId for Attribute {
+    fn ent_id(&self) -> Option<EntityId> {
+        match self {
+            Attribute::Specification(spec) => spec.ent_id(),
+            Attribute::Declaration(decl) => decl.ent_id(),
+        }
+    }
+}
+
+impl HasEntityId for AttributeDeclaration {
+    fn ent_id(&self) -> Option<EntityId> {
+        self.ident.decl
+    }
+}
+
+impl HasEntityId for AttributeSpecification {
+    fn ent_id(&self) -> Option<EntityId> {
+        self.ident.reference
     }
 }
 

@@ -1,17 +1,33 @@
-use crate::analysis::DesignRoot;
+use crate::analysis::region::{AsUnique, NamedEntities};
+use crate::analysis::{DesignRoot, HasEntityId};
 use crate::ast::visitor::{Visitor, VisitorResult};
 use crate::ast::{
-    AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, ComponentDeclaration, Declaration,
+    AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, ComponentDeclaration, Designator,
     EntityDeclaration, InstantiationStatement, InterfaceDeclaration, MapAspect, PackageDeclaration,
-    SubprogramDeclaration, UnitKey,
 };
 use crate::data::{ContentReader, Symbol};
 use crate::syntax::Kind::*;
-use crate::syntax::{Symbols, Token, TokenAccess, Tokenizer, Value};
-use crate::{EntityId, Position, Source};
-use itertools::Itertools;
+use crate::syntax::{Kind, Symbols, Token, TokenAccess, Tokenizer, Value};
+use crate::AnyEntKind::Design;
+use crate::{EntRef, EntityId, Position, Source};
 use std::collections::HashSet;
 use std::default::Default;
+use std::iter::once;
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum CompletionItem<'a> {
+    /// Simply complete the entities
+    /// e.g., `use std.` should simply list all elements in the std library
+    Simple(EntRef<'a>),
+    /// Formal parameter, e.g., in a port map
+    /// `port map (` might choose to complete `<item> => $1`
+    Formal(EntRef<'a>),
+    /// Multiple overloaded items are applicable.
+    /// The argument is the count of overloaded items in total.
+    Overloaded(Designator, usize),
+    /// Complete a keyword
+    Keyword(Kind),
+}
 
 macro_rules! kind {
     ($kind: pat) => {
@@ -39,25 +55,45 @@ enum MapAspectKind {
 /// The entity can be an `Entity`, `Component` or `Package`.
 /// After walking the AST, the ports or generics are written to the `items` vector.
 /// The `kind` member chooses whether to select ports or generics.
-struct PortsOrGenericsExtractor<'a> {
+struct PortsOrGenericsExtractor {
     id: EntityId,
-    items: &'a mut Vec<String>,
+    items: Vec<EntityId>,
     kind: MapAspectKind,
 }
 
 impl DesignRoot {
-    fn extract_port_or_generic_names(
-        &self,
-        id: EntityId,
-        items: &mut Vec<String>,
-        kind: MapAspectKind,
-    ) {
-        let mut searcher = PortsOrGenericsExtractor { id, items, kind };
+    fn extract_port_or_generic_names(&self, id: EntityId, kind: MapAspectKind) -> Vec<EntityId> {
+        let mut searcher = PortsOrGenericsExtractor::new(id, kind);
         self.walk(&mut searcher);
+        searcher.items
     }
 }
 
-impl<'a> Visitor for PortsOrGenericsExtractor<'a> {
+impl PortsOrGenericsExtractor {
+    pub fn new(id: EntityId, kind: MapAspectKind) -> PortsOrGenericsExtractor {
+        PortsOrGenericsExtractor {
+            id,
+            items: vec![],
+            kind,
+        }
+    }
+
+    fn add_map_aspect_items(&mut self, map_aspect: &Vec<InterfaceDeclaration>) {
+        for decl in map_aspect {
+            if let Some(id) = decl.ent_id() {
+                self.items.push(id)
+            }
+        }
+    }
+
+    fn add_optional_map_aspect_items(&mut self, map_aspect: &Option<Vec<InterfaceDeclaration>>) {
+        if let Some(map_aspect) = map_aspect {
+            self.add_map_aspect_items(map_aspect);
+        }
+    }
+}
+
+impl Visitor for PortsOrGenericsExtractor {
     fn visit_component_declaration(
         &mut self,
         node: &ComponentDeclaration,
@@ -67,14 +103,10 @@ impl<'a> Visitor for PortsOrGenericsExtractor<'a> {
             return VisitorResult::Skip;
         }
         if self.kind == MapAspectKind::Port {
-            for port in &node.port_list {
-                self.items.push(port.completable_name())
-            }
+            self.add_map_aspect_items(&node.port_list);
         }
         if self.kind == MapAspectKind::Generic {
-            for generic in &node.generic_list {
-                self.items.push(generic.completable_name())
-            }
+            self.add_map_aspect_items(&node.generic_list);
         }
         VisitorResult::Stop
     }
@@ -88,18 +120,10 @@ impl<'a> Visitor for PortsOrGenericsExtractor<'a> {
             return VisitorResult::Skip;
         }
         if self.kind == MapAspectKind::Port {
-            if let Some(ports) = &node.port_clause {
-                for port in ports {
-                    self.items.push(port.completable_name())
-                }
-            }
+            self.add_optional_map_aspect_items(&node.port_clause);
         }
         if self.kind == MapAspectKind::Generic {
-            if let Some(generics) = &node.generic_clause {
-                for generic in generics {
-                    self.items.push(generic.completable_name())
-                }
-            }
+            self.add_optional_map_aspect_items(&node.generic_clause);
         }
         VisitorResult::Stop
     }
@@ -113,31 +137,9 @@ impl<'a> Visitor for PortsOrGenericsExtractor<'a> {
             return VisitorResult::Skip;
         }
         if self.kind == MapAspectKind::Generic {
-            if let Some(generics) = &node.generic_clause {
-                for generic in generics {
-                    self.items.push(generic.completable_name())
-                }
-            }
+            self.add_optional_map_aspect_items(&node.generic_clause);
         }
         VisitorResult::Stop
-    }
-}
-
-impl InterfaceDeclaration {
-    /// Returns completable names for an interface declarations.
-    /// Example:
-    /// `signal my_signal : natural := 5` => `my_signal`
-    fn completable_name(&self) -> String {
-        match self {
-            InterfaceDeclaration::Object(obj) => obj.ident.tree.to_string(),
-            InterfaceDeclaration::File(file) => file.ident.to_string(),
-            InterfaceDeclaration::Type(typ) => typ.tree.item.name().to_string(),
-            InterfaceDeclaration::Subprogram(decl, _) => match decl {
-                SubprogramDeclaration::Procedure(proc) => proc.designator.to_string(),
-                SubprogramDeclaration::Function(func) => func.designator.to_string(),
-            },
-            InterfaceDeclaration::Package(package) => package.package_name.to_string(),
-        }
     }
 }
 
@@ -145,10 +147,24 @@ impl InterfaceDeclaration {
 struct AutocompletionVisitor<'a> {
     root: &'a DesignRoot,
     cursor: Position,
-    completions: &'a mut Vec<String>,
+    completions: Vec<CompletionItem<'a>>,
+    tokens: Vec<Token>,
 }
 
 impl<'a> AutocompletionVisitor<'a> {
+    pub fn new(
+        root: &'a DesignRoot,
+        cursor: Position,
+        tokens: Vec<Token>,
+    ) -> AutocompletionVisitor<'a> {
+        AutocompletionVisitor {
+            root,
+            cursor,
+            completions: Vec::new(),
+            tokens,
+        }
+    }
+
     /// Loads completion options for the given map aspect.
     /// Returns `true`, when the cursor is inside the map aspect and the search should not continue.
     /// Returns `false` otherwise
@@ -162,13 +178,19 @@ impl<'a> AutocompletionVisitor<'a> {
         if !map.span(ctx).contains(self.cursor) {
             return false;
         }
-        let formals_in_map: HashSet<String> =
-            HashSet::from_iter(map.formals().map(|name| name.to_string().to_lowercase()));
+        match self.tokens[..] {
+            [.., kind!(LeftPar | Comma)] | [.., kind!(LeftPar | Comma), kind!(Identifier)] => {}
+            _ => return false,
+        }
+        let formals_in_map: HashSet<EntityId> =
+            HashSet::from_iter(map.formals().filter_map(|it| *it));
         if let Some(ent) = node.entity_reference() {
-            self.root
-                .extract_port_or_generic_names(ent, self.completions, kind);
-            self.completions
-                .retain(|name| !formals_in_map.contains(&name.to_lowercase()));
+            let ids = self.root.extract_port_or_generic_names(ent, kind);
+            self.completions.extend(
+                ids.iter()
+                    .filter(|id| !formals_in_map.contains(id))
+                    .map(|id| CompletionItem::Formal(self.root.get_ent(*id))),
+            );
         }
         true
     }
@@ -216,31 +238,6 @@ impl<'a> Visitor for AutocompletionVisitor<'a> {
     }
 }
 
-/// Returns the completable string representation of a declaration
-/// for example:
-/// `let alias = parse_vhdl("alias my_alias is ...")`
-/// `declaration_to_string(Declaration::Alias(alias)) == "my_alias"`
-/// Returns `None` if the declaration has no string representation that can be used for completion
-/// purposes.
-fn declaration_to_string(decl: &Declaration) -> Option<String> {
-    match decl {
-        Declaration::Object(o) => Some(o.ident.tree.item.to_string()),
-        Declaration::File(f) => Some(f.ident.tree.item.to_string()),
-        Declaration::Type(t) => Some(t.ident.tree.item.to_string()),
-        Declaration::Component(c) => Some(c.ident.tree.item.to_string()),
-        Declaration::Attribute(a) => match a {
-            crate::ast::Attribute::Specification(spec) => Some(spec.ident.item.to_string()),
-            crate::ast::Attribute::Declaration(decl) => Some(decl.ident.tree.item.to_string()),
-        },
-        Declaration::Alias(a) => Some(a.designator.to_string()),
-        Declaration::SubprogramDeclaration(decl) => Some(decl.subpgm_designator().to_string()),
-        Declaration::SubprogramBody(_) => None,
-        Declaration::Use(_) => None,
-        Declaration::Package(p) => Some(p.ident.to_string()),
-        Declaration::Configuration(_) => None,
-    }
-}
-
 /// Tokenizes `source` up to `cursor` but no further. The last token returned is the token
 /// where the cursor currently resides or the token right before the cursor.
 ///
@@ -283,50 +280,76 @@ fn tokenize_input(symbols: &Symbols, source: &Source, cursor: Position) -> Vec<T
 
 impl DesignRoot {
     /// helper function to list the name of all available libraries
-    fn list_all_libraries(&self) -> Vec<String> {
-        self.available_libraries()
-            .map(|k| k.name().to_string())
+    fn list_all_libraries(&self) -> Vec<CompletionItem> {
+        self.libraries()
+            .map(|lib| CompletionItem::Simple(self.get_ent(lib.id())))
             .collect()
     }
 
     /// List the name of all primary units for a given library.
     /// If the library is non-resolvable, list an empty vector
-    fn list_primaries_for_lib(&self, lib: &Symbol) -> Vec<String> {
-        let Some(lib) = self.get_library_units(lib) else {
+    fn list_primaries_for_lib(&self, lib: &Symbol) -> Vec<CompletionItem> {
+        let Some(lib) = self.get_lib(lib) else {
             return vec![];
         };
-        lib.keys()
-            .filter_map(|key| match key {
-                UnitKey::Primary(prim) => Some(prim.name().to_string()),
-                UnitKey::Secondary(_, _) => None,
-            })
+        lib.primary_units()
+            .filter_map(|it| it.unit.get().and_then(|unit| unit.ent_id()))
+            .map(|id| CompletionItem::Simple(self.get_ent(id)))
             .collect()
     }
 
     /// Lists all available declarations for a primary unit inside a given library
     /// If the library does not exist or there is no primary unit with the given name for that library,
     /// return an empty vector
-    fn list_available_declarations(&self, lib: &Symbol, primary_unit: &Symbol) -> Vec<String> {
-        let Some(lib) = self.get_library_units(lib) else {
+    fn list_available_declarations(
+        &self,
+        lib: &Symbol,
+        primary_unit: &Symbol,
+    ) -> Vec<CompletionItem> {
+        let Some(unit) = self
+            .get_lib(lib)
+            .and_then(|lib| lib.primary_unit(primary_unit))
+            .and_then(|unit| unit.unit.get())
+        else {
             return vec![];
         };
-        let Some(unit) = lib.get(&UnitKey::Primary(primary_unit.clone())) else {
-            return vec![];
-        };
-        let unit = unit.unit.get();
-        match unit.unwrap().to_owned() {
-            AnyDesignUnit::Primary(AnyPrimaryUnit::Package(pkg)) => pkg
-                .decl
-                .iter()
-                .filter_map(declaration_to_string)
-                .unique()
-                .chain(vec!["all".to_string()])
-                .collect_vec(),
+
+        match unit.data() {
+            AnyDesignUnit::Primary(AnyPrimaryUnit::Package(pkg)) => {
+                let Some(pkg_id) = pkg.ident.decl else {
+                    return Vec::default();
+                };
+                let ent = self.get_ent(pkg_id);
+                match &ent.kind {
+                    Design(crate::analysis::Design::Package(_, region)) => region
+                        .entities
+                        .values()
+                        .map(|named_ent| match named_ent {
+                            NamedEntities::Single(ent) => CompletionItem::Simple(ent),
+                            NamedEntities::Overloaded(overloaded) => match overloaded.as_unique() {
+                                None => CompletionItem::Overloaded(
+                                    overloaded.designator().clone(),
+                                    overloaded.len(),
+                                ),
+                                Some(ent_ref) => CompletionItem::Simple(ent_ref),
+                            },
+                        })
+                        .chain(once(CompletionItem::Keyword(All)))
+                        .collect(),
+                    _ => Vec::default(),
+                }
+            }
             _ => Vec::default(),
         }
     }
 
-    pub fn list_completion_options(&self, source: &Source, cursor: Position) -> Vec<String> {
+    /// Main entry point for completion. Given a source-file and a cursor position,
+    /// lists available completion options at the cursor position.
+    pub fn list_completion_options(
+        &self,
+        source: &Source,
+        cursor: Position,
+    ) -> Vec<CompletionItem> {
         let tokens = tokenize_input(&self.symbols, source, cursor);
         match &tokens[..] {
             [.., kind!(Library)] | [.., kind!(Use)] | [.., kind!(Use), kind!(Identifier)] => {
@@ -341,14 +364,9 @@ impl DesignRoot {
                 self.list_available_declarations(library, selected)
             }
             _ => {
-                let mut completions = vec![];
-                let mut visitor = AutocompletionVisitor {
-                    completions: &mut completions,
-                    root: self,
-                    cursor,
-                };
+                let mut visitor = AutocompletionVisitor::new(self, cursor, tokens);
                 self.walk(&mut visitor);
-                completions
+                visitor.completions
             }
         }
     }
@@ -426,16 +444,20 @@ mod test {
         let (root, _) = LibraryBuilder::new().get_analyzed_root();
         let code = Code::new("use std.");
         let cursor = code.pos().end();
-        let mut options = root.list_completion_options(code.source(), cursor);
-        options.sort();
-        assert_eq!(options, vec!["env", "standard", "textio"]);
+        let options = root.list_completion_options(code.source(), cursor);
+        assert!(options.contains(&CompletionItem::Simple(root.find_textio_pkg())));
+        assert!(options.contains(&CompletionItem::Simple(root.find_standard_pkg())));
+        assert!(options.contains(&CompletionItem::Simple(root.find_env_pkg())));
+        assert_eq!(options.len(), 3);
 
         let code = Code::new("use std.t");
         let cursor = code.pos().end();
-        let mut options = root.list_completion_options(code.source(), cursor);
-        options.sort();
+        let options = root.list_completion_options(code.source(), cursor);
         // Note that the filtering only happens at client side
-        assert_eq!(options, vec!["env", "standard", "textio"]);
+        assert!(options.contains(&CompletionItem::Simple(root.find_textio_pkg())));
+        assert!(options.contains(&CompletionItem::Simple(root.find_standard_pkg())));
+        assert!(options.contains(&CompletionItem::Simple(root.find_env_pkg())));
+        assert_eq!(options.len(), 3);
     }
 
     #[test]
@@ -445,7 +467,21 @@ mod test {
         let (root, _) = input.get_analyzed_root();
         let cursor = code.pos().end();
         let options = root.list_completion_options(code.source(), cursor);
-        assert_eq!(options, vec!["stop", "finish", "resolution_limit", "all"])
+        println!("{:?}", options);
+
+        assert!(options.contains(&CompletionItem::Overloaded(
+            Designator::Identifier(root.symbol_utf8("stop")),
+            2
+        )));
+        assert!(options.contains(&CompletionItem::Overloaded(
+            Designator::Identifier(root.symbol_utf8("finish")),
+            2
+        )));
+        assert!(options.contains(&CompletionItem::Simple(
+            root.find_env_symbol("resolution_limit"),
+        )));
+        assert!(options.contains(&CompletionItem::Keyword(All)));
+        assert_eq!(options.len(), 4);
     }
 
     #[test]
@@ -454,40 +490,67 @@ mod test {
         let code = input.code(
             "libname",
             "\
-entity my_ent is
-end entity my_ent;
+    entity my_ent is
+    end entity my_ent;
 
-architecture arch of my_ent is
-    component comp is
-    generic (
-      A: natural := 5;
-      B: integer
-    );
-    port (
-      clk : in bit;
-      rst : in bit;
-      dout : out bit
-    );
-    end component comp;
-    signal clk, rst: bit;
-begin
-    comp_inst: comp
-    generic map (
-        A => 2
-    )
-    port map (
-        clk => clk
-    );
-end arch;
-        ",
+    architecture arch of my_ent is
+        component comp is
+        generic (
+          A: natural := 5;
+          B: integer
+        );
+        port (
+          clk : in bit;
+          rst : in bit;
+          dout : out bit
+        );
+        end component comp;
+        signal clk, rst: bit;
+    begin
+        comp_inst: comp
+        generic map (
+            A => 2
+        )
+        port map (
+            clk => clk
+        );
+    end arch;
+            ",
         );
         let (root, _) = input.get_analyzed_root();
         let cursor = code.s1("generic map (").pos().end();
         let options = root.list_completion_options(code.source(), cursor);
-        assert_eq!(options, vec!["B"]);
+        let ent = root
+            .search_reference(code.source(), code.s1("B").start())
+            .unwrap();
+        assert_eq!(options, vec![CompletionItem::Formal(ent)]);
+
+        let rst = root
+            .search_reference(code.source(), code.s1("rst").start())
+            .unwrap();
+
+        let dout = root
+            .search_reference(code.source(), code.s1("dout").start())
+            .unwrap();
 
         let cursor = code.s1("port map (").pos().end();
         let options = root.list_completion_options(code.source(), cursor);
-        assert_eq!(options, vec!["rst", "dout"]);
+        assert!(options.contains(&CompletionItem::Formal(rst)));
+        assert!(options.contains(&CompletionItem::Formal(dout)));
+        assert_eq!(options.len(), 2);
+        let cursor = code
+            .s1("port map (
+            clk =>")
+            .pos()
+            .end();
+        let options = root.list_completion_options(code.source(), cursor);
+        assert_eq!(options.len(), 0);
+        let cursor = code
+            .s1("port map (
+            clk => c")
+            .pos()
+            .end();
+        let options = root.list_completion_options(code.source(), cursor);
+        assert_eq!(options.len(), 0);
     }
 }

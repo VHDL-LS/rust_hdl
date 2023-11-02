@@ -4,11 +4,11 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use crate::analysis::{AnyEnt, DesignRoot, EntRef};
+use crate::analysis::{AnyEnt, CompletionItem, DesignRoot, EntRef};
 use crate::ast::DesignFile;
 use crate::config::Config;
 use crate::syntax::VHDLParser;
-use crate::{data::*, EntHierarchy};
+use crate::{data::*, EntHierarchy, EntityId};
 use fnv::{FnvHashMap, FnvHashSet};
 use std::collections::hash_map::Entry;
 use std::path::{Path, PathBuf};
@@ -278,6 +278,11 @@ impl Project {
         self.root.format_declaration(ent)
     }
 
+    pub fn format_entity(&self, id: EntityId) -> Option<String> {
+        let ent = self.root.get_ent(id);
+        self.format_declaration(ent)
+    }
+
     /// Search for all references to the declaration at decl_pos
     pub fn find_all_references(&self, ent: &AnyEnt) -> Vec<SrcPos> {
         self.root.find_all_references(ent)
@@ -293,7 +298,11 @@ impl Project {
         self.files.values()
     }
 
-    pub fn list_completion_options(&self, source: &Source, cursor: Position) -> Vec<String> {
+    pub fn list_completion_options(
+        &self,
+        source: &Source,
+        cursor: Position,
+    ) -> Vec<CompletionItem> {
         self.root.list_completion_options(source, cursor)
     }
 }

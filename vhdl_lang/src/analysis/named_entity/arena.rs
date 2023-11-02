@@ -275,4 +275,16 @@ impl EntityId {
     fn local_id(&self) -> LocalId {
         LocalId((self.id & (u32::MAX as usize)) as u32)
     }
+
+    /// Returns an `EntityId` from a raw `usize` value
+    /// for deserialization purposes.
+    pub fn from_raw(id: usize) -> EntityId {
+        EntityId { id }
+    }
+
+    /// Converts an `EntityId` to a raw `usize` value
+    /// for serialization purposes.
+    pub fn to_raw(&self) -> usize {
+        self.id
+    }
 }

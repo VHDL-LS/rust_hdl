@@ -84,7 +84,7 @@ impl HasIdent for LockedUnit {
 /// Represents a VHDL library containing zero or more design units.
 ///
 /// This struct also keeps track of which source file contained which design units.
-struct Library {
+pub struct Library {
     name: Symbol,
 
     /// Arena is only used to store the AnyEnt for the library itself
@@ -252,6 +252,21 @@ impl Library {
     fn get_unit(&self, key: &UnitKey) -> Option<&LockedUnit> {
         self.units.get(key)
     }
+
+    pub fn id(&self) -> EntityId {
+        self.id
+    }
+
+    pub(super) fn primary_units(&self) -> impl Iterator<Item = &LockedUnit> {
+        self.units.iter().filter_map(|(key, value)| match key {
+            UnitKey::Primary(_) => Some(value),
+            UnitKey::Secondary(_, _) => None,
+        })
+    }
+
+    pub(super) fn primary_unit(&self, symbol: &Symbol) -> Option<&LockedUnit> {
+        self.units.get(&UnitKey::Primary(symbol.clone()))
+    }
 }
 
 /// Contains the entire design state.
@@ -328,6 +343,14 @@ impl DesignRoot {
     /// Iterates over all available library symbols.
     pub fn available_libraries(&self) -> impl Iterator<Item = &Symbol> {
         self.libraries.keys()
+    }
+
+    pub fn libraries(&self) -> impl Iterator<Item = &Library> {
+        self.libraries.values()
+    }
+
+    pub fn get_lib(&self, sym: &Symbol) -> Option<&Library> {
+        self.libraries.get(sym)
     }
 
     pub(crate) fn get_design_entity<'a>(
@@ -545,12 +568,11 @@ impl DesignRoot {
     }
 
     #[cfg(test)]
-    pub fn find_standard_pkg(&self) -> &AnyEnt {
+    fn find_std_package(&self, symbol: &str) -> &AnyEnt {
         let std_lib = self.libraries.get(&self.symbol_utf8("std")).unwrap();
         let unit = std_lib
-            .get_unit(&UnitKey::Primary(self.symbol_utf8("standard")))
+            .get_unit(&UnitKey::Primary(self.symbol_utf8(symbol)))
             .unwrap();
-
         if let AnyPrimaryUnit::Package(pkg) = unit.unit.write().as_primary_mut().unwrap() {
             self.get_ent(pkg.ident.decl.unwrap())
         } else {
@@ -559,13 +581,54 @@ impl DesignRoot {
     }
 
     #[cfg(test)]
+    pub fn find_standard_pkg(&self) -> &AnyEnt {
+        self.find_std_package("standard")
+    }
+
+    #[cfg(test)]
+    pub fn find_textio_pkg(&self) -> &AnyEnt {
+        self.find_std_package("textio")
+    }
+
+    #[cfg(test)]
+    pub fn find_env_pkg(&self) -> &AnyEnt {
+        self.find_std_package("env")
+    }
+
+    #[cfg(test)]
     pub fn find_standard_symbol(&self, name: &str) -> &AnyEnt {
-        if let AnyEntKind::Design(Design::Package(_, region)) = self.find_standard_pkg().kind() {
-            region
-                .lookup_immediate(&Designator::Identifier(self.symbol_utf8(name)))
-                .unwrap()
-                .as_non_overloaded()
-                .unwrap()
+        self.find_std_symbol("standard", name)
+    }
+
+    #[cfg(test)]
+    pub fn find_env_symbol(&self, name: &str) -> &AnyEnt {
+        self.find_std_symbol("env", name)
+    }
+
+    #[cfg(test)]
+    pub fn find_overloaded_env_symbols(&self, name: &str) -> &NamedEntities {
+        self.find_std_symbols("env", name)
+    }
+
+    #[cfg(test)]
+    fn find_std_symbol(&self, package: &str, name: &str) -> &AnyEnt {
+        if let AnyEntKind::Design(Design::Package(_, region)) =
+            self.find_std_package(package).kind()
+        {
+            let sym = region.lookup_immediate(&Designator::Identifier(self.symbol_utf8(name)));
+            sym.unwrap().first()
+        } else {
+            panic!("Not a package");
+        }
+    }
+
+    #[cfg(test)]
+    fn find_std_symbols(&self, package: &str, name: &str) -> &NamedEntities {
+        if let AnyEntKind::Design(Design::Package(_, region)) =
+            self.find_std_package(package).kind()
+        {
+            let sym = region.lookup_immediate(&Designator::Identifier(self.symbol_utf8(name)));
+            sym.unwrap()
         } else {
             panic!("Not a package");
         }

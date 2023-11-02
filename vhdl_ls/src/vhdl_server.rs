@@ -15,8 +15,8 @@ use crate::rpc_channel::SharedRpcChannel;
 use std::io;
 use std::path::{Path, PathBuf};
 use vhdl_lang::{
-    AnyEntKind, Concurrent, Config, Diagnostic, EntHierarchy, EntRef, Message, MessageHandler,
-    Object, Overloaded, Project, Severity, Source, SrcPos, Type,
+    kind_str, AnyEntKind, Concurrent, Config, Diagnostic, EntHierarchy, EntRef, EntityId, Message,
+    MessageHandler, Object, Overloaded, Project, Severity, Source, SrcPos, Type,
 };
 
 #[derive(Default, Clone)]
@@ -130,11 +130,12 @@ impl VHDLServer {
             workspace_symbol_provider: Some(OneOf::Left(true)),
             document_symbol_provider: Some(OneOf::Left(true)),
             completion_provider: Some(CompletionOptions {
-                resolve_provider: Some(false),
+                resolve_provider: Some(true),
                 trigger_characters: Some(trigger_chars),
-                all_commit_characters: None,
-                work_done_progress_options: Default::default(),
-                completion_item: Default::default(),
+                completion_item: Some(CompletionOptionsCompletionItem {
+                    label_details_support: Some(true),
+                }),
+                ..Default::default()
             }),
             ..Default::default()
         };
@@ -260,6 +261,41 @@ impl VHDLServer {
         }
     }
 
+    fn completion_item_to_lsp_item(
+        &self,
+        item: vhdl_lang::CompletionItem,
+    ) -> lsp_types::CompletionItem {
+        match item {
+            vhdl_lang::CompletionItem::Simple(ent) => entity_to_completion_item(ent),
+            vhdl_lang::CompletionItem::Formal(ent) => {
+                let mut item = entity_to_completion_item(ent);
+                if self.client_supports_snippets() {
+                    item.insert_text_format = Some(InsertTextFormat::SNIPPET);
+                    item.insert_text = Some(format!("{} => $1,", item.insert_text.unwrap()));
+                }
+                item
+            }
+            vhdl_lang::CompletionItem::Overloaded(desi, count) => CompletionItem {
+                label: desi.to_string(),
+                detail: Some(format!("+{count} overloaded")),
+                kind: match desi {
+                    Designator::Identifier(_) => Some(CompletionItemKind::FUNCTION),
+                    Designator::OperatorSymbol(_) => Some(CompletionItemKind::OPERATOR),
+                    _ => None,
+                },
+                insert_text: Some(desi.to_string()),
+                ..Default::default()
+            },
+            vhdl_lang::CompletionItem::Keyword(kind) => CompletionItem {
+                label: kind_str(kind).to_string(),
+                detail: Some(kind_str(kind).to_string()),
+                insert_text: Some(kind_str(kind).to_string()),
+                kind: Some(CompletionItemKind::KEYWORD),
+                ..Default::default()
+            },
+        }
+    }
+
     /// Called when the client requests a completion.
     /// This function looks in the source code to find suitable options and then returns them
     pub fn request_completion(&mut self, params: &CompletionParams) -> CompletionList {
@@ -284,16 +320,31 @@ impl VHDLServer {
             .project
             .list_completion_options(&source, cursor)
             .into_iter()
-            .map(|option| CompletionItem {
-                label: option,
-                ..Default::default()
-            })
+            .map(|item| self.completion_item_to_lsp_item(item))
             .collect();
 
         CompletionList {
             items: options,
             is_incomplete: true,
         }
+    }
+
+    pub fn resolve_completion_item(&mut self, params: &CompletionItem) -> CompletionItem {
+        let mut params = params.clone();
+        let eid = params
+            .data
+            .clone()
+            .and_then(|val| serde_json::from_value::<usize>(val).ok())
+            .map(EntityId::from_raw);
+        if let Some(id) = eid {
+            if let Some(text) = self.project.format_entity(id) {
+                params.documentation = Some(Documentation::MarkupContent(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value: format!("```vhdl\n{text}\n```"),
+                }));
+            }
+        }
+        params
     }
 
     fn client_supports_related_information(&self) -> bool {
@@ -320,6 +371,22 @@ impl VHDLServer {
                 .did_change_watched_files
                 .as_ref()?
                 .dynamic_registration
+        };
+        try_fun().unwrap_or(false)
+    }
+
+    fn client_supports_snippets(&self) -> bool {
+        let try_fun = || {
+            self.init_params
+                .as_ref()?
+                .capabilities
+                .text_document
+                .as_ref()?
+                .completion
+                .as_ref()?
+                .completion_item
+                .as_ref()?
+                .snippet_support
         };
         try_fun().unwrap_or(false)
     }
@@ -647,6 +714,49 @@ impl VHDLServer {
 
     fn message(&self, msg: Message) {
         self.message_filter().push(msg);
+    }
+}
+
+fn entity_to_completion_item(ent: EntRef) -> CompletionItem {
+    CompletionItem {
+        label: ent.designator.to_string(),
+        detail: Some(ent.describe()),
+        kind: Some(entity_kind_to_completion_kind(ent.kind())),
+        data: serde_json::to_value(ent.id.to_raw()).ok(),
+        insert_text: Some(ent.designator.to_string()),
+        ..Default::default()
+    }
+}
+
+fn entity_kind_to_completion_kind(kind: &AnyEntKind) -> CompletionItemKind {
+    match kind {
+        AnyEntKind::ExternalAlias { .. } | AnyEntKind::ObjectAlias { .. } => {
+            CompletionItemKind::FIELD
+        }
+        AnyEntKind::File(_) | AnyEntKind::InterfaceFile(_) => CompletionItemKind::FILE,
+        AnyEntKind::Component(_) => CompletionItemKind::MODULE,
+        AnyEntKind::Attribute(_) => CompletionItemKind::REFERENCE,
+        AnyEntKind::Overloaded(overloaded) => match overloaded {
+            Overloaded::SubprogramDecl(_)
+            | Overloaded::Subprogram(_)
+            | Overloaded::InterfaceSubprogram(_) => CompletionItemKind::FUNCTION,
+            Overloaded::EnumLiteral(_) => CompletionItemKind::ENUM_MEMBER,
+            Overloaded::Alias(_) => CompletionItemKind::FIELD,
+        },
+        AnyEntKind::Type(_) => CompletionItemKind::TYPE_PARAMETER,
+        AnyEntKind::ElementDeclaration(_) => CompletionItemKind::FIELD,
+        AnyEntKind::Concurrent(_) => CompletionItemKind::MODULE,
+        AnyEntKind::Sequential(_) => CompletionItemKind::MODULE,
+        AnyEntKind::Object(object) => match object.class {
+            ObjectClass::Signal => CompletionItemKind::EVENT,
+            ObjectClass::Constant => CompletionItemKind::CONSTANT,
+            ObjectClass::Variable | ObjectClass::SharedVariable => CompletionItemKind::VARIABLE,
+        },
+        AnyEntKind::LoopParameter(_) => CompletionItemKind::MODULE,
+        AnyEntKind::PhysicalLiteral(_) => CompletionItemKind::UNIT,
+        AnyEntKind::DeferredConstant(_) => CompletionItemKind::CONSTANT,
+        AnyEntKind::Library => CompletionItemKind::MODULE,
+        AnyEntKind::Design(_) => CompletionItemKind::MODULE,
     }
 }
 

@@ -23,9 +23,10 @@ pub use crate::data::{
     NullDiagnostics, NullMessages, Position, Range, Severity, Source, SrcPos,
 };
 
+pub use crate::analysis::CompletionItem;
 pub use crate::analysis::{
     AnyEnt, AnyEntKind, Concurrent, Design, EntHierarchy, EntRef, EntityId, Object, Overloaded,
     Type,
 };
 pub use crate::project::{Project, SourceFile};
-pub use crate::syntax::{ParserResult, VHDLParser};
+pub use crate::syntax::{kind_str, ParserResult, VHDLParser};

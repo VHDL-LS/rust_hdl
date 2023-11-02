@@ -1069,7 +1069,7 @@ pub struct MapAspect {
 
 impl MapAspect {
     /// Returns an iterator over the formal elements of this map
-    pub fn formals(&self) -> impl Iterator<Item = &Designator> {
+    pub fn formals(&self) -> impl Iterator<Item = &Option<EntityId>> {
         self.list.formals()
     }
 
@@ -1172,11 +1172,11 @@ impl<T> Default for SeparatedList<T> {
 
 impl SeparatedList<AssociationElement> {
     /// Returns an iterator over the formal elements of this list
-    pub fn formals(&self) -> impl Iterator<Item = &Designator> {
+    pub fn formals(&self) -> impl Iterator<Item = &Option<EntityId>> {
         self.items.iter().filter_map(|el| match &el.formal {
             None => None,
             Some(name) => match &name.item {
-                Name::Designator(desi) => Some(&desi.item),
+                Name::Designator(desi) => Some(&desi.reference),
                 _ => None,
             },
         })
