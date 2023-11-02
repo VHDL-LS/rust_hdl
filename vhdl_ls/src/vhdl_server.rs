@@ -334,7 +334,8 @@ impl VHDLServer {
         let eid = params
             .data
             .clone()
-            .and_then(|val| serde_json::from_value::<EntityId>(val).ok());
+            .and_then(|val| serde_json::from_value::<usize>(val).ok())
+            .map(|raw_id| EntityId::from_raw(raw_id));
         if let Some(id) = eid {
             if let Some(text) = self.project.format_entity(id) {
                 params.documentation = Some(Documentation::MarkupContent(MarkupContent {
@@ -721,7 +722,7 @@ fn entity_to_completion_item(ent: EntRef) -> CompletionItem {
         label: ent.designator.to_string(),
         detail: Some(ent.describe()),
         kind: Some(entity_kind_to_completion_kind(ent.kind())),
-        data: serde_json::to_value(ent.id).ok(),
+        data: serde_json::to_value(ent.id.to_raw()).ok(),
         insert_text: Some(ent.designator.to_string()),
         ..Default::default()
     }

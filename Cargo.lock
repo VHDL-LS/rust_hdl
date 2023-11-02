@@ -923,7 +923,6 @@ dependencies = [
  "pinned_vec",
  "pretty_assertions",
  "rayon",
- "serde",
  "tempfile",
  "toml",
 ]

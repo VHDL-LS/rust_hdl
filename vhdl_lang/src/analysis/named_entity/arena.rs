@@ -11,7 +11,6 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 use fnv::FnvHashMap;
-use serde::{Deserialize, Serialize};
 
 use crate::ast::Designator;
 use crate::SrcPos;
@@ -251,7 +250,7 @@ impl Arena {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct EntityId {
     id: usize,
 }
@@ -275,5 +274,17 @@ impl EntityId {
 
     fn local_id(&self) -> LocalId {
         LocalId((self.id & (u32::MAX as usize)) as u32)
+    }
+
+    /// Returns an `EntityId` from a raw `usize` value
+    /// for serialization / deserialization purposes.
+    pub fn from_raw(id: usize) -> EntityId {
+        EntityId { id }
+    }
+
+    /// Converts an `EntityId` to a raw `usize` representation
+    /// for serialization purposes.
+    pub fn to_raw(&self) -> usize {
+        self.id
     }
 }
