@@ -804,6 +804,14 @@ pub trait Visitor {
     fn visit_map_aspect(&mut self, _node: &MapAspect, _ctx: &dyn TokenAccess) -> VisitorResult {
         Continue
     }
+
+    fn visit_subprogram_instantiation(
+        &mut self,
+        _node: &SubprogramInstantiation,
+        _ctx: &dyn TokenAccess,
+    ) -> VisitorResult {
+        Continue
+    }
 }
 
 /// An AST Node has two methods it needs to declare:
@@ -1181,7 +1189,23 @@ impl ASTNode for Declaration {
             Declaration::Use(decl) => vec![decl],
             Declaration::Package(decl) => vec![decl],
             Declaration::Configuration(decl) => vec![decl],
+            Declaration::SubprogramInstantiation(decl) => vec![decl],
         }
+    }
+}
+
+impl ASTNode for SubprogramInstantiation {
+    fn visit(&self, visitor: &mut dyn Visitor, ctx: &dyn TokenAccess) -> VisitorResult {
+        visitor.visit_subprogram_instantiation(self, ctx)
+    }
+
+    fn children(&self) -> Vec<&dyn ASTNode> {
+        vec![
+            &self.ident,
+            &self.subprogram_name,
+            &self.signature,
+            &self.generic_map,
+        ]
     }
 }
 
