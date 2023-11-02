@@ -476,6 +476,18 @@ impl<T: AsRef<SrcPos>> AsRef<SrcPos> for WithDecl<T> {
     }
 }
 
+#[derive(PartialEq, Debug, Clone)]
+pub struct WithToken<T> {
+    item: T,
+    token: TokenId,
+}
+
+impl<T> WithToken<T> {
+    pub fn new(item: T, token: TokenId) -> WithToken<T> {
+        WithToken { item, token }
+    }
+}
+
 /// LRM 6.6 Alias declarations
 #[derive(PartialEq, Debug, Clone)]
 pub struct AliasDeclaration {
@@ -684,6 +696,23 @@ pub struct SubprogramHeader {
     pub generic_tok: TokenId,
     pub generic_list: Vec<InterfaceDeclaration>,
     pub map_aspect: Option<MapAspect>,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum SubprogramKind {
+    Function,
+    Procedure,
+}
+
+/// LRM 4.4 Subprogram Instantiation Statement
+#[derive(PartialEq, Debug, Clone)]
+pub struct SubprogramInstantiation {
+    pub kind: WithToken<SubprogramKind>,
+    pub ident: WithDecl<Ident>,
+    pub subprogram_name: WithPos<Name>,
+    pub signature: Option<Signature>,
+    pub generic_map: Option<MapAspect>,
+    pub semi: TokenId,
 }
 
 /// LRM 4.5.3 Signatures
