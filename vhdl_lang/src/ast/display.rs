@@ -863,6 +863,43 @@ impl Display for SubprogramDeclaration {
     }
 }
 
+impl Display for SubprogramInstantiation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self.kind.item {
+            SubprogramKind::Function => write!(f, "function ")?,
+            SubprogramKind::Procedure => write!(f, "procedure ")?,
+        };
+        write!(f, "{}", self.ident)?;
+        write!(f, " is new ")?;
+        write!(f, "{}", self.subprogram_name)?;
+        if let Some(signature) = &self.signature {
+            write!(f, " {}", signature)?;
+        }
+        if let Some(generic_map) = &self.generic_map {
+            write!(f, " generic map (\n{}\n)", generic_map.list)?;
+        }
+        write!(f, ";")
+    }
+}
+
+impl<T> Display for SeparatedList<T>
+where
+    T: Display,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        let mut first = true;
+        for assoc in &self.items {
+            if first {
+                write!(f, "\n    {assoc}")?;
+            } else {
+                write!(f, ",\n    {assoc}")?;
+            }
+            first = false;
+        }
+        Ok(())
+    }
+}
+
 impl Display for InterfaceFileDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "file {} : {}", self.ident, self.subtype_indication)

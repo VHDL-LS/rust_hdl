@@ -251,12 +251,18 @@ pub fn parse_subprogram(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Declaration> {
+    let state = stream.state();
     let specification = parse_subprogram_declaration_no_semi(stream, diagnostics)?;
     expect_token!(
         stream,
         token,
         Is => {
-            Ok(Declaration::SubprogramBody(parse_subprogram_body(stream, specification, diagnostics)?))
+            if stream.next_kind_is(New) {
+                stream.set_state(state);
+                Ok(Declaration::SubprogramInstantiation(parse_subprogram_instantiation(stream, diagnostics)?))
+            } else {
+                Ok(Declaration::SubprogramBody(parse_subprogram_body(stream, specification, diagnostics)?))
+            }
         },
         SemiColon => {
             Ok(Declaration::SubprogramDeclaration(specification))
@@ -893,6 +899,23 @@ end procedure swap;
                 generic_map: Some(code.s1("generic map (z => z, x => y)").generic_map_aspect()),
                 semi: code.s1(";").token()
             }
+        );
+    }
+
+    #[test]
+    pub fn subprogram_declaration() {
+        let code = Code::new("procedure my_proc is new proc;");
+        let inst = code.parse_ok_no_diagnostics(parse_subprogram);
+        assert_eq!(
+            inst,
+            Declaration::SubprogramInstantiation(SubprogramInstantiation {
+                kind: WithToken::new(SubprogramKind::Procedure, code.s1("procedure").token()),
+                ident: code.s1("my_proc").decl_ident(),
+                subprogram_name: code.s1("new proc").s1("proc").name(),
+                signature: None,
+                generic_map: None,
+                semi: code.s1(";").token()
+            })
         );
     }
 }

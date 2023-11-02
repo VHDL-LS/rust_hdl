@@ -11,7 +11,7 @@ use crate::ast::{
     AttributeDeclaration, AttributeSpecification, ComponentDeclaration, Declaration, Designator,
     FileDeclaration, HasIdent, Ident, InterfaceFileDeclaration, InterfacePackageDeclaration,
     ObjectClass, ObjectDeclaration, PackageInstantiation, SubprogramBody, SubprogramDeclaration,
-    TypeDeclaration, WithDecl,
+    SubprogramInstantiation, TypeDeclaration, WithDecl,
 };
 use crate::ast::{ExternalObjectClass, InterfaceDeclaration, InterfaceObjectDeclaration};
 use crate::data::*;
@@ -527,10 +527,17 @@ impl HasEntityId for Declaration {
             Declaration::Alias(alias) => alias.ent_id(),
             Declaration::SubprogramDeclaration(decl) => decl.ent_id(),
             Declaration::SubprogramBody(body) => body.ent_id(),
+            Declaration::SubprogramInstantiation(decl) => decl.ent_id(),
             Declaration::Package(pkg) => pkg.ent_id(),
             Declaration::Use(_) => None,
             Declaration::Configuration(_) => None,
         }
+    }
+}
+
+impl HasEntityId for SubprogramInstantiation {
+    fn ent_id(&self) -> Option<EntityId> {
+        self.ident.decl
     }
 }
 

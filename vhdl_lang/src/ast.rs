@@ -809,6 +809,7 @@ pub enum Declaration {
     Attribute(Attribute),
     Alias(AliasDeclaration),
     SubprogramDeclaration(SubprogramDeclaration),
+    SubprogramInstantiation(SubprogramInstantiation),
     SubprogramBody(SubprogramBody),
     Use(UseClause),
     Package(PackageInstantiation),

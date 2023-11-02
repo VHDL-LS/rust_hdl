@@ -57,6 +57,7 @@ pub enum FoundDeclaration<'a> {
     Alias(&'a mut AliasDeclaration),
     Function(&'a mut FunctionSpecification),
     Procedure(&'a mut ProcedureSpecification),
+    SubprogramInstantiation(&'a mut SubprogramInstantiation),
     Package(&'a mut PackageDeclaration),
     PackageBody(&'a mut PackageBody),
     PackageInstance(&'a mut PackageInstantiation),
@@ -1012,6 +1013,9 @@ impl Search for Declaration {
             Declaration::SubprogramDeclaration(decl) => {
                 return_if_found!(decl.search(ctx, searcher));
             }
+            Declaration::SubprogramInstantiation(decl) => {
+                return_if_found!(decl.search(ctx, searcher));
+            }
             Declaration::Attribute(Attribute::Declaration(decl)) => {
                 return_if_found!(searcher
                     .search_decl(ctx, FoundDeclaration::Attribute(decl))
@@ -1358,6 +1362,19 @@ impl Search for MapAspect {
     }
 }
 
+impl Search for SubprogramInstantiation {
+    fn search(&mut self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
+        return_if_found!(searcher
+            .search_decl(ctx, FoundDeclaration::SubprogramInstantiation(self))
+            .or_not_found());
+        return_if_found!(self.subprogram_name.search(ctx, searcher));
+        if let Some(signature) = &mut self.signature {
+            return_if_found!(signature.item.search(ctx, searcher));
+        }
+        self.generic_map.search(ctx, searcher)
+    }
+}
+
 // Search for reference to declaration/definition at cursor
 pub struct ItemAtCursor {
     source: Source,
@@ -1670,6 +1687,7 @@ impl<'a> FoundDeclaration<'a> {
             FoundDeclaration::GenerateBody(..) => None,
             FoundDeclaration::ConcurrentStatement(..) => None,
             FoundDeclaration::SequentialStatement(..) => None,
+            FoundDeclaration::SubprogramInstantiation(_) => None,
         }
     }
 }
@@ -1682,6 +1700,7 @@ impl<'a> HasEntityId for FoundDeclaration<'a> {
             FoundDeclaration::ForGenerateIndex(_, value) => value.index_name.decl,
             FoundDeclaration::Function(value) => value.designator.decl,
             FoundDeclaration::Procedure(value) => value.designator.decl,
+            FoundDeclaration::SubprogramInstantiation(value) => value.ident.decl,
             FoundDeclaration::Object(value) => value.ident.decl,
             FoundDeclaration::ElementDeclaration(elem) => elem.ident.decl,
             FoundDeclaration::EnumerationLiteral(_, elem) => elem.decl,
@@ -1716,6 +1735,7 @@ impl<'a> HasSrcPos for FoundDeclaration<'a> {
             FoundDeclaration::ForIndex(ident, _) => ident.pos(),
             FoundDeclaration::ForGenerateIndex(_, value) => value.index_name.pos(),
             FoundDeclaration::Function(value) => &value.designator.tree.pos,
+            FoundDeclaration::SubprogramInstantiation(value) => &value.ident.tree.pos,
             FoundDeclaration::Procedure(value) => &value.designator.tree.pos,
             FoundDeclaration::Object(value) => value.ident.pos(),
             FoundDeclaration::ElementDeclaration(elem) => elem.ident.pos(),
@@ -1760,6 +1780,9 @@ impl std::fmt::Display for FoundDeclaration<'_> {
                 None => write!(f, "{value}"),
             },
             FoundDeclaration::Function(ref value) => {
+                write!(f, "{value};")
+            }
+            FoundDeclaration::SubprogramInstantiation(ref value) => {
                 write!(f, "{value};")
             }
             FoundDeclaration::Procedure(ref value) => {
