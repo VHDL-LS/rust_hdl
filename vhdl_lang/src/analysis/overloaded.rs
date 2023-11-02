@@ -449,7 +449,7 @@ mod tests {
                 &fcall.pos,
                 &des,
                 &mut fcall.item.parameters,
-                SubprogramKind::Function(ttyp),
+                crate::analysis::overloaded::SubprogramKind::Function(ttyp),
                 overloaded.entities().collect(),
                 diagnostics,
             ))

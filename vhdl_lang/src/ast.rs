@@ -710,7 +710,7 @@ pub struct SubprogramInstantiation {
     pub kind: WithToken<SubprogramKind>,
     pub ident: WithDecl<Ident>,
     pub subprogram_name: WithPos<Name>,
-    pub signature: Option<Signature>,
+    pub signature: Option<WithPos<Signature>>,
     pub generic_map: Option<MapAspect>,
     pub semi: TokenId,
 }
