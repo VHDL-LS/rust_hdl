@@ -251,18 +251,19 @@ pub fn parse_subprogram(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Declaration> {
-    let state = stream.state();
+    if stream.next_kinds_are(&[Procedure, Identifier, Is, New])
+        || stream.next_kinds_are(&[Function, Identifier, Is, New])
+    {
+        return Ok(Declaration::SubprogramInstantiation(
+            parse_subprogram_instantiation(stream, diagnostics)?,
+        ));
+    }
     let specification = parse_subprogram_declaration_no_semi(stream, diagnostics)?;
     expect_token!(
         stream,
         token,
         Is => {
-            if stream.next_kind_is(New) {
-                stream.set_state(state);
-                Ok(Declaration::SubprogramInstantiation(parse_subprogram_instantiation(stream, diagnostics)?))
-            } else {
-                Ok(Declaration::SubprogramBody(parse_subprogram_body(stream, specification, diagnostics)?))
-            }
+            Ok(Declaration::SubprogramBody(parse_subprogram_body(stream, specification, diagnostics)?))
         },
         SemiColon => {
             Ok(Declaration::SubprogramDeclaration(specification))
@@ -912,6 +913,20 @@ end procedure swap;
                 kind: WithToken::new(SubprogramKind::Procedure, code.s1("procedure").token()),
                 ident: code.s1("my_proc").decl_ident(),
                 subprogram_name: code.s1("new proc").s1("proc").name(),
+                signature: None,
+                generic_map: None,
+                semi: code.s1(";").token()
+            })
+        );
+
+        let code = Code::new("function my_func is new func;");
+        let inst = code.parse_ok_no_diagnostics(parse_subprogram);
+        assert_eq!(
+            inst,
+            Declaration::SubprogramInstantiation(SubprogramInstantiation {
+                kind: WithToken::new(SubprogramKind::Function, code.s1("function").token()),
+                ident: code.s1("my_func").decl_ident(),
+                subprogram_name: code.s1("new func").s1("func").name(),
                 signature: None,
                 generic_map: None,
                 semi: code.s1(";").token()
