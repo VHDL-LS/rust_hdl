@@ -876,28 +876,28 @@ impl Display for SubprogramInstantiation {
             write!(f, " {}", signature)?;
         }
         if let Some(generic_map) = &self.generic_map {
-            write!(f, " generic map (\n{}\n)", generic_map.list)?;
-        }
-        write!(f, ";")
-    }
-}
-
-impl<T> Display for SeparatedList<T>
-where
-    T: Display,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        let mut first = true;
-        for assoc in &self.items {
-            if first {
-                write!(f, "\n    {assoc}")?;
-            } else {
-                write!(f, ",\n    {assoc}")?;
-            }
-            first = false;
+            writeln!(f, " generic map (")?;
+            write_separated_list(&generic_map.list, f, ",")?;
+            write!(f, "\n)")?;
         }
         Ok(())
     }
+}
+
+fn write_separated_list<T: Display>(
+    list: &SeparatedList<T>,
+    f: &mut Formatter<'_>,
+    separator: &str,
+) -> Result {
+    let mut first = true;
+    for assoc in &list.items {
+        if !first {
+            writeln!(f, "{separator}")?;
+        }
+        write!(f, "    {assoc}")?;
+        first = false;
+    }
+    Ok(())
 }
 
 impl Display for InterfaceFileDeclaration {
@@ -2180,6 +2180,53 @@ end package;",
                 assert_matches!(
                     code.design_file().design_units.remove(0),
                     (_, AnyDesignUnit::Primary(AnyPrimaryUnit::Package(unit))) => unit
+                )
+            },
+        );
+    }
+
+    #[test]
+    fn write_subprogram_instantiation() {
+        assert_format_eq(
+            "function my_func is new func;",
+            "function my_func is new func;",
+            Code::subprogram_instantiation,
+        );
+    }
+
+    #[test]
+    fn write_subprogram_instantiation_signature() {
+        assert_format_eq(
+            "function   my_func is new func [bit return  bit_vector];",
+            "function my_func is new func [bit return bit_vector];",
+            Code::subprogram_instantiation,
+        );
+    }
+
+    #[test]
+    fn write_subprogram_instantiation_signature_generic_map() {
+        assert_format_eq(
+            "procedure   proc is new proc generic map (x => x, y => a.b);",
+            "procedure proc is new proc generic map (
+    x => x,
+    y => a.b
+);",
+            Code::subprogram_instantiation,
+        );
+    }
+
+    #[test]
+    fn subprogram_instantiation_declaration() {
+        assert_format_eq(
+            "procedure   proc is new proc generic map (x => x, y => a.b);",
+            "procedure proc is new proc generic map (
+    x => x,
+    y => a.b
+);",
+            |code| {
+                assert_matches!(
+                code.declarative_part().remove(0),
+                Declaration::SubprogramInstantiation(inst) => inst
                 )
             },
         );

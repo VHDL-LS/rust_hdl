@@ -32,7 +32,7 @@ use crate::data::*;
 use crate::syntax::concurrent_statement::parse_map_aspect;
 use crate::syntax::context::{parse_context, DeclarationOrReference};
 use crate::syntax::names::parse_association_element;
-use crate::syntax::subprogram::parse_optional_subprogram_header;
+use crate::syntax::subprogram::{parse_optional_subprogram_header, parse_subprogram_instantiation};
 use crate::syntax::{TokenAccess, TokenId};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::hash_map::Entry;
@@ -574,6 +574,10 @@ impl Code {
 
     pub fn subprogram_decl(&self) -> SubprogramDeclaration {
         self.parse_ok_no_diagnostics(parse_subprogram_declaration_no_semi)
+    }
+
+    pub fn subprogram_instantiation(&self) -> SubprogramInstantiation {
+        self.parse_ok_no_diagnostics(parse_subprogram_instantiation)
     }
 
     pub fn subprogram_header(&self) -> Option<SubprogramHeader> {
