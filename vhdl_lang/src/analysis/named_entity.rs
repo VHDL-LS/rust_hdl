@@ -61,15 +61,22 @@ impl<'a> AnyEntKind<'a> {
     pub(crate) fn new_function_decl(
         formals: FormalRegion<'a>,
         return_type: TypeEnt<'a>,
+        generics: Option<Region<'a>>,
     ) -> AnyEntKind<'a> {
         AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(
             formals,
             Some(return_type),
+            generics,
         )))
     }
 
-    pub(crate) fn new_procedure_decl(formals: FormalRegion<'a>) -> AnyEntKind<'a> {
-        AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(formals, None)))
+    pub(crate) fn new_procedure_decl(
+        formals: FormalRegion<'a>,
+        generics: Option<Region<'a>>,
+    ) -> AnyEntKind<'a> {
+        AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(
+            formals, None, generics,
+        )))
     }
 
     pub fn is_deferred_constant(&self) -> bool {

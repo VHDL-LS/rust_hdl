@@ -600,7 +600,16 @@ impl<'a> AnalyzeContext<'a> {
         pos: &SrcPos,
     ) -> AnalysisResult<()> {
         match ent.kind() {
-            Overloaded::UninstSubprogram(..) => Ok(()),
+            Overloaded::Subprogram(signature) => {
+                if signature.generic_map.is_none() {
+                    Err(AnalysisError::not_fatal_error(
+                        pos.clone(),
+                        format!("{} cannot be instantiated", ent.describe()),
+                    ))
+                } else {
+                    Ok(())
+                }
+            }
             _ => Err(AnalysisError::NotFatal(Diagnostic::error(
                 pos.clone(),
                 format!("{} cannot be instantiated", ent.describe()),
@@ -776,8 +785,11 @@ impl<'a> AnalyzeContext<'a> {
                     ),
                 );
 
-                let signature =
-                    Signature::new(FormalRegion::new(InterfaceType::Parameter), Some(enum_type));
+                let signature = Signature::new(
+                    FormalRegion::new(InterfaceType::Parameter),
+                    Some(enum_type),
+                    None,
+                );
 
                 for literal in enumeration.iter_mut() {
                     let literal_ent = self.arena.explicit(
@@ -1573,9 +1585,21 @@ impl<'a> AnalyzeContext<'a> {
         parent: EntRef<'a>,
         header: &mut SubprogramHeader,
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> FatalResult {
-        self.analyze_interface_list(scope, parent, &mut header.generic_list[..], diagnostics)?;
-        self.analyze_map_aspect(scope, &mut header.map_aspect, diagnostics)
+    ) -> FatalResult<Region<'a>> {
+        let mut region = Region::default();
+        for decl in header.generic_list.iter_mut() {
+            match self.analyze_interface_declaration(scope, parent, decl, diagnostics) {
+                Ok(ent) => {
+                    region.add(ent, diagnostics);
+                    scope.add(ent, diagnostics);
+                }
+                Err(err) => {
+                    err.add_to(diagnostics)?;
+                }
+            }
+        }
+        self.analyze_map_aspect(scope, &mut header.map_aspect, diagnostics)?;
+        Ok(region)
     }
 
     fn subprogram_declaration(
@@ -1594,15 +1618,21 @@ impl<'a> AnalyzeContext<'a> {
                 .clone()
                 .into_designator(),
             parent,
-            AnyEntKind::Overloaded(to_kind(Signature::new(FormalRegion::new_params(), None))),
+            AnyEntKind::Overloaded(to_kind(Signature::new(
+                FormalRegion::new_params(),
+                None,
+                None,
+            ))),
             Some(&subprogram.subpgm_designator().pos),
         );
 
         let signature = match subprogram {
             SubprogramDeclaration::Function(fun) => {
-                if let Some(header) = &mut fun.header {
-                    self.subprogram_header(&subpgm_region, ent, header, diagnostics)?;
-                }
+                let generic_map = if let Some(header) = &mut fun.header {
+                    Some(self.subprogram_header(&subpgm_region, ent, header, diagnostics)?)
+                } else {
+                    None
+                };
                 let params = self.analyze_parameter_list(
                     &subpgm_region,
                     ent,
@@ -1610,19 +1640,21 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics,
                 );
                 let return_type = self.resolve_type_mark(scope, &mut fun.return_type);
-                Signature::new(params?, Some(return_type?))
+                Signature::new(params?, Some(return_type?), generic_map)
             }
             SubprogramDeclaration::Procedure(procedure) => {
-                if let Some(header) = &mut procedure.header {
-                    self.subprogram_header(&subpgm_region, ent, header, diagnostics)?;
-                }
+                let generic_map = if let Some(header) = &mut procedure.header {
+                    Some(self.subprogram_header(&subpgm_region, ent, header, diagnostics)?)
+                } else {
+                    None
+                };
                 let params = self.analyze_parameter_list(
                     &subpgm_region,
                     ent,
                     &mut procedure.parameter_list,
                     diagnostics,
                 );
-                Signature::new(params?, None)
+                Signature::new(params?, None, generic_map)
             }
         };
 

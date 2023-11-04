@@ -10,25 +10,35 @@ use super::EntRef;
 use super::TypeEnt;
 use crate::analysis::formal_region::FormalRegion;
 use crate::analysis::formal_region::InterfaceEnt;
-use crate::ast::{Designator, MapAspect};
+use crate::analysis::region::Region;
+use crate::ast::Designator;
+use std::fmt::{Debug, Formatter};
 
 pub enum Overloaded<'a> {
     SubprogramDecl(Signature<'a>),
     Subprogram(Signature<'a>),
-    UninstSubprogram(Signature<'a>, MapAspect),
     InterfaceSubprogram(Signature<'a>),
     EnumLiteral(Signature<'a>),
     Alias(OverloadedEnt<'a>),
+}
+
+impl<'a> Debug for Overloaded<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Overloaded::SubprogramDecl(..) => write!(f, "subprogram declaration"),
+            Overloaded::Subprogram(..) => write!(f, "subprogram"),
+            Overloaded::InterfaceSubprogram(_) => write!(f, "interface subprogram"),
+            Overloaded::EnumLiteral(_) => write!(f, "enum literal"),
+            Overloaded::Alias(_) => write!(f, "alias"),
+        }
+    }
 }
 
 impl<'a> Overloaded<'a> {
     pub fn describe(&self) -> &'static str {
         use Overloaded::*;
         match self {
-            SubprogramDecl(signature)
-            | Subprogram(signature)
-            | InterfaceSubprogram(signature)
-            | UninstSubprogram(signature, _) => {
+            SubprogramDecl(signature) | Subprogram(signature) | InterfaceSubprogram(signature) => {
                 if signature.return_type().is_some() {
                     "function"
                 } else {
@@ -45,7 +55,6 @@ impl<'a> Overloaded<'a> {
             Overloaded::InterfaceSubprogram(ref signature)
             | Overloaded::Subprogram(ref signature)
             | Overloaded::SubprogramDecl(ref signature)
-            | Overloaded::UninstSubprogram(ref signature, _)
             | Overloaded::EnumLiteral(ref signature) => signature,
             Overloaded::Alias(ref overloaded) => overloaded.signature(),
         }
@@ -57,13 +66,19 @@ pub struct Signature<'a> {
     /// Vector of InterfaceObject or InterfaceFile
     pub(crate) formals: FormalRegion<'a>,
     pub(crate) return_type: Option<TypeEnt<'a>>,
+    pub(crate) generic_map: Option<Region<'a>>,
 }
 
 impl<'a> Signature<'a> {
-    pub fn new(formals: FormalRegion<'a>, return_type: Option<TypeEnt<'a>>) -> Signature<'a> {
+    pub fn new(
+        formals: FormalRegion<'a>,
+        return_type: Option<TypeEnt<'a>>,
+        generics: Option<Region<'a>>,
+    ) -> Signature<'a> {
         Signature {
             formals,
             return_type: return_type.as_ref().map(TypeEnt::to_owned),
+            generic_map: generics,
         }
     }
 
@@ -234,7 +249,6 @@ impl<'a> OverloadedEnt<'a> {
         let prefix = match self.kind() {
             Overloaded::SubprogramDecl(_)
             | Overloaded::Subprogram(_)
-            | Overloaded::UninstSubprogram(..)
             | Overloaded::InterfaceSubprogram(_) => {
                 if matches!(self.designator(), Designator::OperatorSymbol(_)) {
                     "operator "

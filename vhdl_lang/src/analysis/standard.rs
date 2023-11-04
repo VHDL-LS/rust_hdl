@@ -304,6 +304,7 @@ impl<'a> AnalyzeContext<'a> {
             AnyEntKind::Overloaded(Overloaded::SubprogramDecl(Signature::new(
                 FormalRegion::new_params(),
                 return_type,
+                None,
             ))),
             implicit_of.decl_pos(),
         );
@@ -316,9 +317,9 @@ impl<'a> AnalyzeContext<'a> {
         }
 
         let kind = if let Some(return_type) = return_type {
-            AnyEntKind::new_function_decl(region, return_type)
+            AnyEntKind::new_function_decl(region, return_type, None)
         } else {
-            AnyEntKind::new_procedure_decl(region)
+            AnyEntKind::new_procedure_decl(region, None)
         };
 
         unsafe {
