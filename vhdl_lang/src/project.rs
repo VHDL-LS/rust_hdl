@@ -7,6 +7,7 @@
 use crate::analysis::{AnyEnt, CompletionItem, DesignRoot, EntRef};
 use crate::ast::DesignFile;
 use crate::config::Config;
+use crate::lint::dead_code::UnusedDeclarationsLinter;
 use crate::syntax::VHDLParser;
 use crate::{data::*, EntHierarchy, EntityId};
 use fnv::{FnvHashMap, FnvHashSet};
@@ -18,6 +19,7 @@ pub struct Project {
     root: DesignRoot,
     files: FnvHashMap<PathBuf, SourceFile>,
     empty_libraries: FnvHashSet<Symbol>,
+    lint: UnusedDeclarationsLinter,
 }
 
 impl Project {
@@ -28,6 +30,7 @@ impl Project {
             files: FnvHashMap::default(),
             empty_libraries: FnvHashSet::default(),
             parser,
+            lint: Default::default(),
         }
     }
 
@@ -222,7 +225,10 @@ impl Project {
             self.root.ensure_library(library_name.clone());
         }
 
-        self.root.analyze(&mut diagnostics);
+        let analyzed_units = self.root.analyze(&mut diagnostics);
+        self.lint
+            .lint(&self.root, &analyzed_units, &mut diagnostics);
+
         diagnostics
     }
 

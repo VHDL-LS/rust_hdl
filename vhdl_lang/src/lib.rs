@@ -14,6 +14,7 @@ pub mod ast;
 mod analysis;
 mod config;
 mod data;
+mod lint;
 mod project;
 mod syntax;
 

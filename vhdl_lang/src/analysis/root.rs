@@ -27,7 +27,7 @@ use std::ops::DerefMut;
 use std::sync::Arc;
 
 /// A design unit with design unit data
-pub(super) struct AnalysisData {
+pub(crate) struct AnalysisData {
     pub diagnostics: Vec<Diagnostic>,
     pub has_circular_dependency: bool,
     pub arena: FinalArena,
@@ -38,7 +38,7 @@ pub(super) type UnitWriteGuard<'a> = WriteGuard<'a, AnyDesignUnit, AnalysisData>
 
 /// Wraps the AST of a [design unit](../../ast/enum.AnyDesignUnit.html) in a thread-safe
 /// r/w-lock for analysis.
-pub(super) struct LockedUnit {
+pub(crate) struct LockedUnit {
     ident: Ident,
     arena_id: ArenaId,
     unit_id: UnitId,
@@ -250,7 +250,7 @@ impl Library {
         result
     }
 
-    fn get_unit(&self, key: &UnitKey) -> Option<&LockedUnit> {
+    pub(crate) fn get_unit(&self, key: &UnitKey) -> Option<&LockedUnit> {
         self.units.get(key)
     }
 
@@ -258,14 +258,24 @@ impl Library {
         self.id
     }
 
-    pub(super) fn primary_units(&self) -> impl Iterator<Item = &LockedUnit> {
+    pub(crate) fn primary_units(&self) -> impl Iterator<Item = &LockedUnit> {
         self.units.iter().filter_map(|(key, value)| match key {
             UnitKey::Primary(_) => Some(value),
             UnitKey::Secondary(_, _) => None,
         })
     }
 
-    pub(super) fn primary_unit(&self, symbol: &Symbol) -> Option<&LockedUnit> {
+    pub(crate) fn secondary_units<'a>(
+        &'a self,
+        primary: &'a Symbol,
+    ) -> impl Iterator<Item = &'a LockedUnit> {
+        self.units.iter().filter_map(move |(key, value)| match key {
+            UnitKey::Secondary(sym, _) if primary == sym => Some(value),
+            _ => None,
+        })
+    }
+
+    pub(crate) fn primary_unit(&self, symbol: &Symbol) -> Option<&LockedUnit> {
         self.units.get(&UnitKey::Primary(symbol.clone()))
     }
 }

@@ -32,7 +32,8 @@ mod visibility;
 mod completion;
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
+pub(crate) use root::{Library, LockedUnit};
 
 pub use self::root::{DesignRoot, EntHierarchy};
 pub use completion::CompletionItem;
