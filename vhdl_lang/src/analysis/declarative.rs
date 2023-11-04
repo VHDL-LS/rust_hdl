@@ -540,45 +540,21 @@ impl<'a> AnalyzeContext<'a> {
                     &mut referenced_name.item,
                     diagnostics,
                 ))? {
-                    match name {
-                        ResolvedName::Overloaded(_, name) => {
-                            if name.len() == 1 {
-                                let ent = name.first();
-                                self.check_instantiated_subprogram_kind_matches_declared(
-                                    &ent,
-                                    instance.kind.item.clone(),
-                                    self.ctx.get_pos(instance.kind.token),
-                                    diagnostics,
-                                )
-                            } else {
-                                if let Some(signature) = &instance.signature {
-                                } else {
-                                    let mut err = Diagnostic::error(
-                                        referenced_name.pos.clone(),
-                                        format!(
-                                            "Ambiguous instantiation of '{}'",
-                                            name.designator()
-                                        ),
-                                    );
-                                    for ent in name.entities() {
-                                        if let Some(pos) = &ent.decl_pos {
-                                            err.add_related(
-                                                pos.clone(),
-                                                format!("Might be {}", ent.describe()),
-                                            )
-                                        }
-                                    }
-                                    diagnostics.push(err);
-                                }
-                            }
+                    match self.resolve_uninstantiated_function(
+                        scope,
+                        &name,
+                        &referenced_name.pos,
+                        &mut instance.signature,
+                    ) {
+                        Ok(ent) => {
+                            self.check_instantiated_subprogram_kind_matches_declared(
+                                &ent,
+                                instance.kind.item.clone(),
+                                self.ctx.get_pos(instance.kind.token),
+                                diagnostics,
+                            );
                         }
-                        _ => diagnostics.error(
-                            referenced_name,
-                            format!(
-                                "{} does not denote an uninstantiated subprogram",
-                                name.describe()
-                            ),
-                        ),
+                        Err(err) => err.add_to(diagnostics)?,
                     }
                 }
             }
@@ -608,6 +584,87 @@ impl<'a> AnalyzeContext<'a> {
         };
 
         Ok(())
+    }
+
+    /// Given a `ResolvedName`, find the uninstantiated subprogram that the resolved name
+    /// references.
+    fn resolve_uninstantiated_function(
+        &self,
+        scope: &Scope<'a>,
+        name: &ResolvedName<'a>,
+        name_pos: &SrcPos,
+        signature: &mut Option<WithPos<ast::Signature>>,
+    ) -> AnalysisResult<OverloadedEnt> {
+        let signature_key = match signature {
+            None => None,
+            Some(ref mut signature) => Some(self.resolve_signature(scope, signature)?),
+        };
+        match name {
+            ResolvedName::Overloaded(_, name) => {
+                if name.len() == 1 {
+                    let ent = name.first();
+                    if let Some(key) = signature_key {
+                        Self::check_signature_mismatch(
+                            ent,
+                            name,
+                            &key,
+                            &signature.as_ref().unwrap().pos,
+                        )
+                    } else {
+                        Ok(ent)
+                    }
+                } else if let Some(key) = signature_key {
+                    if let Some(resolved_ent) = name.get(&key) {
+                        Ok(resolved_ent)
+                    } else {
+                        Err(AnalysisError::NotFatal(Diagnostic::error(
+                            name_pos,
+                            format!(
+                                "No uninstantiated subprogram exists with signature {}",
+                                key.describe()
+                            ),
+                        )))
+                    }
+                } else {
+                    let mut err = Diagnostic::error(
+                        name_pos,
+                        format!("Ambiguous instantiation of '{}'", name.designator()),
+                    );
+                    for ent in name.entities() {
+                        if let Some(pos) = &ent.decl_pos {
+                            err.add_related(pos.clone(), format!("Might be {}", ent.describe()))
+                        }
+                    }
+                    Err(AnalysisError::NotFatal(err))
+                }
+            }
+            _ => Err(AnalysisError::NotFatal(Diagnostic::error(
+                name_pos,
+                format!(
+                    "{} does not denote an uninstantiated subprogram",
+                    name.describe()
+                ),
+            ))),
+        }
+    }
+
+    fn check_signature_mismatch(
+        ent: OverloadedEnt<'a>,
+        name: &OverloadedName<'a>,
+        key: &SignatureKey,
+        signature_pos: &SrcPos,
+    ) -> AnalysisResult<OverloadedEnt<'a>> {
+        if name.get(key).is_none() {
+            Err(AnalysisError::NotFatal(Diagnostic::error(
+                signature_pos.clone(),
+                format!(
+                    "Signature does not match the the signature of {}",
+                    ent.describe()
+                ),
+            )))
+        } else {
+            Ok(ent)
+        }
     }
 
     /// Checks that an instantiated subprogram kind matches the declared subprogram.

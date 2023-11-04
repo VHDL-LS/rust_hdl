@@ -81,6 +81,57 @@ procedure proc is new foo;
 }
 
 #[test]
+pub fn by_signature_resolved_multiple_uninstantiated_subprograms() {
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "\
+procedure foo
+    generic (type T)
+    parameter (x : bit)
+is begin
+end foo;
+
+procedure foo
+    generic (type T)
+    parameter (x : bit; y: bit)
+is begin
+end foo;
+
+procedure proc is new foo [bit];
+procedure proc2 is new foo [bit, bit];
+    ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_no_diagnostics(&diagnostics);
+}
+
+#[test]
+pub fn complain_on_mismatching_signature() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "\
+procedure foo
+    generic (type T)
+    parameter (x : bit)
+is begin
+end foo;
+
+procedure proc is new foo [bit, bit];
+    ",
+    );
+
+    let diagnostics = builder.analyze();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("[bit, bit]").pos(),
+            "Signature does not match the the signature of procedure foo[BIT]",
+        )],
+    );
+}
+
+#[test]
 pub fn can_instantiate_procedure_that_exists() {
     let mut builder = LibraryBuilder::new();
     builder.in_declarative_region(
