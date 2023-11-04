@@ -376,6 +376,10 @@ impl<'a> AnalyzeContext<'a> {
             Overloaded::Subprogram(signature) => {
                 Overloaded::Subprogram(self.map_signature(parent, mapping, signature)?)
             }
+            Overloaded::UninstSubprogram(signature, map_aspect) => Overloaded::UninstSubprogram(
+                self.map_signature(parent, mapping, signature)?,
+                map_aspect.clone(),
+            ),
             Overloaded::InterfaceSubprogram(signature) => {
                 Overloaded::InterfaceSubprogram(self.map_signature(parent, mapping, signature)?)
             }

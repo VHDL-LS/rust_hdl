@@ -10,11 +10,12 @@ use super::EntRef;
 use super::TypeEnt;
 use crate::analysis::formal_region::FormalRegion;
 use crate::analysis::formal_region::InterfaceEnt;
-use crate::ast::Designator;
+use crate::ast::{Designator, MapAspect};
 
 pub enum Overloaded<'a> {
     SubprogramDecl(Signature<'a>),
     Subprogram(Signature<'a>),
+    UninstSubprogram(Signature<'a>, MapAspect),
     InterfaceSubprogram(Signature<'a>),
     EnumLiteral(Signature<'a>),
     Alias(OverloadedEnt<'a>),
@@ -24,7 +25,10 @@ impl<'a> Overloaded<'a> {
     pub fn describe(&self) -> &'static str {
         use Overloaded::*;
         match self {
-            SubprogramDecl(signature) | Subprogram(signature) | InterfaceSubprogram(signature) => {
+            SubprogramDecl(signature)
+            | Subprogram(signature)
+            | InterfaceSubprogram(signature)
+            | UninstSubprogram(signature, _) => {
                 if signature.return_type().is_some() {
                     "function"
                 } else {
@@ -41,6 +45,7 @@ impl<'a> Overloaded<'a> {
             Overloaded::InterfaceSubprogram(ref signature)
             | Overloaded::Subprogram(ref signature)
             | Overloaded::SubprogramDecl(ref signature)
+            | Overloaded::UninstSubprogram(ref signature, _)
             | Overloaded::EnumLiteral(ref signature) => signature,
             Overloaded::Alias(ref overloaded) => overloaded.signature(),
         }
@@ -229,6 +234,7 @@ impl<'a> OverloadedEnt<'a> {
         let prefix = match self.kind() {
             Overloaded::SubprogramDecl(_)
             | Overloaded::Subprogram(_)
+            | Overloaded::UninstSubprogram(..)
             | Overloaded::InterfaceSubprogram(_) => {
                 if matches!(self.designator(), Designator::OperatorSymbol(_)) {
                     "operator "

@@ -539,13 +539,23 @@ impl<'a> AnalyzeContext<'a> {
                     &mut referenced_name.item,
                     diagnostics,
                 ))? {
-                    match self.resolve_uninstantiated_function(
+                    match self.resolve_uninstantiated_subprogram(
                         scope,
                         &name,
                         &referenced_name.pos,
                         &mut instance.signature,
                     ) {
                         Ok(ent) => {
+                            match Self::check_ent_is_uninstantiated_subprogram(
+                                ent,
+                                &referenced_name.pos,
+                            ) {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    e.add_to(diagnostics)?;
+                                    return Ok(());
+                                }
+                            }
                             self.check_instantiated_subprogram_kind_matches_declared(
                                 &ent,
                                 instance.kind.item.clone(),
@@ -585,9 +595,22 @@ impl<'a> AnalyzeContext<'a> {
         Ok(())
     }
 
+    fn check_ent_is_uninstantiated_subprogram(
+        ent: OverloadedEnt,
+        pos: &SrcPos,
+    ) -> AnalysisResult<()> {
+        match ent.kind() {
+            Overloaded::UninstSubprogram(..) => Ok(()),
+            _ => Err(AnalysisError::NotFatal(Diagnostic::error(
+                pos.clone(),
+                format!("{} cannot be instantiated", ent.describe()),
+            ))),
+        }
+    }
+
     /// Given a `ResolvedName`, find the uninstantiated subprogram that the resolved name
-    /// references.
-    fn resolve_uninstantiated_function(
+    /// references. Return that resolved subprogram, if it exists, else return an `Err`
+    fn resolve_uninstantiated_subprogram(
         &self,
         scope: &Scope<'a>,
         name: &ResolvedName<'a>,

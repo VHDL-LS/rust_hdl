@@ -193,7 +193,6 @@ procedure proc is new funk;
 }
 
 #[test]
-#[ignore]
 pub fn cannot_instantiate_procedure_without_header() {
     let mut builder = LibraryBuilder::new();
     let code = builder.in_declarative_region(
@@ -211,7 +210,7 @@ procedure proc is new proc;
         diagnostics,
         vec![Diagnostic::error(
             code.s1("new proc").s1("proc").pos(),
-            "procedure 'proc' does not have a generic clause"
+            "procedure proc[] cannot be instantiated"
         )]
     )
 }
