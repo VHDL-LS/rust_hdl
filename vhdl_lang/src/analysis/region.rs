@@ -18,7 +18,7 @@ use std::collections::hash_map::Entry;
 use std::rc::Rc;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-/// A non-emtpy collection of overloaded entites
+/// A non-empty collection of overloaded entities
 pub struct OverloadedName<'a> {
     entities: FnvHashMap<SignatureKey<'a>, OverloadedEnt<'a>>,
 }

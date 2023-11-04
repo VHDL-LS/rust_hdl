@@ -531,8 +531,37 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
             }
-            Declaration::SubprogramInstantiation(_) => {
-                // TODO: subprogram instantiation statement
+            Declaration::SubprogramInstantiation(ref mut instance) => {
+                let referenced_name = &mut instance.subprogram_name;
+                if let Some(name) = as_fatal(self.name_resolve(
+                    scope,
+                    &referenced_name.pos,
+                    &mut referenced_name.item,
+                    diagnostics,
+                ))? {
+                    match name {
+                        ResolvedName::Overloaded(_, name) => {
+                            if name.len() == 1 {
+                                let ent = name.first();
+                                self.check_instantiated_subprogram_kind_matches_declared(
+                                    &ent,
+                                    instance.kind.item.clone(),
+                                    self.ctx.get_pos(instance.kind.token),
+                                    diagnostics,
+                                )
+                            } else {
+                                // TODO: disambiguate by signature
+                            }
+                        }
+                        _ => diagnostics.error(
+                            referenced_name,
+                            format!(
+                                "{} does not denote an uninstantiated subprogram",
+                                name.describe()
+                            ),
+                        ),
+                    }
+                }
             }
             Declaration::Use(ref mut use_clause) => {
                 self.analyze_use_clause(scope, use_clause, diagnostics)?;
@@ -560,6 +589,41 @@ impl<'a> AnalyzeContext<'a> {
         };
 
         Ok(())
+    }
+
+    /// Checks that an instantiated subprogram kind matches the declared subprogram.
+    /// For instance, when a subprogram was instantiated using
+    /// ```vhdl
+    /// function my_func is new proc;
+    /// ```
+    /// where proc is
+    /// ```vhdl
+    /// procedure proc is
+    /// ...
+    /// ```
+    ///
+    /// This function will push an appropriate diagnostic.
+    fn check_instantiated_subprogram_kind_matches_declared(
+        &self,
+        ent: &OverloadedEnt,
+        kind: SubprogramKind,
+        pos: &SrcPos,
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) {
+        let err_msg = if ent.is_function() && kind != SubprogramKind::Function {
+            Some("Instantiating function as procedure")
+        } else if kind != SubprogramKind::Procedure {
+            Some("Instantiating procedure as function")
+        } else {
+            None
+        };
+        if let Some(msg) = err_msg {
+            let mut err = Diagnostic::error(pos, msg);
+            if let Some(pos) = ent.decl_pos() {
+                err = err.related(pos, format!("{} declared here", ent.describe()));
+            }
+            diagnostics.push(err)
+        }
     }
 
     fn find_subpgm_declaration(
