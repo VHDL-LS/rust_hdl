@@ -17,7 +17,6 @@ use fnv::FnvHashMap;
 use named_entity::Signature;
 use region::*;
 use std::collections::hash_map::Entry;
-use std::fmt::format;
 
 impl<'a> AnalyzeContext<'a> {
     pub fn analyze_declarative_part(
@@ -597,31 +596,38 @@ impl<'a> AnalyzeContext<'a> {
     ) -> AnalysisResult<OverloadedEnt> {
         let signature_key = match signature {
             None => None,
-            Some(ref mut signature) => Some(self.resolve_signature(scope, signature)?),
+            Some(ref mut signature) => Some((
+                self.resolve_signature(scope, signature)?,
+                signature.pos.clone(),
+            )),
         };
         match name {
             ResolvedName::Overloaded(_, name) => {
                 if name.len() == 1 {
                     let ent = name.first();
-                    if let Some(key) = signature_key {
-                        Self::check_signature_mismatch(
-                            ent,
-                            name,
-                            &key,
-                            &signature.as_ref().unwrap().pos,
-                        )
+                    if let Some((key, pos)) = signature_key {
+                        match name.get(&key) {
+                            None => Err(AnalysisError::NotFatal(Diagnostic::error(
+                                pos.clone(),
+                                format!(
+                                    "Signature does not match the the signature of {}",
+                                    ent.describe()
+                                ),
+                            ))),
+                            Some(_) => Ok(ent),
+                        }
                     } else {
                         Ok(ent)
                     }
                 } else if let Some(key) = signature_key {
-                    if let Some(resolved_ent) = name.get(&key) {
+                    if let Some(resolved_ent) = name.get(&key.0) {
                         Ok(resolved_ent)
                     } else {
                         Err(AnalysisError::NotFatal(Diagnostic::error(
                             name_pos,
                             format!(
                                 "No uninstantiated subprogram exists with signature {}",
-                                key.describe()
+                                key.0.describe()
                             ),
                         )))
                     }
@@ -645,25 +651,6 @@ impl<'a> AnalyzeContext<'a> {
                     name.describe()
                 ),
             ))),
-        }
-    }
-
-    fn check_signature_mismatch(
-        ent: OverloadedEnt<'a>,
-        name: &OverloadedName<'a>,
-        key: &SignatureKey,
-        signature_pos: &SrcPos,
-    ) -> AnalysisResult<OverloadedEnt<'a>> {
-        if name.get(key).is_none() {
-            Err(AnalysisError::NotFatal(Diagnostic::error(
-                signature_pos.clone(),
-                format!(
-                    "Signature does not match the the signature of {}",
-                    ent.describe()
-                ),
-            )))
-        } else {
-            Ok(ent)
         }
     }
 
