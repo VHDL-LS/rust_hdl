@@ -5,7 +5,5 @@
 # Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
 [workspace]
-members = [
-        "vhdl_lang",
-        "vhdl_ls"
-]
+resolver = "2"
+members = ["vhdl_lang", "vhdl_ls"]
