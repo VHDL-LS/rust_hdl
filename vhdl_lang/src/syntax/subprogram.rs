@@ -14,6 +14,7 @@ use crate::ast::*;
 use crate::data::*;
 use crate::syntax::concurrent_statement::parse_map_aspect;
 use crate::syntax::interface_declaration::parse_generic_interface_list;
+use crate::syntax::names::parse_name;
 
 pub fn parse_signature(stream: &TokenStream) -> ParseResult<WithPos<Signature>> {
     let left_square = stream.expect_kind(LeftSquare)?;
@@ -99,6 +100,44 @@ pub fn parse_optional_subprogram_header(
         generic_list,
         map_aspect,
     }))
+}
+
+pub fn parse_subprogram_instantiation(
+    stream: &TokenStream,
+    diagnostics: &mut dyn DiagnosticHandler,
+) -> ParseResult<SubprogramInstantiation> {
+    let id = stream.get_token_id();
+    let tok = stream.peek_expect()?;
+    let kind = match tok.kind {
+        Procedure => WithToken::new(SubprogramKind::Procedure, id),
+        Function => WithToken::new(SubprogramKind::Function, id),
+        _ => {
+            return Err(Diagnostic::error(
+                tok.pos.clone(),
+                "Expecting 'function' or 'procedure'",
+            ))
+        }
+    };
+    stream.skip();
+    let ident = WithDecl::new(stream.expect_ident()?);
+    stream.expect_kind(Is)?;
+    stream.expect_kind(New)?;
+    let subprogram_name = parse_name(stream)?;
+    let signature = if stream.next_kind_is(LeftSquare) {
+        Some(parse_signature(stream)?)
+    } else {
+        None
+    };
+    let generic_map = parse_map_aspect(stream, Generic, diagnostics)?;
+    let semi = stream.expect_kind(SemiColon)?;
+    Ok(SubprogramInstantiation {
+        kind,
+        ident,
+        subprogram_name,
+        signature,
+        generic_map,
+        semi,
+    })
 }
 
 pub fn parse_subprogram_declaration_no_semi(
@@ -212,6 +251,13 @@ pub fn parse_subprogram(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<Declaration> {
+    if stream.next_kinds_are(&[Procedure, Identifier, Is, New])
+        || stream.next_kinds_are(&[Function, Identifier, Is, New])
+    {
+        return Ok(Declaration::SubprogramInstantiation(
+            parse_subprogram_instantiation(stream, diagnostics)?,
+        ));
+    }
     let specification = parse_subprogram_declaration_no_semi(stream, diagnostics)?;
     expect_token!(
         stream,
@@ -780,6 +826,111 @@ end procedure swap;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram),
             Declaration::SubprogramBody(body)
+        );
+    }
+
+    #[test]
+    pub fn subprogram_instantiation() {
+        let code = Code::new("procedure my_proc is new proc;");
+        let inst = code.parse_ok_no_diagnostics(parse_subprogram_instantiation);
+        assert_eq!(
+            inst,
+            SubprogramInstantiation {
+                kind: WithToken::new(SubprogramKind::Procedure, code.s1("procedure").token()),
+                ident: code.s1("my_proc").decl_ident(),
+                subprogram_name: code.s1("new proc").s1("proc").name(),
+                signature: None,
+                generic_map: None,
+                semi: code.s1(";").token()
+            }
+        );
+
+        let code = Code::new("function my_func is new func;");
+        let inst = code.parse_ok_no_diagnostics(parse_subprogram_instantiation);
+        assert_eq!(
+            inst,
+            SubprogramInstantiation {
+                kind: WithToken::new(SubprogramKind::Function, code.s1("function").token()),
+                ident: code.s1("my_func").decl_ident(),
+                subprogram_name: code.s1("new func").s1("func").name(),
+                signature: None,
+                generic_map: None,
+                semi: code.s1(";").token()
+            }
+        );
+
+        let code = Code::new("function my_func is new func [bit return bit_vector];");
+        let inst = code.parse_ok_no_diagnostics(parse_subprogram_instantiation);
+        assert_eq!(
+            inst,
+            SubprogramInstantiation {
+                kind: WithToken::new(SubprogramKind::Function, code.s1("function").token()),
+                ident: code.s1("my_func").decl_ident(),
+                subprogram_name: code.s1("new func").s1("func").name(),
+                signature: Some(code.s1("[bit return bit_vector]").signature()),
+                generic_map: None,
+                semi: code.s1(";").token()
+            }
+        );
+
+        let code =
+            Code::new("function my_func is new func [bit return bit_vector] generic map (x => x);");
+        let inst = code.parse_ok_no_diagnostics(parse_subprogram_instantiation);
+        assert_eq!(
+            inst,
+            SubprogramInstantiation {
+                kind: WithToken::new(SubprogramKind::Function, code.s1("function").token()),
+                ident: code.s1("my_func").decl_ident(),
+                subprogram_name: code.s1("new func").s1("func").name(),
+                signature: Some(code.s1("[bit return bit_vector]").signature()),
+                generic_map: Some(code.s1("generic map (x => x)").generic_map_aspect()),
+                semi: code.s1(";").token()
+            }
+        );
+
+        let code = Code::new("function my_func is new func generic map (z => z, x => y);");
+        let inst = code.parse_ok_no_diagnostics(parse_subprogram_instantiation);
+        assert_eq!(
+            inst,
+            SubprogramInstantiation {
+                kind: WithToken::new(SubprogramKind::Function, code.s1("function").token()),
+                ident: code.s1("my_func").decl_ident(),
+                subprogram_name: code.s1("new func").s1("func").name(),
+                signature: None,
+                generic_map: Some(code.s1("generic map (z => z, x => y)").generic_map_aspect()),
+                semi: code.s1(";").token()
+            }
+        );
+    }
+
+    #[test]
+    pub fn subprogram_declaration() {
+        let code = Code::new("procedure my_proc is new proc;");
+        let inst = code.parse_ok_no_diagnostics(parse_subprogram);
+        assert_eq!(
+            inst,
+            Declaration::SubprogramInstantiation(SubprogramInstantiation {
+                kind: WithToken::new(SubprogramKind::Procedure, code.s1("procedure").token()),
+                ident: code.s1("my_proc").decl_ident(),
+                subprogram_name: code.s1("new proc").s1("proc").name(),
+                signature: None,
+                generic_map: None,
+                semi: code.s1(";").token()
+            })
+        );
+
+        let code = Code::new("function my_func is new func;");
+        let inst = code.parse_ok_no_diagnostics(parse_subprogram);
+        assert_eq!(
+            inst,
+            Declaration::SubprogramInstantiation(SubprogramInstantiation {
+                kind: WithToken::new(SubprogramKind::Function, code.s1("function").token()),
+                ident: code.s1("my_func").decl_ident(),
+                subprogram_name: code.s1("new func").s1("func").name(),
+                signature: None,
+                generic_map: None,
+                semi: code.s1(";").token()
+            })
         );
     }
 }

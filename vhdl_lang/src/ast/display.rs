@@ -863,6 +863,43 @@ impl Display for SubprogramDeclaration {
     }
 }
 
+impl Display for SubprogramInstantiation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        match self.kind.item {
+            SubprogramKind::Function => write!(f, "function ")?,
+            SubprogramKind::Procedure => write!(f, "procedure ")?,
+        };
+        write!(f, "{}", self.ident)?;
+        write!(f, " is new ")?;
+        write!(f, "{}", self.subprogram_name)?;
+        if let Some(signature) = &self.signature {
+            write!(f, " {}", signature)?;
+        }
+        if let Some(generic_map) = &self.generic_map {
+            writeln!(f, " generic map (")?;
+            write_separated_list(&generic_map.list, f, ",")?;
+            write!(f, "\n)")?;
+        }
+        Ok(())
+    }
+}
+
+fn write_separated_list<T: Display>(
+    list: &SeparatedList<T>,
+    f: &mut Formatter<'_>,
+    separator: &str,
+) -> Result {
+    let mut first = true;
+    for assoc in &list.items {
+        if !first {
+            writeln!(f, "{separator}")?;
+        }
+        write!(f, "    {assoc}")?;
+        first = false;
+    }
+    Ok(())
+}
+
 impl Display for InterfaceFileDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "file {} : {}", self.ident, self.subtype_indication)
@@ -2143,6 +2180,53 @@ end package;",
                 assert_matches!(
                     code.design_file().design_units.remove(0),
                     (_, AnyDesignUnit::Primary(AnyPrimaryUnit::Package(unit))) => unit
+                )
+            },
+        );
+    }
+
+    #[test]
+    fn write_subprogram_instantiation() {
+        assert_format_eq(
+            "function my_func is new func;",
+            "function my_func is new func",
+            Code::subprogram_instantiation,
+        );
+    }
+
+    #[test]
+    fn write_subprogram_instantiation_signature() {
+        assert_format_eq(
+            "function   my_func is new func [bit return  bit_vector];",
+            "function my_func is new func [bit return bit_vector]",
+            Code::subprogram_instantiation,
+        );
+    }
+
+    #[test]
+    fn write_subprogram_instantiation_signature_generic_map() {
+        assert_format_eq(
+            "procedure   proc is new proc generic map (x => x, y => a.b);",
+            "procedure proc is new proc generic map (
+    x => x,
+    y => a.b
+)",
+            Code::subprogram_instantiation,
+        );
+    }
+
+    #[test]
+    fn subprogram_instantiation_declaration() {
+        assert_format_eq(
+            "procedure   proc is new proc generic map (x => x, y => a.b);",
+            "procedure proc is new proc generic map (
+    x => x,
+    y => a.b
+)",
+            |code| {
+                assert_matches!(
+                code.declarative_part().remove(0),
+                Declaration::SubprogramInstantiation(inst) => inst
                 )
             },
         );

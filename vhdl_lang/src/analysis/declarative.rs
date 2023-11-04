@@ -531,7 +531,9 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
             }
-
+            Declaration::SubprogramInstantiation(_) => {
+                // TODO: subprogram instantiation statement
+            }
             Declaration::Use(ref mut use_clause) => {
                 self.analyze_use_clause(scope, use_clause, diagnostics)?;
             }
