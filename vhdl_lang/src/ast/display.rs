@@ -2189,7 +2189,7 @@ end package;",
     fn write_subprogram_instantiation() {
         assert_format_eq(
             "function my_func is new func;",
-            "function my_func is new func;",
+            "function my_func is new func",
             Code::subprogram_instantiation,
         );
     }
@@ -2198,7 +2198,7 @@ end package;",
     fn write_subprogram_instantiation_signature() {
         assert_format_eq(
             "function   my_func is new func [bit return  bit_vector];",
-            "function my_func is new func [bit return bit_vector];",
+            "function my_func is new func [bit return bit_vector]",
             Code::subprogram_instantiation,
         );
     }
@@ -2210,7 +2210,7 @@ end package;",
             "procedure proc is new proc generic map (
     x => x,
     y => a.b
-);",
+)",
             Code::subprogram_instantiation,
         );
     }
@@ -2222,7 +2222,7 @@ end package;",
             "procedure proc is new proc generic map (
     x => x,
     y => a.b
-);",
+)",
             |code| {
                 assert_matches!(
                 code.declarative_part().remove(0),
