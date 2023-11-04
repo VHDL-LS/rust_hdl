@@ -604,7 +604,10 @@ impl<'a> AnalyzeContext<'a> {
         match name {
             ResolvedName::Overloaded(_, name) => {
                 if name.len() == 1 {
+                    // There is only one possible candidate
                     let ent = name.first();
+                    // If the instantiated program has a signature, check that it matches
+                    // that of the uninstantiated subprogram
                     if let Some((key, pos)) = signature_key {
                         match name.get(&key) {
                             None => Err(AnalysisError::NotFatal(Diagnostic::error(
@@ -620,6 +623,8 @@ impl<'a> AnalyzeContext<'a> {
                         Ok(ent)
                     }
                 } else if let Some(key) = signature_key {
+                    // There are multiple candidates
+                    // but there is a signature that we can try to resolve
                     if let Some(resolved_ent) = name.get(&key.0) {
                         Ok(resolved_ent)
                     } else {
@@ -632,6 +637,8 @@ impl<'a> AnalyzeContext<'a> {
                         )))
                     }
                 } else {
+                    // There are multiple candidates
+                    // and there is no signature to resolve
                     let mut err = Diagnostic::error(
                         name_pos,
                         format!("Ambiguous instantiation of '{}'", name.designator()),
