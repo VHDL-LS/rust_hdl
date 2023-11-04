@@ -216,7 +216,6 @@ procedure proc is new proc;
 }
 
 #[test]
-#[ignore]
 pub fn cannot_call_procedure_with_header() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(
@@ -241,7 +240,7 @@ end architecture arch;
         builder.analyze(),
         vec![Diagnostic::error(
             code.s1("begin\n    proc;").s1("proc").pos(),
-            "uninstantiated procedure 'proc' cannot be called",
+            "uninstantiated procedure proc[] cannot be called",
         )],
     )
 }

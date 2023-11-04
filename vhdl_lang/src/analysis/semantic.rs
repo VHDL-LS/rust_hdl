@@ -195,6 +195,11 @@ impl<'a> AnalyzeContext<'a> {
                                 }
                             }
                             diagnostics.push(diagnostic);
+                        } else if ent.kind().signature().generic_map.is_some() {
+                            diagnostics.error(
+                                &name.pos,
+                                format!("uninstantiated {} cannot be called", ent.describe()),
+                            )
                         }
                     }
                     None => {}
