@@ -48,6 +48,39 @@ function proc is new x;
 }
 
 #[test]
+pub fn ambiguous_multiple_uninstantiated_subprograms() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "\
+procedure foo
+    generic (type T)
+    parameter (x : bit)
+is begin
+end foo;
+
+procedure foo
+    generic (type T)
+    parameter (x : bit; y: bit)
+is begin
+end foo;
+
+procedure proc is new foo;
+    ",
+    );
+
+    let diagnostics = builder.analyze();
+    assert_eq!(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s1("new foo").s1("foo"),
+            "Ambiguous instantiation of 'foo'"
+        )
+        .related(code.s("foo", 1), "Might be procedure foo[BIT]")
+        .related(code.s("foo", 3), "Might be procedure foo[BIT, BIT]")]
+    )
+}
+
+#[test]
 pub fn can_instantiate_procedure_that_exists() {
     let mut builder = LibraryBuilder::new();
     builder.in_declarative_region(
@@ -129,5 +162,36 @@ procedure proc is new proc;
             code.s1("new proc").s1("proc").pos(),
             "procedure 'proc' does not have a generic clause"
         )]
+    )
+}
+
+#[test]
+#[ignore]
+pub fn cannot_call_procedure_with_header() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "\
+entity ent is
+end ent;
+
+architecture arch of ent is
+    procedure proc
+        generic ( x: natural := 1 )
+    is
+    begin
+    end proc;
+begin
+    proc;
+end architecture arch;
+    ",
+    );
+
+    check_diagnostics(
+        builder.analyze(),
+        vec![Diagnostic::error(
+            code.s1("begin\n    proc;").s1("proc").pos(),
+            "uninstantiated procedure 'proc' cannot be called",
+        )],
     )
 }

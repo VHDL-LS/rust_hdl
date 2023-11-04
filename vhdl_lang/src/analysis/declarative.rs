@@ -17,6 +17,7 @@ use fnv::FnvHashMap;
 use named_entity::Signature;
 use region::*;
 use std::collections::hash_map::Entry;
+use std::fmt::format;
 
 impl<'a> AnalyzeContext<'a> {
     pub fn analyze_declarative_part(
@@ -550,7 +551,25 @@ impl<'a> AnalyzeContext<'a> {
                                     diagnostics,
                                 )
                             } else {
-                                // TODO: disambiguate by signature
+                                if let Some(signature) = &instance.signature {
+                                } else {
+                                    let mut err = Diagnostic::error(
+                                        referenced_name.pos.clone(),
+                                        format!(
+                                            "Ambiguous instantiation of '{}'",
+                                            name.designator()
+                                        ),
+                                    );
+                                    for ent in name.entities() {
+                                        if let Some(pos) = &ent.decl_pos {
+                                            err.add_related(
+                                                pos.clone(),
+                                                format!("Might be {}", ent.describe()),
+                                            )
+                                        }
+                                    }
+                                    diagnostics.push(err);
+                                }
                             }
                         }
                         _ => diagnostics.error(
@@ -620,7 +639,7 @@ impl<'a> AnalyzeContext<'a> {
         if let Some(msg) = err_msg {
             let mut err = Diagnostic::error(pos, msg);
             if let Some(pos) = ent.decl_pos() {
-                err = err.related(pos, format!("{} declared here", ent.describe()));
+                err.add_related(pos, format!("{} declared here", ent.describe()));
             }
             diagnostics.push(err)
         }
