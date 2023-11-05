@@ -23,6 +23,7 @@ use fnv::{FnvHashMap, FnvHashSet};
 use parking_lot::RwLock;
 use std::collections::hash_map::Entry;
 use std::ops::Deref;
+use std::ops::DerefMut;
 use std::sync::Arc;
 
 /// A design unit with design unit data
@@ -685,13 +686,9 @@ impl DesignRoot {
         // @TODO keep the same ArenaId when re-using unit
         let arena = Arena::new(arena_id);
         let context = AnalyzeContext::new(self, unit_id, &arena, ctx);
-        use std::ops::DerefMut;
 
         let mut diagnostics = Vec::new();
         let mut has_circular_dependency = false;
-
-        // Ensure no remaining references from previous analysis
-        clear_references(unit.deref_mut(), ctx);
 
         let result = match unit.deref_mut() {
             AnyDesignUnit::Primary(unit) => {
@@ -752,6 +749,9 @@ impl DesignRoot {
         for unit_id in affected.drain() {
             if let Some(unit) = self.get_unit(&unit_id) {
                 unit.unit.reset();
+
+                // Ensure no remaining references from previous analysis
+                clear_references(unit.unit.write().deref_mut(), &unit.tokens);
             }
         }
     }
@@ -941,8 +941,6 @@ impl DesignRoot {
         } else {
             panic!("Expected standard package is primary unit");
         };
-        // Ensure no remaining references from previous analysis
-        clear_references(std_package, &locked_unit.tokens);
 
         let standard_pkg = {
             let (lib_arena, id) = self.get_library_arena(&std_lib_name).unwrap();
