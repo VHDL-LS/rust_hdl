@@ -55,8 +55,8 @@ pub enum FoundDeclaration<'a> {
     Component(&'a mut ComponentDeclaration),
     Attribute(&'a mut AttributeDeclaration),
     Alias(&'a mut AliasDeclaration),
-    Function(&'a mut FunctionSpecification),
-    Procedure(&'a mut ProcedureSpecification),
+    SubprogramDecl(&'a mut SubprogramDeclaration),
+    Subprogram(&'a mut SubprogramBody),
     SubprogramInstantiation(&'a mut SubprogramInstantiation),
     Package(&'a mut PackageDeclaration),
     PackageBody(&'a mut PackageBody),
@@ -1001,14 +1001,12 @@ impl Search for Declaration {
                 return_if_found!(typ.search(ctx, searcher));
             }
             Declaration::SubprogramBody(body) => {
-                return_if_found!(body.specification.search(ctx, searcher));
+                return_if_found!(searcher
+                    .search_decl(ctx, FoundDeclaration::Subprogram(body))
+                    .or_not_found());
+                return_if_found!(search_subpgm_inner(&mut body.specification, ctx, searcher));
                 return_if_found!(body.declarations.search(ctx, searcher));
                 return_if_found!(body.statements.search(ctx, searcher));
-                if let Some(ref end_ident_pos) = body.end_ident_pos {
-                    return_if_found!(searcher
-                        .search_pos_with_ref(ctx, end_ident_pos, body.specification.reference_mut())
-                        .or_not_found());
-                }
             }
             Declaration::SubprogramDeclaration(decl) => {
                 return_if_found!(decl.search(ctx, searcher));
@@ -1118,18 +1116,9 @@ impl Search for InterfaceDeclaration {
                 return_if_found!(decl.expression.search(ctx, searcher));
             }
             InterfaceDeclaration::Subprogram(ref mut decl, ref mut subpgm_default) => {
-                match decl {
-                    SubprogramDeclaration::Function(f) => {
-                        return_if_found!(searcher
-                            .search_decl(ctx, FoundDeclaration::Function(f))
-                            .or_not_found());
-                    }
-                    SubprogramDeclaration::Procedure(p) => {
-                        return_if_found!(searcher
-                            .search_decl(ctx, FoundDeclaration::Procedure(p))
-                            .or_not_found());
-                    }
-                }
+                return_if_found!(searcher
+                    .search_decl(ctx, FoundDeclaration::SubprogramDecl(decl))
+                    .or_not_found());
 
                 if let Some(subpgm_default) = subpgm_default {
                     match subpgm_default {
@@ -1170,36 +1159,28 @@ impl Search for InterfaceDeclaration {
 
 impl Search for SubprogramDeclaration {
     fn search(&mut self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        match self {
-            SubprogramDeclaration::Function(ref mut decl) => {
-                return_if_found!(decl.search(ctx, searcher));
-            }
-            SubprogramDeclaration::Procedure(ref mut decl) => {
-                return_if_found!(decl.search(ctx, searcher));
-            }
+        return_if_found!(searcher
+            .search_decl(ctx, FoundDeclaration::SubprogramDecl(self))
+            .or_not_found());
+        search_subpgm_inner(self, ctx, searcher)
+    }
+}
+
+fn search_subpgm_inner(
+    subgpm: &mut SubprogramDeclaration,
+    ctx: &dyn TokenAccess,
+    searcher: &mut impl Searcher,
+) -> SearchResult {
+    match subgpm {
+        SubprogramDeclaration::Function(ref mut decl) => {
+            return_if_found!(decl.header.search(ctx, searcher));
+            return_if_found!(decl.parameter_list.search(ctx, searcher));
+            decl.return_type.search(ctx, searcher)
         }
-        NotFound
-    }
-}
-
-impl Search for ProcedureSpecification {
-    fn search(&mut self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_found!(searcher
-            .search_decl(ctx, FoundDeclaration::Procedure(self))
-            .or_not_found());
-        return_if_found!(self.header.search(ctx, searcher));
-        self.parameter_list.search(ctx, searcher)
-    }
-}
-
-impl Search for FunctionSpecification {
-    fn search(&mut self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_found!(searcher
-            .search_decl(ctx, FoundDeclaration::Function(self))
-            .or_not_found());
-        return_if_found!(self.header.search(ctx, searcher));
-        return_if_found!(self.parameter_list.search(ctx, searcher));
-        self.return_type.search(ctx, searcher)
+        SubprogramDeclaration::Procedure(ref mut decl) => {
+            return_if_found!(decl.header.search(ctx, searcher));
+            decl.parameter_list.search(ctx, searcher)
+        }
     }
 }
 
@@ -1662,8 +1643,8 @@ impl<'a> FoundDeclaration<'a> {
             FoundDeclaration::InterfaceObject(_) => None,
             FoundDeclaration::ForIndex(..) => None,
             FoundDeclaration::ForGenerateIndex(..) => None,
-            FoundDeclaration::Function(..) => None,
-            FoundDeclaration::Procedure(..) => None,
+            FoundDeclaration::Subprogram(value) => value.end_ident_pos.as_ref(),
+            FoundDeclaration::SubprogramDecl(..) => None,
             FoundDeclaration::Object(..) => None,
             FoundDeclaration::ElementDeclaration(..) => None,
             FoundDeclaration::EnumerationLiteral(..) => None,
@@ -1698,8 +1679,8 @@ impl<'a> HasEntityId for FoundDeclaration<'a> {
             FoundDeclaration::InterfaceObject(value) => value.ident.decl,
             FoundDeclaration::ForIndex(ident, _) => ident.decl,
             FoundDeclaration::ForGenerateIndex(_, value) => value.index_name.decl,
-            FoundDeclaration::Function(value) => value.designator.decl,
-            FoundDeclaration::Procedure(value) => value.designator.decl,
+            FoundDeclaration::Subprogram(value) => value.specification.ent_id(),
+            FoundDeclaration::SubprogramDecl(value) => value.ent_id(),
             FoundDeclaration::SubprogramInstantiation(value) => value.ident.decl,
             FoundDeclaration::Object(value) => value.ident.decl,
             FoundDeclaration::ElementDeclaration(elem) => elem.ident.decl,
@@ -1734,9 +1715,9 @@ impl<'a> HasSrcPos for FoundDeclaration<'a> {
             FoundDeclaration::InterfaceObject(value) => value.ident.pos(),
             FoundDeclaration::ForIndex(ident, _) => ident.pos(),
             FoundDeclaration::ForGenerateIndex(_, value) => value.index_name.pos(),
-            FoundDeclaration::Function(value) => &value.designator.tree.pos,
+            FoundDeclaration::Subprogram(value) => &value.specification.subpgm_designator().pos,
+            FoundDeclaration::SubprogramDecl(value) => &value.subpgm_designator().pos,
             FoundDeclaration::SubprogramInstantiation(value) => &value.ident.tree.pos,
-            FoundDeclaration::Procedure(value) => &value.designator.tree.pos,
             FoundDeclaration::Object(value) => value.ident.pos(),
             FoundDeclaration::ElementDeclaration(elem) => elem.ident.pos(),
             FoundDeclaration::EnumerationLiteral(_, elem) => &elem.tree.pos,
@@ -1779,13 +1760,13 @@ impl std::fmt::Display for FoundDeclaration<'_> {
                 Some(ident) => write!(f, "{ident}: {value}"),
                 None => write!(f, "{value}"),
             },
-            FoundDeclaration::Function(ref value) => {
+            FoundDeclaration::Subprogram(ref value) => {
+                write!(f, "{};", value.specification)
+            }
+            FoundDeclaration::SubprogramDecl(ref value) => {
                 write!(f, "{value};")
             }
             FoundDeclaration::SubprogramInstantiation(ref value) => {
-                write!(f, "{value};")
-            }
-            FoundDeclaration::Procedure(ref value) => {
                 write!(f, "{value};")
             }
             FoundDeclaration::Object(ref value) => {
