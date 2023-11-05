@@ -18,6 +18,7 @@ use crate::data::DiagnosticHandler;
 use crate::data::Symbol;
 use crate::syntax::TokenAccess;
 use crate::AnyEntKind;
+use crate::Config;
 use crate::Design;
 use crate::Diagnostic;
 use crate::EntRef;
@@ -206,6 +207,7 @@ impl UnusedDeclarationsLinter {
     pub fn lint(
         &mut self,
         root: &DesignRoot,
+        config: &Config,
         analyzed_units: &[UnitId],
         diagnostics: &mut dyn DiagnosticHandler,
     ) {
@@ -229,11 +231,6 @@ impl UnusedDeclarationsLinter {
             let key = (unit.library_name().clone(), unit.primary_name().clone());
 
             if let Some(library) = root.get_lib(unit.library_name()) {
-                if *library.name() == root.symbol_utf8("ieee") {
-                    // Do not check dead code in ieee library
-                    continue;
-                }
-
                 self.diagnostics.entry(key).or_insert_with(|| {
                     find_unused_declarations(root, library, unit.primary_name())
                         .into_iter()
@@ -248,8 +245,12 @@ impl UnusedDeclarationsLinter {
             }
         }
 
-        for unit_diagnostics in self.diagnostics.values() {
-            diagnostics.append(unit_diagnostics.iter().cloned());
+        for ((library_name, _), unit_diagnostics) in self.diagnostics.iter() {
+            if let Some(library_config) = config.get_library(&library_name.name_utf8()) {
+                if !library_config.is_third_party {
+                    diagnostics.append(unit_diagnostics.iter().cloned());
+                }
+            }
         }
     }
 }

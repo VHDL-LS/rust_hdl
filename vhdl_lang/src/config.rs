@@ -25,6 +25,7 @@ pub struct Config {
 pub struct LibraryConfig {
     name: String,
     patterns: Vec<String>,
+    pub(crate) is_third_party: bool,
 }
 
 impl LibraryConfig {
@@ -156,11 +157,23 @@ impl Config {
                 patterns.push(path);
             }
 
+            let mut is_third_party = false;
+            if let Some(opt) = lib.get("is_third_party") {
+                if let Some(opt) = opt.as_bool() {
+                    is_third_party = opt;
+                } else {
+                    return Err(format!(
+                        "Expected is_third_party to be boolean for library {name}"
+                    ));
+                }
+            }
+
             libraries.insert(
                 name.to_owned(),
                 LibraryConfig {
                     name: name.to_owned(),
                     patterns,
+                    is_third_party,
                 },
             );
         }
@@ -199,13 +212,7 @@ impl Config {
                     &library.name
                 )));
             } else {
-                self.libraries.insert(
-                    library.name.clone(),
-                    LibraryConfig {
-                        name: library.name.clone(),
-                        patterns: library.patterns.clone(),
-                    },
-                );
+                self.libraries.insert(library.name.clone(), library.clone());
             }
         }
     }

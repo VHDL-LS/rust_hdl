@@ -70,7 +70,7 @@ fn main() {
         let iterations = 10;
         println!("Running {iterations} iterations for benchmarking");
         for _ in 0..(iterations - 1) {
-            let mut project = Project::from_config(&config, &mut NullMessages);
+            let mut project = Project::from_config(config.clone(), &mut NullMessages);
             project.analyse();
         }
         iterations
@@ -78,7 +78,7 @@ fn main() {
         1
     };
 
-    let mut project = Project::from_config(&config, &mut msg_printer);
+    let mut project = Project::from_config(config, &mut msg_printer);
     let mut diagnostics = project.analyse();
     let duration = start.elapsed().unwrap() / iterations;
 
