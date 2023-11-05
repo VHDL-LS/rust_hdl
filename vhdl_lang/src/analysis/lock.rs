@@ -43,6 +43,11 @@ impl<T, R> AnalysisLock<T, R> {
         }
     }
 
+    // Has been analyzed
+    pub fn is_analyzed(&self) -> bool {
+        self.get().is_some()
+    }
+
     /// Returns an mutable reference to the data.
     pub fn write(&self) -> MappedRwLockWriteGuard<'_, T> {
         RwLockWriteGuard::map(self.state.write(), |data| &mut data.data)

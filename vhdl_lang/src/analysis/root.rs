@@ -1066,8 +1066,18 @@ impl DesignRoot {
         }
     }
 
-    pub fn analyze(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
+    // Returns the units that where re-analyzed
+    pub fn analyze(&mut self, diagnostics: &mut dyn DiagnosticHandler) -> Vec<UnitId> {
         self.reset();
+
+        let mut units = Vec::default();
+        for library in self.libraries.values() {
+            for unit in library.units.values() {
+                if !unit.unit.is_analyzed() {
+                    units.push(unit.unit_id().clone());
+                }
+            }
+        }
 
         for library in self.libraries.values_mut() {
             library.refresh(diagnostics);
@@ -1079,6 +1089,7 @@ impl DesignRoot {
         // Analyze standard package first sequentially since everything else in the
         // language depends on it and we want to save a reference to all types there
         self.analyze_standard_package();
+
         if let Some(std_arena) = self.standard_arena.as_ref() {
             // @TODO some project.rs unit tests do not have the standard package
             self.arenas.link(std_arena);
@@ -1087,17 +1098,9 @@ impl DesignRoot {
         self.analyze_std_logic_1164();
 
         use rayon::prelude::*;
-        // @TODO run in parallel
-        let mut units: Vec<_> = Vec::new();
-        for library in self.libraries.values() {
-            for unit in library.units.values() {
-                units.push(unit);
-            }
-        }
 
-        // @TODO compute the best order to process the units in parallel
-        units.par_iter().for_each(|unit| {
-            self.get_analysis(unit);
+        units.par_iter().for_each(|id| {
+            self.get_analysis(self.get_unit(id).unwrap());
         });
 
         for library in self.libraries.values() {
@@ -1116,6 +1119,8 @@ impl DesignRoot {
                 diagnostics.append(unit.unit.expect_analyzed().result().diagnostics.clone());
             }
         }
+
+        units
     }
 
     /// Get the named entity
