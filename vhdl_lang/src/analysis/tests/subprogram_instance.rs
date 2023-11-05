@@ -150,7 +150,7 @@ procedure proc is new proc;
 }
 
 #[test]
-pub fn instantiated_kind_doesnt_match_declared_kind() {
+pub fn instantiated_kind_vs_declared_kind() {
     let mut builder = LibraryBuilder::new();
     let code = builder.in_declarative_region(
         "\
@@ -189,7 +189,33 @@ procedure proc is new funk;
             Diagnostic::error(code.s1("procedure"), "Instantiating function as procedure")
                 .related(code.s1("funk"), "function funk[return BIT] declared here"),
         ],
-    )
+    );
+
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "\
+function proc generic (type T) return bit is
+begin
+end proc;
+
+function proc is new proc;
+    ",
+    );
+
+    check_no_diagnostics(&builder.analyze());
+
+    let mut builder = LibraryBuilder::new();
+    builder.in_declarative_region(
+        "\
+procedure proc generic (type T) is
+begin
+end proc;
+
+procedure proc is new proc;
+    ",
+    );
+
+    check_no_diagnostics(&builder.analyze())
 }
 
 #[test]

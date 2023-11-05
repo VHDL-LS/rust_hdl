@@ -737,7 +737,7 @@ impl<'a> AnalyzeContext<'a> {
     ) {
         let err_msg = if ent.is_function() && kind != SubprogramKind::Function {
             Some("Instantiating function as procedure")
-        } else if kind != SubprogramKind::Procedure {
+        } else if ent.is_procedure() && kind != SubprogramKind::Procedure {
             Some("Instantiating procedure as function")
         } else {
             None
