@@ -195,7 +195,7 @@ impl<'a> AnalyzeContext<'a> {
                                 }
                             }
                             diagnostics.push(diagnostic);
-                        } else if ent.kind().signature().generic_map.is_some() {
+                        } else if ent.is_uninstantiated_subprogram() {
                             diagnostics.error(
                                 &name.pos,
                                 format!("uninstantiated {} cannot be called", ent.describe()),

@@ -69,14 +69,14 @@ procedure proc is new foo;
     );
 
     let diagnostics = builder.analyze();
-    assert_eq!(
+    check_diagnostics(
         diagnostics,
         vec![Diagnostic::error(
             code.s1("new foo").s1("foo"),
-            "Ambiguous instantiation of 'foo'"
+            "Ambiguous instantiation of 'foo'",
         )
-        .related(code.s("foo", 1), "Might be procedure foo[BIT]")
-        .related(code.s("foo", 3), "Might be procedure foo[BIT, BIT]")]
+        .related(code.s("foo", 3), "Might be procedure foo[BIT, BIT]")
+        .related(code.s("foo", 1), "Might be procedure foo[BIT]")],
     )
 }
 
@@ -243,4 +243,30 @@ end architecture arch;
             "uninstantiated procedure proc[] cannot be called",
         )],
     )
+}
+
+#[test]
+pub fn resolves_the_correct_instantiated_subprogram() {
+    let mut builder = LibraryBuilder::new();
+    builder.code(
+        "libname",
+        "\
+entity ent is
+end ent;
+
+architecture arch of ent is
+    procedure proc
+        generic ( type T )
+    is
+    begin
+    end proc;
+
+    procedure proc is new proc generic map (T => natural);
+begin
+    proc;
+end architecture arch;
+    ",
+    );
+
+    check_no_diagnostics(&builder.analyze())
 }

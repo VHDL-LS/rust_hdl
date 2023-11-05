@@ -294,6 +294,21 @@ impl<'a> AnalyzeContext<'a> {
             return Err(EvalError::Unknown);
         }
 
+        // Disambiguate based on uninstantiated subprogram
+        ok_kind.retain(|ent| !ent.is_uninstantiated_subprogram());
+
+        if ok_kind.len() == 1 {
+            let ent = ok_kind[0];
+            self.check_call(scope, call_pos, ent, assocs, diagnostics)?;
+            return Ok(Disambiguated::Unambiguous(ent));
+        } else if ok_kind.is_empty() {
+            diagnostics.push(Diagnostic::error(
+                call_name,
+                format!("uninstantiated subprogram {} cannot be called", call_name),
+            ));
+            return Err(EvalError::Unknown);
+        }
+
         let ok_formals = self.disambiguate_by_assoc_formals(scope, call_pos, &ok_kind, assocs)?;
 
         // Only one candidate matched actual/formal profile
@@ -614,8 +629,8 @@ function myfun(arg1 : integer) return integer;
         assert_eq!(
             test.disambiguate(&fcall, None, &mut NoDiagnostics),
             Some(Disambiguated::Ambiguous(vec![
-                test.lookup_overloaded(decl.s("myfun", 2)),
                 test.lookup_overloaded(decl.s1("myfun")),
+                test.lookup_overloaded(decl.s("myfun", 2)),
             ]))
         );
     }

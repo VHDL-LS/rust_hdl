@@ -180,7 +180,7 @@ impl<'a> AnalyzeContext<'a> {
                 }
                 ResolvedName::Overloaded(des, overloaded) => {
                     if let Some(ref mut signature) = signature {
-                        match self.resolve_signature(scope, signature) {
+                        match self.resolve_signature(scope, signature, false) {
                             Ok(signature_key) => {
                                 if let Some(ent) = overloaded.get(&signature_key) {
                                     if let Some(reference) = name.item.suffix_reference_mut() {
@@ -446,7 +446,7 @@ impl<'a> AnalyzeContext<'a> {
                             }
                             Ok(NamedEntities::Overloaded(overloaded)) => {
                                 if let Some(signature) = signature {
-                                    match self.resolve_signature(scope, signature) {
+                                    match self.resolve_signature(scope, signature, false) {
                                         Ok(signature_key) => {
                                             if let Some(ent) = overloaded.get(&signature_key) {
                                                 designator.set_unique_reference(&ent);
@@ -532,6 +532,15 @@ impl<'a> AnalyzeContext<'a> {
                 }
             }
             Declaration::SubprogramInstantiation(ref mut instance) => {
+                let subpgm_ent = self.arena.define(
+                    &mut instance.ident,
+                    parent,
+                    AnyEntKind::Overloaded(Overloaded::Subprogram(Signature::new(
+                        FormalRegion::new_params(),
+                        None,
+                        None,
+                    ))),
+                );
                 let referenced_name = &mut instance.subprogram_name;
                 if let Some(name) = as_fatal(self.name_resolve(
                     scope,
@@ -562,6 +571,12 @@ impl<'a> AnalyzeContext<'a> {
                                 self.ctx.get_pos(instance.kind.token),
                                 diagnostics,
                             );
+                            let subprogram = self.instantiate_subprogram(&ent);
+                            unsafe {
+                                subpgm_ent.set_kind(AnyEntKind::Overloaded(subprogram));
+                            }
+
+                            scope.add(subpgm_ent, diagnostics);
                         }
                         Err(err) => err.add_to(diagnostics)?,
                     }
@@ -593,6 +608,14 @@ impl<'a> AnalyzeContext<'a> {
         };
 
         Ok(())
+    }
+
+    /// Instantiates the subprogram and associates the map aspect with the actual parameters
+    fn instantiate_subprogram(&self, uninstantiated_ent: &OverloadedEnt<'a>) -> Overloaded<'a> {
+        let old_sig = uninstantiated_ent.kind().signature();
+        // TODO: associate formals with actual values
+        let sig = Signature::new(old_sig.formals.clone(), old_sig.return_type, None);
+        Overloaded::Subprogram(sig)
     }
 
     fn check_ent_is_uninstantiated_subprogram(
@@ -629,7 +652,7 @@ impl<'a> AnalyzeContext<'a> {
         let signature_key = match signature {
             None => None,
             Some(ref mut signature) => Some((
-                self.resolve_signature(scope, signature)?,
+                self.resolve_signature(scope, signature, true)?,
                 signature.pos.clone(),
             )),
         };
@@ -1230,6 +1253,7 @@ impl<'a> AnalyzeContext<'a> {
         &self,
         scope: &Scope<'a>,
         signature: &mut WithPos<ast::Signature>,
+        uninstantiated: bool,
     ) -> AnalysisResult<SignatureKey> {
         let (args, return_type) = match &mut signature.item {
             ast::Signature::Function(ref mut args, ref mut ret) => {
@@ -1258,9 +1282,10 @@ impl<'a> AnalyzeContext<'a> {
             Ok(SignatureKey::new(
                 params,
                 Some(return_type?.base_type().base()),
+                uninstantiated,
             ))
         } else {
-            Ok(SignatureKey::new(params, None))
+            Ok(SignatureKey::new(params, None, uninstantiated))
         }
     }
 

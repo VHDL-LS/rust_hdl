@@ -89,6 +89,7 @@ impl<'a> Signature<'a> {
         SignatureKey {
             formals,
             return_type,
+            uninstantiated: self.generic_map.is_some(),
         }
     }
 
@@ -163,13 +164,19 @@ pub fn describe_signature<'a>(
 pub struct SignatureKey<'a> {
     pub formals: Vec<BaseType<'a>>,
     pub return_type: Option<BaseType<'a>>,
+    pub uninstantiated: bool,
 }
 
 impl<'a> SignatureKey<'a> {
-    pub fn new(formals: Vec<BaseType<'a>>, return_type: Option<BaseType<'a>>) -> SignatureKey<'a> {
+    pub fn new(
+        formals: Vec<BaseType<'a>>,
+        return_type: Option<BaseType<'a>>,
+        uninstantiated: bool,
+    ) -> SignatureKey<'a> {
         SignatureKey {
             formals,
             return_type,
+            uninstantiated,
         }
     }
 
@@ -229,6 +236,10 @@ impl<'a> OverloadedEnt<'a> {
 
     pub fn is_procedure(&self) -> bool {
         self.return_type().is_none()
+    }
+
+    pub fn is_uninstantiated_subprogram(&self) -> bool {
+        self.signature().generic_map.is_some()
     }
 
     pub fn is_function(&self) -> bool {
