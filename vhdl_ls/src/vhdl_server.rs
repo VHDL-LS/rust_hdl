@@ -111,6 +111,7 @@ impl VHDLServer {
         self.config_file = self.root_uri_config_file(&init_params);
         let config = self.load_config();
         self.project = Project::from_config(config, &mut self.message_filter());
+        self.project.enable_unused_declaration_detection();
         self.init_params = Some(init_params);
         let trigger_chars: Vec<String> = r".".chars().map(|ch| ch.to_string()).collect();
 

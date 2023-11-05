@@ -20,7 +20,7 @@ pub struct Project {
     root: DesignRoot,
     files: FnvHashMap<PathBuf, SourceFile>,
     empty_libraries: FnvHashSet<Symbol>,
-    lint: UnusedDeclarationsLinter,
+    lint: Option<UnusedDeclarationsLinter>,
 }
 
 impl Project {
@@ -31,9 +31,13 @@ impl Project {
             files: FnvHashMap::default(),
             empty_libraries: FnvHashSet::default(),
             parser,
-            lint: Default::default(),
+            lint: None,
             config: Config::default(),
         }
+    }
+
+    pub fn enable_unused_declaration_detection(&mut self) {
+        self.lint = Some(UnusedDeclarationsLinter::default());
     }
 
     /// Create instance from given configuration.
@@ -228,8 +232,10 @@ impl Project {
         }
 
         let analyzed_units = self.root.analyze(&mut diagnostics);
-        self.lint
-            .lint(&self.root, &self.config, &analyzed_units, &mut diagnostics);
+
+        if let Some(ref mut lint) = self.lint {
+            lint.lint(&self.root, &self.config, &analyzed_units, &mut diagnostics);
+        }
 
         diagnostics
     }
