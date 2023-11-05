@@ -1671,6 +1671,51 @@ impl<'a> FoundDeclaration<'a> {
             FoundDeclaration::SubprogramInstantiation(_) => None,
         }
     }
+
+    fn clear(&mut self) {
+        let decl = match self {
+            FoundDeclaration::InterfaceObject(value) => &mut value.ident.decl,
+            FoundDeclaration::ForIndex(ident, _) => &mut ident.decl,
+            FoundDeclaration::ForGenerateIndex(_, value) => &mut value.index_name.decl,
+            FoundDeclaration::Subprogram(value) => value.specification.ent_id_mut(),
+            FoundDeclaration::SubprogramDecl(value) => value.ent_id_mut(),
+            FoundDeclaration::SubprogramInstantiation(value) => &mut value.ident.decl,
+            FoundDeclaration::Object(value) => &mut value.ident.decl,
+            FoundDeclaration::ElementDeclaration(elem) => &mut elem.ident.decl,
+            FoundDeclaration::EnumerationLiteral(_, elem) => &mut elem.decl,
+            FoundDeclaration::File(value) => &mut value.ident.decl,
+            FoundDeclaration::Type(value) => &mut value.ident.decl,
+            FoundDeclaration::InterfaceType(value) => &mut value.decl,
+            FoundDeclaration::InterfacePackage(value) => &mut value.ident.decl,
+            FoundDeclaration::InterfaceFile(value) => &mut value.ident.decl,
+            FoundDeclaration::PhysicalTypePrimary(value) => &mut value.decl,
+            FoundDeclaration::PhysicalTypeSecondary(value, _) => &mut value.decl,
+            FoundDeclaration::Component(value) => &mut value.ident.decl,
+            FoundDeclaration::Attribute(value) => &mut value.ident.decl,
+            FoundDeclaration::Alias(value) => &mut value.designator.decl,
+            FoundDeclaration::Package(value) => &mut value.ident.decl,
+            FoundDeclaration::PackageBody(value) => &mut value.ident.decl,
+            FoundDeclaration::PackageInstance(value) => &mut value.ident.decl,
+            FoundDeclaration::Configuration(value) => &mut value.ident.decl,
+            FoundDeclaration::Entity(value) => &mut value.ident.decl,
+            FoundDeclaration::Architecture(value) => &mut value.ident.decl,
+            FoundDeclaration::Context(value) => &mut value.ident.decl,
+            FoundDeclaration::GenerateBody(value) => &mut value.decl,
+            FoundDeclaration::ConcurrentStatement(_, value) => &mut **value,
+            FoundDeclaration::SequentialStatement(_, value) => &mut **value,
+        };
+
+        *decl = None;
+    }
+}
+
+impl SubprogramDeclaration {
+    fn ent_id_mut(&mut self) -> &mut Option<EntityId> {
+        match self {
+            SubprogramDeclaration::Procedure(proc) => &mut proc.designator.decl,
+            SubprogramDeclaration::Function(func) => &mut func.designator.decl,
+        }
+    }
 }
 
 impl<'a> HasEntityId for FoundDeclaration<'a> {
@@ -1875,6 +1920,12 @@ pub fn clear_references(tree: &mut impl Search, ctx: &dyn TokenAccess) {
             reference: &mut Reference,
         ) -> SearchState {
             *reference = None;
+            NotFinished
+        }
+
+        fn search_decl(&mut self, _ctx: &dyn TokenAccess, decl: FoundDeclaration) -> SearchState {
+            let mut decl = decl;
+            decl.clear();
             NotFinished
         }
     }
