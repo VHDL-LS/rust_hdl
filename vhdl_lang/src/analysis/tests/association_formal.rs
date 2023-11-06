@@ -419,6 +419,56 @@ end architecture;
 }
 
 #[test]
+fn conversion_of_sliced_formal() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+entity module is
+  port (
+    theport : out bit_vector(0 to 5)
+  );
+end;
+
+architecture a of module is
+begin
+end architecture;
+
+entity ent is
+end;
+
+architecture behav of ent is
+    signal data0 : bit_vector(0 to 5);
+    signal data1 : bit_vector(0 to 5);
+  begin
+
+  inst0: entity work.module
+    port map (
+      bit_vector(theport(data0'range)) => data0
+    );
+
+  inst1: entity work.module
+    port map (
+      bit_vector(theport(0 to 5)) => data1
+    );
+end;",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s("theport", 2).end()),
+        Some(code.s1("theport").pos())
+    );
+
+    assert_eq!(
+        root.search_reference_pos(code.source(), code.s("theport", 3).end()),
+        Some(code.s1("theport").pos())
+    );
+}
+
+#[test]
 fn output_ports_may_be_left_open() {
     let mut builder = LibraryBuilder::new();
     let code = builder.code(

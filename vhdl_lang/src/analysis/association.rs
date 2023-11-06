@@ -66,6 +66,14 @@ impl<'a> ResolvedFormal<'a> {
             ResolvedFormal::Converted(idx, _, _) => idx,
         }
     }
+
+    fn formal(&self) -> InterfaceEnt<'a> {
+        *match self {
+            ResolvedFormal::Basic(_, ent) => ent,
+            ResolvedFormal::Selected(_, ent, _) => ent,
+            ResolvedFormal::Converted(_, ent, _) => ent,
+        }
+    }
 }
 
 impl<'a> AnalyzeContext<'a> {
@@ -135,12 +143,19 @@ impl<'a> AnalyzeContext<'a> {
                     // The prefix of the name was not found in the formal region
                     // it must be a type conversion or a single parameter function call
 
-                    let (idx, pos, formal_ent) = if let Some((pos, designator)) =
+                    let (pos, resolved_formal) = if let Some((inner_pos, inner_name)) =
                         to_formal_conversion_argument(&mut fcall.parameters)
                     {
-                        let (idx, ent) = formal_region.lookup(name_pos, designator.designator())?;
-                        designator.set_unique_reference(ent.inner());
-                        (idx, pos, ent)
+                        (
+                            inner_pos,
+                            self.resolve_formal(
+                                formal_region,
+                                scope,
+                                inner_pos,
+                                inner_name,
+                                diagnostics,
+                            )?,
+                        )
                     } else {
                         return Err(Diagnostic::error(name_pos, "Invalid formal conversion").into());
                     };
@@ -152,7 +167,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics,
                     ))? {
                         Some(ResolvedName::Type(typ)) => {
-                            let ctyp = formal_ent.type_mark().base();
+                            let ctyp = resolved_formal.type_mark().base();
                             if !typ.base().is_closely_related(ctyp) {
                                 return Err(Diagnostic::error(
                                     pos,
@@ -171,9 +186,9 @@ impl<'a> AnalyzeContext<'a> {
 
                             for ent in overloaded.entities() {
                                 if ent.is_function()
-                                    && ent
-                                        .signature()
-                                        .can_be_called_with_single_parameter(formal_ent.type_mark())
+                                    && ent.signature().can_be_called_with_single_parameter(
+                                        resolved_formal.type_mark(),
+                                    )
                                 {
                                     candidates.push(ent);
                                 }
@@ -199,7 +214,7 @@ impl<'a> AnalyzeContext<'a> {
                                     format!(
                                         "No function '{}' accepting {}",
                                         fcall.name,
-                                        formal_ent.type_mark().describe()
+                                        resolved_formal.type_mark().describe()
                                     ),
                                 )
                                 .into());
@@ -212,7 +227,11 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     };
 
-                    Ok(ResolvedFormal::Converted(idx, formal_ent, converted_typ))
+                    Ok(ResolvedFormal::Converted(
+                        resolved_formal.idx(),
+                        resolved_formal.formal(),
+                        converted_typ,
+                    ))
                 } else if let Some(mut indexed_name) = fcall.as_indexed() {
                     let resolved_prefix = self.resolve_formal(
                         formal_region,
@@ -361,7 +380,7 @@ impl<'a> AnalyzeContext<'a> {
 
 fn to_formal_conversion_argument(
     parameters: &mut [AssociationElement],
-) -> Option<(&SrcPos, &mut WithRef<Designator>)> {
+) -> Option<(&SrcPos, &mut Box<Name>)> {
     if let &mut [AssociationElement {
         ref formal,
         ref mut actual,
@@ -370,9 +389,7 @@ fn to_formal_conversion_argument(
         if formal.is_some() {
             return None;
         } else if let ActualPart::Expression(Expression::Name(ref mut actual_name)) = actual.item {
-            if let Name::Designator(designator) = actual_name.as_mut() {
-                return Some((&actual.pos, designator));
-            }
+            return Some((&actual.pos, actual_name));
         }
     }
     None
