@@ -628,21 +628,44 @@ impl<'a> AnalyzeContext<'a> {
             ),
         ]
         .into_iter()
-        .chain(
-            if kind == UniversalType::Integer {
-                Some(
+        .chain(match kind {
+            UniversalType::Integer => itertools::Either::Left(
+                [
+                    self.symmetric_binary(Operator::Mod, typ),
+                    self.symmetric_binary(Operator::Rem, typ),
+                ]
+                .into_iter(),
+            ),
+            UniversalType::Real => {
+                // Universal real
+                itertools::Either::Right(
                     [
-                        self.symmetric_binary(Operator::Mod, typ),
-                        self.symmetric_binary(Operator::Rem, typ),
+                        self.binary(
+                            Operator::Times,
+                            typ,
+                            typ,
+                            self.universal_integer().into(),
+                            typ,
+                        ),
+                        self.binary(
+                            Operator::Times,
+                            typ,
+                            self.universal_integer().into(),
+                            typ,
+                            typ,
+                        ),
+                        self.binary(
+                            Operator::Div,
+                            typ,
+                            typ,
+                            self.universal_integer().into(),
+                            typ,
+                        ),
                     ]
                     .into_iter(),
                 )
-            } else {
-                None
             }
-            .into_iter()
-            .flatten(),
-        )
+        })
         .chain(self.comparators(typ))
     }
 

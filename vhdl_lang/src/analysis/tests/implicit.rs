@@ -266,3 +266,16 @@ end package;
 ",
     );
 }
+
+#[test]
+fn implicit_real_vs_integer_functions() {
+    check_code_with_no_diagnostics(
+        "
+package pkg is
+    constant x : real := real(2.0 / 2);
+    constant y : real := real(2.0 * 2);
+    constant z : real := real(2 * 2.0);
+end package;
+",
+    );
+}
