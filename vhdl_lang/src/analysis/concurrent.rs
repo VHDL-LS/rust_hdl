@@ -121,7 +121,7 @@ impl<'a> AnalyzeContext<'a> {
                     }
                 }
                 let nested = scope.nested();
-                self.define_labels_for_sequential_part(scope, parent, statements, diagnostics)?;
+                self.define_labels_for_sequential_part(&nested, parent, statements, diagnostics)?;
                 self.analyze_declarative_part(&nested, parent, decl, diagnostics)?;
                 self.analyze_sequential_part(&nested, parent, statements, diagnostics)?;
             }
