@@ -237,7 +237,7 @@ impl UnusedDeclarationsLinter {
                         .filter_map(|ent| {
                             Some(Diagnostic::warning(
                                 ent.decl_pos()?,
-                                format!("Unused declaration {}", ent.designator()),
+                                format!("Unused declaration of {}", ent.describe()),
                             ))
                         })
                         .collect_vec()
