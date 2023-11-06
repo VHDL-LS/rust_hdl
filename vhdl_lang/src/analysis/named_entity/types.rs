@@ -145,6 +145,18 @@ impl<'a> TypeEnt<'a> {
         match self.kind() {
             Type::Alias(alias) => alias.base_type(),
             Type::Subtype(subtype) => subtype.base_type(),
+            Type::Protected(.., is_body) if *is_body => {
+                // Never use the protected type body in signatures, use the non-body
+                if let Related::DeclaredBy(other) = self.related {
+                    if let Some(typ) = TypeEnt::from_any(other) {
+                        typ
+                    } else {
+                        *self
+                    }
+                } else {
+                    *self
+                }
+            }
             _ => *self,
         }
     }

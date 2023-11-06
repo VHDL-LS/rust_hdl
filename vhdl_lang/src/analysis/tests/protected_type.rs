@@ -290,3 +290,45 @@ end package;",
         Some(&code.s("prot_t", 2).pos())
     );
 }
+
+/// This was a bug where a procedure declared between the protected type and the body
+/// did not have the same signature as the definition which was after the body
+#[test]
+fn protected_type_and_body_result_in_the_same_signature() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.code(
+        "libname",
+        "
+package pkg is
+end package;
+
+package body pkg is
+  type prot_t is protected
+  end protected;
+
+  procedure myproc(arg : prot_t);
+
+  type prot_t is protected body
+  end protected body;
+
+  procedure myproc(arg : prot_t) is
+  begin
+  end procedure;
+
+end package body;
+",
+    );
+
+    let (root, diagnostics) = builder.get_analyzed_root();
+    check_no_diagnostics(&diagnostics);
+
+    assert_eq!(
+        root.find_all_references_pos(&code.s1("prot_t").pos()).len(),
+        4
+    );
+
+    assert_eq!(
+        root.find_all_references_pos(&code.s1("myproc").pos()).len(),
+        2
+    );
+}

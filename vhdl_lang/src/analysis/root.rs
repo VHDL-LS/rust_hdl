@@ -23,10 +23,11 @@ use fnv::{FnvHashMap, FnvHashSet};
 use parking_lot::RwLock;
 use std::collections::hash_map::Entry;
 use std::ops::Deref;
+use std::ops::DerefMut;
 use std::sync::Arc;
 
 /// A design unit with design unit data
-pub(super) struct AnalysisData {
+pub(crate) struct AnalysisData {
     pub diagnostics: Vec<Diagnostic>,
     pub has_circular_dependency: bool,
     pub arena: FinalArena,
@@ -37,7 +38,7 @@ pub(super) type UnitWriteGuard<'a> = WriteGuard<'a, AnyDesignUnit, AnalysisData>
 
 /// Wraps the AST of a [design unit](../../ast/enum.AnyDesignUnit.html) in a thread-safe
 /// r/w-lock for analysis.
-pub(super) struct LockedUnit {
+pub(crate) struct LockedUnit {
     ident: Ident,
     arena_id: ArenaId,
     unit_id: UnitId,
@@ -249,7 +250,7 @@ impl Library {
         result
     }
 
-    fn get_unit(&self, key: &UnitKey) -> Option<&LockedUnit> {
+    pub(crate) fn get_unit(&self, key: &UnitKey) -> Option<&LockedUnit> {
         self.units.get(key)
     }
 
@@ -257,14 +258,24 @@ impl Library {
         self.id
     }
 
-    pub(super) fn primary_units(&self) -> impl Iterator<Item = &LockedUnit> {
+    pub(crate) fn primary_units(&self) -> impl Iterator<Item = &LockedUnit> {
         self.units.iter().filter_map(|(key, value)| match key {
             UnitKey::Primary(_) => Some(value),
             UnitKey::Secondary(_, _) => None,
         })
     }
 
-    pub(super) fn primary_unit(&self, symbol: &Symbol) -> Option<&LockedUnit> {
+    pub(crate) fn secondary_units<'a>(
+        &'a self,
+        primary: &'a Symbol,
+    ) -> impl Iterator<Item = &'a LockedUnit> {
+        self.units.iter().filter_map(move |(key, value)| match key {
+            UnitKey::Secondary(sym, _) if primary == sym => Some(value),
+            _ => None,
+        })
+    }
+
+    pub(crate) fn primary_unit(&self, symbol: &Symbol) -> Option<&LockedUnit> {
         self.units.get(&UnitKey::Primary(symbol.clone()))
     }
 }
@@ -685,13 +696,9 @@ impl DesignRoot {
         // @TODO keep the same ArenaId when re-using unit
         let arena = Arena::new(arena_id);
         let context = AnalyzeContext::new(self, unit_id, &arena, ctx);
-        use std::ops::DerefMut;
 
         let mut diagnostics = Vec::new();
         let mut has_circular_dependency = false;
-
-        // Ensure no remaining references from previous analysis
-        clear_references(unit.deref_mut(), ctx);
 
         let result = match unit.deref_mut() {
             AnyDesignUnit::Primary(unit) => {
@@ -752,6 +759,9 @@ impl DesignRoot {
         for unit_id in affected.drain() {
             if let Some(unit) = self.get_unit(&unit_id) {
                 unit.unit.reset();
+
+                // Ensure no remaining references from previous analysis
+                clear_references(unit.unit.write().deref_mut(), &unit.tokens);
             }
         }
     }
@@ -941,8 +951,6 @@ impl DesignRoot {
         } else {
             panic!("Expected standard package is primary unit");
         };
-        // Ensure no remaining references from previous analysis
-        clear_references(std_package, &locked_unit.tokens);
 
         let standard_pkg = {
             let (lib_arena, id) = self.get_library_arena(&std_lib_name).unwrap();
@@ -1068,8 +1076,18 @@ impl DesignRoot {
         }
     }
 
-    pub fn analyze(&mut self, diagnostics: &mut dyn DiagnosticHandler) {
+    // Returns the units that where re-analyzed
+    pub fn analyze(&mut self, diagnostics: &mut dyn DiagnosticHandler) -> Vec<UnitId> {
         self.reset();
+
+        let mut units = Vec::default();
+        for library in self.libraries.values() {
+            for unit in library.units.values() {
+                if !unit.unit.is_analyzed() {
+                    units.push(unit.unit_id().clone());
+                }
+            }
+        }
 
         for library in self.libraries.values_mut() {
             library.refresh(diagnostics);
@@ -1081,6 +1099,7 @@ impl DesignRoot {
         // Analyze standard package first sequentially since everything else in the
         // language depends on it and we want to save a reference to all types there
         self.analyze_standard_package();
+
         if let Some(std_arena) = self.standard_arena.as_ref() {
             // @TODO some project.rs unit tests do not have the standard package
             self.arenas.link(std_arena);
@@ -1089,17 +1108,9 @@ impl DesignRoot {
         self.analyze_std_logic_1164();
 
         use rayon::prelude::*;
-        // @TODO run in parallel
-        let mut units: Vec<_> = Vec::new();
-        for library in self.libraries.values() {
-            for unit in library.units.values() {
-                units.push(unit);
-            }
-        }
 
-        // @TODO compute the best order to process the units in parallel
-        units.par_iter().for_each(|unit| {
-            self.get_analysis(unit);
+        units.par_iter().for_each(|id| {
+            self.get_analysis(self.get_unit(id).unwrap());
         });
 
         for library in self.libraries.values() {
@@ -1118,6 +1129,8 @@ impl DesignRoot {
                 diagnostics.append(unit.unit.expect_analyzed().result().diagnostics.clone());
             }
         }
+
+        units
     }
 
     /// Get the named entity

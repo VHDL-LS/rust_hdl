@@ -116,11 +116,6 @@ pub type DiagnosticResult<T> = Result<T, Diagnostic>;
 
 pub trait DiagnosticHandler {
     fn push(&mut self, diagnostic: Diagnostic);
-    fn append(&mut self, diagnostics: Vec<Diagnostic>) {
-        for diagnostic in diagnostics.into_iter() {
-            self.push(diagnostic);
-        }
-    }
 }
 
 impl<'a> dyn DiagnosticHandler + 'a {
@@ -148,6 +143,12 @@ impl<'a> dyn DiagnosticHandler + 'a {
 
     pub fn push_some(&mut self, diagnostic: Option<Diagnostic>) {
         if let Some(diagnostic) = diagnostic {
+            self.push(diagnostic);
+        }
+    }
+
+    pub fn append(&mut self, diagnostics: impl IntoIterator<Item = Diagnostic>) {
+        for diagnostic in diagnostics.into_iter() {
             self.push(diagnostic);
         }
     }

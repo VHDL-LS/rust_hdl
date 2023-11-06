@@ -7,6 +7,7 @@
 use crate::analysis::{AnyEnt, CompletionItem, DesignRoot, EntRef};
 use crate::ast::DesignFile;
 use crate::config::Config;
+use crate::lint::dead_code::UnusedDeclarationsLinter;
 use crate::syntax::VHDLParser;
 use crate::{data::*, EntHierarchy, EntityId};
 use fnv::{FnvHashMap, FnvHashSet};
@@ -15,9 +16,11 @@ use std::path::{Path, PathBuf};
 
 pub struct Project {
     parser: VHDLParser,
+    config: Config,
     root: DesignRoot,
     files: FnvHashMap<PathBuf, SourceFile>,
     empty_libraries: FnvHashSet<Symbol>,
+    lint: Option<UnusedDeclarationsLinter>,
 }
 
 impl Project {
@@ -28,24 +31,29 @@ impl Project {
             files: FnvHashMap::default(),
             empty_libraries: FnvHashSet::default(),
             parser,
+            lint: None,
+            config: Config::default(),
         }
+    }
+
+    pub fn enable_unused_declaration_detection(&mut self) {
+        self.lint = Some(UnusedDeclarationsLinter::default());
     }
 
     /// Create instance from given configuration.
     /// Files referred by configuration are parsed into corresponding libraries.
-    pub fn from_config(config: &Config, messages: &mut dyn MessageHandler) -> Project {
+    pub fn from_config(config: Config, messages: &mut dyn MessageHandler) -> Project {
         let mut project = Project::new();
-
-        let files = project.load_files_from_config(config, messages);
+        let files = project.load_files_from_config(&config, messages);
         project.parse_and_add_files(files, messages);
-
+        project.config = config;
         project
     }
 
     /// Replace active project configuration.
     /// The design state is reset, new files are added and parsed. Existing source files will be
     /// kept and parsed from in-memory source (required for incremental document updates).
-    pub fn update_config(&mut self, config: &Config, messages: &mut dyn MessageHandler) {
+    pub fn update_config(&mut self, config: Config, messages: &mut dyn MessageHandler) {
         self.parser = VHDLParser::default();
         self.root = DesignRoot::new(self.parser.symbols.clone());
 
@@ -58,7 +66,7 @@ impl Project {
         // Files might already be part of self.files, these have to be parsed
         // from in-memory source. New files can be parsed as usual.
         let (known_files, new_files) = self
-            .load_files_from_config(config, messages)
+            .load_files_from_config(&config, messages)
             .into_iter()
             .partition(|(file_name, _library_names)| self.files.contains_key(file_name));
 
@@ -72,6 +80,7 @@ impl Project {
             }
         }
 
+        self.config = config;
         self.parse_and_add_files(new_files, messages);
     }
 
@@ -222,7 +231,12 @@ impl Project {
             self.root.ensure_library(library_name.clone());
         }
 
-        self.root.analyze(&mut diagnostics);
+        let analyzed_units = self.root.analyze(&mut diagnostics);
+
+        if let Some(ref mut lint) = self.lint {
+            lint.lint(&self.root, &self.config, &analyzed_units, &mut diagnostics);
+        }
+
         diagnostics
     }
 
@@ -378,7 +392,7 @@ lib.files = ['file.vhd']
 
         let config = Config::from_str(config_str, root.path()).unwrap();
         let mut messages = Vec::new();
-        let mut project = Project::from_config(&config, &mut messages);
+        let mut project = Project::from_config(config, &mut messages);
         assert_eq!(messages, vec![]);
         check_no_diagnostics(&project.analyse());
     }
@@ -386,7 +400,7 @@ lib.files = ['file.vhd']
     #[test]
     fn unmapped_libraries_are_analyzed() {
         let mut messages = Vec::new();
-        let mut project = Project::from_config(&Config::default(), &mut messages);
+        let mut project = Project::from_config(Config::default(), &mut messages);
         assert_eq!(messages, vec![]);
         let diagnostics = project.analyse();
         check_no_diagnostics(&diagnostics);
@@ -460,7 +474,7 @@ use_lib.files = ['use_file.vhd']
 
         let config = Config::from_str(config_str, root.path()).unwrap();
         let mut messages = Vec::new();
-        let mut project = Project::from_config(&config, &mut messages);
+        let mut project = Project::from_config(config, &mut messages);
         assert_eq!(messages, vec![]);
         check_no_diagnostics(&project.analyse());
     }
@@ -510,7 +524,7 @@ lib2.files = ['file2.vhd']
 
         let config = Config::from_str(config_str, &root).unwrap();
         let mut messages = Vec::new();
-        let mut project = Project::from_config(&config, &mut messages);
+        let mut project = Project::from_config(config, &mut messages);
         assert_eq!(messages, vec![]);
         check_no_diagnostics(&project.analyse());
 
@@ -615,7 +629,7 @@ lib.files = ['file2.vhd']
         let config2 = Config::from_str(config_str2, &root).unwrap();
 
         let mut messages = Vec::new();
-        let mut project = Project::from_config(&config1, &mut messages);
+        let mut project = Project::from_config(config1, &mut messages);
         assert_eq!(messages, vec![]);
 
         // Invalid library should only be reported in source1
@@ -625,7 +639,7 @@ lib.files = ['file2.vhd']
         assert_eq!(diagnostics[1].pos.source, source1); // No declaration
 
         // Change configuration file
-        project.update_config(&config2, &mut messages);
+        project.update_config(config2, &mut messages);
         assert_eq!(messages, vec![]);
 
         // Invalid library should only be reported in source2
