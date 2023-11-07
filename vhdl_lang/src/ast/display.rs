@@ -865,7 +865,7 @@ impl Display for SubprogramDeclaration {
 
 impl Display for SubprogramInstantiation {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        match self.kind.item {
+        match self.kind {
             SubprogramKind::Function => write!(f, "function ")?,
             SubprogramKind::Procedure => write!(f, "procedure ")?,
         };
@@ -1822,19 +1822,19 @@ end units;",
 
     #[test]
     pub fn test_procedure_specification() {
-        assert_format("procedure foo", Code::subprogram_decl);
+        assert_format("procedure foo", Code::subprogram_decl_no_semi);
     }
 
     #[test]
     pub fn test_function_specification() {
-        assert_format("function foo return lib.foo.natural", Code::subprogram_decl);
+        assert_format("function foo return lib.foo.natural", Code::subprogram_decl_no_semi);
     }
 
     #[test]
     pub fn test_function_specification_operator() {
         assert_format(
             "function \"+\" return lib.foo.natural",
-            Code::subprogram_decl,
+            Code::subprogram_decl_no_semi,
         );
     }
 
@@ -1842,7 +1842,7 @@ end units;",
     pub fn test_function_specification_impure() {
         assert_format(
             "impure function foo return lib.foo.natural",
-            Code::subprogram_decl,
+            Code::subprogram_decl_no_semi,
         );
     }
 
@@ -1852,7 +1852,7 @@ end units;",
             "procedure foo(
   constant foo : in natural
 )",
-            Code::subprogram_decl,
+            Code::subprogram_decl_no_semi,
         );
     }
 
@@ -1862,7 +1862,7 @@ end units;",
             "function foo(
   constant foo : in natural
 ) return lib.foo.natural",
-            Code::subprogram_decl,
+            Code::subprogram_decl_no_semi,
         );
     }
 

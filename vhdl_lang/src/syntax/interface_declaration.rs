@@ -757,20 +757,20 @@ bar : natural)",
         assert_eq!(
             code.with_stream(parse_generic),
             InterfaceDeclaration::Subprogram(
-                code.s1("function foo return bar").subprogram_decl(),
+                code.s1("function foo return bar").subprogram_decl_no_semi(),
                 None
             )
         );
         let code = Code::new("procedure foo");
         assert_eq!(
             code.with_stream(parse_generic),
-            InterfaceDeclaration::Subprogram(code.s1("procedure foo").subprogram_decl(), None)
+            InterfaceDeclaration::Subprogram(code.s1("procedure foo").subprogram_decl_no_semi(), None)
         );
         let code = Code::new("impure function foo return bar");
         assert_eq!(
             code.with_stream(parse_generic),
             InterfaceDeclaration::Subprogram(
-                code.s1("impure function foo return bar").subprogram_decl(),
+                code.s1("impure function foo return bar").subprogram_decl_no_semi(),
                 None
             )
         );
@@ -782,7 +782,7 @@ bar : natural)",
         assert_eq!(
             code.with_stream(parse_generic),
             InterfaceDeclaration::Subprogram(
-                code.s1("function foo return bar").subprogram_decl(),
+                code.s1("function foo return bar").subprogram_decl_no_semi(),
                 Some(SubprogramDefault::Name(code.s1("lib.name").selected_name()))
             )
         );
@@ -791,7 +791,7 @@ bar : natural)",
         assert_eq!(
             code.with_stream(parse_generic),
             InterfaceDeclaration::Subprogram(
-                code.s1("function foo return bar").subprogram_decl(),
+                code.s1("function foo return bar").subprogram_decl_no_semi(),
                 Some(SubprogramDefault::Box)
             )
         );

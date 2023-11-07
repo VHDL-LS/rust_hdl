@@ -20,7 +20,6 @@ mod expression;
 mod interface_declaration;
 mod names;
 mod object_declaration;
-mod parse_context;
 mod parser;
 mod range;
 mod separated_list;

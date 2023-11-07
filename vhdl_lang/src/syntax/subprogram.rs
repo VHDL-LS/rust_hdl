@@ -9,7 +9,7 @@ use super::declarative_part::parse_declarative_part;
 use super::interface_declaration::parse_parameter_interface_list;
 use super::names::parse_type_mark;
 use super::sequential_statement::parse_labeled_sequential_statements;
-use super::tokens::{kinds_error, Kind::*, TokenAccess, TokenStream};
+use super::tokens::{kinds_error, Kind::*, TokenAccess, TokenInfo, TokenSpan, TokenStream};
 use crate::ast::*;
 use crate::data::*;
 use crate::syntax::concurrent_statement::parse_map_aspect;
@@ -109,8 +109,8 @@ pub fn parse_subprogram_instantiation(
     let id = stream.get_current_token_id();
     let tok = stream.peek_expect()?;
     let kind = match tok.kind {
-        Procedure => WithToken::new(SubprogramKind::Procedure, id),
-        Function => WithToken::new(SubprogramKind::Function, id),
+        Procedure => SubprogramKind::Procedure,
+        Function => SubprogramKind::Function,
         _ => {
             return Err(Diagnostic::error(
                 tok.pos.clone(),
@@ -131,12 +131,12 @@ pub fn parse_subprogram_instantiation(
     let generic_map = parse_map_aspect(stream, Generic, diagnostics)?;
     let semi = stream.expect_kind(SemiColon)?;
     Ok(SubprogramInstantiation {
+        info: TokenInfo::new(Some(id), Some(semi)),
         kind,
         ident,
         subprogram_name,
         signature,
         generic_map,
-        semi,
     })
 }
 
@@ -144,6 +144,7 @@ pub fn parse_subprogram_declaration_no_semi(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SubprogramDeclaration> {
+    let start_token = stream.get_token_id(stream.peek_expect()?)?;
     let (is_function, is_pure) = {
         expect_token!(
             stream,
@@ -182,6 +183,7 @@ pub fn parse_subprogram_declaration_no_semi(
         stream.expect_kind(Return)?;
         let return_type = parse_type_mark(stream)?;
         Ok(SubprogramDeclaration::Function(FunctionSpecification {
+            info: TokenInfo::new(Some(start_token), None),
             pure: is_pure,
             param_tok,
             designator: designator.into(),
@@ -191,6 +193,7 @@ pub fn parse_subprogram_declaration_no_semi(
         }))
     } else {
         Ok(SubprogramDeclaration::Procedure(ProcedureSpecification {
+            info: TokenInfo::new(Some(start_token), None),
             designator: designator.into(),
             param_tok,
             header,
@@ -204,8 +207,14 @@ pub fn parse_subprogram_declaration(
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SubprogramDeclaration> {
     let res = parse_subprogram_declaration_no_semi(stream, diagnostics);
-    stream.expect_kind(SemiColon)?;
-    res
+    let end_token = stream.expect_kind(SemiColon)?;
+
+    if let Ok(mut decl) = res {
+        decl.set_end_token(end_token);
+        Ok(decl)
+    } else {
+        res
+    }
 }
 
 /// LRM 4.3 Subprogram bodies
@@ -258,7 +267,7 @@ pub fn parse_subprogram(
             parse_subprogram_instantiation(stream, diagnostics)?,
         ));
     }
-    let specification = parse_subprogram_declaration_no_semi(stream, diagnostics)?;
+    let mut specification = parse_subprogram_declaration_no_semi(stream, diagnostics)?;
     expect_token!(
         stream,
         token,
@@ -266,6 +275,7 @@ pub fn parse_subprogram(
             Ok(Declaration::SubprogramBody(parse_subprogram_body(stream, specification, diagnostics)?))
         },
         SemiColon => {
+            specification.set_end_token(stream.get_token_id(token)?);
             Ok(Declaration::SubprogramDeclaration(specification))
         }
     )
@@ -273,9 +283,12 @@ pub fn parse_subprogram(
 
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools;
+
     use super::*;
 
-    use crate::syntax::test::Code;
+    use crate::syntax::test::{token_to_string, Code};
+    use crate::TokenInfo;
 
     #[test]
     pub fn parses_procedure_specification() {
@@ -287,6 +300,10 @@ procedure foo;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram_declaration),
             SubprogramDeclaration::Procedure(ProcedureSpecification {
+                info: TokenInfo::new(
+                    Some(code.s1("procedure").token()),
+                    Some(code.s1(";").token())
+                ),
                 designator: code
                     .s1("foo")
                     .ident()
@@ -309,6 +326,10 @@ function foo return lib.foo.natural;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram_declaration),
             SubprogramDeclaration::Function(FunctionSpecification {
+                info: TokenInfo::new(
+                    Some(code.s1("function").token()),
+                    Some(code.s1(";").token())
+                ),
                 pure: true,
                 designator: code
                     .s1("foo")
@@ -333,6 +354,10 @@ function \"+\" return lib.foo.natural;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram_declaration),
             SubprogramDeclaration::Function(FunctionSpecification {
+                info: TokenInfo::new(
+                    Some(code.s1("function").token()),
+                    Some(code.s1(";").token())
+                ),
                 pure: true,
                 designator: WithPos {
                     item: SubprogramDesignator::OperatorSymbol(Operator::Plus),
@@ -357,6 +382,7 @@ impure function foo return lib.foo.natural;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram_declaration),
             SubprogramDeclaration::Function(FunctionSpecification {
+                info: TokenInfo::new(Some(code.s1("impure").token()), Some(code.s1(";").token())),
                 pure: false,
                 designator: code
                     .s1("foo")
@@ -380,6 +406,7 @@ pure function foo return lib.foo.natural;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram_declaration),
             SubprogramDeclaration::Function(FunctionSpecification {
+                info: TokenInfo::new(Some(code.s1("pure").token()), Some(code.s1(";").token())),
                 pure: true,
                 designator: code
                     .s1("foo")
@@ -403,6 +430,10 @@ procedure foo(foo : natural);
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram_declaration),
             SubprogramDeclaration::Procedure(ProcedureSpecification {
+                info: TokenInfo::new(
+                    Some(code.s1("procedure").token()),
+                    Some(code.s1(";").token())
+                ),
                 designator: code
                     .s1("foo")
                     .ident()
@@ -425,6 +456,10 @@ function foo(foo : natural) return lib.foo.natural;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram_declaration),
             SubprogramDeclaration::Function(FunctionSpecification {
+                info: TokenInfo::new(
+                    Some(code.s1("function").token()),
+                    Some(code.s1(";").token())
+                ),
                 pure: true,
                 designator: code
                     .s1("foo")
@@ -449,6 +484,10 @@ function foo parameter (foo : natural) return lib.foo.natural;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram_declaration),
             SubprogramDeclaration::Function(FunctionSpecification {
+                info: TokenInfo::new(
+                    Some(code.s1("function").token()),
+                    Some(code.s1(";").token())
+                ),
                 pure: true,
                 designator: code
                     .s1("foo")
@@ -473,6 +512,10 @@ function foo generic (abc_def: natural) parameter (foo : natural) return lib.foo
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram_declaration),
             SubprogramDeclaration::Function(FunctionSpecification {
+                info: TokenInfo::new(
+                    Some(code.s1("function").token()),
+                    Some(code.s1(";").token())
+                ),
                 pure: true,
                 designator: code
                     .s1("foo")
@@ -585,7 +628,7 @@ end function;
         );
         let specification = code
             .s1("function foo(arg : natural) return natural")
-            .subprogram_decl();
+            .subprogram_decl_no_semi();
         let declarations = code.s1("constant foo : natural := 0;").declarative_part();
         let statements = vec![code.s1("return foo + arg;").sequential_statement()];
         let body = SubprogramBody {
@@ -608,7 +651,7 @@ function foo(arg : natural) return natural;
 ",
         );
         let specification = code
-            .s1("function foo(arg : natural) return natural")
+            .s1("function foo(arg : natural) return natural;")
             .subprogram_decl();
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram),
@@ -627,7 +670,7 @@ end function foo;
         );
         let specification = code
             .s1("function foo(arg : natural) return natural")
-            .subprogram_decl();
+            .subprogram_decl_no_semi();
         let body = SubprogramBody {
             specification,
             declarations: vec![],
@@ -651,7 +694,7 @@ end function \"+\";
         );
         let specification = code
             .s1("function \"+\"(arg : natural) return natural")
-            .subprogram_decl();
+            .subprogram_decl_no_semi();
         let body = SubprogramBody {
             specification,
             declarations: vec![],
@@ -724,6 +767,10 @@ procedure my_proc
         assert_eq!(
             decl,
             SubprogramDeclaration::Procedure(ProcedureSpecification {
+                info: TokenInfo::new(
+                    Some(code.s1("procedure").token()),
+                    Some(code.sa(")", ";").token())
+                ),
                 designator: code
                     .s1("my_proc")
                     .ident()
@@ -751,6 +798,10 @@ procedure my_proc
         assert_eq!(
             decl,
             SubprogramDeclaration::Procedure(ProcedureSpecification {
+                info: TokenInfo::new(
+                    Some(code.s1("procedure").token()),
+                    Some(code.sa(")", ";").token())
+                ),
                 designator: code
                     .s1("my_proc")
                     .ident()
@@ -779,7 +830,7 @@ end function;
         );
         let specification = code
             .s1("function foo generic (x: natural := 4) (arg : natural) return natural")
-            .subprogram_decl();
+            .subprogram_decl_no_semi();
         let declarations = code.s1("constant foo : natural := 0;").declarative_part();
         let statements = vec![code.s1("return foo + arg;").sequential_statement()];
         let body = SubprogramBody {
@@ -812,7 +863,7 @@ end procedure swap;
             .s1("procedure swap
   generic ( type T )
   parameter (a, b : inout T)")
-            .subprogram_decl();
+            .subprogram_decl_no_semi();
         let body = SubprogramBody {
             specification,
             declarations: code.s1("variable temp : T;").declarative_part(),
@@ -836,12 +887,15 @@ end procedure swap;
         assert_eq!(
             inst,
             SubprogramInstantiation {
-                kind: WithToken::new(SubprogramKind::Procedure, code.s1("procedure").token()),
+                kind: SubprogramKind::Procedure,
+                info: TokenInfo::new(
+                    Some(code.s1("procedure").token()),
+                    Some(code.s1(";").token())
+                ),
                 ident: code.s1("my_proc").decl_ident(),
                 subprogram_name: code.s1("new proc").s1("proc").name(),
                 signature: None,
                 generic_map: None,
-                semi: code.s1(";").token()
             }
         );
 
@@ -850,12 +904,15 @@ end procedure swap;
         assert_eq!(
             inst,
             SubprogramInstantiation {
-                kind: WithToken::new(SubprogramKind::Function, code.s1("function").token()),
+                kind: SubprogramKind::Function,
+                info: TokenInfo::new(
+                    Some(code.s1("function").token()),
+                    Some(code.s1(";").token())
+                ),
                 ident: code.s1("my_func").decl_ident(),
                 subprogram_name: code.s1("new func").s1("func").name(),
                 signature: None,
                 generic_map: None,
-                semi: code.s1(";").token()
             }
         );
 
@@ -864,12 +921,15 @@ end procedure swap;
         assert_eq!(
             inst,
             SubprogramInstantiation {
-                kind: WithToken::new(SubprogramKind::Function, code.s1("function").token()),
+                kind: SubprogramKind::Function,
+                info: TokenInfo::new(
+                    Some(code.s1("function").token()),
+                    Some(code.s1(";").token())
+                ),
                 ident: code.s1("my_func").decl_ident(),
                 subprogram_name: code.s1("new func").s1("func").name(),
                 signature: Some(code.s1("[bit return bit_vector]").signature()),
                 generic_map: None,
-                semi: code.s1(";").token()
             }
         );
 
@@ -879,12 +939,15 @@ end procedure swap;
         assert_eq!(
             inst,
             SubprogramInstantiation {
-                kind: WithToken::new(SubprogramKind::Function, code.s1("function").token()),
+                kind: SubprogramKind::Function,
+                info: TokenInfo::new(
+                    Some(code.s1("function").token()),
+                    Some(code.s1(";").token())
+                ),
                 ident: code.s1("my_func").decl_ident(),
                 subprogram_name: code.s1("new func").s1("func").name(),
                 signature: Some(code.s1("[bit return bit_vector]").signature()),
                 generic_map: Some(code.s1("generic map (x => x)").generic_map_aspect()),
-                semi: code.s1(";").token()
             }
         );
 
@@ -893,12 +956,15 @@ end procedure swap;
         assert_eq!(
             inst,
             SubprogramInstantiation {
-                kind: WithToken::new(SubprogramKind::Function, code.s1("function").token()),
+                kind: SubprogramKind::Function,
+                info: TokenInfo::new(
+                    Some(code.s1("function").token()),
+                    Some(code.s1(";").token())
+                ),
                 ident: code.s1("my_func").decl_ident(),
                 subprogram_name: code.s1("new func").s1("func").name(),
                 signature: None,
                 generic_map: Some(code.s1("generic map (z => z, x => y)").generic_map_aspect()),
-                semi: code.s1(";").token()
             }
         );
     }
@@ -910,12 +976,15 @@ end procedure swap;
         assert_eq!(
             inst,
             Declaration::SubprogramInstantiation(SubprogramInstantiation {
-                kind: WithToken::new(SubprogramKind::Procedure, code.s1("procedure").token()),
+                kind: SubprogramKind::Procedure,
+                info: TokenInfo::new(
+                    Some(code.s1("procedure").token()),
+                    Some(code.s1(";").token())
+                ),
                 ident: code.s1("my_proc").decl_ident(),
                 subprogram_name: code.s1("new proc").s1("proc").name(),
                 signature: None,
                 generic_map: None,
-                semi: code.s1(";").token()
             })
         );
 
@@ -924,13 +993,90 @@ end procedure swap;
         assert_eq!(
             inst,
             Declaration::SubprogramInstantiation(SubprogramInstantiation {
-                kind: WithToken::new(SubprogramKind::Function, code.s1("function").token()),
+                kind: SubprogramKind::Function,
+                info: TokenInfo::new(
+                    Some(code.s1("function").token()),
+                    Some(code.s1(";").token())
+                ),
                 ident: code.s1("my_func").decl_ident(),
                 subprogram_name: code.s1("new func").s1("func").name(),
                 signature: None,
                 generic_map: None,
-                semi: code.s1(";").token()
             })
         );
+    }
+
+    #[test]
+    pub fn test_token_span() {
+        let code = Code::new(
+            "\
+package pkg is
+    function foo generic (abc_def: natural) parameter (foo : natural) return lib.foo.natural;
+    function bar (idx: natural) return boolean;
+    procedure proc;
+end package;
+",
+        );
+        let ctx = code.tokenize();
+        let pkg = code.package_declaration();
+        let subprograms = pkg
+            .decl
+            .iter()
+            .map(|d| {
+                if let Declaration::SubprogramDeclaration(sub) = d {
+                    sub
+                } else {
+                    panic!("Only subprogram declarations are expected!")
+                }
+            })
+            .collect_vec();
+
+        let function_foo_token_string: Vec<String> = subprograms[0]
+            .get_token_slice(&ctx)
+            .iter()
+            .map(token_to_string)
+            .collect();
+        let function_bar_token_string: Vec<String> = subprograms[1]
+            .get_token_slice(&ctx)
+            .iter()
+            .map(token_to_string)
+            .collect();
+        let proc_proc_token_string: Vec<String> = subprograms[2]
+            .get_token_slice(&ctx)
+            .iter()
+            .map(token_to_string)
+            .collect();
+
+        assert_eq!(
+            function_foo_token_string,
+            vec![
+                "function",
+                "foo",
+                "generic",
+                "(",
+                "abc_def",
+                ":",
+                "natural",
+                ")",
+                "parameter",
+                "(",
+                "foo",
+                ":",
+                "natural",
+                ")",
+                "return",
+                "lib",
+                ".",
+                "foo",
+                ".",
+                "natural",
+                ";"
+            ],
+        );
+        assert_eq!(
+            function_bar_token_string,
+            vec!["function", "bar", "(", "idx", ":", "natural", ")", "return", "boolean", ";"],
+        );
+        assert_eq!(proc_proc_token_string, vec!["procedure", "proc", ";",],);
     }
 }

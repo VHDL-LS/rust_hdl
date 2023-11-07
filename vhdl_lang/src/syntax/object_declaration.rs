@@ -12,6 +12,7 @@ use super::tokens::{Kind::*, TokenStream};
 /// LRM 6.4.2 Object Declarations
 use crate::ast::*;
 use crate::data::WithPos;
+use crate::{TokenInfo, TokenSpan};
 
 pub fn parse_optional_assignment(stream: &TokenStream) -> ParseResult<Option<WithPos<Expression>>> {
     if stream.pop_if_kind(ColonEq).is_some() {
@@ -26,6 +27,7 @@ fn parse_object_declaration_kind(
     stream: &TokenStream,
     class: ObjectClass,
 ) -> ParseResult<Vec<ObjectDeclaration>> {
+    let start_token = stream.get_token_id(stream.peek_expect()?)?;
     match class {
         ObjectClass::Signal => {
             stream.expect_kind(Signal)?;
@@ -50,6 +52,7 @@ fn parse_object_declaration_kind(
     Ok(idents
         .into_iter()
         .map(|ident| ObjectDeclaration {
+            info: TokenInfo::new(Some(start_token), None),
             class,
             ident: ident.into(),
             subtype_indication: subtype.clone(),
@@ -60,7 +63,7 @@ fn parse_object_declaration_kind(
 
 pub fn parse_object_declaration(stream: &TokenStream) -> ParseResult<Vec<ObjectDeclaration>> {
     let token = stream.peek_expect()?;
-    let result = try_init_token_kind!(
+    let mut result = try_init_token_kind!(
         token,
         Constant => parse_object_declaration_kind(stream, ObjectClass::Constant)?,
         Signal => parse_object_declaration_kind(stream, ObjectClass::Signal)?,
@@ -69,7 +72,10 @@ pub fn parse_object_declaration(stream: &TokenStream) -> ParseResult<Vec<ObjectD
             parse_object_declaration_kind(stream, ObjectClass::SharedVariable)?
         }
     );
-    stream.expect_kind(SemiColon)?;
+    let end_token = stream.expect_kind(SemiColon)?;
+    result
+        .iter_mut()
+        .for_each(|obj_decl| obj_decl.set_end_token(end_token));
     Ok(result)
 }
 
@@ -114,8 +120,10 @@ pub fn parse_file_declaration(stream: &TokenStream) -> ParseResult<Vec<FileDecla
 
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools;
+
     use super::*;
-    use crate::syntax::test::Code;
+    use crate::syntax::test::{token_to_string, Code};
 
     #[test]
     fn parses_constant() {
@@ -123,6 +131,10 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
+                info: TokenInfo::new(
+                    Some(code.s1("constant").token()),
+                    Some(code.s1(";").token())
+                ),
                 class: ObjectClass::Constant,
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
@@ -137,6 +149,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
+                info: TokenInfo::new(Some(code.s1("signal").token()), Some(code.s1(";").token())),
                 class: ObjectClass::Signal,
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
@@ -151,6 +164,10 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
+                info: TokenInfo::new(
+                    Some(code.s1("variable").token()),
+                    Some(code.s1(";").token())
+                ),
                 class: ObjectClass::Variable,
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
@@ -165,6 +182,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
+                info: TokenInfo::new(Some(code.s1("shared").token()), Some(code.s1(";").token())),
                 class: ObjectClass::SharedVariable,
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
@@ -221,6 +239,10 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
+                info: TokenInfo::new(
+                    Some(code.s1("constant").token()),
+                    Some(code.s1(";").token())
+                ),
                 class: ObjectClass::Constant,
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
@@ -235,12 +257,20 @@ mod tests {
 
         let objects = vec![
             ObjectDeclaration {
+                info: TokenInfo::new(
+                    Some(code.s1("constant").token()),
+                    Some(code.s1(";").token()),
+                ),
                 class: ObjectClass::Constant,
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
                 expression: Some(code.s1("0").expr()),
             },
             ObjectDeclaration {
+                info: TokenInfo::new(
+                    Some(code.s1("constant").token()),
+                    Some(code.s1(";").token()),
+                ),
                 class: ObjectClass::Constant,
                 ident: code.s1("bar").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
@@ -249,5 +279,60 @@ mod tests {
         ];
 
         assert_eq!(code.with_stream(parse_object_declaration), objects);
+    }
+
+    #[test]
+    pub fn test_token_span() {
+        let code = Code::new(
+            "\
+architecture pkg of ent is
+    constant PI         : real := 3.141;
+    variable bar        : bit;
+    shared variable foo : integer;
+    signal busy         : std_ulogic := '0';
+begin
+end architecture;
+",
+        );
+        let ctx = code.tokenize();
+        let arch = code.architecture_body();
+        let obj_decls = arch
+            .decl
+            .iter()
+            .map(|d| {
+                if let Declaration::Object(obj) = d {
+                    obj
+                } else {
+                    panic!("Only object declarations are expected!")
+                }
+            })
+            .collect_vec();
+
+        let obj_decl_strings: Vec<Vec<String>> = obj_decls
+            .iter()
+            .map(|decl| {
+                decl.get_token_slice(&ctx)
+                    .iter()
+                    .map(token_to_string)
+                    .collect()
+            })
+            .collect_vec();
+
+        assert_eq!(
+            obj_decl_strings[0],
+            vec!["constant", "PI", ":", "real", ":=", "3.141", ";"],
+        );
+        assert_eq!(
+            obj_decl_strings[1],
+            vec!["variable", "bar", ":", "bit", ";"],
+        );
+        assert_eq!(
+            obj_decl_strings[2],
+            vec!["shared", "variable", "foo", ":", "integer", ";"],
+        );
+        assert_eq!(
+            obj_decl_strings[3],
+            vec!["signal", "busy", ":", "std_ulogic", ":=", "'0'", ";"],
+        );
     }
 }

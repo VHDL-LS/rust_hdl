@@ -15,7 +15,7 @@ use super::tokens::{Kind::*, TokenStream};
 use crate::ast::*;
 use crate::ast::{AbstractLiteral, Range};
 use crate::data::DiagnosticHandler;
-use crate::syntax::names::parse_type_mark;
+use crate::syntax::{names::parse_type_mark, TokenInfo};
 
 /// LRM 5.2.2 Enumeration types
 fn parse_enumeration_type_definition(stream: &TokenStream) -> ParseResult<TypeDefinition> {
@@ -32,10 +32,7 @@ fn parse_enumeration_type_definition(stream: &TokenStream) -> ParseResult<TypeDe
                 enum_literals.push(WithDecl::new(enum_literal));
 
                 expect_token!(stream, token,
-                    RightPar => {
-                        stream.expect_kind(SemiColon)?;
-                        break;
-                    },
+                    RightPar => { break; },
                     Comma => {}
                 );
             }
@@ -65,7 +62,6 @@ fn parse_array_type_definition(stream: &TokenStream) -> ParseResult<TypeDefiniti
     let index_constraints = parse_array_index_constraints(stream)?;
     stream.expect_kind(Of)?;
     let element_subtype = parse_subtype_indication(stream)?;
-    stream.expect_kind(SemiColon)?;
     Ok(TypeDefinition::Array(index_constraints, element_subtype))
 }
 
@@ -79,7 +75,6 @@ fn parse_record_type_definition(
         if stream.skip_if_kind(End) {
             stream.pop_if_kind(Record);
             let end_ident = stream.pop_optional_ident();
-            stream.expect_kind(SemiColon)?;
             return Ok((TypeDefinition::Record(elem_decls), end_ident));
         };
 
@@ -97,12 +92,13 @@ fn parse_record_type_definition(
 }
 
 pub fn parse_subtype_declaration(stream: &TokenStream) -> ParseResult<TypeDeclaration> {
-    stream.expect_kind(Subtype)?;
+    let start_token = stream.expect_kind(Subtype)?;
     let ident = stream.expect_ident()?;
     stream.expect_kind(Is)?;
     let subtype_indication = parse_subtype_indication(stream)?;
-    stream.expect_kind(SemiColon)?;
+    let end_token = stream.expect_kind(SemiColon)?;
     Ok(TypeDeclaration {
+        info: TokenInfo::new(Some(start_token), Some(end_token)),
         ident: ident.into(),
         def: TypeDefinition::Subtype(subtype_indication),
         end_ident_pos: None,
@@ -179,7 +175,6 @@ fn parse_physical_type_definition(
     stream.expect_kind(End)?;
     stream.expect_kind(Units)?;
     let end_ident = stream.pop_optional_ident();
-    stream.expect_kind(SemiColon)?;
 
     Ok((
         TypeDefinition::Physical(PhysicalTypeDeclaration {
@@ -196,6 +191,7 @@ pub fn parse_type_declaration(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<TypeDeclaration> {
+    let start_token = stream.get_token_id(stream.peek_expect()?)?;
     peek_token!(
         stream, token,
         Subtype => {
@@ -214,6 +210,7 @@ pub fn parse_type_declaration(
         Is => {},
         SemiColon => {
             return Ok(TypeDeclaration {
+                info: TokenInfo::new(Some(start_token), Some(stream.get_token_id(token)?)),
                 ident,
                 def: TypeDefinition::Incomplete(Reference::default()),
                 end_ident_pos
@@ -228,7 +225,10 @@ pub fn parse_type_declaration(
             let constraint = parse_range(stream)?.item;
             expect_token!(
                 stream, token,
-                SemiColon => TypeDefinition::Numeric(constraint),
+                SemiColon => {
+                    stream.back(); // The ';' is consumed at the end of the function
+                    TypeDefinition::Numeric(constraint)
+                },
                 Units => {
                     let (def, end_ident) = parse_physical_type_definition(stream, constraint)?;
                     end_ident_pos = check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics);
@@ -239,7 +239,6 @@ pub fn parse_type_declaration(
 
         Access => {
             let subtype_indication = parse_subtype_indication(stream)?;
-            stream.expect_kind(SemiColon)?;
             TypeDefinition::Access(subtype_indication)
         },
 
@@ -250,21 +249,18 @@ pub fn parse_type_declaration(
                 stream.expect_kind(Protected)?;
                 stream.expect_kind(Body)?;
                 let end_ident = stream.pop_optional_ident();
-                stream.expect_kind(SemiColon)?;
                 end_ident_pos = check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics);
 
                 TypeDefinition::ProtectedBody(ProtectedTypeBody {decl})
             } else {
                 let (protected_type_decl, end_ident) = parse_protected_type_declaration(stream, diagnostics)?;
                 end_ident_pos = check_end_identifier_mismatch(&ident.tree, end_ident, diagnostics);
-                stream.expect_kind(SemiColon)?;
                 TypeDefinition::Protected(protected_type_decl)
             }
         },
         File => {
             stream.expect_kind(Of)?;
             let type_mark = parse_type_mark(stream)?;
-            stream.expect_kind(SemiColon)?;
             TypeDefinition::File(type_mark)
         },
         Array => parse_array_type_definition(stream)?,
@@ -277,7 +273,9 @@ pub fn parse_type_declaration(
         LeftPar => parse_enumeration_type_definition(stream)?
     );
 
+    let end_token = stream.expect_kind(SemiColon)?;
     Ok(TypeDeclaration {
+        info: TokenInfo::new(Some(start_token), Some(end_token)),
         ident,
         def,
         end_ident_pos,
@@ -286,10 +284,14 @@ pub fn parse_type_declaration(
 
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools;
+
     use super::*;
 
+    use crate::{TokenId, TokenInfo, TokenSpan};
+
     use crate::ast::{DiscreteRange, Ident};
-    use crate::syntax::test::Code;
+    use crate::syntax::test::{token_to_string, Code};
     use crate::SrcPos;
 
     #[test]
@@ -297,6 +299,7 @@ mod tests {
         let code = Code::new("type foo is range 0 to 1;");
 
         let type_decl = TypeDeclaration {
+            info: TokenInfo::new(Some(code.s1("type").token()), Some(code.s1(";").token())),
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Numeric(code.s1("0 to 1").range()),
             end_ident_pos: None,
@@ -312,6 +315,7 @@ mod tests {
         let code = Code::new("type foo is (alpha, beta);");
 
         let type_decl = TypeDeclaration {
+            info: TokenInfo::new(Some(code.s1("type").token()), Some(code.s1(";").token())),
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Enumeration(vec![
                 code.s1("alpha")
@@ -336,6 +340,7 @@ mod tests {
         let code = Code::new("type foo is ('a', 'b');");
 
         let type_decl = TypeDeclaration {
+            info: TokenInfo::new(Some(code.s1("type").token()), Some(code.s1(";").token())),
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Enumeration(vec![
                 code.s1("'a'")
@@ -360,6 +365,7 @@ mod tests {
         let code = Code::new("type foo is (ident, 'b');");
 
         let type_decl = TypeDeclaration {
+            info: TokenInfo::new(Some(code.s1("type").token()), Some(code.s1(";").token())),
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Enumeration(vec![
                 code.s1("ident")
@@ -384,6 +390,7 @@ mod tests {
         let code = Code::new("type foo is array (natural range <>) of boolean;");
 
         let type_decl = TypeDeclaration {
+            info: TokenInfo::new(Some(code.s1("type").token()), Some(code.s1(";").token())),
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
                 vec![ArrayIndex::IndexSubtypeDefintion(
@@ -405,6 +412,7 @@ mod tests {
         let code = Code::new("type foo is array (natural) of boolean;");
 
         let type_decl = TypeDeclaration {
+            info: TokenInfo::new(Some(code.s1("type").token()), Some(code.s1(";").token())),
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
                 vec![ArrayIndex::Discrete(DiscreteRange::Discrete(
@@ -427,6 +435,7 @@ mod tests {
         let code = Code::new("type foo is array (lib.pkg.foo) of boolean;");
 
         let type_decl = TypeDeclaration {
+            info: TokenInfo::new(Some(code.s1("type").token()), Some(code.s1(";").token())),
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
                 vec![ArrayIndex::Discrete(DiscreteRange::Discrete(
@@ -449,6 +458,7 @@ mod tests {
         let code = Code::new("type foo is array (arr_t'range) of boolean;");
 
         let type_decl = TypeDeclaration {
+            info: TokenInfo::new(Some(code.s1("type").token()), Some(code.s1(";").token())),
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
                 vec![ArrayIndex::Discrete(DiscreteRange::Range(
@@ -472,6 +482,7 @@ mod tests {
         let index = ArrayIndex::Discrete(DiscreteRange::Range(code.s1("2-1 downto 0").range()));
 
         let type_decl = TypeDeclaration {
+            info: TokenInfo::new(Some(code.s1("type").token()), Some(code.s1(";").token())),
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(vec![index], code.s1("boolean").subtype_indication()),
             end_ident_pos: None,
@@ -492,6 +503,7 @@ mod tests {
         let index1 = ArrayIndex::IndexSubtypeDefintion(code.s1("integer").type_mark());
 
         let type_decl = TypeDeclaration {
+            info: TokenInfo::new(Some(code.s1("type").token()), Some(code.s1(";").token())),
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Array(
                 vec![index0, index1],
@@ -521,6 +533,10 @@ end record;",
         };
 
         let type_decl = TypeDeclaration {
+            info: TokenInfo::new(
+                Some(code.s1("type").token()),
+                Some(code.sa("end record", ";").token()),
+            ),
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Record(vec![elem_decl]),
             end_ident_pos: None,
@@ -558,6 +574,10 @@ end foo;",
         };
 
         let type_decl = TypeDeclaration {
+            info: TokenInfo::new(
+                Some(code.s1("type").token()),
+                Some(code.sa("end foo", ";").token()),
+            ),
             ident: code.s1("foo").decl_ident(),
             def: TypeDefinition::Record(vec![elem_decl0a, elem_decl0b, elem_decl1]),
             end_ident_pos: Some(code.s("foo", 2).pos()),
@@ -576,6 +596,7 @@ end foo;",
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
+                info: TokenInfo::new(Some(code.s1("subtype").token()), Some(code.s1(";").token())),
                 ident: code.s1("vec_t").decl_ident(),
                 def: TypeDefinition::Subtype(
                     code.s1("integer_vector(2-1 downto 0)").subtype_indication()
@@ -592,6 +613,7 @@ end foo;",
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
+                info: TokenInfo::new(Some(code.s1("type").token()), Some(code.s1(";").token())),
                 ident: code.s1("ptr_t").decl_ident(),
                 def: TypeDefinition::Access(
                     code.s1("integer_vector(2-1 downto 0)").subtype_indication()
@@ -608,6 +630,7 @@ end foo;",
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
+                info: TokenInfo::new(Some(code.s1("type").token()), Some(code.s1(";").token())),
                 ident: code.s1("incomplete").decl_ident(),
                 def: TypeDefinition::Incomplete(Reference::default()),
                 end_ident_pos: None,
@@ -622,6 +645,7 @@ end foo;",
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
+                info: TokenInfo::new(Some(code.s1("type").token()), Some(code.s1(";").token())),
                 ident: code.s1("foo").decl_ident(),
                 def: TypeDefinition::File(code.s1("character").type_mark()),
                 end_ident_pos: None,
@@ -631,10 +655,13 @@ end foo;",
 
     fn protected_decl(
         ident: Ident,
+        start_token: TokenId,
+        end_token: TokenId,
         items: Vec<ProtectedTypeDeclarativeItem>,
         end_ident_pos: Option<SrcPos>,
     ) -> TypeDeclaration {
         TypeDeclaration {
+            info: TokenInfo::new(Some(start_token), Some(end_token)),
             ident: ident.into(),
             def: TypeDefinition::Protected(ProtectedTypeDeclaration { items }),
             end_ident_pos,
@@ -651,7 +678,13 @@ end protected;
         );
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
-            protected_decl(code.s1("foo").ident(), vec![], None)
+            protected_decl(
+                code.s1("foo").ident(),
+                code.s1("type").token(),
+                code.sa("end protected", ";").token(),
+                vec![],
+                None
+            )
         )
     }
 
@@ -665,7 +698,13 @@ end protected foo;
         );
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
-            protected_decl(code.s1("foo").ident(), vec![], Some(code.s("foo", 2).pos()))
+            protected_decl(
+                code.s1("foo").ident(),
+                code.s1("type").token(),
+                code.sa("end protected foo", ";").token(),
+                vec![],
+                Some(code.s("foo", 2).pos())
+            )
         )
     }
 
@@ -680,15 +719,21 @@ end protected;
 ",
         );
         let items = vec![
-            ProtectedTypeDeclarativeItem::Subprogram(code.s1("procedure proc").subprogram_decl()),
+            ProtectedTypeDeclarativeItem::Subprogram(code.s1("procedure proc;").subprogram_decl()),
             ProtectedTypeDeclarativeItem::Subprogram(
-                code.s1("function fun return ret").subprogram_decl(),
+                code.s1("function fun return ret;").subprogram_decl(),
             ),
         ];
 
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
-            protected_decl(code.s1("foo").ident(), items, None)
+            protected_decl(
+                code.s1("foo").ident(),
+                code.s1("type").token(),
+                code.sa("end protected", ";").token(),
+                items,
+                None
+            )
         )
     }
 
@@ -717,6 +762,10 @@ end protected body;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
+                info: TokenInfo::new(
+                    Some(code.s1("type").token()),
+                    Some(code.sa("end protected body", ";").token())
+                ),
                 ident,
                 def: TypeDefinition::ProtectedBody(ProtectedTypeBody { decl }),
                 end_ident_pos: None,
@@ -737,6 +786,10 @@ end units phys;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
+                info: TokenInfo::new(
+                    Some(code.s1("type").token()),
+                    Some(code.sa("end units phys", ";").token())
+                ),
                 ident: code.s1("phys").decl_ident(),
                 def: TypeDefinition::Physical(PhysicalTypeDeclaration {
                     range: code.s1("0 to 15").range(),
@@ -762,6 +815,10 @@ end units;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
+                info: TokenInfo::new(
+                    Some(code.s1("type").token()),
+                    Some(code.sa("end units", ";").token())
+                ),
                 ident: code.s1("phys").decl_ident(),
                 def: TypeDefinition::Physical(PhysicalTypeDeclaration {
                     range: code.s1("0 to 15").range(),
@@ -793,6 +850,10 @@ end units;
         assert_eq!(
             code.with_stream_no_diagnostics(parse_type_declaration),
             TypeDeclaration {
+                info: TokenInfo::new(
+                    Some(code.s1("type").token()),
+                    Some(code.sa("end units", ";").token()),
+                ),
                 ident: code.s1("phys").decl_ident(),
                 def: TypeDefinition::Physical(PhysicalTypeDeclaration {
                     range: code.s1("0 to 15").range(),
@@ -808,5 +869,122 @@ end units;
                 end_ident_pos: None,
             }
         )
+    }
+
+    #[test]
+    pub fn test_token_span() {
+        let code = Code::new(
+            "\
+package pkg is
+    subtype negative is integer range -2**31 to -1;
+    type incomplete;
+    type new_integer is range 100 downto -100;
+    type line is access string;
+    type prot is
+        protected
+            procedure proc;
+        end protected;
+    type IntegerFile is file of INTEGER;
+    type arr is array (natural range <>) of positive;
+    type dummy_rec is
+        record
+            dummy: bit;
+        end record;
+    type enum is (V1, V2, V3);
+end package;
+",
+        );
+        let ctx = code.tokenize();
+        let pkg = code.package_declaration();
+        let type_decls = pkg
+            .decl
+            .iter()
+            .map(|d| {
+                if let Declaration::Type(obj) = d {
+                    obj
+                } else {
+                    panic!("Only object declarations are expected!")
+                }
+            })
+            .collect_vec();
+
+        let type_decl_strings: Vec<Vec<String>> = type_decls
+            .iter()
+            .map(|decl| {
+                decl.get_token_slice(&ctx)
+                    .iter()
+                    .map(token_to_string)
+                    .collect()
+            })
+            .collect_vec();
+
+        assert_eq!(
+            type_decl_strings[0],
+            vec![
+                "subtype", "negative", "is", "integer", "range", "minus", "2", "**", "31", "to", "minus",
+                "1", ";"
+            ],
+        );
+        assert_eq!(type_decl_strings[1], vec!["type", "incomplete", ";"],);
+        assert_eq!(
+            type_decl_strings[2],
+            vec![
+                "type",
+                "new_integer",
+                "is",
+                "range",
+                "100",
+                "downto",
+                "minus",
+                "100",
+                ";"
+            ],
+        );
+        assert_eq!(
+            type_decl_strings[3],
+            vec!["type", "line", "is", "access", "string", ";"],
+        );
+        assert_eq!(
+            type_decl_strings[4],
+            vec![
+                "type",
+                "prot",
+                "is",
+                "protected",
+                "procedure",
+                "proc",
+                ";",
+                "end",
+                "protected",
+                ";"
+            ],
+        );
+        assert_eq!(
+            type_decl_strings[5],
+            vec!["type", "IntegerFile", "is", "file", "of", "INTEGER", ";"],
+        );
+        assert_eq!(
+            type_decl_strings[6],
+            vec![
+                "type", "arr", "is", "array", "(", "natural", "range", "<>", ")", "of", "positive",
+                ";",
+            ],
+        );
+        assert_eq!(
+            type_decl_strings[7],
+            vec![
+                "type",
+                "dummy_rec",
+                "is",
+                "record",
+                "dummy",
+                ":",
+                "bit",
+                ";",
+                "end",
+                "record",
+                ";",
+            ],
+        );
     }
 }

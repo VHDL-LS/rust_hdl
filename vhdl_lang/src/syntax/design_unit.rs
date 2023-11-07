@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use super::tokens::{Kind::*, TokenStream};
+use super::tokens::{Kind::*, TokenStream, TokenSpan};
 
 use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;
@@ -190,7 +190,7 @@ pub fn parse_design_file(
                         let mut diagnostic = Diagnostic::error(&context_decl.ident, "Context declaration may not be preceeded by a context clause");
 
                         for context_item in context_clause.iter() {
-                            diagnostic.add_related(context_item.pos(stream), context_item_message(context_item, "may not come before context declaration"));
+                            diagnostic.add_related(context_item.get_pos(stream), context_item_message(context_item, "may not come before context declaration"));
                         }
 
                         diagnostics.push(diagnostic);
@@ -267,7 +267,7 @@ pub fn parse_design_file(
 
     for context_item in context_clause {
         diagnostics.push(Diagnostic::warning(
-            &context_item.pos(stream),
+            context_item.get_pos(stream),
             context_item_message(&context_item, "not associated with any design unit"),
         ));
     }
@@ -282,7 +282,7 @@ mod tests {
 
     use crate::data::Diagnostic;
     use crate::syntax::test::{check_diagnostics, check_no_diagnostics, Code};
-    use crate::syntax::TokenAccess;
+    use crate::syntax::{TokenAccess, TokenSpan};
 
     fn parse_str(code: &str) -> (Code, DesignFile, Vec<Diagnostic>) {
         let code = Code::new(code);
@@ -853,14 +853,14 @@ end entity y;
         let (tokens, unit) = &file.design_units[0];
         let ent = unit.expect_entity();
         let lib = ent.context_clause[0].expect_library_clause();
-        let tok = tokens.get_token(lib.library_token);
+        let tok = tokens.get_token(lib.get_start_token().unwrap());
         assert_eq!(tok.kind, Library);
         assert_eq!(tok.pos, code.s1("library").pos());
 
         let (tokens, unit) = &file.design_units[2];
         let ent = unit.expect_entity();
         let ctx_ref = ent.context_clause[0].expect_context_reference();
-        let tok = tokens.get_token(ctx_ref.context_token);
+        let tok = tokens.get_token(ctx_ref.get_start_token().unwrap());
         assert_eq!(tok.kind, Context);
         assert_eq!(tok.pos, code.s1("context").pos());
     }

@@ -4,13 +4,17 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
+use itertools::Itertools;
+
 use super::alias_declaration::parse_alias_declaration;
 use super::common::ParseResult;
 use super::component_declaration::parse_component_declaration;
 use super::concurrent_statement::parse_labeled_concurrent_statement;
 use super::context::{parse_library_clause, parse_use_clause};
 use super::declarative_part::parse_declarative_part;
-use super::design_unit::{parse_design_file, parse_entity_declaration};
+use super::design_unit::{
+    parse_architecture_body, parse_design_file, parse_entity_declaration, parse_package_declaration,
+};
 use super::expression::{parse_aggregate, parse_choices, parse_expression};
 use super::interface_declaration::{parse_generic, parse_parameter, parse_port};
 use super::names::{
@@ -20,9 +24,11 @@ use super::object_declaration::{parse_file_declaration, parse_object_declaration
 use super::range::{parse_discrete_range, parse_range};
 use super::separated_list::{parse_ident_list, parse_name_list};
 use super::sequential_statement::parse_sequential_statement;
-use super::subprogram::{parse_signature, parse_subprogram_declaration_no_semi};
+use super::subprogram::{
+    parse_signature, parse_subprogram_declaration, parse_subprogram_declaration_no_semi,
+};
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{Comment, Kind, Symbols, Token, TokenStream, Tokenizer};
+use super::tokens::{Comment, Kind, Symbols, Token, TokenStream, Tokenizer, Value};
 use super::type_declaration::parse_type_declaration;
 use super::waveform::parse_waveform;
 use crate::ast;
@@ -33,7 +39,7 @@ use crate::syntax::concurrent_statement::parse_map_aspect;
 use crate::syntax::context::{parse_context, DeclarationOrReference};
 use crate::syntax::names::parse_association_element;
 use crate::syntax::subprogram::{parse_optional_subprogram_header, parse_subprogram_instantiation};
-use crate::syntax::{TokenAccess, TokenId};
+use crate::syntax::{kind_str, TokenAccess, TokenId};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -568,12 +574,24 @@ impl Code {
         }
     }
 
+    pub fn package_declaration(&self) -> PackageDeclaration {
+        self.parse_ok_no_diagnostics(parse_package_declaration)
+    }
+
     pub fn design_file(&self) -> DesignFile {
         self.parse_ok_no_diagnostics(parse_design_file)
     }
 
-    pub fn subprogram_decl(&self) -> SubprogramDeclaration {
+    pub fn architecture_body(&self) -> ArchitectureBody {
+        self.parse_ok_no_diagnostics(parse_architecture_body)
+    }
+
+    pub fn subprogram_decl_no_semi(&self) -> SubprogramDeclaration {
         self.parse_ok_no_diagnostics(parse_subprogram_declaration_no_semi)
+    }
+
+    pub fn subprogram_decl(&self) -> SubprogramDeclaration {
+        self.parse_ok_no_diagnostics(parse_subprogram_declaration)
     }
 
     pub fn subprogram_instantiation(&self) -> SubprogramInstantiation {
@@ -743,6 +761,39 @@ pub fn assert_eq_unordered<T: PartialEq + Debug>(got: &[T], expected: &[T]) {
 impl AsRef<SrcPos> for Code {
     fn as_ref(&self) -> &SrcPos {
         &self.pos
+    }
+}
+
+fn value_to_string(value: &Value) -> String {
+    match value {
+        Value::Identifier(ident) => ident.name_utf8(),
+        Value::String(s) => {
+            String::from_utf8(s.chars().into_iter().map(|c| *c).collect_vec()).unwrap()
+        }
+        Value::BitString(_) => {
+            panic!("value_to_string is currently not supported for BitString literals!")
+        }
+        Value::AbstractLiteral(lit) => match lit {
+            AbstractLiteral::Integer(i) => i.to_string(),
+            AbstractLiteral::Real(f) => f.to_string(),
+        },
+        Value::Character(char) => format!("'{}'", String::from_utf8(vec![*char]).unwrap()),
+        Value::Text(text) => {
+            String::from_utf8(text.chars().into_iter().map(|c| *c).collect_vec()).unwrap()
+        }
+        Value::NoValue => "".into(),
+    }
+}
+
+pub fn token_to_string(token: &Token) -> String {
+    match token.kind {
+        Kind::Identifier
+        | Kind::AbstractLiteral
+        | Kind::StringLiteral
+        | Kind::BitString
+        | Kind::Character
+        | Kind::Text => value_to_string(&token.value),
+        _ => kind_str(token.kind).into(),
     }
 }
 

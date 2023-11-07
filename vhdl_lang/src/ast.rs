@@ -611,6 +611,7 @@ pub enum TypeDefinition {
 }
 
 /// LRM 6.2 Type declarations
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct TypeDeclaration {
     pub ident: WithDecl<Ident>,
@@ -634,6 +635,7 @@ pub enum InterfaceType {
     Parameter,
 }
 
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ObjectDeclaration {
     pub class: ObjectClass,
@@ -657,6 +659,7 @@ pub enum SubprogramDesignator {
 }
 
 /// LRM 4.2 Subprogram declaration
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ProcedureSpecification {
     pub designator: WithDecl<WithPos<SubprogramDesignator>>,
@@ -667,6 +670,7 @@ pub struct ProcedureSpecification {
 }
 
 /// LRM 4.2 Subprogram declaration
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct FunctionSpecification {
     pub pure: bool,
@@ -705,14 +709,14 @@ pub enum SubprogramKind {
 }
 
 /// LRM 4.4 Subprogram Instantiation Statement
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct SubprogramInstantiation {
-    pub kind: WithToken<SubprogramKind>,
+    pub kind: SubprogramKind,
     pub ident: WithDecl<Ident>,
     pub subprogram_name: WithPos<Name>,
     pub signature: Option<WithPos<Signature>>,
     pub generic_map: Option<MapAspect>,
-    pub semi: TokenId,
 }
 
 /// LRM 4.5.3 Signatures
@@ -722,7 +726,7 @@ pub enum Signature {
     Procedure(Vec<WithPos<TypeMark>>),
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum SubprogramDeclaration {
     Procedure(ProcedureSpecification),
     Function(FunctionSpecification),
@@ -1177,11 +1181,10 @@ pub struct LabeledConcurrentStatement {
 }
 
 /// LRM 13. Design units and their analysis
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct LibraryClause {
-    pub library_token: TokenId,
     pub name_list: IdentList,
-    pub semi_token: TokenId,
 }
 
 /// Represents a token-separated list of some generic type `T`
@@ -1217,23 +1220,21 @@ pub type IdentList = SeparatedList<WithRef<Ident>>;
 pub type NameList = SeparatedList<WithPos<Name>>;
 
 /// LRM 12.4. Use clauses
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct UseClause {
-    pub use_token: TokenId,
     pub name_list: NameList,
-    pub semi_token: TokenId,
 }
 
 /// LRM 13.4 Context clauses
+#[with_token_span]
 #[derive(PartialEq, Debug, Clone)]
 pub struct ContextReference {
-    pub context_token: TokenId,
     pub name_list: NameList,
-    pub semi_token: TokenId,
 }
 
 /// LRM 13.4 Context clauses
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, TokenSpan)]
 pub enum ContextItem {
     Use(UseClause),
     Library(LibraryClause),

@@ -13,6 +13,7 @@ use crate::analysis::DesignRoot;
 use crate::analysis::EntRef;
 pub use crate::analysis::HasEntityId;
 use crate::analysis::Related;
+use crate::TokenSpan;
 
 #[must_use]
 pub enum SearchResult {
@@ -1060,7 +1061,7 @@ impl Search for Declaration {
             }
             Declaration::Use(use_clause) => {
                 return_if_found!(searcher
-                    .search_with_pos(ctx, &use_clause.pos(ctx))
+                    .search_with_pos(ctx, &use_clause.get_pos(ctx))
                     .or_not_found());
                 return_if_found!(use_clause.name_list.search(ctx, searcher));
             }
@@ -1204,7 +1205,7 @@ impl Search for LibraryClause {
 
 impl Search for ContextItem {
     fn search(&mut self, ctx: &dyn TokenAccess, searcher: &mut impl Searcher) -> SearchResult {
-        return_if_finished!(searcher.search_with_pos(ctx, &self.pos(ctx)));
+        return_if_finished!(searcher.search_with_pos(ctx, &self.get_pos(ctx)));
         match self {
             ContextItem::Use(ref mut use_clause) => {
                 return_if_found!(use_clause.name_list.search(ctx, searcher));
