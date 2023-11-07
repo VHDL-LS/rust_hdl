@@ -364,9 +364,13 @@ impl DesignRoot {
                 self.list_available_declarations(library, selected)
             }
             _ => {
-                let mut visitor = AutocompletionVisitor::new(self, cursor, tokens);
-                self.walk(&mut visitor);
-                visitor.completions
+                if false {
+                    let mut visitor = AutocompletionVisitor::new(self, cursor, tokens);
+                    self.walk(&mut visitor);
+                    visitor.completions
+                } else {
+                    vec![]
+                }
             }
         }
     }
@@ -484,6 +488,7 @@ mod test {
         assert_eq!(options.len(), 4);
     }
 
+    #[ignore = "Temporarily disabled for performance reason"]
     #[test]
     pub fn completing_instantiation_statement() {
         let mut input = LibraryBuilder::new();
