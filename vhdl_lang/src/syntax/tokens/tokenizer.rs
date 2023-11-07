@@ -478,6 +478,124 @@ impl TokenId {
     }
 }
 
+/// AST elements for which it is necessary to get the underlying tokens can implement the `TokenSpan` trait.
+/// The trait provides getters for the start and end token.
+///
+/// Using the `with_token_span` attribute macro, the necessary fields can be inserted, and `TokenSpan` is implemented automatically.
+///
+/// For enums containing alternative AST elements the custom derive macro can be used directly under certain constraints:
+/// 1. All variants must contain exactly one unnamed field.
+/// 2. The fields of all variants must implement the `TokenSpan` trait one way or another.
+///
+/// Example:
+/// ```rust
+/// use vhdl_lang_macros::{with_token_span, TokenSpan};
+///
+/// // With `with_token_span` a field `info` of type `TokenInfo` is inserted.
+/// // Additionally the `TokenSpan` trait is implemented using the `TokenSpan` derive macro
+/// #[with_token_span]
+/// #[derive(PartialEq, Debug, Clone)]
+/// pub struct UseClause {
+///     pub name_list: ::vhdl_lang::ast::NameList,
+/// }
+///
+/// #[with_token_span]
+/// #[derive(PartialEq, Debug, Clone)]
+/// pub struct ContextReference {
+///     pub name_list: ::vhdl_lang::ast::NameList,
+/// }
+///
+/// #[with_token_span]
+/// #[derive(PartialEq, Debug, Clone)]
+/// pub struct LibraryClause {
+///     pub name_list: ::vhdl_lang::ast::IdentList,
+/// }
+///
+/// // Enums can use the `TokenSpan` derive macro directly
+/// #[derive(PartialEq, Debug, Clone, TokenSpan)]
+/// pub enum ContextItem {
+///     Use(UseClause),
+///     Library(LibraryClause),
+///     Context(ContextReference),
+/// }
+/// ```
+pub trait TokenSpan {
+    fn set_start_token(&mut self, start_token: TokenId);
+    fn set_end_token(&mut self, end_token: TokenId);
+
+    fn get_start_token(&self) -> Option<TokenId>;
+    fn get_end_token(&self) -> Option<TokenId>;
+
+    fn get_token_slice<'a>(&self, tokens: &'a dyn TokenAccess) -> &'a [Token];
+    fn get_pos(&self, tokens: &dyn TokenAccess) -> SrcPos;
+}
+
+/// Holds token information about an AST element.
+/// Since the different pieces may be gathered in different locations,
+/// the fields are gated behind accessor functions which also check some invariants every time they are called.
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub struct TokenInfo {
+    start_token: Option<TokenId>,
+    end_token: Option<TokenId>,
+}
+
+impl TokenInfo {
+    pub fn new(start_token: Option<TokenId>, end_token: Option<TokenId>) -> Self {
+        return Self {
+            start_token,
+            end_token,
+        };
+    }
+
+    // Since the `TokenInfo` parts are gathered dynamically, always make sure that some invariants hold.
+    fn check_invariants(&self) {
+        if self.start_token.is_none() && self.end_token.is_some() {
+            panic!("The start token must not be empty while the end token is valid!");
+        }
+
+        if self.start_token.is_some() && self.end_token.is_some() {
+            if self.start_token.unwrap().0 > self.end_token.unwrap().0 {
+                panic!("The end token ID must be equal or greater than the start token ID!");
+            }
+        }
+    }
+
+    pub fn set_start_token(&mut self, start_token: TokenId) {
+        self.start_token = Some(start_token);
+        self.check_invariants();
+    }
+
+    pub fn set_end_token(&mut self, end_token: TokenId) {
+        self.end_token = Some(end_token);
+        self.check_invariants();
+    }
+
+    pub fn get_start_token(&self) -> Option<TokenId> {
+        self.check_invariants();
+        self.start_token
+    }
+
+    pub fn get_end_token(&self) -> Option<TokenId> {
+        self.check_invariants();
+        self.end_token
+    }
+
+    pub fn get_pos(&self, tokens: &dyn TokenAccess) -> Option<SrcPos> {
+        self.check_invariants();
+        if let None = self.start_token {
+            return None;
+        }
+
+        let start_token = self.start_token.unwrap();
+        if let None = self.end_token {
+            return Some(tokens.get_pos(start_token).clone());
+        }
+
+        let end_token = self.end_token.unwrap();
+        Some(tokens.get_span(start_token, end_token))
+    }
+}
+
 /// A type that conforms to `TokenAccess` can be indexed using a `TokenId`.
 /// Convenience methods exist to directly get the `SrcPos` for a given `TokenId`
 /// or a span starting at a certain token and ending at another.

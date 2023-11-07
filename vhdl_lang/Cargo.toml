@@ -14,6 +14,7 @@ repository = "https://github.com/kraigher/rust_hdl"
 edition = "2021"
 
 [dependencies]
+vhdl_lang_macros = { version = "^0.71.0", path = "../vhdl_lang_macros" }
 pad = "0"
 fnv = "1"
 clap = { version = "4", features = ["derive"] }
