@@ -106,7 +106,7 @@ pub fn parse_subprogram_instantiation(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SubprogramInstantiation> {
-    let id = stream.get_token_id();
+    let id = stream.get_current_token_id();
     let tok = stream.peek_expect()?;
     let kind = match tok.kind {
         Procedure => WithToken::new(SubprogramKind::Procedure, id),

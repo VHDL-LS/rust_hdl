@@ -465,7 +465,7 @@ pub struct Token {
 /// A TokenId represents a unique value that is used to access a token.
 /// A token ID cannot be created directly by the user. Instead, the value must be taken
 /// from the AST.
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub struct TokenId(usize);
 
 /// The TokenId represents an index into an array of tokens.
@@ -487,6 +487,9 @@ pub trait TokenAccess {
     /// Get a token by its ID
     fn get_token(&self, id: TokenId) -> &Token;
 
+    /// Get a slice of tokens by using a start ID and an end ID
+    fn get_token_slice(&self, start_id: TokenId, end_id: TokenId) -> &[Token];
+
     /// Get a token's position by its ID
     fn get_pos(&self, id: TokenId) -> &SrcPos {
         &self.get_token(id).pos
@@ -503,11 +506,19 @@ impl TokenAccess for Vec<Token> {
     fn get_token(&self, id: TokenId) -> &Token {
         &self[id.0]
     }
+
+    fn get_token_slice(&self, start_id: TokenId, end_id: TokenId) -> &[Token] {
+        &self[start_id.0..end_id.0 + 1]
+    }
 }
 
 impl TokenAccess for [Token] {
     fn get_token(&self, id: TokenId) -> &Token {
         &self[id.0]
+    }
+
+    fn get_token_slice(&self, start_id: TokenId, end_id: TokenId) -> &[Token] {
+        &self[start_id.0..end_id.0 + 1]
     }
 }
 
@@ -2012,8 +2023,8 @@ end entity"
     #[test]
     fn tokenize_many_identifiers() {
         let code = Code::new(
-            "my_ident     
-        
+            "my_ident
+
 my_other_ident",
         );
         let tokens = code.tokenize();

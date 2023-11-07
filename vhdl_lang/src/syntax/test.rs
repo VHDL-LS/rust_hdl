@@ -246,7 +246,7 @@ impl Code {
         let stream = TokenStream::new(tokenizer, &mut NoDiagnostics);
         forward(&stream, self.pos.start());
         stream.peek().expect("No token found");
-        stream.get_token_id()
+        stream.get_current_token_id()
     }
 
     /// Helper method to run lower level parsing function at specific substring
