@@ -286,3 +286,29 @@ end procedure;
         Some(code.s1("theproc").pos())
     );
 }
+
+#[test]
+fn named_argument_before_positional() {
+    let mut builder = LibraryBuilder::new();
+    let code = builder.in_declarative_region(
+        "
+procedure theproc(arg1: integer; arg2 : natural) is
+begin
+end procedure;
+
+procedure calling is
+begin
+    theproc(arg1 => 0, 0);
+end procedure;
+",
+    );
+
+    let (_, diagnostics) = builder.get_analyzed_root();
+    check_diagnostics(
+        diagnostics,
+        vec![Diagnostic::error(
+            code.s("arg1", 2),
+            "Named arguments are not allowed before positional arguments",
+        )],
+    );
+}

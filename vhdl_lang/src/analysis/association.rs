@@ -263,6 +263,35 @@ impl<'a> AnalyzeContext<'a> {
         }
     }
 
+    pub fn check_positional_before_named(
+        &self,
+        elems: &[AssociationElement],
+        diagnostics: &mut dyn DiagnosticHandler,
+    ) -> EvalResult {
+        let mut is_positional = false;
+        let mut fail = false;
+        for AssociationElement { formal, .. } in elems.iter().rev() {
+            if let Some(formal) = formal {
+                if is_positional {
+                    fail = true;
+
+                    diagnostics.push(Diagnostic::error(
+                        formal,
+                        "Named arguments are not allowed before positional arguments",
+                    ));
+                }
+            } else {
+                is_positional = true;
+            }
+        }
+
+        if fail {
+            Err(EvalError::Unknown)
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn resolve_association_formals<'e>(
         &self,
         error_pos: &SrcPos, // The position of the instance/call-site
@@ -271,6 +300,8 @@ impl<'a> AnalyzeContext<'a> {
         elems: &'e mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
     ) -> EvalResult<Vec<ResolvedFormal<'a>>> {
+        self.check_positional_before_named(elems, diagnostics)?;
+
         let mut result: Vec<ResolvedFormal> = Default::default();
 
         let mut missing = false;
