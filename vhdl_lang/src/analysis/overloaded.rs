@@ -7,7 +7,6 @@
 use fnv::FnvHashSet;
 
 use super::analyze::*;
-use super::association::ResolvedFormal;
 use super::expression::ExpressionType;
 use super::formal_region::InterfaceEnt;
 use super::named_entity::*;
@@ -168,7 +167,7 @@ impl<'a> Disambiguated<'a> {
 #[derive(Clone)]
 pub(super) struct ResolvedCall<'a> {
     pub subpgm: OverloadedEnt<'a>,
-    pub formals: Vec<ResolvedFormal<'a>>,
+    pub formals: Vec<TypeEnt<'a>>,
 }
 
 impl<'a> AsRef<OverloadedEnt<'a>> for OverloadedEnt<'a> {

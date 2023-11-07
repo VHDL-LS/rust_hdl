@@ -1,5 +1,6 @@
 #![allow(clippy::only_used_in_recursion)]
 
+use fnv::FnvHashMap;
 use fnv::FnvHashSet;
 
 // This Source Code Form is subject to the terms of the Mozilla Public
@@ -17,67 +18,74 @@ use crate::ast::*;
 use crate::data::*;
 
 #[derive(Copy, Clone)]
-pub enum ResolvedFormal<'a> {
-    // A basic formal
-    // port map(foo => 0)
-    Basic(usize, InterfaceEnt<'a>),
+struct ResolvedFormal<'a> {
+    /// Then index in the formal parameter list
+    idx: usize,
 
-    /// A formal that is either selected such as a record field of array index
+    /// The underlying interface object
+    iface: InterfaceEnt<'a>,
+
+    // Has the formal been selected, indexed or sliced?
     /// Example:
     /// port map(foo.field => 0)
     /// port map(foo(0) => 0)
-    Selected(usize, InterfaceEnt<'a>, TypeEnt<'a>),
+    is_partial: bool,
 
-    /// A formal that has been converted by a function
-    /// Could also be a converted selected formal
+    /// Has the formal been converted by a function?
     /// Example:
     /// port map(to_slv(foo) => sig)
-    Converted(usize, InterfaceEnt<'a>, TypeEnt<'a>),
+    is_converted: bool,
+
+    /// The type of the potentially partial or converted formal
+    type_mark: TypeEnt<'a>,
 }
 
 impl<'a> ResolvedFormal<'a> {
-    pub fn type_mark(&self) -> TypeEnt<'a> {
-        match self {
-            ResolvedFormal::Basic(_, ent) => ent.type_mark(),
-            ResolvedFormal::Selected(_, _, typ) => *typ,
-            ResolvedFormal::Converted(_, _, typ) => *typ,
+    fn new_basic(idx: usize, iface: InterfaceEnt<'a>) -> Self {
+        Self {
+            idx,
+            iface,
+            is_partial: false,
+            is_converted: false,
+            type_mark: iface.type_mark(),
         }
     }
 
-    fn select(self, suffix_type: TypeEnt<'a>) -> Option<Self> {
-        match self {
-            ResolvedFormal::Basic(idx, ent) => {
-                Some(ResolvedFormal::Selected(idx, ent, suffix_type))
-            }
-            ResolvedFormal::Selected(idx, ent, _) => {
-                Some(ResolvedFormal::Selected(idx, ent, suffix_type))
-            }
+    fn convert(&self, into_type: TypeEnt<'a>) -> Self {
+        Self {
+            idx: self.idx,
+            iface: self.iface,
+            is_partial: self.is_partial,
+            is_converted: true,
+            type_mark: into_type,
+        }
+    }
 
+    fn partial_with_typ(&self, suffix_type: TypeEnt<'a>) -> Option<Self> {
+        if !self.is_converted {
+            Some(Self {
+                idx: self.idx,
+                iface: self.iface,
+                is_partial: true,
+                is_converted: self.is_converted,
+                type_mark: suffix_type,
+            })
+        } else {
             // Converted formals may not be further selected
-            ResolvedFormal::Converted(..) => None,
+            None
         }
     }
 
-    // The position of the formal in the formal region
-    fn idx(&self) -> usize {
-        *match self {
-            ResolvedFormal::Basic(idx, _) => idx,
-            ResolvedFormal::Selected(idx, _, _) => idx,
-            ResolvedFormal::Converted(idx, _, _) => idx,
-        }
-    }
-
-    fn formal(&self) -> InterfaceEnt<'a> {
-        *match self {
-            ResolvedFormal::Basic(_, ent) => ent,
-            ResolvedFormal::Selected(_, ent, _) => ent,
-            ResolvedFormal::Converted(_, ent, _) => ent,
+    fn partial(&self) -> Self {
+        Self {
+            is_partial: true,
+            ..*self
         }
     }
 }
 
 impl<'a> AnalyzeContext<'a> {
-    pub fn resolve_formal(
+    fn resolve_formal(
         &self,
         formal_region: &FormalRegion<'a>,
         scope: &Scope<'a>,
@@ -95,10 +103,12 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics,
                 )?;
 
-                let suffix_ent = resolved_prefix.type_mark().selected(&prefix.pos, suffix)?;
+                let suffix_ent = resolved_prefix.type_mark.selected(&prefix.pos, suffix)?;
                 if let TypedSelection::RecordElement(elem) = suffix_ent {
                     suffix.set_unique_reference(elem.into());
-                    if let Some(resolved_formal) = resolved_prefix.select(elem.type_mark()) {
+                    if let Some(resolved_formal) =
+                        resolved_prefix.partial_with_typ(elem.type_mark())
+                    {
                         Ok(resolved_formal)
                     } else {
                         Err(Diagnostic::error(name_pos, "Invalid formal").into())
@@ -112,7 +122,7 @@ impl<'a> AnalyzeContext<'a> {
             Name::Designator(designator) => {
                 let (idx, ent) = formal_region.lookup(name_pos, designator.designator())?;
                 designator.set_unique_reference(ent.inner());
-                Ok(ResolvedFormal::Basic(idx, ent))
+                Ok(ResolvedFormal::new_basic(idx, ent))
             }
             Name::Slice(ref mut prefix, ref mut drange) => {
                 let resolved_prefix = self.resolve_formal(
@@ -123,13 +133,13 @@ impl<'a> AnalyzeContext<'a> {
                     diagnostics,
                 )?;
 
-                if let ResolvedFormal::Converted(..) = resolved_prefix {
+                if resolved_prefix.is_converted {
                     // Converted formals may not be further selected
                     return Err(Diagnostic::error(name_pos, "Invalid formal").into());
                 }
 
                 self.drange_unknown_type(scope, drange.as_mut(), diagnostics)?;
-                Ok(resolved_prefix)
+                Ok(resolved_prefix.partial())
             }
             Name::Attribute(..) => Err(Diagnostic::error(name_pos, "Invalid formal").into()),
             Name::CallOrIndexed(ref mut fcall) => {
@@ -167,7 +177,7 @@ impl<'a> AnalyzeContext<'a> {
                         diagnostics,
                     ))? {
                         Some(ResolvedName::Type(typ)) => {
-                            let ctyp = resolved_formal.type_mark().base();
+                            let ctyp = resolved_formal.type_mark.base();
                             if !typ.base().is_closely_related(ctyp) {
                                 return Err(Diagnostic::error(
                                     pos,
@@ -187,7 +197,7 @@ impl<'a> AnalyzeContext<'a> {
                             for ent in overloaded.entities() {
                                 if ent.is_function()
                                     && ent.signature().can_be_called_with_single_parameter(
-                                        resolved_formal.type_mark(),
+                                        resolved_formal.type_mark,
                                     )
                                 {
                                     candidates.push(ent);
@@ -214,7 +224,7 @@ impl<'a> AnalyzeContext<'a> {
                                     format!(
                                         "No function '{}' accepting {}",
                                         fcall.name,
-                                        resolved_formal.type_mark().describe()
+                                        resolved_formal.type_mark.describe()
                                     ),
                                 )
                                 .into());
@@ -227,11 +237,7 @@ impl<'a> AnalyzeContext<'a> {
                         }
                     };
 
-                    Ok(ResolvedFormal::Converted(
-                        resolved_formal.idx(),
-                        resolved_formal.formal(),
-                        converted_typ,
-                    ))
+                    Ok(resolved_formal.convert(converted_typ))
                 } else if let Some(mut indexed_name) = fcall.as_indexed() {
                     let resolved_prefix = self.resolve_formal(
                         formal_region,
@@ -245,12 +251,12 @@ impl<'a> AnalyzeContext<'a> {
                         scope,
                         name_pos,
                         indexed_name.name.suffix_pos(),
-                        resolved_prefix.type_mark(),
+                        resolved_prefix.type_mark,
                         &mut indexed_name.indexes,
                         diagnostics,
                     )?;
 
-                    if let Some(resolved_formal) = resolved_prefix.select(new_typ) {
+                    if let Some(resolved_formal) = resolved_prefix.partial_with_typ(new_typ) {
                         Ok(resolved_formal)
                     } else {
                         Err(Diagnostic::error(name_pos, "Invalid formal").into())
@@ -299,18 +305,18 @@ impl<'a> AnalyzeContext<'a> {
         scope: &Scope<'a>,
         elems: &'e mut [AssociationElement],
         diagnostics: &mut dyn DiagnosticHandler,
-    ) -> EvalResult<Vec<ResolvedFormal<'a>>> {
+    ) -> EvalResult<Vec<TypeEnt<'a>>> {
         self.check_positional_before_named(elems, diagnostics)?;
 
-        let mut result: Vec<ResolvedFormal> = Default::default();
+        // Formal region index => actual position, resolved formal
+        let mut result: Vec<(&SrcPos, ResolvedFormal)> = Vec::default();
 
         let mut missing = false;
-        let mut associated_indexes: FnvHashSet<usize> = Default::default();
         let mut extra_associations: Vec<SrcPos> = Default::default();
 
-        for (idx, AssociationElement { formal, actual }) in elems.iter_mut().enumerate() {
+        for (actual_idx, AssociationElement { formal, actual }) in elems.iter_mut().enumerate() {
             if let Some(ref mut formal) = formal {
-                // Call by name using formal
+                // Named argument
                 match self.resolve_formal(
                     formal_region,
                     scope,
@@ -322,33 +328,65 @@ impl<'a> AnalyzeContext<'a> {
                         missing = true;
                         diagnostics.push(err.into_non_fatal()?);
                     }
-                    Ok(formal) => {
-                        associated_indexes.insert(formal.idx());
-                        result.push(formal);
+                    Ok(resolved_formal) => {
+                        result.push((&formal.pos, resolved_formal));
                     }
                 }
-            } else if let Some(formal) = formal_region.nth(idx) {
-                associated_indexes.insert(idx);
-                result.push(ResolvedFormal::Basic(idx, formal));
+            } else if let Some(formal) = formal_region.nth(actual_idx) {
+                // Actual index is same as formal index for positional argument
+                let formal = ResolvedFormal::new_basic(actual_idx, formal);
+                result.push((&actual.pos, formal));
             } else {
                 extra_associations.push(actual.pos.clone());
             };
         }
 
         let mut not_associated = Vec::new();
-        for (idx, formal) in formal_region.iter().enumerate() {
-            if !(associated_indexes.contains(&idx)
+        let mut has_duplicates = false;
+
+        {
+            let associated_indexes =
+                FnvHashSet::from_iter(result.iter().map(|(_, formal)| formal.idx));
+            for (idx, formal) in formal_region.iter().enumerate() {
+                if !(associated_indexes.contains(&idx)
                 // Default may be unconnected
                 || formal.has_default()
                 // Output ports are allowed to be unconnected
                 || (formal_region.typ == InterfaceType::Port && formal.is_out_or_inout_signal()))
-            {
-                not_associated.push(idx);
+                {
+                    not_associated.push(idx);
+                }
             }
         }
 
-        if not_associated.is_empty() && extra_associations.is_empty() && !missing {
-            Ok(result)
+        {
+            let mut seen: FnvHashMap<usize, (&SrcPos, ResolvedFormal)> = Default::default();
+            for (actual_pos, resolved_formal) in result.iter() {
+                if let Some((prev_pos, prev_formal)) = seen.get(&resolved_formal.idx) {
+                    if !(resolved_formal.is_partial && prev_formal.is_partial) {
+                        let mut diag = Diagnostic::error(
+                            actual_pos,
+                            format!(
+                                "{} has already been associated",
+                                resolved_formal.iface.describe()
+                            ),
+                        );
+
+                        diag.add_related(prev_pos, "Previously associated here");
+                        diagnostics.push(diag);
+                        has_duplicates = true;
+                    }
+                }
+                seen.insert(resolved_formal.idx, (*actual_pos, *resolved_formal));
+            }
+        }
+
+        if not_associated.is_empty() && extra_associations.is_empty() && !missing && !has_duplicates
+        {
+            Ok(result
+                .into_iter()
+                .map(|(_, formal)| formal.type_mark)
+                .collect())
         } else {
             // Only complain if nothing else is wrong
             for idx in not_associated {
@@ -368,6 +406,7 @@ impl<'a> AnalyzeContext<'a> {
             for pos in extra_associations.into_iter() {
                 diagnostics.error(pos, "Unexpected extra argument")
             }
+
             Err(EvalError::Unknown)
         }
     }
@@ -387,7 +426,7 @@ impl<'a> AnalyzeContext<'a> {
             elems,
             diagnostics,
         ))? {
-            for (formal, actual) in formals
+            for (formal_type, actual) in formals
                 .iter()
                 .zip(elems.iter_mut().map(|assoc| &mut assoc.actual))
             {
@@ -395,7 +434,7 @@ impl<'a> AnalyzeContext<'a> {
                     ActualPart::Expression(expr) => {
                         self.expr_pos_with_ttyp(
                             scope,
-                            formal.type_mark(),
+                            *formal_type,
                             &actual.pos,
                             expr,
                             diagnostics,

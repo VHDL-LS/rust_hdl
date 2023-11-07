@@ -130,7 +130,7 @@ impl<'c, 'a> TypeMatcher<'c, 'a> {
         candidates.retain(|resolved| {
             actual_types.iter().enumerate().all(|(idx, actual_type)| {
                 if let Some(actual_type) = actual_type {
-                    self.is_possible(actual_type, resolved.formals[idx].type_mark().base())
+                    self.is_possible(actual_type, resolved.formals[idx].base())
                 } else {
                     true
                 }
