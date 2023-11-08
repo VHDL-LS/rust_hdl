@@ -153,7 +153,6 @@ struct AutocompletionVisitor<'a> {
     cursor: Position,
     completions: Vec<CompletionItem<'a>>,
     tokens: Vec<Token>,
-    source: Source,
 }
 
 impl<'a> AutocompletionVisitor<'a> {
@@ -161,14 +160,12 @@ impl<'a> AutocompletionVisitor<'a> {
         root: &'a DesignRoot,
         cursor: Position,
         tokens: Vec<Token>,
-        source: Source,
     ) -> AutocompletionVisitor<'a> {
         AutocompletionVisitor {
             root,
             cursor,
             completions: Vec::new(),
             tokens,
-            source,
         }
     }
 
@@ -371,7 +368,7 @@ impl DesignRoot {
                 self.list_available_declarations(library, selected)
             }
             _ => {
-                let mut visitor = AutocompletionVisitor::new(self, cursor, tokens, source.clone());
+                let mut visitor = AutocompletionVisitor::new(self, cursor, tokens);
                 self.walk_source(source, &mut visitor);
                 visitor.completions
             }
