@@ -422,7 +422,6 @@ mod test {
         let (root, _) = input.get_analyzed_root();
         let cursor = code.pos().end();
         let options = root.list_completion_options(code.source(), cursor);
-        println!("{:?}", options);
 
         assert!(options.contains(&CompletionItem::Overloaded(
             Designator::Identifier(root.symbol_utf8("stop")),
