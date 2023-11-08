@@ -655,14 +655,23 @@ impl DesignRoot {
         NotFound
     }
 
-    pub fn walk(&self, visitor: &mut impl Visitor) {
-        for library in self.libraries.values() {
-            for unit_id in library.sorted_unit_ids() {
-                let unit = library.units.get(unit_id.key()).unwrap();
-                let tokens = &unit.tokens;
-                if let Some(unit) = unit.unit.get() {
-                    walk(unit.data(), visitor, tokens);
+    /// With the provided visitor, walk a specific AST element, denoted by
+    /// `UnitId`.
+    pub fn walk(&self, unit: &UnitId, visitor: &mut impl Visitor) {
+        let unit = self.get_unit(unit).unwrap();
+        if let Some(unit_rguard) = unit.unit.get() {
+            walk(unit_rguard.data(), visitor, &unit.tokens);
+        }
+    }
+
+    /// Walks all units in a source file denoted by `source`.
+    pub fn walk_source(&self, source: &Source, visitor: &mut impl Visitor) {
+        for lib in self.libraries.values() {
+            if let Some(units) = lib.units_by_source.get(source) {
+                for unit in units {
+                    self.walk(unit, visitor);
                 }
+                return;
             }
         }
     }

@@ -5,7 +5,7 @@ use crate::ast::{
     AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, ComponentDeclaration, Designator,
     EntityDeclaration, InstantiationStatement, InterfaceDeclaration, MapAspect, PackageDeclaration,
 };
-use crate::data::{ContentReader, Symbol};
+use crate::data::{ContentReader, HasSource, Symbol};
 use crate::syntax::Kind::*;
 use crate::syntax::{Kind, Symbols, Token, TokenAccess, Tokenizer, Value};
 use crate::AnyEntKind::Design;
@@ -63,9 +63,13 @@ struct PortsOrGenericsExtractor {
 
 impl DesignRoot {
     fn extract_port_or_generic_names(&self, id: EntityId, kind: MapAspectKind) -> Vec<EntityId> {
-        let mut searcher = PortsOrGenericsExtractor::new(id, kind);
-        self.walk(&mut searcher);
-        searcher.items
+        if let Some(ref pos) = self.get_ent(id).decl_pos {
+            let mut searcher = PortsOrGenericsExtractor::new(id, kind);
+            self.walk_source(pos.source(), &mut searcher);
+            searcher.items
+        } else {
+            vec![]
+        }
     }
 }
 
@@ -364,13 +368,9 @@ impl DesignRoot {
                 self.list_available_declarations(library, selected)
             }
             _ => {
-                if false {
-                    let mut visitor = AutocompletionVisitor::new(self, cursor, tokens);
-                    self.walk(&mut visitor);
-                    visitor.completions
-                } else {
-                    vec![]
-                }
+                let mut visitor = AutocompletionVisitor::new(self, cursor, tokens);
+                self.walk_source(source, &mut visitor);
+                visitor.completions
             }
         }
     }
@@ -488,7 +488,6 @@ mod test {
         assert_eq!(options.len(), 4);
     }
 
-    #[ignore = "Temporarily disabled for performance reason"]
     #[test]
     pub fn completing_instantiation_statement() {
         let mut input = LibraryBuilder::new();
