@@ -5,7 +5,7 @@ use crate::ast::{
     AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, ComponentDeclaration, Designator,
     EntityDeclaration, InstantiationStatement, InterfaceDeclaration, MapAspect, PackageDeclaration,
 };
-use crate::data::{ContentReader, Symbol};
+use crate::data::{ContentReader, HasSource, Symbol};
 use crate::syntax::Kind::*;
 use crate::syntax::{Kind, Symbols, Token, TokenAccess, Tokenizer, Value};
 use crate::AnyEntKind::Design;
@@ -63,9 +63,13 @@ struct PortsOrGenericsExtractor {
 
 impl DesignRoot {
     fn extract_port_or_generic_names(&self, id: EntityId, kind: MapAspectKind) -> Vec<EntityId> {
-        let mut searcher = PortsOrGenericsExtractor::new(id, kind);
-        self.walk(&mut searcher);
-        searcher.items
+        if let Some(ref pos) = self.get_ent(id).decl_pos {
+            let mut searcher = PortsOrGenericsExtractor::new(id, kind);
+            self.walk_source(pos.source(), &mut searcher);
+            searcher.items
+        } else {
+            vec![]
+        }
     }
 }
 
@@ -149,6 +153,7 @@ struct AutocompletionVisitor<'a> {
     cursor: Position,
     completions: Vec<CompletionItem<'a>>,
     tokens: Vec<Token>,
+    source: Source,
 }
 
 impl<'a> AutocompletionVisitor<'a> {
@@ -156,12 +161,14 @@ impl<'a> AutocompletionVisitor<'a> {
         root: &'a DesignRoot,
         cursor: Position,
         tokens: Vec<Token>,
+        source: Source,
     ) -> AutocompletionVisitor<'a> {
         AutocompletionVisitor {
             root,
             cursor,
             completions: Vec::new(),
             tokens,
+            source,
         }
     }
 
@@ -364,13 +371,9 @@ impl DesignRoot {
                 self.list_available_declarations(library, selected)
             }
             _ => {
-                if false {
-                    let mut visitor = AutocompletionVisitor::new(self, cursor, tokens);
-                    self.walk(&mut visitor);
-                    visitor.completions
-                } else {
-                    vec![]
-                }
+                let mut visitor = AutocompletionVisitor::new(self, cursor, tokens, source.clone());
+                self.walk_source(source, &mut visitor);
+                visitor.completions
             }
         }
     }
@@ -488,7 +491,6 @@ mod test {
         assert_eq!(options.len(), 4);
     }
 
-    #[ignore = "Temporarily disabled for performance reason"]
     #[test]
     pub fn completing_instantiation_statement() {
         let mut input = LibraryBuilder::new();
@@ -557,5 +559,57 @@ mod test {
             .end();
         let options = root.list_completion_options(code.source(), cursor);
         assert_eq!(options.len(), 0);
+    }
+
+    #[test]
+    pub fn completing_instantiation_statement_from_another_source() {
+        let mut input = LibraryBuilder::new();
+        let code1 = input.code(
+            "libnane",
+            "\
+entity foo_ent is
+generic (
+    x: natural;
+    y: integer
+);
+port (
+    a : in bit;
+    foo: out bit;
+    bar: inout bit_vector
+);
+end entity;
+        ",
+        );
+        let code2 = input.code(
+            "libname",
+            "\
+    entity my_ent is
+    end entity my_ent;
+
+    architecture arch of my_ent is
+    begin
+        foo_inst: foo_ent
+        generic map (
+            x => 1
+        )
+        port map (
+            a => '1'
+        );
+    end arch;
+            ",
+        );
+        let (root, _) = input.get_analyzed_root();
+        println!(
+            "{:?}",
+            root.libraries()
+                .next()
+                .unwrap()
+                .primary_units()
+                .map(|unit| unit.unit.get().unwrap().data().clone())
+                .count()
+        );
+        let cursor = code2.s1("port map (").pos().end();
+        let options = root.list_completion_options(code2.source(), cursor);
+        println!("{options:?}")
     }
 }
