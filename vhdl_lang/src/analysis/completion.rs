@@ -68,8 +68,11 @@ impl<'a> Region<'a> {
 impl DesignRoot {
     /// Extracts the name of ports or generics from an AST for an entity with a certain ID.
     /// The entity can be an `Entity`, `Component` or `Package`.
-    /// After walking the AST, the ports or generics are written to the `items` vector.
-    /// The `kind` member chooses whether to select ports or generics.
+    ///
+    /// # Arguments
+    ///
+    /// * `object_class` - What to extract. `ObjectClass::Signal` extracts ports
+    /// while `ObjectClass::Constant` extracts constants.
 
     fn extract_port_or_generic_names(
         &self,
@@ -80,6 +83,9 @@ impl DesignRoot {
         match cmp_ent.kind() {
             AnyEntKind::Component(region) => region.extract_objects_with_class(object_class),
             AnyEntKind::Design(Design::Entity(_, region)) => {
+                region.extract_objects_with_class(object_class)
+            }
+            AnyEntKind::Design(Design::UninstPackage(_, region)) => {
                 region.extract_objects_with_class(object_class)
             }
             _ => vec![],
