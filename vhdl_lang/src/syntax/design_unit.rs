@@ -4,7 +4,7 @@
 //
 // Copyright (c) 2018, Olof Kraigher olof.kraigher@gmail.com
 
-use super::tokens::{Kind::*, TokenStream, TokenSpan};
+use super::tokens::{Kind::*, TokenSpan, TokenStream};
 
 use super::common::check_end_identifier_mismatch;
 use super::common::ParseResult;
@@ -853,14 +853,14 @@ end entity y;
         let (tokens, unit) = &file.design_units[0];
         let ent = unit.expect_entity();
         let lib = ent.context_clause[0].expect_library_clause();
-        let tok = tokens.get_token(lib.get_start_token().unwrap());
+        let tok = tokens.get_token(lib.get_start_token());
         assert_eq!(tok.kind, Library);
         assert_eq!(tok.pos, code.s1("library").pos());
 
         let (tokens, unit) = &file.design_units[2];
         let ent = unit.expect_entity();
         let ctx_ref = ent.context_clause[0].expect_context_reference();
-        let tok = tokens.get_token(ctx_ref.get_start_token().unwrap());
+        let tok = tokens.get_token(ctx_ref.get_start_token());
         assert_eq!(tok.kind, Context);
         assert_eq!(tok.pos, code.s1("context").pos());
     }

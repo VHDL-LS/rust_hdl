@@ -10,8 +10,8 @@ use crate::ast::{
     AliasDeclaration, AnyDesignUnit, AnyPrimaryUnit, AnySecondaryUnit, Attribute,
     AttributeDeclaration, AttributeSpecification, ComponentDeclaration, Declaration, Designator,
     FileDeclaration, HasIdent, Ident, InterfaceFileDeclaration, InterfacePackageDeclaration,
-    ObjectClass, ObjectDeclaration, PackageInstantiation, SubprogramBody, SubprogramDeclaration,
-    SubprogramInstantiation, TypeDeclaration, WithDecl,
+    ObjectClass, ObjectDeclaration, PackageInstantiation, SubprogramBody,
+    SubprogramInstantiation, SubprogramSpecification, TypeDeclaration, WithDecl,
 };
 use crate::ast::{ExternalObjectClass, InterfaceDeclaration, InterfaceObjectDeclaration};
 use crate::data::*;
@@ -501,11 +501,11 @@ impl HasEntityId for InterfaceFileDeclaration {
     }
 }
 
-impl HasEntityId for SubprogramDeclaration {
+impl HasEntityId for SubprogramSpecification {
     fn ent_id(&self) -> Option<EntityId> {
         match self {
-            SubprogramDeclaration::Procedure(proc) => proc.designator.decl,
-            SubprogramDeclaration::Function(func) => func.designator.decl,
+            SubprogramSpecification::Procedure(proc) => proc.designator.decl,
+            SubprogramSpecification::Function(func) => func.designator.decl,
         }
     }
 }
@@ -525,7 +525,7 @@ impl HasEntityId for Declaration {
             Declaration::Component(comp) => comp.ent_id(),
             Declaration::Attribute(attr) => attr.ent_id(),
             Declaration::Alias(alias) => alias.ent_id(),
-            Declaration::SubprogramDeclaration(decl) => decl.ent_id(),
+            Declaration::SubprogramDeclaration(decl) => decl.specification.ent_id(),
             Declaration::SubprogramBody(body) => body.ent_id(),
             Declaration::SubprogramInstantiation(decl) => decl.ent_id(),
             Declaration::Package(pkg) => pkg.ent_id(),
@@ -635,11 +635,11 @@ impl WithDecl<WithPos<Designator>> {
     }
 }
 
-impl SubprogramDeclaration {
+impl SubprogramSpecification {
     pub fn set_decl_id(&mut self, id: EntityId) {
         match self {
-            SubprogramDeclaration::Function(f) => f.designator.decl = Some(id),
-            SubprogramDeclaration::Procedure(p) => p.designator.decl = Some(id),
+            SubprogramSpecification::Function(f) => f.designator.decl = Some(id),
+            SubprogramSpecification::Procedure(p) => p.designator.decl = Some(id),
         }
     }
 }

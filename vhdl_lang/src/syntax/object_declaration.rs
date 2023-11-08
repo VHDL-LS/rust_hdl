@@ -8,11 +8,10 @@ use super::common::ParseResult;
 use super::expression::parse_expression;
 use super::names::parse_identifier_list;
 use super::subtype_indication::parse_subtype_indication;
-use super::tokens::{Kind::*, TokenStream};
+use super::tokens::{Kind::*, TokenStream, TokenInfo};
 /// LRM 6.4.2 Object Declarations
 use crate::ast::*;
 use crate::data::WithPos;
-use crate::{TokenInfo, TokenSpan};
 
 pub fn parse_optional_assignment(stream: &TokenStream) -> ParseResult<Option<WithPos<Expression>>> {
     if stream.pop_if_kind(ColonEq).is_some() {
@@ -27,7 +26,7 @@ fn parse_object_declaration_kind(
     stream: &TokenStream,
     class: ObjectClass,
 ) -> ParseResult<Vec<ObjectDeclaration>> {
-    let start_token = stream.get_token_id(stream.peek_expect()?)?;
+    let start_token = stream.get_current_token_id();
     match class {
         ObjectClass::Signal => {
             stream.expect_kind(Signal)?;
@@ -48,11 +47,12 @@ fn parse_object_declaration_kind(
     stream.expect_kind(Colon)?;
     let subtype = parse_subtype_indication(stream)?;
     let opt_expression = parse_optional_assignment(stream)?;
+    let end_token = stream.expect_kind(SemiColon)?;
 
     Ok(idents
         .into_iter()
         .map(|ident| ObjectDeclaration {
-            info: TokenInfo::new(Some(start_token), None),
+            info: TokenInfo::new(start_token, end_token),
             class,
             ident: ident.into(),
             subtype_indication: subtype.clone(),
@@ -63,7 +63,7 @@ fn parse_object_declaration_kind(
 
 pub fn parse_object_declaration(stream: &TokenStream) -> ParseResult<Vec<ObjectDeclaration>> {
     let token = stream.peek_expect()?;
-    let mut result = try_init_token_kind!(
+    let result = try_init_token_kind!(
         token,
         Constant => parse_object_declaration_kind(stream, ObjectClass::Constant)?,
         Signal => parse_object_declaration_kind(stream, ObjectClass::Signal)?,
@@ -72,10 +72,6 @@ pub fn parse_object_declaration(stream: &TokenStream) -> ParseResult<Vec<ObjectD
             parse_object_declaration_kind(stream, ObjectClass::SharedVariable)?
         }
     );
-    let end_token = stream.expect_kind(SemiColon)?;
-    result
-        .iter_mut()
-        .for_each(|obj_decl| obj_decl.set_end_token(end_token));
     Ok(result)
 }
 
@@ -124,6 +120,7 @@ mod tests {
 
     use super::*;
     use crate::syntax::test::{token_to_string, Code};
+    use crate::TokenSpan;
 
     #[test]
     fn parses_constant() {
@@ -131,10 +128,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
-                info: TokenInfo::new(
-                    Some(code.s1("constant").token()),
-                    Some(code.s1(";").token())
-                ),
+                info: TokenInfo::new(code.s1("constant").token(), code.s1(";").token()),
                 class: ObjectClass::Constant,
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
@@ -149,7 +143,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
-                info: TokenInfo::new(Some(code.s1("signal").token()), Some(code.s1(";").token())),
+                info: TokenInfo::new(code.s1("signal").token(), code.s1(";").token()),
                 class: ObjectClass::Signal,
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
@@ -164,10 +158,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
-                info: TokenInfo::new(
-                    Some(code.s1("variable").token()),
-                    Some(code.s1(";").token())
-                ),
+                info: TokenInfo::new(code.s1("variable").token(), code.s1(";").token()),
                 class: ObjectClass::Variable,
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
@@ -182,7 +173,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
-                info: TokenInfo::new(Some(code.s1("shared").token()), Some(code.s1(";").token())),
+                info: TokenInfo::new(code.s1("shared").token(), code.s1(";").token()),
                 class: ObjectClass::SharedVariable,
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
@@ -239,10 +230,7 @@ mod tests {
         assert_eq!(
             code.with_stream(parse_object_declaration),
             vec![ObjectDeclaration {
-                info: TokenInfo::new(
-                    Some(code.s1("constant").token()),
-                    Some(code.s1(";").token())
-                ),
+                info: TokenInfo::new(code.s1("constant").token(), code.s1(";").token()),
                 class: ObjectClass::Constant,
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
@@ -257,20 +245,14 @@ mod tests {
 
         let objects = vec![
             ObjectDeclaration {
-                info: TokenInfo::new(
-                    Some(code.s1("constant").token()),
-                    Some(code.s1(";").token()),
-                ),
+                info: TokenInfo::new(code.s1("constant").token(), code.s1(";").token()),
                 class: ObjectClass::Constant,
                 ident: code.s1("foo").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),
                 expression: Some(code.s1("0").expr()),
             },
             ObjectDeclaration {
-                info: TokenInfo::new(
-                    Some(code.s1("constant").token()),
-                    Some(code.s1(";").token()),
-                ),
+                info: TokenInfo::new(code.s1("constant").token(), code.s1(";").token()),
                 class: ObjectClass::Constant,
                 ident: code.s1("bar").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),

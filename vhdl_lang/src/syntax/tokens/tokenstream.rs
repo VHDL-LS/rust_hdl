@@ -109,6 +109,11 @@ impl<'a> TokenStream<'a> {
         TokenId::new(self.get_idx() - self.token_offset.get())
     }
 
+    pub fn get_last_token_id(&self) -> TokenId {
+        TokenId::new(self.get_idx() - 1 - self.token_offset.get())
+    }
+
+    #[allow(unused)]
     pub fn get_token_id(&self, token: &Token) -> DiagnosticResult<TokenId> {
         let idx = self.idx_of(token);
         if let Some(idx) = idx {

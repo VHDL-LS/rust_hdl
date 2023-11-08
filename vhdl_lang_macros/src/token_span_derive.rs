@@ -27,32 +27,26 @@ pub fn add_token_span_impl(input: TokenStream) -> TokenStream {
 
 fn add_token_span_impl_struct(item: ItemStruct) -> TokenStream {
     let name = item.ident;
+    let generics = &item.generics;
+    let where_clause = &item.generics.where_clause;
 
     quote! {
         #[automatically_derived]
-        impl ::vhdl_lang::TokenSpan for #name {
-            fn set_start_token(&mut self, start_token: ::vhdl_lang::TokenId) {
-                self.info.set_start_token(start_token);
+        impl #generics ::vhdl_lang::TokenSpan for #name #generics #where_clause {
+            fn get_start_token(&self) -> ::vhdl_lang::TokenId {
+                self.info.start_token
             }
 
-            fn set_end_token(&mut self, end_token: ::vhdl_lang::TokenId) {
-                self.info.set_end_token(end_token);
-            }
-
-            fn get_start_token(&self) -> Option<::vhdl_lang::TokenId> {
-                self.info.get_start_token()
-            }
-
-            fn get_end_token(&self) -> Option<::vhdl_lang::TokenId> {
-                self.info.get_end_token()
+            fn get_end_token(&self) -> ::vhdl_lang::TokenId {
+                self.info.end_token
             }
 
             fn get_token_slice<'a>(&self, tokens: &'a dyn ::vhdl_lang::TokenAccess) -> &'a[::vhdl_lang::Token] {
-                tokens.get_token_slice(self.get_start_token().unwrap(), self.get_end_token().unwrap())
+                tokens.get_token_slice(self.get_start_token(), self.get_end_token())
             }
 
             fn get_pos(&self, tokens: &dyn ::vhdl_lang::TokenAccess) -> ::vhdl_lang::SrcPos {
-                self.info.get_pos(tokens).unwrap_or_else(|| panic!("Cannot get position of empty token span!"))
+                tokens.get_span(self.get_start_token(), self.get_end_token())
             }
         }
 
@@ -97,30 +91,18 @@ fn add_token_span_impl_enum(item: ItemEnum) -> TokenStream {
     // a fields' type does not implement the trait!
     quote! {
         impl ::vhdl_lang::TokenSpan for #enum_name {
-            fn set_start_token(&mut self, start_token: ::vhdl_lang::TokenId) {
-                match self {
-                    #( #enum_name::#variant_names(inner) => ::vhdl_lang::TokenSpan::set_start_token(inner, start_token), )*
-                }
-            }
-
-            fn set_end_token(&mut self, end_token: ::vhdl_lang::TokenId) {
-                match self {
-                    #( #enum_name::#variant_names(inner) => ::vhdl_lang::TokenSpan::set_end_token(inner, end_token), )*
-                }
-            }
-
-            fn get_start_token(&self) -> Option<::vhdl_lang::TokenId> {
+            fn get_start_token(&self) -> ::vhdl_lang::TokenId {
                 match self {
                     #( #enum_name::#variant_names(inner) => ::vhdl_lang::TokenSpan::get_start_token(inner), )*
                 }
             }
-            fn get_end_token(&self) -> Option<::vhdl_lang::TokenId> {
+            fn get_end_token(&self) -> ::vhdl_lang::TokenId {
                 match self {
                     #( #enum_name::#variant_names(inner) => ::vhdl_lang::TokenSpan::get_end_token(inner), )*
                 }
             }
 
-            fn get_token_slice<'a>(&self, tokens: &'a dyn ::vhdl_lang::TokenAccess) -> &'a [::vhdl_lang::Token] {
+            fn get_token_slice<'internal_a>(&self, tokens: &'internal_a dyn ::vhdl_lang::TokenAccess) -> &'internal_a [::vhdl_lang::Token] {
                 match self {
                     #( #enum_name::#variant_names(inner) => ::vhdl_lang::TokenSpan::get_token_slice(inner, tokens), )*
                 }

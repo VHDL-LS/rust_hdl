@@ -9,7 +9,7 @@ use super::declarative_part::parse_declarative_part;
 use super::interface_declaration::parse_parameter_interface_list;
 use super::names::parse_type_mark;
 use super::sequential_statement::parse_labeled_sequential_statements;
-use super::tokens::{kinds_error, Kind::*, TokenAccess, TokenInfo, TokenSpan, TokenStream};
+use super::tokens::{kinds_error, Kind::*, TokenAccess, TokenInfo, TokenStream};
 use crate::ast::*;
 use crate::data::*;
 use crate::syntax::concurrent_statement::parse_map_aspect;
@@ -106,7 +106,7 @@ pub fn parse_subprogram_instantiation(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SubprogramInstantiation> {
-    let id = stream.get_current_token_id();
+    let start_token = stream.get_current_token_id();
     let tok = stream.peek_expect()?;
     let kind = match tok.kind {
         Procedure => SubprogramKind::Procedure,
@@ -129,9 +129,9 @@ pub fn parse_subprogram_instantiation(
         None
     };
     let generic_map = parse_map_aspect(stream, Generic, diagnostics)?;
-    let semi = stream.expect_kind(SemiColon)?;
+    let end_token = stream.expect_kind(SemiColon)?;
     Ok(SubprogramInstantiation {
-        info: TokenInfo::new(Some(id), Some(semi)),
+        info: TokenInfo::new(start_token, end_token),
         kind,
         ident,
         subprogram_name,
@@ -140,11 +140,11 @@ pub fn parse_subprogram_instantiation(
     })
 }
 
-pub fn parse_subprogram_declaration_no_semi(
+pub fn parse_subprogram_specification(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
-) -> ParseResult<SubprogramDeclaration> {
-    let start_token = stream.get_token_id(stream.peek_expect()?)?;
+) -> ParseResult<SubprogramSpecification> {
+    let start_token = stream.get_current_token_id();
     let (is_function, is_pure) = {
         expect_token!(
             stream,
@@ -182,8 +182,9 @@ pub fn parse_subprogram_declaration_no_semi(
     if is_function {
         stream.expect_kind(Return)?;
         let return_type = parse_type_mark(stream)?;
-        Ok(SubprogramDeclaration::Function(FunctionSpecification {
-            info: TokenInfo::new(Some(start_token), None),
+        let end_token = stream.get_last_token_id();
+        Ok(SubprogramSpecification::Function(FunctionSpecification {
+            info: TokenInfo::new(start_token, end_token),
             pure: is_pure,
             param_tok,
             designator: designator.into(),
@@ -192,8 +193,9 @@ pub fn parse_subprogram_declaration_no_semi(
             return_type,
         }))
     } else {
-        Ok(SubprogramDeclaration::Procedure(ProcedureSpecification {
-            info: TokenInfo::new(Some(start_token), None),
+        let end_token = stream.get_last_token_id();
+        Ok(SubprogramSpecification::Procedure(ProcedureSpecification {
+            info: TokenInfo::new(start_token, end_token),
             designator: designator.into(),
             param_tok,
             header,
@@ -206,27 +208,26 @@ pub fn parse_subprogram_declaration(
     stream: &TokenStream,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SubprogramDeclaration> {
-    let res = parse_subprogram_declaration_no_semi(stream, diagnostics);
+    let start_token = stream.get_current_token_id();
+    let specification = parse_subprogram_specification(stream, diagnostics)?;
     let end_token = stream.expect_kind(SemiColon)?;
 
-    if let Ok(mut decl) = res {
-        decl.set_end_token(end_token);
-        Ok(decl)
-    } else {
-        res
-    }
+    Ok(SubprogramDeclaration {
+        info: TokenInfo::new(start_token, end_token),
+        specification,
+    })
 }
 
 /// LRM 4.3 Subprogram bodies
 pub fn parse_subprogram_body(
     stream: &TokenStream,
-    specification: SubprogramDeclaration,
+    specification: SubprogramSpecification,
     diagnostics: &mut dyn DiagnosticHandler,
 ) -> ParseResult<SubprogramBody> {
     let end_kind = {
         match specification {
-            SubprogramDeclaration::Procedure(..) => Procedure,
-            SubprogramDeclaration::Function(..) => Function,
+            SubprogramSpecification::Procedure(..) => Procedure,
+            SubprogramSpecification::Function(..) => Function,
         }
     };
     let declarations = parse_declarative_part(stream, diagnostics)?;
@@ -267,7 +268,8 @@ pub fn parse_subprogram(
             parse_subprogram_instantiation(stream, diagnostics)?,
         ));
     }
-    let mut specification = parse_subprogram_declaration_no_semi(stream, diagnostics)?;
+    let start_token = stream.get_current_token_id();
+    let specification = parse_subprogram_specification(stream, diagnostics)?;
     expect_token!(
         stream,
         token,
@@ -275,8 +277,10 @@ pub fn parse_subprogram(
             Ok(Declaration::SubprogramBody(parse_subprogram_body(stream, specification, diagnostics)?))
         },
         SemiColon => {
-            specification.set_end_token(stream.get_token_id(token)?);
-            Ok(Declaration::SubprogramDeclaration(specification))
+            Ok(Declaration::SubprogramDeclaration(SubprogramDeclaration{
+                info: TokenInfo::new(start_token, stream.get_last_token_id()),
+                specification,
+            }))
         }
     )
 }
@@ -288,10 +292,10 @@ mod tests {
     use super::*;
 
     use crate::syntax::test::{token_to_string, Code};
-    use crate::TokenInfo;
+    use crate::TokenSpan;
 
     #[test]
-    pub fn parses_procedure_specification() {
+    pub fn parses_procedure_declaration() {
         let code = Code::new(
             "\
 procedure foo;
@@ -299,20 +303,20 @@ procedure foo;
         );
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram_declaration),
-            SubprogramDeclaration::Procedure(ProcedureSpecification {
-                info: TokenInfo::new(
-                    Some(code.s1("procedure").token()),
-                    Some(code.s1(";").token())
-                ),
-                designator: code
-                    .s1("foo")
-                    .ident()
-                    .map_into(SubprogramDesignator::Identifier)
-                    .into(),
-                param_tok: None,
-                header: None,
-                parameter_list: Vec::new(),
-            })
+            SubprogramDeclaration {
+                info: TokenInfo::new(code.s1("procedure").token(), code.s1(";").token()),
+                specification: SubprogramSpecification::Procedure(ProcedureSpecification {
+                    info: TokenInfo::new(code.s1("procedure").token(), code.s1("foo").token()),
+                    designator: code
+                        .s1("foo")
+                        .ident()
+                        .map_into(SubprogramDesignator::Identifier)
+                        .into(),
+                    param_tok: None,
+                    header: None,
+                    parameter_list: Vec::new(),
+                })
+            }
         );
     }
 
@@ -325,22 +329,22 @@ function foo return lib.foo.natural;
         );
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram_declaration),
-            SubprogramDeclaration::Function(FunctionSpecification {
-                info: TokenInfo::new(
-                    Some(code.s1("function").token()),
-                    Some(code.s1(";").token())
-                ),
-                pure: true,
-                designator: code
-                    .s1("foo")
-                    .ident()
-                    .map_into(SubprogramDesignator::Identifier)
-                    .into(),
-                header: None,
-                param_tok: None,
-                parameter_list: Vec::new(),
-                return_type: code.s1("lib.foo.natural").type_mark()
-            })
+            SubprogramDeclaration {
+                info: TokenInfo::new(code.s1("function").token(), code.s1(";").token()),
+                specification: SubprogramSpecification::Function(FunctionSpecification {
+                    info: TokenInfo::new(code.s1("function").token(), code.s1("natural").token()),
+                    pure: true,
+                    designator: code
+                        .s1("foo")
+                        .ident()
+                        .map_into(SubprogramDesignator::Identifier)
+                        .into(),
+                    header: None,
+                    param_tok: None,
+                    parameter_list: Vec::new(),
+                    return_type: code.s1("lib.foo.natural").type_mark()
+                })
+            }
         );
     }
 
@@ -353,22 +357,22 @@ function \"+\" return lib.foo.natural;
         );
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram_declaration),
-            SubprogramDeclaration::Function(FunctionSpecification {
-                info: TokenInfo::new(
-                    Some(code.s1("function").token()),
-                    Some(code.s1(";").token())
-                ),
-                pure: true,
-                designator: WithPos {
-                    item: SubprogramDesignator::OperatorSymbol(Operator::Plus),
-                    pos: code.s1("\"+\"").pos()
-                }
-                .into(),
-                header: None,
-                param_tok: None,
-                parameter_list: Vec::new(),
-                return_type: code.s1("lib.foo.natural").type_mark()
-            })
+            SubprogramDeclaration {
+                info: TokenInfo::new(code.s1("function").token(), code.s1(";").token()),
+                specification: SubprogramSpecification::Function(FunctionSpecification {
+                    info: TokenInfo::new(code.s1("function").token(), code.s1("natural").token()),
+                    pure: true,
+                    designator: WithPos {
+                        item: SubprogramDesignator::OperatorSymbol(Operator::Plus),
+                        pos: code.s1("\"+\"").pos()
+                    }
+                    .into(),
+                    header: None,
+                    param_tok: None,
+                    parameter_list: Vec::new(),
+                    return_type: code.s1("lib.foo.natural").type_mark()
+                })
+            }
         );
     }
 
@@ -381,19 +385,22 @@ impure function foo return lib.foo.natural;
         );
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram_declaration),
-            SubprogramDeclaration::Function(FunctionSpecification {
-                info: TokenInfo::new(Some(code.s1("impure").token()), Some(code.s1(";").token())),
-                pure: false,
-                designator: code
-                    .s1("foo")
-                    .ident()
-                    .map_into(SubprogramDesignator::Identifier)
-                    .into(),
-                header: None,
-                param_tok: None,
-                parameter_list: Vec::new(),
-                return_type: code.s1("lib.foo.natural").type_mark()
-            })
+            SubprogramDeclaration {
+                info: TokenInfo::new(code.s1("impure").token(), code.s1(";").token()),
+                specification: SubprogramSpecification::Function(FunctionSpecification {
+                    info: TokenInfo::new(code.s1("impure").token(), code.s1("natural").token()),
+                    pure: false,
+                    designator: code
+                        .s1("foo")
+                        .ident()
+                        .map_into(SubprogramDesignator::Identifier)
+                        .into(),
+                    header: None,
+                    param_tok: None,
+                    parameter_list: Vec::new(),
+                    return_type: code.s1("lib.foo.natural").type_mark()
+                })
+            }
         );
     }
     #[test]
@@ -405,19 +412,22 @@ pure function foo return lib.foo.natural;
         );
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram_declaration),
-            SubprogramDeclaration::Function(FunctionSpecification {
-                info: TokenInfo::new(Some(code.s1("pure").token()), Some(code.s1(";").token())),
-                pure: true,
-                designator: code
-                    .s1("foo")
-                    .ident()
-                    .map_into(SubprogramDesignator::Identifier)
-                    .into(),
-                header: None,
-                param_tok: None,
-                parameter_list: Vec::new(),
-                return_type: code.s1("lib.foo.natural").type_mark()
-            })
+            SubprogramDeclaration {
+                info: TokenInfo::new(code.s1("pure").token(), code.s1(";").token()),
+                specification: SubprogramSpecification::Function(FunctionSpecification {
+                    info: TokenInfo::new(code.s1("pure").token(), code.s1("natural").token()),
+                    pure: true,
+                    designator: code
+                        .s1("foo")
+                        .ident()
+                        .map_into(SubprogramDesignator::Identifier)
+                        .into(),
+                    header: None,
+                    param_tok: None,
+                    parameter_list: Vec::new(),
+                    return_type: code.s1("lib.foo.natural").type_mark()
+                })
+            }
         );
     }
     #[test]
@@ -429,20 +439,20 @@ procedure foo(foo : natural);
         );
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram_declaration),
-            SubprogramDeclaration::Procedure(ProcedureSpecification {
-                info: TokenInfo::new(
-                    Some(code.s1("procedure").token()),
-                    Some(code.s1(";").token())
-                ),
-                designator: code
-                    .s1("foo")
-                    .ident()
-                    .map_into(SubprogramDesignator::Identifier)
-                    .into(),
-                header: None,
-                param_tok: None,
-                parameter_list: vec![code.s1("foo : natural").parameter()],
-            })
+            SubprogramDeclaration {
+                info: TokenInfo::new(code.s1("procedure").token(), code.s1(";").token()),
+                specification: SubprogramSpecification::Procedure(ProcedureSpecification {
+                    info: TokenInfo::new(code.s1("procedure").token(), code.s1(")").token()),
+                    designator: code
+                        .s1("foo")
+                        .ident()
+                        .map_into(SubprogramDesignator::Identifier)
+                        .into(),
+                    header: None,
+                    param_tok: None,
+                    parameter_list: vec![code.s1("foo : natural").parameter()],
+                })
+            }
         );
     }
 
@@ -455,22 +465,25 @@ function foo(foo : natural) return lib.foo.natural;
         );
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram_declaration),
-            SubprogramDeclaration::Function(FunctionSpecification {
-                info: TokenInfo::new(
-                    Some(code.s1("function").token()),
-                    Some(code.s1(";").token())
-                ),
-                pure: true,
-                designator: code
-                    .s1("foo")
-                    .ident()
-                    .map_into(SubprogramDesignator::Identifier)
-                    .into(),
-                header: None,
-                param_tok: None,
-                parameter_list: vec![code.s1("foo : natural").parameter()],
-                return_type: code.s1("lib.foo.natural").type_mark()
-            })
+            SubprogramDeclaration {
+                info: TokenInfo::new(code.s1("function").token(), code.s1(";").token()),
+                specification: SubprogramSpecification::Function(FunctionSpecification {
+                    info: TokenInfo::new(
+                        code.s1("function").token(),
+                        code.sa("lib.foo.", "natural").token()
+                    ),
+                    pure: true,
+                    designator: code
+                        .s1("foo")
+                        .ident()
+                        .map_into(SubprogramDesignator::Identifier)
+                        .into(),
+                    header: None,
+                    param_tok: None,
+                    parameter_list: vec![code.s1("foo : natural").parameter()],
+                    return_type: code.s1("lib.foo.natural").type_mark()
+                })
+            }
         );
     }
 
@@ -483,22 +496,25 @@ function foo parameter (foo : natural) return lib.foo.natural;
         );
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram_declaration),
-            SubprogramDeclaration::Function(FunctionSpecification {
-                info: TokenInfo::new(
-                    Some(code.s1("function").token()),
-                    Some(code.s1(";").token())
-                ),
-                pure: true,
-                designator: code
-                    .s1("foo")
-                    .ident()
-                    .map_into(SubprogramDesignator::Identifier)
-                    .into(),
-                header: None,
-                param_tok: Some(code.s1("parameter").token()),
-                parameter_list: vec![code.s1("foo : natural").parameter()],
-                return_type: code.s1("lib.foo.natural").type_mark()
-            })
+            SubprogramDeclaration {
+                info: TokenInfo::new(code.s1("function").token(), code.s1(";").token()),
+                specification: SubprogramSpecification::Function(FunctionSpecification {
+                    info: TokenInfo::new(
+                        code.s1("function").token(),
+                        code.sa("lib.foo.", "natural").token()
+                    ),
+                    pure: true,
+                    designator: code
+                        .s1("foo")
+                        .ident()
+                        .map_into(SubprogramDesignator::Identifier)
+                        .into(),
+                    header: None,
+                    param_tok: Some(code.s1("parameter").token()),
+                    parameter_list: vec![code.s1("foo : natural").parameter()],
+                    return_type: code.s1("lib.foo.natural").type_mark()
+                })
+            }
         );
     }
 
@@ -511,26 +527,29 @@ function foo generic (abc_def: natural) parameter (foo : natural) return lib.foo
         );
         assert_eq!(
             code.with_stream_no_diagnostics(parse_subprogram_declaration),
-            SubprogramDeclaration::Function(FunctionSpecification {
-                info: TokenInfo::new(
-                    Some(code.s1("function").token()),
-                    Some(code.s1(";").token())
-                ),
-                pure: true,
-                designator: code
-                    .s1("foo")
-                    .ident()
-                    .map_into(SubprogramDesignator::Identifier)
-                    .into(),
-                header: Some(SubprogramHeader {
-                    generic_list: vec![code.s1("abc_def: natural").generic(),],
-                    map_aspect: None,
-                    generic_tok: code.s1("generic").token()
-                }),
-                param_tok: Some(code.s1("parameter").token()),
-                parameter_list: vec![code.s1("foo : natural").parameter()],
-                return_type: code.s1("lib.foo.natural").type_mark()
-            })
+            SubprogramDeclaration {
+                info: TokenInfo::new(code.s1("function").token(), code.s1(";").token()),
+                specification: SubprogramSpecification::Function(FunctionSpecification {
+                    info: TokenInfo::new(
+                        code.s1("function").token(),
+                        code.sa("lib.foo.", "natural").token()
+                    ),
+                    pure: true,
+                    designator: code
+                        .s1("foo")
+                        .ident()
+                        .map_into(SubprogramDesignator::Identifier)
+                        .into(),
+                    header: Some(SubprogramHeader {
+                        generic_list: vec![code.s1("abc_def: natural").generic(),],
+                        map_aspect: None,
+                        generic_tok: code.s1("generic").token()
+                    }),
+                    param_tok: Some(code.s1("parameter").token()),
+                    parameter_list: vec![code.s1("foo : natural").parameter()],
+                    return_type: code.s1("lib.foo.natural").type_mark()
+                })
+            }
         );
     }
 
@@ -628,7 +647,7 @@ end function;
         );
         let specification = code
             .s1("function foo(arg : natural) return natural")
-            .subprogram_decl_no_semi();
+            .subprogram_specification();
         let declarations = code.s1("constant foo : natural := 0;").declarative_part();
         let statements = vec![code.s1("return foo + arg;").sequential_statement()];
         let body = SubprogramBody {
@@ -670,7 +689,7 @@ end function foo;
         );
         let specification = code
             .s1("function foo(arg : natural) return natural")
-            .subprogram_decl_no_semi();
+            .subprogram_specification();
         let body = SubprogramBody {
             specification,
             declarations: vec![],
@@ -694,7 +713,7 @@ end function \"+\";
         );
         let specification = code
             .s1("function \"+\"(arg : natural) return natural")
-            .subprogram_decl_no_semi();
+            .subprogram_specification();
         let body = SubprogramBody {
             specification,
             declarations: vec![],
@@ -766,22 +785,22 @@ procedure my_proc
         let decl = code.subprogram_decl();
         assert_eq!(
             decl,
-            SubprogramDeclaration::Procedure(ProcedureSpecification {
-                info: TokenInfo::new(
-                    Some(code.s1("procedure").token()),
-                    Some(code.sa(")", ";").token())
-                ),
-                designator: code
-                    .s1("my_proc")
-                    .ident()
-                    .map_into(SubprogramDesignator::Identifier)
-                    .into(),
-                header: code
-                    .s1("generic (x: natural := 4; y: real := 4)")
-                    .subprogram_header(),
-                param_tok: None,
-                parameter_list: vec![],
-            })
+            SubprogramDeclaration {
+                info: TokenInfo::new(code.s1("procedure").token(), code.sa(")", ";").token()),
+                specification: SubprogramSpecification::Procedure(ProcedureSpecification {
+                    info: TokenInfo::new(code.s1("procedure").token(), code.s1(")").token()),
+                    designator: code
+                        .s1("my_proc")
+                        .ident()
+                        .map_into(SubprogramDesignator::Identifier)
+                        .into(),
+                    header: code
+                        .s1("generic (x: natural := 4; y: real := 4)")
+                        .subprogram_header(),
+                    param_tok: None,
+                    parameter_list: vec![],
+                })
+            }
         );
     }
 
@@ -797,23 +816,23 @@ procedure my_proc
         let decl = code.subprogram_decl();
         assert_eq!(
             decl,
-            SubprogramDeclaration::Procedure(ProcedureSpecification {
-                info: TokenInfo::new(
-                    Some(code.s1("procedure").token()),
-                    Some(code.sa(")", ";").token())
-                ),
-                designator: code
-                    .s1("my_proc")
-                    .ident()
-                    .map_into(SubprogramDesignator::Identifier)
-                    .into(),
-                header: code
-                    .s1("generic (x: natural := 4; y: real := 4)
+            SubprogramDeclaration {
+                info: TokenInfo::new(code.s1("procedure").token(), code.sa(")", ";").token()),
+                specification: SubprogramSpecification::Procedure(ProcedureSpecification {
+                    info: TokenInfo::new(code.s1("procedure").token(), code.sb(")", ";").token()),
+                    designator: code
+                        .s1("my_proc")
+                        .ident()
+                        .map_into(SubprogramDesignator::Identifier)
+                        .into(),
+                    header: code
+                        .s1("generic (x: natural := 4; y: real := 4)
     generic map (x => 42)")
-                    .subprogram_header(),
-                param_tok: None,
-                parameter_list: vec![],
-            })
+                        .subprogram_header(),
+                    param_tok: None,
+                    parameter_list: vec![],
+                })
+            }
         );
     }
 
@@ -830,7 +849,7 @@ end function;
         );
         let specification = code
             .s1("function foo generic (x: natural := 4) (arg : natural) return natural")
-            .subprogram_decl_no_semi();
+            .subprogram_specification();
         let declarations = code.s1("constant foo : natural := 0;").declarative_part();
         let statements = vec![code.s1("return foo + arg;").sequential_statement()];
         let body = SubprogramBody {
@@ -863,7 +882,7 @@ end procedure swap;
             .s1("procedure swap
   generic ( type T )
   parameter (a, b : inout T)")
-            .subprogram_decl_no_semi();
+            .subprogram_specification();
         let body = SubprogramBody {
             specification,
             declarations: code.s1("variable temp : T;").declarative_part(),
@@ -888,10 +907,7 @@ end procedure swap;
             inst,
             SubprogramInstantiation {
                 kind: SubprogramKind::Procedure,
-                info: TokenInfo::new(
-                    Some(code.s1("procedure").token()),
-                    Some(code.s1(";").token())
-                ),
+                info: TokenInfo::new(code.s1("procedure").token(), code.s1(";").token()),
                 ident: code.s1("my_proc").decl_ident(),
                 subprogram_name: code.s1("new proc").s1("proc").name(),
                 signature: None,
@@ -905,10 +921,7 @@ end procedure swap;
             inst,
             SubprogramInstantiation {
                 kind: SubprogramKind::Function,
-                info: TokenInfo::new(
-                    Some(code.s1("function").token()),
-                    Some(code.s1(";").token())
-                ),
+                info: TokenInfo::new(code.s1("function").token(), code.s1(";").token()),
                 ident: code.s1("my_func").decl_ident(),
                 subprogram_name: code.s1("new func").s1("func").name(),
                 signature: None,
@@ -922,10 +935,7 @@ end procedure swap;
             inst,
             SubprogramInstantiation {
                 kind: SubprogramKind::Function,
-                info: TokenInfo::new(
-                    Some(code.s1("function").token()),
-                    Some(code.s1(";").token())
-                ),
+                info: TokenInfo::new(code.s1("function").token(), code.s1(";").token()),
                 ident: code.s1("my_func").decl_ident(),
                 subprogram_name: code.s1("new func").s1("func").name(),
                 signature: Some(code.s1("[bit return bit_vector]").signature()),
@@ -940,10 +950,7 @@ end procedure swap;
             inst,
             SubprogramInstantiation {
                 kind: SubprogramKind::Function,
-                info: TokenInfo::new(
-                    Some(code.s1("function").token()),
-                    Some(code.s1(";").token())
-                ),
+                info: TokenInfo::new(code.s1("function").token(), code.s1(";").token()),
                 ident: code.s1("my_func").decl_ident(),
                 subprogram_name: code.s1("new func").s1("func").name(),
                 signature: Some(code.s1("[bit return bit_vector]").signature()),
@@ -957,10 +964,7 @@ end procedure swap;
             inst,
             SubprogramInstantiation {
                 kind: SubprogramKind::Function,
-                info: TokenInfo::new(
-                    Some(code.s1("function").token()),
-                    Some(code.s1(";").token())
-                ),
+                info: TokenInfo::new(code.s1("function").token(), code.s1(";").token()),
                 ident: code.s1("my_func").decl_ident(),
                 subprogram_name: code.s1("new func").s1("func").name(),
                 signature: None,
@@ -977,10 +981,7 @@ end procedure swap;
             inst,
             Declaration::SubprogramInstantiation(SubprogramInstantiation {
                 kind: SubprogramKind::Procedure,
-                info: TokenInfo::new(
-                    Some(code.s1("procedure").token()),
-                    Some(code.s1(";").token())
-                ),
+                info: TokenInfo::new(code.s1("procedure").token(), code.s1(";").token()),
                 ident: code.s1("my_proc").decl_ident(),
                 subprogram_name: code.s1("new proc").s1("proc").name(),
                 signature: None,
@@ -994,10 +995,7 @@ end procedure swap;
             inst,
             Declaration::SubprogramInstantiation(SubprogramInstantiation {
                 kind: SubprogramKind::Function,
-                info: TokenInfo::new(
-                    Some(code.s1("function").token()),
-                    Some(code.s1(";").token())
-                ),
+                info: TokenInfo::new(code.s1("function").token(), code.s1(";").token()),
                 ident: code.s1("my_func").decl_ident(),
                 subprogram_name: code.s1("new func").s1("func").name(),
                 signature: None,

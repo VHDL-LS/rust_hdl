@@ -221,10 +221,7 @@ constant x: natural := 5;
         assert_eq!(
             decls,
             Ok(vec![Declaration::Object(ObjectDeclaration {
-                info: TokenInfo::new(
-                    Some(code.s1("constant").token()),
-                    Some(code.s(";", 2).token()),
-                ),
+                info: TokenInfo::new(code.s1("constant").token(), code.s(";", 2).token()),
                 class: ObjectClass::Constant,
                 ident: code.s1("x").decl_ident(),
                 subtype_indication: code.s1("natural").subtype_indication(),

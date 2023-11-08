@@ -7,7 +7,7 @@
 use super::common::ParseResult;
 use super::names::{parse_association_list_no_leftpar, parse_identifier_list, parse_selected_name};
 use super::object_declaration::{parse_file_declaration_no_semi, parse_optional_assignment};
-use super::subprogram::parse_subprogram_declaration_no_semi;
+use super::subprogram::parse_subprogram_specification;
 use super::subtype_indication::parse_subtype_indication;
 use super::tokens::{Kind::*, *};
 /// LRM 6.5 Interface declarations
@@ -234,10 +234,10 @@ fn parse_interface_declaration(
             Ok(vec![InterfaceDeclaration::Type(WithDecl::new(ident))])
         },
         Function | Procedure | Impure | Pure => {
-            let decl = parse_subprogram_declaration_no_semi(stream, diagnostics)?;
+            let spec = parse_subprogram_specification(stream, diagnostics)?;
             let default = parse_subprogram_default(stream)?;
 
-            Ok(vec![InterfaceDeclaration::Subprogram(decl, default)])
+            Ok(vec![InterfaceDeclaration::Subprogram(spec, default)])
         },
         Package => {
             Ok(vec![InterfaceDeclaration::Package (parse_interface_package(stream, diagnostics)?)])
@@ -757,20 +757,20 @@ bar : natural)",
         assert_eq!(
             code.with_stream(parse_generic),
             InterfaceDeclaration::Subprogram(
-                code.s1("function foo return bar").subprogram_decl_no_semi(),
+                code.s1("function foo return bar").subprogram_specification(),
                 None
             )
         );
         let code = Code::new("procedure foo");
         assert_eq!(
             code.with_stream(parse_generic),
-            InterfaceDeclaration::Subprogram(code.s1("procedure foo").subprogram_decl_no_semi(), None)
+            InterfaceDeclaration::Subprogram(code.s1("procedure foo").subprogram_specification(), None)
         );
         let code = Code::new("impure function foo return bar");
         assert_eq!(
             code.with_stream(parse_generic),
             InterfaceDeclaration::Subprogram(
-                code.s1("impure function foo return bar").subprogram_decl_no_semi(),
+                code.s1("impure function foo return bar").subprogram_specification(),
                 None
             )
         );
@@ -782,7 +782,7 @@ bar : natural)",
         assert_eq!(
             code.with_stream(parse_generic),
             InterfaceDeclaration::Subprogram(
-                code.s1("function foo return bar").subprogram_decl_no_semi(),
+                code.s1("function foo return bar").subprogram_specification(),
                 Some(SubprogramDefault::Name(code.s1("lib.name").selected_name()))
             )
         );
@@ -791,7 +791,7 @@ bar : natural)",
         assert_eq!(
             code.with_stream(parse_generic),
             InterfaceDeclaration::Subprogram(
-                code.s1("function foo return bar").subprogram_decl_no_semi(),
+                code.s1("function foo return bar").subprogram_specification(),
                 Some(SubprogramDefault::Box)
             )
         );

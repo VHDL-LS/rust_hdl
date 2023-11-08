@@ -685,7 +685,7 @@ pub struct FunctionSpecification {
 /// LRM 4.3 Subprogram bodies
 #[derive(PartialEq, Debug, Clone)]
 pub struct SubprogramBody {
-    pub specification: SubprogramDeclaration,
+    pub specification: SubprogramSpecification,
     pub declarations: Vec<Declaration>,
     pub statements: Vec<LabeledSequentialStatement>,
     pub end_ident_pos: Option<SrcPos>,
@@ -727,9 +727,16 @@ pub enum Signature {
 }
 
 #[derive(PartialEq, Debug, Clone, TokenSpan)]
-pub enum SubprogramDeclaration {
+pub enum SubprogramSpecification {
     Procedure(ProcedureSpecification),
     Function(FunctionSpecification),
+}
+
+/// LRM 4.2 Subprogram declarations
+#[with_token_span]
+#[derive(PartialEq, Debug, Clone)]
+pub struct SubprogramDeclaration {
+    pub specification: SubprogramSpecification,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -776,7 +783,7 @@ pub enum InterfaceDeclaration {
     File(InterfaceFileDeclaration),
     Type(WithDecl<Ident>),
     /// LRM 6.5.4 Interface subprogram declarations
-    Subprogram(SubprogramDeclaration, Option<SubprogramDefault>),
+    Subprogram(SubprogramSpecification, Option<SubprogramDefault>),
     /// LRM 6.5.5 Interface package declaration
     Package(InterfacePackageDeclaration),
 }

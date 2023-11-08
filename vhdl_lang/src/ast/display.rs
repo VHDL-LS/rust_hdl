@@ -856,9 +856,15 @@ impl Display for Signature {
 
 impl Display for SubprogramDeclaration {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{};", self.specification)
+    }
+}
+
+impl Display for SubprogramSpecification {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         match self {
-            SubprogramDeclaration::Procedure(ref procedure) => write!(f, "{procedure}"),
-            SubprogramDeclaration::Function(ref function) => write!(f, "{function}"),
+            SubprogramSpecification::Procedure(ref procedure) => write!(f, "{procedure}"),
+            SubprogramSpecification::Function(ref function) => write!(f, "{function}"),
         }
     }
 }
@@ -1822,19 +1828,22 @@ end units;",
 
     #[test]
     pub fn test_procedure_specification() {
-        assert_format("procedure foo", Code::subprogram_decl_no_semi);
+        assert_format("procedure foo", Code::subprogram_specification);
     }
 
     #[test]
     pub fn test_function_specification() {
-        assert_format("function foo return lib.foo.natural", Code::subprogram_decl_no_semi);
+        assert_format(
+            "function foo return lib.foo.natural",
+            Code::subprogram_specification,
+        );
     }
 
     #[test]
     pub fn test_function_specification_operator() {
         assert_format(
             "function \"+\" return lib.foo.natural",
-            Code::subprogram_decl_no_semi,
+            Code::subprogram_specification,
         );
     }
 
@@ -1842,7 +1851,7 @@ end units;",
     pub fn test_function_specification_impure() {
         assert_format(
             "impure function foo return lib.foo.natural",
-            Code::subprogram_decl_no_semi,
+            Code::subprogram_specification,
         );
     }
 
@@ -1852,7 +1861,7 @@ end units;",
             "procedure foo(
   constant foo : in natural
 )",
-            Code::subprogram_decl_no_semi,
+            Code::subprogram_specification,
         );
     }
 
@@ -1862,7 +1871,7 @@ end units;",
             "function foo(
   constant foo : in natural
 ) return lib.foo.natural",
-            Code::subprogram_decl_no_semi,
+            Code::subprogram_specification,
         );
     }
 

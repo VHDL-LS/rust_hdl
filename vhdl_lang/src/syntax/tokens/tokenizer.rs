@@ -491,7 +491,7 @@ impl TokenId {
 /// ```rust
 /// use vhdl_lang_macros::{with_token_span, TokenSpan};
 ///
-/// // With `with_token_span` a field `info` of type `TokenInfo` is inserted.
+/// // With `with_token_span` a field `info` of type `(TokenId, TokenId)` is inserted.
 /// // Additionally the `TokenSpan` trait is implemented using the `TokenSpan` derive macro
 /// #[with_token_span]
 /// #[derive(PartialEq, Debug, Clone)]
@@ -520,11 +520,8 @@ impl TokenId {
 /// }
 /// ```
 pub trait TokenSpan {
-    fn set_start_token(&mut self, start_token: TokenId);
-    fn set_end_token(&mut self, end_token: TokenId);
-
-    fn get_start_token(&self) -> Option<TokenId>;
-    fn get_end_token(&self) -> Option<TokenId>;
+    fn get_start_token(&self) -> TokenId;
+    fn get_end_token(&self) -> TokenId;
 
     fn get_token_slice<'a>(&self, tokens: &'a dyn TokenAccess) -> &'a [Token];
     fn get_pos(&self, tokens: &dyn TokenAccess) -> SrcPos;
@@ -535,64 +532,16 @@ pub trait TokenSpan {
 /// the fields are gated behind accessor functions which also check some invariants every time they are called.
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct TokenInfo {
-    start_token: Option<TokenId>,
-    end_token: Option<TokenId>,
+    pub start_token: TokenId,
+    pub end_token: TokenId,
 }
 
 impl TokenInfo {
-    pub fn new(start_token: Option<TokenId>, end_token: Option<TokenId>) -> Self {
-        return Self {
+    pub fn new(start_token: TokenId, end_token: TokenId) -> Self {
+        Self {
             start_token,
             end_token,
-        };
-    }
-
-    // Since the `TokenInfo` parts are gathered dynamically, always make sure that some invariants hold.
-    fn check_invariants(&self) {
-        if self.start_token.is_none() && self.end_token.is_some() {
-            panic!("The start token must not be empty while the end token is valid!");
         }
-
-        if self.start_token.is_some() && self.end_token.is_some() {
-            if self.start_token.unwrap().0 > self.end_token.unwrap().0 {
-                panic!("The end token ID must be equal or greater than the start token ID!");
-            }
-        }
-    }
-
-    pub fn set_start_token(&mut self, start_token: TokenId) {
-        self.start_token = Some(start_token);
-        self.check_invariants();
-    }
-
-    pub fn set_end_token(&mut self, end_token: TokenId) {
-        self.end_token = Some(end_token);
-        self.check_invariants();
-    }
-
-    pub fn get_start_token(&self) -> Option<TokenId> {
-        self.check_invariants();
-        self.start_token
-    }
-
-    pub fn get_end_token(&self) -> Option<TokenId> {
-        self.check_invariants();
-        self.end_token
-    }
-
-    pub fn get_pos(&self, tokens: &dyn TokenAccess) -> Option<SrcPos> {
-        self.check_invariants();
-        if let None = self.start_token {
-            return None;
-        }
-
-        let start_token = self.start_token.unwrap();
-        if let None = self.end_token {
-            return Some(tokens.get_pos(start_token).clone());
-        }
-
-        let end_token = self.end_token.unwrap();
-        Some(tokens.get_span(start_token, end_token))
     }
 }
 

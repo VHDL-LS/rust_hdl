@@ -21,7 +21,8 @@ pub fn add_token_span_fields(args: TokenStream, input: TokenStream) -> TokenStre
     let mut item_struct = parse_macro_input!(input as ItemStruct);
 
     // Add an attribute to the struct for deriving the `TokenSpan` implementation
-    let token_span_attr_raw: syn::Attribute = parse_quote! { #[derive(TokenSpan)] };
+    let token_span_attr_raw: syn::Attribute =
+        parse_quote! { #[derive(::vhdl_lang_macros::TokenSpan)] };
     item_struct.attrs.push(token_span_attr_raw);
 
     // Create (or move from the given struct) an instance of `FieldsNamed` which holds a list of named fields
@@ -52,8 +53,8 @@ pub fn add_token_span_fields(args: TokenStream, input: TokenStream) -> TokenStre
     // Put the modified list back into the struct
     item_struct.fields = syn::Fields::Named(fields);
 
-    return quote! {
+    quote! {
         #item_struct
     }
-    .into();
+    .into()
 }

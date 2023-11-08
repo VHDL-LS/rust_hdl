@@ -327,6 +327,13 @@ pub trait Visitor {
     ) -> VisitorResult {
         Continue
     }
+    fn visit_subprogram_specification(
+        &mut self,
+        _node: &SubprogramSpecification,
+        _ctx: &dyn TokenAccess,
+    ) -> VisitorResult {
+        Continue
+    }
     fn visit_interface_file_declaration(
         &mut self,
         _node: &InterfaceFileDeclaration,
@@ -1307,16 +1314,26 @@ impl ASTNode for LabeledSequentialStatement {
     }
 }
 
+impl ASTNode for SubprogramSpecification {
+    fn visit(&self, visitor: &mut dyn Visitor, ctx: &dyn TokenAccess) -> VisitorResult {
+        visitor.visit_subprogram_specification(self, ctx)
+    }
+
+    fn children(&self) -> Vec<&dyn ASTNode> {
+        match self {
+            SubprogramSpecification::Procedure(proc) => vec![proc],
+            SubprogramSpecification::Function(func) => vec![func],
+        }
+    }
+}
+
 impl ASTNode for SubprogramDeclaration {
     fn visit(&self, visitor: &mut dyn Visitor, ctx: &dyn TokenAccess) -> VisitorResult {
         visitor.visit_subprogram_declaration(self, ctx)
     }
 
     fn children(&self) -> Vec<&dyn ASTNode> {
-        match self {
-            SubprogramDeclaration::Procedure(proc) => vec![proc],
-            SubprogramDeclaration::Function(func) => vec![func],
-        }
+        vec![&self.specification]
     }
 }
 

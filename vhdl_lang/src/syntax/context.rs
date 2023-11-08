@@ -21,7 +21,7 @@ pub fn parse_library_clause(
     let name_list = parse_ident_list(stream, diagnsotics)?;
     let semi_token = stream.expect_kind(SemiColon)?;
     Ok(LibraryClause {
-        info: TokenInfo::new(Some(library_token), Some(semi_token)),
+        info: TokenInfo::new(library_token, semi_token),
         name_list,
     })
 }
@@ -36,7 +36,7 @@ pub fn parse_use_clause(
     let name_list = parse_name_list(stream, diagnsotics)?;
     let semi_token = stream.expect_kind(SemiColon)?;
     Ok(UseClause {
-        info: TokenInfo::new(Some(use_token), Some(semi_token)),
+        info: TokenInfo::new(use_token, semi_token),
         name_list,
     })
 }
@@ -56,7 +56,7 @@ pub fn parse_context_reference(
     let name_list = parse_name_list(stream, diagnostics)?;
     let semi_token = stream.expect_kind(SemiColon)?;
     Ok(ContextReference {
-        info: TokenInfo::new(Some(context_token), Some(semi_token)),
+        info: TokenInfo::new(context_token, semi_token),
         name_list,
     })
 }
@@ -105,7 +105,7 @@ pub fn parse_context(
         let name_list = SeparatedList { items, tokens };
         let semi_token = stream.expect_kind(SemiColon)?;
         Ok(DeclarationOrReference::Reference(ContextReference {
-            info: TokenInfo::new(Some(context_token), Some(semi_token)),
+            info: TokenInfo::new(context_token, semi_token),
             name_list,
         }))
     }
@@ -117,7 +117,7 @@ mod tests {
 
     use crate::data::Diagnostic;
     use crate::syntax::test::{token_to_string, Code};
-    use crate::{TokenInfo, TokenSpan};
+    use crate::TokenSpan;
 
     #[test]
     fn test_library_clause_single_name() {
@@ -125,7 +125,7 @@ mod tests {
         assert_eq!(
             code.with_stream_no_diagnostics(parse_library_clause),
             LibraryClause {
-                info: TokenInfo::new(Some(code.s1("library").token()), Some(code.s1(";").token())),
+                info: TokenInfo::new(code.s1("library").token(), code.s1(";").token()),
                 name_list: code.s1("foo").ident_list(),
             }
         )
@@ -137,7 +137,7 @@ mod tests {
         assert_eq!(
             code.with_stream_no_diagnostics(parse_library_clause),
             LibraryClause {
-                info: TokenInfo::new(Some(code.s1("library").token()), Some(code.s1(";").token())),
+                info: TokenInfo::new(code.s1("library").token(), code.s1(";").token()),
                 name_list: code.s1("foo, bar").ident_list(),
             },
         )
@@ -149,7 +149,7 @@ mod tests {
         assert_eq!(
             code.with_stream_no_diagnostics(parse_use_clause),
             UseClause {
-                info: TokenInfo::new(Some(code.s1("use").token()), Some(code.s1(";").token())),
+                info: TokenInfo::new(code.s1("use").token(), code.s1(";").token()),
                 name_list: code.s1("lib.foo").name_list(),
             },
         )
@@ -161,7 +161,7 @@ mod tests {
         assert_eq!(
             code.with_stream_no_diagnostics(parse_use_clause),
             UseClause {
-                info: TokenInfo::new(Some(code.s1("use").token()), Some(code.s1(";").token())),
+                info: TokenInfo::new(code.s1("use").token(), code.s1(";").token()),
                 name_list: code.s1("foo.'a', lib.bar.all").name_list(),
             },
         )
@@ -173,7 +173,7 @@ mod tests {
         assert_eq!(
             code.with_stream_no_diagnostics(parse_context),
             DeclarationOrReference::Reference(ContextReference {
-                info: TokenInfo::new(Some(code.s1("context").token()), Some(code.s1(";").token())),
+                info: TokenInfo::new(code.s1("context").token(), code.s1(";").token()),
                 name_list: code.s1("lib.foo").name_list(),
             },)
         )
@@ -260,24 +260,15 @@ end context;
                 ident: code.s1("ident").decl_ident(),
                 items: vec![
                     ContextItem::Library(LibraryClause {
-                        info: TokenInfo::new(
-                            Some(code.s("library", 1).token()),
-                            Some(code.s(";", 1).token()),
-                        ),
+                        info: TokenInfo::new(code.s("library", 1).token(), code.s(";", 1).token()),
                         name_list: code.s1("foo").ident_list(),
                     }),
                     ContextItem::Use(UseClause {
-                        info: TokenInfo::new(
-                            Some(code.s1("use").token()),
-                            Some(code.s(";", 2).token()),
-                        ),
+                        info: TokenInfo::new(code.s1("use").token(), code.s(";", 2).token()),
                         name_list: code.s1("foo.bar").name_list(),
                     }),
                     ContextItem::Context(ContextReference {
-                        info: TokenInfo::new(
-                            Some(code.s("context", 2).token()),
-                            Some(code.s(";", 3).token()),
-                        ),
+                        info: TokenInfo::new(code.s("context", 2).token(), code.s(";", 3).token()),
                         name_list: code.s1("foo.ctx").name_list(),
                     }),
                 ],
