@@ -58,10 +58,8 @@ impl<'a> AnalyzeContext<'a> {
         self.add_implicit_context_clause(&root_scope)?;
         self.analyze_context_clause(&root_scope, &mut unit.context_clause, diagnostics)?;
 
+        root_scope.add(ent, diagnostics);
         let primary_scope = root_scope.nested();
-
-        // Entity name is visible
-        primary_scope.make_potentially_visible(Some(unit.pos()), ent);
 
         if let Some(ref mut list) = unit.generic_clause {
             self.analyze_interface_list(&primary_scope, ent, list, diagnostics)?;
@@ -146,10 +144,8 @@ impl<'a> AnalyzeContext<'a> {
         self.add_implicit_context_clause(&root_scope)?;
         self.analyze_context_clause(&root_scope, &mut unit.context_clause, diagnostics)?;
 
+        root_scope.add(ent, diagnostics);
         let scope = root_scope.nested().in_package_declaration();
-
-        // Package name is visible
-        scope.make_potentially_visible(Some(unit.pos()), ent);
 
         if let Some(ref mut list) = unit.generic_clause {
             self.analyze_interface_list(&scope, ent, list, diagnostics)?;
@@ -260,7 +256,6 @@ impl<'a> AnalyzeContext<'a> {
 
         let root_scope = Scope::new(Region::with_visibility(visibility.clone()));
         self.analyze_context_clause(&root_scope, &mut unit.context_clause, diagnostics)?;
-        let scope = Scope::extend(region, Some(&root_scope));
 
         let arch = self.arena.define(
             &mut unit.ident,
@@ -268,8 +263,12 @@ impl<'a> AnalyzeContext<'a> {
             AnyEntKind::Design(Design::Architecture(primary)),
         );
 
-        // Architecture name is visible
-        scope.make_potentially_visible(Some(unit.pos()), arch);
+        root_scope.add(arch, diagnostics);
+
+        let scope = Scope::extend(region, Some(&root_scope));
+
+        // Entity name is visible
+        scope.make_potentially_visible(primary.decl_pos(), primary.into());
 
         self.define_labels_for_concurrent_part(&scope, arch, &mut unit.statements, diagnostics)?;
         self.analyze_declarative_part(&scope, arch, &mut unit.decl, diagnostics)?;
@@ -326,6 +325,9 @@ impl<'a> AnalyzeContext<'a> {
         self.analyze_context_clause(&root_scope, &mut unit.context_clause, diagnostics)?;
 
         let scope = Scope::extend(region, Some(&root_scope));
+
+        // Package name is visible
+        scope.make_potentially_visible(primary.decl_pos(), primary.into());
 
         self.analyze_declarative_part(&scope, body, &mut unit.decl, diagnostics)?;
         scope.close(diagnostics);

@@ -8,6 +8,7 @@ mod assignment_typecheck;
 mod association_formal;
 mod circular_dependencies;
 mod context_clause;
+mod custom_attributes;
 mod deferred_constant;
 mod hierarchy;
 mod homographs;

@@ -192,7 +192,11 @@ impl<'a> NamedEntities<'a> {
         self.first().kind()
     }
 
-    pub fn make_potentially_visible_in(&self, visible_pos: Option<&SrcPos>, scope: &Scope<'a>) {
+    pub(crate) fn make_potentially_visible_in(
+        &self,
+        visible_pos: Option<&SrcPos>,
+        scope: &Scope<'a>,
+    ) {
         match self {
             Self::Single(ent) => {
                 scope.make_potentially_visible(visible_pos, ent);
@@ -215,7 +219,7 @@ pub(crate) enum RegionKind {
 }
 
 #[derive(Default, Clone)]
-pub struct Scope<'a>(Rc<RefCell<ScopeInner<'a>>>);
+pub(crate) struct Scope<'a>(Rc<RefCell<ScopeInner<'a>>>);
 
 #[derive(Default)]
 struct ScopeInner<'a> {
