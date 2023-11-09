@@ -113,16 +113,6 @@ impl<'a> TokenStream<'a> {
         TokenId::new(self.get_idx() - 1 - self.token_offset.get())
     }
 
-    #[allow(unused)]
-    pub fn get_token_id(&self, token: &Token) -> DiagnosticResult<TokenId> {
-        let idx = self.idx_of(token);
-        if let Some(idx) = idx {
-            Ok(TokenId::new(idx - self.token_offset.get()))
-        } else {
-            Err(Diagnostic::error(token, "Cannot find ID for given token"))
-        }
-    }
-
     pub fn last(&self) -> Option<&Token> {
         let last_idx = self.get_idx().checked_sub(1)?;
         self.tokens.get(last_idx)
